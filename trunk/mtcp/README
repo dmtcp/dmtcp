@@ -1,0 +1,64 @@
+This should now work both for IA-32 and for x86-64.
+For late kernels in IA-32, if /proc/sys/vm/vdso_enabled is set to 1,
+must first set it to 0 as root.  Next version will fix that.
+
+To test it, now just do:
+  make clean check
+This is the quivalent of:
+  LD_LIBRARY_PATH=. ./testmtcp
+  [ type some stuff, and wait long enough until it checkpoints. ]
+  ./restore_mtcp testmtcp.mtcp
+  [ type some more and verify that it still worked ]
+
+Date: Tue, 19 Sep 2006 18:15:01 -0400 (EDT)
+Subject: Re: Latest mtcp version
+From: mrieker@nii.net
+To: gene@ccs.neu.edu, shah.c@neu.edu
+User-Agent: SquirrelMail/1.4.3 [CVS]
+
+> You said that you had a more recent mtcp version that updated it with
+> respect to the latest glibc, and that you were going to mail it to me.
+
+Ok, so here is a tar of my directory.  I was running the testmtcp program=
+:
+
+[ Addition of LD_LIBRARY_PATH=.  by Gene ]
+LD_LIBRARY_PATH=. ./testmtcp
+or for csh/tcsh:
+env LD_LIBRARY_PATH=. ./testmtcp
+
+--- you type in a couple lines and it echoes them back.  Then wait 10secs
+or so and it prints out a bunch of debug stuff as it writes the checkpoin=
+t
+file.
+
+Then press control-C to abort the program.  You should have a
+testmtcp.mtcp file that contains the checkpoint data.
+
+Then do this command:
+
+./mtcp_restore testmtcp.mtcp
+
+... it should read the file in, restore it to memory, then Segment fault.
+
+So there it is.  Anyway, if you have questions, send email or ask in
+class.  If I know ahead of time, we can arrange to meet ahead of class
+sometime.  Staying late is difficult because my train leaves North Statio=
+n
+at 930pm and the next one isn't until 1040pm.
+
+Mike
+
+===================================================
+
+This version implements mtcp_sy_*  in mtcp_sy.h
+The functions mtcp_sy_* expand directly to 'int $0x80' calls, based
+  on the code in /usr/include/asm/unistd.h
+
+In addition, in mtcp_internal.h, I added:
+#ifndef _LINUX_LDT_H
+# include <asm/ldt.h>
+#endif
+to replace the definition of 'struct user_desc'.  That definition was
+copied from a system include file, but its exact definition continually
+changed according to the kernel version, etc.

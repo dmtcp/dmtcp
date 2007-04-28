@@ -1,0 +1,66 @@
+Executed under:  Linux 2.6.15-1-k7; gcc (GCC) 4.0.3 (Debian 4.0.2-9);
+		 /lib/libc-2.3.6.so
+
+It appears to compile and generate checkpoints correctly.
+It also appears to restore everything correctly.
+mtcp finishrestore*: checkpointhread id  shows that motherofall is finishing.
+  NOTE THAT THE LABEL "mtcp finishrestore*:" IS PROBABLY A BUG, SINCE
+  THAT PRINT IS INSIDE stopthisthread()
+We got to stopthisthread() originally and executed a setjmp
+We've now done the longjmp on restore and are trying to resume.
+We've successfully done a longjmp into stopthisthread().
+stopthisthread() is the signal handler, called from the main
+  checkpointing thread.
+So we're now trying to return from stopthisthread() to its caller
+  in the same thread.  Presumably, other threads can also run now.  CAN THEY?
+Then we crash.
+The message:
+   mtcp stopthisthread*: tid 26683 returning to 0xFFFFE420
+  seems to say that we're returning to somewhere on the stack, instead
+    of to a proper routine in the text segment.  IS THIS SO?
+
+Need to run testmtcp.mtcp and see what the value of return address
+  was when we entered stopthisthread.
+
+./mtcp_restore testmtcp.mtcp
+mtcp_restore*: restore_begin=0xb7f71000, restore_start=0xb7f7547c
+mtcp_restore*: add-symbol-file mtcp.so 0xb7f72f70
+mtcp restoreverything*: unmapping 0..B7F70FFF
+mtcp restoreverything*: unmapping B7F7D000..BFFFFFFF
+mtcp restoreverything*: restoring file descriptors
+mtcp readfiledescrs*: restoring 0 -> /dev/pts/1
+mtcp readfiledescrs*: restoring 1 -> /dev/pts/1
+mtcp readfiledescrs*: restoring 2 -> /dev/pts/1
+mtcp restoreverything*: restoring memory areas
+mtcp restoreverything*: restoring anonymous area 1000 at 0x8048000 from /tmp/mtcpv57/testmtcp + 0
+mtcp restoreverything*: restoring anonymous area 1000 at 0x8049000 from /tmp/mtcpv57/testmtcp + 0
+mtcp restoreverything*: restoring anonymous area 21000 at 0x804A000
+mtcp restoreverything*: restoring anonymous area 1000 at 0xB7611000
+mtcp restoreverything*: restoring anonymous area 801000 at 0xB7612000
+mtcp restoreverything*: restoring anonymous area E000 at 0xB7E13000 from /lib/tls/libpthread-2.3.6.so + 0
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7E21000 from /lib/tls/libpthread-2.3.6.so + D000
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7E23000
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7E25000 from /lib/tls/libdl-2.3.6.so + 0
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7E27000 from /lib/tls/libdl-2.3.6.so + 1000
+mtcp restoreverything*: restoring anonymous area 12E000 at 0xB7E29000 from /lib/tls/libc-2.3.6.so + 0
+mtcp restoreverything*: restoring anonymous area 5000 at 0xB7F57000 from /lib/tls/libc-2.3.6.so + 12E000
+mtcp restoreverything*: restoring anonymous area 3000 at 0xB7F5C000 from /lib/tls/libc-2.3.6.so + 133000
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7F5F000
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7F6F000
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7F7D000
+mtcp restoreverything*: restoring anonymous area 15000 at 0xB7F7F000 from /lib/ld-2.3.6.so + 0
+mtcp restoreverything*: restoring anonymous area 2000 at 0xB7F94000 from /lib/ld-2.3.6.so + 15000
+mtcp restoreverything*: restoring anonymous area 15000 at 0xBFA7F000
+mtcp restoreverything*: close cpfd 3
+mtcp restoreverything*: restore complete, resuming...
+mtcp finishrestore*: mtcp_printf works
+mtcp finishrestore*: time 267430 uS
+set_tid_address wrapper*: thread 0x804A0D8 -> tid 27046, tidptr 0x804A104
+mtcp stopthisthread*: thread 27046 restored
+mtcp wrapper clone*: clone fn=0xB7E18C80, child_stack=0xB76104E0, flags=7D0F00, arg=0xB7610BB0
+mtcp wrapper clone*: parent_tidptr=0xB7610BF8, newtls=0xBFA926A8, child_tidptr=0xB7610BF8
+mtcp wrapper clone*: clone rc=27048
+mtcp finishrestore*: checkpointhread id -1218376784
+mtcp stopthisthread*: tid 27046 returning to 0xFFFFE420
+mtcp stopthisthread*: caller of caller of tid 27046 is at 0xB7E8AA5E
+Segmentation fault
