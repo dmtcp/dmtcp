@@ -1,0 +1,6 @@
+PIPES
+FIFOS
+Other fcntl() flags besides F_GETFL/F_SETFL
+ioctl() options besides those though setsockopt()
+Test for dup()ed file descriptors which share flags
+True multi-process shared FDS

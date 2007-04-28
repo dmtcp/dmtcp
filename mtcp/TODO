@@ -1,0 +1,72 @@
+Currently shadows call to clone in libc.so, but not in libc.a.
+If __clone is weak symbol, can we define it directly, ourselves, and
+then call clone or syscall to spy on it?
+
+If I read the code right,
+on restart, apparently mapping original object on disk to memory if it's
+still available.  So, restart will use the text segment of a.out
+even if a.out has changed since checkpoint.  Is this safe?
+
+Should save only used part of stack, and document this in DOC.
+At least do this in x86_64 case, where stack is larger?
+
+__i386__:
+Right after heap, in address space of libraries, comes something of size 0x1000
+with no read-write-exec permission, and then something of size:  0x801000
+That's almost 10 MB.  What's it for?  Do we need to checkpoint it?
+
+mtcp_maybebpt.c does:
+#define mtcp_sys_memcmp memcmp
+and mtcp_sys.h comments out the definition of mtcp_sys_memcmp as static fnc.
+Why does allowing that static function cause gdb to forget how
+to do: add-symbol-file, and follow new stack?
+
+Can now delete all .s files and all mention of them in Makefile.
+
+Maybe need virtualization of thread IDs.  Things like pthread_cancel
+can't work otherwise.  Routines that won't work after checkpoint include:
+pthread_self
+pthread_equal
+pthread_join
+pthread_detach
+pthread_getattr_np
+pthread_setschedparam
+pthread_getschedparam
+pthread_cancel
+pthread_getcpuclockid
+
+
+mtcp_sys_memcpy, mtcp_sys_memcmp doing byte-at-a-time copy for simplicity
+ --- Go back and implement more efficient version from glibc?
+Only need to keep it if we use mtcp_maybebpt when no libc.so avail.
+
+Delete mtcp_undef.* if not needed.
+
+See comment in Makefile about deleting extractobjectmodules.c and related files.
+
+Delete NOTES-x86_64 when no longer needed.
+
+testmtcp2 doesn't work.  It's the only one to directly use clone() instead
+  of pthread_create().  Is this a bug in testmtcp2 or in MTCP?
+
+http://sourceware.org/ml/libc-ports/2006-09/msg00022.html
+http://sourceware.org/ml/libc-ports/2006-08/msg00017.html
+  This claims that the port to ARM has glibc support for Thread Local Storage
+	descriptors, and that much of it is generic and could eventually
+	be put in the generic branch.  It that happens, then we might
+	be able to use it.
+
+Is it working with libthread_db, for the sake of debugging/gdb?
+
+If started under gdb, ./mtcprestore doesn't work, complaining about
+  ptrace Trace/BPT trap
+The issue is probably that gdb reassigns stdin/stdout/stderr of child
+  to pipe to gdb.  On restart, gdb doesn't exist.
+Can this be fixed?  (either reassign stdin/stdout/stderr, or support ptrace)
+
+If reading from stdin, maybe we should drain the stdin buffer first before
+checkpointing, so we can restart without losing user input.  Or maybe
+it's better if dmtcp does this.
+
+If a shared library is loaded only after checkpoint/restart, will it
+still load?  I haven't tested this.

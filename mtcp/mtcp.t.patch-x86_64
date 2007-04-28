@@ -1,0 +1,26 @@
+*** mtcp.t	2007-02-26 20:00:05.000000000 +0100
+--- mtcp.tnew64	2007-02-26 20:02:56.000000000 +0100
+***************
+*** 15,20 ****
+--- 15,23 ----
+     __DYNAMIC = 0;    */
+  SECTIONS
+  {
++   .the.begin : {
++ 	*(__shareable_begin)
++ 	}
+    /* Read-only sections, merged into text segment: */
+    . = 0 + SIZEOF_HEADERS;
+    .hash           : { *(.hash) }
+***************
+*** 150,155 ****
+--- 153,161 ----
+    . = ALIGN(64 / 8);
+    _end = .; PROVIDE (end = .);
+    . = DATA_SEGMENT_END (.);
++   .the.end : {
++ 	*(__shareable_end)
++ 	}
+    /* Stabs debugging sections.  */
+    .stab          0 : { *(.stab) }
+    .stabstr       0 : { *(.stabstr) }

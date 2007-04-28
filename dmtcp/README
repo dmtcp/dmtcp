@@ -1,0 +1,89 @@
+BUILDING
+
+Basic:
+$ tar -jxvf dmtcp-X.Y.tar.bz2
+$ cd dmtcp
+$ ./configure
+$ make
+
+
+With (spammy) debugging traces and debugging symbols:
+$ tar -zxvf dmtcp-X.Y.tar.gz
+$ cd dmtcp
+$ ./configure CPPFLAGS="-DDEBUG" CXXFLAGS="-O0 -g3" --enable-debug=full
+$ make
+
+There is also a "make install" target, which is not yet recommended,
+that will copy libdmtcp.a and dmtcp_master to $PREFIX/{lib,bin}.
+
+For (generic) building/install directions see ./INSTALL
+
+
+
+IMPORTANT FILES
+
+./mtcp.so          - binary mtcp library, (source in mtcpv62.tar.bz2)
+./mtcp_restore     - binary mtcp restore program, (source in mtcpv62.tar.bz2)
+./src/dmtcp_master - master server which coordinates checkpoints between nodes
+./src/libdmtcp.a   - static library linked into user program
+
+
+
+
+
+
+RUNNING A DMTCP ENABLED PROGRAM
+
+First you must run a master server:
+$ dmtcp_master [port]
+(if left off, port defaults to 7999)
+
+Define environmental variables:
+DMTCP_HOST="hostname.of.yourmaster.com"
+DMTCP_PORT=7999
+(if left off, defaults to localhost:7999)
+
+
+RESTORING A CHECKPOINT
+
+First you must run a master server:
+$ dmtcp_master [port]
+(if left off, port defaults to 7999)
+Note: Currently master host/port MUST be the same as it was at checkpoint time.
+
+
+In any order, restore the checkpoints of each node in cluster.  The locations 
+of each NODE CAN change, they will use the master server to find the 
+new locations of all their peers.
+
+You can restore a single node with a command like this:
+$ mtcp_restore cktp-XXXXXXX-YYYY-ZZZZZ.mtcp
+
+Names of checkpoints are cktp-HOSTID-PID-STARTTIME.mtcp. In working directory
+of each program.
+
+Once all peers are restarted, cluster-wide execution will automatically restart
+checkpoints will start again.   
+
+
+
+
+
+
+
+LEGAL
+
+Copyright (C) 2006 by Jason Ansel                                   
+jansel@ccs.neu.edu                                                   
+                                                                     
+This program is free software; you can redistribute it and/or modify 
+it under the terms of the GNU General Public License as published by 
+the Free Software Foundation; either version 2 of the License, or    
+(at your option) any later version.                                 
+                                                                      
+This program is distributed in the hope that it will be useful,      
+but WITHOUT ANY WARRANTY; without even the implied warranty of       
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        
+GNU General Public License for more details.                         
+                                                                     
+For a complete copy of GNU General Public License V2, see ./LICENSE        
