@@ -32,7 +32,7 @@
 
 
 #include <asm/ldt.h>      // for struct user_desc
-#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
+//#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
