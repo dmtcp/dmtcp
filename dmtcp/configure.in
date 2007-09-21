@@ -8,7 +8,7 @@ AM_INIT_AUTOMAKE(dmtcp, 0.1)
 AC_LANG_CPLUSPLUS
 AC_PROG_CC
 AC_PROG_CXX
-#AM_PROG_LIBTOOL
+AC_PROG_CC_C_O
 AC_PROG_RANLIB
 
 AC_OUTPUT(Makefile src/Makefile examples/Makefile examples/01.echoserver/Makefile examples/02.frisbee/Makefile examples/03.forkexec/Makefile)

@@ -43,6 +43,9 @@
 
 namespace jalib{
 
+class JTime;
+double operator-(const JTime& a, const JTime& b);
+
 class JTime{
 public:
     JTime();

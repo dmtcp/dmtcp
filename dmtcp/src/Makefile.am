@@ -28,8 +28,16 @@ dmtcp_checkpoint_SOURCES = dmtcpcheckpoint.cpp
 
 dmtcp_restart_SOURCES = dmtcprestart.cpp
 
-dmtcphijack_so_LDFLAGS = -shared
-dmtcphijack_so_LDADD = libdmtcpinternal.a -ldl
+dmtcphijack_so_LDADD = libdmtcpinternal.a -ldl 
+dmtcphijack_so_LDFLAGS = -shared 
 dmtcp_master_LDADD = libdmtcpinternal.a -ldl
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl
 dmtcp_restart_LDADD = libdmtcpinternal.a -ldl
+
+PICFLAGS=-fPIC
+AM_CFLAGS = $(PICFLAGS)
+AM_CXXFLAGS = $(PICFLAGS)
+AM_LDFLAGS = $(PICFLAGS)
+
+
+

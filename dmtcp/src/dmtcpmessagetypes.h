@@ -73,8 +73,7 @@ namespace dmtcp {
         
         bool operator==(const WorkerState& v) const{return _state == v.value();}
         bool operator!=(const WorkerState& v) const{return _state != v.value();}
-	
-        friend std::ostream& operator << (std::ostream& o, const WorkerState& s);
+
     private:
         eWorkerState _state;
     };
@@ -116,6 +115,7 @@ namespace dmtcp {
     };
     
     
+    std::ostream& operator << (std::ostream& o, const WorkerState& s);
     
     
     
