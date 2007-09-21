@@ -53,14 +53,14 @@ const dmtcp::UniquePid& dmtcp::ConnectionIdentifier::pid() const { return _pid; 
 
 bool dmtcp::operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
 {
-    if(a._pid != b._pid) return a._pid < b._pid;
-    return a._id < b._id;
+    if(a.pid() != b.pid()) return a.pid() < b.pid();
+    return a.conId() < b.conId();
 }
 
 bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
 {
-    return  a._pid == b._pid 
-         && a._id  == b._id;
+    return  a.pid() == b.pid() 
+         && a.conId()  == b.conId();
 }
 
 // void dmtcp::ConnectionIdentifier::addFd(int fd) { _fds.push_back(fd); }

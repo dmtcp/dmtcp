@@ -49,10 +49,7 @@ public:
 //     fditerator begin(){ return _fds.begin(); }
 //     fditerator end(){ return _fds.end(); }
 //     void updateAfterDup(int oldfd,int newfd);
-    friend bool operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-    friend bool operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-    friend bool operator!= (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
-    { return ! (a == b); }
+
     
     ConnectionIdentifier(const UniquePid& pid = UniquePid(), int id = -1);
     
@@ -62,7 +59,10 @@ private:
 };
 
 
-
+bool operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
+bool operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
+inline bool operator!= (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
+{ return ! (a == b); }
 
 // class ConnectionIdentifiers{
 // public:
