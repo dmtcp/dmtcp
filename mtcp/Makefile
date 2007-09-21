@@ -48,6 +48,8 @@ endif
 
 default: testmtcp testmtcp2 testmtcp3 testmtcp4 threadtest mtcp.so mtcp_restore mtcp_restore.so
 
+all: default
+
 # Test programs
 
 testmtcp: testmtcp.o mtcp.so
