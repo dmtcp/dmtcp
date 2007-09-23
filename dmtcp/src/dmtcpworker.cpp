@@ -266,14 +266,29 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
     JTRACE("umasking stderr");
     unmaskStdErr();
     
+    {
+      // Tell master to record our filename in the restart script
+      std::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
+      std::string hostname = jalib::Filesystem::GetCurrentHostname();
+      JTRACE("recording filenames")(ckptFilename)(hostname);
+      dmtcp::DmtcpMessage msg;
+      msg.type = DMT_CKPT_FILENAME;
+      msg.extraBytes = ckptFilename.length()+1 + hostname.length()+1;
+      _masterSocket << msg;
+      _masterSocket.writeAll( ckptFilename.c_str(), ckptFilename.length()+1 );
+      _masterSocket.writeAll( hostname.c_str(),     hostname.length()+1 );
+    }
+    
     JTRACE("checkpointed");
     WorkerState::setCurrentState( WorkerState::CHECKPOINTED );
     {
-        dmtcp::DmtcpMessage msg;
-        msg.type = DMT_OK;
-        msg.state = WorkerState::CHECKPOINTED;
-        _masterSocket << msg;
+      // Tell master we are done checkpointing
+      dmtcp::DmtcpMessage msg;
+      msg.type = DMT_OK;
+      msg.state = WorkerState::CHECKPOINTED;
+      _masterSocket << msg;
     }
+
     JTRACE("waiting for refill signal");
     {
         dmtcp::DmtcpMessage msg;

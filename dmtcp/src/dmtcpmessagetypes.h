@@ -50,6 +50,7 @@ namespace dmtcp {
        
        DMT_PEER_ECHO,     //used to get a peer to echo back a buffer at you param[0] is len
        DMT_OK,//slave telling master it is done (response to DMT_DO_*)
+       DMT_CKPT_FILENAME //a slave sending it's checkpoint filename to master
     };
     
     class WorkerState {
@@ -106,7 +107,11 @@ namespace dmtcp {
         socklen_t               restoreAddrlen;
         int                     restorePort;
         
+        //message type specific parameters
         int params[2];
+
+        //extraBytes are used for passing checkpoint filename to master it must be zero in all messages except for in DMT_CKPT_FILENAME
+        int extraBytes;
         
         static void setDefaultMaster(const UniquePid& id);
         DmtcpMessage(DmtcpMessageType t = DMT_NULL);
