@@ -36,11 +36,17 @@ public:
     void broadcastMessage(const DmtcpMessage& msg);
     void startCheckpoint();
     dmtcp::WorkerState minimumState() const;
+protected:
+    void writeRestartScript();
 private:
     typedef std::vector<jalib::JReaderInterface*>::iterator iterator;
     typedef std::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
 //     NodeTable _table;
     std::vector< DmtcpMessage > _restoreWaitingMessages;
+    
+    //map from hostname to checkpoint files
+    std::map< std::string, std::vector<std::string> > _restartFilenames;
+     
 };
 
 }

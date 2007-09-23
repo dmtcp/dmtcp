@@ -42,7 +42,11 @@
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 
-#define DMTCP_CHECKPOINT_CMD "./dmtcp_checkpoint"
+#define DMTCP_CHECKPOINT_CMD "dmtcp_checkpoint"
+
+#define DMTCP_RESTART_CMD "dmtcp_restart"
+
+#define RESTART_SCRIPT_NAME "restartScript.sh"
 
 #define PROTECTED_FD_START 820
 #define PROTECTED_FD_COUNT 8

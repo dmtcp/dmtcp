@@ -117,7 +117,13 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
         NamedChunkReader * client= (NamedChunkReader*) sock;
         DmtcpMessage& msg = *(DmtcpMessage*)sock->buffer();
         msg.assertValid();
+        char * extraData = 0;
         
+        if(msg.extraBytes > 0)
+        {
+          extraData = new char[msg.extraBytes];
+          sock->socket().readAll(extraData, msg.extraBytes);
+        }
         
         switch(msg.type)
         {
@@ -156,6 +162,7 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
                 {
                     JNOTE("refilling all nodes");
                     broadcastMessage(DMT_DO_REFILL);
+                    writeRestartScript();
                 }
                 if(  oldState == WorkerState::RESTARTING
                 && newState == WorkerState::CHECKPOINTED)
@@ -216,9 +223,24 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
 //                 }
 //             }
 //             break;
+
+            case DMT_CKPT_FILENAME:
+            {
+              JASSERT(extraData!=0).Text("extra data expected with DMT_CKPT_FILENAME message");
+              std::string ckptFilename;
+              std::string hostname;
+              ckptFilename = extraData;
+              hostname = extraData + ckptFilename.length() + 1;
+           
+              JTRACE("recording restart info")(ckptFilename)(hostname);
+              _restartFilenames[hostname].push_back(ckptFilename);
+            }
+            break;
             default:
                 JASSERT(false)(msg.from)(msg.type).Text("unexpected message from worker");
         }
+        
+        delete[] extraData;
     }
 }
 
@@ -328,6 +350,7 @@ void dmtcp::DmtcpMaster::startCheckpoint()
     if(minimumState() == WorkerState::RUNNING)
     {
         JTIMER_START(checkpoint);
+        _restartFilenames.clear();
         JNOTE("suspending all nodes");
         broadcastMessage(DMT_DO_SUSPEND);
     }
@@ -381,6 +404,28 @@ dmtcp::WorkerState dmtcp::DmtcpMaster::minimumState() const
         }
     }
     return m==0x0FFFFFF ? WorkerState::UNKOWN : (WorkerState::eWorkerState)m;
+}
+
+void dmtcp::DmtcpMaster::writeRestartScript()
+{
+  std::map< std::string, std::vector<std::string> >::const_iterator host;
+  std::vector<std::string>::const_iterator file;
+  std::string filename = RESTART_SCRIPT_NAME;
+  FILE* fp = fopen(filename.c_str(),"w");
+  JASSERT(fp!=0)(filename).Text("failed to open file");  
+  fprintf(fp, "#!/bin/sh \n");
+  
+  for(host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host)
+  {
+    fprintf(fp,"ssh %s " DMTCP_RESTART_CMD " ", host->first.c_str());
+    for(file=host->second.begin(); file!=host->second.end(); ++file)
+    {
+      fprintf(fp," %s", file->c_str());
+    }
+    fprintf(fp," & \n");
+  }
+  fclose(fp);
+  _restartFilenames.clear();
 }
 
 int main( int argc, char** argv)

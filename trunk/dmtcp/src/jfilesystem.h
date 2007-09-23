@@ -44,6 +44,9 @@ namespace Filesystem
     
     std::vector<int> ListOpenFds();
     
+    
+    std::string GetCurrentHostname();
+    
 }
 
 }

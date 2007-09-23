@@ -23,6 +23,7 @@
 #include "jconvert.h"
 #include <dirent.h>
 #include "errno.h"
+#include <sys/utsname.h>
 
 namespace 
 {
@@ -105,6 +106,10 @@ std::string jalib::Filesystem::FindHelperUtility(const std::string& file, bool d
         FHU_TRY_DIR(udir + "/../" + file);
         FHU_TRY_DIR(udir + "/../../" + file);
         FHU_TRY_DIR(udir + "/../../../" + file);
+        FHU_TRY_DIR(udir + "/mtcp/" + file);
+        FHU_TRY_DIR(udir + "/../mtcp/" + file);
+        FHU_TRY_DIR(udir + "/../../mtcp/" + file);
+        FHU_TRY_DIR(udir + "/../../../mtcp/" + file);
     }
     FHU_TRY_DIR(GetProgramDir() + "/" + file);
     FHU_TRY_DIR(GetProgramDir() + "/../" + file);
@@ -116,7 +121,7 @@ std::string jalib::Filesystem::FindHelperUtility(const std::string& file, bool d
     FHU_TRY_DIR("../../../" + file);
     FHU_TRY_DIR("/usr/bin/" + file);
     FHU_TRY_DIR("/bin/" + file);
-    JASSERT(!dieOnError)(file)(GetProgramDir())
+    JASSERT(!dieOnError)(file)(GetProgramDir())(d)
             .Text("failed to find needed file");
     return file;
 }
@@ -164,4 +169,20 @@ std::vector<int> jalib::Filesystem::ListOpenFds()
   free (namelist);
 
   return rv;
+}
+
+
+std::string jalib::Filesystem::GetCurrentHostname()
+{
+  struct utsname tmp;
+  memset(&tmp,0,sizeof(tmp));
+  uname(&tmp);
+  std::string name = "unknown";
+  if(tmp.nodename != 0)
+    name = tmp.nodename;
+//   #ifdef _GNU_SOURCE
+//   if(tmp.domainname != 0)
+//     name += std::string(".") + tmp.domainname;
+//   #endif
+  return name;
 }
