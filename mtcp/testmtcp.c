@@ -17,14 +17,14 @@
 //---2006-01-17
 
 /********************************************************************************************************************************/
-/*																*/
-/*  Simple single-threaded test program												*/
-/*  Checkpoint is written to testmtcp.mtcp every 10 seconds									*/
-/*																*/
-/*  Input lines of data														*/
-/*  As each line is entered, they are all echoed from first line thru latest line entered					*/
-/*  When checkpoint is restored, all the old lines should still echo and it accepts new ones					*/
-/*																*/
+/*                                                                                                                              */
+/*  Simple single-threaded test program                                                                                         */
+/*  Checkpoint is written to testmtcp.mtcp every 10 seconds                                                                     */
+/*                                                                                                                              */
+/*  Input lines of data                                                                                                         */
+/*  As each line is entered, they are all echoed from first line thru latest line entered                                       */
+/*  When checkpoint is restored, all the old lines should still echo and it accepts new ones                                    */
+/*                                                                                                                              */
 /********************************************************************************************************************************/
 
 #include <errno.h>
@@ -51,6 +51,18 @@ struct Line { Line *next;
 
 static int readline (char *buff, int size);
 
+// #define USE_STATIC_MALLOC
+#ifdef USE_STATIC_MALLOC
+char mymemory[1000000];
+int end = 0;
+void * mymalloc(size_t x) {
+  int *result = &(mymemory[end]);
+  end += x;
+  if (x > 1000000) { printf("malloc:  ERROR\n"); exit(1); }
+  return result;
+}
+#endif
+
 int main ()
 
 {
@@ -65,7 +77,13 @@ int main ()
   number = 0;
   while (1) {
     printline ("%6d> ", number + 1);
+    printline ("testmtcp.c: ABOUT TO malloc\n");fflush(stdout);
+#ifdef USE_STATIC_MALLOC
+    line = mymalloc (sizeof *line);
+#else
     line = malloc (sizeof *line);
+#endif
+    printline ("testmtcp.c: DID malloc\n");fflush(stdout);
     if (!readline (line -> buff, sizeof line -> buff)) break;
     *lline = line;
     line -> next = NULL;
@@ -81,7 +99,8 @@ int main ()
   exit (0);
   return (0);
 }
-
+
+
 static int readline (char *buff, int size)
 
 {

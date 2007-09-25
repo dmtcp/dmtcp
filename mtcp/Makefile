@@ -32,11 +32,11 @@
 MTCP_VERSION = 64
 
 CC = gcc
-CFLAGS = -g -O0
+CFLAGS = -g -O0 -I/home/mrieker/glibcinstall/include
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
-LDFLAGS = -shared
+LDFLAGS = -shared -L/home/mrieker/glibcinstall/lib
 AS = as
 ASFLAGS =
 
@@ -75,7 +75,8 @@ threadtest: threadtest.c
 
 
 mtcp_restore: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o
-	${CC} $(CFLAGS) -static -o mtcp_restore mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o
+	${CC} $(CFLAGS) -static -o mtcp_restore mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
+		mtcp_safestat.o mtcp_state.o
 
 
 # mtcp_restore.so is used only by dmtcp --- not by mtcp
@@ -83,7 +84,7 @@ mtcp_restore.so: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mt
 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 	${CC} $(CFLAGS) -shared \
 	 -o mtcp_restore.so mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o \
-	 mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o
+	 mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 
 # This is the shareable that a user links with the application
 

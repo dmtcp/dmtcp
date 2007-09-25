@@ -31,16 +31,23 @@
 /*																*/
 /********************************************************************************************************************************/
 
+#define u32 unsigned int
+
+#include <asm/unistd.h>
 #include <errno.h>
+#include <linux/futex.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "mtcp.h"
+#include "mtcp_futex.h"
 
 #define STACKSIZE 1024*1024
 #define THREADFLAGS (CLONE_FS | CLONE_FILES | CLONE_VM)
+
+static int printfutex = 0;
 
 /* Set *loc to newval iff *loc equal to oldval */
 /* Return 0 if failed, 1 if succeeded          */
@@ -60,6 +67,33 @@ static inline int atomic_setif_int (volatile int *loc, int newval, int oldval)
   return (rc);
 }
 
+static void lockstdout (void)
+
+{
+  int rc;
+
+  while (!atomic_setif_int (&printfutex, 1, 0)) {
+    rc = mtcp_futex (&printfutex, FUTEX_WAIT, 0, NULL);
+    if ((rc < 0) && (rc != -EAGAIN) && (rc != -EWOULDBLOCK) && (rc != -EINTR)) {
+      fprintf (stderr, "testmtcp2: FUTEX_WAIT error %d\n", rc);
+      abort ();
+    }
+  }
+}
+
+static void unlkstdout (void)
+
+{
+  int rc;
+
+  printfutex = 0;
+  rc = mtcp_futex (&printfutex, FUTEX_WAKE, 1, NULL);
+  if (rc < 0) {
+    fprintf (stderr, "testmtcp2: FUTEX_WAKE error %d\n", rc);
+    abort ();
+  }
+}
+
 static int thread1_func (void *dummy);
 
 int main ()
@@ -72,18 +106,16 @@ int main ()
 
   for (i = 0; i < 3; i ++) {
     thread1_stack = malloc (STACKSIZE);
-    thread1_tid = clone (thread1_func, thread1_stack + STACKSIZE, THREADFLAGS, NULL);
+    thread1_tid = clone (thread1_func, thread1_stack + STACKSIZE, THREADFLAGS, (void *)(long)(i + 2));
     if (thread1_tid < 0) {
       fprintf (stderr, "error creating thread1: %s\n", strerror (errno));
       return (-1);
     }
   }
 
-  thread1_func (NULL);
+  thread1_func ((void *)1);
   return (0);
 }
-
-static int volatile threadno = 0;
 
 static int thread1_func (void *dummy)
 
@@ -93,15 +125,14 @@ static int thread1_func (void *dummy)
 
   mtcp_ok ();
 
-  do count = threadno;
-  while (!atomic_setif_int (&threadno, count + 1, count));
-
-  count ++;
+  count = (long)dummy;
 
   while (1) {
     for (delay = 100; -- delay >= 0;) usleep (10);
+    lockstdout ();
     printf (" %d", count);
     fflush (stdout);
+    unlkstdout ();
     count += 10;
   }
 }

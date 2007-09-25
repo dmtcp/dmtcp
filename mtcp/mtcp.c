@@ -45,6 +45,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -62,8 +63,14 @@
 #define MTCP__SAVE_MANY_GDT_ENTRIES 0
 #endif
 
-#define DPRINTF(x) mtcp_printf x  // debugging printing
-#define TPRINTF(x) mtcp_printf x  // timing printing
+/* Retrieve saved stack pointer saved by getcontext () */
+#ifdef __x86_64__
+#define REG_RSP 15
+#define SAVEDSP uc_mcontext.gregs[REG_RSP]
+#else
+#define REG_ESP 7
+#define SAVEDSP uc_mcontext.gregs[REG_ESP]
+#endif
 
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
@@ -112,12 +119,9 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 
                 sigset_t sigblockmask;              // blocked signals
                 struct sigaction sigactions[NSIG];  // signal handlers
-//                 Jmpbuf jmpbuf;                      // context saved on suspend
                 
                 ///JA: new code ported from v54b
                 ucontext_t savctx;                  // context saved on suspend
-                // uLong savesp;  // was uLong; void * is better - Gene
-                void * savesp;
                 
                 mtcp_segreg_t fs, gs;               // thread local storage pointers
 #if MTCP__SAVE_MANY_GDT_ENTRIES
@@ -133,6 +137,7 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 #define ST_SIGENABLED 3      // thread is running normally with cp enabled, and checkpoint thread has signalled it to stop
 #define ST_SUSPINPROG 4      // thread context being saved (very brief)
 #define ST_SUSPENDED 5       // thread is suspended waiting for checkpoint to complete
+#define ST_CKPNTHREAD 6      // thread is the checkpointing thread (special state just for that thread)
 
 	/* Global data */
 
@@ -161,6 +166,7 @@ static Thread *motherofall = NULL;
 static Thread *threads = NULL;
 static VA restore_begin, restore_end;
 static void *restore_start;
+static void *saved_break;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -194,6 +200,7 @@ static void writememoryarea (int fd, Area *area);
 static void writecs (int fd, char cs);
 static void writefile (int fd, void const *buff, int size);
 static void stopthisthread (int signum);
+static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
 static void renametempoverperm (void);
@@ -204,10 +211,7 @@ static int readmapsline (int mapsfd, Area *area);
 static void finishrestore (void);
 static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
-static void restore_sig_state (Thread *thisthread); /* No longer used. */
-static void sig_handler(Thread *thread);
-//static void futex_ec (int volatile *loc, int func, int val, struct timespec const *timeout);
-
+static void setup_sig_handler (void);
 
 /********************************************************************************************************************************/
 /*																*/
@@ -354,7 +358,7 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
   if (checkpointhreadstarting) mtcp_abort ();  // make sure the clone wrapper executed (ie, not just the standard clone)
 }
 
- /********************************************************************************************************************************/
+/********************************************************************************************************************************/
 /*																*/
 /*  This routine may be called BEFORE mtcp to init to add special functionality to checkpointing                                */
 /*    Input:															*/
@@ -495,50 +499,48 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
 
   if (motherofall != NULL) {
 
-    /* If this is the __clone for the checkpointhread, say we are no longer starting the checkpointhread */
-    /* We don't want to track the checkpoint thread, as we would end up signalling it to stop itself     */
+    /* They called mtcp_init meaning we are to do checkpointing.  So we are going to track this thread. */
 
-    if (checkpointhreadstarting) checkpointhreadstarting = 0;
-
-    /* Not the checkpoint thread, we track the thread */
-
-    else {
-      thread = malloc (sizeof *thread);
-      memset (thread, 0, sizeof *thread);
-      thread -> fn     = fn;   // this is the user's function
-      thread -> arg    = arg;  // ... and the parameter
-      thread -> parent = getcurrenthread ();
-
-      DPRINTF (("mtcp wrapper clone*: calling clone thread=%p, fn=%p, flags=0x%X from %p\n", thread, fn, flags, 
-                __builtin_return_address (1)));
-      DPRINTF (("mtcp wrapper clone*:               parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
-      //asm volatile ("int3");
-
-      /* Save exactly what the caller is supplying */
-
-      thread -> clone_flags   = flags;
-      thread -> parent_tidptr = parent_tidptr;
-      thread -> given_tidptr  = child_tidptr;
-
-      /* We need the CLEARTID feature so we can detect when the thread has exited */
-      /* So if the caller doesn't want it, we enable it                           */
-      /* Retain what the caller originally gave us so we can pass the tid back    */
-
-      if (!(flags & CLONE_CHILD_CLEARTID)) {
-        child_tidptr = &(thread -> child_tid);
-      }
-      thread -> actual_tidptr = child_tidptr;
-      DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr));
-
-      /* Alter call parameters, forcing CLEARTID and make it call the wrapper routine */
-
-      flags |= CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID;
-      fn = threadcloned;
-      arg = thread;
+    thread = malloc (sizeof *thread);
+    memset (thread, 0, sizeof *thread);
+    thread -> fn     = fn;   // this is the user's function
+    thread -> arg    = arg;  // ... and the parameter
+    thread -> parent = getcurrenthread ();
+    if (checkpointhreadstarting) {
+      checkpointhreadstarting = 0;
+      mtcp_state_init(&thread->state, ST_CKPNTHREAD);
+    } else {
+      mtcp_state_init(&thread->state, ST_RUNDISABLED);
     }
+
+    DPRINTF (("mtcp wrapper clone*: calling clone thread=%p, fn=%p, flags=0x%X\n", thread, fn, flags));
+    DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
+    //asm volatile ("int3");
+
+    /* Save exactly what the caller is supplying */
+
+    thread -> clone_flags   = flags;
+    thread -> parent_tidptr = parent_tidptr;
+    thread -> given_tidptr  = child_tidptr;
+
+    /* We need the CLEARTID feature so we can detect when the thread has exited */
+    /* So if the caller doesn't want it, we enable it                           */
+    /* Retain what the caller originally gave us so we can pass the tid back    */
+
+    if (!(flags & CLONE_CHILD_CLEARTID)) {
+      child_tidptr = &(thread -> child_tid);
+    }
+    thread -> actual_tidptr = child_tidptr;
+    DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr));
+
+    /* Alter call parameters, forcing CLEARTID and make it call the wrapper routine */
+
+    flags |= CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID;
+    fn = threadcloned;
+    arg = thread;
   }
 
-  /* mtcp_init not called, make sure clone_entry is set up */
+  /* mtcp_init not called, no checkpointing, but make sure clone_entry is set up so we can call the real clone */
 
   else if (clone_entry == NULL) setup_clone_entry ();
 
@@ -557,6 +559,14 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
 }
 
 asm (".global clone ; .type clone,@function ; clone = __clone");
+
+/********************************************************************************************************************************/
+/*																*/
+/*  This routine is called (via clone) as the top-level routine of a thread that we are tracking.				*/
+/*																*/
+/*  It fills in remaining items of our thread struct, calls the user function, then cleans up the thread struct before exting.	*/
+/*																*/
+/********************************************************************************************************************************/
 
 static int threadcloned (void *threadv)
 
@@ -570,7 +580,8 @@ static int threadcloned (void *threadv)
 
   setupthread (thread);
 
-  /* The new TLS should have the process ID in place */
+  /* The new TLS should have the process ID in place at TLS_PID_OFFSET */
+  /* This is a verification step and is therefore optional as such     */
 
 #ifdef __i386__
   asm volatile ("movw %%gs,%0" : "=g" (TLSSEGREG));
@@ -591,7 +602,7 @@ static int threadcloned (void *threadv)
 #ifdef __x86_64__
   asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
 #endif
-  if (tls_pid != motherpid) {
+  if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
     mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n", motherpid, tls_pid, TLS_PID_OFFSET);
     mtcp_printf ("      %X\n", motherpid);
     for (rc = 0; rc < 256; rc += 4) {
@@ -680,7 +691,6 @@ static void setupthread (Thread *thread)
   /* Set state to disable checkpointing so checkpointer won't race between adding to list and setting up handler */
 
   thread -> tid = mtcp_sys_kernel_gettid ();
-  mtcp_state_init(&thread->state,ST_RUNDISABLED);
 
   lock_threads ();
 
@@ -700,33 +710,18 @@ static void setupthread (Thread *thread)
 
   /* Set up signal handler so we can interrupt the thread for checkpointing */
 
-  oldhandler = signal (STOPSIGNAL, stopthisthread);
-  if (oldhandler == SIG_ERR) {
-    mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n", strerror (errno));
-    mtcp_abort ();
-  }
-  if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
-    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p)\n", STOPSIGNAL, oldhandler);
-    mtcp_abort ();
-  }
+  setup_sig_handler ();
 }
 
-static void sig_handler(Thread *thread)
-{
-//Thread *thread;
-void (*oldhandler) (int signum);
-oldhandler = signal (STOPSIGNAL, stopthisthread);
-   if (oldhandler == SIG_ERR) {
-	       mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n", strerror (errno));
-	           mtcp_abort ();
-		     }
-     if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
-	         mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p)\n", STOPSIGNAL, oldhandler);
-		     mtcp_abort ();
-		       }
-}
-
-	
+/********************************************************************************************************************************/
+/*																*/
+/*  Set up 'clone_entry' variable												*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	clone_entry = points to clone routine within libc.so									*/
+/*																*/
+/********************************************************************************************************************************/
 
 static void setup_clone_entry (void)
 
@@ -791,12 +786,12 @@ static void threadisdead (Thread *thread)
 
   lock_threads ();
 
+  DPRINTF (("mtcp threadisdead*: thread %p -> tid %d\n", thread, thread -> tid));
+
   /* Remove thread block from 'threads' list */
 
-  DPRINTF (("inside Thread disable\n"));
   if ((*(thread -> prev) = thread -> next) != NULL) {
     thread -> next -> prev = thread -> prev;
-    DPRINTF (("Inside Thread disable\n"));
   }
 
   /* Remove thread block from parent's list of children */
@@ -862,14 +857,22 @@ int mtcp_ok (void)
 
 again:
   switch (mtcp_state_value(&thread -> state)) {
+
+    /* Thread was running normally with checkpointing disabled.  Enable checkpointing then just return. */
+
     case ST_RUNDISABLED: {
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_RUNDISABLED)) goto again;
       return (0);
     }
 
+    /* Thread was running normally with checkpointing already enabled.  So just return as is. */
+
     case ST_RUNENABLED: {
       return (1);
     }
+
+    /* Thread was running with checkpointing disabled, but the checkpointhread wants to write a checkpoint.  So mark the thread  */
+    /* as having checkpointing enabled, then just 'manually' call the signal handler as if the signal to suspend were just sent. */
 
     case ST_SIGDISABLED: {
       if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_SIGDISABLED)) goto again;
@@ -877,9 +880,20 @@ again:
       return (0);
     }
 
+    /* Thread is running with checkpointing enabled, but the checkpointhread wants to write a checkpoint and has sent a signal */
+    /* telling the thread to call 'stopthisthread'.  So we'll just keep going as is until the signal is actually delivered.    */
+
     case ST_SIGENABLED: {
       return (1);
     }
+
+    /* Thread is the checkpointhread so we just ignore the call (from threadcloned routine). */
+
+    case ST_CKPNTHREAD: {
+      return (-1);
+    }
+
+    /* How'd we get here? */
 
     default: {
       mtcp_abort ();
@@ -934,14 +948,32 @@ static void *checkpointhread (void *dummy)
   int needrescan;
   struct timespec sleeperiod;
   struct timeval started, stopped;
-  Thread *thread;
-  //  void (*oldhandler) (int signum);
+  Thread *ckpthread, *thread;
+
+  static int originalstartup = 1;
 
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */
 
   static struct timespec const enabletimeout = { 10, 0 };
 
   DPRINTF (("mtcp checkpointhread*: %d started\n", mtcp_sys_kernel_gettid ()));
+
+  /* Set up our restart point, ie, we get jumped to here after a restore */
+
+  ckpthread = getcurrenthread ();
+  save_sig_state (ckpthread);
+  save_tls_state (ckpthread);
+  if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
+  DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
+  if (originalstartup) originalstartup = 0;
+  else {
+
+    /* We are being restored.  Wait for all other threads to finish being restored before resuming checkpointing. */
+
+    DPRINTF (("mtcp checkpointhread*: waiting for other threads after restore\n"));
+    wait_for_all_restored ();
+    DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
+  }
 
   /* Reset the verification counter - on init, this will set it to it's start value. */ 
   /* After a verification, it will reset it to its start value.  After a normal      */
@@ -967,7 +999,7 @@ static void *checkpointhread (void *dummy)
         (*callback_sleep_between_ckpt)(intervalsecs);
     }
 
-    sig_handler(thread);
+    setup_sig_handler();
     mtcp_sys_gettimeofday (&started, NULL);
 
     /* Halt all other threads - force them to call stopthisthread                    */
@@ -1007,9 +1039,12 @@ again:
         /* We will need to rescan (hopefully it will be suspended by then) */
 
         case ST_RUNENABLED: {
-            if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
+          if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_errno != ESRCH) mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n", thread -> tid, strerror (mtcp_sys_errno));
+            if (mtcp_sys_errno != ESRCH) {
+              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n", 
+                                           thread -> tid, strerror (mtcp_sys_errno));
+            }
             unlk_threads ();
             threadisdead (thread);
             goto rescan;
@@ -1053,6 +1088,12 @@ again:
           break;
         }
 
+        /* Don't do anything to the checkpointhread (this) thread */
+
+        case ST_CKPNTHREAD: {
+          break;
+        }
+
         /* Who knows? */
 
         default: {
@@ -1075,14 +1116,17 @@ again:
       return (NULL);
     }
 
-    /* All threads halted in 'stopthisthread' routine (they are all ST_SUSPENDED) - it's safe to write checkpoint file now */
+    /* All other threads halted in 'stopthisthread' routine (they are all ST_SUSPENDED) - it's safe to write checkpoint file now */
 
     if(callback_pre_ckpt != NULL){
         DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n"
 				,&callback_pre_ckpt,callback_pre_ckpt));
         (*callback_pre_ckpt)();
     }
-    
+
+    saved_break = sbrk (0);
+    DPRINTF (("mtcp checkpointhread*: saved_break=%p\n", saved_break));
+
     checkpointeverything ();
     
     if(callback_post_ckpt != NULL){
@@ -1090,8 +1134,6 @@ again:
 				,&callback_post_ckpt,callback_post_ckpt));
         (*callback_post_ckpt)(0);
     }
-    
-    
 
     mtcp_sys_gettimeofday (&stopped, NULL);
     stopped.tv_usec += (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
@@ -1103,8 +1145,10 @@ again:
     DPRINTF (("mtcp checkpointhread*: resuming everything\n"));
     lock_threads ();
     for (thread = threads; thread != NULL; thread = thread -> next) {
-      if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();
-      mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
+      if (mtcp_state_value (&(thread -> state)) != ST_CKPNTHREAD) {
+        if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();
+        mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
+      }
     }
     unlk_threads ();
     DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
@@ -1117,7 +1161,8 @@ again:
 
 /********************************************************************************************************************************/
 /*																*/
-/*  This routine is called from time-to-time to write a new checkpoint file							*/
+/*  This routine is called from time-to-time to write a new checkpoint file.							*/
+/*  It assumes all the threads are suspended.											*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -1125,7 +1170,6 @@ static void checkpointeverything (void)
 
 {
   Area area;
-  // char mapsline[64+FILENAMESIZE];
   int fd, mapsfd;
   VA area_begin, area_end;
 
@@ -1146,7 +1190,6 @@ static void checkpointeverything (void)
   /* Put this all at the front to make the restore easy */
 
   DPRINTF (("mtcp checkpointeverything*: restore image %X at %X\n", restore_size, restore_begin));
-
 
   writecs (fd, CS_RESTOREBEGIN);
   writefile (fd, &restore_begin, sizeof restore_begin);
@@ -1262,34 +1305,28 @@ static void writefiledescrs (int fd)
   char linkbuf[FILENAMESIZE], *p, procfdname[64];
   int fdnum, i, linklen, nents, rc;
   off_t offset;
-  struct dirent *de, **namelist;
+  struct rlimit rlimit_nofile;
   struct Stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
 
-  /* List out my /proc/self/fd directory - it contains a list of files I have open */
+  /* See how many possible FDs there are */
 
-  nents = scandir ("/proc/self/fd", &namelist, NULL, alphasort);
-  if (nents < 0) {
-    mtcp_printf ("mtcp writefiledescrs: error scanning directory /proc/self/fd: %s\n", strerror (errno));
+  if (getrlimit (RLIMIT_NOFILE, &rlimit_nofile) < 0) {
+    mtcp_printf ("mtcp writefiledescrs: error %d getting nofiles\n", errno);
     mtcp_abort ();
   }
 
   /* Check each entry */
 
-  for (i = 0; i < nents; i ++) {
+  for (fdnum = 0; fdnum < rlimit_nofile.rlim_cur; fdnum ++) {
 
-    /* The filename should just be a decimal number = the fd it represents                               */
-    /* Also, skip the entry for the checkpoint file itself as we don't want the restore to know about it */
+    /* Skip the entry for the checkpoint file itself as we don't want the restore to open the file again      */
+    /* Skip entries for stdin/stdout/stderr beacuse we will use whatever is given to mtcp_restore by the user */
 
-    de = namelist[i];
-    fdnum = strtol (de -> d_name, &p, 10);
-    if ((*p == 0) && (fdnum >= 0) && (fdnum != fd)
-    //jansel 01/14/07: ignore stdin/stdout/stderr
-    && (fdnum > 2)
-    ) {
+    if ((fdnum != fd) && (fdnum > 2)) {
 
-      /* Read the symbolic link so we get the filename that's open on the fd */
+      /* Read the symbolic link from /proc/self/fd/<fdnum> so we get the filename that's open on the fd */
 
       sprintf (procfdname, "/proc/self/fd/%d", fdnum);
       linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
@@ -1330,9 +1367,7 @@ static void writefiledescrs (int fd)
         }
       }
     }
-    free (de);
   }
-  free (namelist);
 
   /* Write end-of-fd-list marker to checkpoint file */
 
@@ -1417,34 +1452,35 @@ static void writefile (int fd, void const *buff, int size)
 
 /********************************************************************************************************************************/
 /*																*/
-/*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a checkpoint		*/
+/*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a 	*/
+/*  checkpoint															*/
 /*																*/
 /********************************************************************************************************************************/
 
-void dummy(void) {DPRINTF(("HERE\n"));}
 static void stopthisthread (int signum)
 
 {
-  int rc,rip;
+  int rc;
   Thread *thread;
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
-  thread = getcurrenthread ();                                                                 // see which thread this is
-  if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {                   // make sure we don't get called twice for same thread
-    save_sig_state (thread);                                                                   // save signal state (and block signal delivery)
-    save_tls_state (thread);                                                                   // save thread local storage state
-    // if (mtcp_setjmp (&(thread -> jmpbuf)) == 0) {                                              // save general registers
+
+  setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
+
+  thread = getcurrenthread ();                                              // see which thread this is
+  if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
+    save_sig_state (thread);                                                // save signal state (and block signal delivery)
+    save_tls_state (thread);                                                // save thread local storage state
 
     ///JA: new code ported from v54b
-     asm volatile (CLEAN_FOR_64_BIT(mov %%esp,%0) : "=m" (thread -> savesp));
-     rc = getcontext (&(thread -> savctx));
-     if (rc < 0) {
-       mtcp_printf ("mtcp stopthisthread: getcontext rc %d errno %d\n", rc, errno);
-       mtcp_abort ();
-     }
-     if (mtcp_state_value(&restoreinprog) == 0) {
-
+    rc = getcontext (&(thread -> savctx));
+    if (rc < 0) {
+      mtcp_printf ("mtcp stopthisthread: getcontext rc %d errno %d\n", rc, errno);
+      mtcp_abort ();
+    }
+    DPRINTF (("mtcp stopthisthread*: after getcontext\n"));
+    if (mtcp_state_value(&restoreinprog) == 0) {
 
       /* We are the original process and all context is saved */
 
@@ -1453,13 +1489,13 @@ static void stopthisthread (int signum)
       /* Tell the checkpoint thread that we're all saved away */
 
       if (!mtcp_state_set (&(thread -> state), ST_SUSPENDED, ST_SUSPINPROG)) mtcp_abort ();  // tell checkpointhread all our context is saved
-      mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);                                      // wake checkpoint thread if it's waiting for me
+      mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);                            // wake checkpoint thread if it's waiting for me
 
       /* Then we wait for the checkpoint thread to write the checkpoint file then wake us up */
 
       DPRINTF (("mtcp stopthisthread*: thread %d suspending\n", thread -> tid));
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
-          mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
+        mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
 
       /* Maybe there is to be a checkpoint verification.  If so, and we're the main    */
@@ -1491,16 +1527,7 @@ static void stopthisthread (int signum)
 
     else {
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
-      do rip = mtcp_state_value(&restoreinprog);                                                                  // dec number of threads cloned but not completed longjmp'ing
-      while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
-      if (-- rip == 0) {
-          mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);                                // if this was last of all, wake everyone up
-        unlk_threads ();                                                                       // ... and release the thread list
-      } else {
-        while ((rip = mtcp_state_value(&restoreinprog)) > 0) {                                                    // otherwise, wait for last of all to wake this one up
-          mtcp_state_futex (&restoreinprog, FUTEX_WAIT, rip, NULL);
-        }
-      }
+      wait_for_all_restored ();
       DPRINTF (("mtcp stopthisthread*: thread %d restored\n", thread -> tid));
 
       if (thread == motherofall) {
@@ -1508,27 +1535,44 @@ static void stopthisthread (int signum)
         /* If we're a restore verification, rename the temp file over the permanent one */
 
         if (mtcp_restore_verify) renametempoverperm ();
-
-        /* Lastly, recreate the checkpoint thread so the restored process will be checkpointed from time to time */
-        /* This will also reset the verify_count                                                                 */
-
-        checkpointhreadstarting = 1;
-        if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
-          mtcp_printf ("mtcp finishrestore: error %d recreating checkpoint thread\n", errno);
-          mtcp_abort ();
-        }
-        if (checkpointhreadstarting) mtcp_abort ();
-        DPRINTF (("mtcp finishrestore*: checkpointhread id %d\n", checkpointhreadid));
       }
     }
-
-    /* We can finally re-enable signal delivery now that everything is put back */
-
-    //JA: change from v54b port
-    //restore_sig_state (thread);
   }
   DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
 	    mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
+}
+
+/********************************************************************************************************************************/
+/*																*/
+/*  Wait for all threads to finish restoring their context, then release them all to continue on their way.			*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	restoreinprog = number of threads, including this, that hasn't called 'wait_for_all_restored' yet			*/
+/*	thread list locked													*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	restoreinprog = decremented												*/
+/*	                if now zero, all threads woken and thread list unlocked							*/
+/*																*/
+/********************************************************************************************************************************/
+
+static void wait_for_all_restored (void)
+
+{
+  int rip;
+
+  do rip = mtcp_state_value(&restoreinprog);                         // dec number of threads cloned but not completed longjmp'ing
+  while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
+  if (-- rip == 0) {
+    mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up
+    unlk_threads ();                                                 // ... and release the thread list
+  } else {
+    while ((rip = mtcp_state_value(&restoreinprog)) > 0) {           // otherwise, wait for last of all to wake this one up
+      mtcp_state_futex (&restoreinprog, FUTEX_WAIT, rip, NULL);
+    }
+  }
 }
 
 /********************************************************************************************************************************/
@@ -1667,7 +1711,7 @@ static void unlk_threads (void)
 {
   WMB; // flush data written before unlocking
   mtcp_state_set(&threadslocked , 0, 1);
-  mtcp_state_futex (&threadslocked, FUTEX_WAKE, 0, NULL);
+  mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
 
 /********************************************************************************************************************************/
@@ -1858,8 +1902,8 @@ static void finishrestore (void)
 
   ///JA: v54b port
   // so restarthread will have a big stack
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp) : : "g" (motherofall -> savesp) :
-                                    "esp", "memory");
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp) : : "g" (motherofall -> savctx.SAVEDSP - 128)  // -128 for red zone
+                                               : "memory");
   restarthread (motherofall);
 }
 
@@ -1872,10 +1916,18 @@ static int restarthread (void *threadv)
 
   restore_tls_state (thread);
 
+  setup_sig_handler ();
+
   if (thread == motherofall) {
     set_tid_address (&(thread -> child_tid));
-    
-    if(callback_post_ckpt != NULL){
+
+    DPRINTF(("mtcp restarthread*: saved_break=%p\n", saved_break));
+    if (brk (saved_break) < 0) {
+      mtcp_printf ("mtcp restarthread: error %d doing brk (%p)\n", errno, saved_break);
+      mtcp_abort ();
+    }
+
+    if (callback_post_ckpt != NULL) {
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1) (&%x,%x) \n",&callback_post_ckpt,callback_post_ckpt));
         (*callback_post_ckpt)(1);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1) \n"));
@@ -1893,21 +1945,24 @@ static int restarthread (void *threadv)
     /* Don't do CLONE_SETTLS (it'll puke).  We do it later via restore_tls_state. */
 
     ///JA: v54b port
-    if ((*clone_entry) (restarthread, (void *)(child -> savesp), 
+    errno = -1;
+    if ((*clone_entry) (restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
                         (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID, 
                         child, child -> parent_tidptr, NULL, child -> actual_tidptr) < 0) {
+
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
+      mtcp_printf ("mtcp restarthread:   clone_flags %X, savedsp %p\n", child -> clone_flags, child -> savctx.SAVEDSP);
       mtcp_abort ();
     }
   }
 
-  /* All my children have been created, jump to the stopthisthread routine */
+  /* All my children have been created, jump to the stopthisthread routine just after getcontext call */
+  /* Note that if this is the restored checkpointhread, it jumps to the checkpointhread routine       */
 
   ///JA: v54b port
-//   mtcp_longjmp (&(thread -> jmpbuf), 1);
-   DPRINTF (("mtcp restarthread*: calling setcontext\n"));
-   setcontext (&(thread -> savctx));
-
+  DPRINTF (("mtcp restarthread*: calling setcontext\n"));
+  setcontext (&(thread -> savctx));
+  mtcp_abort ();
 }
 
 /********************************************************************************************************************************/
@@ -1979,43 +2034,27 @@ static void restore_tls_state (Thread *thisthread)
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Restore signal handlers and restore signal delivery										*/
+/*  Set the thread's STOPSIGNAL handler.  Threads are sent STOPSIGNAL when they are to suspend execution the application, save 	*/
+/*  their state and wait for the checkpointhread to write the checkpoint file.							*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	Calling thread will call stopthisthread () when sent a STOPSIGNAL							*/
 /*																*/
 /********************************************************************************************************************************/
 
-/* THIS FUNCTION IS NO LONGER USED. */
-static void restore_sig_state (Thread *thisthread)
+static void setup_sig_handler (void)
 
 {
-  int i;
+  void (*oldhandler) (int signum);
 
-  /* Restore all signal handlers */
-
-  for (i = NSIG; -- i >= 0;) {
-    if ((sigaction (i, thisthread -> sigactions + i, NULL) < 0) && (errno != EINVAL)) {
-      mtcp_printf ("mtcp restore_sig_state: error restoring signal %d action: %s\n", i, strerror (errno));
-      mtcp_abort ();
-    }
+  oldhandler = signal (STOPSIGNAL, stopthisthread);
+  if (oldhandler == SIG_ERR) {
+    mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n", strerror (errno));
+    mtcp_abort ();
   }
-
-  /* Restore signal delivery mask */
-
-  if (sigprocmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
+  if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
+    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p)\n", STOPSIGNAL, oldhandler);
     mtcp_abort ();
   }
 }
-
-/********************************************************************************************************************************/
-/*																*/
-/*  Perform futex operation with error check											*/
-/*																*/
-/********************************************************************************************************************************/
-
-// static void futex_ec (int volatile *loc, int func, int val, struct timespec const *timeout)
-// 
-// {
-//   if ((mtcp_sys_futex (loc, func, val, timeout, NULL, 0) < 0) && (errno != ETIMEDOUT) && (errno != EWOULDBLOCK) && (errno != EINTR)) {
-//     mtcp_printf ("mtcp futex_ec: futex error: %s\n", strerror (errno));
-//     mtcp_abort ();
-//   }
-// }

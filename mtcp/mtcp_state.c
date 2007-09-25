@@ -2,12 +2,6 @@
 // They were added by Jason Ansel to eliminate need for futex.
 // Futex is specific to Linux.
 
-#ifdef __x86_64__
-// The alternative to using futex is to load in the pthread library,
-//  which would be a real pain.  The __i386__ arch doesn't seem to be bothered
-//  by this.
-# define USE_FUTEX
-#endif
 
 #include "mtcp_internal.h"
 #include <asm/ldt.h>      // for struct user_desc
@@ -29,10 +23,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#if USE_FUTEX
+#include "mtcp_futex.h"
+#endif
 
 __attribute__ ((visibility ("hidden")))
    void mtcp_state_init(MtcpState * state, int value){
-#ifdef USE_FUTEX
+#if USE_FUTEX
     state->value = value;
 #else
     pthread_mutex_init(&state->mutex,NULL);
@@ -41,7 +38,7 @@ __attribute__ ((visibility ("hidden")))
 #endif
 }
 void mtcp_state_destroy(MtcpState * state){
-#ifdef USE_FUTEX
+#if USE_FUTEX
    //no action
 #else
     pthread_mutex_destroy(&state->mutex);
@@ -51,12 +48,17 @@ void mtcp_state_destroy(MtcpState * state){
 
 __attribute__ ((visibility ("hidden")))
    void mtcp_state_futex(MtcpState * state, int func, int val, struct timespec const *timeout){
-#ifdef USE_FUTEX
-    if ((mtcp_sys_kernel_futex (&state->value, func, val, timeout, NULL, 0) < 0)
-        && (errno != ETIMEDOUT) && (errno != EWOULDBLOCK)
-        && (mtcp_sys_errno != EINTR)) {
-        mtcp_printf ("mtcp futex_ec: futex error: %s\n", strerror (errno));
+#if USE_FUTEX
+    int rc;
+
+    while ((rc = mtcp_futex (&state->value, func, val, timeout)) < 0) {
+      rc = -rc;
+      if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
+      if (rc != EINTR) {
+        mtcp_printf ("mtcp_state_futex: futex error %d: %s\n", rc, strerror (rc));
+        mtcp_printf ("mtcp_state_futex: (%p, %d, %d, %p, NULL, 0)\n", &state->value, func, val, timeout);
         mtcp_abort ();
+      }
     }
 #else
     int rv = -1;

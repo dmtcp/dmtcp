@@ -31,6 +31,7 @@
 #include "mtcp_internal.h"
 
 static char const hexdigits[] = "0123456789ABCDEF";
+static MtcpState printflocked = MTCP_STATE_INITIALIZER;
 
 static void rwrite (char const *buff, int size);
 
@@ -39,6 +40,10 @@ void mtcp_printf (char const *format, ...)
 {
   char const *p, *q;
   va_list ap;
+
+  while (!mtcp_state_set (&printflocked, 1, 0)) {
+    mtcp_state_futex (&printflocked, FUTEX_WAIT, 1, NULL);
+  }
 
   va_start (ap, format);
 
@@ -183,6 +188,9 @@ gofish:
   /* Print whatever comes after the last format spec */
 
   rwrite (p, mtcp_sys_strlen (p));
+
+  if (!mtcp_state_set (&printflocked, 0, 1)) mtcp_abort ();
+  mtcp_state_futex (&printflocked, FUTEX_WAKE, 1, NULL);
 }
 
 static void rwrite (char const *buff, int size)

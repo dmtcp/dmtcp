@@ -19,13 +19,20 @@
 #ifndef _MTCP_INTERNAL_H
 #define _MTCP_INTERNAL_H
 
-//#define USE_FUTEX
+#ifdef __x86_64__
+// The alternative to using futex is to load in the pthread library,
+//  which would be a real pain.  The __i386__ arch doesn't seem to be bothered
+//  by this.
+# define USE_FUTEX 1
+#else
+# define USE_FUTEX 0
+#endif
 
 #include <pthread.h>
 #include <linux/version.h>
 
-
-#ifdef USE_FUTEX
+#if USE_FUTEX
+#  define u32 unsigned int
 #  include <linux/futex.h>
 #else
 #  define FUTEX_WAIT 0
