@@ -23,6 +23,8 @@ static inline int mtcp_futex (int *uaddr, int op, int val, const struct timespec
 
   return (rc);
 #elif defined(__i386__)
+  int rc;
+
   asm volatile ("int $0x80"
                 : "=a" (rc)
                 : "0" (__NR_futex), 
