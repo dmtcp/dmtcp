@@ -35,6 +35,12 @@
 
 #include <asm/unistd.h>
 #include <errno.h>
+
+#ifndef __user
+// this is needed to compile futex.h on LXR/Suse10.2
+#  define __user
+#endif
+
 #include <linux/futex.h>
 #include <sched.h>
 #include <stdio.h>

@@ -32,18 +32,19 @@
 MTCP_VERSION = 64
 
 CC = gcc
-CFLAGS = -g -O0 -I/home/mrieker/glibcinstall/include
+CFLAGS = -g -O0 
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
-LDFLAGS = -shared -L/home/mrieker/glibcinstall/lib
+LDFLAGS = -shared 
 AS = as
 ASFLAGS =
+MTCP_DIR := $(shell pwd)
 
 # But for testmtcp, don't use CFLAGS if don't want position-independent code
 ifeq (${shell uname -m},x86_64)
   CFLAGS += -fPIC -DPIC
-  LDFLAGS += -Wl,--rpath -Wl,/afs/cern.ch/user/c/cooperma/group/papers/checkpointing-sockets/software/dmtcp/mtcpv62d
+  LDFLAGS += -Wl,--rpath -Wl,$(MTCP_DIR)
 endif
 
 default: testmtcp testmtcp2 testmtcp3 testmtcp4 threadtest mtcp.so mtcp_restore mtcp_restore.so
@@ -74,13 +75,13 @@ threadtest: threadtest.c
 # This is the command-line utility to restore a process
 
 
-mtcp_restore: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o
+mtcp_restore: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	${CC} $(CFLAGS) -static -o mtcp_restore mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
 		mtcp_safestat.o mtcp_state.o
 
 
 # mtcp_restore.so is used only by dmtcp --- not by mtcp
-mtcp_restore.so: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o
+mtcp_restore.so: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 	${CC} $(CFLAGS) -shared \
 	 -o mtcp_restore.so mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o \
