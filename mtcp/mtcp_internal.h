@@ -32,6 +32,10 @@
 #include <linux/version.h>
 
 #if USE_FUTEX
+#  ifndef __user
+// this is needed to compile futex.h on LXR/Suse10.2
+#    define __user
+#  endif
 #  define u32 unsigned int
 #  include <linux/futex.h>
 #else
