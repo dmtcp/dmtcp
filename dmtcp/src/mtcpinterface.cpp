@@ -70,7 +70,8 @@ extern "C" {
     typedef int (*t_mtcp_init) (char const *checkpointfilename, int interval, int clonenabledefault);
     typedef void (*t_mtcp_set_callbacks)(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
-                        void (*post_ckpt)(int is_restarting));
+                        void (*post_ckpt)(int is_restarting),
+                        int  (*ckpt_fd)(int fd));
     typedef int (*t_mtcp_ok) (void);
 }
 
@@ -83,6 +84,7 @@ static void callbackPreCheckpoint()
 {
     dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();;
 }
+
 
 static void callbackPostCheckpoint(int isRestart)
 {
@@ -98,31 +100,27 @@ static void callbackPostCheckpoint(int isRestart)
     dmtcp::DmtcpWorker::instance().waitForStage3Resume();
 }
 
-
+static int callbackShouldCkptFD(int /*fd*/)
+{
+    //mtcp should never checkpoint files... dmtcp will handle it
+    return 0;
+}
 
 
 void dmtcp::initializeMtcpEngine()
 {
-//     JTRACE("ZZZZZZZZZZZZZZZ_1");
     
     t_mtcp_set_callbacks setCallbks = (t_mtcp_set_callbacks) _get_mtcp_symbol("mtcp_set_callbacks");
     
-//     JTRACE("ZZZZZZZZZZZZZZZ_2");
     
     t_mtcp_init init = (t_mtcp_init) _get_mtcp_symbol("mtcp_init");
     t_mtcp_ok okFn = (t_mtcp_ok) _get_mtcp_symbol("mtcp_ok");
     
     
-//     JTRACE("AAAAAAAAAAAAAAA");
-    (*setCallbks)(callbackSleepBetweenCheckpoint,callbackPreCheckpoint,callbackPostCheckpoint);
-//     
-//     JTRACE("BBBBBBBBBBBBBBB");
+    (*setCallbks)(callbackSleepBetweenCheckpoint,callbackPreCheckpoint,callbackPostCheckpoint,callbackShouldCkptFD);
     (*init)(UniquePid::checkpointFilename(),0xBadF00d,1);
-    
-//     JTRACE("CCCCCCCCCCCCCCC");
     (*okFn)();
     
-//     JTRACE("DDDDDDDDDDDDDD");
     
     JTRACE("mtcp_init complete")(UniquePid::checkpointFilename());
 }

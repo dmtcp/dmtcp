@@ -43,6 +43,17 @@
 #  define FUTEX_WAKE 1
 #endif
 
+#ifdef DEBUG
+#define DPRINTF(x) mtcp_printf x  // debugging printing
+#else
+#define DPRINTF(x) // debugging printing
+#endif
+
+#ifdef TIMING
+#define TPRINTF(x) mtcp_printf x  // timing printing
+#else
+#define TPRINTF(x) // timing printing
+#endif
 
 #if 0
 /* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.  */
@@ -146,8 +157,7 @@ struct Stat { uLong st_mode;
 #define CS_THEEND 10         // end of checkpoint file
 
 void mtcp_printf (char const *format, ...);
-#define DPRINTF(x) mtcp_printf x  // debugging printing
-#define TPRINTF(x) mtcp_printf x  // timing printing
+
 /* cmpxchgl is only supported on Intel 486 processors and later. */
 static inline int atomic_setif_int (int volatile *loc, int newval, int oldval)
 {

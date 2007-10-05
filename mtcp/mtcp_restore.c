@@ -107,7 +107,7 @@ printf("restore_mmap: %x\n", restore_mmap);
   readfile (fd, restore_begin, restore_size);
   /* Now call it - it shouldn't return */
 
-  if (111) {
+#ifdef DEBUG
     char *p, symbolbuff[256];
     FILE *symbolfile;
     VA textbase;
@@ -128,10 +128,10 @@ printf("restore_mmap: %x\n", restore_mmap);
       }
     }
     mtcp_maybebpt ();
-  }
+#endif
 
   (*restore_start) (fd, verify);
-  fprintf (stderr, "mtcp_restore: restore routine returned\n");
+  fprintf (stderr, "mtcp_restore: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
 }

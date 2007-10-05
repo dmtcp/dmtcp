@@ -77,13 +77,13 @@ int main ()
   number = 0;
   while (1) {
     printline ("%6d> ", number + 1);
-    printline ("testmtcp.c: ABOUT TO malloc\n");fflush(stdout);
+    //printline ("testmtcp.c: ABOUT TO malloc\n");fflush(stdout);
 #ifdef USE_STATIC_MALLOC
     line = mymalloc (sizeof *line);
 #else
     line = malloc (sizeof *line);
 #endif
-    printline ("testmtcp.c: DID malloc\n");fflush(stdout);
+    //printline ("testmtcp.c: DID malloc\n");fflush(stdout);
     if (!readline (line -> buff, sizeof line -> buff)) break;
     *lline = line;
     line -> next = NULL;
