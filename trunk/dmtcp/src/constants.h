@@ -46,7 +46,7 @@
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
 
-#define RESTART_SCRIPT_NAME "restartScript.sh"
+#define RESTART_SCRIPT_NAME "dmtcp_restart_script.sh"
 
 #define PROTECTED_FD_START 820
 #define PROTECTED_FD_COUNT 8

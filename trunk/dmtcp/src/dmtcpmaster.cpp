@@ -411,9 +411,10 @@ void dmtcp::DmtcpMaster::writeRestartScript()
   std::map< std::string, std::vector<std::string> >::const_iterator host;
   std::vector<std::string>::const_iterator file;
   std::string filename = RESTART_SCRIPT_NAME;
+  JTRACE("writing restart script")(filename);
   FILE* fp = fopen(filename.c_str(),"w");
   JASSERT(fp!=0)(filename).Text("failed to open file");  
-  fprintf(fp, "#!/bin/sh \n");
+  fprintf(fp, "#!/bin/bash \nset -m # turn on job control\n\n#launch all the restarts in the background:\n");
   
   for(host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host)
   {
@@ -424,6 +425,7 @@ void dmtcp::DmtcpMaster::writeRestartScript()
     }
     fprintf(fp," & \n");
   }
+  fprintf(fp,"\n#forground the jobs until there are none left\nwhile jobs | grep [0-9] > /dev/null; do fg; done");
   fclose(fp);
   _restartFilenames.clear();
 }

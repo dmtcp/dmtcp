@@ -9,5 +9,6 @@ Known issues/bugs:
 5) OpenMPI fails to checkpoint/restore
 6) Many fcntl()/ioctl() flags are not checkpointed
 7) Fifos/pts/ttys are not handled correctly
-
+8) There is a problem in the way we scan for active file descriptors.  Right now we scan fds 3-getrlimit(...).
+     A user can get FD's higher than the limit using dup() (and possibly other ways).
 
