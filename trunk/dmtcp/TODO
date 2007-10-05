@@ -1,3 +1,0 @@
-1) Properly support non TCP protocols 
-[DONE] 2) Only do 1-way handshake so we dont need to mutate the connect semantics
-3) Better solution for address space conflicts in mtcp

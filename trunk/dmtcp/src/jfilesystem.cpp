@@ -115,6 +115,10 @@ std::string jalib::Filesystem::FindHelperUtility(const std::string& file, bool d
     FHU_TRY_DIR(GetProgramDir() + "/../" + file);
     FHU_TRY_DIR(GetProgramDir() + "/../../" + file);
     FHU_TRY_DIR(GetProgramDir() + "/../../../" + file);
+    FHU_TRY_DIR(GetProgramDir() + "/mtcp/" + file);
+    FHU_TRY_DIR(GetProgramDir() + "/../mtcp/" + file);
+    FHU_TRY_DIR(GetProgramDir() + "/../../mtcp/" + file);
+    FHU_TRY_DIR(GetProgramDir() + "/../../../mtcp/" + file);
     FHU_TRY_DIR("./" + file);
     FHU_TRY_DIR("../" + file);
     FHU_TRY_DIR("../../" + file);

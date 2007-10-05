@@ -170,6 +170,7 @@ static void *saved_break;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
+static int  (*callback_ckpt_fd)(int fd) = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg), 
                            void *child_stack, 
@@ -367,15 +368,18 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
 //                      when this function returns checkpoint will start
 // pre_ckpt:            Called after all user threads are suspended, but BEFORE checkpoint written
 // post_ckpt:           Called after checkpoint, and after restore.  is_restarting will be 1 for restore 0 for after checkpoint 
+// ckpt_fd:             Called to test if mtcp should checkpoint a given FD returns 1 if it should
 // 
 /********************************************************************************************************************************/
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
-                        void (*post_ckpt)(int is_restarting))
+                        void (*post_ckpt)(int is_restarting),
+			int (*ckpt_fd)(int fd))
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
+    callback_ckpt_fd = ckpt_fd;
 }
 
 /********************************************************************************************************************************/
@@ -1321,6 +1325,9 @@ static void writefiledescrs (int fd)
 
   for (fdnum = 0; fdnum < rlimit_nofile.rlim_cur; fdnum ++) {
 
+    //if we have a callback, check to make sure we are allowed to touch this FD
+    if( callback_ckpt_fd!=NULL && (*callback_ckpt_fd)(fdnum)==0 ) continue;
+
     /* Skip the entry for the checkpoint file itself as we don't want the restore to open the file again      */
     /* Skip entries for stdin/stdout/stderr beacuse we will use whatever is given to mtcp_restore by the user */
 
@@ -1922,10 +1929,10 @@ static int restarthread (void *threadv)
     set_tid_address (&(thread -> child_tid));
 
     DPRINTF(("mtcp restarthread*: saved_break=%p\n", saved_break));
-    if (brk (saved_break) < 0) {
-      mtcp_printf ("mtcp restarthread: error %d doing brk (%p)\n", errno, saved_break);
-      mtcp_abort ();
-    }
+    //if (brk (saved_break) < 0) {
+    //  mtcp_printf ("mtcp restarthread: error %d doing brk (%p)\n", errno, saved_break);
+    //  mtcp_abort ();
+    //}
 
     if (callback_post_ckpt != NULL) {
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1) (&%x,%x) \n",&callback_post_ckpt,callback_post_ckpt));

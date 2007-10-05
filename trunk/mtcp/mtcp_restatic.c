@@ -43,8 +43,6 @@
 
 #include "mtcp_internal.h"
 
-#define DPRINTF(x) mtcp_printf x  // debugging printing
-
 __attribute__ ((visibility ("hidden")))
   int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 __attribute__ ((visibility ("hidden")))
