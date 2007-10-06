@@ -296,7 +296,7 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
             msg.poison();
             _masterSocket >> msg;
             msg.assertValid();
-        }while(msg.type == DMT_RESTORE_WAITING);
+        }while(msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART);
         JASSERT(msg.type == dmtcp::DMT_DO_REFILL)(msg.type);
     }
     JASSERT(theCoordinator != 0);  
