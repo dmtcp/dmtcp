@@ -47,6 +47,8 @@ __attribute__ ((visibility ("hidden")))
   int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify = 0;// 0: normal restore; 1: verification restore
+__attribute__ ((visibility ("hidden")))
+  void *mtcp_saved_break = NULL;  // saved brk (0) value
 
 	/* These two are used by the linker script to define the beginning and end of the image.         */
 	/* The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid to relocate a zero. */
@@ -75,14 +77,37 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 {
   int rc;
   VA holebase, highest_va; /* VA = virtual address */
+  void *current_brk;
   void (*finishrestore) (void);
+
+  /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.  The only access we have is brk() which basically */
+  /* sets mm->brk to the new value, but also has a nasty side-effect (as far as we're concerned) of mmapping an anonymous       */
+  /* section between the old value of mm->brk and the value being passed to brk().  It will munmap the bracketed memory if the  */
+  /* value being passed is lower than the old value.  But if zero, it will return the current mm->brk value.                    */
+
+  /* So we're going to restore the brk here.  As long as the current mm->brk value is below the static restore region, we're ok */
+  /* because we 'know' the restored brk can't be in the static restore region, and we don't care if the kernel mmaps something  */
+  /* or munmaps something because we're going to wipe it all out anyway.                                                        */
+
+  current_brk = mtcp_sys_brk (NULL);
+  if (((VA)current_brk > (VA)mtcp_shareable_begin) && ((VA)mtcp_saved_break < (VA)mtcp_shareable_end)) {
+    mtcp_printf ("mtcp_restoreverything: current_brk %p, mtcp_saved_break %p, mtcp_shareable_begin %p, mtcp_shareable_end %p\n", 
+                  current_brk, mtcp_saved_break, mtcp_shareable_begin, mtcp_shareable_end);
+    mtcp_abort ();
+  }
+
+  current_brk = mtcp_sys_brk (mtcp_saved_break);
+  if (current_brk != mtcp_saved_break) {
+    mtcp_printf ("mtcp_restoreverything: error %d restoring break %p\n", (int)(VA)current_brk, mtcp_saved_break);
+    mtcp_abort ();
+  }
 
   /* Unmap everything except for this image as everything we need is contained in the mtcp.so image */
 
   holebase  = (VA)mtcp_shareable_begin;
   holebase &= -PAGE_SIZE;
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
-	 			: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
+				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
                                                                   // ... it's left dangling on something I want
   DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
@@ -95,8 +120,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   holebase  = (VA)mtcp_shareable_end;
   holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
   highest_va = highest_userspace_address();
-  if (highest_va == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
+  if (highest_va == 0) { /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
+  }
   DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n", holebase, highest_va - 1));
   rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
   if (rc == -1) {

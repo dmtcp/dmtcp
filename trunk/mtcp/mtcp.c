@@ -103,7 +103,7 @@ typedef struct Thread Thread;
 struct Thread { Thread *next;                       // next thread in 'threads' list
                 Thread **prev;                      // prev thread in 'threads' list
                 int tid;                            // this thread's id as returned by mtcp_sys_kernel_gettid ()
-                MtcpState state;                 // see ST_... below
+                MtcpState state;                    // see ST_... below
                 Thread *parent;                     // parent thread (or NULL if top-level thread)
                 Thread *children;                   // one of this thread's child threads
                 Thread *siblings;                   // one of this thread's sibling threads
@@ -150,7 +150,6 @@ static char const *perm_checkpointfilename = NULL;
 static char const *temp_checkpointfilename = NULL;
 static int intervalsecs;
 static pid_t motherpid;
-// static int restored = 0; /* not used */
 static int restore_size;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
@@ -160,13 +159,10 @@ static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
 static MtcpState threadslocked = MTCP_STATE_INITIALIZER;
 static pthread_t checkpointhreadid;
 static struct timeval restorestarted;
-// static struct user_desc *checkpoint_tls; /* not used */
-// static time_t intervalnext; /* not used */
 static Thread *motherofall = NULL;
 static Thread *threads = NULL;
 static VA restore_begin, restore_end;
 static void *restore_start;
-static void *saved_break;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -588,10 +584,10 @@ static int threadcloned (void *threadv)
   /* This is a verification step and is therefore optional as such     */
 
 #ifdef __i386__
-  asm volatile ("movw %%gs,%0" : "=g" (TLSSEGREG));
+  asm volatile ("mov %%gs,%0" : "=g" (TLSSEGREG));
 #endif
 #ifdef __x86_64__
-  asm volatile ("movw %%fs,%0" : "=g" (TLSSEGREG));
+  asm volatile ("mov %%fs,%0" : "=g" (TLSSEGREG));
 #endif
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   if (TLSSEGREG / 8 != GDT_ENTRY_TLS_MIN) {
@@ -1128,8 +1124,8 @@ again:
         (*callback_pre_ckpt)();
     }
 
-    saved_break = sbrk (0);
-    DPRINTF (("mtcp checkpointhread*: saved_break=%p\n", saved_break));
+    mtcp_saved_break = mtcp_sys_brk (0);  // kernel returns mm->brk when passed zero
+    DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
     checkpointeverything ();
     
@@ -1309,31 +1305,34 @@ static void writefiledescrs (int fd)
   char linkbuf[FILENAMESIZE], *p, procfdname[64];
   int fdnum, i, linklen, nents, rc;
   off_t offset;
-  struct rlimit rlimit_nofile;
+  struct dirent *de, **namelist;
   struct Stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
 
-  /* See how many possible FDs there are */
+  /* List out my /proc/self/fd directory - it contains a list of files I have open */
 
-  if (getrlimit (RLIMIT_NOFILE, &rlimit_nofile) < 0) {
-    mtcp_printf ("mtcp writefiledescrs: error %d getting nofiles\n", errno);
+  nents = scandir ("/proc/self/fd", &namelist, NULL, alphasort);
+  if (nents < 0) {
+    mtcp_printf ("mtcp writefiledescrs: error scanning directory /proc/self/fd: %s\n", strerror (errno));
     mtcp_abort ();
   }
 
   /* Check each entry */
 
-  for (fdnum = 0; fdnum < rlimit_nofile.rlim_cur; fdnum ++) {
+  for (i = 0; i < nents; i ++) {
 
-    //if we have a callback, check to make sure we are allowed to touch this FD
-    if( callback_ckpt_fd!=NULL && (*callback_ckpt_fd)(fdnum)==0 ) continue;
+    /* The filename should just be a decimal number = the fd it represents                               */
+    /* Also, skip the entry for the checkpoint file itself as we don't want the restore to know about it */
 
-    /* Skip the entry for the checkpoint file itself as we don't want the restore to open the file again      */
-    /* Skip entries for stdin/stdout/stderr beacuse we will use whatever is given to mtcp_restore by the user */
+    de = namelist[i];
+    fdnum = strtol (de -> d_name, &p, 10);
+    if ((*p == 0) && (fdnum >= 0) && (fdnum != fd)
+    //jansel 01/14/07: ignore stdin/stdout/stderr
+    && (fdnum > 2)
+    ) {
 
-    if ((fdnum != fd) && (fdnum > 2)) {
-
-      /* Read the symbolic link from /proc/self/fd/<fdnum> so we get the filename that's open on the fd */
+      /* Read the symbolic link so we get the filename that's open on the fd */
 
       sprintf (procfdname, "/proc/self/fd/%d", fdnum);
       linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
@@ -1374,7 +1373,9 @@ static void writefiledescrs (int fd)
         }
       }
     }
+    free (de);
   }
+  free (namelist);
 
   /* Write end-of-fd-list marker to checkpoint file */
 
@@ -1927,12 +1928,6 @@ static int restarthread (void *threadv)
 
   if (thread == motherofall) {
     set_tid_address (&(thread -> child_tid));
-
-    DPRINTF(("mtcp restarthread*: saved_break=%p\n", saved_break));
-    //if (brk (saved_break) < 0) {
-    //  mtcp_printf ("mtcp restarthread: error %d doing brk (%p)\n", errno, saved_break);
-    //  mtcp_abort ();
-    //}
 
     if (callback_post_ckpt != NULL) {
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1) (&%x,%x) \n",&callback_post_ckpt,callback_post_ckpt));

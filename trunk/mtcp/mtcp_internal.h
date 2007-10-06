@@ -189,6 +189,8 @@ extern __attribute__ ((visibility ("hidden")))
   int mtcp_restore_cpfd;
 extern __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify;
+extern __attribute__ ((visibility ("hidden")))
+  void *mtcp_saved_break;
 extern void *mtcp_libc_dl_handle;
 extern void *mtcp_old_dl_sysinfo_0;
 
