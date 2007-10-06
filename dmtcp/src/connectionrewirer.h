@@ -55,12 +55,15 @@ protected:
     void finishup();
       
     size_t pendingCount() const { return _pendingIncoming.size() + _pendingOutgoing.size(); }
+    
+    void debugPrint() const;
             
 private:
    int _masterFd;
    std::map<ConnectionIdentifier, std::vector<int> > _pendingIncoming;
    std::map<ConnectionIdentifier, std::vector<int> > _pendingOutgoing;
    typedef std::map<ConnectionIdentifier, std::vector<int> >::iterator iterator;
+   typedef std::map<ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
 };
 
 }

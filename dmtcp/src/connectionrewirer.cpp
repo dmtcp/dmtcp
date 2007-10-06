@@ -28,18 +28,26 @@ void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
     JASSERT(sock->bytesRead() == sizeof(DmtcpMessage))(sock->bytesRead())(sizeof(DmtcpMessage));
     DmtcpMessage& msg = *(DmtcpMessage*)sock->buffer();
     msg.assertValid();
-    JASSERT(msg.type==DMT_RESTORE_WAITING)(msg.type).Text("unxpected message");
     
+    if(msg.type == DMT_FORCE_RESTART)
+    {
+      _pendingIncoming.clear();
+      _pendingOutgoing.clear();
+      finishup();
+      return;
+    }
+    
+    JASSERT(msg.type==DMT_RESTORE_WAITING)(msg.type).Text("unexpected message");
     
     iterator i = _pendingOutgoing.find(msg.restorePid);
     
     
     if(i == _pendingOutgoing.end())
     {
-        JTRACE("got RESTORE_WAITING MESSAGE [not used]")(msg.restorePid);
+        JTRACE("got RESTORE_WAITING MESSAGE [not used]")(msg.restorePid)(_pendingOutgoing.size())(_pendingIncoming.size());
     }else{
         JTRACE("got RESTORE_WAITING MESSAGE, reconnecting...")
-                (msg.restorePid)(msg.restorePort)(msg.restoreAddrlen);
+                (msg.restorePid)(msg.restorePort)(msg.restoreAddrlen)(_pendingOutgoing.size())(_pendingIncoming.size());
         const std::vector<int>& fds = i->second;
         JASSERT(fds.size() > 0);
         int fd0 = fds[0];
@@ -68,6 +76,9 @@ void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
     }
     
     if(pendingCount()==0) finishup();
+    #ifdef DEBUG
+    else debugPrint();
+    #endif
 }
         
 void dmtcp::ConnectionRewirer::onConnect(const jalib::JSocket& sock,  const struct sockaddr* /*remoteAddr*/,socklen_t /*remoteLen*/)
@@ -103,6 +114,9 @@ void dmtcp::ConnectionRewirer::onConnect(const jalib::JSocket& sock,  const stru
     
 
     if(pendingCount()==0) finishup();
+    #ifdef DEBUG
+    else debugPrint();
+    #endif
 }
         
 void dmtcp::ConnectionRewirer::finishup(){
@@ -155,4 +169,18 @@ void dmtcp::ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remo
                                                 , const std::vector<int>& fds)
 {
     _pendingOutgoing[remote] = fds;
+}
+
+void dmtcp::ConnectionRewirer::debugPrint() const
+{
+  JASSERT_STDERR << "Pending Incoming:\n";
+  for(const_iterator i = _pendingIncoming.begin(); i!=_pendingIncoming.end(); ++i)
+  {
+    JASSERT_STDERR << i->first << " numFds=" << i->second.size() << " firstFd=" << i->second[0] << '\n';
+  }
+  JASSERT_STDERR << "Pending Outgoing:\n";
+  for(const_iterator i = _pendingOutgoing.begin(); i!=_pendingOutgoing.end(); ++i)
+  {
+    JASSERT_STDERR << i->first << " numFds=" << i->second.size() << " firstFd=" << i->second[0] << '\n';
+  }
 }

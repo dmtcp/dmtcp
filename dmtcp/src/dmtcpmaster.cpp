@@ -104,7 +104,11 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
 //            case 't': case 'T':
 //                 _table.dbgPrint();
 //                 break;
-           case ' ': case '\t': case '\n': case '\r':
+          case 'f': case 'F':
+            JNOTE("forcing restart...");
+            broadcastMessage(DMT_FORCE_RESTART);
+            break;
+          case ' ': case '\t': case '\n': case '\r':
                 break;
            default:
                JTRACE("unkown char on stdin")(sock->buffer()[0]);
@@ -425,7 +429,7 @@ void dmtcp::DmtcpMaster::writeRestartScript()
     }
     fprintf(fp," & \n");
   }
-  fprintf(fp,"\n#forground the jobs until there are none left\nwhile jobs | grep [0-9] > /dev/null; do fg; done");
+  fprintf(fp,"\n#wait for them all to finish\nwait");
   fclose(fp);
   _restartFilenames.clear();
 }
