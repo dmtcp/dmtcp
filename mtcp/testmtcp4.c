@@ -1,4 +1,4 @@
-//+++2006-01-17
+//+++2007-10-06
 //    Copyright (C) 2006  Mike Rieker, Beverly, MA USA
 //    EXPECT it to FAIL when someone's HeALTh or PROpeRTy is at RISk
 //
@@ -14,7 +14,7 @@
 //    You should have received a copy of the GNU General Public License
 //    along with this program; if not, write to the Free Software
 //    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-//---2006-01-17
+//---2007-10-06
 
 /********************************************************************************************************************************/
 /*																*/
@@ -22,10 +22,11 @@
 /*  Checkpoint is written to testmtcp4.mtcp every 10 seconds									*/
 /*  It uses pthread_create routine to create the threads									*/
 /*																*/
-/*  Typical command line:  testmtcp4 5 6											*/
+/*  Typical command line:  testmtcp4 5 6 100											*/
 /*																*/
 /*    5 = means create 5 threads												*/
 /*    6 = means each thread has 6MB of random data to compute									*/
+/*    100 = means each thread runs 100 iterations										*/
 /*																*/
 /*    You can have from 1 to 9 threads												*/
 /*    You can have up to 2GB total data												*/
@@ -54,6 +55,7 @@ static pthread_mutex_t consumawait = PTHREAD_MUTEX_INITIALIZER;
 
 static int babblesize;
 static int nproducers;
+static int niterations;
 static int queuevalues[QUEUESIZE];
 static int volatile consumaindex = 0;
 static int volatile producaindex = 0;
@@ -86,7 +88,7 @@ int main (int argc, char *argv[])
   int i;
   pthread_t thread_tid;
 
-  if (argc != 3) goto usage;
+  if (argc != 4) goto usage;
 
   nproducers = strtol (argv[1], &p, 0);
   if ((*p != 0) || (nproducers <= 0) || (nproducers > 9)) {
@@ -102,6 +104,12 @@ int main (int argc, char *argv[])
   babblesize <<= 20;
   babblesize /= sizeof (int);
 
+  niterations = strtol (argv[3], &p, 0);
+  if ((*p != 0) || (niterations <= 0)) {
+    fprintf (stderr, "testmtcp4: invalid number_of_iterations %s\n", argv[3]);
+    goto usage;
+  }
+
   mtcp_init ("testmtcp4.mtcp", 10, 1);
   mtcp_ok ();
 
@@ -116,10 +124,11 @@ int main (int argc, char *argv[])
   return (0);
 
 usage:
-  fprintf (stderr, "usage: testmtcp4 <number_of_producers> <number_of_megabytes>\n");
+  fprintf (stderr, "usage: testmtcp4 <number_of_producers> <number_of_megabytes> <iterations>\n");
   fprintf (stderr, "   number_of_producers in range 1..9\n");
   fprintf (stderr, "   number_of_megabytes * number_of_producers <= 2G\n");
-  fprintf (stderr, "   an example is: testmtcp4 5 6\n");
+  fprintf (stderr, "   number_of_iterations to run producers\n");
+  fprintf (stderr, "   an example is: testmtcp4 5 6 100\n");
   return (-1);
 }
 
@@ -128,17 +137,16 @@ static int threadno = 0;
 static void *produca_func (void *dummy)
 
 {
-  int *babblebuff, count, i, j, queuewasempty;
+  int *babblebuff, count, i, iter, j, queuewasempty;
   struct timespec sleeptime;
-
-  babblebuff = malloc (babblesize * sizeof *babblebuff);
 
   do count = threadno;                                       // get an unique number for low digit
   while (!atomic_setif_int (&threadno, count + 1, count));
 
   count ++;
 
-  while (1) {
+  for (iter = niterations; -- iter >= 0;) {
+    babblebuff = malloc (babblesize * sizeof *babblebuff);
     count += COUNTINC;                                       // this is next value to store in queue
     memset (&sleeptime, 0, sizeof sleeptime);                // wait up to a tenth of a second
     sleeptime.tv_nsec = random () % 100000000;

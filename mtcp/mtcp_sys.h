@@ -281,6 +281,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
 #define mtcp_sys_set_tid_address(args...)  mtcp_inline_syscall(set_tid_address,1,args)
+#define mtcp_sys_brk(args...)  mtcp_inline_syscall(brk,1,args)
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
 # define mtcp_sys_get_thread_area(args...) \
