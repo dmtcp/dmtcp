@@ -367,6 +367,16 @@ void dmtcp::DmtcpWorker::restoreSockets(CheckpointCoordinator& coordinator)
 
 }
 
+//tell the master is should broadcast DMT_FORCE_RESTART
+void dmtcp::DmtcpWorker::forceRestart()
+{
+  connectToMaster();
+  dmtcp::DmtcpMessage msg;
+  msg.type = DMT_FORCE_RESTART;
+  _masterSocket << msg;
+  _masterSocket.close();
+}
+
 
 /*!
     \fn dmtcp::DmtcpWorker::connectToMaster()

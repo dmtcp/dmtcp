@@ -85,9 +85,16 @@ public:
 }//namespace
 
 int main(int argc, char** argv)
-{
-    
+{    
     JASSERT(argc >= 2)(argc).Text("usage: dmtcp_restart ckpt_file1 [ckpt_file2 ...]");
+    
+    if(argc == 2 && strcmp(argv[1],"--force")==0)
+    {
+      //tell the master that it should broadcast a DMT_FORCE_RESTART message
+      DmtcpWorker worker(false);
+      worker.forceRestart();
+      return 0;
+    }
     
     std::vector<RestoreTarget> targets;
 
