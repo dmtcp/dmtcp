@@ -1124,7 +1124,7 @@ again:
         (*callback_pre_ckpt)();
     }
 
-    mtcp_saved_break = mtcp_sys_brk (0);  // kernel returns mm->brk when passed zero
+    mtcp_saved_break = (void*) mtcp_sys_brk(0);  // kernel returns mm->brk when passed zero
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
     checkpointeverything ();
@@ -1297,6 +1297,15 @@ static void checkpointeverything (void)
   DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
 }
 
+/* True if the given FD should be checkpointed */
+static int should_ckpt_fd(int fd)
+{
+   if( callback_ckpt_fd!=NULL ) 
+     return (*callback_ckpt_fd)(fd); //delegate to callback
+   else
+     return fd>2; //ignore stdin/stdout
+}
+
 /* Write list of open files to the checkpoint file */
 
 static void writefiledescrs (int fd)
@@ -1327,10 +1336,8 @@ static void writefiledescrs (int fd)
 
     de = namelist[i];
     fdnum = strtol (de -> d_name, &p, 10);
-    if ((*p == 0) && (fdnum >= 0) && (fdnum != fd)
-    //jansel 01/14/07: ignore stdin/stdout/stderr
-    && (fdnum > 2)
-    ) {
+
+    if ((*p == 0) && (fdnum >= 0) && (fdnum != fd) && should_ckpt_fd(fdnum)>0) {
 
       /* Read the symbolic link so we get the filename that's open on the fd */
 
