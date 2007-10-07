@@ -44,7 +44,8 @@ public:
     DmtcpWorker(bool shouldEnableCheckpointing);
     ~DmtcpWorker();
     
-    
+    void forceRestart();
+        
     static void maskStdErr();
     static void unmaskStdErr();
 protected:

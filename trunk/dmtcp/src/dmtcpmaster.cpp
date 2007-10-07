@@ -175,7 +175,6 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
                             (_restoreWaitingMessages.size());
                     _restoreWaitingMessages.clear();
                     
-//                     sleep(5);
                     JTIMER_STOP(restart);
                     
                     JNOTE("refilling all nodes (after checkpoint)");
@@ -240,6 +239,10 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
               _restartFilenames[hostname].push_back(ckptFilename);
             }
             break;
+            case DMT_FORCE_RESTART:
+            JNOTE("forcing restart... (forwarding from client)");
+            broadcastMessage(DMT_FORCE_RESTART);
+            break;
             default:
                 JASSERT(false)(msg.from)(msg.type).Text("unexpected message from worker");
         }
@@ -269,17 +272,19 @@ void dmtcp::DmtcpMaster::onDisconnect(jalib::JReaderInterface* sock)
 
 void dmtcp::DmtcpMaster::onConnect( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen)
 {
-    if(_dataSockets.size() <= 1 /*&& _restoreWaitingMessages.size()>0*/)
+    if(_dataSockets.size() <= 1)
     {
-        if(_dataSockets.size() == 0 
-          || _dataSockets[0]->socket().sockfd() == STDIN_FD)
-        {
-            JTRACE("resetting _restoreWaitingMessages")
-                    (_restoreWaitingMessages.size());
-            _restoreWaitingMessages.clear();
-            
-            JTIMER_START(restart);
-        }
+      if(_dataSockets.size() == 0 
+        || _dataSockets[0]->socket().sockfd() == STDIN_FD)
+      { 
+        //this is the first connection
+          
+        JTRACE("resetting _restoreWaitingMessages")
+                (_restoreWaitingMessages.size());
+        _restoreWaitingMessages.clear();
+        
+        JTIMER_START(restart);
+      }
     }
         
     
@@ -303,6 +308,9 @@ void dmtcp::DmtcpMaster::onConnect( const jalib::JSocket& sock,  const struct so
                                     ,remoteAddr
                                     ,remoteLen
                                     ,hello_remote.restorePort);
+    
+    //add this client as a chunk reader
+    // in this case a 'chunk' is sizeof(DmtcpMessage) 
     addDataSocket( ds );
     
     if(hello_remote.state == WorkerState::RESTARTING
@@ -418,7 +426,10 @@ void dmtcp::DmtcpMaster::writeRestartScript()
   JTRACE("writing restart script")(filename);
   FILE* fp = fopen(filename.c_str(),"w");
   JASSERT(fp!=0)(filename).Text("failed to open file");  
-  fprintf(fp, "#!/bin/bash \nset -m # turn on job control\n\n#launch all the restarts in the background:\n");
+  fprintf(fp, "%s", "#!/bin/bash \nset -m # turn on job control\n\n"
+  "#launch all the restarts in the background:\n"
+  "#note that stdin is given to the last image on each dmtcp_restart line\n"
+  "#that process then must be brought to the forground for it to get the stdin of this script\n");
   
   for(host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host)
   {
@@ -429,6 +440,7 @@ void dmtcp::DmtcpMaster::writeRestartScript()
     }
     fprintf(fp," & \n");
   }
+  
   fprintf(fp,"\n#wait for them all to finish\nwait");
   fclose(fp);
   _restartFilenames.clear();
