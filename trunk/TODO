@@ -1,14 +1,11 @@
-Known issues/bugs:
-1) brk(saved_brk) crashes dmtcp_restart of mpd on teracluster
-    Should brk() be called before or after restoring memory?  Is it needed at all?
+x) `yes | ./mtcp_restore testmtcp.mtcp` will crash after 30 sec on kleptocracy
+x) testmtcp5.c gives unexpected results
+
 2) "mtcp_restore: error 16 mapping 2000 bytes at 0x7FBFFFE000" happens when restarting testmtcp on teracluster
     It seems to work... but what is causing this error
-    Similar errors occur with all the other progs I tested.
 3) mtcp only compiles with "-O0" on teracluster, fails with -O{1,2,3}, is this unavoidable?
 4) MPICH2 failes after restart when debug printing is enabled in mtcp.  It works if you disabled DPRINTF.
 5) OpenMPI fails to checkpoint/restore
 6) Many fcntl()/ioctl() flags are not checkpointed
 7) Fifos/pts/ttys are not handled correctly
-8) There is a problem in the way we scan for active file descriptors.  Right now we scan fds 3-getrlimit(...).
-     A user can get FD's higher than the limit using dup() (and possibly other ways).
 

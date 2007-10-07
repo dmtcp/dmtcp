@@ -49,7 +49,7 @@ ifeq (${shell uname -m},x86_64)
   LDFLAGS += -Wl,--rpath -Wl,$(MTCP_DIR)
 endif
 
-default: testmtcp testmtcp2 testmtcp3 testmtcp4 threadtest mtcp.so mtcp_restore mtcp_restore.so
+default: testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest mtcp.so mtcp_restore mtcp_restore.so
 
 all: default
 
@@ -70,6 +70,9 @@ testmtcp3: testmtcp3.c mtcp.so
 
 testmtcp4: testmtcp4.c mtcp.so
 	${CC} $(CFLAGS) -o testmtcp4 testmtcp4.c mtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
+
+testmtcp5: testmtcp5.c mtcp.so
+	${CC} $(CFLAGS) -o testmtcp5 testmtcp5.c mtcp.so 
 
 threadtest: threadtest.c
 	${CC} $(CFLAGS) -o threadtest threadtest.c
