@@ -54,7 +54,6 @@
 #include <sys/types.h>     // for gettid, tkill
 #include <linux/unistd.h>  // for gettid, tkill
 
-
 #include "mtcp_internal.h"
 
 #if defined(GDT_ENTRY_TLS_ENTRIES) && !defined(__x86_64__)
@@ -148,9 +147,11 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 static char const *perm_checkpointfilename = NULL;
 static char const *temp_checkpointfilename = NULL;
+static unsigned long long checkpointsize;
 static int intervalsecs;
 static pid_t motherpid;
 static int restore_size;
+static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
 static int verify_total;  // value given by envar
@@ -275,6 +276,9 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
 
   threadenabledefault = clonenabledefault;       // save this away where it's easy to get
+
+  p = getenv ("MTCP_SHOWTIMING");
+  showtiming = ((p != NULL) && (*p & 1));
 
   /* Maybe dump out some stuff about the TLS */
 
@@ -1001,6 +1005,7 @@ static void *checkpointhread (void *dummy)
 
     setup_sig_handler();
     mtcp_sys_gettimeofday (&started, NULL);
+    checkpointsize = 0;
 
     /* Halt all other threads - force them to call stopthisthread                    */
     /* If any have blocked checkpointing, wait for them to unblock before signalling */
@@ -1135,9 +1140,13 @@ again:
         (*callback_post_ckpt)(0);
     }
 
-    mtcp_sys_gettimeofday (&stopped, NULL);
-    stopped.tv_usec += (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
-    TPRINTF (("mtcp checkpointhread*: time %u uS\n", stopped.tv_usec));
+    if (showtiming) {
+      mtcp_sys_gettimeofday (&stopped, NULL);
+      stopped.tv_usec += (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
+      mtcp_printf ("mtcp checkpoint: time %u uS, size %u megabytes, avg rate %u MB/s\n", 
+                    stopped.tv_usec, (unsigned int)(checkpointsize / 1000000), 
+                    (unsigned int)(checkpointsize / stopped.tv_usec));
+    }
 
     /* Resume all threads.  But if we're doing a checkpoint verify, abort all threads except */
     /* the main thread, as we don't want them running when we exec the mtcp_restore program. */
@@ -1311,78 +1320,87 @@ static int should_ckpt_fd(int fd)
 static void writefiledescrs (int fd)
 
 {
-  char linkbuf[FILENAMESIZE], *p, procfdname[64];
-  int fdnum, i, linklen, nents, rc;
+  char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
+  int doff, dsiz, fddir, fdnum, i, linklen, nents, rc;
   off_t offset;
-  struct dirent *de, **namelist;
+  struct dirent *dent;
   struct Stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
 
-  /* List out my /proc/self/fd directory - it contains a list of files I have open */
+  /* Open /proc/self/fd directory - it contains a list of files I have open */
 
-  nents = scandir ("/proc/self/fd", &namelist, NULL, alphasort);
-  if (nents < 0) {
-    mtcp_printf ("mtcp writefiledescrs: error scanning directory /proc/self/fd: %s\n", strerror (errno));
+  fddir = mtcp_sys_open ("/proc/self/fd", O_RDONLY, 0);
+  if (fddir < 0) {
+    mtcp_printf ("mtcp writefiledescrs: error opening directory /proc/self/fd: %s\n", strerror (errno));
     mtcp_abort ();
   }
 
   /* Check each entry */
 
-  for (i = 0; i < nents; i ++) {
+  while (1) {
+    dsiz = -1;
+    if (sizeof dent -> d_ino == 4) dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
+    if (sizeof dent -> d_ino == 8) dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
+    if (dsiz <= 0) break;
+    for (doff = 0; doff < dsiz; doff += dent -> d_reclen) {
+      dent = (void *)(dbuf + doff);
 
-    /* The filename should just be a decimal number = the fd it represents                               */
-    /* Also, skip the entry for the checkpoint file itself as we don't want the restore to know about it */
+      /* The filename should just be a decimal number = the fd it represents                                         */
+      /* Also, skip the entry for the checkpoint and directory files as we don't want the restore to know about them */
 
-    de = namelist[i];
-    fdnum = strtol (de -> d_name, &p, 10);
+      fdnum = strtol (dent -> d_name, &p, 10);
+      if ((*p == 0) && (fdnum >= 0) && (fdnum != fd) && (fdnum != fddir) && (should_ckpt_fd (fdnum) > 0)) {
 
-    if ((*p == 0) && (fdnum >= 0) && (fdnum != fd) && should_ckpt_fd(fdnum)>0) {
+        /* Read the symbolic link so we get the filename that's open on the fd */
 
-      /* Read the symbolic link so we get the filename that's open on the fd */
+        sprintf (procfdname, "/proc/self/fd/%d", fdnum);
+        linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
+        if ((linklen >= 0) || (errno != ENOENT)) { // probably was the proc/self/fd directory itself
+          if (linklen < 0) {
+            mtcp_printf ("mtcp writefiledescrs: error reading %s: %s\n", procfdname, strerror (errno));
+            mtcp_abort ();
+          }
+          linkbuf[linklen] = '\0';
 
-      sprintf (procfdname, "/proc/self/fd/%d", fdnum);
-      linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
-      if ((linklen >= 0) || (errno != ENOENT)) { // probably was the proc/self/fd directory itself
-        if (linklen < 0) {
-          mtcp_printf ("mtcp writefiledescrs: error reading %s: %s\n", procfdname, strerror (errno));
-          mtcp_abort ();
-        }
-        linkbuf[linklen] = '\0';
+          /* Read about the link itself so we know read/write open flags */
 
-        /* Read about the link itself so we know read/write open flags */
+          rc = mtcp_safelstat (procfdname, &lstatbuf);
+          if (rc < 0) {
+            mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n", procfdname, linkbuf, strerror (-rc));
+            mtcp_abort ();
+          }
 
-        rc = mtcp_safelstat (procfdname, &lstatbuf);
-        if (rc < 0) {
-          mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n", procfdname, linkbuf, strerror (-rc));
-          mtcp_abort ();
-        }
+          /* Read about the actual file open on the fd */
 
-        /* Read about the actual file open on the fd */
+          rc = mtcp_safestat (linkbuf, &statbuf);
+          if (rc < 0) {
+            mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n", procfdname, linkbuf, strerror (-rc));
+          }
 
-        rc = mtcp_safestat (linkbuf, &statbuf);
-        if (rc < 0) {
-          mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n", procfdname, linkbuf, strerror (-rc));
-        }
+          /* Write state information to checkpoint file                                               */
+          /* Replace file's permissions with current access flags so restore will know how to open it */
 
-        /* Write state information to checkpoint file                                               */
-        /* Replace file's permissions with current access flags so restore will know how to open it */
-
-        else {
-          offset = 0;
-          if (S_ISREG (statbuf.st_mode)) offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
-          statbuf.st_mode = (statbuf.st_mode & ~0777) | (lstatbuf.st_mode & 0777);
-          writefile (fd, &fdnum, sizeof fdnum);
-          writefile (fd, &statbuf, sizeof statbuf);
-          writefile (fd, &offset, sizeof offset);
-          writefile (fd, &linklen, sizeof linklen);
-          writefile (fd, linkbuf, linklen);
+          else {
+            offset = 0;
+            if (S_ISREG (statbuf.st_mode)) offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
+            statbuf.st_mode = (statbuf.st_mode & ~0777) | (lstatbuf.st_mode & 0777);
+            writefile (fd, &fdnum, sizeof fdnum);
+            writefile (fd, &statbuf, sizeof statbuf);
+            writefile (fd, &offset, sizeof offset);
+            writefile (fd, &linklen, sizeof linklen);
+            writefile (fd, linkbuf, linklen);
+          }
         }
       }
     }
-    free (de);
   }
-  free (namelist);
+  if (dsiz < 0) {
+    mtcp_printf ("mtcp writefiledescrs: error reading /proc/self/fd: %s\n", strerror (mtcp_sys_errno));
+    mtcp_abort ();
+  }
+
+  mtcp_sys_close (fddir);
 
   /* Write end-of-fd-list marker to checkpoint file */
 
@@ -1430,6 +1448,8 @@ static void writefile (int fd, void const *buff, int size)
 {
   char const *bf;
   int rc, sz, wt;
+
+  checkpointsize += size;
 
   bf = buff;
   sz = size;

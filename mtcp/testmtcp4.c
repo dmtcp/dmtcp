@@ -54,11 +54,14 @@ static pthread_mutex_t producawait = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t consumawait = PTHREAD_MUTEX_INITIALIZER;
 
 static int babblesize;
+static int l2babblesize;
 static int nproducers;
 static int niterations;
 static int queuevalues[QUEUESIZE];
 static int volatile consumaindex = 0;
 static int volatile producaindex = 0;
+static long long malloctotal = 0;
+static long long freetotal = 0;
 
 /* Set *loc to newval iff *loc equal to oldval */
 /* Return 0 if failed, 1 if succeeded          */
@@ -103,6 +106,7 @@ int main (int argc, char *argv[])
   }
   babblesize <<= 20;
   babblesize /= sizeof (int);
+  for (l2babblesize = 0; (1 << l2babblesize) < babblesize; l2babblesize ++) { }
 
   niterations = strtol (argv[3], &p, 0);
   if ((*p != 0) || (niterations <= 0)) {
@@ -137,7 +141,7 @@ static int threadno = 0;
 static void *produca_func (void *dummy)
 
 {
-  int *babblebuff, count, i, iter, j, queuewasempty;
+  int *babblebuff, babblelen, count, i, iter, j, queuewasempty;
   struct timespec sleeptime;
 
   do count = threadno;                                       // get an unique number for low digit
@@ -146,12 +150,19 @@ static void *produca_func (void *dummy)
   count ++;
 
   for (iter = niterations; -- iter >= 0;) {
-    babblebuff = malloc (babblesize * sizeof *babblebuff);
+    babblelen  = random () % l2babblesize;                   // malloc a random-sized buffer
+    babblelen  = random () % (1 << babblelen);
+    babblebuff = malloc (babblelen * sizeof *babblebuff);
+    if (babblebuff == NULL) {
+      fprintf (stderr, "Out of memory!\n");
+      abort ();
+    }
+    malloctotal += babblelen * sizeof *babblebuff;
     count += COUNTINC;                                       // this is next value to store in queue
     memset (&sleeptime, 0, sizeof sleeptime);                // wait up to a tenth of a second
     sleeptime.tv_nsec = random () % 100000000;
     nanosleep (&sleeptime, NULL);
-    for (i = random () % babblesize; -- i >= 0;) {           // perform some useless computation
+    for (i = babblelen; -- i >= 0;) {                        // perform some useless computation
       babblebuff[i] = random ();
     }
     while (1) {
@@ -167,6 +178,10 @@ static void *produca_func (void *dummy)
     queuewasempty = (consumaindex == i);                     // remember if queue was empty or not
     pthread_mutex_unlock (&indexmutex);                      // unlock indices
     if (queuewasempty) pthread_mutex_unlock (&consumawait);  // wake consumer if queue was empty
+    if ((random () % QUEUESIZE) == 0) {
+      free (babblebuff);     // on rare occaision, do a free
+      freetotal += babblelen * sizeof *babblebuff;
+    }
   }
 }
 
@@ -194,13 +209,23 @@ static void *consuma_func (void *dummy)
       consumaindex = i;
       pthread_mutex_unlock (&indexmutex);                     // unlock the indices
       if (queuewasfull) pthread_mutex_unlock (&producawait);  // if queue was full, wake any waiting producers
-      mtcp_printf (" %d", value);                             // print the value out
+      printf (" %d", value);                                  // print the value out
+      fflush (stdout);
       i = (value - 1) % COUNTINC;                             // see which producer wrote the entry
       prodlastcount[i] += COUNTINC;                           // see what value we should get from it
       if (prodlastcount[i] != value) {                        // make sure that's what we got
         pthread_mutex_lock (&indexmutex);                     // shut other threads up
         fprintf (stderr, "Value should be %d\n", prodlastcount[i]);
         abort ();                                             // barf!
+      }
+      for (i = nproducers; -- i >= 0;) {
+        if (prodlastcount[i] / COUNTINC != niterations) break;
+      }
+      if (i < 0) {
+        printf ("\nAll iterations complete!\n");
+        printf ("  malloctotal=%lld\n", malloctotal);
+        printf ("    freetotal=%lld\n", freetotal);
+        break;
       }
     }
   }
