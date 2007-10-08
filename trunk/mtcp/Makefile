@@ -33,7 +33,7 @@ MTCP_VERSION = 64
 
 CC = gcc
 #Currently on many archs we cant compile without -O0
-CFLAGS = -O0 
+CFLAGS = -O0 -g
 #CFLAGS = -O0 -g -DDEBUG -DTIMING
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
@@ -133,7 +133,7 @@ mtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  ${LIBRARY_OBJS} -ldl -lpthread
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp.o mtcp.c
+	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 mtcp_restatic.o: mtcp_restatic.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_restatic.o mtcp_restatic.c
