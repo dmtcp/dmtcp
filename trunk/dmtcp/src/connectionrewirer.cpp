@@ -31,6 +31,7 @@ void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
     
     if(msg.type == DMT_FORCE_RESTART)
     {
+      JTRACE("got DMT_FORCE_RESTART, exiting ConnectionRewirer")(_pendingOutgoing.size())(_pendingIncoming.size());
       _pendingIncoming.clear();
       _pendingOutgoing.clear();
       finishup();
