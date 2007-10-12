@@ -28,6 +28,18 @@
 #undef min
 #undef max
 
+
+const char theHelpMessage[] = 
+"Commands:\n"
+"  l : List connected nodes\n"
+"  c : Checkpoint all nodes\n"
+"  f : Force a restart even if there are missing nodes (debugging only)\n"
+"  q : Kill all nodes and quit\n"
+"  ? : Show this message\n"
+"\n";
+
+int theCheckpointInterval = -1;
+
 const int STDIN_FD = fileno( stdin );
 
 JTIMER(checkpoint);
@@ -77,43 +89,43 @@ void dmtcp::DmtcpCoordinator::onData(jalib::JReaderInterface* sock)
 {
     if(sock->socket().sockfd() == STDIN_FD)
     {
-//        JTRACE("got request from user")(sock->buffer()[0]);
-       
-       #ifndef CHECKPOINT_TIMER
        switch(sock->buffer()[0])
        {
            case 'c': case 'C':
-                startCheckpoint();
-                break;
+            startCheckpoint();
+            break;
            case 'l': case 'L':
            case 't': case 'T':
-                JASSERT_STDERR << "Listing clients... \n";
-                for(std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
-                    ;i!= _dataSockets.end()
-                    ;++i)
+            JASSERT_STDERR << "Listing clients... \n";
+            for(std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+                ;i!= _dataSockets.end()
+                ;++i)
+            {
+                if((*i)->socket().sockfd() != STDIN_FD)
                 {
-                    if((*i)->socket().sockfd() != STDIN_FD)
-                    {
-                        JASSERT_STDERR << "Client: clientNumber="<< ((NamedChunkReader*) (*i))->clientNumber()
-                                << " fd="<<  (*i)->socket().sockfd()
-                                << " " << ((NamedChunkReader*) (*i))->identity()
-                                << '\n';
-                    }
+                    JASSERT_STDERR << "Client: clientNumber="<< ((NamedChunkReader*) (*i))->clientNumber()
+                            << " fd="<<  (*i)->socket().sockfd()
+                            << " " << ((NamedChunkReader*) (*i))->identity()
+                            << '\n';
                 }
-               break;
-//            case 't': case 'T':
-//                 _table.dbgPrint();
-//                 break;
+            }
+            break;
           case 'f': case 'F':
             JNOTE("forcing restart...");
             broadcastMessage(DMT_FORCE_RESTART);
             break;
+          case 'q': case 'Q':
+            JASSERT_STDERR << "exiting... (per request)\n";
+            exit(0);
+            break;
+          case 'h': case 'H': case '?':
+            JASSERT_STDERR << theHelpMessage;
+            break;
           case ' ': case '\t': case '\n': case '\r':
-                break;
-           default:
-               JTRACE("unkown char on stdin")(sock->buffer()[0]);
+            break;
+          default:
+               JTRACE("unhandled char on stdin")(sock->buffer()[0]);
        }
-       #endif
        return; 
     }
     else
@@ -351,9 +363,8 @@ void dmtcp::DmtcpCoordinator::onConnect( const jalib::JSocket& sock,  const stru
 
 void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 {
-#ifdef CHECKPOINT_TIMER
-     startCheckpoint();
-#endif
+  if(theCheckpointInterval > 0)
+    startCheckpoint();
 }
 
 
@@ -449,17 +460,36 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 int main( int argc, char** argv)
 {
     dmtcp::DmtcpMessage::setDefaultCoordinator(dmtcp::UniquePid::ThisProcess());
+    
+    //parse port
     int port = DEFAULT_PORT;
     const char* portStr = getenv(ENV_VAR_NAME_PORT);
     if(portStr != NULL) port = jalib::StringToInt(portStr); 
-    if(argc > 1) port = jalib::StringToInt(argv[1]);
+    if(argc > 1) port = atoi(argv[1]);
+    
+    if(port <= 0)
+    {
+      JASSERT_STDERR << 
+      "USAGE: " << argv[0] << " [port]\n"
+      "\n"
+      "ENVIRONMENT VARIABLES:\n"
+      "  " ENV_VAR_NAME_PORT "=N : Port dmtcp_coordinator listens on, default = " << DEFAULT_PORT << "\n"
+      "  " ENV_VAR_NAME_CKPT_INTR "=N : If set, checkpoints will automatically happen every N seconds.  Otherwise checkpoints must be initiated manually via the 'c' command. \n"
+      "\n";
+      return 1;
+    }
+    
+    //parse checkpoint interval
+    const char* interval = getenv(ENV_VAR_NAME_CKPT_INTR);
+    if(interval != NULL) theCheckpointInterval = jalib::StringToInt(interval);
+    
     JTRACE("dmtcp_coordinator starting...")(port);
     jalib::JServerSocket sock(jalib::JSockAddr::ANY,port);
     JASSERT(sock.isValid())(port).Text("Failed to create listen socket");
     dmtcp::DmtcpCoordinator prog;
     prog.addListenSocket(sock);
     prog.addDataSocket( new jalib::JChunkReader( STDIN_FD , 1) );
-    prog.monitorSockets(DEFAULT_CHECKPOINT_INTERVAL);
+    prog.monitorSockets(theCheckpointInterval > 0 ? theCheckpointInterval : 3600);
     return 0;
 }
 
