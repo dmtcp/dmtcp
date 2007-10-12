@@ -135,12 +135,11 @@ void dmtcp::CheckpointCoordinator::postRestart()
     KernelDeviceToConnection::Instance() = KernelDeviceToConnection(_conToFds);
 }
 
-void dmtcp::CheckpointCoordinator::doReconnect(jalib::JSocket& master, jalib::JSocket& restoreListen)
+void dmtcp::CheckpointCoordinator::doReconnect(jalib::JSocket& coordinator, jalib::JSocket& restoreListen)
 {
-        
-    _rewirer.addDataSocket(new jalib::JChunkReader(master,sizeof(DmtcpMessage)));
+    _rewirer.addDataSocket(new jalib::JChunkReader(coordinator,sizeof(DmtcpMessage)));
     _rewirer.addListenSocket(restoreListen);
-    _rewirer.setMasterFd( master.sockfd() );
+    _rewirer.setCoordinatorFd( coordinator.sockfd() );
     
     ConnectionList& connections = ConnectionList::Instance();
     for(ConnectionList::iterator i= connections.begin()

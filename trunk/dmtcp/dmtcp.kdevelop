@@ -28,7 +28,7 @@
       <runarguments>
         <client/>
         <server/>
-        <dmtcp_master/>
+        <dmtcp_coordinator/>
         <player/>
         <dmtcphijack.so/>
         <dmtcp_checkpoint/>

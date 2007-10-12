@@ -33,15 +33,15 @@ void dmtcp::WorkerState::setCurrentState(const dmtcp::WorkerState& theValue)
   theState = theValue;
 }
 
-static dmtcp::UniquePid theDefaultMaster;
+static dmtcp::UniquePid theDefaultCoordinator;
 
-void dmtcp::DmtcpMessage::setDefaultMaster(const UniquePid& id){theDefaultMaster = id;}
+void dmtcp::DmtcpMessage::setDefaultCoordinator(const UniquePid& id){theDefaultCoordinator = id;}
         
 dmtcp::DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/) 
     :_msgSize(sizeof(DmtcpMessage))
     ,type(t)
     ,from(ConnectionIdentifier::Self())
-    ,master(theDefaultMaster)
+    ,coordinator(theDefaultCoordinator)
     ,state(WorkerState::currentState())
     ,restorePid(ConnectionIdentifier::Null())
     ,restoreAddrlen(0)

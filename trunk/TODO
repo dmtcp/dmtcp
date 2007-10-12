@@ -1,7 +1,6 @@
 
 MINOR CLEANUP:
 
-1.  dmtcp_master => change name to dmtpc_coordinator
 2.  dmtcp_coordinator should accept "q" for quit.
     dmtcp_coordinator should accept "h" and "?" for help.
 3.  dmtcp_checkpoint should have flag:  --sigckpt SIGNAL_NUMBER

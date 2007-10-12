@@ -30,7 +30,7 @@ class CheckpointCoordinator;
 class DmtcpWorker{
 public:
     static DmtcpWorker& instance();
-    const dmtcp::UniquePid& masterId() const;
+    const dmtcp::UniquePid& coordinatorId() const;
     
     void waitForStage1Suspend();
     void waitForStage2Checkpoint();
@@ -51,12 +51,12 @@ public:
 protected:
     
 
-    void connectToMaster();
+    void connectToCoordinator();
 private:
     static DmtcpWorker theInstance;
 private:
-    jalib::JSocket _masterSocket;
-    UniquePid      _masterId;
+    jalib::JSocket _coordinatorSocket;
+    UniquePid      _coordinatorId;
     jalib::JSocket _restoreSocket;
 };
 

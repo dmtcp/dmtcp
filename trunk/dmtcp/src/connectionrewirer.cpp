@@ -126,7 +126,7 @@ void dmtcp::ConnectionRewirer::finishup(){
     //close the restoreSocket
     for(size_t i=0; i<_listenSockets.size(); ++i)
         _listenSockets[i].close();
-    //poison the master socket listener
+    //poison the coordinator socket listener
     for(size_t i=0; i<_dataSockets.size(); ++i)
         _dataSockets[i]->socket() = -1;
     
@@ -136,16 +136,16 @@ void dmtcp::ConnectionRewirer::finishup(){
 void dmtcp::ConnectionRewirer::onDisconnect(jalib::JReaderInterface* sock)
 {
     JASSERT(sock->socket().sockfd() < 0)
-            .Text("dmtcp_master disconnected");
+            .Text("dmtcp_coordinator disconnected");
 }
 
-int dmtcp::ConnectionRewirer::masterFd() const {
-    return _masterFd;
+int dmtcp::ConnectionRewirer::coordinatorFd() const {
+    return _coordinatorFd;
 }
 
 
-void dmtcp::ConnectionRewirer::setMasterFd(const int& theValue) {
-    _masterFd = theValue;
+void dmtcp::ConnectionRewirer::setCoordinatorFd(const int& theValue) {
+    _coordinatorFd = theValue;
 }
 
 void dmtcp::ConnectionRewirer::doReconnect() {
@@ -162,8 +162,8 @@ void dmtcp::ConnectionRewirer::registerIncoming(const ConnectionIdentifier& loca
     msg.type = DMT_RESTORE_WAITING;
     msg.restorePid = local;
     
-    JASSERT(_masterFd > 0);
-    addWrite( new jalib::JChunkWriter( _masterFd , (char*)&msg, sizeof(DmtcpMessage) ) );
+    JASSERT(_coordinatorFd > 0);
+    addWrite( new jalib::JChunkWriter( _coordinatorFd , (char*)&msg, sizeof(DmtcpMessage) ) );
 }
 
 void dmtcp::ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote

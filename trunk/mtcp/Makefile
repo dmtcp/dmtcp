@@ -207,7 +207,7 @@ check: mtcp.so mtcp_restore testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out
+	      *.lis a.out mtcp.t.orig
 
 clean:
 	rm -f *.o *.map mtcp_restatic.lis mtcp_restatic.00? mtcp_libc.s \

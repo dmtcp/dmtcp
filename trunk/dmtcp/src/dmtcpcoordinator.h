@@ -17,8 +17,8 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef DMTCPDMTCPMASTER_H
-#define DMTCPDMTCPMASTER_H
+#ifndef DMTCPDMTCPCOORDINATOR_H
+#define DMTCPDMTCPCOORDINATOR_H
 
 #include "jsocket.h"
 #include "nodetable.h"
@@ -26,7 +26,7 @@
 
 namespace dmtcp {
 
-class DmtcpMaster : public jalib::JMultiSocketProgram {
+class DmtcpCoordinator : public jalib::JMultiSocketProgram {
 public:
     virtual void onData(jalib::JReaderInterface* sock);
     virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);

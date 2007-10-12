@@ -90,7 +90,7 @@ int main(int argc, char** argv)
     
     if(argc == 2 && strcmp(argv[1],"--force")==0)
     {
-      //tell the master that it should broadcast a DMT_FORCE_RESTART message
+      //tell the coordinator that it should broadcast a DMT_FORCE_RESTART message
       DmtcpWorker worker(false);
       worker.forceRestart();
       return 0;

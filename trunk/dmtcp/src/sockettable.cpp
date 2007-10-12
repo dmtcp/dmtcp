@@ -71,7 +71,7 @@ extern "C" int dmtcp_on_connect(int ret, int sockfd, const  struct sockaddr *ser
     dmtcp::DmtcpMessage hello_local;
     hello_local.type = dmtcp::DMT_HELLO_PEER;
     hello_local.from = con.id();
-    hello_local.master = dmtcp::DmtcpWorker::instance().masterId();
+    hello_local.coordinator = dmtcp::DmtcpWorker::instance().coordinatorId();
     remote << hello_local;
     
 //     JTRACE("connect complate")(sockfd)(hello_local.from.conId)(hello_local.from.id);
@@ -133,9 +133,9 @@ extern "C" int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, sockl
     remote >> hello_remote;
     hello_remote.assertValid();
     JASSERT(hello_remote.type == dmtcp::DMT_HELLO_PEER);
-    JASSERT(dmtcp::DmtcpWorker::instance().masterId() == hello_remote.master)
-        (dmtcp::DmtcpWorker::instance().masterId())(hello_remote.master)
-        .Text("peer has a different master server than us!");
+    JASSERT(dmtcp::DmtcpWorker::instance().coordinatorId() == hello_remote.coordinator)
+        (dmtcp::DmtcpWorker::instance().coordinatorId())(hello_remote.coordinator)
+        .Text("peer has a different dmtcp_coordinator than us! it must be the same.");
     
     JTRACE("accept handshake complete.")(hello_remote.from);
     
