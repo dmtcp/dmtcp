@@ -36,7 +36,7 @@ namespace dmtcp {
         void postCheckpoint();
         
         void postRestart();
-        void doReconnect(jalib::JSocket& master, jalib::JSocket& restoreListen);
+        void doReconnect(jalib::JSocket& coordinator, jalib::JSocket& restoreListen);
         
     private:
         KernelBufferDrainer _drain;

@@ -1,10 +1,10 @@
 These are simple socket programs that are useful for testing dmtcp.
 
 To run a program with checkpointing:
-  1) Run dmtcp_master in a seperate terminal
+  1) Run dmtcp_coordinator in a seperate terminal
   2) Replace each command with "dmtcp_checkpoint [command]" 
 	IE: dmtcp_checkpoint ./server 12345
-  3) To checkpoint type 'c' into dmtcp_master
+  3) To checkpoint type 'c' into dmtcp_coordinator_
 NOTE: all these dmtcp_* programs can be found in ../src/ after compilation.
 
 01.echoserver

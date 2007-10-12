@@ -30,10 +30,10 @@ namespace dmtcp {
 
 class ConnectionRewirer : public jalib::JMultiSocketProgram  {
 public:
-    ConnectionRewirer() : _masterFd( -1 ){}
+    ConnectionRewirer() : _coordinatorFd( -1 ){}
 
-    void setMasterFd(const int& theValue);
-    int masterFd() const;
+    void setCoordinatorFd(const int& theValue);
+    int coordinatorFd() const;
 
     void doReconnect();
     
@@ -59,7 +59,7 @@ protected:
     void debugPrint() const;
             
 private:
-   int _masterFd;
+   int _coordinatorFd;
    std::map<ConnectionIdentifier, std::vector<int> > _pendingIncoming;
    std::map<ConnectionIdentifier, std::vector<int> > _pendingOutgoing;
    typedef std::map<ConnectionIdentifier, std::vector<int> >::iterator iterator;

@@ -1,3 +1,5 @@
+This file may be a little outdated...
+
 BUILDING
 
 Basic:
@@ -13,28 +15,25 @@ $ cd dmtcp
 $ ./configure CPPFLAGS="-DDEBUG" CXXFLAGS="-O0 -g3" --enable-debug=full
 $ make
 
-There is also a "make install" target, which is not yet recommended,
-that will copy binaries to $PREFIX/{lib,bin}.
-
 For (generic) building/install directions see ./INSTALL
-
 
 IMPORTANT PROGRAMS
 
-./src/dmtcp_master      - master server which coordinates checkpoints between nodes (run first)
+./src/dmtcp_coordinator - checkpoint coordinator that synchronizes checkpoints between nodes (run first)
 ./src/dmtcp_checkpoint  - wrapper to executate a user program with checkpointing
-./src/dmtcp_restart     - utility to restart checkpoint (*.mtcp) files
-
+dmtc_restart_script.sh - outputted by coordinator at checkpoint time, restarts a checkpoint
 
 
 RUNNING A DMTCP ENABLED PROGRAM
 
-First you must run a master server:
-$ dmtcp_master [port]
+dmtcp_coordinator, dmtcp_checkpoint, and dmtcp_restart are expected to be in your $PATH
+
+First you must run a coordinator server:
+$ dmtcp_coordinator [port]
 (if left off, port defaults to 7999)
 
 Define environmental variables:
-DMTCP_HOST="hostname.of.yourmaster.com"
+DMTCP_HOST="hostname.of.yourcoordinator.com"
 DMTCP_PORT=7999
 (if left off, defaults to localhost:7999)
 
@@ -48,13 +47,13 @@ Calls to "ssh theHost ./a.out 1 2 3" will be transformed to "ssh theHost dmtcp_c
 
 RESTORING A CHECKPOINT
 
-First you must run a master server:
-$ dmtcp_master [port]
+First you must run a coordinator server:
+$ dmtcp_coordinator [port]
 (if left off, port defaults to 7999)
-Note: Currently master host/port MUST be the same as it was at checkpoint time.
+Note: Currently coordinator host/port MUST be the same as it was at checkpoint time.
 
 In any order, restore the checkpoints of each node in cluster.  The locations 
-of each node CAN change, they will use the master server to find the 
+of each node CAN change, they will use the coordinator server to find the 
 new locations of all their peers.
 
 Currently every process must be restored independently with a command like:

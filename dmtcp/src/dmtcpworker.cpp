@@ -56,7 +56,7 @@ static int theRestorPort = RESTORE_PORT_START;
 
 //called before user main()
 dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
-    :_masterSocket(PROTECTEDFD(1))
+    :_coordinatorSocket(PROTECTEDFD(1))
     ,_restoreSocket(PROTECTEDFD(3))
 {
     if(!enableCheckpointing) return;
@@ -65,7 +65,7 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
     
     if(jalib::Filesystem::GetProgramName() == "ssh")
     {
-        //make sure master connection is closed
+        //make sure coordinator connection is closed
         _real_close(PROTECTEDFD(1));
        
         //get prog args
@@ -89,13 +89,13 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
         //find the start of the comand
         std::string& cmd = args[commandStart];
         
-        const char * masterAddr = getenv(ENV_VAR_NAME_ADDR);
-        const char * masterPortStr = getenv(ENV_VAR_NAME_PORT);
+        const char * coordinatorAddr = getenv(ENV_VAR_NAME_ADDR);
+        const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
         
         //modfy the command
         std::string prefix = "env ";
-        if(masterAddr != NULL) prefix += std::string() + ENV_VAR_NAME_ADDR "=" + masterAddr + " ";
-        if(masterPortStr != NULL) prefix += std::string() +  ENV_VAR_NAME_PORT "=" + masterPortStr + " ";
+        if(coordinatorAddr != NULL) prefix += std::string() + ENV_VAR_NAME_ADDR "=" + coordinatorAddr + " ";
+        if(coordinatorPortStr != NULL) prefix += std::string() +  ENV_VAR_NAME_PORT "=" + coordinatorPortStr + " ";
         prefix += DMTCP_CHECKPOINT_CMD " ";
         cmd = prefix + cmd;
         
@@ -126,7 +126,7 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
     
     WorkerState::setCurrentState( WorkerState::RUNNING );
     
-    connectToMaster();
+    connectToCoordinator();
     
     initializeMtcpEngine();
     
@@ -161,16 +161,16 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
-    JTRACE("disconnecting from dmtcp master");
-    _masterSocket.close();
+    JTRACE("disconnecting from dmtcp coordinator");
+    _coordinatorSocket.close();
 }
 
 
 
 
-const dmtcp::UniquePid& dmtcp::DmtcpWorker::masterId() const
+const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
-  return _masterId;
+  return _coordinatorId;
 }
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
@@ -181,7 +181,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
         dmtcp::DmtcpMessage msg;
         msg.type = DMT_OK;
         msg.state = WorkerState::RUNNING;
-        _masterSocket << msg;
+        _coordinatorSocket << msg;
     }
     JTRACE("waiting for SUSPEND signal");
     {
@@ -189,9 +189,9 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
         msg.poison();
         while(msg.type != dmtcp::DMT_DO_SUSPEND)
         {
-            _masterSocket >> msg;
+            _coordinatorSocket >> msg;
             msg.assertValid();
-            JTRACE("got MSG from master")(msg.type);
+            JTRACE("got MSG from coordinator")(msg.type);
         }
     }    
     JTRACE("got SUSPEND signal");
@@ -205,13 +205,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
         dmtcp::DmtcpMessage msg;
         msg.type = DMT_OK;
         msg.state = WorkerState::SUSPENDED;
-        _masterSocket << msg;
+        _coordinatorSocket << msg;
     }
     JTRACE("waiting for lock signal");
     {
         dmtcp::DmtcpMessage msg;
         msg.poison();
-        _masterSocket >> msg;
+        _coordinatorSocket >> msg;
         msg.assertValid();
         JASSERT(msg.type == dmtcp::DMT_DO_LOCK_FDS)(msg.type);
     }
@@ -225,13 +225,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
         dmtcp::DmtcpMessage msg;
         msg.type = DMT_OK;
         msg.state = WorkerState::LOCKED;
-        _masterSocket << msg;
+        _coordinatorSocket << msg;
     }
     JTRACE("waiting for drain signal");
     {
         dmtcp::DmtcpMessage msg;
         msg.poison();
-        _masterSocket >> msg;
+        _coordinatorSocket >> msg;
         msg.assertValid();
         JASSERT(msg.type == dmtcp::DMT_DO_DRAIN)(msg.type);
     }
@@ -243,13 +243,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
         dmtcp::DmtcpMessage msg;
         msg.type = DMT_OK;
         msg.state = WorkerState::DRAINED;
-        _masterSocket << msg;
+        _coordinatorSocket << msg;
     }
     JTRACE("waiting for checkpoint signal");
     {
         dmtcp::DmtcpMessage msg;
         msg.poison();
-        _masterSocket >> msg;
+        _coordinatorSocket >> msg;
         msg.assertValid();
         JASSERT(msg.type == dmtcp::DMT_DO_CHECKPOINT)(msg.type);
     }
@@ -267,26 +267,26 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
     unmaskStdErr();
     
     {
-      // Tell master to record our filename in the restart script
+      // Tell coordinator to record our filename in the restart script
       std::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
       std::string hostname = jalib::Filesystem::GetCurrentHostname();
       JTRACE("recording filenames")(ckptFilename)(hostname);
       dmtcp::DmtcpMessage msg;
       msg.type = DMT_CKPT_FILENAME;
       msg.extraBytes = ckptFilename.length()+1 + hostname.length()+1;
-      _masterSocket << msg;
-      _masterSocket.writeAll( ckptFilename.c_str(), ckptFilename.length()+1 );
-      _masterSocket.writeAll( hostname.c_str(),     hostname.length()+1 );
+      _coordinatorSocket << msg;
+      _coordinatorSocket.writeAll( ckptFilename.c_str(), ckptFilename.length()+1 );
+      _coordinatorSocket.writeAll( hostname.c_str(),     hostname.length()+1 );
     }
     
     JTRACE("checkpointed");
     WorkerState::setCurrentState( WorkerState::CHECKPOINTED );
     {
-      // Tell master we are done checkpointing
+      // Tell coordinator we are done checkpointing
       dmtcp::DmtcpMessage msg;
       msg.type = DMT_OK;
       msg.state = WorkerState::CHECKPOINTED;
-      _masterSocket << msg;
+      _coordinatorSocket << msg;
     }
 
     JTRACE("waiting for refill signal");
@@ -294,7 +294,7 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
         dmtcp::DmtcpMessage msg;
         do{
             msg.poison();
-            _masterSocket >> msg;
+            _coordinatorSocket >> msg;
             msg.assertValid();
         }while(msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART);
         JASSERT(msg.type == dmtcp::DMT_DO_REFILL)(msg.type);
@@ -309,13 +309,13 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
         dmtcp::DmtcpMessage msg;
         msg.type = DMT_OK;
         msg.state = WorkerState::REFILLED;
-        _masterSocket << msg;
+        _coordinatorSocket << msg;
     }
     JTRACE("waiting for resume signal");
     {
         dmtcp::DmtcpMessage msg;
         msg.poison();
-        _masterSocket >> msg;
+        _coordinatorSocket >> msg;
         msg.assertValid();
         JASSERT(msg.type == dmtcp::DMT_DO_RESUME)(msg.type);
     }
@@ -327,9 +327,9 @@ void dmtcp::DmtcpWorker::postRestart()
 {
     JTRACE("postRestart begin");
 
-    //reconnect to our master
+    //reconnect to our coordinator
     WorkerState::setCurrentState( WorkerState::RESTARTING );
-    connectToMaster();
+    connectToCoordinator();
     
     JASSERT(theCoordinator != NULL);
     theCoordinator->postRestart();
@@ -357,55 +357,55 @@ void dmtcp::DmtcpWorker::restoreSockets(CheckpointCoordinator& coordinator)
         _restoreSocket = restorSocket;
     }
     
-    //reconnect to our master
+    //reconnect to our coordinator
     WorkerState::setCurrentState( WorkerState::RESTARTING );
-    connectToMaster();
+    connectToCoordinator();
     
-    coordinator.doReconnect(_masterSocket,_restoreSocket);
+    coordinator.doReconnect(_coordinatorSocket,_restoreSocket);
     
     JTRACE("sockets restored!");
 
 }
 
-//tell the master is should broadcast DMT_FORCE_RESTART
+//tell the coordinator is should broadcast DMT_FORCE_RESTART
 void dmtcp::DmtcpWorker::forceRestart()
 {
-  connectToMaster();
+  connectToCoordinator();
   dmtcp::DmtcpMessage msg;
   msg.type = DMT_FORCE_RESTART;
-  _masterSocket << msg;
-  _masterSocket.close();
+  _coordinatorSocket << msg;
+  _coordinatorSocket.close();
 }
 
 
 /*!
-    \fn dmtcp::DmtcpWorker::connectToMaster()
+    \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToMaster()
+void dmtcp::DmtcpWorker::connectToCoordinator()
 {
   
-    const char * masterAddr = getenv(ENV_VAR_NAME_ADDR);
-    const char * masterPortStr = getenv(ENV_VAR_NAME_PORT);
+    const char * coordinatorAddr = getenv(ENV_VAR_NAME_ADDR);
+    const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
     
-    if(masterAddr == NULL) masterAddr = "localhost";
-    int masterPort = masterPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(masterPortStr);
+    if(coordinatorAddr == NULL) coordinatorAddr = "localhost";
+    int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(coordinatorPortStr);
             
-    jalib::JSocket oldFd = _masterSocket;
+    jalib::JSocket oldFd = _coordinatorSocket;
     
-    _masterSocket = jalib::JClientSocket(masterAddr,masterPort);
+    _coordinatorSocket = jalib::JClientSocket(coordinatorAddr,coordinatorPort);
     
-    JASSERT(_masterSocket.isValid())
-            (masterAddr)
-            (masterPort)
-            .Text("Failed to connect to DMTCP master");
+    JASSERT(_coordinatorSocket.isValid())
+            (coordinatorAddr)
+            (coordinatorPort)
+            .Text("Failed to connect to DMTCP coordinator");
     
     if(oldFd.isValid())
     {
-        JTRACE("restoring old mastersocket fd")
+        JTRACE("restoring old coordinatorsocket fd")
                (oldFd.sockfd())
-               (_masterSocket.sockfd());
+               (_coordinatorSocket.sockfd());
         
-        _masterSocket.changeFd(oldFd.sockfd());
+        _coordinatorSocket.changeFd(oldFd.sockfd());
     }
     
 
@@ -413,18 +413,18 @@ void dmtcp::DmtcpWorker::connectToMaster()
     {
         dmtcp::DmtcpMessage hello_local, hello_remote;
         hello_remote.poison();
-        hello_local.type = dmtcp::DMT_HELLO_MASTER;
+        hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
         hello_local.restorePort = theRestorPort;
 //         hello_local.restorePid.id = UniquePid::ThisProcess();
-        _masterSocket >> hello_remote;
-        _masterSocket << hello_local;
+        _coordinatorSocket >> hello_remote;
+        _coordinatorSocket << hello_local;
         hello_remote.assertValid();
         JASSERT(hello_remote.type == dmtcp::DMT_HELLO_WORKER)(hello_remote.type);
-        _masterId = hello_remote.master;
+        _coordinatorId = hello_remote.coordinator;
    
-        DmtcpMessage::setDefaultMaster( _masterId );
+        DmtcpMessage::setDefaultCoordinator( _coordinatorId );
         
-        JTRACE("connected to dmtcp master")(masterAddr)(masterPort)(_masterId)(hello_local.from)(UniquePid::checkpointFilename())(jalib::Filesystem::GetProgramPath());
+        JTRACE("connected to dmtcp coordinator")(coordinatorAddr)(coordinatorPort)(_coordinatorId)(hello_local.from)(UniquePid::checkpointFilename())(jalib::Filesystem::GetProgramPath());
         
     }
 }

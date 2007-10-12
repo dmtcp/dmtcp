@@ -38,7 +38,7 @@ int main(int argc, char** argv)
     FILE* fp = NULL;
     
     if(argc == 1)
-    {//master
+    {//coordinator
         
         int fd[2];
         if(socketpair(AF_UNIX,SOCK_STREAM,0,fd) != 0) die("pipe() failed");
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
                 write(WELL_KNOWN_FD, &c, 1);
             }
             
-            die("master done");
+            die("parent done");
             
         }
     }
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
             printf(" %c",c);
         }
         
-        die("client done");
+        die("child done");
     }
     
     return 0;

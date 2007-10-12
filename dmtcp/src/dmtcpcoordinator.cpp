@@ -17,7 +17,7 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#include "dmtcpmaster.h"
+#include "dmtcpcoordinator.h"
 #include "constants.h"
 #include "jconvert.h"
 #include "dmtcpmessagetypes.h"
@@ -73,7 +73,7 @@ namespace
     };
 }
 
-void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
+void dmtcp::DmtcpCoordinator::onData(jalib::JReaderInterface* sock)
 {
     if(sock->socket().sockfd() == STDIN_FD)
     {
@@ -251,7 +251,7 @@ void dmtcp::DmtcpMaster::onData(jalib::JReaderInterface* sock)
     }
 }
 
-void dmtcp::DmtcpMaster::onDisconnect(jalib::JReaderInterface* sock)
+void dmtcp::DmtcpCoordinator::onDisconnect(jalib::JReaderInterface* sock)
 {
 
     if(sock->socket().sockfd() == STDIN_FD)
@@ -270,7 +270,7 @@ void dmtcp::DmtcpMaster::onDisconnect(jalib::JReaderInterface* sock)
     }
 }
 
-void dmtcp::DmtcpMaster::onConnect( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen)
+void dmtcp::DmtcpCoordinator::onConnect( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen)
 {
     if(_dataSockets.size() <= 1)
     {
@@ -296,7 +296,7 @@ void dmtcp::DmtcpMaster::onConnect( const jalib::JSocket& sock,  const struct so
     remote << hello_local;
     remote >> hello_remote;
     hello_remote.assertValid();
-    JASSERT(hello_remote.type == dmtcp::DMT_HELLO_MASTER);
+    JASSERT(hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR);
     JNOTE("worker connected")
             (hello_remote.from);
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
@@ -349,7 +349,7 @@ void dmtcp::DmtcpMaster::onConnect( const jalib::JSocket& sock,  const struct so
     }*/
 }
 
-void dmtcp::DmtcpMaster::onTimeoutInterval()
+void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 {
 #ifdef CHECKPOINT_TIMER
      startCheckpoint();
@@ -357,7 +357,7 @@ void dmtcp::DmtcpMaster::onTimeoutInterval()
 }
 
 
-void dmtcp::DmtcpMaster::startCheckpoint()
+void dmtcp::DmtcpCoordinator::startCheckpoint()
 {
     if(minimumState() == WorkerState::RUNNING)
     {
@@ -376,7 +376,7 @@ dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
    JASSERT(false).Text("This method is only available on workers"); 
    return *((DmtcpWorker*)0);
 }
-const dmtcp::UniquePid& dmtcp::DmtcpWorker::masterId() const
+const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
    JASSERT(false).Text("This method is only available on workers"); 
    return *((UniquePid*)0);
@@ -384,14 +384,14 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::masterId() const
  
 
 
-void dmtcp::DmtcpMaster::broadcastMessage(DmtcpMessageType type)
+void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type)
 {
     DmtcpMessage msg;
     msg.type = type;
     broadcastMessage(msg);
 }
 
-void dmtcp::DmtcpMaster::broadcastMessage(const DmtcpMessage& msg)
+void dmtcp::DmtcpCoordinator::broadcastMessage(const DmtcpMessage& msg)
 {
     for(std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
         ;i!= _dataSockets.end()
@@ -402,7 +402,7 @@ void dmtcp::DmtcpMaster::broadcastMessage(const DmtcpMessage& msg)
     }
 }
 
-dmtcp::WorkerState dmtcp::DmtcpMaster::minimumState() const
+dmtcp::WorkerState dmtcp::DmtcpCoordinator::minimumState() const
 {
     int m = 0x0FFFFFF;
     for(const_iterator i = _dataSockets.begin()
@@ -418,7 +418,7 @@ dmtcp::WorkerState dmtcp::DmtcpMaster::minimumState() const
     return m==0x0FFFFFF ? WorkerState::UNKOWN : (WorkerState::eWorkerState)m;
 }
 
-void dmtcp::DmtcpMaster::writeRestartScript()
+void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
   std::map< std::string, std::vector<std::string> >::const_iterator host;
   std::vector<std::string>::const_iterator file;
@@ -448,15 +448,15 @@ void dmtcp::DmtcpMaster::writeRestartScript()
 
 int main( int argc, char** argv)
 {
-    dmtcp::DmtcpMessage::setDefaultMaster(dmtcp::UniquePid::ThisProcess());
+    dmtcp::DmtcpMessage::setDefaultCoordinator(dmtcp::UniquePid::ThisProcess());
     int port = DEFAULT_PORT;
     const char* portStr = getenv(ENV_VAR_NAME_PORT);
     if(portStr != NULL) port = jalib::StringToInt(portStr); 
     if(argc > 1) port = jalib::StringToInt(argv[1]);
-    JTRACE("dmtcp_master starting...")(port);
+    JTRACE("dmtcp_coordinator starting...")(port);
     jalib::JServerSocket sock(jalib::JSockAddr::ANY,port);
     JASSERT(sock.isValid())(port).Text("Failed to create listen socket");
-    dmtcp::DmtcpMaster prog;
+    dmtcp::DmtcpCoordinator prog;
     prog.addListenSocket(sock);
     prog.addDataSocket( new jalib::JChunkReader( STDIN_FD , 1) );
     prog.monitorSockets(DEFAULT_CHECKPOINT_INTERVAL);
