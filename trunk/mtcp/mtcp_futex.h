@@ -3,7 +3,8 @@
 
 /* Glibc does not provide a futex routine, so provide one here... */
 
-static inline int mtcp_futex (int *uaddr, int op, int val, const struct timespec *timeout)
+static inline int mtcp_futex (int volatile *uaddr, int op, int val,
+                              const struct timespec *timeout)
 
 {
 #if defined(__x86_64__)

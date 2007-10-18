@@ -78,6 +78,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   int rc;
   VA holebase, highest_va; /* VA = virtual address */
   void *current_brk;
+  void *new_brk;
   void (*finishrestore) (void);
 
   /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.  The only access we have is brk() which basically */
@@ -96,10 +97,17 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
     mtcp_abort ();
   }
 
-  current_brk = mtcp_sys_brk (mtcp_saved_break);
-  if (current_brk != mtcp_saved_break) {
-    mtcp_printf ("mtcp_restoreverything: error %d restoring break %p\n", (int)(VA)current_brk, mtcp_saved_break);
-    mtcp_abort ();
+  new_brk = mtcp_sys_brk (mtcp_saved_break);
+  if (new_brk != mtcp_saved_break) {
+    if (new_brk == current_brk && new_brk > mtcp_saved_break)
+      mtcp_printf ("mtcp_restoreverything: new_brk == current_brk == %p\n"
+        "  saved_break, %p, is strictly smaller; data segment not extended.\n",
+        new_brk, mtcp_saved_break);
+    else {
+      mtcp_printf ("mtcp_restoreverything: error: new break (%p) != saved break"
+                   "  (%p)\n", (VA)current_brk, mtcp_saved_break);
+      mtcp_abort ();
+    }
   }
 
   /* Unmap everything except for this image as everything we need is contained in the mtcp.so image */

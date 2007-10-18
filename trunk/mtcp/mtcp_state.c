@@ -51,7 +51,8 @@ __attribute__ ((visibility ("hidden")))
 #if USE_FUTEX
     int rc;
 
-    while ((rc = mtcp_futex (&state->value, func, val, timeout)) < 0) {
+    /* (int *) cast needed since state->value is "int volatile"  - Gene */
+    while ((rc = mtcp_futex ((int *)&state->value, func, val, timeout)) < 0) {
       rc = -rc;
       if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
       if (rc != EINTR) {

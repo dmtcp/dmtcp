@@ -71,6 +71,14 @@
 #define SAVEDSP uc_mcontext.gregs[REG_ESP]
 #endif
 
+/* TLS segment registers used differently in i386 and x86_64. - Gene */
+#ifdef __i386__
+# define TLSSEGREG gs
+#endif
+#ifdef __x86_64__
+# define TLSSEGREG fs
+#endif
+
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
  * as found in:  glibc-2.5/nptl/descr.h
@@ -236,12 +244,6 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
   int len, mapsfd;
   Thread *thread;
   time_t nextalarm, now;
-#ifdef __i386__
-# define TLSSEGREG gs
-#endif
-#ifdef __x86_64__
-# define TLSSEGREG fs
-#endif
   mtcp_segreg_t TLSSEGREG;
 
   if (sizeof(void *) != sizeof(long)) {
