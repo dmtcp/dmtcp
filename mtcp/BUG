@@ -6,6 +6,6 @@ At least, in Linux, when the X-windows session was owned by one user,
 and I had opened an xterm, and done an su to myself, the other user
 still owned /dev/pts/1, and I couldn't access it.
 
-MTCP is broken on empire.bean-o.com (glibc 2.3.6.ds1-4; linux 2.6.18-k8-smp; jansel@ccs.neu.edu for access)
- -checkpointing in testmtcp2 is broken
- -restore in testmtcp{1,3,4} is broken
+If a user is typing to standard input during checkpointing, some input
+in the typeahead buffer could get lost.  We don't try to flush the
+typeahead buffer and feed it to the applications after restart.

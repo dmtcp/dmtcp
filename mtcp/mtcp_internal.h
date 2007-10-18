@@ -25,7 +25,10 @@
 //  by this.
 # define USE_FUTEX 1
 #else
-# define USE_FUTEX 0
+/* This used to be zero, but in Debian Etch (2.6.18 kernel), it complains
+ * about missing pthread library.
+ */
+# define USE_FUTEX 1
 #endif
 
 #include <pthread.h>
