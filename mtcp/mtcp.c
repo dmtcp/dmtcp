@@ -171,7 +171,7 @@ static struct timeval restorestarted;
 static Thread *motherofall = NULL;
 static Thread *threads = NULL;
 static VA restore_begin, restore_end;
-static void *restore_start;
+static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -1883,9 +1883,18 @@ skipeol:
 /*																*/
 /********************************************************************************************************************************/
 
+long long * newStackPtr( long long *tmpStack ) {
+  return tmpStack + STACKSIZE;
+}
+
 void mtcp_restore_start (int fd, int verify)
 
 {
+  /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
+   * below, the optimizer generates non-PIC code if it's not -O0 - Gene
+   */
+  long long * extendedStack = tempstack + STACKSIZE;
+
   /* Not used until we do longjmps, but get it out of the way now */
 
   mtcp_state_set(&restoreinprog ,1, 0);
@@ -1906,7 +1915,7 @@ void mtcp_restore_start (int fd, int verify)
 
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
-                : : "g" (tempstack + STACKSIZE) : "memory");
+                : : "g" (extendedStack) : "memory");
 
   mtcp_restoreverything();
   asm volatile ("hlt");
