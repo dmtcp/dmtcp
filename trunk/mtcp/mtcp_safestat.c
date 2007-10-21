@@ -42,7 +42,7 @@ int mtcp_safestat (char const *name, struct Stat *buf)
   int rc;
   struct kernel_stat kbuf;
 
-  mtcp_sys_kernel_stat(name, &kbuf);
+  rc = mtcp_sys_kernel_stat(name, &kbuf);
   /* rc < -4096: Returning an address in high memory could appear as negative */
   if (rc >= 0 || rc < -4096) {
     buf -> st_mode = kbuf.st_mode;
@@ -58,7 +58,7 @@ int mtcp_safelstat (char const *name, struct Stat *buf)
   int rc;
   struct kernel_stat kbuf;
 
-  mtcp_sys_kernel_lstat(name, &kbuf);
+  rc = mtcp_sys_kernel_lstat(name, &kbuf);
   /* rc < -4096: Returning an address in high memory could appear as negative */
   if (rc >= 0 || rc < -4096) {
     buf -> st_mode = kbuf.st_mode;

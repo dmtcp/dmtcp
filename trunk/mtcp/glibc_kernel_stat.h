@@ -22,6 +22,12 @@ struct kernel_stat
 #define _HAVE___UNUSED4
     unsigned long int __unused5;
 #define _HAVE___UNUSED5
+    /* Latest kernel stat seems to have grown larger.  Add this padding
+     * to cover any future moderate growth of kernel's 'struct stat';
+     * We only use first few fields, but kernel will corrupt stack by
+     * writing beyond this buffer if it is allocated on stack.  - Gene
+     */
+    unsigned long int __mtcp_extra_padding[32];
   };
 
 #define _HAVE_STAT___UNUSED4
