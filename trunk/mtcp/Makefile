@@ -120,7 +120,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 
 LIBRARY_OBJS = mtcp.o mtcp_restatic.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o
+	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -169,6 +169,9 @@ mtcp_state.o: mtcp_state.c mtcp_internal.h
 
 mtcp_state.lis: mtcp_state.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis mtcp_state.c
+
+mtcp_check_nscd.o: mtcp_check_nscd.c
+	${CC} $(CFLAGS) -c -o mtcp_check_nscd.o mtcp_check_nscd.c
 
 mtcp_check_vdso.o: mtcp_check_vdso.c
 	${CC} $(CFLAGS) -c -o mtcp_check_vdso.o mtcp_check_vdso.c

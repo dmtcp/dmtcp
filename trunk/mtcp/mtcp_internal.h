@@ -219,6 +219,7 @@ __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
 
+void mtcp_check_nscd(void);
 void mtcp_check_vdso_enabled(void);
 void mtcp_dump_tls (char const *file, int line);
 char mtcp_readchar (int fd);

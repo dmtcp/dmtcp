@@ -251,6 +251,7 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
 	   "       This code assumes they are equal.\n");
     mtcp_abort ();
   }
+  mtcp_check_nscd();
 #ifndef __x86_64__
   mtcp_check_vdso_enabled();
 #endif
@@ -1883,10 +1884,6 @@ skipeol:
 /*																*/
 /********************************************************************************************************************************/
 
-long long * newStackPtr( long long *tmpStack ) {
-  return tmpStack + STACKSIZE;
-}
-
 void mtcp_restore_start (int fd, int verify)
 
 {
@@ -1908,14 +1905,14 @@ void mtcp_restore_start (int fd, int verify)
 
   /* Switch to a stack area that's part of the shareable's memory address range and thus not used by the checkpointed program */
 
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
+                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
+                : : "g" (extendedStack) : "memory");
+
   /* Once we're on the new stack, we can't access any local variables or parameters */
   /* Call the restoreverything to restore files and memory areas                    */
 
   /* This should never return */
-
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
-                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
-                : : "g" (extendedStack) : "memory");
 
   mtcp_restoreverything();
   asm volatile ("hlt");
