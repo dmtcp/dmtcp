@@ -6,13 +6,42 @@ has a still stricter license:  GPL
 
 =========================================================================
 CAVEATS:
+    This is designed only for Intel/AMD Linux: either 32- or 64-bits.  With
+some work, this design should be portable to many other UNIX dialects.
     Restart will use original application executable from disk.  If it has
 changed since then, the result is unpredictable.
+    MTCP will correctly continue reading/writing any open files, but if
+those files have changed in the interim, the result is unpredictable.
     If it was being run under gdb prior to checkpointing, then gdb created
 an extra pipe and connected stdout to the pipe.  Since gdb no longer exists
 upon restart, restart fails.  This may be fixed in the future.  For now,
 processes under gdb control cannot be checkpointed.
 
+    On 32-bit Intel, there is no executable bit for memory pages.
+This makes buffer overrun exploits possible by executing code on the stack
+or in the data segment.  Several Linux distributions employ randomizing
+techniques to make such exploits difficult.  Randomizing standard memory
+locations also makes checkpoint/restart difficult.  DMTCP automatically
+works around some of those cases, and requires user cooperation in some
+other cases.  Some examples follow:
+    Ubuntu configures gcc to use -fstack-protector (at least in 32-bit Ubuntu).
+DMTCP accounts for that.  But a checkpointed file on a non-Ubuntu system may
+not restart correctly on an Ubuntu system.  If this is a concern, then compile
+all of your applications with -fno-stack-protector for portability between
+Ubuntu and other dialects of Linux.
+    Many recent 32-bit versions of Linux now set /proc/sys/vm/vdso_enabled
+to 1.  This randomly changes the way system calls are made.  When DMTCP detects
+that this is the case, it will stop and print to the screen asking to set:
+  echo 0 > /proc/sys/vm/vdso_enabled   [as root].
+    Glibc employs an acceleration mechanism, NSCD (Name Service Cache
+Daemon).  The daemon looks up names and caches them so that processes
+can obtain the information faster.  This is especially useful on servers.
+NSCD is employed both on 32-bit and on 64-bit computers.
+On SUSE clients, NSCD is enabled with "shared files".  The application
+mmaps a file that is shared with the daemon.  On restart, this shared
+mmap-ed file no longer exists on disk.  DMTCP checks this and warns
+that checkpointing may fail.  One can re-configure NSCD to not use
+shared files.  In the future, DMTCP may implement a planned workaround.
 =========================================================================
 The object file mtcp_restatic.o cannot refer to any symbols from glibc
 (see below),
@@ -30,7 +59,7 @@ This version does not use extractobjectmodule.  Instead, it uses
   It also refers to mtcp_sys_errno for setting errno after such a syscall,
   since errno is normally defined in libc.so.
 
-On x86_64 (and on i386 programs using thread-private variables),
+On x86_64 (and on i386 programs using thread-local variables),
   position-independent code must be used ("CFLAGS += -fPIC -DPIC"
   and "LDFLAGS = -shared").
   However, if a symbol is external, the GNU C compiler cannot call the
@@ -78,7 +107,7 @@ OVERVIEW:  RESTART
                 except libmtcp.so;  So, libc.so is no longer available.
             All code within mtcp_restatic.c must follow the discipline of
                 not using libc.so. It either directly makes syscalls to kernel,
-                or else duplicates logic of simple libc.so functiosn.
+                or else duplicates logic of simple libc.so functions.
             mtcp_restoreverything then restores file descriptors and
                 loads memory segments of checkpointed application.
             mtcp_restoreverything then calls libc.so(mtcp.c):finishrestore
@@ -106,7 +135,7 @@ static globals:  Thread *motherofall;
                  Thread *threads;
                  pthread_t checkpointhreadid;
                  int intervalsecs;
-                 clone_entry -> iniitialized as ptr to __clone fnc of libc;
+                 clone_entry -> initialized as ptr to __clone fnc of libc;
                                         created in setup_clone_entry()
                  restore_start -> initialized later to mtcp_restore_start
 
@@ -194,12 +223,12 @@ assembly address.  In __x86_64__, one uses %fs instead of %gs (and %gs
 used for what in __x76_64__?).  Because segment registers are bound to
 a particular CPU, distinct CPUs can have different values for %gs.
 So one can call the identical code with %gs:ADDR
-and in fact address distinct thread-private data, without even knowing
+and in fact address distinct thread-local data, without even knowing
 on what CPU you were executing.
 
 Presumably, a context switch will also change the segment registers
 appropriately, thus allowing distinct threads on the same CPU to access
-distinct thread-private data.
+distinct thread-local data.
 
 The MTCP data structure, Thread, keeps information about the kernel
 state of the thread.  It is used to restore the original state.

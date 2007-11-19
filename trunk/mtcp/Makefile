@@ -136,7 +136,12 @@ mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 mtcp_restatic.o: mtcp_restatic.c mtcp.h mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_restatic.o mtcp_restatic.c
+	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
+	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_restatic.o \
+	    mtcp_restatic.c; \
+	else \
+	  ${CC} $(CFLAGS) -c -o mtcp_restatic.o mtcp_restatic.c; \
+	fi
 
 # mtcp.lis is needed only for debugging.
 mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
@@ -153,7 +158,12 @@ mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
+	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
+	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_printf.o \
+	    mtcp_printf.c; \
+	else \
+	  ${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c; \
+	fi
 
 mtcp_readhexetc.o: mtcp_readhexetc.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_readhexetc.o mtcp_readhexetc.c

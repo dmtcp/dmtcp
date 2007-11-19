@@ -124,7 +124,13 @@ printf("restore_mmap: %x\n", restore_mmap);
       }
       fclose (symbolfile);
       if (textbase != 0) {
-        fprintf (stderr, "mtcp_restore*: add-symbol-file mtcp.so %p\n", restore_begin + textbase);
+	fprintf (stderr, "\n**********\nmtcp_restore*: The symbol table of the"
+		 " checkpointed file can be\nmade available to gdb."
+		 "  Just type the command below in gdb:\n");
+        fprintf (stderr, "     add-symbol-file mtcp.so %p\n",
+                 restore_begin + textbase);
+        fprintf (stderr, "Then type \"continue\" to continue debugging.\n");
+	fprintf (stderr, "**********\n");
       }
     }
     mtcp_maybebpt ();
