@@ -57,7 +57,7 @@ public:
     
     
     static KernelDeviceToConnection& Instance();
-    Connection& retrive(int fd);
+    Connection& retrieve(int fd);
     void        create(int fd, Connection* c);
     
 //     void erase(Connection*);
@@ -114,7 +114,7 @@ public:
     SlidingFdTable(int startingFd = 30) : _nextFd(startingFd) {}
     
     ///
-    /// retrive, and if needed assign an FD for id
+    /// retrieve, and if needed assign an FD for id
     int getFdFor( const ConnectionIdentifier& id );
     
     ///

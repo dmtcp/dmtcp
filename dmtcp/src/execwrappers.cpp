@@ -171,7 +171,7 @@ static void handleDup ( int& oldfd, int& newfd, bool isDup2 )
 //             JTRACE("dup: [end] FD not socket")(oldfd);
 //             break;
 //         default:
-//             JASSERT(false)(e.sockfd())(e.state()).Text("Unkown socket state");
+//             JASSERT(false)(e.sockfd())(e.state()).Text("Unknown socket state");
 //             break;
 //     }
 //
@@ -348,13 +348,13 @@ extern "C" int execvp ( const char *file, char *const argv[] )
 
 extern "C" int execl ( const char *path, const char *arg, ... )
 {
-	JASSERT ( false ).Text ( "variable arguement version of exec not yet supported by dmtcp" );
+	JASSERT ( false ).Text ( "variable argument version of exec not yet supported by dmtcp" );
 	return -1;
 }
 
 extern "C" int execlp ( const char *file, const char *arg, ... )
 {
-	JASSERT ( false ).Text ( "variable arguement version of exec not yet supported by dmtcp" );
+	JASSERT ( false ).Text ( "variable argument version of exec not yet supported by dmtcp" );
 	return -1;
 }
 
@@ -366,7 +366,7 @@ extern "C" int system ( const char *command )
 
 // extern "C" int execle(const char *path, const char *arg, ..., char * const envp[])
 // {
-//     JASSERT(false).Text("variable arguement version of exec not yet supported by dmtcp");
+//     JASSERT(false).Text("variable argument version of exec not yet supported by dmtcp");
 // }
 
 

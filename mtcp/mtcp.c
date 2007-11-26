@@ -251,10 +251,19 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
 	   "       This code assumes they are equal.\n");
     mtcp_abort ();
   }
+
+  if (getenv("MTCP_NO_CHECKPOINT"))
+    return 0;
+  putenv("MTCP_NO_CHECKPOINT=1");
+  /* This code could create short-lived child processes.  We don't want
+   * to checkpoint these internal processes.
+   */
   mtcp_check_nscd();
 #ifndef __x86_64__
   mtcp_check_vdso_enabled();
 #endif
+  unsetenv("MTCP_NO_CHECKPOINT");
+
 #if 0
   { struct user_desc u_info;
     u_info.entry_number = 12;
@@ -860,6 +869,8 @@ int mtcp_ok (void)
 {
   Thread *thread;
 
+  if (getenv("MTCP_NO_CHECKPOINT"))
+    return 0;
   thread = getcurrenthread ();
 
 again:
@@ -915,6 +926,8 @@ int mtcp_no (void)
 {
   Thread *thread;
 
+  if (getenv("MTCP_NO_CHECKPOINT"))
+    return 0;
   thread = getcurrenthread ();
 
 again:

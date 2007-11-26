@@ -63,13 +63,13 @@ dmtcp::ConnectionToFds::ConnectionToFds( KernelDeviceToConnection& source )
     {
         if(_isBadFd(fds[i])) continue;
         if(ProtectedFDs::isProtected( fds[i] )) continue;
-        Connection* con = &source.retrive(fds[i]);
+        Connection* con = &source.retrieve(fds[i]);
         _table[con->id()].push_back(fds[i]);
     }
 }
 
 
-dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrive(int fd)
+dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve(int fd)
 {
     std::string device = fdToDevice( fd );
     JASSERT(device.length() > 0)(fd).Text("invalid fd");
@@ -254,7 +254,7 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
                     con = new PtsConnection();
                     break;
                 default:
-                    JASSERT(false)(key)(o.filename()).Text("unkown connection type");
+                    JASSERT(false)(key)(o.filename()).Text("unknown connection type");
             }
             if(con != NULL)
             {
@@ -347,7 +347,7 @@ void dmtcp::KernelDeviceToConnection::serialize(jalib::JBinarySerializer& o)
 dmtcp::Connection& dmtcp::ConnectionList::operator[] (const ConnectionIdentifier& id)
 {
     JASSERT(_connections.find(id) != _connections.end())(id)
-            .Text("Unkown connection");
+            .Text("Unknown connection");
     return *_connections[id];
 }
 

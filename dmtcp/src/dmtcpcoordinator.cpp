@@ -223,7 +223,7 @@ void dmtcp::DmtcpCoordinator::onData(jalib::JReaderInterface* sock)
             
 //             case DMT_RESTORE_SEARCHING:
 //             {
-//                 if(_table[msg.restorePid.id].state() != WorkerState::UNKOWN)
+//                 if(_table[msg.restorePid.id].state() != WorkerState::UNKNOWN)
 //                 {
 //                     const WorkerNode& node = _table[msg.restorePid.id];
 //                     JASSERT(node.addrlen() > 0)(node.addrlen());
@@ -426,7 +426,7 @@ dmtcp::WorkerState dmtcp::DmtcpCoordinator::minimumState() const
             if(client->state().value() < m) m = client->state().value();
         }
     }
-    return m==0x0FFFFFF ? WorkerState::UNKOWN : (WorkerState::eWorkerState)m;
+    return m==0x0FFFFFF ? WorkerState::UNKNOWN : (WorkerState::eWorkerState)m;
 }
 
 void dmtcp::DmtcpCoordinator::writeRestartScript()
