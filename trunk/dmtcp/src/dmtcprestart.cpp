@@ -150,16 +150,16 @@ int main(int argc, char** argv)
 
 static void runMtcpRestore(const std::string& file)
 {
-    static std::string mtcprestore = jalib::Filesystem::FindHelperUtility( "mtcp_restore" );
+    static std::string mtcprestart = jalib::Filesystem::FindHelperUtility( "mtcp_restart" );
     
     char* newArgs[] = 
     {
-        (char*)mtcprestore.c_str(),
+        (char*)mtcprestart.c_str(),
         (char*)file.c_str(),
         NULL
     };
     
-    JTRACE("launching mtcp_restore")(newArgs[1]);
+    JTRACE("launching mtcp_restart")(newArgs[1]);
     
     execvp(newArgs[0], newArgs);
     JASSERT(false)(newArgs[0])(newArgs[1])(JASSERT_ERRNO).Text("exec() failed");

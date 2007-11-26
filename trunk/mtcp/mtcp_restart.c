@@ -53,19 +53,19 @@ int main (int argc, char *argv[])
     verify = 1;
     restorename = argv[2];
   } else {
-    fprintf (stderr, "usage: mtcp_restore [-verify] <checkpointfile>\n");
+    fprintf (stderr, "usage: mtcp_restart [-verify] <checkpointfile>\n");
     return (-1);
   }
 
   fd = open (restorename, O_RDONLY);
   if (fd < 0) {
-    fprintf (stderr, "mtcp_restore: error opening %s; Reason: %s\n", restorename, strerror (errno));
+    fprintf (stderr, "mtcp_restart: error opening %s; Reason: %s\n", restorename, strerror (errno));
     return (-1);
   }
 
   readfile (fd, magicbuf, sizeof magicbuf);
   if (memcmp (magicbuf, MAGIC, sizeof magicbuf) != 0) {
-    fprintf (stderr, "mtcp_restore: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
+    fprintf (stderr, "mtcp_restart: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
     return (-1);
   }
 
@@ -87,20 +87,20 @@ int main (int argc, char *argv[])
   restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX
-    printf(stderr, "mtcp_restore: Does mmap here support MAP_FIXED?\n");
+    printf(stderr, "mtcp_restart: Does mmap here support MAP_FIXED?\n");
 #endif
 printf("restore_mmap: %x\n", restore_mmap);
     if (mtcp_sys_errno != EBUSY) {
-      fprintf (stderr, "mtcp_restore: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
+      fprintf (stderr, "mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();
     } else {
-      fprintf (stderr, "mtcp_restore: restarting due to address conflict...\n");
+      fprintf (stderr, "mtcp_restart: restarting due to address conflict...\n");
       close (fd);
       execvp (argv[0], argv);
     }
   }
   if (restore_mmap != restore_begin) {
-    fprintf (stderr, "mtcp_restore: %d byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
+    fprintf (stderr, "mtcp_restart: %d byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
     abort ();
   }
   readcs (fd, CS_RESTOREIMAGE);
@@ -112,7 +112,7 @@ printf("restore_mmap: %x\n", restore_mmap);
     FILE *symbolfile;
     VA textbase;
 
-    fprintf (stderr, "mtcp_restore*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
+    fprintf (stderr, "mtcp_restart*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
     textbase = 0;
 
     symbolfile = popen ("readelf -S mtcp.so", "r");
@@ -124,7 +124,7 @@ printf("restore_mmap: %x\n", restore_mmap);
       }
       fclose (symbolfile);
       if (textbase != 0) {
-	fprintf (stderr, "\n**********\nmtcp_restore*: The symbol table of the"
+	fprintf (stderr, "\n**********\nmtcp_restart*: The symbol table of the"
 		 " checkpointed file can be\nmade available to gdb."
 		 "  Just type the command below in gdb:\n");
         fprintf (stderr, "     add-symbol-file mtcp.so %p\n",
@@ -137,7 +137,7 @@ printf("restore_mmap: %x\n", restore_mmap);
 #endif
 
   (*restore_start) (fd, verify);
-  fprintf (stderr, "mtcp_restore: restore routine returned (it should never do this!)\n");
+  fprintf (stderr, "mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
 }
@@ -149,7 +149,7 @@ static void readcs (int fd, char cs)
 
   readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
-    fprintf (stderr, "mtcp_restore readcs: checkpoint section %d next, expected %d\n", xcs, cs);
+    fprintf (stderr, "mtcp_restart readcs: checkpoint section %d next, expected %d\n", xcs, cs);
     abort ();
   }
 }
@@ -161,11 +161,11 @@ static void readfile (int fd, void *buff, int size)
 
   rc = read (fd, buff, size);
   if (rc < 0) {
-    fprintf (stderr, "mtcp_restore readfile: error reading checkpoint file: %s\n", strerror (errno));
+    fprintf (stderr, "mtcp_restart readfile: error reading checkpoint file: %s\n", strerror (errno));
     abort ();
   }
   if (rc != size) {
-    fprintf (stderr, "mtcp_restore readfile: only read %d bytes instead of %d from checkpoint file\n", rc, size);
+    fprintf (stderr, "mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", rc, size);
     abort ();
   }
 }
