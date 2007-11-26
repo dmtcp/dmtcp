@@ -62,7 +62,7 @@ extern "C" int dmtcp_on_connect(int ret, int sockfd, const  struct sockaddr *ser
 //     entry.setAddr(serv_addr,addrlen);
 //     entry.setState(dmtcp::SocketEntry::T_CONNECT);
 // 
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd).asTcp();
+    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
     con.onConnect();
     
     JTRACE("connected, doing dmtcp handshake....")(sockfd)(con.id());
@@ -74,7 +74,7 @@ extern "C" int dmtcp_on_connect(int ret, int sockfd, const  struct sockaddr *ser
     hello_local.coordinator = dmtcp::DmtcpWorker::instance().coordinatorId();
     remote << hello_local;
     
-//     JTRACE("connect complate")(sockfd)(hello_local.from.conId)(hello_local.from.id);
+//     JTRACE("connect complete")(sockfd)(hello_local.from.conId)(hello_local.from.id);
     
 //     entry.setRemoteId( hello_remote.from );
     
@@ -85,7 +85,7 @@ extern "C" int dmtcp_on_connect(int ret, int sockfd, const  struct sockaddr *ser
 ///called automatically after a sucessful user function call
 extern "C" int dmtcp_on_bind(int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen)
 {
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd).asTcp();
+    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
     
     
     con.onBind( my_addr, addrlen );
@@ -106,7 +106,7 @@ extern "C" int dmtcp_on_bind(int ret, int sockfd,  const struct  sockaddr  *my_a
 extern "C" int dmtcp_on_listen(int ret, int sockfd, int backlog)
 {
      
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd).asTcp();
+    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
     
     con.onListen(backlog);
     
@@ -123,7 +123,7 @@ extern "C" int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, sockl
 //     entry.setState(dmtcp::SocketEntry::T_ACCEPT);
 //     
     
-    dmtcp::TcpConnection& parent = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd).asTcp();
+    dmtcp::TcpConnection& parent = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
     
     JTRACE("accepted new connection, doing magic cookie handshake...")(sockfd)(ret);
     
@@ -177,7 +177,7 @@ extern "C" int dmtcp_on_error(int ret, int sockfd, const char* fname)
 {
     JTRACE("socket error")(fname)(ret)(sockfd)(JASSERT_ERRNO);
     
-    dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd);
+    dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd);
     
     if(con.conType() == dmtcp::Connection::TCP)
     {
@@ -197,7 +197,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry.addSetsockopt(level,optname,(char*)optval, optlen);
     
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrive(sockfd).asTcp();
+    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
     
     con.addSetsockopt( level, optname, (char*)optval, optlen);
     
@@ -420,7 +420,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //             JTRACE("restoring socket option")(_sockfd)(opt->first)(opt->second.size());
 // //             int ret = _real_setsockopt(_sockfd,lvl->first,opt->first,opt->second.buffer(), opt->second.size());
 // //             JASSERT(ret == 0)(_sockfd)(opt->first)(opt->second.size())
-// //                     .Text("restroing setsockopt failed");
+// //                     .Text("restoring setsockopt failed");
 // //         }
 // //     }
 // // }

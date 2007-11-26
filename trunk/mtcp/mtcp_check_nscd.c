@@ -35,7 +35,7 @@ void mtcp_check_nscd(void) {
   "  MTCP currently might not correctly restart when nscd is running.\n"
   "  Please test checkpoint/restart on your machine to see if it works.\n"
   "  If necessary, turn off nscd.  For example:  /etc/init.d/nscd --stop\n"
-  "  We expect to fix compatibility with nscd in a future version.\n\n\n\n");
+  "  We will fix compatibility with nscd in a future version.\n\n\n\n");
 }
 
 #ifdef STANDALONE

@@ -94,7 +94,7 @@ void dmtcp::ConnectionRewirer::onConnect(const jalib::JSocket& sock,  const stru
     iterator i = _pendingIncoming.find(msg.restorePid);
     
     JASSERT(i != _pendingIncoming.end())(msg.restorePid)
-            .Text("got unxpected incoming restore request");
+            .Text("got unexpected incoming restore request");
     
     const std::vector<int>& fds = i->second;
     JASSERT(fds.size() > 0);

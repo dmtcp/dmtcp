@@ -42,15 +42,20 @@ Now run the program
 $ dmtcp_checkpoint ./a.out 1 2 3 4
 
 Child processes are also checkpointed.  
-Calls to "ssh theHost ./a.out 1 2 3" will be transformed to "ssh theHost dmtcp_checkpoint ./a.out 1 2 3"
+Calls to "ssh theHost ./a.out 1 2 3" will be transformed to
+  "ssh theHost dmtcp_checkpoint ./a.out 1 2 3"
 
 
-RESTORING A CHECKPOINT
+RESTARTING FROM A CHECKPOINT
+The easy way is to just type:  ./dmtcp_restart_script.sh
+on the host containing the coordinator.  This is a convenience script
+that restarts the processes as shown below.
 
 First you must run a coordinator server:
 $ dmtcp_coordinator [port]
 (if left off, port defaults to 7999)
-Note: Currently coordinator host/port MUST be the same as it was at checkpoint time.
+Note: Currently coordinator host/port MUST be the same as it was at
+      checkpoint time.
 
 In any order, restore the checkpoints of each node in cluster.  The locations 
 of each node CAN change, they will use the coordinator server to find the 
@@ -62,8 +67,8 @@ $ dmtcp_restart cktp-XXXXXXX-YYYY-ZZZZZ.mtcp
 Names of checkpoints are cktp-HOSTID-PID-STARTTIME.mtcp. In working directory
 of each program.
 
-Checkpoints can be restarted in any order, execution will not resume until all peers
-have been restarted.
+Checkpoints can be restarted in any order, execution will not resume until all
+peers have been restarted.
 
 Once all peers are restarted, cluster-wide execution will automatically restart
 checkpoints will start again.   

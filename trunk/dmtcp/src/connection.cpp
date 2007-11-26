@@ -293,7 +293,7 @@ void dmtcp::TcpConnection::restoreOptions(const std::vector<int>& fds)
             JTRACE("restoring socket option")(fds[0])(opt->first)(opt->second.size());
             int ret = _real_setsockopt(fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size());
             JASSERT(ret == 0)(fds[0])(opt->first)(opt->second.size())
-                    .Text("restroing setsockopt failed");
+                    .Text("restoring setsockopt failed");
         }
     }
 
@@ -366,7 +366,7 @@ void dmtcp::FileConnection::restore(const std::vector<int>&, ConnectionRewirer&)
 //       mtcp_abort ();
 //     }
 // 
-//     /* Move it to the original fd if it didn't coincientally open there */
+//     /* Move it to the original fd if it didn't coincidentally open there */
 // 
 //     if (tempfd != fdnum) {
 //       if (mtcp_sy_dup2 (tempfd, fdnum) < 0) {

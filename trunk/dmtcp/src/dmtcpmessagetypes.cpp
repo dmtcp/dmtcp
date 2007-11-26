@@ -79,7 +79,7 @@ std::ostream& dmtcp::operator << (std::ostream& o, const dmtcp::WorkerState& s)
     {
 #define OSHIFTPRINTF(name) case WorkerState::name: o << #name; break; 
         
-            OSHIFTPRINTF(UNKOWN)
+            OSHIFTPRINTF(UNKNOWN)
             OSHIFTPRINTF(RUNNING)
             OSHIFTPRINTF(SUSPENDED)
             OSHIFTPRINTF(DRAINED)

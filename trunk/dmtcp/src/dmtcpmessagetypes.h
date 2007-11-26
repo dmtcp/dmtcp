@@ -57,7 +57,7 @@ namespace dmtcp {
     class WorkerState {
     public:
         enum eWorkerState {
-            UNKOWN,
+            UNKNOWN,
             RUNNING,
             SUSPENDED,
             LOCKED,
@@ -66,7 +66,7 @@ namespace dmtcp {
             CHECKPOINTED,
             REFILLED,
         };
-        WorkerState(eWorkerState s = UNKOWN) : _state(s) {}
+        WorkerState(eWorkerState s = UNKNOWN) : _state(s) {}
 
         static void setCurrentState(const dmtcp::WorkerState& theValue);
         static dmtcp::WorkerState currentState();

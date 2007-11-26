@@ -65,7 +65,7 @@ public:
     virtual void saveOptions(const std::vector<int>& fds);
     virtual void restoreOptions(const std::vector<int>& fds);
     
-    //convert with type checkping
+    //convert with type checking
     virtual TcpConnection& asTcp();
    
     

@@ -62,6 +62,11 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
     if(!enableCheckpointing) return;
     
     JASSERT_SET_LOGFILE("/tmp/jassertlog." + jalib::XToString(getpid()));
+    JTRACE("dmtcphijack.so:  Running ")(jalib::Filesystem::GetProgramName());
+    { char buf[20];
+      sprintf(buf,"%d",getppid());
+      JTRACE("dmtcphijack.so:  Child of pid ")(buf);
+    }
     
     if(jalib::Filesystem::GetProgramName() == "ssh")
     {
@@ -86,13 +91,13 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
                 (commandStart)(args.size())(args[commandStart])
                 .Text("failed to parse ssh command line");
         
-        //find the start of the comand
+        //find the start of the command
         std::string& cmd = args[commandStart];
         
         const char * coordinatorAddr = getenv(ENV_VAR_NAME_ADDR);
         const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
         
-        //modfy the command
+        //modify the command
         std::string prefix = "env ";
         if(coordinatorAddr != NULL) prefix += std::string() + ENV_VAR_NAME_ADDR "=" + coordinatorAddr + " ";
         if(coordinatorPortStr != NULL) prefix += std::string() +  ENV_VAR_NAME_PORT "=" + coordinatorPortStr + " ";
@@ -263,7 +268,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
 void dmtcp::DmtcpWorker::waitForStage3Resume()
 {
-    JTRACE("umasking stderr");
+    JTRACE("unmasking stderr");
     unmaskStdErr();
     
     {

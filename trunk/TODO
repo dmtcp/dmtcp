@@ -11,6 +11,8 @@ MINOR CLEANUP:
 4.  setsighandler fails if user has reset our signal handler
     Do we cleanly tell the user what signal is being used by app,
     and to reurn dmtcp with --sigckpt  set to other signal?
+4.b. DMTCP uses ENV_VAR_XXX for its environment variables.
+     A name like DMTCP_XXX is probably more appropriate.
 
 HARDER THINGS:
 5.  Would like to get ParGAP or even nested shells to work with
@@ -24,6 +26,12 @@ HARDER THINGS:
         in my parallel computing course.  Hopefully, they will give
         us the diagnosis.  In this case, processes were exiting prematurely,
         and then there was only a single process left trying to checkpoint.
+7.  Extend list of syscalls using netdb to put wrappers around them.
+	The danger is that in invoking the netdb, they might want to
+	create a socket.  Then we detect this, and we try to create
+	a socket to the coordinator.  This hits our wrapper function, which
+	then creates an infinite loop.  At least, we think we saw this in
+	Ubuntu 6.06 (dapper).
         
         
 OLDER THINGS:
