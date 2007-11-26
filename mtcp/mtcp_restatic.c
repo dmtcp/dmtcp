@@ -267,7 +267,7 @@ static void readmemoryareas (void)
     readfile (&cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
-      mtcp_printf ("mtcp_restore: expected CS_AREADESCRIP but had %d\n", cstype);
+      mtcp_printf ("mtcp_restart: expected CS_AREADESCRIP but had %d\n", cstype);
       mtcp_abort ();
     }
     readfile (&area, sizeof area);
@@ -297,11 +297,11 @@ static void readmemoryareas (void)
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        mtcp_printf ("mtcp_restore: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+        mtcp_printf ("mtcp_restart: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
 	try_overwriting_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_overwriting_existing_segment) {
-        mtcp_printf ("mtcp_restore: area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort ();
       }
 
@@ -311,7 +311,7 @@ static void readmemoryareas (void)
       readfile (area.addr, area.size);
       if (!(area.prot & PROT_WRITE) && !try_overwriting_existing_segment) {
         if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-          mtcp_printf ("mtcp_restore: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+          mtcp_printf ("mtcp_restart: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
           mtcp_abort ();
         }
       }
@@ -330,16 +330,16 @@ static void readmemoryareas (void)
       if (area.prot & PROT_WRITE) flags |= O_WRONLY;
       imagefd = mtcp_sys_open (area.name, flags, 0);  // open it
       if (imagefd < 0) {
-        mtcp_printf ("mtcp_restore: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
+        mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
         mtcp_abort ();
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        mtcp_printf ("mtcp_restore: error %d mapping %s offset %d at %p\n", mtcp_sys_errno, area.name, area.offset, area.addr);
+        mtcp_printf ("mtcp_restart: error %d mapping %s offset %d at %p\n", mtcp_sys_errno, area.name, area.offset, area.addr);
         mtcp_abort ();
       }
       if (mmappedat != area.addr) {
-        mtcp_printf ("mtcp_restore: area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort ();
       }
       mtcp_sys_close (imagefd);                       // don't leave a dangling fd in the way of other stuff

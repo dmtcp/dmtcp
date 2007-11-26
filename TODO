@@ -2,7 +2,7 @@
 MINOR CLEANUP:
 
 2.  dmtcp_coordinator should accept "q" for quit.
-    dmtcp_coordinator should accept "h" and "?" for help.
+    dmtcp_coordinator should accept "h" and "?" for help.  [DONE]
 3.  dmtcp_checkpoint should have flag:  --sigckpt SIGNAL_NUMBER
       kill -l    shows signals and corresponding signal numbers.
       Probably it should also print initial banner saying that
@@ -40,8 +40,8 @@ x) new test testmtcp5.c gives unexpected results
 x) "ssh X" seems to setup sockets for stdin/stdout of X... this causing pain 
 x) [d]mtcp seems to be pooping out files named "socket:[12345]"... why???
 
-2) "mtcp_restore: error 16 mapping 2000 bytes at 0x7FBFFFE000" happens when restarting testmtcp on teracluster
-    It seems to work... but what is causing this error
+2) "mtcp_restart: error 16 mapping 2000 bytes at 0x7FBFFFE000" happens when restarting testmtcp on teracluster
+    It seems to work... but what is causing this error?
 3) mtcp only compiles with "-O0" on teracluster, fails with -O{1,2,3}, is this unavoidable?
 4) MPICH2 failes after restart when debug printing is enabled in mtcp.  It works if you disabled DPRINTF.
 5) OpenMPI fails to checkpoint/restore

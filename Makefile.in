@@ -27,7 +27,7 @@ bin/% : dmtcp/src/%
 bin/% : mtcp/%
 	(cd bin && $(LN_S) ../$< $*)
 
-bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restore
+bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart
  
 .PHONY: all mtcp dmtcp clean distclean bin
 

@@ -49,7 +49,7 @@ ifeq (${shell uname -m},x86_64)
   LDFLAGS += -Wl,--rpath -Wl,$(MTCP_DIR)
 endif
 
-default: testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest mtcp.so mtcp_restore mtcp_restore.so
+default: testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest mtcp.so mtcp_restart mtcp_restart.so
 
 all: default
 
@@ -80,16 +80,16 @@ threadtest: threadtest.c
 # This is the command-line utility to restore a process
 
 
-mtcp_restore: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
-	${CC} $(CFLAGS) -static -o mtcp_restore mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
+mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+	${CC} $(CFLAGS) -static -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
 		mtcp_safestat.o mtcp_state.o
 
 
-# mtcp_restore.so is used only by dmtcp --- not by mtcp
-mtcp_restore.so: mtcp_restore.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+# mtcp_restart.so is used only by dmtcp --- not by mtcp
+mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 	${CC} $(CFLAGS) -shared \
-	 -o mtcp_restore.so mtcp_restore.c mtcp_maybebpt.o mtcp_printf.o \
+	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_printf.o \
 	 mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 
 # This is the shareable that a user links with the application
@@ -198,7 +198,7 @@ dist: distclean
 	ls -l ../mtcpv${MTCP_VERSION}.tgz
 
 # check: default testmtcp
-check: mtcp.so mtcp_restore testmtcp
+check: mtcp.so mtcp_restart testmtcp
 	@ echo ""
 	@ echo Type into program to verify it operates.  Will be killed in 13 s.
 	@ echo ""
@@ -209,14 +209,14 @@ check: mtcp.so mtcp_restore testmtcp
 	@ echo Continue typing arbitrary text into program to test that
 	@ echo it still works, and that checkpoint of a restart works.
 	sleep 5
-	gdb --args ./mtcp_restore testmtcp.mtcp
+	gdb --args ./mtcp_restart testmtcp.mtcp
 	echo FINISH EARLY FOR NOW
 	exit 1
-	(sleep 13; pkill mtcp_restore) & ./mtcp_restore testmtcp.tmp || true
+	(sleep 13; pkill mtcp_restart) & ./mtcp_restart testmtcp.tmp || true
 	@ echo Kill this program now after being satisfied it still works.
 	@ echo ""
 	sleep 5
-	./mtcp_restore testmtcp.mtcp
+	./mtcp_restart testmtcp.mtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
@@ -226,14 +226,14 @@ clean:
 	rm -f *.o *.map mtcp_restatic.lis mtcp_restatic.00? mtcp_libc.s \
 	      mtcp_sharetemp.c mtcp_sharetemp.s mtcp_sharetemp2.s \
 	      mtcp_libc.s \
-	      testmtcp.mtcp mtcp.so mtcp.t mtcp.t-fail mtcp_restore.so \
-	      mtcp_restore extractobjectmodule \
+	      testmtcp.mtcp mtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
+	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest
 	echo WARNING: .lo files should go away once we are done with libtool.
 	rm -rf *.lo *.la .libs
 	      
 	      
-dmtcp: mtcp.so mtcp_restore mtcp_restore.so
-	mv -f mtcp.so mtcp_restore mtcp_restore.so ../dmtcp
+dmtcp: mtcp.so mtcp_restart mtcp_restart.so
+	mv -f mtcp.so mtcp_restart mtcp_restart.so ../dmtcp
 	make distclean   
 
