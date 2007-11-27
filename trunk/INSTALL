@@ -1,0 +1,42 @@
+To install, use:
+  ./configure
+  make
+
+The code is still experimental, and so we don't currently offer a system-wide
+installation.  It will install in the build directory.
+
+If you only want to checkpoint one process (possibly multi-threaded), you are
+better off with the simpler MTCP.  Do:
+    cd mtcp; make check  [to try it out]
+    [ First, modify Makefile to uncomment "CFLAGS=...-DDEBUG" if desired. ]
+The mtcp subdirectory is independent of the rest of DMTCP.  To include it
+in your application, you only need to include the mtcp directory.
+Then look at testmtcp.c and other test files.  The key functions
+are listed in mtcp.c:
+  mtcp_init()
+  mtcp_ok()
+  mtcp_no()
+Currently, we checkpoint on a timer, but it would be easy to add a function
+to checkpoint upon request by the application.
+
+If your process will create multiple processes, you should use DMTCP.
+The file dmtcp/dmtcp/INSTALL also exists.  A brief overview follows.
+    cd dmtcp
+The general methodology is:
+  ./dmtcp_coordinator [in one window: type h to the coordinator to see commands]
+  ./dmtcp_checkpoint a.out <args,...>
+Any child processes, remote processes via system("ssh ...), etc., will
+all be checkpointed upon requrest to the dmtcp_coordinator.
+After a checkpoint, the dmtcp_coordinator will create a script,
+dmtcp_restart_script.sh, on the same host as the coodrinator that will go
+to all the *.mtcp checkpoint files on the
+remote hosts and restart those processes on those original remote hosts.
+Edit dmtcp_restart, and copy the *.mtcp checkpoint files if you want the
+checkpoint files to restart on new hosts.  Finally, when you are ready:
+  # First, make sure dmtcp_restart is in your path on all hosts to be used,
+  #  or edit dmtcp_restart_script.sh to provide absolute pathnames.
+  ./dmtcp_coordinator  [only necessary if the original dmtcp_coordinator died]
+  ./dmtcp_restart_script.sh
+Note that files /tmp/jassertlog.* are created with debugging information.
+See dmtcp/dmtcp/README for how to compile with debugging information
+and other options.
