@@ -24,18 +24,10 @@
 
 void mtcp_check_vdso_enabled(void) {
   char buf[1];
-  int fd = open("/proc/sys/vm/vdso_enabled", O_RDONLY);
 
-  if (fd == -1)
+  FILE * stream = fopen("/proc/sys/vm/vdso_enabled", "r");
+  if (stream == NULL)
     return;  /* Good news.  If it doesn't exist, it can't be enabled.  :-) */
-  else if (-1 == close(fd))
-    { perror("close"); exit(1); }
-
-  FILE * stream = popen("cat /proc/sys/vm/vdso_enabled", "r");
-  if (stream == NULL) {
-    perror("popen");
-    exit(1);
-  }
   clearerr(stream);
   if (fread(buf, sizeof(buf[0]), 1, stream) < 1) {
     if (ferror(stream)) {
@@ -43,8 +35,8 @@ void mtcp_check_vdso_enabled(void) {
       exit(1);
     }
   }
-  if (-1 == pclose(stream)) {
-    perror("pclose");
+  if (-1 == fclose(stream)) {
+    perror("fclose");
     exit(1);
   }
   if (buf[0] == '1') {

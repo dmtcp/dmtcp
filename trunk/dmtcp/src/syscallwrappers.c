@@ -42,16 +42,17 @@ static int in_dmtcp_on_helper_fnc = 0;
 
 #define PASSTHROUGH_DMTCP_HELPER(func, ...) {\
     int ret = _real_ ## func (__VA_ARGS__); \
-    if (in_dmtcp_on_helper_fnc == 0) { \
-      in_dmtcp_on_helper_fnc = 1; \
       PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); \
-      in_dmtcp_on_helper_fnc = 0; \
-    } }
+    }
     
 #define PASSTHROUGH_DMTCP_HELPER2(func, ...) {\
     _dmtcp_lock();\
-    if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func); \
-    else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);\
+    if (in_dmtcp_on_helper_fnc == 0) { \
+      in_dmtcp_on_helper_fnc = 1; \
+      if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func); \
+      else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);\
+      in_dmtcp_on_helper_fnc = 0; \
+    } \
     _dmtcp_unlock();\
     return ret;}
 
