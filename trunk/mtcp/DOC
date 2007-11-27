@@ -43,7 +43,7 @@ mmap-ed file no longer exists on disk.  DMTCP checks this and warns
 that checkpointing may fail.  One can re-configure NSCD to not use
 shared files.  In the future, DMTCP may implement a planned workaround.
 =========================================================================
-The object file mtcp_restatic.o cannot refer to any symbols from glibc
+The object file mtcp_restart_nolibc.o cannot refer to any symbols from glibc
 (see below),
 since it will execute at a time when glibc no longer exists in memory.
 Previously, this was accomplished by having extractobjectmodule extract
@@ -71,8 +71,8 @@ On x86_64 (and on i386 programs using thread-local variables),
   the library call will be bound to the previous (external function)
   that was linked in.  So, the GNU C compiler apparently is calling
   additional code from a different segment to handle this case.  When we
-  call from mtcp_restatic.c, we don't have a different segment.  So, any
-  functions called by mtcp_restatic.c must not be global symbols.
+  call from mtcp_restart_nolibc.c, we don't have a different segment.  So, any
+  functions called by mtcp_restart_nolibc.c must not be global symbols.
   One can either concatenate all files into one long one and declare
   all symbols static (yuck!), or else declare such global symbols
   to be library scope only (ELF hidden symbols).  See mtcp_internal.h
@@ -87,25 +87,24 @@ to have problems with this library not being fully loaded.  WHY??
 ==========================================================================
 OVERVIEW:  RESTART
 	    CAN USE CURRENT libc.so AT THIS POINT:
-            mtcp_restore.c:main calls libc.so(mtcp.c):mtcp_restore_start
+            mtcp_restart.c:main calls libc.so(mtcp.c):mtcp_restore_start
                via an absolute memory address saved in the checkpoint file.
 	    [ If executing under gdb, it will stop with suggested
 	      add-symbol-file ... command for gdb.
 	      Paste it into gdb to see stack (doesn't always work). ]
             We are now executing inside mtcp.so, and will never again
-               use mtcp_restore.c.
+               use mtcp_restart.c.
             libc.so(mtcp.c):mtcp_restore_start then sets the stack pointer
 	       esp/rsp to a tempstack in libc.so of length only 1024 long long
 	       (raise this if needed!) and sets ebp/rbp to 0, and then calls
-               libmtcp.so(mtcp_restatic.c):mtcp_restoreverything.
+               libmtcp.so(mtcp_restart_nolibc.c):mtcp_restoreverything.
 	       [ mtcp_restore_start will never execute again. ]
 
-	    libc.so(mtcp_restatic.c):  CAN NOT USE ANY libc.so AT THIS POINT
+	    libc.so(mtcp_restart_nolibc.c): CAN'T USE ANY libc.so AT THIS POINT
 	    CAN NOT USE OLD STACK, AND ABOUT TO ALSO REMOVE OLD HEAP.
-            [ A better name for mtcp_restatic. might be mtcp_restart_nolibc.c ]
             Within mtcp_restoreverything, we unmap all other memory segments
                 except libmtcp.so;  So, libc.so is no longer available.
-            All code within mtcp_restatic.c must follow the discipline of
+            All code within mtcp_restart_nolibc.c must follow the discipline of
                 not using libc.so. It either directly makes syscalls to kernel,
                 or else duplicates logic of simple libc.so functions.
             mtcp_restoreverything then restores file descriptors and
@@ -172,23 +171,24 @@ stopthisthread -
         if we're not motherofall then
           exit()
         else we're motherofall
-        execlp("mtcp_restore", "mtcp_restore", "-verify", checkpointfilename)
+        execlp("mtcp_restart", "mtcp_restart", "-verify", checkpointfilename)
       else we're not in verify mode
 
 ==========================================================================
 FLOW OF CONTROL: restart
 
-mtcp_restore.c:main():
+mtcp_restart.c:main():
   reads the address of the mtcp_restore_start function from the checkpoint file, and  (It was saved there at checkpoint time).
   then calls that address at the end of its main, just after restoring
   the checkpoint file into memory.
   The function pointer is called restore_start in main(), and
 	corresponds to mtcp_restore_start in mtcp.c.
   Note that we are then in the restored mtcp.so.  We never again execute
-	any code from mtcp_restore.c.
+	any code from mtcp_restart.c.
 
 mtcp.c:mtcp_restore_start():
-  mtcp_restatic.c:mtcp_restoreverything()  [ This is in mtcp_restatic.c ]
+    mtcp_restart_nolibc.c:mtcp_restoreverything()  [ This is
+						     in mtcp_restart_nolibc.c ]
     readcs  -  read checkpoint section
     readfile - read address of finishrestore
     readfildescrs  (restore open file descriptors)
@@ -201,7 +201,7 @@ restarthread - called by finishrestore for motherofall;
   mtcp_longjmp
     stopthisthread - resumes rest of function after mtcp_setjmp (see above)
 
-CALLED at end of mtcp_restore.c:mtcp_restoreverything()
+CALLED at end of mtcp_restart.c:mtcp_restoreverything()
    AFTER LOADING CHECKPOINT FILE INTO RAM.
 finishrestore
   create a big stack so longjmp will start beyong end of stack.

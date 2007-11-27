@@ -37,9 +37,16 @@
 //////////////////////////////////////
 //////// Now we define our wrappers
 
+/* Prevent recursive calls to dmtcp_on_XXX() */
+static int in_dmtcp_on_helper_fnc = 0;
+
 #define PASSTHROUGH_DMTCP_HELPER(func, ...) {\
     int ret = _real_ ## func (__VA_ARGS__); \
-    PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); }
+    if (in_dmtcp_on_helper_fnc == 0) { \
+      in_dmtcp_on_helper_fnc = 1; \
+      PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); \
+      in_dmtcp_on_helper_fnc = 0; \
+    } }
     
 #define PASSTHROUGH_DMTCP_HELPER2(func, ...) {\
     _dmtcp_lock();\

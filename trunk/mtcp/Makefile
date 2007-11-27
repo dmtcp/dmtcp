@@ -1,4 +1,4 @@
-##+++2006-05-03
+#+++2006-05-03
 ##    Copyright (C) 2006  Mike Rieker, Beverly, MA USA
 ##    Additions by Gene Cooperman to work with x86-64 architecture
 ##    EXPECT it to FAIL when someone's HeALTh or PROpeRTy is at RISk
@@ -118,7 +118,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	  fi \
 	fi
 
-LIBRARY_OBJS = mtcp.o mtcp_restatic.o mtcp_libccancellation.o \
+LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
 	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o
 
@@ -127,7 +127,7 @@ LIBRARY_OBJS = mtcp.o mtcp_restatic.o mtcp_libccancellation.o \
 	libtool --mode=compile gcc -c $(CFLAGS) $<
 
 mtcp.so: mtcp.t ${LIBRARY_OBJS}
-	##ld -shared -Map mtcp.map -o mtcp.so mtcp.lo mtcp_restatic.lo --verbose
+	##ld -shared -Map mtcp.map -o mtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o mtcp.so \
 	  ${LIBRARY_OBJS} -ldl -lpthread
@@ -135,21 +135,22 @@ mtcp.so: mtcp.t ${LIBRARY_OBJS}
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
-mtcp_restatic.o: mtcp_restatic.c mtcp.h mtcp_internal.h
+mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_restatic.o \
-	    mtcp_restatic.c; \
+	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_restart_nolibc.o \
+	    mtcp_restart_nolibc.c; \
 	else \
-	  ${CC} $(CFLAGS) -c -o mtcp_restatic.o mtcp_restatic.c; \
+	  ${CC} $(CFLAGS) -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c; \
 	fi
 
 # mtcp.lis is needed only for debugging.
 mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
 
-# The resultant mtcp_restatic.o module should not have any undefined symbols
+# The resultant mtcp_restart_nolibc.o module should not have undefined symbols
 # ... if it did, they would get linked to /lib/libc.so at runtime and 
-# ... the restore wouldn't work as /lib/libc.so isn't in memory during the restore
+# ... the restart wouldn't work as /lib/libc.so isn't in memory
+#   during the restart
 # It also cannot have global symbols like 'read' undefined in one module, defined 
 # ... by another, as the loader will also re-direct those references to /lib/libc.so
 
@@ -223,9 +224,7 @@ distclean: clean
 	      *.lis a.out mtcp.t.orig
 
 clean:
-	rm -f *.o *.map mtcp_restatic.lis mtcp_restatic.00? mtcp_libc.s \
-	      mtcp_sharetemp.c mtcp_sharetemp.s mtcp_sharetemp2.s \
-	      mtcp_libc.s \
+	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
 	      testmtcp.mtcp mtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
 	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest

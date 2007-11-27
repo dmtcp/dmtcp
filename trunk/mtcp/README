@@ -7,7 +7,7 @@ To test it, now just do:
 This is the quivalent of:
   LD_LIBRARY_PATH=. ./testmtcp
   [ type some stuff, and wait long enough until it checkpoints. ]
-  ./restore_mtcp testmtcp.mtcp
+  ./mtcp_restart testmtcp.mtcp
   [ type some more and verify that it still worked ]
 
 Date: Tue, 19 Sep 2006 18:15:01 -0400 (EDT)
@@ -37,7 +37,7 @@ testmtcp.mtcp file that contains the checkpoint data.
 
 Then do this command:
 
-./mtcp_restore testmtcp.mtcp
+./mtcp_restart testmtcp.mtcp
 
 ... it should read the file in, restore it to memory, then Segment fault.
 

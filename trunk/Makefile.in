@@ -21,6 +21,11 @@ distclean:
 	(cd dmtcp && $(MAKE) distclean)  
 	rm -f Makefile config.log config.status bin/*
 
+dist: distclean
+	dir=`pwd`; cd ..; tar czvf dmtcp.tgz --exclude='.*/.svn/*' \
+	                                   --exclude='*/.svn' ./`basename $$dir`
+	ls -l ../dmtcp.tgz
+
 bin/% : dmtcp/src/%
 	(cd bin && $(LN_S) ../$< $*)
 

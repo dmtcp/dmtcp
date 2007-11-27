@@ -21,8 +21,6 @@ and mtcp_sys.h comments out the definition of mtcp_sys_memcmp as static fnc.
 Why does allowing that static function cause gdb to forget how
 to do: add-symbol-file, and follow new stack?
 
-Can now delete all .s files and all mention of them in Makefile.
-
 Maybe need virtualization of thread IDs.  Things like pthread_cancel
 can't work otherwise.  Routines that won't work after checkpoint include:
 pthread_self
@@ -40,14 +38,9 @@ mtcp_sys_memcpy, mtcp_sys_memcmp doing byte-at-a-time copy for simplicity
  --- Go back and implement more efficient version from glibc?
 Only need to keep it if we use mtcp_maybebpt when no libc.so avail.
 
-Delete mtcp_undef.* if not needed.
-
 See comment in Makefile about deleting extractobjectmodules.c and related files.
 
-Delete NOTES-x86_64 when no longer needed.
-
-testmtcp2 doesn't work.  It's the only one to directly use clone() instead
-  of pthread_create().  Is this a bug in testmtcp2 or in MTCP?
+Delete NOTES-x86_64 when no longer needed (or keep them around for others?).
 
 http://sourceware.org/ml/libc-ports/2006-09/msg00022.html
 http://sourceware.org/ml/libc-ports/2006-08/msg00017.html
@@ -58,7 +51,7 @@ http://sourceware.org/ml/libc-ports/2006-08/msg00017.html
 
 Is it working with libthread_db, for the sake of debugging/gdb?
 
-If started under gdb, ./mtcprestore doesn't work, complaining about
+If started under gdb, ./mtcp_restart doesn't work, complaining about
   ptrace Trace/BPT trap
 The issue is probably that gdb reassigns stdin/stdout/stderr of child
   to pipe to gdb.  On restart, gdb doesn't exist.
