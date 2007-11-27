@@ -23,6 +23,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include <stdio.h>
+#include <sys/stat.h>
 #include "jtimer.h"
 #include <algorithm>
 #undef min
@@ -438,9 +439,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   FILE* fp = fopen(filename.c_str(),"w");
   JASSERT(fp!=0)(filename).Text("failed to open file");  
   fprintf(fp, "%s", "#!/bin/bash \nset -m # turn on job control\n\n"
-  "#launch all the restarts in the background:\n"
-  "#note that stdin is given to the last image on each dmtcp_restart line\n"
-  "#that process then must be brought to the forground for it to get the stdin of this script\n");
+  "#Launch all the restarts in the background:\n"
+  "#Note that stdin is given to the last image on each dmtcp_restart line.\n"
+  "#That process then must be brought to the foreground for it\n"
+  "#to get the stdin of this script.\n");
   
   for(host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host)
   {
@@ -454,6 +456,11 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   
   fprintf(fp,"\n#wait for them all to finish\nwait");
   fclose(fp);
+  { /* Set execute permission for user. */
+    struct stat buf;
+    stat(RESTART_SCRIPT_NAME, &buf);
+    chmod(RESTART_SCRIPT_NAME, buf.st_mode | S_IXUSR);
+  }
   _restartFilenames.clear();
 }
 
