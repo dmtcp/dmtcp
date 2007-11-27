@@ -252,17 +252,18 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
     mtcp_abort ();
   }
 
-  if (getenv("MTCP_NO_CHECKPOINT"))
-    return 0;
-  putenv("MTCP_NO_CHECKPOINT=1");
-  /* This code could create short-lived child processes.  We don't want
-   * to checkpoint these internal processes.
+  /* Nobody else has a right to preload on internal processes generated
+   * by mtcp_check_XXX() -- not even DMTCP, if it's currently operating.
    */
+  char * ld_preload = getenv("LD_PRELOAD");
+  if (ld_preload)
+    unsetenv("LD_PRELOAD");
   mtcp_check_nscd();
 #ifndef __x86_64__
   mtcp_check_vdso_enabled();
 #endif
-  unsetenv("MTCP_NO_CHECKPOINT");
+  if (ld_preload)
+    putenv(ld_preload);
 
 #if 0
   { struct user_desc u_info;
@@ -1560,12 +1561,14 @@ static void stopthisthread (int signum)
           mtcp_sys_exit(0);
         }
 
-        /* This is the main thread, verify checkpoint then restart by doing a restore */
-        /* The restore will rename the file after it has done the restore             */
+        /* This is the main thread, verify checkpoint then restart by doing
+         * a restart.
+         * The restore will rename the file after it has done the restart
+         */
 
         DPRINTF (("mtcp checkpointeverything*: verifying checkpoint...\n"));
-        execlp ("mtcp_restore", "mtcp_restore", "-verify", temp_checkpointfilename, NULL);
-        mtcp_printf ("mtcp checkpointeverything: error execing mtcp_resetore %s: %s\n", temp_checkpointfilename, strerror (errno));
+        execlp ("mtcp_restart", "mtcp_restart", "-verify", temp_checkpointfilename, NULL);
+        mtcp_printf ("mtcp checkpointeverything: error execing mtcp_restart %s: %s\n", temp_checkpointfilename, strerror (errno));
         mtcp_abort ();
       }
 
@@ -1574,7 +1577,7 @@ static void stopthisthread (int signum)
       DPRINTF (("mtcp stopthisthread*: thread %d resuming\n", thread -> tid));
     }
 
-    /* This stuff executes on restore */
+    /* This stuff executes on restart */
 
     else {
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state

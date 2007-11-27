@@ -63,10 +63,7 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
     
     JASSERT_SET_LOGFILE("/tmp/jassertlog." + jalib::XToString(getpid()));
     JTRACE("dmtcphijack.so:  Running ")(jalib::Filesystem::GetProgramName());
-    { char pid[20];
-      sprintf(pid,"%d",getppid());
-      JTRACE("dmtcphijack.so:  Child of pid ")(pid);
-    }
+    JTRACE("dmtcphijack.so:  Child of pid ")(getppid());
     
     if(jalib::Filesystem::GetProgramName() == "ssh")
     {
