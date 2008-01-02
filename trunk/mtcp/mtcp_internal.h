@@ -117,11 +117,15 @@ typedef unsigned int mtcp_segreg_t;
 #define FILENAMESIZE 1024
 
 #ifdef __i386__
-# define MAGIC "MTCP-V1.0"   // magic number at beginning of checkpoint file
+# define MAGIC "MTCP-V1.0"        // magic number at beginning of checkpoint file (uncompressed)
+# define MAGIC_LEN 10             // length of magic number (including \0)
 #endif
 #ifdef __x86_64__
-# define MAGIC "MTCP64-V1.0" // magic number at beginning of checkpoint file
+# define MAGIC "MTCP64-V1.0"      // magic number at beginning of uncompressed checkpoint file
+# define MAGIC_LEN 12               // length of magic number (including \0)
 #endif
+#define MAGIC_FIRST 'M'
+#define GZIP_FIRST 037
 
 #define STOPSIGNAL SIGUSR2  // signal to use to signal other threads to stop for checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
@@ -222,6 +226,7 @@ __attribute__ ((visibility ("hidden")))
 void mtcp_check_nscd(void);
 void mtcp_check_vdso_enabled(void);
 void mtcp_dump_tls (char const *file, int line);
+char *mtcp_executable_path(char *filename);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);

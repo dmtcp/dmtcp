@@ -200,6 +200,8 @@ static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
+static int open_ckpt_file(void);
+static int open_ckpt_dest(void);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area);
@@ -1184,6 +1186,89 @@ again:
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
 }
+
+
+/**
+ * This function returns the fd pointing at a file-on-disk to which the
+ * checkpoint file should be written.
+ *
+ * @return the fd pointing to the checkpoint file
+ */
+static int open_ckpt_file(void)
+{
+    int fd;
+
+    fd = mtcp_sys_open(temp_checkpointfilename,
+            O_CREAT | O_TRUNC | O_WRONLY, 0600);
+
+    if (fd < 0) {
+        mtcp_printf("mtcp open_ckpt_file: error creating %s: %s\n",
+                temp_checkpointfilename,
+                strerror(mtcp_sys_errno));
+        mtcp_abort();
+    }
+
+    return fd;
+}
+
+/**
+ * This function returns the fd to which the checkpoint file should be written.
+ * The purpose of using this function over mtcp_sys_open() is that this
+ * function will handle compression and gzipping.
+ *
+ * @param the fd to write to
+ */
+static int open_ckpt_dest(void)
+{
+    pid_t cpid;
+    int fd;
+    int fds[2]; /* for potential piping */
+    char *do_we_compress;
+    char *gzip_path;
+    char *gzip_args[] = { "gzip", "-", NULL };
+
+    do_we_compress = getenv("MTCP_GZIP");
+    fd = open_ckpt_file();
+
+    if ((do_we_compress != NULL) && strtol(do_we_compress, NULL, 0) != 0) {
+        if ((gzip_path = mtcp_executable_path("gzip")) == NULL) {
+            mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+                    "not be used.\n");
+            return fd;
+        }
+        if (pipe(fds) == -1) {
+            mtcp_printf("WARNING: error creating pipe. Compression will "
+                    "not be used.\n");
+            return fd;
+        }
+
+        cpid = fork();
+        if (cpid == -1) {
+            mtcp_printf("WARNING: error forking child.  Compression will "
+                    "not be used.\n");
+            return fd;
+        } else if (cpid > 0) { /* parent process */
+            close(fds[0]);
+            close(fd);
+            return fds[1];
+        } else { /* child process */
+            close(fds[1]);
+            dup2(fds[0], STDIN_FILENO);
+            close(fds[0]);
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+            execv(gzip_path, gzip_args);
+            /* should not get here */
+            mtcp_printf("ERROR: compression failed!  No checkpointing will be"
+                    "performed!  Cancel now!\n");
+            exit(1);
+        }
+    }
+
+    return fd;
+}
+
+
 
 /********************************************************************************************************************************/
 /*																*/
@@ -1205,12 +1290,8 @@ static void checkpointeverything (void)
 
   /* Create temp checkpoint file and write magic number to it */
 
-  fd = mtcp_sys_open (temp_checkpointfilename, O_CREAT | O_TRUNC | O_WRONLY, 0600);
-  if (fd < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error creating %s: %s\n", temp_checkpointfilename, strerror (mtcp_sys_errno));
-    mtcp_abort ();
-  }
-  writefile (fd, MAGIC, sizeof MAGIC);
+  fd = open_ckpt_dest();
+  writefile (fd, MAGIC, MAGIC_LEN);
 
   /* Write out the shareable parameters and the image   */
   /* Put this all at the front to make the restore easy */

@@ -32,16 +32,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <string.h>
 
 #include "mtcp_internal.h"
 
+static char first_char(char *filename);
+static int open_ckpt_file(char *filename);
 static void readcs (int fd, char cs);
-static void readfile (int fd, void *buff, int size);
-
+static void readfile (int fd, void *buf, int size);
+
 int main (int argc, char *argv[])
 
 {
-  char magicbuf[sizeof MAGIC], *restorename;
+  char magicbuf[MAGIC_LEN], *restorename;
   int fd, restore_size, verify;
   void *restore_begin, *restore_mmap;
   void (*restore_start) (int fd, int verify);
@@ -57,14 +60,10 @@ int main (int argc, char *argv[])
     return (-1);
   }
 
-  fd = open (restorename, O_RDONLY);
-  if (fd < 0) {
-    fprintf (stderr, "mtcp_restart: error opening %s; Reason: %s\n", restorename, strerror (errno));
-    return (-1);
-  }
+  fd = open_ckpt_file(restorename);
 
-  readfile (fd, magicbuf, sizeof magicbuf);
-  if (memcmp (magicbuf, MAGIC, sizeof magicbuf) != 0) {
+  readfile (fd, magicbuf, MAGIC_LEN);
+  if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     fprintf (stderr, "mtcp_restart: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
     return (-1);
   }
@@ -141,7 +140,111 @@ printf("restore_mmap: %x\n", restore_mmap);
   abort ();
   return (0);
 }
-
+
+/**
+ * This function will return the first character of the given file.  If the
+ * file is not readable, we will abort.
+ *
+ * @param filename the name of the file to read
+ * @return the first character of the given file
+ */
+static char first_char(char *filename)
+{
+    int fd, rc;
+    char c;
+
+    fd = open(filename, O_RDONLY);
+    if(fd < 0)
+    {
+        fprintf(stderr, "ERROR: Cannot open file %s\n", filename);
+        abort();
+    }
+
+    rc = read(fd, &c, 1);
+    if(rc != 1)
+    {
+        fprintf(stderr, "ERROR: Error reading from file %s\n", filename);
+        abort();
+    }
+
+    return c;
+}
+
+/**
+ * This function will open the checkpoint file stored at the given filename.
+ * It will check the magic number and take the appropriate action.  If the
+ * magic number is unknown, we will abort.  The fd returned points to the
+ * beginning of the uncompressed data.
+ *
+ * @param filename the name of the checkpoint file
+ * @return the fd to use
+ */
+static int open_ckpt_file(char *filename)
+{
+    int fd;
+    int fds[2];
+    char fc;
+    char *gzip_path;
+    char *gzip_args[] = { "gzip", "-d", "-", NULL };
+    pid_t cpid;
+
+    fc = first_char(filename);
+    fd = open(filename, O_RDONLY);
+    if(fd < 0)
+    {
+        fprintf(stderr, "ERROR: Cannot open checkpoint file %s\n", filename);
+        abort();
+    }
+
+    if(fc == MAGIC_FIRST) /* no compression */
+        return fd;
+    else if(fc == GZIP_FIRST) /* gzip */
+    {
+        if((gzip_path = mtcp_executable_path("gzip")) == NULL)
+        {
+            fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
+            abort();
+        }
+
+        if(pipe(fds) == -1)
+        {
+            fputs("ERROR: Cannot create pipe to execute gunzip to decompress checkpoint file!\n", stderr);
+            abort();
+        }
+
+        cpid = fork();
+
+        if(cpid == -1)
+        {
+            fputs("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!\n", stderr);
+            abort();
+        }
+        else if(cpid > 0) /* parent process */
+        {
+            close(fd);
+            close(fds[1]);
+            return fds[0];
+        }
+        else /* child process */
+        {
+            close(fds[0]);
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+            dup2(fds[1], STDOUT_FILENO);
+            close(fds[1]);
+            execv(gzip_path, gzip_args);
+            /* should not get here */
+            fputs("ERROR: Decompression failed!  No restoration will be performed!  Cancel now!\n", stderr);
+            abort();
+        }
+    }
+    else /* invalid magic number */
+    {
+        fputs("ERROR: Invalid magic number in this checkpoint file!\n", stderr);
+        abort();
+    }
+}
+
 static void readcs (int fd, char cs)
 
 {
@@ -154,18 +257,26 @@ static void readcs (int fd, char cs)
   }
 }
 
-static void readfile (int fd, void *buff, int size)
-
+static void readfile(int fd, void *buf, int size)
 {
-  int rc;
+    int rc, ar;
 
-  rc = read (fd, buff, size);
-  if (rc < 0) {
-    fprintf (stderr, "mtcp_restart readfile: error reading checkpoint file: %s\n", strerror (errno));
-    abort ();
-  }
-  if (rc != size) {
-    fprintf (stderr, "mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", rc, size);
-    abort ();
-  }
+    ar = 0;
+
+    while(ar != size)
+    {
+        rc = read(fd, buf + ar, size - ar);
+        if(rc < 0)
+        {
+            fprintf(stderr, "mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));
+            abort();
+        }
+        else if(rc == 0)
+        {
+            fprintf(stderr, "mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            abort();
+        }
+
+        ar += rc;
+    }
 }
