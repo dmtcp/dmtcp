@@ -62,9 +62,9 @@ asm (".text");
 static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
-static void readfile (void *buff, int size);
+static void readfile (void *buf, int size);
 static VA highest_userspace_address (void);
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called executing on the temporary stack									*/
@@ -359,20 +359,28 @@ static void readcs (char cs)
   }
 }
 
-static void readfile (void *buff, int size)
-
+static void readfile(void *buf, int size)
 {
-  int rc;
+    int rc, ar;
 
-  rc = mtcp_sys_read (mtcp_restore_cpfd, buff, size);
-  if (rc < 0) {
-    mtcp_printf ("mtcp readfile: error %d reading checkpoint file\n", mtcp_sys_errno);
-    mtcp_abort ();
-  }
-  if (rc != size) {
-    mtcp_printf ("mtcp readfile: only read %d bytes instead of %d from checkpoint file\n", rc, size);
-    mtcp_abort ();
-  }
+    ar = 0;
+
+    while(ar != size)
+    {
+        rc = mtcp_sys_read(mtcp_restore_cpfd, buf + ar, size - ar);
+        if(rc < 0)
+        {
+            mtcp_printf("mtcp_restart readfile: error %d reading checkpoint\n", mtcp_sys_errno);
+            mtcp_abort();
+        }
+        else if(rc == 0)
+        {
+            mtcp_printf("mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_abort();
+        }
+
+        ar += rc;
+    }
 }
 
 #if 1
