@@ -19,9 +19,12 @@
  ***************************************************************************/
 #include "connection.h"
 #include "jassert.h"
+#include "jfilesystem.h"
+#include "jconvert.h"
 #include "kernelbufferdrainer.h"
 #include "syscallwrappers.h"
 #include "connectionrewirer.h"
+#include "connectionmanager.h"
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -151,6 +154,7 @@ void dmtcp::Connection::saveOptions(const std::vector<int>& fds)
 {
     _fcntlFlags = fcntl(fds[0],F_GETFL);
     JASSERT(_fcntlFlags >= 0)(_fcntlFlags)(JASSERT_ERRNO);
+    JNOTE("Flags ")(fds[0])(_fcntlFlags);
     _fcntlOwner = fcntl(fds[0],F_GETOWN);
     JASSERT(_fcntlOwner != -1)(_fcntlOwner)(JASSERT_ERRNO);
     _fcntlSignal = fcntl(fds[0],F_GETSIG);
@@ -162,7 +166,8 @@ void dmtcp::Connection::restoreOptions(const std::vector<int>& fds)
     JASSERT(_fcntlFlags >= 0)(_fcntlFlags);
     JASSERT(_fcntlOwner != -1)(_fcntlOwner);
     JASSERT(_fcntlSignal >= 0)(_fcntlSignal);
-    
+	if (fds[0] == 3);
+		//while(1);		
     JASSERT(fcntl(fds[0], F_SETFL, _fcntlFlags) == 0)(fds[0])(_fcntlFlags)(JASSERT_ERRNO);
     JASSERT(fcntl(fds[0], F_SETOWN,_fcntlOwner) == 0)(fds[0])(_fcntlOwner)(JASSERT_ERRNO);
     JASSERT(fcntl(fds[0], F_SETSIG,_fcntlSignal) == 0)(fds[0])(_fcntlSignal)(JASSERT_ERRNO);
@@ -221,9 +226,10 @@ void dmtcp::TcpConnection::restore(const std::vector<int>& fds, ConnectionRewire
     JASSERT(fds.size() > 0);
     switch(tcpType())
     {
+	case TCP_PREEXISTING:
         case TCP_ERROR: //not a valid socket
         case TCP_INVALID:
-            {
+            {	
                 jalib::JSocket deadSock(_makeDeadSocket());
                 deadSock.changeFd( fds[0] );
                 for(size_t i=1; i<fds.size(); ++i)
@@ -337,9 +343,96 @@ void dmtcp::PtsConnection::postCheckpoint(const std::vector<int>& fds)
 {
     
 }
-void dmtcp::PtsConnection::restore(const std::vector<int>&, ConnectionRewirer&)
+void dmtcp::PtsConnection::restore(const std::vector<int>& fds, ConnectionRewirer& rewirer)
 {
-    
+	JASSERT(fds.size() > 0);
+	
+	int tempfd;
+	char pts_name[80];
+	
+	switch ( (int)type() )
+	{
+		case INVALID: 
+		{
+			//tempfd = open("/dev/null", O_RDWR);
+			
+			return;
+		}
+			
+		case Pt_Master:
+		{
+			JTRACE("Restoring /dev/ptmx")(fds[0]);
+			
+			tempfd = open("/dev/ptmx", O_RDWR);	
+			
+			JASSERT(tempfd >= 0)(tempfd)(JASSERT_ERRNO)
+				.Text("Error Opening /dev/ptmx");
+			
+			JASSERT(grantpt(tempfd) >= 0)(tempfd)(JASSERT_ERRNO);
+			
+			JASSERT(unlockpt(tempfd) >= 0)(tempfd)(JASSERT_ERRNO);
+			
+        	JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)(tempfd)(JASSERT_ERRNO);
+			
+/*			if ( jalib::Filesystem::FileExists(_symlinkFilename) )
+			{
+				JNOTE("File Exists");
+				JASSERT(unlink(_symlinkFilename.c_str()) == 0)(pts_name)(_symlinkFilename)(JASSERT_ERRNO)
+					.Text("unlink() failed");
+			}
+*/
+			remove(_symlinkFilename.c_str());			
+			JASSERT(symlink(pts_name, _symlinkFilename.c_str()) == 0)(pts_name)(_symlinkFilename)(JASSERT_ERRNO)
+				.Text("symlink() failed");
+			
+			JASSERT(_real_dup2(tempfd, fds[0]) == fds[0])(tempfd)(fds[0])
+				.Text("dup2() failed");
+
+			_device = pts_name;
+
+			break;
+		}			
+		
+		case Pt_Slave:
+		{
+			if ( _device.compare("?") == 0 )
+			{
+				JTRACE("Restoring PTS ?")(fds[0]);
+				return;
+			}
+
+			std::string devicename = jalib::Filesystem::ResolveSymlink(_symlinkFilename);
+			JASSERT(devicename.length() > 0)(_device)(_symlinkFilename)(JASSERT_ERRNO)
+				.Text("PTS doesnot exists");
+			
+			tempfd = open(devicename.c_str(), O_RDWR);
+			JASSERT(tempfd >= 0)(tempfd)(devicename)(JASSERT_ERRNO)
+				.Text("Error Opening PTS");
+			
+			JASSERT(_real_dup2(tempfd, fds[0]) == fds[0])(tempfd)(fds[0])
+				.Text("dup2() failed");
+			
+			std::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
+			std::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
+			//dmtcp::KernelDeviceToConnection::Instance().dbgSpamFds();
+			//dmtcp::KernelDeviceToConnection::Instance().renameDevice(oldDeviceName, newDeviceName);
+			
+			JTRACE("Restoring PTS real")(devicename)(_symlinkFilename)(fds[0]);
+			
+			_device = devicename;
+
+			break;
+		}
+			
+			
+		default:
+			// should never reach here
+			JASSERT(false).Text("should never reach here");
+	}
+}
+void dmtcp::PtsConnection::restoreOptions(const std::vector<int>& fds)
+{
+	
 }
 
 ////////////
@@ -353,8 +446,22 @@ void dmtcp::FileConnection::postCheckpoint(const std::vector<int>& fds)
 {
     
 }
-void dmtcp::FileConnection::restore(const std::vector<int>&, ConnectionRewirer&)
+void dmtcp::FileConnection::restore(const std::vector<int>& fds, ConnectionRewirer& rewirer)
 { 
+    JASSERT(fds.size() > 0);
+	
+	int tempfd = open(_path.c_str(), O_RDONLY);
+	
+	JASSERT(tempfd >= 0)(tempfd)(_path)(JASSERT_ERRNO);
+
+//	for(size_t i=0; i<fds.size(); ++i)
+	{
+		JASSERT(_real_dup2( tempfd, fds[0]) == fds[0])(tempfd)(fds[0])
+				.Text("dup2() failed");
+	}
+	
+	JASSERT ( lseek(fds[0], _offset, SEEK_SET) == _offset)(_path)(_offset)(JASSERT_ERRNO);
+	
 //     flags = O_RDWR;
 //     if (!(statbuf.st_mode & S_IWUSR)) flags = O_RDONLY;
 //     else if (!(statbuf.st_mode & S_IRUSR)) flags = O_WRONLY;
@@ -408,6 +515,7 @@ void dmtcp::TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
     o & numSockOpts;
     if(o.isWriter())
     {
+	JTRACE("TCP Serialize ")(_type)(_id.conId());
         typedef std::map< int, std::map< int, jalib::JBuffer > >::iterator levelIterator;
         typedef std::map< int, jalib::JBuffer >::iterator optionIterator;
     
@@ -479,12 +587,19 @@ void dmtcp::TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
 void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
     JSERIALIZE_ASSERT_POINT("dmtcp::FileConnection");
-    o & _path;
+    o & _path & _offset;
 }
 
 void dmtcp::PtsConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
     JSERIALIZE_ASSERT_POINT("dmtcp::PtsConnection");
+	o & _device & _symlinkFilename & _type;
+	JTRACE("Serializing PTS####################################################")(id())(_device)(_symlinkFilename)(_type);
+	
+	if ( o.isReader() )
+	{
+		dmtcp::PtsToSymlink::Instance().add(_device,_symlinkFilename);
+	}
 }
 
 // void dmtcp::PipeConnection::serializeSubClass(jalib::JBinarySerializer& o)

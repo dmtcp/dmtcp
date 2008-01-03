@@ -48,6 +48,7 @@ public:
         
     static void maskStdErr();
     static void unmaskStdErr();
+	static bool isStdErrMasked() { return _stdErrMasked; }
 protected:
     
 
@@ -58,6 +59,7 @@ private:
     jalib::JSocket _coordinatorSocket;
     UniquePid      _coordinatorId;
     jalib::JSocket _restoreSocket;
+	static bool _stdErrMasked;// = false;
 };
 
 }

@@ -35,18 +35,24 @@
 #include "connectionmanager.h"
 #include "checkpointcoordinator.h"
 
+bool dmtcp::DmtcpWorker::_stdErrMasked = false;
+
 void dmtcp::DmtcpWorker::maskStdErr()
 {
-    int newfd = PROTECTEDFD(5);
+	if ( _stdErrMasked == true ) return;
+    int newfd = PROTECTED_STDERR_FD;
     JASSERT(_real_dup2(2, newfd) == newfd);
     JASSERT(_real_dup2(JASSERT_STDERR_FD, 2) == 2);
+	_stdErrMasked = true;
 }
 
 void dmtcp::DmtcpWorker::unmaskStdErr()
 {
-    int oldfd = PROTECTEDFD(5);
+	if ( _stdErrMasked == false ) return;
+    int oldfd = PROTECTED_STDERR_FD;
     JASSERT(_real_dup2(oldfd, 2) == 2);
     _real_close(oldfd);
+	_stdErrMasked = false;
 }
 
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
@@ -151,6 +157,11 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
 #endif
         
         unsetenv(ENV_VAR_SERIALFILE_INITIAL);
+    }
+    else
+    {
+        JTRACE("root of processes tree, checking for pre-existing sockets");
+//        ConnectionList::Instance().scanForPreExisting();
     }
 
     
@@ -328,6 +339,10 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
 void dmtcp::DmtcpWorker::postRestart()
 {
     JTRACE("postRestart begin");
+   	
+	JTRACE("umasking stderr");
+    unmaskStdErr();
+	
 
     //reconnect to our coordinator
     WorkerState::setCurrentState( WorkerState::RESTARTING );
@@ -336,6 +351,10 @@ void dmtcp::DmtcpWorker::postRestart()
     JASSERT(theCoordinator != NULL);
     theCoordinator->postRestart();
     
+    JTRACE("masking stderr from mtcp");
+    //because MTCP spams, and the user may have a socket for stderr
+    maskStdErr();
+
     JTRACE("postRestart end");
 }
 

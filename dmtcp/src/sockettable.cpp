@@ -176,6 +176,9 @@ extern "C" int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, sockl
 extern "C" int dmtcp_on_error(int ret, int sockfd, const char* fname)
 {
     JTRACE("socket error")(fname)(ret)(sockfd)(JASSERT_ERRNO);
+
+    //Ignore EAGAIN errors
+    if(errno == EAGAIN) return ret;
     
     dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd);
     

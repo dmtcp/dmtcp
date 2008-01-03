@@ -210,6 +210,63 @@ extern "C" int dup2 ( int oldfd, int newfd )
 	return rv;
 }
 
+extern "C" char *ptsname ( int fd )
+{
+	JNOTE("Calling ptsname");
+	static char tmpbuf[80];
+	const char *ptr;
+
+	char *device = _real_ptsname ( fd );
+	if ( device == NULL )
+	{
+		JTRACE("ptsname failed");
+		return device;
+	}
+
+	ptr = dmtcp::UniquePid::ptsSymlinkFilename(device);
+
+	strcpy (tmpbuf,ptr); 
+
+	JASSERT(symlink(device, tmpbuf) == 0)(device)(tmpbuf).Text("symlink() failed");
+
+	dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
+	dmtcp::PtsConnection *master = new dmtcp::PtsConnection(device, tmpbuf, type);
+	dmtcp::KernelDeviceToConnection::Instance().create( fd, master );	
+	
+	dmtcp::PtsToSymlink::Instance().add(device, tmpbuf);
+
+	return tmpbuf;
+}
+
+extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
+{
+	JNOTE("Calling ptsname_r");
+	char device[20];
+	const char *ptr;
+
+	int rv = _real_ptsname_r ( fd, device,  buflen );
+	if ( rv != 0 )
+	{	
+		JTRACE("ptsname_r failed");
+		return rv;
+	}
+
+	ptr = dmtcp::UniquePid::ptsSymlinkFilename(device);
+
+	JASSERT(symlink(device, ptr) == 0)(device)(ptr).Text("symlink() failed");
+
+	strcpy(buf, ptr);
+
+	//	std::string devicename = "file["+jalib::XToString(fd)+"]:" + device;
+	dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
+	dmtcp::PtsConnection *master = new dmtcp::PtsConnection(device, ptr, type);
+	dmtcp::KernelDeviceToConnection::Instance().create( fd, master );
+	
+	dmtcp::PtsToSymlink::Instance().add(device, buf);
+	
+	return rv;
+}
+
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
 	JASSERT ( sv != NULL );
@@ -368,7 +425,3 @@ extern "C" int system ( const char *command )
 // {
 //     JASSERT(false).Text("variable argument version of exec not yet supported by dmtcp");
 // }
-
-
-
-

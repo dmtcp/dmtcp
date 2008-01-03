@@ -37,6 +37,7 @@ namespace dmtcp {
 class KernelBufferDrainer;
 class ConnectionRewirer;
 class TcpConnection;
+class KernelDeviceToConnection;
     
 class Connection {
 public:
@@ -95,6 +96,7 @@ public:
         TCP_LISTEN,
         TCP_ACCEPT,
         TCP_CONNECT,
+	TCP_PREEXISTING
     };
     
     int tcpType() const { return _type; }
@@ -108,6 +110,7 @@ public:
     void onError();
     void addSetsockopt(int level, int option, const char* value, int len);
     
+    void markPreExisting() { _type = TCP_PREEXISTING; }
     
     //basic checkpointing commands
     virtual void preCheckpoint(const std::vector<int>& fds
@@ -148,26 +151,66 @@ private:
 class PtsConnection : public Connection
 {
 public:
-    PtsConnection() : Connection(PTS) {}
+	enum PtsType
+    {
+        INVALID   = 0x0000,
+        Pt_Master = 0x1000,
+        Pt_Slave  = 0x2000,
+                
+        TYPEMASK = Pt_Master | Pt_Slave
+    };
+	
+    PtsConnection(const std::string& device, const std::string& filename, PtsType type)
+		: Connection(PTS)
+		, _device(device)
+		, _symlinkFilename(filename)
+		, _type(type)
+	{
+		if ( filename.compare("?") == 0)
+		{
+			_type = INVALID;
+		}
+	   JTRACE("creating PtsConnection*****************************************")(id())(_device)(_symlinkFilename)(_type);
+	}
     
+    PtsConnection()
+		: Connection(PTS)
+		, _device("?")
+		, _symlinkFilename("?")
+		, _type(INVALID)
+	{
+	   JTRACE("creating PtsConnection*****************************************")(id())(_device)(_symlinkFilename)(_type);	
+	}
+
+	PtsType type() { return PtsType(_type & TYPEMASK); }
     virtual void preCheckpoint(const std::vector<int>& fds
                             , KernelBufferDrainer& drain);
     virtual void postCheckpoint(const std::vector<int>& fds);
     virtual void restore(const std::vector<int>&, ConnectionRewirer&);
-    
+    virtual void restoreOptions(const std::vector<int>& fds);
+ 
     virtual void serializeSubClass(jalib::JBinarySerializer& o);
+private:
+	PtsType 	_type;
+	std::string _symlinkFilename;
+	std::string _device;
+			
 };
 
 class FileConnection : public Connection
 {
 public:
-    inline FileConnection(const std::string& path) : Connection( FILE ), _path(path) {}
+    inline FileConnection(const std::string& path, off_t offset)
+		: Connection( FILE ), _path(path), _offset(offset) 
+	{
+	   JTRACE("creating FileConnection")(path)(offset);
+	}
     
     virtual void preCheckpoint(const std::vector<int>& fds
                             , KernelBufferDrainer& drain);
     virtual void postCheckpoint(const std::vector<int>& fds);
     virtual void restore(const std::vector<int>&, ConnectionRewirer&);
-    
+
     virtual void serializeSubClass(jalib::JBinarySerializer& o);
 private:
     std::string _path;

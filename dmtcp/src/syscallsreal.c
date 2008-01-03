@@ -146,6 +146,16 @@ int _real_dup2(int oldfd, int newfd)
     REAL_FUNC_PASSTHROUGH(dup2)(oldfd,newfd);
 }
 
+char *_real_ptsname(int fd)
+{
+    REAL_FUNC_PASSTHROUGH(ptsname)(fd);
+}
+
+int _real_ptsname_r(int fd, char * buf, size_t buflen)
+{
+    REAL_FUNC_PASSTHROUGH(ptsname_r)(fd, buf, buflen);
+}
+
 int _real_socketpair(int d, int type, int protocol, int sv[2])
 {
     REAL_FUNC_PASSTHROUGH(socketpair)(d,type,protocol,sv);
@@ -160,7 +170,6 @@ void _real_closelog(void)
 {
     REAL_FUNC_PASSTHROUGH_VOID(closelog)();
 }
-
 
 void _dmtcp_lock(){pthread_mutex_lock(&theMutex);}
 void _dmtcp_unlock(){pthread_mutex_unlock(&theMutex);}
