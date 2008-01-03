@@ -47,7 +47,10 @@ int main(int argc, char** argv)
     
     std::string stderrDevice = jalib::Filesystem::ResolveSymlink( _stderrProcPath() );
     
-    if(stderrDevice.length() > 0)
+    //TODO:
+    // When stderr is a socket, this logic fails and JASSERT may write data to FD 3 
+    // this will cause problems in programs that use FD 3 for algorithmic things...
+    if(stderrDevice.length() > 0 && jalib::Filesystem::FileExists(stderrDevice))
         setenv("JALIB_STDERR_PATH",stderrDevice.c_str(), 0);
     
     setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);

@@ -26,6 +26,7 @@
 #define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
 #define PFD(i) (PROTECTED_FD_START + (i))
 #define PROTECTEDFD(i) PFD(i)
+#define PROTECTED_STDERR_FD PFD(5)
 
 namespace dmtcp {
 

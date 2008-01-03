@@ -50,6 +50,9 @@ int _real_close(int fd);
 int _real_dup(int oldfd);
 int _real_dup2(int oldfd, int newfd);
 
+char *_real_ptsname(int fd);
+int _real_ptsname_r(int fd, char * buf, size_t buflen);
+
 int _real_socketpair(int d, int type, int protocol, int sv[2]);
 
 void _real_openlog(const char *ident, int option, int facility);

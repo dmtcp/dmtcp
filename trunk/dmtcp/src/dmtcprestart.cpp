@@ -54,22 +54,76 @@ public:
     
     void dupAllSockets(SlidingFdTable& slidingFd)
     {
+		int lastfd = -1;
+		std::vector<int> fdlist;
         for(ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i)
         {
-            if(ConnectionList::Instance()[i->first].conType() != Connection::TCP) continue;
-            const std::vector<int>& fds = i->second;
-            for(size_t x=0; x<fds.size(); ++x)
-            {
-                int fd = fds[x];
-                slidingFd.freeUpFd( fd );
-                int oldFd = slidingFd.getFdFor( i->first );
-                JTRACE("restoring fd")(i->first)(oldFd)(fd);
-                JASSERT(_real_dup2(oldFd, fd) == fd)(oldFd)(fd);
-            }
-        }
-        slidingFd.closeAll();
+            if(ConnectionList::Instance()[i->first].conType() == Connection::INVALID)continue;
+			{
+				const std::vector<int>& fds = i->second;
+				for(size_t x=0; x<fds.size(); ++x)
+				{
+					int fd = fds[x];
+					fdlist.push_back(fd);
+					slidingFd.freeUpFd( fd );
+					int oldFd = slidingFd.getFdFor( i->first );
+					JTRACE("restoring fd")(i->first)(oldFd)(fd);
+					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+					//_real_dup2(oldFd, fd);
+					
+					if ( fd > lastfd )
+					{
+						lastfd = fd;
+					}
+				}
+			}
+		}		
+		
+		int i,j;
+		for ( i = 0 ; i < slidingFd.startFd() ; i++ )
+		{
+			for ( j = 0 ; j < fdlist.size() ; j++ )
+			{
+				if ( fdlist.at(j) == i )
+					break;
+			}
+			if ( j == fdlist.size() )
+			{
+				_real_close(i);
+			}
+		}
+		
+       	slidingFd.closeAll();
     }
-    
+/*			else if(ConnectionList::Instance()[i->first].conType() == Connection::PTS)
+			{
+				const std::vector<int>& fds = i->second;
+				for(size_t x=0; x<fds.size(); ++x)
+				{
+					int fd = fds[x];
+					slidingFd.freeUpFd( fd );
+					int oldFd = slidingFd.getFdFor( i->first );
+					JTRACE("restoring fd")(i->first)(oldFd)(fd);
+					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+					//_real_dup2(oldFd, fd);
+				}
+			}
+			else if(ConnectionList::Instance()[i->first].conType() == Connection::FILE)
+			{
+				const std::vector<int>& fds = i->second;
+				for(size_t x=0; x<fds.size(); ++x)
+				{
+					int fd = fds[x];
+					slidingFd.freeUpFd( fd );
+					int oldFd = slidingFd.getFdFor( i->first );
+					JTRACE("restoring fd")(i->first)(oldFd)(fd);
+					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+					//_real_dup2(oldFd, fd);
+				}
+			}
+        }
+ */
+ 
     void mtcpRestart()
     {
         DmtcpWorker::maskStdErr();
@@ -168,4 +222,3 @@ static void runMtcpRestore(const std::string& file)
 
 void dmtcp::initializeMtcpEngine(){
     JASSERT("false").Text("should not be called in dmtcp_restart");}
-

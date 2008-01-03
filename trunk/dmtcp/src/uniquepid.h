@@ -43,7 +43,7 @@ public:
     static const char* checkpointFilename();
     static std::string dmtcpCheckpointFilename();
     static std::string dmtcpTableFilename();
-    
+    static const char* ptsSymlinkFilename(char *pts);    
     
     bool operator<(const UniquePid& that) const;
     bool operator==(const UniquePid& that) const;

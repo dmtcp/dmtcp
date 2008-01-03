@@ -32,58 +32,52 @@ void dmtcp::CheckpointCoordinator::preCheckpointLock()
 {
     SignalManager::saveSignals();
     SyslogCheckpointer::stopService();
-    
-// #ifdef TEST_CKTP_SERIALIZE
-//     std::string filename = UniquePid::dmtcpTableFilename();
-//     JTRACE("writing out file")(filename);
-//     {
-//         jalib::JBinarySerializeWriter wr(filename);
-//         KernelDeviceToConnection::Instance().serialize( wr );
-//     }       
-//     
-//     //reset state
-//     ConnectionList::Instance() = ConnectionList();
-//     KernelDeviceToConnection::Instance() = KernelDeviceToConnection();
-//     
-//     JTRACE("reading in file")(filename);
-//     {
-//         jalib::JBinarySerializeReader rd(filename);
-//         KernelDeviceToConnection::Instance().serialize( rd );
-//     }
-// #endif
-    
-    //build fd table
-    _conToFds = KernelDeviceToConnection::Instance();
-    
-    {
-        std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
-        JTRACE("Writing checkpoint file");
-        jalib::JBinarySerializeWriter wr( serialFile );
-        _conToFds.serialize( wr );
-    }
-    
-    
-    //lock each fd
+	
+    // build fd table with stale connections
+    _conToFds = ConnectionToFds(KernelDeviceToConnection::Instance());
+
+    //build list of stale connections
     ConnectionList& connections = ConnectionList::Instance();
+    std::vector<ConnectionList::iterator> staleConnections;
     for(ConnectionList::iterator i = connections.begin()
        ; i!= connections.end()
        ; ++i)
     {
         if(_conToFds[i->first].size() == 0)
-        {
-            //TODO: figure out why this segfaults us
-//             connections.erase( i );
-        }
-        else
-        {
-            (i->second)->saveOptions(_conToFds[i->first]);
-            (i->second)->doLocking(_conToFds[i->first]);
-        }
+            staleConnections.push_back(i);
+    }
+
+    //delete all the stale connections
+    for(size_t i=0; i<staleConnections.size(); ++i)
+    {
+        JTRACE("deleting stale connection")(staleConnections[i]->first);
+        connections.erase( staleConnections[i] );
+    }
+
+    //re build fd table without stale connections
+    _conToFds = ConnectionToFds(KernelDeviceToConnection::Instance());
+
+    //write out the *.dmtcp file
+    {    
+         std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
+         JTRACE("Writing checkpoint file");
+         jalib::JBinarySerializeWriter wr( serialFile );
+         _conToFds.serialize( wr );
+     }
+   
+    //lock each fd
+    for(ConnectionList::iterator i = connections.begin()
+       ; i!= connections.end()
+       ; ++i)
+    {
+		JASSERT(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
+			
+		(i->second)->saveOptions(_conToFds[i->first]);
+		(i->second)->doLocking(_conToFds[i->first]);
     }
     
     
 }
-
 void dmtcp::CheckpointCoordinator::preCheckpointDrain()
 {
 
@@ -92,7 +86,7 @@ void dmtcp::CheckpointCoordinator::preCheckpointDrain()
        ; i!= connections.end()
        ; ++i)
     {
-        if(_conToFds[i->first].size() == 0) continue;
+        JASSERT(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
         
         (i->second)->preCheckpoint(_conToFds[i->first], _drain);
     }
@@ -110,8 +104,10 @@ void dmtcp::CheckpointCoordinator::postCheckpoint()
        ; i!= connections.end()
        ; ++i)
     {
-        if(_conToFds[i->first].size() == 0) continue;
-        
+        JWARNING(_conToFds[i->first].size() > 0)(i->first.conId())
+            .Text("stale connections should be gone by now");
+        if (_conToFds[i->first].size() == 0) continue;
+
         (i->second)->postCheckpoint(_conToFds[i->first]);
     }
     
@@ -126,11 +122,13 @@ void dmtcp::CheckpointCoordinator::postRestart()
        ; i!= connections.end()
        ; ++i)
     {
-        if(_conToFds[i->first].size() == 0) continue;
+        JASSERT(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
         
         (i->second)->restoreOptions(_conToFds[i->first]);
     }
-    
+	
+    KernelDeviceToConnection::Instance().dbgSpamFds();
+
     //fix our device table to match the new world order
     KernelDeviceToConnection::Instance() = KernelDeviceToConnection(_conToFds);
 }
@@ -146,7 +144,7 @@ void dmtcp::CheckpointCoordinator::doReconnect(jalib::JSocket& coordinator, jali
        ; i!= connections.end()
        ; ++i)
     {
-        if(_conToFds[i->first].size() == 0) continue;
+        JASSERT(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
         
         (i->second)->restore(_conToFds[i->first], _rewirer);
     }

@@ -119,7 +119,24 @@ std::string dmtcp::UniquePid::dmtcpCheckpointFilename()
     return checkpointFilename() + extraTxt;
 }
 
+const char* dmtcp::UniquePid::ptsSymlinkFilename( char *ptsname )
+{
+    char *devicename = ptsname + strlen("/dev/pts/");
 
+    const UniquePid& thisProc = ThisProcess();
+    std::string ptsSymlinkFilename_str;
+       
+    ptsSymlinkFilename_str = "/tmp/pts_"
+         + jalib::XToString(thisProc.hostid())
+         + '_' + jalib::XToString(thisProc.pid())
+         + '_' + jalib::XToString(thisProc.time())
+         + '_';
+   
+    ptsSymlinkFilename_str += devicename;
+   
+    return ptsSymlinkFilename_str.c_str();
+}
+	
 /*!
     \fn dmtcp::UniquePid::operator<() const
  */

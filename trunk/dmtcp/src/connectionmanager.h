@@ -45,6 +45,9 @@ public:
     Connection& operator[] (const ConnectionIdentifier& id);
     
     void serialize(jalib::JBinarySerializer& o);
+
+    //examine /proc/self/fd for unknown connections
+    void scanForPreExisting();
 protected:
     void add(Connection* c);
 private:
@@ -61,6 +64,7 @@ public:
     void        create(int fd, Connection* c);
     
 //     void erase(Connection*);
+	void renameDevice(std::string oldDevice, std::string newDevice);
     
     std::string fdToDevice(int fd);
     
@@ -73,6 +77,8 @@ public:
     void serialize(jalib::JBinarySerializer& o);
     
     KernelDeviceToConnection();
+
+    void handlePreExistingFd(int fd);
 protected:
 
     
@@ -111,7 +117,12 @@ private:
 class SlidingFdTable
 {
 public:
-    SlidingFdTable(int startingFd = 30) : _nextFd(startingFd) {}
+    SlidingFdTable(int startingFd = 30) 
+		: _startFd(startingFd)
+		, _nextFd(startingFd) 
+	{}
+	
+	int startFd() { return _startFd; }
     
     ///
     /// retrieve, and if needed assign an FD for id
@@ -120,8 +131,6 @@ public:
     ///
     /// if the given FD is in use... reassign it to another FD
     void freeUpFd( int fd );
-    
-    
     
     bool isInUse( int fd) const;
     
@@ -132,8 +141,27 @@ private:
     std::map< ConnectionIdentifier, int > _conToFd;
     std::map< int, ConnectionIdentifier > _fdToCon;
     int _nextFd;
+	int _startFd;
+};
+
+///
+/// Mapping from pts device to symlink file in /tmp
+///
+class PtsToSymlink
+{
+public:
+    static PtsToSymlink& Instance();
+    typedef std::map<std::string, std::string>::iterator iterator;
+    void replace(std::string oldDevice, std::string newDevice);
+    PtsToSymlink();
+    
+//    void serialize(jalib::JBinarySerializer& o);
+
+    void add(std::string device, std::string filename);
+    std::string getFilename(std::string device); 
+private:
+    std::map<std::string, std::string> _table;
 };
 
 }
-
 #endif
