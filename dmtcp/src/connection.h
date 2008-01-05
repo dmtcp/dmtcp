@@ -170,7 +170,6 @@ public:
 		{
 			_type = INVALID;
 		}
-	   JTRACE("creating PtsConnection*****************************************")(id())(_device)(_symlinkFilename)(_type);
 	}
     
     PtsConnection()
@@ -178,9 +177,7 @@ public:
 		, _device("?")
 		, _symlinkFilename("?")
 		, _type(INVALID)
-	{
-	   JTRACE("creating PtsConnection*****************************************")(id())(_device)(_symlinkFilename)(_type);	
-	}
+	{}
 
 	PtsType type() { return PtsType(_type & TYPEMASK); }
     virtual void preCheckpoint(const std::vector<int>& fds
@@ -200,11 +197,9 @@ private:
 class FileConnection : public Connection
 {
 public:
-    inline FileConnection(const std::string& path, off_t offset)
+    inline FileConnection(const std::string& path, off_t offset=-1)
 		: Connection( FILE ), _path(path), _offset(offset) 
-	{
-	   JTRACE("creating FileConnection")(path)(offset);
-	}
+	{}
     
     virtual void preCheckpoint(const std::vector<int>& fds
                             , KernelBufferDrainer& drain);
@@ -217,9 +212,6 @@ private:
     off_t       _offset;
     struct stat _stat;
 };
-
-
-
 
 
 }

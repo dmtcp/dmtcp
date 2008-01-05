@@ -35,23 +35,6 @@ static std::string _procFDPath(int fd) {
     return "/proc/" + jalib::XToString(getpid()) + "/fd/" + jalib::XToString(fd); 
 }
 
-/*static int _getActualFd(int fd)
-{
-	if ( dmtcp::DmtcpWorker::isStdErrMasked() == true )
-	{
-		if ( fd == 2) // stderr
-		{
-			return PROTECTED_STDERR_FD;
-		}
-		else if ( fd == PROTECTED_STDERR_FD ) // protected file desc for masking stdErr
-		{
-			return 2;
-		}
-	}
-	
-	return fd;
-}
-*/
 static bool _isBadFd(int fd)
 {
     std::string device = jalib::Filesystem::ResolveSymlink( _procFDPath(fd) );
@@ -112,7 +95,6 @@ void dmtcp::KernelDeviceToConnection::create(int fd, Connection* c)
 
 std::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd)
 {
-//	int fd = _getActualFd(newfd);
     //gather evidence
     std::string device = jalib::Filesystem::ResolveSymlink( _procFDPath(fd) );
     bool isBadFd =  (device == "");
@@ -145,11 +127,9 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd)
         {
             std::string symlinkFilename = PtsToSymlink::Instance().getFilename(device);
 
-            JTRACE("creating pts connection [on-demand]*********************************")(deviceName)(symlinkFilename);
+            JTRACE("creating pts connection [on-demand]")(deviceName)(symlinkFilename);
 
-//            JASSERT(symlinkFilename.length() >0)(device).Text("invalid pts device");
-        
-			dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Slave;
+            dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Slave;
             Connection * c = new PtsConnection(device, symlinkFilename, type);
             ConnectionList::Instance().add(c);
             _table[deviceName] = c->id();
@@ -166,7 +146,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd)
         iterator i = _table.find(deviceName);
         if(i == _table.end())
         {
-            JTRACE("creating file connection [on-demand]*********************************")(deviceName);
+            JTRACE("creating file connection [on-demand]")(deviceName);
 			off_t offset = lseek (fd, 0, SEEK_CUR);
             Connection * c = new FileConnection(device, offset);
             ConnectionList::Instance().add(c);
@@ -205,19 +185,6 @@ void dmtcp::ConnectionList::erase( iterator i )
 //     JWARNING(false)(con->id()).Text("failed to find connection in table to erase it");
 // }
 
-void dmtcp::KernelDeviceToConnection::renameDevice( std::string oldDevice, std::string newDevice )
-{
-	dbgSpamFds();
-	JNOTE("")(oldDevice);
-	iterator i = _table.find(oldDevice);
-	JASSERT( i != _table.end() )(oldDevice).Text("Device not found");
-	
-	ConnectionIdentifier conId = i->second;
-	JTRACE("Renaming device...")(oldDevice)(newDevice);
-	
-	_table.erase(i);
-	_table[newDevice] = conId;
-}
 
 void dmtcp::KernelDeviceToConnection::dbgSpamFds()
 {
@@ -539,8 +506,8 @@ dmtcp::PtsToSymlink& dmtcp::PtsToSymlink::Instance()
 
 void dmtcp::PtsToSymlink::add(std::string device, std::string filename)
 {
-    JWARNING(_table.find(device) == _table.end())(device)
-            .Text("duplicate connection");
+//    JWARNING(_table.find(device) == _table.end())(device)
+//            .Text("duplicate connection");
     _table[device] = filename; 
 }
 
