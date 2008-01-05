@@ -86,7 +86,6 @@ extern "C" pid_t fork()
 
 	dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
 
-
 	if ( child_pid == 0 )
 	{
 		child_pid = getpid();
@@ -95,7 +94,7 @@ extern "C" pid_t fork()
 
 		dmtcp::UniquePid child = dmtcp::UniquePid ( child_host,child_pid,child_time );
 
-		JTRACE ( "fork()ed [CHILD]" ) ( child );
+		JTRACE ( "fork()ed [CHILD]" ) ( child )(getenv("LD_PRELOAD"));
 
 		//fix the mutex
 		_dmtcp_remutex_on_fork();
@@ -111,8 +110,7 @@ extern "C" pid_t fork()
 		//make new connection to coordinator
 		dmtcp::DmtcpWorker::resetOnFork();
 
-		JTRACE ( "fork() done [CHILD]" ) ( child );
-
+		JTRACE ( "fork() done [CHILD]" ) ( child )(getenv("LD_PRELOAD"));
 
 		return 0;
 	}
@@ -120,7 +118,7 @@ extern "C" pid_t fork()
 	{
 		dmtcp::UniquePid child = dmtcp::UniquePid ( child_host,child_pid,child_time );
 
-		JTRACE ( "fork()ed [PARENT] done" ) ( child );
+		JTRACE ( "fork()ed [PARENT] done" ) ( child )(getenv("LD_PRELOAD"));;
 
 //         _dmtcp_lock();
 
@@ -284,6 +282,7 @@ static void dmtcpPrepareForExec()
 	jalib::JBinarySerializeWriter wr ( serialFile );
 	dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
 	setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
+	JTRACE("Prepared for Exec");
 }
 
 static const char* ourImportantEnvs[] =
@@ -294,7 +293,8 @@ static const char* ourImportantEnvs[] =
         "JALIB_STDERR_PATH",
         "LD_PRELOAD",
         "JALIB_UTILITY_DIR",
-        "DMTCP_CHECKPOINT_DIR"
+        "DMTCP_CHECKPOINT_DIR",
+	"DMTCP_HIJACK_LIB"
     };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
@@ -323,7 +323,7 @@ static char** patchUserEnv ( char *const envp[] )
 	envVect.clear();
 	strStorage.clear();
 
-	JTRACE ( "patching user envp..." );
+	JTRACE ( "patching user envp..." )(getenv("LD_PRELOAD"));
 
 	//pack up our ENV into the new ENV
 	for ( size_t i=0; i<ourImportantEnvsCnt; ++i )

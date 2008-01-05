@@ -56,6 +56,7 @@ int main(int argc, char** argv)
         setenv("JALIB_STDERR_PATH",stderrDevice.c_str(), 0);
     
     setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);
+    setenv("DMTCP_HIJACK_LIB", dmtcphjk.c_str(), 0);
     setenv("JALIB_UTILITY_DIR", searchDir.c_str(), 0);
     setenv("DMTCP_CHECKPOINT_DIR", ckptDir, 0);
     
