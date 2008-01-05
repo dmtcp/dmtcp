@@ -216,24 +216,10 @@ extern "C" char *ptsname ( int fd )
 	static char tmpbuf[80];
 	const char *ptr;
 
-	char *device = _real_ptsname ( fd );
-	if ( device == NULL )
+        if ( ptsname_r(fd, tmpbuf, 80) != 0 )
 	{
-		JTRACE("ptsname failed");
-		return device;
+		return NULL;
 	}
-
-	ptr = dmtcp::UniquePid::ptsSymlinkFilename(device);
-
-	strcpy (tmpbuf,ptr); 
-
-	JASSERT(symlink(device, tmpbuf) == 0)(device)(tmpbuf).Text("symlink() failed");
-
-	dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
-	dmtcp::PtsConnection *master = new dmtcp::PtsConnection(device, tmpbuf, type);
-	dmtcp::KernelDeviceToConnection::Instance().create( fd, master );	
-	
-	dmtcp::PtsToSymlink::Instance().add(device, tmpbuf);
 
 	return tmpbuf;
 }
@@ -257,7 +243,6 @@ extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 
 	strcpy(buf, ptr);
 
-	//	std::string devicename = "file["+jalib::XToString(fd)+"]:" + device;
 	dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
 	dmtcp::PtsConnection *master = new dmtcp::PtsConnection(device, ptr, type);
 	dmtcp::KernelDeviceToConnection::Instance().create( fd, master );

@@ -64,7 +64,6 @@ public:
     void        create(int fd, Connection* c);
     
 //     void erase(Connection*);
-	void renameDevice(std::string oldDevice, std::string newDevice);
     
     std::string fdToDevice(int fd);
     

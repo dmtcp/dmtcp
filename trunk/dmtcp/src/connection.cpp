@@ -154,7 +154,6 @@ void dmtcp::Connection::saveOptions(const std::vector<int>& fds)
 {
     _fcntlFlags = fcntl(fds[0],F_GETFL);
     JASSERT(_fcntlFlags >= 0)(_fcntlFlags)(JASSERT_ERRNO);
-    JNOTE("Flags ")(fds[0])(_fcntlFlags);
     _fcntlOwner = fcntl(fds[0],F_GETOWN);
     JASSERT(_fcntlOwner != -1)(_fcntlOwner)(JASSERT_ERRNO);
     _fcntlSignal = fcntl(fds[0],F_GETSIG);
@@ -166,8 +165,6 @@ void dmtcp::Connection::restoreOptions(const std::vector<int>& fds)
     JASSERT(_fcntlFlags >= 0)(_fcntlFlags);
     JASSERT(_fcntlOwner != -1)(_fcntlOwner);
     JASSERT(_fcntlSignal >= 0)(_fcntlSignal);
-	if (fds[0] == 3);
-		//while(1);		
     JASSERT(fcntl(fds[0], F_SETFL, _fcntlFlags) == 0)(fds[0])(_fcntlFlags)(JASSERT_ERRNO);
     JASSERT(fcntl(fds[0], F_SETOWN,_fcntlOwner) == 0)(fds[0])(_fcntlOwner)(JASSERT_ERRNO);
     JASSERT(fcntl(fds[0], F_SETSIG,_fcntlSignal) == 0)(fds[0])(_fcntlSignal)(JASSERT_ERRNO);
@@ -372,7 +369,7 @@ void dmtcp::PtsConnection::restore(const std::vector<int>& fds, ConnectionRewire
 			
 			JASSERT(unlockpt(tempfd) >= 0)(tempfd)(JASSERT_ERRNO);
 			
-        	JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)(tempfd)(JASSERT_ERRNO);
+                       JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)(tempfd)(JASSERT_ERRNO);
 			
 /*			if ( jalib::Filesystem::FileExists(_symlinkFilename) )
 			{
@@ -414,8 +411,6 @@ void dmtcp::PtsConnection::restore(const std::vector<int>& fds, ConnectionRewire
 			
 			std::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
 			std::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
-			//dmtcp::KernelDeviceToConnection::Instance().dbgSpamFds();
-			//dmtcp::KernelDeviceToConnection::Instance().renameDevice(oldDeviceName, newDeviceName);
 			
 			JTRACE("Restoring PTS real")(devicename)(_symlinkFilename)(fds[0]);
 			
@@ -423,7 +418,6 @@ void dmtcp::PtsConnection::restore(const std::vector<int>& fds, ConnectionRewire
 
 			break;
 		}
-			
 			
 		default:
 			// should never reach here
@@ -594,7 +588,6 @@ void dmtcp::PtsConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
     JSERIALIZE_ASSERT_POINT("dmtcp::PtsConnection");
 	o & _device & _symlinkFilename & _type;
-	JTRACE("Serializing PTS####################################################")(id())(_device)(_symlinkFilename)(_type);
 	
 	if ( o.isReader() )
 	{
