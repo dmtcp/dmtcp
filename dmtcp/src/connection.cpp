@@ -26,6 +26,7 @@
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
 #include <sys/ioctl.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -243,7 +244,7 @@ void dmtcp::TcpConnection::restore(const std::vector<int>& fds, ConnectionRewire
                 
                 JWARNING( _sockDomain == AF_INET
                         && _sockType == SOCK_STREAM
-                    )
+                    ) (id())
                         (_sockDomain)(AF_INET)
                         (_sockType)(SOCK_STREAM)
                         (_sockProtocol)
@@ -262,11 +263,23 @@ void dmtcp::TcpConnection::restore(const std::vector<int>& fds, ConnectionRewire
                 }
                 
                 if(tcpType() == TCP_CREATED) break;
-                
-                sock.bind((sockaddr*)&_bindAddr,_bindAddrlen);
+              
+		if ( _sockDomain == AF_UNIX )
+		{
+		    const char* un_path = ((sockaddr_un*)&_bindAddr)->sun_path;
+		    JTRACE("unlinking stale unix domain socket")(un_path);
+		    JWARNING( unlink( un_path ) == 0 )(un_path);
+		} 
+		JTRACE("binding socket")(id());
+                JWARNING(sock.bind((sockaddr*)&_bindAddr,_bindAddrlen))
+		   (JASSERT_ERRNO)(id())
+		   .Text("bind failed");
                 if(tcpType() == TCP_BIND) break;
                 
-                sock.listen(_listenBacklog);
+		JTRACE("listening socket")(id());
+                JWARNING(sock.listen(_listenBacklog))
+		   (JASSERT_ERRNO)(id())(_listenBacklog)
+		   .Text("bind failed");
                 if(tcpType() == TCP_LISTEN) break;
                 
             }

@@ -125,7 +125,9 @@ void dmtcp::CheckpointCoordinator::postRestart()
        ; i!= connections.end()
        ; ++i)
     {
-        JASSERT(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
+        JWARNING(_conToFds[i->first].size() > 0).Text("stale connections should be gone by now");
+        if (_conToFds[i->first].size() == 0) continue;
+
         
         (i->second)->restoreOptions(_conToFds[i->first]);
     }
