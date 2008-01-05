@@ -50,7 +50,9 @@ int main(int argc, char** argv)
     //TODO:
     // When stderr is a socket, this logic fails and JASSERT may write data to FD 3 
     // this will cause problems in programs that use FD 3 for algorithmic things...
-    if(stderrDevice.length() > 0 && jalib::Filesystem::FileExists(stderrDevice))
+    if( stderrDevice.length() > 0 
+     && jalib::Filesystem::FileExists(stderrDevice)
+     && getenv("JALIB_STDERR_PATH") == 0)
         setenv("JALIB_STDERR_PATH",stderrDevice.c_str(), 0);
     
     setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);
