@@ -1211,6 +1211,32 @@ static int open_ckpt_file(void)
     return fd;
 }
 
+typedef int (*funcptr)();
+static funcptr get_libc_symbol(const char* name)
+{
+    static void* handle = NULL;
+    if(handle==NULL && (handle=dlopen("libc.so.6",RTLD_NOW)) == NULL)
+    {
+        fprintf(stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror());
+        abort();
+    }
+
+    void* tmp = dlsym(handle, name);
+    if(tmp==NULL)
+    {
+        fprintf(stderr,"dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",dlerror());
+        abort();
+    }
+    return (funcptr)tmp;
+}
+
+static int mtcp_execv( const char* cmd, char * args[])
+{
+    static funcptr fn = NULL;\
+    if(fn==NULL) fn = get_libc_symbol("execv"); \
+    return (*fn)(cmd, args);
+}
+
 /**
  * This function returns the fd to which the checkpoint file should be written.
  * The purpose of using this function over mtcp_sys_open() is that this
@@ -1247,7 +1273,7 @@ static int open_ckpt_dest(void)
             return fd;
         }
 
-        cpid = fork();
+        cpid = mtcp_sys_kernel_fork();
         if (cpid == -1) {
             mtcp_printf("WARNING: error forking child.  Compression will "
                     "not be used.\n");
@@ -1265,7 +1291,7 @@ static int open_ckpt_dest(void)
             //make sure DMTCP doesn't catch gzip
             unsetenv("LD_PRELOAD"); 
             
-            execv(gzip_path, gzip_args);
+            mtcp_execv(gzip_path, gzip_args);
             /* should not get here */
             mtcp_printf("ERROR: compression failed!  No checkpointing will be"
                     "performed!  Cancel now!\n");
