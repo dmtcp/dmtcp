@@ -265,7 +265,7 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
   mtcp_check_vdso_enabled();
 #endif
   if (ld_preload)
-    putenv(ld_preload);
+    setenv("LD_PRELOAD",ld_preload, 1);
 
 #if 0
   { struct user_desc u_info;
