@@ -212,7 +212,7 @@ check: mtcp.so mtcp_restart testmtcp
 	@ echo Continue typing arbitrary text into program to test that
 	@ echo it still works, and that checkpoint of a restart works.
 	sleep 5
-	gdb --args ./mtcp_restart testmtcp.mtcp
+	./mtcp_restart testmtcp.mtcp
 	echo FINISH EARLY FOR NOW
 	exit 1
 	(sleep 13; pkill mtcp_restart) & ./mtcp_restart testmtcp.tmp || true
