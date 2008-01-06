@@ -366,6 +366,8 @@ static unsigned long int myinfo_gs;
  */
 #define mtcp_sys_kernel_tkill(args...)  mtcp_inline_syscall(tkill,2,args)
 
+#define mtcp_sys_kernel_fork(args...)   mtcp_inline_syscall(fork,0)
+
 //==================================================================
 
 #ifdef __x86_64__
