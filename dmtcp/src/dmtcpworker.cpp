@@ -122,6 +122,7 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
         
         //we dont want to get into an infinite loop now do we?
         unsetenv("LD_PRELOAD");
+        unsetenv(ENV_VAR_HIJACK_LIB);
         
         JNOTE("re-running SSH with checkpointing")(newCommand);
         

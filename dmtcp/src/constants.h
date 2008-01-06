@@ -31,11 +31,30 @@
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
 
+//it should be safe to change any of these names
 #define ENV_VAR_NAME_ADDR "DMTCP_HOST"
 #define ENV_VAR_NAME_PORT "DMTCP_PORT"
 #define ENV_VAR_NAME_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
-
 #define ENV_VAR_SERIALFILE_INITIAL "DMTCP_INITSOCKTBL"
+#define ENV_VAR_HIJACK_LIB "DMTCP_HIJACK_LIB"
+#define ENV_VAR_CHECKPOINT_DIR "DMTCP_CHECKPOINT_DIR"
+
+// it is not yet safe to change thse
+#define ENV_VAR_UTILITY_DIR "JALIB_UTILITY_DIR"
+#define ENV_VAR_STDERR_PATH "JALIB_STDERR_PATH"
+#define ENV_VAR_COMPRESSION "DMTCP_GZIP"
+
+//this list should be kept up to data with all "protected" environment vars
+#define ENV_VARS_ALL \
+    ENV_VAR_NAME_ADDR,\
+    ENV_VAR_NAME_PORT,\
+    ENV_VAR_NAME_CKPT_INTR,\
+    ENV_VAR_SERIALFILE_INITIAL,\
+    ENV_VAR_HIJACK_LIB,\
+    ENV_VAR_CHECKPOINT_DIR,\
+    ENV_VAR_UTILITY_DIR,\
+    ENV_VAR_STDERR_PATH,\
+    ENV_VAR_COMPRESSION
 
 #define DRAINER_CHECK_FREQ 0.1
 

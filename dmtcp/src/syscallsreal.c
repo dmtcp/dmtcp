@@ -127,6 +127,11 @@ int _real_execvp(const char *file, char *const argv[])
     REAL_FUNC_PASSTHROUGH(execvp)(file,argv);
 }
 
+int _real_system(const char *cmd)
+{
+    REAL_FUNC_PASSTHROUGH(system)(cmd);
+}
+
 pid_t _real_fork()
 {
     REAL_FUNC_PASSTHROUGH(fork)();

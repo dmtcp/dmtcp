@@ -26,6 +26,7 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "jconvert.h"
+#include "constants.h"
 #include <errno.h>
 
 static std::string _stderrProcPath() 
@@ -51,14 +52,13 @@ int main(int argc, char** argv)
     // When stderr is a socket, this logic fails and JASSERT may write data to FD 3 
     // this will cause problems in programs that use FD 3 for algorithmic things...
     if( stderrDevice.length() > 0 
-     && jalib::Filesystem::FileExists(stderrDevice)
-     && getenv("JALIB_STDERR_PATH") == 0)
-        setenv("JALIB_STDERR_PATH",stderrDevice.c_str(), 0);
+     && jalib::Filesystem::FileExists(stderrDevice))
+        setenv(ENV_VAR_STDERR_PATH,stderrDevice.c_str(), 0);
     
     setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);
-    setenv("DMTCP_HIJACK_LIB", dmtcphjk.c_str(), 0);
-    setenv("JALIB_UTILITY_DIR", searchDir.c_str(), 0);
-    setenv("DMTCP_CHECKPOINT_DIR", ckptDir, 0);
+    setenv(ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0);
+    setenv(ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0);
+    setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
     
     //how many args to trim off start
     int startArg = 1;

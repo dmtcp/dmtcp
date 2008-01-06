@@ -87,7 +87,7 @@ const char* dmtcp::UniquePid::checkpointFilename()
         checkpointFilename_initialized = true; 
         checkpointFilename_str = "";
         
-        const char* dir = getenv("DMTCP_CHECKPOINT_DIR");
+        const char* dir = getenv(ENV_VAR_CHECKPOINT_DIR);
         if(dir != NULL)
         {
             checkpointFilename_str += dir;
