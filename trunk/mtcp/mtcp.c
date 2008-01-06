@@ -1225,10 +1225,14 @@ static int open_ckpt_dest(void)
     int fds[2]; /* for potential piping */
     char *do_we_compress;
     char *gzip_path;
-    char *gzip_args[] = { "gzip", "-", NULL };
-
+    char *gzip_args[] = { "gzip", "-1", "-", NULL };
     do_we_compress = getenv("MTCP_GZIP");
+    // allow alternate name for env var
     if( do_we_compress == NULL ) do_we_compress = getenv("DMTCP_GZIP");
+    // env var is unset, lets default to enabled
+    // to disable compression, run with MTCP_GZIP=0
+    if( do_we_compress == NULL) do_we_compress = "1";
+    
     fd = open_ckpt_file();
 
     if ((do_we_compress != NULL) && strtol(do_we_compress, NULL, 0) != 0) {

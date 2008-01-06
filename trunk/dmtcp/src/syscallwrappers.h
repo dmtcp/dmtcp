@@ -45,6 +45,7 @@ int _real_execvp(const char *file, char *const argv[]);
 // int _real_execl(const char *path, const char *arg, ...);
 // int _real_execlp(const char *file, const char *arg, ...);
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
+int _real_system(const char * cmd);
 
 int _real_close(int fd);
 int _real_dup(int oldfd);

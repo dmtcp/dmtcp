@@ -41,9 +41,12 @@
 #include "connectionidentifier.h"
 #include "syslogcheckpointer.h"
 #include "jconvert.h"
+#include "constants.h"
 #include <vector>
 #include <list>
 #include <string>
+
+static void protectLD_PRELOAD();
 
 extern "C" int close ( int fd )
 {
@@ -63,7 +66,6 @@ extern "C" int close ( int fd )
 //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
 //     }
 // #endif
-
 //     else
 //     {
 // #ifdef DEBUG
@@ -80,6 +82,7 @@ extern "C" int close ( int fd )
 
 extern "C" pid_t fork()
 {
+	protectLD_PRELOAD();
 	pid_t child_pid = _real_fork();
 	time_t child_time = time ( NULL );
 	long child_host = dmtcp::UniquePid::ThisProcess().hostid();
@@ -277,6 +280,7 @@ extern "C" int pipe ( int fds[2] )
 
 static void dmtcpPrepareForExec()
 {
+	protectLD_PRELOAD();
 	static std::string serialFile;
 	serialFile = dmtcp::UniquePid::dmtcpTableFilename();
 	jalib::JBinarySerializeWriter wr ( serialFile );
@@ -285,16 +289,20 @@ static void dmtcpPrepareForExec()
 	JTRACE("Prepared for Exec");
 }
 
+static void protectLD_PRELOAD()
+{
+   const char* actual = getenv("LD_PRELOAD");
+   const char* expctd = getenv(ENV_VAR_HIJACK_LIB);
+   if(actual!=0 && expctd!=0)
+     JASSERT(strcmp(actual,expctd)==0)
+       (actual)(expctd)
+	.Text("eeek! Someone stomped on LD_PRELOAD");
+}
+
 static const char* ourImportantEnvs[] =
     {
-        ENV_VAR_NAME_ADDR,
-        ENV_VAR_NAME_PORT,
-        ENV_VAR_SERIALFILE_INITIAL,
-        "JALIB_STDERR_PATH",
         "LD_PRELOAD",
-        "JALIB_UTILITY_DIR",
-        "DMTCP_CHECKPOINT_DIR",
-	"DMTCP_HIJACK_LIB"
+        ENV_VARS_ALL //expands to a long list
     };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
@@ -400,10 +408,15 @@ extern "C" int execlp ( const char *file, const char *arg, ... )
 	return -1;
 }
 
-extern "C" int system ( const char *command )
-{
-	JASSERT ( false ).Text ( "system() is called" );
-	return -1;
+extern "C" int system ( const char *cmd)
+{	
+	JTRACE("before system(), checkpointing may not work")
+	(cmd)(getenv(ENV_VAR_HIJACK_LIB))(getenv("LD_PRELOAD"));
+	protectLD_PRELOAD();
+	int rv = _real_system(cmd);
+	JTRACE("after system()");
+	//JASSERT ( false )( cmd ).Text ( "system() is called" );
+	return rv;
 }
 
 // extern "C" int execle(const char *path, const char *arg, ..., char * const envp[])
