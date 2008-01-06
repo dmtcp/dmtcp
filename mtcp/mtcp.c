@@ -1228,6 +1228,7 @@ static int open_ckpt_dest(void)
     char *gzip_args[] = { "gzip", "-", NULL };
 
     do_we_compress = getenv("MTCP_GZIP");
+    if( do_we_compress == NULL ) do_we_compress = getenv("DMTCP_GZIP");
     fd = open_ckpt_file();
 
     if ((do_we_compress != NULL) && strtol(do_we_compress, NULL, 0) != 0) {
@@ -1257,6 +1258,9 @@ static int open_ckpt_dest(void)
             close(fds[0]);
             dup2(fd, STDOUT_FILENO);
             close(fd);
+            //make sure DMTCP doesn't catch gzip
+            unsetenv("LD_PRELOAD"); 
+            
             execv(gzip_path, gzip_args);
             /* should not get here */
             mtcp_printf("ERROR: compression failed!  No checkpointing will be"
