@@ -48,10 +48,13 @@ int _real_execvp(const char *file, char *const argv[]);
 int _real_system(const char * cmd);
 
 int _real_close(int fd);
-int _real_dup(int oldfd);
-int _real_dup2(int oldfd, int newfd);
 
-char *_real_ptsname(int fd);
+//we no longer wrap dup
+#define _real_dup  dup
+#define _real_dup2 dup2
+//int _real_dup(int oldfd);
+//int _real_dup2(int oldfd, int newfd);
+
 int _real_ptsname_r(int fd, char * buf, size_t buflen);
 
 int _real_socketpair(int d, int type, int protocol, int sv[2]);

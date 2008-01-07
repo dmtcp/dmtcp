@@ -3,7 +3,7 @@ LN_S = @LN_S@
 MKDIR_P = @MKDIR_P@
 CC = @CC@
 
-all: mtcp dmtcp
+all: mtcp dmtcp_noexamples
 	($(MAKE) bin)
 
 mtcp:
@@ -11,6 +11,12 @@ mtcp:
 
 dmtcp:
 	(cd dmtcp && $(MAKE))
+
+dmtcp_noexamples:
+	(cd dmtcp/src && $(MAKE))
+
+examples:
+	(cd dmtcp/examples && $(MAKE))
 
 clean:
 	(cd mtcp && $(MAKE) clean)
@@ -34,5 +40,5 @@ bin/% : mtcp/%
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart
  
-.PHONY: all mtcp dmtcp clean distclean bin
+.PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
 

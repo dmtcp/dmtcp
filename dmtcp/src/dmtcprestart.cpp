@@ -79,8 +79,8 @@ public:
 			}
 		}		
 		
-		int i,j;
-		for ( i = 0 ; i < slidingFd.startFd() ; i++ )
+		size_t j;
+		for ( int i = 0 ; i < slidingFd.startFd() ; i++ )
 		{
 			for ( j = 0 ; j < fdlist.size() ; j++ )
 			{

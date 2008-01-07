@@ -136,88 +136,12 @@ extern "C" pid_t fork()
 	}
 }
 
-static void handleDup ( int& oldfd, int& newfd, bool isDup2 )
-{
-//     std::string oldDev = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( oldfd );
-//     std::string newDev = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( newfd );
-//
-//     JTRACE("DUP")(oldfd)(oldDev)(newfd)(newDev)(isDup2);
-
-//
-//     _dmtcp_lock();
-//
-//     //make sure newfd is closed
-//     dmtcp::SocketTable::Instance().resetFd( newfd );
-//
-//     dmtcp::SocketEntry& e = dmtcp::SocketTable::Instance()[oldfd];
-//     dmtcp::SocketEntry& dest = dmtcp::SocketTable::Instance()[newfd];
-//
-//     switch(e.state())
-//     {
-//         case dmtcp::SocketEntry::T_ACCEPT:
-//         case dmtcp::SocketEntry::T_CONNECT:
-//             JTRACE("updating connection identifiers after dup")(oldfd)(newfd);
-//             dmtcp::ConnectionIdentifiers::Incoming().updateAfterDup(oldfd,newfd);
-//             dmtcp::ConnectionIdentifiers::Outgoing().updateAfterDup(oldfd,newfd);
-// //             break; fall through to next case
-//         case dmtcp::SocketEntry::T_ERROR:
-//         case dmtcp::SocketEntry::T_CREATED:
-//         case dmtcp::SocketEntry::T_BIND:
-//         case dmtcp::SocketEntry::T_LISTEN:
-//             JTRACE("dup: [end] copying socket data over")(e.state())(oldfd)(newfd);
-//             dest = e;
-//             dest.setSockfd( newfd );
-//             break;
-//         case dmtcp::SocketEntry::T_INVALID:
-//             JTRACE("dup: [end] FD not socket")(oldfd);
-//             break;
-//         default:
-//             JASSERT(false)(e.sockfd())(e.state()).Text("Unknown socket state");
-//             break;
-//     }
-//
-//     _dmtcp_unlock();
-}
-//
-extern "C" int dup ( int oldfd )
-{
-	int rv = _real_dup ( oldfd );
-	if ( rv >= 0 )
-	{
-		handleDup ( oldfd,rv,false );
-	}
-	else
-	{
-		JTRACE ( "user dup failed" ) ( oldfd );
-	}
-	return rv;
-}
-extern "C" int dup2 ( int oldfd, int newfd )
-{
-	if ( oldfd == newfd )
-		return newfd;
-	int rv = _real_dup2 ( oldfd,newfd );
-	if ( !dmtcp::ProtectedFDs::isProtected ( newfd ) )
-	{
-		if ( rv == newfd )
-		{
-			handleDup ( oldfd,rv,true );
-		}
-		else
-		{
-			JTRACE ( "dup2 failed [end]" );
-		}
-	}
-	return rv;
-}
-
 extern "C" char *ptsname ( int fd )
 {
-	JNOTE("Calling ptsname");
+	JTRACE("Calling ptsname");
 	static char tmpbuf[80];
-	const char *ptr;
 
-        if ( ptsname_r(fd, tmpbuf, 80) != 0 )
+        if ( ptsname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0 )
 	{
 		return NULL;
 	}
@@ -227,11 +151,16 @@ extern "C" char *ptsname ( int fd )
 
 extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 {
-	JNOTE("Calling ptsname_r");
-	char device[20];
+	//TODO:
+	// There is a bug in this function
+        // The user is allowed to call ptsname() more than once,
+        // As currently implemented, we do not properly handle this case
+
+	JTRACE("Calling ptsname_r");
+	char device[80];
 	const char *ptr;
 
-	int rv = _real_ptsname_r ( fd, device,  buflen );
+	int rv = _real_ptsname_r ( fd, device, sizeof(device) );
 	if ( rv != 0 )
 	{	
 		JTRACE("ptsname_r failed");
@@ -239,6 +168,14 @@ extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 	}
 
 	ptr = dmtcp::UniquePid::ptsSymlinkFilename(device);
+
+	if(strlen(ptr)>=buflen)
+	{
+		JWARNING(false)(ptr)(strlen(ptr))(buflen)
+		   .Text("fake ptsname() too long for user buffer");
+		errno = ERANGE;
+		return -1;
+	}
 
 	JASSERT(symlink(device, ptr) == 0)(device)(ptr).Text("symlink() failed");
 
