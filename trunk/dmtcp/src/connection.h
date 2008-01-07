@@ -162,9 +162,9 @@ public:
 	
     PtsConnection(const std::string& device, const std::string& filename, PtsType type)
 		: Connection(PTS)
-		, _device(device)
-		, _symlinkFilename(filename)
 		, _type(type)
+		, _symlinkFilename(filename)
+		, _device(device)
 	{
 		if ( filename.compare("?") == 0)
 		{
@@ -174,9 +174,9 @@ public:
     
     PtsConnection()
 		: Connection(PTS)
-		, _device("?")
-		, _symlinkFilename("?")
 		, _type(INVALID)
+		, _symlinkFilename("?")
+		, _device("?")
 	{}
 
 	PtsType type() { return PtsType(_type & TYPEMASK); }

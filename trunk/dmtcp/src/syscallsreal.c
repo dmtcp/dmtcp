@@ -142,20 +142,6 @@ int _real_close(int fd)
     REAL_FUNC_PASSTHROUGH(close)(fd);
 }
 
-int _real_dup(int oldfd)
-{
-    REAL_FUNC_PASSTHROUGH(dup)(oldfd);
-}
-int _real_dup2(int oldfd, int newfd)
-{
-    REAL_FUNC_PASSTHROUGH(dup2)(oldfd,newfd);
-}
-
-char *_real_ptsname(int fd)
-{
-    REAL_FUNC_PASSTHROUGH(ptsname)(fd);
-}
-
 int _real_ptsname_r(int fd, char * buf, size_t buflen)
 {
     REAL_FUNC_PASSTHROUGH(ptsname_r)(fd, buf, buflen);

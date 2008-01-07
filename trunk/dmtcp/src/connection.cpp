@@ -421,12 +421,12 @@ void dmtcp::PtsConnection::restore(const std::vector<int>& fds, ConnectionRewire
 			
 			JASSERT(_real_dup2(tempfd, fds[0]) == fds[0])(tempfd)(fds[0])
 				.Text("dup2() failed");
-			
-			std::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
-			std::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
+	
+			//std::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
+			//std::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
 			
 			JTRACE("Restoring PTS real")(devicename)(_symlinkFilename)(fds[0]);
-			
+
 			_device = devicename;
 
 			break;

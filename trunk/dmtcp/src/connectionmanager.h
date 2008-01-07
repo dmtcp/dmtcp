@@ -117,8 +117,8 @@ class SlidingFdTable
 {
 public:
     SlidingFdTable(int startingFd = 30) 
-		: _startFd(startingFd)
-		, _nextFd(startingFd) 
+		: _nextFd(startingFd) 
+		, _startFd(startingFd)
 	{}
 	
 	int startFd() { return _startFd; }
@@ -140,7 +140,7 @@ private:
     std::map< ConnectionIdentifier, int > _conToFd;
     std::map< int, ConnectionIdentifier > _fdToCon;
     int _nextFd;
-	int _startFd;
+    int _startFd;
 };
 
 ///
