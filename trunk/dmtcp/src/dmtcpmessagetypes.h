@@ -51,7 +51,8 @@ namespace dmtcp {
        DMT_PEER_ECHO,     //used to get a peer to echo back a buffer at you param[0] is len
        DMT_OK,//slave telling coordinator it is done (response to DMT_DO_*)
        DMT_CKPT_FILENAME, //a slave sending it's checkpoint filename to coordinator
-       DMT_FORCE_RESTART //force a restart even if not all sockets are reconnected
+       DMT_FORCE_RESTART, //force a restart even if not all sockets are reconnected
+       DMT_KILL_PEER // send kill message to peer
     };
     
     class WorkerState {
