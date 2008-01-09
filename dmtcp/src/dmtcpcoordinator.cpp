@@ -35,6 +35,7 @@ const char theHelpMessage[] =
 "  l : List connected nodes\n"
 "  c : Checkpoint all nodes\n"
 "  f : Force a restart even if there are missing nodes (debugging only)\n"
+"  k : Kill all nodes\n"
 "  q : Kill all nodes and quit\n"
 "  ? : Show this message\n"
 "\n";
@@ -118,6 +119,10 @@ void dmtcp::DmtcpCoordinator::onData(jalib::JReaderInterface* sock)
           case 'q': case 'Q':
             JASSERT_STDERR << "exiting... (per request)\n";
             exit(0);
+            break;
+          case 'k': case 'K':
+            JNOTE("Killing all connected Peers...");
+            broadcastMessage(DMT_KILL_PEER);
             break;
           case 'h': case 'H': case '?':
             JASSERT_STDERR << theHelpMessage;
@@ -435,6 +440,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   std::map< std::string, std::vector<std::string> >::const_iterator host;
   std::vector<std::string>::const_iterator file;
   std::string filename = RESTART_SCRIPT_NAME;
+  char hostname[80]; 
+  gethostname(hostname,80);
   JTRACE("writing restart script")(filename);
   FILE* fp = fopen(filename.c_str(),"w");
   JASSERT(fp!=0)(filename).Text("failed to open file");  
@@ -446,7 +453,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   
   for(host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host)
   {
-    fprintf(fp,"ssh %s " DMTCP_RESTART_CMD " ", host->first.c_str());
+    fprintf(fp,"ssh %s env " ENV_VAR_NAME_ADDR "=%s " DMTCP_RESTART_CMD " ", 
+		host->first.c_str(), hostname );
     for(file=host->second.begin(); file!=host->second.end(); ++file)
     {
       fprintf(fp," %s", file->c_str());

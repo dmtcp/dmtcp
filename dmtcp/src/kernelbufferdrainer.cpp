@@ -146,6 +146,8 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
        ;++i)
     {
         int size = i->second.size();
+	JWARNING(size>=0)(size).Text("a failed drain is in our table???");
+	if(size<0) size=0;
         DmtcpMessage msg;
         msg.type = DMT_PEER_ECHO;
         msg.params[0] = size;

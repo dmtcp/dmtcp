@@ -162,7 +162,7 @@ dmtcp::DmtcpWorker::DmtcpWorker(bool enableCheckpointing)
     else
     {
         JTRACE("root of processes tree, checking for pre-existing sockets");
-//        ConnectionList::Instance().scanForPreExisting();
+        ConnectionList::Instance().scanForPreExisting();
     }
 
     
@@ -202,10 +202,12 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
         dmtcp::DmtcpMessage msg;
         msg.poison();
         while(msg.type != dmtcp::DMT_DO_SUSPEND)
-        {
+        { 
             _coordinatorSocket >> msg;
             msg.assertValid();
             JTRACE("got MSG from coordinator")(msg.type);
+            if (msg.type == dmtcp::DMT_KILL_PEER) exit(0);
+            msg.poison();
         }
     }    
     JTRACE("got SUSPEND signal");

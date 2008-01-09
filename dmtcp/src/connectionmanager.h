@@ -116,7 +116,7 @@ private:
 class SlidingFdTable
 {
 public:
-    SlidingFdTable(int startingFd = 30) 
+    SlidingFdTable(int startingFd = 1000) 
 		: _nextFd(startingFd) 
 		, _startFd(startingFd)
 	{}
