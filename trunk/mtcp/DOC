@@ -87,7 +87,7 @@ to have problems with this library not being fully loaded.  WHY??
 ==========================================================================
 OVERVIEW:  RESTART
 	    CAN USE CURRENT libc.so AT THIS POINT:
-            mtcp_restart.c:main calls libc.so(mtcp.c):mtcp_restore_start
+            mtcp_restart.c:main calls mtcp.so(mtcp.c):mtcp_restore_start
                via an absolute memory address saved in the checkpoint file.
 	    [ If executing under gdb, it will stop with suggested
 	      add-symbol-file ... command for gdb.
