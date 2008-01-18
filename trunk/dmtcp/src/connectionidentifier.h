@@ -25,22 +25,24 @@
 // #include <vector>
 // #include <map>
 
-namespace dmtcp {
+namespace dmtcp
+{
 
 // class ConnectionIdentifiers;
 
-class ConnectionIdentifier{
+  class ConnectionIdentifier
+  {
 //     friend class ConnectionIdentifiers;
-public:
-    static ConnectionIdentifier Create();
-    static ConnectionIdentifier Null(); 
-    static ConnectionIdentifier Self(); 
-    
-    
-    
-    
-    int conId() const;
-    const UniquePid& pid() const;
+    public:
+      static ConnectionIdentifier Create();
+      static ConnectionIdentifier Null();
+      static ConnectionIdentifier Self();
+
+
+
+
+      int conId() const;
+      const UniquePid& pid() const;
 //     void addFd(int fd);
 //     void removeFd(int fd);
 //     size_t fdCount() const;
@@ -50,19 +52,19 @@ public:
 //     fditerator end(){ return _fds.end(); }
 //     void updateAfterDup(int oldfd,int newfd);
 
-    
-    ConnectionIdentifier(const UniquePid& pid = UniquePid(), int id = -1);
-    
-private:
-    UniquePid _pid;
-    int _id;
-};
+
+      ConnectionIdentifier ( const UniquePid& pid = UniquePid(), int id = -1 );
+
+    private:
+      UniquePid _pid;
+      int _id;
+  };
 
 
-bool operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-bool operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-inline bool operator!= (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
-{ return ! (a == b); }
+  bool operator< ( const ConnectionIdentifier& a, const ConnectionIdentifier& b );
+  bool operator== ( const ConnectionIdentifier& a, const ConnectionIdentifier& b );
+  inline bool operator!= ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
+  { return ! ( a == b ); }
 
 // class ConnectionIdentifiers{
 // public:
@@ -80,10 +82,13 @@ inline bool operator!= (const ConnectionIdentifier& a, const ConnectionIdentifie
 
 }
 
-namespace std{ 
-    inline std::ostream& operator<< (std::ostream& o, const dmtcp::ConnectionIdentifier& i){
+namespace std
+{
+  inline std::ostream& operator<< ( std::ostream& o, const dmtcp::ConnectionIdentifier& i )
+  {
     o << i.pid() << '(' << i.conId() << ')';
     return o;
-}}
+  }
+}
 
 #endif

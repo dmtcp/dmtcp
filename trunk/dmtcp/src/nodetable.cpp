@@ -101,7 +101,7 @@ void dmtcp::WorkerNode::setClientNumer(const int& theValue)
   _clientNumer = theValue;
 }
 
-dmtcp::WorkerState dmtcp::NodeTable::minimumState() const 
+dmtcp::WorkerState dmtcp::NodeTable::minimumState() const
 {
     int t = 999999;
     for(std::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
@@ -113,7 +113,7 @@ dmtcp::WorkerState dmtcp::NodeTable::minimumState() const
     return (WorkerState::eWorkerState)t;
 }
 
-dmtcp::WorkerState dmtcp::NodeTable::maximumState() const 
+dmtcp::WorkerState dmtcp::NodeTable::maximumState() const
 {
     int t = 0;
     for(std::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()

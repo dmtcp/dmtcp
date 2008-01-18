@@ -27,37 +27,37 @@
 #include <map>
 
 // namespace dmtcp {
-// 
+//
 // class WorkerNode{
-// public: 
+// public:
 //     void setId(const UniquePid& theValue);
 //     UniquePid id() const;
 //     void setState(const WorkerState& theValue);
 //     WorkerState state() const;
-//     
+//
 //     WorkerNode():_addrlen(0),_restorePort(0),_clientNumer(-1){memset(&_addr,0,sizeof(_addr));}
-// 
-// 
-// 
+//
+//
+//
 //     void setAddr(const struct sockaddr* theValue,socklen_t len);
-//     
-//     
+//
+//
 //     const struct sockaddr* addr() const;
 //     socklen_t addrlen() const;
-// 
+//
 //     void setRestorePort(const int& theValue);
-// 	
+//
 //     int restorePort() const;
-// 
+//
 //     void setClientNumer(const int& theValue);
-// 	
-// 
+//
+//
 //     int clientNumer() const;
-// 	
-// 	
-// 	
-// 	
-// 	
+//
+//
+//
+//
+//
 // private:
 //     UniquePid _id;
 //     WorkerState _state;
@@ -66,8 +66,8 @@
 //     int                     _restorePort;
 //     int                     _clientNumer;
 // };
-//     
-//     
+//
+//
 // class NodeTable{
 // public:
 //     dmtcp::WorkerNode& operator[] (const UniquePid& id);
@@ -75,13 +75,13 @@
 //     dmtcp::WorkerState maximumState() const;
 //     size_t size() const {return _table.size();}
 //     void removeClient(int clientNumer);
-//     
+//
 //     void dbgPrint() const;
 // private:
 //     std::map<UniquePid, WorkerNode> _table;
 // };
-// 
-// 
+//
+//
 // }
 
 #endif

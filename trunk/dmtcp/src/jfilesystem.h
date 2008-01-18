@@ -23,31 +23,32 @@
 #include <string>
 #include <vector>
 
-namespace jalib {
-
-namespace Filesystem 
+namespace jalib
 {
-    
+
+  namespace Filesystem
+  {
+
     //true if a given file exists
-    bool FileExists(const std::string& str);
-    
+    bool FileExists ( const std::string& str );
+
     //search for a given utility in many different places
-    std::string FindHelperUtility(const std::string& name, bool dieOnError = true);
-    
+    std::string FindHelperUtility ( const std::string& name, bool dieOnError = true );
+
     std::string GetProgramDir();
     std::string GetProgramName();
     std::string GetProgramPath();
 
-    std::string ResolveSymlink(const std::string& file);
-    
-    std::vector<std::string> GetProgramArgs(); 
-    
+    std::string ResolveSymlink ( const std::string& file );
+
+    std::vector<std::string> GetProgramArgs();
+
     std::vector<int> ListOpenFds();
-    
-    
+
+
     std::string GetCurrentHostname();
-    
-}
+
+  }
 
 }
 

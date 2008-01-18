@@ -23,44 +23,46 @@
 #include "jsocket.h"
 #include "uniquepid.h"
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class CheckpointCoordinator;
+  class CheckpointCoordinator;
 
-class DmtcpWorker{
-public:
-    static DmtcpWorker& instance();
-    const dmtcp::UniquePid& coordinatorId() const;
-    
-    void waitForStage1Suspend();
-    void waitForStage2Checkpoint();
-    void waitForStage3Resume();
-    void restoreSockets(CheckpointCoordinator& coordinator);
-    void postRestart();
-    
-    static void resetOnFork();
-    
-    
-    DmtcpWorker(bool shouldEnableCheckpointing);
-    ~DmtcpWorker();
-    
-    void forceRestart();
-        
-    static void maskStdErr();
-    static void unmaskStdErr();
-	static bool isStdErrMasked() { return _stdErrMasked; }
-protected:
-    
+  class DmtcpWorker
+  {
+    public:
+      static DmtcpWorker& instance();
+      const dmtcp::UniquePid& coordinatorId() const;
 
-    void connectToCoordinator();
-private:
-    static DmtcpWorker theInstance;
-private:
-    jalib::JSocket _coordinatorSocket;
-    UniquePid      _coordinatorId;
-    jalib::JSocket _restoreSocket;
-	static bool _stdErrMasked;// = false;
-};
+      void waitForStage1Suspend();
+      void waitForStage2Checkpoint();
+      void waitForStage3Resume();
+      void restoreSockets ( CheckpointCoordinator& coordinator );
+      void postRestart();
+
+      static void resetOnFork();
+
+
+      DmtcpWorker ( bool shouldEnableCheckpointing );
+      ~DmtcpWorker();
+
+      void forceRestart();
+
+      static void maskStdErr();
+      static void unmaskStdErr();
+      static bool isStdErrMasked() { return _stdErrMasked; }
+    protected:
+
+
+      void connectToCoordinator();
+    private:
+      static DmtcpWorker theInstance;
+    private:
+      jalib::JSocket _coordinatorSocket;
+      UniquePid      _coordinatorId;
+      jalib::JSocket _restoreSocket;
+      static bool _stdErrMasked;// = false;
+  };
 
 }
 

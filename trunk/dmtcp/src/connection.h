@@ -32,63 +32,65 @@
 #include <unistd.h>
 
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class KernelBufferDrainer;
-class ConnectionRewirer;
-class TcpConnection;
-class KernelDeviceToConnection;
-    
-class Connection {
-public:
-    enum ConnectionType
-    {
+  class KernelBufferDrainer;
+  class ConnectionRewirer;
+  class TcpConnection;
+  class KernelDeviceToConnection;
+
+  class Connection
+  {
+    public:
+      enum ConnectionType
+      {
         INVALID = 0x0000,
         TCP =     0x1000,
         PIPE =    0x2000,
         PTS =     0x4000,
         FILE =    0x8000,
-                
-        TYPEMASK = TCP | PIPE | PTS | FILE
-    };
-    
-    virtual ~Connection(){}
-    
-    int conType() const { return _type & TYPEMASK; }
-    
-    const ConnectionIdentifier& id() const { return _id; }
-    
-    virtual void preCheckpoint(const std::vector<int>& fds, KernelBufferDrainer&) = 0;
-    virtual void postCheckpoint(const std::vector<int>& fds) = 0;
-    virtual void restore(const std::vector<int>&, ConnectionRewirer&) = 0;
-    
-    virtual void doLocking(const std::vector<int>& fds){};
-    virtual void saveOptions(const std::vector<int>& fds);
-    virtual void restoreOptions(const std::vector<int>& fds);
-    
-    //convert with type checking
-    virtual TcpConnection& asTcp();
-   
-    
-    void serialize(jalib::JBinarySerializer& o);
-protected:
-    virtual void serializeSubClass(jalib::JBinarySerializer& o) = 0;
-protected:
-    //only child classes can construct us...
-    Connection(int t);
-protected:
-    ConnectionIdentifier _id;
-    int                  _type;
-    int                  _fcntlFlags;
-    int                  _fcntlOwner;
-    int                  _fcntlSignal;
-};
 
-class TcpConnection : public Connection
-{
-public:
-    enum TcpType
-    {
+        TYPEMASK = TCP | PIPE | PTS | FILE
+      };
+
+      virtual ~Connection() {}
+
+      int conType() const { return _type & TYPEMASK; }
+
+      const ConnectionIdentifier& id() const { return _id; }
+
+      virtual void preCheckpoint ( const std::vector<int>& fds, KernelBufferDrainer& ) = 0;
+      virtual void postCheckpoint ( const std::vector<int>& fds ) = 0;
+      virtual void restore ( const std::vector<int>&, ConnectionRewirer& ) = 0;
+
+      virtual void doLocking ( const std::vector<int>& fds ) {};
+      virtual void saveOptions ( const std::vector<int>& fds );
+      virtual void restoreOptions ( const std::vector<int>& fds );
+
+      //convert with type checking
+      virtual TcpConnection& asTcp();
+
+
+      void serialize ( jalib::JBinarySerializer& o );
+    protected:
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o ) = 0;
+    protected:
+      //only child classes can construct us...
+      Connection ( int t );
+    protected:
+      ConnectionIdentifier _id;
+      int                  _type;
+      int                  _fcntlFlags;
+      int                  _fcntlOwner;
+      int                  _fcntlSignal;
+  };
+
+  class TcpConnection : public Connection
+  {
+    public:
+      enum TcpType
+      {
         TCP_INVALID = TCP,
         TCP_ERROR,
         TCP_CREATED,
@@ -96,45 +98,45 @@ public:
         TCP_LISTEN,
         TCP_ACCEPT,
         TCP_CONNECT,
-	TCP_PREEXISTING
-    };
-    
-    int tcpType() const { return _type; }
-    
-    //basic commands for updating state as a from wrappers
-    /*onSocket*/ TcpConnection(int domain, int type, int protocol);
-    void onBind(const struct sockaddr* addr, socklen_t len);
-    void onListen(int backlog);
-    void onConnect(); // connect side does not know remote host
-    /*onAccept*/ TcpConnection(const TcpConnection& parent, const ConnectionIdentifier& remote);
-    void onError();
-    void addSetsockopt(int level, int option, const char* value, int len);
-    
-    void markPreExisting() { _type = TCP_PREEXISTING; }
-    
-    //basic checkpointing commands
-    virtual void preCheckpoint(const std::vector<int>& fds
-                            , KernelBufferDrainer& drain);
-    virtual void postCheckpoint(const std::vector<int>& fds);
-    virtual void restore(const std::vector<int>&, ConnectionRewirer&);
-    
-    virtual void doLocking(const std::vector<int>& fds);
-    
-    virtual void restoreOptions(const std::vector<int>& fds);
-    
-private:
-    virtual void serializeSubClass(jalib::JBinarySerializer& o);
-    TcpConnection& asTcp();
-private:
-    int                     _sockDomain;
-    int                     _sockType;
-    int                     _sockProtocol;
-    int                     _listenBacklog;
-    socklen_t               _bindAddrlen;
-    struct sockaddr_storage _bindAddr;
-    ConnectionIdentifier    _acceptRemoteId;
-    std::map< int, std::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
-};
+        TCP_PREEXISTING
+      };
+
+      int tcpType() const { return _type; }
+
+      //basic commands for updating state as a from wrappers
+      /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
+      void onBind ( const struct sockaddr* addr, socklen_t len );
+      void onListen ( int backlog );
+      void onConnect(); // connect side does not know remote host
+      /*onAccept*/ TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
+      void onError();
+      void addSetsockopt ( int level, int option, const char* value, int len );
+
+      void markPreExisting() { _type = TCP_PREEXISTING; }
+
+      //basic checkpointing commands
+      virtual void preCheckpoint ( const std::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const std::vector<int>& fds );
+      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+
+      virtual void doLocking ( const std::vector<int>& fds );
+
+      virtual void restoreOptions ( const std::vector<int>& fds );
+
+    private:
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+      TcpConnection& asTcp();
+    private:
+      int                     _sockDomain;
+      int                     _sockType;
+      int                     _sockProtocol;
+      int                     _listenBacklog;
+      socklen_t               _bindAddrlen;
+      struct sockaddr_storage _bindAddr;
+      ConnectionIdentifier    _acceptRemoteId;
+      std::map< int, std::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
+  };
 
 // class PipeConnection : public Connection
 // {
@@ -143,75 +145,75 @@ private:
 //                             , KernelBufferDrainer& drain);
 //     virtual void postCheckpoint(const std::vector<int>& fds);
 //     virtual void restore(const std::vector<int>&, ConnectionRewirer&);
-//     
+//
 //     virtual void serializeSubClass(jalib::JBinarySerializer& o);
-//     
+//
 // };
 
-class PtsConnection : public Connection
-{
-public:
-	enum PtsType
-    {
+  class PtsConnection : public Connection
+  {
+    public:
+      enum PtsType
+      {
         INVALID   = 0x0000,
         Pt_Master = 0x1000,
         Pt_Slave  = 0x2000,
-                
+
         TYPEMASK = Pt_Master | Pt_Slave
-    };
-	
-    PtsConnection(const std::string& device, const std::string& filename, PtsType type)
-		: Connection(PTS)
-		, _type(type)
-		, _symlinkFilename(filename)
-		, _device(device)
-	{
-		if ( filename.compare("?") == 0)
-		{
-			_type = INVALID;
-		}
-	}
-    
-    PtsConnection()
-		: Connection(PTS)
-		, _type(INVALID)
-		, _symlinkFilename("?")
-		, _device("?")
-	{}
+      };
 
-	PtsType type() { return PtsType(_type & TYPEMASK); }
-    virtual void preCheckpoint(const std::vector<int>& fds
-                            , KernelBufferDrainer& drain);
-    virtual void postCheckpoint(const std::vector<int>& fds);
-    virtual void restore(const std::vector<int>&, ConnectionRewirer&);
-    virtual void restoreOptions(const std::vector<int>& fds);
- 
-    virtual void serializeSubClass(jalib::JBinarySerializer& o);
-private:
-	PtsType 	_type;
-	std::string _symlinkFilename;
-	std::string _device;
-			
-};
+      PtsConnection ( const std::string& device, const std::string& filename, PtsType type )
+          : Connection ( PTS )
+          , _type ( type )
+          , _symlinkFilename ( filename )
+          , _device ( device )
+      {
+        if ( filename.compare ( "?" ) == 0 )
+        {
+          _type = INVALID;
+        }
+      }
 
-class FileConnection : public Connection
-{
-public:
-    inline FileConnection(const std::string& path, off_t offset=-1)
-		: Connection( FILE ), _path(path), _offset(offset) 
-	{}
-    
-    virtual void preCheckpoint(const std::vector<int>& fds
-                            , KernelBufferDrainer& drain);
-    virtual void postCheckpoint(const std::vector<int>& fds);
-    virtual void restore(const std::vector<int>&, ConnectionRewirer&);
+      PtsConnection()
+          : Connection ( PTS )
+          , _type ( INVALID )
+          , _symlinkFilename ( "?" )
+          , _device ( "?" )
+      {}
 
-    virtual void serializeSubClass(jalib::JBinarySerializer& o);
-private:
-    std::string _path;
-    off_t       _offset;
-    struct stat _stat;
-};
+      PtsType type() { return PtsType ( _type & TYPEMASK ); }
+      virtual void preCheckpoint ( const std::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const std::vector<int>& fds );
+      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+      virtual void restoreOptions ( const std::vector<int>& fds );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+    private:
+      PtsType   _type;
+      std::string _symlinkFilename;
+      std::string _device;
+
+  };
+
+  class FileConnection : public Connection
+  {
+    public:
+      inline FileConnection ( const std::string& path, off_t offset=-1 )
+          : Connection ( FILE ), _path ( path ), _offset ( offset )
+      {}
+
+      virtual void preCheckpoint ( const std::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const std::vector<int>& fds );
+      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+    private:
+      std::string _path;
+      off_t       _offset;
+      struct stat _stat;
+  };
 
 
 }

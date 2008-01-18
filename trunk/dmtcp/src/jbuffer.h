@@ -20,30 +20,32 @@
 #ifndef JALIBJBUFFER_H
 #define JALIBJBUFFER_H
 
-namespace jalib {
+namespace jalib
+{
 
-/**
-	@author Jason Ansel <jansel@ccs.neu.edu>
-*/
-class JBuffer{
-public:
-    JBuffer(int size = 0);
-    JBuffer(const char* source, int size);
-    JBuffer(const JBuffer& that);
-    ~JBuffer();
-    jalib::JBuffer& operator=(const JBuffer& that);
-    
-    
-    const char* buffer() const;
-    char* buffer();
-    int size() const;
-    operator char* () {return buffer();}
-    operator const char* () {return buffer();}
-	
-private:
-    char * _buffer;
-    int    _size;
-};
+  /**
+    @author Jason Ansel <jansel@ccs.neu.edu>
+  */
+  class JBuffer
+  {
+    public:
+      JBuffer ( int size = 0 );
+      JBuffer ( const char* source, int size );
+      JBuffer ( const JBuffer& that );
+      ~JBuffer();
+      jalib::JBuffer& operator= ( const JBuffer& that );
+
+
+      const char* buffer() const;
+      char* buffer();
+      int size() const;
+      operator char* () {return buffer();}
+      operator const char* () {return buffer();}
+
+    private:
+      char * _buffer;
+      int    _size;
+  };
 
 }
 

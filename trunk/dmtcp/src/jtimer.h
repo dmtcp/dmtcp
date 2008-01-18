@@ -34,59 +34,62 @@
 #define JTIMER_SCOPE(name) static jalib::JTimeRecorder _jtimer_scope_tm_ ## name (#name); \
        jalib::JScopeTimer _jtimer_scope_inst_ ## name (_jtimer_scope_tm_ ## name);
 #else
-#define JTIMER(name) 
-#define JTIMER_START(name) 
-#define JTIMER_STOP(name) 
+#define JTIMER(name)
+#define JTIMER_START(name)
+#define JTIMER_STOP(name)
 #define JTIMER_SCOPE(name)
 #endif
 
 
-namespace jalib{
+namespace jalib
+{
 
-class JTime;
-double operator-(const JTime& a, const JTime& b);
+  class JTime;
+  double operator- ( const JTime& a, const JTime& b );
 
-class JTime{
-public:
-    JTime();
-    friend double operator-(const JTime& a, const JTime& b);
-    static JTime Now(){return JTime();}
-private:
-    struct timeval _value;
-};
+  class JTime
+  {
+    public:
+      JTime();
+      friend double operator- ( const JTime& a, const JTime& b );
+      static JTime Now() {return JTime();}
+    private:
+      struct timeval _value;
+  };
 
-class JTimeRecorder{
-public:
-    JTimeRecorder(const std::string& name);
-    void start()
-    {
-        JWARNING(!_isStarted)(_name);
+  class JTimeRecorder
+  {
+    public:
+      JTimeRecorder ( const std::string& name );
+      void start()
+      {
+        JWARNING ( !_isStarted ) ( _name );
         _start = JTime::Now();
         _isStarted = true;
-    }
-    void stop()
-    {
-        JWARNING(_isStarted)(_name);
-        if(!_isStarted) return;
+      }
+      void stop()
+      {
+        JWARNING ( _isStarted ) ( _name );
+        if ( !_isStarted ) return;
         _isStarted = false;
-        recordTime(JTime::Now() - _start);
-    }
-protected:
-    void recordTime(double time);
-private:
-    std::string _name;
-    bool  _isStarted;
-    JTime _start;
-};
+        recordTime ( JTime::Now() - _start );
+      }
+    protected:
+      void recordTime ( double time );
+    private:
+      std::string _name;
+      bool  _isStarted;
+      JTime _start;
+  };
 
-class JScopeTimer 
-{
-public:
-    JScopeTimer(JTimeRecorder& tm) :_tm(tm) { _tm.start(); }
-    ~JScopeTimer() { _tm.stop(); }
-private:
-    JTimeRecorder& _tm;
-};
+  class JScopeTimer
+  {
+    public:
+      JScopeTimer ( JTimeRecorder& tm ) :_tm ( tm ) { _tm.start(); }
+      ~JScopeTimer() { _tm.stop(); }
+    private:
+      JTimeRecorder& _tm;
+  };
 
 }
 #endif

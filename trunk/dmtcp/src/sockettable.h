@@ -31,13 +31,13 @@
 #define EXTERNC
 #endif
 
-EXTERNC int dmtcp_on_socket(int ret, int domain, int type, int protocol);
-EXTERNC int dmtcp_on_connect(int ret, int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen);
-EXTERNC int dmtcp_on_bind(int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen);
-EXTERNC int dmtcp_on_listen(int ret, int sockfd, int backlog);
-EXTERNC int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-EXTERNC int dmtcp_on_error(int ret, int sockfd, const char* fname);
-EXTERNC int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen);
+EXTERNC int dmtcp_on_socket ( int ret, int domain, int type, int protocol );
+EXTERNC int dmtcp_on_connect ( int ret, int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
+EXTERNC int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
+EXTERNC int dmtcp_on_listen ( int ret, int sockfd, int backlog );
+EXTERNC int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname );
+EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen );
 
 
 
@@ -52,7 +52,7 @@ namespace dmtcp
 {
 //     class SocketEntry
 //     {
-//     public: 
+//     public:
 //         enum SocketState {
 //             T_INVALID,
 //             T_ERROR,
@@ -62,59 +62,59 @@ namespace dmtcp
 //             T_LISTEN,
 //             T_ACCEPT
 //         };
-//         
+//
 //         const struct sockaddr* addr() const;
 //         socklen_t addrlen() const;
 //         void setAddr(const struct sockaddr* theValue, socklen_t len);
-//         
+//
 //         void setState(const SocketState& theValue);
 //         SocketState state() const;
-//         
-//         
+//
+//
 //         void setProtocol(const int& theValue);
 //         int protocol() const;
-//         
-//         
+//
+//
 //         void setDomain(const int& theValue);
 //         int domain() const;
-//         
-//         
+//
+//
 //         void setBacklog(const int& theValue);
 //         int backlog() const;
-//      
+//
 //         //constructor
 //         SocketEntry();
-// 
-// 	void setType(const int& theValue);
-// 	
-// 
-// 	int type() const;
-// 
-// 	void setRemoteId(const UniquePidConId& theValue);
+//
+//  void setType(const int& theValue);
+//
+//
+//  int type() const;
+//
+//  void setRemoteId(const UniquePidConId& theValue);
 //         void changeRemoteId(const UniquePid& theValue);
-// 	
-// 
-// 	const UniquePidConId& remoteId() const;
-// 
-// 	void setSockfd(const int& theValue);
-// 	
-// 
-// 	int sockfd() const;
-// 
-// 	void setNeedRestore(bool theValue);
-// 
-// 	bool needRestore() const;
-//         
+//
+//
+//  const UniquePidConId& remoteId() const;
+//
+//  void setSockfd(const int& theValue);
+//
+//
+//  int sockfd() const;
+//
+//  void setNeedRestore(bool theValue);
+//
+//  bool needRestore() const;
+//
 //         void setIsLoopback(bool theValue);
-// 
-// 	bool isLoopback() const;
-// 	
+//
+//  bool isLoopback() const;
+//
 //         void addSetsockopt(int level, int option, const char* value, int len);
 //         void restoreOptions();
-//             
+//
 //         bool isStillAlive() const;
-//         
-//         
+//
+//
 //     private:
 //         int _sockfd;
 //         SocketState _state;
@@ -129,30 +129,30 @@ namespace dmtcp
 //         bool   _isLoopback;
 //         std::map< int, std::map< int, jalib::JBuffer > > _options; // _options[level][option] = value
 //     };
-// 
+//
 //     class SocketTable {
 //     public:
 //         typedef std::vector<SocketEntry>::iterator iterator;
-//         
+//
 //         static SocketTable& Instance();
 //         SocketEntry& operator[] (int sockfd);
 //         static SocketEntry& LookupByFd(int sockfd){ return Instance()[sockfd]; }
-//         
+//
 //         iterator begin() {return _entries.begin();}
 //         iterator end() {return _entries.end();}
-//         
+//
 //         void onForkUpdate(const dmtcp::UniquePid& parent, const dmtcp::UniquePid& child);
-//         
+//
 //         void resetFd(int fd);
-//         
+//
 //     protected:
 //         SocketTable();
 //     private:
 //         //entries by sockfd
 //         std::vector<SocketEntry> _entries;
 //     };
-// 
-// 	
+//
+//
 }
 
 #endif

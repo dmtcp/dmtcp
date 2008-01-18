@@ -25,21 +25,22 @@
 
 #include "jsocket.h"
 
-namespace dmtcp {
-
-class KernelBufferDrainer : public jalib::JMultiSocketProgram
+namespace dmtcp
 {
-public:
+
+  class KernelBufferDrainer : public jalib::JMultiSocketProgram
+  {
+    public:
 //     void drainAllSockets();
-    void beginDrainOf(int fd);
-    void refillAllSockets();
-    virtual void onData(jalib::JReaderInterface* sock);
-    virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);
-    virtual void onTimeoutInterval();
-    virtual void onDisconnect(jalib::JReaderInterface* sock);
-private:
-    std::map<int , std::vector<char> > _drainedData;
-};
+      void beginDrainOf ( int fd );
+      void refillAllSockets();
+      virtual void onData ( jalib::JReaderInterface* sock );
+      virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
+      virtual void onTimeoutInterval();
+      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+    private:
+      std::map<int , std::vector<char> > _drainedData;
+  };
 
 }
 

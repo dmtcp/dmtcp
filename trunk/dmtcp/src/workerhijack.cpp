@@ -21,13 +21,13 @@
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
 
-dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance(true);
+dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-    theInstance.~DmtcpWorker();
-    shutdownMtcpEngineOnFork();
-    new (&theInstance) DmtcpWorker(true);
+  theInstance.~DmtcpWorker();
+  shutdownMtcpEngineOnFork();
+  new ( &theInstance ) DmtcpWorker ( true );
 }
 
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }

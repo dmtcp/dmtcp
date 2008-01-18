@@ -20,14 +20,16 @@
 #ifndef DMTCPSYSLOGCHECKPOINTER_H
 #define DMTCPSYSLOGCHECKPOINTER_H
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class SyslogCheckpointer{
-public:
-    static void stopService();
-    static void restoreService();
-    static void resetOnFork();
-};
+  class SyslogCheckpointer
+  {
+    public:
+      static void stopService();
+      static void restoreService();
+      static void resetOnFork();
+  };
 
 }
 

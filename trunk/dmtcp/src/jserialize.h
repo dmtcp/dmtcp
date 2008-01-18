@@ -33,94 +33,98 @@
     JASSERT(versionCheck == correctValue)(versionCheck)(correctValue)(o.filename()) \
             .Text("invalid file format"); }
 
-namespace jalib {
+namespace jalib
+{
 
-class JBinarySerializer{
-public:
-    virtual ~JBinarySerializer(){}
-    
+  class JBinarySerializer
+  {
+    public:
+      virtual ~JBinarySerializer() {}
 
-    
-    virtual void readOrWrite(void* buffer, size_t len) = 0;
-    virtual bool isReader() = 0;
-    bool isWriter() { return ! isReader(); }
-    
-    template < typename T >
-    void serialize(T& t){readOrWrite( &t, sizeof(T) );}
-    
-    template < typename T >
-    JBinarySerializer& operator&(T& t)
-    {
-        serialize(t);
+
+
+      virtual void readOrWrite ( void* buffer, size_t len ) = 0;
+      virtual bool isReader() = 0;
+      bool isWriter() { return ! isReader(); }
+
+      template < typename T >
+      void serialize ( T& t ) {readOrWrite ( &t, sizeof ( T ) );}
+
+      template < typename T >
+      JBinarySerializer& operator& ( T& t )
+      {
+        serialize ( t );
         return *this;
-    }
-    
-    template < typename T >
-    void serializeVector(std::vector<T>& t)
-    {
+      }
+
+      template < typename T >
+      void serializeVector ( std::vector<T>& t )
+      {
         JBinarySerializer& o = *this;
-        
-        JSERIALIZE_ASSERT_POINT("std::vector:");
-        
+
+        JSERIALIZE_ASSERT_POINT ( "std::vector:" );
+
         //establish the size
         size_t len = t.size();
-        serialize(len);
-        
+        serialize ( len );
+
         //make sure we have correct size
-        t.resize(len);
-        
+        t.resize ( len );
+
         //now serialize all the elements
-        for(size_t i=0; i<len; ++i)
+        for ( size_t i=0; i<len; ++i )
         {
-            JSERIALIZE_ASSERT_POINT("[");
-            serialize(t[i]);
-            JSERIALIZE_ASSERT_POINT("]");
+          JSERIALIZE_ASSERT_POINT ( "[" );
+          serialize ( t[i] );
+          JSERIALIZE_ASSERT_POINT ( "]" );
         }
-        
-        JSERIALIZE_ASSERT_POINT("endvector");
-    }
-    
-    const std::string& filename() const {return _filename;}
-    JBinarySerializer(const std::string& filename) : _filename(filename) {}
-private:
-    std::string _filename;
-};
 
-template <>
-inline void JBinarySerializer::serialize<std::string> (std::string& t)
-{
+        JSERIALIZE_ASSERT_POINT ( "endvector" );
+      }
+
+      const std::string& filename() const {return _filename;}
+      JBinarySerializer ( const std::string& filename ) : _filename ( filename ) {}
+    private:
+      std::string _filename;
+  };
+
+  template <>
+  inline void JBinarySerializer::serialize<std::string> ( std::string& t )
+  {
     size_t len = t.length();
-    serialize(len);
-    t.resize(len,'?');
-    readOrWrite(&t[0], len);
-}
+    serialize ( len );
+    t.resize ( len,'?' );
+    readOrWrite ( &t[0], len );
+  }
 
-template <>
-inline void JBinarySerializer::serialize<std::vector<int> > (std::vector<int>& t)
-{
-    serializeVector<int>(t);
-}
+  template <>
+  inline void JBinarySerializer::serialize<std::vector<int> > ( std::vector<int>& t )
+  {
+    serializeVector<int> ( t );
+  }
 
 
-class JBinarySerializeWriter : public JBinarySerializer{
-public:
-    JBinarySerializeWriter(const std::string& path);
-    ~JBinarySerializeWriter();
-    void readOrWrite(void* buffer, size_t len);
-    bool isReader();
-private:
-    FILE* _fd;
-};
+  class JBinarySerializeWriter : public JBinarySerializer
+  {
+    public:
+      JBinarySerializeWriter ( const std::string& path );
+      ~JBinarySerializeWriter();
+      void readOrWrite ( void* buffer, size_t len );
+      bool isReader();
+    private:
+      FILE* _fd;
+  };
 
-class JBinarySerializeReader : public JBinarySerializer{
-public:
-    JBinarySerializeReader(const std::string& path);
-    ~JBinarySerializeReader();
-    void readOrWrite(void* buffer, size_t len);
-    bool isReader();
-private:
-    FILE* _fd;
-};
+  class JBinarySerializeReader : public JBinarySerializer
+  {
+    public:
+      JBinarySerializeReader ( const std::string& path );
+      ~JBinarySerializeReader();
+      void readOrWrite ( void* buffer, size_t len );
+      bool isReader();
+    private:
+      FILE* _fd;
+  };
 
 
 }

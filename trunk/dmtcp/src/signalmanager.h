@@ -20,13 +20,15 @@
 #ifndef DMTCPSIGNALMANAGER_H
 #define DMTCPSIGNALMANAGER_H
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class SignalManager{
-public:
-    static void saveSignals();
-    static void restoreSignals();
-};
+  class SignalManager
+  {
+    public:
+      static void saveSignals();
+      static void restoreSignals();
+  };
 
 }
 

@@ -30,31 +30,31 @@
 
 dmtcp::ProtectedFDs& dmtcp::ProtectedFDs::instance()
 {
-    static ProtectedFDs inst;
-    return inst;
+  static ProtectedFDs inst;
+  return inst;
 }
 
 dmtcp::ProtectedFDs::ProtectedFDs()
 {
 //    memset(_usageTable, 0, sizeof(_usageTable));
-   
-   //setup out "busy" fd
+
+  //setup out "busy" fd
 //    _usageTable[0] = true;
-   int tmp = open("/dev/null",O_RDONLY);
-   JASSERT(tmp > 0)(tmp);
-   JASSERT(PFD(0) == dup2(tmp,PFD(0)))(PFD(0))(tmp);
-   close(tmp);
-   
-   //"lock" all protected fds so system wont allocate them
-   for(int i=1; i<PROTECTED_FD_COUNT; ++i)
-   {
-       JASSERT(PFD(i) == dup2(PFD(0),PFD(i)))(i);
-   }
+  int tmp = open ( "/dev/null",O_RDONLY );
+  JASSERT ( tmp > 0 ) ( tmp );
+  JASSERT ( PFD ( 0 ) == dup2 ( tmp,PFD ( 0 ) ) ) ( PFD ( 0 ) ) ( tmp );
+  close ( tmp );
+
+  //"lock" all protected fds so system wont allocate them
+  for ( int i=1; i<PROTECTED_FD_COUNT; ++i )
+  {
+    JASSERT ( PFD ( i ) == dup2 ( PFD ( 0 ),PFD ( i ) ) ) ( i );
+  }
 }
 
-bool dmtcp::ProtectedFDs::isProtected(int fd)
+bool dmtcp::ProtectedFDs::isProtected ( int fd )
 {
-    return jalib::Between(PFD(0),fd,PFD(PROTECTED_FD_COUNT)-1);
+  return jalib::Between ( PFD ( 0 ),fd,PFD ( PROTECTED_FD_COUNT )-1 );
 }
 
 // int dmtcp::ProtectedFDs::acquire()
@@ -69,7 +69,7 @@ bool dmtcp::ProtectedFDs::isProtected(int fd)
 //    }
 //    JASSERT(false).Text("ran out of protected FDs");
 // }
-// 
+//
 // void dmtcp::ProtectedFDs::release(int fd)
 // {
 //     int i = fd - PROTECTED_FD_START;

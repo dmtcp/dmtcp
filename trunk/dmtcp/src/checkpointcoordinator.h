@@ -25,25 +25,27 @@
 #include "connectionrewirer.h"
 #include "jsocket.h"
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-    class CheckpointCoordinator {
+  class CheckpointCoordinator
+  {
     public:
-        CheckpointCoordinator(const ConnectionToFds& ctfd = ConnectionToFds());
-        
-        void preCheckpointLock();
-        void preCheckpointDrain();
-        void postCheckpoint();
-        
-        void postRestart();
-        void doReconnect(jalib::JSocket& coordinator, jalib::JSocket& restoreListen);
-        
+      CheckpointCoordinator ( const ConnectionToFds& ctfd = ConnectionToFds() );
+
+      void preCheckpointLock();
+      void preCheckpointDrain();
+      void postCheckpoint();
+
+      void postRestart();
+      void doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen );
+
     private:
-        KernelBufferDrainer _drain;
-        ConnectionToFds     _conToFds;
-        ConnectionRewirer   _rewirer;
-    };
-    
+      KernelBufferDrainer _drain;
+      ConnectionToFds     _conToFds;
+      ConnectionRewirer   _rewirer;
+  };
+
 }
 
 #endif

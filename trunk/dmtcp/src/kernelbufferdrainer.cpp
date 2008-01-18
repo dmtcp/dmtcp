@@ -27,69 +27,69 @@
 
 namespace
 {
-    const char theMagicDrainCookie[] = SOCKET_DRAIN_MAGIC_COOKIE_STR;
-    
-    void scaleSendBuffers(double factor)
-    {
-       //todo resize buffers to avoid blocking
-    }
-    
+  const char theMagicDrainCookie[] = SOCKET_DRAIN_MAGIC_COOKIE_STR;
+
+  void scaleSendBuffers ( double factor )
+  {
+    //todo resize buffers to avoid blocking
+  }
+
 }
 
 
-void dmtcp::KernelBufferDrainer::onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen)
+void dmtcp::KernelBufferDrainer::onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen )
 {
-    JWARNING(false)(sock.sockfd()).Text("we dont yet support checkpointing non-accepted connections... restore will likely fail.. closing connection");
-    jalib::JSocket(sock).close();
+  JWARNING ( false ) ( sock.sockfd() ).Text ( "we dont yet support checkpointing non-accepted connections... restore will likely fail.. closing connection" );
+  jalib::JSocket ( sock ).close();
 }
 
-void dmtcp::KernelBufferDrainer::onData(jalib::JReaderInterface* sock)
+void dmtcp::KernelBufferDrainer::onData ( jalib::JReaderInterface* sock )
 {
-    std::vector<char>& buffer = _drainedData[sock->socket().sockfd()];
-    buffer.resize(buffer.size() + sock->bytesRead());
-    int startIdx = buffer.size() - sock->bytesRead();
-    memcpy(&buffer[startIdx],sock->buffer(),sock->bytesRead());
+  std::vector<char>& buffer = _drainedData[sock->socket().sockfd() ];
+  buffer.resize ( buffer.size() + sock->bytesRead() );
+  int startIdx = buffer.size() - sock->bytesRead();
+  memcpy ( &buffer[startIdx],sock->buffer(),sock->bytesRead() );
 //     JTRACE("got buffer chunk")(sock->bytesRead());
-    sock->reset();
+  sock->reset();
 }
-void dmtcp::KernelBufferDrainer::onDisconnect(jalib::JReaderInterface* sock)
+void dmtcp::KernelBufferDrainer::onDisconnect ( jalib::JReaderInterface* sock )
 {
-    int fd = sock->socket().sockfd();
-    //check if this was on purpose
-    if(fd < 0) return;
-    JTRACE("found disconnected socket... marking it dead")(fd)(JASSERT_ERRNO);
-    KernelDeviceToConnection::Instance().retrieve( fd ).asTcp().onError();
-    _drainedData.erase( fd ); 
+  int fd = sock->socket().sockfd();
+  //check if this was on purpose
+  if ( fd < 0 ) return;
+  JTRACE ( "found disconnected socket... marking it dead" ) ( fd ) ( JASSERT_ERRNO );
+  KernelDeviceToConnection::Instance().retrieve ( fd ).asTcp().onError();
+  _drainedData.erase ( fd );
 }
 void dmtcp::KernelBufferDrainer::onTimeoutInterval()
-{    
-    int count = 0;
-    for(size_t i = 0; i < _dataSockets.size();++i)
+{
+  int count = 0;
+  for ( size_t i = 0; i < _dataSockets.size();++i )
+  {
+    if ( _dataSockets[i]->bytesRead() > 0 ) onData ( _dataSockets[i] );
+    std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
+    if ( memcmp ( &buffer[buffer.size() - sizeof ( theMagicDrainCookie ) ]
+                  , theMagicDrainCookie
+                  , sizeof ( theMagicDrainCookie ) ) == 0 )
     {
-        if(_dataSockets[i]->bytesRead() > 0) onData( _dataSockets[i] );
-        std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-        if(memcmp(&buffer[buffer.size() - sizeof(theMagicDrainCookie)]
-                , theMagicDrainCookie
-                , sizeof(theMagicDrainCookie)) == 0)
-        {
-            buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-            JTRACE("buffer drain complete")(_dataSockets[i]->socket().sockfd())(buffer.size())((_dataSockets.size()));
-            _dataSockets[i]->socket() = -1; //poison socket
-        }
-        else 
-            ++count;
+      buffer.resize ( buffer.size() - sizeof ( theMagicDrainCookie ) );
+      JTRACE ( "buffer drain complete" ) ( _dataSockets[i]->socket().sockfd() ) ( buffer.size() ) ( ( _dataSockets.size() ) );
+      _dataSockets[i]->socket() = -1; //poison socket
     }
-    
-    if(count == 0)
-    {
-        _listenSockets.clear();
-    }
+    else
+      ++count;
+  }
+
+  if ( count == 0 )
+  {
+    _listenSockets.clear();
+  }
 }
 
 // void dmtcp::KernelBufferDrainer::drainAllSockets()
 // {
 //     scaleSendBuffers(2);
-/*    
+/*
     SocketTable& table = SocketTable::Instance();
     for(  SocketTable::iterator i = table.begin()
         ; i != table.end()
@@ -118,73 +118,73 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
         }
     }
     monitorSockets( DRAINER_CHECK_FREQ );
-  */  
+  */
 //     scaleSendBuffers(0.5);
 // }
 
-void dmtcp::KernelBufferDrainer::beginDrainOf(int fd)
+void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd )
 {
 //     JTRACE("will drain socket")(fd);
-    _drainedData[fd]; // create buffer
-// this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie; 
-    //instead used delayed write incase kernel buffer is full:
-    addWrite( new jalib::JChunkWriter( fd, theMagicDrainCookie, sizeof theMagicDrainCookie) );
-    //now setup a reader:
-    addDataSocket( new jalib::JChunkReader(fd,512) );
+  _drainedData[fd]; // create buffer
+// this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie;
+  //instead used delayed write incase kernel buffer is full:
+  addWrite ( new jalib::JChunkWriter ( fd, theMagicDrainCookie, sizeof theMagicDrainCookie ) );
+  //now setup a reader:
+  addDataSocket ( new jalib::JChunkReader ( fd,512 ) );
 }
 
 
 void dmtcp::KernelBufferDrainer::refillAllSockets()
 {
-    scaleSendBuffers(2);
-    
-    JTRACE("refilling socket buffers")(_drainedData.size());
-    
-    //write all buffers out
-    for(std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
-       ;i != _drainedData.end()
-       ;++i)
-    {
-        int size = i->second.size();
-	JWARNING(size>=0)(size).Text("a failed drain is in our table???");
-	if(size<0) size=0;
-        DmtcpMessage msg;
-        msg.type = DMT_PEER_ECHO;
-        msg.params[0] = size;
-        jalib::JSocket sock(i->first);
-        if(size>0) JTRACE("requesting repeat buffer...")(sock.sockfd())(size);
-        sock << msg;
-        if(size>0) sock.writeAll(&i->second[0],size);
-        i->second.clear();
-    }
-    
+  scaleSendBuffers ( 2 );
+
+  JTRACE ( "refilling socket buffers" ) ( _drainedData.size() );
+
+  //write all buffers out
+  for ( std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
+          ;i != _drainedData.end()
+          ;++i )
+  {
+    int size = i->second.size();
+    JWARNING ( size>=0 ) ( size ).Text ( "a failed drain is in our table???" );
+    if ( size<0 ) size=0;
+    DmtcpMessage msg;
+    msg.type = DMT_PEER_ECHO;
+    msg.params[0] = size;
+    jalib::JSocket sock ( i->first );
+    if ( size>0 ) JTRACE ( "requesting repeat buffer..." ) ( sock.sockfd() ) ( size );
+    sock << msg;
+    if ( size>0 ) sock.writeAll ( &i->second[0],size );
+    i->second.clear();
+  }
+
 //     JTRACE("repeating our friends buffers...");
-    
-    //read all buffers in
-    for(std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
-       ;i != _drainedData.end()
-       ;++i)
+
+  //read all buffers in
+  for ( std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
+          ;i != _drainedData.end()
+          ;++i )
+  {
+    DmtcpMessage msg;
+    msg.poison();
+    jalib::JSocket sock ( i->first );
+    sock >> msg;
+
+    msg.assertValid();
+    JASSERT ( msg.type == DMT_PEER_ECHO ) ( msg.type );
+    int size = msg.params[0];
+    JTRACE ( "repeating buffer back to peer" ) ( size );
+    if ( size>0 )
     {
-        DmtcpMessage msg;
-        msg.poison();
-        jalib::JSocket sock(i->first);
-        sock >> msg;
-        
-        msg.assertValid();
-        JASSERT(msg.type == DMT_PEER_ECHO)(msg.type);
-        int size = msg.params[0];
-        JTRACE("repeating buffer back to peer")(size);
-        if(size>0)
-        {
-            //echo it back...
-            jalib::JBuffer tmp(size);
-            sock.readAll(tmp,size);
-            sock.writeAll(tmp,size);
-        }
+      //echo it back...
+      jalib::JBuffer tmp ( size );
+      sock.readAll ( tmp,size );
+      sock.writeAll ( tmp,size );
     }
-    
-    JTRACE("buffers refilled");
-    
-    
-    scaleSendBuffers(0.5);
+  }
+
+  JTRACE ( "buffers refilled" );
+
+
+  scaleSendBuffers ( 0.5 );
 }

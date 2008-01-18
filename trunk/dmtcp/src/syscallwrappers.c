@@ -44,7 +44,7 @@ static int in_dmtcp_on_helper_fnc = 0;
     int ret = _real_ ## func (__VA_ARGS__); \
       PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); \
     }
-    
+
 #define PASSTHROUGH_DMTCP_HELPER2(func, ...) {\
     _dmtcp_lock();\
     if (in_dmtcp_on_helper_fnc == 0) { \
@@ -56,73 +56,73 @@ static int in_dmtcp_on_helper_fnc = 0;
     _dmtcp_unlock();\
     return ret;}
 
-int socket(int domain, int type, int protocol)
+int socket ( int domain, int type, int protocol )
 {
-    static int sockfd = -1;
-    PASSTHROUGH_DMTCP_HELPER(socket, domain, type, protocol);
+  static int sockfd = -1;
+  PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
 }
 
-int connect(int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen)
+int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
-    int ret = _real_connect(sockfd,serv_addr,addrlen);
-    
-    //no blocking connect... need to hang around until it is writable
-    if(ret < 0 && errno == EINPROGRESS)
+  int ret = _real_connect ( sockfd,serv_addr,addrlen );
+
+  //no blocking connect... need to hang around until it is writable
+  if ( ret < 0 && errno == EINPROGRESS )
+  {
+    fd_set wfds;
+    struct timeval tv;
+    int retval;
+
+    FD_ZERO ( &wfds );
+    FD_SET ( sockfd, &wfds );
+
+    tv.tv_sec = 15;
+    tv.tv_usec = 0;
+
+    retval = select ( sockfd+1, NULL, &wfds, NULL, &tv );
+    /* Don't rely on the value of tv now! */
+
+    if ( retval == -1 )
+      perror ( "select()" );
+    else if ( FD_ISSET ( sockfd, &wfds ) )
     {
-        fd_set wfds;
-        struct timeval tv;
-        int retval;
-   
-        FD_ZERO(&wfds);
-        FD_SET(sockfd, &wfds);
-    
-        tv.tv_sec = 15;
-        tv.tv_usec = 0;
-    
-        retval = select(sockfd+1, NULL, &wfds, NULL, &tv);
-        /* Don't rely on the value of tv now! */
-    
-        if (retval == -1)
-            perror("select()");
-        else if (FD_ISSET(sockfd, &wfds))
-        {
-            int val = -1;
-            socklen_t sz = sizeof(val);
-            getsockopt(sockfd,SOL_SOCKET,SO_ERROR,&val,&sz);
-            if(val==0) ret = 0;
-        }
-        else
-            printf("No data within five seconds.\n");
-    }
-    
-    PASSTHROUGH_DMTCP_HELPER2(connect,sockfd,serv_addr,addrlen);
-}
-
-int bind(int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen)
-{
-    PASSTHROUGH_DMTCP_HELPER(bind, sockfd, my_addr, addrlen);
-}
-
-int listen(int sockfd, int backlog)
-{
-    PASSTHROUGH_DMTCP_HELPER(listen, sockfd, backlog );
-}
-
-int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
-{
-    if(addr == NULL || addrlen == NULL)
-    {
-        struct sockaddr_storage tmp_addr;
-        socklen_t tmp_len = 0;
-        memset(&tmp_addr,0,sizeof(tmp_addr));
-        PASSTHROUGH_DMTCP_HELPER(accept, sockfd, ((struct sockaddr *)&tmp_addr) , (&tmp_len));
+      int val = -1;
+      socklen_t sz = sizeof ( val );
+      getsockopt ( sockfd,SOL_SOCKET,SO_ERROR,&val,&sz );
+      if ( val==0 ) ret = 0;
     }
     else
-        PASSTHROUGH_DMTCP_HELPER(accept, sockfd, addr, addrlen);
+      printf ( "No data within five seconds.\n" );
+  }
+
+  PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
 }
 
-int setsockopt(int sockfd, int  level,  int  optname,  const  void  *optval,
-       socklen_t optlen) 
+int bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
-    PASSTHROUGH_DMTCP_HELPER(setsockopt,sockfd,level,optname,optval,optlen);
+  PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
+}
+
+int listen ( int sockfd, int backlog )
+{
+  PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
+}
+
+int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+{
+  if ( addr == NULL || addrlen == NULL )
+  {
+    struct sockaddr_storage tmp_addr;
+    socklen_t tmp_len = 0;
+    memset ( &tmp_addr,0,sizeof ( tmp_addr ) );
+    PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, ( ( struct sockaddr * ) &tmp_addr ) , ( &tmp_len ) );
+  }
+  else
+    PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
+}
+
+int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
+                 socklen_t optlen )
+{
+  PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
 }

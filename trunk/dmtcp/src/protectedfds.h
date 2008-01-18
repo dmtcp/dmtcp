@@ -28,17 +28,19 @@
 #define PROTECTEDFD(i) PFD(i)
 #define PROTECTED_STDERR_FD PFD(5)
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class ProtectedFDs{
-public:
-    static ProtectedFDs& instance();
-    static bool isProtected(int fd);
-protected:
-    ProtectedFDs();
-private:
+  class ProtectedFDs
+  {
+    public:
+      static ProtectedFDs& instance();
+      static bool isProtected ( int fd );
+    protected:
+      ProtectedFDs();
+    private:
 //     bool _usageTable[PROTECTED_FD_COUNT];
-};
+  };
 
 }
 

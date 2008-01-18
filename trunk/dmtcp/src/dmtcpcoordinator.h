@@ -24,30 +24,32 @@
 #include "nodetable.h"
 #include "dmtcpmessagetypes.h"
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class DmtcpCoordinator : public jalib::JMultiSocketProgram {
-public:
-    virtual void onData(jalib::JReaderInterface* sock);
-    virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);
-    virtual void onDisconnect(jalib::JReaderInterface* sock);
-    virtual void onTimeoutInterval();
-    void broadcastMessage(DmtcpMessageType type);
-    void broadcastMessage(const DmtcpMessage& msg);
-    void startCheckpoint();
-    dmtcp::WorkerState minimumState() const;
-protected:
-    void writeRestartScript();
-private:
-    typedef std::vector<jalib::JReaderInterface*>::iterator iterator;
-    typedef std::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
+  class DmtcpCoordinator : public jalib::JMultiSocketProgram
+  {
+    public:
+      virtual void onData ( jalib::JReaderInterface* sock );
+      virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
+      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      virtual void onTimeoutInterval();
+      void broadcastMessage ( DmtcpMessageType type );
+      void broadcastMessage ( const DmtcpMessage& msg );
+      void startCheckpoint();
+      dmtcp::WorkerState minimumState() const;
+    protected:
+      void writeRestartScript();
+    private:
+      typedef std::vector<jalib::JReaderInterface*>::iterator iterator;
+      typedef std::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
 //     NodeTable _table;
-    std::vector< DmtcpMessage > _restoreWaitingMessages;
-    
-    //map from hostname to checkpoint files
-    std::map< std::string, std::vector<std::string> > _restartFilenames;
-     
-};
+      std::vector< DmtcpMessage > _restoreWaitingMessages;
+
+      //map from hostname to checkpoint files
+      std::map< std::string, std::vector<std::string> > _restartFilenames;
+
+  };
 
 }
 
