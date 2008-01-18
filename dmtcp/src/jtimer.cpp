@@ -26,41 +26,42 @@
 
 jalib::JTime::JTime()
 {
-    JASSERT(gettimeofday(&_value,NULL) == 0);
+  JASSERT ( gettimeofday ( &_value,NULL ) == 0 );
 }
 
-double jalib::operator-(const jalib::JTime& a, const jalib::JTime& b)
+double jalib::operator- ( const jalib::JTime& a, const jalib::JTime& b )
 {
-    double sec = a._value.tv_sec - b._value.tv_sec;
-    sec += (a._value.tv_usec-b._value.tv_usec)/1000000.0;
-    if(sec < 0) sec *= -1;
-    return sec;
+  double sec = a._value.tv_sec - b._value.tv_sec;
+  sec += ( a._value.tv_usec-b._value.tv_usec ) /1000000.0;
+  if ( sec < 0 ) sec *= -1;
+  return sec;
 }
 
-jalib::JTimeRecorder::JTimeRecorder(const std::string& name)
-    : _name(name)
-    , _isStarted(false)
+jalib::JTimeRecorder::JTimeRecorder ( const std::string& name )
+    : _name ( name )
+    , _isStarted ( false )
 {}
 
-namespace{
-static const std::string& _testName()
+namespace
 {
-    static const char* env = getenv("TESTNAME");
-    static std::string tn = jalib::Filesystem::GetProgramName() 
-                            + jalib::XToString(getpid())
-                         + ',' + std::string(env == NULL ? "unamedtest" : env);
+  static const std::string& _testName()
+  {
+    static const char* env = getenv ( "TESTNAME" );
+    static std::string tn = jalib::Filesystem::GetProgramName()
+                            + jalib::XToString ( getpid() )
+                            + ',' + std::string ( env == NULL ? "unamedtest" : env );
     return tn;
-}
+  }
 
-static void _writeTimerLogLine(const std::string& name, double time)
-{
-    static std::ofstream logfile("jtimings.csv", std::ios::out | std::ios::app);
+  static void _writeTimerLogLine ( const std::string& name, double time )
+  {
+    static std::ofstream logfile ( "jtimings.csv", std::ios::out | std::ios::app );
     logfile << _testName() <<  ',' << name << ',' << time << std::endl;
     JASSERT_STDERR << "JTIMER(" <<  name << ") : " << time << '\n';
-}
+  }
 }
 
-void jalib::JTimeRecorder::recordTime(double time)
+void jalib::JTimeRecorder::recordTime ( double time )
 {
-    _writeTimerLogLine(_name,time);
+  _writeTimerLogLine ( _name,time );
 }

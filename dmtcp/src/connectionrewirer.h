@@ -26,45 +26,47 @@
 #include <set>
 #include <vector>
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-class ConnectionRewirer : public jalib::JMultiSocketProgram  {
-public:
-    ConnectionRewirer() : _coordinatorFd( -1 ){}
+  class ConnectionRewirer : public jalib::JMultiSocketProgram
+  {
+    public:
+      ConnectionRewirer() : _coordinatorFd ( -1 ) {}
 
-    void setCoordinatorFd(const int& theValue);
-    int coordinatorFd() const;
+      void setCoordinatorFd ( const int& theValue );
+      int coordinatorFd() const;
 
-    void doReconnect();
-    
-    void registerIncoming(const ConnectionIdentifier& local
-                        , const std::vector<int>& fds);
-    
-    void registerOutgoing(const ConnectionIdentifier& remote
-                        , const std::vector<int>& fds);
-    
-    
-protected:
-    
-    virtual void onData(jalib::JReaderInterface* sock);
-     
-    virtual void onConnect(const jalib::JSocket& sock,  const struct sockaddr* /*remoteAddr*/,socklen_t /*remoteLen*/);
-  
-    virtual void onDisconnect(jalib::JReaderInterface* sock);
-    
-    void finishup();
-      
-    size_t pendingCount() const { return _pendingIncoming.size() + _pendingOutgoing.size(); }
-    
-    void debugPrint() const;
-            
-private:
-   int _coordinatorFd;
-   std::map<ConnectionIdentifier, std::vector<int> > _pendingIncoming;
-   std::map<ConnectionIdentifier, std::vector<int> > _pendingOutgoing;
-   typedef std::map<ConnectionIdentifier, std::vector<int> >::iterator iterator;
-   typedef std::map<ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
-};
+      void doReconnect();
+
+      void registerIncoming ( const ConnectionIdentifier& local
+                              , const std::vector<int>& fds );
+
+      void registerOutgoing ( const ConnectionIdentifier& remote
+                              , const std::vector<int>& fds );
+
+
+    protected:
+
+      virtual void onData ( jalib::JReaderInterface* sock );
+
+      virtual void onConnect ( const jalib::JSocket& sock,  const struct sockaddr* /*remoteAddr*/,socklen_t /*remoteLen*/ );
+
+      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+
+      void finishup();
+
+      size_t pendingCount() const { return _pendingIncoming.size() + _pendingOutgoing.size(); }
+
+      void debugPrint() const;
+
+    private:
+      int _coordinatorFd;
+      std::map<ConnectionIdentifier, std::vector<int> > _pendingIncoming;
+      std::map<ConnectionIdentifier, std::vector<int> > _pendingOutgoing;
+      typedef std::map<ConnectionIdentifier, std::vector<int> >::iterator iterator;
+      typedef std::map<ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
+  };
 
 }
 

@@ -17,7 +17,7 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
- 
+
 #ifndef DMTCPMESSAGETYPES_H
 #define DMTCPMESSAGETYPES_H
 
@@ -29,103 +29,107 @@
 #include <sys/socket.h>
 #include "connectionidentifier.h"
 
-namespace dmtcp {
-    
-    enum DmtcpMessageType {
-       DMT_NULL,
-       DMT_HELLO_PEER,   //on connect established peer-peer               1
-       DMT_HELLO_COORDINATOR, //on connect established worker-coordinator  2
-       DMT_HELLO_WORKER, //on connect established coordinator-coordinator
-       
-       DMT_DO_SUSPEND, // when coordinator wants slave to suspend             4
-       DMT_DO_RESUME,// when coordinator wants slave to resume (after checkpoint)
-       DMT_DO_LOCK_FDS, // when coordinator wants slave to flush
-       DMT_DO_DRAIN, // when coordinator wants slave to flush
-       DMT_DO_CHECKPOINT,// when coordinator wants slave to checkpoint
-       DMT_DO_REFILL,// when coordinator wants slave to refill buffers 
-       
-       DMT_RESTORE_RECONNECTED, //sent to peer on reconnect
-       DMT_RESTORE_WAITING, //announce the existance of a restoring server on network
+namespace dmtcp
+{
+
+  enum DmtcpMessageType
+  {
+    DMT_NULL,
+    DMT_HELLO_PEER,   //on connect established peer-peer               1
+    DMT_HELLO_COORDINATOR, //on connect established worker-coordinator  2
+    DMT_HELLO_WORKER, //on connect established coordinator-coordinator
+
+    DMT_DO_SUSPEND, // when coordinator wants slave to suspend             4
+    DMT_DO_RESUME,// when coordinator wants slave to resume (after checkpoint)
+    DMT_DO_LOCK_FDS, // when coordinator wants slave to flush
+    DMT_DO_DRAIN, // when coordinator wants slave to flush
+    DMT_DO_CHECKPOINT,// when coordinator wants slave to checkpoint
+    DMT_DO_REFILL,// when coordinator wants slave to refill buffers
+
+    DMT_RESTORE_RECONNECTED, //sent to peer on reconnect
+    DMT_RESTORE_WAITING, //announce the existance of a restoring server on network
 //        DMT_RESTORE_SEARCHING, //slave waiting wanting to know where to connect to
-       
-       DMT_PEER_ECHO,     //used to get a peer to echo back a buffer at you param[0] is len
-       DMT_OK,//slave telling coordinator it is done (response to DMT_DO_*)
-       DMT_CKPT_FILENAME, //a slave sending it's checkpoint filename to coordinator
-       DMT_FORCE_RESTART, //force a restart even if not all sockets are reconnected
-       DMT_KILL_PEER // send kill message to peer
-    };
-    
-    class WorkerState {
+
+    DMT_PEER_ECHO,     //used to get a peer to echo back a buffer at you param[0] is len
+    DMT_OK,//slave telling coordinator it is done (response to DMT_DO_*)
+    DMT_CKPT_FILENAME, //a slave sending it's checkpoint filename to coordinator
+    DMT_FORCE_RESTART, //force a restart even if not all sockets are reconnected
+    DMT_KILL_PEER // send kill message to peer
+  };
+
+  class WorkerState
+  {
     public:
-        enum eWorkerState {
-            UNKNOWN,
-            RUNNING,
-            SUSPENDED,
-            LOCKED,
-            DRAINED,
-            RESTARTING,
-            CHECKPOINTED,
-            REFILLED,
-        };
-        WorkerState(eWorkerState s = UNKNOWN) : _state(s) {}
+      enum eWorkerState
+      {
+        UNKNOWN,
+        RUNNING,
+        SUSPENDED,
+        LOCKED,
+        DRAINED,
+        RESTARTING,
+        CHECKPOINTED,
+        REFILLED,
+      };
+      WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 
-        static void setCurrentState(const dmtcp::WorkerState& theValue);
-        static dmtcp::WorkerState currentState();
+      static void setCurrentState ( const dmtcp::WorkerState& theValue );
+      static dmtcp::WorkerState currentState();
 
-	eWorkerState value() const;
-        
-        bool operator==(const WorkerState& v) const{return _state == v.value();}
-        bool operator!=(const WorkerState& v) const{return _state != v.value();}
+      eWorkerState value() const;
+
+      bool operator== ( const WorkerState& v ) const{return _state == v.value();}
+      bool operator!= ( const WorkerState& v ) const{return _state != v.value();}
 
     private:
-        eWorkerState _state;
-    };
-    
-    struct UniquePidConId 
-    {
-        UniquePid id;
-        int       conId;
-        UniquePidConId() : conId(-1) {}
-        bool operator==(const UniquePidConId& that) const
-        {
-            return id==that.id && conId==that.conId;
-        }
-    };
-    
-    struct DmtcpMessage
-    {
-        char _magicBits[16];
-        int  _msgSize;
-        DmtcpMessageType type;
-        ConnectionIdentifier from;
-//         UniquePidConId to;
-        
-        UniquePid   coordinator;
-        WorkerState state;
-        
-        
-        ConnectionIdentifier    restorePid;
-        struct sockaddr_storage restoreAddr;
-        socklen_t               restoreAddrlen;
-        int                     restorePort;
-        
-        //message type specific parameters
-        int params[2];
+      eWorkerState _state;
+  };
 
-        //extraBytes are used for passing checkpoint filename to coordinator it must be zero in all messages except for in DMT_CKPT_FILENAME
-        int extraBytes;
-        
-        static void setDefaultCoordinator(const UniquePid& id);
-        DmtcpMessage(DmtcpMessageType t = DMT_NULL);
-        void assertValid() const;
-        void poison();
-    };
-    
-    
-    std::ostream& operator << (std::ostream& o, const WorkerState& s);
-    
-    
-    
+  struct UniquePidConId
+  {
+    UniquePid id;
+    int       conId;
+    UniquePidConId() : conId ( -1 ) {}
+    bool operator== ( const UniquePidConId& that ) const
+    {
+      return id==that.id && conId==that.conId;
+    }
+  };
+
+  struct DmtcpMessage
+  {
+    char _magicBits[16];
+    int  _msgSize;
+    DmtcpMessageType type;
+    ConnectionIdentifier from;
+//         UniquePidConId to;
+
+    UniquePid   coordinator;
+    WorkerState state;
+
+
+    ConnectionIdentifier    restorePid;
+    struct sockaddr_storage restoreAddr;
+    socklen_t               restoreAddrlen;
+    int                     restorePort;
+
+    //message type specific parameters
+    int params[2];
+
+    //extraBytes are used for passing checkpoint filename to coordinator it must be zero in all messages except for in DMT_CKPT_FILENAME
+    int extraBytes;
+
+    static void setDefaultCoordinator ( const UniquePid& id );
+    DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
+    void assertValid() const;
+    void poison();
+  };
+
+
+  std::ostream& operator << ( std::ostream& o, const WorkerState& s );
+
+
+
 }//namespace dmtcp
 
 

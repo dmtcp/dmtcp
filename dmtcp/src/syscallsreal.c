@@ -35,27 +35,27 @@
 #include <errno.h>
 
 
-typedef int (*funcptr)();
+typedef int ( *funcptr ) ();
 
 static pthread_mutex_t theMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
-static funcptr get_libc_symbol(const char* name)
+static funcptr get_libc_symbol ( const char* name )
 {
-    static void* handle = NULL;
-    if(handle==NULL && (handle=dlopen(LIBC_FILENAME,RTLD_NOW)) == NULL)
-    {
-        fprintf(stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror());
-        abort();
-    }
-    
-    void* tmp = dlsym(handle, name);
-    if(tmp==NULL)
-    {
-        fprintf(stderr,"dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",dlerror());
-        abort();
-    }
-    return (funcptr)tmp;
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
+    abort();
+  }
+
+  void* tmp = dlsym ( handle, name );
+  if ( tmp==NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",dlerror() );
+    abort();
+  }
+  return ( funcptr ) tmp;
 }
 
 //////////////////////////
@@ -70,99 +70,99 @@ static funcptr get_libc_symbol(const char* name)
     (*fn)
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_socket(int domain, int type, int protocol)
+int _real_socket ( int domain, int type, int protocol )
 {
-    REAL_FUNC_PASSTHROUGH(socket)(domain,type,protocol);
+  REAL_FUNC_PASSTHROUGH ( socket ) ( domain,type,protocol );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_connect(int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen)
+int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
-    REAL_FUNC_PASSTHROUGH(connect)(sockfd,serv_addr,addrlen);
+  REAL_FUNC_PASSTHROUGH ( connect ) ( sockfd,serv_addr,addrlen );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_bind(int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen)
+int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
-    REAL_FUNC_PASSTHROUGH(bind)(sockfd,my_addr,addrlen);
+  REAL_FUNC_PASSTHROUGH ( bind ) ( sockfd,my_addr,addrlen );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_listen(int sockfd, int backlog)
+int _real_listen ( int sockfd, int backlog )
 {
-    REAL_FUNC_PASSTHROUGH(listen)(sockfd,backlog);
+  REAL_FUNC_PASSTHROUGH ( listen ) ( sockfd,backlog );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
-    REAL_FUNC_PASSTHROUGH(accept)(sockfd,addr,addrlen);
+  REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_setsockopt(int s, int  level,  int  optname,  const  void  *optval,
-       socklen_t optlen)
+int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
+                       socklen_t optlen )
 {
-    REAL_FUNC_PASSTHROUGH(setsockopt)(s,level,optname,optval,optlen);
+  REAL_FUNC_PASSTHROUGH ( setsockopt ) ( s,level,optname,optval,optlen );
 }
 
-int _real_fexecve(int fd, char *const argv[], char *const envp[])
+int _real_fexecve ( int fd, char *const argv[], char *const envp[] )
 {
-    REAL_FUNC_PASSTHROUGH(fexecve)(fd,argv,envp);
+  REAL_FUNC_PASSTHROUGH ( fexecve ) ( fd,argv,envp );
 }
 
-int _real_execve(const char *filename, char *const argv[],
-                char *const envp[])
+int _real_execve ( const char *filename, char *const argv[],
+                   char *const envp[] )
 {
-    REAL_FUNC_PASSTHROUGH(execve)(filename,argv,envp);
+  REAL_FUNC_PASSTHROUGH ( execve ) ( filename,argv,envp );
 }
 
-int _real_execv(const char *path, char *const argv[])
+int _real_execv ( const char *path, char *const argv[] )
 {
-    REAL_FUNC_PASSTHROUGH(execv)(path,argv);
+  REAL_FUNC_PASSTHROUGH ( execv ) ( path,argv );
 }
 
-int _real_execvp(const char *file, char *const argv[])
+int _real_execvp ( const char *file, char *const argv[] )
 {
-    REAL_FUNC_PASSTHROUGH(execvp)(file,argv);
+  REAL_FUNC_PASSTHROUGH ( execvp ) ( file,argv );
 }
 
-int _real_system(const char *cmd)
+int _real_system ( const char *cmd )
 {
-    REAL_FUNC_PASSTHROUGH(system)(cmd);
+  REAL_FUNC_PASSTHROUGH ( system ) ( cmd );
 }
 
 pid_t _real_fork()
 {
-    REAL_FUNC_PASSTHROUGH(fork)();
+  REAL_FUNC_PASSTHROUGH ( fork ) ();
 }
 
-int _real_close(int fd)
+int _real_close ( int fd )
 {
-    REAL_FUNC_PASSTHROUGH(close)(fd);
+  REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
-int _real_ptsname_r(int fd, char * buf, size_t buflen)
+int _real_ptsname_r ( int fd, char * buf, size_t buflen )
 {
-    REAL_FUNC_PASSTHROUGH(ptsname_r)(fd, buf, buflen);
+  REAL_FUNC_PASSTHROUGH ( ptsname_r ) ( fd, buf, buflen );
 }
 
-int _real_socketpair(int d, int type, int protocol, int sv[2])
+int _real_socketpair ( int d, int type, int protocol, int sv[2] )
 {
-    REAL_FUNC_PASSTHROUGH(socketpair)(d,type,protocol,sv);
+  REAL_FUNC_PASSTHROUGH ( socketpair ) ( d,type,protocol,sv );
 }
 
-void _real_openlog(const char *ident, int option, int facility)
+void _real_openlog ( const char *ident, int option, int facility )
 {
-    REAL_FUNC_PASSTHROUGH_VOID(openlog)(ident,option,facility);
+  REAL_FUNC_PASSTHROUGH_VOID ( openlog ) ( ident,option,facility );
 }
 
-void _real_closelog(void)
+void _real_closelog ( void )
 {
-    REAL_FUNC_PASSTHROUGH_VOID(closelog)();
+  REAL_FUNC_PASSTHROUGH_VOID ( closelog ) ();
 }
 
-void _dmtcp_lock(){pthread_mutex_lock(&theMutex);}
-void _dmtcp_unlock(){pthread_mutex_unlock(&theMutex);}
-void _dmtcp_remutex_on_fork(){pthread_mutex_init(&theMutex, NULL);}
+void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
+void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
+void _dmtcp_remutex_on_fork() {pthread_mutex_init ( &theMutex, NULL );}
 

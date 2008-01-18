@@ -20,11 +20,12 @@
 #ifndef DMTCPMTCPINTERFACE_H
 #define DMTCPMTCPINTERFACE_H
 
-namespace dmtcp {
+namespace dmtcp
+{
 
-    void initializeMtcpEngine();
-    
-    void shutdownMtcpEngineOnFork();
+  void initializeMtcpEngine();
+
+  void shutdownMtcpEngineOnFork();
 
 }
 

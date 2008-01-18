@@ -30,7 +30,7 @@
 /**  USAGE EXAMPLE:
  *
  * int a=1,b=2,c=3,d=4;
- *  
+ *
  * code:
  *     JASSERT(a==b)(a)(b)(c).Text("Error a!=b program will exit");
  * outputs:
@@ -41,8 +41,8 @@
  *       c = 3
  *     Message: Error a!=b program will exit
  *     Terminating...
- * 
- * 
+ *
+ *
  * code:
  *     JWARNING(a==b)(a)(b)(d).Text("Warning a!=b program will continue");
  * outputs:
@@ -52,8 +52,8 @@
  *       b = 2
  *       d = 4
  *     Message: Warning a!=b program will continue
- * 
- * 
+ *
+ *
  * code:
  *     JNOTE("Values of abcd (in the form 'a=1') will be printed below this text.")(a)(b)(c)(d);
  * outputs:
@@ -63,77 +63,78 @@
  *       b = 2
  *       c = 3
  *       d = 4
- * 
- * 
+ *
+ *
  * It has the ability to output any variable understood by std::ostream.
- * 
+ *
  */
 
 namespace jassert_internal
 {
 
-    class JAssert
-    {
-        public:
-            ///
-            /// print a value of any type
-            template < typename T > JAssert& Print(const T& t);
-            ///
-            /// print out a string in format "Message: msg"
-            JAssert& Text(const char* msg);
-            ///
-            /// constructor: sets members
-            JAssert(bool exitWhenDone);
-            ///
-            /// destructor: exits program if exitWhenDone is set
-            ~JAssert();
-            ///
-            /// termination point for crazy macros
-            JAssert& JASSERT_CONT_A;
-            ///
-            /// termination point for crazy macros
-            JAssert& JASSERT_CONT_B;
-            
-            template < typename T > JAssert& operator << (const T& t)
-            { Print(t); return *this; }
-        private:
-            ///
-            /// if set true (on construction) call exit() on destruction
-            bool _exitWhenDone;
-    };
-    
-    
-    const char* jassert_basename(const char* str);
-    std::ostream& jassert_output_stream();
-    void jassert_safe_print(const char*);
-    
-    template < typename T > 
-    inline JAssert& JAssert::Print(const T& t){
+  class JAssert
+  {
+    public:
+      ///
+      /// print a value of any type
+      template < typename T > JAssert& Print ( const T& t );
+      ///
+      /// print out a string in format "Message: msg"
+      JAssert& Text ( const char* msg );
+      ///
+      /// constructor: sets members
+      JAssert ( bool exitWhenDone );
+      ///
+      /// destructor: exits program if exitWhenDone is set
+      ~JAssert();
+      ///
+      /// termination point for crazy macros
+      JAssert& JASSERT_CONT_A;
+      ///
+      /// termination point for crazy macros
+      JAssert& JASSERT_CONT_B;
+
+      template < typename T > JAssert& operator << ( const T& t )
+      { Print ( t ); return *this; }
+    private:
+      ///
+      /// if set true (on construction) call exit() on destruction
+      bool _exitWhenDone;
+  };
+
+
+  const char* jassert_basename ( const char* str );
+  std::ostream& jassert_output_stream();
+  void jassert_safe_print ( const char* );
+
+  template < typename T >
+  inline JAssert& JAssert::Print ( const T& t )
+  {
 #ifdef JASSERT_FAST
-        jassert_output_stream() << t;
+    jassert_output_stream() << t;
 #else
-        std::ostringstream ss;
-        ss << t;
-        jassert_safe_print(ss.str().c_str());
+    std::ostringstream ss;
+    ss << t;
+    jassert_safe_print ( ss.str().c_str() );
 #endif
-        return *this; 
-    }
-    
-    void set_log_file(const std::string& path);
-    
-    int jassert_console_fd();
-    
+    return *this;
+  }
+
+  void set_log_file ( const std::string& path );
+
+  int jassert_console_fd();
+
 }//jassert_internal
 
- 
+
 #define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
- 
+
 #define JASSERT_ERRNO (strerror(errno))
- 
+
 #define JASSERT_PRINT(str) jassert_internal::JAssert(false).Print(str)
 #define JASSERT_STDERR      jassert_internal::JAssert(false)
 #define JASSERT_STDERR_FD   (jassert_internal::jassert_console_fd())
- 
+
 #define JASSERT_CONT(AB,term) Print("     " #term " = ").Print(term).Print("\n").JASSERT_CONT_##AB
 #define JASSERT_CONT_A(term) JASSERT_CONT(B,term)
 #define JASSERT_CONT_B(term) JASSERT_CONT(A,term)

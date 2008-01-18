@@ -30,39 +30,40 @@
 namespace dmtcp
 {
 
-struct UniquePid {
-public:
+  struct UniquePid
+  {
+  public:
     static const dmtcp::UniquePid& ThisProcess();
     UniquePid();
-    UniquePid(long host, pid_t pd, time_t tm)
-        : _pid(pd), _hostid(host), _time(tm) {}
-    
+    UniquePid ( long host, pid_t pd, time_t tm )
+        : _pid ( pd ), _hostid ( host ), _time ( tm ) {}
+
     long hostid() const;
     pid_t pid() const;
     time_t time() const;
     static const char* checkpointFilename();
     static std::string dmtcpCheckpointFilename();
     static std::string dmtcpTableFilename();
-    static const char* ptsSymlinkFilename(char *pts);    
-    
-    bool operator<(const UniquePid& that) const;
-    bool operator==(const UniquePid& that) const;
-    bool operator!=(const UniquePid& that) const { return ! operator==( that); }
+    static const char* ptsSymlinkFilename ( char *pts );
 
-    static void resetOnFork(const dmtcp::UniquePid& newId);
-    
-private:
+    bool operator< ( const UniquePid& that ) const;
+    bool operator== ( const UniquePid& that ) const;
+    bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
+
+    static void resetOnFork ( const dmtcp::UniquePid& newId );
+
+  private:
     pid_t _pid; //getpid()
     long  _hostid; //gethostid()
     time_t _time; //time()
-};
+  };
 
 }
 
 //to make older versions of gcc work
 namespace std
 {
-    std::ostream& operator << (std::ostream& o,const dmtcp::UniquePid& id);
+  std::ostream& operator << ( std::ostream& o,const dmtcp::UniquePid& id );
 }
 
 #endif

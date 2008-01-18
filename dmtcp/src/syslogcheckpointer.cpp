@@ -23,59 +23,59 @@
 #include "jassert.h"
 #include <syslog.h>
 
-namespace 
+namespace
 {
-    bool         _isSuspended = false;
-    bool         _syslogEnabled = false;
-    std::string& _ident(){static std::string t; return t;}
-    int          _option = -1;
-    int          _facility = -1; 
+  bool         _isSuspended = false;
+  bool         _syslogEnabled = false;
+  std::string& _ident() {static std::string t; return t;}
+  int          _option = -1;
+  int          _facility = -1;
 }
 
 void dmtcp::SyslogCheckpointer::stopService()
 {
-    JASSERT(!_isSuspended);
-    if(_syslogEnabled)
-    {
-        closelog();
-        _isSuspended = true;
-    }
+  JASSERT ( !_isSuspended );
+  if ( _syslogEnabled )
+  {
+    closelog();
+    _isSuspended = true;
+  }
 }
 
 void dmtcp::SyslogCheckpointer::restoreService()
 {
-    if(_isSuspended)
-    {
-        _isSuspended = false;
-        JASSERT(_option>=0 && _facility>=0)(_option)(_facility);
-        openlog(_ident().c_str(),_option,_facility);
-    }
+  if ( _isSuspended )
+  {
+    _isSuspended = false;
+    JASSERT ( _option>=0 && _facility>=0 ) ( _option ) ( _facility );
+    openlog ( _ident().c_str(),_option,_facility );
+  }
 }
 
 void dmtcp::SyslogCheckpointer::resetOnFork()
 {
-    _syslogEnabled = false;
+  _syslogEnabled = false;
 }
 
-extern "C" void openlog(const char *ident, int option, int facility)
+extern "C" void openlog ( const char *ident, int option, int facility )
 {
-    JASSERT(ident != NULL);
-    JASSERT(!_isSuspended);
-    JTRACE("openlog")(ident);
-    _real_openlog(ident, option, facility);
-    _syslogEnabled = true;
-    
-    _ident() = ident;
-    _option = option;
-    _facility = facility;
+  JASSERT ( ident != NULL );
+  JASSERT ( !_isSuspended );
+  JTRACE ( "openlog" ) ( ident );
+  _real_openlog ( ident, option, facility );
+  _syslogEnabled = true;
+
+  _ident() = ident;
+  _option = option;
+  _facility = facility;
 }
 
-extern "C" void closelog(void)
+extern "C" void closelog ( void )
 {
-    JASSERT(!_isSuspended);
-    JTRACE("closelog");
-    _real_closelog();
-    _syslogEnabled = false;
+  JASSERT ( !_isSuspended );
+  JTRACE ( "closelog" );
+  _real_closelog();
+  _syslogEnabled = false;
 }
 
 

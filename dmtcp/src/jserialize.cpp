@@ -21,44 +21,44 @@
 #include "jassert.h"
 #include "stdio.h"
 
-jalib::JBinarySerializeWriter::JBinarySerializeWriter(const std::string& path)
-    : JBinarySerializer(path)
-    , _fd( fopen( path.c_str(), "w" ) )
+jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const std::string& path )
+    : JBinarySerializer ( path )
+    , _fd ( fopen ( path.c_str(), "w" ) )
 {
-    JASSERT(_fd != NULL)(path).Text("fopen(path) failed");
+  JASSERT ( _fd != NULL ) ( path ).Text ( "fopen(path) failed" );
 }
 
-jalib::JBinarySerializeReader::JBinarySerializeReader(const std::string& path)
-    : JBinarySerializer(path)
-    , _fd( fopen( path.c_str(), "r" ) )
+jalib::JBinarySerializeReader::JBinarySerializeReader ( const std::string& path )
+    : JBinarySerializer ( path )
+    , _fd ( fopen ( path.c_str(), "r" ) )
 {
-    JASSERT(_fd != NULL)(path).Text("fopen(path) failed");
+  JASSERT ( _fd != NULL ) ( path ).Text ( "fopen(path) failed" );
 }
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()
 {
-    fclose(_fd);
+  fclose ( _fd );
 }
 
 jalib::JBinarySerializeReader::~JBinarySerializeReader()
 {
-    fclose(_fd);
+  fclose ( _fd );
 }
 
 
-bool jalib::JBinarySerializeWriter::isReader(){return false;}
+bool jalib::JBinarySerializeWriter::isReader() {return false;}
 
-bool jalib::JBinarySerializeReader::isReader(){return true;}
+bool jalib::JBinarySerializeReader::isReader() {return true;}
 
 
-void jalib::JBinarySerializeWriter::readOrWrite(void* buffer, size_t len)
+void jalib::JBinarySerializeWriter::readOrWrite ( void* buffer, size_t len )
 {
-    JASSERT(fwrite(buffer, len, 1, _fd))(filename())(len).Text("fwrite() failed");
+  JASSERT ( fwrite ( buffer, len, 1, _fd ) ) ( filename() ) ( len ).Text ( "fwrite() failed" );
 }
 
 
-void jalib::JBinarySerializeReader::readOrWrite(void* buffer, size_t len)
+void jalib::JBinarySerializeReader::readOrWrite ( void* buffer, size_t len )
 {
-    JASSERT(fread(buffer, len, 1, _fd))(filename())(len).Text("fread() failed");
+  JASSERT ( fread ( buffer, len, 1, _fd ) ) ( filename() ) ( len ).Text ( "fread() failed" );
 }
 

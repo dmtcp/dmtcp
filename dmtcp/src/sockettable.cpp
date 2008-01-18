@@ -37,113 +37,113 @@
 
 ///
 ///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_socket(int ret, int domain, int type, int protocol)
+extern "C" int dmtcp_on_socket ( int ret, int domain, int type, int protocol )
 {
-    
-    JTRACE("socket created")(ret)(domain)(type)(protocol);
+
+  JTRACE ( "socket created" ) ( ret ) ( domain ) ( type ) ( protocol );
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(ret);
 //     entry.setDomain(domain);
 //     entry.setType(type);
 //     entry.setProtocol(protocol);
 //     entry.setState(dmtcp::SocketEntry::T_CREATED);
-    
-    dmtcp::KernelDeviceToConnection::Instance().create( ret, new dmtcp::TcpConnection(domain,type,protocol) );
-    
-    return ret;
+
+  dmtcp::KernelDeviceToConnection::Instance().create ( ret, new dmtcp::TcpConnection ( domain,type,protocol ) );
+
+  return ret;
 }
 
 ///
 ///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_connect(int ret, int sockfd, const  struct sockaddr *serv_addr, socklen_t addrlen)
+extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
-    
+
 //     JASSERT(serv_addr != NULL)(serv_addr)(addrlen);
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry.setAddr(serv_addr,addrlen);
 //     entry.setState(dmtcp::SocketEntry::T_CONNECT);
-// 
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
-    con.onConnect();
-    
-    JTRACE("connected, doing dmtcp handshake....")(sockfd)(con.id());
-    
-    jalib::JSocket remote(sockfd);
-    dmtcp::DmtcpMessage hello_local;
-    hello_local.type = dmtcp::DMT_HELLO_PEER;
-    hello_local.from = con.id();
-    hello_local.coordinator = dmtcp::DmtcpWorker::instance().coordinatorId();
-    remote << hello_local;
-    
+//
+  dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
+  con.onConnect();
+
+  JTRACE ( "connected, doing dmtcp handshake...." ) ( sockfd ) ( con.id() );
+
+  jalib::JSocket remote ( sockfd );
+  dmtcp::DmtcpMessage hello_local;
+  hello_local.type = dmtcp::DMT_HELLO_PEER;
+  hello_local.from = con.id();
+  hello_local.coordinator = dmtcp::DmtcpWorker::instance().coordinatorId();
+  remote << hello_local;
+
 //     JTRACE("connect complete")(sockfd)(hello_local.from.conId)(hello_local.from.id);
-    
+
 //     entry.setRemoteId( hello_remote.from );
-    
-    return ret;
+
+  return ret;
 }
 
 ///
 ///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_bind(int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen)
+extern "C" int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
-    
-    
-    con.onBind( my_addr, addrlen );
-    
-    JTRACE("bind")(sockfd)(con.id());
+  dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
+
+
+  con.onBind ( my_addr, addrlen );
+
+  JTRACE ( "bind" ) ( sockfd ) ( con.id() );
 //     JASSERT(my_addr != NULL)(my_addr)(addrlen);
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry.setAddr(my_addr,addrlen);
 //     entry.setState(dmtcp::SocketEntry::T_BIND);
-//     
+//
 //     theThisProcessPorts[((sockaddr_in*)my_addr)->sin_port] = sockfd;
-//     
-    return ret;
+//
+  return ret;
 }
 
 ///
 ///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_listen(int ret, int sockfd, int backlog)
+extern "C" int dmtcp_on_listen ( int ret, int sockfd, int backlog )
 {
-     
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
-    
-    con.onListen(backlog);
-    
-    JTRACE("listen")(sockfd)(con.id())(backlog);
-    return ret;
+
+  dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
+
+  con.onListen ( backlog );
+
+  JTRACE ( "listen" ) ( sockfd ) ( con.id() ) ( backlog );
+  return ret;
 }
 
 ///
 ///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(ret);
 //     entry.setAddr(addr,*addrlen);
 //     entry.setState(dmtcp::SocketEntry::T_ACCEPT);
-//     
-    
-    dmtcp::TcpConnection& parent = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
-    
-    JTRACE("accepted new connection, doing magic cookie handshake...")(sockfd)(ret);
-    
-    jalib::JSocket remote(ret);
-    dmtcp::DmtcpMessage hello_remote;
-    hello_remote.poison();
-    remote >> hello_remote;
-    hello_remote.assertValid();
-    JASSERT(hello_remote.type == dmtcp::DMT_HELLO_PEER);
-    JASSERT(dmtcp::DmtcpWorker::instance().coordinatorId() == hello_remote.coordinator)
-        (dmtcp::DmtcpWorker::instance().coordinatorId())(hello_remote.coordinator)
-        .Text("peer has a different dmtcp_coordinator than us! it must be the same.");
-    
-    JTRACE("accept handshake complete.")(hello_remote.from);
-    
-    dmtcp::TcpConnection* con = new dmtcp::TcpConnection( parent, hello_remote.from );
-    dmtcp::KernelDeviceToConnection::Instance().create( ret, con );
-    
+//
+
+  dmtcp::TcpConnection& parent = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
+
+  JTRACE ( "accepted new connection, doing magic cookie handshake..." ) ( sockfd ) ( ret );
+
+  jalib::JSocket remote ( ret );
+  dmtcp::DmtcpMessage hello_remote;
+  hello_remote.poison();
+  remote >> hello_remote;
+  hello_remote.assertValid();
+  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_PEER );
+  JASSERT ( dmtcp::DmtcpWorker::instance().coordinatorId() == hello_remote.coordinator )
+  ( dmtcp::DmtcpWorker::instance().coordinatorId() ) ( hello_remote.coordinator )
+  .Text ( "peer has a different dmtcp_coordinator than us! it must be the same." );
+
+  JTRACE ( "accept handshake complete." ) ( hello_remote.from );
+
+  dmtcp::TcpConnection* con = new dmtcp::TcpConnection ( parent, hello_remote.from );
+  dmtcp::KernelDeviceToConnection::Instance().create ( ret, con );
+
 //     entry.setRemoteId( hello_remote.from );
-//     
+//
 //     if(hello_remote.from.id == dmtcp::UniquePid::ThisProcess())
 //     {
 //         if(ret < 10)
@@ -165,46 +165,46 @@ extern "C" int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, sockl
 //             }
 //         }
 //     }
-//  
-       
-    
-    return ret;
+//
+
+
+  return ret;
 }
 
 ///
 ///called automatically when a socket error is returned by user function
-extern "C" int dmtcp_on_error(int ret, int sockfd, const char* fname)
+extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
 {
-    JTRACE("socket error")(fname)(ret)(sockfd)(JASSERT_ERRNO);
+  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
 
-    //Ignore EAGAIN errors
-    if(errno == EAGAIN) return ret;
-    
-    dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd);
-    
-    if(con.conType() == dmtcp::Connection::TCP)
-    {
-        con.asTcp().onError();
-    }
-        
+  //Ignore EAGAIN errors
+  if ( errno == EAGAIN ) return ret;
+
+  dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd );
+
+  if ( con.conType() == dmtcp::Connection::TCP )
+  {
+    con.asTcp().onError();
+  }
+
 
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry = dmtcp::SocketEntry();
 //     entry.setState(dmtcp::SocketEntry::T_ERROR);
-    return ret;
+  return ret;
 }
 
-extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen)
+extern "C" int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen )
 {
-    JTRACE("setsockopt")(ret)(sockfd)(optname);
+  JTRACE ( "setsockopt" ) ( ret ) ( sockfd ) ( optname );
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry.addSetsockopt(level,optname,(char*)optval, optlen);
-    
-    dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve(sockfd).asTcp();
-    
-    con.addSetsockopt( level, optname, (char*)optval, optlen);
-    
-    return ret;
+
+  dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
+
+  con.addSetsockopt ( level, optname, ( char* ) optval, optlen );
+
+  return ret;
 }
 
 
@@ -221,7 +221,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // void dmtcp::SocketEntry::setAddr(const struct sockaddr* theValue, socklen_t length)
 // {
 //     _addrlen = length;
-//     memcpy(&_addr, theValue, length); 
+//     memcpy(&_addr, theValue, length);
 // }
 
 
@@ -316,7 +316,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 //     static SocketTable instance;
 //     return instance;
 // }
-// 
+//
 
 ///
 /// constructor
@@ -353,69 +353,69 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 //     _entries[sockfd].setSockfd(sockfd);
 //     return _entries[sockfd];
 // }
-// 
+//
 
 // // const dmtcp::UniquePidConId& dmtcp::SocketEntry::remoteId() const
 // // {
 // //   return _remoteId;
 // // }
-// // 
-// // 
+// //
+// //
 // // void dmtcp::SocketEntry::setRemoteId(const UniquePidConId& theValue)
 // // {
 // //   _remoteId = theValue;
 // // }
-// // 
+// //
 // // void dmtcp::SocketEntry::changeRemoteId(const UniquePid& theValue)
 // // {
 // //   _remoteId.id = theValue;
 // // }
-// // 
-// // 
+// //
+// //
 // // int dmtcp::SocketEntry::sockfd() const
 // // {
 // //   return _sockfd;
 // // }
-// // 
-// // 
+// //
+// //
 // // void dmtcp::SocketEntry::setSockfd(const int& theValue)
 // // {
 // //   _sockfd = theValue;
 // // }
-// // 
-// // 
+// //
+// //
 // // bool dmtcp::SocketEntry::needRestore() const
 // // {
 // //   return _needRestore;
 // // }
-// // 
-// // 
+// //
+// //
 // // void dmtcp::SocketEntry::setNeedRestore(bool theValue)
 // // {
 // //   _needRestore = theValue;
 // // }
-// // 
+// //
 // // bool dmtcp::SocketEntry::isLoopback() const
 // // {
 // //   return _isLoopback;
 // // }
-// // 
-// // 
+// //
+// //
 // // void dmtcp::SocketEntry::setIsLoopback(bool theValue)
 // // {
 // //   _isLoopback = theValue;
 // // }
-// // 
+// //
 // // void dmtcp::SocketEntry::addSetsockopt(int level, int option, const char* value, int len)
 // // {
 // //     _options[level][option] = jalib::JBuffer( value, len );
 // // }
-// // 
+// //
 // // void dmtcp::SocketEntry::restoreOptions()
 // // {
 // //     typedef std::map< int, std::map< int, jalib::JBuffer > >::iterator levelIterator;
 // //     typedef std::map< int, jalib::JBuffer >::iterator optionIterator;
-// //     
+// //
 // //     for(levelIterator lvl = _options.begin(); lvl!=_options.end(); ++lvl)
 // //     {
 // //         for(optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt)
@@ -427,7 +427,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //         }
 // //     }
 // // }
-// // 
+// //
 // // bool dmtcp::SocketEntry::isStillAlive() const
 // // {
 // //     int sockerr = 0;
@@ -435,15 +435,15 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //     int rv = getsockopt(_sockfd, SOL_SOCKET, SO_ERROR, (char*)&sockerr, &len);
 // //     return rv == 0 && sockerr == 0;
 // // }
-// // 
+// //
 // // void dmtcp::SocketTable::onForkUpdate(const dmtcp::UniquePid& parent, const dmtcp::UniquePid& child)
 // // {
 // //     bool isChild = (child == UniquePid::ThisProcess());
 // //     bool isParent = (parent == UniquePid::ThisProcess());
 // //     JASSERT((isChild || isParent) && (isChild!=isParent));
-// //     
+// //
 // //     const dmtcp::UniquePid& otherProcess = isChild ? parent : child;
-// //     
+// //
 // //     for(iterator i = begin(); i!=end(); ++i)
 // //     {
 // //         switch(i->state())
@@ -452,7 +452,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //             case SocketEntry::T_ERROR:
 // //             case SocketEntry::T_CREATED:
 // //                 break;
-// //                 
+// //
 // //             case SocketEntry::T_BIND:
 // //             case SocketEntry::T_LISTEN:
 // //                 if(isChild)
@@ -461,7 +461,7 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //                     i->setState(SocketEntry::T_ERROR);
 // //                 }
 // //                 break;
-// //                 
+// //
 // //             case SocketEntry::T_CONNECT:
 // //             case SocketEntry::T_ACCEPT:
 // //                 if(i->isLoopback())
@@ -479,8 +479,8 @@ extern "C" int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optnam
 // //         }
 // //     }
 // // }
-// // 
-// // void dmtcp::SocketTable::resetFd(int fd) 
+// //
+// // void dmtcp::SocketTable::resetFd(int fd)
 // // {
 // //     operator[](fd) = SocketEntry();
 // //     ConnectionIdentifiers::Outgoing().removeFd( fd );

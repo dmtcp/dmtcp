@@ -25,29 +25,30 @@
 #include <sys/socket.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-    
-int _real_socket(int domain, int type, int protocol);
-int _real_connect(int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen);
-int _real_bind(int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen);
-int _real_listen(int sockfd, int backlog);
-int _real_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int _real_setsockopt(int s, int  level,  int  optname,  const  void  *optval,
-       socklen_t optlen);
-       
-       
-int _real_fexecve(int fd, char *const argv[], char *const envp[]);
-int _real_execve(const char *filename, char *const argv[], char *const envp[]);
-int _real_execv(const char *path, char *const argv[]);
-int _real_execvp(const char *file, char *const argv[]);
+
+  int _real_socket ( int domain, int type, int protocol );
+  int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
+  int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
+  int _real_listen ( int sockfd, int backlog );
+  int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+  int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
+                         socklen_t optlen );
+
+
+  int _real_fexecve ( int fd, char *const argv[], char *const envp[] );
+  int _real_execve ( const char *filename, char *const argv[], char *const envp[] );
+  int _real_execv ( const char *path, char *const argv[] );
+  int _real_execvp ( const char *file, char *const argv[] );
 // int _real_execl(const char *path, const char *arg, ...);
 // int _real_execlp(const char *file, const char *arg, ...);
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
-int _real_system(const char * cmd);
+  int _real_system ( const char * cmd );
 
-int _real_close(int fd);
+  int _real_close ( int fd );
 
 //we no longer wrap dup
 #define _real_dup  dup
@@ -55,25 +56,25 @@ int _real_close(int fd);
 //int _real_dup(int oldfd);
 //int _real_dup2(int oldfd, int newfd);
 
-int _real_ptsname_r(int fd, char * buf, size_t buflen);
+  int _real_ptsname_r ( int fd, char * buf, size_t buflen );
 
-int _real_socketpair(int d, int type, int protocol, int sv[2]);
+  int _real_socketpair ( int d, int type, int protocol, int sv[2] );
 
-void _real_openlog(const char *ident, int option, int facility);
-void _real_closelog(void);
-
-
-                
-pid_t _real_fork();
+  void _real_openlog ( const char *ident, int option, int facility );
+  void _real_closelog ( void );
 
 
-void _dmtcp_lock();
-void _dmtcp_unlock();
 
-void _dmtcp_remutex_on_fork();
+  pid_t _real_fork();
 
 
-                
+  void _dmtcp_lock();
+  void _dmtcp_unlock();
+
+  void _dmtcp_remutex_on_fork();
+
+
+
 #ifdef __cplusplus
 }
 #endif

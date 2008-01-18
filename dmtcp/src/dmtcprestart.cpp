@@ -31,194 +31,197 @@
 #include "syscallwrappers.h"
 #include "jtimer.h"
 
-static void runMtcpRestore(const std::string& file);
+static void runMtcpRestore ( const std::string& file );
 
 using namespace dmtcp;
 
-namespace {
-    
-class RestoreTarget
+namespace
 {
-public:
-    RestoreTarget(const std::string& path)
-        : _mtcpPath(path)
-        , _dmtcpPath(path + ".dmtcp")
-    {
-        JASSERT(jalib::Filesystem::FileExists(_mtcpPath))(_mtcpPath).Text("missing file");
-        JASSERT(jalib::Filesystem::FileExists(_dmtcpPath))(_dmtcpPath).Text("missing file");
-        jalib::JBinarySerializeReader rd(_dmtcpPath);
-        _conToFd.serialize(rd);
-        JTRACE("restore target")(_mtcpPath)(_conToFd.size());
-    }
-            
-    
-    void dupAllSockets(SlidingFdTable& slidingFd)
-    {
-		int lastfd = -1;
-		std::vector<int> fdlist;
-        for(ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i)
+
+  class RestoreTarget
+  {
+    public:
+      RestoreTarget ( const std::string& path )
+          : _mtcpPath ( path )
+          , _dmtcpPath ( path + ".dmtcp" )
+      {
+        JASSERT ( jalib::Filesystem::FileExists ( _mtcpPath ) ) ( _mtcpPath ).Text ( "missing file" );
+        JASSERT ( jalib::Filesystem::FileExists ( _dmtcpPath ) ) ( _dmtcpPath ).Text ( "missing file" );
+        jalib::JBinarySerializeReader rd ( _dmtcpPath );
+        _conToFd.serialize ( rd );
+        JTRACE ( "restore target" ) ( _mtcpPath ) ( _conToFd.size() );
+      }
+
+
+      void dupAllSockets ( SlidingFdTable& slidingFd )
+      {
+        int lastfd = -1;
+        std::vector<int> fdlist;
+        for ( ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i )
         {
-            if(ConnectionList::Instance()[i->first].conType() == Connection::INVALID)continue;
-			{
-				const std::vector<int>& fds = i->second;
-				for(size_t x=0; x<fds.size(); ++x)
-				{
-					int fd = fds[x];
-					fdlist.push_back(fd);
-					slidingFd.freeUpFd( fd );
-					int oldFd = slidingFd.getFdFor( i->first );
-					JTRACE("restoring fd")(i->first)(oldFd)(fd);
-					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
-					//_real_dup2(oldFd, fd);
-					
-					if ( fd > lastfd )
-					{
-						lastfd = fd;
-					}
-				}
-			}
-		}		
-		
-		size_t j;
-		for ( int i = 0 ; i < slidingFd.startFd() ; i++ )
-		{
-			for ( j = 0 ; j < fdlist.size() ; j++ )
-			{
-				if ( fdlist.at(j) == i )
-					break;
-			}
-			if ( j == fdlist.size() )
-			{
-				_real_close(i);
-			}
-		}
-		
-       	slidingFd.closeAll();
-    }
-/*			else if(ConnectionList::Instance()[i->first].conType() == Connection::PTS)
-			{
-				const std::vector<int>& fds = i->second;
-				for(size_t x=0; x<fds.size(); ++x)
-				{
-					int fd = fds[x];
-					slidingFd.freeUpFd( fd );
-					int oldFd = slidingFd.getFdFor( i->first );
-					JTRACE("restoring fd")(i->first)(oldFd)(fd);
-					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
-					//_real_dup2(oldFd, fd);
-				}
-			}
-			else if(ConnectionList::Instance()[i->first].conType() == Connection::FILE)
-			{
-				const std::vector<int>& fds = i->second;
-				for(size_t x=0; x<fds.size(); ++x)
-				{
-					int fd = fds[x];
-					slidingFd.freeUpFd( fd );
-					int oldFd = slidingFd.getFdFor( i->first );
-					JTRACE("restoring fd")(i->first)(oldFd)(fd);
-					JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
-					//_real_dup2(oldFd, fd);
-				}
-			}
+          if ( ConnectionList::Instance() [i->first].conType() == Connection::INVALID ) continue;
+          {
+            const std::vector<int>& fds = i->second;
+            for ( size_t x=0; x<fds.size(); ++x )
+            {
+              int fd = fds[x];
+              fdlist.push_back ( fd );
+              slidingFd.freeUpFd ( fd );
+              int oldFd = slidingFd.getFdFor ( i->first );
+              JTRACE ( "restoring fd" ) ( i->first ) ( oldFd ) ( fd );
+              JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
+              //_real_dup2(oldFd, fd);
+
+              if ( fd > lastfd )
+              {
+                lastfd = fd;
+              }
+            }
+          }
         }
- */
- 
-    void mtcpRestart()
-    {
+
+        size_t j;
+        for ( int i = 0 ; i < slidingFd.startFd() ; i++ )
+        {
+          for ( j = 0 ; j < fdlist.size() ; j++ )
+          {
+            if ( fdlist.at ( j ) == i )
+              break;
+          }
+          if ( j == fdlist.size() )
+          {
+            _real_close ( i );
+          }
+        }
+
+        slidingFd.closeAll();
+      }
+      /*      else if(ConnectionList::Instance()[i->first].conType() == Connection::PTS)
+            {
+              const std::vector<int>& fds = i->second;
+              for(size_t x=0; x<fds.size(); ++x)
+              {
+                int fd = fds[x];
+                slidingFd.freeUpFd( fd );
+                int oldFd = slidingFd.getFdFor( i->first );
+                JTRACE("restoring fd")(i->first)(oldFd)(fd);
+                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+                //_real_dup2(oldFd, fd);
+              }
+            }
+            else if(ConnectionList::Instance()[i->first].conType() == Connection::FILE)
+            {
+              const std::vector<int>& fds = i->second;
+              for(size_t x=0; x<fds.size(); ++x)
+              {
+                int fd = fds[x];
+                slidingFd.freeUpFd( fd );
+                int oldFd = slidingFd.getFdFor( i->first );
+                JTRACE("restoring fd")(i->first)(oldFd)(fd);
+                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+                //_real_dup2(oldFd, fd);
+              }
+            }
+              }
+       */
+
+      void mtcpRestart()
+      {
         DmtcpWorker::maskStdErr();
-        runMtcpRestore( _mtcpPath );
-    }
-    
-    std::string     _mtcpPath;
-    std::string     _dmtcpPath;
-    ConnectionToFds _conToFd;
-};
-    
-    
+        runMtcpRestore ( _mtcpPath );
+      }
+
+      std::string     _mtcpPath;
+      std::string     _dmtcpPath;
+      ConnectionToFds _conToFd;
+  };
+
+
 }//namespace
 
-int main(int argc, char** argv)
-{    
-    JASSERT(argc >= 2)(argc).Text("usage: dmtcp_restart ckpt_file1 [ckpt_file2 ...]");
-    
-    if(argc == 2 && strcmp(argv[1],"--force")==0)
-    {
-      //tell the coordinator that it should broadcast a DMT_FORCE_RESTART message
-      DmtcpWorker worker(false);
-      worker.forceRestart();
-      return 0;
-    }
-    
-    std::vector<RestoreTarget> targets;
-
-    for( int i = argc-1; i>0; --i)
-    {
-        if(targets.size()>0 && targets.back()._dmtcpPath == argv[i])
-            continue;
-        
-        targets.push_back(RestoreTarget(argv[i]));
-    }
-    
-    
-    SlidingFdTable slidingFd;
-    ConnectionToFds conToFd;
-    
-    ConnectionList& connections = ConnectionList::Instance();
-    for(ConnectionList::iterator i = connections.begin()
-       ; i!= connections.end()
-       ; ++i)
-    {
-        conToFd[i->first].push_back(slidingFd.getFdFor( i->first ));
-        JTRACE("will restore")(i->first)(conToFd[i->first].back());
-    }
-    
-    DmtcpWorker worker(false);
-    CheckpointCoordinator ckptCoord(conToFd);
-    
-    worker.restoreSockets( ckptCoord );
-    
-    
-    for(size_t i=0; i<targets.size(); ++i)
-    {
-        if(i+1 < targets.size())
-        {
-            JTRACE("forking...");
-            int child = fork();
-            JASSERT(child >= 0)(child).Text("fork failed");
-            if(child != 0)
-            {
-                sleep(1);
-                continue; 
-            }
-        }
-        
-        targets[i].dupAllSockets(slidingFd);
-        targets[i].mtcpRestart();
-    }
-    
-    
-    JASSERT(false).Text("unreachable");
-    return -1;
-}
-
-static void runMtcpRestore(const std::string& file)
+int main ( int argc, char** argv )
 {
-    static std::string mtcprestart = jalib::Filesystem::FindHelperUtility( "mtcp_restart" );
-    
-    char* newArgs[] = 
+  JASSERT ( argc >= 2 ) ( argc ).Text ( "usage: dmtcp_restart ckpt_file1 [ckpt_file2 ...]" );
+
+  if ( argc == 2 && strcmp ( argv[1],"--force" ) ==0 )
+  {
+    //tell the coordinator that it should broadcast a DMT_FORCE_RESTART message
+    DmtcpWorker worker ( false );
+    worker.forceRestart();
+    return 0;
+  }
+
+  std::vector<RestoreTarget> targets;
+
+  for ( int i = argc-1; i>0; --i )
+  {
+    if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
+      continue;
+
+    targets.push_back ( RestoreTarget ( argv[i] ) );
+  }
+
+
+  SlidingFdTable slidingFd;
+  ConnectionToFds conToFd;
+
+  ConnectionList& connections = ConnectionList::Instance();
+  for ( ConnectionList::iterator i = connections.begin()
+                                     ; i!= connections.end()
+          ; ++i )
+  {
+    conToFd[i->first].push_back ( slidingFd.getFdFor ( i->first ) );
+    JTRACE ( "will restore" ) ( i->first ) ( conToFd[i->first].back() );
+  }
+
+  DmtcpWorker worker ( false );
+  CheckpointCoordinator ckptCoord ( conToFd );
+
+  worker.restoreSockets ( ckptCoord );
+
+
+  for ( size_t i=0; i<targets.size(); ++i )
+  {
+    if ( i+1 < targets.size() )
     {
-        (char*)mtcprestart.c_str(),
-        (char*)file.c_str(),
-        NULL
-    };
-    
-    JTRACE("launching mtcp_restart")(newArgs[1]);
-    
-    execvp(newArgs[0], newArgs);
-    JASSERT(false)(newArgs[0])(newArgs[1])(JASSERT_ERRNO).Text("exec() failed");
+      JTRACE ( "forking..." );
+      int child = fork();
+      JASSERT ( child >= 0 ) ( child ).Text ( "fork failed" );
+      if ( child != 0 )
+      {
+        sleep ( 1 );
+        continue;
+      }
+    }
+
+    targets[i].dupAllSockets ( slidingFd );
+    targets[i].mtcpRestart();
+  }
+
+
+  JASSERT ( false ).Text ( "unreachable" );
+  return -1;
+}
+
+static void runMtcpRestore ( const std::string& file )
+{
+  static std::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
+
+  char* newArgs[] =
+  {
+    ( char* ) mtcprestart.c_str(),
+    ( char* ) file.c_str(),
+    NULL
+  };
+
+  JTRACE ( "launching mtcp_restart" ) ( newArgs[1] );
+
+  execvp ( newArgs[0], newArgs );
+  JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
 
 
-void dmtcp::initializeMtcpEngine(){
-    JASSERT("false").Text("should not be called in dmtcp_restart");}
+void dmtcp::initializeMtcpEngine()
+{
+  JASSERT ( "false" ).Text ( "should not be called in dmtcp_restart" );
+}

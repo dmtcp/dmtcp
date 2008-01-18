@@ -24,26 +24,26 @@
 
 static int _nextConnectionId()
 {
-    static int id = CONNECTION_ID_START;
-    return id++;
+  static int id = CONNECTION_ID_START;
+  return id++;
 }
 
-dmtcp::ConnectionIdentifier::ConnectionIdentifier(const UniquePid& pid, int id) 
-    : _pid(pid) , _id(id)
+dmtcp::ConnectionIdentifier::ConnectionIdentifier ( const UniquePid& pid, int id )
+    : _pid ( pid ) , _id ( id )
 {}
 
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Create() 
+dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Create()
 {
-    return ConnectionIdentifier(UniquePid::ThisProcess(),_nextConnectionId()); 
+  return ConnectionIdentifier ( UniquePid::ThisProcess(),_nextConnectionId() );
 }
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null() 
+dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null()
 {
-    static dmtcp::ConnectionIdentifier n;
-    return n;
+  static dmtcp::ConnectionIdentifier n;
+  return n;
 }
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Self() 
+dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Self()
 {
-    return ConnectionIdentifier(UniquePid::ThisProcess(),-1); 
+  return ConnectionIdentifier ( UniquePid::ThisProcess(),-1 );
 }
 
 int dmtcp::ConnectionIdentifier::conId() const { return _id; }
@@ -51,20 +51,20 @@ int dmtcp::ConnectionIdentifier::conId() const { return _id; }
 const dmtcp::UniquePid& dmtcp::ConnectionIdentifier::pid() const { return _pid; }
 
 
-bool dmtcp::operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
+bool dmtcp::operator< ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
 {
-    if(a.pid() != b.pid()) return a.pid() < b.pid();
-    return a.conId() < b.conId();
+  if ( a.pid() != b.pid() ) return a.pid() < b.pid();
+  return a.conId() < b.conId();
 }
 
-bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
+bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
 {
-    return  a.pid() == b.pid() 
-         && a.conId()  == b.conId();
+  return  a.pid() == b.pid()
+          && a.conId()  == b.conId();
 }
 
 // void dmtcp::ConnectionIdentifier::addFd(int fd) { _fds.push_back(fd); }
-// 
+//
 // void dmtcp::ConnectionIdentifier::removeFd(int fd)
 // {
 //     for(size_t i=0; i<_fds.size(); ++i)
@@ -77,9 +77,9 @@ bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifie
 //         }
 //     }
 // }
-// 
+//
 // size_t dmtcp::ConnectionIdentifier::fdCount() const { return _fds.size(); }
-// 
+//
 // // void dmtcp::ConnectionIdentifier::dup2AllFds(int sourceFd)
 // // {
 // //     for(size_t i=0; i<_fds.size(); ++i)
@@ -89,36 +89,36 @@ bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifie
 // //                 .Text("dup2() failed");
 // //     }
 // // }
-// 
-// 
+//
+//
 // dmtcp::ConnectionIdentifiers::ConnectionIdentifiers() {}
-// 
+//
 // dmtcp::ConnectionIdentifiers& dmtcp::ConnectionIdentifiers::Incoming()
 // {
 //     static dmtcp::ConnectionIdentifiers instance;
 //     return instance;
 // }
-// 
+//
 // dmtcp::ConnectionIdentifiers& dmtcp::ConnectionIdentifiers::Outgoing()
 // {
 //     static dmtcp::ConnectionIdentifiers instance;
 //     return instance;
 // }
-// 
+//
 // dmtcp::ConnectionIdentifier& dmtcp::ConnectionIdentifiers::lookup( int id )
 // {
 //     std::map< int, ConnectionIdentifier* >::iterator i = _table.find(id);
 //     JASSERT(i != _table.end())(id).Text("ConnectionIdentifer does not exist");
 //     return *i->second;
 // }
-// 
+//
 // dmtcp::ConnectionIdentifier& dmtcp::ConnectionIdentifiers::create()
 // {
 //     ConnectionIdentifier* item = new ConnectionIdentifier();
 //     _table[item->id()] = item;
 //     return * item;
 // }
-// 
+//
 // void dmtcp::ConnectionIdentifiers::removeFd( int fd )
 // {
 //     std::map< int, ConnectionIdentifier* >::iterator i;
@@ -137,7 +137,7 @@ bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifie
 // //         }
 //     }
 // }
-// 
+//
 // void dmtcp::ConnectionIdentifiers::updateAfterDup(int oldfd,int newfd)
 // {
 //     std::map< int, ConnectionIdentifier* >::iterator i;
@@ -146,7 +146,7 @@ bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifie
 //         i->second->updateAfterDup(oldfd,newfd);
 //     }
 // }
-// 
+//
 // void dmtcp::ConnectionIdentifier::updateAfterDup(int oldfd,int newfd)
 // {
 //     for(size_t i=0; i<_fds.size(); ++i)
