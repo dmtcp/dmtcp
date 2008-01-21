@@ -1546,11 +1546,12 @@ static void writememoryarea (int fd, Area *area)
   /* Write corresponding descriptor to the file */
 
   if (0 == strcmp(area -> name, "[vdso]")) DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] segment %X at %p\n", area -> size, area -> addr));
+  else if (0 == strcmp(area -> name, "[vsyscall]")) DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] segment %X at %p\n", area -> size, area -> addr));
   else if (!(area -> flags & MAP_ANONYMOUS)) DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n", area -> size, area -> addr, area -> name, area -> offset));
   else if (area -> name[0] == 0) DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p\n", area -> size, area -> addr));
   else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p from %s + %X\n", area -> size, area -> addr, area -> name, area -> offset));
 
-  if (0 != strcmp(area -> name, "[vdso]")) {
+  if (0 != strcmp(area -> name, "[vdso]") && 0 != strcmp(area -> name, "[vsyscall]")) {
     writecs (fd, CS_AREADESCRIP);
     writefile (fd, area, sizeof *area);
 
