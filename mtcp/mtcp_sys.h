@@ -266,6 +266,9 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_open(args...) mtcp_inline_syscall(open,3,args)
     // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
     //   otherwise.
+/* does the same thing as mtcp_sys_open(), but ensures that your fd is not one
+ * of the standard 3 */
+int mtcp_sys_safe_open(char const *filename, int flags, mode_t mode);
 #define mtcp_sys_open2(args...) mtcp_sys_open(args,0777)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_read(args...)  mtcp_inline_syscall(read,3,args)

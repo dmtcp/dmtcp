@@ -120,7 +120,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o
+	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o mtcp_sys_safe_open.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -160,6 +160,10 @@ mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
 
 mtcp_executable_path.o: mtcp_executable_path.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_executable_path.o mtcp_executable_path.c
+
+mtcp_sys_safe_open.o: mtcp_sys_safe_open.c
+	${CC} $(CFLAGS) -c -o mtcp_sys_safe_open.o mtcp_sys_safe_open.c
+
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
 	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
 	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_printf.o \
