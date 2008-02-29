@@ -14,7 +14,7 @@
  * @return a file descriptor to filename, opened according to flags and mode,
  * that is guaranteed to not be one of the standard 3
  */
-int mtcp_sys_safe_open(char const *filename, int flags, mode_t mode)
+int mtcp_safe_open(char const *filename, int flags, mode_t mode)
 {
     int fds[3];
     int i, j, fd;
@@ -32,7 +32,7 @@ int mtcp_sys_safe_open(char const *filename, int flags, mode_t mode)
     }
 
     for(j = 0; j < i; j++)
-        close(fds[j]);
+        mtcp_sys_close(fds[j]);
 
     return fd;
 }

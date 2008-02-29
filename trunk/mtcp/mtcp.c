@@ -1199,7 +1199,7 @@ static int open_ckpt_file(void)
 {
     int fd;
 
-    fd = mtcp_sys_safe_open(temp_checkpointfilename,
+    fd = mtcp_safe_open(temp_checkpointfilename,
             O_CREAT | O_TRUNC | O_WRONLY, 0600);
 
     if (fd < 0) {
