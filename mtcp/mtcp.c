@@ -241,7 +241,7 @@ static void setup_sig_handler (void);
 int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
 
 {
-  char *p, *tmp;
+  char *p, *tmp, *endp;
   pid_t tls_pid, tls_tid;
   int len, mapsfd;
   Thread *thread;
@@ -340,6 +340,32 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
       mtcp_printf ("mtcp_init: bad MTCP_VERIFY_CHECKPOINT %s\n", tmp);
       mtcp_abort ();
     }
+  }
+
+  /* If the user has defined a signal, use that to suspend.  Otherwise, use SIGUSR2 */
+
+  tmp = getenv("MTCP_SIGCKPT");
+  if(tmp == NULL)
+      STOPSIGNAL = SIGUSR2;
+  else
+  {
+      errno = 0;
+      STOPSIGNAL = strtol(tmp, &endp, 0);
+
+      if((errno != 0) || (tmp == endp))
+      {
+          mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%s\" does not "
+                        "translate to a number, and cannot be used.  SIGUSR2 "
+                        "will be used instead.\n", tmp);
+          STOPSIGNAL = SIGUSR2;
+      }
+      else if(STOPSIGNAL < 1 || STOPSIGNAL > 31)
+      {
+          mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%d\" is not a valid "
+                        "signal, and cannot be used.  SIGUSR2 will be used "
+                        "instead.\n", STOPSIGNAL);
+          STOPSIGNAL = SIGUSR2;
+      }
   }
 
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
@@ -2224,7 +2250,10 @@ static void setup_sig_handler (void)
     mtcp_abort ();
   }
   if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
-    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p)\n", STOPSIGNAL, oldhandler);
+    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).  You"
+                 " may employ a different signal by setting the MTCP_SIGCKPT "
+                 "environment variable to the number of the signal MTCP should "
+                 "use for checkpointing.\n", STOPSIGNAL, oldhandler);
     mtcp_abort ();
   }
 }
