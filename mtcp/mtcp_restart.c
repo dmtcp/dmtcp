@@ -61,7 +61,6 @@ int main (int argc, char *argv[])
   }
 
   fd = open_ckpt_file(restorename);
-
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     fprintf (stderr, "mtcp_restart: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
@@ -167,6 +166,7 @@ static char first_char(char *filename)
         abort();
     }
 
+    close(fd);
     return c;
 }
 
