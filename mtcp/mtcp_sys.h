@@ -291,6 +291,10 @@ extern int mtcp_sys_errno;
 #ifdef __NR_getdents64
 #define mtcp_sys_getdents64(args...)  mtcp_inline_syscall(getdents64,3,args)
 #endif
+
+#define mtcp_sys_fcntl(args...) mtcp_inline_syscall(fcntl,2,args)
+#define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdir,2,args)
+
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
 # define mtcp_sys_get_thread_area(args...) \

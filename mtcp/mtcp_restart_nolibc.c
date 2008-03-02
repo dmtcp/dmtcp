@@ -64,6 +64,7 @@ static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
 static VA highest_userspace_address (void);
+static int open_shared_file(char* fileName);
 
 /********************************************************************************************************************************/
 /*																*/
@@ -245,7 +246,7 @@ static void readfiledescrs (void)
     }
   }
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Read memory area descriptors from checkpoint file										*/
@@ -260,6 +261,7 @@ static void readmemoryareas (void)
   char cstype;
   int flags, imagefd;
   void *mmappedat;
+  int areaContentsAlreadyRead = 0;
 
   while (1) {
     int try_overwriting_existing_segment = 0;
@@ -326,13 +328,68 @@ static void readmemoryareas (void)
     else {
       DPRINTF (("mtcp restoreverything*: restoring mapped area 0x%X at %p to %s + %X\n", area.size, area.addr, area.name, area.offset));
       flags = 0;                                      // see how to open it based on the access required
-      if (area.prot & (PROT_EXEC | PROT_READ)) flags |= O_RDONLY;
-      if (area.prot & PROT_WRITE) flags |= O_WRONLY;
+      // O_RDONLY = 00
+      // O_WRONLY = 01
+      // O_RDWR   = 02
+      if (area.prot & PROT_WRITE) flags = O_WRONLY;
+      if (area.prot & (PROT_EXEC | PROT_READ)){
+        flags = O_RDONLY;
+        if (area.prot & PROT_WRITE) flags = O_RDWR;
+      }
+ 
       imagefd = mtcp_sys_open (area.name, flags, 0);  // open it
+
+      // If the shared file doesn't exist on the disk, we try to create it
+      if (imagefd < 0 && (area.prot & MAP_SHARED) && mtcp_sys_errno == ENOENT ){
+
+        DPRINTF(("mtcp restoreverything*: Shared file %s not found, Creating new\n",area.name));
+
+        imagefd = open_shared_file(area.name);
+
+        // create a temp area in the memory exactly of the size of the shared file.
+        // we read the contents of the shared file from checkpoint file(.mtcp) into
+        // system memory. From system memory, the contents are written back to newly
+        // created replica of the shared file (at the same path where it used to exist
+        // before checkpoint.
+        mmappedat = mtcp_safemmap (area.addr, area.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, imagefd, area.offset);
+        if (mmappedat == MAP_FAILED) {
+          mtcp_printf ("mtcp_restart: error %d mapping temp memory at %p\n", mtcp_sys_errno, area.addr);
+          mtcp_abort ();
+        }
+
+        readcs (CS_AREACONTENTS);
+        readfile (area.addr, area.size);
+        areaContentsAlreadyRead = 1;
+
+        if ( mtcp_sys_write(imagefd, area.addr,area.size) < 0 ){
+          mtcp_printf ("mtcp_restart: error %d creating mmap file %s\n", mtcp_sys_errno, area.name);
+          mtcp_abort();
+        }
+
+        // unmap the temp memory allocated earlier
+        mmappedat = mtcp_sys_munmap (area.addr, area.size);
+        if (mmappedat == -1) {
+          mtcp_printf ("mtcp_restart: error %d unmapping temp memory at %p\n", mtcp_sys_errno, area.addr);
+          mtcp_abort ();
+        }
+          
+        //close the file
+        mtcp_sys_close(imagefd);
+
+        // now open the file again, this time with appropriate flags
+        imagefd = mtcp_sys_open (area.name, flags, 0);
+        if (imagefd < 0){
+          mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
+          mtcp_abort ();
+        }
+      }
+
       if (imagefd < 0) {
         mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
         mtcp_abort ();
       }
+      
+      // Map the shared file into memory
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         mtcp_printf ("mtcp_restart: error %d mapping %s offset %d at %p\n", mtcp_sys_errno, area.name, area.offset, area.addr);
@@ -343,10 +400,20 @@ static void readmemoryareas (void)
         mtcp_abort ();
       }
       mtcp_sys_close (imagefd);                       // don't leave a dangling fd in the way of other stuff
+
+      if ( areaContentsAlreadyRead == 0 ){
+        // If we haven't created the file (i.e. the shared file does exists when this process wants
+        // map it) we want to skip the the checkpoint file pointer to move to the end of the shared
+        // file data. We can not use lseek() function as it can fail if we are using a pipe to read
+        // the contents of checkpoint file (we might be using gzip to uncompress checkpoint file on
+        // the fly). Thus we have to read the contents using the following code
+        readcs (CS_AREACONTENTS);
+        readfile (area.addr, area.size);
+      }
     }
   }
 }
-
+
 static void readcs (char cs)
 
 {
@@ -362,7 +429,6 @@ static void readcs (char cs)
 static void readfile(void *buf, int size)
 {
     int rc, ar;
-
     ar = 0;
 
     while(ar != size)
@@ -464,4 +530,43 @@ static VA highest_userspace_address (void)
   close (mapsfd);
   return (VA)area_end;
 }
+#endif
+
+#if 1
+static int open_shared_file(char* fileName)
+{
+  int i;
+  int fd;
+  int fIndex;
+  char currentFolder[FILENAMESIZE];
+  
+  /* Find the starting index where the actual filename begins */
+  for ( i=0; fileName[i] != '\0'; i++ ){
+    if ( fileName[i] == '/' )
+      fIndex = i+1;
+  }
+  
+  /* We now try to create the directories structure from the give path */
+  for ( i=0 ; i< fIndex; i++ ){
+    if (fileName[i] == '/' && i > 0){
+      int res;
+      currentFolder[i] = '\0';
+      res = mtcp_sys_mkdir(currentFolder,S_IRWXU);
+      if (res<0 && mtcp_sys_errno != EEXIST ){
+        mtcp_printf("mtcp_restart open_shared_file: error %d creating directory %s in path of %s\n", mtcp_sys_errno, currentFolder, fileName);
+	mtcp_abort();
+      }
+    }
+    currentFolder[i] = fileName[i];
+  }
+
+  /* Create the file*/
+  fd = mtcp_sys_open(fileName,O_CREAT|O_RDWR,S_IRWXU);
+  if (fd<0){
+    mtcp_printf("mtcp_restart open_shared_file: unable to create file %s\n", fileName);
+    mtcp_abort();
+  }
+  return fd;
+}
+
 #endif

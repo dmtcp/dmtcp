@@ -220,6 +220,7 @@ static void finishrestore (void);
 static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
+static void sync_shared_mem(void);
 
 /********************************************************************************************************************************/
 /*																*/
@@ -1169,6 +1170,10 @@ again:
     /* All other threads halted in 'stopthisthread' routine (they are all ST_SUSPENDED) - it's safe to write checkpoint file now */
 
     if(callback_pre_ckpt != NULL){
+        // Here we want to synchronize the shared memory pages with the backup files
+        DPRINTF(("mtcp checkpointhread*: syncing shared memory with backup files\n"));
+        sync_shared_mem();
+
         DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n"
 				,&callback_pre_ckpt,callback_pre_ckpt));
         (*callback_pre_ckpt)();
@@ -1413,6 +1418,15 @@ static void checkpointeverything (void)
     if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
        area.flags |= MAP_ANONYMOUS;
     }
+   
+    if ( area.flags & MAP_SHARED ){
+      /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
+      if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
+        mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X at %p from %s + %X\n", mtcp_sys_errno, area.size, area.addr, area.name, area.offset);
+        mtcp_abort();
+      }
+    }
+ 
 
     /* Skip any mapping for this image - it got saved as CS_RESTOREIMAGE at the beginning */
 
@@ -1583,8 +1597,8 @@ static void writememoryarea (int fd, Area *area)
     writefile (fd, area, sizeof *area);
 
     /* Anonymous sections need to have their data copied to the file, as there is no file that contains their data */
-
-    if (area -> flags & MAP_ANONYMOUS) {
+    /* We also save shared files to checkpoint file to handle shared memory implemented with backing files*/
+    if (area -> flags & MAP_ANONYMOUS || area -> flags & MAP_SHARED) {
       writecs (fd, CS_AREACONTENTS);
       writefile (fd, area -> addr, area -> size);
     }
@@ -2257,3 +2271,39 @@ static void setup_sig_handler (void)
     mtcp_abort ();
   }
 }
+
+/* Code Added by Kapil Arya */
+/********************************************************************************************************************************/
+/*                                                                                                                              */
+/*  Sync shared memory pages with backup files on disk                                                                          */
+/*                                                                                                                              */
+/********************************************************************************************************************************/
+static void sync_shared_mem(void)
+{
+  int mapsfd;
+  Area area;
+
+  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    mtcp_printf ("mtcp sync_shared_memory: error opening /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
+    mtcp_abort ();
+  }
+
+  while (readmapsline (mapsfd, &area)) {
+    /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
+
+    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
+
+    if (!(area.flags & MAP_SHARED)) continue;
+    
+    DPRINTF(("mtcp sync_shared_memory: syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
+
+    if ( msync(area.addr, area.size, MS_SYNC) < 0 ){
+      mtcp_printf ("mtcp sync_shared_memory: error syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset);
+      mtcp_abort();
+    }
+  }
+
+  close (mapsfd);
+}
+
