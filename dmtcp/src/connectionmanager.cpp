@@ -110,14 +110,38 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd )
   }
 
   bool isFile  = ( device[0] == '/' );
-  bool isPts   = ( strncmp ( device.c_str(), "/dev/pts/", 9 ) ==0 );
-  bool isPtmx  = ( strncmp ( device.c_str(), "/dev/ptmx", 9 ) ==0 );
+  bool isPts   = ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 );
+  bool isPtmx  = ( strncmp ( device.c_str(), "/dev/ptmx", strlen( "/dev/ptmx" ) ) ==0 );
 
   if ( isPtmx )
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
-    return deviceName;
+	char *ptr;
+	
+    iterator i = _table.find ( deviceName );
+	if ( i == _table.end() )
+    {
+	  char slaveDevice[1024];
+	
+	  JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
+	    ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
+	  
+      std::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
+
+      JTRACE ( "creating ptmx connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
+
+      dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
+      Connection * c = new PtsConnection ( device, symlinkFilename, type );
+      ConnectionList::Instance().add ( c );
+      _table[deviceName] = c->id();
+      return deviceName;
+    }
+    else
+    {
+      return deviceName;
+    }
   }
+
   else if ( isPts )
   {
     std::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
@@ -533,5 +557,11 @@ std::string dmtcp::PtsToSymlink::getFilename ( std::string device )
   return filename;
 }
 
-
-
+bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
+{
+	std::string filename = getFilename(device);
+	if (filename.compare("?") == 0){
+		return false;
+	}
+	return true;
+}
