@@ -138,8 +138,8 @@ extern "C" pid_t fork()
 
 extern "C" char *ptsname ( int fd )
 {
-  JTRACE ( "Calling ptsname" );
-  static char tmpbuf[80];
+  JTRACE ( "ptsname() promoted to ptsname_r()" );
+  static char tmpbuf[1024];
 
   if ( ptsname_r ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
   {
@@ -151,13 +151,8 @@ extern "C" char *ptsname ( int fd )
 
 extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 {
-  //TODO:
-  // There is a bug in this function
-  // The user is allowed to call ptsname() more than once,
-  // As currently implemented, we do not properly handle this case
-
   JTRACE ( "Calling ptsname_r" );
-  char device[80];
+  char device[1024];
   const char *ptr;
 
   int rv = _real_ptsname_r ( fd, device, sizeof ( device ) );
@@ -166,7 +161,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
     JTRACE ( "ptsname_r failed" );
     return rv;
   }
-
+  
   ptr = dmtcp::UniquePid::ptsSymlinkFilename ( device );
 
   if ( strlen ( ptr ) >=buflen )
@@ -177,13 +172,20 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
     return -1;
   }
 
-  JASSERT ( symlink ( device, ptr ) == 0 ) ( device ) ( ptr ).Text ( "symlink() failed" );
+  if ( dmtcp::PtsToSymlink::Instance().isDuplicate(device) == true )
+  {
+	  strcpy ( buf, ptr );
+	  return rv;
+  }
+
+  JASSERT ( symlink ( device, ptr ) == 0 ) ( device ) ( ptr ) ( JASSERT_ERRNO )
+    .Text ( "symlink() failed" );
 
   strcpy ( buf, ptr );
 
-  dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
-  dmtcp::PtsConnection *master = new dmtcp::PtsConnection ( device, ptr, type );
-  dmtcp::KernelDeviceToConnection::Instance().create ( fd, master );
+//  dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
+//  dmtcp::PtsConnection *master = new dmtcp::PtsConnection ( device, ptr, type );
+//  dmtcp::KernelDeviceToConnection::Instance().create ( fd, master );
 
   dmtcp::PtsToSymlink::Instance().add ( device, buf );
 
