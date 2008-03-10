@@ -174,8 +174,9 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 
   if ( dmtcp::PtsToSymlink::Instance().isDuplicate(device) == true )
   {
-	  strcpy ( buf, ptr );
-	  return rv;
+    std::string name = dmtcp::PtsToSymlink::Instance().getFilename(device);
+    strcpy ( buf, name.c_str() );
+    return rv;
   }
 
   JASSERT ( symlink ( device, ptr ) == 0 ) ( device ) ( ptr ) ( JASSERT_ERRNO )
