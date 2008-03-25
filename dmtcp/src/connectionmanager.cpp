@@ -346,7 +346,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
   //so if it doesn't exist it must be a socket
   if ( _table.find ( device ) == _table.end() )
   {
-    if ( fd <= 3 )
+    if ( fd <= 2 )
     {
       //KAPIL... we may need to expand right here...
       JNOTE ( "PERHAPS WE WANT TO RESTORE THIS AS STDIN/STDOUT????" );

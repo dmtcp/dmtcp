@@ -41,28 +41,36 @@ int main ( int argc, char** argv )
   std::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   std::string searchDir = jalib::Filesystem::GetProgramDir();
   const char* ckptDir = getenv ( "PWD" );
+  bool is_ssh_slave=false;
+  //how many args to trim off start
+  int startArg = 1;
+
   if ( ckptDir == NULL ) ckptDir = ".";
 
   JASSERT ( argc >= 2 ) ( argc ).Text ( "Usage: dmtcp_checkpoint ./cmd ..." );
 
+  if ( strncmp(argv[1],"--ssh-slave", strlen("--ssh-slave")) == 0 )
+  {
+    is_ssh_slave = true;
+    startArg++;
+  }
 
   std::string stderrDevice = jalib::Filesystem::ResolveSymlink ( _stderrProcPath() );
 
   //TODO:
-  // When stderr is a socket, this logic fails and JASSERT may write data to FD 3
+  // When stderr is a socket, this logic fails and JASSERT may write data to FD 2
   // this will cause problems in programs that use FD 3 for algorithmic things...
   if ( stderrDevice.length() > 0
           && jalib::Filesystem::FileExists ( stderrDevice ) )
     setenv ( ENV_VAR_STDERR_PATH,stderrDevice.c_str(), 0 );
+ else if( is_ssh_slave )
+   setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
   setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
   setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
-
-  //how many args to trim off start
-  int startArg = 1;
 
   //copy args into new structure
   char** newArgs = new char* [argc];

@@ -299,7 +299,7 @@ static void readmemoryareas (void)
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        mtcp_printf ("mtcp_restart: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+        DPRINTF(("mtcp_restart: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 	try_overwriting_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_overwriting_existing_segment) {

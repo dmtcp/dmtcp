@@ -99,12 +99,16 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
     const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
     const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
-
+    const char * sigckpt = getenv( ENV_VAR_SIGCKPT );
+    
+    
     //modify the command
     std::string prefix = "env ";
-    if ( coordinatorAddr != NULL ) prefix += std::string() + ENV_VAR_NAME_ADDR "=" + coordinatorAddr + " ";
-    if ( coordinatorPortStr != NULL ) prefix += std::string() +  ENV_VAR_NAME_PORT "=" + coordinatorPortStr + " ";
-    prefix += DMTCP_CHECKPOINT_CMD " ";
+    if ( coordinatorAddr != NULL )    prefix += std::string() + ENV_VAR_NAME_ADDR      "=" + coordinatorAddr    + " ";
+    if ( coordinatorPortStr != NULL ) prefix += std::string() + ENV_VAR_NAME_PORT      "=" + coordinatorPortStr + " ";
+    if ( sigckpt != NULL )            prefix += std::string() + ENV_VAR_SIGCKPT        "=" + sigckpt            + " ";
+
+    prefix += DMTCP_CHECKPOINT_CMD " --ssh-slave ";
     cmd = prefix + cmd;
 
     //now repack args
