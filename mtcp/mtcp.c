@@ -1299,7 +1299,7 @@ static int open_ckpt_dest(void)
                     "not be used.\n");
             return fd;
         }
-        if (pipe(fds) == -1) {
+        if (mtcp_safe_pipe(fds) == -1) {
             mtcp_printf("WARNING: error creating pipe. Compression will "
                     "not be used.\n");
             return fd;
