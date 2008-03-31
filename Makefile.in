@@ -41,7 +41,7 @@ bin/% : mtcp/%
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart
 
-install: bin
+install: all 
 	if test -z "$(PREFIX)"; then \
 		echo ERROR: PREFIX must be defined; \
 		exit 1; \
