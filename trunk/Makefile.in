@@ -2,6 +2,7 @@
 LN_S = @LN_S@
 MKDIR_P = @MKDIR_P@
 CC = @CC@
+PREFIX = @prefix@
 
 all: mtcp dmtcp_noexamples
 	($(MAKE) bin)
@@ -39,6 +40,18 @@ bin/% : mtcp/%
 	(cd bin && $(LN_S) ../$< $*)
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart
+
+install: bin
+	if test -z "$(PREFIX)"; then \
+		echo ERROR: PREFIX must be defined; \
+		exit 1; \
+	fi
+	$(MKDIR_P) $(PREFIX)/lib/dmtcp
+	$(MKDIR_P) $(PREFIX)/bin
+	cp bin/* $(PREFIX)/lib/dmtcp
+	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
+	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
+	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
 
