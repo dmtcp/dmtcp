@@ -52,6 +52,12 @@ install: all
 	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
 	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
 	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
+
+uninstall:
+	rm -f $(PREFIX)/bin/dmtcp_coordinator
+	rm -f $(PREFIX)/bin/dmtcp_checkpoint
+	rm -f $(PREFIX)/bin/dmtcp_restart
+	rm -Rf $(PREFIX)/lib/dmtcp
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
 
