@@ -34,6 +34,9 @@ int mtcp_safe_pipe(int arr[2])
             break;
     }
 
+    arr[0] = fds[i][0];
+    arr[1] = fds[i][1];
+
     for(j = 0; j < i; j++)
     {
         mtcp_sys_close(fds[j][0]);
