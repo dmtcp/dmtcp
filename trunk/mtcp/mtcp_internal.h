@@ -240,6 +240,5 @@ int mtcp_safelstat (char const *name, Stat *statbuf);
 int mtcp_setjmp (Jmpbuf *jmpbuf);
 void mtcp_longjmp (Jmpbuf *jmpbuf, int retval);
 int mtcp_safe_open(char const *filename, int flags, mode_t mode);
-int mtcp_safe_pipe(int pipefds[2]);
 
 #endif

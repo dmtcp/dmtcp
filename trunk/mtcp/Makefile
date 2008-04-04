@@ -80,18 +80,18 @@ threadtest: threadtest.c
 # This is the command-line utility to restore a process
 
 
-mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_safe_pipe.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	${CC} $(CFLAGS) -static -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-		mtcp_safestat.o mtcp_state.o mtcp_safe_open.o mtcp_safe_pipe.o
+		mtcp_safestat.o mtcp_state.o mtcp_safe_open.o
 
 
 # mtcp_restart.so is used only by dmtcp --- not by mtcp
-mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_safe_pipe.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 	${CC} $(CFLAGS) -shared \
 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
-	 mtcp_safe_open.c mtcp_safe_pipe.c
+	 mtcp_safe_open.c
 
 # This is the shareable that a user links with the application
 
@@ -121,7 +121,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o mtcp_safe_open.o mtcp_safe_pipe.o
+	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_check_nscd.o mtcp_safe_open.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -164,9 +164,6 @@ mtcp_executable_path.o: mtcp_executable_path.c mtcp_internal.h
 
 mtcp_safe_open.o: mtcp_safe_open.c
 	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
-
-mtcp_safe_pipe.o: mtcp_safe_pipe.c
-	${CC} $(CFLAGS) -c -o mtcp_safe_pipe.o mtcp_safe_pipe.c
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
 	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
