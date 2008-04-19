@@ -43,6 +43,7 @@
 
 #include <linux/futex.h>
 #include <sched.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -126,7 +127,6 @@ int main ()
 static int thread1_func (void *dummy)
 
 {
-  char ok;
   int count, delay;
 
   mtcp_ok ();
