@@ -21,9 +21,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 void mtcp_check_nscd(void) {
-  char buf[1];
   int fd = open("/var/run/nscd", O_RDONLY);
 
   if (fd == -1)

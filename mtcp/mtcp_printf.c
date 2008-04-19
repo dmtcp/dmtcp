@@ -28,6 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
+// Force mtcp_sys.h to define this.
+#define MTCP_SYS_STRLEN
+#define MTCP_SYS_STRCHR
 #include "mtcp_internal.h"
 
 static char const hexdigits[] = "0123456789ABCDEF";
