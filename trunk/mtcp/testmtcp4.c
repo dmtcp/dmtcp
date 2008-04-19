@@ -183,6 +183,7 @@ static void *produca_func (void *dummy)
       freetotal += babblelen * sizeof *babblebuff;
     }
   }
+  return babblebuff;  // not used, but POSIX requires a return value
 }
 
 static void *consuma_func (void *dummy)
@@ -229,4 +230,5 @@ static void *consuma_func (void *dummy)
       }
     }
   }
+  return prodlastcount; // Not used, but POSIX requires a return value
 }
