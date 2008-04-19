@@ -26,6 +26,9 @@
 #include <string.h>
 #include <unistd.h>
 
+// Force mtcp_sys.h to define this.
+#define MTCP_SYS_MEMCPY
+#define MTCP_SYS_MEMMOVE
 #include "mtcp_internal.h"
 #define mtcp_sys_memcmp memcmp
 

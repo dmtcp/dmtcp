@@ -95,8 +95,9 @@ typedef unsigned char byte;
         }                                                                     \
     } while (0)
 
-#ifndef _MTCP_MEMMOVE_
-# define _MTCP_MEMMOVE_
+#ifdef MTCP_SYS_MEMMOVE
+# ifndef _MTCP_MEMMOVE_
+#  define _MTCP_MEMMOVE_
 // From glibc-2.5/string/memmove.c
 static void *
 mtcp_sys_memmove (a1, a2, len)
@@ -128,10 +129,12 @@ mtcp_sys_memmove (a1, a2, len)
 
   return (a1 /* dest */);
 }
+# endif
 #endif
 
-#ifndef _MTCP_MEMCPY_
-# define _MTCP_MEMCPY_
+#ifdef MTCP_SYS_MEMCPY
+# ifndef _MTCP_MEMCPY_
+#  define _MTCP_MEMCPY_
 // From glibc-2.5/string/memcpy.c; and
 /* Copy exactly NBYTES bytes from SRC_BP to DST_BP,
    without any assumptions about alignment of the pointers.  */
@@ -149,6 +152,7 @@ mtcp_sys_memcpy (dstpp, srcpp, len)
   MTCP_BYTE_COPY_FWD(dstp, srcp, len);
   return dstpp;
 }
+# endif
 #endif
 
 #if 0 /*  DEMONSTRATE_BUG */
@@ -187,8 +191,9 @@ mtcp_sys_memcmp (s1, s2, len)
 
 #endif /* DEMONSTRATE_BUG */
 
-#ifndef _MTCP_STRCHR_
-# define _MTCP_STRCHR_
+#ifdef MTCP_SYS_STRCHR
+# ifndef _MTCP_STRCHR_
+#  define _MTCP_STRCHR_
 //   The  strchr() function from earlier C library returns a ptr to the first
 //   occurrence  of  c  (converted  to a  char) in string s, or a
 //   null pointer  if  c  does  not  occur  in  the  string. 
@@ -198,10 +203,12 @@ static char *mtcp_sys_strchr(const char *s, int c) {
       return (char *)s;
   return NULL;
 }
+# endif
 #endif
 
-#ifndef _MTCP_STRLEN_
-# define _MTCP_STRLEN_
+#ifdef MTCP_SYS_STRLEN
+# ifndef _MTCP_STRLEN_
+#  define _MTCP_STRLEN_
 //   The  strlen() function from earlier C library calculates  the  length 
 //     of  the string s, not including the terminating `\0' character.
 static size_t mtcp_sys_strlen(const char *s) {
@@ -210,6 +217,7 @@ static size_t mtcp_sys_strlen(const char *s) {
     size++;
   return size;
 }
+# endif
 #endif
 
 //======================================================================

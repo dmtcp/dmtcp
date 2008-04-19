@@ -18,8 +18,10 @@
 
 #include <errno.h>
 #include <sched.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define NTHREADS 3
 #define STACKSIZE 1024*1024
