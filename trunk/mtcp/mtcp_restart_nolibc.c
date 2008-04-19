@@ -63,6 +63,7 @@ static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
+static void skipfile (int size);
 static VA highest_userspace_address (void);
 static int open_shared_file(char* fileName);
 
@@ -308,15 +309,16 @@ static void readmemoryareas (void)
       }
 
       /* Read saved area contents */
-
       readcs (CS_AREACONTENTS);
-      readfile (area.addr, area.size);
-      if (!(area.prot & PROT_WRITE) && !try_overwriting_existing_segment) {
-        if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
+      if (!try_overwriting_existing_segment) {
+        readfile (area.addr, area.size);
+        if (!(area.prot & PROT_WRITE) && (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0)) {
           mtcp_printf ("mtcp_restart: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
           mtcp_abort ();
         }
       }
+      else
+        skipfile (area.size);
 
       /* Close image file (fd only gets in the way) */
 
@@ -442,6 +444,30 @@ static void readfile(void *buf, int size)
         else if(rc == 0)
         {
             mtcp_printf("mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_abort();
+        }
+
+        ar += rc;
+    }
+}
+
+static void skipfile(int size)
+{
+    int rc, ar;
+    ar = 0;
+    char array[512];
+
+    while(ar != size)
+    {
+        rc = mtcp_sys_read(mtcp_restore_cpfd, array, (size-ar < 512 ? size - ar : 512));
+        if(rc < 0)
+        {
+            mtcp_printf("mtcp_restart skipfile: error %d skipping checkpoint\n", mtcp_sys_errno);
+            mtcp_abort();
+        }
+        else if(rc == 0)
+        {
+            mtcp_printf("mtcp_restart skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
             mtcp_abort();
         }
 
