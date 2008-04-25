@@ -138,11 +138,12 @@ mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_restart_nolibc.o \
-	    mtcp_restart_nolibc.c; \
-	else \
-	  ${CC} $(CFLAGS) -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c; \
-	fi
+    cflags_extra=-fno-stack-protector ; \
+  fi; \
+	if  uname -a | grep '2\.6\.9.*x86_64' > /dev/null; then \
+    cflags_extra=-DBUG_64BIT_2_6_9 $$cflags_extra; \
+  fi; \
+	${CC} $(CFLAGS) $$cflags_extra -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c;
 
 # mtcp.lis is needed only for debugging.
 mtcp.lis: mtcp.c mtcp.h mtcp_internal.h

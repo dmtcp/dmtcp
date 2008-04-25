@@ -1,4 +1,3 @@
-// #define LINUX_2_6_9_x86_64
 //+++2006-01-17
 //    Copyright (C) 2006  Mike Rieker, Beverly, MA USA
 //    Modifications to make it 64-bit clean by Gene Cooperman
@@ -64,9 +63,7 @@ static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
-#ifdef LINUX_2_6_9_x86_64
-# define skipfile(size) readfile((void *)1,size)
-#else
+#ifndef BUG_64BIT_2_6_9
 static void skipfile(int size);
 #endif
 static VA highest_userspace_address (void);
@@ -316,7 +313,11 @@ static void readmemoryareas (void)
       /* Read saved area contents */
       readcs (CS_AREACONTENTS);
       if (try_overwriting_existing_segment)
+#ifdef BUG_64BIT_2_6_9
+        readfile (area.addr, area.size);
+#else
         skipfile (area.size);
+#endif
       else {
         readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
@@ -438,17 +439,9 @@ static void readfile(void *buf, int size)
 {
     int rc, ar;
     ar = 0;
-#ifdef LINUX_2_6_9_x86_64
-    char array[512];
-#endif
 
     while(ar != size)
     {
-#ifdef LINUX_2_6_9_x86_64
-        if (buf == (void *)1) // Don't define skipfile; breaks w/ extra fnc
-          rc = mtcp_sys_read(mtcp_restore_cpfd, array, (size-ar<512 ? size - ar : 512));
-        else
-#endif
         rc = mtcp_sys_read(mtcp_restore_cpfd, buf + ar, size - ar);
         if(rc < 0)
         {
@@ -465,9 +458,7 @@ static void readfile(void *buf, int size)
     }
 }
 
-#ifdef LINUX_2_6_9_x86_64
-// Don't define skipfile; DMTCP under 64-bit Linux 2.6.9 breaks w/ extra fnc
-#else
+#ifndef BUG_64BIT_2_6_9
 static void skipfile(int size)
 {
     int rc, ar;
