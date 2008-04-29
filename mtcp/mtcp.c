@@ -1316,6 +1316,8 @@ static int open_ckpt_dest(void)
             return fds[1];
         } else { /* child process */
             close(fds[1]);
+            fds[0] = dup(dup(dup(fds[0])));
+            fd = dup(fd);
             dup2(fds[0], STDIN_FILENO);
             close(fds[0]);
             dup2(fd, STDOUT_FILENO);
