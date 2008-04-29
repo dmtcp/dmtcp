@@ -227,6 +227,8 @@ static int open_ckpt_file(char *filename)
         }
         else /* child process */
         {
+            fd = dup(dup(dup(fd)));
+            fds[1] = dup(fds[1]);
             close(fds[0]);
             dup2(fd, STDIN_FILENO);
             close(fd);
