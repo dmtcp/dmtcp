@@ -201,8 +201,7 @@ static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
-static int open_ckpt_file(void);
-static int open_ckpt_dest(void);
+static int open_ckpt_to_write(void);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area);
@@ -1219,31 +1218,6 @@ again:
   }
 }
 
-
-
-/**
- * This function returns the fd pointing at a file-on-disk to which the
- * checkpoint file should be written.
- *
- * @return the fd pointing to the checkpoint file
- */
-static int open_ckpt_file(void)
-{
-    int fd;
-
-    fd = mtcp_safe_open(temp_checkpointfilename,
-            O_CREAT | O_TRUNC | O_WRONLY, 0600);
-
-    if (fd < 0) {
-        mtcp_printf("mtcp open_ckpt_file: error creating %s: %s\n",
-                temp_checkpointfilename,
-                strerror(mtcp_sys_errno));
-        mtcp_abort();
-    }
-
-    return fd;
-}
-
 typedef int (*funcptr)();
 static funcptr get_libc_symbol(const char* name)
 {
@@ -1277,7 +1251,7 @@ static int mtcp_execv( const char* cmd, char * args[])
  *
  * @param the fd to write to
  */
-static int open_ckpt_dest(void)
+static int open_ckpt_to_write(void)
 {
     pid_t cpid;
     int fd;
@@ -1292,7 +1266,15 @@ static int open_ckpt_dest(void)
     // to disable compression, run with MTCP_GZIP=0
     if( do_we_compress == NULL) do_we_compress = "1";
     
-    fd = open_ckpt_file();
+    fd = mtcp_safe_open(temp_checkpointfilename,
+            O_CREAT | O_TRUNC | O_WRONLY, 0600);
+
+    if (fd < 0) {
+        mtcp_printf("mtcp open_ckpt_to_write: error creating %s: %s\n",
+                temp_checkpointfilename,
+                strerror(mtcp_sys_errno));
+        mtcp_abort();
+    }
 
     if ((do_we_compress != NULL) && strtol(do_we_compress, NULL, 0) != 0) {
         if ((gzip_path = mtcp_executable_path("gzip")) == NULL) {
@@ -1360,7 +1342,7 @@ static void checkpointeverything (void)
 
   /* Create temp checkpoint file and write magic number to it */
 
-  fd = open_ckpt_dest();
+  fd = open_ckpt_to_write();
   writefile (fd, MAGIC, MAGIC_LEN);
 
   /* Write out the shareable parameters and the image   */

@@ -446,10 +446,18 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   FILE* fp = fopen ( filename.c_str(),"w" );
   JASSERT ( fp!=0 ) ( filename ).Text ( "failed to open file" );
   fprintf ( fp, "%s", "#!/bin/bash \nset -m # turn on job control\n\n"
-            "#Launch all the restarts in the background:\n"
-            "#Note that stdin is given to the last image on each dmtcp_restart line.\n"
-            "#That process then must be brought to the foreground for it\n"
-            "#to get the stdin of this script.\n" );
+            "#This script launches all the restarts in the background.\n"
+            "#Suggestions for editing:\n"
+            "#  1. For those processes executing on the localhost, remove 'ssh <hostname>' from the start of the line. \n"
+            "#  2. If using ssh, verify that ssh does not require passwords or other prompts.\n"
+            "#  3. Check if the dmtcp_restart command is in your path; if not, correct it.\n"
+            "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the dmtcp_coordinator.\n"
+            "#     If necessary, add 'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
+            "#  5. Remove the '&' from a line if that process reads STDIN.\n"
+            "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
+            "\n"
+            "\n"
+             );
 
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
@@ -499,7 +507,13 @@ int main ( int argc, char** argv )
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
   if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
 
-  JTRACE ( "dmtcp_coordinator starting..." ) ( port );
+  JASSERT_STDERR <<
+    "dmtcp_coordinator starting..." << 
+    "\n    Port: " << port <<
+    "\n    Checkpoint Interval: " << ( theCheckpointInterval > 0 ? "" + theCheckpointInterval : "Not Periodic" ) <<
+    "\n'dmtcp_coordinator -h' for help." <<
+    "\n\n";
+
   jalib::JServerSocket sock ( jalib::JSockAddr::ANY,port );
   JASSERT ( sock.isValid() ) ( port ).Text ( "Failed to create listen socket" );
   dmtcp::DmtcpCoordinator prog;

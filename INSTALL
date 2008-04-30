@@ -1,6 +1,8 @@
 To install, use:
   ./configure
   make
+  make check [Optional]
+
 
 The code is still experimental, and so we don't currently offer a system-wide
 installation.  It will install in the build directory.
