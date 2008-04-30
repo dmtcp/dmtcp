@@ -48,6 +48,8 @@ __attribute__ ((visibility ("hidden")))
 __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify = 0;// 0: normal restore; 1: verification restore
 __attribute__ ((visibility ("hidden")))
+  pid_t mtcp_restore_gzip_child_pid = -1; // '= -1' puts it in regular data instead of common
+__attribute__ ((visibility ("hidden")))
   void *mtcp_saved_break = NULL;  // saved brk (0) value
 
 	/* These two are used by the linker script to define the beginning and end of the image.         */
@@ -162,6 +164,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   DPRINTF (("mtcp restoreverything*: close cpfd %d\n", mtcp_restore_cpfd));
   mtcp_sys_close (mtcp_restore_cpfd);
   mtcp_restore_cpfd = -1;
+  DPRINTF (("mtcp restoreverything*: waiting on gzip_child_pid: %d\n", mtcp_restore_gzip_child_pid ));
+  // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wiat4()
+  if( mtcp_restore_gzip_child_pid != -1 ) {
+    if( mtcp_sys_wait4(mtcp_restore_gzip_child_pid , NULL, 0, NULL ) == -1 )
+        DPRINTF (("mtcp restoreverything*: error wait4: errno: %d", mtcp_sys_errno));
+    mtcp_restore_gzip_child_pid = -1;
+  }
+
   DPRINTF (("mtcp restoreverything*: restore complete, resuming...\n"));
 
   /* Jump to finishrestore in original program's mtcp.so image */
