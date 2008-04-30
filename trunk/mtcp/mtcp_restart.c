@@ -37,7 +37,7 @@
 #include "mtcp_internal.h"
 
 static char first_char(char *filename);
-static int open_ckpt_file(char *filename);
+static int open_ckpt_to_read(char *filename);
 static void readcs (int fd, char cs);
 static void readfile (int fd, void *buf, int size);
 
@@ -62,7 +62,7 @@ int main (int argc, char *argv[])
     return (-1);
   }
 
-  fd = open_ckpt_file(restorename);
+  fd = open_ckpt_to_read(restorename);
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     fprintf (stderr, "mtcp_restart: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
@@ -181,7 +181,7 @@ static char first_char(char *filename)
  * @param filename the name of the checkpoint file
  * @return the fd to use
  */
-static int open_ckpt_file(char *filename)
+static int open_ckpt_to_read(char *filename)
 {
     int fd;
     int fds[2];

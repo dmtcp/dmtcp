@@ -1,0 +1,40 @@
+To run a program with checkpointing:
+  1) Run dmtcp_coordinator in a seperate terminal
+  2) Replace each command with "dmtcp_checkpoint [command]"
+  3) To checkpoint type 'c' into dmtcp_coordinator_
+
+./dmtcp_coordinator
+
+./dmtcp_checkpoint a.out
+
+[ In dmtcp_coordinator window:
+    h<return> for help,
+    c<return> for checkpoint,
+    l<return> for list of processes to be checkpointed,
+    k<return> to kill processes to be checkpointed,
+    q<return> to kill processes to be checkpointed and quit the coordinator.]
+
+
+[Edit ./dmtcp_restart_script.sh ]
+./dmtcp_restart_script.sh
+
+============================================
+OPTIONS (Environment Variables):
+  dmtcp_coordinator:
+    DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
+
+  dmtcp_checkpoint / dmtcp_restart:
+    DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT=<coordinator listener port> (default: 7779)
+    DMTCP_GZIP=<NULL: disable compression of checkpoint image> (default:gzip, compression enabled)
+    DMTCP_SIGCKPT=<signal number> (default: SIGUSR2)
+
+============================================
+
+QUICK-NOTES:
+1. A restarted process contains the shared libraries and environment variables that existed prior to checkpoint.
+2. At restart time, one can use the original dmtcp_coordinator or start a new one.
+3. Plans for future: application-defined hook functions
+   a. hookPreCheckpoint()
+   b. hookPostCheckpoint()
+   c. hookPostRestart()
