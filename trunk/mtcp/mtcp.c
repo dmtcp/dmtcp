@@ -163,6 +163,7 @@ static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
 static int verify_total;  // value given by envar
+static pid_t mtcp_ckpt_gzip_child_pid = -1;
 static int volatile checkpointhreadstarting = 0;
 static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
 static MtcpState threadslocked = MTCP_STATE_INITIALIZER;
@@ -391,7 +392,7 @@ int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefau
                                              // ... or else we will end up overwriting that set_tid_address value
   motherofall = thread;
 
-  /* Fork off a thread that will perform the checkpoints from time to time */
+  /* Spawn off a thread that will perform the checkpoints from time to time */
 
   checkpointhreadstarting = 1;
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
@@ -1311,6 +1312,7 @@ static int open_ckpt_dest(void)
                     "not be used.\n");
             return fd;
         } else if (cpid > 0) { /* parent process */
+            mtcp_ckpt_gzip_child_pid = cpid;
             close(fds[0]);
             close(fd);
             return fds[1];
@@ -1467,6 +1469,11 @@ static void checkpointeverything (void)
     mtcp_printf ("mtcp checkpointeverything: error closing checkpoint file: %s\n", strerror (errno));
     mtcp_abort ();
   }
+  if( mtcp_ckpt_gzip_child_pid != -1 ) {
+    if(waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
+	perror("ckeckpointeverything: waitpid");
+    mtcp_ckpt_gzip_child_pid = -1;
+  }  
 
   /* Maybe it's time to verify the checkpoint                                                                 */
   /* If so, exec an mtcp_restore with the temp file (in case temp file is bad, we'll still have the last one) */
@@ -2059,7 +2066,7 @@ skipeol:
 /*																*/
 /********************************************************************************************************************************/
 
-void mtcp_restore_start (int fd, int verify)
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
 
 {
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
@@ -2077,6 +2084,7 @@ void mtcp_restore_start (int fd, int verify)
 
   mtcp_restore_cpfd   = fd;
   mtcp_restore_verify = verify;
+  mtcp_restore_gzip_child_pid = gzip_child_pid;
 
   /* Switch to a stack area that's part of the shareable's memory address range and thus not used by the checkpointed program */
 

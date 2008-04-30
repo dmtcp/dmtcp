@@ -197,6 +197,8 @@ extern __attribute__ ((visibility ("hidden")))
 extern __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify;
 extern __attribute__ ((visibility ("hidden")))
+  pid_t mtcp_restore_gzip_child_pid;
+extern __attribute__ ((visibility ("hidden")))
   void *mtcp_saved_break;
 extern void *mtcp_libc_dl_handle;
 extern void *mtcp_old_dl_sysinfo_0;
@@ -230,7 +232,7 @@ char *mtcp_executable_path(char *filename);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
-void mtcp_restore_start (int fd, int verify);
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid);
 __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void);
 void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);

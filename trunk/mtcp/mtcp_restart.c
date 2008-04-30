@@ -41,13 +41,15 @@ static int open_ckpt_file(char *filename);
 static void readcs (int fd, char cs);
 static void readfile (int fd, void *buf, int size);
 
+static pid_t gzip_child_pid = -1;
+
 int main (int argc, char *argv[])
 
 {
   char magicbuf[MAGIC_LEN], *restorename;
   int fd, restore_size, verify;
   void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify);
+  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid);
 
   if (argc == 2) {
     verify = 0;
@@ -134,7 +136,7 @@ printf("restore_mmap: %x\n", restore_mmap);
     mtcp_maybebpt ();
 #endif
 
-  (*restore_start) (fd, verify);
+  (*restore_start) (fd, verify, gzip_child_pid);
   fprintf (stderr, "mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
@@ -221,6 +223,7 @@ static int open_ckpt_file(char *filename)
         }
         else if(cpid > 0) /* parent process */
         {
+            gzip_child_pid = cpid;            
             close(fd);
             close(fds[1]);
             return fds[0];
