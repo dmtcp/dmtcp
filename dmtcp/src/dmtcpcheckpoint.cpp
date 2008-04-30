@@ -70,7 +70,10 @@ int main ( int argc, char** argv )
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
   setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
-  setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
+  if ( getenv(ENV_VAR_SIGCKPT) != NULL )
+    setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
+  else
+    unsetenv("MTCP_SIGCKPT");
 
   //copy args into new structure
   char** newArgs = new char* [argc];
