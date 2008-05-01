@@ -27,6 +27,7 @@ check1: test/dmtcp1
 		bin/dmtcp_checkpoint test/dmtcp1 ; sleep 5 && \
 		echo "" && echo "*** Restarting Program from Checkpoint (press q<return> to quit)" && echo "" && \
 		bin/dmtcp_restart ckpt_dmtcp1_*.mtcp ) &
+	@ sleep 2
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"
