@@ -19,9 +19,31 @@ dmtcp_noexamples:
 examples:
 	(cd dmtcp/examples && $(MAKE))
 
+check: all check1
+
+check1: test/dmtcp1
+	( rm -f ckpt_dmtcp1* && sleep 5 && \
+		echo "" && echo "*** Starting Program" && echo "" && \
+		bin/dmtcp_checkpoint test/dmtcp1 ; sleep 5 && \
+		echo "" && echo "*** Restarting Program from Checkpoint (press q<return> to quit)" && echo "" && \
+		bin/dmtcp_restart ckpt_dmtcp1_*.mtcp ) &
+	@ echo ""
+	@ echo "*** Type:"
+	@ echo "***       h<return> for Help (optional)"
+	@ echo "***       c<return> to Checkpoint"
+	@ echo "***       k<return> to Kill and observe the Restart"
+	@ echo "***       q<return> to Quit"
+	@ echo ""
+	@ bin/dmtcp_coordinator
+
+test/dmtcp1:
+	gcc -o test/dmtcp1 test/dmtcp1.c
+
 clean:
 	(cd mtcp && $(MAKE) clean)
 	(cd dmtcp && $(MAKE) clean)
+	cd test && rm -f dmtcp?
+	rm -f ckpt_* dmtcp_restart_script.sh
 
 distclean:
 	(cd mtcp && $(MAKE) distclean)
