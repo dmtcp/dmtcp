@@ -29,12 +29,14 @@ OPTIONS (Environment Variables):
     DMTCP_GZIP=<NULL: disable compression of checkpoint image> (default:gzip, compression enabled)
     DMTCP_SIGCKPT=<signal number> (default: SIGUSR2)
 
+ Application-defined hook functions: called by DMTCP if defined 
+   User code containing these functions must be compiled with -Wl,-export-dynamic under gcc/g++ 
+   a. dmtcpHookPreCheckpoint()
+   b. dmtcpHookPostCheckpoint()
+   c. dmtcpHookRestart()
+
 ============================================
 
 QUICK-NOTES:
 1. A restarted process contains the shared libraries and environment variables that existed prior to checkpoint.
 2. At restart time, one can use the original dmtcp_coordinator or start a new one.
-3. Plans for future: application-defined hook functions
-   a. hookPreCheckpoint()
-   b. hookPostCheckpoint()
-   c. hookPostRestart()

@@ -63,6 +63,19 @@ void * mymalloc(size_t x) {
 }
 #endif
 
+void dmtcpHookPreCheckpoint()
+{
+  printf("\ntestdmtcp.c: dmtcpHookPreCheckpoint: about to checkpoint\n");
+}
+void dmtcpHookPostCheckpoint()
+{
+  printf("\ntestdmtcp.c: dmtcpHookPostCheckpoint: done checkpointing\n");
+}
+void dmtcpHookRestart()
+{
+  printf("\ntestdmtcp.c: dmtcpHookRestart: restarting\n");
+}  
+
 int main ()
 
 {
