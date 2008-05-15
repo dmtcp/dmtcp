@@ -25,17 +25,20 @@
 
 void mtcp_check_nscd(void) {
   int fd = open("/var/run/nscd", O_RDONLY);
+  static int isWarned = 0;
 
   if (fd == -1)
     return;  /* Good news.  If it doesn't exist, it can't be enabled.  :-) */
   else if (-1 == close(fd))
     { perror("close"); exit(1); }
-
-  printf("\n\n\nWARNING:  /var/run/nscd exists\n"
-  "  MTCP currently might not correctly restart when nscd is running.\n"
-  "  Please test checkpoint/restart on your machine to see if it works.\n"
-  "  If necessary, turn off nscd.  For example:  /etc/init.d/nscd --stop\n"
-  "  We will fix compatibility with nscd in a future version.\n\n\n\n");
+  if (isWarned == 0){
+    isWarned = 1;
+    printf("\n\n\nWARNING:  /var/run/nscd exists\n"
+    "  MTCP currently might not correctly restart when nscd is running.\n"
+    "  Please test checkpoint/restart on your machine to see if it works.\n"
+    "  If necessary, turn off nscd.  For example:  /etc/init.d/nscd --stop\n"
+    "  We will fix compatibility with nscd in a future version.\n\n\n\n");
+  } 
 }
 
 #ifdef STANDALONE
