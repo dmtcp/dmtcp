@@ -1,11 +1,14 @@
 To run a program with checkpointing:
   1) Run dmtcp_coordinator in a seperate terminal
-  2) Replace each command with "dmtcp_checkpoint [command]"
-  3) To checkpoint type 'c' into dmtcp_coordinator_
+        
+        ./dmtcp_coordinator
+        
+  2) In seperate terminal(s), replace each command(s) with "dmtcp_checkpoint [command]"
+        
+        ./dmtcp_checkpoint a.out
+        
+  3) To checkpoint type 'c' into dmtcp_coordinator
 
-./dmtcp_coordinator
-
-./dmtcp_checkpoint a.out
 
 [ In dmtcp_coordinator window:
     h<return> for help,
