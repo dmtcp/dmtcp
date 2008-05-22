@@ -450,11 +450,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "#Suggestions for editing:\n"
             "#  1. For those processes executing on the localhost, remove 'ssh <hostname>' from the start of the line. \n"
             "#  2. If using ssh, verify that ssh does not require passwords or other prompts.\n"
-            "#  3. Check if the dmtcp_restart command is in your path; if not, correct it.\n"
+            "#  3. Verify that the dmtcp_restart command is in your path on all hosts.\n"
             "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the dmtcp_coordinator.\n"
             "#     If necessary, add 'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
             "#  5. Remove the '&' from a line if that process reads STDIN.\n"
             "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
+            "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n"
             "\n"
             "\n"
              );
@@ -510,7 +511,7 @@ int main ( int argc, char** argv )
   JASSERT_STDERR <<
     "dmtcp_coordinator starting..." << 
     "\n    Port: " << port <<
-    "\n    Checkpoint Interval: " << ( theCheckpointInterval > 0 ? "" + theCheckpointInterval : "Not Periodic" ) <<
+    "\n    Checkpoint Interval: " << ( theCheckpointInterval > 0 ? "" + theCheckpointInterval : "0 (checkpoint manually instead)" ) <<
     "\n'dmtcp_coordinator -h' for help." <<
     "\n\n";
 

@@ -175,7 +175,6 @@ static inline int atomic_setif_int (int volatile *loc, int newval, int oldval)
 }
 
 static inline int atomic_setif_ptr (void *volatile *loc, void *newval, void *oldval)
-
 {
   char rc;
 
@@ -183,8 +182,9 @@ static inline int atomic_setif_ptr (void *volatile *loc, void *newval, void *old
   return (rc);
 }
 
+// gcc-3.4 issues a warning that noreturn function returns, if declared noreturn
+// static void inline mtcp_abort (void) __attribute__ ((noreturn));
 static void inline mtcp_abort (void)
-
 {
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
 }

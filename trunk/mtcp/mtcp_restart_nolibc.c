@@ -165,7 +165,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   mtcp_sys_close (mtcp_restore_cpfd);
   mtcp_restore_cpfd = -1;
   DPRINTF (("mtcp restoreverything*: waiting on gzip_child_pid: %d\n", mtcp_restore_gzip_child_pid ));
-  // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wiat4()
+  // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
   if( mtcp_restore_gzip_child_pid != -1 ) {
     if( mtcp_sys_wait4(mtcp_restore_gzip_child_pid , NULL, 0, NULL ) == -1 )
         DPRINTF (("mtcp restoreverything*: error wait4: errno: %d", mtcp_sys_errno));
@@ -241,7 +241,7 @@ static void readfiledescrs (void)
       continue;
     }
 
-    /* Move it to the original fd if it didn't coincientally open there */
+    /* Move it to the original fd if it didn't coincidentally open there */
 
     if (tempfd != fdnum) {
       if (mtcp_sys_dup2 (tempfd, fdnum) < 0) {
@@ -260,24 +260,44 @@ static void readfiledescrs (void)
   }
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Read memory area descriptors from checkpoint file										*/
-/*  Read memory area contents and/or mmap original file										*/
-/*																*/
-/********************************************************************************************************************************/
+/**************************************************************************/
+/*									  */
+/*  Read memory area descriptors from checkpoint file			  */
+/*  Read memory area contents and/or mmap original file			  */
+/*  Four cases: MAP_ANONYMOUS (if file /proc/.../maps reports file,	  */
+/*		   handle it as if MAP_PRIVATE and not MAP_ANONYMOUS,	  */
+/*		   but restore from ckpt image: no copy-on-write);	  */
+/*		 private, currently assumes backing file exists		  */
+/*               shared, but need to recreate file;			  */
+/*		 shared and file currently exists			  */
+/*		   (if writeable by us and memory map has write		  */
+/*		    protection, then write to it from checkpoint file;	  */
+/*		    else skip ckpt image and map current data of file)	  */ 
+/*		 NOTE:  Linux option MAP_SHARED|MAP_ANONYMOUS		  */
+/*		    currently not supported; result is undefined.	  */
+/*		    If there is an important use case, we will fix this.  */
+/*		 (NOTE:  mmap requires that if MAP_ANONYMOUS		  */
+/*		   was not set, then mmap must specify a backing store.	  */
+/*		   Further, a reference by mmap constitutes a reference	  */
+/*		   to the file, and so the file cannot truly be deleted	  */
+/*		   until the process no longer maps it.  So, if we don't  */
+/*		   see the file on restart and there is no MAP_ANONYMOUS, */
+/*		   then we have a responsibility to recreate the file.	  */
+/*		   MAP_ANONYMOUS is not currently POSIX.)		  */
+/*									  */
+/**************************************************************************/
 
 static void readmemoryareas (void)
 
 {
   Area area;
   char cstype;
-  int flags, imagefd;
+  int flags, imagefd, rc;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
 
   while (1) {
-    int try_overwriting_existing_segment = 0;
+    int try_skipping_existing_segment = 0;
 
     readfile (&cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
@@ -287,14 +307,22 @@ static void readmemoryareas (void)
     }
     readfile (&area, sizeof area);
 
-    /* For anonymous areas, the checkpoint file contains the memory contents directly */
-    /* So mmap an anonymous area and read the file into it                            */
+    if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED))
+      mtcp_printf("\n\n*** WARNING:  Next area specifies MAP_ANONYMOUS"
+		  "  and MAP_SHARED.\n"
+		  "*** Turning off MAP_ANONYMOUS and hoping for best.\n\n");
+
+    /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):		     */
+    /* For anonymous areas, the checkpoint file contains the memory contents */
+    /* directly.  So mmap an anonymous area and read the file into it.       */
+    /* If file exists, turn off MAP_ANONYMOUS: standard private map	     */
 
     if (area.flags & MAP_ANONYMOUS) {
 
-      /* If there is a filename there, though, pretend like we're mapping to it so a */
-      /* new /proc/self/maps will show a filename there like with original process.  */
-      /* We only need read-only access because we don't want to ever write the file. */
+      /* If there is a filename there, though, pretend like we're mapping    */
+      /* to it so a new /proc/self/maps will show a filename there like with */
+      /* original process.  We only need read-only access because we don't   */
+      /* want to ever write the file.					     */
 
       imagefd = 0;
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
@@ -308,21 +336,22 @@ static void readmemoryareas (void)
       if (area.flags & MAP_ANONYMOUS) {
         DPRINTF (("mtcp restoreverything*: restoring anonymous area 0x%X at %p\n", area.size, area.addr));
       } else {
-        DPRINTF (("mtcp restoreverything*: restoring anonymous area 0x%X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
+        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
-	try_overwriting_existing_segment = 1;
+
+	try_skipping_existing_segment = 1;
       }
-      if (mmappedat != area.addr && !try_overwriting_existing_segment) {
+      if (mmappedat != area.addr && !try_skipping_existing_segment) {
         mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort ();
       }
 
       /* Read saved area contents */
       readcs (CS_AREACONTENTS);
-      if (try_overwriting_existing_segment)
+      if (try_skipping_existing_segment)
 #ifdef BUG_64BIT_2_6_9
         readfile (area.addr, area.size);
 #else
@@ -342,11 +371,12 @@ static void readmemoryareas (void)
       if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
     }
 
+    /* CASE NOT MAP_ANONYMOUS:						     */
     /* Otherwise, we mmap the original file contents to the area */
 
     else {
       DPRINTF (("mtcp restoreverything*: restoring mapped area 0x%X at %p to %s + %X\n", area.size, area.addr, area.name, area.offset));
-      flags = 0;                                      // see how to open it based on the access required
+      flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
       // O_WRONLY = 01
       // O_RDWR   = 02
@@ -358,21 +388,26 @@ static void readmemoryareas (void)
  
       imagefd = mtcp_sys_open (area.name, flags, 0);  // open it
 
+    /* CASE NOT MAP_ANONYMOUS, MAP_SHARED, backing file doesn't exist:	     */
       // If the shared file doesn't exist on the disk, we try to create it
       if (imagefd < 0 && (area.prot & MAP_SHARED) && mtcp_sys_errno == ENOENT ){
 
         DPRINTF(("mtcp restoreverything*: Shared file %s not found, Creating new\n",area.name));
 
+	/* Dangerous for DMTCP:  Since file is created with O_CREAT,    */
+	/* hopefully, a second process should ignore O_CREAT and just     */
+	/*  duplicate the work of the first process, with no ill effect.*/
         imagefd = open_shared_file(area.name);
 
-        // create a temp area in the memory exactly of the size of the shared file.
-        // we read the contents of the shared file from checkpoint file(.mtcp) into
-        // system memory. From system memory, the contents are written back to newly
-        // created replica of the shared file (at the same path where it used to exist
-        // before checkpoint.
+        // create a temp area in the memory exactly of the size of the
+        // shared file.  We read the contents of the shared file from
+	// checkpoint file(.mtcp) into system memory. From system memory,
+	// the contents are written back to newly created replica of the shared
+	// file (at the same path where it used to exist before checkpoint).
         mmappedat = mtcp_safemmap (area.addr, area.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, imagefd, area.offset);
         if (mmappedat == MAP_FAILED) {
-          mtcp_printf ("mtcp_restart: error %d mapping temp memory at %p\n", mtcp_sys_errno, area.addr);
+          mtcp_printf ("mtcp_restart: error %d mapping temp memory at %p\n",
+		       mtcp_sys_errno, area.addr);
           mtcp_abort ();
         }
 
@@ -381,14 +416,16 @@ static void readmemoryareas (void)
         areaContentsAlreadyRead = 1;
 
         if ( mtcp_sys_write(imagefd, area.addr,area.size) < 0 ){
-          mtcp_printf ("mtcp_restart: error %d creating mmap file %s\n", mtcp_sys_errno, area.name);
+          mtcp_printf ("mtcp_restart: error %d creating mmap file %s\n",
+		       mtcp_sys_errno, area.name);
           mtcp_abort();
         }
 
         // unmap the temp memory allocated earlier
-        mmappedat = mtcp_sys_munmap (area.addr, area.size);
-        if (mmappedat == -1) {
-          mtcp_printf ("mtcp_restart: error %d unmapping temp memory at %p\n", mtcp_sys_errno, area.addr);
+        rc = mtcp_sys_munmap (area.addr, area.size);
+        if (rc == -1) {
+          mtcp_printf ("mtcp_restart: error %d unmapping temp memory at %p\n",
+		       mtcp_sys_errno, area.addr);
           mtcp_abort ();
         }
           
@@ -398,36 +435,79 @@ static void readmemoryareas (void)
         // now open the file again, this time with appropriate flags
         imagefd = mtcp_sys_open (area.name, flags, 0);
         if (imagefd < 0){
-          mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
+          mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n",
+		       mtcp_sys_errno, area.name);
           mtcp_abort ();
         }
       }
 
+    /* CASE NOT MAP_ANONYMOUS, MAP_PRIVATE, backing file doesn't exist:	     */
       if (imagefd < 0) {
-        mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n", mtcp_sys_errno, area.name);
+        mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n",
+		     mtcp_sys_errno, area.name);
         mtcp_abort ();
       }
       
+    /* CASE NOT MAP_ANONYMOUS, MAP_SHARED or MAP_PRIVATE,		     */
+    /*      backing file now exists:					     */
       // Map the shared file into memory
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        mtcp_printf ("mtcp_restart: error %d mapping %s offset %d at %p\n", mtcp_sys_errno, area.name, area.offset, area.addr);
+        mtcp_printf ("mtcp_restart: error %d mapping %s offset %d at %p\n",
+		     mtcp_sys_errno, area.name, area.offset, area.addr);
         mtcp_abort ();
       }
       if (mmappedat != area.addr) {
-        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n",
+		     area.addr, mmappedat);
         mtcp_abort ();
       }
-      mtcp_sys_close (imagefd);                       // don't leave a dangling fd in the way of other stuff
+      mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 
       if ( areaContentsAlreadyRead == 0 ){
-        // If we haven't created the file (i.e. the shared file does exists when this process wants
-        // map it) we want to skip the the checkpoint file pointer to move to the end of the shared
-        // file data. We can not use lseek() function as it can fail if we are using a pipe to read
-        // the contents of checkpoint file (we might be using gzip to uncompress checkpoint file on
-        // the fly). Thus we have to read the contents using the following code
+        // If we haven't created the file (i.e. the shared file does exist
+        // when this process wants to map it) we want to skip the checkpoint
+        // file pointer and move to the end of the shared file data. We can not
+        // use lseek() function as it can fail if we are using a pipe to read
+        // the contents of checkpoint file (we might be using gzip to
+        // uncompress checkpoint file on the fly). Thus we have to read or
+        // skip contents using the following code.
+
         readcs (CS_AREACONTENTS);
-        readfile (area.addr, area.size);
+	// If we have write permission or execute permission on file,
+	//   then we use data in checkpoint image,
+	// If MMAP_SHARED, this reverts the file to data at time of checkpoint.
+	// In the case of DMTCP, multiple processes may duplicate this work.
+	// NOTE: man 2 access: access  may  not  work  correctly on NFS file
+	//   systems with UID mapping enabled, because UID mapping is done
+	//   on the server and hidden from the client, which checks permissions.
+	/* if (flags == O_WRONLY || flags == O_RDWR) */
+	if ( ( (imagefd = mtcp_sys_open(area.name, O_WRONLY, 0)) >= 0
+	       && ( (flags == O_WRONLY || flags == O_RDWR) ) )
+	     || (0 == mtcp_sys_access(area.name, X_OK)) ) {
+           mtcp_printf ("mtcp_restart: mapping %s with data from ckpt image\n",
+			area.name);
+          readfile (area.addr, area.size);
+	}
+	// If we have no write permission on file,
+	//   then we should use data from most recent version of file.
+	// Because Linux library files have execute permission,
+	//   the dynamic libraries from time of checkpoint will be used.
+	else {
+           mtcp_printf ("mtcp_restart: nmapping %s with data"
+			" from current file (post-ckpt)\n", area.name);
+#ifdef BUG_64BIT_2_6_9
+	  char tmpbuf[4];
+	  int i;
+	  /* slow, but rare case; and only for old Linux 2.6.9 */
+	  for ( i = 0; i < area.size / 4; i++ )
+            readfile (tmpbuf, 4);
+#else
+          skipfile (area.size);
+#endif
+	}
+	if (imagefd >= 0)
+          mtcp_sys_close (imagefd); // don't leave dangling fd
       }
     }
   }
@@ -605,7 +685,7 @@ static int open_shared_file(char* fileName)
     currentFolder[i] = fileName[i];
   }
 
-  /* Create the file*/
+  /* Create the file */
   fd = mtcp_sys_open(fileName,O_CREAT|O_RDWR,S_IRWXU);
   if (fd<0){
     mtcp_printf("mtcp_restart open_shared_file: unable to create file %s\n", fileName);
@@ -613,5 +693,4 @@ static int open_shared_file(char* fileName)
   }
   return fd;
 }
-
 #endif

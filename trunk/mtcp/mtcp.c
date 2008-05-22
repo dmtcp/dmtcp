@@ -51,7 +51,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <ucontext.h>
-#include <sys/types.h>     // for gettid, tkill
+#include <sys/types.h>     // for gettid, tkill, waitpid
+#include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
 
 #include "mtcp_internal.h"
@@ -245,11 +246,11 @@ __attribute__ ((weak)) void dmtcpHookPostCheckpoint( void ) { }
 __attribute__ ((weak)) void dmtcpHookRestart( void ) { }
 
 
-int mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
+void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
 {
   char *p, *tmp, *endp;
   pid_t tls_pid, tls_tid;
-  int len, mapsfd;
+  int len;
   Thread *thread;
   time_t nextalarm, now;
   mtcp_segreg_t TLSSEGREG;
@@ -736,7 +737,6 @@ static void setupthread (Thread *thread)
 
 {
   Thread *parent;
-  void (*oldhandler) (int signum);
 
   /* Save the thread's ID number and put in threads list so we can look it up                                    */
   /* Set state to disable checkpointing so checkpointer won't race between adding to list and setting up handler */
@@ -1495,7 +1495,7 @@ static void writefiledescrs (int fd)
 
 {
   char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
-  int doff, dsiz, fddir, fdnum, i, linklen, nents, rc;
+  int doff, dsiz, fddir, fdnum, linklen, rc;
   off_t offset;
   struct dirent *dent;
   struct Stat lstatbuf, statbuf;

@@ -1,16 +1,14 @@
 #include <stdio.h>
-/* must compile with -Wl,-export-dynamic for the hook functions to be visible */
-void dmtcpHookPreCheckpoint()
-{
-  printf("\ndmtcp1.c: dmtcpHookPreCheckpoint: about to checkpoint\n");
+
+/* Compile with  -Wl,--export-dynamic to make these functions visible. */
+void dmtcpHookPreCheckpoint() {
+  printf("\n%s: %s: about to checkpoint\n", __FILE__, __func__);
 }
-void dmtcpHookPostCheckpoint()
-{
-  printf("\ndmtcp1.c: dmtcpHookPostCheckpoint: done checkpointing\n");
+void dmtcpHookPostCheckpoint() {
+  printf("\n%s: %s: done checkpointing\n", __FILE__, __func__);
 }
-void dmtcpHookRestart()
-{
-  printf("\ndmtcp1.c: dmtcpHookRestart: restarting\n");
+void dmtcpHookRestart() {
+  printf("\n%s: %s: restarting\n", __FILE__, __func__);
 }
 
 int main(int argc, char* argv[])

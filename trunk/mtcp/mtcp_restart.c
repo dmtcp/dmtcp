@@ -27,6 +27,8 @@
 /*																*/
 /********************************************************************************************************************************/
 
+#include <unistd.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -51,6 +53,12 @@ int main (int argc, char *argv[])
   void *restore_begin, *restore_mmap;
   void (*restore_start) (int fd, int verify, pid_t gzip_child_pid);
 
+  if (getuid() == 0 || geteuid() == 0) {
+    printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
+	   "If you still want to do this, modify %s:%d and re-compile.\n",
+	   __FILE__, __LINE__);
+    abort();
+  }
   if (argc == 2) {
     verify = 0;
     restorename = argv[1];
@@ -89,7 +97,6 @@ int main (int argc, char *argv[])
 #ifndef _XOPEN_UNIX
     printf(stderr, "mtcp_restart: Does mmap here support MAP_FIXED?\n");
 #endif
-printf("restore_mmap: %x\n", restore_mmap);
     if (mtcp_sys_errno != EBUSY) {
       fprintf (stderr, "mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();

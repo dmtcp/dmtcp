@@ -29,7 +29,7 @@
 ##																##
 ##################################################################################################################################
 
-MTCP_VERSION = 65
+MTCP_VERSION = 66
 
 CC = gcc
 #Currently on many archs we cant compile without -O0
@@ -73,6 +73,10 @@ testmtcp4: testmtcp4.c mtcp.so
 
 testmtcp5: testmtcp5.c mtcp.so
 	${CC} $(CFLAGS) -o testmtcp5 testmtcp5.c mtcp.so 
+
+testmtcp6: testmtcp6.c mtcp.so
+	${CC} $(CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c mtcp.so \
+	  -lreadline -lhistory -lcurses
 
 threadtest: threadtest.c
 	${CC} $(CFLAGS) -o threadtest threadtest.c
