@@ -1,13 +1,13 @@
 To run a program with checkpointing:
-  1) Run dmtcp_coordinator in a seperate terminal
+  1) Run dmtcp_coordinator in a separate terminal/window
         
         ./dmtcp_coordinator
         
-  2) In seperate terminal(s), replace each command(s) with "dmtcp_checkpoint [command]"
+  2) In separate terminal(s), replace each command(s) with "dmtcp_checkpoint [command]"
         
         ./dmtcp_checkpoint a.out
-        
-  3) To checkpoint type 'c' into dmtcp_coordinator
+
+  3) To checkpoint, type 'c' into dmtcp_coordinator
 
 
 [ In dmtcp_coordinator window:
@@ -29,11 +29,13 @@ OPTIONS (Environment Variables):
   dmtcp_checkpoint / dmtcp_restart:
     DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
-    DMTCP_GZIP=<NULL: disable compression of checkpoint image> (default:gzip, compression enabled)
+    DMTCP_GZIP=<NULL: disable compression of checkpoint image>
+					 (default:gzip, compression enabled)
     DMTCP_SIGCKPT=<signal number> (default: SIGUSR2)
 
  Application-defined hook functions: called by DMTCP if defined 
-   User code containing these functions must be compiled with -Wl,-export-dynamic under gcc/g++ 
+   User code containing these functions must be compiled with
+	 -Wl,-export-dynamic under gcc/g++ or they won't be invoked.
    a. dmtcpHookPreCheckpoint()
    b. dmtcpHookPostCheckpoint()
    c. dmtcpHookRestart()
@@ -41,5 +43,15 @@ OPTIONS (Environment Variables):
 ============================================
 
 QUICK-NOTES:
-1. A restarted process contains the shared libraries and environment variables that existed prior to checkpoint.
-2. At restart time, one can use the original dmtcp_coordinator or start a new one.
+1. A restarted process contains the shared libraries and environment variables
+   that existed prior to checkpoint.
+2. At restart time, one can use the original dmtcp_coordinator or start a
+   new one.
+3. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
+   for specific handling of mapping of memory objects via mmap:
+    MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
+   Heuristically, if a memory area is mapped to a file for which user has
+     only read permission, then restarted process uses most recent file.
+     If a memory area is mapped to a file with write or execute permission,
+     the pre-checkpoint memory contents is copied back into memory area.
+     pre-checkpoint

@@ -22,12 +22,26 @@ examples:
 check: all check1
 
 check1: test/dmtcp1
-	( rm -f ckpt_dmtcp1* && sleep 5 && \
+	( rm -f ckpt_dmtcp1* && sleep 10 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
 		bin/dmtcp_checkpoint test/dmtcp1 ; sleep 5 && \
 		echo "" && echo "*** Restarting Program from Checkpoint (press q<return> to quit)" && echo "" && \
 		bin/dmtcp_restart ckpt_dmtcp1_*.mtcp ) &
-	@ sleep 2
+	@ echo ""
+	@ echo "*** Type:"
+	@ echo "***       h<return> for Help (optional)"
+	@ echo "***       c<return> to Checkpoint"
+	@ echo "***       k<return> to Kill and observe the Restart"
+	@ echo "***       q<return> to Quit"
+	@ echo ""
+	@ bin/dmtcp_coordinator
+
+check2: test/readline
+	( rm -f ckpt_readline* && sleep 10 && \
+		echo "" && echo "*** Starting Program" && echo "" && \
+		xterm -e $$PWD/bin/dmtcp_checkpoint test/readline ; sleep 5 && \
+		echo "" && echo "*** Restarting Program from Checkpoint (press q<return> to quit)" && echo "" && \
+		xterm -e $$PWD/bin/dmtcp_restart ckpt_readline_*.mtcp ) &
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"
@@ -39,6 +53,8 @@ check1: test/dmtcp1
 
 test/dmtcp1:
 	gcc -o test/dmtcp1 test/dmtcp1.c
+test/readline:
+	gcc -o test/readline -Wl,--export-dynamic test/readline.c -lreadline -lhistory -lcurses
 
 clean:
 	(cd mtcp && $(MAKE) clean)
