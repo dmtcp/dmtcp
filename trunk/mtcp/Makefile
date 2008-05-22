@@ -80,18 +80,20 @@ threadtest: threadtest.c
 # This is the command-line utility to restore a process
 
 
-mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
-	${CC} $(CFLAGS) -static -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-		mtcp_safestat.o mtcp_state.o mtcp_safe_open.o
+mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+	${CC} $(CFLAGS) -static \
+    -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
+    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
+    mtcp_safe_open.o
 
 
 # mtcp_restart.so is used only by dmtcp --- not by mtcp
-mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.c mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 	${CC} $(CFLAGS) -shared \
 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
-	 mtcp_safe_open.c
+	 mtcp_safe_open.o
 
 # This is the shareable that a user links with the application
 
@@ -163,7 +165,7 @@ mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
 mtcp_executable_path.o: mtcp_executable_path.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_executable_path.o mtcp_executable_path.c
 
-mtcp_safe_open.o: mtcp_safe_open.c
+mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
