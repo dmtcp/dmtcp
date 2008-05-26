@@ -3,6 +3,10 @@ To install, use:
   make
   make check [Optional]
 
+"make check2", and "make check3" will exercise further examples in the
+test subdirectory:
+  check2: readline.c
+  check3: shared-memory.c
 
 The code is still experimental, and so we don't currently offer a system-wide
 installation.  It will install in the build directory.
@@ -27,18 +31,9 @@ The file dmtcp/dmtcp/INSTALL also exists.  A brief overview follows.
 The general methodology is:
   ./dmtcp_coordinator [in one window: type h to the coordinator to see commands]
   ./dmtcp_checkpoint a.out <args,...>
-Any child processes, remote processes via system("ssh ...), etc., will
-all be checkpointed upon requrest to the dmtcp_coordinator.
-After a checkpoint, the dmtcp_coordinator will create a script,
-dmtcp_restart_script.sh, on the same host as the coodrinator that will go
-to all the *.mtcp checkpoint files on the
-remote hosts and restart those processes on those original remote hosts.
-Edit dmtcp_restart, and copy the *.mtcp checkpoint files if you want the
-checkpoint files to restart on new hosts.  Finally, when you are ready:
-  # First, make sure dmtcp_restart is in your path on all hosts to be used,
-  #  or edit dmtcp_restart_script.sh to provide absolute pathnames.
-  ./dmtcp_coordinator  [only necessary if the original dmtcp_coordinator died]
-  ./dmtcp_restart_script.sh
+
 Note that files /tmp/jassertlog.* are created with debugging information.
 See dmtcp/dmtcp/README for how to compile with debugging information
 and other options.
+
+See the file "QUICK-START" for further information on using DMTCP.
