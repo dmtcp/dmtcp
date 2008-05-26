@@ -1,13 +1,31 @@
+    Overview of DMTCP (Distributed MultiThreaded Checkpointing)
+
+Concepts:
+DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
+a distributed computation.  It works under Linux, with no modifications
+to the Linux kernel nor to the application binaries.  It can be used by
+unprivileged users (no root privilege needed).  One can later restart
+from a checkpoint, or even migrate the processes by moving the checkpoint
+files to another host prior to restarting.
+
+A DMTCP coordinator process is started on one host.  Application binaries
+are started under the dmtcp_checkpoint command, causing them to connect
+to the coordinator upon startup.  As threads are spawned, child processes
+are forked, remote processes are spawned via ssh, libraries are dynamically
+loaded, DMTCP transparently and automatically tracks them.
+
+
 To run a program with checkpointing:
   1) Run dmtcp_coordinator in a separate terminal/window
         
         ./dmtcp_coordinator
         
-  2) In separate terminal(s), replace each command(s) with "dmtcp_checkpoint [command]"
+  2) In separate terminal(s), replace each command(s)
+     with "dmtcp_checkpoint [command]"
         
         ./dmtcp_checkpoint a.out
 
-  3) To checkpoint, type 'c' into dmtcp_coordinator
+  3) To checkpoint, type 'c'<return> into dmtcp_coordinator
 
 
 [ In dmtcp_coordinator window:
@@ -18,13 +36,18 @@ To run a program with checkpointing:
     q<return> to kill processes to be checkpointed and quit the coordinator.]
 
 
+Creating a checkpoint causes the dmtcp_coordinator to write
+a script, dmtcp_restart_script.sh, along with two checkpoint files
+(type .mtcp and .dmtcp) for each client process.
+The simplest way to restart a previously checkpointed computation is:
 [Edit ./dmtcp_restart_script.sh ]
-./dmtcp_restart_script.sh
+        ./dmtcp_restart_script.sh
 
 ============================================
 OPTIONS (Environment Variables):
   dmtcp_coordinator:
     DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
+    DMTCP_PORT=<coordinator listener port> (default: 7779)
 
   dmtcp_checkpoint / dmtcp_restart:
     DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
@@ -36,9 +59,9 @@ OPTIONS (Environment Variables):
  Application-defined hook functions: called by DMTCP if defined 
    User code containing these functions must be compiled with
 	 -Wl,-export-dynamic under gcc/g++ or they won't be invoked.
-   a. dmtcpHookPreCheckpoint()
-   b. dmtcpHookPostCheckpoint()
-   c. dmtcpHookRestart()
+   void dmtcpHookPreCheckpoint(void);
+   void dmtcpHookPostCheckpoint(void);
+   void dmtcpHookRestart(void);
 
 ============================================
 
@@ -47,11 +70,16 @@ QUICK-NOTES:
    that existed prior to checkpoint.
 2. At restart time, one can use the original dmtcp_coordinator or start a
    new one.
-3. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
+3. DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
+   a distributed computation.  It works under Linux, with no modifications
+   to the Linux kernel nor to the application binaries.  It can be used by
+   unprivileged users (no root privilege needed).  One can later restart
+   from a checkpoint, or even migrate the processes by moving the checkpoint
+   files to another host prior to restarting.
+4. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
    for specific handling of mapping of memory objects via mmap:
     MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
    Heuristically, if a memory area is mapped to a file for which user has
      only read permission, then restarted process uses most recent file.
      If a memory area is mapped to a file with write or execute permission,
      the pre-checkpoint memory contents is copied back into memory area.
-     pre-checkpoint
