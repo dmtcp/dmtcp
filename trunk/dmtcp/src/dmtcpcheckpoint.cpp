@@ -29,6 +29,21 @@
 #include "constants.h"
 #include <errno.h>
 
+static const char* theUsage = 
+  "USAGE: dmtcp_checkpoint <command> [args...]\n"
+  "OPTIONS (Environment variables):\n"
+  "  - DMTCP_HOST=<hostname where coordinator is running> (default: localhost) \n"
+  "  - DMTCP_PORT=<coordinator listener port> (default: 7779) \n"
+  "  - DMTCP_GZIP=<NULL: disable compression of checkpoint image> \n"
+  "               (default:gzip, compression enabled) \n"
+  "  - DMTCP_SIGCKPT=<signal number> (default: SIGUSR2) \n"
+;
+
+static const char* theExecFailedMsg = 
+  "ERROR: Failed to exec(\"%s\"): %s\n"
+  "Perhaps it is not in your $PATH? \n"
+;
+
 static std::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
@@ -47,7 +62,10 @@ int main ( int argc, char** argv )
 
   if ( ckptDir == NULL ) ckptDir = ".";
 
-  JASSERT ( argc >= 2 ) ( argc ).Text ( "Usage: dmtcp_checkpoint ./cmd ..." );
+  if( argc < 2 || strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
+    fprintf(stderr, theUsage);
+    return 1;
+  }
 
   if ( strncmp(argv[1],"--ssh-slave", strlen("--ssh-slave")) == 0 )
   {
@@ -85,7 +103,7 @@ int main ( int argc, char** argv )
   execvp ( newArgs[0], newArgs );
 
   //should be unreachable
-  JASSERT ( false ) ( newArgs[0] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
+  fprintf(stderr, theExecFailedMsg, newArgs[0], JASSERT_ERRNO);
 
   return -1;
 }
