@@ -66,20 +66,31 @@ OPTIONS (Environment Variables):
 ============================================
 
 QUICK-NOTES:
-1. A restarted process contains the shared libraries and environment variables
-   that existed prior to checkpoint.
-2. At restart time, one can use the original dmtcp_coordinator or start a
-   new one.
-3. DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
-   a distributed computation.  It works under Linux, with no modifications
-   to the Linux kernel nor to the application binaries.  It can be used by
-   unprivileged users (no root privilege needed).  One can later restart
-   from a checkpoint, or even migrate the processes by moving the checkpoint
-   files to another host prior to restarting.
+1. A restarted process sees the shared libraries and environment variables
+   that existed prior to checkpoint.  These are contained in the
+    .mtcp checkpoint file.
+2. At restart time, one can choose either to use the original dmtcp_coordinator
+   or else to start a new coordinator.  Each process restarted by the
+   dmtcp_restart command needs to know the host and port used by
+   dmtcp_coordinator.  These default to localhost and port 7779.
+   Setting DMTCP_PORT in the environment seen by the three commands:
+     dmtcp_coordinator, dmtcp_checkpoint and dmtcp_restart
+   will override the default port.  Similarly, setting DMTCP_HOST
+   for dmtcp_checkpoint and dmtcp_restart is needed if they start on
+   a different host than that of the coordinator.
+3. It often works to migrate processes by moving the checkpoint files
+   to another host and editing dmtcp_checkpoint_restart.sh prior to restarting.
+   Whether it works is affected by how different are the corresponding
+   versions for the kernel and glibc.
 4. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
    for specific handling of mapping of memory objects via mmap:
     MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
    Heuristically, if a memory area is mapped to a file for which user has
-     only read permission, then restarted process uses most recent file.
+     only read permission, then a restarted process uses the most recent file.
      If a memory area is mapped to a file with write or execute permission,
      the pre-checkpoint memory contents is copied back into memory area.
+5. If your application has only a single process (single- or multi-threaded),
+   then we recommend that you directly use the software in the MTCP
+   subdirectory.  You do not need the generality of DMTCP.  We would be 
+   pleased to provide advice on bundling MTCP.
+
