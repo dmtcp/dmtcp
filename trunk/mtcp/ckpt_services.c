@@ -72,7 +72,7 @@ static void send_message_file(FILE* file,MESSAGE_TYPE type,unsigned int length,c
  * opposite of send_message_file
  * 
  * @param file (input) file to read message from
- * @return a structure containing the recieved message
+ * @return a structure containing the received message
  */
 static MESSAGE recv_message_file(FILE* file){
   MESSAGE m;
@@ -99,7 +99,7 @@ static void free_message(MESSAGE m){
 }
 
 /**
- * Calulate the length of a (char*)0 terminated array of char*'s 
+ * Calculate the length of a (char*)0 terminated array of char*'s 
  * 
  * @param t array to size up
  * @return size of strarray
@@ -273,7 +273,7 @@ struct hostent * remote_gethostbyname(const char *name){
  * 3) exit
  * 
  * @param argc size of argv
- * @param argv command to run and arguements for that command
+ * @param argv command to run and arguments for that command
  * @return <>0 on error 
  */
 int main( int argc , char ** argv ){

@@ -24,7 +24,7 @@
 #include <limits.h>
 
 /**
- * This function takes in the name of an executable, and attemptes to find an
+ * This function takes in the name of an executable, and attempts to find an
  * executable in $PATH that matches the name and is executable by this user.
  *
  * @param program the name of the executable to search for

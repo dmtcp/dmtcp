@@ -170,7 +170,7 @@ static void *produca_func (void *dummy)
       i = producaindex;                                      // see where to put next value
       j = (i + 1) % QUEUESIZE;
       if (j != consumaindex) break;                          // but make sure there's room
-      pthread_mutex_unlock (&indexmutex);                    // queue full, unlock indicies
+      pthread_mutex_unlock (&indexmutex);                    // queue full, unlock indices
       pthread_mutex_lock (&producawait);                     // ... then wait for room
     }
     queuevalues[i] = count;                                  // there's room, put value in queue
@@ -179,7 +179,7 @@ static void *produca_func (void *dummy)
     pthread_mutex_unlock (&indexmutex);                      // unlock indices
     if (queuewasempty) pthread_mutex_unlock (&consumawait);  // wake consumer if queue was empty
     if ((random () % QUEUESIZE) == 0) {
-      free (babblebuff);     // on rare occaision, do a free
+      free (babblebuff);     // on rare occasion, do a free
       freetotal += babblelen * sizeof *babblebuff;
     }
   }
