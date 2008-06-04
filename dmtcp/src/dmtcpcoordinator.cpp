@@ -30,15 +30,26 @@
 #undef max
 
 
-const char theHelpMessage[] =
-    "Commands:\n"
-    "  l : List connected nodes\n"
-    "  c : Checkpoint all nodes\n"
-    "  f : Force a restart even if there are missing nodes (debugging only)\n"
-    "  k : Kill all nodes\n"
-    "  q : Kill all nodes and quit\n"
-    "  ? : Show this message\n"
-    "\n";
+static const char* theHelpMessage =
+  "COMMANDS:\n"
+  "  l : List connected nodes\n"
+  "  c : Checkpoint all nodes\n"
+  "  f : Force a restart even if there are missing nodes (debugging only)\n"
+  "  k : Kill all nodes\n"
+  "  q : Kill all nodes and quit\n"
+  "  ? : Show this message\n"
+  "\n"
+;
+
+static const char* theUsage =
+  "USAGE: dmtcp_coordinator [port]\n"
+  "OPTIONS: (Environment variables):\n"
+  "  - DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)\n"
+  "  - DMTCP_PORT=<coordinator listener port> (default: %d)\n"
+  "COMMANDS:\n"
+  "  (type '?<return>' at runtime for list)\n"
+;
+
 
 int theCheckpointInterval = -1;
 
@@ -492,21 +503,15 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) port = jalib::StringToInt ( portStr );
   if ( argc > 1 ) port = atoi ( argv[1] );
 
-  if ( port <= 0 )
-  {
-    JASSERT_STDERR <<
-    "USAGE: " << argv[0] << " [port]\n"
-    "\n"
-    "ENVIRONMENT VARIABLES:\n"
-    "  " ENV_VAR_NAME_PORT "=N : Port dmtcp_coordinator listens on, default = " << DEFAULT_PORT << "\n"
-    "  " ENV_VAR_NAME_CKPT_INTR "=N : If set, checkpoints will automatically happen every N seconds.  Otherwise checkpoints must be initiated manually via the 'c' command. \n"
-    "\n";
-    return 1;
-  }
-
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
   if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
+
+  if ( port <= 0 )
+  {
+    fprintf(stderr, theUsage, DEFAULT_PORT);
+    return 1;
+  }
 
   JASSERT_STDERR <<
     "dmtcp_coordinator starting..." << 

@@ -139,9 +139,16 @@ namespace
 
 }//namespace
 
+static const char* theUsage = 
+  "USAGE: dmtcp_restart [--force] <ckpt1.mtcp> [ckpt2.mtcp...]\n";
+;
+
 int main ( int argc, char** argv )
 {
-  JASSERT ( argc >= 2 ) ( argc ).Text ( "usage: dmtcp_restart ckpt_file1 [ckpt_file2 ...]" );
+  if( argc < 2 || strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
+    fprintf(stderr, theUsage);
+    return 1;
+  }
 
   if ( argc == 2 && strcmp ( argv[1],"--force" ) ==0 )
   {
