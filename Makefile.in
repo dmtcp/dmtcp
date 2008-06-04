@@ -49,7 +49,7 @@ check-${TEST}: test/${TEST}
 	@ echo "***       k<return> to Kill and observe the Restart"
 	@ echo "***       q<return> to Quit"
 	@ echo ""
-	@ echo "Press <retrun> when ready to start."
+	@ echo "Press <return> when ready to start."
 	@ echo -n "> "
 	@ read
 	( rm -f ckpt_${TEST}* && sleep 3 && \
@@ -57,7 +57,13 @@ check-${TEST}: test/${TEST}
 		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/${TEST} && \
 		echo "" && echo "*** Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp ) &
+		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+		echo "" && echo "*** Again Restarting Program from Checkpoint" \
+		  "(press q<return> to quit)" && echo "" && \
+		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+		) &
 	@ bin/dmtcp_coordinator
 
 
