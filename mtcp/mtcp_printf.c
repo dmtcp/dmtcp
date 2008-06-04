@@ -69,7 +69,7 @@ gofish:
         goto gofish;
       }
 
-      /* Single charaacter */
+      /* Single character */
 
       case 'c': {
         char buff[4];

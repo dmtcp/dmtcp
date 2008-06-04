@@ -23,7 +23,7 @@
 /*  from the last checkpoint.													*/
 /*																*/
 /*  It is also used by the checkpoint verification to perform a restore while the original application program is running, to 	*/
-/*  make sure the restore works.  THe -verify option tells it to rename the checkpoint file, removing the .temp from the end.	*/
+/*  make sure the restore works.  The -verify option tells it to rename the checkpoint file, removing the .temp from the end.	*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -92,6 +92,11 @@ int main (int argc, char *argv[])
    *  and MAP_ANONYMOUS, since the data could have changed.
    */
 
+#ifdef DEBUG
+  fprintf(stderr,
+          "mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
+          restore_size, restore_begin);
+#endif
   restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX

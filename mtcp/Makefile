@@ -33,8 +33,8 @@ MTCP_VERSION = 66
 
 CC = gcc
 #Currently on many archs we cant compile without -O0
-CFLAGS = -O0 -g
-#CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
+# CFLAGS = -O0 -g
+CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
