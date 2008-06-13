@@ -60,6 +60,8 @@
 
 #define DRAINER_CHECK_FREQ 0.1
 
+#define DRAINER_WARNING_FREQ 10
+
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 
 #define DMTCP_CHECKPOINT_CMD "dmtcp_checkpoint"
@@ -75,4 +77,8 @@
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
+
+//at least one of these must be enabled:
+#define HANDSHAKE_ON_CONNECT    0
+#define HANDSHAKE_ON_CHECKPOINT 1
 

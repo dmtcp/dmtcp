@@ -41,7 +41,7 @@ namespace dmtcp
 
     DMT_DO_SUSPEND, // when coordinator wants slave to suspend             4
     DMT_DO_RESUME,// when coordinator wants slave to resume (after checkpoint)
-    DMT_DO_LOCK_FDS, // when coordinator wants slave to flush
+    DMT_DO_LOCK_FDS, // when coordinator wants lock fds
     DMT_DO_DRAIN, // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,// when coordinator wants slave to checkpoint
     DMT_DO_REFILL,// when coordinator wants slave to refill buffers

@@ -55,6 +55,7 @@ namespace dmtcp
 
       ConnectionIdentifier ( const UniquePid& pid = UniquePid(), int id = -1 );
 
+      bool isNull() const { return _id < 0; }
     private:
       UniquePid _pid;
       int _id;

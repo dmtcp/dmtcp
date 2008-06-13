@@ -22,6 +22,7 @@
 #include "dmtcpmessagetypes.h"
 #include "syslogcheckpointer.h"
 #include "signalmanager.h"
+#include "dmtcpworker.h"
 
 dmtcp::CheckpointCoordinator::CheckpointCoordinator ( const ConnectionToFds& ctfd )
     : _conToFds ( ctfd )
@@ -86,16 +87,47 @@ void dmtcp::CheckpointCoordinator::preCheckpointDrain()
 
   //re build fd table without stale connections
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
+}
 
-  //write out the *.dmtcp file
+void dmtcp::CheckpointCoordinator::preCheckpointHandshakes(const UniquePid& coordinator)
+{
+  ConnectionList& connections = ConnectionList::Instance();
+
+  //must send first to avoid deadlock
+  //we are relying on OS buffers holding our message without blocking
+  for ( ConnectionList::iterator i = connections.begin()
+      ; i!= connections.end()
+      ; ++i )
   {
+    const std::vector<int>& fds = _conToFds[i->first];
+    Connection* con =  i->second;
+    if ( fds.size() > 0 ){
+      con->doSendHandshakes(fds, coordinator);
+    }
+  }
+
+  //now recieve 
+  for ( ConnectionList::iterator i = connections.begin()
+      ; i!= connections.end()
+      ; ++i )
+  {
+    const std::vector<int>& fds = _conToFds[i->first];
+    Connection* con =  i->second;
+    if ( fds.size() > 0 ){
+      con->doRecvHandshakes(fds, coordinator);
+    }
+  }
+}
+
+void dmtcp::CheckpointCoordinator::outputDmtcpConnectionTable()
+{
+    //write out the *.dmtcp file
     std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
     JTRACE ( "Writing *.dmtcp checkpoint file" );
     jalib::JBinarySerializeWriter wr ( serialFile );
     _conToFds.serialize ( wr );
-  }
-
 }
+
 
 
 void dmtcp::CheckpointCoordinator::postCheckpoint()

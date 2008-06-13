@@ -56,27 +56,22 @@ extern "C" int dmtcp_on_socket ( int ret, int domain, int type, int protocol )
 ///called automatically after a sucessful user function call
 extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
-
 //     JASSERT(serv_addr != NULL)(serv_addr)(addrlen);
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
 //     entry.setAddr(serv_addr,addrlen);
 //     entry.setState(dmtcp::SocketEntry::T_CONNECT);
-//
+
   dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
   con.onConnect();
 
-  JTRACE ( "connected, doing dmtcp handshake...." ) ( sockfd ) ( con.id() );
-
+#if HANDSHAKE_ON_CONNECT == 1
+  JTRACE ( "connected, sending 1-way handshake" ) ( sockfd ) ( con.id() );
   jalib::JSocket remote ( sockfd );
-  dmtcp::DmtcpMessage hello_local;
-  hello_local.type = dmtcp::DMT_HELLO_PEER;
-  hello_local.from = con.id();
-  hello_local.coordinator = dmtcp::DmtcpWorker::instance().coordinatorId();
-  remote << hello_local;
-
-//     JTRACE("connect complete")(sockfd)(hello_local.from.conId)(hello_local.from.id);
-
-//     entry.setRemoteId( hello_remote.from );
+  con.sendHandshake(remote, dmtcp::DmtcpWorker::instance().coordinatorId());
+  JTRACE ( "1-way handshake sent" );
+#else
+  JTRACE ( "connected" ) ( sockfd ) ( con.id() );
+#endif
 
   return ret;
 }
@@ -125,22 +120,17 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 
   dmtcp::TcpConnection& parent = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd ).asTcp();
 
-  JTRACE ( "accepted new connection, doing magic cookie handshake..." ) ( sockfd ) ( ret );
-
-  jalib::JSocket remote ( ret );
-  dmtcp::DmtcpMessage hello_remote;
-  hello_remote.poison();
-  remote >> hello_remote;
-  hello_remote.assertValid();
-  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_PEER );
-  JASSERT ( dmtcp::DmtcpWorker::instance().coordinatorId() == hello_remote.coordinator )
-  ( dmtcp::DmtcpWorker::instance().coordinatorId() ) ( hello_remote.coordinator )
-  .Text ( "peer has a different dmtcp_coordinator than us! it must be the same." );
-
-  JTRACE ( "accept handshake complete." ) ( hello_remote.from );
-
-  dmtcp::TcpConnection* con = new dmtcp::TcpConnection ( parent, hello_remote.from );
+  dmtcp::TcpConnection* con = new dmtcp::TcpConnection ( parent, dmtcp::ConnectionIdentifier::Null() );
   dmtcp::KernelDeviceToConnection::Instance().create ( ret, con );
+
+#if HANDSHAKE_ON_CONNECT == 1
+  JTRACE ( "accepted, waiting for 1-way handshake" ) ( sockfd ) ( con->id() );
+  jalib::JSocket remote ( ret );
+  con->recvHandshake(remote, dmtcp::DmtcpWorker::instance().coordinatorId());
+  JTRACE ( "1-way handshake recieved" )(con->getRemoteId());
+#else
+  JTRACE ( "accepted incoming connection" ) ( sockfd ) ( con->id() );
+#endif
 
 //     entry.setRemoteId( hello_remote.from );
 //
