@@ -275,6 +275,15 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   }
   JTRACE ( "got checkpoint signal" );
 
+#if HANDSHAKE_ON_CHECKPOINT == 1
+  //handshake is done after one barrier after drain
+  JTRACE ( "beginning handshakes" );
+  theCoordinator->preCheckpointHandshakes(coordinatorId());
+  JTRACE ( "handshaking done" );
+#endif
+
+  JTRACE("writing *.dmtcp file");
+  theCoordinator->outputDmtcpConnectionTable();
 
   JTRACE ( "masking stderr from mtcp" );
   //because MTCP spams, and the user may have a socket for stderr

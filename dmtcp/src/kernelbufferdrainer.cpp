@@ -83,6 +83,17 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
   if ( count == 0 )
   {
     _listenSockets.clear();
+  }else{
+    const static int WARN_INTERVAL_TICKS = (int)(DRAINER_WARNING_FREQ/DRAINER_CHECK_FREQ + 0.5);
+    const static float WARN_INTERVAL_SEC = WARN_INTERVAL_TICKS*DRAINER_CHECK_FREQ;
+    if(_timeoutCount++ > WARN_INTERVAL_TICKS){
+      _timeoutCount=0;
+      for ( size_t i = 0; i < _dataSockets.size();++i ){
+        std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
+        JWARNING(false)(_dataSockets[i]->socket().sockfd())(buffer.size())(WARN_INTERVAL_SEC)
+                 .Text("Still draining socket... perhaps remote host is not running under DMTCP?");
+      }
+    }
   }
 }
 

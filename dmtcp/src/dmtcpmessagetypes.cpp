@@ -57,11 +57,10 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
 
 void dmtcp::DmtcpMessage::assertValid() const
 {
-  JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )
-  ( DMTCP_MAGIC_STRING ) ( _magicBits )
-  .Text ( "invalid message, perhaps tried to connect to non-dmtcp enabled host" );
+  JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )( _magicBits )
+	  .Text ( "read invalid message, _magicBits mismatch." );
   JASSERT ( _msgSize == sizeof ( DmtcpMessage ) ) ( _msgSize ) ( sizeof ( DmtcpMessage ) )
-  .Text ( "invalid message" );
+	  .Text ( "read invalid message, size mismatch." );
 }
 
 void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }

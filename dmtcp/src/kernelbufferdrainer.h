@@ -31,6 +31,7 @@ namespace dmtcp
   class KernelBufferDrainer : public jalib::JMultiSocketProgram
   {
     public:
+      KernelBufferDrainer() : _timeoutCount(0) {}
 //     void drainAllSockets();
       void beginDrainOf ( int fd );
       void refillAllSockets();
@@ -40,6 +41,7 @@ namespace dmtcp
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
     private:
       std::map<int , std::vector<char> > _drainedData;
+      int _timeoutCount;
   };
 
 }

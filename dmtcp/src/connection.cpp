@@ -25,6 +25,9 @@
 #include "syscallwrappers.h"
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
+#include "dmtcpmessagetypes.h"
+#include "dmtcpworker.h"
+#include "jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -212,6 +215,35 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
       break;
   }
 }
+
+void dmtcp::TcpConnection::doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+  switch ( tcpType() )
+  {
+    case TCP_CONNECT:
+    case TCP_ACCEPT:
+    {
+      JTRACE("sending handshake...")(id())(fds[0]);
+      jalib::JSocket sock(fds[0]);
+      sendHandshake( sock, coordinator );
+    }
+    break;
+  }
+}
+void dmtcp::TcpConnection::doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+  switch ( tcpType() )
+  {
+    case TCP_CONNECT:
+    case TCP_ACCEPT:
+    {
+      JTRACE("recieving handshake...")(id())(fds[0]);
+      jalib::JSocket sock(fds[0]);
+      recvHandshake( sock, coordinator );
+      JTRACE("recieved handshake")(getRemoteId())(fds[0]);
+    }
+    break;
+  }
+}
+
 void dmtcp::TcpConnection::postCheckpoint ( const std::vector<int>& fds )
 {
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
@@ -323,6 +355,36 @@ void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
 void dmtcp::TcpConnection::doLocking ( const std::vector<int>& fds )
 {
   JASSERT ( fcntl ( fds[0], F_SETOWN, getpid() ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
+}
+
+
+
+void dmtcp::TcpConnection::sendHandshake(jalib::JSocket& remote, const dmtcp::UniquePid& coordinator){
+  dmtcp::DmtcpMessage hello_local;
+  hello_local.type = dmtcp::DMT_HELLO_PEER;
+  hello_local.from = id();
+  hello_local.coordinator = coordinator;
+  remote << hello_local;
+}
+
+void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::UniquePid& coordinator){
+  dmtcp::DmtcpMessage hello_remote;
+  hello_remote.poison();
+  remote >> hello_remote;
+  hello_remote.assertValid();
+  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_PEER );
+  JASSERT ( hello_remote.coordinator == coordinator )( hello_remote.coordinator ) ( coordinator )
+    .Text ( "peer has a different dmtcp_coordinator than us! it must be the same." );
+
+  if(_acceptRemoteId.isNull()){
+    //first time
+    _acceptRemoteId = hello_remote.from;
+    JASSERT(!_acceptRemoteId.isNull()).Text("read handshake with invalid 'from' field");
+  }else{
+    //next time
+    JASSERT(_acceptRemoteId == hello_remote.from)(_acceptRemoteId)(hello_remote.from)
+      .Text("read handshake with a different 'from' field than a previos handshake");
+  }
 }
 
 ////////////

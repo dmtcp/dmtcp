@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+namespace jalib { class JSocket; }
 
 namespace dmtcp
 {
@@ -39,6 +40,7 @@ namespace dmtcp
   class ConnectionRewirer;
   class TcpConnection;
   class KernelDeviceToConnection;
+
 
   class Connection
   {
@@ -67,9 +69,14 @@ namespace dmtcp
       virtual void doLocking ( const std::vector<int>& fds ) {};
       virtual void saveOptions ( const std::vector<int>& fds );
       virtual void restoreOptions ( const std::vector<int>& fds );
+      
+      virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
+      virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
 
       //convert with type checking
       virtual TcpConnection& asTcp();
+
+      
 
 
       void serialize ( jalib::JBinarySerializer& o );
@@ -123,6 +130,14 @@ namespace dmtcp
       virtual void doLocking ( const std::vector<int>& fds );
 
       virtual void restoreOptions ( const std::vector<int>& fds );
+
+      virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator);
+      virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator);
+
+      void sendHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
+      void recvHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
+
+      const ConnectionIdentifier& getRemoteId() const { return _acceptRemoteId; }
 
     private:
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
