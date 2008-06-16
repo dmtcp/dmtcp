@@ -36,6 +36,7 @@ static const char* theUsage =
   "  - DMTCP_PORT=<coordinator listener port> (default: 7779) \n"
   "  - DMTCP_GZIP=<NULL: disable compression of checkpoint image> \n"
   "               (default:gzip, compression enabled) \n"
+  "  - DMTCP_CHECKPOINT_DIR=<location to store checkpoints> (default: ./)\n"
   "  - DMTCP_SIGCKPT=<signal number> (default: SIGUSR2) \n"
 ;
 
@@ -55,12 +56,24 @@ int main ( int argc, char** argv )
   //setup hijack library
   std::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   std::string searchDir = jalib::Filesystem::GetProgramDir();
-  const char* ckptDir = getenv ( "PWD" );
+
+  //setup CHECKPOINT_DIR
+  if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
+    const char* ckptDir = get_current_dir_name();
+    if(ckptDir != NULL ){
+      //copy to private buffer
+      static std::string _buf = ckptDir;
+      ckptDir = _buf.c_str();
+    }else{
+      ckptDir=".";
+    }
+    setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
+    JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
+  }
+
   bool is_ssh_slave=false;
   //how many args to trim off start
   int startArg = 1;
-
-  if ( ckptDir == NULL ) ckptDir = ".";
 
   if( argc < 2 || strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
     fprintf(stderr, theUsage);
@@ -87,7 +100,6 @@ int main ( int argc, char** argv )
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
-  setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
   if ( getenv(ENV_VAR_SIGCKPT) != NULL )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
   else

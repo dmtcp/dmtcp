@@ -18,6 +18,12 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 
 #define LIBC_FILENAME "libc.so.6"
 #define MTCP_FILENAME "mtcp.so"
@@ -81,4 +87,6 @@
 //at least one of these must be enabled:
 #define HANDSHAKE_ON_CONNECT    0
 #define HANDSHAKE_ON_CHECKPOINT 1
+
+#endif
 
