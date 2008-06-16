@@ -1,9 +1,12 @@
-AC_INIT([dmtcp],[0.0],[])
+AC_INIT([dmtcp],[0.99])
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_CC
 AC_CONFIG_FILES([Makefile]) 
 AC_CONFIG_SUBDIRS([dmtcp])
+AC_ARG_ENABLE([debug],
+            [AS_HELP_STRING([--enable-debug],
+                            [enable (very) verbose debug printouts 
+                             and write log files to /tmp (default is disabled)])])
 AC_OUTPUT
-

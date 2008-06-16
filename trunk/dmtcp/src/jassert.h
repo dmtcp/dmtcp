@@ -27,6 +27,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 /**  USAGE EXAMPLE:
  *
  * int a=1,b=2,c=3,d=4;
