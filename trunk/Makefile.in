@@ -1,8 +1,9 @@
 @SET_MAKE@
-LN_S = @LN_S@
-MKDIR_P = @MKDIR_P@
-CC = @CC@
-PREFIX = @prefix@
+LN_S=@LN_S@
+MKDIR_P=@MKDIR_P@
+CC=@CC@
+prefix=@prefix@
+mandir=@mandir@
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
@@ -92,22 +93,22 @@ bin/% : mtcp/%
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart
 
 install: all 
-	if test -z "$(PREFIX)"; then \
-		echo ERROR: PREFIX must be defined; \
+	if test -z "$(prefix)"; then \
+		echo ERROR: prefix must be defined; \
 		exit 1; \
 	fi
-	$(MKDIR_P) $(PREFIX)/lib/dmtcp
-	$(MKDIR_P) $(PREFIX)/bin
-	cp bin/* $(PREFIX)/lib/dmtcp
-	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
-	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
-	(cd $(PREFIX)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
+	$(MKDIR_P) $(prefix)/lib/dmtcp
+	$(MKDIR_P) $(prefix)/bin
+	cp bin/* $(prefix)/lib/dmtcp
+	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
+	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
+	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
 
 uninstall:
-	rm -f $(PREFIX)/bin/dmtcp_coordinator
-	rm -f $(PREFIX)/bin/dmtcp_checkpoint
-	rm -f $(PREFIX)/bin/dmtcp_restart
-	rm -Rf $(PREFIX)/lib/dmtcp
+	rm -f $(prefix)/bin/dmtcp_coordinator
+	rm -f $(prefix)/bin/dmtcp_checkpoint
+	rm -f $(prefix)/bin/dmtcp_restart
+	rm -Rf $(prefix)/lib/dmtcp
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
 
