@@ -26,6 +26,22 @@
 #include "jconvert.h"
 #include "jfilesystem.h"
 
+inline static long theUniqueHostId(){
+#ifdef USE_GETHOSTID
+  return ::gethostid()
+#else
+  //gethostid() calls socket() on some systems, which we dont want
+  char buf[512];
+  JASSERT(::gethostname(buf, sizeof(buf))==0)(JASSERT_ERRNO);
+  //so return a bad hash of our hostname
+  long h = 0;
+  for(char* i=buf; *i!='\0'; ++i)
+    h = (*i) + (331*h);
+  return h;
+#endif
+}
+
+
 static dmtcp::UniquePid& nullProcess()
 {
   static dmtcp::UniquePid t ( 0,0,0 );
@@ -41,7 +57,7 @@ const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
 {
   if ( theProcess() == nullProcess() )
   {
-    theProcess() = dmtcp::UniquePid ( ::gethostid(),::getpid(),::time ( NULL ) );
+    theProcess() = dmtcp::UniquePid ( theUniqueHostId() , ::getpid(), ::time(NULL) );
     JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
   }
 
