@@ -264,16 +264,24 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
   /* Nobody else has a right to preload on internal processes generated
    * by mtcp_check_XXX() -- not even DMTCP, if it's currently operating.
+   *
+   * Saving LD_PRELOAD in a temp env var and restoring it later --Kapil.
+   *
+   * TODO: To insert some sort of error checking to make sure that we 
+   *       are correctly setting LD_PRELOAD after we are done with 
+   *       nscd check.
    */
-  char * ld_preload = getenv("LD_PRELOAD");
-  if (ld_preload)
-    unsetenv("LD_PRELOAD");
+  
+  setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
+  unsetenv("LD_PRELOAD");
+
   mtcp_check_nscd();
 #ifndef __x86_64__
   mtcp_check_vdso_enabled();
 #endif
-  if (ld_preload)
-    setenv("LD_PRELOAD",ld_preload, 1);
+
+  setenv("LD_PRELOAD",getenv("MTCP_TMP_LD_PRELOAD"), 1);
+  unsetenv("MTCP_TMP_LD_PRELOAD");
 
 #if 0
   { struct user_desc u_info;
