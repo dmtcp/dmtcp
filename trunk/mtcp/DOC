@@ -85,7 +85,45 @@ the alternative is to use the pthread library, and __x86_64__ seems
 to have problems with this library not being fully loaded.  WHY??
 
 ==========================================================================
-OVERVIEW:  RESTART
+RESTART: Overview
+1.  Run:  mtcp_restart FILE.mtcp
+2.  mtcp_restart loads into memory original mtcp.so from FILE.mtcp
+	along with entry point:
+		restore_start (a pointer to mtcp.so:mtcp_restore_start
+    [Also read finishrestore pointer from FILE.mtcp for later use.
+     Couldn't we have just saved the pointer in mtcp.so ??]
+3.  Call restore_start (now inside mtcp.so in file mtcp.c)
+4.  Switch to restoreverything (now inside mtcp.so
+				in ile mtcp_restart_nolibc.c)
+5.  Unmap all other memory regions (except vdso and vsyscall, which belong
+	to the kernel); Not allowed to use libc.so at this point
+    (We had to switch to another temporary stack in mtcp.so before
+      making any function calls, since mtcp_restart's stack is now gone.)
+6.  Map in remaining memory regions from FILE.mtcp (mtcp.so already mapped in)
+7.  Now switch back to function finishrestore in file mtcp.c in mtcp.so .
+	Use pointer to finishrestore pointer as entry point.  Don't
+	depend on the linker between files being functional yet.
+8.  Set stack pointer (%esp/%rsp) to the stack pointer that we saved
+	prior to checkpoint.  (Currently save old stack pointer - 128
+	as red zone.)
+9.  Call restarthread(motherofall).  motherofall is another name for
+	the checkpoint thread.  Tell kernel to set our thread state to same
+	parameters that we had saved pre-checkpoint.
+10. Create user threads and have them also call restarthread w/ red zone
+	(extended stack pointer), etc.
+11. Checkpoint thread now calls setcontext() to fully return
+	to pre-checkpoint state.  We are now using our pre-checkpoint stack
+	instead of the temporary stack.
+12. We (the checkpoint thread) are now returning from getcontext()
+	in checkpointhread().  Wait for user threads to be restored.
+	Execute dmtcpHookRestart just before unlocking user threads.  Then
+	sleep again until next checkpoint.
+	Note that checkpointhread serves two purposes, since it's also the
+	original start function from when the checkpoint thread was created.
+13. The user thread is returning from getcontext() in stopthisthread()
+	[Better name might be:  stopthisuserthread().]
+
+RESTART: Details
 	    CAN USE CURRENT libc.so AT THIS POINT:
             mtcp_restart.c:main restores old mtcp.so from checkpoint file.
             mtcp_restart.c:main calls mtcp.so(mtcp.c):mtcp_restore_start

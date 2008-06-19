@@ -1,9 +1,9 @@
-*** mtcp.t	2007-02-26 20:00:05.000000000 +0100
---- mtcp.tnew64	2007-02-26 20:02:56.000000000 +0100
+*** mtcp.t	Mon Jun 16 15:33:38 2008
+--- mtcp.tnew	Mon Jun 16 15:33:01 2008
 ***************
-*** 15,20 ****
---- 15,23 ----
-     __DYNAMIC = 0;    */
+*** 6,11 ****
+--- 6,14 ----
+  SEARCH_DIR("/usr/x86_64-linux-gnu/lib64"); SEARCH_DIR("/usr/local/lib64"); SEARCH_DIR("/lib64"); SEARCH_DIR("/usr/lib64"); SEARCH_DIR("/usr/x86_64-linux-gnu/lib"); SEARCH_DIR("/usr/local/lib"); SEARCH_DIR("/lib"); SEARCH_DIR("/usr/lib");
   SECTIONS
   {
 +   .the.begin : {
@@ -11,16 +11,16 @@
 + 	}
     /* Read-only sections, merged into text segment: */
     . = 0 + SIZEOF_HEADERS;
-    .hash           : { *(.hash) }
+    .note.gnu.build-id : { *(.note.gnu.build-id) }
 ***************
-*** 150,155 ****
---- 153,161 ----
-    . = ALIGN(64 / 8);
-    _end = .; PROVIDE (end = .);
-    . = DATA_SEGMENT_END (.);
+*** 172,177 ****
+--- 175,183 ----
+      *(.ldata .ldata.* .gnu.linkonce.l.*)
+      . = ALIGN(. != 0 ? 64 / 8 : 1);
+    }
 +   .the.end : {
 + 	*(__shareable_end)
 + 	}
-    /* Stabs debugging sections.  */
-    .stab          0 : { *(.stab) }
-    .stabstr       0 : { *(.stabstr) }
+    . = ALIGN(64 / 8);
+    _end = .; PROVIDE (end = .);
+    . = DATA_SEGMENT_END (.);

@@ -233,8 +233,10 @@ char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid);
-__attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void);
-void mtcp_printf (char const *format, ...);
+__attribute__ ((visibility ("hidden")))
+   void mtcp_restoreverything (void);
+__attribute__ ((visibility ("hidden")))
+   void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
 __attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
 int mtcp_safestat (char const *name, Stat *statbuf);
