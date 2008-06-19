@@ -87,7 +87,7 @@ int main (int argc, char *argv[])
   readfile (fd, &restore_start, sizeof restore_start);
 
   /* Read in the restore image to same address where it was loaded at time
-   *  of checkpoint.  This is libc.so, including both text and data sections
+   *  of checkpoint.  This is mtcp.so, including both text and data sections
    *  as a single section.  Hence, we need both write and exec permission,
    *  and MAP_ANONYMOUS, since the data could have changed.
    */

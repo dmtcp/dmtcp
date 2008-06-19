@@ -302,7 +302,7 @@ static void readmemoryareas (void)
     readfile (&cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
-      mtcp_printf ("mtcp_restart: expected CS_AREADESCRIP but had %d\n", cstype);
+      mtcp_printf ("mtcp_restart_nolibc: expected CS_AREADESCRIP but had %d\n", cstype);
       mtcp_abort ();
     }
     readfile (&area, sizeof area);
@@ -340,12 +340,12 @@ static void readmemoryareas (void)
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        DPRINTF(("mtcp_restart: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
+        DPRINTF(("mtcp_restart_nolibc: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
 	try_skipping_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_skipping_existing_segment) {
-        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_printf ("mtcp_restart_nolibc: area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort ();
       }
 
@@ -361,7 +361,7 @@ static void readmemoryareas (void)
         readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
 	  if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-	    mtcp_printf ("mtcp_restart: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+	    mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
       }
@@ -406,7 +406,7 @@ static void readmemoryareas (void)
 	// file (at the same path where it used to exist before checkpoint).
         mmappedat = mtcp_safemmap (area.addr, area.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, imagefd, area.offset);
         if (mmappedat == MAP_FAILED) {
-          mtcp_printf ("mtcp_restart: error %d mapping temp memory at %p\n",
+          mtcp_printf ("mtcp_restart_nolibc: error %d mapping temp memory at %p\n",
 		       mtcp_sys_errno, area.addr);
           mtcp_abort ();
         }
@@ -416,7 +416,7 @@ static void readmemoryareas (void)
         areaContentsAlreadyRead = 1;
 
         if ( mtcp_sys_write(imagefd, area.addr,area.size) < 0 ){
-          mtcp_printf ("mtcp_restart: error %d creating mmap file %s\n",
+          mtcp_printf ("mtcp_restart_nolibc: error %d creating mmap file %s\n",
 		       mtcp_sys_errno, area.name);
           mtcp_abort();
         }
@@ -424,7 +424,7 @@ static void readmemoryareas (void)
         // unmap the temp memory allocated earlier
         rc = mtcp_sys_munmap (area.addr, area.size);
         if (rc == -1) {
-          mtcp_printf ("mtcp_restart: error %d unmapping temp memory at %p\n",
+          mtcp_printf ("mtcp_restart_nolibc: error %d unmapping temp memory at %p\n",
 		       mtcp_sys_errno, area.addr);
           mtcp_abort ();
         }
@@ -435,7 +435,7 @@ static void readmemoryareas (void)
         // now open the file again, this time with appropriate flags
         imagefd = mtcp_sys_open (area.name, flags, 0);
         if (imagefd < 0){
-          mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n",
+          mtcp_printf ("mtcp_restart_nolibc: error %d opening mmap file %s\n",
 		       mtcp_sys_errno, area.name);
           mtcp_abort ();
         }
@@ -443,7 +443,7 @@ static void readmemoryareas (void)
 
     /* CASE NOT MAP_ANONYMOUS, MAP_PRIVATE, backing file doesn't exist:	     */
       if (imagefd < 0) {
-        mtcp_printf ("mtcp_restart: error %d opening mmap file %s\n",
+        mtcp_printf ("mtcp_restart_nolibc: error %d opening mmap file %s\n",
 		     mtcp_sys_errno, area.name);
         mtcp_abort ();
       }
@@ -453,12 +453,12 @@ static void readmemoryareas (void)
       // Map the shared file into memory
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        mtcp_printf ("mtcp_restart: error %d mapping %s offset %d at %p\n",
+        mtcp_printf ("mtcp_restart_nolibc: error %d mapping %s offset %d at %p\n",
 		     mtcp_sys_errno, area.name, area.offset, area.addr);
         mtcp_abort ();
       }
       if (mmappedat != area.addr) {
-        mtcp_printf ("mtcp_restart: area at %p got mmapped to %p\n",
+        mtcp_printf ("mtcp_restart_nolibc: area at %p got mmapped to %p\n",
 		     area.addr, mmappedat);
         mtcp_abort ();
       }
@@ -485,7 +485,7 @@ static void readmemoryareas (void)
 	if ( ( (imagefd = mtcp_sys_open(area.name, O_WRONLY, 0)) >= 0
 	       && ( (flags == O_WRONLY || flags == O_RDWR) ) )
 	     || (0 == mtcp_sys_access(area.name, X_OK)) ) {
-           mtcp_printf ("mtcp_restart: mapping %s with data from ckpt image\n",
+           mtcp_printf ("mtcp_restart_nolibc: mapping %s with data from ckpt image\n",
 			area.name);
           readfile (area.addr, area.size);
 	}
@@ -494,7 +494,7 @@ static void readmemoryareas (void)
 	// Because Linux library files have execute permission,
 	//   the dynamic libraries from time of checkpoint will be used.
 	else {
-           mtcp_printf ("mtcp_restart: nmapping %s with data"
+           mtcp_printf ("mtcp_restart_nolibc: nmapping %s with data"
 			" from current file (post-ckpt)\n", area.name);
 #ifdef BUG_64BIT_2_6_9
 	  char tmpbuf[4];
@@ -535,12 +535,12 @@ static void readfile(void *buf, int size)
         rc = mtcp_sys_read(mtcp_restore_cpfd, buf + ar, size - ar);
         if(rc < 0)
         {
-            mtcp_printf("mtcp_restart readfile: error %d reading checkpoint\n", mtcp_sys_errno);
+            mtcp_printf("mtcp_restart_nolibc readfile: error %d reading checkpoint\n", mtcp_sys_errno);
             mtcp_abort();
         }
         else if(rc == 0)
         {
-            mtcp_printf("mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_printf("mtcp_restart_nolibc readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
             mtcp_abort();
         }
 
@@ -560,12 +560,12 @@ static void skipfile(int size)
         rc = mtcp_sys_read(mtcp_restore_cpfd, array, (size-ar < 512 ? size - ar : 512));
         if(rc < 0)
         {
-            mtcp_printf("mtcp_restart skipfile: error %d skipping checkpoint\n", mtcp_sys_errno);
+            mtcp_printf("mtcp_restart_nolibc skipfile: error %d skipping checkpoint\n", mtcp_sys_errno);
             mtcp_abort();
         }
         else if(rc == 0)
         {
-            mtcp_printf("mtcp_restart skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_printf("mtcp_restart_nolibc skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
             mtcp_abort();
         }
 
@@ -678,7 +678,7 @@ static int open_shared_file(char* fileName)
       currentFolder[i] = '\0';
       res = mtcp_sys_mkdir(currentFolder,S_IRWXU);
       if (res<0 && mtcp_sys_errno != EEXIST ){
-        mtcp_printf("mtcp_restart open_shared_file: error %d creating directory %s in path of %s\n", mtcp_sys_errno, currentFolder, fileName);
+        mtcp_printf("mtcp_restart_nolibc open_shared_file: error %d creating directory %s in path of %s\n", mtcp_sys_errno, currentFolder, fileName);
 	mtcp_abort();
       }
     }
@@ -688,7 +688,7 @@ static int open_shared_file(char* fileName)
   /* Create the file */
   fd = mtcp_sys_open(fileName,O_CREAT|O_RDWR,S_IRWXU);
   if (fd<0){
-    mtcp_printf("mtcp_restart open_shared_file: unable to create file %s\n", fileName);
+    mtcp_printf("mtcp_restart_nolibc open_shared_file: unable to create file %s\n", fileName);
     mtcp_abort();
   }
   return fd;

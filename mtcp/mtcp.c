@@ -206,7 +206,7 @@ static void *checkpointhread (void *dummy);
 static int open_ckpt_to_write(void);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
-static void writememoryarea (int fd, Area *area);
+static void writememoryarea (int fd, Area *area, int stack_was_seen);
 static void writecs (int fd, char cs);
 static void writefile (int fd, void const *buff, int size);
 static void stopthisthread (int signum);
@@ -1016,6 +1016,12 @@ static void *checkpointhread (void *dummy)
   struct timeval started, stopped;
   Thread *ckpthread, *thread;
 
+  /* This is the start function of the checkpoint thread.
+   * We also call getcontext to get a snapshot of this call frame,
+   * since we will never exit this call frame.  We always return
+   * to this call frame at time of startup, on restart.  Hence, restart
+   * will forget any modifications to our local variables since restart.
+   */
   static int originalstartup = 1;
 
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */
@@ -1330,6 +1336,7 @@ static void checkpointeverything (void)
   Area area;
   int fd, mapsfd;
   VA area_begin, area_end;
+  int stack_was_seen = 0;
 
   static void *const frpointer = finishrestore;
 
@@ -1343,7 +1350,7 @@ static void checkpointeverything (void)
   /* Write out the shareable parameters and the image   */
   /* Put this all at the front to make the restore easy */
 
-  DPRINTF (("mtcp checkpointeverything*: restore image %X at %X\n", restore_size, restore_begin));
+  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so]\n", restore_size, restore_begin));
 
   writecs (fd, CS_RESTOREBEGIN);
   writefile (fd, &restore_begin, sizeof restore_begin);
@@ -1413,27 +1420,29 @@ static void checkpointeverything (void)
 
     if (area_begin < restore_begin) {
       if (area_end <= restore_begin) {
-        writememoryarea (fd, &area);               // the whole thing is before the restore image
+        writememoryarea (fd, &area, 0);            // the whole thing is before the restore image
       } else if (area_end <= restore_end) {
         area.size = restore_begin - area_begin;    // we just have to chop the end part off
-        writememoryarea (fd, &area);
+        writememoryarea (fd, &area, 0);
       } else {
         area.size = restore_begin - area_begin;    // we have to write stuff that comes before restore image
-        writememoryarea (fd, &area);
+        writememoryarea (fd, &area, 0);
         area.offset += restore_end - area_begin;   // ... and we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
         area.addr = (void *)restore_end;
-        writememoryarea (fd, &area);
+        writememoryarea (fd, &area, 0);
       }
     } else if (area_begin < restore_end) {
       if (area_end > restore_end) {
         area.offset += restore_end - area_begin;   // we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
         area.addr = (void *)restore_end;
-        writememoryarea (fd, &area);
+        writememoryarea (fd, &area, 0);
       }
     } else {
-      writememoryarea (fd, &area);                 // the whole thing comes after the restore image
+      if ( strstr (area.name, "[stack]") )
+        stack_was_seen = 1;
+      writememoryarea (fd, &area, stack_was_seen); // the whole thing comes after the restore image
     }
   }
 
@@ -1571,23 +1580,38 @@ static void writefiledescrs (int fd)
   writefile (fd, &fdnum, sizeof fdnum);
 }
 
-static void writememoryarea (int fd, Area *area)
+static void writememoryarea (int fd, Area *area, int stack_was_seen)
 
 {
   /* Write corresponding descriptor to the file */
 
-  if (0 == strcmp(area -> name, "[vdso]")) DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] segment %X at %p\n", area -> size, area -> addr));
-  else if (0 == strcmp(area -> name, "[vsyscall]")) DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] segment %X at %p\n", area -> size, area -> addr));
-  else if (!(area -> flags & MAP_ANONYMOUS)) DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n", area -> size, area -> addr, area -> name, area -> offset));
-  else if (area -> name[0] == 0) DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p\n", area -> size, area -> addr));
-  else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p from %s + %X\n", area -> size, area -> addr, area -> name, area -> offset));
+  if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] segment"
+              " %X at %p\n", area -> size, area -> addr));
+  else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] segment"
+    	      " %X at %p\n", area -> size, area -> addr));
+  else if (!(area -> flags & MAP_ANONYMOUS))
+    DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n",
+              area -> size, area -> addr, area -> name, area -> offset));
+  else if (area -> name[0] == 0)
+    DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p\n",
+              area -> size, area -> addr));
+  else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
+                 " from %s + %X\n",
+		 area -> size, area -> addr, area -> name, area -> offset));
 
-  if (0 != strcmp(area -> name, "[vdso]") && 0 != strcmp(area -> name, "[vsyscall]")) {
+  if (!stack_was_seen  /* If vdso appeared before stack, it can be replaced */
+      || 0 != strcmp(area -> name, "[vdso]")
+        && 0 != strcmp(area -> name, "[vsyscall]")) {
     writecs (fd, CS_AREADESCRIP);
     writefile (fd, area, sizeof *area);
 
-    /* Anonymous sections need to have their data copied to the file, as there is no file that contains their data */
-    /* We also save shared files to checkpoint file to handle shared memory implemented with backing files*/
+    /* Anonymous sections need to have their data copied to the file,
+     *   as there is no file that contains their data
+     * We also save shared files to checkpoint file to handle shared memory
+     *   implemented with backing files
+     */
     if (area -> flags & MAP_ANONYMOUS || area -> flags & MAP_SHARED) {
       writecs (fd, CS_AREACONTENTS);
       writefile (fd, area -> addr, area -> size);

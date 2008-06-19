@@ -29,7 +29,7 @@
 ##																##
 ##################################################################################################################################
 
-MTCP_VERSION = 66
+MTCP_VERSION = 67
 
 CC = gcc
 #Currently on many archs we cant compile without -O0
@@ -58,6 +58,24 @@ all: default
 testmtcp: testmtcp.o mtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
 	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
+
+testgettimeofday: testgettimeofday.o mtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) \
+	  -o testgettimeofday testgettimeofday.o -Wl,--export-dynamic mtcp.so
+testgettimeofday.o: testgettimeofday.c
+	${CC} $(CFLAGS) -c -o testgettimeofday.o testgettimeofday.c
+checkgettimeofday: mtcp.so mtcp_restart testgettimeofday
+	(sleep 5; pkill testgettimeofda) &
+	env LD_LIBRARY_PATH=. ./testgettimeofday || true
+	@ echo ""
+	@ echo Successfully killed after checkpoint.  Will now restart.
+	sleep 2
+	(sleep 5; pkill mtcp_restart) &
+	./mtcp_restart testgettimeofday.mtcp || true
+	@ echo Kill this program now after being satisfied it still works.
+	@ echo ""
+	sleep 2
+	./mtcp_restart testgettimeofday.mtcp
 
 testmtcp.o: testmtcp.c
 	${CC} $(CFLAGS) -c -o testmtcp.o testmtcp.c
@@ -144,11 +162,12 @@ mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	if  gcc -v --help 2>&1 | grep stack-protector > /dev/null; then \
-    cflags_extra=-fno-stack-protector ; \
-  fi; \
+	  cflags_extra=-fno-stack-protector ; \
+	fi; \
 	if  uname -a | grep '2\.6\.9.*x86_64' > /dev/null; then \
-    cflags_extra=-DBUG_64BIT_2_6_9 $$cflags_extra; \
-  fi; \
+	  cflags_extra="-DBUG_64BIT_2_6_9 $$cflags_extra"; \
+	fi; \
+	echo cflags_extra='"'$$cflags_extra'"'; \
 	${CC} $(CFLAGS) $$cflags_extra -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c;
 
 # mtcp.lis is needed only for debugging.
