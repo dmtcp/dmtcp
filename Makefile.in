@@ -51,8 +51,7 @@ check-${TEST}: test/${TEST}
 	@ echo "***       q<return> to Quit"
 	@ echo ""
 	@ echo "Press <return> when ready to start."
-	@ echo -n "> "
-	@ read
+	@ read -p "> " dummy
 	( rm -f ckpt_${TEST}* && sleep 3 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
 		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/${TEST} && \
