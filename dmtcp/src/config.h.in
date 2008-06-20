@@ -24,5 +24,8 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* record timing information to stderr and jtimings.csv */
+#undef TIMING
+
 /* Version number of package */
 #undef VERSION

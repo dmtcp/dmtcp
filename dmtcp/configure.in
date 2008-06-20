@@ -11,13 +11,26 @@ AC_PROG_RANLIB
 
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug printouts 
-                             and write log files to /tmp (default is disabled)])],
+                            [enable (very) verbose debug printouts
+                             and write log files to /tmp (default is
+                             disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
 
 if test "$use_jassert" = "yes"; then
   AC_DEFINE([DEBUG],[],[verbose debug printouts and log files in /tmp])
+fi
+
+AC_ARG_ENABLE([timing],
+            [AS_HELP_STRING([--enable-timing],
+                            [record checkpoint/restart timing information
+                            to jtimings.csv, in working directory of
+                            dmtcp_coordinator, and to stderr.])],
+            [use_jtiming=$enableval],
+            [use_jtiming=no])
+
+if test "$use_jtiming" = "yes"; then
+  AC_DEFINE([TIMING],[],[record timing information to stderr and jtimings.csv])
 fi
 
 AC_OUTPUT(Makefile src/Makefile examples/Makefile examples/01.echoserver/Makefile examples/02.frisbee/Makefile examples/03.forkexec/Makefile)

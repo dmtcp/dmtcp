@@ -310,11 +310,19 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         default:
           JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );
       }
-      if ( con != NULL )
+
+      JASSERT( con != NULL )(key);
+
+      con->serialize ( o );
+
+      ConnectionMapT::const_iterator i = _connections.find(key);
+      if(i != _connections.end())
       {
-        con->serialize ( o );
-        _connections[key] = con;
+        JTRACE("merging connections from two restore targets")(key)(type);
+        con->mergeWith(*(i->second));
       }
+
+      _connections[key] = con;
 
       JSERIALIZE_ASSERT_POINT ( "[EndConnection]" );
     }
@@ -381,7 +389,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
       ConnectionIdentifier key = i->first;
       std::vector<int>& val = i->second;
       o & key & val;
-      JASSERT ( val.size() >0 ) ( o.filename() ).Text ( "writing bad file format" );
+      JASSERT ( val.size() >0 ) (key) ( o.filename() ).Text ( "writing bad file format" );
     }
   }
   else

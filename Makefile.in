@@ -35,7 +35,11 @@ check3: test/shared-memory
 	${MAKE} TEST=shared-memory check-shared-memory
 
 test/dmtcp1: test/dmtcp1.c
-	gcc -o test/dmtcp1 test/dmtcp1.c
+	gcc -o $@ $<
+
+test/shared-fd: test/shared-fd.c
+	gcc -o $@ $<
+
 test/readline: test/readline.c
 	gcc -o test/readline -Wl,--export-dynamic test/readline.c \
 	  -lreadline -lhistory -lcurses
@@ -70,7 +74,7 @@ check-${TEST}: test/${TEST}
 clean:
 	(cd mtcp && $(MAKE) clean)
 	(cd dmtcp && $(MAKE) clean)
-	cd test && rm -f dmtcp?
+	cd test && rm -f dmtcp? shared-fd
 	rm -f ckpt_* dmtcp_restart_script.sh
 
 distclean:
