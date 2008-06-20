@@ -7,6 +7,16 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_SUBDIRS([dmtcp])
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug printouts 
-                             and write log files to /tmp (default is disabled)])])
+                            [enable (very) verbose debug printouts
+                             and write log files to /tmp (default is
+                             disabled)])],
+            [use_jassert=$enableval],
+            [use_jassert=no])
+AC_ARG_ENABLE([timing],
+            [AS_HELP_STRING([--enable-timing],
+                            [record checkpoint/restart timing information
+                            to jtimings.csv, in working directory of
+                            dmtcp_coordinator, and to stderr.])],
+            [use_jtiming=$enableval],
+            [use_jtiming=no])
 AC_OUTPUT

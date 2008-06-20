@@ -1251,6 +1251,9 @@ Optional Features:
   --enable-dependency-tracking   do not reject slow dependency extractors
   --enable-debug          enable (very) verbose debug printouts and write log
                           files to /tmp (default is disabled)
+  --enable-timing         record checkpoint/restart timing information to
+                          jtimings.csv, in working directory of
+                          dmtcp_coordinator, and to stderr.
 
 Some influential environment variables:
   CC          C compiler command
@@ -3968,6 +3971,22 @@ if test "$use_jassert" = "yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define DEBUG
+_ACEOF
+
+fi
+
+# Check whether --enable-timing was given.
+if test "${enable_timing+set}" = set; then
+  enableval=$enable_timing; use_jtiming=$enableval
+else
+  use_jtiming=no
+fi
+
+
+if test "$use_jtiming" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define TIMING
 _ACEOF
 
 fi

@@ -26,7 +26,10 @@
 #include "jconvert.h"
 #include "jassert.h"
 
-#define TIMING
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #ifdef TIMING
 #define JTIMER(name) static jalib::JTimeRecorder _jtimer_ ## name (#name);
 #define JTIMER_START(name) ( _jtimer_ ## name . start() )

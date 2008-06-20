@@ -52,7 +52,8 @@ namespace dmtcp
     protected:
       void add ( Connection* c );
     private:
-      std::map<ConnectionIdentifier, Connection*> _connections;
+      typedef  std::map<ConnectionIdentifier, Connection*> ConnectionMapT;
+      ConnectionMapT _connections;
   };
 
 

@@ -221,11 +221,16 @@ void dmtcp::TcpConnection::doSendHandshakes( const std::vector<int>& fds, const 
   {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-    {
-      JTRACE("sending handshake...")(id())(fds[0]);
-      jalib::JSocket sock(fds[0]);
-      sendHandshake( sock, coordinator );
-    }
+      if ( hasLock ( fds ) )
+      {
+        JTRACE("sending handshake...")(id())(fds[0]);
+        jalib::JSocket sock(fds[0]);
+        sendHandshake( sock, coordinator );
+      }
+      else
+      {
+        JTRACE("skipping handshake send (shared socket, not owner)")(id())(fds[0]);
+      }
     break;
   }
 }
@@ -234,12 +239,17 @@ void dmtcp::TcpConnection::doRecvHandshakes( const std::vector<int>& fds, const 
   {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-    {
-      JTRACE("recieving handshake...")(id())(fds[0]);
-      jalib::JSocket sock(fds[0]);
-      recvHandshake( sock, coordinator );
-      JTRACE("recieved handshake")(getRemoteId())(fds[0]);
-    }
+      if ( hasLock ( fds ) )
+      {
+        JTRACE("recieving handshake...")(id())(fds[0]);
+        jalib::JSocket sock(fds[0]);
+        recvHandshake( sock, coordinator );
+        JTRACE("recieved handshake")(getRemoteId())(fds[0]);
+      }
+      else
+      {
+        JTRACE("skipping handshake recv (shared socket, not owner)")(id())(fds[0]);
+      }
     break;
   }
 }
@@ -318,11 +328,13 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
     }
     break;
     case TCP_ACCEPT:
+      JASSERT(!_acceptRemoteId.isNull())( id() ) ( _acceptRemoteId ) ( fds[0] )
+        .Text("cant restore a TCP_ACCEPT socket with null acceptRemoteId, perhaps handshake went wrong?");
       JTRACE ( "registerOutgoing" ) ( id() ) ( _acceptRemoteId ) ( fds[0] );
       rewirer.registerOutgoing ( _acceptRemoteId, fds );
       break;
     case TCP_CONNECT:
-      JTRACE ( "registerIncoming" ) ( id() ) ( fds[0] );
+      JTRACE ( "registerIncoming" ) ( id() ) ( _acceptRemoteId ) ( fds[0] );
       rewirer.registerIncoming ( id(), fds );
       break;
   }
@@ -677,3 +689,46 @@ void dmtcp::PtsConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 //
 //     JASSERT(false).Text("pipes should have been replaced by socketpair() automagically");
 // }
+
+#define MERGE_MISMATCH_TEXT .Text("Mismatch when merging connections from different restore targets")
+
+void dmtcp::Connection::mergeWith ( const Connection& that ){
+  JASSERT (_id          == that._id)         MERGE_MISMATCH_TEXT;
+  JASSERT (_type        == that._type)       MERGE_MISMATCH_TEXT;
+  JWARNING(_fcntlFlags  == that._fcntlFlags) MERGE_MISMATCH_TEXT;
+  JWARNING(_fcntlOwner  == that._fcntlOwner) MERGE_MISMATCH_TEXT;
+  JWARNING(_fcntlSignal == that._fcntlSignal)MERGE_MISMATCH_TEXT;
+}
+
+void dmtcp::TcpConnection::mergeWith ( const Connection& _that ){
+  Connection::mergeWith(_that);
+  const TcpConnection& that = (const TcpConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
+  JWARNING(_sockDomain    == that._sockDomain)   MERGE_MISMATCH_TEXT;
+  JWARNING(_sockType      == that._sockType)     MERGE_MISMATCH_TEXT;
+  JWARNING(_sockProtocol  == that._sockProtocol) MERGE_MISMATCH_TEXT;
+  JWARNING(_listenBacklog == that._listenBacklog)MERGE_MISMATCH_TEXT;
+  JWARNING(_bindAddrlen   == that._bindAddrlen)  MERGE_MISMATCH_TEXT;
+  //todo: check _bindAddr and _sockOptions
+
+  JTRACE("Merging TcpConnections")(_acceptRemoteId)(that._acceptRemoteId);
+
+  //merge _acceptRemoteId smartly
+  if(_acceptRemoteId.isNull())
+    _acceptRemoteId = that._acceptRemoteId;
+
+  JASSERT(_acceptRemoteId == that._acceptRemoteId)(id())(_acceptRemoteId)(that._acceptRemoteId)
+    .Text("Merging connections disagree on remote host");
+}
+
+void dmtcp::PtsConnection::mergeWith ( const Connection& _that ){
+  Connection::mergeWith(_that);
+  const PtsConnection& that = (const PtsConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
+  JWARNING(_type            == that._type)           MERGE_MISMATCH_TEXT;
+  JWARNING(_symlinkFilename == that._symlinkFilename)MERGE_MISMATCH_TEXT;
+  JWARNING(_device          == that._device)         MERGE_MISMATCH_TEXT;
+}
+
+void dmtcp::FileConnection::mergeWith ( const Connection& that ){
+  Connection::mergeWith(that);
+  JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
+}

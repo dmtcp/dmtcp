@@ -158,7 +158,9 @@ int main ( int argc, char** argv )
     return 0;
   }
 
+  //make sure JASSERT initializes now, rather than durring restart
   JASSERT_STDERR << "";
+
   std::vector<RestoreTarget> targets;
 
   for ( int i = argc-1; i>0; --i )
