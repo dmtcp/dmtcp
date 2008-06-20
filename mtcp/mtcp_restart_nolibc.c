@@ -353,7 +353,13 @@ static void readmemoryareas (void)
       readcs (CS_AREACONTENTS);
       if (try_skipping_existing_segment)
 #ifdef BUG_64BIT_2_6_9
-        readfile (area.addr, area.size);
+        {
+          char tmpbuf[4];
+          int i;
+          /* slow, but rare case; and only for old Linux 2.6.9 */
+          for ( i = 0; i < area.size / 4; i++ )
+            readfile (tmpbuf, 4);
+        }
 #else
         skipfile (area.size);
 #endif
