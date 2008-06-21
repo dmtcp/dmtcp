@@ -33,6 +33,7 @@
 static const char* theHelpMessage =
   "COMMANDS:\n"
   "  l : List connected nodes\n"
+  "  s : Print status message\n"
   "  c : Checkpoint all nodes\n"
   "  f : Force a restart even if there are missing nodes (debugging only)\n"
   "  k : Kill all nodes\n"
@@ -45,6 +46,7 @@ static const char* theUsage =
   "USAGE: dmtcp_coordinator [port]\n"
   "OPTIONS: (Environment variables):\n"
   "  - DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)\n"
+  "  - DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)\n"
   "  - DMTCP_PORT=<coordinator listener port> (default: %d)\n"
   "COMMANDS:\n"
   "  (type '?<return>' at runtime for list)\n"
@@ -135,10 +137,17 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         JNOTE ( "Killing all connected Peers..." );
         broadcastMessage ( DMT_KILL_PEER );
         break;
-  case 'h': case 'H': case '?':
+    case 'h': case 'H': case '?':
         JASSERT_STDERR << theHelpMessage;
         break;
-case ' ': case '\t': case '\n': case '\r':
+    case 's': case 'S':
+        printf("Status...\n");
+        printf("NUM_PEERS=%d\n", _dataSockets.size()-1); //-1 is stdin
+        printf("RUNNING=%s\n", (minimumState()==WorkerState::RUNNING ? "yes" : "no" ));
+        fflush(stdout);
+        break;
+    case ' ': case '\t': case '\n': case '\r':
+        //ignore whitespace
         break;
       default:
         JTRACE ( "unhandled char on stdin" ) ( sock->buffer() [0] );
@@ -448,9 +457,12 @@ dmtcp::WorkerState dmtcp::DmtcpCoordinator::minimumState() const
 
 void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
+  const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
+  if(dir==NULL) dir = ".";
+  std::string filename = std::string(dir)+"/"+RESTART_SCRIPT_NAME;
+
   std::map< std::string, std::vector<std::string> >::const_iterator host;
   std::vector<std::string>::const_iterator file;
-  std::string filename = RESTART_SCRIPT_NAME;
   char hostname[80];
   gethostname ( hostname,80 );
   JTRACE ( "writing restart script" ) ( filename );
