@@ -77,7 +77,7 @@ clean:
 	(cd mtcp && $(MAKE) clean)
 	(cd dmtcp && $(MAKE) clean)
 	cd test && rm -f dmtcp[0-9] shared-fd shared-memory readline
-	rm -f ckpt_* dmtcp_restart_script.sh
+	rm -f ckpt_* dmtcp_restart_script.sh dmtcp-shared-memory.*
 
 distclean: clean
 	(cd mtcp && $(MAKE) distclean)
