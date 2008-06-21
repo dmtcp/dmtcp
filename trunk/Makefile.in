@@ -46,6 +46,8 @@ test/readline: test/readline.c
 test/shared-memory: test/shared-memory.c
 	gcc -o test/shared-memory -Wl,--export-dynamic test/shared-memory.c
 
+tests: test/dmtcp1 test/shared-fd test/readline test/shared-memory
+
 check-${TEST}: test/${TEST}
 	@ echo ""
 	@ echo "*** Type:"
@@ -74,10 +76,10 @@ check-${TEST}: test/${TEST}
 clean:
 	(cd mtcp && $(MAKE) clean)
 	(cd dmtcp && $(MAKE) clean)
-	cd test && rm -f dmtcp? shared-fd
+	cd test && rm -f dmtcp[0-9] shared-fd shared-memory readline
 	rm -f ckpt_* dmtcp_restart_script.sh
 
-distclean:
+distclean: clean
 	(cd mtcp && $(MAKE) distclean)
 	(cd dmtcp && $(MAKE) distclean)  
 	rm -f Makefile config.log config.status bin/*
