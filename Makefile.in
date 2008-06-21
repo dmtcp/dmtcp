@@ -46,7 +46,7 @@ test/readline: test/readline.c
 test/shared-memory: test/shared-memory.c
 	gcc -o test/shared-memory -Wl,--export-dynamic test/shared-memory.c
 
-tests: test/dmtcp1 test/shared-fd test/readline test/shared-memory
+tests: test/dmtcp1 test/shared-fd test/shared-memory
 
 check-${TEST}: test/${TEST}
 	@ echo ""
