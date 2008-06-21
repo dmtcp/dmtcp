@@ -8,7 +8,8 @@ import sys
 
 BUFFER_SIZE=4096*8
 VERBOSE=False
-S=1
+S=0.5
+L=3
 
 os.system("test -f Makefile || ./configure")
 os.system("make all tests")
@@ -45,7 +46,7 @@ def coordinatorCmd(cmd):
 #clean up after ourselves
 def SHUTDOWN():
   coordinatorCmd('q')
-  sleep(S/2.0)
+  sleep(S)
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
 
@@ -93,10 +94,11 @@ def runTest(name, cmds):
   def testCheckpoint():
     #start checkpoint 
     coordinatorCmd('c')
-    sleep(S)
+    sleep(L)
 
     #make sure status hasn't changed
-    CHECK(status==getStatus(), "checkpoint error")
+    newStatus=getStatus()
+    CHECK(status==newStatus, "checkpoint error: %d of %d procs, running=%d" % (newStatus[0], status[0],newStatus[1]))
 
     #make sure the files are there
     numFiles=len(listdir(ckptDir))
@@ -116,7 +118,7 @@ def runTest(name, cmds):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     launch(cmd)
-    sleep(S)
+    sleep(L)
     newStatus=getStatus()
     CHECK(status==newStatus, "restart error: %d of %d procs, running=%d" % (newStatus[0], status[0],newStatus[1]))
 
@@ -127,21 +129,21 @@ def runTest(name, cmds):
   print name, "restart 1:   ",
   testRestart()
   print "PASSED"
+  print name, "checkpoint 2:",
+  testCheckpoint()
   testKill()
-# print name, "checkpoint 2:",
-# testCheckpoint()
-# testKill()
-# print "PASSED"
-# print name, "restart 2:   ",
-# testRestart()
-# testKill()
-# print "PASSED"
+  print "PASSED"
+  print name, "restart 2:   ",
+  testRestart()
+  testKill()
+  print "PASSED"
 
   #clear checkpoint dir
   for f in listdir(ckptDir):
     os.remove(ckptDir + "/" + f)
 
 runTest("dmtcp1",        ["./test/dmtcp1"])
+runTest("dmtcp1x2",      ["./test/dmtcp1", "./test/dmtcp1"])
 runTest("shared-fd",     ["./test/shared-fd"])
 runTest("shared-memory", ["./test/shared-memory"])
 
