@@ -10,6 +10,9 @@ BUFFER_SIZE=4096*8
 VERBOSE=False
 S=1
 
+os.system("test -f Makefile || ./configure")
+os.system("make all tests")
+
 #make sure we are in svn root
 if os.system("test -d bin") is not 0:
   os.chdir("..")
@@ -97,7 +100,7 @@ def runTest(name, cmds):
 
     #make sure the files are there
     numFiles=len(listdir(ckptDir))
-    CHECK(numFiles==status[0]*2+1, "Unexpected number of checkpoint files")
+    CHECK(numFiles==status[0]*2+1, "Unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
   
   def testKill():
     #kill all processes
@@ -110,11 +113,12 @@ def runTest(name, cmds):
     cmd="./bin/dmtcp_restart"
     for i in listdir(ckptDir):
       if i.endswith(".mtcp"):
-        cmd+= " " + i
+        cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     launch(cmd)
     sleep(S)
-    CHECK(status==getStatus(), "restart error")
+    newStatus=getStatus()
+    CHECK(status==newStatus, "restart error: %d of %d procs, running=%d" % (newStatus[0], status[0],newStatus[1]))
 
   print name, "checkpoint 1:",
   testCheckpoint()
@@ -123,23 +127,22 @@ def runTest(name, cmds):
   print name, "restart 1:   ",
   testRestart()
   print "PASSED"
-  print name, "checkpoint 2:",
-  testCheckpoint()
   testKill()
-  print "PASSED"
-  print name, "restart 2:   ",
-  testRestart()
-  testKill()
-  print "PASSED"
+# print name, "checkpoint 2:",
+# testCheckpoint()
+# testKill()
+# print "PASSED"
+# print name, "restart 2:   ",
+# testRestart()
+# testKill()
+# print "PASSED"
 
-
-os.system("test -f Makefile || ./configure")
-os.system("make all tests")
+  #clear checkpoint dir
+  for f in listdir(ckptDir):
+    os.remove(ckptDir + "/" + f)
 
 runTest("dmtcp1",        ["./test/dmtcp1"])
-runTest("dmtcp1x2",      ["./test/dmtcp1", "./test/dmtcp1"])
 runTest("shared-fd",     ["./test/shared-fd"])
-runTest("readline",      ["./test/readline"])
 runTest("shared-memory", ["./test/shared-memory"])
 
 SHUTDOWN()
