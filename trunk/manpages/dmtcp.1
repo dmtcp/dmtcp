@@ -51,11 +51,11 @@ dmtcp_checkpoint, dmtcp_restart only)
 The port the cluster\-wide coordinator listens on. (default: 7779)
 
 .IP  DMTCP_GZIP=(1|0)
-Set to "0" to disable compression of checkpoint images. (default:1, compression
-enabled; dmtcp_checkpoint only)
+Set to "0" to disable compression of checkpoint images. (default:0, compression
+disabled; dmtcp_checkpoint only)
 
 .IP  DMTCP_CHECKPOINT_DIR=path
-Directory to store checkpoint images in. (default: ./; dmtcp_checkpoint only)
+Directory to store checkpoint images in. (default: ./)
 
 .IP  DMTCP_SIGCKPT=integer
 Signal number to use for checkpointing.  Must not be used by the user program.
@@ -78,6 +78,8 @@ The coordinator accepts the following commands on its standard input.
 Each command should be followed by the <return> key.  The commands are: 
 .br
   l : List connected nodes
+.br 
+  s : Print status message
 .br 
   c : Checkpoint all nodes
 .br 

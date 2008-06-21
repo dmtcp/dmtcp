@@ -34,8 +34,8 @@ static const char* theUsage =
   "OPTIONS (Environment variables):\n"
   "  - DMTCP_HOST=<hostname where coordinator is running> (default: localhost) \n"
   "  - DMTCP_PORT=<coordinator listener port> (default: 7779) \n"
-  "  - DMTCP_GZIP=<NULL: disable compression of checkpoint image> \n"
-  "               (default:gzip, compression enabled) \n"
+  "  - DMTCP_GZIP=<1: enable compression of checkpoint image> \n"
+  "               (default:0, compression disabled) \n"
   "  - DMTCP_CHECKPOINT_DIR=<location to store checkpoints> (default: ./)\n"
   "  - DMTCP_SIGCKPT=<signal number> (default: SIGUSR2) \n"
 ;
