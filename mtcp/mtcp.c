@@ -1265,7 +1265,7 @@ static int open_ckpt_to_write(void)
     if( do_we_compress == NULL ) do_we_compress = getenv("DMTCP_GZIP");
     // env var is unset, lets default to enabled
     // to disable compression, run with MTCP_GZIP=0
-    if( do_we_compress == NULL) do_we_compress = "1";
+    if( do_we_compress == NULL) do_we_compress = "0";
     
     fd = mtcp_safe_open(temp_checkpointfilename,
             O_CREAT | O_TRUNC | O_WRONLY, 0600);
