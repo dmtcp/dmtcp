@@ -24,6 +24,7 @@ def shouldRunTest(name):
     return True
   return args.has_key(name)
 
+
 os.system("test -f Makefile || ./configure")
 if os.system("make -s --no-print-directory all tests") != 0:
   print "`make all tests` FAILED"
@@ -39,11 +40,20 @@ if os.system("test -d bin") is not 0:
   os.chdir("..")
 assert os.system("test -d bin") is 0
 
+#exception on failed check
+class CheckFailed(Exception):
+  def __init__(self, value=""):
+    self.value = value
+
 #launch a child process
 def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
   cmd = cmd.split(" ");
+  try:
+    os.stat(cmd[0])
+  except e:
+    raise CheckFailed(cmd[0] + " not found")
   return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
 
 #randomize port and dir, so multiple processes works 
@@ -57,7 +67,6 @@ os.environ['DMTCP_GZIP'] = "0"
 #launch the coordinator
 coordinator = launch("./bin/dmtcp_coordinator")
 
-
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
   coordinator.tochild.write(cmd+"\n")
@@ -69,11 +78,6 @@ def SHUTDOWN():
   sleep(S)
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
-
-#exception on failed check
-class CheckFailed(Exception):
-  def __init__(self, value=""):
-    self.value = value
 
 #make sure val is true
 def CHECK(val, msg):
@@ -218,6 +222,10 @@ runTest("frisbee",       ["./test/frisbee "+p1+" localhost "+p2,
                           "./test/frisbee "+p3+" localhost "+p1+" starter"])
 
 runTest("shared-fd",     ["./test/shared-fd"])
+
+runTest("stale-fd",      ["./test/stale-fd"])
+
+runTest("readline",      ["./test/readline"])
 
 runTest("forkexec",      ["./test/forkexec"])
 
