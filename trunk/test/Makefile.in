@@ -5,6 +5,7 @@ CXX=@CXX@
 CFLAGS=@CFLAGS@
 CFLAGS+=-Wl,--export-dynamic
 CXXFLAGS=@CXXFLAGS@
+HAS_READLINE=@HAS_READLINE@
 
 TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
 
@@ -14,7 +15,11 @@ clean distclean:
 	rm -f $(TESTS)
 
 readline: readline.c
-	$(CC) -o $@ $< $(CFLAGS) -lreadline -lhistory -lcurses
+ifeq ($(HAS_READLINE),yes)
+	$(CC) -o $@ $< $(CFLAGS) -lreadline -lhistory
+else
+	#required libraries missing, skipping test
+endif
 
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
