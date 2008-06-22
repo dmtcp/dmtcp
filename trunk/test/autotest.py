@@ -6,25 +6,43 @@ from os     import listdir
 import os
 import sys
 
-BUFFER_SIZE=4096*8
-VERBOSE=False
+#number of checkpoint/restart cycles
+CYCLES=2
+
+#Sleep after program startup, etc (sec)
 S=0.3
+
+#Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=5
+
+#Interval between checks for ckpt/restart complete
 INTERVAL=0.2
 
-args={}
+#Buffers for process i/o
+BUFFER_SIZE=4096*8
 
+#False redirects process stderr
+VERBOSE=False
+
+#parse program args
+args={}
 for i in sys.argv:
   args[i]=True
   if i=="-v":
     VERBOSE=True
+  if i=="--stress":
+    CYCLES=999999999
+  if i=="-h" or i=="--help":
+    print "USAGE "+sys.argv[0]+" [-v] [testname] [testname...]  "
+    sys.exit(1)
+
 
 def shouldRunTest(name):
   if len(sys.argv) <= 1:
     return True
   return args.has_key(name)
 
-
+#make sure dmtcp is built
 os.system("test -f Makefile || ./configure")
 if os.system("make -s --no-print-directory all tests") != 0:
   print "`make all tests` FAILED"
@@ -167,25 +185,19 @@ def runTest(name, cmds):
     status=getStatus()
     n, running = status
     CHECK(running and n>=len(cmds), "user program startup error")
+    
+    for i in xrange(CYCLES):
+      printFixed("ckpt:")
+      testCheckpoint()
+      testKill()
+      printFixed("PASSED ")
 
-    printFixed("ckpt:")
-    testCheckpoint()
+      printFixed("rstr:")
+      testRestart()
+      printFixed("PASSED ")
+
     testKill()
-
-    printFixed("PASSED, ")
-    printFixed("rstr:")
-    testRestart()
-
-    printFixed("PASSED, ")
-    printFixed("ckpt:")
-    testCheckpoint()
-    testKill()
-
-    printFixed("PASSED, ")
-    printFixed("rstr:")
-    testRestart()
-    testKill()
-    print "PASSED"
+    print #newline
 
   except CheckFailed, e:
     print "FAILED"
@@ -212,7 +224,7 @@ p3=str(randint(2000,10000))
 
 runTest("dmtcp1",        ["./test/dmtcp1"])
 
-runTest("dmtcp1x2",      ["./test/dmtcp1", "./test/dmtcp1"])
+runTest("shared-fd",     ["./test/shared-fd"])
 
 runTest("echoserver",    ["./test/echoserver/server "+p0,
                           "./test/echoserver/client localhost "+p0])
@@ -221,19 +233,23 @@ runTest("frisbee",       ["./test/frisbee "+p1+" localhost "+p2,
                           "./test/frisbee "+p2+" localhost "+p3,
                           "./test/frisbee "+p3+" localhost "+p1+" starter"])
 
-runTest("shared-fd",     ["./test/shared-fd"])
+runTest("shared-memory", ["./test/shared-memory"])
 
 runTest("stale-fd",      ["./test/stale-fd"])
 
-runTest("readline",      ["./test/readline"])
-
 runTest("forkexec",      ["./test/forkexec"])
 
+runTest("gettimeofday",  ["./test/gettimeofday"])
+
+runTest("readline",      ["./test/readline"])
+
 os.environ['DMTCP_GZIP'] = "1"
-runTest("gzip",     ["./test/shared-fd"])
+runTest("gzip",          ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = "0"
 
-runTest("shared-memory", ["./test/shared-memory"])
+runTest("perl",          ["/usr/bin/perl"])
+
+runTest("python",        ["/usr/bin/python"])
 
 print "".ljust(80,'=')
 
