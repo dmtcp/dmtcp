@@ -199,7 +199,7 @@ int main ( int argc, char** argv )
       JASSERT ( child >= 0 ) ( child ).Text ( "fork failed" );
       if ( child != 0 )
       {
-        sleep ( 1 );
+        //sleep ( 1 );
         continue;
       }
     }
