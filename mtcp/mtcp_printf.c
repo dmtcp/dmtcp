@@ -31,7 +31,16 @@
 // Force mtcp_sys.h to define this.
 #define MTCP_SYS_STRLEN
 #define MTCP_SYS_STRCHR
+
+
 #include "mtcp_internal.h"
+
+/* 
+   File descriptor where all the debugging outputs should go.
+   This const is also defined by the same name in jassert.cpp.
+   These two consts must always be in sync.
+*/
+static const int DUP_STDERR_FD = 826;
 
 static char const hexdigits[] = "0123456789ABCDEF";
 static MtcpState printflocked = MTCP_STATE_INITIALIZER;
@@ -203,7 +212,7 @@ static void rwrite (char const *buff, int size)
   int offs, rc;
 
   for (offs = 0; offs < size; offs += rc) {
-    rc = mtcp_sys_write (2, buff + offs, size - offs);
+    rc = mtcp_sys_write (DUP_STDERR_FD, buff + offs, size - offs);
     if (rc <= 0) break;
   }
 }
