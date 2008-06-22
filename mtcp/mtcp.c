@@ -154,6 +154,7 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 	/* Static data */
 
+static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *perm_checkpointfilename = NULL;
 static char const *temp_checkpointfilename = NULL;
 static unsigned long long checkpointsize;
@@ -254,7 +255,6 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   pid_t tls_pid, tls_tid;
   int len;
   Thread *thread;
-  time_t nextalarm, now;
   mtcp_segreg_t TLSSEGREG;
 
   if (sizeof(void *) != sizeof(long)) {
@@ -270,13 +270,12 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    *
    * TODO: To insert some sort of error checking to make sure that we 
    *       are correctly setting LD_PRELOAD after we are done with 
-   *       nscd check.
+   *       vdso check.
    */
   
   setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
   unsetenv("LD_PRELOAD");
 
-  mtcp_check_nscd();
 #ifndef __x86_64__
   mtcp_check_vdso_enabled();
 #endif
@@ -1405,11 +1404,32 @@ static void checkpointeverything (void)
      *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
      * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
-     */
+     */ 
 
     /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
+
+    /* Special Case Handling: nscd is enabled*/
+    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 ){
+      DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
+               "                           this area in read/write mode and then will fill it with zeros so that\n" \
+               "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
+      area.prot = PROT_READ | PROT_WRITE;
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+
+      if ( munmap(area.addr, area.size) == -1) {
+        mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
+        mtcp_abort();
+      }
+      
+      if ( mmap(area.addr, area.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0) == MAP_FAILED ){
+        mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
+        mtcp_abort();
+      }
+
+      memset(area.addr, 0, area.size);
+    }
 
     /* Force the anonymous flag if it's a private writeable section, as the */
     /* data has probably changed from the contents of the original images   */
@@ -2033,7 +2053,12 @@ static int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if (area -> name[0] == '/') { /* if an absolute pathname */
+  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 ) { /* if nscd active*/
+    while ((c != '\n') && (c != 0)) {
+      c = mtcp_readchar (mapsfd);
+    }
+  }
+  else if (area -> name[0] == '/') { /* if an absolute pathname */
     rc = mtcp_safestat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("mtcp readmapsline: error %d statting %s\n",
