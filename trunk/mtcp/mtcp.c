@@ -206,7 +206,8 @@ static void *checkpointhread (void *dummy);
 static int open_ckpt_to_write(void);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
-static void writememoryarea (int fd, Area *area, int stack_was_seen);
+static void writememoryarea (int fd, Area *area,
+			     int stack_was_seen, int vsyscall_exists);
 static void writecs (int fd, char cs);
 static void writefile (int fd, void const *buff, int size);
 static void stopthisthread (int signum);
@@ -280,7 +281,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   mtcp_check_vdso_enabled();
 #endif
 
-  setenv("LD_PRELOAD",getenv("MTCP_TMP_LD_PRELOAD"), 1);
+  setenv("LD_PRELOAD", getenv("MTCP_TMP_LD_PRELOAD"), 1);
   unsetenv("MTCP_TMP_LD_PRELOAD");
 
 #if 0
@@ -1331,12 +1332,12 @@ static int open_ckpt_to_write(void)
 /********************************************************************************************************************************/
 
 static void checkpointeverything (void)
-
 {
   Area area;
   int fd, mapsfd;
   VA area_begin, area_end;
   int stack_was_seen = 0;
+  int vsyscall_exists = 0;
 
   static void *const frpointer = finishrestore;
 
@@ -1382,6 +1383,18 @@ static void checkpointeverything (void)
     mtcp_abort ();
   }
 
+  /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
+   * [vdso] will be saved and restored.
+   * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
+   * We must restore old [vdso] and also keep [vdso] in that case.
+   */
+  while (readmapsline (mapsfd, &area)) {
+    if (0 == strcmp(area.name, "[vsyscall]"))
+      vsyscall_exists = 1;
+  }
+  close(mapsfd);
+  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+
   while (readmapsline (mapsfd, &area)) {
     area_begin = (VA)area.addr;
     area_end   = area_begin + area.size;
@@ -1420,29 +1433,29 @@ static void checkpointeverything (void)
 
     if (area_begin < restore_begin) {
       if (area_end <= restore_begin) {
-        writememoryarea (fd, &area, 0);            // the whole thing is before the restore image
+        writememoryarea (fd, &area, 0, vsyscall_exists); // the whole thing is before the restore image
       } else if (area_end <= restore_end) {
         area.size = restore_begin - area_begin;    // we just have to chop the end part off
-        writememoryarea (fd, &area, 0);
+        writememoryarea (fd, &area, 0, vsyscall_exists);
       } else {
         area.size = restore_begin - area_begin;    // we have to write stuff that comes before restore image
-        writememoryarea (fd, &area, 0);
+        writememoryarea (fd, &area, 0, vsyscall_exists);
         area.offset += restore_end - area_begin;   // ... and we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
         area.addr = (void *)restore_end;
-        writememoryarea (fd, &area, 0);
+        writememoryarea (fd, &area, 0, vsyscall_exists);
       }
     } else if (area_begin < restore_end) {
       if (area_end > restore_end) {
         area.offset += restore_end - area_begin;   // we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
         area.addr = (void *)restore_end;
-        writememoryarea (fd, &area, 0);
+        writememoryarea (fd, &area, 0, vsyscall_exists);
       }
     } else {
       if ( strstr (area.name, "[stack]") )
         stack_was_seen = 1;
-      writememoryarea (fd, &area, stack_was_seen); // the whole thing comes after the restore image
+      writememoryarea (fd, &area, stack_was_seen, vsyscall_exists); // the whole thing comes after the restore image
     }
   }
 
@@ -1475,7 +1488,7 @@ static void checkpointeverything (void)
 }
 
 /* True if the given FD should be checkpointed */
-static int should_ckpt_fd(int fd)
+static int should_ckpt_fd (int fd)
 {
    if( callback_ckpt_fd!=NULL ) 
      return (*callback_ckpt_fd)(fd); //delegate to callback
@@ -1580,7 +1593,8 @@ static void writefiledescrs (int fd)
   writefile (fd, &fdnum, sizeof fdnum);
 }
 
-static void writememoryarea (int fd, Area *area, int stack_was_seen)
+static void writememoryarea (int fd, Area *area, int stack_was_seen,
+			     int vsyscall_exists)
 
 {
   /* Write corresponding descriptor to the file */
@@ -1601,9 +1615,11 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
                  " from %s + %X\n",
 		 area -> size, area -> addr, area -> name, area -> offset));
 
-  if (!stack_was_seen  /* If vdso appeared before stack, it can be replaced */
-      || 0 != strcmp(area -> name, "[vdso]")
-        && 0 != strcmp(area -> name, "[vsyscall]")) {
+  if ( 0 != strcmp(area -> name, "[vsyscall]")
+       && ( (0 != strcmp(area -> name, "[vdso]")
+             || vsyscall_exists /* which implies vdso can be overwritten */
+             || !stack_was_seen ))) /* If vdso appeared before stack, it can be replaced */
+  {
     writecs (fd, CS_AREADESCRIP);
     writefile (fd, area, sizeof *area);
 
