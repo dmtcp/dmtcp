@@ -29,7 +29,7 @@ static const int WELL_KNOWN_FD = 10;
 
 static void die ( const char* msg )
 {
-  printf ( "ERROR: %s \n",msg );
+  printf ( "ERROR: %s \n", msg );
   _exit ( -1 );
 }
 
@@ -55,7 +55,7 @@ int main ( int argc, char** argv )
     {
       //oops... the user forgot to close a unused socket!!!
       //close(fd[1]);
-      dup2 ( fd[0],WELL_KNOWN_FD );
+      dup2 ( fd[0], WELL_KNOWN_FD );
       char* t[] = { argv[0] , "slave", 0};
       // BAD USER: just trashed our environment variables:
       char* env[] = {"A=B","C=E","LD_PRELOAD=taco",0};

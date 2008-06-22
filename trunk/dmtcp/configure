@@ -3991,7 +3991,7 @@ _ACEOF
 
 fi
 
-ac_config_files="$ac_config_files Makefile src/Makefile examples/Makefile examples/01.echoserver/Makefile examples/02.frisbee/Makefile examples/03.forkexec/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -4581,10 +4581,6 @@ do
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
-    "examples/Makefile") CONFIG_FILES="$CONFIG_FILES examples/Makefile" ;;
-    "examples/01.echoserver/Makefile") CONFIG_FILES="$CONFIG_FILES examples/01.echoserver/Makefile" ;;
-    "examples/02.frisbee/Makefile") CONFIG_FILES="$CONFIG_FILES examples/02.frisbee/Makefile" ;;
-    "examples/03.forkexec/Makefile") CONFIG_FILES="$CONFIG_FILES examples/03.forkexec/Makefile" ;;
 
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
