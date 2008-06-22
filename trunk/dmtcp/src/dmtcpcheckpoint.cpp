@@ -89,13 +89,14 @@ int main ( int argc, char** argv )
   std::string stderrDevice = jalib::Filesystem::ResolveSymlink ( _stderrProcPath() );
 
   //TODO:
-  // When stderr is a socket, this logic fails and JASSERT may write data to FD 2
-  // this will cause problems in programs that use FD 3 for algorithmic things...
+  // When stderr is a pseudo terminal for IPC between parent/child processes,
+  // this logic fails and JASSERT may write data to FD 2 (stderr)
+  // this will cause problems in programs that use FD 2 (stderr) for algorithmic things...
   if ( stderrDevice.length() > 0
           && jalib::Filesystem::FileExists ( stderrDevice ) )
     setenv ( ENV_VAR_STDERR_PATH,stderrDevice.c_str(), 0 );
- else if( is_ssh_slave )
-   setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
+  else// if( is_ssh_slave )
+    setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );

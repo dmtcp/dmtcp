@@ -33,7 +33,7 @@ void mtcp_check_nscd(void) {
     { perror("close"); exit(1); }
   if (isWarned == 0){
     isWarned = 1;
-    printf("\n\n\nWARNING:  /var/run/nscd exists\n"
+    mtcp_printf("\n\n\nWARNING:  /var/run/nscd exists\n"
     "  MTCP currently might not correctly restart when nscd is running.\n"
     "  Please test checkpoint/restart on your machine to see if it works.\n"
     "  If necessary, turn off nscd.  For example:  /etc/init.d/nscd --stop\n"

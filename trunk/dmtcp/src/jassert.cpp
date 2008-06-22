@@ -31,6 +31,10 @@
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
 
+/* 
+   When updating value of DUP_STDERR_FD, the same value should be updated 
+   in mtcp_printf.c. The two consts must always in sync.
+*/
 static const int DUP_STDERR_FD = 826;
 static const int DUP_LOG_FD    = 827;
 
