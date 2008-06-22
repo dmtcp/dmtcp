@@ -8,81 +8,56 @@ mandir=@mandir@
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-all: mtcp dmtcp_noexamples
+all: mtcp dmtcp
 	($(MAKE) bin)
 
 mtcp:
 	(cd mtcp && $(MAKE) CC=$(CC))
 
 dmtcp:
-	(cd dmtcp && $(MAKE))
-
-dmtcp_noexamples:
 	(cd dmtcp/src && $(MAKE))
 
-examples:
-	(cd dmtcp/examples && $(MAKE))
+test tests:
+	(cd test && $(MAKE))
 
-check: all check1
+check: all
+	+./test/autotest.py
 
-check1: test/dmtcp1
-	${MAKE} TEST=dmtcp1 check-dmtcp1
-
-check2: test/readline
-	${MAKE} TEST=readline XTERM_E="xterm -e" check-readline
-
-check3: test/shared-memory
-	${MAKE} TEST=shared-memory check-shared-memory
-
-test/dmtcp1: test/dmtcp1.c
-	gcc -o $@ $<
-
-test/shared-fd: test/shared-fd.c
-	gcc -o $@ $<
-
-test/readline: test/readline.c
-	gcc -o test/readline -Wl,--export-dynamic test/readline.c \
-	  -lreadline -lhistory -lcurses
-test/shared-memory: test/shared-memory.c
-	gcc -o test/shared-memory -Wl,--export-dynamic test/shared-memory.c
-
-tests: test/dmtcp1 test/shared-fd test/shared-memory
-
-check-${TEST}: test/${TEST}
-	@ echo ""
-	@ echo "*** Type:"
-	@ echo "***       h<return> for Help (optional)"
-	@ echo "***       c<return> to Checkpoint"
-	@ echo "***       k<return> to Kill and observe the Restart"
-	@ echo "***       q<return> to Quit"
-	@ echo ""
-	@ echo "Press <return> when ready to start."
-	@ read -p "> " dummy
-	( rm -f ckpt_${TEST}* && sleep 3 && \
-		echo "" && echo "*** Starting Program" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/${TEST} && \
-		echo "" && echo "*** Restarting Program from Checkpoint" \
-		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
-		echo "" && echo "*** Again Restarting Program from Checkpoint" \
-		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
-		) &
-	@ bin/dmtcp_coordinator
+# check-${TEST}: test/${TEST}
+# 	@ echo ""
+# 	@ echo "*** Type:"
+# 	@ echo "***       h<return> for Help (optional)"
+# 	@ echo "***       c<return> to Checkpoint"
+# 	@ echo "***       k<return> to Kill and observe the Restart"
+# 	@ echo "***       q<return> to Quit"
+# 	@ echo ""
+# 	@ echo "Press <return> when ready to start."
+# 	@ read -p "> " dummy
+# 	( rm -f ckpt_${TEST}* && sleep 3 && \
+# 		echo "" && echo "*** Starting Program" && echo "" && \
+# 		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/${TEST} && \
+# 		echo "" && echo "*** Restarting Program from Checkpoint" \
+# 			"(press q<return> to quit)" && echo "" && \
+# 		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
+# 		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+# 		echo "" && echo "*** Again Restarting Program from Checkpoint" \
+# 			"(press q<return> to quit)" && echo "" && \
+# 		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
+# 		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+# 		) &
+# 	@ bin/dmtcp_coordinator
 
 
 clean:
-	(cd mtcp && $(MAKE) clean)
+	(cd mtcp  && $(MAKE) clean)
 	(cd dmtcp && $(MAKE) clean)
-	cd test && rm -f dmtcp[0-9] shared-fd shared-memory readline
+	(cd test  && $(MAKE) clean)
 	rm -f ckpt_* dmtcp_restart_script.sh dmtcp-shared-memory.*
 
 distclean: clean
-	(cd mtcp && $(MAKE) distclean)
+	(cd mtcp  && $(MAKE) distclean)
 	(cd dmtcp && $(MAKE) distclean)  
-	rm -f Makefile config.log config.status bin/*
+	rm -f Makefile test/Makefile config.log config.status bin/*
 
 dist: distclean
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz --exclude='.*/.svn/*' \

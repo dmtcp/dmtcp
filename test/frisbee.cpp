@@ -27,26 +27,31 @@
 #include <string.h>
 #include <unistd.h>
 #include <iostream>
-#include "jassert.h"
+#undef NDEBUG
+#include <assert.h>
+
 
 void doAccept ( int& acceptSock, int listenSock );
 void doConnect ( int& connectSock, struct hostent* host, int port,const char* hostname );
 
 int main ( int argc, char ** argv )
 {
-  JASSERT ( argc == 4 ) ( argc ).Text ( "usage: player listen-port connect-host connect-port" );
+  if ( argc!=4 && argc!=5 ){
+    printf( "usage: player listen-port connect-host connect-port [starter]\n" );
+    return -1;
+  }
 
   int listenSock = socket ( AF_INET, SOCK_STREAM, 0 );
   int connectSock = socket ( AF_INET, SOCK_STREAM, 0 );
   int acceptSock = -1;
-  JASSERT ( listenSock>0 && connectSock>0 ) ( listenSock ) ( connectSock );
+  assert ( listenSock>0 && connectSock>0 );
 
   int listenPort = atoi ( argv[1] );
   hostent *connectHost = gethostbyname ( argv[2] );
   int connectPort = atoi ( argv[3] );
-  JASSERT ( listenPort > 0 ) ( listenPort ) ( argv[1] ).Text ( "expected port" );
-  JASSERT ( connectHost!=NULL ) ( argv[2] ).Text ( "unkown host" );
-  JASSERT ( connectPort > 0 ) ( connectPort ) ( argv[3] ).Text ( "expected port" );
+  assert ( listenPort > 0 );
+  assert ( connectHost!=NULL );
+  assert ( connectPort > 0 );
 
   //bind listen socket
   {
@@ -56,19 +61,18 @@ int main ( int argc, char ** argv )
     listenAddy.sin_addr.s_addr = INADDR_ANY;
     listenAddy.sin_port = htons ( listenPort );
 
-    JASSERT ( bind ( listenSock, ( sockaddr * ) &listenAddy, sizeof ( listenAddy ) ) >=0 )
-    ( listenPort ).Text ( "failed to bind socket" );
+    assert ( bind ( listenSock, ( sockaddr * ) &listenAddy, sizeof ( listenAddy ) ) >=0 );
 
-    JASSERT ( listen ( listenSock,5 ) >=0 );
+    assert ( listen ( listenSock,5 ) >=0 );
   }
 
-  bool isStarterNode = false;
+  bool isStarterNode = (argc==5);
 
   {
-    std::cout << "starter node? [y/n] ";
-    std::string c;
-    std::cin >> c;
-    if ( c[0]=='y' || c[0]=='Y' ) isStarterNode = true;
+    //std::cout << "starter node? [y/n] ";
+    //std::string c;
+    //std::cin >> c;
+    //if ( c[0]=='y' || c[0]=='Y' ) isStarterNode = true;
   }
 
   if ( !isStarterNode )
@@ -85,25 +89,6 @@ int main ( int argc, char ** argv )
     std::cout << "accepting..."  << std::endl;
     doAccept ( acceptSock, listenSock );
   }
-//     /*
-//     {
-//         size_t tmp = 0;
-//         socklen_t oplen = sizeof(tmp);
-//         JASSERT(setsockopt(connectSock,SOL_SOCKET, SO_RCVBUF, &tmp, sizeof(tmp)) == 0);
-//         JASSERT(setsockopt(connectSock,SOL_SOCKET, SO_SNDBUF, &tmp, sizeof(tmp)) == 0);
-//         JASSERT(setsockopt(acceptSock, SOL_SOCKET, SO_RCVBUF, &tmp, sizeof(tmp)) == 0);
-//         JASSERT(setsockopt(acceptSock, SOL_SOCKET, SO_SNDBUF, &tmp, sizeof(tmp)) == 0);
-//
-//         JASSERT(getsockopt(connectSock,SOL_SOCKET, SO_RCVBUF, &tmp, &oplen) == 0);
-//         JNOTE("sockopt")(tmp);
-//         JASSERT(getsockopt(connectSock,SOL_SOCKET, SO_SNDBUF, &tmp, &oplen) == 0);
-//         JNOTE("sockopt")(tmp);
-//         JASSERT(getsockopt(acceptSock, SOL_SOCKET, SO_RCVBUF, &tmp, &oplen) == 0);
-//         JNOTE("sockopt")(tmp);
-//         JASSERT(getsockopt(acceptSock, SOL_SOCKET, SO_SNDBUF, &tmp, &oplen) == 0);
-//         JNOTE("sockopt")(tmp);
-//
-//     }*/
   std::cout << "ready" << std::endl;
 
   for ( ;; )
@@ -115,26 +100,14 @@ int main ( int argc, char ** argv )
     if ( c[0] >= 'a' && c[0] <= 'z' )
     {
       std::cout << "throwing a '" << c[0] << "' to next player..." << std::endl;
-      JASSERT ( write ( connectSock,&c[0],1 ) ==1 ) ( c );
+      assert ( write ( connectSock,&c[0],1 ) ==1 ) ;
       fsync ( connectSock );
       std::cout << "throw complete." << std::endl;
     }
-//         else if(c[0] == 'S')
-//         {
-//             std::cout << "shrinking buffers..." << std::endl;
-//             size_t tmp = 0;
-//             socklen_t oplen = sizeof(tmp);
-//             JASSERT(setsockopt(connectSock,SOL_SOCKET, SO_RCVBUF, &tmp, sizeof(tmp)) == 0);
-//             JASSERT(setsockopt(connectSock,SOL_SOCKET, SO_SNDBUF, &tmp, sizeof(tmp)) == 0);
-//             JASSERT(setsockopt(acceptSock, SOL_SOCKET, SO_RCVBUF, &tmp, sizeof(tmp)) == 0);
-//             JASSERT(setsockopt(acceptSock, SOL_SOCKET, SO_SNDBUF, &tmp, sizeof(tmp)) == 0);
-//             std::cout << "shrunk" << std::endl;
-//
-//         }
     else
     {
       std::cout << "catching from previos player..." << std::endl;
-      JASSERT ( read ( acceptSock,&c[0],1 ) ==1 );
+      assert ( read ( acceptSock,&c[0],1 ) ==1 );
       std::cout << "caught a '" << c[0] << "'." << std::endl;
     }
   }
@@ -144,7 +117,7 @@ int main ( int argc, char ** argv )
 
 void doAccept ( int& acceptSock, int listenSock )
 {
-  JASSERT ( ( acceptSock = accept ( listenSock,NULL,NULL ) ) >0 ).Text ( "accept() failed" );
+  assert ( ( acceptSock = accept ( listenSock,NULL,NULL ) ) >0 );
 }
 void doConnect ( int& connectSock, hostent* host, int port,const char* hostname )
 {
@@ -153,6 +126,6 @@ void doConnect ( int& connectSock, hostent* host, int port,const char* hostname 
   addr.sin_family = AF_INET;
   memcpy ( &addr.sin_addr.s_addr, host->h_addr, host->h_length );
   addr.sin_port = htons ( port );
-  JASSERT ( connect ( connectSock, ( sockaddr* ) &addr,sizeof ( addr ) ) >=0 ) ( hostname ) ( port ).Text ( "connect failed" );
+  assert ( connect ( connectSock, ( sockaddr* ) &addr,sizeof ( addr ) ) >=0 );
 }
 

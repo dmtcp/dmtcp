@@ -271,6 +271,12 @@ static char** patchUserEnv ( char *const envp[] )
   envVect.clear();
   strStorage.clear();
 
+#ifdef DEBUG
+  const static bool dbg = true;
+#else
+  const static bool dbg = false;
+#endif
+
   JTRACE ( "patching user envp..." ) ( getenv ( "LD_PRELOAD" ) );
 
   //pack up our ENV into the new ENV
@@ -281,7 +287,7 @@ static char** patchUserEnv ( char *const envp[] )
     {
       strStorage.push_back ( std::string ( ourImportantEnvs[i] ) + '=' + v );
       envVect.push_back ( &strStorage.back() [0] );
-      JASSERT_STDERR << "     addenv[dmtcp]:" << strStorage.back() << '\n';
+      if(dbg) JASSERT_STDERR << "     addenv[dmtcp]:" << strStorage.back() << '\n';
     }
   }
 
@@ -289,12 +295,12 @@ static char** patchUserEnv ( char *const envp[] )
   {
     if ( isImportantEnv ( *envp ) )
     {
-      JASSERT_STDERR << "     skipping: " << *envp << '\n';
+      if(dbg) JASSERT_STDERR << "     skipping: " << *envp << '\n';
       continue;
     }
     strStorage.push_back ( *envp );
     envVect.push_back ( &strStorage.back() [0] );
-    JASSERT_STDERR << "     addenv[user]:" << strStorage.back() << '\n';
+    if(dbg) JASSERT_STDERR << "     addenv[user]:" << strStorage.back() << '\n';
   }
 
   envVect.push_back ( NULL );

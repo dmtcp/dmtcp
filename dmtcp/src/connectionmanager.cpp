@@ -213,6 +213,7 @@ void dmtcp::ConnectionList::erase ( iterator i )
 
 void dmtcp::KernelDeviceToConnection::dbgSpamFds()
 {
+#ifdef DEBUG
   JASSERT_STDERR << "Listing FDs...\n";
   std::vector<int> fds = jalib::Filesystem::ListOpenFds();
   for ( size_t i=0; i<fds.size(); ++i )
@@ -225,6 +226,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
     << " -> "  << device
     << " inTable=" << exists << "\n";
   }
+#endif
 }
 
 

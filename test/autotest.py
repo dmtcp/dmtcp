@@ -12,10 +12,21 @@ S=0.3
 TIMEOUT=5
 INTERVAL=0.2
 
-print "== Build ".ljust(80,'=')
+args={}
+
+for i in sys.argv:
+  args[i]=True
+  if i=="-v":
+    VERBOSE=True
+
+def shouldRunTest(name):
+  if len(sys.argv) <= 1:
+    return True
+  return args.has_key(name)
+
 os.system("test -f Makefile || ./configure")
-if os.system("make --no-print-directory mtcp dmtcp tests") != 0:
-  print "`make all mtcp dmtcp tests` FAILED"
+if os.system("make -s --no-print-directory all tests") != 0:
+  print "`make all tests` FAILED"
   sys.exit(1)
 
 #pad a string and print/flush it
@@ -83,6 +94,7 @@ def getStatus():
   coordinatorCmd('s')
 
   if coordinator.poll() >= 0:
+    CHECK(False, "coordinator died unexpectedly")
     return (-1, False)
   
   while True:
@@ -102,6 +114,7 @@ def getStatus():
 #test a given list of commands to see if they checkpoint
 def runTest(name, cmds):
   status=None
+  procs=[]
   
   def testKill():
     #kill all processes
@@ -118,25 +131,32 @@ def runTest(name, cmds):
     
     #make sure the right files are there
     numFiles=len(listdir(ckptDir))
-    CHECK(numFiles==status[0]*2+1, "Unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
+    CHECK(numFiles==status[0]*2+1, "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
   
   def testRestart():
     #build restart command
     cmd="./bin/dmtcp_restart"
+    n=0
     for i in listdir(ckptDir):
       if i.endswith(".mtcp"):
         cmd+= " "+ckptDir+"/"+i
+        n+=1
     #run restart and test if it worked
-    launch(cmd)
+    procs.append(launch(cmd))
     WAITFOR(lambda: status==getStatus(),
-            lambda: "restart error: %d procs, running=%d" % getStatus())
- 
+            lambda: "restart error, "+str(n)+" expected, %d found, running=%d" % getStatus())
   try:
+    printFixed(name,15)
+
+    if not shouldRunTest(name):
+      print "SKIPPED" 
+      return
+      
     CHECK(getStatus()==(0, False), "coordinator initial state")
 
     #start user programs
     for cmd in cmds:
-      prog = launch("./bin/dmtcp_checkpoint "+cmd)
+      procs.append(launch("./bin/dmtcp_checkpoint "+cmd))
       sleep(S)
 
     #record status, make sure user programs are running
@@ -144,7 +164,6 @@ def runTest(name, cmds):
     n, running = status
     CHECK(running and n>=len(cmds), "user program startup error")
 
-    printFixed(name,15)
     printFixed("ckpt:")
     testCheckpoint()
     testKill()
@@ -167,8 +186,13 @@ def runTest(name, cmds):
   except CheckFailed, e:
     print "FAILED"
     printFixed("",15)
-    print "(%s)" % e.value
-    testKill()
+    print "root-pids:", map(lambda x: x.pid, procs),"msg:",e.value
+    try:
+      testKill()
+    except CheckFailed, e:
+      print "CLEANUP ERROR:", e.value
+      SHUTDOWN()
+      sys.exit(1)
 
   #clear checkpoint dir
   for f in listdir(ckptDir):
@@ -177,16 +201,25 @@ def runTest(name, cmds):
 print "== Tests ".ljust(80,'=')
 
 #tmp port
-p=str(randint(2000,10000))
+p0=str(randint(2000,10000))
+p1=str(randint(2000,10000))
+p2=str(randint(2000,10000))
+p3=str(randint(2000,10000))
 
 runTest("dmtcp1",        ["./test/dmtcp1"])
 
 runTest("dmtcp1x2",      ["./test/dmtcp1", "./test/dmtcp1"])
 
-runTest("echoserver",    ["./dmtcp/examples/01.echoserver/server "+p,
-                          "./dmtcp/examples/01.echoserver/client localhost "+p])
+runTest("echoserver",    ["./test/echoserver/server "+p0,
+                          "./test/echoserver/client localhost "+p0])
+
+runTest("frisbee",       ["./test/frisbee "+p1+" localhost "+p2,
+                          "./test/frisbee "+p2+" localhost "+p3,
+                          "./test/frisbee "+p3+" localhost "+p1+" starter"])
 
 runTest("shared-fd",     ["./test/shared-fd"])
+
+runTest("forkexec",      ["./test/forkexec"])
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",     ["./test/shared-fd"])

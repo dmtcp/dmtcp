@@ -1,0 +1,25 @@
+@SET_MAKE@
+LN_S=@LN_S@
+CC=@CC@
+CXX=@CXX@
+CFLAGS=@CFLAGS@
+CFLAGS+=-Wl,--export-dynamic
+CXXFLAGS=@CXXFLAGS@
+
+TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
+
+tests: $(TESTS)
+
+clean distclean:
+	rm -f $(TESTS)
+
+readline: readline.c
+	$(CC) -o $@ $< $(CFLAGS) -lreadline -lhistory -lcurses
+
+%: %.c
+	$(CC) -o $@ $< $(CFLAGS)
+
+%: %.cpp
+	$(CXX) -o $@ $< $(CXXFLAGS)
+
+
