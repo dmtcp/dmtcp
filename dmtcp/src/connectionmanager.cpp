@@ -391,7 +391,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
       ConnectionIdentifier key = i->first;
       std::vector<int>& val = i->second;
       o & key & val;
-      JASSERT ( val.size() >0 ) (key) ( o.filename() ).Text ( "writing bad file format" );
+      JWARNING ( val.size() >0 ) (key) ( o.filename() ).Text ( "writing empty fd list" );
     }
   }
   else
@@ -402,7 +402,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
       ConnectionIdentifier key;
       std::vector<int> val;
       o & key & val;
-      JASSERT ( val.size() >0 ) ( o.filename() ).Text ( "invalid file format" );
+      JWARNING ( val.size() >0 ) (key) ( o.filename() ).Text ( "reading empty fd list" );
       _table[key]=val;
     }
 
