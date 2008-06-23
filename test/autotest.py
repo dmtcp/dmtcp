@@ -226,7 +226,7 @@ def runTest(name, cmds):
   for f in listdir(ckptDir):
     os.remove(ckptDir + "/" + f)
 
-print "== Tests ".ljust(70,'=')
+print "== Tests =="
 
 #tmp port
 p0=str(randint(2000,10000))
@@ -277,7 +277,7 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
-print "== Summary ".ljust(70,'=')
+print "== Summary ==" 
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 
 SHUTDOWN()
