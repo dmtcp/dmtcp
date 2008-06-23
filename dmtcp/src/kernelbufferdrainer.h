@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "jsocket.h"
+#include "connectionidentifier.h"
 
 namespace dmtcp
 {
@@ -33,14 +34,19 @@ namespace dmtcp
     public:
       KernelBufferDrainer() : _timeoutCount(0) {}
 //     void drainAllSockets();
-      void beginDrainOf ( int fd );
+      void beginDrainOf ( int fd , const ConnectionIdentifier& id);
       void refillAllSockets();
       virtual void onData ( jalib::JReaderInterface* sock );
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
       virtual void onTimeoutInterval();
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      
+      const std::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
+      
     private:
-      std::map<int , std::vector<char> > _drainedData;
+      std::map<int , std::vector<char> >    _drainedData;
+      std::map<int , ConnectionIdentifier > _reverseLookup;
+      std::vector<ConnectionIdentifier>     _disconnectedSockets;
       int _timeoutCount;
   };
 

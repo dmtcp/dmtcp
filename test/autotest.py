@@ -153,7 +153,7 @@ def runTest(name, cmds):
     
     #wait for files to appear and status to return to original
     WAITFOR(lambda: len(listdir(ckptDir))>0 and status==getStatus(),
-            lambda: "checkpoint error: %d procs, running=%d" % getStatus())
+            lambda: "checkpoint error, "+str(status[0])+" expected, %d found, running=%d" % getStatus())
     
     #make sure the right files are there
     numFiles=len(listdir(ckptDir))
@@ -162,15 +162,13 @@ def runTest(name, cmds):
   def testRestart():
     #build restart command
     cmd="./bin/dmtcp_restart"
-    n=0
     for i in listdir(ckptDir):
       if i.endswith(".mtcp"):
         cmd+= " "+ckptDir+"/"+i
-        n+=1
     #run restart and test if it worked
     procs.append(launch(cmd))
     WAITFOR(lambda: status==getStatus(),
-            lambda: "restart error, "+str(n)+" expected, %d found, running=%d" % getStatus())
+            lambda: "restart error, "+str(status[0])+" expected, %d found, running=%d" % getStatus())
   try:
     printFixed(name,15)
 

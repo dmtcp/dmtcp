@@ -6,8 +6,8 @@
 #include <sys/socket.h>
 
 //in this example, a disconnected fd is left open at checkpoint time
-//parent closes both sides of socketpair
-//child closes one side
+//child closes both sides of socketpair
+//parent closes one side
 
 int main(int argc, char* argv[])
 {
@@ -21,13 +21,13 @@ int main(int argc, char* argv[])
   const char* me;
 
   if(fork()>0){
-    //parent closes both
+    //parent closes one
     close(sockets[0]);
-    close(sockets[1]);
     me = "parent";
   }else{
-    //child closes one
+    //child closes both
     close(sockets[0]);
+    close(sockets[1]);
     me = "child";
   }
 

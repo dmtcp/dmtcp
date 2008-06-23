@@ -66,7 +66,7 @@ namespace dmtcp
       Connection& retrieve ( int fd );
       void        create ( int fd, Connection* c );
 
-//     void erase(Connection*);
+      void erase(const ConnectionIdentifier&);
 
       std::string fdToDevice ( int fd , bool noOnDemandPts = false );
 
@@ -81,6 +81,9 @@ namespace dmtcp
       KernelDeviceToConnection();
 
       void handlePreExistingFd ( int fd );
+      
+      //called when a device name changes
+      void redirect( int fd, const ConnectionIdentifier& id );
     protected:
 
 

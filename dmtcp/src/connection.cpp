@@ -148,7 +148,6 @@ void dmtcp::TcpConnection::onError()
   _type = TCP_ERROR;
 }
 
-
 void dmtcp::TcpConnection::addSetsockopt ( int level, int option, const char* value, int len )
 {
   _sockOptions[level][option] = jalib::JBuffer ( value, len );
@@ -198,7 +197,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
       {
         const ConnectionIdentifier& toDrainId = id();
         JTRACE ( "will drain socket" ) ( fds[0] ) ( toDrainId ) ( _acceptRemoteId );
-        drain.beginDrainOf ( fds[0] );
+        drain.beginDrainOf ( fds[0], toDrainId );
       }
       else
       {
@@ -271,6 +270,7 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
     case TCP_ERROR: //not a valid socket
     case TCP_INVALID:
     {
+      JTRACE("creating dead socket")(fds[0])(fds.size());
       jalib::JSocket deadSock ( _makeDeadSocket() );
       deadSock.changeFd ( fds[0] );
       for ( size_t i=1; i<fds.size(); ++i )

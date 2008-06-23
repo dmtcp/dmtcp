@@ -57,8 +57,9 @@ void dmtcp::KernelBufferDrainer::onDisconnect ( jalib::JReaderInterface* sock )
   int fd = sock->socket().sockfd();
   //check if this was on purpose
   if ( fd < 0 ) return;
-  JTRACE ( "found disconnected socket... marking it dead" ) ( fd ) ( JASSERT_ERRNO );
-  KernelDeviceToConnection::Instance().retrieve ( fd ).asTcp().onError();
+  JTRACE ( "found disconnected socket... marking it dead" )
+      (fd)(_reverseLookup[fd])( JASSERT_ERRNO );
+  _disconnectedSockets.push_back(_reverseLookup[fd]);
   _drainedData.erase ( fd );
 }
 void dmtcp::KernelBufferDrainer::onTimeoutInterval()
@@ -133,7 +134,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
 //     scaleSendBuffers(0.5);
 // }
 
-void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd )
+void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd, const ConnectionIdentifier& id )
 {
 //     JTRACE("will drain socket")(fd);
   _drainedData[fd]; // create buffer
@@ -142,6 +143,9 @@ void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd )
   addWrite ( new jalib::JChunkWriter ( fd, theMagicDrainCookie, sizeof theMagicDrainCookie ) );
   //now setup a reader:
   addDataSocket ( new jalib::JChunkReader ( fd,512 ) );
+  
+  //insert it in reverse lookup
+  _reverseLookup[fd]=id;
 }
 
 
