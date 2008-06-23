@@ -52,7 +52,16 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
   if ( name == REOPEN_MTCP )
   {
     JTRACE ( "reopening mtcp.so" ) ( theMtcpHandle );
-    while ( dlclose ( theMtcpHandle ) == 0 ) { JTRACE ( "closing..." ); }
+    //must get ref count down to 0 so it is really unloaded
+    for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
+      if(dlclose(theMtcpHandle) != 0){
+        //failed call means it is unloaded 
+        JTRACE("dlclose(mtcp.so) worked");
+        break;
+      }else{
+        JTRACE("dlclose(mtcp.so) decremented refcount");
+      }
+    }
     theMtcpHandle = find_and_open_mtcp_so();
     JTRACE ( "reopening mtcp.so DONE" ) ( theMtcpHandle );
     return 0;

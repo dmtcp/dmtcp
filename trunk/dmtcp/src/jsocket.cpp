@@ -443,7 +443,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       else
       {
         //socket is dead... remove it
-        JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
+        //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
         onDisconnect ( _dataSockets[i] );
         _dataSockets[i]->socket().close();
         delete _dataSockets[i];
@@ -477,7 +477,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 
     if ( maxFd == -1 )
     {
-      JTRACE ( "no sockets, aborting" );
+      //JTRACE ( "no sockets left" );
       return;
     }
 

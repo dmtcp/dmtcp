@@ -6,6 +6,8 @@ CFLAGS=@CFLAGS@
 CFLAGS+=-Wl,--export-dynamic
 CXXFLAGS=@CXXFLAGS@
 HAS_READLINE=@HAS_READLINE@
+HAS_MPICH=@HAS_MPICH@
+MPICH_MPICC=@MPICH_MPICC@
 
 TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
 
@@ -18,7 +20,14 @@ readline: readline.c
 ifeq ($(HAS_READLINE),yes)
 	$(CC) -o $@ $< $(CFLAGS) -lreadline -lhistory
 else
-	#required libraries missing, skipping test
+	#$<: required libraries missing, skipping test
+endif
+
+hellompi: hellompi.c
+ifeq ($(HAS_MPICH),yes)
+	$(MPICH_MPICC) -o $@ $< $(CFLAGS) 
+else
+	#$<: required libraries missing, skipping test
 endif
 
 %: %.c
