@@ -104,9 +104,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   new_brk = mtcp_sys_brk (mtcp_saved_break);
   if (new_brk != mtcp_saved_break) {
     if (new_brk == current_brk && new_brk > mtcp_saved_break)
-      mtcp_printf ("mtcp_restoreverything: new_brk == current_brk == %p\n"
+      DPRINTF(("mtcp_restoreverything: new_brk == current_brk == %p\n"
         "  saved_break, %p, is strictly smaller; data segment not extended.\n",
-        new_brk, mtcp_saved_break);
+        new_brk, mtcp_saved_break));
     else {
       mtcp_printf ("mtcp_restoreverything: error: new break (%p) != saved break"
                    "  (%p)\n", (VA)current_brk, mtcp_saved_break);

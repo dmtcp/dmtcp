@@ -257,7 +257,7 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
   {
     ConnectionIdentifier con = i->first;
     const std::vector<int>& fds = i->second;
-    std::string device = fdToDevice ( fds[0] );
+    std::string device = fdToDevice ( fds[0], true );
     _table[device] = con;
 
 

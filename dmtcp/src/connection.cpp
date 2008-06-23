@@ -76,6 +76,10 @@ dmtcp::Connection::Connection ( int t )
     , _fcntlSignal ( -1 )
 {}
 
+void dmtcp::Connection::restartDup2(int oldFd, int fd){
+  JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
+}
+
 
 /////////////////////////
 ////// TCP UPDATE COMMANDS
@@ -285,13 +289,12 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
     case TCP_LISTEN:
     {
 
-      JWARNING ( _sockDomain == AF_INET
-                 && _sockType == SOCK_STREAM
-               ) ( id() )
-      ( _sockDomain ) ( AF_INET )
-      ( _sockType ) ( SOCK_STREAM )
-      ( _sockProtocol )
-      .Text ( "socket type not yet [fully] supported" );
+      JWARNING (  (_sockDomain == AF_INET || _sockDomain == AF_UNIX ) && _sockType == SOCK_STREAM )
+        ( id() )
+        ( _sockDomain ) 
+        ( _sockType ) 
+        ( _sockProtocol )
+        .Text ( "socket type not yet [fully] supported" );
 
       JTRACE ( "restoring socket" ) ( id() ) ( fds[0] );
 
@@ -744,7 +747,31 @@ void dmtcp::StdioConnection::postCheckpoint ( const std::vector<int>& fds ){
   //nothing
 }
 void dmtcp::StdioConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& ){
-  JTRACE("Restoring stdio")(fds.size())(fds[0])(id());
+  for(size_t i=0; i<fds.size(); ++i){
+    int fd = fds[i];
+    if(fd <= 2){
+      JTRACE("Skipping restore of STDIO, just inherit from parent")(fd);
+      continue;
+    }
+    int oldFd;
+    switch(_type){
+      case STDIO_IN:
+          JTRACE("Restoring STDIN")(fd);
+          oldFd=0;
+        break;
+      case STDIO_OUT:
+          JTRACE("Restoring STDOUT")(fd);
+          oldFd=1;
+        break;
+      case STDIO_ERR:
+          JTRACE("Restoring STDERR")(fd);
+          oldFd=2;
+        break;
+      default:
+        JASSERT(false);
+    }
+    JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
+  }
 }
 void dmtcp::StdioConnection::restoreOptions ( const std::vector<int>& fds ){
   //nothing
@@ -756,5 +783,10 @@ void dmtcp::StdioConnection::serializeSubClass ( jalib::JBinarySerializer& o ){
 
 void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
   Connection::mergeWith(that);
+}
+
+void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
+  static ConnectionRewirer ignored;
+  restore(std::vector<int>(1,newFd), ignored);
 }
 
