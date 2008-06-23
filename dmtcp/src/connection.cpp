@@ -440,7 +440,7 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
     case INVALID:
     {
       //tempfd = open("/dev/null", O_RDWR);
-
+      JTRACE("restoring invalid PTS")(id());
       return;
     }
 
@@ -732,3 +732,28 @@ void dmtcp::FileConnection::mergeWith ( const Connection& that ){
   Connection::mergeWith(that);
   JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
 }
+
+////////////
+///// STDIO CHECKPOINTING
+
+void dmtcp::StdioConnection::preCheckpoint ( const std::vector<int>& fds, KernelBufferDrainer& drain ){
+  JTRACE("Checkpointing stdio")(fds[0])(id());
+}
+void dmtcp::StdioConnection::postCheckpoint ( const std::vector<int>& fds ){
+  //nothing
+}
+void dmtcp::StdioConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& ){
+  JTRACE("Restoring stdio")(fds.size())(fds[0])(id());
+}
+void dmtcp::StdioConnection::restoreOptions ( const std::vector<int>& fds ){
+  //nothing
+}
+
+void dmtcp::StdioConnection::serializeSubClass ( jalib::JBinarySerializer& o ){
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::StdioConnection" );
+}
+
+void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
+  Connection::mergeWith(that);
+}
+

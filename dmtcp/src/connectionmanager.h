@@ -68,7 +68,7 @@ namespace dmtcp
 
 //     void erase(Connection*);
 
-      std::string fdToDevice ( int fd );
+      std::string fdToDevice ( int fd , bool noOnDemandPts = false );
 
       void dbgSpamFds();
 

@@ -82,7 +82,7 @@ void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 {
   ConnectionList::Instance().add ( c );
 
-  std::string device = fdToDevice ( fd );
+  std::string device = fdToDevice ( fd, true );
 
   JTRACE ( "device created" ) ( fd ) ( device ) ( c->id() );
 
@@ -94,7 +94,7 @@ void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 
 
 
-std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd )
+std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandPts )
 {
   //gather evidence
   std::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fd ) );
@@ -116,15 +116,15 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd )
   if ( isPtmx )
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
-	char *ptr;
+    char *ptr;
 	
     iterator i = _table.find ( deviceName );
-	if ( i == _table.end() )
+    if ( i == _table.end() )
     {
-	  char slaveDevice[1024];
+      char slaveDevice[1024];
 	
-	  JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
-	    ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
+      JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
+        ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
 	  
       std::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
 
@@ -141,11 +141,12 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd )
       return deviceName;
     }
   }
-
   else if ( isPts )
   {
     std::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
-//      return deviceName;
+      
+    if(noOnDemandPts)
+      return deviceName;
 
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
@@ -309,6 +310,9 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         case Connection::PTS:
           con = new PtsConnection();
           break;
+        case Connection::STDIO:
+          con = new StdioConnection();
+          break;
         default:
           JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );
       }
@@ -349,7 +353,7 @@ void dmtcp::ConnectionList::scanForPreExisting()
 void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
 {
   //this has the side effect of on-demand creating everything except sockets
-  std::string device = KernelDeviceToConnection::Instance().fdToDevice ( fd );
+  std::string device = KernelDeviceToConnection::Instance().fdToDevice ( fd, true );
 
   JTRACE ( "scanning pre-existing device" ) ( fd ) ( device );
 
@@ -358,18 +362,15 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
   {
     if ( fd <= 2 )
     {
-      //KAPIL... we may need to expand right here...
-      JNOTE ( "PERHAPS WE WANT TO RESTORE THIS AS STDIN/STDOUT????" );
-
-      //  Something like:
-      //create(fd, new StdioConnection());
-      //  where StdioConnection() is restored to point to the new stdin/out/error
+      create(fd, new StdioConnection(fd));
     }
-
-    JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
-    TcpConnection* con = new TcpConnection ( 0, 0, 0 );
-    con->markPreExisting();
-    create ( fd, con );
+    else
+    {
+      JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
+      TcpConnection* con = new TcpConnection ( 0, 0, 0 );
+      con->markPreExisting();
+      create ( fd, con );
+    }
   }
 }
 

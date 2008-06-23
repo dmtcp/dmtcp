@@ -81,6 +81,8 @@ os.environ['DMTCP_HOST'] = "localhost"
 os.environ['DMTCP_PORT'] = str(randint(2000,10000))
 os.environ['DMTCP_CHECKPOINT_DIR'] = ckptDir
 os.environ['DMTCP_GZIP'] = "0"
+if not VERBOSE:
+  os.environ['JALIB_STDERR_PATH'] = "/dev/null"
 
 #launch the coordinator
 coordinator = launch("./bin/dmtcp_coordinator")
@@ -131,6 +133,8 @@ def getStatus():
   x,running=coordinator.fromchild.readline().strip().split("=")
   CHECK(x=="RUNNING", "reading coordinator status")
 
+  if VERBOSE:
+    print "STATUS: peers=%s, running=%s" % (peers,running)
   return (int(peers), (running=="yes"))
 
 #test a given list of commands to see if they checkpoint
