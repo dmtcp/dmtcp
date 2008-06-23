@@ -82,7 +82,7 @@ namespace dmtcp
       //convert with type checking
       virtual TcpConnection& asTcp();
 
-      
+      virtual void restartDup2(int oldFd, int newFd);
 
 
       void serialize ( jalib::JBinarySerializer& o );
@@ -255,6 +255,8 @@ namespace dmtcp
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
       virtual void mergeWith ( const Connection& that );
+
+      virtual void restartDup2(int oldFd, int newFd);
   };
 
   class FileConnection : public Connection
@@ -273,6 +275,7 @@ namespace dmtcp
       virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
     private:
       std::string _path;
       off_t       _offset;

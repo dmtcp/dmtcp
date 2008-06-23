@@ -59,23 +59,26 @@ namespace
         std::vector<int> fdlist;
         for ( ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i )
         {
-          if ( ConnectionList::Instance() [i->first].conType() == Connection::INVALID ) continue;
-          {
-            const std::vector<int>& fds = i->second;
-            for ( size_t x=0; x<fds.size(); ++x )
-            {
-              int fd = fds[x];
-              fdlist.push_back ( fd );
-              slidingFd.freeUpFd ( fd );
-              int oldFd = slidingFd.getFdFor ( i->first );
-              JTRACE ( "restoring fd" ) ( i->first ) ( oldFd ) ( fd );
-              JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
-              //_real_dup2(oldFd, fd);
+          Connection& con = ConnectionList::Instance() [i->first];
+          if ( con.conType() == Connection::INVALID ){
+            JWARNING(false)(i->first).Text("Can't restore invalid Connection");
+            continue;
+          }
 
-              if ( fd > lastfd )
-              {
-                lastfd = fd;
-              }
+          const std::vector<int>& fds = i->second;
+          for ( size_t x=0; x<fds.size(); ++x )
+          {
+            int fd = fds[x];
+            fdlist.push_back ( fd );
+            slidingFd.freeUpFd ( fd );
+            int oldFd = slidingFd.getFdFor ( i->first );
+            JTRACE ( "restoring fd" ) ( i->first ) ( oldFd ) ( fd );
+            //let connection do custom dup2 handling
+            con.restartDup2( oldFd, fd );
+
+            if ( fd > lastfd )
+            {
+              lastfd = fd;
             }
           }
         }
