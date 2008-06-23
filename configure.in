@@ -4,7 +4,7 @@ AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_CC
 AC_PROG_CXX
-AC_CONFIG_FILES([Makefile test/Makefile]) 
+AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py]) 
 AC_CONFIG_SUBDIRS([dmtcp])
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
@@ -21,14 +21,47 @@ AC_ARG_ENABLE([timing],
             [use_jtiming=$enableval],
             [use_jtiming=no])
 
+#checkfor -lreadline -lhistory 
 compileReadlineC=yes
 AC_CHECK_LIB([readline],[readline],   [],[compileReadlineC=no])
 AC_CHECK_LIB([history], [add_history],[],[compileReadlineC=no])
-
 if test "$compileReadlineC" = "yes"; then
   AC_SUBST([HAS_READLINE],[yes])
 else
   AC_SUBST([HAS_READLINE],[no])
+fi
+
+
+#check for mpich2
+AC_ARG_WITH([mpich],
+            [AS_HELP_STRING([--with-mpich=path],
+                            [Compile mpich2 tests in `make check`])],
+            [mpich=$withval],
+            [mpich=no])
+
+if test "$mpich" != "no"; then
+  mpich_path="$mpich:$mpich/bin"
+  AC_PATH_PROG([MPICH_MPD],        [mpd],        [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPDBOOT],    [mpdboot],    [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPDALLEXIT], [mpdallexit], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPDCLEANUP], [mpdcleanup], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
+
+  if test "$MPICH_MPD" = "no"        ||\
+     test "$MPICH_MPDBOOT" = "no"    ||\
+     test "$MPICH_MPDALLEXIT" = "no" ||\
+     test "$MPICH_MPDCLEANUP" = "no" ||\
+     test "$MPICH_MPICC" = "no"      ||\
+     test "$MPICH_MPIEXEC" = "no";
+  then
+    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<path>])
+  fi
+
+  AC_SUBST(HAS_MPICH, [yes])
+
+else
+  AC_SUBST(HAS_MPICH,[no])
 fi
 
 AC_OUTPUT

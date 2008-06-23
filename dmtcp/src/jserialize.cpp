@@ -25,14 +25,14 @@ jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const std::string& path 
     : JBinarySerializer ( path )
     , _fd ( fopen ( path.c_str(), "w" ) )
 {
-  JASSERT ( _fd != NULL ) ( path ).Text ( "fopen(path) failed" );
+  JASSERT (_fd != NULL)(path)(JASSERT_ERRNO).Text("fopen(path) failed");
 }
 
 jalib::JBinarySerializeReader::JBinarySerializeReader ( const std::string& path )
     : JBinarySerializer ( path )
     , _fd ( fopen ( path.c_str(), "r" ) )
 {
-  JASSERT ( _fd != NULL ) ( path ).Text ( "fopen(path) failed" );
+  JASSERT (_fd != NULL)(path)(JASSERT_ERRNO).Text("fopen(path) failed");
 }
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()

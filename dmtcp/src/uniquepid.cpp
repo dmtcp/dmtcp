@@ -37,7 +37,8 @@ inline static long theUniqueHostId(){
   long h = 0;
   for(char* i=buf; *i!='\0'; ++i)
     h = (*i) + (331*h);
-  return h;
+  //make it positive for good measure
+  return h>0 ? h : -1*h;
 #endif
 }
 

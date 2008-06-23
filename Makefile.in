@@ -56,16 +56,19 @@ check-${TEST}: tests
 		) &
 	@ bin/dmtcp_coordinator
 
-clean:
-	(cd mtcp  && $(MAKE) clean)
-	(cd dmtcp && $(MAKE) clean)
-	(cd test  && $(MAKE) clean)
+tidy:
 	rm -f ckpt_* dmtcp_restart_script.sh dmtcp-shared-memory.*
+	rm -rf tmp-autotest-*
+
+clean: tidy
+	-(cd mtcp  && $(MAKE) clean)
+	-(cd dmtcp && $(MAKE) clean)
+	-(cd test  && $(MAKE) clean)
 
 distclean: clean
-	(cd mtcp  && $(MAKE) distclean)
-	(cd dmtcp && $(MAKE) distclean)  
-	rm -f Makefile test/Makefile config.log config.status bin/*
+	-(cd mtcp  && $(MAKE) distclean)
+	-(cd dmtcp && $(MAKE) distclean)  
+	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/*
 
 dist: distclean
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz --exclude='.*/.svn/*' \

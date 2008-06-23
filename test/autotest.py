@@ -3,14 +3,19 @@ from popen2 import Popen3,Popen4
 from random import randint
 from time   import sleep
 from os     import listdir
+import socket 
 import os
 import sys
+
+#get testconfig
+os.system("test -f Makefile || ./configure")
+import testconfig
 
 #number of checkpoint/restart cycles
 CYCLES=2
 
 #Sleep after program startup, etc (sec)
-S=0.3
+S=0.5
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=5
@@ -36,6 +41,7 @@ for i in sys.argv:
     print "USAGE "+sys.argv[0]+" [-v] [testname] [testname...]  "
     sys.exit(1)
 
+stats = [0, 0]
 
 def shouldRunTest(name):
   if len(sys.argv) <= 1:
@@ -43,7 +49,6 @@ def shouldRunTest(name):
   return args.has_key(name)
 
 #make sure dmtcp is built
-os.system("test -f Makefile || ./configure")
 if os.system("make -s --no-print-directory all tests") != 0:
   print "`make all tests` FAILED"
   sys.exit(1)
@@ -79,7 +84,7 @@ ckptDir="tmp-autotest-%d" % randint(100000000,999999999)
 os.mkdir(ckptDir);
 os.environ['DMTCP_HOST'] = "localhost"
 os.environ['DMTCP_PORT'] = str(randint(2000,10000))
-os.environ['DMTCP_CHECKPOINT_DIR'] = ckptDir
+os.environ['DMTCP_CHECKPOINT_DIR'] = os.path.abspath(ckptDir)
 os.environ['DMTCP_GZIP'] = "0"
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = "/dev/null"
@@ -89,8 +94,11 @@ coordinator = launch("./bin/dmtcp_coordinator")
 
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
-  coordinator.tochild.write(cmd+"\n")
-  coordinator.tochild.flush()
+  try:
+    coordinator.tochild.write(cmd+"\n")
+    coordinator.tochild.flush()
+  except e:
+    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %  (cmd, coordinator.pid))
 
 #clean up after ourselves
 def SHUTDOWN():
@@ -175,7 +183,8 @@ def runTest(name, cmds):
     if not shouldRunTest(name):
       print "SKIPPED" 
       return
-      
+
+    stats[1]+=1 
     CHECK(getStatus()==(0, False), "coordinator initial state")
 
     #start user programs
@@ -200,6 +209,7 @@ def runTest(name, cmds):
 
     testKill()
     print #newline
+    stats[0]+=1 
 
   except CheckFailed, e:
     print "FAILED"
@@ -216,7 +226,7 @@ def runTest(name, cmds):
   for f in listdir(ckptDir):
     os.remove(ckptDir + "/" + f)
 
-print "== Tests ".ljust(80,'=')
+print "== Tests ".ljust(70,'=')
 
 #tmp port
 p0=str(randint(2000,10000))
@@ -243,8 +253,6 @@ runTest("forkexec",      ["./test/forkexec"])
 
 runTest("gettimeofday",  ["./test/gettimeofday"])
 
-runTest("readline",      ["./test/readline"])
-
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = "0"
@@ -253,7 +261,24 @@ runTest("perl",          ["/usr/bin/perl"])
 
 runTest("python",        ["/usr/bin/python"])
 
-print "".ljust(80,'=')
+if testconfig.HAS_READLINE == "yes":
+  runTest("readline",      ["./test/readline"])
+
+if testconfig.HAS_MPICH == "yes":
+  runTest("mpd",         [testconfig.MPICH_MPD])
+
+  runTest("hellompi-n1", [testconfig.MPICH_MPD,
+                          testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompi"])
+
+  runTest("hellompi-n2", [testconfig.MPICH_MPD,
+                          testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompi"])
+
+  runTest("mpdboot",     [testconfig.MPICH_MPDBOOT+" -n 1"])
+
+  #os.system(testconfig.MPICH_MPDCLEANUP)
+
+print "== Summary ".ljust(70,'=')
+print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 
 SHUTDOWN()
 
