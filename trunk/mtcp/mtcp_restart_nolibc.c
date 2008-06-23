@@ -65,9 +65,7 @@ static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
-#ifndef BUG_64BIT_2_6_9
 static void skipfile(int size);
-#endif
 static VA highest_userspace_address (void);
 static int open_shared_file(char* fileName);
 
@@ -352,22 +350,12 @@ static void readmemoryareas (void)
       /* Read saved area contents */
       readcs (CS_AREACONTENTS);
       if (try_skipping_existing_segment)
-#ifdef BUG_64BIT_2_6_9
-        {
-          char tmpbuf[4];
-          int i;
-          /* slow, but rare case; and only for old Linux 2.6.9 */
-          for ( i = 0; i < area.size / 4; i++ )
-            readfile (tmpbuf, 4);
-        }
-#else
         skipfile (area.size);
-#endif
       else {
         readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
-	  if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-	    mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+          if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
+            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
       }
@@ -502,15 +490,7 @@ static void readmemoryareas (void)
 	else {
            mtcp_printf ("mtcp_restart_nolibc: nmapping %s with data"
 			" from current file (post-ckpt)\n", area.name);
-#ifdef BUG_64BIT_2_6_9
-	  char tmpbuf[4];
-	  int i;
-	  /* slow, but rare case; and only for old Linux 2.6.9 */
-	  for ( i = 0; i < area.size / 4; i++ )
-            readfile (tmpbuf, 4);
-#else
           skipfile (area.size);
-#endif
 	}
 	if (imagefd >= 0)
           mtcp_sys_close (imagefd); // don't leave dangling fd
@@ -554,7 +534,6 @@ static void readfile(void *buf, int size)
     }
 }
 
-#ifndef BUG_64BIT_2_6_9
 static void skipfile(int size)
 {
     int rc, ar;
@@ -578,7 +557,6 @@ static void skipfile(int size)
         ar += rc;
     }
 }
-#endif
 
 #if 1
 /* Modelled after mtcp_safemmap.  - Gene */
