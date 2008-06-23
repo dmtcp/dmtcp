@@ -17,27 +17,22 @@ mtcp:
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
-test tests:
+tests:
 	(cd test && $(MAKE))
 
 check: all
 	+./test/autotest.py
 
-check1: test/dmtcp1
+check1: tests
 	${MAKE} TEST=dmtcp1 check-dmtcp1
-check2: test/readline
-	${MAKE} TEST=readline XTERM_E="xterm -e" check-readline
-check3: test/shared-memory
-	${MAKE} TEST=shared-memory check-shared-memory
-test/dmtcp1: test/dmtcp1.c
-	gcc -o test/dmtcp1 test/dmtcp1.c
-test/readline: test/readline.c
-	gcc -o test/readline -Wl,--export-dynamic test/readline.c \
-	  -lreadline -lhistory -lcurses
-test/shared-memory: test/shared-memory.c
-	gcc -o test/shared-memory -Wl,--export-dynamic test/shared-memory.c
 
-check-${TEST}: test/${TEST}
+check2: tests
+	${MAKE} TEST=readline XTERM_E="xterm -e" check-readline
+
+check3: tests
+	${MAKE} TEST=shared-memory check-shared-memory
+
+check-${TEST}: tests
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"

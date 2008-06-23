@@ -27,6 +27,8 @@
 #include <map>
 #include "jbuffer.h"
 #include "jserialize.h"
+#include "jassert.h"
+#include "jconvert.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -48,12 +50,13 @@ namespace dmtcp
       enum ConnectionType
       {
         INVALID = 0x0000,
-        TCP =     0x1000,
-        PIPE =    0x2000,
-        PTS =     0x4000,
-        FILE =    0x8000,
+        TCP     = 0x1000,
+        PIPE    = 0x2000,
+        PTS     = 0x3000,
+        FILE    = 0x4000,
+        STDIO   = 0x5000,
 
-        TYPEMASK = TCP | PIPE | PTS | FILE
+        TYPEMASK = TCP | PIPE | PTS | FILE | STDIO
       };
 
       virtual ~Connection() {}
@@ -175,9 +178,9 @@ namespace dmtcp
     public:
       enum PtsType
       {
-        INVALID   = 0x0000,
-        Pt_Master = 0x1000,
-        Pt_Slave  = 0x2000,
+        INVALID   = PTS,
+        Pt_Master,
+        Pt_Slave,
 
         TYPEMASK = Pt_Master | Pt_Slave
       };
@@ -188,6 +191,7 @@ namespace dmtcp
           , _symlinkFilename ( filename )
           , _device ( device )
       {
+        JTRACE("Creating PtsConnection")(device)(filename)(id());
         if ( filename.compare ( "?" ) == 0 )
         {
           _type = INVALID;
@@ -199,7 +203,9 @@ namespace dmtcp
           , _type ( INVALID )
           , _symlinkFilename ( "?" )
           , _device ( "?" )
-      {}
+      {
+        JTRACE("Creating null PtsConnection")(id());
+      }
 
       PtsType type() { return PtsType ( _type & TYPEMASK ); }
       virtual void preCheckpoint ( const std::vector<int>& fds
@@ -217,6 +223,37 @@ namespace dmtcp
       std::string _symlinkFilename;
       std::string _device;
 
+  };
+  
+  class StdioConnection : public Connection
+  {
+    public:
+      enum StdioType
+      {
+        STDIO_IN  = STDIO,
+        STDIO_OUT,
+        STDIO_ERR,
+        STDIO_INVALID
+      };
+
+      StdioConnection( int fd ): Connection ( STDIO + fd )
+      {
+        JTRACE("creating stdio connection")(fd)(id());
+        JASSERT( jalib::Between(0, fd, 2) )(fd).Text("invalid fd for StdioConnection");
+      }
+      
+      StdioConnection(): Connection ( STDIO_INVALID ) {}
+
+
+      virtual void preCheckpoint ( const std::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const std::vector<int>& fds );
+      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+      virtual void restoreOptions ( const std::vector<int>& fds );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual void mergeWith ( const Connection& that );
   };
 
   class FileConnection : public Connection
