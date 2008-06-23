@@ -60,6 +60,8 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection() {}
 dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 {
   std::vector<int> fds = jalib::Filesystem::ListOpenFds();
+  JTRACE("Creating Connection->FD mapping")(fds.size());
+  KernelDeviceToConnection::Instance().dbgSpamFds();
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
@@ -195,22 +197,36 @@ void dmtcp::ConnectionList::erase ( iterator i )
   Connection * con = i->second;
   JTRACE ( "deleting stale connection..." ) ( con->id() );
   _connections.erase ( i );
-//     KernelDeviceToConnection::Instance().erase( con );
+  KernelDeviceToConnection::Instance().erase( i->first );
   delete con;
 }
-// void dmtcp::KernelDeviceToConnection::erase( Connection* con )
-// {
-//     for(iterator i = _table.begin(); i!=_table.end(); ++i)
-//     {
-//         if(i->second == con)
-//         {
-//             _table.erase(i);
-//             return;
-//         }
-//     }
-//     JWARNING(false)(con->id()).Text("failed to find connection in table to erase it");
-// }
 
+void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
+{
+  for(iterator i = _table.begin(); i!=_table.end(); ++i){
+    if(i->second == con){
+      std::string k = i->first;
+      JTRACE("removing device->con mapping")(k)(con);
+      _table.erase(k);
+      return;
+    }
+  }
+  JWARNING(false)(con).Text("failed to find connection in table to erase it");
+}
+
+//called when a device name changes
+void dmtcp::KernelDeviceToConnection::redirect( int fd, const ConnectionIdentifier& id ){
+  //first delete the old one
+  erase(id);
+  
+  //now add the new fd
+  std::string device = fdToDevice ( fd, true );
+  JTRACE ( "redirecting device" )(fd)(device) (id);
+  JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
+  iterator i = _table.find ( device );
+  JASSERT ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
+  _table[device] = id;
+}
 
 void dmtcp::KernelDeviceToConnection::dbgSpamFds()
 {
@@ -220,7 +236,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
-//         if(ProtectedFDs::isProtected( fds[i] )) continue;
+    if(ProtectedFDs::isProtected( fds[i] )) continue;
     std::string device = fdToDevice ( fds[i] );
     bool exists = ( _table.find ( device ) != _table.end() );
     JASSERT_STDERR << fds[i]
@@ -392,7 +408,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
       ConnectionIdentifier key = i->first;
       std::vector<int>& val = i->second;
       o & key & val;
-      JWARNING ( val.size() >0 ) (key) ( o.filename() ).Text ( "writing empty fd list" );
+      JASSERT ( val.size() >0 ) (key) ( o.filename() ).Text ( "would write empty fd list" );
     }
   }
   else
@@ -408,8 +424,6 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
     }
 
   }
-
-
   JSERIALIZE_ASSERT_POINT ( "EOF" );
 }
 
@@ -550,8 +564,7 @@ void dmtcp::PtsToSymlink::add ( std::string device, std::string filename )
 void dmtcp::PtsToSymlink::replace ( std::string oldDevice, std::string newDevice )
 {
   iterator i = _table.find ( oldDevice );
-  JASSERT ( i != _table.end() ) ( oldDevice )
-  .Text ( "old device not found" );
+  JASSERT ( i != _table.end() )( oldDevice ).Text ( "old device not found" );
   std::string filename = _table[oldDevice];
   _table.erase ( i );
   _table[newDevice] = filename;

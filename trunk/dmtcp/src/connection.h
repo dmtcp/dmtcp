@@ -123,6 +123,7 @@ namespace dmtcp
       void onConnect(); // connect side does not know remote host
       /*onAccept*/ TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
       void onError();
+      void onDisconnect(const std::vector<int>& fds);
       void addSetsockopt ( int level, int option, const char* value, int len );
 
       void markPreExisting() { _type = TCP_PREEXISTING; }

@@ -23,6 +23,7 @@
 #include "syslogcheckpointer.h"
 #include "signalmanager.h"
 #include "dmtcpworker.h"
+#include "connectionrewirer.h"
 
 dmtcp::CheckpointCoordinator::CheckpointCoordinator ( const ConnectionToFds& ctfd )
     : _conToFds ( ctfd )
@@ -34,7 +35,7 @@ void dmtcp::CheckpointCoordinator::preCheckpointLock()
   SignalManager::saveSignals();
   SyslogCheckpointer::stopService();
 
-  // build fd table with stale connections
+  // build fd table with stale connections included
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
 
   //lock each fd
@@ -53,8 +54,26 @@ void dmtcp::CheckpointCoordinator::preCheckpointLock()
 }
 void dmtcp::CheckpointCoordinator::preCheckpointDrain()
 {
-  //initialize the drainer
   ConnectionList& connections = ConnectionList::Instance();
+  
+  //build list of stale connections
+  std::vector<ConnectionList::iterator> staleConnections;
+  for ( ConnectionList::iterator i = connections.begin()
+        ; i!= connections.end()
+        ; ++i )
+  {
+    if ( _conToFds[i->first].size() == 0 )
+      staleConnections.push_back ( i );
+  }
+
+  //delete all the stale connections
+  for ( size_t i=0; i<staleConnections.size(); ++i )
+  {
+    JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
+    connections.erase ( staleConnections[i] );
+  }
+  
+  //initialize the drainer
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i )
@@ -67,25 +86,26 @@ void dmtcp::CheckpointCoordinator::preCheckpointDrain()
 
   //this will block until draining is complete
   _drain.monitorSockets ( DRAINER_CHECK_FREQ );
-
-  //build list of stale connections
-  std::vector<ConnectionList::iterator> staleConnections;
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i )
-  {
-    if ( _conToFds[i->first].size() == 0 )
-      staleConnections.push_back ( i );
+  
+  //handle disconnected sockets
+  const std::vector<ConnectionIdentifier>& discn = _drain.getDisconnectedSockets();
+  for(size_t i=0; i<discn.size(); ++i){
+    const ConnectionIdentifier& id = discn[i];
+    TcpConnection& con = connections[id].asTcp();
+    std::vector<int>& fds = _conToFds[discn[i]];
+    JASSERT(fds.size()>0);
+    JTRACE("recreating disconnected socket")(fds[0])(id);
+    
+    //reading from the socket, and taking the error, resulted in an implicit close().
+    //we will create a new, broken socket that is not closed
+    
+    con.onError();
+    static ConnectionRewirer ignored;
+    con.restore(fds, ignored); //restoring a TCP_ERROR connection makes a dead socket
+    KernelDeviceToConnection::Instance().redirect(fds[0], id);
   }
-
-  //delete all the stale connections
-  for ( size_t i=0; i<staleConnections.size(); ++i )
-  {
-    JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
-    connections.erase ( staleConnections[i] );
-  }
-
-  //re build fd table without stale connections
+  
+  //re build fd table without stale connections and with disconnects
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
 }
 
