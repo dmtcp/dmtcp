@@ -130,6 +130,7 @@ namespace jassert_internal
 
 }//jassert_internal
 
+#define JASSERT_INIT() jassert_internal::jassert_safe_print("")
 
 #define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
 

@@ -57,6 +57,9 @@ int main ( int argc, char** argv )
   std::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   std::string searchDir = jalib::Filesystem::GetProgramDir();
 
+  // Initialize JASSERT library here
+  JASSERT_INIT();
+
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
     const char* ckptDir = get_current_dir_name();
