@@ -50,11 +50,15 @@ namespace dmtcp
     DMT_RESTORE_WAITING, //announce the existance of a restoring server on network
 //        DMT_RESTORE_SEARCHING, //slave waiting wanting to know where to connect to
 
-    DMT_PEER_ECHO,     //used to get a peer to echo back a buffer at you param[0] is len
-    DMT_OK,//slave telling coordinator it is done (response to DMT_DO_*)
-    DMT_CKPT_FILENAME, //a slave sending it's checkpoint filename to coordinator
-    DMT_FORCE_RESTART, //force a restart even if not all sockets are reconnected
-    DMT_KILL_PEER // send kill message to peer
+    DMT_PEER_ECHO,      //used to get a peer to echo back a buffer at you param[0] is len
+                        //this is used to refill buffers after checkpointing
+    DMT_OK,             //slave telling coordinator it is done (response to DMT_DO_*)
+                        //this means slave reached barrier
+    DMT_CKPT_FILENAME,  //a slave sending it's checkpoint filename to coordinator
+    DMT_FORCE_RESTART,  //force a restart even if not all sockets are reconnected
+    DMT_KILL_PEER,      // send kill message to peer
+    DMT_USER_CMD,       // simulate typing params[0] into coordinator
+    DMT_USER_CMD_RESULT // return code of user command
   };
 
   class WorkerState
@@ -70,6 +74,7 @@ namespace dmtcp
         RESTARTING,
         CHECKPOINTED,
         REFILLED,
+        _MAX
       };
       WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 

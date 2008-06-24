@@ -719,9 +719,10 @@ void dmtcp::TcpConnection::mergeWith ( const Connection& _that ){
   if(_acceptRemoteId.isNull())
     _acceptRemoteId = that._acceptRemoteId;
 
-  if(!that._acceptRemoteId.isNull())
+  if(!that._acceptRemoteId.isNull()){
     JASSERT(_acceptRemoteId == that._acceptRemoteId)(id())(_acceptRemoteId)(that._acceptRemoteId)
       .Text("Merging connections disagree on remote host");
+  }
 }
 
 void dmtcp::PtsConnection::mergeWith ( const Connection& _that ){

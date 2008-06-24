@@ -406,21 +406,45 @@ void dmtcp::DmtcpWorker::restoreSockets ( CheckpointCoordinator& coordinator )
 
 }
 
-//tell the coordinator is should broadcast DMT_FORCE_RESTART
-void dmtcp::DmtcpWorker::forceRestart()
+void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
 {
-  connectToCoordinator();
-  dmtcp::DmtcpMessage msg;
-  msg.type = DMT_FORCE_RESTART;
-  _coordinatorSocket << msg;
+  connectToCoordinator(false);
+  sendUserCommand(c,result);
   _coordinatorSocket.close();
+}
+
+//tell the coordinator to run given user command
+void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
+{
+  DmtcpMessage msg,reply;
+
+  //send
+  msg.type = DMT_USER_CMD;
+  msg.params[0] = c;
+  _coordinatorSocket << msg;
+
+  //the coordinator will violently close our socket...
+  if(c=='q' || c=='Q'){
+    result[0]=0;
+    return;
+  }
+
+  //recieve REPLY
+  reply.poison();
+  _coordinatorSocket >> reply;
+  reply.assertValid();
+  JASSERT ( reply.type == DMT_USER_CMD_RESULT );
+
+  if(result!=NULL){
+    memcpy( result, reply.params, sizeof(reply.params) );
+  }
 }
 
 
 /*!
     \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToCoordinator()
+void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
 {
 
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
@@ -448,15 +472,15 @@ void dmtcp::DmtcpWorker::connectToCoordinator()
   }
 
 
-
+  if(doHanshaking)
   {
     dmtcp::DmtcpMessage hello_local, hello_remote;
     hello_remote.poison();
     hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
     hello_local.restorePort = theRestorPort;
 //         hello_local.restorePid.id = UniquePid::ThisProcess();
-    _coordinatorSocket >> hello_remote;
     _coordinatorSocket << hello_local;
+    _coordinatorSocket >> hello_remote;
     hello_remote.assertValid();
     JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
     _coordinatorId = hello_remote.coordinator;
@@ -464,6 +488,7 @@ void dmtcp::DmtcpWorker::connectToCoordinator()
     DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
 
     JTRACE ( "connected to dmtcp coordinator" ) ( coordinatorAddr ) ( coordinatorPort ) ( _coordinatorId ) ( hello_local.from ) ( UniquePid::checkpointFilename() ) ( jalib::Filesystem::GetProgramPath() );
-
+  }else{
+    JTRACE ( "connected to dmtcp coordinator, no handshake" ) ( coordinatorAddr ) ( coordinatorPort );
   }
 }

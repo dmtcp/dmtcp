@@ -233,10 +233,10 @@ static void protectLD_PRELOAD()
 {
   const char* actual = getenv ( "LD_PRELOAD" );
   const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
-  if ( actual!=0 && expctd!=0 )
-    JASSERT ( strcmp ( actual,expctd ) ==0 )
-    ( actual ) ( expctd )
-    .Text ( "eeek! Someone stomped on LD_PRELOAD" );
+  if ( actual!=0 && expctd!=0 ){
+    JASSERT ( strcmp ( actual,expctd ) ==0 )( actual ) ( expctd )
+      .Text ( "eeek! Someone stomped on LD_PRELOAD" );
+  }
 }
 
 static const char* ourImportantEnvs[] =

@@ -94,6 +94,7 @@ binary-arch: build install
 	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_coordinator.1.gz)
 	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_checkpoint.1.gz)
 	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_restart.1.gz)
+	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_command.1.gz)
 	dh_link
 	dh_strip
 	dh_compress
