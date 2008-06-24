@@ -18,7 +18,7 @@
   </general>
   <kdevautoproject>
     <general>
-      <activetarget>src/dmtcphijack.so</activetarget>
+      <activetarget>src/libdmtcpaware.a</activetarget>
       <useconfiguration>default</useconfiguration>
     </general>
     <run>
@@ -33,11 +33,24 @@
         <dmtcphijack.so/>
         <dmtcp_checkpoint/>
         <dmtcp_restart/>
+        <dmtcp_command/>
       </runarguments>
       <customdirectory>/</customdirectory>
       <programargs/>
       <autocompile>true</autocompile>
       <envvars/>
+      <debugarguments>
+        <dmtcp_coordinator/>
+        <dmtcp_command/>
+        <dmtcp_checkpoint/>
+        <dmtcp_restart/>
+      </debugarguments>
+      <cwd>
+        <dmtcp_coordinator>/home/jansel/svn/dmtcp/dmtcp/./src</dmtcp_coordinator>
+        <dmtcp_command>/home/jansel/svn/dmtcp/dmtcp/./src</dmtcp_command>
+        <dmtcp_checkpoint>/home/jansel/svn/dmtcp/dmtcp/./src</dmtcp_checkpoint>
+        <dmtcp_restart>/home/jansel/svn/dmtcp/dmtcp/./src</dmtcp_restart>
+      </cwd>
     </run>
     <configurations>
       <default>

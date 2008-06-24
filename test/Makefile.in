@@ -8,6 +8,7 @@ CXXFLAGS=@CXXFLAGS@
 HAS_READLINE=@HAS_READLINE@
 HAS_MPICH=@HAS_MPICH@
 MPICH_MPICC=@MPICH_MPICC@
+PWD=$(shell pwd)
 
 TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
 
@@ -29,6 +30,10 @@ ifeq ($(HAS_MPICH),yes)
 else
 	#$<: required libraries missing, skipping test
 endif
+
+dmtcp-aware-api: dmtcp-aware-api.c
+	test ! -f ../dmtcp/src/libdmtcpaware.so ||\
+		$(CC) -o $@ $< $(CFLAGS) $(PWD)/../dmtcp/src/libdmtcpaware.so
 
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
