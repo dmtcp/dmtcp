@@ -75,7 +75,7 @@ def launch(cmd):
   cmd = cmd.split(" ");
   try:
     os.stat(cmd[0])
-  except e:
+  except:
     raise CheckFailed(cmd[0] + " not found")
   return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
 
@@ -97,7 +97,7 @@ def coordinatorCmd(cmd):
   try:
     coordinator.tochild.write(cmd+"\n")
     coordinator.tochild.flush()
-  except e:
+  except:
     raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %  (cmd, coordinator.pid))
 
 #clean up after ourselves

@@ -118,7 +118,6 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   if ( isPtmx )
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
-    char *ptr;
 	
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )

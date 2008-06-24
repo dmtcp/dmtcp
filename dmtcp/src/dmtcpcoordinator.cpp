@@ -100,58 +100,92 @@ namespace
   };
 }
 
+void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/){
+  int * replyParams;
+  if(reply!=NULL){
+    replyParams = reply->params;
+  }else{
+    static int dummy[sizeof(reply->params)/sizeof(int)];
+    replyParams = dummy;
+  }
+
+  JASSERT(sizeof(reply->params)/sizeof(int) >= 2); //this should be compiled out
+  //default reply is 0
+  replyParams[0] = NOERROR;
+  replyParams[1] = NOERROR;
+
+  switch ( cmd ){
+  case 'c': case 'C':
+    if(startCheckpoint()){
+      replyParams[0] = getStatus().numPeers;
+    }else{
+      replyParams[0] = ERROR_NOT_RUNNING_STATE;
+      replyParams[1] = ERROR_NOT_RUNNING_STATE;
+    }
+    break;
+  case 'l': case 'L':
+  case 't': case 'T':
+    JASSERT_STDERR << "Listing clients... \n";
+    for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+            ;i!= _dataSockets.end()
+            ;++i )
+    {
+      if ( ( *i )->socket().sockfd() != STDIN_FD )
+      {
+        JASSERT_STDERR << "Client: clientNumber="<< ( ( NamedChunkReader* ) ( *i ) )->clientNumber()
+        << " fd="<< ( *i )->socket().sockfd()
+        << " " << ( ( NamedChunkReader* ) ( *i ) )->identity()
+        << '\n';
+      }
+    }
+    break;
+  case 'f': case 'F':
+    JNOTE ( "forcing restart..." );
+    broadcastMessage ( DMT_FORCE_RESTART );
+    break;
+  case 'q': case 'Q':
+    JASSERT_STDERR << "exiting... (per request)\n";
+    exit ( 0 );
+    break;
+  case 'k': case 'K':
+    JNOTE ( "Killing all connected Peers..." );
+    broadcastMessage ( DMT_KILL_PEER );
+    break;
+  case 'h': case 'H': case '?':
+    JASSERT_STDERR << theHelpMessage;
+    break;
+  case 's': case 'S':
+    {
+      CoordinatorStatus s = getStatus();
+      bool running= s.minimumStateUnanimous && s.minimumState==WorkerState::RUNNING;
+      if(reply==NULL){
+        printf("Status...\n");
+        printf("NUM_PEERS=%d\n", s.numPeers);
+        printf("RUNNING=%s\n", (running?"yes":"no"));
+        fflush(stdout);
+        if(!running) JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
+      }else{
+        replyParams[0]=s.numPeers;
+        replyParams[1]=running;
+      }
+    }
+    break;
+  case ' ': case '\t': case '\n': case '\r':
+    //ignore whitespace
+    break;
+  default:
+    JTRACE("unhandled user command")(cmd);
+    replyParams[0] = ERROR_INVALID_COMMAND;
+    replyParams[1] = ERROR_INVALID_COMMAND;
+  }
+  return;
+}
+
 void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 {
   if ( sock->socket().sockfd() == STDIN_FD )
   {
-    switch ( sock->buffer() [0] )
-    {
-    case 'c': case 'C':
-        startCheckpoint();
-        break;
-    case 'l': case 'L':
-    case 't': case 'T':
-        JASSERT_STDERR << "Listing clients... \n";
-        for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
-                ;i!= _dataSockets.end()
-                ;++i )
-        {
-          if ( ( *i )->socket().sockfd() != STDIN_FD )
-          {
-            JASSERT_STDERR << "Client: clientNumber="<< ( ( NamedChunkReader* ) ( *i ) )->clientNumber()
-            << " fd="<< ( *i )->socket().sockfd()
-            << " " << ( ( NamedChunkReader* ) ( *i ) )->identity()
-            << '\n';
-          }
-        }
-        break;
-    case 'f': case 'F':
-        JNOTE ( "forcing restart..." );
-        broadcastMessage ( DMT_FORCE_RESTART );
-        break;
-    case 'q': case 'Q':
-        JASSERT_STDERR << "exiting... (per request)\n";
-        exit ( 0 );
-        break;
-    case 'k': case 'K':
-        JNOTE ( "Killing all connected Peers..." );
-        broadcastMessage ( DMT_KILL_PEER );
-        break;
-    case 'h': case 'H': case '?':
-        JASSERT_STDERR << theHelpMessage;
-        break;
-    case 's': case 'S':
-        printf("Status...\n");
-        printf("NUM_PEERS=%d\n", _dataSockets.size()-1); //-1 is stdin
-        printf("RUNNING=%s\n", (minimumState()==WorkerState::RUNNING ? "yes" : "no" ));
-        fflush(stdout);
-        break;
-    case ' ': case '\t': case '\n': case '\r':
-        //ignore whitespace
-        break;
-      default:
-        JTRACE ( "unhandled char on stdin" ) ( sock->buffer() [0] );
-    }
+    handleUserCommand(sock->buffer()[0]);
     return;
   }
   else
@@ -175,11 +209,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         client->setState ( msg.state );
         WorkerState newState = minimumState();
 
-        JTRACE ( "got DMT_OK message" )
-        ( msg.from )
-        ( msg.state )
-        ( oldState )
-        ( newState );
+        JTRACE ("got DMT_OK message")( msg.from )( msg.state )( oldState )( newState );
 
         if ( oldState == WorkerState::RUNNING
                 && newState == WorkerState::SUSPENDED )
@@ -238,33 +268,11 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         JASSERT ( restMsg.restorePort > 0 ) ( restMsg.restorePort ) ( client->identity() );
         JASSERT ( restMsg.restoreAddrlen > 0 ) ( restMsg.restoreAddrlen ) ( client->identity() );
         JASSERT ( restMsg.restorePid != ConnectionIdentifier::Null() ) ( client->identity() );
-        JTRACE ( "broadcasting RESTORE_WAITING" )
-        ( restMsg.restorePid )
-        ( restMsg.restoreAddrlen )
-        ( restMsg.restorePort );
+        JTRACE ( "broadcasting RESTORE_WAITING" )( restMsg.restorePid )( restMsg.restoreAddrlen )( restMsg.restorePort );
         _restoreWaitingMessages.push_back ( restMsg );
         broadcastMessage ( restMsg );
         break;
       }
-
-//             case DMT_RESTORE_SEARCHING:
-//             {
-//                 if(_table[msg.restorePid.id].state() != WorkerState::UNKNOWN)
-//                 {
-//                     const WorkerNode& node = _table[msg.restorePid.id];
-//                     JASSERT(node.addrlen() > 0)(node.addrlen());
-//                     JASSERT(node.restorePort() > 0)(node.restorePort());
-//                     DmtcpMessage msg;
-//                     msg.type = DMT_RESTORE_WAITING;
-//                     memcpy(&msg.restoreAddr,node.addr(),node.addrlen());
-//                     msg.restoreAddrlen = node.addrlen();
-//                     msg.restorePid.id = node.id();
-//                     msg.restorePort = node.restorePort();
-//                     addWrite( new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
-//                 }
-//             }
-//             break;
-
       case DMT_CKPT_FILENAME:
       {
         JASSERT ( extraData!=0 ).Text ( "extra data expected with DMT_CKPT_FILENAME message" );
@@ -277,9 +285,16 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         _restartFilenames[hostname].push_back ( ckptFilename );
       }
       break;
-      case DMT_FORCE_RESTART:
-        JNOTE ( "forcing restart... (forwarding from client)" );
-        broadcastMessage ( DMT_FORCE_RESTART );
+      case DMT_USER_CMD:
+        {
+          JTRACE("got user command from client")(msg.params[0])(client->identity());
+          DmtcpMessage reply;
+          reply.type = DMT_USER_CMD_RESULT;
+          handleUserCommand( msg.params[0], &reply );
+          sock->socket() << reply;
+          //alternately, we could do the write without blocking:
+          //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
+        }
         break;
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type ).Text ( "unexpected message from worker" );
@@ -331,9 +346,22 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   dmtcp::DmtcpMessage hello_local, hello_remote;
   hello_remote.poison();
   hello_local.type = dmtcp::DMT_HELLO_WORKER;
-  remote << hello_local;
+  JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
   hello_remote.assertValid();
+
+  //dmtcp_command doesn't hanshake (it is antisocial)
+  if(hello_remote.type == DMT_USER_CMD){
+    JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
+    DmtcpMessage reply;
+    reply.type = DMT_USER_CMD_RESULT;
+    handleUserCommand( hello_remote.params[0], &reply );
+    remote << reply;
+    remote.close();
+    return;
+  }
+
+  remote << hello_local;
   JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR );
   JNOTE ( "worker connected" )
   ( hello_remote.from );
@@ -394,18 +422,21 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 }
 
 
-void dmtcp::DmtcpCoordinator::startCheckpoint()
+bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
-  if ( minimumState() == WorkerState::RUNNING )
+  CoordinatorStatus s = getStatus();
+  if ( s.minimumState == WorkerState::RUNNING )
   {
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
-    JNOTE ( "suspending all nodes" );
+    JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     broadcastMessage ( DMT_DO_SUSPEND );
+    return true;
   }
   else
   {
-    JTRACE ( "delaying checkpoint, workers not ready" ) ( minimumState().value() );
+    JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )( s.numPeers );
+    return false;
   }
 }
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
@@ -439,20 +470,30 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
   }
 }
 
-dmtcp::WorkerState dmtcp::DmtcpCoordinator::minimumState() const
+dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() const
 {
-  int m = 0x0FFFFFF;
+  CoordinatorStatus status;
+  const static int INITIAL = WorkerState::_MAX;
+  int m = INITIAL;
+  int count = 0;
+  bool unanimous = true;
   for ( const_iterator i = _dataSockets.begin()
-                           ;i!= _dataSockets.end()
-          ;++i )
+      ; i != _dataSockets.end()
+      ; ++i )
   {
     if ( ( *i )->socket().sockfd() != STDIN_FD )
     {
-      NamedChunkReader* client = ( NamedChunkReader* ) *i;
-      if ( client->state().value() < m ) m = client->state().value();
+      int cliState = ((NamedChunkReader*)*i)->state().value();
+      count++;
+      unanimous = unanimous && (m==cliState || m==INITIAL);
+      if ( cliState < m ) m = cliState;
     }
   }
-  return m==0x0FFFFFF ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m;
+
+  status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
+  status.minimumStateUnanimous = unanimous;
+  status.numPeers = count;
+  return status;
 }
 
 void dmtcp::DmtcpCoordinator::writeRestartScript()

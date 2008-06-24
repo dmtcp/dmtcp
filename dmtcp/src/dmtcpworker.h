@@ -46,7 +46,9 @@ namespace dmtcp
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
 
-      void forceRestart();
+        
+      void connectAndSendUserCommand(char c, int* result = NULL);
+      void sendUserCommand(char c, int* result = NULL);
 
       static void maskStdErr();
       static void unmaskStdErr();
@@ -54,7 +56,7 @@ namespace dmtcp
     protected:
 
 
-      void connectToCoordinator();
+      void connectToCoordinator(bool doHanshaking=true);
     private:
       static DmtcpWorker theInstance;
     private:

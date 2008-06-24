@@ -157,7 +157,7 @@ int main ( int argc, char** argv )
   {
     //tell the coordinator that it should broadcast a DMT_FORCE_RESTART message
     DmtcpWorker worker ( false );
-    worker.forceRestart();
+    worker.connectAndSendUserCommand('f');
     return 0;
   }
 
@@ -233,7 +233,7 @@ static void runMtcpRestore ( const std::string& file )
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
 
-
+//needed to link
 void dmtcp::initializeMtcpEngine()
 {
   JASSERT ( "false" ).Text ( "should not be called in dmtcp_restart" );

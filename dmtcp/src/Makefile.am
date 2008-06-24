@@ -3,7 +3,8 @@
 INCLUDES= $(all_includes)
 
 # targets:
-noinst_PROGRAMS = dmtcphijack.so dmtcp_coordinator dmtcp_checkpoint dmtcp_restart
+noinst_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
+	dmtcp_restart dmtcphijack.so
 noinst_LIBRARIES = libdmtcpinternal.a
 
 # headers:
@@ -20,8 +21,8 @@ libdmtcpinternal_a_SOURCES = checkpointcoordinator.cpp connection.cpp \
 	kernelbufferdrainer.cpp nodetable.cpp protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
 
-dmtcphijack_so_SOURCES = dmtcpworker.cpp syscallwrappers.c execwrappers.cpp \
-	workerhijack.cpp mtcpinterface.cpp
+dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
+	syscallwrappers.c workerhijack.cpp
 
 dmtcp_coordinator_SOURCES = dmtcpcoordinator.cpp
 
@@ -29,16 +30,19 @@ dmtcp_checkpoint_SOURCES = dmtcpcheckpoint.cpp
 
 dmtcp_restart_SOURCES = dmtcprestart.cpp
 
-dmtcphijack_so_LDADD = libdmtcpinternal.a -ldl 
+dmtcp_command_SOURCES = dmtcp_command.cpp
+
 dmtcphijack_so_LDFLAGS = -shared 
+
+dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl 
 dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl
-dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl
-dmtcp_restart_LDADD = libdmtcpinternal.a -ldl
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl
+dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl
+dmtcp_command_LDADD     = libdmtcpinternal.a -ldl
 
 PICFLAGS=-fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
-
 
 

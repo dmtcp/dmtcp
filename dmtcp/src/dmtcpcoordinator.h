@@ -27,17 +27,32 @@
 namespace dmtcp
 {
 
+
+
   class DmtcpCoordinator : public jalib::JMultiSocketProgram
   {
     public:
+      enum  ErrorCodes {
+        NOERROR                 =  0,
+        ERROR_INVALID_COMMAND   = -1,
+        ERROR_NOT_RUNNING_STATE = -2
+      };
+
+      typedef struct { dmtcp::WorkerState minimumState; bool minimumStateUnanimous; int numPeers; } CoordinatorStatus;
+
       virtual void onData ( jalib::JReaderInterface* sock );
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
       virtual void onTimeoutInterval();
       void broadcastMessage ( DmtcpMessageType type );
       void broadcastMessage ( const DmtcpMessage& msg );
-      void startCheckpoint();
-      dmtcp::WorkerState minimumState() const;
+      bool startCheckpoint();
+
+      void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
+      
+      CoordinatorStatus getStatus() const;
+      dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }
+
     protected:
       void writeRestartScript();
     private:
@@ -48,7 +63,6 @@ namespace dmtcp
 
       //map from hostname to checkpoint files
       std::map< std::string, std::vector<std::string> > _restartFilenames;
-
   };
 
 }
