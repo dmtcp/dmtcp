@@ -59,6 +59,10 @@ void dmtcp::DmtcpWorker::unmaskStdErr()
 static dmtcp::CheckpointCoordinator* theCoordinator = 0;
 static int theRestorPort = RESTORE_PORT_START;
 
+void dmtcp::DmtcpWorker::useNormalCoordinatorFd(){
+  _coordinatorSocket = jalib::JSocket(-1);
+  JASSERT(! _coordinatorSocket.isValid() );
+}
 
 //called before user main()
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )

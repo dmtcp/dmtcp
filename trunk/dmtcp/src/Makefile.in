@@ -34,7 +34,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 noinst_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
-	dmtcphijack.so$(EXEEXT)
+	dmtcphijack.so$(EXEEXT) libdmtcpaware.so$(EXEEXT)
 subdir = src
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -77,11 +77,17 @@ dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcphijack_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
-	syscallwrappers.$(OBJEXT) workerhijack.$(OBJEXT)
+	syscallwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
+	dmtcpapi.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a
 dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(dmtcphijack_so_LDFLAGS) $(LDFLAGS) -o $@
+am_libdmtcpaware_so_OBJECTS = dmtcpaware.$(OBJEXT)
+libdmtcpaware_so_OBJECTS = $(am_libdmtcpaware_so_OBJECTS)
+libdmtcpaware_so_LDADD = $(LDADD)
+libdmtcpaware_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(libdmtcpaware_so_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -96,11 +102,12 @@ CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
 SOURCES = $(libdmtcpinternal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES)
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_SOURCES)
 DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES)
+	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -203,7 +210,7 @@ noinst_HEADERS = checkpointcoordinator.h connection.h connectionidentifier.h \
 	dmtcpmessagetypes.h dmtcpworker.h jassert.h jbuffer.h jconvert.h \
 	jfilesystem.h jserialize.h jsocket.h jtimer.h kernelbufferdrainer.h \
 	mtcpinterface.h nodetable.h protectedfds.h signalmanager.h sockettable.h \
-	syscallwrappers.h syslogcheckpointer.h uniquepid.h
+	syscallwrappers.h syslogcheckpointer.h uniquepid.h dmtcpaware.h
 
 libdmtcpinternal_a_SOURCES = checkpointcoordinator.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp dmtcpmessagetypes.cpp \
@@ -212,7 +219,7 @@ libdmtcpinternal_a_SOURCES = checkpointcoordinator.cpp connection.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
 
 dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
-	syscallwrappers.c workerhijack.cpp
+	syscallwrappers.c workerhijack.cpp dmtcpapi.cpp
 
 dmtcp_coordinator_SOURCES = dmtcpcoordinator.cpp
 dmtcp_checkpoint_SOURCES = dmtcpcheckpoint.cpp 
@@ -224,6 +231,8 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl
 dmtcp_restart_LDADD = libdmtcpinternal.a -ldl
 dmtcp_command_LDADD = libdmtcpinternal.a -ldl
+libdmtcpaware_so_LDFLAGS = -shared 
+libdmtcpaware_so_SOURCES = dmtcpaware.cpp
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
@@ -304,6 +313,9 @@ dmtcp_restart$(EXEEXT): $(dmtcp_restart_OBJECTS) $(dmtcp_restart_DEPENDENCIES)
 dmtcphijack.so$(EXEEXT): $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_DEPENDENCIES) 
 	@rm -f dmtcphijack.so$(EXEEXT)
 	$(dmtcphijack_so_LINK) $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_LDADD) $(LIBS)
+libdmtcpaware.so$(EXEEXT): $(libdmtcpaware_so_OBJECTS) $(libdmtcpaware_so_DEPENDENCIES) 
+	@rm -f libdmtcpaware.so$(EXEEXT)
+	$(libdmtcpaware_so_LINK) $(libdmtcpaware_so_OBJECTS) $(libdmtcpaware_so_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -317,6 +329,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionmanager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionrewirer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpapi.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpaware.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpcheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpcoordinator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmessagetypes.Po@am__quote@

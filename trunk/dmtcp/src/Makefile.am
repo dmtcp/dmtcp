@@ -4,7 +4,7 @@ INCLUDES= $(all_includes)
 
 # targets:
 noinst_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	dmtcp_restart dmtcphijack.so
+	dmtcp_restart dmtcphijack.so libdmtcpaware.so
 noinst_LIBRARIES = libdmtcpinternal.a
 
 # headers:
@@ -13,7 +13,7 @@ noinst_HEADERS = checkpointcoordinator.h connection.h connectionidentifier.h \
 	dmtcpmessagetypes.h dmtcpworker.h jassert.h jbuffer.h jconvert.h \
 	jfilesystem.h jserialize.h jsocket.h jtimer.h kernelbufferdrainer.h \
 	mtcpinterface.h nodetable.h protectedfds.h signalmanager.h sockettable.h \
-	syscallwrappers.h syslogcheckpointer.h uniquepid.h
+	syscallwrappers.h syslogcheckpointer.h uniquepid.h dmtcpaware.h
 
 libdmtcpinternal_a_SOURCES = checkpointcoordinator.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp dmtcpmessagetypes.cpp \
@@ -22,7 +22,7 @@ libdmtcpinternal_a_SOURCES = checkpointcoordinator.cpp connection.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
 
 dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
-	syscallwrappers.c workerhijack.cpp
+	syscallwrappers.c workerhijack.cpp dmtcpapi.cpp
 
 dmtcp_coordinator_SOURCES = dmtcpcoordinator.cpp
 
@@ -39,6 +39,9 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl
 dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl
 dmtcp_command_LDADD     = libdmtcpinternal.a -ldl
+
+libdmtcpaware_so_LDFLAGS = -shared 
+libdmtcpaware_so_SOURCES= dmtcpaware.cpp
 
 PICFLAGS=-fPIC
 AM_CFLAGS = $(PICFLAGS)

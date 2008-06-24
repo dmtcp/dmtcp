@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006 by Jason Ansel                                     *
+ *   Copyright (C) 2008 by Jason Ansel                                     *
  *   jansel@ccs.neu.edu                                                    *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -17,57 +17,36 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef DMTCPDMTCPWORKER_H
-#define DMTCPDMTCPWORKER_H
 
-#include "jsocket.h"
-#include "uniquepid.h"
-
-namespace dmtcp
-{
-
-  class CheckpointCoordinator;
-
-  class DmtcpWorker
-  {
-    public:
-      static DmtcpWorker& instance();
-      const dmtcp::UniquePid& coordinatorId() const;
-
-      void waitForStage1Suspend();
-      void waitForStage2Checkpoint();
-      void waitForStage3Resume();
-      void restoreSockets ( CheckpointCoordinator& coordinator );
-      void postRestart();
-
-      static void resetOnFork();
+#include "dmtcpaware.h"
+#include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
+#include "syscallwrappers.h"
 
 
-      DmtcpWorker ( bool shouldEnableCheckpointing );
-      ~DmtcpWorker();
 
-        
-      void connectAndSendUserCommand(char c, int* result = NULL);
-      void sendUserCommand(char c, int* result = NULL);
+static const dmtcp::DmtcpMessage * exampleMessage = NULL;
+static int result[sizeof(exampleMessage->params)/sizeof(int)];
 
-      void useNormalCoordinatorFd();
+extern "C" int dmtcpIsEnabled() { return 1; }
 
-      static void maskStdErr();
-      static void unmaskStdErr();
-      static bool isStdErrMasked() { return _stdErrMasked; }
-    protected:
-
-
-      void connectToCoordinator(bool doHanshaking=true);
-    private:
-      static DmtcpWorker theInstance;
-    private:
-      jalib::JSocket _coordinatorSocket;
-      UniquePid      _coordinatorId;
-      jalib::JSocket _restoreSocket;
-      static bool _stdErrMasked;// = false;
-  };
-
+extern "C" int dmtcpRunCommand(char command){
+  _dmtcp_lock();
+  dmtcp::DmtcpWorker worker(false);
+  worker.useNormalCoordinatorFd();
+  worker.connectAndSendUserCommand(command, result);
+  _dmtcp_unlock();
+  return result[0]>=0;
 }
 
-#endif
+extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
+  DmtcpCoordinatorStatus tmp;
+  _dmtcp_lock();
+  dmtcp::DmtcpWorker worker(false);
+  worker.useNormalCoordinatorFd();
+  worker.connectAndSendUserCommand('s', result);
+  tmp.numProcesses = result[0];
+  tmp.isRunning = result[1];
+  _dmtcp_unlock();
+  return tmp;
+}

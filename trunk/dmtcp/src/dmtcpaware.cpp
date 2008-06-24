@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006 by Jason Ansel                                     *
+ *   Copyright (C) 2008 by Jason Ansel                                     *
  *   jansel@ccs.neu.edu                                                    *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -17,57 +17,26 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef DMTCPDMTCPWORKER_H
-#define DMTCPDMTCPWORKER_H
 
-#include "jsocket.h"
-#include "uniquepid.h"
+#include <stdio.h>
 
-namespace dmtcp
-{
+#include "dmtcpaware.h"
 
-  class CheckpointCoordinator;
-
-  class DmtcpWorker
-  {
-    public:
-      static DmtcpWorker& instance();
-      const dmtcp::UniquePid& coordinatorId() const;
-
-      void waitForStage1Suspend();
-      void waitForStage2Checkpoint();
-      void waitForStage3Resume();
-      void restoreSockets ( CheckpointCoordinator& coordinator );
-      void postRestart();
-
-      static void resetOnFork();
+// this is a dummy library that is only called if dmtcp is *NOT* enabled
+// the versions in dmtcpapi.cpp will be called if dmtcp is enabled
 
 
-      DmtcpWorker ( bool shouldEnableCheckpointing );
-      ~DmtcpWorker();
+extern "C" int dmtcpIsEnabled() { return 0; }
 
-        
-      void connectAndSendUserCommand(char c, int* result = NULL);
-      void sendUserCommand(char c, int* result = NULL);
-
-      void useNormalCoordinatorFd();
-
-      static void maskStdErr();
-      static void unmaskStdErr();
-      static bool isStdErrMasked() { return _stdErrMasked; }
-    protected:
-
-
-      void connectToCoordinator(bool doHanshaking=true);
-    private:
-      static DmtcpWorker theInstance;
-    private:
-      jalib::JSocket _coordinatorSocket;
-      UniquePid      _coordinatorId;
-      jalib::JSocket _restoreSocket;
-      static bool _stdErrMasked;// = false;
-  };
-
+extern "C" int dmtcpRunCommand(char command){
+  fprintf(stderr, "dmtcpRunCommand: ERROR, program is not running under dmtcp_checkpoint.\n");
+  return -128;
 }
 
-#endif
+extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
+  fprintf(stderr, "dmtcpGetStatus: ERROR, program is not running under dmtcp_checkpoint.\n");
+  DmtcpCoordinatorStatus tmp;
+  tmp.numProcesses = -1;
+  tmp.isRunning = -1;
+  return tmp;
+}
