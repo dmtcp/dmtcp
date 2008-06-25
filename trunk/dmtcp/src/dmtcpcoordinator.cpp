@@ -90,6 +90,10 @@ namespace
       socklen_t addrlen() const { return _addrlen; }
       int restorePort() const { return _restorePort; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
+      void progname(std::string pname){ _progname = pname; }
+      std::string progname(void){ return _progname; }
+      void hostname(std::string hname){ _hostname = hname; }
+      std::string hostname(void){ return _hostname; }
     private:
       dmtcp::UniquePid _identity;
       int _clientNumber;
@@ -97,6 +101,8 @@ namespace
       struct sockaddr_storage _addr;
       socklen_t               _addrlen;
       int _restorePort;
+      std::string _hostname;
+      std::string _progname;
   };
 }
 
@@ -125,17 +131,20 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'l': case 'L':
   case 't': case 'T':
-    JASSERT_STDERR << "Listing clients... \n";
+    JASSERT_STDERR << "Client List:\n";
+    JASSERT_STDERR << "#, PROG[PID]@HOST, DMTCP-UNIQUEPID\n";
     for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
             ;i!= _dataSockets.end()
             ;++i )
     {
       if ( ( *i )->socket().sockfd() != STDIN_FD )
       {
-        JASSERT_STDERR << "Client: clientNumber="<< ( ( NamedChunkReader* ) ( *i ) )->clientNumber()
-        << " fd="<< ( *i )->socket().sockfd()
-        << " " << ( ( NamedChunkReader* ) ( *i ) )->identity()
-        << '\n';
+        JASSERT_STDERR << ((NamedChunkReader*)(*i))->clientNumber()
+                       << ", " << ( ( NamedChunkReader* ) ( *i ) )->progname() 
+                       << "[" << ( ( NamedChunkReader* ) ( *i ) )->identity().pid() << "]"
+                       << "@" << ( ( NamedChunkReader* ) ( *i ) )->hostname()
+                       << ", " << ( ( NamedChunkReader* ) ( *i ) )->identity()
+                       << '\n';
       }
     }
     break;
@@ -367,6 +376,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   ( hello_remote.from );
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
+
   NamedChunkReader * ds = new NamedChunkReader (
       sock
       ,hello_remote.from.pid()
@@ -374,6 +384,17 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
       ,remoteAddr
       ,remoteLen
       ,hello_remote.restorePort );
+
+  if( hello_remote.extraBytes > 0 ){
+    char* extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+    std::string hostname = extraData;
+    std::string progname = extraData + hostname.length() + 1;
+    ds->progname(progname);
+    ds->hostname(hostname);
+    delete [] extraData;
+  }
+
 
   //add this client as a chunk reader
   // in this case a 'chunk' is sizeof(DmtcpMessage)

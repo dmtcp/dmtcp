@@ -492,12 +492,18 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
 
   if(doHanshaking)
   {
+    std::string hostname = jalib::Filesystem::GetCurrentHostname();
+    std::string progname = jalib::Filesystem::GetProgramName();
+
     dmtcp::DmtcpMessage hello_local, hello_remote;
     hello_remote.poison();
     hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
     hello_local.restorePort = theRestorPort;
+    hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
 //         hello_local.restorePid.id = UniquePid::ThisProcess();
     _coordinatorSocket << hello_local;
+    _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
+    _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
     _coordinatorSocket >> hello_remote;
     hello_remote.assertValid();
     JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
