@@ -257,7 +257,7 @@ os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = "0"
 
-runTest("dmtcpaware-api",["./test/dmtcp-aware-api"])
+runTest("dmtcpaware1",   ["./test/dmtcpaware1"])
 
 runTest("perl",          ["/usr/bin/perl"])
 

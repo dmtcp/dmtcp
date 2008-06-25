@@ -90,18 +90,23 @@ install: all
 	fi
 	$(MKDIR_P) $(prefix)/lib/dmtcp
 	$(MKDIR_P) $(prefix)/bin
+	$(MKDIR_P) $(prefix)/include/dmtcp
 	cp bin/* $(prefix)/lib/dmtcp
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
+	cp dmtcp/src/libdmtcpaware.so $(prefix)/lib/libdmtcpaware.so
+	cp dmtcp/src/dmtcpaware.h $(prefix)/include/dmtcp/dmtcpaware.h
 
 uninstall:
-	rm -f $(prefix)/bin/dmtcp_coordinator
-	rm -f $(prefix)/bin/dmtcp_checkpoint
-	rm -f $(prefix)/bin/dmtcp_restart
-	rm -f $(prefix)/bin/dmtcp_command
-	rm -Rf $(prefix)/lib/dmtcp
+	rm -f "$(prefix)/bin/dmtcp_coordinator"
+	rm -f "$(prefix)/bin/dmtcp_checkpoint"
+	rm -f "$(prefix)/bin/dmtcp_restart"
+	rm -f "$(prefix)/bin/dmtcp_command"
+	rm -f "$(prefix)/lib/libdmtcpaware.so"
+	rm -Rf "$(prefix)/lib/dmtcp"
+	rm -Rf "$(prefix)/include/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
 

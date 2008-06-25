@@ -1,2 +1,5 @@
 usr/bin
 usr/share/lintian/overrides
+usr/lib
+usr/lib/dmtcp
+usr/include/dmtcp

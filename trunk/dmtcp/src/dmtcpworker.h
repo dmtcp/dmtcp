@@ -46,17 +46,15 @@ namespace dmtcp
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
 
-        
       void connectAndSendUserCommand(char c, int* result = NULL);
-      void sendUserCommand(char c, int* result = NULL);
 
-      void useNormalCoordinatorFd();
+      void useAlternateCoordinatorFd();
 
       static void maskStdErr();
       static void unmaskStdErr();
       static bool isStdErrMasked() { return _stdErrMasked; }
     protected:
-
+      void sendUserCommand(char c, int* result = NULL);
 
       void connectToCoordinator(bool doHanshaking=true);
     private:

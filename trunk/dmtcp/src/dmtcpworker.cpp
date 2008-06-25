@@ -34,6 +34,9 @@
 #include "connectionidentifier.h"
 #include "connectionmanager.h"
 #include "checkpointcoordinator.h"
+#include <pthread.h>
+
+static pthread_mutex_t theCkptCanStart = PTHREAD_MUTEX_INITIALIZER;
 
 bool dmtcp::DmtcpWorker::_stdErrMasked = false;
 
@@ -59,9 +62,8 @@ void dmtcp::DmtcpWorker::unmaskStdErr()
 static dmtcp::CheckpointCoordinator* theCoordinator = 0;
 static int theRestorPort = RESTORE_PORT_START;
 
-void dmtcp::DmtcpWorker::useNormalCoordinatorFd(){
-  _coordinatorSocket = jalib::JSocket(-1);
-  JASSERT(! _coordinatorSocket.isValid() );
+void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
+  _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
 }
 
 //called before user main()
@@ -219,11 +221,18 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     }
   }
   JTRACE ( "got SUSPEND signal" );
+  
+  //allow other threads to delay checkpointing
+  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0);
+  JTRACE ( "suspending..." );
 }
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0);
+
+  
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   {
     dmtcp::DmtcpMessage msg;
@@ -412,9 +421,14 @@ void dmtcp::DmtcpWorker::restoreSockets ( CheckpointCoordinator& coordinator )
 
 void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
 {
-  connectToCoordinator(false);
-  sendUserCommand(c,result);
-  _coordinatorSocket.close();
+  //prevent checkpoints from starting 
+  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0);
+  {
+    connectToCoordinator(false);
+    sendUserCommand(c,result);
+    _coordinatorSocket.close();
+  }
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0);
 }
 
 //tell the coordinator to run given user command
