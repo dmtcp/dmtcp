@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <sstream>
 #include "constants.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
@@ -102,23 +103,19 @@ const char* dmtcp::UniquePid::checkpointFilename()
   if ( !checkpointFilename_initialized )
   {
     checkpointFilename_initialized = true;
-    checkpointFilename_str = "";
+    std::ostringstream os;
 
     const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
-    if ( dir != NULL )
-    {
-      checkpointFilename_str += dir;
-      checkpointFilename_str += '/';
+    if ( dir != NULL ){
+      os << dir << '/';
     }
 
-    const UniquePid& thisProc = ThisProcess();
-    checkpointFilename_str += CHECKPOINT_FILE_PREFIX;
-
-    checkpointFilename_str += jalib::Filesystem::GetProgramName()
-                              + '_' + jalib::XToString ( thisProc.hostid() )
-                              + '_' + jalib::XToString ( thisProc.pid() )
-                              + '_' + jalib::XToString ( thisProc.time() )
-                              + ".mtcp";
+    os << CHECKPOINT_FILE_PREFIX 
+       << jalib::Filesystem::GetProgramName() 
+       << '_' << ThisProcess()
+       << ".mtcp";
+    
+    checkpointFilename_str = os.str();
   }
   return checkpointFilename_str.c_str();
 }
@@ -140,15 +137,10 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
 {
   char *devicename = ptsname + strlen ( "/dev/pts/" );
 
-  const UniquePid& thisProc = ThisProcess();
-  std::string ptsSymlinkFilename_str;
+  //this must be static so std::string isn't destructed
+  static std::string ptsSymlinkFilename_str;
 
-  ptsSymlinkFilename_str = "/tmp/pts_"
-                           + jalib::XToString ( thisProc.hostid() )
-                           + '_' + jalib::XToString ( thisProc.pid() )
-                           + '_' + jalib::XToString ( thisProc.time() )
-                           + '_';
-
+  ptsSymlinkFilename_str = "/tmp/pts_" + ThisProcess().toString() + '_';
   ptsSymlinkFilename_str += devicename;
 
   return ptsSymlinkFilename_str.c_str();
@@ -175,8 +167,14 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 
 std::ostream& std::operator<< ( std::ostream& o,const dmtcp::UniquePid& id )
 {
-  o << id.hostid() << '-' << id.pid() << '-' << id.time();
+  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time();
   return o;
+}
+
+std::string dmtcp::UniquePid::toString() const{
+  std::ostringstream o;
+  o << *this;
+  return o.str();
 }
 
 

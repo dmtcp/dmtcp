@@ -17,7 +17,7 @@ mtcp:
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
-tests:
+tests: all
 	(cd test && $(MAKE))
 
 check: all

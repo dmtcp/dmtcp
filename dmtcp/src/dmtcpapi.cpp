@@ -22,6 +22,7 @@
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
+#include <string>
 
 
 
@@ -50,3 +51,22 @@ extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
   _dmtcp_unlock();
   return tmp;
 }
+
+extern "C" const char* dmtcpGetCheckpointFilenameMtcp(){
+  static std::string str;
+  str=dmtcp::UniquePid::checkpointFilename();
+  return str.c_str();
+}
+
+extern "C" const char* dmtcpGetCheckpointFilenameDmtcp(){
+  static std::string str;
+  str=dmtcp::UniquePid::dmtcpCheckpointFilename();
+  return str.c_str();
+}
+
+extern "C" const char* dmtcpGetUniquePid(){
+  static std::string str;
+  str=dmtcp::UniquePid::ThisProcess().toString();
+  return str.c_str();
+}
+
