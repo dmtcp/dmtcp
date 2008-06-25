@@ -35,8 +35,22 @@ extern "C" int dmtcpRunCommand(char command){
 
 extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
   fprintf(stderr, "dmtcpGetStatus: ERROR, program is not running under dmtcp_checkpoint.\n");
-  DmtcpCoordinatorStatus tmp;
-  tmp.numProcesses = -1;
-  tmp.isRunning = -1;
-  return tmp;
+  static DmtcpCoordinatorStatus invalid = {-1, -1};
+  return invalid;
 }
+
+extern "C" const char* dmtcpGetCheckpointFilenameMtcp(){
+  fprintf(stderr, "dmtcpGetCheckpointFilenameMtcp: ERROR, program is not running under dmtcp_checkpoint.\n");
+  return NULL;
+}
+
+extern "C" const char* dmtcpGetCheckpointFilenameDmtcp(){
+  fprintf(stderr, "dmtcpGetCheckpointFilenameDmtcp: ERROR, program is not running under dmtcp_checkpoint.\n");
+  return NULL;
+}
+
+extern "C" const char* dmtcpGetUniquePid(){
+  fprintf(stderr, "dmtcpGetUniquePid: ERROR, program is not running under dmtcp_checkpoint.\n");
+  return NULL;
+}
+

@@ -43,13 +43,31 @@ int dmtcpIsEnabled();
  */
 int dmtcpRunCommand(char command);
 
+//alias for ease of use
+#define dmtcpRunCommandCheckpoint() dmtcpRunCommand('c') 
+
 /**
  * Gets the status of the computation according to coordinator
  */
 DmtcpCoordinatorStatus dmtcpGetStatus();
 
-//alias for ease of use
-#define dmtcpRunCommandCheckpoint() dmtcpRunCommand('c') 
+/**
+ * Gets the filename that checkpoints of this process will be stored to.
+ * This is the large .mtcp checkpoint file that stores memory.
+ */
+const char* dmtcpGetCheckpointFilenameMtcp();
+
+/**
+ * Gets the filename that checkpoints of this process will be stored to.
+ * This is the tiny .mtcp.dmtcp file that holds connection information.
+ */
+const char* dmtcpGetCheckpointFilenameDmtcp();
+
+/**
+ * Get the cluster-wide Unique Process Identifier used by DMTCP this process.
+ * It is of the format HostHash-PID-Timestamp
+ */
+const char* dmtcpGetUniquePid();
 
 #ifdef __cplusplus
 } //extern "C"

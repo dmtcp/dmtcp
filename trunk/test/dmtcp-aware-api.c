@@ -1,4 +1,3 @@
-#undef NDEBUG
 #include <assert.h>
 #include <stdio.h>
 
@@ -7,6 +6,7 @@
 int main(int argc, char* argv[])
 {
   int r;
+  const char* s;
   while (1)
   {
     printf("dmtcpIsEnabled()=");
@@ -21,10 +21,28 @@ int main(int argc, char* argv[])
 
     printf("dmtcpGetStatus()=");
     fflush(stdout);
-    DmtcpCoordinatorStatus s = dmtcpGetStatus();
-    printf("{%d,%d}\n", s.numProcesses, s.isRunning);
+    DmtcpCoordinatorStatus status = dmtcpGetStatus();
+    printf("{%d,%d}\n", status.numProcesses, status.isRunning);
     fflush(stdout);
-    assert(s.numProcesses>0);
+    assert(status.numProcesses>0);
+
+    printf("dmtcpGetCheckpointFilenameMtcp()=");
+    fflush(stdout);
+    s=dmtcpGetCheckpointFilenameMtcp();
+    assert(s!=NULL);
+    if(s!=NULL) printf("%s\n",s);
+
+    printf("dmtcpGetCheckpointFilenameDmtcp()=");
+    fflush(stdout);
+    s=dmtcpGetCheckpointFilenameDmtcp();
+    assert(s!=NULL);
+    if(s!=NULL) printf("%s\n",s);
+
+    printf("dmtcpGetUniquePid()=");
+    fflush(stdout);
+    s=dmtcpGetUniquePid();
+    assert(s!=NULL);
+    if(s!=NULL) printf("%s\n",s);
 
     sleep(2);
 
