@@ -22,51 +22,125 @@
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
+#include "mtcpinterface.h"
 #include <string>
+#include <unistd.h>
+#include <time.h>
+//#include <pthread.h>
 
+#ifndef EXTERNC
+# define EXTERNC extern "C"
+#endif
 
+//global counters
+static int numCheckpoints = 0;
+static int numRestarts    = 0;
 
-static const dmtcp::DmtcpMessage * exampleMessage = NULL;
-static int result[sizeof(exampleMessage->params)/sizeof(int)];
+//user hook functions
+static DmtcpFunctionPointer userHookPreCheckpoint = NULL;
+static DmtcpFunctionPointer userHookPostCheckpoint = NULL;
+static DmtcpFunctionPointer userHookPostRestart = NULL;
 
-extern "C" int dmtcpIsEnabled() { return 1; }
+//I wish we could use pthreads for the trickery in this file, but much of our code 
+//is execute before the thread we want to wake is restored.  Thus we do it the bad way.
+static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
 
-extern "C" int dmtcpRunCommand(char command){
+//needed for sizeof()
+static const dmtcp::DmtcpMessage * const exampleMessage = NULL;
+
+static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_lock();
-  dmtcp::DmtcpWorker worker(false);
-  worker.useNormalCoordinatorFd();
-  worker.connectAndSendUserCommand(command, result);
+  {
+    dmtcp::DmtcpWorker worker(false);
+    worker.useAlternateCoordinatorFd();
+    worker.connectAndSendUserCommand(c, result);
+  }
   _dmtcp_unlock();
+}
+
+EXTERNC int dmtcpIsEnabled() { return 1; }
+
+EXTERNC int dmtcpCheckpointBlocking(){
+  int rv = 0;
+  int oldNumRestarts    = numRestarts;
+  int oldNumCheckpoints = numCheckpoints;
+  memfence(); //make sure the reads above dont get reordered
+
+  if(dmtcpRunCommand('c')){ //request checkpoint
+    //and wait for the checkpoint
+    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
+      //nanosleep should get interupped by checkpointing with an EINTR error
+      //though there is a race to get to nanosleep() before the checkpoint
+      struct timespec t = {1,0};
+      nanosleep(&t, NULL); 
+      memfence();  //make sure the loop condition doesn't get optimized
+    }
+    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
+  }
+  return rv;
+}
+
+EXTERNC int dmtcpRunCommand(char command){
+  int result[sizeof(exampleMessage->params)/sizeof(int)];
+  _runCoordinatorCmd(command,result);
   return result[0]>=0;
 }
 
-extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
-  DmtcpCoordinatorStatus tmp;
-  _dmtcp_lock();
-  dmtcp::DmtcpWorker worker(false);
-  worker.useNormalCoordinatorFd();
-  worker.connectAndSendUserCommand('s', result);
-  tmp.numProcesses = result[0];
-  tmp.isRunning = result[1];
-  _dmtcp_unlock();
-  return tmp;
+EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
+  int result[sizeof(exampleMessage->params)/sizeof(int)];
+  _runCoordinatorCmd('s',result);
+
+  //must be static so memory is not deleted.
+  static DmtcpCoordinatorStatus status;
+
+  status.numProcesses = result[0];
+  status.isRunning = result[1];
+  return &status;
 }
 
-extern "C" const char* dmtcpGetCheckpointFilenameMtcp(){
-  static std::string str;
-  str=dmtcp::UniquePid::checkpointFilename();
-  return str.c_str();
+EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
+  //these must be static so there memory is not deleted.
+  static std::string mtcp;
+  static std::string dmtcp;
+  static std::string pid;
+  static DmtcpLocalStatus status;
+  mtcp.reserve(1024);
+  
+  //get filenames
+  pid=dmtcp::UniquePid::ThisProcess().toString();
+  mtcp=dmtcp::UniquePid::checkpointFilename();
+  dmtcp=dmtcp::UniquePid::dmtcpCheckpointFilename();
+  
+  status.numCheckpoints          = numCheckpoints;
+  status.numRestarts             = numRestarts;
+  status.checkpointFilenameMtcp  = mtcp.c_str(); 
+  status.checkpointFilenameDmtcp = dmtcp.c_str();
+  status.uniquePidStr            = pid.c_str();
+  return &status;
 }
 
-extern "C" const char* dmtcpGetCheckpointFilenameDmtcp(){
-  static std::string str;
-  str=dmtcp::UniquePid::dmtcpCheckpointFilename();
-  return str.c_str();
+EXTERNC void dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+                              , DmtcpFunctionPointer postCheckpoint
+                              , DmtcpFunctionPointer postRestart){
+  userHookPreCheckpoint  = preCheckpoint;
+  userHookPostCheckpoint = postCheckpoint;
+  userHookPostRestart    = postRestart; 
 }
 
-extern "C" const char* dmtcpGetUniquePid(){
-  static std::string str;
-  str=dmtcp::UniquePid::ThisProcess().toString();
-  return str.c_str();
+void dmtcp::userHookTrampoline_preCkpt() {
+  if(userHookPreCheckpoint != NULL) 
+    (*userHookPreCheckpoint)();
 }
 
+void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
+  //this function runs before other threads are resumed
+  if(isRestart){
+    numRestarts++;
+    if(userHookPostRestart != NULL) 
+      (*userHookPostRestart)();
+  }else{
+    numCheckpoints++;
+    if(userHookPostCheckpoint != NULL) 
+      (*userHookPostCheckpoint)();
+  }
+}

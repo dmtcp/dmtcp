@@ -8,17 +8,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-/* Compile with  -Wl,--export-dynamic to make these functions visible. */
-void dmtcpHookPreCheckpoint() {
-  printf("\n%s: %s: about to checkpoint\n", __FILE__, __func__);
-}
-void dmtcpHookPostCheckpoint() {
-  printf("\n%s: %s: done checkpointing\n", __FILE__, __func__);
-}
-void dmtcpHookRestart() {
-  printf("\n%s: %s: restarting\n", __FILE__, __func__);
-}
-
 int main() {
   char *input = NULL;
   char *prompt = "> ";

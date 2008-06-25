@@ -92,7 +92,9 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 
 static void callbackPreCheckpoint()
 {
-  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();;
+  //now user threads are stopped
+  dmtcp::userHookTrampoline_preCkpt();
+  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
 }
 
 
@@ -108,6 +110,8 @@ static void callbackPostCheckpoint ( int isRestart )
     JNOTE ( "checkpointed" ) ( dmtcp::UniquePid::checkpointFilename() );
   }
   dmtcp::DmtcpWorker::instance().waitForStage3Resume();
+  //now everything but threads are restored
+  dmtcp::userHookTrampoline_postCkpt(isRestart);
 }
 
 static int callbackShouldCkptFD ( int /*fd*/ )

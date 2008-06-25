@@ -3,7 +3,6 @@ LN_S=@LN_S@
 CC=@CC@
 CXX=@CXX@
 CFLAGS=@CFLAGS@
-CFLAGS+=-Wl,--export-dynamic
 CXXFLAGS=@CXXFLAGS@
 HAS_READLINE=@HAS_READLINE@
 HAS_MPICH=@HAS_MPICH@
@@ -31,7 +30,7 @@ else
 	#$<: required libraries missing, skipping test
 endif
 
-dmtcp-aware-api: dmtcp-aware-api.c
+dmtcpaware%: dmtcpaware%.c
 	test ! -f ../dmtcp/src/libdmtcpaware.so ||\
 		$(CC) -o $@ $< $(CFLAGS) $(PWD)/../dmtcp/src/libdmtcpaware.so
 

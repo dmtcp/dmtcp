@@ -17,40 +17,55 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-
-#include <stdio.h>
-
 #include "dmtcpaware.h"
 
+#include <stdio.h>
+#include <string.h>
+
+//
 // this is a dummy library that is only called if dmtcp is *NOT* enabled
+//
 // the versions in dmtcpapi.cpp will be called if dmtcp is enabled
+//
 
+#ifdef DMTCPAWARE_NO_WARNINGS
+# define WARN_NO_DMTCP_MSG ""
+# define WARN_NO_DMTCP
+#else
+# define WARN_NO_DMTCP_MSG "%s: ERROR, program is not running under dmtcp_checkpoint.\n"
+# define WARN_NO_DMTCP fprintf(stderr, WARN_NO_DMTCP_MSG , __FUNCTION__)
+#endif
 
-extern "C" int dmtcpIsEnabled() { return 0; }
+#ifndef EXTERNC
+# define EXTERNC extern "C"
+#endif
 
-extern "C" int dmtcpRunCommand(char command){
-  fprintf(stderr, "dmtcpRunCommand: ERROR, program is not running under dmtcp_checkpoint.\n");
+EXTERNC int dmtcpIsEnabled() { 
+  return 0;
+}
+
+EXTERNC int dmtcpCheckpointBlocking(){
+  WARN_NO_DMTCP;
   return -128;
 }
 
-extern "C"  DmtcpCoordinatorStatus dmtcpGetStatus(){
-  fprintf(stderr, "dmtcpGetStatus: ERROR, program is not running under dmtcp_checkpoint.\n");
-  static DmtcpCoordinatorStatus invalid = {-1, -1};
-  return invalid;
+EXTERNC int dmtcpRunCommand(char command){
+  WARN_NO_DMTCP;
+  return -128;
 }
 
-extern "C" const char* dmtcpGetCheckpointFilenameMtcp(){
-  fprintf(stderr, "dmtcpGetCheckpointFilenameMtcp: ERROR, program is not running under dmtcp_checkpoint.\n");
+EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
+  WARN_NO_DMTCP;
   return NULL;
 }
 
-extern "C" const char* dmtcpGetCheckpointFilenameDmtcp(){
-  fprintf(stderr, "dmtcpGetCheckpointFilenameDmtcp: ERROR, program is not running under dmtcp_checkpoint.\n");
+EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
+  WARN_NO_DMTCP;
   return NULL;
 }
 
-extern "C" const char* dmtcpGetUniquePid(){
-  fprintf(stderr, "dmtcpGetUniquePid: ERROR, program is not running under dmtcp_checkpoint.\n");
-  return NULL;
+EXTERNC void dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+                              , DmtcpFunctionPointer postCheckpoint
+                              , DmtcpFunctionPointer postRestart){
+  WARN_NO_DMTCP;
 }
-

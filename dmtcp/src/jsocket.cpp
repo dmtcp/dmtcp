@@ -165,7 +165,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
       ssize_t cnt = read ( buf, len );
       if ( cnt <= 0 && errno != EAGAIN && errno != EINTR )
       {
-        JWARNING ( cnt > 0 ) ( cnt ) ( len ) ( JASSERT_ERRNO ).Text ( "JSocket read failure" );
+        JWARNING(cnt>0)(sockfd())(cnt)(len)(JASSERT_ERRNO).Text( "JSocket read failure" );
         return -1;
       }
       if ( cnt > 0 )

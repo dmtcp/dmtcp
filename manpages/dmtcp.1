@@ -115,27 +115,12 @@ Coordinator commands can also be issued remotely using \fBdmtcp_command\fR.
 4. To restart, one should use dmtcp_restart_script.sh created by the dmtcp_coordinator. One can optionally edit this script to migrate processes to different hosts.  In order to give a restarted program standard input, the script must be edited to run the desired process in the foreground of a terminal.
 
  ./dmtcp_restart_script.sh
-.SH "PROGRAMMING HOOKS"
-DMTCP allows checkpointed application to defined hook functions in order
-perform added work at checkpoint time (such as closing connections to
-non\-checkpointed processes).
+.SH "PROGRAMMING INTERFACE"
+DMTCP provides a programming interface to allow checkpointed applications to interact with dmtcp.
 
-User code containing these functions must be compiled with
-\-Wl,\-export\-dynamic under \fIgcc\fR/\fIg++\fR.
+The user application should link with libdmtcpaware.so (\-ldmtcpaware) and use the header file dmtcp/dmtcpaware.h.
 
-These functions are:
-.TP 
-   void dmtcpHookPreCheckpoint(void);
-
-Called before checkpointing after all user threads are suspended.
-.TP 
-   void dmtcpHookPostCheckpoint(void);
-
-Called after checkpointing before all user threads are resumed.
-.TP 
-   void dmtcpHookRestart(void);
-
-Called after a restart before all user threads are resumed.
+For more information see: http://dmtcp.sourceforge.net/
 .SH "SEE ALSO"
 Full documentation is available from http://dmtcp.sourceforge.net/
 .SH "AUTHORS"
