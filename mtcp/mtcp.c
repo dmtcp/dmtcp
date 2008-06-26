@@ -1265,24 +1265,38 @@ static int open_ckpt_to_write(void)
     if( do_we_compress == NULL ) do_we_compress = getenv("DMTCP_GZIP");
     // env var is unset, lets default to enabled
     // to disable compression, run with MTCP_GZIP=0
-    if( do_we_compress == NULL) do_we_compress = "0";
+    if( do_we_compress == NULL) do_we_compress = "1";
     
     fd = mtcp_safe_open(temp_checkpointfilename,
-            O_CREAT | O_TRUNC | O_WRONLY, 0600);
+            		O_CREAT | O_TRUNC | O_WRONLY, 0600);
 
     if (fd < 0) {
-        mtcp_printf("mtcp open_ckpt_to_write: error creating %s: %s\n",
-                    temp_checkpointfilename, strerror(mtcp_sys_errno));
-        mtcp_abort();
+      mtcp_printf("mtcp open_ckpt_to_write: error creating %s: %s\n",
+                  temp_checkpointfilename, strerror(mtcp_sys_errno));
+      mtcp_abort();
     }
 
-    if ((do_we_compress != NULL) && strtol(do_we_compress, NULL, 0) != 0) {
+    char *endptr;
+    strtol(do_we_compress, &endptr, 0);
+    if ( *do_we_compress == '\0' || *endptr != '\0' ) {
+      mtcp_printf("WARNING: MTCP_GZIP/DMTCP_GZIP defined as %s (not a number)\n"
+	          "  Checkpoint image will not be compressed.\n",
+		  do_we_compress);
+      do_we_compress = "0";
+    }
+    if ( 0 != strcmp(do_we_compress, "0") ) {
         if ((gzip_path = mtcp_executable_path("gzip")) == NULL) {
             mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
                         "not be used.\n");
             return fd;
         }
-        if (pipe(fds) == -1) {
+	/* If we just use pipe() instead of mtcp_sys_pipe(), it goes to glibc.
+	 * DMTCP puts a wrapper around glibc that promotes pipes to
+	 * socketpairs, since DMTCP doesn't directly checkpoint/restart pipes.
+	 * But then DMTCP does checkpoint the pair of sockets and fail
+	 * on restart.  So, we go directly to kernel, and hide from glibc here.
+	 */
+        if (mtcp_sys_pipe(fds) == -1) {
             mtcp_printf("WARNING: error creating pipe. Compression will "
                         "not be used.\n");
             return fd;
@@ -2203,9 +2217,11 @@ static int restarthread (void *threadv)
     set_tid_address (&(thread -> child_tid));
 
     if (callback_post_ckpt != NULL) {
-        DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1) (&%x,%x) \n",&callback_post_ckpt,callback_post_ckpt));
+        DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1=restarting)"
+		 " (&%x,%x) \n",
+		 &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(1);
-        DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1) \n"));
+        DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
   }
 
