@@ -8,31 +8,37 @@ mandir=@mandir@
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-all: mtcp dmtcp
+default: mtcp dmtcp
 	($(MAKE) bin)
 
+all: default tests
+
 mtcp:
-	(cd mtcp && $(MAKE) CC=$(CC))
+	(cd mtcp && $(MAKE) CC=$(CC) build)
 
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
-tests: all
+tests: default
 	(cd test && $(MAKE))
 
-check: all
-	+./test/autotest.py
+#prevent mtcp_restart from flying out of control
+LIMIT=ulimit -v 1048576
 
-check1: tests
-	${MAKE} TEST=dmtcp1 check-dmtcp1
+check:  all
+	+bash -c "$(LIMIT) && ./test/autotest.py $*"
+
+check-%: all
+	+bash -c "$(LIMIT) && ./test/autotest.py $*"
+
+check1: check-interactive-dmtcp1
 
 check2: tests
-	${MAKE} TEST=readline XTERM_E="xterm -e" check-readline
+	${MAKE} XTERM_E="xterm -e" check-interactive-readline
 
-check3: tests
-	${MAKE} TEST=shared-memory check-shared-memory
+check3: check-interactive-shared-memory
 
-check-${TEST}: tests
+check-interactive-%: tests
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"
@@ -42,17 +48,17 @@ check-${TEST}: tests
 	@ echo ""
 	@ echo "Press <return> when ready to start."
 	@ read -p "> " dummy
-	( rm -f ckpt_${TEST}* && sleep 3 && \
+	( rm -f ckpt_$*_* && sleep 3 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/${TEST} && \
+		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/$* && \
 		echo "" && echo "*** Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+		until ls ckpt_$*_*.mtcp > /dev/null 2>&1; do true; done; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_$*_*.mtcp; \
 		echo "" && echo "*** Again Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_${TEST}_*.mtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_${TEST}_*.mtcp; \
+		until ls ckpt_$*_*.mtcp > /dev/null 2>&1; do true; done; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_$*_*.mtcp; \
 		) &
 	@ bin/dmtcp_coordinator
 

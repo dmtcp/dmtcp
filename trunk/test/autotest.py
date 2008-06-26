@@ -14,14 +14,14 @@ import testconfig
 #number of checkpoint/restart cycles
 CYCLES=2
 
-#Sleep after program startup, etc (sec)
-S=0.5
+#Sleep after each program startup (sec)
+S=0.3
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=5
 
 #Interval between checks for ckpt/restart complete
-INTERVAL=0.2
+INTERVAL=0.1
 
 #Buffers for process i/o
 BUFFER_SIZE=4096*8
@@ -146,9 +146,14 @@ def getStatus():
   return (int(peers), (running=="yes"))
 
 #test a given list of commands to see if they checkpoint
-def runTest(name, cmds):
-  status=None
+def runTest(name, numProcs, cmds):
+  #the expected/correct running status
+  status=(numProcs, True)
   procs=[]
+
+  def wfMsg(msg):
+    #return function to generate error message
+    return lambda: msg+", "+str(status[0])+" expected, %d found, running=%d" % getStatus()
   
   def testKill():
     #kill all processes
@@ -161,7 +166,7 @@ def runTest(name, cmds):
     
     #wait for files to appear and status to return to original
     WAITFOR(lambda: len(listdir(ckptDir))>0 and status==getStatus(),
-            lambda: "checkpoint error, "+str(status[0])+" expected, %d found, running=%d" % getStatus())
+            wfMsg("checkpoint error"))
     
     #make sure the right files are there
     numFiles=len(listdir(ckptDir))
@@ -175,8 +180,7 @@ def runTest(name, cmds):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(launch(cmd))
-    WAITFOR(lambda: status==getStatus(),
-            lambda: "restart error, "+str(status[0])+" expected, %d found, running=%d" % getStatus())
+    WAITFOR(lambda: status==getStatus(), wfMsg("restart error"))
   try:
     printFixed(name,15)
 
@@ -191,11 +195,8 @@ def runTest(name, cmds):
     for cmd in cmds:
       procs.append(launch("./bin/dmtcp_checkpoint "+cmd))
       sleep(S)
-
-    #record status, make sure user programs are running
-    status=getStatus()
-    n, running = status
-    CHECK(running and n>=len(cmds), "user program startup error")
+    
+    WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
     
     for i in xrange(CYCLES):
       printFixed("ckpt:")
@@ -234,48 +235,48 @@ p1=str(randint(2000,10000))
 p2=str(randint(2000,10000))
 p3=str(randint(2000,10000))
 
-runTest("dmtcp1",        ["./test/dmtcp1"])
+runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
-runTest("shared-fd",     ["./test/shared-fd"])
+runTest("shared-fd",     2, ["./test/shared-fd"])
 
-runTest("echoserver",    ["./test/echoserver/server "+p0,
-                          "./test/echoserver/client localhost "+p0])
+runTest("echoserver",    2, ["./test/echoserver/server "+p0,
+                             "./test/echoserver/client localhost "+p0])
 
-runTest("frisbee",       ["./test/frisbee "+p1+" localhost "+p2,
-                          "./test/frisbee "+p2+" localhost "+p3,
-                          "./test/frisbee "+p3+" localhost "+p1+" starter"])
+runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
+                             "./test/frisbee "+p2+" localhost "+p3,
+                             "./test/frisbee "+p3+" localhost "+p1+" starter"])
 
-runTest("shared-memory", ["./test/shared-memory"])
+runTest("shared-memory", 2, ["./test/shared-memory"])
 
-runTest("stale-fd",      ["./test/stale-fd"])
+runTest("stale-fd",      2, ["./test/stale-fd"])
 
-runTest("forkexec",      ["./test/forkexec"])
+runTest("forkexec",      2, ["./test/forkexec"])
 
-runTest("gettimeofday",  ["./test/gettimeofday"])
+runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
 os.environ['DMTCP_GZIP'] = "1"
-runTest("gzip",          ["./test/dmtcp1"])
+runTest("gzip",          1, ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = "0"
 
-runTest("dmtcpaware1",   ["./test/dmtcpaware1"])
+runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
-runTest("perl",          ["/usr/bin/perl"])
+runTest("perl",          1, ["/usr/bin/perl"])
 
-runTest("python",        ["/usr/bin/python"])
+runTest("python",        1, ["/usr/bin/python"])
 
 if testconfig.HAS_READLINE == "yes":
-  runTest("readline",      ["./test/readline"])
+  runTest("readline",    1,  ["./test/readline"])
 
 if testconfig.HAS_MPICH == "yes":
-  runTest("mpd",         [testconfig.MPICH_MPD])
+  runTest("mpd",         1, [testconfig.MPICH_MPD])
 
-  runTest("hellompi-n1", [testconfig.MPICH_MPD,
-                          testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompi"])
+  runTest("hellompi-n1", 4, [testconfig.MPICH_MPD,
+                             testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompi"])
 
-  runTest("hellompi-n2", [testconfig.MPICH_MPD,
-                          testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompi"])
+  runTest("hellompi-n2", 6, [testconfig.MPICH_MPD,
+                             testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompi"])
 
-  runTest("mpdboot",     [testconfig.MPICH_MPDBOOT+" -n 1"])
+  runTest("mpdboot",     1, [testconfig.MPICH_MPDBOOT+" -n 1"])
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 

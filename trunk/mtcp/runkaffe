@@ -1,4 +1,0 @@
-export MTCP_INTERVAL=0
-export MTCP_FILENAME=
-export LD_LIBRARY_PATH=.:/usr/src/glibc-2.3.6/build/nptl:/usr/local/kaffe/jre/lib/i386
-/usr/src/kaffe-1.1.6/kaffe/kaffe/.libs/kaffe-bin -mx1000000000 $1 $2 $3 $4 $5 $6 $7

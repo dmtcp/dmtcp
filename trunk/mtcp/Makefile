@@ -49,9 +49,10 @@ ifeq (${shell uname -m},x86_64)
   LDFLAGS += -Wl,--rpath -Wl,$(MTCP_DIR)
 endif
 
-default: testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest mtcp.so mtcp_restart mtcp_restart.so
+all default: build tests
 
-all: default
+build: mtcp.so mtcp_restart
+tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
 
 # Test programs
 
@@ -108,14 +109,14 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_pat
     mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
     mtcp_safe_open.o
 
-
-# mtcp_restart.so is used only by dmtcp --- not by mtcp
-mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
-	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
-	${CC} $(CFLAGS) -shared \
-	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
-	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
-	 mtcp_safe_open.o
+#not used:
+# # mtcp_restart.so is used only by dmtcp --- not by mtcp
+# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+# 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
+# 	${CC} $(CFLAGS) -shared \
+# 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
+# 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
+# 	 mtcp_safe_open.o
 
 # This is the shareable that a user links with the application
 
@@ -261,8 +262,3 @@ clean:
 	echo WARNING: .lo files should go away once we are done with libtool.
 	rm -rf *.lo *.la .libs
 	      
-	      
-dmtcp: mtcp.so mtcp_restart mtcp_restart.so
-	mv -f mtcp.so mtcp_restart mtcp_restart.so ../dmtcp
-	make distclean   
-
