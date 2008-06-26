@@ -86,6 +86,7 @@ namespace dmtcp
       bool operator== ( const WorkerState& v ) const{return _state == v.value();}
       bool operator!= ( const WorkerState& v ) const{return _state != v.value();}
 
+      const char* toString() const;
     private:
       eWorkerState _state;
   };
