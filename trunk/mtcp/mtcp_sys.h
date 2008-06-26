@@ -284,6 +284,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_write(args...)  mtcp_inline_syscall(write,3,args)
 #define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_lseek(args...)  mtcp_inline_syscall(lseek,3,args)
+#define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
 #define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)
 #define mtcp_sys_getpid(args...)  mtcp_inline_syscall(getpid,0)

@@ -48,12 +48,13 @@ OPTIONS (Environment Variables):
   dmtcp_coordinator:
     DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
+    DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)
 
   dmtcp_checkpoint / dmtcp_restart:
     DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
-    DMTCP_GZIP=<NULL: disable compression of checkpoint image>
-					 (default:gzip, compression enabled)
+    DMTCP_GZIP=<0: disable compression of checkpoint image>
+					 (default: 1, compression enabled)
     DMTCP_SIGCKPT=<signal number> (default: SIGUSR2)
 
  Application-defined hook functions: called by DMTCP if defined 
