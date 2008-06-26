@@ -350,7 +350,24 @@ static void readmemoryareas (void)
       /* Read saved area contents */
       readcs (CS_AREACONTENTS);
       if (try_skipping_existing_segment)
+#ifdef BUG_64BIT_2_6_9
+# if 0
+        // This fails on teracluster.  Presumably extra symbols cause overflow.
+        {
+          char tmpbuf[4];
+          int i;
+          /* slow, but rare case; and only for old Linux 2.6.9 */
+          for ( i = 0; i < area.size / 4; i++ )
+            readfile (tmpbuf, 4);
+        }
+# else
+	// This fails in CERN Linux 2.6.9; can't readfile on top of vsyscall
+        readfile (area.addr, area.size);
+# endif
+#else
+        // This fails on teracluster.  Presumably extra symbols cause overflow.
         skipfile (area.size);
+#endif
       else {
         readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
