@@ -14,7 +14,7 @@ TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
 tests: $(TESTS)
 
 clean distclean:
-	rm -f $(TESTS)
+	rm -f $(TESTS) *.pyc
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)

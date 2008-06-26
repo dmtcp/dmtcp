@@ -91,9 +91,9 @@ namespace
       int restorePort() const { return _restorePort; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
       void progname(std::string pname){ _progname = pname; }
-      std::string progname(void){ return _progname; }
+      std::string progname(void) const { return _progname; }
       void hostname(std::string hname){ _hostname = hname; }
-      std::string hostname(void){ return _hostname; }
+      std::string hostname(void) const { return _hostname; }
     private:
       dmtcp::UniquePid _identity;
       int _clientNumber;
@@ -132,18 +132,18 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   case 'l': case 'L':
   case 't': case 'T':
     JASSERT_STDERR << "Client List:\n";
-    JASSERT_STDERR << "#, PROG[PID]@HOST, DMTCP-UNIQUEPID\n";
+    JASSERT_STDERR << "#, PROG[PID]@HOST, DMTCP-UNIQUEPID, STATE\n";
     for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
             ;i!= _dataSockets.end()
             ;++i )
     {
       if ( ( *i )->socket().sockfd() != STDIN_FD )
       {
-        JASSERT_STDERR << ((NamedChunkReader*)(*i))->clientNumber()
-                       << ", " << ( ( NamedChunkReader* ) ( *i ) )->progname() 
-                       << "[" << ( ( NamedChunkReader* ) ( *i ) )->identity().pid() << "]"
-                       << "@" << ( ( NamedChunkReader* ) ( *i ) )->hostname()
-                       << ", " << ( ( NamedChunkReader* ) ( *i ) )->identity()
+        const NamedChunkReader& cli = *((NamedChunkReader*)(*i));
+        JASSERT_STDERR << cli.clientNumber()
+                       << ", " << cli.progname() << "["  << cli.identity().pid() << "]@"  << cli.hostname()
+                       << ", " << cli.identity()
+                       << ", " << cli.state().toString()
                        << '\n';
       }
     }

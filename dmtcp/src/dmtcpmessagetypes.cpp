@@ -27,7 +27,6 @@ dmtcp::WorkerState dmtcp::WorkerState::currentState()
   return theState;
 }
 
-
 void dmtcp::WorkerState::setCurrentState ( const dmtcp::WorkerState& theValue )
 {
   theState = theValue;
@@ -90,3 +89,18 @@ std::ostream& dmtcp::operator << ( std::ostream& o, const dmtcp::WorkerState& s 
   }
   return o;
 }
+
+const char* dmtcp::WorkerState::toString() const{
+  switch(_state){
+  case UNKNOWN:      return "UNKNOWN";
+  case RUNNING:      return "RUNNING";
+  case SUSPENDED:    return "SUSPENDED";
+  case LOCKED:       return "LOCKED";
+  case DRAINED:      return "DRAINED";
+  case RESTARTING:   return "RESTARTING";
+  case CHECKPOINTED: return "CHECKPOINTED";
+  case REFILLED:     return "REFILLED";
+  default:           return "???";
+  }
+}
+
