@@ -33,6 +33,7 @@
 #include "jassert.h"
 #include <errno.h>
 #include <algorithm>
+#include <set>
 
 #ifdef NO_DMTCP
 #  define DECORATE_FN(fn) ::fn
@@ -403,12 +404,14 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
   JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
 
+  std::set<int> closedFds;
   fd_set rfds;
   fd_set wfds;
   int maxFd;
   size_t i;
   for ( ;; )
   {
+    closedFds.clear();
     maxFd = -1;
     FD_ZERO ( &rfds );
     FD_ZERO ( &wfds );
@@ -423,6 +426,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
       else
       {
+        _listenSockets[i].close();
         //socket is dead... remove it
         JTRACE ( "listen socket failure" ) ( i );
         //swap with last
@@ -442,6 +446,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
       else
       {
+        closedFds.insert(_dataSockets[i]->socket().sockfd());
         //socket is dead... remove it
         //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
         onDisconnect ( _dataSockets[i] );
@@ -458,7 +463,9 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     //collect all writes in wfds, cleanup finished/dead
     for ( i=0; i<_writes.size(); ++i )
     {
-      if ( !_writes[i]->hadError() && !_writes[i]->isDone() )
+      if (  !_writes[i]->hadError() 
+         && !_writes[i]->isDone() 
+         && closedFds.find(_writes[i]->socket().sockfd())==closedFds.end() )
       {
         FD_SET ( _writes[i]->socket().sockfd(), &wfds );
         maxFd = std::max ( maxFd,_writes[i]->socket().sockfd() );
