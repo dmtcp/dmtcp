@@ -24,7 +24,7 @@ S=0.3
 TIMEOUT=5
 
 #Interval between checks for ckpt/restart complete
-INTERVAL=0.2
+INTERVAL=0.1
 
 #Buffers for process i/o
 BUFFER_SIZE=4096*8
@@ -152,6 +152,12 @@ def getStatus():
   if VERBOSE:
     print "STATUS: peers=%s, running=%s" % (peers,running)
   return (int(peers), (running=="yes"))
+  
+#delete all files in ckpDir
+def clearCkptDir():
+    #clear checkpoint dir
+    for f in listdir(ckptDir):
+      os.remove(ckptDir + "/" + f)
 
 #test a given list of commands to see if they checkpoint
 def runTest(name, numProcs, cmds):
@@ -199,6 +205,8 @@ def runTest(name, numProcs, cmds):
     #run restart and test if it worked
     procs.append(launch(cmd))
     WAITFOR(lambda: status==getStatus(), wfMsg("restart error"))
+    clearCkptDir()
+
   try:
     printFixed(name,15)
 
@@ -253,9 +261,7 @@ def runTest(name, numProcs, cmds):
       SHUTDOWN()
       sys.exit(1)
 
-  #clear checkpoint dir
-  for f in listdir(ckptDir):
-    os.remove(ckptDir + "/" + f)
+  clearCkptDir()
 
 print "== Tests =="
 
