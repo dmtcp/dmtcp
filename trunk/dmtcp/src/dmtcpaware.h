@@ -25,8 +25,12 @@
 extern "C" {
 #endif
 
+//return values of dmtcpCheckpoint
 #define DMTCP_AFTER_CHECKPOINT 1
 #define DMTCP_AFTER_RESTART    2 
+
+//returned when DMTCP is disabled, unless stated otherwise
+#define DMTCP_ERROR_DISABLED -128
 
 // pointer to a "void X();" function
 typedef void (*DmtcpFunctionPointer)(void);
@@ -75,33 +79,14 @@ int dmtcpIsEnabled();
  * - returns DMTCP_AFTER_CHECKPOINT if the checkpoint succeeded.
  * - returns DMTCP_AFTER_RESTART    after a restart.
  * - returns <=0 on error.
- * Should only be called if dmtcpIsEnabled()==1
  */
-int dmtcpCheckpointBlocking();
-
-//aliases for ease of use
-#define dmtcpCheckpointNonblocking() dmtcpRunCommand('c') 
+int dmtcpCheckpoint();
 
 /**
  * Send a command to the dmtcp_coordinator as if it were typed on the console.
- * Return 1 if command was sent and well-formed, <= 0 otherwise.
- * Should only be called if dmtcpIsEnabled()==1
+ * - Returns 1 if command was sent and well-formed, <= 0 otherwise.
  */
 int dmtcpRunCommand(char command);
-
-/**
- * Gets the coordinator-specific status of DMTCP.
- * Calling this function invalidates older DmtcpCoordinatorStatus structures.
- * Should only be called if dmtcpIsEnabled()==1
- */
-const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus();
-
-/**
- * Gets the local-node-specific status of DMTCP.
- * Calling this function invalidates older DmtcpLocalStatus structures.
- * Should only be called if dmtcpIsEnabled()==1
- */
-const DmtcpLocalStatus* dmtcpGetLocalStatus();
 
 /**
  * Sets the hook functions that DMTCP calls when it checkpoints/restarts. 
@@ -110,27 +95,41 @@ const DmtcpLocalStatus* dmtcpGetLocalStatus();
  * - First preCheckpoint() is called, then either postCheckpoint() or
  *   postRestart() is called.
  * - Set to NULL to disable.
- * Should only be called if dmtcpIsEnabled()==1
+ * - Returns 1 on success, <=0 on error
  */
 int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                       , DmtcpFunctionPointer postCheckpoint
                       , DmtcpFunctionPointer postRestart);
 
-
 /**
  * Prevent a checkpoint from starting until dmtcpDelayCheckpointsUnlock() is
  * called.
- * - Has semantics of a lock, only one thread may acquire it at time.
+ * - Has (recursive) lock semantics, only one thread may acquire it at time.
  * - Only prevents checkpoints locally, remote processes may be suspended.
  *   Thus, send or recv to another checkpointed process may create deadlock.
+ * - Returns 1 on success, <=0 on error
  */
 int dmtcpDelayCheckpointsLock();
 
 /**
  * Re-allow checkpoints, opposite of dmtcpDelayCheckpointsLock()
+ * - Returns 1 on success, <=0 on error
  */
 int dmtcpDelayCheckpointsUnlock();
 
+/**
+ * Gets the coordinator-specific status of DMTCP.
+ * - Calling this function invalidates older DmtcpCoordinatorStatus structures.
+ * - Returns NULL on error.
+ */
+const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus();
+
+/**
+ * Gets the local-node-specific status of DMTCP.
+ * - Calling this function invalidates older DmtcpLocalStatus structures.
+ * - Returns NULL on error.
+ */
+const DmtcpLocalStatus* dmtcpGetLocalStatus();
 
 #ifdef __cplusplus
 } //extern "C"

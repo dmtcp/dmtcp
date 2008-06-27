@@ -28,12 +28,12 @@
 // the versions in dmtcpapi.cpp will be called if dmtcp is enabled
 //
 
-#ifdef DMTCPAWARE_NO_WARNINGS
-# define WARN_NO_DMTCP_MSG ""
-# define WARN_NO_DMTCP
-#else
+#ifdef DEBUG
 # define WARN_NO_DMTCP_MSG "%s: ERROR, program is not running under dmtcp_checkpoint.\n"
 # define WARN_NO_DMTCP fprintf(stderr, WARN_NO_DMTCP_MSG , __FUNCTION__)
+#else
+# define WARN_NO_DMTCP_MSG ""
+# define WARN_NO_DMTCP
 #endif
 
 #ifndef EXTERNC
@@ -44,14 +44,14 @@ EXTERNC int dmtcpIsEnabled() {
   return 0;
 }
 
-EXTERNC int dmtcpCheckpointBlocking(){
+EXTERNC int dmtcpCheckpoint(){
   WARN_NO_DMTCP;
-  return -128;
+  return DMTCP_ERROR_DISABLED;
 }
 
 EXTERNC int dmtcpRunCommand(char command){
   WARN_NO_DMTCP;
-  return -128;
+  return DMTCP_ERROR_DISABLED;
 }
 
 EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
@@ -68,17 +68,17 @@ EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                               , DmtcpFunctionPointer postCheckpoint
                               , DmtcpFunctionPointer postRestart){
   WARN_NO_DMTCP;
-  return -128;
+  return DMTCP_ERROR_DISABLED;
 }
 
 EXTERNC int dmtcpDelayCheckpointsLock(){
   WARN_NO_DMTCP;
-  return -128;
+  return DMTCP_ERROR_DISABLED;
 }
 
 EXTERNC int dmtcpDelayCheckpointsUnlock(){
   WARN_NO_DMTCP;
-  return -128;
+  return DMTCP_ERROR_DISABLED;
 }
 
 
