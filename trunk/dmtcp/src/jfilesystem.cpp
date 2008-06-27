@@ -103,22 +103,22 @@ std::string jalib::Filesystem::FindHelperUtility ( const std::string& file, bool
   {
     std::string udir = d;
     FHU_TRY_DIR ( udir + "/" + file );
-    FHU_TRY_DIR ( udir + "/../" + file );
-    FHU_TRY_DIR ( udir + "/../../" + file );
-    FHU_TRY_DIR ( udir + "/../../../" + file );
     FHU_TRY_DIR ( udir + "/mtcp/" + file );
     FHU_TRY_DIR ( udir + "/../mtcp/" + file );
     FHU_TRY_DIR ( udir + "/../../mtcp/" + file );
     FHU_TRY_DIR ( udir + "/../../../mtcp/" + file );
+    FHU_TRY_DIR ( udir + "/../" + file );
+    FHU_TRY_DIR ( udir + "/../../" + file );
+    FHU_TRY_DIR ( udir + "/../../../" + file );
   }
   FHU_TRY_DIR ( GetProgramDir() + "/" + file );
-  FHU_TRY_DIR ( GetProgramDir() + "/../" + file );
-  FHU_TRY_DIR ( GetProgramDir() + "/../../" + file );
-  FHU_TRY_DIR ( GetProgramDir() + "/../../../" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/mtcp/" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/../mtcp/" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/../../mtcp/" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/../../../mtcp/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../../" + file );
   FHU_TRY_DIR ( "./" + file );
   FHU_TRY_DIR ( "../" + file );
   FHU_TRY_DIR ( "../../" + file );
