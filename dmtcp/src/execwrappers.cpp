@@ -92,8 +92,10 @@ extern "C" pid_t fork()
   if ( child_pid == 0 )
   {
     child_pid = getpid();
-
+#ifdef DEBUG
+    //child should get new logfile
     JASSERT_SET_LOGFILE ( "/tmp/jassertlog." + jalib::XToString ( child_pid ) );
+#endif
 
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host,child_pid,child_time );
 
