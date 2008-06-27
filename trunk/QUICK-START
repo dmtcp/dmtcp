@@ -81,19 +81,18 @@ QUICK-NOTES:
        dmtcp_checkpoint and dmtcp_restart is needed if they start on a
        different host than that of the coordinator.
     3. In order to enable various types of debugging, do:
-         1. By default, DMTCP writes files /tmp/jassert.log.XXX where XXX
-            is the pid of a process (checkpoint coordinator or
-            application process). The DMTCP sets up barriers so that all
-            processes proceed to the following states together during
+         a. To enable debug statements for DMTCP only (related to
+            multi-process communication), configure with:
+            ./configure --enable-debug
+	    (or './configure --help', in general)
+            --enable-debug both prints to stderr and writes files
+            /tmp/jassert.log.XXX where XXX is the pid of a process
+            (checkpoint coordinator or application process). In reading  
+            this, it's useful to know that DMTCP sets up barriers so that
+            all processes proceed to the following states together during
             checkpoint: RUNNING, SUSPENDED, LOCKED, DRAINED,
-            CHECKPOINTED, REFILLED
-            During restart, the states are: RESTARTING, CHECKPOINTED,
-            REFILLED
-         2. To enable debug statements from DMTCP (protocol between DMTCP
-            coordinator and application processes, go to the top-level
-            directory and type:
-            ./configure CPPFLAGS=-DDEBUG; make clean; make
-         3. To enable debug statements from MTCP (single-process 
+            CHECKPOINTED, REFILLED.
+         b. To enable debug statements from MTCP (single-process
             component), do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
