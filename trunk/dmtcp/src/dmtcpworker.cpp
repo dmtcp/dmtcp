@@ -36,7 +36,7 @@
 #include "checkpointcoordinator.h"
 #include <pthread.h>
 
-static pthread_mutex_t theCkptCanStart = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 bool dmtcp::DmtcpWorker::_stdErrMasked = false;
 
@@ -219,17 +219,16 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       msg.poison();
     }
   }
-  JTRACE ( "got SUSPEND signal" );
-  
-  //allow other threads to delay checkpointing
-  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0);
-  JTRACE ( "suspending..." );
+  JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
+
+  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  JTRACE ( "Starting checkpoint, suspending..." );
 }
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0);
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
@@ -418,16 +417,24 @@ void dmtcp::DmtcpWorker::restoreSockets ( CheckpointCoordinator& coordinator )
 
 }
 
+void dmtcp::DmtcpWorker::delayCheckpointsLock(){
+  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+}
+
+void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+}
+
 void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
 {
   //prevent checkpoints from starting 
-  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0);
+  delayCheckpointsLock();
   {
     connectToCoordinator(false);
     sendUserCommand(c,result);
     _coordinatorSocket.close();
   }
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0);
+  delayCheckpointsUnlock();
 }
 
 //tell the coordinator to run given user command

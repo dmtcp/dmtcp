@@ -64,8 +64,21 @@ EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   return NULL;
 }
 
-EXTERNC void dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                               , DmtcpFunctionPointer postCheckpoint
                               , DmtcpFunctionPointer postRestart){
   WARN_NO_DMTCP;
+  return -128;
 }
+
+EXTERNC int dmtcpDelayCheckpointsLock(){
+  WARN_NO_DMTCP;
+  return -128;
+}
+
+EXTERNC int dmtcpDelayCheckpointsUnlock(){
+  WARN_NO_DMTCP;
+  return -128;
+}
+
+
