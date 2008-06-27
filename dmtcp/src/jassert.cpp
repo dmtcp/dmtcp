@@ -81,8 +81,6 @@ const char* jassert_internal::jassert_basename ( const char* str )
 // }
 
 
-static FILE* _fopen_log_safe ( const std::string& s, int protectedFd )
-{ return _fopen_log_safe ( s.c_str(),protectedFd ); }
 static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
@@ -94,6 +92,10 @@ static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
   if ( nfd < 0 ) return NULL;
   //promote it to a stream
   return fdopen ( nfd,"w" );
+}
+static FILE* _fopen_log_safe ( const std::string& s, int protectedFd )
+{ 
+  return _fopen_log_safe ( s.c_str(), protectedFd ); 
 }
 
 
@@ -108,21 +110,23 @@ void jassert_internal::set_log_file ( const std::string& path )
   theLogFile = NULL;
   if ( path.length() > 0 )
   {
-    theLogFile = _fopen_log_safe ( path.c_str(),DUP_LOG_FD );
+    theLogFile = _fopen_log_safe ( path, DUP_LOG_FD );
     if ( theLogFile == NULL )
-      theLogFile = _fopen_log_safe ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) + "_2",DUP_LOG_FD );
+      theLogFile = _fopen_log_safe ( path + "_2",DUP_LOG_FD );
     if ( theLogFile == NULL )
-      theLogFile = _fopen_log_safe ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) + "_3",DUP_LOG_FD );
+      theLogFile = _fopen_log_safe ( path + "_3",DUP_LOG_FD );
     if ( theLogFile == NULL )
-      theLogFile = _fopen_log_safe ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) + "_4",DUP_LOG_FD );
+      theLogFile = _fopen_log_safe ( path + "_4",DUP_LOG_FD );
     if ( theLogFile == NULL )
-      theLogFile = _fopen_log_safe ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) + "_5",DUP_LOG_FD );
+      theLogFile = _fopen_log_safe ( path + "_5",DUP_LOG_FD );
   }
 }
 
 static FILE* _initJassertOutputDevices()
 {
+#ifdef DEBUG
   JASSERT_SET_LOGFILE ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) );
+#endif
 
   const char* errpath = getenv ( "JALIB_STDERR_PATH" );
 
