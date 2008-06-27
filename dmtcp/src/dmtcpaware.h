@@ -112,9 +112,24 @@ const DmtcpLocalStatus* dmtcpGetLocalStatus();
  * - Set to NULL to disable.
  * Should only be called if dmtcpIsEnabled()==1
  */
-void dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                       , DmtcpFunctionPointer postCheckpoint
                       , DmtcpFunctionPointer postRestart);
+
+
+/**
+ * Prevent a checkpoint from starting until dmtcpDelayCheckpointsUnlock() is
+ * called.
+ * - Has semantics of a lock, only one thread may acquire it at time.
+ * - Only prevents checkpoints locally, remote processes may be suspended.
+ *   Thus, send or recv to another checkpointed process may create deadlock.
+ */
+int dmtcpDelayCheckpointsLock();
+
+/**
+ * Re-allow checkpoints, opposite of dmtcpDelayCheckpointsLock()
+ */
+int dmtcpDelayCheckpointsUnlock();
 
 
 #ifdef __cplusplus

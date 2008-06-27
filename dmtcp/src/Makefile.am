@@ -34,11 +34,11 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_LDFLAGS = -shared 
 
-dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl 
-dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl
-dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl
-dmtcp_command_LDADD     = libdmtcpinternal.a -ldl
+dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl -lpthread
+dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl -lpthread
+dmtcp_command_LDADD     = libdmtcpinternal.a -ldl -lpthread
 
 libdmtcpaware_so_LDFLAGS = -shared 
 libdmtcpaware_so_SOURCES= dmtcpaware.cpp

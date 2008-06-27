@@ -119,12 +119,23 @@ EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   return &status;
 }
 
-EXTERNC void dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                               , DmtcpFunctionPointer postCheckpoint
                               , DmtcpFunctionPointer postRestart){
   userHookPreCheckpoint  = preCheckpoint;
   userHookPostCheckpoint = postCheckpoint;
   userHookPostRestart    = postRestart; 
+  return 1;
+}
+
+EXTERNC int dmtcpDelayCheckpointsLock(){
+  dmtcp::DmtcpWorker::delayCheckpointsLock();
+  return 1;
+}
+
+EXTERNC int dmtcpDelayCheckpointsUnlock(){
+  dmtcp::DmtcpWorker::delayCheckpointsUnlock();
+  return 1;
 }
 
 void dmtcp::userHookTrampoline_preCkpt() {

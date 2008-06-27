@@ -53,6 +53,9 @@ namespace dmtcp
       static void maskStdErr();
       static void unmaskStdErr();
       static bool isStdErrMasked() { return _stdErrMasked; }
+
+      static void delayCheckpointsLock();
+      static void delayCheckpointsUnlock();
     protected:
       void sendUserCommand(char c, int* result = NULL);
 
