@@ -98,6 +98,8 @@ coordinator = launch("./bin/dmtcp_coordinator")
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
   try:
+    if VERBOSE and cmd != "s":
+      print "COORDINATORCMD(",cmd,")"
     coordinator.tochild.write(cmd+"\n")
     coordinator.tochild.flush()
   except:
