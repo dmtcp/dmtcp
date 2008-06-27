@@ -31,14 +31,14 @@ check:  all
 check-%: all
 	+bash -c "$(LIMIT) && ./test/autotest.py $*"
 
-check1: check-interactive-dmtcp1
+check1: icheck-dmtcp1
 
 check2: tests
-	${MAKE} XTERM_E="xterm -e" check-interactive-readline
+	${MAKE} XTERM_E="xterm -e" icheck-readline
 
-check3: check-interactive-shared-memory
+check3: icheck-shared-memory
 
-check-interactive-%: tests
+icheck-%: tests
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"
