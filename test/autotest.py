@@ -159,6 +159,13 @@ def runTest(name, numProcs, cmds):
     #kill all processes
     coordinatorCmd('k')
     WAITFOR(lambda: getStatus()==(0, False), lambda:"coordinator kill command failed")
+    for x in procs:
+      #cleanup proc
+      x.tochild.close()
+      x.fromchild.close()
+      x.childerr.close()
+      os.waitpid(x.pid, os.WNOHANG)
+      procs.remove(x)
    
   def testCheckpoint():
     #start checkpoint 
@@ -283,5 +290,11 @@ if testconfig.HAS_MPICH == "yes":
 print "== Summary ==" 
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 
-SHUTDOWN()
+try:
+  SHUTDOWN()
+except CheckFailed, e:
+  print "Error in SHUTDOWN():", e.value
+except:
+  print "Error in SHUTDOWN()"
+
 
