@@ -14,6 +14,9 @@ import testconfig
 #number of checkpoint/restart cycles
 CYCLES=2
 
+#Number of times to try dmtcp_restart
+RETRIES=2
+
 #Sleep after each program startup (sec)
 S=0.3
 
@@ -21,7 +24,7 @@ S=0.3
 TIMEOUT=5
 
 #Interval between checks for ckpt/restart complete
-INTERVAL=0.1
+INTERVAL=0.2
 
 #Buffers for process i/o
 BUFFER_SIZE=4096*8
@@ -102,8 +105,11 @@ def coordinatorCmd(cmd):
 
 #clean up after ourselves
 def SHUTDOWN():
-  coordinatorCmd('q')
-  sleep(S)
+  try:
+    coordinatorCmd('q')
+    sleep(S)
+  except:
+    print "SHUTDOWN() failed"
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
 
@@ -212,8 +218,17 @@ def runTest(name, numProcs, cmds):
       printFixed("PASSED ")
 
       printFixed("rstr:")
-      testRestart()
-      printFixed("PASSED ")
+      for i in xrange(RETRIES):
+        try:
+          testRestart()
+          printFixed("PASSED ")
+          break
+        except CheckFailed, e:
+          if i == RETRIES-1:
+            raise e
+          else:
+            printFixed("FAILED retry:")
+            testKill()
 
     testKill()
     print #newline
