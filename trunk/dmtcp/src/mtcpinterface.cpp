@@ -102,7 +102,10 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
+#ifdef DEBUG
+    //logfile closed, must reopen it
     JASSERT_SET_LOGFILE ( "/tmp/jassertlog." + jalib::XToString ( getpid() ) );
+#endif
     dmtcp::DmtcpWorker::instance().postRestart();
   }
   else
