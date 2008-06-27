@@ -167,9 +167,12 @@ def runTest(name, numProcs, cmds):
     WAITFOR(lambda: getStatus()==(0, False), lambda:"coordinator kill command failed")
     for x in procs:
       #cleanup proc
-      x.tochild.close()
-      x.fromchild.close()
-      x.childerr.close()
+      try:
+        x.tochild.close()
+        x.fromchild.close()
+        x.childerr.close()
+      except:
+        None
       os.waitpid(x.pid, os.WNOHANG)
       procs.remove(x)
    
