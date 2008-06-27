@@ -60,7 +60,7 @@ static inline void _runCoordinatorCmd(char c, int* result){
 
 EXTERNC int dmtcpIsEnabled() { return 1; }
 
-EXTERNC int dmtcpCheckpointBlocking(){
+EXTERNC int dmtcpCheckpoint(){
   int rv = 0;
   int oldNumRestarts    = numRestarts;
   int oldNumCheckpoints = numCheckpoints;
@@ -155,3 +155,4 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       (*userHookPostCheckpoint)();
   }
 }
+

@@ -50,6 +50,14 @@ int main(int argc, char* argv[])
     printf("{%d,%d}\n", cs->numProcesses, cs->isRunning);
     assert(cs->numProcesses>0);
 
+    //lock should be recursive 
+    dmtcpDelayCheckpointsLock();
+    dmtcpDelayCheckpointsLock();
+    dmtcpDelayCheckpointsLock();
+    dmtcpDelayCheckpointsUnlock();
+    dmtcpDelayCheckpointsUnlock();
+    dmtcpDelayCheckpointsUnlock();
+
     sleep(2);
 
   }

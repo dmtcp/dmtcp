@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
       fflush(stdout);
       if(dmtcpIsEnabled()){
         printf("\n");
-        r = dmtcpCheckpointBlocking();
+        r = dmtcpCheckpoint();
         if(r<=0)  
           printf("Error, checkpointing failed: %d\n",r);
         if(r==1)
