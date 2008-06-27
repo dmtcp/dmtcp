@@ -44,11 +44,13 @@ icheck-%: tests
 	@ echo "***       h<return> for Help (optional)"
 	@ echo "***       c<return> to Checkpoint"
 	@ echo "***       k<return> to Kill and observe the Restart"
+	@ echo "***       c<return> to Checkpoint again"
+	@ echo "***       k<return> to Kill and restart again"
 	@ echo "***       q<return> to Quit"
 	@ echo ""
 	@ echo "Press <return> when ready to start."
 	@ read -p "> " dummy
-	( rm -f ckpt_$*_* && sleep 3 && \
+	@ ( rm -f ckpt_$*_* && sleep 3 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
 		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/$* && \
 		echo "" && echo "*** Restarting Program from Checkpoint" \
