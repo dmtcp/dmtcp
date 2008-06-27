@@ -212,6 +212,9 @@ def runTest(name, numProcs, cmds):
     WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
     
     for i in xrange(CYCLES):
+      if i!=0 and i%2==0:
+        print #newline
+        printFixed("",15)
       printFixed("ckpt:")
       testCheckpoint()
       testKill()
