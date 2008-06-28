@@ -136,13 +136,21 @@ def getStatus():
   if coordinator.poll() >= 0:
     CHECK(False, "coordinator died unexpectedly")
     return (-1, False)
-  
+
   while True:
-    line=coordinator.fromchild.readline().strip()
-    if line=="Status...":
-      break;
-    if VERBOSE:
-      print "Ignoring line from coordinator: ", line
+    try:
+      line=coordinator.fromchild.readline().strip()
+      if line=="Status...":
+        break;
+      if VERBOSE:
+        print "Ignoring line from coordinator: ", line
+    except IOError, (errno, strerror):
+      if coordinator.poll() >= 0:
+        CHECK(False, "coordinator died unexpectedly")
+        return (-1, False)
+      if errno==4: #Interrupted system call
+        continue
+      raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
   x,peers=coordinator.fromchild.readline().strip().split("=")
   CHECK(x=="NUM_PEERS", "reading coordinator status")
