@@ -14,7 +14,7 @@ TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
 tests: $(TESTS)
 
 clean distclean:
-	rm -f $(TESTS) *.pyc
+	rm -f $(TESTS) *.pyc dmtcpaware[0-9]-{static,dynamic}
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
@@ -30,9 +30,12 @@ else
 	#$<: required libraries missing, skipping test
 endif
 
+DMTCPAWARELIB=$(PWD)/../dmtcp/src/libdmtcpaware
+
 dmtcpaware%: dmtcpaware%.c
-	test ! -f ../dmtcp/src/libdmtcpaware.so ||\
-		$(CC) -o $@ $< $(CFLAGS) $(PWD)/../dmtcp/src/libdmtcpaware.so
+	-$(CC) -o $@-static $< $(CFLAGS) $(DMTCPAWARELIB).a
+	-$(CC) -o $@-dynamic $< $(CFLAGS) $(DMTCPAWARELIB).so
+	-$(LN_S) $@-static $@
 
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)

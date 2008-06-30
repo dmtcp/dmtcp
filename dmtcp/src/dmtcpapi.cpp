@@ -156,3 +156,37 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   }
 }
 
+extern "C" int __dynamic_dmtcpIsEnabled(){
+  return 3;
+}
+
+//these dummy trampolines support static linking libdmtcpaware.a
+//see dmtcpaware.c
+EXTERNC int __dyn_dmtcpIsEnabled(){
+  return dmtcpIsEnabled();
+}
+EXTERNC int __dyn_dmtcpCheckpoint(){
+  return dmtcpCheckpoint();
+}
+EXTERNC int __dyn_dmtcpRunCommand(char command){
+  return dmtcpRunCommand(command);
+}
+EXTERNC int __dyn_dmtcpDelayCheckpointsLock(){
+  return dmtcpDelayCheckpointsLock();
+}
+EXTERNC int __dyn_dmtcpDelayCheckpointsUnlock(){
+  return dmtcpDelayCheckpointsUnlock();
+}
+EXTERNC int __dyn_dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+                                    ,  DmtcpFunctionPointer postCheckpoint
+                                    ,  DmtcpFunctionPointer postRestart){
+  return dmtcpInstallHooks(preCheckpoint, postCheckpoint, postRestart);
+}
+EXTERNC const DmtcpCoordinatorStatus* __dyn_dmtcpGetCoordinatorStatus(){
+  return dmtcpGetCoordinatorStatus();
+}
+EXTERNC const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus(){
+  return dmtcpGetLocalStatus();
+}
+
+

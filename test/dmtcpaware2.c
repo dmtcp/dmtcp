@@ -13,8 +13,12 @@ int main(int argc, char* argv[])
   const DmtcpLocalStatus * ls;
   while (1)
   {
-    ls = dmtcpGetLocalStatus();
-    printf("working... %d (status: %d checkpoints / %d restarts)\n", ++count,ls->numCheckpoints, ls->numRestarts);
+    if(dmtcpIsEnabled()){ 
+      ls = dmtcpGetLocalStatus();
+      printf("working... %d (status: %d checkpoints / %d restarts)\n", ++count,ls->numCheckpoints, ls->numRestarts);
+    }else{
+      printf("working... %d\n", ++count);
+    }
     
         
 

@@ -83,25 +83,6 @@ int dmtcpIsEnabled();
 int dmtcpCheckpoint();
 
 /**
- * Send a command to the dmtcp_coordinator as if it were typed on the console.
- * - Returns 1 if command was sent and well-formed, <= 0 otherwise.
- */
-int dmtcpRunCommand(char command);
-
-/**
- * Sets the hook functions that DMTCP calls when it checkpoints/restarts. 
- * - These functions are called from the DMTCP thread while all user threads
- *   are suspended.
- * - First preCheckpoint() is called, then either postCheckpoint() or
- *   postRestart() is called.
- * - Set to NULL to disable.
- * - Returns 1 on success, <=0 on error
- */
-int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
-                      , DmtcpFunctionPointer postCheckpoint
-                      , DmtcpFunctionPointer postRestart);
-
-/**
  * Prevent a checkpoint from starting until dmtcpDelayCheckpointsUnlock() is
  * called.
  * - Has (recursive) lock semantics, only one thread may acquire it at time.
@@ -118,6 +99,19 @@ int dmtcpDelayCheckpointsLock();
 int dmtcpDelayCheckpointsUnlock();
 
 /**
+ * Sets the hook functions that DMTCP calls when it checkpoints/restarts. 
+ * - These functions are called from the DMTCP thread while all user threads
+ *   are suspended.
+ * - First preCheckpoint() is called, then either postCheckpoint() or
+ *   postRestart() is called.
+ * - Set to NULL to disable.
+ * - Returns 1 on success, <=0 on error
+ */
+int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+                      , DmtcpFunctionPointer postCheckpoint
+                      , DmtcpFunctionPointer postRestart);
+
+/**
  * Gets the coordinator-specific status of DMTCP.
  * - Calling this function invalidates older DmtcpCoordinatorStatus structures.
  * - Returns NULL on error.
@@ -130,6 +124,12 @@ const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus();
  * - Returns NULL on error.
  */
 const DmtcpLocalStatus* dmtcpGetLocalStatus();
+
+/**
+ * Send a command to the dmtcp_coordinator as if it were typed on the console.
+ * - Returns 1 if command was sent and well-formed, <= 0 otherwise.
+ */
+int dmtcpRunCommand(char command);
 
 #ifdef __cplusplus
 } //extern "C"
