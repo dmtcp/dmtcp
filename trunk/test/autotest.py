@@ -302,7 +302,9 @@ os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = "0"
 
-runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
+runTest("dmtcpaware1-so",   1, ["./test/dmtcpaware1-dynamic"])
+
+runTest("dmtcpaware1-a",   1,  ["./test/dmtcpaware1-static"])
 
 runTest("perl",          1, ["/usr/bin/perl"])
 

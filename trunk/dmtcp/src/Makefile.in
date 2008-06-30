@@ -48,6 +48,10 @@ CONFIG_CLEAN_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 AR = ar
 ARFLAGS = cru
+libdmtcpaware_a_AR = $(AR) $(ARFLAGS)
+libdmtcpaware_a_LIBADD =
+am_libdmtcpaware_a_OBJECTS = dmtcpaware.$(OBJEXT)
+libdmtcpaware_a_OBJECTS = $(am_libdmtcpaware_a_OBJECTS)
 libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = checkpointcoordinator.$(OBJEXT) \
@@ -86,7 +90,7 @@ dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 am_libdmtcpaware_so_OBJECTS = dmtcpaware.$(OBJEXT)
 libdmtcpaware_so_OBJECTS = $(am_libdmtcpaware_so_OBJECTS)
 libdmtcpaware_so_LDADD = $(LDADD)
-libdmtcpaware_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+libdmtcpaware_so_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libdmtcpaware_so_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -100,14 +104,15 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(libdmtcpinternal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
-	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_SOURCES)
-DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
+SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_restart_SOURCES) \
 	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_SOURCES)
+DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
+	$(libdmtcpinternal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
+	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -202,7 +207,7 @@ top_srcdir = @top_srcdir@
 #
 #set the include path found by configure
 INCLUDES = $(all_includes)
-noinst_LIBRARIES = libdmtcpinternal.a
+noinst_LIBRARIES = libdmtcpinternal.a libdmtcpaware.a
 
 # headers:
 noinst_HEADERS = checkpointcoordinator.h connection.h connectionidentifier.h \
@@ -232,7 +237,8 @@ dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD = libdmtcpinternal.a -ldl -lpthread
 libdmtcpaware_so_LDFLAGS = -shared 
-libdmtcpaware_so_SOURCES = dmtcpaware.cpp
+libdmtcpaware_so_SOURCES = dmtcpaware.c
+libdmtcpaware_a_SOURCES = dmtcpaware.c
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
@@ -291,6 +297,10 @@ distclean-hdr:
 
 clean-noinstLIBRARIES:
 	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+libdmtcpaware.a: $(libdmtcpaware_a_OBJECTS) $(libdmtcpaware_a_DEPENDENCIES) 
+	-rm -f libdmtcpaware.a
+	$(libdmtcpaware_a_AR) libdmtcpaware.a $(libdmtcpaware_a_OBJECTS) $(libdmtcpaware_a_LIBADD)
+	$(RANLIB) libdmtcpaware.a
 libdmtcpinternal.a: $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_DEPENDENCIES) 
 	-rm -f libdmtcpinternal.a
 	$(libdmtcpinternal_a_AR) libdmtcpinternal.a $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_LIBADD)
