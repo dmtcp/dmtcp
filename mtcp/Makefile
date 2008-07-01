@@ -46,7 +46,7 @@ MTCP_DIR := $(shell pwd)
 # But for testmtcp, don't use CFLAGS if don't want position-independent code
 ifeq (${shell uname -m},x86_64)
   CFLAGS += -fPIC -DPIC
-  LDFLAGS += -Wl,--rpath -Wl,$(MTCP_DIR)
+  LDFLAGS += -fPIC 
 endif
 
 all default: build tests
