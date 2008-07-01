@@ -25,44 +25,45 @@
 extern "C" {
 #endif
 
-//return values of dmtcpCheckpoint
+/// Return value of dmtcpCheckpoint
 #define DMTCP_AFTER_CHECKPOINT 1
+/// Return value of dmtcpCheckpoint
 #define DMTCP_AFTER_RESTART    2 
 
-//returned when DMTCP is disabled, unless stated otherwise
+/// Returned when DMTCP is disabled, unless stated otherwise
 #define DMTCP_ERROR_DISABLED -128
 
-// pointer to a "void X();" function
+/// Pointer to a "void foo();" function
 typedef void (*DmtcpFunctionPointer)(void);
 
-/// returned by dmtcpGetCoordinatorStatus()
+/// Returned by dmtcpGetCoordinatorStatus()
 typedef struct _DmtcpCoordinatorStatus {
 
-  // number of processes connected to dmtcp_coordinator
+  /// Number of processes connected to dmtcp_coordinator
   int numProcesses;
 
-  // 1 if all processes connected to dmtcp_coordinator are in a running state
+  /// 1 if all processes connected to dmtcp_coordinator are in a running state
   int isRunning;
 
 } DmtcpCoordinatorStatus;
 
-/// returned by dmtcpGetLocalStatus()
+/// Returned by dmtcpGetLocalStatus()
 typedef struct _DmtcpLocalStatus {
 
-  // the number of times this process has been checkpointed (excludes restarts)
+  /// The number of times this process has been checkpointed (excludes restarts)
   int numCheckpoints;
 
-  // the number of times this process has been restarted
+  /// The number of times this process has been restarted
   int numRestarts;
 
-  // filename of (large) .mtcp checkpoint file (memory/threads) for this process
+  /// Filename of (large) .mtcp checkpoint file (memory/threads) for this process
   const char* checkpointFilenameMtcp; 
 
-  // filename of (tiny) .dmtcp checkpoint file (connection table) for this process
+  /// Filename of (tiny) .dmtcp checkpoint file (connection table) for this process
   const char* checkpointFilenameDmtcp;
 
-  // the DMTCP cluster-wide unique process identifier for this process
-  // format is "HostHash-PID-Timestamp"
+  /// The DMTCP cluster-wide unique process identifier for this process.
+  /// Format is "HostHash-PID-Timestamp"
   const char* uniquePidStr;
 
 } DmtcpLocalStatus;
@@ -93,7 +94,7 @@ int dmtcpCheckpoint();
 int dmtcpDelayCheckpointsLock();
 
 /**
- * Re-allow checkpoints, opposite of dmtcpDelayCheckpointsLock()
+ * Re-allow checkpoints, opposite of dmtcpDelayCheckpointsLock().
  * - Returns 1 on success, <=0 on error
  */
 int dmtcpDelayCheckpointsUnlock();

@@ -23,9 +23,8 @@
 #include <string.h>
 
 //
-// this is a dummy library that is only called if dmtcp is *NOT* enabled
-//
-// the versions in dmtcpapi.cpp will be called if dmtcp is enabled
+// This file contains stub functions an redirect to the real implementations
+// in dmtcpapi.cpp when dmtcp is enabled.
 //
 
 #ifdef DEBUG

@@ -96,16 +96,14 @@ install: all
 		echo ERROR: prefix must be defined; \
 		exit 1; \
 	fi
-	$(MKDIR_P) $(prefix)/lib/dmtcp
+	(cd dmtcp && make prefix=$(prefix) install)
+	cp mtcp/mtcp.so $(prefix)/lib/dmtcp
+	cp mtcp/mtcp_restart $(prefix)/lib/dmtcp
 	$(MKDIR_P) $(prefix)/bin
-	$(MKDIR_P) $(prefix)/include/dmtcp
-	cp bin/* $(prefix)/lib/dmtcp
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
-	cp dmtcp/src/libdmtcpaware.so $(prefix)/lib/libdmtcpaware.so
-	cp dmtcp/src/dmtcpaware.h $(prefix)/include/dmtcp/dmtcpaware.h
 
 uninstall:
 	rm -f "$(prefix)/bin/dmtcp_coordinator"
