@@ -25,6 +25,8 @@
 #include <map>
 #include <string>
 #include "jserialize.h"
+#include "jfilesystem.h"
+
 
 namespace dmtcp
 {
@@ -32,7 +34,7 @@ namespace dmtcp
   class KernelDeviceToConnection;
   class ConnectionToFds;
   class CheckpointCoordinator;
-
+  
   class ConnectionList
   {
       friend class KernelDeviceToConnection;
@@ -96,36 +98,48 @@ namespace dmtcp
   class ConnectionToFds
   {
     public:
-      ConnectionToFds() {}
+      ConnectionToFds() { 
+        _procname = jalib::Filesystem::GetProgramName(); 
+        _hostname = jalib::Filesystem::GetCurrentHostname();
+        _pid = UniquePid::ThisProcess().pid();
+        _hostid = UniquePid::ThisProcess().hostid();
+      }
       ConnectionToFds ( KernelDeviceToConnection& source );
       std::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
-
+    
       typedef std::map< ConnectionIdentifier, std::vector<int> >::iterator iterator;
       iterator begin() { return _table.begin(); }
       iterator end() { return _table.end(); }
       typedef std::map< ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
       const_iterator begin() const { return _table.begin(); }
       const_iterator end() const { return _table.end(); }
-
+    
       size_t size() const { return _table.size(); }
 
       void serialize ( jalib::JBinarySerializer& o );
-
-
+    
+      std::string procname() const { return _procname; }
+      std::string hostname() const { return _hostname; }
+      pid_t pid() const { return _pid; }
+      long hostid() const { return _hostid; }
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
+      std::string _procname;
+      std::string _hostname;
+      pid_t _pid;
+      long _hostid;
   };
 
 
-///
-/// Another mapping from Connection to FD
-/// This time to temporarying holding FD's which must be slid around as each FD is put into use
+  ///
+  /// Another mapping from Connection to FD
+  /// This time to temporarying holding FD's which must be slid around as each FD is put into use
   class SlidingFdTable
   {
     public:
       SlidingFdTable ( int startingFd = 500 )
-          : _nextFd ( startingFd )
-          , _startFd ( startingFd )
+        : _nextFd ( startingFd )
+        , _startFd ( startingFd )
       {}
 
       int startFd() { return _startFd; }
@@ -150,9 +164,9 @@ namespace dmtcp
       int _startFd;
   };
 
-///
-/// Mapping from pts device to symlink file in /tmp
-///
+  ///
+  /// Mapping from pts device to symlink file in /tmp
+  ///
   class PtsToSymlink
   {
     public:
@@ -161,15 +175,16 @@ namespace dmtcp
       void replace ( std::string oldDevice, std::string newDevice );
       PtsToSymlink();
 
-//    void serialize(jalib::JBinarySerializer& o);
+      //void serialize(jalib::JBinarySerializer& o);
 
       void add ( std::string device, std::string filename );
       std::string getFilename ( std::string device );
-	  bool isDuplicate(std::string);
-	
+      bool isDuplicate(std::string);
+  
     private:
       std::map<std::string, std::string> _table;
   };
 
 }
+
 #endif

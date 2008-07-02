@@ -37,7 +37,7 @@ build_triplet = @build@
 host_triplet = @host@
 pkglib_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
-	dmtcphijack.so$(EXEEXT)
+	dmtcp_inspector$(EXEEXT) dmtcphijack.so$(EXEEXT)
 subdir = src
 DIST_COMMON = $(noinst_HEADERS) $(pkglib_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -92,6 +92,9 @@ dmtcp_command_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcp_coordinator_OBJECTS = dmtcpcoordinator.$(OBJEXT)
 dmtcp_coordinator_OBJECTS = $(am_dmtcp_coordinator_OBJECTS)
 dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a
+am_dmtcp_inspector_OBJECTS = dmtcpinspector.$(OBJEXT)
+dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
+dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcp_restart_OBJECTS = dmtcprestart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a
@@ -127,12 +130,13 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libdmtcpinternal_a_SOURCES) $(libdmtcpaware_la_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
-	$(dmtcp_coordinator_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES)
+	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES)
 DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
 	$(libdmtcpaware_la_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES)
+	$(dmtcp_inspector_SOURCES) $(dmtcp_restart_SOURCES) \
+	$(dmtcphijack_so_SOURCES)
 pkglibHEADERS_INSTALL = $(INSTALL_HEADER)
 HEADERS = $(noinst_HEADERS) $(pkglib_HEADERS)
 ETAGS = etags
@@ -275,12 +279,14 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
 	syscallwrappers.c workerhijack.cpp dmtcpapi.cpp
 
+dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 dmtcphijack_so_LDFLAGS = -shared 
 dmtcphijack_so_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD = libdmtcpinternal.a -ldl -lpthread
+dmtcp_inspector_LDADD = -ldl libdmtcpinternal.a
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
@@ -310,9 +316,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  src/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  src/Makefile
+	  $(AUTOMAKE) --gnu  src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -420,6 +426,9 @@ dmtcp_command$(EXEEXT): $(dmtcp_command_OBJECTS) $(dmtcp_command_DEPENDENCIES)
 dmtcp_coordinator$(EXEEXT): $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_DEPENDENCIES) 
 	@rm -f dmtcp_coordinator$(EXEEXT)
 	$(CXXLINK) $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_LDADD) $(LIBS)
+dmtcp_inspector$(EXEEXT): $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_DEPENDENCIES) 
+	@rm -f dmtcp_inspector$(EXEEXT)
+	$(CXXLINK) $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_LDADD) $(LIBS)
 dmtcp_restart$(EXEEXT): $(dmtcp_restart_OBJECTS) $(dmtcp_restart_DEPENDENCIES) 
 	@rm -f dmtcp_restart$(EXEEXT)
 	$(CXXLINK) $(dmtcp_restart_OBJECTS) $(dmtcp_restart_LDADD) $(LIBS)
@@ -443,6 +452,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpaware.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpcheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpcoordinator.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpinspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmessagetypes.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcprestart.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@

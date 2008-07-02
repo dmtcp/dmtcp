@@ -5,7 +5,7 @@ INCLUDES= $(all_includes)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	dmtcp_restart dmtcphijack.so
+	dmtcp_restart dmtcp_inspector dmtcphijack.so
 
 # headers:
 noinst_HEADERS = checkpointcoordinator.h connection.h connectionidentifier.h \
@@ -32,6 +32,8 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
 	syscallwrappers.c workerhijack.cpp dmtcpapi.cpp
 
+dmtcp_inspector_SOURCES = dmtcpinspector.cpp
+
 dmtcphijack_so_LDFLAGS = -shared 
 
 dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl -lpthread
@@ -39,6 +41,7 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a -ldl -lpthread
+dmtcp_inspector_LDADD = -ldl libdmtcpinternal.a
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
