@@ -32,6 +32,9 @@ BUFFER_SIZE=4096*8
 #False redirects process stderr
 VERBOSE=False
 
+#Binaries
+BIN="./bin/"
+
 #parse program args
 args={}
 for i in sys.argv:
@@ -93,7 +96,7 @@ if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = "/dev/null"
 
 #launch the coordinator
-coordinator = launch("./bin/dmtcp_coordinator")
+coordinator = launch(BIN+"dmtcp_coordinator")
 
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
@@ -206,7 +209,7 @@ def runTest(name, numProcs, cmds):
   
   def testRestart():
     #build restart command
-    cmd="./bin/dmtcp_restart"
+    cmd=BIN+"dmtcp_restart"
     for i in listdir(ckptDir):
       if i.endswith(".mtcp"):
         cmd+= " "+ckptDir+"/"+i
@@ -227,7 +230,7 @@ def runTest(name, numProcs, cmds):
 
     #start user programs
     for cmd in cmds:
-      procs.append(launch("./bin/dmtcp_checkpoint "+cmd))
+      procs.append(launch(BIN+"dmtcp_checkpoint "+cmd))
       sleep(S)
     
     WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))

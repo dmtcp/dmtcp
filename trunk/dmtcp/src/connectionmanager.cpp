@@ -56,12 +56,16 @@ dmtcp::ConnectionList::ConnectionList() {}
 
 dmtcp::KernelDeviceToConnection::KernelDeviceToConnection() {}
 
-
 dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 {
   std::vector<int> fds = jalib::Filesystem::ListOpenFds();
   JTRACE("Creating Connection->FD mapping")(fds.size());
   KernelDeviceToConnection::Instance().dbgSpamFds();
+  _procname = jalib::Filesystem::GetProgramName();
+  _hostname = jalib::Filesystem::GetCurrentHostname();
+  _pid = UniquePid::ThisProcess().pid();
+  _hostid = UniquePid::ThisProcess().hostid();
+
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
@@ -106,7 +110,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   {
     JTRACE ( "bad fd (we expect one of these lines)" ) ( fd );
     JASSERT ( device == "" ) ( fd ) ( _procFDPath ( fd ) ) ( device ) ( JASSERT_ERRNO )
-    .Text ( "expected badFd not to have a proc entry..." );
+      .Text ( "expected badFd not to have a proc entry..." );
 
     return "";
   }
@@ -118,15 +122,15 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   if ( isPtmx )
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
-	
+  
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
     {
       char slaveDevice[1024];
-	
+  
       JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
         ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
-	  
+    
       std::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
 
       JTRACE ( "creating ptmx connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
@@ -239,8 +243,8 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
     std::string device = fdToDevice ( fds[i] );
     bool exists = ( _table.find ( device ) != _table.end() );
     JASSERT_STDERR << fds[i]
-    << " -> "  << device
-    << " inTable=" << exists << "\n";
+                   << " -> "  << device
+                   << " inTable=" << exists << "\n";
   }
 #endif
 }
@@ -266,7 +270,7 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
     for ( size_t i=1; i<fds.size(); ++i )
     {
       JASSERT ( device == fdToDevice ( fds[i] ) )
-      ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+        ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
     }
 #endif
 
@@ -314,23 +318,23 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
 
       switch ( type )
       {
-        case Connection::TCP:
-          con = new TcpConnection ( -1,-1,-1 );
-          break;
-        case Connection::FILE:
-          con = new FileConnection ( "?", -1 );
-          break;
-          //             case Connection::PIPE:
-          //                 con = new PipeConnection();
-          //                 break;
-        case Connection::PTS:
-          con = new PtsConnection();
-          break;
-        case Connection::STDIO:
-          con = new StdioConnection();
-          break;
-        default:
-          JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );
+      case Connection::TCP:
+        con = new TcpConnection ( -1,-1,-1 );
+        break;
+      case Connection::FILE:
+        con = new FileConnection ( "?", -1 );
+        break;
+        //             case Connection::PIPE:
+        //                 con = new PipeConnection();
+        //                 break;
+      case Connection::PTS:
+        con = new PtsConnection();
+        break;
+      case Connection::STDIO:
+        con = new StdioConnection();
+        break;
+      default:
+        JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );
       }
 
       JASSERT( con != NULL )(key);
@@ -397,11 +401,15 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   ConnectionList::Instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
+  // Current process information
+  o & _procname & _hostname & _pid & _hostid;
+
   size_t numCons = _table.size();
   o & numCons;
 
   if ( o.isWriter() )
   {
+    // Save connections
     for ( iterator i=_table.begin(); i!=_table.end(); ++i )
     {
       JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
@@ -413,6 +421,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   }
   else
   {
+    // Save connections
     while ( numCons-- > 0 )
     {
       JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
@@ -422,7 +431,6 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
       JWARNING ( val.size() >0 ) (key) ( o.filename() ).Text ( "reading empty fd list" );
       _table[key]=val;
     }
-
   }
   JSERIALIZE_ASSERT_POINT ( "EOF" );
 }
@@ -465,15 +473,19 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
 
 dmtcp::Connection& dmtcp::ConnectionList::operator[] ( const ConnectionIdentifier& id )
 {
+	//  std::cout << "Operator [], conId=" << id << "\n";
   JASSERT ( _connections.find ( id ) != _connections.end() ) ( id )
-  .Text ( "Unknown connection" );
+    .Text ( "Unknown connection" );
+	//  std::cout << "Operator [], found: " << (_connections.find ( id ) != _connections.end()) 
+	//            << "\n";
+	//  std::cout << "Operator [], Result: conId=" << _connections[id]->id() << "\n";
   return *_connections[id];
 }
 
 void dmtcp::ConnectionList::add ( Connection* c )
 {
   JWARNING ( _connections.find ( c->id() ) == _connections.end() ) ( c->id() )
-  .Text ( "duplicate connection" );
+    .Text ( "duplicate connection" );
   _connections[c->id() ] = c;
 }
 
@@ -556,8 +568,8 @@ dmtcp::PtsToSymlink& dmtcp::PtsToSymlink::Instance()
 
 void dmtcp::PtsToSymlink::add ( std::string device, std::string filename )
 {
-//    JWARNING(_table.find(device) == _table.end())(device)
-//            .Text("duplicate connection");
+  //    JWARNING(_table.find(device) == _table.end())(device)
+  //            .Text("duplicate connection");
   _table[device] = filename;
 }
 
@@ -583,9 +595,9 @@ std::string dmtcp::PtsToSymlink::getFilename ( std::string device )
 
 bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
 {
-	std::string filename = getFilename(device);
-	if (filename.compare("?") == 0){
-		return false;
-	}
-	return true;
+  std::string filename = getFilename(device);
+  if (filename.compare("?") == 0){
+    return false;
+  }
+  return true;
 }
