@@ -89,13 +89,17 @@ namespace
   class GConnection{
     public:
       GConnection(TcpConnection &tcpCon); 
-      void addProc(ConnectionIdentifier &id, int pindex);
+      void addProc(ConnectionIdentifier &id, int pindex, std::string hname);
       bool operator == (TcpConnection &tcpCon);
       bool operator == (ConnectionIdentifier &conId);
       ConnectionIdentifier srv() const { return _srv; }
       ConnectionIdentifier cli() const { return _cli; }
       void writeConnection(std::ofstream &o,int &conCnt);
+			bool is_loop(){ return _loop; }
+			std::string hostname(){ return _hostname; }
     private:
+			bool _loop;
+			std::string _hostname;
       ConnectionIdentifier _srv,_cli;
       std::list<int> _sprocs,_cprocs;
   };
@@ -113,6 +117,13 @@ namespace
       _srv = tcpCon.getRemoteId();
       break;
     }
+		// Check if it is loop connection or not
+		if( _srv.pid().hostid() == _cli.pid().hostid() ){
+			_loop = true;
+		}else{
+			_loop = false;
+		}
+		_hostname = "?";
   }
 
   bool GConnection::operator == (TcpConnection &tcpCon)
@@ -136,8 +147,16 @@ namespace
     return false;
   }
 
-  void GConnection::addProc(ConnectionIdentifier &id,int pindex)
+  void GConnection::addProc(ConnectionIdentifier &id,int pindex,std::string hostname)
   {
+		// Double check of loop connection
+		// in the case host_hash has collision
+		if( _hostname == "?" ){
+			_hostname = hostname;
+		}else if( hostname != _hostname ){
+			_loop = false;
+		}
+		// Save process in connection
     if( id == _srv ){
       _sprocs.push_back(pindex);
     }else{
@@ -245,7 +264,7 @@ namespace
       // Map process to connection
       std::list<GConnection>::iterator gcit = find(tcpCon);
       if( gcit != _connections.end() ){ 
-        gcit->addProc(conId,pit->index());
+        gcit->addProc(conId,pit->index(),pit->hostname);
       }
     }
   }
@@ -254,31 +273,65 @@ namespace
   {
     std::ofstream out(o.c_str());
     std::list<GConnection>::iterator cit;
-    int max_pindex = 0;
+		ClusterProcesses::iterator cpit;
+		std::list<GConnection*>::iterator gcit;
+		std::map< std::string, std::list<GConnection *> > inhost_conn;
+		std::list<GConnection*> interhost_conn;
+
+		// Divide connections on two groups:
+		// 1. All communicated processes are at one host
+		// 2. communicated processes are at different hosts
+    for(cit = _connections.begin(); cit != _connections.end(); cit++){
+			// If this is loopback connection - map it
+			// for fast access
+			if( cit->is_loop() ){
+				inhost_conn[cit->hostname()].push_back((GConnection*)&(*cit));
+			}else{
+				interhost_conn.push_back((GConnection*)&(*cit));
+			}
+    }
+
+		// Count max process index
+    int conCnt = 0;
+		for(cpit = _processes.begin(); cpit != _processes.end(); cpit++ ){
+			std::list<GProcess>::iterator pit = cpit->second.begin();
+			for(; pit != cpit->second.end(); pit++){
+				if( pit->index() > conCnt )
+					conCnt = pit->index();
+			}
+		}
+    conCnt++;
 
     // Head of dot-file 
     out << "digraph { \n";
 
     // Create nodes for processes
-		ClusterProcesses::iterator cpit;
 		int cnt;
 		for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
 			std::list<GProcess>::iterator pit = cpit->second.begin();
+			std::string cur_hostname = pit->hostname;
 			out << "subgraph cluster" << cnt << " {\n";
-			out << " label=\"" << pit->hostname << "\";\n";
+			out << " label=\"" << cur_hostname << "\";\n";
 			out << " color=blue;\n";
+			// write all processes
 			for(; pit != cpit->second.end(); pit++){
 				pit->writeNode(out);
-				if( pit->index() > max_pindex )
-					max_pindex = pit->index();
+			}
+			// write all inhost connections
+			if( inhost_conn.find(cur_hostname) != inhost_conn.end()){
+				for(gcit = inhost_conn[cur_hostname].begin(); 
+						gcit != inhost_conn[cur_hostname].end(); 
+						gcit++ ){
+					(*gcit)->writeConnection(out,conCnt);
+				}
 			}
 			out << "}\n";
 		}
-    
-    int conCnt = max_pindex+1;
-    for(cit = _connections.begin(); cit != _connections.end(); cit++){
+
+		// write all interhost connections
+    for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
       // Write connection to the file
-      cit->writeConnection(out,conCnt);
+      (*gcit)->writeConnection(out,conCnt);
     }
 
     out << "}\n"; 
