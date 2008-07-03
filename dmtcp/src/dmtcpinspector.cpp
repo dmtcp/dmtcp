@@ -1,3 +1,21 @@
+/***************************************************************************
+ *   Copyright (C) 2008 by Artem Y. Polaykov and Jason Ansel               *
+ *   DMTCP process relation and interconnection visualisation tool         *
+ *   Written by Artem Y. Polyakov <artpol84@gmail.com>                     *
+ *          and Jason Ansel <jansel@csail.mit.edu>                         *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ ***************************************************************************/
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <string>
@@ -53,7 +71,7 @@ namespace
       long hostid;
       void writeNode(std::ofstream &o){
         o << " \"" << _index << "\"" 
-          << " [ label=\"" << procname << "[" << pid << "]\\n" << hostname << "\"," 
+          << " [ label=\"" << procname << "\\n[" << pid << "]\"" 
           << "shape=box ]\n";
       }
 
@@ -129,9 +147,18 @@ namespace
 
   void GConnection::writeConnection(std::ofstream &o,int &conCnt)
   {
+		// If connection have no shared descriptors
+		if( _sprocs.size() == _cprocs.size() && _sprocs.size() == 1 ){
+      o << " \"" << *_cprocs.begin() << "\" -> \"" << *_sprocs.begin() << "\" [ color=\"#000000\" ]\n";
+			return;
+		}
+		// else: what if no srv or no cli connections?
+
     // Write connection representation
     o << " \"" << conCnt << "\" [ shape=\"circle\", color=\"#00FF00\"]\n"; 
     // Write processes connected to server side
+		// 
+
     std::list<int>::iterator lit;
     for(lit = _sprocs.begin(); lit != _sprocs.end(); lit++){
       o << " \"" << conCnt << "\" -> \"" << (*lit) << "\" [ color=\"#000000\" ]\n";
@@ -154,7 +181,8 @@ namespace
       void writeGraph(std::string o);
     private:
       std::list<GConnection> _connections;
-      std::list<GProcess> _processes;
+			typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
+			ClusterProcesses _processes;
   };
 
   ConnectionGraph::ConnectionGraph(ConnectionList &list)
@@ -192,11 +220,11 @@ namespace
     ConnectionToFds::const_iterator cit;
     std::list<GProcess>::iterator pit;
 
-    std::cout << "\nimportProcess:\n";
+		//    std::cout << "\nimportProcess:\n";
 
     // Add process to _processes table
-    _processes.push_front(GProcess(conToFd));
-    pit = _processes.begin();
+    _processes[conToFd.hostname()].push_front(GProcess(conToFd));
+    pit = _processes[conToFd.hostname()].begin();
 
     // Run through all connections of the process
     for(cit = conToFd.begin(); cit!=conToFd.end(); cit++){
@@ -226,19 +254,26 @@ namespace
   {
     std::ofstream out(o.c_str());
     std::list<GConnection>::iterator cit;
-    std::list<GProcess>::iterator pit;
     int max_pindex = 0;
 
     // Head of dot-file 
     out << "digraph { \n";
 
     // Create nodes for processes
-    for(pit = _processes.begin(); pit != _processes.end(); pit++){
-      pit->writeNode(out);
-      if( pit->index() > max_pindex )
-        max_pindex = pit->index();
-    }
-
+		ClusterProcesses::iterator cpit;
+		int cnt;
+		for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
+			std::list<GProcess>::iterator pit = cpit->second.begin();
+			out << "subgraph cluster" << cnt << " {\n";
+			out << " label=\"" << pit->hostname << "\";\n";
+			out << " color=blue;\n";
+			for(; pit != cpit->second.end(); pit++){
+				pit->writeNode(out);
+				if( pit->index() > max_pindex )
+					max_pindex = pit->index();
+			}
+			out << "}\n";
+		}
     
     int conCnt = max_pindex+1;
     for(cit = _connections.begin(); cit != _connections.end(); cit++){
