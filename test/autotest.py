@@ -190,9 +190,9 @@ def runTest(name, numProcs, cmds):
         x.tochild.close()
         x.fromchild.close()
         x.childerr.close()
+        os.waitpid(x.pid, os.WNOHANG)
       except:
         None
-      os.waitpid(x.pid, os.WNOHANG)
       procs.remove(x)
    
   def testCheckpoint():
