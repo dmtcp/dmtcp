@@ -55,7 +55,7 @@ OPTIONS (Environment Variables):
     DMTCP_PORT=<coordinator listener port> (default: 7779)
     DMTCP_GZIP=<0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
-    DMTCP_SIGCKPT=<signal number> (default: SIGUSR2)
+    DMTCP_SIGCKPT=<signal number> (default: 12, where SIGUSR2=12)
 
  Application-defined hook functions: called by DMTCP if defined 
    User code containing these functions must be compiled with
@@ -66,50 +66,49 @@ OPTIONS (Environment Variables):
 
 ============================================
 
-QUICK-NOTES:
+SHORT NOTES:
 
-    1. A restarted process sees the shared libraries and environment
-       variables that existed prior to checkpoint. These are contained in
-       the .mtcp checkpoint file.
+    1. A restarted process sees the shared libraries and environment variables
+       that existed prior to checkpoint. These are contained in the .mtcp
+       checkpoint file.
     2. At restart time, one can choose either to use the original
        dmtcp_coordinator or else to start a new coordinator. Each process
-       restarted by the dmtcp_restart command needs to know the host and
-       port used by dmtcp_coordinator. These default to localhost and
-       port 7779. Setting DMTCP_PORT in the environment seen by the three
-       commands: dmtcp_coordinator, dmtcp_checkpoint and dmtcp_restart
-       will override the default port. Similarly, setting DMTCP_HOST for
-       dmtcp_checkpoint and dmtcp_restart is needed if they start on a
-       different host than that of the coordinator.
+       restarted by the dmtcp_restart command needs to know the host and port
+       used by dmtcp_coordinator. These default to localhost and port 7779.
+       Setting DMTCP_PORT in the environment seen by the three commands:
+       dmtcp_coordinator, dmtcp_checkpoint and dmtcp_restart will override the
+       default port. Similarly, setting DMTCP_HOST for dmtcp_checkpoint and
+       dmtcp_restart is needed if they start on a different host than that of
+       the coordinator.
     3. In order to enable various types of debugging, do:
-         a. To enable debug statements for DMTCP only (related to
-            multi-process communication), configure with:
-            ./configure --enable-debug
-	    (or './configure --help', in general)
-            --enable-debug both prints to stderr and writes files
-            /tmp/jassert.log.XXX where XXX is the pid of a process
-            (checkpoint coordinator or application process). In reading  
-            this, it's useful to know that DMTCP sets up barriers so that
-            all processes proceed to the following states together during
-            checkpoint: RUNNING, SUSPENDED, LOCKED, DRAINED,
+         1. To enable debug statements for DMTCP only (related to multi-process
+            communication), configure with: ./configure --enable-debug
+            (or './configure --help', in general)
+            --enable-debug both prints to stderr and writes files. This both
+            prints to stderr and writes files /tmp/jassert.log.XXX where XXX is
+            the pid of a process (checkpoint coordinator or application
+            process). In reading this, it's useful to know that DMTCP sets up
+            barriers so that all processes proceed to the following states
+            together during checkpoint: RUNNING, SUSPENDED, LOCKED, DRAINED,
             CHECKPOINTED, REFILLED.
-         b. To enable debug statements from MTCP (single-process
-            component), do: In mtcp/Makefile, uncomment the line:
+         2. To enable debug statements from MTCP (single-process component),
+            do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
             Then (cd mtcp; make clean; make)
-    4. It often works to migrate processes by moving the checkpoint files
-       to another host and editing dmtcp_checkpoint_restart.sh prior to 
+    4. It often works to migrate processes by moving the checkpoint files to
+       another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting. Whether it works is affected by how different are the
        corresponding versions for the kernel and glibc.
-    5. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
-       for specific handling of mapping of memory objects via mmap:
-       MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
-       Heuristically, if a memory area is mapped to a file for which user
-       has only read permission, then a restarted process uses the most
-       recent file. If a memory area is mapped to a file with write or
-       execute permission, the pre-checkpoint memory contents is copied
-       back into memory area.
+    5. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas() for
+       specific handling of mapping of memory objects via mmap: MAP_PRIVATE,
+       MAP_SHARED, MAP_ANONYMOUS
+       Heuristically, if a memory area is mapped to a file for which user has
+       only read permission, then a restarted process uses the most recent
+       file. If a memory area is mapped to a file with write or execute
+       permission, the pre-checkpoint memory contents is copied back into
+       memory area.
     6. If your application has only a single process (single- or
-       multi-threaded), then we recommend that you directly use the
-       software in the MTCP subdirectory. You do not need the generality
-       of DMTCP. We would be pleased to provide advice on bundling MTCP.
+       multi-threaded), then we recommend that you directly use the software in
+       the MTCP subdirectory. You do not need the generality of DMTCP. We would
+       be pleased to provide advice on bundling MTCP.

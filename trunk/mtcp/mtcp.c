@@ -1262,7 +1262,7 @@ static int open_ckpt_to_write(void)
   do_we_compress = getenv("MTCP_GZIP");
   // allow alternate name for env var
   if( do_we_compress == NULL ) do_we_compress = getenv("DMTCP_GZIP");
-  // env var is unset, lets default to enabled
+  // env var is unset, let's default to enabled
   // to disable compression, run with MTCP_GZIP=0
   if( do_we_compress == NULL) do_we_compress = "1";
 
@@ -1700,8 +1700,8 @@ static void writefile (int fd, void const *buff, int size)
     /* ... but the idiot proc/self/maps will include it anyway                    */
 
     if (wt == 0) {
-      rc = sz;
-      if (rc > sizeof zeroes) rc = sizeof zeroes;
+      rc = (sz > sizeof zeroes ? sizeof zeroes : sz);
+      checkpointsize -= rc; /* Correct now, since writefile will add rc back */
       writefile (fd, zeroes, rc);
     }
 

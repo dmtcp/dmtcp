@@ -234,7 +234,7 @@ check: mtcp.so mtcp_restart testmtcp
 	@ echo ""
 	@ echo Type into program to verify it operates.  Will be killed in 13 s.
 	@ echo ""
-	(sleep 13; pkill testmtcp) &
+	(sleep 13; pkill -9 testmtcp) &
 	env LD_LIBRARY_PATH=. ./testmtcp || true
 	@ echo ""
 	@ echo Successfully killed after checkpoint.  Will now restart.
@@ -244,7 +244,7 @@ check: mtcp.so mtcp_restart testmtcp
 	./mtcp_restart testmtcp.mtcp
 	echo FINISH EARLY FOR NOW
 	exit 1
-	(sleep 13; pkill mtcp_restart) & ./mtcp_restart testmtcp.tmp || true
+	(sleep 13; pkill -9 mtcp_restart) & ./mtcp_restart testmtcp.tmp || true
 	@ echo Kill this program now after being satisfied it still works.
 	@ echo ""
 	sleep 5

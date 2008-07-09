@@ -1,3 +1,5 @@
+Check whether these are still a problem:
+
 We try to re-open /proc/self/fd/1, etc., which is /dev/pts/1, etc.
 However, in a multi-user system, /dev/pts/1 may now be owned by someone
 else.  So, we should try to open /dev/tty or something instead.
