@@ -16,12 +16,17 @@
  *                                                                         *
  ***************************************************************************/
 
+// System includes
 #include <unistd.h>
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
+#include <getopt.h>
+// C++ includes
 #include <fstream> 
 #include <iostream>
+#include <sstream>
+// Local includes
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "connectionmanager.h"
@@ -31,6 +36,9 @@
 #include "syscallwrappers.h"
 #include "jtimer.h"
 
+bool fullout = false;
+bool usedot = false;
+std::string outfile,dotfile;
 
 using namespace dmtcp;
 
@@ -56,23 +64,31 @@ namespace
 
   class GProcess{
     public:
-      GProcess(ConnectionToFds &conToFd){
+      GProcess(ConnectionToFds &conToFd,bool finfo){
         procname = conToFd.procname();
         hostname = conToFd.hostname();
+        inhostname = conToFd.inhostname();
         pid = conToFd.pid();
-        hostid = conToFd.hostid();
         _index = _nextIndex();
+				fullinfo = finfo;
       }
 
       int index() { return _index; }
       std::string procname;
       std::string hostname;
-      pid_t pid;
-      long hostid;
-      void writeNode(std::ofstream &o){
+      std::string inhostname;
+      UniquePid pid;
+      void writeNode(std::ostringstream &o){
         o << " \"" << _index << "\"" 
-          << " [ label=\"" << procname << "\\n[" << pid << "]\"" 
-          << "shape=box ]\n";
+          << " [ label=\"" << procname;
+				if( fullinfo ){
+					time_t tm = pid.time();
+					char s[256];
+					strftime(s,256,"%H:%M.%F",localtime(&tm));
+					o << "[" << pid.pid() << "]@" << inhostname
+						<< "\\n" << s ;
+				}
+        o << "\" shape=box ]\n";
       }
 
     private:
@@ -81,6 +97,7 @@ namespace
         return proc_index ++;
       }
       int _index;
+			bool fullinfo;
   };
 
 
@@ -94,7 +111,7 @@ namespace
       bool operator == (ConnectionIdentifier &conId);
       ConnectionIdentifier srv() const { return _srv; }
       ConnectionIdentifier cli() const { return _cli; }
-      void writeConnection(std::ofstream &o,int &conCnt);
+      void writeConnection(std::ostringstream &o,int &conCnt);
 			bool is_loop(){ return _loop; }
 			std::string hostname(){ return _hostname; }
     private:
@@ -164,7 +181,7 @@ namespace
     }
   }
 
-  void GConnection::writeConnection(std::ofstream &o,int &conCnt)
+  void GConnection::writeConnection(std::ostringstream &o,int &conCnt)
   {
 		// If connection have no shared descriptors
 		if( _sprocs.size() == _cprocs.size() && _sprocs.size() == 1 ){
@@ -197,7 +214,7 @@ namespace
       bool importProcess(ConnectionToFds &conToFd);
       bool exportGraph(std::string ofile);
       std::list<GConnection>::iterator find(TcpConnection &tcpCon);
-      void writeGraph(std::string o);
+      void writeGraph(std::ostringstream &o);
     private:
       std::list<GConnection> _connections;
 			typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
@@ -242,7 +259,7 @@ namespace
 		//    std::cout << "\nimportProcess:\n";
 
     // Add process to _processes table
-    _processes[conToFd.hostname()].push_front(GProcess(conToFd));
+    _processes[conToFd.hostname()].push_front(GProcess(conToFd,fullout));
     pit = _processes[conToFd.hostname()].begin();
 
     // Run through all connections of the process
@@ -269,9 +286,8 @@ namespace
     }
   }
 
-  void ConnectionGraph::writeGraph(std::string o)
+  void ConnectionGraph::writeGraph(std::ostringstream &o)
   {
-    std::ofstream out(o.c_str());
     std::list<GConnection>::iterator cit;
 		ClusterProcesses::iterator cpit;
 		std::list<GConnection*>::iterator gcit;
@@ -303,39 +319,38 @@ namespace
     conCnt++;
 
     // Head of dot-file 
-    out << "digraph { \n";
+    o << "digraph { \n";
 
     // Create nodes for processes
 		int cnt;
 		for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
 			std::list<GProcess>::iterator pit = cpit->second.begin();
 			std::string cur_hostname = pit->hostname;
-			out << "subgraph cluster" << cnt << " {\n";
-			out << " label=\"" << cur_hostname << "\";\n";
-			out << " color=blue;\n";
+			o << "subgraph cluster" << cnt << " {\n";
+			o << " label=\"" << cur_hostname << "\";\n";
+			o << " color=blue;\n";
 			// write all processes
 			for(; pit != cpit->second.end(); pit++){
-				pit->writeNode(out);
+				pit->writeNode(o);
 			}
 			// write all inhost connections
 			if( inhost_conn.find(cur_hostname) != inhost_conn.end()){
 				for(gcit = inhost_conn[cur_hostname].begin(); 
 						gcit != inhost_conn[cur_hostname].end(); 
 						gcit++ ){
-					(*gcit)->writeConnection(out,conCnt);
+					(*gcit)->writeConnection(o,conCnt);
 				}
 			}
-			out << "}\n";
+			o << "}\n";
 		}
 
 		// write all interhost connections
     for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
       // Write connection to the file
-      (*gcit)->writeConnection(out,conCnt);
+      (*gcit)->writeConnection(o,conCnt);
     }
 
-    out << "}\n"; 
-    out.close();
+    o << "}\n"; 
   }
     
 }
@@ -344,33 +359,98 @@ namespace
 
 
 static const char* theUsage = 
-										"USAGE: dmtcp_inspector <output.dot> <ckpt1.mtcp> [ckpt2.mtcp...]\n";
-
+		"USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
+		"\t-o <filename> - Output in dot-like format\n"
+		"\t-d <filename> - Create graph using dot command (need graphviz package)\n"
+		"\t-f            - Verbose node indication\n";
 
 int main ( int argc, char** argv )
 {
-  if( argc < 3 || strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
-    fprintf(stderr, theUsage);
-    return 1;
+
+	// Process command line options
+  int c;
+
+  while (1) {
+    int this_option_optind = optind ? optind : 1;
+    int option_index = 0;
+    static struct option long_options[] = 
+    {
+    {"out-file", 1, 0, 'o'},
+    {"dot", 1, 0, 'd'},
+    {"full", 0, 0, 'f'},
+    {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
+    };
+
+    c = getopt_long(argc, argv,"o:fd:",long_options, &option_index);
+    if (c == -1)
+      break;
+
+    switch (c) {
+    case 'o':
+			outfile = optarg;
+			std::cout << "Set output to: " << outfile << "\n";
+      break;
+    case 'f':
+      fullout = true;
+			std::cout << "Write full process info\n";
+      break;
+    case 'd':
+      usedot = true;
+			dotfile = optarg;
+			std::cout << "Write output to DOT command. Result file:" << dotfile << " \n";
+      break;
+		case 'h':
+			std::cerr << theUsage;
+			return 1;
+    case '?':
+			break;
+
+    default:
+      printf("?? getopt returned character code 0%o ??\n", c);
+    }
   }
-  std::string out = argv[1];
 
   std::vector<InspectTarget> targets;
-
-  for ( int i = argc-1; i>1; --i ){
-    if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
-      continue;
-    
-    targets.push_back ( InspectTarget ( argv[i] ) );
+  if (optind < argc) {
+		std::cout << "Loading checkpoint files:\n";
+    for(int i = optind; i < argc; i++){
+			std::cout << "Load " << argv[i] << "\n";
+			if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
+				continue;
+			targets.push_back ( InspectTarget ( argv[i] ) );
+		}
   }
-
 
   ConnectionGraph conGr(ConnectionList::Instance());
   for(int i =0; i < targets.size(); i++){
     conGr.importProcess(targets[i]._conToFd);
   }
 
-  conGr.writeGraph(out);
+
+	std::string out_string;
+	std::ostringstream buf(out_string);
+	conGr.writeGraph(buf);
+	std::cout << buf.str();
+	if( usedot ){	
+		// Create pipe to dot
+		std::string popen_str = "dot -Tpdf -o ";
+		popen_str += dotfile;
+		std::cout << "Popen arg: " << popen_str 
+							<< "\nInput len=" << buf.str().length() << "\n";
+		FILE *fp = popen(popen_str.c_str(),"w");
+		if( !fp ){
+			std::cout << "Error in popen(\"" << dotfile.c_str() << "\",\"w\"\n";
+			return 0;
+		}
+		fprintf(fp,"%s",buf.str().c_str());
+		pclose(fp);
+	}else{
+		std::ofstream o(outfile.c_str());
+		o << buf.str();
+		o.close();
+	}
+
   return 0;
 }
 

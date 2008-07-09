@@ -101,8 +101,8 @@ namespace dmtcp
       ConnectionToFds() { 
         _procname = jalib::Filesystem::GetProgramName(); 
         _hostname = jalib::Filesystem::GetCurrentHostname();
-        _pid = UniquePid::ThisProcess().pid();
-        _hostid = UniquePid::ThisProcess().hostid();
+        _inhostname = jalib::Filesystem::GetCurrentHostname();
+        _pid = UniquePid::ThisProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       std::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
@@ -120,14 +120,15 @@ namespace dmtcp
     
       std::string procname() const { return _procname; }
       std::string hostname() const { return _hostname; }
-      pid_t pid() const { return _pid; }
-      long hostid() const { return _hostid; }
+      std::string inhostname() const { return _inhostname; }
+      UniquePid pid() const { return _pid; }
+
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
       std::string _procname;
       std::string _hostname;
-      pid_t _pid;
-      long _hostid;
+      std::string _inhostname;
+      UniquePid _pid;
   };
 
 
