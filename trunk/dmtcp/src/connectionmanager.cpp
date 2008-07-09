@@ -63,8 +63,8 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   KernelDeviceToConnection::Instance().dbgSpamFds();
   _procname = jalib::Filesystem::GetProgramName();
   _hostname = jalib::Filesystem::GetCurrentHostname();
-  _pid = UniquePid::ThisProcess().pid();
-  _hostid = UniquePid::ThisProcess().hostid();
+  _inhostname = jalib::Filesystem::GetCurrentHostname();
+  _pid = UniquePid::ThisProcess();
 
   for ( size_t i=0; i<fds.size(); ++i )
   {
@@ -110,7 +110,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   {
     JTRACE ( "bad fd (we expect one of these lines)" ) ( fd );
     JASSERT ( device == "" ) ( fd ) ( _procFDPath ( fd ) ) ( device ) ( JASSERT_ERRNO )
-      .Text ( "expected badFd not to have a proc entry..." );
+    .Text ( "expected badFd not to have a proc entry..." );
 
     return "";
   }
@@ -129,7 +129,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
       char slaveDevice[1024];
   
       JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
-        ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
+      ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
     
       std::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
 
@@ -255,8 +255,8 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
 {
   JTRACE ( "reconstructing table..." );
   for ( ConnectionToFds::const_iterator i = source.begin()
-          ; i!=source.end()
-          ; ++i )
+        ; i!=source.end()
+        ; ++i )
   {
     ConnectionIdentifier con = i->first;
     const std::vector<int>& fds = i->second;
@@ -270,7 +270,7 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
     for ( size_t i=1; i<fds.size(); ++i )
     {
       JASSERT ( device == fdToDevice ( fds[i] ) )
-        ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+      ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
     }
 #endif
 
@@ -402,13 +402,15 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
   // Current process information
-  o & _procname & _hostname & _pid & _hostid;
+  o & _procname & _inhostname & _pid;
 
   size_t numCons = _table.size();
   o & numCons;
 
   if ( o.isWriter() )
   {
+    _hostname = jalib::Filesystem::GetCurrentHostname();
+    o & _hostname;
     // Save connections
     for ( iterator i=_table.begin(); i!=_table.end(); ++i )
     {
@@ -421,6 +423,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   }
   else
   {
+    o & _hostname;
     // Save connections
     while ( numCons-- > 0 )
     {
@@ -473,19 +476,19 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
 
 dmtcp::Connection& dmtcp::ConnectionList::operator[] ( const ConnectionIdentifier& id )
 {
-	//  std::cout << "Operator [], conId=" << id << "\n";
+  //  std::cout << "Operator [], conId=" << id << "\n";
   JASSERT ( _connections.find ( id ) != _connections.end() ) ( id )
-    .Text ( "Unknown connection" );
-	//  std::cout << "Operator [], found: " << (_connections.find ( id ) != _connections.end()) 
-	//            << "\n";
-	//  std::cout << "Operator [], Result: conId=" << _connections[id]->id() << "\n";
+  .Text ( "Unknown connection" );
+  //  std::cout << "Operator [], found: " << (_connections.find ( id ) != _connections.end()) 
+  //            << "\n";
+  //  std::cout << "Operator [], Result: conId=" << _connections[id]->id() << "\n";
   return *_connections[id];
 }
 
 void dmtcp::ConnectionList::add ( Connection* c )
 {
   JWARNING ( _connections.find ( c->id() ) == _connections.end() ) ( c->id() )
-    .Text ( "duplicate connection" );
+  .Text ( "duplicate connection" );
   _connections[c->id() ] = c;
 }
 
@@ -551,8 +554,8 @@ void dmtcp::SlidingFdTable::changeFd ( int oldfd, int newfd )
 void dmtcp::SlidingFdTable::closeAll()
 {
   for ( std::map< ConnectionIdentifier, int >::iterator i=_conToFd.begin()
-          ; i!=_conToFd.end()
-          ; ++i )
+        ; i!=_conToFd.end()
+        ; ++i )
   {
     JWARNING ( _real_close ( i->second ) ==0 ) ( i->second );
   }
