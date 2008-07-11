@@ -450,8 +450,8 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
   size_t numCons = _table.size();
   o & numCons;
 
-	// Save/Restore parent process UniquePid
-	o & UniquePid::ParentProcess();
+  // Save/Restore parent process UniquePid
+  o & UniquePid::ParentProcess();
 
   if ( o.isWriter() )
   {

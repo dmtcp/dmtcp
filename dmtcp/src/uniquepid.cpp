@@ -54,6 +54,11 @@ static dmtcp::UniquePid& theProcess()
   static dmtcp::UniquePid t ( 0,0,0 );
   return t;
 }
+static dmtcp::UniquePid& parentProcess()
+{
+  static dmtcp::UniquePid t ( 0,0,0 );
+  return t;
+}
 
 const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
 {
@@ -68,15 +73,7 @@ const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
 
 dmtcp::UniquePid& dmtcp::UniquePid::ParentProcess()
 {
-  static dmtcp::UniquePid t ( 0,0,0 );
-  return t;
-}
-
-bool dmtcp::UniquePid::isNull() const
-{
-	if( *this == nullProcess() )
-		return true;
-	return false;
+  return parentProcess();
 }
 
 /*!
@@ -192,7 +189,13 @@ std::string dmtcp::UniquePid::toString() const{
 
 void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
 {
+  parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
   checkpointFilename_initialized = false;
+}
+
+bool dmtcp::UniquePid::isNull() const
+{
+  return (*this == nullProcess());
 }
