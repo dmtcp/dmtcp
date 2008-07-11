@@ -420,7 +420,7 @@ int main ( int argc, char** argv )
     {"dot", 1, 0, 'd'},
     {"full", 0, 0, 'f'},
     {"help", 0, 0, 'h'},
-    {"parch-off", 0, 0, 0},
+    {"par-ch-off", 0, 0, 0},
     {"sock-off", 0, 0, 0},
     {0, 0, 0, 0}
     };
@@ -433,7 +433,7 @@ int main ( int argc, char** argv )
 		case 0:{
 			std::string tmp = long_options[option_index].name;
 			
-			if ( tmp == "parch-off" ){
+			if ( tmp == "par-ch-off" ){
 				std::cout << "Turn off parent-child relation\n";
 				parent_child = false;
 			} else if( tmp == "sock-off" ){
