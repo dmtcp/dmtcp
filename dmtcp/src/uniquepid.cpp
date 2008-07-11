@@ -66,6 +66,18 @@ const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
   return theProcess();
 }
 
+dmtcp::UniquePid& dmtcp::UniquePid::ParentProcess()
+{
+  static dmtcp::UniquePid t ( 0,0,0 );
+  return t;
+}
+
+bool dmtcp::UniquePid::isNull() const
+{
+	if( *this == nullProcess() )
+		return true;
+	return false;
+}
 
 /*!
     \fn dmtcp::UniquePid::UniquePid()

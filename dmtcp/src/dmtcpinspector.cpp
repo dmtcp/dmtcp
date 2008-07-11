@@ -37,6 +37,8 @@
 #include "jtimer.h"
 
 bool fullout = false;
+bool parent_child = true;
+bool sockets = true;
 bool usedot = false;
 std::string outfile,dotfile;
 
@@ -69,6 +71,7 @@ namespace
         hostname = conToFd.hostname();
         inhostname = conToFd.inhostname();
         pid = conToFd.pid();
+        ppid = conToFd.ppid();
         _index = _nextIndex();
 				fullinfo = finfo;
       }
@@ -78,6 +81,7 @@ namespace
       std::string hostname;
       std::string inhostname;
       UniquePid pid;
+      UniquePid ppid;
       void writeNode(std::ostringstream &o){
         o << " \"" << _index << "\"" 
           << " [ label=\"" << procname;
@@ -219,6 +223,8 @@ namespace
       std::list<GConnection> _connections;
 			typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
 			ClusterProcesses _processes;
+			typedef std::map<dmtcp::UniquePid,GProcess*> DMTCP_process;
+			DMTCP_process _row_processes;
   };
 
   ConnectionGraph::ConnectionGraph(ConnectionList &list)
@@ -261,6 +267,12 @@ namespace
     // Add process to _processes table
     _processes[conToFd.hostname()].push_front(GProcess(conToFd,fullout));
     pit = _processes[conToFd.hostname()].begin();
+
+		// Add to _row_process Map table
+		_row_processes[pit->pid] = &(*pit);
+		
+		std::cout << "Add process: " << pit->pid 
+							<< ". Result: " << _row_processes.find(pit->pid)->second->pid << "\n";
 
     // Run through all connections of the process
     for(cit = conToFd.begin(); cit!=conToFd.end(); cit++){
@@ -334,25 +346,45 @@ namespace
 				pit->writeNode(o);
 			}
 			// write all inhost connections
-			if( inhost_conn.find(cur_hostname) != inhost_conn.end()){
-				for(gcit = inhost_conn[cur_hostname].begin(); 
-						gcit != inhost_conn[cur_hostname].end(); 
-						gcit++ ){
-					(*gcit)->writeConnection(o,conCnt);
+			if( sockets ){
+				if( inhost_conn.find(cur_hostname) != inhost_conn.end() ){
+					for(gcit = inhost_conn[cur_hostname].begin(); 
+							gcit != inhost_conn[cur_hostname].end(); 
+							gcit++ ){
+						(*gcit)->writeConnection(o,conCnt);
+					}
 				}
 			}
+
 			o << "}\n";
 		}
 
 		// write all interhost connections
-    for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
-      // Write connection to the file
-      (*gcit)->writeConnection(o,conCnt);
-    }
+		if( sockets ){
+			for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
+				// Write connection to the file
+				(*gcit)->writeConnection(o,conCnt);
+			}
+		}
 
+		// write Parent - Child relationships
+		if( parent_child ){
+			DMTCP_process::iterator dit,dit1;
+			for(dit = _row_processes.begin(); dit != _row_processes.end(); dit++){
+				std::cout << "Inspect process: " << dit->second->procname 
+									<< "[" << dit->second->pid << "," 
+									<< dit->second->ppid << "]:\n";
+				dit1 = _row_processes.find(dit->second->ppid);
+				if( dit1 != _row_processes.end() ){
+					std::cout << "find " << dit1->second->procname 
+										<< "[" << dit1->second->pid << "]\n";
+					o << " \"" << dit1->second->index() << "\" -> \"" << dit->second->index() 
+						<< "\" [ color=\"#FF0000\", style=\"bold\" ]\n";
+				}
+			}
+		}
     o << "}\n"; 
   }
-    
 }
 
   
@@ -362,6 +394,8 @@ static const char* theUsage =
 		"USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
 		"\t-o <filename> - Output in dot-like format\n"
 		"\t-d <filename> - Create graph using dot command (need graphviz package)\n"
+		"\t--par-ch-off  - Do not draw parent-child relations\n"
+		"\t--sock-off    - Do not draw socket connections\n"
 		"\t-f            - Verbose node indication\n";
 
 int main ( int argc, char** argv )
@@ -370,6 +404,13 @@ int main ( int argc, char** argv )
 	// Process command line options
   int c;
 
+	// No arguments => help
+	if( argc == 1 ){
+		std::cerr << theUsage;
+		return 1;
+	}
+
+	// Process arguments
   while (1) {
     int this_option_optind = optind ? optind : 1;
     int option_index = 0;
@@ -379,6 +420,8 @@ int main ( int argc, char** argv )
     {"dot", 1, 0, 'd'},
     {"full", 0, 0, 'f'},
     {"help", 0, 0, 'h'},
+    {"parch-off", 0, 0, 0},
+    {"sock-off", 0, 0, 0},
     {0, 0, 0, 0}
     };
 
@@ -387,6 +430,18 @@ int main ( int argc, char** argv )
       break;
 
     switch (c) {
+		case 0:{
+			std::string tmp = long_options[option_index].name;
+			
+			if ( tmp == "parch-off" ){
+				std::cout << "Turn off parent-child relation\n";
+				parent_child = false;
+			} else if( tmp == "sock-off" ){
+				std::cout << "Turn off socket connnections\n";
+				sockets = false;
+			}
+		}
+			break;
     case 'o':
 			outfile = optarg;
 			std::cout << "Set output to: " << outfile << "\n";
@@ -420,7 +475,10 @@ int main ( int argc, char** argv )
 				continue;
 			targets.push_back ( InspectTarget ( argv[i] ) );
 		}
-  }
+  }else{
+		std::cerr << theUsage;
+		return 1;
+	}
 
   ConnectionGraph conGr(ConnectionList::Instance());
   for(int i =0; i < targets.size(); i++){
