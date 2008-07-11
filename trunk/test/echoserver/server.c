@@ -22,7 +22,6 @@ int main ( int argc, char *argv[] )
   char buffer[256];
   struct sockaddr_in serv_addr, cli_addr;
   int n;
-  int i = 0;
   if ( argc < 2 )
   {
     fprintf ( stderr,"ERROR, no port provided\n" );
@@ -47,17 +46,14 @@ int main ( int argc, char *argv[] )
   if ( newsockfd < 0 )
     error ( "ERROR on accept" );
 
-fork();
-
   do
   {
     bzero ( buffer,256 );
     n = read ( newsockfd,buffer,255 );
     if ( n < 0 ) error ( "ERROR reading from socket" );
-    printf ( "Here is the message (%d): %s\n",i,buffer );
+    printf ( "Here is the message: %s\n",buffer );
     n = write ( newsockfd,"I got your message",18 );
     if ( n < 0 ) error ( "ERROR writing to socket" );
-    i++;
   }
   while ( n>0 );
   return 0;

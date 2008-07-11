@@ -104,9 +104,6 @@ extern "C" pid_t fork()
     //fix the mutex
     _dmtcp_remutex_on_fork();
 
-		// Save parent process
-		dmtcp::UniquePid::ParentProcess() = dmtcp::UniquePid::ThisProcess();
-
     //update ThisProcess()
     dmtcp::UniquePid::resetOnFork ( child );
 
