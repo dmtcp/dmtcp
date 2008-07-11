@@ -20,6 +20,7 @@ int main ( int argc, char *argv[] )
   int sockfd, portno, n;
   struct sockaddr_in serv_addr;
   struct hostent *server;
+  int i;
 
   char buffer[256];
   if ( argc < 3 )
@@ -45,9 +46,13 @@ int main ( int argc, char *argv[] )
   serv_addr.sin_port = htons ( portno );
   if ( connect ( sockfd, (struct sockaddr* ) &serv_addr,sizeof ( serv_addr ) ) < 0 )
     error ( "ERROR connecting" );
+
+    fork();
+    fork();
+    i=0;
   do
   {
-    printf ( "Please enter the message: " );
+    printf ( "Please enter the message(%d): ",i );
     bzero ( buffer,256 );
     fgets ( buffer,255,stdin );
     n = write ( sockfd,buffer,strlen ( buffer ) );
@@ -58,6 +63,7 @@ int main ( int argc, char *argv[] )
     if ( n < 0 )
       error ( "ERROR reading from socket" );
     printf ( "%s\n",buffer );
+    i++;
   }
   while ( n>=0 );
   return 0;

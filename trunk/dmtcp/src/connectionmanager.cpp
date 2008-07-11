@@ -65,6 +65,7 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _inhostname = jalib::Filesystem::GetCurrentHostname();
   _pid = UniquePid::ThisProcess();
+  _ppid = UniquePid::ParentProcess();
 
   for ( size_t i=0; i<fds.size(); ++i )
   {
@@ -402,7 +403,9 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
   // Current process information
-  o & _procname & _inhostname & _pid;
+  o & _procname & _inhostname & _pid & _ppid;
+	std::cout << "Serialize: procname=" << _procname 
+						<< " PID=" << _pid << " PPID=" << _ppid << "\n";
 
   size_t numCons = _table.size();
   o & numCons;
@@ -446,6 +449,9 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
 
   size_t numCons = _table.size();
   o & numCons;
+
+	// Save/Restore parent process UniquePid
+	o & UniquePid::ParentProcess();
 
   if ( o.isWriter() )
   {
