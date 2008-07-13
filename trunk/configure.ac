@@ -21,14 +21,12 @@ AC_ARG_ENABLE([timing],
             [use_jtiming=$enableval],
             [use_jtiming=no])
 
-#checkfor -lreadline -lhistory 
-compileReadlineC=yes
-AC_CHECK_LIB([readline],[readline],   [],[compileReadlineC=no])
-AC_CHECK_LIB([history], [add_history],[],[compileReadlineC=no])
-if test "$compileReadlineC" = "yes"; then
-  AC_SUBST([HAS_READLINE],[yes])
+#checkfor -lreadline -lhistory v5, does not require curses
+AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
+if test "$linksReadline" = "yes"; then
+  AC_SUBST([HAS_READLINE], [yes])
 else
-  AC_SUBST([HAS_READLINE],[no])
+  AC_SUBST([HAS_READLINE], [no])
 fi
 
 

@@ -474,7 +474,7 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
 
-  if ( coordinatorAddr == NULL ) coordinatorAddr = "localhost";
+  if ( coordinatorAddr == NULL ) coordinatorAddr = DEFAULT_HOST;
   int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( coordinatorPortStr );
 
   jalib::JSocket oldFd = _coordinatorSocket;

@@ -7,6 +7,7 @@ CXXFLAGS=@CXXFLAGS@
 HAS_READLINE=@HAS_READLINE@
 HAS_MPICH=@HAS_MPICH@
 MPICH_MPICC=@MPICH_MPICC@
+READLINE_LIBS=-lreadline -lhistory -lcurses
 PWD=$(shell pwd)
 
 TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
@@ -18,7 +19,7 @@ clean distclean:
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
-	$(CC) -o $@ $< $(CFLAGS) -lreadline -lhistory
+	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
 else
 	#$<: required libraries missing, skipping test
 endif

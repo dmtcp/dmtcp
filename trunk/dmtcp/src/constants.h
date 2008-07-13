@@ -29,6 +29,7 @@
 #define MTCP_FILENAME "mtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
 
+#define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
 
 #define RESTORE_PORT_START 9777
