@@ -104,15 +104,19 @@ typedef unsigned int mtcp_segreg_t;
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
 #ifdef __i386__
-# define HIGHEST_VA 0xC0000000
+# ifndef HIGHEST_VA
+#  define HIGHEST_VA 0xC0000000
+# endif
 #endif
 #ifdef __x86_64__
  /* There's a segment, 7fbfffb000-7fc0000000 rw-p 7fbfffb000 00:00 0;
   * What is it?  It's busy (EBUSY) when we try to unmap it.
   */
-// # define HIGHEST_VA 0xFFFFFF8000000000
-// # define HIGHEST_VA 0x8000000000
-# define HIGHEST_VA 0x7f00000000
+# ifndef HIGHEST_VA
+// #  define HIGHEST_VA 0xFFFFFF8000000000
+// #  define HIGHEST_VA 0x8000000000
+#  define HIGHEST_VA 0x7f00000000
+# endif
 #endif
 #define FILENAMESIZE 1024
 
