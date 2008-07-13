@@ -1418,6 +1418,16 @@ static void checkpointeverything (void)
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
      * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
      */ 
+     /* If it's readable, but it's VDSO, it will be dangerous to restore it.
+      * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
+      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
+      * implies we're in 32-bit mode.
+      */
+     if (area_begin >= HIGHEST_VA && area_begin == 0xffffe000) continue;
+     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
+      * use 0xffffffffff600000 for VDSO.
+      */
+     if (area_begin >= HIGHEST_VA && area_begin == 0xffffffffff600000) continue;
 
     /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
 
@@ -2157,6 +2167,8 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
   /* Switch to a stack area that's part of the shareable's memory address range and thus not used by the checkpointed program */
 
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
+                /* This next assembly language confuses gdb,
+		   but seems to work fine anyway */
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
                 : : "g" (extendedStack) : "memory");
 
