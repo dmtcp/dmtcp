@@ -7,7 +7,7 @@
 
 static void *threadMain(void *dummy);
 
-#define N 20
+#define N 50
 
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -37,7 +37,7 @@ static void *threadMain (void *_n)
 
   while (1) {
     pthread_mutex_lock(&mutex);
-    if(numWaiting == N-1)
+    if(numWaiting > N/2)
       pthread_cond_signal(&cond);
     
     numWaiting++;
@@ -45,8 +45,8 @@ static void *threadMain (void *_n)
     numWaiting--;
     pthread_mutex_unlock(&mutex);
 
-    printf("thread%d: %d\n", *n, count++);
-    //sleep(2);
+    if(count++ % 1000 == 0)
+      printf("thread%3d: %8d\n", *n, count/1000);
   }
 
   return (NULL);
