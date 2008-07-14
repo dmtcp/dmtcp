@@ -40,6 +40,7 @@ bool fullout = false;
 bool parent_child = true;
 bool sockets = true;
 bool usedot = false;
+bool show_all_conn = false;
 std::string outfile,dotfile;
 
 using namespace dmtcp;
@@ -73,7 +74,7 @@ namespace
         pid = conToFd.pid();
         ppid = conToFd.ppid();
         _index = _nextIndex();
-				fullinfo = finfo;
+        fullinfo = finfo;
       }
 
       int index() { return _index; }
@@ -85,13 +86,13 @@ namespace
       void writeNode(std::ostringstream &o){
         o << " \"" << _index << "\"" 
           << " [ label=\"" << procname;
-				if( fullinfo ){
-					time_t tm = pid.time();
-					char s[256];
-					strftime(s,256,"%H:%M.%F",localtime(&tm));
-					o << "[" << pid.pid() << "]@" << inhostname
-						<< "\\n" << s ;
-				}
+        if( fullinfo ){
+          time_t tm = pid.time();
+          char s[256];
+          strftime(s,256,"%H:%M.%F",localtime(&tm));
+          o << "[" << pid.pid() << "]@" << inhostname
+            << "\\n" << s ;
+        }
         o << "\" shape=box ]\n";
       }
 
@@ -101,11 +102,11 @@ namespace
         return proc_index ++;
       }
       int _index;
-			bool fullinfo;
+      bool fullinfo;
   };
 
 
-	//---------------- Connection description class ---------------------------
+  //---------------- Connection description class ---------------------------
 
   class GConnection{
     public:
@@ -116,11 +117,11 @@ namespace
       ConnectionIdentifier srv() const { return _srv; }
       ConnectionIdentifier cli() const { return _cli; }
       void writeConnection(std::ostringstream &o,int &conCnt);
-			bool is_loop(){ return _loop; }
-			std::string hostname(){ return _hostname; }
+      bool is_loop(){ return _loop; }
+      std::string hostname(){ return _hostname; }
     private:
-			bool _loop;
-			std::string _hostname;
+      bool _loop;
+      std::string _hostname;
       ConnectionIdentifier _srv,_cli;
       std::list<int> _sprocs,_cprocs;
   };
@@ -138,13 +139,13 @@ namespace
       _srv = tcpCon.getRemoteId();
       break;
     }
-		// Check if it is loop connection or not
-		if( _srv.pid().hostid() == _cli.pid().hostid() ){
-			_loop = true;
-		}else{
-			_loop = false;
-		}
-		_hostname = "?";
+    // Check if it is loop connection or not
+    if( _srv.pid().hostid() == _cli.pid().hostid() ){
+      _loop = true;
+    }else{
+      _loop = false;
+    }
+    _hostname = "?";
   }
 
   bool GConnection::operator == (TcpConnection &tcpCon)
@@ -170,14 +171,14 @@ namespace
 
   void GConnection::addProc(ConnectionIdentifier &id,int pindex,std::string hostname)
   {
-		// Double check of loop connection
-		// in the case host_hash has collision
-		if( _hostname == "?" ){
-			_hostname = hostname;
-		}else if( hostname != _hostname ){
-			_loop = false;
-		}
-		// Save process in connection
+    // Double check of loop connection
+    // in the case host_hash has collision
+    if( _hostname == "?" ){
+      _hostname = hostname;
+    }else if( hostname != _hostname ){
+      _loop = false;
+    }
+    // Save process in connection
     if( id == _srv ){
       _sprocs.push_back(pindex);
     }else{
@@ -187,30 +188,42 @@ namespace
 
   void GConnection::writeConnection(std::ostringstream &o,int &conCnt)
   {
-		// If connection have no shared descriptors
-		if( _sprocs.size() == _cprocs.size() && _sprocs.size() == 1 ){
-      o << " \"" << *_cprocs.begin() << "\" -> \"" << *_sprocs.begin() << "\" [ color=\"#000000\" ]\n";
-			return;
-		}
-		// else: what if no srv or no cli connections?
+    // if connection have only one part (client or server)
+    // show it only if requested
+    if( !show_all_conn ){
+      if( _sprocs.size() == 0 || _cprocs.size() == 0 )
+        return;
+    }
+
+    // If connection have no shared descriptors
+    if( _sprocs.size() == _cprocs.size() && _sprocs.size() == 1 ){
+      o << " \"" << *_cprocs.begin() << "\" -> \"" << *_sprocs.begin() 
+        << "\" [ color=\"#000000\", arrowhead=\"none\",arrowtail=\"none\" ]\n";
+      return;
+    }
+    // else: what if no srv or no cli connections?
 
     // Write connection representation
-    o << " \"" << conCnt << "\" [ shape=\"circle\", color=\"#00FF00\"]\n"; 
-    // Write processes connected to server side
-		// 
+    o << " \"" << conCnt << "\" [ shape=\"circle\", color=\"#007700\", fontsize=10";
+    if( conCnt < 100 ){
+      o << ", fixedsize=true, height=\"0.4\"";
+    }
+    o << " ]\n"; 
 
+    // Write processes connected to server side
     std::list<int>::iterator lit;
     for(lit = _sprocs.begin(); lit != _sprocs.end(); lit++){
-      o << " \"" << conCnt << "\" -> \"" << (*lit) << "\" [ color=\"#000000\" ]\n";
+      o << " \"" << (*lit) << "\" -> \"" << conCnt << "\" [ color=\"#000000\", arrowhead=\"tee\" ]\n";
     }
+
     // Write processes connected to client side
     for(lit = _cprocs.begin(); lit != _cprocs.end(); lit++){
-      o << " \"" << (*lit) << "\" -> \"" << conCnt << "\" [ color=\"#000000\" ]\n";
+      o << " \"" << (*lit) << "\" -> \"" << conCnt << "\" [ color=\"#000000\", arrowhead=\"none\" ]\n";
     }
     conCnt++;
   }
 
-	//---------------- Connections fraph class ---------------------------
+  //---------------- Connections fraph class ---------------------------
 
   class ConnectionGraph{
     public:
@@ -221,10 +234,10 @@ namespace
       void writeGraph(std::ostringstream &o);
     private:
       std::list<GConnection> _connections;
-			typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
-			ClusterProcesses _processes;
-			typedef std::map<dmtcp::UniquePid,GProcess*> DMTCP_process;
-			DMTCP_process _row_processes;
+      typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
+      ClusterProcesses _processes;
+      typedef std::map<dmtcp::UniquePid,GProcess*> DMTCP_process;
+      DMTCP_process _row_processes;
   };
 
   ConnectionGraph::ConnectionGraph(ConnectionList &list)
@@ -262,17 +275,17 @@ namespace
     ConnectionToFds::const_iterator cit;
     std::list<GProcess>::iterator pit;
 
-		//    std::cout << "\nimportProcess:\n";
+    //    std::cout << "\nimportProcess:\n";
 
     // Add process to _processes table
     _processes[conToFd.hostname()].push_front(GProcess(conToFd,fullout));
     pit = _processes[conToFd.hostname()].begin();
 
-		// Add to _row_process Map table
-		_row_processes[pit->pid] = &(*pit);
-		
-		std::cout << "Add process: " << pit->pid 
-							<< ". Result: " << _row_processes.find(pit->pid)->second->pid << "\n";
+    // Add to _row_process Map table
+    _row_processes[pit->pid] = &(*pit);
+    
+    std::cout << "Add process: " << pit->pid 
+              << ". Result: " << _row_processes.find(pit->pid)->second->pid << "\n";
 
     // Run through all connections of the process
     for(cit = conToFd.begin(); cit!=conToFd.end(); cit++){
@@ -301,88 +314,88 @@ namespace
   void ConnectionGraph::writeGraph(std::ostringstream &o)
   {
     std::list<GConnection>::iterator cit;
-		ClusterProcesses::iterator cpit;
-		std::list<GConnection*>::iterator gcit;
-		std::map< std::string, std::list<GConnection *> > inhost_conn;
-		std::list<GConnection*> interhost_conn;
+    ClusterProcesses::iterator cpit;
+    std::list<GConnection*>::iterator gcit;
+    std::map< std::string, std::list<GConnection *> > inhost_conn;
+    std::list<GConnection*> interhost_conn;
 
-		// Divide connections on two groups:
-		// 1. All communicated processes are at one host
-		// 2. communicated processes are at different hosts
+    // Divide connections on two groups:
+    // 1. All communicated processes are at one host
+    // 2. communicated processes are at different hosts
     for(cit = _connections.begin(); cit != _connections.end(); cit++){
-			// If this is loopback connection - map it
-			// for fast access
-			if( cit->is_loop() ){
-				inhost_conn[cit->hostname()].push_back((GConnection*)&(*cit));
-			}else{
-				interhost_conn.push_back((GConnection*)&(*cit));
-			}
+      // If this is loopback connection - map it
+      // for fast access
+      if( cit->is_loop() ){
+        inhost_conn[cit->hostname()].push_back((GConnection*)&(*cit));
+      }else{
+        interhost_conn.push_back((GConnection*)&(*cit));
+      }
     }
 
-		// Count max process index
+    // Count max process index
     int conCnt = 0;
-		for(cpit = _processes.begin(); cpit != _processes.end(); cpit++ ){
-			std::list<GProcess>::iterator pit = cpit->second.begin();
-			for(; pit != cpit->second.end(); pit++){
-				if( pit->index() > conCnt )
-					conCnt = pit->index();
-			}
-		}
+    for(cpit = _processes.begin(); cpit != _processes.end(); cpit++ ){
+      std::list<GProcess>::iterator pit = cpit->second.begin();
+      for(; pit != cpit->second.end(); pit++){
+        if( pit->index() > conCnt )
+          conCnt = pit->index();
+      }
+    }
     conCnt++;
 
     // Head of dot-file 
     o << "digraph { \n";
 
     // Create nodes for processes
-		int cnt;
-		for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
-			std::list<GProcess>::iterator pit = cpit->second.begin();
-			std::string cur_hostname = pit->hostname;
-			o << "subgraph cluster" << cnt << " {\n";
-			o << " label=\"" << cur_hostname << "\";\n";
-			o << " color=blue;\n";
-			// write all processes
-			for(; pit != cpit->second.end(); pit++){
-				pit->writeNode(o);
-			}
-			// write all inhost connections
-			if( sockets ){
-				if( inhost_conn.find(cur_hostname) != inhost_conn.end() ){
-					for(gcit = inhost_conn[cur_hostname].begin(); 
-							gcit != inhost_conn[cur_hostname].end(); 
-							gcit++ ){
-						(*gcit)->writeConnection(o,conCnt);
-					}
-				}
-			}
+    int cnt;
+    for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
+      std::list<GProcess>::iterator pit = cpit->second.begin();
+      std::string cur_hostname = pit->hostname;
+      o << "subgraph cluster" << cnt << " {\n";
+      o << " label=\"" << cur_hostname << "\";\n";
+      o << " color=blue;\n";
+      // write all processes
+      for(; pit != cpit->second.end(); pit++){
+        pit->writeNode(o);
+      }
+      // write all inhost connections
+      if( sockets ){
+        if( inhost_conn.find(cur_hostname) != inhost_conn.end() ){
+          for(gcit = inhost_conn[cur_hostname].begin(); 
+              gcit != inhost_conn[cur_hostname].end(); 
+              gcit++ ){
+            (*gcit)->writeConnection(o,conCnt);
+          }
+        }
+      }
 
-			o << "}\n";
-		}
+      o << "}\n";
+    }
 
-		// write all interhost connections
-		if( sockets ){
-			for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
-				// Write connection to the file
-				(*gcit)->writeConnection(o,conCnt);
-			}
-		}
+    // write all interhost connections
+    if( sockets ){
+      for(gcit = interhost_conn.begin(); gcit != interhost_conn.end(); gcit++){
+        // Write connection to the file
+        (*gcit)->writeConnection(o,conCnt);
+      }
+    }
 
-		// write Parent - Child relationships
-		if( parent_child ){
-			DMTCP_process::iterator dit,dit1;
-			for(dit = _row_processes.begin(); dit != _row_processes.end(); dit++){
-				std::cout << "Inspect process: " << dit->second->procname 
-									<< "[" << dit->second->pid << "," 
-									<< dit->second->ppid << "]:\n";
-				dit1 = _row_processes.find(dit->second->ppid);
-				if( dit1 != _row_processes.end() ){
-					std::cout << "find " << dit1->second->procname 
-										<< "[" << dit1->second->pid << "]\n";
-					o << " \"" << dit1->second->index() << "\" -> \"" << dit->second->index() 
-						<< "\" [ color=\"#FF0000\", style=\"bold\" ]\n";
-				}
-			}
-		}
+    // write Parent - Child relationships
+    if( parent_child ){
+      DMTCP_process::iterator dit,dit1;
+      for(dit = _row_processes.begin(); dit != _row_processes.end(); dit++){
+        std::cout << "Inspect process: " << dit->second->procname 
+                  << "[" << dit->second->pid << "," 
+                  << dit->second->ppid << "]:\n";
+        dit1 = _row_processes.find(dit->second->ppid);
+        if( dit1 != _row_processes.end() ){
+          std::cout << "find " << dit1->second->procname 
+                    << "[" << dit1->second->pid << "]\n";
+          o << " \"" << dit1->second->index() << "\" -> \"" << dit->second->index() 
+            << "\" [ color=\"#FF0000\", style=\"bold\" ]\n";
+        }
+      }
+    }
     o << "}\n"; 
   }
 }
@@ -391,26 +404,27 @@ namespace
 
 
 static const char* theUsage = 
-		"USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
-		"\t-o <filename> - Output in dot-like format\n"
-		"\t-d <filename> - Create graph using dot command (need graphviz package)\n"
-		"\t--par-ch-off  - Do not draw parent-child relations\n"
-		"\t--sock-off    - Do not draw socket connections\n"
-		"\t-f            - Verbose node indication\n";
+    "USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
+    "\t-o <filename> - Output in dot-like format\n"
+    "\t-d <filename> - Create graph using dot command (need graphviz package)\n"
+    "\t--par-ch-off  - Do not draw parent-child relations\n"
+    "\t--sock-off    - Do not draw socket connections\n"
+    "\t--sock-all    - Represent half-connections (when some *.mtcp files are missed)\n"
+    "\t-f            - Verbose node indication\n";
 
 int main ( int argc, char** argv )
 {
 
-	// Process command line options
+  // Process command line options
   int c;
 
-	// No arguments => help
-	if( argc == 1 ){
-		std::cerr << theUsage;
-		return 1;
-	}
+  // No arguments => help
+  if( argc == 1 ){
+    std::cerr << theUsage;
+    return 1;
+  }
 
-	// Process arguments
+  // Process arguments
   while (1) {
     int this_option_optind = optind ? optind : 1;
     int option_index = 0;
@@ -422,6 +436,7 @@ int main ( int argc, char** argv )
     {"help", 0, 0, 'h'},
     {"par-ch-off", 0, 0, 0},
     {"sock-off", 0, 0, 0},
+    {"sock-all", 0, 0, 0},
     {0, 0, 0, 0}
     };
 
@@ -430,36 +445,39 @@ int main ( int argc, char** argv )
       break;
 
     switch (c) {
-		case 0:{
-			std::string tmp = long_options[option_index].name;
-			
-			if ( tmp == "par-ch-off" ){
-				std::cout << "Turn off parent-child relation\n";
-				parent_child = false;
-			} else if( tmp == "sock-off" ){
-				std::cout << "Turn off socket connnections\n";
-				sockets = false;
-			}
-		}
-			break;
+    case 0:{
+      std::string tmp = long_options[option_index].name;
+      
+      if ( tmp == "par-ch-off" ){
+        std::cout << "Turn off parent-child relation\n";
+        parent_child = false;
+      } else if( tmp == "sock-off" ){
+        std::cout << "Turn off socket connnections\n";
+        sockets = false;
+      } else if ( tmp == "sock-all" ){
+        std::cout << "Show all connections\n";
+        show_all_conn = true;
+      }
+    }
+      break;
     case 'o':
-			outfile = optarg;
-			std::cout << "Set output to: " << outfile << "\n";
+      outfile = optarg;
+      std::cout << "Set output to: " << outfile << "\n";
       break;
     case 'f':
       fullout = true;
-			std::cout << "Write full process info\n";
+      std::cout << "Write full process info\n";
       break;
     case 'd':
       usedot = true;
-			dotfile = optarg;
-			std::cout << "Write output to DOT command. Result file:" << dotfile << " \n";
+      dotfile = optarg;
+      std::cout << "Write output to DOT command. Result file:" << dotfile << " \n";
       break;
-		case 'h':
-			std::cerr << theUsage;
-			return 1;
+    case 'h':
+      std::cerr << theUsage;
+      return 1;
     case '?':
-			break;
+      break;
 
     default:
       printf("?? getopt returned character code 0%o ??\n", c);
@@ -468,17 +486,17 @@ int main ( int argc, char** argv )
 
   std::vector<InspectTarget> targets;
   if (optind < argc) {
-		std::cout << "Loading checkpoint files:\n";
+    std::cout << "Loading checkpoint files:\n";
     for(int i = optind; i < argc; i++){
-			std::cout << "Load " << argv[i] << "\n";
-			if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
-				continue;
-			targets.push_back ( InspectTarget ( argv[i] ) );
-		}
+      std::cout << "Load " << argv[i] << "\n";
+      if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
+        continue;
+      targets.push_back ( InspectTarget ( argv[i] ) );
+    }
   }else{
-		std::cerr << theUsage;
-		return 1;
-	}
+    std::cerr << theUsage;
+    return 1;
+  }
 
   ConnectionGraph conGr(ConnectionList::Instance());
   for(int i =0; i < targets.size(); i++){
@@ -486,28 +504,28 @@ int main ( int argc, char** argv )
   }
 
 
-	std::string out_string;
-	std::ostringstream buf(out_string);
-	conGr.writeGraph(buf);
-	std::cout << buf.str();
-	if( usedot ){	
-		// Create pipe to dot
-		std::string popen_str = "dot -Tpdf -o ";
-		popen_str += dotfile;
-		std::cout << "Popen arg: " << popen_str 
-							<< "\nInput len=" << buf.str().length() << "\n";
-		FILE *fp = popen(popen_str.c_str(),"w");
-		if( !fp ){
-			std::cout << "Error in popen(\"" << dotfile.c_str() << "\",\"w\"\n";
-			return 0;
-		}
-		fprintf(fp,"%s",buf.str().c_str());
-		pclose(fp);
-	}else{
-		std::ofstream o(outfile.c_str());
-		o << buf.str();
-		o.close();
-	}
+  std::string out_string;
+  std::ostringstream buf(out_string);
+  conGr.writeGraph(buf);
+  std::cout << buf.str();
+  if( usedot ){ 
+    // Create pipe to dot
+    std::string popen_str = "dot -Tpdf -o ";
+    popen_str += dotfile;
+    std::cout << "Popen arg: " << popen_str 
+              << "\nInput len=" << buf.str().length() << "\n";
+    FILE *fp = popen(popen_str.c_str(),"w");
+    if( !fp ){
+      std::cout << "Error in popen(\"" << dotfile.c_str() << "\",\"w\"\n";
+      return 0;
+    }
+    fprintf(fp,"%s",buf.str().c_str());
+    pclose(fp);
+  }else{
+    std::ofstream o(outfile.c_str());
+    o << buf.str();
+    o.close();
+  }
 
   return 0;
 }
