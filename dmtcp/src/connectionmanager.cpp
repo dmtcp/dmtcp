@@ -404,8 +404,6 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 
   // Current process information
   o & _procname & _inhostname & _pid & _ppid;
-	std::cout << "Serialize: procname=" << _procname 
-						<< " PID=" << _pid << " PPID=" << _ppid << "\n";
 
   size_t numCons = _table.size();
   o & numCons;
@@ -414,6 +412,8 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   {
     _hostname = jalib::Filesystem::GetCurrentHostname();
     o & _hostname;
+    JTRACE("Writing hostname to checkpoint file")(_hostname)(_inhostname)(_procname)(_ppid);
+
     // Save connections
     for ( iterator i=_table.begin(); i!=_table.end(); ++i )
     {
