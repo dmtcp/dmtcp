@@ -284,7 +284,9 @@ p3=str(randint(2000,10000))
 
 runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
-runTest("dmtcp2",        1, ["./test/dmtcp1"])
+runTest("dmtcp2",        1, ["./test/dmtcp2"])
+
+runTest("dmtcp3",        1, ["./test/dmtcp3"])
 
 runTest("shared-fd",     2, ["./test/shared-fd"])
 

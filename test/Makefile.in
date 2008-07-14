@@ -36,6 +36,9 @@ DMTCPAWARELIB=../dmtcpaware/libdmtcpaware.a
 dmtcpaware%: dmtcpaware%.c
 	-$(CC) -o $@ $< $(CFLAGS) $(DMTCPAWARELIB)
 
+dmtcp3: dmtcp3.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
 
