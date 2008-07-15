@@ -7,7 +7,7 @@
 
 static void *threadMain(void *dummy);
 
-#define N 50
+#define N 10
 
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
