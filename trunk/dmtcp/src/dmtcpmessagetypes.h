@@ -102,6 +102,8 @@ namespace dmtcp
     }
   };
 
+#define DMTCPMESSAGE_NUM_PARAMS 2
+
   struct DmtcpMessage
   {
     char _magicBits[16];
@@ -120,7 +122,7 @@ namespace dmtcp
     int                     restorePort;
 
     //message type specific parameters
-    int params[2];
+    int params[DMTCPMESSAGE_NUM_PARAMS];
 
     //extraBytes are used for passing checkpoint filename to coordinator it must be zero in all messages except for in DMT_CKPT_FILENAME
     int extraBytes;

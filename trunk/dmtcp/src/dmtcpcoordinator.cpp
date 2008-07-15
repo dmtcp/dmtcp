@@ -26,6 +26,10 @@
 #include <sys/stat.h>
 #include "jtimer.h"
 #include <algorithm>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #undef min
 #undef max
 
@@ -43,16 +47,26 @@ static const char* theHelpMessage =
 ;
 
 static const char* theUsage =
-  "USAGE: dmtcp_coordinator [port]\n"
-  "OPTIONS: (Environment variables):\n"
-  "  - DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)\n"
-  "  - DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)\n"
-  "  - DMTCP_PORT=<coordinator listener port> (default: %d)\n"
+  "USAGE: \n"
+  "   dmtcp_coordinator [OPTIONS] [port]\n\n"
+  "OPTIONS:\n"
+  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "      Port to listen on (default: 7779)\n"
+  "  --dir, -d, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints (default: 0, disabled)\n"
+  "  --exit-on-last\n"
+  "      Exit automatically when last client disconnects\n" 
+  "  --background\n"
+  "      Run silently in the background\n" 
   "COMMANDS:\n"
-  "  (type '?<return>' at runtime for list)\n"
+  "  (type '?<return>' at runtime for list)\n\n"
+  "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
 
+static bool exitOnLast = false;
 int theCheckpointInterval = -1;
 
 const int STDIN_FD = fileno ( stdin );
@@ -154,6 +168,18 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'q': case 'Q':
     JASSERT_STDERR << "exiting... (per request)\n";
+    for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+        ; i!= _dataSockets.end()
+        ; ++i )
+    {
+      (*i)->socket().close();
+    }
+    for ( std::vector<jalib::JSocket>::iterator i = _listenSockets.begin()
+        ; i!= _listenSockets.end()
+        ; ++i )
+    {
+      i->close();
+    }
     exit ( 0 );
     break;
   case 'k': case 'K':
@@ -315,7 +341,6 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 
 void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
 {
-
   if ( sock->socket().sockfd() == STDIN_FD )
   {
     JTRACE ( "stdin closed" );
@@ -325,6 +350,13 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
     NamedChunkReader& client = * ( ( NamedChunkReader* ) sock );
     JNOTE ( "client disconnected" ) ( client.identity() );
 
+    if(exitOnLast){
+      CoordinatorStatus s = getStatus();
+      if(s.numPeers <= 1){
+        JNOTE ("last client exited, shutting down..");
+        handleUserCommand('q');
+      }
+    }
 
 //         int clientNumber = ((NamedChunkReader*)sock)->clientNumber();
 //         JASSERT(clientNumber >= 0)(clientNumber);
@@ -567,15 +599,48 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   _restartFilenames.clear();
 }
 
+#define shift argc--; argv++
+
 int main ( int argc, char** argv )
 {
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
-
+  
   //parse port
   int port = DEFAULT_PORT;
   const char* portStr = getenv ( ENV_VAR_NAME_PORT );
   if ( portStr != NULL ) port = jalib::StringToInt ( portStr );
-  if ( argc > 1 ) port = atoi ( argv[1] );
+
+  bool background = false;
+
+  shift;
+  while(argc > 0){
+    std::string s = argv[0];
+    if(s=="-h" || s=="--help"){
+      fprintf(stderr, theUsage, DEFAULT_PORT);
+      return 1;
+    }else if(s=="--exit-on-last"){
+      exitOnLast = true;
+      shift;
+    }else if(s=="--background"){
+      background = true;
+      shift;
+    }else if(argc>1 && (s == "-i" || s == "--interval")){
+      setenv(ENV_VAR_NAME_CKPT_INTR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-p" || s == "--port")){
+      port = jalib::StringToInt( argv[1] );
+      shift; shift;
+    }else if(argc>1 && (s == "-d" || s == "--dir")){
+      setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      shift; shift;
+    }else if(argc == 1){ //last arg can be port
+      port = jalib::StringToInt( argv[0] );
+      shift;
+    }else{
+      fprintf(stderr, theUsage, DEFAULT_PORT);
+      return 1;
+    }
+  }
 
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
@@ -586,19 +651,35 @@ int main ( int argc, char** argv )
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
   }
-
-  JASSERT_STDERR <<
-    "dmtcp_coordinator starting..." << 
-    "\n    Port: " << port <<
-    "\n    Checkpoint Interval: " << ( theCheckpointInterval > 0 ? "" + theCheckpointInterval : "0 (checkpoint manually instead)" ) <<
-    "\n'dmtcp_coordinator -h' for help." <<
-    "\n\n";
-
-  jalib::JServerSocket sock ( jalib::JSockAddr::ANY,port );
+  
+  jalib::JServerSocket sock ( jalib::JSockAddr::ANY, port );
   JASSERT ( sock.isValid() ) ( port ).Text ( "Failed to create listen socket" );
+
+  if(background){
+    JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
+    JASSERT(dup2(open("/dev/null",O_RDWR), 1)==1);
+    JASSERT(dup2(open("/dev/null",O_RDWR), 2)==2);
+    if(fork()>0){
+      exit(0);
+    }
+  }else{
+    JASSERT_STDERR <<
+      "dmtcp_coordinator starting..." << 
+      "\n    Port: " << port <<
+      "\n    Checkpoint Interval: ";
+    if(theCheckpointInterval==0)
+      JASSERT_STDERR << "disabled (checkpoint manually instead)";
+    else
+      JASSERT_STDERR << theCheckpointInterval;
+    JASSERT_STDERR  <<
+      "\n    Exit on last client: " << exitOnLast <<
+      "\nType '?' for help." <<
+      "\n\n";
+  }
+
   dmtcp::DmtcpCoordinator prog;
   prog.addListenSocket ( sock );
-  prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
+  if(!background) prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
   prog.monitorSockets ( theCheckpointInterval > 0 ? theCheckpointInterval : 3600 );
   return 0;
 }

@@ -1085,6 +1085,8 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
+      setup_sig_handler(); //keep pounding the signal handler in
+      
       if (*(thread -> actual_tidptr) == 0) {
         DPRINTF (("mtcp checkpointhread*: thread %d disappeared\n", thread -> tid));
         unlk_threads ();

@@ -522,3 +522,10 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
     JTRACE ( "connected to dmtcp coordinator, no handshake" ) ( coordinatorAddr ) ( coordinatorPort );
   }
 }
+
+//to allow linking without mtcpinterface
+void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
+{
+  JASSERT(false).Text("should not be called");
+}
+
