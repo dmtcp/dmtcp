@@ -31,23 +31,49 @@ using namespace dmtcp;
 
 static const DmtcpMessage * exampleMessage = NULL;
 static const char* theUsage = 
-  "USAGE: dmtcp_command COMMAND\n"
-  "  where COMMAND is one of:\n"
+  "PURPOSE:\n"
+  "  Send a command to the dmtcp_coordinator remotely.\n\n"
+  "USAGE:\n"
+  "  dmtcp_command [OPTIONS] COMMAND\n\n"
+  "OPTIONS:\n"
+  "  --host, -h, (environment variable DMTCP_HOST):\n"
+  "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
+  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "      Port where dmtcp_coordinator is run (default: 7779)\n\n"
+  "COMMANDS:\n"
   "    s : Print status message\n"
   "    c : Checkpoint all nodes\n"
   "    f : Force a restart even if there are missing nodes (debugging only)\n"
   "    k : Kill all nodes\n"
-  "    q : Kill all nodes and quit\n"
+  "    q : Kill all nodes and quit\n\n"
+  "See http://dmtcp.sf.net/ for more information.\n"
 ;
+
+
+//shift args
+#define shift argc--; argv++
 
 int main ( int argc, char** argv )
 {
-  if( argc != 2 ){
-    fprintf(stderr, theUsage);
-    return 1;
+  //process args 
+  shift;
+  while(true){
+    std::string s = argc>0 ? argv[0] : "--help";
+    if(s=="--help"){
+      fprintf(stderr, theUsage);
+      return 1;
+    }else if(argc>1 && (s == "-h" || s == "--host")){
+      setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-p" || s == "--port")){
+      setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    }else{
+      break;
+    }
   }
 
-  const char* cmd = argv[1];
+  const char* cmd = argv[0];
   //ignore leading dashes
   while(*cmd == '-') cmd++;
 
@@ -56,7 +82,7 @@ int main ( int argc, char** argv )
     return 1;
   }
   
-  int result[sizeof(exampleMessage->params)/sizeof(int)];
+  int result[DMTCPMESSAGE_NUM_PARAMS];
   DmtcpWorker worker(false);
   worker.connectAndSendUserCommand(*cmd, result);
 
@@ -85,8 +111,3 @@ int main ( int argc, char** argv )
   return 0;
 }
 
-//needed to link
-void dmtcp::initializeMtcpEngine()
-{
-  JASSERT ( "false" ).Text ( "should not be called in dmtcp_restart" );
-}

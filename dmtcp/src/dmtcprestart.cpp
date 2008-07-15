@@ -233,8 +233,3 @@ static void runMtcpRestore ( const std::string& file )
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
 
-//needed to link
-void dmtcp::initializeMtcpEngine()
-{
-  JASSERT ( "false" ).Text ( "should not be called in dmtcp_restart" );
-}
