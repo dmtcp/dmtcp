@@ -1426,10 +1426,12 @@ static void checkpointeverything (void)
       * implies we're in 32-bit mode.
       */
      if (area_begin >= HIGHEST_VA && area_begin == 0xffffe000) continue;
+#ifdef __x86_64__
      /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
       * use 0xffffffffff600000 for VDSO.
       */
      if (area_begin >= HIGHEST_VA && area_begin == 0xffffffffff600000) continue;
+#endif
 
     /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
 
@@ -2361,7 +2363,8 @@ static void setup_sig_handler (void)
   }
   if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
     mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).  You"
-                 " may employ a different signal by setting the MTCP_SIGCKPT "
+                 " may employ a different signal by setting the\n"
+		 "  MTCP_SIGCKPT (DMTCP_SIGCKPT)"
                  "environment variable to the number of the signal MTCP should "
                  "use for checkpointing.\n", STOPSIGNAL, oldhandler);
     mtcp_abort ();
