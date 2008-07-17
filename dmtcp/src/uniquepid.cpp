@@ -176,7 +176,7 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 
 std::ostream& std::operator<< ( std::ostream& o,const dmtcp::UniquePid& id )
 {
-  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time();
+  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }
 

@@ -261,20 +261,19 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
   {
     ConnectionIdentifier con = i->first;
     const std::vector<int>& fds = i->second;
-    JASSERT(fds.size() > 0);
-    std::string device = fdToDevice ( fds[0], true );
-    _table[device] = con;
-
-
+    JWARNING(fds.size() > 0)(con);
+    if(fds.size()>0){
+      std::string device = fdToDevice ( fds[0], true );
+      _table[device] = con;
 #ifdef DEBUG
-    //double check to make sure all fds have same device
-    for ( size_t i=1; i<fds.size(); ++i )
-    {
-      JASSERT ( device == fdToDevice ( fds[i] ) )
-      ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
-    }
+      //double check to make sure all fds have same device
+      for ( size_t i=1; i<fds.size(); ++i )
+      {
+        JASSERT ( device == fdToDevice ( fds[i] ) )
+        ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+      }
 #endif
-
+    }
   }
 #ifdef DEBUG
   JTRACE ( "new fd table..." );

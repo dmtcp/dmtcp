@@ -288,6 +288,8 @@ runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
 
+runTest("dmtcp4",        1, ["./test/dmtcp4"])
+
 runTest("shared-fd",     2, ["./test/shared-fd"])
 
 runTest("echoserver",    2, ["./test/echoserver/server "+p0,

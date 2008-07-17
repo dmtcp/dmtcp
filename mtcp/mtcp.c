@@ -225,6 +225,20 @@ static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
 static void sync_shared_mem(void);
+
+typedef void (*sighandler_t)(int);
+
+sighandler_t _real_signal(int signum, sighandler_t handler){
+  return signal(signum, handler);
+}
+int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  return sigaction(signum, act, oldact);
+}
+int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+  return sigprocmask(how, set, oldset);
+}
+
+
 
 /********************************************************************************************************************************/
 /*																*/
@@ -524,7 +538,7 @@ void mtcp_dump_tls (char const *file, int line)
 
   mutex = 0;
   mtcp_sys_futex (&mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
-  if (sigprocmask (SIG_SETMASK, &oldsigmask, NULL) < 0) {
+  if (_real_sigprocmask (SIG_SETMASK, &oldsigmask, NULL) < 0) {
     abort ();
   }
 #endif
@@ -1886,14 +1900,14 @@ static void save_sig_state (Thread *thisthread)
   /* Block signal delivery first so signal handlers can't change state of signal handlers on us */
 
   memset (&blockall, -1, sizeof blockall);
-  if (sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
+  if (_real_sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
     mtcp_abort ();
   }
 
   /* Now save all the signal handlers */
 
   for (i = NSIG; -- i >= 0;) {
-    if (sigaction (i, NULL, thisthread -> sigactions + i) < 0) {
+    if (_real_sigaction (i, NULL, thisthread -> sigactions + i) < 0) {
       if (errno == EINVAL) memset (thisthread -> sigactions + i, 0, sizeof thisthread -> sigactions[i]);
       else {
         mtcp_printf ("mtcp save_sig_state: error saving signal %d action: %s\n", i, strerror (errno));
@@ -2355,7 +2369,7 @@ static void setup_sig_handler (void)
 {
   void (*oldhandler) (int signum);
 
-  oldhandler = signal (STOPSIGNAL, stopthisthread);
+  oldhandler = _real_signal (STOPSIGNAL, &stopthisthread);
   if (oldhandler == SIG_ERR) {
     mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n",
                  strerror (errno));
@@ -2406,4 +2420,5 @@ static void sync_shared_mem(void)
 
   close (mapsfd);
 }
+
 

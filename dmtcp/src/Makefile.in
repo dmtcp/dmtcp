@@ -98,10 +98,10 @@ dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a
-am_dmtcphijack_so_OBJECTS = dmtcpworker.$(OBJEXT) \
+am_dmtcphijack_so_OBJECTS = dmtcpapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
-	syscallwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
-	dmtcpapi.$(OBJEXT)
+	signalwrapers.$(OBJEXT) syscallwrappers.$(OBJEXT) \
+	workerhijack.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a
 dmtcphijack_so_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
@@ -276,8 +276,8 @@ dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp 
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
-dmtcphijack_so_SOURCES = dmtcpworker.cpp execwrappers.cpp mtcpinterface.cpp \
-	syscallwrappers.c workerhijack.cpp dmtcpapi.cpp
+dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
+	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 dmtcphijack_so_LDFLAGS = -shared 
@@ -468,6 +468,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalmanager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrapers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallwrappers.Po@am__quote@
