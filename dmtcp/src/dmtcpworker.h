@@ -26,7 +26,7 @@
 namespace dmtcp
 {
 
-  class CheckpointCoordinator;
+  class ConnectionState;
 
   class DmtcpWorker
   {
@@ -37,7 +37,7 @@ namespace dmtcp
       void waitForStage1Suspend();
       void waitForStage2Checkpoint();
       void waitForStage3Resume();
-      void restoreSockets ( CheckpointCoordinator& coordinator );
+      void restoreSockets ( ConnectionState& coordinator );
       void postRestart();
 
       static void resetOnFork();

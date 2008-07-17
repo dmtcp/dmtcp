@@ -17,7 +17,7 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#include "dmtcpcoordinator.h"
+#include "dmtcp_coordinator.h"
 #include "constants.h"
 #include "jconvert.h"
 #include "dmtcpmessagetypes.h"

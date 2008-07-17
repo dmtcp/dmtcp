@@ -17,8 +17,8 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef DMTCPCHECKPOINTCOORDINATOR_H
-#define DMTCPCHECKPOINTCOORDINATOR_H
+#ifndef DMTCPCHECKPOINTSTATE_H
+#define DMTCPCHECKPOINTSTATE_H
 
 #include "kernelbufferdrainer.h"
 #include "connectionmanager.h"
@@ -28,10 +28,13 @@
 namespace dmtcp
 {
 
-  class CheckpointCoordinator
+  /**
+  *  State of open connections, stored in checkpoint image
+  */
+  class ConnectionState
   {
     public:
-      CheckpointCoordinator ( const ConnectionToFds& ctfd = ConnectionToFds() );
+      ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
       void preCheckpointLock();
       void preCheckpointDrain();

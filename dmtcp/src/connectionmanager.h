@@ -33,7 +33,7 @@ namespace dmtcp
 
   class KernelDeviceToConnection;
   class ConnectionToFds;
-  class CheckpointCoordinator;
+  class ConnectionState;
   
   class ConnectionList
   {
