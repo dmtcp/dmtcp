@@ -23,6 +23,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <signal.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -63,10 +65,20 @@ extern "C"
   void _real_openlog ( const char *ident, int option, int facility );
   void _real_closelog ( void );
 
-
-
   pid_t _real_fork();
 
+  typedef void (*sighandler_t)(int);
+
+  //set the handler
+  sighandler_t _real_signal(int signum, sighandler_t handler);
+  int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+  int _real_sigvec(int sig, const struct sigvec *vec, struct sigvec *ovec);
+
+  //set the mask
+  int _real_sigblock(int mask);
+  int _real_sigsetmask(int mask);
+  int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+  int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
 
   void _dmtcp_lock();
   void _dmtcp_unlock();

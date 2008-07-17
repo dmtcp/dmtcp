@@ -37,6 +37,8 @@
 
 typedef int ( *funcptr ) ();
 
+typedef funcptr ( *signal_funcptr ) ();
+
 static pthread_mutex_t theMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -165,4 +167,33 @@ void _real_closelog ( void )
 void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
 void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
 void _dmtcp_remutex_on_fork() {pthread_mutex_init ( &theMutex, NULL );}
+
+//set the handler
+sighandler_t _real_signal(int signum, sighandler_t handler){
+    static signal_funcptr fn = NULL;
+    if(fn==NULL) fn = (signal_funcptr)get_libc_symbol("signal"); 
+    (*fn)(signum, handler);
+}
+int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
+}
+int _real_sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
+  REAL_FUNC_PASSTHROUGH ( sigvec ) ( signum, vec, ovec );
+}
+
+//set the mask
+int _real_sigblock(int mask){
+  REAL_FUNC_PASSTHROUGH ( sigblock ) ( mask );
+}
+int _real_sigsetmask(int mask){
+  REAL_FUNC_PASSTHROUGH ( sigsetmask ) ( mask );
+}
+int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
+  REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
+}
+int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
+  //**** TODO Link with the "real" pthread_sigmask ******
+  REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
+}
+
 

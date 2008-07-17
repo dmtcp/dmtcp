@@ -34,7 +34,7 @@
         <dmtcp_checkpoint/>
         <dmtcp_restart/>
         <dmtcp_command/>
-        <dmtcp_inspector/>
+        <dmtcp_inspector></dmtcp_inspector>
       </runarguments>
       <customdirectory>/</customdirectory>
       <programargs/>
@@ -45,7 +45,7 @@
         <dmtcp_command/>
         <dmtcp_checkpoint/>
         <dmtcp_restart/>
-        <dmtcp_inspector/>
+        <dmtcp_inspector></dmtcp_inspector>
       </debugarguments>
       <cwd>
         <dmtcp_coordinator>/home/jansel/svn/dmtcp/dmtcp/./src</dmtcp_coordinator>
