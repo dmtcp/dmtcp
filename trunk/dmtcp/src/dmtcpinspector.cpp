@@ -31,7 +31,7 @@
 #include "jfilesystem.h"
 #include "connectionmanager.h"
 #include "dmtcpworker.h"
-#include "checkpointcoordinator.h"
+#include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "jtimer.h"

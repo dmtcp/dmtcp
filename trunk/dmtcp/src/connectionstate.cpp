@@ -17,20 +17,20 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#include "checkpointcoordinator.h"
-#include "constants.h"
+#include "connectionstate.h"
+#include "constants.h":
 #include "dmtcpmessagetypes.h"
 #include "syslogcheckpointer.h"
 #include "signalmanager.h"
 #include "dmtcpworker.h"
 #include "connectionrewirer.h"
 
-dmtcp::CheckpointCoordinator::CheckpointCoordinator ( const ConnectionToFds& ctfd )
+dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )
     : _conToFds ( ctfd )
 {}
 
 
-void dmtcp::CheckpointCoordinator::preCheckpointLock()
+void dmtcp::ConnectionState::preCheckpointLock()
 {
   SignalManager::saveSignals();
   SyslogCheckpointer::stopService();
@@ -52,7 +52,7 @@ void dmtcp::CheckpointCoordinator::preCheckpointLock()
 
 
 }
-void dmtcp::CheckpointCoordinator::preCheckpointDrain()
+void dmtcp::ConnectionState::preCheckpointDrain()
 {
   ConnectionList& connections = ConnectionList::Instance();
   
@@ -109,7 +109,7 @@ void dmtcp::CheckpointCoordinator::preCheckpointDrain()
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
 }
 
-void dmtcp::CheckpointCoordinator::preCheckpointHandshakes(const UniquePid& coordinator)
+void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinator)
 {
   ConnectionList& connections = ConnectionList::Instance();
 
@@ -139,7 +139,7 @@ void dmtcp::CheckpointCoordinator::preCheckpointHandshakes(const UniquePid& coor
   }
 }
 
-void dmtcp::CheckpointCoordinator::outputDmtcpConnectionTable()
+void dmtcp::ConnectionState::outputDmtcpConnectionTable()
 {
     //write out the *.dmtcp file
     std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
@@ -150,7 +150,7 @@ void dmtcp::CheckpointCoordinator::outputDmtcpConnectionTable()
 
 
 
-void dmtcp::CheckpointCoordinator::postCheckpoint()
+void dmtcp::ConnectionState::postCheckpoint()
 {
   _drain.refillAllSockets();
 
@@ -170,7 +170,7 @@ void dmtcp::CheckpointCoordinator::postCheckpoint()
   SignalManager::restoreSignals();
 }
 
-void dmtcp::CheckpointCoordinator::postRestart()
+void dmtcp::ConnectionState::postRestart()
 {
   ConnectionList& connections = ConnectionList::Instance();
   for ( ConnectionList::iterator i= connections.begin()
@@ -190,7 +190,7 @@ void dmtcp::CheckpointCoordinator::postRestart()
   KernelDeviceToConnection::Instance() = KernelDeviceToConnection ( _conToFds );
 }
 
-void dmtcp::CheckpointCoordinator::doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen )
+void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen )
 {
   _rewirer.addDataSocket ( new jalib::JChunkReader ( coordinator,sizeof ( DmtcpMessage ) ) );
   _rewirer.addListenSocket ( restoreListen );

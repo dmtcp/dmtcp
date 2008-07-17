@@ -33,7 +33,7 @@
 #include "protectedfds.h"
 #include "connectionidentifier.h"
 #include "connectionmanager.h"
-#include "checkpointcoordinator.h"
+#include "connectionstate.h"
 #include <pthread.h>
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -59,7 +59,7 @@ void dmtcp::DmtcpWorker::unmaskStdErr()
 }
 
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
-static dmtcp::CheckpointCoordinator* theCoordinator = 0;
+static dmtcp::ConnectionState* theCheckpointState = 0;
 static int theRestorPort = RESTORE_PORT_START;
 
 void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
@@ -247,9 +247,9 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     JASSERT ( msg.type == dmtcp::DMT_DO_LOCK_FDS ) ( msg.type );
   }
   JTRACE ( "locking..." );
-  JASSERT ( theCoordinator == 0 );
-  theCoordinator = new CheckpointCoordinator();
-  theCoordinator->preCheckpointLock();
+  JASSERT ( theCheckpointState == 0 );
+  theCheckpointState = new ConnectionState();
+  theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
   WorkerState::setCurrentState ( WorkerState::LOCKED );
   {
@@ -267,7 +267,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     JASSERT ( msg.type == dmtcp::DMT_DO_DRAIN ) ( msg.type );
   }
   JTRACE ( "draining..." );
-  theCoordinator->preCheckpointDrain();
+  theCheckpointState->preCheckpointDrain();
   JTRACE ( "drained" );
   WorkerState::setCurrentState ( WorkerState::DRAINED );
   {
@@ -289,12 +289,12 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 #if HANDSHAKE_ON_CHECKPOINT == 1
   //handshake is done after one barrier after drain
   JTRACE ( "beginning handshakes" );
-  theCoordinator->preCheckpointHandshakes(coordinatorId());
+  theCheckpointState->preCheckpointHandshakes(coordinatorId());
   JTRACE ( "handshaking done" );
 #endif
 
   JTRACE("writing *.dmtcp file");
-  theCoordinator->outputDmtcpConnectionTable();
+  theCheckpointState->outputDmtcpConnectionTable();
 
   JTRACE ( "masking stderr from mtcp" );
   //because MTCP spams, and the user may have a socket for stderr
@@ -341,10 +341,10 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
     while ( msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART );
     JASSERT ( msg.type == dmtcp::DMT_DO_REFILL ) ( msg.type );
   }
-  JASSERT ( theCoordinator != 0 );
-  theCoordinator->postCheckpoint();
-  delete theCoordinator;
-  theCoordinator = 0;
+  JASSERT ( theCheckpointState != 0 );
+  theCheckpointState->postCheckpoint();
+  delete theCheckpointState;
+  theCheckpointState = 0;
   JTRACE ( "refilled" );
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   {
@@ -377,8 +377,8 @@ void dmtcp::DmtcpWorker::postRestart()
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
   connectToCoordinator();
 
-  JASSERT ( theCoordinator != NULL );
-  theCoordinator->postRestart();
+  JASSERT ( theCheckpointState != NULL );
+  theCheckpointState->postRestart();
 
   JTRACE ( "masking stderr from mtcp" );
   //because MTCP spams, and the user may have a socket for stderr
@@ -387,7 +387,7 @@ void dmtcp::DmtcpWorker::postRestart()
   JTRACE ( "postRestart end" );
 }
 
-void dmtcp::DmtcpWorker::restoreSockets ( CheckpointCoordinator& coordinator )
+void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator )
 {
   JTRACE ( "restoreSockets begin" );
 

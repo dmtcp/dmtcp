@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include "dmtcpworker.h"
-#include "dmtcpcoordinator.h"
+#include "dmtcp_coordinator.h"
 #include "dmtcpmessagetypes.h"
 #include "mtcpinterface.h"
 
