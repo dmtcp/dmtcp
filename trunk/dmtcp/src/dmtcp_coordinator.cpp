@@ -34,6 +34,8 @@
 #undef max
 
 
+int thePort = -1;
+
 static const char* theHelpMessage =
   "COMMANDS:\n"
   "  l : List connected nodes\n"
@@ -555,6 +557,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   if(dir==NULL) dir = ".";
   std::string filename = std::string(dir)+"/"+RESTART_SCRIPT_NAME;
 
+  const bool isSingleHost = (_restartFilenames.size() == 1);
+
   std::map< std::string, std::vector<std::string> >::const_iterator host;
   std::vector<std::string>::const_iterator file;
   char hostname[80];
@@ -574,21 +578,33 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
             "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n"
             "\n"
-            "\n"
-             );
+            "\n");
+  fprintf(fp, "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  " ENV_VAR_NAME_ADDR "=%s\nfi\n\n", hostname);
+  fprintf(fp, "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  " ENV_VAR_NAME_PORT "=%d\nfi\n\n", thePort);
+            
 
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
-    fprintf ( fp,"ssh %s env " ENV_VAR_NAME_ADDR "=%s " DMTCP_RESTART_CMD " ",
-              host->first.c_str(), hostname );
+    if(isSingleHost && host->first==hostname){ 
+      fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" ); 
+    }
+
+    fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD 
+                  " --host \"$"ENV_VAR_NAME_ADDR"\""
+                  " --port \"$"ENV_VAR_NAME_ADDR"\""
+                  " --join", 
+                  host->first.c_str());
+
+    if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
+
     for ( file=host->second.begin(); file!=host->second.end(); ++file )
     {
       fprintf ( fp," %s", file->c_str() );
     }
-    fprintf ( fp," & \n" );
+    if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
   }
 
-  fprintf ( fp,"\n#wait for them all to finish\nwait" );
+  fprintf ( fp,"\n\n#wait for them all to finish\nwait\n" );
   fclose ( fp );
   {
     /* Set execute permission for user. */
@@ -606,9 +622,9 @@ int main ( int argc, char** argv )
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
   
   //parse port
-  int port = DEFAULT_PORT;
+  thePort = DEFAULT_PORT;
   const char* portStr = getenv ( ENV_VAR_NAME_PORT );
-  if ( portStr != NULL ) port = jalib::StringToInt ( portStr );
+  if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
 
   bool background = false;
 
@@ -628,13 +644,13 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_NAME_CKPT_INTR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
-      port = jalib::StringToInt( argv[1] );
+      thePort = jalib::StringToInt( argv[1] );
       shift; shift;
     }else if(argc>1 && (s == "-d" || s == "--dir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
     }else if(argc == 1){ //last arg can be port
-      port = jalib::StringToInt( argv[0] );
+      thePort = jalib::StringToInt( argv[0] );
       shift;
     }else{
       fprintf(stderr, theUsage, DEFAULT_PORT);
@@ -646,14 +662,14 @@ int main ( int argc, char** argv )
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
   if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
 
-  if ( port <= 0 )
+  if ( thePort <= 0 )
   {
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
   }
   
-  jalib::JServerSocket sock ( jalib::JSockAddr::ANY, port );
-  JASSERT ( sock.isValid() ) ( port ).Text ( "Failed to create listen socket" );
+  jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
+  JASSERT ( sock.isValid() ) ( thePort ).Text ( "Failed to create listen socket" );
 
   if(background){
     JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
@@ -665,7 +681,7 @@ int main ( int argc, char** argv )
   }else{
     JASSERT_STDERR <<
       "dmtcp_coordinator starting..." << 
-      "\n    Port: " << port <<
+      "\n    Port: " << thePort <<
       "\n    Checkpoint Interval: ";
     if(theCheckpointInterval==0)
       JASSERT_STDERR << "disabled (checkpoint manually instead)";

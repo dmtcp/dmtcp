@@ -119,11 +119,11 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
     
-      std::string procname() const { return _procname; }
-      std::string hostname() const { return _hostname; }
-      std::string inhostname() const { return _inhostname; }
-      const UniquePid &pid() const { return _pid; }
-      const UniquePid &ppid() const { return _ppid; }
+      const std::string& procname()   const { return _procname; }
+      const std::string& hostname()   const { return _hostname; }
+      const std::string& inhostname() const { return _inhostname; }
+      const UniquePid&   pid()        const { return _pid; }
+      const UniquePid&   ppid()       const { return _ppid; }
 
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
