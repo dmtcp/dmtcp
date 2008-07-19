@@ -26,6 +26,7 @@
 #include "jfilesystem.h"
 #include "connectionmanager.h"
 #include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
@@ -134,6 +135,9 @@ namespace
         runMtcpRestore ( _mtcpPath );
       }
 
+      const UniquePid& pid() const { return _conToFd.pid(); }
+      const std::string& procname() const { return _conToFd.procname(); }
+
       std::string     _mtcpPath;
       std::string     _dmtcpPath;
       ConnectionToFds _conToFd;
@@ -143,37 +147,76 @@ namespace
 }//namespace
 
 static const char* theUsage = 
-  "USAGE: dmtcp_restart [--force] <ckpt1.mtcp> [ckpt2.mtcp...]\n";
+  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.mtcp> [ckpt2.mtcp...]\n\n"
+  "OPTIONS:\n"
+  "  --host, -h, (environment variable DMTCP_HOST):\n"
+  "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
+  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "      Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --join, -j:\n"
+  "      Join an existing coordinator, do not create one automatically\n"
+  "  --new, -n:\n"
+  "      Create a new coordinator, raise error if one already exists\n"
+  "  --no-check:\n"
+  "      Skip check for valid coordinator and never start one automatically\n\n"
+  "See http://dmtcp.sf.net/ for more information.\n"
 ;
+
+//shift args
+#define shift argc--,argv++
 
 int main ( int argc, char** argv )
 {
-  if( argc < 2 || strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
-    fprintf(stderr, theUsage);
-    return 1;
+  bool autoStartCoordinator=true;
+  int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
+
+  //process args 
+  shift;
+  while(true){
+    std::string s = argc>0 ? argv[0] : "--help";
+    if(s=="--help"){
+      fprintf(stderr, theUsage);
+      return 1;
+    }else if(s == "--no-check"){
+      autoStartCoordinator = false;
+      shift;
+    }else if(s == "-j" || s == "--join"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_JOIN;
+      shift;
+    }else if(s == "-n" || s == "--new"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
+      shift;
+    }else if(argc>1 && (s == "-h" || s == "--host")){
+      setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-p" || s == "--port")){
+      setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && s=="--"){
+      shift;
+      break;
+    }else{
+      break;
+    }
   }
 
-  if ( argc == 2 && strcmp ( argv[1],"--force" ) ==0 )
-  {
-    //tell the coordinator that it should broadcast a DMT_FORCE_RESTART message
-    DmtcpWorker worker ( false );
-    worker.connectAndSendUserCommand('f');
-    return 0;
-  }
+  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
   //make sure JASSERT initializes now, rather than durring restart
   JASSERT_INIT();
 
   std::vector<RestoreTarget> targets;
 
-  for ( int i = argc-1; i>0; --i )
-  {
-    if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
+  for(; argc>0; shift){
+    std::string a = argv[0];
+    if (targets.size()>0 && targets.back()._dmtcpPath == a )
       continue;
 
-    targets.push_back ( RestoreTarget ( argv[i] ) );
+    JTRACE("adding target")(a);
+    targets.push_back ( RestoreTarget ( a ) );
   }
 
+  JASSERT(targets.size()>0);
 
   SlidingFdTable slidingFd;
   ConnectionToFds conToFd;
@@ -192,25 +235,29 @@ int main ( int argc, char** argv )
 
   worker.restoreSockets ( ckptCoord );
 
-
-  for ( size_t i=0; i<targets.size(); ++i )
-  {
-    if ( i+1 < targets.size() )
-    {
-      JTRACE ( "forking..." );
-      int child = fork();
-      JASSERT ( child >= 0 ) ( child ).Text ( "fork failed" );
-      if ( child != 0 )
-      {
-        //sleep ( 1 );
-        continue;
-      }
-    }
-
-    targets[i].dupAllSockets ( slidingFd );
-    targets[i].mtcpRestart();
+  int i = (int)targets.size();
+  
+  //fork into targs.size() processes
+  while(--i > 0){
+    int cid = fork();
+    if(cid==0) break;
+    else JASSERT(cid>0);
   }
+  RestoreTarget& targ = targets[i];
 
+  JTRACE("forked, restoring process")(i)(targets.size())(targ.pid())(getpid());
+
+  //change UniquePid
+  UniquePid::resetOnFork(targ.pid());
+
+  //Reconnect to dmtcp_coordinator
+  WorkerState::setCurrentState ( WorkerState::RESTARTING );
+  worker.connectToCoordinator(false);
+  worker.sendCoordinatorHandshake(targ.procname());
+
+  //restart targets[i]
+  targets[i].dupAllSockets ( slidingFd );
+  targets[i].mtcpRestart();
 
   JASSERT ( false ).Text ( "unreachable" );
   return -1;

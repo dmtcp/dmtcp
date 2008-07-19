@@ -56,10 +56,20 @@ namespace dmtcp
 
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
-    protected:
-      void sendUserCommand(char c, int* result = NULL);
 
       void connectToCoordinator(bool doHanshaking=true);
+      void sendCoordinatorHandshake(const std::string& procName);
+      void recvCoordinatorHandshake();
+
+
+      enum {
+        COORD_JOIN = 1,
+        COORD_NEW  = 2,
+        COORD_ANY  = COORD_JOIN | COORD_NEW
+      };
+      static void startCoordinatorIfNeeded(int modes);
+    protected:
+      void sendUserCommand(char c, int* result = NULL);      
     private:
       static DmtcpWorker theInstance;
     private:

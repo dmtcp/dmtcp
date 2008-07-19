@@ -29,7 +29,7 @@
 
 using namespace dmtcp;
 
-static const DmtcpMessage * exampleMessage = NULL;
+
 static const char* theUsage = 
   "PURPOSE:\n"
   "  Send a command to the dmtcp_coordinator remotely.\n\n"

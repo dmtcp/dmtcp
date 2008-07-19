@@ -35,6 +35,12 @@
 #include "connectionmanager.h"
 #include "connectionstate.h"
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -367,24 +373,16 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
 
 void dmtcp::DmtcpWorker::postRestart()
 {
-  JTRACE ( "postRestart begin" );
-
-  JTRACE ( "umasking stderr" );
   unmaskStdErr();
+  JTRACE("begin postRestart()");
 
-
-  //reconnect to our coordinator
-  WorkerState::setCurrentState ( WorkerState::RESTARTING );
-  connectToCoordinator();
+  WorkerState::setCurrentState(WorkerState::RESTARTING);
+  recvCoordinatorHandshake();
 
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
-  JTRACE ( "masking stderr from mtcp" );
-  //because MTCP spams, and the user may have a socket for stderr
   maskStdErr();
-
-  JTRACE ( "postRestart end" );
 }
 
 void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator )
@@ -498,28 +496,112 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
 
   if(doHanshaking)
   {
-    std::string hostname = jalib::Filesystem::GetCurrentHostname();
-    std::string progname = jalib::Filesystem::GetProgramName();
-
-    dmtcp::DmtcpMessage hello_local, hello_remote;
-    hello_remote.poison();
-    hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
-    hello_local.restorePort = theRestorPort;
-    hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
-//         hello_local.restorePid.id = UniquePid::ThisProcess();
-    _coordinatorSocket << hello_local;
-    _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
-    _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
-    _coordinatorSocket >> hello_remote;
-    hello_remote.assertValid();
-    JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
-    _coordinatorId = hello_remote.coordinator;
-
-    DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
-
-    JTRACE ( "connected to dmtcp coordinator" ) ( coordinatorAddr ) ( coordinatorPort ) ( _coordinatorId ) ( hello_local.from ) ( UniquePid::checkpointFilename() ) ( jalib::Filesystem::GetProgramPath() );
+    sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
+    recvCoordinatorHandshake();
   }else{
     JTRACE ( "connected to dmtcp coordinator, no handshake" ) ( coordinatorAddr ) ( coordinatorPort );
+  }
+}
+
+void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const std::string& progname){
+  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+
+  std::string hostname = jalib::Filesystem::GetCurrentHostname();
+  dmtcp::DmtcpMessage hello_local;
+  hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
+  hello_local.restorePort = theRestorPort;
+  hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
+  _coordinatorSocket << hello_local;
+  _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
+  _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
+}
+
+void dmtcp::DmtcpWorker::recvCoordinatorHandshake(){
+  JTRACE("recieving coordinator handshake");
+
+  dmtcp::DmtcpMessage hello_remote;
+  hello_remote.poison();
+  _coordinatorSocket >> hello_remote;
+  hello_remote.assertValid();
+  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
+  _coordinatorId = hello_remote.coordinator;
+  DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
+}
+
+void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
+  const static int CS_OK = 91;
+  const static int CS_NO = 92;
+  int coordinatorStatus = -1;
+  //fork a child process to probe the coordinator
+  if(fork()==0){
+    //fork so if we hit an error parent wont die
+    dup2(2,1);                          //copy stderr to stdout
+    dup2(open("/dev/null",O_RDWR), 2);  //close stderr
+    int result[DMTCPMESSAGE_NUM_PARAMS];
+    dmtcp::DmtcpWorker worker(false);
+    worker.connectAndSendUserCommand('s', result);
+    if(result[0]==0 || result[1]){
+      if(result[0] != 0)
+        printf("[DMTCP] Joining existing computation of %d processes.\n", result[0]);
+      exit(CS_OK);
+    }else{
+      printf("[DMTCP] ERROR: existing computation not in a running state, perhaps checkpoint in progress?\n");
+      exit(CS_NO);
+    }
+  }
+  JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
+
+  //is coordinator running?
+  if(WEXITSTATUS(coordinatorStatus) != CS_OK){
+    //is coordinator in funny state?
+    if(WEXITSTATUS(coordinatorStatus) == CS_NO){
+      exit(1);
+    }
+    
+    //get location of coordinator
+    const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+    if(coordinatorAddr==NULL) coordinatorAddr = "localhost";
+    const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
+    int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(coordinatorPortStr);
+    
+    fprintf(stderr, "[DMTCP] Coordinator not found at %s:%d.\n", coordinatorAddr, coordinatorPort);
+
+    if((modes&COORD_NEW) == 0){
+      fprintf(stderr, "[DMTCP] Won't automatically start coordinator because '--join' flag is specified.\n");
+      exit(1);
+    }
+
+    if(coordinatorAddr!=NULL){
+      std::string s=coordinatorAddr;
+      if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
+        fprintf(stderr, "[DMTCP] Won't automatically start coordinator because DMTCP_HOST is set to a remote host.\n");
+        exit(1); 
+      }
+    }
+
+    fprintf(stderr, "[DMTCP] Starting a new coordinator automatically.\n");
+
+    if(fork()==0){
+      std::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+      char * args[] = {
+        (char*)coordinator.c_str(),
+        (char*)"--exit-on-last",
+        (char*)"--background",
+        NULL
+      };
+      execv(args[0], args);
+      JASSERT(false)(coordinator)(JASSERT_ERRNO).Text("exec(dmtcp_coordinator) failed");
+    }
+    JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
+    if(WEXITSTATUS(coordinatorStatus) != 0){
+      printf("[DMTCP] ERROR: Failed to start coordinator, port already in use.\n[DMTCP] You may use a different port by running with '-p 12345'\n");
+      exit(1);
+    }
+  }else{
+    if((modes&COORD_JOIN) == 0){
+      fprintf(stderr, "[DMTCP] ERROR: Coordinator already running, but '--new' flag was given.\n");
+      exit(1);
+    }
   }
 }
 
@@ -528,4 +610,3 @@ void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
 {
   JASSERT(false).Text("should not be called");
 }
-

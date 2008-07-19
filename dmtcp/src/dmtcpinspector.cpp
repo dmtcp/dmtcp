@@ -159,6 +159,8 @@ namespace
       if( _cli == tcpCon.id() && _srv == tcpCon.getRemoteId() )
         return true;
       return false;
+    default:
+      return false;
     }
   }
 
@@ -228,7 +230,7 @@ namespace
   class ConnectionGraph{
     public:
       ConnectionGraph(ConnectionList &list);
-      bool importProcess(ConnectionToFds &conToFd);
+      void importProcess(ConnectionToFds &conToFd);
       bool exportGraph(std::string ofile);
       std::list<GConnection>::iterator find(TcpConnection &tcpCon);
       void writeGraph(std::ostringstream &o);
@@ -270,7 +272,7 @@ namespace
     return _connections.end();
   } 
 
-  bool ConnectionGraph::importProcess(ConnectionToFds &conToFd)
+  void ConnectionGraph::importProcess(ConnectionToFds &conToFd)
   {
     ConnectionToFds::const_iterator cit;
     std::list<GProcess>::iterator pit;
@@ -426,7 +428,7 @@ int main ( int argc, char** argv )
 
   // Process arguments
   while (1) {
-    int this_option_optind = optind ? optind : 1;
+//    int this_option_optind = optind ? optind : 1;
     int option_index = 0;
     static struct option long_options[] = 
     {
@@ -499,7 +501,7 @@ int main ( int argc, char** argv )
   }
 
   ConnectionGraph conGr(ConnectionList::Instance());
-  for(int i =0; i < targets.size(); i++){
+  for(size_t i =0; i < targets.size(); i++){
     conGr.importProcess(targets[i]._conToFd);
   }
 
