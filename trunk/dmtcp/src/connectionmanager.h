@@ -124,7 +124,12 @@ namespace dmtcp
       const std::string& inhostname() const { return _inhostname; }
       const UniquePid&   pid()        const { return _pid; }
       const UniquePid&   ppid()       const { return _ppid; }
+      
+      static int openDmtcpCheckpointFile(const std::string& filename);
+      static int openMtcpCheckpointFile(const std::string& filename);
 
+      void loadFromFile(const std::string& filename);
+      
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
       std::string _procname;

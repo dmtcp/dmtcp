@@ -61,6 +61,7 @@ namespace dmtcp
       void sendCoordinatorHandshake(const std::string& procName);
       void recvCoordinatorHandshake();
 
+      void writeCheckpointPrefix(int fd);
 
       enum {
         COORD_JOIN = 1,

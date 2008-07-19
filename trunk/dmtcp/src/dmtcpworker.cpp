@@ -299,11 +299,22 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "handshaking done" );
 #endif
 
-  JTRACE("writing *.dmtcp file");
-  theCheckpointState->outputDmtcpConnectionTable();
+//   JTRACE("writing *.dmtcp file");
+//   theCheckpointState->outputDmtcpConnectionTable();
 
   JTRACE ( "masking stderr from mtcp" );
   //because MTCP spams, and the user may have a socket for stderr
+  maskStdErr();
+}
+
+void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd){
+  unmaskStdErr();
+  
+  const int len = strlen(DMTCP_FILE_HEADER);
+  JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
+  
+  theCheckpointState->outputDmtcpConnectionTable(fd);
+
   maskStdErr();
 }
 

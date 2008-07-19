@@ -103,27 +103,38 @@ namespace jalib
     serializeVector<int> ( t );
   }
 
+  class JBinarySerializeWriterRaw : public JBinarySerializer
+  {
+    public:
+      JBinarySerializeWriterRaw ( const std::string& file, int fd );
+      void readOrWrite ( void* buffer, size_t len );
+      bool isReader();
+    protected:
+      int _fd;
+  };
 
-  class JBinarySerializeWriter : public JBinarySerializer
+  class JBinarySerializeWriter : public JBinarySerializeWriterRaw
   {
     public:
       JBinarySerializeWriter ( const std::string& path );
       ~JBinarySerializeWriter();
-      void readOrWrite ( void* buffer, size_t len );
-      bool isReader();
-    private:
-      FILE* _fd;
   };
 
-  class JBinarySerializeReader : public JBinarySerializer
+  class JBinarySerializeReaderRaw : public JBinarySerializer
+  {
+    public:
+      JBinarySerializeReaderRaw ( const std::string& file, int fd );
+      void readOrWrite ( void* buffer, size_t len );
+      bool isReader();
+    protected:
+      int _fd;
+  };
+  
+  class JBinarySerializeReader : public JBinarySerializeReaderRaw
   {
     public:
       JBinarySerializeReader ( const std::string& path );
       ~JBinarySerializeReader();
-      void readOrWrite ( void* buffer, size_t len );
-      bool isReader();
-    private:
-      FILE* _fd;
   };
 
 

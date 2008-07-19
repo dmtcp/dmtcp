@@ -51,17 +51,10 @@ namespace
   {
     public:
       InspectTarget (const std::string& path)
-        : _mtcpPath(path),
-          _dmtcpPath (path + ".dmtcp")
       {
-        JASSERT (jalib::Filesystem::FileExists(_mtcpPath)) (_mtcpPath).Text("missing file");
-        JASSERT (jalib::Filesystem::FileExists(_dmtcpPath)) (_dmtcpPath).Text("missing file");
-        jalib::JBinarySerializeReader rd(_dmtcpPath);
-        _conToFd.serialize(rd);
+        JASSERT (jalib::Filesystem::FileExists(path)) (path).Text("missing file");
+        _conToFd.loadFromFile(path);
       }
-
-      std::string     _mtcpPath;
-      std::string     _dmtcpPath;
       ConnectionToFds _conToFd;
   };
 
@@ -491,8 +484,6 @@ int main ( int argc, char** argv )
     std::cout << "Loading checkpoint files:\n";
     for(int i = optind; i < argc; i++){
       std::cout << "Load " << argv[i] << "\n";
-      if ( targets.size() >0 && targets.back()._dmtcpPath == argv[i] )
-        continue;
       targets.push_back ( InspectTarget ( argv[i] ) );
     }
   }else{

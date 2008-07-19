@@ -56,11 +56,8 @@ typedef struct _DmtcpLocalStatus {
   /// The number of times this process has been restarted
   int numRestarts;
 
-  /// Filename of (large) .mtcp checkpoint file (memory/threads) for this process
-  const char* checkpointFilenameMtcp; 
-
-  /// Filename of (tiny) .dmtcp checkpoint file (connection table) for this process
-  const char* checkpointFilenameDmtcp;
+  /// Filename of .dmtcp checkpoint file for this process
+  const char* checkpointFilename; 
 
   /// The DMTCP cluster-wide unique process identifier for this process.
   /// Format is "HostHash-PID-Timestamp"
