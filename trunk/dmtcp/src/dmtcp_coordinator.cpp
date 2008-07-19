@@ -669,7 +669,7 @@ int main ( int argc, char** argv )
   }
   
   jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
-  JASSERT ( sock.isValid() ) ( thePort ).Text ( "Failed to create listen socket" );
+  JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
 
   if(background){
     JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
