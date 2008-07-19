@@ -118,6 +118,18 @@ jalib::JSocket jalib::JSocket::accept ( struct sockaddr_storage* remoteAddr,sock
     return JSocket ( DECORATE_FN ( accept ) ( _sockfd, ( sockaddr* ) remoteAddr, remoteLen ) );
 }
 
+void jalib::JSocket::enablePortReuse()
+{
+  const int one = 1;
+  //These options will hopefully reduce address already in use errors
+  if (setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0){
+    JWARNING(false)(JASSERT_ERRNO).Text("setsockopt() failed");
+  }
+//  if (setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0){
+//    JWARNING(false)(JASSERT_ERRNO).Text("setsockopt() failed");
+//  }
+}
+
 bool jalib::JSocket::close()
 {
   if ( !isValid() ) return false;

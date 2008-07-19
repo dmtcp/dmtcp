@@ -72,6 +72,8 @@ namespace jalib
       ssize_t writeAll ( const char* buf, size_t len );
       bool isValid() const;
 
+      void enablePortReuse();
+
       template <typename T>
       JSocket& operator << ( const T& t ) { writeAll ( ( const char* ) &t, sizeof ( T ) ); return *this; }
       template <typename T>
@@ -99,6 +101,7 @@ namespace jalib
     public:
       JServerSocket ( const JSockAddr& addr, int port, int backlog = 32 )
       {
+        enablePortReuse();
         if ( !bind ( addr, port ) || !listen ( backlog ) )
           close();
       }
