@@ -20,45 +20,56 @@
 #include "jserialize.h"
 #include "jassert.h"
 #include "stdio.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const std::string& path, int fd )
+    : JBinarySerializer ( path )
+    , _fd ( fd )
+{
+  JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
+}
 
 jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const std::string& path )
-    : JBinarySerializer ( path )
-    , _fd ( fopen ( path.c_str(), "w" ) )
+  : JBinarySerializeWriterRaw ( path , open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
+{}
+
+jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const std::string& path, int fd )
+  : JBinarySerializer ( path )
+  , _fd ( fd )
 {
-  JASSERT (_fd != NULL)(path)(JASSERT_ERRNO).Text("fopen(path) failed");
+  JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
 jalib::JBinarySerializeReader::JBinarySerializeReader ( const std::string& path )
-    : JBinarySerializer ( path )
-    , _fd ( fopen ( path.c_str(), "r" ) )
-{
-  JASSERT (_fd != NULL)(path)(JASSERT_ERRNO).Text("fopen(path) failed");
-}
+  : JBinarySerializeReaderRaw ( path , open ( path.c_str(), O_RDONLY ) )
+{}
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()
 {
-  fclose ( _fd );
+  close ( _fd );
 }
 
 jalib::JBinarySerializeReader::~JBinarySerializeReader()
 {
-  fclose ( _fd );
+  close ( _fd );
 }
 
 
-bool jalib::JBinarySerializeWriter::isReader() {return false;}
+bool jalib::JBinarySerializeWriterRaw::isReader() {return false;}
 
-bool jalib::JBinarySerializeReader::isReader() {return true;}
+bool jalib::JBinarySerializeReaderRaw::isReader() {return true;}
 
 
-void jalib::JBinarySerializeWriter::readOrWrite ( void* buffer, size_t len )
+void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  JASSERT ( fwrite ( buffer, len, 1, _fd ) ) ( filename() ) ( len ).Text ( "fwrite() failed" );
+  JASSERT ( write (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "write() failed" );
 }
 
 
-void jalib::JBinarySerializeReader::readOrWrite ( void* buffer, size_t len )
+void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  JASSERT ( fread ( buffer, len, 1, _fd ) ) ( filename() ) ( len ).Text ( "fread() failed" );
+  JASSERT ( read (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "read() failed" );
 }
 

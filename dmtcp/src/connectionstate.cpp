@@ -139,13 +139,13 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
   }
 }
 
-void dmtcp::ConnectionState::outputDmtcpConnectionTable()
+void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
 {
     //write out the *.dmtcp file
-    std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
-    JTRACE ( "Writing *.dmtcp checkpoint file" );
-    jalib::JBinarySerializeWriter wr ( serialFile );
-    _conToFds.serialize ( wr );
+  //std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
+  //JTRACE ( "Writing *.dmtcp checkpoint file" );
+  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
+  _conToFds.serialize ( wr );
 }
 
 

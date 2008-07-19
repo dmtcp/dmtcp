@@ -205,13 +205,13 @@ def runTest(name, numProcs, cmds):
     
     #make sure the right files are there
     numFiles=len(listdir(ckptDir))
-    CHECK(numFiles==status[0]*2+1, "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
+    CHECK(numFiles==status[0]+1, "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
   
   def testRestart():
     #build restart command
     cmd=BIN+"dmtcp_restart"
     for i in listdir(ckptDir):
-      if i.endswith(".mtcp"):
+      if i.endswith(".dmtcp"):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(launch(cmd))

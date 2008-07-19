@@ -25,7 +25,9 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
@@ -609,3 +611,41 @@ bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
   }
   return true;
 }
+
+int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
+  int fd = open( path.c_str(), O_RDONLY);
+  JASSERT(fd>=0)(path).Text("Failed to open file.");
+  char buf[512];
+  const int len = strlen(DMTCP_FILE_HEADER);
+  JASSERT(read(fd, buf, len)==len)(path).Text("read() failed");
+  if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
+    JTRACE("opened checkpoint file [uncompressed]")(path);
+    return fd;
+  }else{
+    close(fd);
+    std::string cmd = std::string()+"exec gzip -d - < '"+path+"'";
+    FILE* t = popen(cmd.c_str(),"r");
+    JASSERT(t!=NULL)(path)(cmd).Text("Failed to launch gzip.");
+    fd = fileno(t);
+    JASSERT(read(fd, buf, len)==len)(cmd)(path).Text("Invalid checkpoint file");
+    JASSERT(strncmp(buf, DMTCP_FILE_HEADER, len)==0)(path).Text("Invalid checkpoint file");
+    JTRACE("opened checkpoint file [compressed]")(path);
+    return fd;
+  }
+}
+
+int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const std::string& path){
+  int fd = openDmtcpCheckpointFile(path);
+  jalib::JBinarySerializeReaderRaw rdr(path, fd);
+  static ConnectionToFds trash;
+  trash.serialize(rdr);
+  return fd;
+}
+
+void dmtcp::ConnectionToFds::loadFromFile(const std::string& path){
+  int fd = openDmtcpCheckpointFile(path);
+  jalib::JBinarySerializeReaderRaw rdr(path, fd);
+  serialize(rdr);
+  close(fd);
+}
+

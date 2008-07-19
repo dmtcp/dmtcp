@@ -179,6 +179,7 @@ static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
+static void (*callback_write_ckpt_prefix)(int fd) = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg), 
                            void *child_stack, 
@@ -446,12 +447,14 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
-			int (*ckpt_fd)(int fd))
+                        int  (*ckpt_fd)(int fd),
+                        void (*write_ckpt_prefix)(int fd))
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
+    callback_write_ckpt_prefix = write_ckpt_prefix;
 }
 
 /********************************************************************************************************************************/
@@ -1374,6 +1377,10 @@ static void checkpointeverything (void)
   /* Create temp checkpoint file and write magic number to it */
 
   fd = open_ckpt_to_write();
+  
+  if(callback_write_ckpt_prefix != 0)
+    (*callback_write_ckpt_prefix)(fd);
+
   writefile (fd, MAGIC, MAGIC_LEN);
 
   /* Write out the shareable parameters and the image   */

@@ -122,7 +122,7 @@ const char* dmtcp::UniquePid::checkpointFilename()
     os << CHECKPOINT_FILE_PREFIX 
        << jalib::Filesystem::GetProgramName() 
        << '_' << ThisProcess()
-       << ".mtcp";
+       << ".dmtcp";
     
     checkpointFilename_str = os.str();
   }
@@ -134,12 +134,6 @@ std::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   return "/tmp/dmtcpConTable." + jalib::XToString ( getpid() )
          + '_' + jalib::XToString ( count++ );
-}
-
-std::string dmtcp::UniquePid::dmtcpCheckpointFilename()
-{
-  static std::string extraTxt ( ".dmtcp" );
-  return checkpointFilename() + extraTxt;
 }
 
 const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )

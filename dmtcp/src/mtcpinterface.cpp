@@ -81,7 +81,8 @@ extern "C"
   typedef void ( *t_mtcp_set_callbacks ) ( void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) (),
           void ( *post_ckpt ) ( int is_restarting ),
-          int ( *ckpt_fd ) ( int fd ) );
+          int  ( *ckpt_fd ) ( int fd ),
+          void ( *write_ckpt_prefix ) ( int fd ));
   typedef int ( *t_mtcp_ok ) ( void );
 }
 
@@ -123,27 +124,30 @@ static int callbackShouldCkptFD ( int /*fd*/ )
   return 0;
 }
 
+static void callbackWriteCkptPrefix ( int fd )
+{
+  dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
+}
 
 void dmtcp::initializeMtcpEngine()
 {
 
   t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
-
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
   t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
 
-
-  ( *setCallbks ) ( callbackSleepBetweenCheckpoint,callbackPreCheckpoint,callbackPostCheckpoint,callbackShouldCkptFD );
+  ( *setCallbks )( &callbackSleepBetweenCheckpoint
+                 , &callbackPreCheckpoint
+                 , &callbackPostCheckpoint
+                 , &callbackShouldCkptFD
+                 , &callbackWriteCkptPrefix);
   ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
   ( *okFn ) ();
 
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
 }
-
-
-
 
 //need to forward user clone
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )

@@ -65,15 +65,19 @@ int main (int argc, char *argv[])
   } else if ((argc == 3) && (strcasecmp (argv[1], "-verify") == 0)) {
     verify = 1;
     restorename = argv[2];
+  } else if ((argc == 3) && (strcasecmp (argv[1], "-fd") == 0)) {
+    restorename = NULL;
+    fd = atoi(argv[2]);
   } else {
     fprintf (stderr, "usage: mtcp_restart [-verify] <checkpointfile>\n");
     return (-1);
   }
 
-  fd = open_ckpt_to_read(restorename);
+  if(restorename!=NULL) fd = open_ckpt_to_read(restorename);
+  memset(magicbuf, 0, sizeof magicbuf);
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    fprintf (stderr, "mtcp_restart: %s is %s, but this restore is %s\n", restorename, magicbuf, MAGIC);
+    fprintf (stderr, "mtcp_restart: '%s' is '%s', but this restore is '%s' (fd=%d)\n", restorename, magicbuf, MAGIC, fd);
     return (-1);
   }
 
@@ -199,7 +203,7 @@ static int open_ckpt_to_read(char *filename)
     int fds[2];
     char fc;
     char *gzip_path;
-    char *gzip_args[] = { "gzip", "-d", "-", NULL };
+    static char *gzip_args[] = { "gzip", "-d", "-", NULL };
     pid_t cpid;
 
     fc = first_char(filename);

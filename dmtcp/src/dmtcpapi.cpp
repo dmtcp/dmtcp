@@ -100,21 +100,18 @@ EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
 
 EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   //these must be static so there memory is not deleted.
-  static std::string mtcp;
-  static std::string dmtcp;
+  static std::string ckpt;
   static std::string pid;
   static DmtcpLocalStatus status;
-  mtcp.reserve(1024);
+  ckpt.reserve(1024);
   
   //get filenames
   pid=dmtcp::UniquePid::ThisProcess().toString();
-  mtcp=dmtcp::UniquePid::checkpointFilename();
-  dmtcp=dmtcp::UniquePid::dmtcpCheckpointFilename();
+  ckpt=dmtcp::UniquePid::checkpointFilename();
   
   status.numCheckpoints          = numCheckpoints;
   status.numRestarts             = numRestarts;
-  status.checkpointFilenameMtcp  = mtcp.c_str(); 
-  status.checkpointFilenameDmtcp = dmtcp.c_str();
+  status.checkpointFilename      = ckpt.c_str(); 
   status.uniquePidStr            = pid.c_str();
   return &status;
 }

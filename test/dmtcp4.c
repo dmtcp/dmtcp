@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 
 void myGroovyHandler(int i){
   printf("yay signals!!!\n");

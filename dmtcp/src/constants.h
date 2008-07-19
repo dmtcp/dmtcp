@@ -77,6 +77,8 @@
 
 #define RESTART_SCRIPT_NAME "dmtcp_restart_script.sh"
 
+#define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
+
 #define PROTECTED_FD_START 820
 #define PROTECTED_FD_COUNT 8
 

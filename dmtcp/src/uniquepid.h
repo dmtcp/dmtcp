@@ -43,7 +43,6 @@ namespace dmtcp
     pid_t pid() const;
     time_t time() const;
     static const char* checkpointFilename();
-    static std::string dmtcpCheckpointFilename();
     static std::string dmtcpTableFilename();
     static const char* ptsSymlinkFilename ( char *pts );
 

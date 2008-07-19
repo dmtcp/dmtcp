@@ -39,9 +39,8 @@ int main(int argc, char* argv[])
     fflush(stdout);
     ls = dmtcpGetLocalStatus();
     assert(ls!=NULL);
-    printf("{\n\t %d,\n\t %d,\n\t %s,\n\t %s,\n\t %s}\n", 
-        ls->numCheckpoints, ls->numRestarts, ls->checkpointFilenameMtcp,
-        ls->checkpointFilenameDmtcp, ls->uniquePidStr);
+    printf("{\n\t %d,\n\t %d,\n\t %s,\n\t %s}\n", 
+        ls->numCheckpoints, ls->numRestarts, ls->checkpointFilename, ls->uniquePidStr);
 
     printf("dmtcpGetCoordinatorStatus()=");
     fflush(stdout);

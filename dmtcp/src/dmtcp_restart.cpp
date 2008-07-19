@@ -30,9 +30,12 @@
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "jtimer.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-static void runMtcpRestore ( const std::string& file );
+
+static void runMtcpRestore ( const char* path );
 
 using namespace dmtcp;
 
@@ -43,14 +46,12 @@ namespace
   {
     public:
       RestoreTarget ( const std::string& path )
-          : _mtcpPath ( path )
-          , _dmtcpPath ( path + ".dmtcp" )
+          : _path ( path )
       {
-        JASSERT ( jalib::Filesystem::FileExists ( _mtcpPath ) ) ( _mtcpPath ).Text ( "missing file" );
-        JASSERT ( jalib::Filesystem::FileExists ( _dmtcpPath ) ) ( _dmtcpPath ).Text ( "missing file" );
-        jalib::JBinarySerializeReader rd ( _dmtcpPath );
-        _conToFd.serialize ( rd );
-        JTRACE ( "restore target" ) ( _mtcpPath ) ( _conToFd.size() );
+        
+        JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
+        _conToFd.loadFromFile(_path);
+        JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() );
       }
 
 
@@ -132,14 +133,13 @@ namespace
       void mtcpRestart()
       {
         DmtcpWorker::maskStdErr();
-        runMtcpRestore ( _mtcpPath );
+        runMtcpRestore ( _path.c_str() );
       }
 
       const UniquePid& pid() const { return _conToFd.pid(); }
       const std::string& procname() const { return _conToFd.procname(); }
 
-      std::string     _mtcpPath;
-      std::string     _dmtcpPath;
+      std::string     _path;
       ConnectionToFds _conToFd;
   };
 
@@ -208,12 +208,7 @@ int main ( int argc, char** argv )
   std::vector<RestoreTarget> targets;
 
   for(; argc>0; shift){
-    std::string a = argv[0];
-    if (targets.size()>0 && targets.back()._dmtcpPath == a )
-      continue;
-
-    JTRACE("adding target")(a);
-    targets.push_back ( RestoreTarget ( a ) );
+    targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
   JASSERT(targets.size()>0);
@@ -263,20 +258,28 @@ int main ( int argc, char** argv )
   return -1;
 }
 
-static void runMtcpRestore ( const std::string& file )
+static void runMtcpRestore ( const char* path )
 {
   static std::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
-  char* newArgs[] =
-  {
+  int fd = ConnectionToFds::openMtcpCheckpointFile(path);
+  char buf[64];
+  sprintf(buf,"%d", fd);
+
+  char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
-    ( char* ) file.c_str(),
+    ( char* ) "-fd",
+    buf,
     NULL
   };
 
-  JTRACE ( "launching mtcp_restart" ) ( newArgs[1] );
+  JTRACE ( "launching mtcp_restart" ) ( newArgs[2] );
 
   execvp ( newArgs[0], newArgs );
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
+
+
+
+
 
