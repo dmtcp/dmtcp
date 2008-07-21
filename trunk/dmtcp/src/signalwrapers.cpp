@@ -18,9 +18,14 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
+
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "stdio.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #ifndef EXTERNC
 #define EXTERNC extern "C"
@@ -28,12 +33,31 @@
 
 //gah!!! signals API is redundant
 
+
+static int _determineMtcpSignal(){
+  // this mimicks the MTCP logic for determining signal number found in
+  // mtcp_init()
+  int sig = MTCP_DEFAULT_SIGNAL;
+  char* endp = 0;
+  const char* tmp = getenv("MTCP_SIGCKPT");
+  if(tmp != NULL){
+      sig = strtol(tmp, &endp, 0);
+      if((errno != 0) || (tmp == endp))
+        sig = MTCP_DEFAULT_SIGNAL;
+      if(sig < 1 || sig > 31)
+        sig = MTCP_DEFAULT_SIGNAL;
+  }
+  return sig;
+}
+
 static int bannedSignalNumber(){
-  return SIGUSR2;
+  static const int cache = _determineMtcpSignal();
+  return cache;
 }
 
 static int patchBSDMask(int mask){
-  return mask & (~sigmask(bannedSignalNumber()));
+  static const int allowedMask = ~sigmask(bannedSignalNumber());
+  return mask & allowedMask;
 }
 
 static inline sigset_t patchPOSIXMask(const sigset_t* mask){

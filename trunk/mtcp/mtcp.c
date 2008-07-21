@@ -374,11 +374,11 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
     }
   }
 
-  /* If the user has defined a signal, use that to suspend.  Otherwise, use SIGUSR2 */
+  /* If the user has defined a signal, use that to suspend.  Otherwise, use MTCP_DEFAULT_SIGNAL */
 
   tmp = getenv("MTCP_SIGCKPT");
   if(tmp == NULL)
-      STOPSIGNAL = SIGUSR2;
+      STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
   else
   {
       errno = 0;
@@ -387,16 +387,16 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
       if((errno != 0) || (tmp == endp))
       {
           mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%s\" does not "
-                        "translate to a number, and cannot be used.  SIGUSR2 "
+                        "translate to a number, and cannot be used.  MTCP_DEFAULT_SIGNAL "
                         "will be used instead.\n", tmp);
-          STOPSIGNAL = SIGUSR2;
+          STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
       }
       else if(STOPSIGNAL < 1 || STOPSIGNAL > 31)
       {
           mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%d\" is not a valid "
-                        "signal, and cannot be used.  SIGUSR2 will be used "
+                        "signal, and cannot be used.  MTCP_DEFAULT_SIGNAL will be used "
                         "instead.\n", STOPSIGNAL);
-          STOPSIGNAL = SIGUSR2;
+          STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
       }
   }
 
