@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-
+#define MTCP_DEFAULT_SIGNAL SIGUSR2
 
 void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault);
 int mtcp_wrapper_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg);
