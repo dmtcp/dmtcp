@@ -118,7 +118,8 @@ RESTART: Overview
 	to pre-checkpoint state.  We are now using our pre-checkpoint stack
 	instead of the temporary stack.
 12. We (the checkpoint thread) are now returning from getcontext()
-	in checkpointhread().  Wait for user threads to be restored. Then
+	in checkpointhread().  Wait for user threads to be restored.
+	Execute mtcpHookRestart just before unlocking user threads.  Then
 	sleep again until next checkpoint.
 	Note that checkpointhread serves two purposes, since it's also the
 	original start function from when the checkpoint thread was created.

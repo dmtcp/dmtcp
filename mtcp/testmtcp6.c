@@ -10,6 +10,17 @@
 
 #include "mtcp.h"
 
+/* Compile with  -Wl,--export-dynamic to make these functions visible. */
+void mtcpHookPreCheckpoint() {
+  printf("\n%s: %s: about to checkpoint\n", __FILE__, __func__);
+}
+void mtcpHookPostCheckpoint() {
+  printf("\n%s: %s: done checkpointing\n", __FILE__, __func__);
+}
+void mtcpHookRestart() {
+  printf("\n%s: %s: restarting\n", __FILE__, __func__);
+}
+
 int main() {
   char *input = NULL;
   char *prompt = "> ";
