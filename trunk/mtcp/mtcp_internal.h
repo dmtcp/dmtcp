@@ -103,30 +103,26 @@ typedef unsigned int mtcp_segreg_t;
 #define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
-#ifdef __i386__
-# ifndef HIGHEST_VA
-#  define HIGHEST_VA 0xC0000000
-# endif
-#endif
-#ifdef __x86_64__
+#ifndef HIGHEST_VA
+# ifdef __x86_64__
  /* There's a segment, 7fbfffb000-7fc0000000 rw-p 7fbfffb000 00:00 0;
   * What is it?  It's busy (EBUSY) when we try to unmap it.
   */
-# ifndef HIGHEST_VA
 // #  define HIGHEST_VA 0xFFFFFF8000000000
 // #  define HIGHEST_VA 0x8000000000
 #  define HIGHEST_VA 0x7f00000000
+# else
+#  define HIGHEST_VA 0xC0000000
 # endif
 #endif
 #define FILENAMESIZE 1024
 
-#ifdef __i386__
-# define MAGIC "MTCP-V1.0"        // magic number at beginning of checkpoint file (uncompressed)
-# define MAGIC_LEN 10             // length of magic number (including \0)
-#endif
 #ifdef __x86_64__
 # define MAGIC "MTCP64-V1.0"      // magic number at beginning of uncompressed checkpoint file
 # define MAGIC_LEN 12               // length of magic number (including \0)
+#else
+# define MAGIC "MTCP-V1.0"        // magic number at beginning of checkpoint file (uncompressed)
+# define MAGIC_LEN 10             // length of magic number (including \0)
 #endif
 #define MAGIC_FIRST 'M'
 #define GZIP_FIRST 037
@@ -230,6 +226,9 @@ __attribute__ ((visibility ("hidden")))
 
 
 void mtcp_check_vdso_enabled(void);
+int mtcp_have_thread_sysinfo_offset();
+void *mtcp_get_thread_sysinfo(void);
+void mtcp_set_thread_sysinfo(void *);
 void mtcp_dump_tls (char const *file, int line);
 char *mtcp_executable_path(char *filename);
 char mtcp_readchar (int fd);

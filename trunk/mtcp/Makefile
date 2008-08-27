@@ -29,7 +29,7 @@
 ##																##
 ##################################################################################################################################
 
-MTCP_VERSION = 69
+MTCP_VERSION = 70
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
@@ -74,7 +74,10 @@ ifeq (${shell ${UNAME} -m},x86_64)
   LDFLAGS += -fPIC 
 endif
 
-all default: build tests
+all default: build tests readmtcp
+
+readmtcp: readmtcp.c
+	gcc -o readmtcp readmtcp.c
 
 build: mtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
@@ -131,8 +134,8 @@ threadtest: threadtest.c
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 	${CC} $(CFLAGS) -static \
     -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
-    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
-    mtcp_safe_open.o
+    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o \
+    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -170,8 +173,9 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	fi
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
-	mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	mtcp_safestat.o mtcp_state.o mtcp_check_vdso.o mtcp_safe_open.o
+	mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o \
+	mtcp_safemmap.o mtcp_safestat.o mtcp_safe_open.o \
+	mtcp_state.o mtcp_check_vdso.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -256,6 +260,8 @@ dist: distclean
 	ls -l ../mtcpv${MTCP_VERSION}.tgz
 
 # check: default testmtcp
+# On recent 32-bit kernels, restart fails in "make", but succeeds manually.
+# WHY?
 check: mtcp.so mtcp_restart testmtcp
 	@ echo ""
 	@ echo Type into program to verify it operates.  Will be killed in 13 s.
@@ -278,7 +284,7 @@ check: mtcp.so mtcp_restart testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out mtcp.t.orig
+	      *.lis a.out mtcp.t.orig readmtcp
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \

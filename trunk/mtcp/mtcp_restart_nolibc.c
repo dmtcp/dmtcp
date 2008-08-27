@@ -66,7 +66,7 @@ static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
 static void skipfile(int size);
-static VA highest_userspace_address (void);
+static VA highest_userspace_address (VA *vdso_addr);
 static int open_shared_file(char* fileName);
 
 /********************************************************************************************************************************/
@@ -80,10 +80,12 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
 {
   int rc;
-  VA holebase, highest_va; /* VA = virtual address */
+  VA holebase, highest_va, vdso_addr = (VA)NULL; /* VA = virtual address */
   void *current_brk;
   void *new_brk;
   void (*finishrestore) (void);
+
+  DPRINTF(("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n"));
 
   /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.  The only access we have is brk() which basically */
   /* sets mm->brk to the new value, but also has a nasty side-effect (as far as we're concerned) of mmapping an anonymous       */
@@ -125,18 +127,34 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
   rc = mtcp_sys_munmap (NULL, holebase);
   if (rc == -1) {
-      mtcp_printf ("mtcp_sys_munmap: error %d unmapping from 0 to %p\n", mtcp_sys_errno, holebase);
+      mtcp_printf ("mtcp_sys_munmap: error %d unmapping from 0 to %p\n",
+		   mtcp_sys_errno, holebase);
       mtcp_abort ();
   }
 
   holebase  = (VA)mtcp_shareable_end;
   holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
-  highest_va = highest_userspace_address();
+  highest_va = highest_userspace_address(&vdso_addr);
   if (highest_va == 0) { /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
   }
-  DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n", holebase, highest_va - 1));
-  rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
+  if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE < (VA)highest_va) {
+    if (vdso_addr < holebase) {
+      mtcp_printf ("mtcp_sys_munmap: error %d unmapping:"
+		   " vdso_addr(%p) < holebase(%p)\n",
+		   mtcp_sys_errno, vdso_addr, holebase);
+      mtcp_abort ();
+    }
+    DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
+	      holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
+    rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
+    rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
+			   highest_va - vdso_addr - PAGE_SIZE);
+  } else {
+    DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
+	      holebase, highest_va - 1));
+    rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
+  }
   if (rc == -1) {
       mtcp_printf ("mtcp_sys_munmap: error %d unmapping from %p by %p bytes\n", mtcp_sys_errno, holebase, highest_va - holebase);
       mtcp_abort ();
@@ -577,14 +595,15 @@ static void skipfile(int size)
 
 #if 1
 /* Modelled after mtcp_safemmap.  - Gene */
-static VA highest_userspace_address (void)
+static VA highest_userspace_address (VA *vdso_addr)
 {
   char c;
   int mapsfd, i;
   VA endaddr, startaddr;
   VA histackaddr = 0; /* high stack address should be highest userspace addr */
   const char *stackstring = "[stack]";
-  const int bufsize = sizeof "[stack]";
+  const char *vdsostring = "[vdso]";
+  const int bufsize = sizeof "[stack]"; /* larger of "[vdso]" and "[stack]" */
   char buf[bufsize];
 
   buf[0] = '\0';
@@ -602,8 +621,14 @@ static VA highest_userspace_address (void)
     /* Read a line from /proc/self/maps */
 
     c = mtcp_readhex (mapsfd, &startaddr);
+#ifndef __x86_64__
+DPRINTF(("startaddr: %x\n", startaddr));
+#endif
     if (c != '-') goto skipeol;
     c = mtcp_readhex (mapsfd, &endaddr);
+#ifndef __x86_64__
+DPRINTF(("endaddr: %x\n", endaddr));
+#endif
     if (c != ' ') goto skipeol;
 
     /* skip to next line */
@@ -614,15 +639,27 @@ skipeol:
       for (i = 0; i < bufsize-2; i++)
         buf[i] = buf[i+1];
       buf[bufsize-2] = c;
+#ifndef __x86_64__
+DPRINTF(("buf: %s\n", buf));
+#endif
       c = mtcp_readchar (mapsfd);
     }
     if (c == 0) break;  /* Must be end of file */
     /* emulate strcmp */
-    for (i = 0; i < bufsize; i++)
+    for (i = 0; i < sizeof "[stack]"; i++)
       if (buf[i] != stackstring[i])
         break;
-    if (i == bufsize)
+    if (i == sizeof "[stack]")
       histackaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
+    for (i = 0; i < sizeof "[vdso]"; i++)
+      if (buf[i+1] != vdsostring[i])
+        break;
+    if (i == sizeof "[vdso]")
+      *vdso_addr = startaddr;
+#ifndef __x86_64__
+DPRINTF(("startaddr: %p\n", startaddr));
+DPRINTF(("vdso_addr: %p\n", *vdso_addr));
+#endif
   }
 
   mtcp_sys_close (mapsfd);
@@ -633,7 +670,7 @@ skipeol:
 
 #else
 /* Added by Gene Cooperman */
-static VA highest_userspace_address (void)
+static VA highest_userspace_address (VA *vdso_addr)
 {
   Area area;
   VA area_end = 0;
@@ -651,6 +688,9 @@ static VA highest_userspace_address (void)
     p = strstr (area.name, "[stack]");
     if (p != NULL)
       area_end = (VA)area.addr + area.size;
+    p = strstr (area.name, "[vdso]");
+    if (p != NULL)
+      vdso_addr = (VA)area.addr;
   }
 
   close (mapsfd);

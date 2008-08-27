@@ -89,12 +89,15 @@ RESTART: Overview
 1.  Run:  mtcp_restart FILE.mtcp
 2.  mtcp_restart loads into memory original mtcp.so from FILE.mtcp
 	along with entry point:
-		restore_start (a pointer to mtcp.so:mtcp_restore_start
+		restore_start (a pointer to mtcp.so:mtcp_restore_start)
     [Also read finishrestore pointer from FILE.mtcp for later use.
      Couldn't we have just saved the pointer in mtcp.so ??]
-3.  Call restore_start (now inside mtcp.so in file mtcp.c)
+3.a.  Call restore_start (now inside mtcp.so in file mtcp.c)
+3.b.  Switch to new stack; (can't even use local vars until in new callframe)
+3.c.  If tracing within gdb, set breakpoint to after this callframe, or
+	gdb will be very confused.
 4.  Switch to restoreverything (now inside mtcp.so
-				in ile mtcp_restart_nolibc.c)
+		in file mtcp_restart_nolibc.c; can again use local vars)
 5.  Unmap all other memory regions (except vdso and vsyscall, which belong
 	to the kernel); Not allowed to use libc.so at this point
     (We had to switch to another temporary stack in mtcp.so before

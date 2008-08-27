@@ -46,6 +46,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <linux/version.h>
 
 // Source code is taken from:  glibc-2.5/sysdeps/generic
 /* Type to use for aligned memory operations.

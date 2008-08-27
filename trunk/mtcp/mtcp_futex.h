@@ -21,7 +21,6 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                 : "0" (__NR_futex), 
                   "r" (a1), "r" (a2), "r" (a3), "r" (a4), "r" (a5)
                 : "memory", "cc", "r11", "cx");
-
   return (rc);
 #elif defined(__i386__)
   int rc;
@@ -31,6 +30,7 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                 : "0" (__NR_futex), 
                   "b" (uaddr), "c" (op), "d" (val), "S" (timeout), "D" (0)
                 : "memory", "cc");
+  return (rc);
 #else
 #error need to define mtcp_futex
 #endif
