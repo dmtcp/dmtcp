@@ -33,23 +33,22 @@ MTCP_VERSION = 70
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
-# NOTE:  Compiling this with "linux32 make M32=1" fails.  WHY?
-#   It might be because uname in mtcp_restart_nolibc.o target
-#   is affected by linux32, when we don't want it to be.
-# This also requires a modified HIGHEST_VA in mtcp_internal.h.  WHY?
-# NOTE: "make M32=1" works for Linux 2.6.9, but fails on
+# NOTE:  This also requires a modified HIGHEST_VA in mtcp_internal.h.  WHY?
+# NOTE: "make M32=1" works on CMS app for Linux 2.6.9, but fails on
 #   Debian Linux 2.6.25.  The primary users currently are for RHEL Linux 2.6.9.
 # NOTE:  This is currently for MTCP.  Will be integrated with DMTCP
 #   (and automatic detection of "linux32 make") after further testing.
 
 ifdef M32
-CC = linux32 gcc
+CC = linux32 gcc -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 -DHIGHEST_VA=0xffffa000
 UNAME = linux32 uname
 LD_RAW = linux32 ld -m32 -melf_i386
+AS = as
 else
 CC = gcc
 UNAME = uname
 LD_RAW = ld
+AS = as --32
 endif
 
 #Currently on many archs we cant compile without -O0
@@ -59,14 +58,8 @@ CFLAGS = -O0 -g
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
 LDFLAGS = -shared
-AS = as
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
-
-ifdef M32
-  CFLAGS += -m32 -Wa,--32 -DHIGHEST_VA=0xffffa000
-  LDFLAGS += -m32 -melf_i386
-endif
 
 # But for testmtcp, don't use CFLAGS if don't want position-independent code
 ifeq (${shell ${UNAME} -m},x86_64)
@@ -77,7 +70,7 @@ endif
 all default: build tests readmtcp
 
 readmtcp: readmtcp.c
-	gcc -o readmtcp readmtcp.c
+	${CC} -o readmtcp readmtcp.c
 
 build: mtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest

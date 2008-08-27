@@ -112,5 +112,5 @@ SHORT NOTES:
        multi-threaded), then we recommend that you directly use the software in
        the MTCP subdirectory. You do not need the generality of DMTCP. We would
        be pleased to provide advice on bundling MTCP.
-    6. For developers, mtcp/readmtcp is useful for debugging checkpoint
+    7. For developers, mtcp/readmtcp is useful for debugging checkpoint
        images.  Run it without arguments for a usage message.
