@@ -35,12 +35,17 @@
 
 #include "mtcp_internal.h"
 
+#ifdef DMTCP
 /* 
    File descriptor where all the debugging outputs should go.
    This const is also defined by the same name in jassert.cpp.
    These two consts must always be in sync.
 */
 static const int DUP_STDERR_FD = 826;
+#else
+// Please don't change this.  It's needed for standalone MTCP debugging.
+static const int DUP_STDERR_FD = 2;
+#endif
 
 static char const hexdigits[] = "0123456789ABCDEF";
 static MtcpState printflocked = MTCP_STATE_INITIALIZER;

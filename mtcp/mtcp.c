@@ -175,6 +175,7 @@ static Thread *motherofall = NULL;
 static Thread *threads = NULL;
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
+static void *saved_sysinfo;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -288,11 +289,13 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    *       vdso check.
    */
   
+  // Shouldn't this removal of LD_PRELOAD be around fork/exec of gzip ?
   setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
   unsetenv("LD_PRELOAD");
 
 #ifndef __x86_64__
-  mtcp_check_vdso_enabled();
+  // Allow user program to run with randomize_va
+  // mtcp_check_vdso_enabled();
 #endif
 
   setenv("LD_PRELOAD", getenv("MTCP_TMP_LD_PRELOAD"), 1);
@@ -330,7 +333,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
   mtcp_dump_tls (__FILE__, __LINE__);
 
-  /* Save this process' pid.  Then verify that the TLS has it where it should be.           */
+  /* Save this process's pid.  Then verify that the TLS has it where it should be.           */
   /* When we do a restore, we will have to modify each thread's TLS with the new motherpid. */
   /* We also assume that GS uses the first GDT entry for its descriptor.                    */
 
@@ -434,8 +437,10 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
 /********************************************************************************************************************************/
 /*																*/
-/*  This routine may be called BEFORE mtcp to init to add special functionality to checkpointing                                */
-/*    Input:															*/
+/*  The routine mtcp_set_callbacks below may be called BEFORE the first
+ *  MTCP checkpoint, to add special functionality to checkpointing
+ */
+/*    Its arguments (callback functions) are:  */
 // 
 // sleep_between_ckpt:  Called in between checkpoints to replace the default "sleep(sec)" functionality,
 //                      when this function returns checkpoint will start
@@ -457,14 +462,13 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_write_ckpt_prefix = write_ckpt_prefix;
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Dump out the TLS stuff pointed to by %gs											*/
-/*																*/
-/********************************************************************************************************************************/
+/*************************************************************************/
+/*						                         */
+/*  Dump out the TLS stuff pointed to by %gs	                         */
+/*						                         */
+/*************************************************************************/
 
 void mtcp_dump_tls (char const *file, int line)
-
 {
 #if 000
   int i, j, mypid;
@@ -547,29 +551,31 @@ void mtcp_dump_tls (char const *file, int line)
 #endif
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  This is our clone system call wrapper											*/
-/*																*/
-/*    Note:															*/
-/*																*/
-/*      pthread_create eventually calls __clone to create threads								*/
-/*      It uses flags = 0x7D0F00:												*/
-/*	            CLONE_VM = VM shared between processes									*/
-/*	            CLONE_FS = fs info shared between processes (root, cwd, umask)						*/
-/*	         CLONE_FILES = open files shared between processes (fd table)							*/
-/*	       CLONE_SIGHAND = signal handlers and blocked signals shared (sigaction common to parent and child)		*/
-/*	        CLONE_THREAD = add to same thread group										*/
-/*	       CLONE_SYSVSEM = share system V SEM_UNDO semantics								*/
-/*	        CLONE_SETTLS = create a new TLS for the child from newtls parameter						*/
-/*	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)							*/
-/*	CLONE_CHILD_CLEARTID = clear the TID in the child and do a futex wake at that address					*/
-/*	      CLONE_DETACHED = create clone detached										*/
-/*																*/
-/********************************************************************************************************************************/
+/*****************************************************************************/
+/*									     */
+/*  This is our clone system call wrapper				     */
+/*									     */
+/*    Note:								     */
+/*									     */
+/*      pthread_create eventually calls __clone to create threads	     */
+/*      It uses flags = 0x7D0F00:					     */
+/*	      CLONE_VM = VM shared between processes		             */
+/*	      CLONE_FS = fs info shared between processes (root, cwd, umask) */
+/*	   CLONE_FILES = open files shared between processes (fd table)	     */
+/*	 CLONE_SIGHAND = signal handlers and blocked signals shared	     */
+/*	 			 (sigaction common to parent and child)      */
+/*	  CLONE_THREAD = add to same thread group			     */
+/*	 CLONE_SYSVSEM = share system V SEM_UNDO semantics		     */
+/*	  CLONE_SETTLS = create a new TLS for the child from newtls parameter*/
+/*	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)    */
+/*	CLONE_CHILD_CLEARTID = clear the TID in the child and do a	     */
+/*				 futex wake at that address		     */
+/*	      CLONE_DETACHED = create clone detached			     */
+/*									     */
+/*****************************************************************************/
 
-int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
-
+int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
+	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
 {
   int rc;
   Thread *thread;
@@ -578,7 +584,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
 
   if (motherofall != NULL) {
 
-    /* They called mtcp_init meaning we are to do checkpointing.  So we are going to track this thread. */
+    /* They called mtcp_init meaning we are to do checkpointing.
+     * So we are going to track this thread.
+     */
 
     thread = malloc (sizeof *thread);
     memset (thread, 0, sizeof *thread);
@@ -592,8 +600,10 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
       mtcp_state_init(&thread->state, ST_RUNDISABLED);
     }
 
-    DPRINTF (("mtcp wrapper clone*: calling clone thread=%p, fn=%p, flags=0x%X\n", thread, fn, flags));
-    DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
+    DPRINTF (("mtcp wrapper clone*: calling clone thread=%p,"
+	      " fn=%p, flags=0x%X\n", thread, fn, flags));
+    DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p,"
+	      " child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
     //asm volatile ("int3");
 
     /* Save exactly what the caller is supplying */
@@ -602,15 +612,17 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
     thread -> parent_tidptr = parent_tidptr;
     thread -> given_tidptr  = child_tidptr;
 
-    /* We need the CLEARTID feature so we can detect when the thread has exited */
-    /* So if the caller doesn't want it, we enable it                           */
-    /* Retain what the caller originally gave us so we can pass the tid back    */
+    /* We need the CLEARTID feature so we can detect			     */
+    /*   when the thread has exited					     */
+    /* So if the caller doesn't want it, we enable it                        */
+    /* Retain what the caller originally gave us so we can pass the tid back */
 
     if (!(flags & CLONE_CHILD_CLEARTID)) {
       child_tidptr = &(thread -> child_tid);
     }
     thread -> actual_tidptr = child_tidptr;
-    DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr));
+    DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n",
+	      thread, thread -> actual_tidptr));
 
     /* Alter call parameters, forcing CLEARTID and make it call the wrapper routine */
 
@@ -619,7 +631,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int
     arg = thread;
   }
 
-  /* mtcp_init not called, no checkpointing, but make sure clone_entry is set up so we can call the real clone */
+  /* mtcp_init not called, no checkpointing, but make sure clone_entry is */
+  /* set up so we can call the real clone                                 */
 
   else if (clone_entry == NULL) setup_clone_entry ();
 
@@ -978,6 +991,7 @@ again:
 
     default: {
       mtcp_abort ();
+      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -985,7 +999,6 @@ again:
 /* Likewise, disable checkpointing */
 
 int mtcp_no (void)
-
 {
   Thread *thread;
 
@@ -1015,6 +1028,7 @@ again:
 
     default: {
       mtcp_abort ();
+      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -1053,7 +1067,8 @@ static void *checkpointhread (void *dummy)
   save_tls_state (ckpthread);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
   DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
-  if (originalstartup) originalstartup = 0;
+  if (originalstartup)
+    originalstartup = 0;
   else {
 
     /* We are being restored.  Wait for all other threads to finish being restored before resuming checkpointing. */
@@ -1223,6 +1238,9 @@ again:
     }
 
     mtcp_saved_break = (void*) mtcp_sys_brk(0);  // kernel returns mm->brk when passed zero
+    /* Do this once, same for all threads.  But restore for each thread. */
+    if (mtcp_have_thread_sysinfo_offset())
+      saved_sysinfo = mtcp_get_thread_sysinfo();
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
     checkpointeverything ();
@@ -1422,6 +1440,17 @@ static void checkpointeverything (void)
    * [vdso] will be saved and restored.
    * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
    * We must restore old [vdso] and also keep [vdso] in that case.
+   * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
+   * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
+   * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
+   * Need to restore old [vdso] into mtcp_restart, to restart.
+   * With randomize_va_space turned off, libraries start at high address
+   *     0xb8000000 and are loaded progressively at lower addresses.
+   * mtcp_restart loads vdso (which looks like a shared library) first.
+   * But libpthread/libdl/libc libraries are loaded above vdso in user image.
+   * So, we must use the opposite of the user's setting (no randomization if
+   *     user turned it on, and vice versa).  We must also keep the
+   *     new vdso segment, provided by mtcp_restart.
    */
   while (readmapsline (mapsfd, &area)) {
     if (0 == strcmp(area.name, "[vsyscall]"))
@@ -1482,7 +1511,8 @@ static void checkpointeverything (void)
     /* Force the anonymous flag if it's a private writeable section, as the */
     /* data has probably changed from the contents of the original images   */
 
-    /* We also do this for read-only private sections as it's possible to modify a page there, too (via mprotect) */
+    /* We also do this for read-only private sections as it's possible      */
+    /* to modify a page there, too (via mprotect)                           */
 
     if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
        area.flags |= MAP_ANONYMOUS;
@@ -1491,7 +1521,9 @@ static void checkpointeverything (void)
     if ( area.flags & MAP_SHARED ){
       /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
       if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
-        mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X at %p from %s + %X\n", mtcp_sys_errno, area.size, area.addr, area.name, area.offset);
+        mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X"
+                     " at %p from %s + %X\n", mtcp_sys_errno, area.size,
+		     area.addr, area.name, area.offset);
         mtcp_abort();
       }
     }
@@ -1676,7 +1708,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   else if (!(area -> flags & MAP_ANONYMOUS))
     DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n",
               area -> size, area -> addr, area -> name, area -> offset));
-  else if (area -> name[0] == 0)
+  else if (area -> name[0] == '\0')
     DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p\n",
               area -> size, area -> addr));
   else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
@@ -2006,6 +2038,7 @@ static Thread *getcurrenthread (void)
   }
   mtcp_printf ("mtcp getcurrenthread: can't find thread id %d\n", tid);
   mtcp_abort ();
+  return thread; /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -2151,7 +2184,7 @@ skipeol:
   }
   mtcp_printf (">\n");
   mtcp_abort ();
-  return (0);
+  return (0);  /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -2189,7 +2222,9 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
   mtcp_restore_verify = verify;
   mtcp_restore_gzip_child_pid = gzip_child_pid;
 
-  /* Switch to a stack area that's part of the shareable's memory address range and thus not used by the checkpointed program */
+  /* Switch to a stack area that's part of the shareable's memory address range
+   * and thus not used by the checkpointed program
+   */ 
 
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
                 /* This next assembly language confuses gdb,
@@ -2201,7 +2236,6 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
   /* Call the restoreverything to restore files and memory areas                    */
 
   /* This should never return */
-
   mtcp_restoreverything();
   asm volatile ("hlt");
 }
@@ -2233,8 +2267,8 @@ static void finishrestore (void)
 
   ///JA: v54b port
   // so restarthread will have a big stack
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp) : : "g" (motherofall -> savctx.SAVEDSP - 128)  // -128 for red zone
-                                               : "memory");
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
+		: : "g" (motherofall -> savctx.SAVEDSP - 128 ) : "memory");  // -128 for red zone
   restarthread (motherofall);
 }
 
@@ -2287,10 +2321,13 @@ static int restarthread (void *threadv)
   /* All my children have been created, jump to the stopthisthread routine just after getcontext call */
   /* Note that if this is the restored checkpointhread, it jumps to the checkpointhread routine       */
 
+  if (mtcp_have_thread_sysinfo_offset())
+    mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
   DPRINTF (("mtcp restarthread*: calling setcontext\n"));
-  setcontext (&(thread -> savctx));
+  setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
+  return (0); /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/

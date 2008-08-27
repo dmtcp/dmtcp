@@ -59,6 +59,9 @@ int main (int argc, char *argv[])
 	   __FILE__, __LINE__);
     abort();
   }
+
+  mtcp_check_vdso_enabled();
+
   if (argc == 2) {
     verify = 0;
     restorename = argv[1];
@@ -101,7 +104,7 @@ int main (int argc, char *argv[])
           "mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
           restore_size, restore_begin);
 #endif
-  restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0, 0);
+  restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX
     printf(stderr, "mtcp_restart: Does mmap here support MAP_FIXED?\n");
