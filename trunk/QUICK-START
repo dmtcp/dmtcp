@@ -57,12 +57,12 @@ OPTIONS (Environment Variables):
 					 (default: 1, compression enabled)
     DMTCP_SIGCKPT=<signal number> (default: 12, where SIGUSR2=12)
 
- Application-defined hook functions: called by DMTCP if defined 
+ Application-defined hook functions: called by MTCP/DMTCP if defined 
    User code containing these functions must be compiled with
 	 -Wl,-export-dynamic under gcc/g++ or they won't be invoked.
-   void dmtcpHookPreCheckpoint(void);
-   void dmtcpHookPostCheckpoint(void);
-   void dmtcpHookRestart(void);
+   void mtcpHookPreCheckpoint(void);
+   void mtcpHookPostCheckpoint(void);
+   void mtcpHookRestart(void);
 
 ============================================
 

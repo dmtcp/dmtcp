@@ -258,11 +258,16 @@ int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 /*	                               default is 0, ie, don't ever verify							*/
 /*																*/
 /********************************************************************************************************************************/
-//__attribute__ ((weak)) void dmtcpHookPreCheckpoint( void ) { }
+/* These hook functions provide an alternative to DMTCP callbacks, using
+ * weak symbols.  While MTCP is immature, let's allow both, in case
+ * the flexibility of a second hook mechanism is useful in the future.
+ * The mechanism is invisible unless end user compiles w/ -Wl,-export-dynamic
+ */
+__attribute__ ((weak)) void mtcpHookPreCheckpoint( void ) { }
 
-//__attribute__ ((weak)) void dmtcpHookPostCheckpoint( void ) { }
+__attribute__ ((weak)) void mtcpHookPostCheckpoint( void ) { }
 
-//__attribute__ ((weak)) void dmtcpHookRestart( void ) { }
+__attribute__ ((weak)) void mtcpHookRestart( void ) { }
 
 
 void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
@@ -1224,7 +1229,7 @@ again:
 
     /* call weak symbol of this file, possibly overridden by the user's strong symbol  */
     /* user must compile his/her code with -Wl,-export-dynamic to make it visible */ 
-    //dmtcpHookPreCheckpoint(); 
+    mtcpHookPreCheckpoint(); 
 
     /* All other threads halted in 'stopthisthread' routine (they are all ST_SUSPENDED) - it's safe to write checkpoint file now */
     if (callback_pre_ckpt != NULL){
@@ -1260,7 +1265,7 @@ again:
 
     /* call weak symbol of this file, possibly overridden by the user's strong symbol  */
     /* user must compile his/her code with -Wl,-export-dynamic to make it visible */
-    //dmtcpHookPostCheckpoint();
+    mtcpHookPostCheckpoint();
 
     /* Resume all threads.  But if we're doing a checkpoint verify, abort all threads except */
     /* the main thread, as we don't want them running when we exec the mtcp_restore program. */
@@ -1910,12 +1915,15 @@ static void wait_for_all_restored (void)
   while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
   if (-- rip == 0) {
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up
+    // NOTE:  This is last safe moment for hook.  All previous threads
+    //   have executed the "else" and are waiting on the futex.
+    //   This last thread has not yet unlocked the threads: unlk_threads()
+    //   So, no race condition occurs.
+    //   By comparison, *callback_post_ckpt() is called before creating
+    //   additional user threads.  Only motherofall (checkpoint thread existed)
     /* call weak symbol of this file, possibly overridden by the user's strong symbol  */
     /* user must compile his/her code with -Wl,-export-dynamic to make it visible */
-    //NOTE:
-    //  This was called in the wrong place.  dmtcpHookPostCheckpoint was called while threads were suspended.
-    //  this is called while threads a running, leading to race conditions in user code.
-    //dmtcpHookRestart(); 
+    mtcpHookRestart(); 
     unlk_threads ();                                                 // ... and release the thread list
   } else {
     while ((rip = mtcp_state_value(&restoreinprog)) > 0) {           // otherwise, wait for last of all to wake this one up
