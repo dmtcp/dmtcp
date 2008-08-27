@@ -131,7 +131,10 @@ threadtest: threadtest.c
 # This is the command-line utility to restore a process
 
 
-mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
+	mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o \
+	mtcp_safemmap.o mtcp_safestat.o mtcp_state.o mtcp_safe_open.o \
+	mtcp_check_vdso.o
 	${CC} $(CFLAGS) -static \
     -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
     mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o \

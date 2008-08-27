@@ -16,7 +16,7 @@
 //---2008-8-23
 
 
-/* To test:  env STANDALONE=1 gcc THIS_FILE; ./a.out */
+/* To test:  gcc -DSTANDALONE THIS_FILE; ./a.out */
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -25,7 +25,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/utsname.h>
+#include <sys/utsname.h> /* uname */
+#include <sys/time.h>
+#include <sys/resource.h> /* getrlimit, setrlimit */
 #include <sys/personality.h>
 #define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old Linux, not defined */
 #include <unistd.h>
@@ -228,6 +230,22 @@ void mtcp_check_vdso_enabled() {
       if ( i != -1)
       { char *argv[MAX_ARGS+1];
         extern char **environ;
+	struct rlimit rlim;
+
+	/* On Ubuntu 8.04, "make" has the capability to raise RLIMIT_STACK
+ 	 * to infinity.  This is a problem.  When the kernel detects this,
+ 	 * it falls back to an older "standard" memory layout for libs.
+ 	 */
+        if ( -1 == getrlimit(RLIMIT_STACK, &rlim) ||
+	    ( rlim.rlim_cur = rlim.rlim_max = 0x40000000, /* 1 GB stack */
+	      setrlimit(RLIMIT_STACK, &rlim),
+	      getrlimit(RLIMIT_STACK, &rlim),
+	      rlim.rlim_max == RLIM_INFINITY )
+	   ) {
+          fprintf(stderr, "Failed to reduce RLIMIT_STACK"
+			  " below RLIM_INFINITY\n");
+	  exit(1);
+	}
 	write_args(argv, "/proc/self/cmdline");
         runtime[i] = '\0';
         execve(runtime, argv, environ);
@@ -269,6 +287,7 @@ void mtcp_check_vdso_enabled() {
 #ifdef STANDALONE
 int main() {
   mtcp_check_vdso_enabled();
+  system("echo ulimit -s | sh");
   return 0;
 }
 #endif
