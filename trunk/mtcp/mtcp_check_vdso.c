@@ -30,6 +30,7 @@
 #include <sys/resource.h> /* getrlimit, setrlimit */
 #include <sys/personality.h>
 #define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old Linux, not defined */
+#define ADDR_COMPAT_LAYOUT 0x0200000  /* Not yet defined as of Ubuntu 8.04 */
 #include <unistd.h>
 #include <errno.h>
 #include <elf.h> // For value of AT_SYSINFO, Elf??_auxv_t
@@ -198,6 +199,28 @@ static int write_args(char **vector, char *filename) {
   return 0;
 }
 
+unsigned long getenv_oldpers() {
+    unsigned long oldpers = 0;
+    char *oldpers_str = getenv("MTCP_OLDPERS");
+    if (oldpers_str == NULL) {
+      fprintf(stderr, "MTCP: internal error: %s:%s\n", __FILE__, __LINE__);
+      exit(1);
+    }
+    while (*oldpers_str != '\0')
+      oldpers = (oldpers << 1) + (*oldpers_str++ == '1' ? 1 : 0);
+    return oldpers;
+}
+int setenv_oldpers(int oldpers) {
+    char oldpers_str[sizeof(oldpers)*8+1];
+    int i = sizeof(oldpers_str); 
+    oldpers_str[i--] = '\0';
+    while (i >= 0) {
+      oldpers_str[i--] = ((oldpers & 1) ? '1' : '0');
+      oldpers = oldpers >> 1;
+    }
+    return setenv("MTCP_OLDPERS", oldpers_str, 1);
+}
+
 /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
 void mtcp_check_vdso_enabled() {
   char buf[1];
@@ -216,14 +239,21 @@ void mtcp_check_vdso_enabled() {
    * above [vdso] and below [stack].  mtcp_restart has no /lib/ld-2.7.so.
    */
   int pers = personality(0xffffffffUL); /* get current personality */
-  if (pers & ADDR_NO_RANDOMIZE) /* if no addr space randomization ... */
-    return; /* can return */
+  if (pers & ADDR_NO_RANDOMIZE) { /* if no addr space randomization ... */
+    personality(getenv_oldpers()); /* restore orig pre-exec personality */
+    if (-1 == unsetenv("MTCP_OLDPERS"))
+      perror("unsetenv");
+    return; /* skip the rest */
+  }
 
 #ifndef MAXPATHLEN
 # define MAXPATHLEN 1024
 #endif
   if (! (pers & ADDR_NO_RANDOMIZE)) /* if addr space randomization ... */
-  { personality(pers | ADDR_NO_RANDOMIZE); /* then turn off randomization */
+  { 
+    unsigned long oldpers = pers;
+    /* then turn off randomization and (just in case) remove ADDR_COMPAT_LAYOUT*/
+    personality((pers | ADDR_NO_RANDOMIZE) & ~ADDR_COMPAT_LAYOUT);
     if ( ADDR_NO_RANDOMIZE & personality(0xffffffffUL) ) /* if it's off now */
     { char runtime[MAXPATHLEN+1];
       int i = readlink("/proc/self/exe", runtime, MAXPATHLEN);
@@ -248,8 +278,11 @@ void mtcp_check_vdso_enabled() {
 	}
 	write_args(argv, "/proc/self/cmdline");
         runtime[i] = '\0';
+	setenv_oldpers(oldpers);
         execve(runtime, argv, environ);
       }
+      if (-1 == personality(oldpers)); /* reset if we couldn't exec */
+	perror("personality");
     }
   }
 #endif
