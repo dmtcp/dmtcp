@@ -639,9 +639,6 @@ skipeol:
       for (i = 0; i < bufsize-2; i++)
         buf[i] = buf[i+1];
       buf[bufsize-2] = c;
-#ifndef __x86_64__
-DPRINTF(("buf: %s\n", buf));
-#endif
       c = mtcp_readchar (mapsfd);
     }
     if (c == 0) break;  /* Must be end of file */
