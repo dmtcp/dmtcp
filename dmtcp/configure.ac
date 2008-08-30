@@ -34,5 +34,15 @@ if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[],[record timing information to stderr and jtimings.csv])
 fi
 
+AC_ARG_ENABLE([m32],
+            [AS_HELP_STRING([--enable-m32],
+                            [Compile in 32 bit mode on 64 bit linux.])],
+            [use_m32=$enableval],
+            [use_m32=no])
+
+AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
+  
+AC_DEFINE([DMTCP],[],[Always enable this.])
+
 AC_OUTPUT(Makefile src/Makefile)
 

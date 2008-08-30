@@ -299,9 +299,12 @@ libdmtcpaware_la_LDFLAGS = -avoid-version
 #libdmtcpaware_so_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_SOURCES  = dmtcpaware.c
 PICFLAGS = -fPIC
-AM_CFLAGS = $(PICFLAGS)
-AM_CXXFLAGS = $(PICFLAGS)
-AM_LDFLAGS = $(PICFLAGS)
+@CONFIG_M32_FALSE@AM_CFLAGS = $(PICFLAGS)
+@CONFIG_M32_TRUE@AM_CFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
+@CONFIG_M32_FALSE@AM_CXXFLAGS = $(PICFLAGS)
+@CONFIG_M32_TRUE@AM_CXXFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
+@CONFIG_M32_FALSE@AM_LDFLAGS = $(PICFLAGS)
+@CONFIG_M32_TRUE@AM_LDFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
