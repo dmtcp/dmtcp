@@ -177,6 +177,9 @@ sighandler_t _real_signal(int signum, sighandler_t handler){
 int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
 }
+int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  REAL_FUNC_PASSTHROUGH ( rt_sigaction ) ( signum, act, oldact );
+}
 int _real_sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
   REAL_FUNC_PASSTHROUGH ( sigvec ) ( signum, vec, ovec );
 }
@@ -190,6 +193,9 @@ int _real_sigsetmask(int mask){
 }
 int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
+}
+int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
+  REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
 }
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   //**** TODO Link with the "real" pthread_sigmask ******

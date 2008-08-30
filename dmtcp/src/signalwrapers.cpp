@@ -79,6 +79,12 @@ EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction 
   }
   return _real_sigaction( signum, act, oldact);
 }
+EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){ 
+  if(signum == bannedSignalNumber()){
+    act = NULL;
+  }
+  return _real_rt_sigaction( signum, act, oldact);
+}
 EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
   if(signum == bannedSignalNumber()){
     vec = NULL;
@@ -96,6 +102,10 @@ EXTERNC int sigsetmask(int mask){
 EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   sigset_t tmp = patchPOSIXMask(set);
   return _real_sigprocmask( how, &tmp, oldset );
+}
+EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+  sigset_t tmp = patchPOSIXMask(set);
+  return _real_rt_sigprocmask( how, &tmp, oldset );
 }
 EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
   sigset_t tmp = patchPOSIXMask(set);
