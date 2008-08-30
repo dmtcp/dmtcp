@@ -62,4 +62,16 @@ else
   AC_SUBST(HAS_MPICH,[no])
 fi
 
+AC_ARG_ENABLE([m32],
+            [AS_HELP_STRING([--enable-m32],
+                            [Compile in 32 bit mode on 64 bit linux.])],
+            [use_m32=$enableval],
+            [use_m32=no])
+
+if test "$use_m32" = "yes"; then
+  AC_SUBST([M32], [1])
+else
+  AC_SUBST([M32], [0])
+fi
+
 AC_OUTPUT

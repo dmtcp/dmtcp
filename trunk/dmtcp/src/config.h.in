@@ -3,6 +3,9 @@
 /* verbose debug printouts and log files in /tmp */
 #undef DEBUG
 
+/* Always enable this. */
+#undef DMTCP
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 

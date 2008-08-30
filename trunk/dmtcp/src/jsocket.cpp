@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <set>
 
-#ifdef NO_DMTCP
+#ifndef DMTCP
 #  define DECORATE_FN(fn) ::fn
 #else
 #  include "syscallwrappers.h"
@@ -137,7 +137,7 @@ void jalib::JSocket::enablePortReuse()
 bool jalib::JSocket::close()
 {
   if ( !isValid() ) return false;
-  int ret = ::_real_close ( _sockfd );
+  int ret = DECORATE_FN(close) ( _sockfd );
   _sockfd = -1;
   return ret==0;
 }
@@ -384,7 +384,8 @@ jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 void jalib::JSocket::changeFd ( int newFd )
 {
   if ( _sockfd == newFd ) return;
-  JASSERT ( newFd == _real_dup2 ( _sockfd, newFd ) ) ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
+  JASSERT ( newFd == DECORATE_FN(dup2) ( _sockfd, newFd ) ) 
+      ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
   close();
   _sockfd = newFd;
 }

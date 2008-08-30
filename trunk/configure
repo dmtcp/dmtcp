@@ -634,6 +634,7 @@ MPICH_MPDCLEANUP
 MPICH_MPICC
 MPICH_MPIEXEC
 HAS_MPICH
+M32
 LIBOBJS
 LTLIBOBJS'
 ac_subst_files=''
@@ -1223,6 +1224,7 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
+  --enable-m32            Compile in 32 bit mode on 64 bit linux.
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3443,6 +3445,22 @@ else
 
 fi
 
+# Check whether --enable-m32 was given.
+if test "${enable_m32+set}" = set; then
+  enableval=$enable_m32; use_m32=$enableval
+else
+  use_m32=no
+fi
+
+
+if test "$use_m32" = "yes"; then
+  M32=1
+
+else
+  M32=0
+
+fi
+
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -4132,11 +4150,12 @@ MPICH_MPDCLEANUP!$MPICH_MPDCLEANUP$ac_delim
 MPICH_MPICC!$MPICH_MPICC$ac_delim
 MPICH_MPIEXEC!$MPICH_MPIEXEC$ac_delim
 HAS_MPICH!$HAS_MPICH$ac_delim
+M32!$M32$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 60; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 61; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

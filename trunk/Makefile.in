@@ -2,8 +2,15 @@
 LN_S=@LN_S@
 MKDIR_P=@MKDIR_P@
 CC=@CC@
+M32=@M32@
 prefix=@prefix@
 mandir=@mandir@
+
+ifeq ($(M32),1)
+  MTCP_MAKE_FLAGS=M32=1
+else
+  MTCP_MAKE_FLAGS=CC=$(CC)
+endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
@@ -14,7 +21,7 @@ default: mtcp dmtcp
 all: default tests
 
 mtcp:
-	(cd mtcp && $(MAKE) CC=$(CC) build)
+	(cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build)
 
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
