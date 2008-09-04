@@ -116,7 +116,7 @@ static void * get_at_sysinfo() {
   for (auxv = (ELF_AUXV_T *)stack; auxv->a_type != AT_NULL; auxv++) {
     // printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
     if ( auxv->a_type == (UINT_T)AT_SYSINFO ) {
-      printf("AT_SYSINFO      (at 0x%p) is:  0x%x\n",
+      printf("AT_SYSINFO      (at 0x%p) is:  0x%lx\n",
         &auxv->a_un.a_val, auxv->a_un.a_val);
       return (void *)auxv->a_un.a_val;
     }
@@ -203,7 +203,7 @@ unsigned long getenv_oldpers() {
     unsigned long oldpers = 0;
     char *oldpers_str = getenv("MTCP_OLDPERS");
     if (oldpers_str == NULL) {
-      fprintf(stderr, "MTCP: internal error: %s:%s\n", __FILE__, __LINE__);
+      fprintf(stderr, "MTCP: internal error: %s:%d\n", __FILE__, __LINE__);
       exit(1);
     }
     while (*oldpers_str != '\0')

@@ -39,6 +39,12 @@ MTCP_VERSION = 70
 # NOTE:  This is currently for MTCP.  Will be integrated with DMTCP
 #   (and automatic detection of "linux32 make") after further testing.
 
+ifneq (uname -m,x86_64)
+ifeq (${shell setarch x86_64 uname -m},x86_64)
+M32=1
+endif
+endif
+
 ifdef M32
 CC = linux32 gcc -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 -DHIGHEST_VA=0xffffa000
 UNAME = linux32 uname
@@ -51,9 +57,10 @@ LD_RAW = ld
 AS = as --32
 endif
 
-#Currently on many archs we cant compile without -O0
+#Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
 CFLAGS = -O0 -g
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
+# CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
