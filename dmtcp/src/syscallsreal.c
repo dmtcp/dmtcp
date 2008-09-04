@@ -172,7 +172,7 @@ void _dmtcp_remutex_on_fork() {pthread_mutex_init ( &theMutex, NULL );}
 sighandler_t _real_signal(int signum, sighandler_t handler){
     static signal_funcptr fn = NULL;
     if(fn==NULL) fn = (signal_funcptr)get_libc_symbol("signal"); 
-    (*fn)(signum, handler);
+    return (sighandler_t)(*fn)(signum, handler);
 }
 int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
