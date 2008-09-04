@@ -676,7 +676,7 @@ static VA highest_userspace_address (VA *vdso_addr)
 
   mapsfd = open ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    printf ("mtcp highest_userspace_address:"
+    mtcp_printf ("mtcp highest_userspace_address:"
             " error opening /proc/self/maps: %s\n", strerror (errno));
     mtcp_abort ();
   }
