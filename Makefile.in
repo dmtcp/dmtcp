@@ -27,7 +27,7 @@ dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
 tests: default
-	(cd test && $(MAKE))
+	(cd test && $(MAKE) $(MTCP_MAKE_FLAGS))
 
 #prevent mtcp_restart from flying out of control
 LIMIT=ulimit -v 1048576

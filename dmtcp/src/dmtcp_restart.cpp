@@ -202,7 +202,7 @@ int main ( int argc, char** argv )
 
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
-  //make sure JASSERT initializes now, rather than durring restart
+  //make sure JASSERT initializes now, rather than during restart
   JASSERT_INIT();
 
   std::vector<RestoreTarget> targets;

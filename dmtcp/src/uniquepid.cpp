@@ -31,7 +31,7 @@ inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
   return ::gethostid()
 #else
-  //gethostid() calls socket() on some systems, which we dont want
+  //gethostid() calls socket() on some systems, which we don't want
   char buf[512];
   JASSERT(::gethostname(buf, sizeof(buf))==0)(JASSERT_ERRNO);
   //so return a bad hash of our hostname

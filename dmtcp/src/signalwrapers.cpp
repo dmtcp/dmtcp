@@ -35,7 +35,7 @@
 
 
 static int _determineMtcpSignal(){
-  // this mimicks the MTCP logic for determining signal number found in
+  // this mimics the MTCP logic for determining signal number found in
   // mtcp_init()
   int sig = MTCP_DEFAULT_SIGNAL;
   char* endp = 0;

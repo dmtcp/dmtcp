@@ -534,7 +534,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
         int fd = _dataSockets[i]->socket().sockfd();
         if ( fd >= 0 && FD_ISSET ( fd, &rfds ) )
         {
-//                   JTRACE("recieving data")(i)(_dataSockets[i].socket().sockfd());
+//                   JTRACE("receiving data")(i)(_dataSockets[i].socket().sockfd());
           if ( _dataSockets[i]->readOnce() )
           {
             onData ( _dataSockets[i] );
