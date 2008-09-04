@@ -135,7 +135,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 
 
-    //we dont want to get into an infinite loop now do we?
+    //we don't want to get into an infinite loop now do we?
     unsetenv ( "LD_PRELOAD" );
     unsetenv ( ENV_VAR_HIJACK_LIB );
 
@@ -462,7 +462,7 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
     return;
   }
 
-  //recieve REPLY
+  //receive REPLY
   reply.poison();
   _coordinatorSocket >> reply;
   reply.assertValid();
@@ -528,7 +528,7 @@ void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const std::string& progname){
 }
 
 void dmtcp::DmtcpWorker::recvCoordinatorHandshake(){
-  JTRACE("recieving coordinator handshake");
+  JTRACE("receiving coordinator handshake");
 
   dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();

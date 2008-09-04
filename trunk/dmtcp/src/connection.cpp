@@ -188,7 +188,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
 
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
-    JTRACE ( "removing O_ASYNC flag durring checkpoint" ) ( fds[0] ) ( id() );
+    JTRACE ( "removing O_ASYNC flag during checkpoint" ) ( fds[0] ) ( id() );
     JASSERT ( fcntl ( fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC ) == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( id() );
   }
 
@@ -244,10 +244,10 @@ void dmtcp::TcpConnection::doRecvHandshakes( const std::vector<int>& fds, const 
     case TCP_ACCEPT:
       if ( hasLock ( fds ) )
       {
-        JTRACE("recieving handshake...")(id())(fds[0]);
+        JTRACE("receiving handshake...")(id())(fds[0]);
         jalib::JSocket sock(fds[0]);
         recvHandshake( sock, coordinator );
-        JTRACE("recieved handshake")(getRemoteId())(fds[0]);
+        JTRACE("received handshake")(getRemoteId())(fds[0]);
       }
       else
       {
@@ -398,7 +398,7 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
   }else{
     //next time
     JASSERT(_acceptRemoteId == hello_remote.from)(_acceptRemoteId)(hello_remote.from)
-      .Text("read handshake with a different 'from' field than a previos handshake");
+      .Text("read handshake with a different 'from' field than a previous handshake");
   }
 }
 
@@ -491,7 +491,7 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
 
       std::string devicename = jalib::Filesystem::ResolveSymlink ( _symlinkFilename );
       JASSERT ( devicename.length() > 0 ) ( _device ) ( _symlinkFilename ) ( JASSERT_ERRNO )
-      .Text ( "PTS doesnot exists" );
+      .Text ( "PTS does not exist" );
 
       tempfd = open ( devicename.c_str(), O_RDWR );
       JASSERT ( tempfd >= 0 ) ( tempfd ) ( devicename ) ( JASSERT_ERRNO )

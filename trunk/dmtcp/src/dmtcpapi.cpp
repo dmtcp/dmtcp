@@ -64,7 +64,7 @@ EXTERNC int dmtcpCheckpoint(){
   int rv = 0;
   int oldNumRestarts    = numRestarts;
   int oldNumCheckpoints = numCheckpoints;
-  memfence(); //make sure the reads above dont get reordered
+  memfence(); //make sure the reads above don't get reordered
 
   if(dmtcpRunCommand('c')){ //request checkpoint
     //and wait for the checkpoint
@@ -99,7 +99,7 @@ EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
 }
 
 EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
-  //these must be static so there memory is not deleted.
+  //these must be static so their memory is not deleted.
   static std::string ckpt;
   static std::string pid;
   static DmtcpLocalStatus status;

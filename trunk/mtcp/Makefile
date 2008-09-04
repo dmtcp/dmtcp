@@ -34,12 +34,9 @@ MTCP_VERSION = 70
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
 # NOTE:  This also requires a modified HIGHEST_VA in mtcp_internal.h.  WHY?
-# NOTE: "make M32=1" works on CMS app for Linux 2.6.9, but fails on
-#   Debian Linux 2.6.25.  The primary users currently are for RHEL Linux 2.6.9.
-# NOTE:  This is currently for MTCP.  Will be integrated with DMTCP
-#   (and automatic detection of "linux32 make") after further testing.
 
-ifneq (uname -m,x86_64)
+# If we're running under linux32 on a 64-bit O/S, set mixed mode:  M32=1
+ifneq (${shell uname -m},x86_64)
 ifeq (${shell setarch x86_64 uname -m},x86_64)
 M32=1
 endif

@@ -39,7 +39,7 @@ namespace
 
 void dmtcp::KernelBufferDrainer::onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen )
 {
-  JWARNING ( false ) ( sock.sockfd() ).Text ( "we dont yet support checkpointing non-accepted connections... restore will likely fail.. closing connection" );
+  JWARNING ( false ) ( sock.sockfd() ).Text ( "we don't yet support checkpointing non-accepted connections... restore will likely fail.. closing connection" );
   jalib::JSocket ( sock ).close();
 }
 

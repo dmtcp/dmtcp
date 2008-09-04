@@ -127,7 +127,7 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
   JTRACE ( "accepted, waiting for 1-way handshake" ) ( sockfd ) ( con->id() );
   jalib::JSocket remote ( ret );
   con->recvHandshake(remote, dmtcp::DmtcpWorker::instance().coordinatorId());
-  JTRACE ( "1-way handshake recieved" )(con->getRemoteId());
+  JTRACE ( "1-way handshake received" )(con->getRemoteId());
 #else
   JTRACE ( "accepted incoming connection" ) ( sockfd ) ( con->id() );
 #endif

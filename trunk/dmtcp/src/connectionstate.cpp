@@ -126,7 +126,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
     }
   }
 
-  //now recieve 
+  //now receive 
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i )
