@@ -44,7 +44,15 @@ The simplest way to restart a previously checkpointed computation is:
         ./dmtcp_restart_script.sh
 
 ============================================
-OPTIONS (Environment Variables):
+COMMAND-LINE OPTIONS:
+    If dmtcp_checkpoint does not find a running coordinator, it will
+create one in background.  Use `dmtcp_command' to issue commands
+to the coordinator.
+    `dmtcp_checkpoint' and `dmtcp_command' will print their options when run
+with no command-line arguments.  `dmtcp_coordinator' offers help when run.
+
+============================================
+OPTIONS THROUGHT ENVIRONMENT VARIABLES:
   dmtcp_coordinator:
     DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
@@ -56,6 +64,10 @@ OPTIONS (Environment Variables):
     DMTCP_GZIP=<0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
     DMTCP_SIGCKPT=<signal number> (default: 12, where SIGUSR2=12)
+
+  dmtcp_command:
+    DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT=<coordinator listener port> (default: 7779)
 
  Application-defined hook functions: called by MTCP/DMTCP if defined 
    User code containing these functions must be compiled with

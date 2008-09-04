@@ -395,15 +395,17 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
       if((errno != 0) || (tmp == endp))
       {
           mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%s\" does not "
-                        "translate to a number, and cannot be used.  MTCP_DEFAULT_SIGNAL "
-                        "will be used instead.\n", tmp);
+                        "translate to a number,\n"
+			"  and cannot be used.  Signal %d "
+                        "will be used instead.\n", tmp, MTCP_DEFAULT_SIGNAL);
           STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
       }
       else if(STOPSIGNAL < 1 || STOPSIGNAL > 31)
       {
           mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%d\" is not a valid "
-                        "signal, and cannot be used.  MTCP_DEFAULT_SIGNAL will be used "
-                        "instead.\n", STOPSIGNAL);
+                        "signal, and cannot be used.\n"
+			"  Signal %d will be used instead.\n",
+		       STOPSIGNAL, MTCP_DEFAULT_SIGNAL);
           STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
       }
   }
@@ -1105,6 +1107,7 @@ static void *checkpointhread (void *dummy)
     {
         DPRINTF(("mtcp checkpointhread*: before callback_sleep_between_ckpt(%d)\n",intervalsecs));
         (*callback_sleep_between_ckpt)(intervalsecs);
+        DPRINTF(("mtcp checkpointhread*: after callback_sleep_between_ckpt(%d)\n",intervalsecs));
     }
 
     setup_sig_handler();
@@ -2428,10 +2431,10 @@ static void setup_sig_handler (void)
     mtcp_abort ();
   }
   if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
-    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).  You"
-                 " may employ a different signal by setting the\n"
-		 "  MTCP_SIGCKPT (DMTCP_SIGCKPT)"
-                 "environment variable to the number of the signal MTCP should "
+    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).\n"
+                 " You may employ a different signal by setting the\n"
+                 " environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
+		 " to the number\n of the signal MTCP should "
                  "use for checkpointing.\n", STOPSIGNAL, oldhandler);
     mtcp_abort ();
   }

@@ -69,6 +69,8 @@ int main (int argc, char *argv[])
     verify = 1;
     restorename = argv[2];
   } else if ((argc == 3) && (strcasecmp (argv[1], "-fd") == 0)) {
+    /* This case used only when dmtcp_restart exec's to mtcp_restart. */
+    verify = 0;
     restorename = NULL;
     fd = atoi(argv[2]);
   } else {
@@ -126,7 +128,7 @@ int main (int argc, char *argv[])
   readfile (fd, restore_begin, restore_size);
   /* Now call it - it shouldn't return */
 
-#ifdef DEBUG
+#if defined(DEBUG) && ! DMTCP
     char *p, symbolbuff[256];
     FILE *symbolfile;
     VA textbase;
