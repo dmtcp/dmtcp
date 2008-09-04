@@ -112,7 +112,12 @@ SHORT NOTES:
        another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting. Whether it works is affected by how different are the
        corresponding versions for the kernel and glibc.
-    5. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas() for
+    5. Checkpoint is implemented by sending a signal to each user thread.
+       As with all well-written code, your system calls should be prepared
+       for an error return of EINTR (interrupted, due to a simultaneous
+       checkpoint invocation or other kernel activity), in which case you
+       can call the system call again.
+    6. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas() for
        specific handling of mapping of memory objects via mmap: MAP_PRIVATE,
        MAP_SHARED, MAP_ANONYMOUS
        Heuristically, if a memory area is mapped to a file for which user has
@@ -120,9 +125,9 @@ SHORT NOTES:
        file. If a memory area is mapped to a file with write or execute
        permission, the pre-checkpoint memory contents is copied back into
        memory area.
-    6. If your application has only a single process (single- or
+    7. If your application has only a single process (single- or
        multi-threaded), then we recommend that you directly use the software in
        the MTCP subdirectory. You do not need the generality of DMTCP. We would
        be pleased to provide advice on bundling MTCP.
-    7. For developers, mtcp/readmtcp is useful for debugging checkpoint
+    8. For developers, mtcp/readmtcp is useful for debugging checkpoint
        images.  Run it without arguments for a usage message.
