@@ -279,7 +279,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   mtcp_segreg_t TLSSEGREG;
 
   if (sizeof(void *) != sizeof(long)) {
-    printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
+    mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
 	   "       This code assumes they are equal.\n");
     mtcp_abort ();
   }
@@ -310,7 +310,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   { struct user_desc u_info;
     u_info.entry_number = 12;
     if (-1 == mtcp_sys_get_thread_area(&u_info) && mtcp_sys_errno == ENOSYS)
-      printf("Apparently, get_thread_area is not implemented in your kernel.\n"
+      mtcp_printf("Apparently, get_thread_area is not implemented in your kernel.\n"
 	     "  If this doesn't work, please try on a more recent kernel,\n"
 	     "  or one configured to support get_thread_area.\n");
   }
@@ -502,12 +502,12 @@ void mtcp_dump_tls (char const *file, int line)
   /* Get the segment for the TLS stuff */
 
   asm volatile ("movw %%gs,%0" : "=g" (gs));
-  fprintf (stderr, "mtcp_init: gs=%X at %s:%d\n", gs, file, line);
+  mtcp_printf("mtcp_init: gs=%X at %s:%d\n", gs, file, line);
   if (gs != 0) {
 
     /* We only handle GDT based stuff */
 
-    if (gs & 4) fprintf (stderr, "   *** part of LDT\n");
+    if (gs & 4) mtcp_printf("   *** part of LDT\n");
 
     /* It's in the GDT */
 
@@ -517,33 +517,33 @@ void mtcp_dump_tls (char const *file, int line)
 
       gdtentry.entry_number = gs / 8;
       i = mtcp_sys_get_thread_area (&gdtentry);
-      if (i < 0) fprintf (stderr, "  error getting GDT entry %d: %d\n", gdtentry.entry_number, mtcp_sys_errno);
+      if (i < 0) mtcp_printf("  error getting GDT entry %d: %d\n", gdtentry.entry_number, mtcp_sys_errno);
       else {
 
         /* Print out descriptor and first 80 bytes of data */
 
-        fprintf (stderr, "  limit %X, baseaddr %X\n", gdtentry.limit, gdtentry.base_addr);
+        mtcp_printf("  limit %X, baseaddr %X\n", gdtentry.limit, gdtentry.base_addr);
         for (i = 0; i < 80; i += 16) {
           for (j = 16; -- j >= 0;) {
             if ((j & 3) == 3) fputc (' ', stderr);
             asm volatile ("movb %%gs:(%1),%0" : "=r" (byt) : "r" (i + j));
-            fprintf (stderr, "%2.2X", byt);
+            mtcp_printf("%2.2X", byt);
           }
-          fprintf (stderr, " : gs+%2.2X\n", i);
+          mtcp_printf(" : gs+%2.2X\n", i);
         }
         for (i = 0; i < 80; i += 16) {
           for (j = 16; -- j >= 0;) {
             if ((j & 3) == 3) fputc (' ', stderr);
             byt = ((unsigned char *)gdtentry.base_addr)[i+j];
-            fprintf (stderr, "%2.2X", byt);
+            mtcp_printf("%2.2X", byt);
           }
-          fprintf (stderr, " : %8.8X\n", gdtentry.base_addr + i);
+          mtcp_printf(" : %8.8X\n", gdtentry.base_addr + i);
         }
 
         /* Offset 4C should be the process id */
 
         asm volatile ("mov %%gs:0x4C,%0" : "=r" (i));
-        fprintf (stderr, "mtcp_init: getpid=%d, gettid=%d, tls=%d\n", getpid (), mtcp_sys_kernel_gettid (), i);
+        mtcp_printf("mtcp_init: getpid=%d, gettid=%d, tls=%d\n", getpid (), mtcp_sys_kernel_gettid (), i);
       }
     }
   }

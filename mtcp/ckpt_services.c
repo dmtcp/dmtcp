@@ -10,7 +10,7 @@
 #endif
 
 
-#define DIE(message) { fprintf(stderr,"error:%s\n",message); \
+#define DIE(message) { mtcp_printf("error:%s\n",message); \
                       fflush(stderr);\
                       abort(); }
 

@@ -75,7 +75,7 @@ static void * get_at_sysinfo() {
   // Walk the stack.
   asm volatile (CLEAN_FOR_64_BIT(mov %%ebp, %0\n\t)
                 : "=g" (stack) );
-  printf("stack 2: %p\n", stack);
+  mtcp_printf("stack 2: %p\n", stack);
 
   // When popping stack/%ebp yields zero, that's the ELF loader telling us that
   // this is "_start", the first call frame, which was created by ELF.
@@ -88,35 +88,35 @@ static void * get_at_sysinfo() {
     ;
   // Do some error checks
   if ( &(stack[i]) - stack > 100000 ) {
-    printf("Error:  overshot stack\n");
+    mtcp_printf("Error:  overshot stack\n");
     exit(1);
   }
   stack = &stack[i];
 #else
   stack = (void **)&my_environ[-1];
   if (*stack != NULL) {
-    printf("This should be argv[argc] == NULL and it's not.\n"
+    mtcp_printf("This should be argv[argc] == NULL and it's not.\n"
 	"NO &argv[argc], stack: %p\n", stack);
     exit(1);
   }
 #endif
   // stack[-1] should be argv[argc-1]
   if ( (void **)stack[-1] < stack || (void **)stack[-1] > stack + 100000 ) {
-    printf("candidate argv[argc-1] failed consistency check\n");
+    mtcp_printf("candidate argv[argc-1] failed consistency check\n");
     exit(1);
   }
   for (i = 1; stack[i] != NULL; i++)
     if ( (void **)stack[i] < stack || (void **)stack[i] > stack + 10000 ) {
-      printf("candidate argv[%d] failed consistency check\n", i);
+      mtcp_printf("candidate argv[%d] failed consistency check\n", i);
       exit(1);
     }
   stack = &stack[i+1];
   // Now stack is beginning of auxiliary vector (auxv)
   // auxv->a_type = AT_NULL marks the end of auxv
   for (auxv = (ELF_AUXV_T *)stack; auxv->a_type != AT_NULL; auxv++) {
-    // printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
+    // mtcp_printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
     if ( auxv->a_type == (UINT_T)AT_SYSINFO ) {
-      printf("AT_SYSINFO      (at 0x%p) is:  0x%lx\n",
+      mtcp_printf("AT_SYSINFO      (at 0x%p) is:  0x%lx\n",
         &auxv->a_un.a_val, auxv->a_un.a_val);
       return (void *)auxv->a_un.a_val;
     }
@@ -203,7 +203,7 @@ unsigned long getenv_oldpers() {
     unsigned long oldpers = 0;
     char *oldpers_str = getenv("MTCP_OLDPERS");
     if (oldpers_str == NULL) {
-      fprintf(stderr, "MTCP: internal error: %s:%d\n", __FILE__, __LINE__);
+      mtcp_printf("MTCP: internal error: %s:%d\n", __FILE__, __LINE__);
       exit(1);
     }
     while (*oldpers_str != '\0')
@@ -272,7 +272,7 @@ void mtcp_check_vdso_enabled() {
 	      getrlimit(RLIMIT_STACK, &rlim),
 	      rlim.rlim_max == RLIM_INFINITY )
 	   ) {
-          fprintf(stderr, "Failed to reduce RLIMIT_STACK"
+          mtcp_printf("Failed to reduce RLIMIT_STACK"
 			  " below RLIM_INFINITY\n");
 	  exit(1);
 	}
@@ -306,7 +306,7 @@ void mtcp_check_vdso_enabled() {
   if (mtcp_have_thread_sysinfo_offset())
     return;
   if (buf[0] == '1') {
-    printf("\n\n\nPROBLEM:  cat /proc/sys/vm/vdso_enabled returns 1\n"
+    mtcp_printf("\n\n\nPROBLEM:  cat /proc/sys/vm/vdso_enabled returns 1\n"
     "  Further, I failed to find SYSINFO_OFFSET in TLS.\n"
     "  Can't work around this problem.\n"
     "  Please run this program again after doing as root:\n"

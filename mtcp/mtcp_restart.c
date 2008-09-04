@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
   void (*restore_start) (int fd, int verify, pid_t gzip_child_pid);
 
   if (getuid() == 0 || geteuid() == 0) {
-    printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
+    mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
 	   "If you still want to do this, modify %s:%d and re-compile.\n",
 	   __FILE__, __LINE__);
     abort();
@@ -74,7 +74,7 @@ int main (int argc, char *argv[])
     restorename = NULL;
     fd = atoi(argv[2]);
   } else {
-    fprintf (stderr, "usage: mtcp_restart [-verify] <checkpointfile>\n");
+    mtcp_printf("usage: mtcp_restart [-verify] <checkpointfile>\n");
     return (-1);
   }
 
@@ -82,7 +82,7 @@ int main (int argc, char *argv[])
   memset(magicbuf, 0, sizeof magicbuf);
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    fprintf (stderr, "mtcp_restart: '%s' is '%s', but this restore is '%s' (fd=%d)\n", restorename, magicbuf, MAGIC, fd);
+    mtcp_printf("mtcp_restart: '%s' is '%s', but this restore is '%s' (fd=%d)\n", restorename, magicbuf, MAGIC, fd);
     return (-1);
   }
 
@@ -102,26 +102,25 @@ int main (int argc, char *argv[])
    */
 
 #ifdef DEBUG
-  fprintf(stderr,
-          "mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
-          restore_size, restore_begin);
+  mtcp_printf("mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
+              restore_size, restore_begin);
 #endif
   restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX
-    printf(stderr, "mtcp_restart: Does mmap here support MAP_FIXED?\n");
+    mtcp_printf("mtcp_restart: Does mmap here support MAP_FIXED?\n");
 #endif
     if (mtcp_sys_errno != EBUSY) {
-      fprintf (stderr, "mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
+      mtcp_printf("mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();
     } else {
-      fprintf (stderr, "mtcp_restart: restarting due to address conflict...\n");
+      mtcp_printf("mtcp_restart: restarting due to address conflict...\n");
       close (fd);
       execvp (argv[0], argv);
     }
   }
   if (restore_mmap != restore_begin) {
-    fprintf (stderr, "mtcp_restart: %d byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
+    mtcp_printf("mtcp_restart: %d byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
     abort ();
   }
   readcs (fd, CS_RESTOREIMAGE);
@@ -133,7 +132,7 @@ int main (int argc, char *argv[])
     FILE *symbolfile;
     VA textbase;
 
-    fprintf (stderr, "mtcp_restart*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
+    mtcp_printf("mtcp_restart*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
     textbase = 0;
 
     symbolfile = popen ("readelf -S mtcp.so", "r");
@@ -145,20 +144,20 @@ int main (int argc, char *argv[])
       }
       fclose (symbolfile);
       if (textbase != 0) {
-	fprintf (stderr, "\n**********\nmtcp_restart*: The symbol table of the"
+	mtcp_printf("\n**********\nmtcp_restart*: The symbol table of the"
 		 " checkpointed file can be\nmade available to gdb."
 		 "  Just type the command below in gdb:\n");
-        fprintf (stderr, "     add-symbol-file mtcp.so %p\n",
+        mtcp_printf("     add-symbol-file mtcp.so %p\n",
                  restore_begin + textbase);
-        fprintf (stderr, "Then type \"continue\" to continue debugging.\n");
-	fprintf (stderr, "**********\n");
+        mtcp_printf("Then type \"continue\" to continue debugging.\n");
+	mtcp_printf("**********\n");
       }
     }
     mtcp_maybebpt ();
 #endif
 
   (*restore_start) (fd, verify, gzip_child_pid);
-  fprintf (stderr, "mtcp_restart: restore routine returned (it should never do this!)\n");
+  mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
 }
@@ -178,14 +177,14 @@ static char first_char(char *filename)
     fd = open(filename, O_RDONLY);
     if(fd < 0)
     {
-        fprintf(stderr, "ERROR: Cannot open file %s\n", filename);
+        mtcp_printf("ERROR: Cannot open file %s\n", filename);
         abort();
     }
 
     rc = read(fd, &c, 1);
     if(rc != 1)
     {
-        fprintf(stderr, "ERROR: Error reading from file %s\n", filename);
+        mtcp_printf("ERROR: Error reading from file %s\n", filename);
         abort();
     }
 
@@ -215,7 +214,7 @@ static int open_ckpt_to_read(char *filename)
     fd = open(filename, O_RDONLY);
     if(fd < 0)
     {
-        fprintf(stderr, "ERROR: Cannot open checkpoint file %s\n", filename);
+        mtcp_printf("ERROR: Cannot open checkpoint file %s\n", filename);
         abort();
     }
 
@@ -278,7 +277,7 @@ static void readcs (int fd, char cs)
 
   readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
-    fprintf (stderr, "mtcp_restart readcs: checkpoint section %d next, expected %d\n", xcs, cs);
+    mtcp_printf("mtcp_restart readcs: checkpoint section %d next, expected %d\n", xcs, cs);
     abort ();
   }
 }
@@ -294,12 +293,12 @@ static void readfile(int fd, void *buf, int size)
         rc = read(fd, buf + ar, size - ar);
         if(rc < 0)
         {
-            fprintf(stderr, "mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));
+            mtcp_printf("mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));
             abort();
         }
         else if(rc == 0)
         {
-            fprintf(stderr, "mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_printf("mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
             abort();
         }
 
