@@ -18,6 +18,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 #include "mtcpinterface.h"
+#include "syscallwrappers.h"
 #include "jassert.h"
 
 #include <dlfcn.h>
@@ -160,8 +161,70 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
 }
 
+// This is a copy of the same function in signalwrapers.cpp
+// FEEL FREE TO CHANGE THIS TO USE THE ORIGINAL
+//    signalwrappers.cpp:bannedSignalNumber() (but placed in dmtcp namespace ??)
+#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
+
+static int _determineMtcpSignal(){
+  // this mimics the MTCP logic for determining signal number found in
+  // mtcp_init()
+  int sig = MTCP_DEFAULT_SIGNAL;
+  char* endp = 0;
+  const char* tmp = getenv("MTCP_SIGCKPT");
+  if(tmp != NULL){
+      sig = strtol(tmp, &endp, 0);
+      if((errno != 0) || (tmp == endp))
+        sig = MTCP_DEFAULT_SIGNAL;
+      if(sig < 1 || sig > 31)
+        sig = MTCP_DEFAULT_SIGNAL;
+  }
+  return sig;
+}
+
+  // This is called by the child process, only, via DmtcpWorker::resetOnFork().
+  // We know that no one can send the SIG_CKPT signal, since if the
+  //   the coordinator had requested a checkpoint, then either the
+  //   the child successfully forked, or the thread of the parent process
+  //   seeing the fork is processing the checkpoint signal first.  The
+  //   latter case is no problem.  If the child successfully forked, then
+  //   the SIG_CKPT sent by the checkpoint thread of the parent process prior
+  //   to forking is too late to affect the child.  The checkpoint thread
+  //   of the parent process may continue its own checkpointing, but
+  //   the child process will not take part.  It's the coordinator's
+  //   responsibility to then also send a checkpoint message to the checkpoint
+  //   thread of the child.  DOES THE COORDINATOR DO THIS?
+  // After a fork, only the child's user thread (which called fork())
+  //   exists (and we know it's not our own checkpoint thread).  So, no
+  //   thread is listening for a checkpoint command via the socket
+  //   from the coordinator, _even_ if the coordinator decided to start
+  //   the checkpoint immediately after the fork.  The child can't checkpoint
+  //   until we call mtcp_init in the child, as described below.
+  //   Note that resetOnFork() is the last thing done by the child before the
+  //   fork wrapper returns.
+  //   Jason, PLEASE VERIFY THE LOGIC ABOVE.  IT'S FOR THIS REASON, WE
+  //   SHOULDN'T NEED delayCheckpointsLock.  Thanks.  - Gene
+
+  // shutdownMtcpEngineOnFork will dlclose the old mtcp.so and will
+  //   dlopen a new mtcp.so.  DmtcpWorker constructor then calls
+  //   initializeMtcpEngine, which will then call mtcp_init.  We must close
+  //   the old SIG_CKPT handler prior to this, so that MTCP and mtcp_init()
+  //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
+  // Remove our signal handler from our SIG_CKPT
+#if 0
+  // For some reason, JWARNING always finds an error, and produces a
+  //   wrong errno (at least iun 64/32-bit mode).  We do it the old way
+  //   until this is fixed.
+  JWARNING (SIG_ERR == _real_signal(_determineMtcpSignal(), SIG_DFL))
+           (_determineMtcpSignal())
+           (JASSERT_ERRNO)
+           .Text("failed to reset child's checkpoint signal on fork");
+#else
+  if (SIG_ERR == _real_signal(_determineMtcpSignal(), SIG_DFL))
+    perror("_real_signal");
+#endif
   _get_mtcp_symbol ( REOPEN_MTCP );
 }
 
