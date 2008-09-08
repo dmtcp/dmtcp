@@ -41,6 +41,16 @@ int main(int argc, char **argv) {
 
   memset(magicbuf, 0, sizeof magicbuf);
   readfile (fd, magicbuf, MAGIC_LEN);
+  if (memcmp (magicbuf, "DMTCP_CHECKPOINT", MAGIC_LEN) == 0) {
+    while (memcmp(magicbuf, MAGIC, MAGIC_LEN) != 0) {
+      int i;
+      for (i = 0; i < MAGIC_LEN-1; i++)
+        magicbuf[i] = magicbuf[i+1];
+      magicbuf[MAGIC_LEN-1] = '\0'; /* MAGIC should be a string w/o '\0' */
+      if (0 == read(fd, magicbuf+(MAGIC_LEN-1), 1)) /* if EOF */
+        break;
+    }
+  }
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     fprintf (stderr, "mtcp_restart: '%s' is '%s', but this restore"
 		     " is '%s' (fd=%d)\n"

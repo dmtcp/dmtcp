@@ -21,7 +21,7 @@ default: mtcp dmtcp
 all: default tests
 
 mtcp:
-	(cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build)
+	(cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp)
 
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
