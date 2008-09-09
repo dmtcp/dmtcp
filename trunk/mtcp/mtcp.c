@@ -49,6 +49,7 @@
 #include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <termios.h>
 #include <unistd.h>
 #include <ucontext.h>
 #include <sys/types.h>     // for gettid, tkill, waitpid
@@ -176,6 +177,8 @@ static Thread *threads = NULL;
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
+static struct termios saved_termios;
+static int saved_termios_exists = 0;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -1249,6 +1252,10 @@ again:
     /* Do this once, same for all threads.  But restore for each thread. */
     if (mtcp_have_thread_sysinfo_offset())
       saved_sysinfo = mtcp_get_thread_sysinfo();
+    /* Do this once.  It's the same for all threads. */
+    saved_termios_exists = ( isatty(STDIN_FILENO)
+    			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
     checkpointeverything ();
@@ -2304,6 +2311,11 @@ static int restarthread (void *threadv)
         (*callback_post_ckpt)(1);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
+    /* Do it once only, in motherofall thread. */
+    if (saved_termios_exists)
+      if ( ! isatty(STDIN_FILENO)
+           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
+        DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
   }
 
   for (child = thread -> children; child != NULL; child = child -> siblings) {
