@@ -30,8 +30,9 @@ int main(int argc, char **argv) {
   restorename = argv[1];
   if (restorename == NULL) {
     printf("usage: readmtcp <ckpt_image_filename>\n"
-	   "   or: gzip -dc <ckpt_image_filename> | readmtcp -\n");
-   exit(1);
+	   "   or: gzip -dc <ckpt_image_filename> | %s -\n",
+	   argv[0]);
+    exit(1);
   } else if (restorename[0] == '-' && restorename[1] == '\0') {
     fd = 0; /* read from stdin */
   } else {    /* argv[1] should be a real filename */
@@ -54,9 +55,9 @@ int main(int argc, char **argv) {
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     fprintf (stderr, "mtcp_restart: '%s' is '%s', but this restore"
 		     " is '%s' (fd=%d)\n"
-		     "Consider:  gzip -dc %s | ./readmtcp -\n",
-		     restorename, magicbuf, MAGIC, fd, restorename);
-    return (-1);
+		     "Consider:  gzip -dc %s | %s -\n",
+		     restorename, magicbuf, MAGIC, fd, restorename, argv[0]);
+    exit(1);
   }
 
 

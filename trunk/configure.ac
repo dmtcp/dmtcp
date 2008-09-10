@@ -70,6 +70,7 @@ AC_ARG_ENABLE([m32],
 
 if test "$use_m32" = "yes"; then
   AC_SUBST([M32], [1])
+  AC_SUBST([HAS_READLINE], [no])
 else
   AC_SUBST([M32], [0])
 fi

@@ -3456,6 +3456,8 @@ fi
 if test "$use_m32" = "yes"; then
   M32=1
 
+  HAS_READLINE=no
+
 else
   M32=0
 
