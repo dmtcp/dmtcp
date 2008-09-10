@@ -154,7 +154,10 @@ void dmtcp::initializeMtcpEngine()
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
   typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
-  static cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
+  // Don't make realclone statically initialized.  After a fork, some
+  // loaders will relocate mtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated mtcp.so .
+  cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
   JTRACE ( "forwarding user's clone call to mtcp" );
 
