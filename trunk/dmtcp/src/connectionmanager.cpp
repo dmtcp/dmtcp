@@ -626,6 +626,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
     std::string cmd = std::string()+"exec gzip -d - < '"+path+"'";
     FILE* t = popen(cmd.c_str(),"r");
     JASSERT(t!=NULL)(path)(cmd).Text("Failed to launch gzip.");
+    JTRACE ( "created gzip child process to uncompress checkpoint file");
     fd = fileno(t);
     JASSERT(read(fd, buf, len)==len)(cmd)(path).Text("Invalid checkpoint file");
     JASSERT(strncmp(buf, DMTCP_FILE_HEADER, len)==0)(path).Text("Invalid checkpoint file");

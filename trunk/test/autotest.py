@@ -86,7 +86,7 @@ def launch(cmd):
   return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
 
 #randomize port and dir, so multiple processes works 
-ckptDir="/tmp/dmtcp-autotest-%d" % randint(100000000,999999999)
+ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
 os.mkdir(ckptDir);
 os.environ['DMTCP_HOST'] = "localhost"
 os.environ['DMTCP_PORT'] = str(randint(2000,10000))
