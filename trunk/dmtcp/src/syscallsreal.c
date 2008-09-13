@@ -191,6 +191,9 @@ int _real_sigblock(int mask){
 int _real_sigsetmask(int mask){
   REAL_FUNC_PASSTHROUGH ( sigsetmask ) ( mask );
 }
+int _real_siggetmask(void){
+  REAL_FUNC_PASSTHROUGH ( siggetmask )( );
+}
 int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }

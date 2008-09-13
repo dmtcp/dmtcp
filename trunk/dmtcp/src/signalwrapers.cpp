@@ -22,6 +22,7 @@
 
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
+#include "jassert.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 
 //gah!!! signals API is redundant
 
+static bool checkpointSignalBlocked = false;
 
 static int _determineMtcpSignal(){
   // this mimics the MTCP logic for determining signal number found in
@@ -51,19 +53,58 @@ static int _determineMtcpSignal(){
 }
 
 static int bannedSignalNumber(){
-  static const int cache = _determineMtcpSignal();
+  const int cache = _determineMtcpSignal();
   return cache;
 }
 
 static int patchBSDMask(int mask){
-  static const int allowedMask = ~sigmask(bannedSignalNumber());
+  const int allowedMask = ~sigmask(bannedSignalNumber());
   return mask & allowedMask;
 }
 
+static inline void patchBSDUserMask(int how, const int mask, int *oldmask)
+{
+  const int bannedMask = sigmask(bannedSignalNumber());
+  if (checkpointSignalBlocked == true) {
+    *oldmask |= bannedMask;
+  } else {
+    *oldmask &= ~bannedMask;
+  }
+
+  if (how == SIG_BLOCK && (mask & bannedMask)) {
+    checkpointSignalBlocked = true;
+  } else if (how == SIG_SETMASK) {
+    checkpointSignalBlocked = ((mask & bannedMask) != 0);
+  }
+}
+
 static inline sigset_t patchPOSIXMask(const sigset_t* mask){
+  JASSERT(mask != NULL);
   sigset_t t = *mask;
+
   sigdelset(&t, bannedSignalNumber());
   return t;
+}
+
+static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *oldset)
+{
+  if (oldset != NULL) {
+    if (checkpointSignalBlocked == true) {
+      sigaddset(oldset, bannedSignalNumber());
+    } else {
+      sigdelset(oldset, bannedSignalNumber());
+    }
+  }
+
+  if (set != NULL) {
+    if (how == SIG_BLOCK && sigismember(set, bannedSignalNumber())) {
+      checkpointSignalBlocked = true;
+    } else if (how == SIG_UNBLOCK && sigismember(set,bannedSignalNumber())) {
+      checkpointSignalBlocked = false;
+    } else if (how == SIG_SETMASK) {
+      checkpointSignalBlocked = sigismember(set, bannedSignalNumber());
+    }
+  }
 }
 
 //set the handler
@@ -94,22 +135,76 @@ EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
 
 //set the mask
 EXTERNC int sigblock(int mask){
-  return _real_sigblock( patchBSDMask(mask) );
-}
-EXTERNC int sigsetmask(int mask){
-  return _real_sigsetmask( patchBSDMask(mask) );
-}
-EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
-  sigset_t tmp = patchPOSIXMask(set);
-  return _real_sigprocmask( how, &tmp, oldset );
-}
-EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
-  sigset_t tmp = patchPOSIXMask(set);
-  return _real_rt_sigprocmask( how, &tmp, oldset );
-}
-EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
-  sigset_t tmp = patchPOSIXMask(set);
-  return _real_pthread_sigmask( how, &tmp, oldmask );
+  int oldmask = _real_sigblock( patchBSDMask(mask) );
+
+  patchBSDUserMask(SIG_BLOCK, mask, &oldmask);
+  
+  return oldmask;
 }
 
+EXTERNC int sigsetmask(int mask){
+  int oldmask = _real_sigsetmask( patchBSDMask(mask) );
+
+  patchBSDUserMask(SIG_SETMASK, mask, &oldmask);
+  
+  return oldmask;
+}
+
+EXTERNC int siggetmask(void){
+  int oldmask =  _real_siggetmask();
+
+  patchBSDUserMask(SIG_BLOCK, 0, &oldmask);
+  
+  return oldmask;
+}
+
+EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+  if (set != NULL) {  
+    sigset_t tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+
+  int ret = _real_sigprocmask( how, set, oldset );
+
+  if (ret != -1) {
+    patchPOSIXUserMask(how, set, oldset);
+  }
+  return ret;
+}
+
+EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+  sigset_t tmp;
+  if (set != NULL) {  
+    tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+
+  int ret = _real_rt_sigprocmask( how, &tmp, oldset );
+
+  if (ret != -1) {
+    patchPOSIXUserMask(how, set, oldset);
+  }
+  return ret;
+}
+
+EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
+  sigset_t tmp;
+  if (set != NULL) {  
+    tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+
+  int ret = _real_pthread_sigmask( how, &tmp, oldmask );
+
+  /* We want a thread local version of the following code using __thread threadCheckpointSignalBlocked 
+     the threadPatchPOSIXUserMask function.
+  */
+  /*
+  if (ret != -1) {
+    patchPOSIXUserMask(how, set, oldmask);
+  }
+  */
+
+  return ret;
+}
 
