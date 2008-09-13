@@ -216,18 +216,10 @@ static int _determineMtcpSignal(){
 void dmtcp::shutdownMtcpEngineOnFork()
 {
   // Remove our signal handler from our SIG_CKPT
-#if 0
-  // For some reason, JWARNING always finds an error, and produces a
-  //   wrong errno (at least iun 64/32-bit mode).  We do it the old way
-  //   until this is fixed.
   JWARNING (SIG_ERR == _real_signal(_determineMtcpSignal(), SIG_DFL))
            (_determineMtcpSignal())
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
-#else
-  if (SIG_ERR == _real_signal(_determineMtcpSignal(), SIG_DFL))
-    perror("_real_signal");
-#endif
   _get_mtcp_symbol ( REOPEN_MTCP );
 }
 
