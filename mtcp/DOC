@@ -86,6 +86,24 @@ to have problems with this library not being fully loaded.  WHY??
 
 ==========================================================================
 RESTART: Overview
+
+[ READ FROM TOP TO BOTTOM:  new column represents alternative memory map ]
+mtcp_restart
+[load checkpointed mtcp.so from .mtcp image]
+  mtcp.so(mtcp.c):restore_start
+  [switch to temporary stack inside mtcp.so]
+                      mtcp.so(mtcp_restart_nolibc.c):restoreverything :
+		      [unmap everything except mtcp.so (and maybe except vdso)
+		       and remap remaining sections from .mtcp image]
+  mtcp.so(mtcp.c):finishrestore
+  [reset stack ptr to old pre-checkpoint stack,
+   reset kernel state appropriately]
+  restarthread(motherofall)
+  [Current thread becomes motherofall, the original user thread;
+   Then restart remaining user threads and the ckpt thread;
+   each thread calls setcontext to get back to its
+   original pre-checkpoint call frame]
+
 1.  Run:  mtcp_restart FILE.mtcp
 2.  mtcp_restart loads into memory original mtcp.so from FILE.mtcp
 	along with entry point:
@@ -109,9 +127,10 @@ RESTART: Overview
 8.  Set stack pointer (%esp/%rsp) to the stack pointer that we saved
 	prior to checkpoint.  (Currently save old stack pointer - 128
 	as red zone.)
-9.  Call restarthread(motherofall).  motherofall is another name for
-	the checkpoint thread.  Tell kernel to set our thread state to same
-	parameters that we had saved pre-checkpoint.
+9.  Call restarthread(motherofall).  motherofall is the original user thread.
+	It is usually different from the checkpoint thread.  Tell kernel
+	to set our thread state to same parameters that we had saved
+	pre-checkpoint.
 10. Create user threads and have them also call restarthread w/ red zone
 	(extended stack pointer), etc.
 11. Checkpoint thread now calls setcontext() to fully return

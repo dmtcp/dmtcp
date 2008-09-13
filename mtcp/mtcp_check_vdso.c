@@ -228,11 +228,12 @@ void mtcp_check_vdso_enabled() {
 #ifdef RESET_THREAD_SYSINFO
   get_at_sysinfo(); /* Initialize pointer to environ for later calls */
 #endif
-#ifdef NO_RAND_VA_PERSONALITY_I386
-  uname(&utsname);
-  if (0 == strncmp(utsname.machine, "x86_64", 7)) /* if 64-bit Linux, no issue*/
-    return;
+#ifdef __x86_64__
+  // If we're a 32-bit image on a 64-bit Linux, this will not execute.
+  return;
+#endif
 
+#ifdef NO_RAND_VA_PERSONALITY_I386
   /* Set ADDR_NO_RANDOMIZE bit;
    * In Ubuntu Linux 2.6.24 kernel, This places vdso in  a different
    * fixed position in mtcp_init (since /lib/ld-2.7.so is inserted
