@@ -78,6 +78,7 @@ extern "C"
   //set the mask
   int _real_sigblock(int mask);
   int _real_sigsetmask(int mask);
+  int _real_siggetmask(void);
   int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
