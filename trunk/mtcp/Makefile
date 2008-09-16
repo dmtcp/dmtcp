@@ -43,9 +43,9 @@ endif
 endif
 
 ifdef M32
-CC = linux32 gcc -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 -DHIGHEST_VA=0xffffa000
+CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffa000
 UNAME = linux32 uname
-LD_RAW = linux32 ld -m32 -melf_i386
+LD_RAW = ld -m32 -melf_i386
 AS = as
 else
 CC = gcc
@@ -61,7 +61,7 @@ CFLAGS = -O0 -g
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
-LDFLAGS = -shared
+LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
@@ -291,6 +291,3 @@ clean:
 	      testmtcp.mtcp mtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
 	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest
-	echo WARNING: .lo files should go away once we are done with libtool.
-	rm -rf *.lo *.la .libs
-	      

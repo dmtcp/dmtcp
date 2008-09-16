@@ -56,8 +56,8 @@ libdmtcpaware_la_LDFLAGS = -avoid-version
 
 PICFLAGS=-fPIC
 if CONFIG_M32
-AM_CFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
-AM_CXXFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
+AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)
+AM_CXXFLAGS = -m32 -Wa,--32 $(PICFLAGS)
 AM_LDFLAGS =  -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
 else
 AM_CFLAGS = $(PICFLAGS)
