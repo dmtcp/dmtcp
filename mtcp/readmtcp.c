@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     }
   }
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    fprintf (stderr, "mtcp_restart: '%s' is '%s', but this restore"
+    fprintf (stderr, "readmtcp: '%s' is '%s', but this restore"
 		     " is '%s' (fd=%d)\n"
 		     "Consider:  gzip -dc %s | %s -\n",
 		     restorename, magicbuf, MAGIC, fd, restorename, argv[0]);
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     readfile (fd, &cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
-      printf ("mtcp_restart_nolibc: expected CS_AREADESCRIP but had %d\n", cstype);
+      printf ("readmtcp: expected CS_AREADESCRIP but had %d\n", cstype);
       exit(1);
     }
 
@@ -154,7 +154,7 @@ static void readcs (int fd, char cs)
 
   readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
-    fprintf (stderr, "mtcp_restart readcs: checkpoint section %d next, expected %d\n", xcs, cs);
+    fprintf (stderr, "readmtcp readcs: checkpoint section %d next, expected %d\n", xcs, cs);
     abort ();
   }
 }
@@ -170,12 +170,12 @@ static void readfile(int fd, void *buf, int size)
       rc = read(fd, buf + ar, size - ar);
       if(rc < 0)
         {
-	  fprintf(stderr, "mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));
+	  fprintf(stderr, "readmtcp readfile: error reading checkpoint file: %s\n", strerror(errno));
 	  abort();
         }
       else if(rc == 0)
 	{
-          fprintf(stderr, "mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+          fprintf(stderr, "readmtcp readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
           abort();
 	}
 
@@ -194,12 +194,12 @@ static void skipfile(int fd, int size)
       rc = read(fd, array, (size-ar < 512 ? size - ar : 512));
       if(rc < 0)
         {
-	  printf("mtcp_restart_nolibc skipfile: error %d skipping checkpoint\n", errno);
+	  printf("readmtcp skipfile: error %d skipping checkpoint\n", errno);
 	  exit(1);
         }
       else if(rc == 0)
         {
-	  printf("mtcp_restart_nolibc skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
+	  printf("readmtcp skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
 	  exit(1);
         }
 

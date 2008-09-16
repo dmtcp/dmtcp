@@ -91,6 +91,8 @@ os.mkdir(ckptDir);
 os.environ['DMTCP_HOST'] = "localhost"
 os.environ['DMTCP_PORT'] = str(randint(2000,10000))
 os.environ['DMTCP_CHECKPOINT_DIR'] = os.path.abspath(ckptDir)
+#No gzip by default.  (Isolate gzip failures from other test failures.)
+#But note that dmtcp3, frisbee and gzip tests below still use gzip.
 os.environ['DMTCP_GZIP'] = "0"
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = "/dev/null"
@@ -286,7 +288,10 @@ runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
+# dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
+os.environ['DMTCP_GZIP'] = "1"
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
+os.environ['DMTCP_GZIP'] = "0"
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
@@ -295,9 +300,12 @@ runTest("shared-fd",     2, ["./test/shared-fd"])
 runTest("echoserver",    2, ["./test/echoserver/server "+p0,
                              "./test/echoserver/client localhost "+p0])
 
+# frisbee creates three processes, each with 14 MB, if no gzip is used
+os.environ['DMTCP_GZIP'] = "1"
 runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
                              "./test/frisbee "+p2+" localhost "+p3,
                              "./test/frisbee "+p3+" localhost "+p1+" starter"])
+os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
