@@ -59,15 +59,15 @@ icheck-%: tests
 	@ read -p "> " dummy
 	@ ( rm -f ckpt_$*_* && sleep 3 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_checkpoint test/$* && \
+		${XTERM_E} $$PWD/bin/dmtcp_checkpoint --join test/$* && \
 		echo "" && echo "*** Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
 		until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_$*_*.dmtcp; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart --join ckpt_$*_*.dmtcp; \
 		echo "" && echo "*** Again Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
 		until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart ckpt_$*_*.dmtcp; \
+		${XTERM_E} $$PWD/bin/dmtcp_restart --join ckpt_$*_*.dmtcp; \
 		) &
 	@ bin/dmtcp_coordinator
 

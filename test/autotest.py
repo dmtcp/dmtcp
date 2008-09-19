@@ -91,6 +91,9 @@ os.mkdir(ckptDir);
 os.environ['DMTCP_HOST'] = "localhost"
 os.environ['DMTCP_PORT'] = str(randint(2000,10000))
 os.environ['DMTCP_CHECKPOINT_DIR'] = os.path.abspath(ckptDir)
+#Use default SIGCKPT for test suite.
+os.unsetenv('DMTCP_SIGCKPT')
+os.unsetenv('MTCP_SIGCKPT')
 #No gzip by default.  (Isolate gzip failures from other test failures.)
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
 os.environ['DMTCP_GZIP'] = "0"
@@ -125,7 +128,7 @@ def CHECK(val, msg):
   if not val:
     raise CheckFailed(msg)
 
-#wait TIMEOUT for test() to be true, or throw erro
+#wait TIMEOUT for test() to be true, or throw error
 def WAITFOR(test, msg):
   left=TIMEOUT/INTERVAL
   while not test():
