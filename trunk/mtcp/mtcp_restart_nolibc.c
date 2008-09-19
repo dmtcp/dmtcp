@@ -156,7 +156,8 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
     rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
   }
   if (rc == -1) {
-      mtcp_printf ("mtcp_sys_munmap: error %d unmapping from %p by %p bytes\n", mtcp_sys_errno, holebase, highest_va - holebase);
+      mtcp_printf ("mtcp_sys_munmap: error %d unmapping from %p by %p bytes\n",
+		   mtcp_sys_errno, holebase, highest_va - holebase);
       mtcp_abort ();
   }
 
@@ -681,17 +682,18 @@ static VA highest_userspace_address (VA *vdso_addr)
     mtcp_abort ();
   }
 
+  *vdso_addr = NULL; /* Default to NULL if not found. */
   while (readmapsline (mapsfd, &area)) {
     p = strstr (area.name, "[stack]");
     if (p != NULL)
       area_end = (VA)area.addr + area.size;
     p = strstr (area.name, "[vdso]");
     if (p != NULL)
-      vdso_addr = (VA)area.addr;
+      *vdso_addr = area.addr;
   }
 
   close (mapsfd);
-  return (VA)area_end;
+  return area_end;
 }
 #endif
 

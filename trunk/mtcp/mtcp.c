@@ -2347,7 +2347,8 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
-  DPRINTF (("mtcp restarthread*: calling setcontext\n"));
+  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d\n",
+	    thread->tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
   return (0); /* NOTREACHED : stop compiler warning */
