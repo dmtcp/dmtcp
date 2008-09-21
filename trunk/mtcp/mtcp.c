@@ -58,6 +58,18 @@
 
 #include "mtcp_internal.h"
 
+#if 0
+// Force thread to stop, without use of a system call.
+# define DEBUG_WAIT \
+if (DEBUG_RESTARTING) \
+  {int i,j; \
+    for (i = 0; i < 1000000000; i++) \
+      for (j = 0; j < 1000000000; j++) ; \
+  }
+#else
+# define DEBUG_WAIT
+#endif
+
 #if defined(GDT_ENTRY_TLS_ENTRIES) && !defined(__x86_64__)
 #define MTCP__SAVE_MANY_GDT_ENTRIES 1
 #else
@@ -172,6 +184,7 @@ static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
 static MtcpState threadslocked = MTCP_STATE_INITIALIZER;
 static pthread_t checkpointhreadid;
 static struct timeval restorestarted;
+static int DEBUG_RESTARTING = 0;
 static Thread *motherofall = NULL;
 static Thread *threads = NULL;
 static VA restore_begin, restore_end;
@@ -1457,6 +1470,7 @@ static void checkpointeverything (void)
    * We must restore old [vdso] and also keep [vdso] in that case.
    * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
    * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
+   * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
    * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
    * Need to restore old [vdso] into mtcp_restart, to restart.
    * With randomize_va_space turned off, libraries start at high address
@@ -1530,7 +1544,7 @@ static void checkpointeverything (void)
     /* to modify a page there, too (via mprotect)                           */
 
     if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
-       area.flags |= MAP_ANONYMOUS;
+      area.flags |= MAP_ANONYMOUS;
     }
    
     if ( area.flags & MAP_SHARED ){
@@ -1842,8 +1856,8 @@ static void stopthisthread (int signum)
 
       WMB; // matched by RMB in checkpointhread
 
+      /* Next comes the first time we use the old stack. */
       /* Tell the checkpoint thread that we're all saved away */
-
       if (!mtcp_state_set (&(thread -> state), ST_SUSPENDED, ST_SUSPINPROG)) mtcp_abort ();  // tell checkpointhread all our context is saved
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);                            // wake checkpoint thread if it's waiting for me
 
@@ -2223,6 +2237,7 @@ skipeol:
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
 
 {
+  DEBUG_RESTARTING = 1;
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
    * below, the optimizer generates non-PIC code if it's not -O0 - Gene
    */

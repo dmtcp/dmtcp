@@ -19,6 +19,7 @@ int main(int argc, char* argv[]){
     sigdelset(&set, SIGTERM);
     sigdelset(&set, SIGSTOP);
     sigdelset(&set, SIGSEGV);
+    sigdelset(&set, SIGINT);  // Let user and autotest.py kill it.
     sigprocmask(SIG_BLOCK, &set, NULL);
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 

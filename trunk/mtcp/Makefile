@@ -43,7 +43,8 @@ endif
 endif
 
 ifdef M32
-CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffa000
+# HIGHEST_VA is [vdso] (just above [stack])
+CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 AS = as
