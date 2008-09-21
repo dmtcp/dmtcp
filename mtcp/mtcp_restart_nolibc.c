@@ -617,6 +617,7 @@ static VA highest_userspace_address (VA *vdso_addr)
     mtcp_abort();
   }
 
+  *vdso_addr = NULL;
   while (1) {
 
     /* Read a line from /proc/self/maps */

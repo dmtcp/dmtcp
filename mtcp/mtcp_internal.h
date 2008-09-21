@@ -104,6 +104,8 @@ typedef unsigned int mtcp_segreg_t;
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
 #ifndef HIGHEST_VA
+// If 32-bit process in 64-bit Linux, then Makefile overrides this address,
+// with correct address for that case.
 # ifdef __x86_64__
  /* There's a segment, 7fbfffb000-7fc0000000 rw-p 7fbfffb000 00:00 0;
   * What is it?  It's busy (EBUSY) when we try to unmap it.
