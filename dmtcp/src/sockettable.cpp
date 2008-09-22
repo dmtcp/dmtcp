@@ -165,10 +165,10 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 ///called automatically when a socket error is returned by user function
 extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
 {
-  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
-
   //Ignore EAGAIN errors
-  if ( errno == EAGAIN ) return ret;
+  if ( errno == EAGAIN || errno == EINPROGRESS) return ret;
+
+  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
 
   dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::Instance().retrieve ( sockfd );
 
