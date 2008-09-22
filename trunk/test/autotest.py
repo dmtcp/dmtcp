@@ -172,8 +172,15 @@ def getStatus():
 #delete all files in ckpDir
 def clearCkptDir():
     #clear checkpoint dir
-    for f in listdir(ckptDir):
-      os.remove(ckptDir + "/" + f)
+    for root, dirs, files in os.walk(ckptDir, topdown=False):
+      for name in files:
+        os.remove(os.path.join(root, name))
+      for name in dirs:
+        os.rmdir(os.path.join(root, name))
+
+def getNumCkptFiles(dir):
+  return len(filter(lambda f: f.startswith("ckpt_"), listdir(dir)))
+
 
 #test a given list of commands to see if they checkpoint
 def runTest(name, numProcs, cmds):
@@ -205,12 +212,12 @@ def runTest(name, numProcs, cmds):
     coordinatorCmd('c')
     
     #wait for files to appear and status to return to original
-    WAITFOR(lambda: len(listdir(ckptDir))>0 and status==getStatus(),
+    WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and status==getStatus(),
             wfMsg("checkpoint error"))
     
     #make sure the right files are there
-    numFiles=len(listdir(ckptDir))
-    CHECK(numFiles==status[0]+1, "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
+    numFiles=getNumCkptFiles(ckptDir) # len(listdir(ckptDir))
+    CHECK(numFiles==status[0], "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
   
   def testRestart():
     #build restart command

@@ -53,7 +53,9 @@ static const char* theUsage =
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
   "  --no-check:\n"
-  "      Skip check for valid coordinator and never start one automatically\n\n"
+  "      Skip check for valid coordinator and never start one automatically\n"
+  "  --checkpoint-open-files:\n"
+  "      Checkpoint open open files\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -75,6 +77,7 @@ int main ( int argc, char** argv )
 {
   bool isSSHSlave=false;
   bool autoStartCoordinator=true;
+  bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
   //process args 
@@ -111,6 +114,9 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-d" || s == "--dir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
+    }else if(s == "--checkpoint-open-files"){
+      checkpointOpenFiles = true;
+      shift;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -161,6 +167,11 @@ int main ( int argc, char** argv )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
   else
     unsetenv("MTCP_SIGCKPT");
+  
+  if ( checkpointOpenFiles )
+    setenv( ENV_VAR_CKPT_OPEN_FILES, "1", 0 );
+  else
+    unsetenv( ENV_VAR_CKPT_OPEN_FILES);
 
   //copy args into new structure
   //char** newArgs = new char* [argc];
