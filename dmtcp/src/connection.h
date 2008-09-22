@@ -277,12 +277,14 @@ namespace dmtcp
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
     private:
+      void saveFile ();
+      int  openFile ();
+      std::string GetSavedFilePath(const std::string& path);
+
       std::string _path;
       off_t       _offset;
       struct stat _stat;
   };
-
-
 }
 
 #endif
