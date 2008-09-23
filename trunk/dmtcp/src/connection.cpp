@@ -607,7 +607,7 @@ static void CopyFile(const std::string& src, const std::string& dest)
 
   std::string command = "cp -f " + src + " " + dest;
 
-  JASSERT(system(command.c_str()) != -1);
+  JASSERT(_real_system(command.c_str()) != -1);
 
   //out << in.rdbuf();
 }
