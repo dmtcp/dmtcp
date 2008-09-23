@@ -527,7 +527,8 @@ void dmtcp::FileConnection::preCheckpoint ( const std::vector<int>& fds
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);
 
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL)
+  // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))   
     saveFile(fds[0]);
 }
 void dmtcp::FileConnection::postCheckpoint ( const std::vector<int>& fds )
