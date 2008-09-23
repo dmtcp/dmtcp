@@ -262,11 +262,20 @@ namespace dmtcp
   class FileConnection : public Connection
   {
     public:
+      enum FileType
+      {
+        FILE_INVALID = FILE,
+        FILE_REGULAR,
+        FILE_DELETED
+      };
       //called on restart when _id colides with another connection
       virtual void mergeWith ( const Connection& that );
 
       inline FileConnection ( const std::string& path, off_t offset=-1 )
-          : Connection ( FILE ), _path ( path ), _offset ( offset )
+          : Connection ( FILE )
+          , _fileType (FILE_REGULAR)
+          , _path ( path )
+          , _offset ( offset )
       {}
 
       virtual void preCheckpoint ( const std::vector<int>& fds
@@ -277,11 +286,13 @@ namespace dmtcp
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
     private:
-      void saveFile ();
+      void saveFile (int fd);
       int  openFile ();
-      std::string GetSavedFilePath(const std::string& path);
+      std::string getSavedFilePath(const std::string& path);
 
+      int         _fileType;
       std::string _path;
+      std::string _savedRelativePath;
       off_t       _offset;
       struct stat _stat;
   };
