@@ -522,8 +522,13 @@ void dmtcp::PtsConnection::restoreOptions ( const std::vector<int>& fds )
 void dmtcp::FileConnection::preCheckpoint ( const std::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
+  JASSERT ( fds.size() > 0 );
+
+  // Read the current file descriptor offset
+  _offset = lseek(fds[0], 0, SEEK_CUR);
+
   if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL)
-    saveFile();
+    saveFile(fds[0]);
 }
 void dmtcp::FileConnection::postCheckpoint ( const std::vector<int>& fds )
 {
@@ -591,7 +596,6 @@ static void CreateDirectoryStructure(const std::string& path)
     if (index > 1) {
       std::string dirName = path.substr(0, index);
 
-      JTRACE("dirName ") (dirName);
       int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
       JASSERT(res != -1 || errno==EEXIST) (dirName) (path) 
         .Text("Unable to create directory in File Path");
@@ -604,15 +608,11 @@ static void CopyFile(const std::string& src, const std::string& dest)
 {
   //std::ifstream in(src.c_str(), std::ios::in | std::ios::binary);
   //std::ofstream out(dest.c_str(), std::ios::in | std::ios::binary);
+  //out << in.rdbuf();
 
   std::string command = "cp -f " + src + " " + dest;
-
   JASSERT(_real_system(command.c_str()) != -1);
-
-  //out << in.rdbuf();
 }
-
-
 
 int dmtcp::FileConnection::openFile()
 {
@@ -622,36 +622,100 @@ int dmtcp::FileConnection::openFile()
 
     JTRACE("File not present, copying from saved checkpointed file") (_path);
 
-    std::string savedFilePath = GetSavedFilePath(_path);
+    std::string savedFilePath = getSavedFilePath(_path);
 
     JASSERT( jalib::Filesystem::FileExists(savedFilePath) ) 
       (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
 
     CreateDirectoryStructure(_path);
 
-    JTRACE("Copying saved checkpointed file to original location") (savedFilePath) (_path);
+    JTRACE("Copying saved checkpointed file to original location") 
+      (savedFilePath) (_path);
     CopyFile(savedFilePath, _path);
   }
 
   fd = open(_path.c_str(), _fcntlFlags);
 
+  // Unlink the File if the File was unlinked at the time of checkpoint
+  if (_fileType == FILE_DELETED) {
+    JASSERT( unlink(_path.c_str()) != -1 )
+      .Text("Unlinking of pre-checkpoint-deleted file failed");
+  }
+
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
   return fd;
 }
 
-void dmtcp::FileConnection::saveFile()
+void dmtcp::FileConnection::saveFile(int fd)
 {
-  std::string savedFilePath = GetSavedFilePath(_path);
+  if (jalib::Filesystem::FileExists(_path)) {
+    std::string savedFilePath = getSavedFilePath(_path);
+
+    CreateDirectoryStructure(savedFilePath);
+
+    JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
+
+    CopyFile(_path, savedFilePath);
+    return;
+  }
+  /* File not present in File System 
+   *
+   * The name for deleted files in /proc file system is listed as:
+   *   "<original_file_name> (deleted)"
+   */
+
+  if (_fileType != FILE_DELETED) {
+    int index = _path.find(DELETED_FILE_SUFFIX);
+
+    // extract <original_file_name> from _path
+    std::string name = _path.substr(0, index);
+
+    // Make sure _path ends with DELETED_FILE_SUFFIX
+    JASSERT( _path.length() == index + strlen(DELETED_FILE_SUFFIX) );
+
+    _path = name;
+    _fileType = FILE_DELETED;
+  }
+
+  std::string savedFilePath = getSavedFilePath(_path);
 
   CreateDirectoryStructure(savedFilePath);
 
   JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-  CopyFile(_path, savedFilePath);
+
+  {
+    char buf[1024];
+
+    int destFd = open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+                                            S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    JASSERT(destFd != -1) (_path) (savedFilePath)
+      .Text("Unable to create chekpointed copy of file");
+
+    lseek(fd, 0, SEEK_SET);
+
+    int readBytes, writtenBytes;
+    while (readBytes = read(fd, buf, 1024)) {
+      JASSERT( readBytes != -1 ) ( _path ).Text( "read Failed" );
+
+      writtenBytes = write(destFd, buf, readBytes);
+      JASSERT( writtenBytes != -1 ) ( savedFilePath ).Text( "write Failed" );
+
+      while (writtenBytes != readBytes) {
+        writtenBytes += write(destFd, buf + writtenBytes, readBytes - writtenBytes);
+        JASSERT( writtenBytes != -1 ) ( savedFilePath ).Text( "write Failed" );
+      }
+    }
+
+    close(destFd);
+  }
+
+  JASSERT( lseek(fd, _offset, SEEK_SET) != -1 ) (_path);
 }
 
-std::string dmtcp::FileConnection::GetSavedFilePath(const std::string& path)
+std::string dmtcp::FileConnection::getSavedFilePath(const std::string& path)
 {
   std::ostringstream os;
+  std::ostringstream relPath;
   std::string fileName;
 
   size_t index = path.rfind('/');
@@ -660,18 +724,20 @@ std::string dmtcp::FileConnection::GetSavedFilePath(const std::string& path)
   else
     fileName = path;
 
-  const char* dir = getenv( ENV_VAR_CHECKPOINT_DIR );
-  if ( dir == NULL ) {
-    dir = get_current_dir_name();
+  const char* curDir = getenv( ENV_VAR_CHECKPOINT_DIR );
+  if ( curDir == NULL ) {
+    curDir = get_current_dir_name();
+  }
+  
+  if (_savedRelativePath.empty()) {
+    relPath << CHECKPOINT_FILES_SUBDIR_PREFIX 
+            << jalib::Filesystem::GetProgramName()
+            << "_" << _id.pid()
+            << "/" << fileName << "_" << _id.conId();
+    _savedRelativePath = relPath.str();
   }
 
-  os << dir << "/" ;
-
-  os << CHECKPOINT_FILES_SUBDIR_PREFIX 
-     << jalib::Filesystem::GetProgramName()
-     << "_" << _id.pid();
-
-  os << '/' << fileName << '_' << _id.conId();
+  os << curDir << "/" << _savedRelativePath;
 
   return os.str();
 }
@@ -769,7 +835,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
-  o & _path & _offset;
+  o & _path & _savedRelativePath & _offset & _fileType;
 }
 
 void dmtcp::PtsConnection::serializeSubClass ( jalib::JBinarySerializer& o )
