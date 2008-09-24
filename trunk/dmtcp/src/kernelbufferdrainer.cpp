@@ -24,6 +24,7 @@
 #include "sockettable.h"
 #include "jbuffer.h"
 #include "connectionmanager.h"
+#include "syscallwrappers.h"
 
 namespace
 {
@@ -93,6 +94,22 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
         std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
         JWARNING(false)(_dataSockets[i]->socket().sockfd())(buffer.size())(WARN_INTERVAL_SEC)
                  .Text("Still draining socket... perhaps remote host is not running under DMTCP?");
+#ifdef CERN_CMS
+        JNOTE("\n*** Closing this socket (to database??).  Please use dmtcpaware to gracefully handle\n"
+              "***  database connections, and re-run.\n"
+              "***  Trying a workaround for now, and hoping it doesn't fail.\n");
+        _real_close(_dataSockets[i]->socket().sockfd());
+	//it does it by creating a socket pair and closing one side
+	int sp[2] = {-1,-1};
+	JASSERT ( _real_socketpair ( AF_UNIX, SOCK_STREAM, 0, sp ) == 0 ) ( JASSERT_ERRNO )
+		.Text ( "socketpair() failed" );
+	JASSERT ( sp[0]>=0 && sp[1]>=0 ) ( sp[0] ) ( sp[1] )
+		.Text ( "socketpair() failed" );
+	_real_close ( sp[1] );
+	JTRACE ( "created dead socket" ) ( sp[0] );
+	_real_dup2(sp[0], _dataSockets[i]->socket().sockfd()); 
+#endif
+
       }
     }
   }

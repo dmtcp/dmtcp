@@ -166,7 +166,7 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
 {
   //Ignore EAGAIN errors
-  if ( errno == EAGAIN || errno == EINPROGRESS) return ret;
+  if ( errno == EAGAIN ) return ret;
 
   JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
 
