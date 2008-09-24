@@ -121,7 +121,7 @@ static void callbackPostCheckpoint ( int isRestart )
 
 static int callbackShouldCkptFD ( int /*fd*/ )
 {
-  //mtcp should never checkpoint files... dmtcp will handle it
+  //mtcp should never checkpoint file descriptors;  dmtcp will handle it
   return 0;
 }
 
