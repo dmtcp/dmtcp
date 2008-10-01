@@ -28,7 +28,7 @@
 #define LIBC_FILENAME "libc.so.6"
 #define MTCP_FILENAME "mtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
-#define CHECKPOINT_FILES_SUBDIR_PREFIX "files_"
+#define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_files_"
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 #define DEFAULT_HOST "127.0.0.1"
