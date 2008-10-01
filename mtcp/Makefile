@@ -37,7 +37,7 @@ MTCP_VERSION = 70
 
 # If we're running under linux32 on a 64-bit O/S, set mixed mode:  M32=1
 ifneq (${shell uname -m},x86_64)
-ifeq (${shell setarch x86_64 uname -m},x86_64)
+ifeq (${shell setarch x86_64 uname -m 2>/dev/null},x86_64)
 M32=1
 endif
 endif

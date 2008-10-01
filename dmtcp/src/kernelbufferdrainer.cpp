@@ -70,9 +70,10 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
   {
     if ( _dataSockets[i]->bytesRead() > 0 ) onData ( _dataSockets[i] );
     std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
-    if ( memcmp ( &buffer[buffer.size() - sizeof ( theMagicDrainCookie ) ]
-                  , theMagicDrainCookie
-                  , sizeof ( theMagicDrainCookie ) ) == 0 )
+    if ( buffer.size() >= sizeof ( theMagicDrainCookie )
+	 && memcmp ( &buffer[buffer.size() - sizeof ( theMagicDrainCookie ) ]
+                     , theMagicDrainCookie
+                     , sizeof ( theMagicDrainCookie ) ) == 0 )
     {
       buffer.resize ( buffer.size() - sizeof ( theMagicDrainCookie ) );
       JTRACE ( "buffer drain complete" ) ( _dataSockets[i]->socket().sockfd() ) ( buffer.size() ) ( ( _dataSockets.size() ) );
@@ -95,8 +96,8 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
         JWARNING(false)(_dataSockets[i]->socket().sockfd())(buffer.size())(WARN_INTERVAL_SEC)
                  .Text("Still draining socket... perhaps remote host is not running under DMTCP?");
 #ifdef CERN_CMS
-        JNOTE("\n*** Closing this socket (to database??).  Please use dmtcpaware to gracefully handle\n"
-              "***  database connections, and re-run.\n"
+        JNOTE("\n*** Closing this socket (to database?? ).  Please use dmtcpaware to\n"
+              "***  gracefully handle database connections, and re-run.\n"
               "***  Trying a workaround for now, and hoping it doesn't fail.\n");
         _real_close(_dataSockets[i]->socket().sockfd());
 	//it does it by creating a socket pair and closing one side
@@ -156,7 +157,7 @@ void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd, const ConnectionIdentifi
 //     JTRACE("will drain socket")(fd);
   _drainedData[fd]; // create buffer
 // this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie;
-  //instead used delayed write incase kernel buffer is full:
+  //instead used delayed write in case kernel buffer is full:
   addWrite ( new jalib::JChunkWriter ( fd, theMagicDrainCookie, sizeof theMagicDrainCookie ) );
   //now setup a reader:
   addDataSocket ( new jalib::JChunkReader ( fd,512 ) );
