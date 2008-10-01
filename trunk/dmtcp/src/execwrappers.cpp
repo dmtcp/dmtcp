@@ -46,6 +46,8 @@
 #include <list>
 #include <string>
 
+#define INITIAL_ARGV_MAX 32
+
 static void protectLD_PRELOAD();
 
 extern "C" int close ( int fd )
@@ -59,24 +61,24 @@ extern "C" int close ( int fd )
 
   int rv = _real_close ( fd );
 
-// #ifdef DEBUG
-//     if(rv==0)
-//     {
-//         std::string closeDevice = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( fd );
-//         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
-//     }
-// #endif
-//     else
-//     {
-// #ifdef DEBUG
-//         if(dmtcp::SocketTable::Instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
-//         {
-//             dmtcp::SocketEntry& e = dmtcp::SocketTable::Instance()[fd];
-//             JTRACE("CLOSE()")(fd)(e.remoteId().id)(e.state());
-//         }
-// #endif
-//         dmtcp::SocketTable::Instance().resetFd(fd);
-//     }
+  // #ifdef DEBUG
+  //     if(rv==0)
+  //     {
+  //         std::string closeDevice = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( fd );
+  //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
+  //     }
+  // #endif
+  //     else
+  //     {
+  // #ifdef DEBUG
+  //         if(dmtcp::SocketTable::Instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
+  //         {
+  //             dmtcp::SocketEntry& e = dmtcp::SocketTable::Instance()[fd];
+  //             JTRACE("CLOSE()")(fd)(e.remoteId().id)(e.state());
+  //         }
+  // #endif
+  //         dmtcp::SocketTable::Instance().resetFd(fd);
+  //     }
   return rv;
 }
 
@@ -110,7 +112,7 @@ extern "C" pid_t fork()
     dmtcp::SyslogCheckpointer::resetOnFork();
 
     //rewrite socket table
-//         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
+    //         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
 
     //make new connection to coordinator
     dmtcp::DmtcpWorker::resetOnFork();
@@ -125,14 +127,14 @@ extern "C" pid_t fork()
 
     JTRACE ( "fork()ed [PARENT] done" ) ( child ) ( getenv ( "LD_PRELOAD" ) );;
 
-//         _dmtcp_lock();
+    //         _dmtcp_lock();
 
     //rewrite socket table
-//         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
+    //         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
 
-//         _dmtcp_unlock();
+    //         _dmtcp_unlock();
 
-//         JTRACE("fork() done [PARENT]")(child);
+    //         JTRACE("fork() done [PARENT]")(child);
 
     return child_pid;
   }
@@ -163,13 +165,13 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
     JTRACE ( "ptsname_r failed" );
     return rv;
   }
-  
+
   ptr = dmtcp::UniquePid::ptsSymlinkFilename ( device );
 
   if ( strlen ( ptr ) >=buflen )
   {
     JWARNING ( false ) ( ptr ) ( strlen ( ptr ) ) ( buflen )
-    .Text ( "fake ptsname() too long for user buffer" );
+      .Text ( "fake ptsname() too long for user buffer" );
     errno = ERANGE;
     return -1;
   }
@@ -186,9 +188,9 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 
   strcpy ( buf, ptr );
 
-//  dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
-//  dmtcp::PtsConnection *master = new dmtcp::PtsConnection ( device, ptr, type );
-//  dmtcp::KernelDeviceToConnection::Instance().create ( fd, master );
+  //  dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
+  //  dmtcp::PtsConnection *master = new dmtcp::PtsConnection ( device, ptr, type );
+  //  dmtcp::KernelDeviceToConnection::Instance().create ( fd, master );
 
   dmtcp::PtsToSymlink::Instance().add ( device, buf );
 
@@ -346,28 +348,140 @@ extern "C" int execvp ( const char *file, char *const argv[] )
 
 extern "C" int execl ( const char *path, const char *arg, ... )
 {
-  JASSERT ( false ).Text ( "variable argument version of exec not yet supported by dmtcp" );
-  return -1;
+  size_t argv_max = INITIAL_ARGV_MAX;
+  const char *initial_argv[INITIAL_ARGV_MAX];
+  const char **argv = initial_argv;
+  va_list args;
+
+  argv[0] = arg;
+
+  va_start (args, arg);
+  unsigned int i = 0;
+  while (argv[i++] != NULL)
+  {
+    if (i == argv_max)
+    {
+      argv_max *= 2;
+      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
+          argv_max * sizeof (const char *));
+      if (nptr == NULL)
+      {
+        if (argv != initial_argv)
+          free (argv);
+        return -1;
+      }
+      if (argv == initial_argv)
+        /* We have to copy the already filled-in data ourselves.  */
+        memcpy (nptr, argv, i * sizeof (const char *));
+
+      argv = nptr;
+    }
+
+    argv[i] = va_arg (args, const char *);
+  }
+  va_end (args);
+
+  int ret = execv (path, (char *const *) argv);
+  if (argv != initial_argv)
+    free (argv);
+
+  return ret;
 }
+
 
 extern "C" int execlp ( const char *file, const char *arg, ... )
 {
-  JASSERT ( false ).Text ( "variable argument version of exec not yet supported by dmtcp" );
-  return -1;
+  size_t argv_max = INITIAL_ARGV_MAX;
+  const char *initial_argv[INITIAL_ARGV_MAX];
+  const char **argv = initial_argv;
+  va_list args;
+
+  argv[0] = arg;
+
+  va_start (args, arg);
+  unsigned int i = 0;
+  while (argv[i++] != NULL)
+  {
+    if (i == argv_max)
+    {
+      argv_max *= 2;
+      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
+          argv_max * sizeof (const char *));
+      if (nptr == NULL)
+      {
+        if (argv != initial_argv)
+          free (argv);
+        return -1;
+      }
+      if (argv == initial_argv)
+        /* We have to copy the already filled-in data ourselves.  */
+        memcpy (nptr, argv, i * sizeof (const char *));
+
+      argv = nptr;
+    }
+
+    argv[i] = va_arg (args, const char *);
+  }
+  va_end (args);
+
+  int ret = execvp (file, (char *const *) argv);
+  if (argv != initial_argv)
+    free (argv);
+
+  return ret;
+}
+
+
+extern "C" int execle(const char *path, const char *arg, ...)
+{
+  size_t argv_max = INITIAL_ARGV_MAX;
+  const char *initial_argv[INITIAL_ARGV_MAX];
+  const char **argv = initial_argv;
+  va_list args;
+  argv[0] = arg;
+
+  va_start (args, arg);
+  unsigned int i = 0;
+  while (argv[i++] != NULL)
+  {
+    if (i == argv_max)
+    {
+      argv_max *= 2;
+      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
+          argv_max * sizeof (const char *));
+      if (nptr == NULL)
+      {
+        if (argv != initial_argv)
+          free (argv);
+        return -1;
+      }
+      if (argv == initial_argv)
+        /* We have to copy the already filled-in data ourselves.  */
+        memcpy (nptr, argv, i * sizeof (const char *));
+
+      argv = nptr;
+    }
+
+    argv[i] = va_arg (args, const char *);
+  }
+
+  const char *const *envp = va_arg (args, const char *const *);
+  va_end (args);
+
+  int ret = execve (path, (char *const *) argv, (char *const *) envp);
+  if (argv != initial_argv)
+    free (argv);
+
+  return ret;
 }
 
 extern "C" int system ( const char *cmd )
 {
   JTRACE ( "before system(), checkpointing may not work" )
-  ( cmd ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
+    ( cmd ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
   protectLD_PRELOAD();
   int rv = _real_system ( cmd );
   JTRACE ( "after system()" );
   //JASSERT ( false )( cmd ).Text ( "system() is called" );
   return rv;
 }
-
-// extern "C" int execle(const char *path, const char *arg, ..., char * const envp[])
-// {
-//     JASSERT(false).Text("variable argument version of exec not yet supported by dmtcp");
-// }
