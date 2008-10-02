@@ -78,6 +78,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+  const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
+
   JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
@@ -154,7 +156,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   initializeMtcpEngine();
 
-  const char* serialFile = getenv ( ENV_VAR_SERIALFILE_INITIAL );
   if ( serialFile != NULL )
   {
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );

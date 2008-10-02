@@ -147,7 +147,7 @@ namespace
 }//namespace
 
 static const char* theUsage = 
-  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.mtcp> [ckpt2.mtcp...]\n\n"
+  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
