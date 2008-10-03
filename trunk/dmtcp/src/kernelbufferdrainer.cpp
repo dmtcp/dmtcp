@@ -55,7 +55,9 @@ void dmtcp::KernelBufferDrainer::onData ( jalib::JReaderInterface* sock )
 }
 void dmtcp::KernelBufferDrainer::onDisconnect ( jalib::JReaderInterface* sock )
 {
-  int fd = sock->socket().sockfd();
+  int fd;
+  errno = 0;
+  fd = sock->socket().sockfd();
   //check if this was on purpose
   if ( fd < 0 ) return;
   JTRACE ( "found disconnected socket... marking it dead" )

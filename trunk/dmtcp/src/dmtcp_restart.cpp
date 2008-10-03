@@ -110,6 +110,7 @@ namespace
                 slidingFd.freeUpFd( fd );
                 int oldFd = slidingFd.getFdFor( i->first );
                 JTRACE("restoring fd")(i->first)(oldFd)(fd);
+		errno = 0;
                 JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
                 //_real_dup2(oldFd, fd);
               }
@@ -123,6 +124,7 @@ namespace
                 slidingFd.freeUpFd( fd );
                 int oldFd = slidingFd.getFdFor( i->first );
                 JTRACE("restoring fd")(i->first)(oldFd)(fd);
+		errno = 0;
                 JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
                 //_real_dup2(oldFd, fd);
               }

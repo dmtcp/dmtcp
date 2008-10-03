@@ -561,6 +561,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
       exit(CS_NO);
     }
   }
+  errno = 0;
   JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
 
   //is coordinator running?
@@ -604,6 +605,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
       execv(args[0], args);
       JASSERT(false)(coordinator)(JASSERT_ERRNO).Text("exec(dmtcp_coordinator) failed");
     }
+    errno = 0;
     JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
     if(WEXITSTATUS(coordinatorStatus) != 0){
       printf("[DMTCP] ERROR: Failed to start coordinator, port already in use.\n[DMTCP] You may use a different port by running with '-p 12345'\n");

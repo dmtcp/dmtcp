@@ -106,6 +106,7 @@ void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandPts )
 {
   //gather evidence
+  errno = 0;
   std::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fd ) );
   bool isBadFd = ( device == "" );
 
@@ -131,6 +132,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
     {
       char slaveDevice[1024];
   
+      errno = 0;
       JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
       ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
     
