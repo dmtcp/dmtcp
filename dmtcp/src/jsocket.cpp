@@ -179,6 +179,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     }
     else if ( retval )
     {
+      errno = 0;
       ssize_t cnt = read ( buf, len );
       if ( cnt <= 0 && errno != EAGAIN && errno != EINTR )
       {
@@ -227,6 +228,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     }
     else if ( retval )
     {
+      errno = 0;
       ssize_t cnt = write ( buf, len );
       if ( cnt <= 0 && errno != EAGAIN && errno != EINTR )
       {

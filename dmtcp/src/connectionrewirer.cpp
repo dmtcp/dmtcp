@@ -57,6 +57,7 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
 
     jalib::JSocket remote = jalib::JSocket::Create();
     remote.changeFd ( fd0 );
+    errno = 0;
     JASSERT ( remote.connect ( ( sockaddr* ) &msg.restoreAddr,msg.restoreAddrlen,msg.restorePort ) )
     ( msg.restorePid ) ( msg.restorePort ) ( JASSERT_ERRNO )
     .Text ( "failed to restore connection" );

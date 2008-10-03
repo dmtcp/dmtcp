@@ -80,6 +80,7 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
 {}
 
 void dmtcp::Connection::restartDup2(int oldFd, int fd){
+  errno = 0;
   JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
 }
 
@@ -163,10 +164,13 @@ void dmtcp::TcpConnection::addSetsockopt ( int level, int option, const char* va
 
 void dmtcp::Connection::saveOptions ( const std::vector<int>& fds )
 {
+  errno = 0;
   _fcntlFlags = fcntl ( fds[0],F_GETFL );
   JASSERT ( _fcntlFlags >= 0 ) ( _fcntlFlags ) ( JASSERT_ERRNO );
+  errno = 0;
   _fcntlOwner = fcntl ( fds[0],F_GETOWN );
   JASSERT ( _fcntlOwner != -1 ) ( _fcntlOwner ) ( JASSERT_ERRNO );
+  errno = 0;
   _fcntlSignal = fcntl ( fds[0],F_GETSIG );
   JASSERT ( _fcntlSignal >= 0 ) ( _fcntlSignal ) ( JASSERT_ERRNO );
 }
@@ -176,8 +180,11 @@ void dmtcp::Connection::restoreOptions ( const std::vector<int>& fds )
   JASSERT ( _fcntlFlags >= 0 ) ( _fcntlFlags );
   JASSERT ( _fcntlOwner != -1 ) ( _fcntlOwner );
   JASSERT ( _fcntlSignal >= 0 ) ( _fcntlSignal );
+  errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
+  errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETOWN,_fcntlOwner ) == 0 ) ( fds[0] ) ( _fcntlOwner ) ( JASSERT_ERRNO );
+  errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETSIG,_fcntlSignal ) == 0 ) ( fds[0] ) ( _fcntlSignal ) ( JASSERT_ERRNO );
 }
 
@@ -192,6 +199,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
     JTRACE ( "removing O_ASYNC flag during checkpoint" ) ( fds[0] ) ( id() );
+    errno = 0;
     JASSERT ( fcntl ( fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC ) == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( id() );
   }
 
@@ -317,12 +325,14 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
         JWARNING ( unlink ( un_path ) == 0 ) ( un_path );
       }
       JTRACE ( "binding socket" ) ( id() );
+      errno = 0;
       JWARNING ( sock.bind ( ( sockaddr* ) &_bindAddr,_bindAddrlen ) )
         ( JASSERT_ERRNO ) ( id() )
         .Text ( "bind failed" );
       if ( tcpType() == TCP_BIND ) break;
 
       JTRACE ( "listening socket" ) ( id() );
+      errno = 0;
       JWARNING ( sock.listen ( _listenBacklog ) )
         ( JASSERT_ERRNO ) ( id() ) ( _listenBacklog )
         .Text ( "bind failed" );
@@ -369,6 +379,7 @@ void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
 
 void dmtcp::TcpConnection::doLocking ( const std::vector<int>& fds )
 {
+  errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETOWN, getpid() ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
 }
 
@@ -454,8 +465,10 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
       JASSERT ( tempfd >= 0 ) ( tempfd ) ( JASSERT_ERRNO )
         .Text ( "Error Opening /dev/ptmx" );
 
+      errno = 0;
       JASSERT ( grantpt ( tempfd ) >= 0 ) ( tempfd ) ( JASSERT_ERRNO );
 
+      errno = 0;
       JASSERT ( unlockpt ( tempfd ) >= 0 ) ( tempfd ) ( JASSERT_ERRNO );
 
       JASSERT ( _real_ptsname_r ( tempfd, pts_name, 80 ) == 0 ) ( tempfd ) ( JASSERT_ERRNO );
@@ -486,6 +499,7 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
         return;
       }
 
+      errno = 0;
       std::string devicename = jalib::Filesystem::ResolveSymlink ( _symlinkFilename );
       JASSERT ( devicename.length() > 0 ) ( _device ) ( _symlinkFilename ) ( JASSERT_ERRNO )
         .Text ( "PTS does not exist" );
@@ -540,6 +554,7 @@ void dmtcp::FileConnection::restore ( const std::vector<int>& fds, ConnectionRew
   JASSERT ( fds.size() > 0 );
 
   JTRACE("Restoring File Connection") (_id.conId()) (_path);
+  errno = 0;
   int tempfd = openFile ();
 
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
@@ -550,6 +565,7 @@ void dmtcp::FileConnection::restore ( const std::vector<int>& fds, ConnectionRew
       .Text ( "dup2() failed" );
   }
 
+  errno = 0;
   JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset ) 
     ( _path ) ( _offset ) ( JASSERT_ERRNO );
 
@@ -935,6 +951,7 @@ void dmtcp::StdioConnection::restore ( const std::vector<int>& fds, ConnectionRe
       default:
         JASSERT(false);
     }
+    errno = 0;
     JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
   }
 }

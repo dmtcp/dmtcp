@@ -18,12 +18,12 @@ loaded, DMTCP transparently and automatically tracks them.
 To run a program with checkpointing:
   1) Run dmtcp_coordinator in a separate terminal/window
         
-        ./dmtcp_coordinator
+        ./bin/dmtcp_coordinator
         
   2) In separate terminal(s), replace each command(s)
      with "dmtcp_checkpoint [command]"
         
-        ./dmtcp_checkpoint a.out
+        ./bin/dmtcp_checkpoint ./a.out
 
   3) To checkpoint, type 'c'<return> into dmtcp_coordinator
 
@@ -37,22 +37,36 @@ To run a program with checkpointing:
 
 
 Creating a checkpoint causes the dmtcp_coordinator to write
-a script, dmtcp_restart_script.sh, along with two checkpoint files
-(type .mtcp and .dmtcp) for each client process.
+a script, dmtcp_restart_script.sh, along with a
+checkpoint file (file type: .dmtcp) for each client process.
 The simplest way to restart a previously checkpointed computation is:
-[Edit ./dmtcp_restart_script.sh ]
-        ./dmtcp_restart_script.sh
+[ Edit ./dmtcp_restart_script.sh ]
+        ./bin/dmtcp_restart_script.sh
+
+============================================
+CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
+  # Automatically start a coordinator in background
+  ./bin/dmtcp_checkpoint ./a.out &
+  # Checkpoint all processes of the default coordinator
+  ./bin/dmtcp_command -c
+  # Kill a.out, and optionally kill coordinator process
+  ./bin/dmtcp_command -q
+  # Restart directly from local checkpoint images (.dmtcp files)
+  # (Be sure there are no old ckpt_a.out_*.dmtcp files.
+  #  Ensure that the restarted process is running, and not suspended.)
+  ./bin/dmtcp_restart ckpt_a.out_*.dmtcp &
+  # Have gdb attach to a restarted process, and debug
+  # NOTE:  You must specify single-process 'mtcp_restart', not 'dmtcp_restart'
+  gdb ./a.out `pgrep -n mtcp_restart`
 
 ============================================
 COMMAND-LINE OPTIONS:
-    If dmtcp_checkpoint does not find a running coordinator, it will
-create one in background.  Use `dmtcp_command' to issue commands
-to the coordinator.
-    `dmtcp_checkpoint' and `dmtcp_command' will print their options when run
-with no command-line arguments.  `dmtcp_coordinator' offers help when run.
+    `dmtcp_checkpoint', `dmtcp_command', and 'dmtcp_restart' print
+their options when run with no command-line arguments.  `dmtcp_coordinator'
+offers help when run (Type 'h<return>' for help.).
 
 ============================================
-OPTIONS THROUGHT ENVIRONMENT VARIABLES:
+OPTIONS THROUGH ENVIRONMENT VARIABLES:
   dmtcp_coordinator:
     DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
@@ -131,3 +145,5 @@ SHORT NOTES:
        be pleased to provide advice on bundling MTCP.
     8. For developers, mtcp/readmtcp is useful for debugging checkpoint
        images.  Run it without arguments for a usage message.
+    9. dmtcpaware exists for programs that wish to directly talk to the
+       dmtcp_coordinator, without the intervention of a human being.
