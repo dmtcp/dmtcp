@@ -557,7 +557,7 @@ void dmtcp::SlidingFdTable::changeFd ( int oldfd, int newfd )
 {
   if ( oldfd == newfd ) return;
   JASSERT ( _real_dup2 ( oldfd,newfd ) == newfd ) ( oldfd ) ( newfd ).Text ( "dup2() failed" );
-  JASSERT ( _real_close ( oldfd ) ) ( oldfd ).Text ( "close() failed" );
+  JASSERT ( _real_close ( oldfd ) == 0 ) ( oldfd ).Text ( "close() failed" );
 }
 
 void dmtcp::SlidingFdTable::closeAll()
@@ -566,7 +566,7 @@ void dmtcp::SlidingFdTable::closeAll()
         ; i!=_conToFd.end()
         ; ++i )
   {
-    JWARNING ( _real_close ( i->second ) ==0 ) ( i->second );
+    JWARNING ( _real_close ( i->second ) ==0 ) ( i->second ) ( JASSERT_ERRNO );
   }
   _conToFd.clear();
 }
