@@ -310,25 +310,25 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    *       vdso check.
    */
   
-  // Shouldn't this removal of LD_PRELOAD be around fork/exec of gzip ?
-  setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
-  unsetenv("LD_PRELOAD");
-
 #ifndef __x86_64__
+  // Shouldn't this removal of LD_PRELOAD be around fork/exec of gzip ?
+  // setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
+  // unsetenv("LD_PRELOAD");
   // Allow user program to run with randomize_va
   // mtcp_check_vdso_enabled();
+  // setenv("LD_PRELOAD", getenv("MTCP_TMP_LD_PRELOAD"), 1);
+  // unsetenv("MTCP_TMP_LD_PRELOAD");
 #endif
-
-  setenv("LD_PRELOAD", getenv("MTCP_TMP_LD_PRELOAD"), 1);
-  unsetenv("MTCP_TMP_LD_PRELOAD");
 
 #if 0
   { struct user_desc u_info;
     u_info.entry_number = 12;
     if (-1 == mtcp_sys_get_thread_area(&u_info) && mtcp_sys_errno == ENOSYS)
-      mtcp_printf("Apparently, get_thread_area is not implemented in your kernel.\n"
-	     "  If this doesn't work, please try on a more recent kernel,\n"
-	     "  or one configured to support get_thread_area.\n");
+      mtcp_printf(
+        "Apparently, get_thread_area is not implemented in your kernel.\n"
+        "  If this doesn't work, please try on a more recent kernel,\n"
+        "  or one configured to support get_thread_area.\n"
+      );
   }
 #endif
 
