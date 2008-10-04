@@ -216,6 +216,7 @@ static int _determineMtcpSignal(){
 void dmtcp::shutdownMtcpEngineOnFork()
 {
   // Remove our signal handler from our SIG_CKPT
+  errno = 0;
   JWARNING (SIG_ERR == _real_signal(_determineMtcpSignal(), SIG_DFL))
            (_determineMtcpSignal())
            (JASSERT_ERRNO)
