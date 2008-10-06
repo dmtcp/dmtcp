@@ -28,7 +28,7 @@
 
 #define JSERIALIZE_ASSERT_POINT(str) \
     { char versionCheck[] = str;                                        \
-    static const std::string correctValue = versionCheck;               \
+    std::string correctValue = versionCheck;               \
     o & versionCheck;                                                      \
     JASSERT(versionCheck == correctValue)(versionCheck)(correctValue)(o.filename()) \
             .Text("invalid file format"); }
