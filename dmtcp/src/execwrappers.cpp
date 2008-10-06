@@ -225,8 +225,7 @@ extern "C" int pipe ( int fds[2] )
 static void dmtcpPrepareForExec()
 {
   protectLD_PRELOAD();
-  static std::string serialFile;
-  serialFile = dmtcp::UniquePid::dmtcpTableFilename();
+  std::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
@@ -237,6 +236,7 @@ static void protectLD_PRELOAD()
 {
   const char* actual = getenv ( "LD_PRELOAD" );
   const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
+
   if ( actual!=0 && expctd!=0 ){
     JASSERT ( strcmp ( actual,expctd ) ==0 )( actual ) ( expctd )
       .Text ( "eeek! Someone stomped on LD_PRELOAD" );

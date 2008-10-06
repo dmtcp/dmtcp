@@ -524,7 +524,7 @@ static void readmemoryareas (void)
 	// Because Linux library files have execute permission,
 	//   the dynamic libraries from time of checkpoint will be used.
 	else {
-           mtcp_printf ("mtcp_restart_nolibc: nmapping %s with data"
+           mtcp_printf ("mtcp_restart_nolibc: mapping %s with data"
 			" from current file (post-ckpt)\n", area.name);
           skipfile (area.size);
 	}
