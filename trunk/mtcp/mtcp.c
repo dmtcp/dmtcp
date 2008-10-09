@@ -119,6 +119,8 @@ if (DEBUG_RESTARTING) \
 	 (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
 #define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
 
+pthread_mutex_t mutex_start_checkpoint_thread = PTHREAD_MUTEX_INITIALIZER;
+
 typedef struct Thread Thread;
 
 struct Thread { Thread *next;                       // next thread in 'threads' list
@@ -451,11 +453,19 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Spawn off a thread that will perform the checkpoints from time to time */
 
   checkpointhreadstarting = 1;
+  pthread_mutex_init(&mutex_start_checkpoint_thread, NULL);
+  pthread_mutex_lock(&mutex_start_checkpoint_thread);
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
     mtcp_printf ("mtcp_init: error creating checkpoint thread: %s\n", strerror (errno));
     mtcp_abort ();
   }
   if (checkpointhreadstarting) mtcp_abort ();  // make sure the clone wrapper executed (ie, not just the standard clone)
+  /* Stop until checkpoint thread has finished initializing.
+   * Some programs (like gcl) implement their own glibc functions in
+   * a non-thread-safe manner.  In case we're using non-thread-safe glibc,
+   * don't run the checkpoint thread and user thread at the same time.
+   */
+  pthread_mutex_lock(&mutex_start_checkpoint_thread);
 }
 
 /********************************************************************************************************************************/
@@ -1088,6 +1098,8 @@ static void *checkpointhread (void *dummy)
   ckpthread = getcurrenthread ();
   save_sig_state (ckpthread);
   save_tls_state (ckpthread);
+  /* Release user thread after we've initialized. */
+  pthread_mutex_unlock(&mutex_start_checkpoint_thread);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
   DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
   if (originalstartup)
@@ -1470,6 +1482,7 @@ static void checkpointeverything (void)
    * We must restore old [vdso] and also keep [vdso] in that case.
    * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
    * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
+   *   and at least for gcl, [stack], mtcp.so, [vsyscall] seen.
    * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
    * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
    * Need to restore old [vdso] into mtcp_restart, to restart.

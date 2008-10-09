@@ -76,16 +76,16 @@ int main(int argc, char **argv) {
   readcs (fd, CS_RESTOREIMAGE);
   skipfile (fd, restore_size);
 
-  printf("%8x-%x rwxp %x 00:00 0          [mtcp.so]\n",
+  printf("%p-%p rwxp %p 00:00 0          [mtcp.so]\n",
 	restore_begin, restore_begin + restore_size, restore_begin);
-  printf("restore_start routine: 0x%x\n", restore_start);
+  printf("restore_start routine: 0x%p\n", restore_start);
 
 
   printf("*** finishrestore\n");
    void (*finishrestore) (void);
    readcs (fd, CS_FINISHRESTORE);
    readfile (fd, &finishrestore, sizeof finishrestore);
-  printf("finishrestore routine: 0x%x\n", finishrestore);
+  printf("finishrestore routine: 0x%p\n", finishrestore);
 
 
   char linkbuf[FILENAMESIZE];
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
     readfile (fd, &area, sizeof area);
     readcs (fd, CS_AREACONTENTS);
     skipfile (fd, area.size);
-    printf("%x-%x %c%c%c%c %8x 00:00 0          %s\n",
+    printf("%p-%p %c%c%c%c %8x 00:00 0          %s\n",
 	   area.addr, area.addr + area.size,
 	    ( area.prot & PROT_READ  ? 'r' : '-' ),
 	    ( area.prot & PROT_WRITE ? 'w' : '-' ),

@@ -116,7 +116,22 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
     }
   }
 
-  /* Unmap everything except for this image as everything we need is contained in the mtcp.so image */
+  /* Unmap everything except for this image as everything we need
+   *   is contained in the mtcp.so image.
+   * Unfortunately, in later Linuxes, it's important also not to wipe
+   *   out [vsyscall] if it exists (we may not have permission to remove it).
+   *   In any case, [vsyscall] is the highest segment if it exists.
+   * Further, if the [vdso] when we restart is different from the old
+   *   [vdso] that was saved at checkpoint time, then we need to keep
+   *   both of them.  The old one may be needed if we're returning from
+   *   a system call at checkpoint time.  The new one is needed for future
+   *   system calls.
+   * Highest_userspace_address is determined heuristically.  Primarily, it
+   *   was intended to make sure we don't overwrite [vdso] or [vsyscall].
+   *   But it was heuristically chosen as a constant (works for earlier
+   *   Linuxes), or as the end of stack.  Probably, we should review that,
+   *   and just make it beginning of [vsyscall]] where that exists.
+   */
 
   holebase  = (VA)mtcp_shareable_begin;
   holebase &= -PAGE_SIZE;
@@ -124,36 +139,52 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
                                                                   // ... it's left dangling on something I want
-  DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
-  rc = mtcp_sys_munmap (NULL, holebase);
+
+  /* Unmap from address 0 to holebase, except for [vdso] segment */
+  highest_va = highest_userspace_address(&vdso_addr);
+  if (highest_va == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
+    highest_va = HIGHEST_VA;
+
+  if (vdso_addr != (VA)NULL && vdso_addr < holebase) {
+    DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
+	      NULL, vdso_addr-1, vdso_addr+PAGE_SIZE, holebase - 1));
+    rc = mtcp_sys_munmap ((void *)NULL, (size_t)vdso_addr);
+    rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
+			   (size_t)holebase - vdso_addr - PAGE_SIZE);
+  } else {
+    DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
+    rc = mtcp_sys_munmap (NULL, holebase);
+  }
   if (rc == -1) {
       mtcp_printf ("mtcp_sys_munmap: error %d unmapping from 0 to %p\n",
 		   mtcp_sys_errno, holebase);
       mtcp_abort ();
   }
 
+  /* Unmap from address holebase to highest_va, except for [vdso] segment */
   holebase  = (VA)mtcp_shareable_end;
   holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
-  highest_va = highest_userspace_address(&vdso_addr);
   if (highest_va == 0) { /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
   }
-  if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE < (VA)highest_va) {
-    if (vdso_addr < holebase) {
-      mtcp_printf ("mtcp_sys_munmap: error %d unmapping:"
-		   " vdso_addr(%p) < holebase(%p)\n",
-		   mtcp_sys_errno, vdso_addr, holebase);
-      mtcp_abort ();
-    }
-    DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
-	      holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
-    rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
-    rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
+  if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE <= (VA)highest_va) {
+    if (vdso_addr > holebase) {
+      DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
+	        holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
+      rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
+      rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
 			   highest_va - vdso_addr - PAGE_SIZE);
-  } else {
-    DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
-	      holebase, highest_va - 1));
-    rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
+    } else {
+      DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
+	        holebase, highest_va - 1));
+      if (highest_va < holebase) {
+        mtcp_printf ("mtcp_sys_munmap: error unmapping:"
+		     " highest_va(%p) < holebase(%p)\n",
+		     highest_va, holebase);
+        mtcp_abort ();
+      }
+      rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
+    }
   }
   if (rc == -1) {
       mtcp_printf ("mtcp_sys_munmap: error %d unmapping from %p by %p bytes\n",
@@ -519,13 +550,17 @@ static void readmemoryareas (void)
 			area.name);
           readfile (area.addr, area.size);
 	}
-	// If we have no write permission on file,
-	//   then we should use data from most recent version of file.
+	// If we have no write permission on file, then we should use data
+	//   from version of file at restart-time (not from checkpoint-time).
 	// Because Linux library files have execute permission,
 	//   the dynamic libraries from time of checkpoint will be used.
 	else {
-           mtcp_printf ("mtcp_restart_nolibc: mapping %s with data"
-			" from current file (post-ckpt)\n", area.name);
+           mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version"
+	   		"of %s into memory;\n"
+			"  _not_ file as it existed at time of checkpoint.\n"
+			"  Change %s:%d and re-compile, if you want different"
+			  "behavior.\n",
+			area.name, __FILE__, __LINE__);
           skipfile (area.size);
 	}
 	if (imagefd >= 0)
@@ -691,6 +726,9 @@ static VA highest_userspace_address (VA *vdso_addr)
     p = strstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;
+    p = strstr (area.name, "[vsyscall]");
+    if (p != NULL) /* vsyscall is highest segment, when it exists */
+      return area.addr;
   }
 
   close (mapsfd);
