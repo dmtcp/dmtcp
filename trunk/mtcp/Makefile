@@ -49,7 +49,7 @@ UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 AS = as
 else
-CC = gcc
+CC = gcc-4.1
 UNAME = uname
 LD_RAW = ld
 AS = as --32

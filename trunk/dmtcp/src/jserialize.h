@@ -26,12 +26,21 @@
 #include <string>
 #include <vector>
 
+#ifndef MATLAB
+#define JSERIALIZE_ASSERT_POINT(str) \
+    { char versionCheck[] = str;                                        \
+    static const std::string correctValue = versionCheck;               \
+    o & versionCheck;                                                      \
+    JASSERT(versionCheck == correctValue)(versionCheck)(correctValue)(o.filename()) \
+            .Text("invalid file format"); }
+#else
 #define JSERIALIZE_ASSERT_POINT(str) \
     { char versionCheck[] = str;                                        \
     std::string correctValue = versionCheck;               \
     o & versionCheck;                                                      \
     JASSERT(versionCheck == correctValue)(versionCheck)(correctValue)(o.filename()) \
             .Text("invalid file format"); }
+#endif
 
 namespace jalib
 {
