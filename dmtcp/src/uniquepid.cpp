@@ -56,10 +56,7 @@ static dmtcp::UniquePid& theProcess()
 }
 static dmtcp::UniquePid& parentProcess()
 {
-#ifndef MATLAB
-  static
-#endif
-  dmtcp::UniquePid t ( 0,0,0 );
+  static dmtcp::UniquePid t ( 0,0,0 );
   return t;
 }
 
@@ -186,8 +183,10 @@ std::string dmtcp::UniquePid::toString() const{
 
 void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
 {
+#ifndef MATLAB
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
+#endif
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
   checkpointFilename_initialized = false;

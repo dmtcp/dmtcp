@@ -454,7 +454,10 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
   o & numCons;
 
   // Save/Restore parent process UniquePid
+#ifndef MATLAB
+  // parentProcess() is for inspection tools
   o & UniquePid::ParentProcess();
+#endif
 
   if ( o.isWriter() )
   {
