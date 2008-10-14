@@ -46,18 +46,24 @@ inline static long theUniqueHostId(){
 
 static dmtcp::UniquePid& nullProcess()
 {
-  static dmtcp::UniquePid t ( 0,0,0 );
-  return t;
+  static char buf[sizeof(dmtcp::UniquePid)];
+  static dmtcp::UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  return *t;
 }
 static dmtcp::UniquePid& theProcess()
 {
-  static dmtcp::UniquePid t ( 0,0,0 );
-  return t;
+  static char buf[sizeof(dmtcp::UniquePid)];
+  static dmtcp::UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  return *t;
 }
 static dmtcp::UniquePid& parentProcess()
 {
-  static dmtcp::UniquePid t ( 0,0,0 );
-  return t;
+  static char buf[sizeof(dmtcp::UniquePid)];
+  static dmtcp::UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  return *t;
 }
 
 const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
@@ -183,10 +189,8 @@ std::string dmtcp::UniquePid::toString() const{
 
 void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
 {
-#ifndef MATLAB
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
-#endif
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
   checkpointFilename_initialized = false;

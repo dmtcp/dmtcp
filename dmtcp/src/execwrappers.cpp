@@ -225,12 +225,7 @@ extern "C" int pipe ( int fds[2] )
 static void dmtcpPrepareForExec()
 {
   protectLD_PRELOAD();
-#ifndef MATLAB
-  static std::string serialFile;
-  serialFile = dmtcp::UniquePid::dmtcpTableFilename();
-#else
   std::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
-#endif
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
