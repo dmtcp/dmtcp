@@ -141,7 +141,7 @@ namespace dmtcp
 
   ///
   /// Another mapping from Connection to FD
-  /// This time to temporarying holding FD's which must be slid around as each FD is put into use
+  /// This time to temporarily hold FD's which must be slid around as each FD is put into use
   class SlidingFdTable
   {
     public:

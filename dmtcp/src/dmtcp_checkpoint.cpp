@@ -80,6 +80,19 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+#ifdef __GNUC__
+# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+  if ( strcmp(argv[1], "matlab") == 0 )
+    printf(
+   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
+   "****  with gcc-4.1 and g++-4.1\n"
+   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+   "**** [Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+   "****   (Will try to execute anyway with current compiler version.)\n\n"
+   );
+# endif
+#endif
+
   //process args 
   shift;
   while(true){

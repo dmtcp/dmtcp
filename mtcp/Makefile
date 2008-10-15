@@ -22,10 +22,10 @@
 ##  Compile and link the shareable, restore utility and test programs								##
 ##																##
 ##  Versions tested with:													##
-##    binutils-2.15.92, 2.16.1													##
-##    glibc-2.3.4, 2.3.6													##
-##    linux-2.6.10, 2.6.14													##
-##    gcc-3.4.4, 4.0.2														##
+##    binutils-2.15.92, 2.16.1, 2.18.1												##
+##    glibc-2.3.4, 2.3.6, 2.7.12, 2.7												##
+##    linux-2.6.9-34, 2.6.9-78, 2.6.10, 2.6.14, 2.6.25										##
+##    gcc-3.4.4, 4.0.2, 4.1.3, 4.3.2												##
 ##																##
 ##################################################################################################################################
 
@@ -49,7 +49,7 @@ UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 AS = as
 else
-CC = gcc-4.1
+CC = gcc
 UNAME = uname
 LD_RAW = ld
 AS = as --32

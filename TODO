@@ -1,16 +1,16 @@
-- MTCP fails latest debian glibc version 2.7-12
+- When environ is not yet initialized, currently dmtcphijack.so simply returns.
+  (This occurs when executing libc.so.6 .)
+  We should spend more effort to find environ at top of stack.
+  Note that bash also plays tricks with environ, but bash still gives
+    us a working getenv().
+
+- We currently wrap fork(), but not vfork().  Usually, the exec happens
+  soon after vfork().  But if we checkpoint after vfork() and before
+  exec, then we would miss the child process.  This should be fixed.
 
 - setsighandler fails if user has reset our signal handler
   Do we cleanly tell the user what signal is being used by app,
   and to reurn dmtcp with --sigckpt  set to other signal?
-
-- Would like to get ParGAP or even nested shells to work with
-  checkpointing.  I believe the issue here was pseudo-ttys,
-  if I remember.  This seems to be related to the issue that sometimes
-  upon restart, a process tries to write to its old stdout, which
-  can be an xterm that no longer exists.  It is also related to
-  what happens to stdin.  I think this is the part that Jason had said
-  he could eventually get to.
 
 - Extend list of syscalls using netdb to put wrappers around them.
   The danger is that in invoking the netdb, they might want to

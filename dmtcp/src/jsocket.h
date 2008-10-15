@@ -53,7 +53,7 @@ namespace jalib
       ///
       /// Create new socket
   protected: JSocket(); public:
-      //so we dont leak FDs
+      //so we don't leak FDs
       inline static JSocket Create() { return JSocket(); }
       ///
       /// Use existing socket
