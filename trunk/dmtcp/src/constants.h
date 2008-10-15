@@ -49,7 +49,7 @@
 #define ENV_VAR_CHECKPOINT_DIR "DMTCP_CHECKPOINT_DIR"
 #define ENV_VAR_CKPT_OPEN_FILES "DMTCP_CKPT_OPEN_FILES"
 
-// it is not yet safe to change thse
+// it is not yet safe to change these; these names are hard-wired in the code
 #define ENV_VAR_UTILITY_DIR "JALIB_UTILITY_DIR"
 #define ENV_VAR_STDERR_PATH "JALIB_STDERR_PATH"
 #define ENV_VAR_COMPRESSION "DMTCP_GZIP"

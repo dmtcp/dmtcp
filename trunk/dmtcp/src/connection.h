@@ -76,7 +76,7 @@ namespace dmtcp
       virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
       virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
 
-      //called on restart when _id colides with another connection
+      //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
       //convert with type checking
@@ -146,7 +146,7 @@ namespace dmtcp
 
       const ConnectionIdentifier& getRemoteId() const { return _acceptRemoteId; }
 
-      //called on restart when _id colides with another connection
+      //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
     private:
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
@@ -217,7 +217,7 @@ namespace dmtcp
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
-      //called on restart when _id colides with another connection
+      //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
     private:
       PtsType   _type;
@@ -268,7 +268,7 @@ namespace dmtcp
         FILE_REGULAR,
         FILE_DELETED
       };
-      //called on restart when _id colides with another connection
+      //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
       inline FileConnection ( const std::string& path, off_t offset=-1 )
