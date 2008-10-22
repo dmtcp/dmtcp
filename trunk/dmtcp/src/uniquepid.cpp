@@ -138,8 +138,12 @@ const char* dmtcp::UniquePid::checkpointFilename()
 std::string dmtcp::UniquePid::dmtcpTableFilename()
 {
   static int count = 0;
-  return "/tmp/dmtcpConTable." + jalib::XToString ( getpid() )
-         + '_' + jalib::XToString ( count++ );
+  std::ostringstream os;
+
+  os << "/tmp/dmtcpConTable." 
+     << ThisProcess()
+     << '_' << jalib::XToString ( count++ );
+  return os.str();
 }
 
 const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
