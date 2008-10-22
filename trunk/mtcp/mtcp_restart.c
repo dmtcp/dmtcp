@@ -73,6 +73,13 @@ int main (int argc, char *argv[])
     verify = 0;
     restorename = NULL;
     fd = atoi(argv[2]);
+  } else if ((argc == 5) && (strcasecmp (argv[1], "-fd") == 0)
+	     && (strcasecmp (argv[3], "-gzip_child_pid") == 0)) {
+    /* This case used only when dmtcp_restart exec's to mtcp_restart. */
+    verify = 0;
+    restorename = NULL;
+    fd = atoi(argv[2]);
+    gzip_child_pid = atoi(argv[4]);
   } else {
     mtcp_printf("usage: mtcp_restart [-verify] <checkpointfile>\n");
     return (-1);
@@ -142,7 +149,7 @@ int main (int argc, char *argv[])
           textbase = strtoul (symbolbuff + 41, &p, 16);
         }
       }
-      fclose (symbolfile);
+      pclose (symbolfile);
       if (textbase != 0) {
 	mtcp_printf("\n**********\nmtcp_restart*: The symbol table of the"
 		 " checkpointed file can be\nmade available to gdb."
@@ -206,7 +213,7 @@ static int open_ckpt_to_read(char *filename)
     int fd;
     int fds[2];
     char fc;
-    char *gzip_path;
+    char *gzip_path = "gzip";
     static char *gzip_args[] = { "gzip", "-d", "-", NULL };
     pid_t cpid;
 
@@ -243,7 +250,7 @@ static int open_ckpt_to_read(char *filename)
         }
         else if(cpid > 0) /* parent process */
         {
-            gzip_child_pid = cpid;            
+            gzip_child_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
@@ -257,7 +264,7 @@ static int open_ckpt_to_read(char *filename)
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-            execv(gzip_path, gzip_args);
+            execvp(gzip_path, gzip_args);
             /* should not get here */
             fputs("ERROR: Decompression failed!  No restoration will be performed!  Cancel now!\n", stderr);
             abort();

@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -119,7 +120,7 @@ if (DEBUG_RESTARTING) \
 	 (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
 #define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
 
-pthread_mutex_t mutex_start_checkpoint_thread = PTHREAD_MUTEX_INITIALIZER;
+sem_t sem_start;
 
 typedef struct Thread Thread;
 
@@ -135,17 +136,17 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
                 int *parent_tidptr;
                 int *given_tidptr;                  // (this is what __clone caller passed in)
                 int *actual_tidptr;                 // (this is what we passed to the system call, either given_tidptr or &child_tid)
-                int child_tid;                      // this is used for child_tidptr if the original call did not 
+                int child_tid;                      // this is used for child_tidptr if the original call did not
                                                     // ... have both CLONE_CHILD_SETTID and CLONE_CHILD_CLEARTID
                 int (*fn) (void *arg);              // thread's initial function entrypoint and argument
                 void *arg;
 
                 sigset_t sigblockmask;              // blocked signals
                 struct sigaction sigactions[NSIG];  // signal handlers
-                
+
                 ///JA: new code ported from v54b
                 ucontext_t savctx;                  // context saved on suspend
-                
+
                 mtcp_segreg_t fs, gs;               // thread local storage pointers
 #if MTCP__SAVE_MANY_GDT_ENTRIES
                 struct user_desc gdtentrytls[GDT_ENTRY_TLS_ENTRIES];
@@ -200,14 +201,14 @@ static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_ckpt_prefix)(int fd) = NULL;
 
-static int (*clone_entry) (int (*fn) (void *arg), 
-                           void *child_stack, 
-                           int flags, 
-                           void *arg, 
-                           int *parent_tidptr, 
-                           struct user_desc *newtls, 
+static int (*clone_entry) (int (*fn) (void *arg),
+                           void *child_stack,
+                           int flags,
+                           void *arg,
+                           int *parent_tidptr,
+                           struct user_desc *newtls,
                            int *child_tidptr);
-static int (*execv_entry) (const char *path, char *const argv[]);
+static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
  *   mtcp.so address range for anything;
@@ -307,11 +308,11 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    *
    * Saving LD_PRELOAD in a temp env var and restoring it later --Kapil.
    *
-   * TODO: To insert some sort of error checking to make sure that we 
-   *       are correctly setting LD_PRELOAD after we are done with 
+   * TODO: To insert some sort of error checking to make sure that we
+   *       are correctly setting LD_PRELOAD after we are done with
    *       vdso check.
    */
-  
+
 #ifndef __x86_64__
   // Shouldn't this removal of LD_PRELOAD be around fork/exec of gzip ?
   // setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
@@ -453,8 +454,16 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Spawn off a thread that will perform the checkpoints from time to time */
 
   checkpointhreadstarting = 1;
-  pthread_mutex_init(&mutex_start_checkpoint_thread, NULL);
-  pthread_mutex_lock(&mutex_start_checkpoint_thread);
+  /* If we return from a fork(), we don't know what is the semaphore value. */
+  errno = 0;
+  while (sem_trywait(&sem_start) == -1 && (errno == EAGAIN || errno == EINTR)) {
+    if ( errno == EAGAIN )
+      sem_post(&sem_start);
+    errno = 0;
+  }
+  if (errno != 0)
+    perror("ERROR: continue anyway from " __FILE__ ":mtcp_init:sem_trywait()");
+  /* Now we successfully locked it.  The sempaphore value is zero. */
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
     mtcp_printf ("mtcp_init: error creating checkpoint thread: %s\n", strerror (errno));
     mtcp_abort ();
@@ -465,7 +474,10 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    * a non-thread-safe manner.  In case we're using non-thread-safe glibc,
    * don't run the checkpoint thread and user thread at the same time.
    */
-  pthread_mutex_lock(&mutex_start_checkpoint_thread);
+  errno = 0;
+  while (-1 == sem_wait(&sem_start) && errno == EINTR)
+    errno = 0;
+  /* The child thread checkpointhread will now wake us. */
 }
 
 /********************************************************************************************************************************/
@@ -474,13 +486,13 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
  *  MTCP checkpoint, to add special functionality to checkpointing
  */
 /*    Its arguments (callback functions) are:  */
-// 
+//
 // sleep_between_ckpt:  Called in between checkpoints to replace the default "sleep(sec)" functionality,
 //                      when this function returns checkpoint will start
 // pre_ckpt:            Called after all user threads are suspended, but BEFORE checkpoint written
-// post_ckpt:           Called after checkpoint, and after restore.  is_restarting will be 1 for restore 0 for after checkpoint 
+// post_ckpt:           Called after checkpoint, and after restore.  is_restarting will be 1 for restore 0 for after checkpoint
 // ckpt_fd:             Called to test if mtcp should checkpoint a given FD returns 1 if it should
-// 
+//
 /********************************************************************************************************************************/
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
@@ -614,7 +626,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   Thread *thread;
 
   /* Maybe they decided not to call mtcp_init */
-
   if (motherofall != NULL) {
 
     /* They called mtcp_init meaning we are to do checkpointing.
@@ -689,7 +700,7 @@ asm (".global clone ; .type clone,@function ; clone = __clone");
 /*																*/
 /*  This routine is called (via clone) as the top-level routine of a thread that we are tracking.				*/
 /*																*/
-/*  It fills in remaining items of our thread struct, calls the user function, then cleans up the thread struct before exting.	*/
+/*  It fills in remaining items of our thread struct, calls the user function, then cleans up the thread struct before exiting.	*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -947,9 +958,9 @@ static void threadisdead (Thread *thread)
   /* If checkpointer is waiting for us, wake it to see this thread no longer in list */
 
   mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
-  
+
   mtcp_state_destroy( &(thread -> state) );
-  
+
   free (thread);
 }
 
@@ -1099,7 +1110,7 @@ static void *checkpointhread (void *dummy)
   save_sig_state (ckpthread);
   save_tls_state (ckpthread);
   /* Release user thread after we've initialized. */
-  pthread_mutex_unlock(&mutex_start_checkpoint_thread);
+  sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
   DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
   if (originalstartup)
@@ -1113,7 +1124,7 @@ static void *checkpointhread (void *dummy)
     DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
   }
 
-  /* Reset the verification counter - on init, this will set it to it's start value. */ 
+  /* Reset the verification counter - on init, this will set it to it's start value. */
   /* After a verification, it will reset it to its start value.  After a normal      */
   /* restore, it will set it to its start value.  So this covers all cases.          */
 
@@ -1154,7 +1165,7 @@ rescan:
 
 again:
       setup_sig_handler(); //keep pounding the signal handler in
-      
+
       if (*(thread -> actual_tidptr) == 0) {
         DPRINTF (("mtcp checkpointhread*: thread %d disappeared\n", thread -> tid));
         unlk_threads ();
@@ -1184,7 +1195,7 @@ again:
           if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
             if (mtcp_sys_errno != ESRCH) {
-              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n", 
+              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
                            thread -> tid, strerror (mtcp_sys_errno));
             }
             unlk_threads ();
@@ -1259,8 +1270,8 @@ again:
     }
 
     /* call weak symbol of this file, possibly overridden by the user's strong symbol  */
-    /* user must compile his/her code with -Wl,-export-dynamic to make it visible */ 
-    mtcpHookPreCheckpoint(); 
+    /* user must compile his/her code with -Wl,-export-dynamic to make it visible */
+    mtcpHookPreCheckpoint();
 
     /* All other threads halted in 'stopthisthread' routine (they are all ST_SUSPENDED) - it's safe to write checkpoint file now */
     if (callback_pre_ckpt != NULL){
@@ -1284,7 +1295,7 @@ again:
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
     checkpointeverything ();
-    
+
     if(callback_post_ckpt != NULL){
         DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n"
 				,&callback_post_ckpt,callback_post_ckpt));
@@ -1293,8 +1304,8 @@ again:
     if (showtiming) {
       mtcp_sys_gettimeofday (&stopped, NULL);
       stopped.tv_usec += (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
-      mtcp_printf ("mtcp checkpoint: time %u uS, size %u megabytes, avg rate %u MB/s\n", 
-                   stopped.tv_usec, (unsigned int)(checkpointsize / 1000000), 
+      mtcp_printf ("mtcp checkpoint: time %u uS, size %u megabytes, avg rate %u MB/s\n",
+                   stopped.tv_usec, (unsigned int)(checkpointsize / 1000000),
                    (unsigned int)(checkpointsize / stopped.tv_usec));
     }
 
@@ -1334,7 +1345,7 @@ static int open_ckpt_to_write(void)
   int fd;
   int fds[2]; /* for potential piping */
   char *do_we_compress;
-  char *gzip_path;
+  char *gzip_path = "gzip";
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
   do_we_compress = getenv("MTCP_GZIP");
   // allow alternate name for env var
@@ -1397,10 +1408,10 @@ static int open_ckpt_to_write(void)
       dup2(fd, STDOUT_FILENO);
       close(fd);
       //make sure DMTCP doesn't catch gzip
-      unsetenv("LD_PRELOAD"); 
+      unsetenv("LD_PRELOAD");
 
-      execv_entry = mtcp_get_libc_symbol("execv");
-      (*execv_entry)(gzip_path, gzip_args);
+      execvp_entry = mtcp_get_libc_symbol("execvp");
+      (*execvp_entry)(gzip_path, gzip_args);
       /* should not get here */
       mtcp_printf("ERROR: compression failed!  No checkpointing will be"
                   "performed!  Cancel now!\n");
@@ -1435,7 +1446,7 @@ static void checkpointeverything (void)
   /* Create temp checkpoint file and write magic number to it */
 
   fd = open_ckpt_to_write();
-  
+
   if(callback_write_ckpt_prefix != 0)
     (*callback_write_ckpt_prefix)(fd);
 
@@ -1511,7 +1522,7 @@ static void checkpointeverything (void)
      *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
      * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
-     */ 
+     */
      /* If it's readable, but it's VDSO, it will be dangerous to restore it.
       * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
       * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
@@ -1541,7 +1552,7 @@ static void checkpointeverything (void)
         mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
         mtcp_abort();
       }
-      
+
       if ( mmap(area.addr, area.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0) == MAP_FAILED ){
         mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
         mtcp_abort();
@@ -1559,7 +1570,7 @@ static void checkpointeverything (void)
     if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
       area.flags |= MAP_ANONYMOUS;
     }
-   
+
     if ( area.flags & MAP_SHARED ){
       /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
       if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
@@ -1569,7 +1580,7 @@ static void checkpointeverything (void)
         mtcp_abort();
       }
     }
- 
+
 
     /* Skip any mapping for this image - it got saved as CS_RESTOREIMAGE at the beginning */
 
@@ -1614,7 +1625,7 @@ static void checkpointeverything (void)
     if(waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
 	perror("ckeckpointeverything: waitpid");
     mtcp_ckpt_gzip_child_pid = -1;
-  }  
+  }
 
   /* Maybe it's time to verify the checkpoint                                                                 */
   /* If so, exec an mtcp_restore with the temp file (in case temp file is bad, we'll still have the last one) */
@@ -1632,7 +1643,7 @@ static void checkpointeverything (void)
 /* True if the given FD should be checkpointed */
 static int should_ckpt_fd (int fd)
 {
-   if( callback_ckpt_fd!=NULL ) 
+   if( callback_ckpt_fd!=NULL )
      return (*callback_ckpt_fd)(fd); //delegate to callback
    else
      return fd>2; //ignore stdin/stdout
@@ -1960,7 +1971,7 @@ static void wait_for_all_restored (void)
     //   additional user threads.  Only motherofall (checkpoint thread existed)
     /* call weak symbol of this file, possibly overridden by the user's strong symbol  */
     /* user must compile his/her code with -Wl,-export-dynamic to make it visible */
-    mtcpHookRestart(); 
+    mtcpHookRestart();
     unlk_threads ();                                                 // ... and release the thread list
   } else {
     while ((rip = mtcp_state_value(&restoreinprog)) > 0) {           // otherwise, wait for last of all to wake this one up
@@ -2025,7 +2036,7 @@ static void save_tls_state (Thread *thisthread)
   memset (thisthread -> gdtentrytls, 0, sizeof thisthread -> gdtentrytls);
 
   /* On older Linuces, we must save several GDT entries available to threads. */
- 
+
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   for (i = GDT_ENTRY_TLS_MIN; i <= GDT_ENTRY_TLS_MAX; i ++) {
     thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN].entry_number = i;
@@ -2173,7 +2184,7 @@ static int readmapsline (int mapsfd, Area *area)
   c = mtcp_readdec (mapsfd, &inodenum);
   area -> name[0] = '\0';
   while (c == ' ') c = mtcp_readchar (mapsfd);
-  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */ 
+  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
     i = 0;
     do {
       area -> name[i++] = c;
@@ -2196,7 +2207,7 @@ static int readmapsline (int mapsfd, Area *area)
     }
     devnum = makedev (devmajor, devminor);
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
-      mtcp_printf ("mtcp readmapsline: image %s dev:inode %X:%u not eq maps %X:%u\n", 
+      mtcp_printf ("mtcp readmapsline: image %s dev:inode %X:%u not eq maps %X:%u\n",
                 area -> name, statbuf.st_dev, statbuf.st_ino, devnum, inodenum);
       return (0);
     }
@@ -2270,7 +2281,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
 
   /* Switch to a stack area that's part of the shareable's memory address range
    * and thus not used by the checkpointed program
-   */ 
+   */
 
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
                 /* This next assembly language confuses gdb,
@@ -2359,7 +2370,7 @@ static int restarthread (void *threadv)
     ///JA: v54b port
     errno = -1;
     if ((*clone_entry) (restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
-                        (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID, 
+                        (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
                         child, child -> parent_tidptr, NULL, child -> actual_tidptr) < 0) {
 
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
@@ -2505,7 +2516,7 @@ static void sync_shared_mem(void)
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
     if (!(area.flags & MAP_SHARED)) continue;
-    
+
     DPRINTF(("mtcp sync_shared_memory: syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
 
     if ( msync(area.addr, area.size, MS_SYNC) < 0 ){

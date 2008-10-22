@@ -267,21 +267,23 @@ static void runMtcpRestore ( const char* path )
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
   sprintf(buf,"%d", fd);
+  char buf2[64];
+  // gzip_child_pid set by openMtcpCheckpointFile() above.
+  sprintf(buf2,"%d", dmtcp::ConnectionToFds::gzip_child_pid);
 
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
     ( char* ) "-fd",
     buf,
+    ( char* ) "-gzip_child_pid",
+    buf2,
     NULL
   };
+  if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
+    newArgs[3] = NULL;
 
   JTRACE ( "launching mtcp_restart" ) ( newArgs[2] );
 
   execvp ( newArgs[0], newArgs );
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
-
-
-
-
-

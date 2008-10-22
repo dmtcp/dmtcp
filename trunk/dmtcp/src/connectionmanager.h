@@ -34,7 +34,7 @@ namespace dmtcp
   class KernelDeviceToConnection;
   class ConnectionToFds;
   class ConnectionState;
-  
+
   class ConnectionList
   {
       friend class KernelDeviceToConnection;
@@ -83,7 +83,7 @@ namespace dmtcp
       KernelDeviceToConnection();
 
       void handlePreExistingFd ( int fd );
-      
+
       //called when a device name changes
       void redirect( int fd, const ConnectionIdentifier& id );
     protected:
@@ -98,8 +98,8 @@ namespace dmtcp
   class ConnectionToFds
   {
     public:
-      ConnectionToFds() { 
-        _procname = jalib::Filesystem::GetProgramName(); 
+      ConnectionToFds() {
+        _procname = jalib::Filesystem::GetProgramName();
         _hostname = jalib::Filesystem::GetCurrentHostname();
         _inhostname = jalib::Filesystem::GetCurrentHostname();
         _pid = UniquePid::ThisProcess();
@@ -107,29 +107,30 @@ namespace dmtcp
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       std::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
-    
+
       typedef std::map< ConnectionIdentifier, std::vector<int> >::iterator iterator;
       iterator begin() { return _table.begin(); }
       iterator end() { return _table.end(); }
       typedef std::map< ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
       const_iterator begin() const { return _table.begin(); }
       const_iterator end() const { return _table.end(); }
-    
+
       size_t size() const { return _table.size(); }
 
       void serialize ( jalib::JBinarySerializer& o );
-    
+
       const std::string& procname()   const { return _procname; }
       const std::string& hostname()   const { return _hostname; }
       const std::string& inhostname() const { return _inhostname; }
       const UniquePid&   pid()        const { return _pid; }
       const UniquePid&   ppid()       const { return _ppid; }
-      
+
+      static pid_t gzip_child_pid;
       static int openDmtcpCheckpointFile(const std::string& filename);
       static int openMtcpCheckpointFile(const std::string& filename);
 
       void loadFromFile(const std::string& filename);
-      
+
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
       std::string _procname;
@@ -188,7 +189,7 @@ namespace dmtcp
       void add ( std::string device, std::string filename );
       std::string getFilename ( std::string device );
       bool isDuplicate(std::string);
-  
+
     private:
       std::map<std::string, std::string> _table;
   };

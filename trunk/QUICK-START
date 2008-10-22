@@ -147,3 +147,15 @@ SHORT NOTES:
        images.  Run it without arguments for a usage message.
     9. dmtcpaware exists for programs that wish to directly talk to the
        dmtcp_coordinator, without the intervention of a human being.
+    10. As of Oct., 2009, DMTCP does not correctly handle checkpointing
+       matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
+       FOR libjvm.so .  We are working toward a fix.
+         A simple workaround for now is to copy the .matlab7rc.sh
+       file into your current directory or home directory, and add
+       to the end of the file, for example:
+        [ to use /usr/lib/jamvm/libjvm.so, Debian package: jamvm ]
+        LDPATH_PREFIX=/usr/lib/jamvm
+      Other possible virtual machines for LDPATH_PREFIX are:  
+        LDPATH_PREFIX=/usr/lib/gcj-4.3-90, Debian package:  libgcj9-0
+      and others from:
+	http://www.roseindia.net/opensource/open-source-jvm.shtml

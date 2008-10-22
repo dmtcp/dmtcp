@@ -36,7 +36,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-static const char* theUsage = 
+static const char* theUsage =
   "USAGE: \n"
   "  dmtcp_checkpoint [OPTIONS] <command> [args...]\n\n"
   "OPTIONS:\n"
@@ -59,7 +59,7 @@ static const char* theUsage =
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
-static const char* theExecFailedMsg = 
+static const char* theExecFailedMsg =
   "ERROR: Failed to exec(\"%s\"): %s\n"
   "Perhaps it is not in your $PATH?\n"
   "See `dmtcp_checkpoint --help` for usage.\n"
@@ -87,13 +87,14 @@ int main ( int argc, char** argv )
    "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
    "****  with gcc-4.1 and g++-4.1\n"
    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-   "**** [Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+   "**** [ Finally, you may need an alternative Java JVM (see QUICK-START) ]\n"
    "****   (Will try to execute anyway with current compiler version.)\n\n"
    );
 # endif
 #endif
 
-  //process args 
+  //process args
   shift;
   while(true){
     std::string s = argc>0 ? argv[0] : "--help";
@@ -180,7 +181,7 @@ int main ( int argc, char** argv )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
   else
     unsetenv("MTCP_SIGCKPT");
-  
+
   if ( checkpointOpenFiles )
     setenv( ENV_VAR_CKPT_OPEN_FILES, "1", 0 );
   else
