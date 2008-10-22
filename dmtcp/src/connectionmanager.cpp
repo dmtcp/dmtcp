@@ -31,6 +31,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 
 static std::string _procFDPath ( int fd )
@@ -126,16 +128,16 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   if ( isPtmx )
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
-  
+
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
     {
       char slaveDevice[1024];
-  
+
       errno = 0;
-      JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 ) 
+      JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 )
       ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
-    
+
       std::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
 
       JTRACE ( "creating ptmx connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
@@ -154,7 +156,7 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   else if ( isPts )
   {
     std::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
-      
+
     if(noOnDemandPts)
       return deviceName;
 
@@ -226,7 +228,7 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
 void dmtcp::KernelDeviceToConnection::redirect( int fd, const ConnectionIdentifier& id ){
   //first delete the old one
   erase(id);
-  
+
   //now add the new fd
   std::string device = fdToDevice ( fd, true );
   JTRACE ( "redirecting device" )(fd)(device) (id);
@@ -489,7 +491,7 @@ dmtcp::Connection& dmtcp::ConnectionList::operator[] ( const ConnectionIdentifie
   //  std::cout << "Operator [], conId=" << id << "\n";
   JASSERT ( _connections.find ( id ) != _connections.end() ) ( id )
   .Text ( "Unknown connection" );
-  //  std::cout << "Operator [], found: " << (_connections.find ( id ) != _connections.end()) 
+  //  std::cout << "Operator [], found: " << (_connections.find ( id ) != _connections.end())
   //            << "\n";
   //  std::cout << "Operator [], Result: conId=" << _connections[id]->id() << "\n";
   return *_connections[id];
@@ -615,6 +617,104 @@ bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
   return true;
 }
 
+pid_t dmtcp::ConnectionToFds::gzip_child_pid = -1;
+#if 1
+// Copied from mtcp/mtcp_restart.c.
+#define DMTCP_MAGIC_FIRST 'D'
+#define GZIP_FIRST 037
+char *mtcp_executable_path(char *filename);
+static char first_char(const char *filename)
+{
+    int fd, rc;
+    char c;
+
+    fd = open(filename, O_RDONLY);
+    JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open file %s");
+
+    rc = read(fd, &c, 1);
+    JASSERT(rc == 1)(filename).Text("ERROR: Error reading from file %s");
+
+    close(fd);
+    return c;
+}
+
+// Copied from mtcp/mtcp_restart.c.
+// Let's keep this code close to MTCP code to avoid maintenance problems.
+// A previous version tried to replace this with popen, causing a regression:
+//   (no call to pclose, and possibility of using a wrong fd).
+// Returns fd; sets dmtcp::gzip_child_pid::ConnectionToFds, if gzip compression.
+static int open_ckpt_to_read(const char *filename)
+{
+    int fd;
+    int fds[2];
+    char fc;
+    char *gzip_path;
+    static char *gzip_args[] = { "gzip", "-d", "-", NULL };
+    pid_t cpid;
+
+    fc = first_char(filename);
+    fd = open(filename, O_RDONLY);
+    JASSERT(fd>=0)(filename).Text("Failed to open file.");
+
+    if(fc == DMTCP_MAGIC_FIRST) /* no compression */
+        return fd;
+    else if(fc == GZIP_FIRST) /* gzip */
+    {
+        gzip_path = "gzip";
+
+        JASSERT(pipe(fds) != -1)(filename).Text("Cannote create pipe to execute gunzip to decompress checkpoint file!");
+
+        cpid = fork();
+
+        JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
+        if(cpid > 0) /* parent process */
+        {
+           JTRACE ( "created gzip child process to uncompress checkpoint file");
+	    dmtcp::ConnectionToFds::gzip_child_pid = cpid;
+            close(fd);
+            close(fds[1]);
+            return fds[0];
+        }
+        else /* child process */
+        {
+            fd = dup(dup(dup(fd)));
+            fds[1] = dup(fds[1]);
+            close(fds[0]);
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+            dup2(fds[1], STDOUT_FILENO);
+            close(fds[1]);
+            execvp(gzip_path, gzip_args);
+            JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
+            /* should not get here */
+            JASSERT(false)("ERROR: Decompression failed!  No restoration will be performed!  Cancelling now!");
+            abort();
+        }
+    }
+    else /* invalid magic number */
+        JASSERT(false).Text("ERROR: Invalid magic number in this checkpoint file!");
+}
+
+// See comments above for open_ckpt_to_read()
+int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
+  // Function also sets dmtcp::gzip_child_pid::ConnectionToFds
+  int fd = open_ckpt_to_read( path.c_str() );
+  // The rest of this function is for compatibility with original definition.
+  JASSERT(fd>=0)(path).Text("Failed to open file.");
+  char buf[512];
+  const int len = strlen(DMTCP_FILE_HEADER);
+  JASSERT(read(fd, buf, len)==len)(path).Text("read() failed");
+  if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
+    JTRACE("opened checkpoint file [uncompressed]")(path);
+  }else{
+    int status;
+    close(fd);
+    waitpid(gzip_child_pid, &status, 0);
+    fd = open_ckpt_to_read( path.c_str() ); /* Re-open from beginning */
+  }
+  return fd;
+}
+#else
 int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
   int fd = open( path.c_str(), O_RDONLY);
   JASSERT(fd>=0)(path).Text("Failed to open file.");
@@ -637,6 +737,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
     return fd;
   }
 }
+#endif
 
 int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const std::string& path){
   int fd = openDmtcpCheckpointFile(path);

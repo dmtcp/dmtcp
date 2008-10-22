@@ -181,9 +181,14 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     {
       errno = 0;
       ssize_t cnt = read ( buf, len );
-      if ( cnt <= 0 && errno != EAGAIN && errno != EINTR )
+      if ( cnt < 0 && errno != EAGAIN && errno != EINTR )
       {
-        JWARNING(cnt>0)(sockfd())(cnt)(len)(JASSERT_ERRNO).Text( "JSocket read failure" );
+        JWARNING(cnt>=0)(sockfd())(cnt)(len)(JASSERT_ERRNO).Text( "JSocket read failure" );
+        return -1;
+      }
+      if (cnt == 0)
+      {
+        JWARNING(cnt!=0)(sockfd())(origLen)(len).Text( "JSocket needed to read origLen chars, read only len chars before EOF" );
         return -1;
       }
       if ( cnt > 0 )
@@ -386,7 +391,7 @@ jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 void jalib::JSocket::changeFd ( int newFd )
 {
   if ( _sockfd == newFd ) return;
-  JASSERT ( newFd == DECORATE_FN(dup2) ( _sockfd, newFd ) ) 
+  JASSERT ( newFd == DECORATE_FN(dup2) ( _sockfd, newFd ) )
       ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
   close();
   _sockfd = newFd;
@@ -482,8 +487,8 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     //collect all writes in wfds, cleanup finished/dead
     for ( i=0; i<_writes.size(); ++i )
     {
-      if (  !_writes[i]->hadError() 
-         && !_writes[i]->isDone() 
+      if (  !_writes[i]->hadError()
+         && !_writes[i]->isDone()
          && closedFds.find(_writes[i]->socket().sockfd())==closedFds.end() )
       {
         FD_SET ( _writes[i]->socket().sockfd(), &wfds );
