@@ -1,6 +1,7 @@
 #testconfig.py is generated using testconfig.py.in by ./configure
 
 HAS_READLINE="@HAS_READLINE@"
+HAS_GCL="@HAS_GCL@"
 HAS_MPICH="@HAS_MPICH@"
 MPICH_MPD="@MPICH_MPD@"
 MPICH_MPDBOOT="@MPICH_MPDBOOT@"

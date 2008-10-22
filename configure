@@ -627,6 +627,7 @@ CXXFLAGS
 ac_ct_CXX
 subdirs
 HAS_READLINE
+HAS_GCL
 MPICH_MPD
 MPICH_MPDBOOT
 MPICH_MPDALLEXIT
@@ -3166,6 +3167,47 @@ else
 fi
 
 
+#checkfor gcl
+# Extract the first word of "gcl", so it can be a program name with args.
+set dummy gcl; ac_word=$2
+{ echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+if test "${ac_cv_prog_HAS_GCL+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$HAS_GCL"; then
+  ac_cv_prog_HAS_GCL="$HAS_GCL" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_GCL="yes"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_GCL" && ac_cv_prog_HAS_GCL="no"
+fi
+fi
+HAS_GCL=$ac_cv_prog_HAS_GCL
+if test -n "$HAS_GCL"; then
+  { echo "$as_me:$LINENO: result: $HAS_GCL" >&5
+echo "${ECHO_T}$HAS_GCL" >&6; }
+else
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+
+
+
 #check for mpich2
 
 # Check whether --with-mpich was given.
@@ -4145,6 +4187,7 @@ CXXFLAGS!$CXXFLAGS$ac_delim
 ac_ct_CXX!$ac_ct_CXX$ac_delim
 subdirs!$subdirs$ac_delim
 HAS_READLINE!$HAS_READLINE$ac_delim
+HAS_GCL!$HAS_GCL$ac_delim
 MPICH_MPD!$MPICH_MPD$ac_delim
 MPICH_MPDBOOT!$MPICH_MPDBOOT$ac_delim
 MPICH_MPDALLEXIT!$MPICH_MPDALLEXIT$ac_delim
@@ -4157,7 +4200,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 61; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 62; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

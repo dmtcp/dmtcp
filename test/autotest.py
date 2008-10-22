@@ -3,7 +3,7 @@ from popen2 import Popen3,Popen4
 from random import randint
 from time   import sleep
 from os     import listdir
-import socket 
+import socket
 import os
 import sys
 
@@ -85,7 +85,7 @@ def launch(cmd):
     raise CheckFailed(cmd[0] + " not found")
   return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
 
-#randomize port and dir, so multiple processes works 
+#randomize port and dir, so multiple processes works
 ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
 os.mkdir(ckptDir);
 os.environ['DMTCP_HOST'] = "localhost"
@@ -168,7 +168,7 @@ def getStatus():
   if VERBOSE:
     print "STATUS: peers=%s, running=%s" % (peers,running)
   return (int(peers), (running=="yes"))
-  
+
 #delete all files in ckpDir
 def clearCkptDir():
     #clear checkpoint dir
@@ -191,7 +191,7 @@ def runTest(name, numProcs, cmds):
   def wfMsg(msg):
     #return function to generate error message
     return lambda: msg+", "+str(status[0])+" expected, %d found, running=%d" % getStatus()
-  
+
   def testKill():
     #kill all processes
     coordinatorCmd('k')
@@ -206,19 +206,19 @@ def runTest(name, numProcs, cmds):
       except:
         None
       procs.remove(x)
-   
+
   def testCheckpoint():
-    #start checkpoint 
+    #start checkpoint
     coordinatorCmd('c')
-    
+
     #wait for files to appear and status to return to original
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and status==getStatus(),
             wfMsg("checkpoint error"))
-    
+
     #make sure the right files are there
     numFiles=getNumCkptFiles(ckptDir) # len(listdir(ckptDir))
     CHECK(numFiles==status[0], "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
-  
+
   def testRestart():
     #build restart command
     cmd=BIN+"dmtcp_restart"
@@ -234,19 +234,19 @@ def runTest(name, numProcs, cmds):
     printFixed(name,15)
 
     if not shouldRunTest(name):
-      print "SKIPPED" 
+      print "SKIPPED"
       return
 
-    stats[1]+=1 
+    stats[1]+=1
     CHECK(getStatus()==(0, False), "coordinator initial state")
 
     #start user programs
     for cmd in cmds:
       procs.append(launch(BIN+"dmtcp_checkpoint "+cmd))
       sleep(S)
-    
+
     WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
-    
+
     for i in xrange(CYCLES):
       if i!=0 and i%2==0:
         print #newline
@@ -271,7 +271,7 @@ def runTest(name, numProcs, cmds):
 
     testKill()
     print #newline
-    stats[0]+=1 
+    stats[0]+=1
 
   except CheckFailed, e:
     print "FAILED"
@@ -335,6 +335,11 @@ runTest("perl",          1, ["/usr/bin/perl"])
 
 runTest("python",        1, ["/usr/bin/python"])
 
+runTest("bash",          1, ["/bin/bash"])
+
+if testconfig.HAS_GCL == "yes":
+  runTest("gcl",         1,  ["/usr/bin/gcl"])
+
 if testconfig.HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
 
@@ -351,7 +356,7 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
-print "== Summary ==" 
+print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 
 try:

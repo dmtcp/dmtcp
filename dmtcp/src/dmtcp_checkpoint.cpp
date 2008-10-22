@@ -88,7 +88,10 @@ int main ( int argc, char** argv )
    "****  with gcc-4.1 and g++-4.1\n"
    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
    "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-   "**** [ Finally, you may need an alternative Java JVM (see QUICK-START) ]\n"
+   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
    "****   (Will try to execute anyway with current compiler version.)\n\n"
    );
 # endif
