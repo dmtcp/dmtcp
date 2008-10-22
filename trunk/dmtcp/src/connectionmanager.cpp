@@ -618,7 +618,23 @@ bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
 }
 
 pid_t dmtcp::ConnectionToFds::gzip_child_pid = -1;
-#if 1
+static void close_ckpt_to_read(const int fd)
+{
+    int status;
+    int rc;
+    while (-1 == (rc = close(fd)) && errno == EINTR) ;
+    JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
+    if (dmtcp::ConnectionToFds::gzip_child_pid != -1) {
+      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::gzip_child_pid,
+			         &status, 0)) && errno == EINTR) ;
+      JASSERT (rc != -1) ("waitpid:") (JASSERT_ERRNO);
+      dmtcp::ConnectionToFds::gzip_child_pid = -1;
+    }
+}
+
+// Define DMTCP_OLD_PCLOSE to get back the old buggy version.
+// Remove the old version when satisfied this is better.
+#ifndef DMTCP_OLD_PCLOSE
 // Copied from mtcp/mtcp_restart.c.
 #define DMTCP_MAGIC_FIRST 'D'
 #define GZIP_FIRST 037
@@ -684,6 +700,7 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
+	    unsetenv("LD_PRELOAD");
             execvp(gzip_path, gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
@@ -707,9 +724,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const std::string& path){
   if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
     JTRACE("opened checkpoint file [uncompressed]")(path);
   }else{
-    int status;
-    close(fd);
-    waitpid(gzip_child_pid, &status, 0);
+    close_ckpt_to_read(fd);
     fd = open_ckpt_to_read( path.c_str() ); /* Re-open from beginning */
   }
   return fd;
@@ -751,6 +766,5 @@ void dmtcp::ConnectionToFds::loadFromFile(const std::string& path){
   int fd = openDmtcpCheckpointFile(path);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   serialize(rdr);
-  close(fd);
+  close_ckpt_to_read(fd);
 }
-

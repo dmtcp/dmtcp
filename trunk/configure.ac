@@ -4,7 +4,7 @@ AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_CC
 AC_PROG_CXX
-AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py]) 
+AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp])
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
@@ -28,6 +28,10 @@ if test "$linksReadline" = "yes"; then
 else
   AC_SUBST([HAS_READLINE], [no])
 fi
+
+
+#checkfor gcl
+AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [/usr/bin])
 
 
 #check for mpich2
