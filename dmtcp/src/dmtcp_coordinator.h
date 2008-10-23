@@ -20,7 +20,7 @@
 #ifndef DMTCPDMTCPCOORDINATOR_H
 #define DMTCPDMTCPCOORDINATOR_H
 
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include "nodetable.h"
 #include "dmtcpmessagetypes.h"
 
@@ -49,7 +49,7 @@ namespace dmtcp
       bool startCheckpoint();
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
-      
+
       CoordinatorStatus getStatus() const;
       dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }
 

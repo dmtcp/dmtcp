@@ -31,8 +31,8 @@
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
 
-/* 
-   When updating value of DUP_STDERR_FD, the same value should be updated 
+/*
+   When updating value of DUP_STDERR_FD, the same value should be updated
    in mtcp_printf.c. The two consts must always in sync.
 */
 static const int DUP_STDERR_FD = 826;
@@ -94,8 +94,8 @@ static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
   return fdopen ( nfd,"w" );
 }
 static FILE* _fopen_log_safe ( const std::string& s, int protectedFd )
-{ 
-  return _fopen_log_safe ( s.c_str(), protectedFd ); 
+{
+  return _fopen_log_safe ( s.c_str(), protectedFd );
 }
 
 

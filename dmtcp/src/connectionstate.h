@@ -23,7 +23,7 @@
 #include "kernelbufferdrainer.h"
 #include "connectionmanager.h"
 #include "connectionrewirer.h"
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 
 namespace dmtcp
 {

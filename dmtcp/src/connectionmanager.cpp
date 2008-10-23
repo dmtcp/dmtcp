@@ -19,9 +19,9 @@
  ***************************************************************************/
 #include "connectionmanager.h"
 
-#include "jfilesystem.h"
-#include "jconvert.h"
-#include "jassert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jassert.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 
@@ -664,8 +664,8 @@ static int open_ckpt_to_read(const char *filename)
     int fd;
     int fds[2];
     char fc;
-    char *gzip_path;
-    static char *gzip_args[] = { "gzip", "-d", "-", NULL };
+    const char *gzip_path = "gzip";
+    static const char * gzip_args[] = { "gzip", "-d", "-", NULL };
     pid_t cpid;
 
     fc = first_char(filename);
@@ -676,8 +676,6 @@ static int open_ckpt_to_read(const char *filename)
         return fd;
     else if(fc == GZIP_FIRST) /* gzip */
     {
-        gzip_path = "gzip";
-
         JASSERT(pipe(fds) != -1)(filename).Text("Cannote create pipe to execute gunzip to decompress checkpoint file!");
 
         cpid = fork();
@@ -701,7 +699,7 @@ static int open_ckpt_to_read(const char *filename)
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
 	    unsetenv("LD_PRELOAD");
-            execvp(gzip_path, gzip_args);
+            execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
             JASSERT(false)("ERROR: Decompression failed!  No restoration will be performed!  Cancelling now!");

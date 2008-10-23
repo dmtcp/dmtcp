@@ -20,8 +20,8 @@
 #include "protectedfds.h"
 
 #include "constants.h"
-#include "jassert.h"
-#include "jconvert.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jconvert.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

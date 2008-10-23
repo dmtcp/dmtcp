@@ -23,7 +23,7 @@
 #include <map>
 #include <vector>
 
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
 
 namespace dmtcp
@@ -40,9 +40,9 @@ namespace dmtcp
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
       virtual void onTimeoutInterval();
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
-      
+
       const std::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
-      
+
     private:
       std::map<int , std::vector<char> >    _drainedData;
       std::map<int , ConnectionIdentifier > _reverseLookup;

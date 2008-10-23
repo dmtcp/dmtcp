@@ -19,12 +19,12 @@
  ***************************************************************************/
 #include "dmtcp_coordinator.h"
 #include "constants.h"
-#include "jconvert.h"
+#include  "../jalib/jconvert.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include <stdio.h>
 #include <sys/stat.h>
-#include "jtimer.h"
+#include  "../jalib/jtimer.h"
 #include <algorithm>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -59,9 +59,9 @@ static const char* theUsage =
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints (default: 0, disabled)\n"
   "  --exit-on-last\n"
-  "      Exit automatically when last client disconnects\n" 
+  "      Exit automatically when last client disconnects\n"
   "  --background\n"
-  "      Run silently in the background\n" 
+  "      Run silently in the background\n"
   "COMMANDS:\n"
   "  (type '?<return>' at runtime for list)\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -581,18 +581,18 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "\n");
   fprintf(fp, "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  " ENV_VAR_NAME_ADDR "=%s\nfi\n\n", hostname);
   fprintf(fp, "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  " ENV_VAR_NAME_PORT "=%d\nfi\n\n", thePort);
-            
+
 
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
-    if(isSingleHost && host->first==hostname){ 
-      fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" ); 
+    if(isSingleHost && host->first==hostname){
+      fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
     }
 
-    fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD 
+    fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
                   " --host \"$"ENV_VAR_NAME_ADDR"\""
                   " --port \"$"ENV_VAR_NAME_ADDR"\""
-                  " --join", 
+                  " --join",
                   host->first.c_str());
 
     if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
@@ -620,7 +620,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 int main ( int argc, char** argv )
 {
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
-  
+
   //parse port
   thePort = DEFAULT_PORT;
   const char* portStr = getenv ( ENV_VAR_NAME_PORT );
@@ -667,7 +667,7 @@ int main ( int argc, char** argv )
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
   }
-  
+
   errno = 0;
   jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
   JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
@@ -681,7 +681,7 @@ int main ( int argc, char** argv )
     }
   }else{
     JASSERT_STDERR <<
-      "dmtcp_coordinator starting..." << 
+      "dmtcp_coordinator starting..." <<
       "\n    Port: " << thePort <<
       "\n    Checkpoint Interval: ";
     if(theCheckpointInterval==0)

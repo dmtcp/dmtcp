@@ -46,7 +46,7 @@ EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname
 #include <map>
 #include <vector>
 #include "dmtcpmessagetypes.h"
-#include "jbuffer.h"
+#include  "../jalib/jbuffer.h"
 
 namespace dmtcp
 {

@@ -20,7 +20,7 @@
 #include "signalmanager.h"
 #include "constants.h"
 #include <signal.h>
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 
 namespace
 {

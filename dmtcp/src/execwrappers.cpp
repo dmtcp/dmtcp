@@ -19,7 +19,7 @@
  ***************************************************************************/
 #include <stdarg.h>
 #include "syscallwrappers.h"
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "sockettable.h"
@@ -40,7 +40,7 @@
 #include "connectionmanager.h"
 #include "connectionidentifier.h"
 #include "syslogcheckpointer.h"
-#include "jconvert.h"
+#include  "../jalib/jconvert.h"
 #include "constants.h"
 #include <vector>
 #include <list>

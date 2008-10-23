@@ -19,16 +19,16 @@
  ***************************************************************************/
 #include "dmtcpworker.h"
 #include "constants.h"
-#include "jconvert.h"
+#include  "../jalib/jconvert.h"
 #include "dmtcpmessagetypes.h"
 #include <stdlib.h>
 #include "mtcpinterface.h"
 #include <unistd.h>
 #include "sockettable.h"
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include <map>
 #include "kernelbufferdrainer.h"
-#include "jfilesystem.h"
+#include  "../jalib/jfilesystem.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 #include "connectionidentifier.h"
@@ -121,8 +121,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
     const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
     const char * sigckpt = getenv( ENV_VAR_SIGCKPT );
-    
-    
+
+
     //modify the command
     std::string prefix = "env ";
     if ( coordinatorAddr != NULL )    prefix += std::string() + ENV_VAR_NAME_ADDR      "=" + coordinatorAddr    + " ";
@@ -245,7 +245,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "suspended" );
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  
+
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   {
     dmtcp::DmtcpMessage msg;
@@ -318,10 +318,10 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
 void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd){
   unmaskStdErr();
-  
+
   const int len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
-  
+
   theCheckpointState->outputDmtcpConnectionTable(fd);
 
   maskStdErr();
@@ -445,7 +445,7 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 
 void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
 {
-  //prevent checkpoints from starting 
+  //prevent checkpoints from starting
   delayCheckpointsLock();
   {
     connectToCoordinator(false);
@@ -578,13 +578,13 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
     if(WEXITSTATUS(coordinatorStatus) == CS_NO){
       exit(1);
     }
-    
+
     //get location of coordinator
     const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
     if(coordinatorAddr==NULL) coordinatorAddr = "localhost";
     const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
     int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(coordinatorPortStr);
-    
+
     fprintf(stderr, "[DMTCP] Coordinator not found at %s:%d.\n", coordinatorAddr, coordinatorPort);
 
     if((modes&COORD_NEW) == 0){
@@ -596,7 +596,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
       std::string s=coordinatorAddr;
       if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
         fprintf(stderr, "[DMTCP] Won't automatically start coordinator because DMTCP_HOST is set to a remote host.\n");
-        exit(1); 
+        exit(1);
       }
     }
 

@@ -8,17 +8,21 @@ pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so
 
 # headers:
-noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
+nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	connectionmanager.h connectionrewirer.h constants.h dmtcp_coordinator.h \
-	dmtcpmessagetypes.h dmtcpworker.h jassert.h jbuffer.h jconvert.h \
-	jfilesystem.h jserialize.h jsocket.h jtimer.h kernelbufferdrainer.h \
-	mtcpinterface.h nodetable.h protectedfds.h signalmanager.h sockettable.h \
-	syscallwrappers.h syslogcheckpointer.h uniquepid.h 
+	dmtcpmessagetypes.h dmtcpworker.h ../jalib/jassert.h \
+	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
+	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
+	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
+	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
+	uniquepid.h 
 
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
-	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp dmtcpmessagetypes.cpp \
-	jassert.cpp jbuffer.cpp jfilesystem.cpp jserialize.cpp jsocket.cpp jtimer.cpp \
-	kernelbufferdrainer.cpp nodetable.cpp protectedfds.cpp signalmanager.cpp sockettable.cpp \
+	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
+	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
+	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
+	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
+	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp

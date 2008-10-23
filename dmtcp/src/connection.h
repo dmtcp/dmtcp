@@ -25,10 +25,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <map>
-#include "jbuffer.h"
-#include "jserialize.h"
-#include "jassert.h"
-#include "jconvert.h"
+#include  "../jalib/jbuffer.h"
+#include  "../jalib/jserialize.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jconvert.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -72,7 +72,7 @@ namespace dmtcp
       virtual void doLocking ( const std::vector<int>& fds ) {};
       virtual void saveOptions ( const std::vector<int>& fds );
       virtual void restoreOptions ( const std::vector<int>& fds );
-      
+
       virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
       virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
 
@@ -225,7 +225,7 @@ namespace dmtcp
       std::string _device;
 
   };
-  
+
   class StdioConnection : public Connection
   {
     public:
@@ -242,7 +242,7 @@ namespace dmtcp
         JTRACE("creating stdio connection")(fd)(id());
         JASSERT( jalib::Between(0, fd, 2) )(fd).Text("invalid fd for StdioConnection");
       }
-      
+
       StdioConnection(): Connection ( STDIO_INVALID ) {}
 
 

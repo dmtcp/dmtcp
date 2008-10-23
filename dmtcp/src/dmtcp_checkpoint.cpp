@@ -23,9 +23,9 @@
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
-#include "jassert.h"
-#include "jfilesystem.h"
-#include "jconvert.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"

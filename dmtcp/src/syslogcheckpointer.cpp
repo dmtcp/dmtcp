@@ -20,7 +20,7 @@
 #include "syslogcheckpointer.h"
 #include "syscallwrappers.h"
 #include <string>
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 #include <syslog.h>
 
 namespace

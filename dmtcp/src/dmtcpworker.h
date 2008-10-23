@@ -20,7 +20,7 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include "uniquepid.h"
 
 namespace dmtcp
@@ -70,7 +70,7 @@ namespace dmtcp
       };
       static void startCoordinatorIfNeeded(int modes);
     protected:
-      void sendUserCommand(char c, int* result = NULL);      
+      void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
     private:

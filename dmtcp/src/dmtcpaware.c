@@ -64,7 +64,7 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
   WARN_NO_DMTCP; \
   return ret;
 
-int dmtcpIsEnabled() { 
+int dmtcpIsEnabled() {
   DMTCPAWARE_STUB( dmtcpIsEnabled, (), 0 );
 }
 

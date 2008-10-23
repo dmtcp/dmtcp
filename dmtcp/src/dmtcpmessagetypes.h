@@ -22,7 +22,7 @@
 #define DMTCPMESSAGETYPES_H
 
 #include "uniquepid.h"
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 #include "constants.h"
 #include <string.h>
 #include <sys/types.h>

@@ -20,7 +20,7 @@
 #ifndef DMTCPCONNECTIONREWIRER_H
 #define DMTCPCONNECTIONREWIRER_H
 
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
 #include <map>
 #include <set>

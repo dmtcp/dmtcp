@@ -19,10 +19,10 @@
  ***************************************************************************/
 #include "kernelbufferdrainer.h"
 
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 #include "constants.h"
 #include "sockettable.h"
-#include "jbuffer.h"
+#include  "../jalib/jbuffer.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
 
@@ -110,7 +110,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
 		.Text ( "socketpair() failed" );
 	_real_close ( sp[1] );
 	JTRACE ( "created dead socket" ) ( sp[0] );
-	_real_dup2(sp[0], _dataSockets[i]->socket().sockfd()); 
+	_real_dup2(sp[0], _dataSockets[i]->socket().sockfd());
 #endif
 
       }
@@ -163,7 +163,7 @@ void dmtcp::KernelBufferDrainer::beginDrainOf ( int fd, const ConnectionIdentifi
   addWrite ( new jalib::JChunkWriter ( fd, theMagicDrainCookie, sizeof theMagicDrainCookie ) );
   //now setup a reader:
   addDataSocket ( new jalib::JChunkReader ( fd,512 ) );
-  
+
   //insert it in reverse lookup
   _reverseLookup[fd]=id;
 }

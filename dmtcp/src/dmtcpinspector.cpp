@@ -23,18 +23,18 @@
 #include <stdio.h>
 #include <getopt.h>
 // C++ includes
-#include <fstream> 
+#include <fstream>
 #include <iostream>
 #include <sstream>
 // Local includes
-#include "jassert.h"
-#include "jfilesystem.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
 #include "connectionmanager.h"
 #include "dmtcpworker.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "jtimer.h"
+#include  "../jalib/jtimer.h"
 
 bool fullout = false;
 bool parent_child = true;
@@ -77,7 +77,7 @@ namespace
       UniquePid pid;
       UniquePid ppid;
       void writeNode(std::ostringstream &o){
-        o << " \"" << _index << "\"" 
+        o << " \"" << _index << "\""
           << " [ label=\"" << procname;
         if( fullinfo ){
           time_t tm = pid.time();
@@ -103,7 +103,7 @@ namespace
 
   class GConnection{
     public:
-      GConnection(TcpConnection &tcpCon); 
+      GConnection(TcpConnection &tcpCon);
       void addProc(ConnectionIdentifier &id, int pindex, std::string hname);
       bool operator == (TcpConnection &tcpCon);
       bool operator == (ConnectionIdentifier &conId);
@@ -192,7 +192,7 @@ namespace
 
     // If connection have no shared descriptors
     if( _sprocs.size() == _cprocs.size() && _sprocs.size() == 1 ){
-      o << " \"" << *_cprocs.begin() << "\" -> \"" << *_sprocs.begin() 
+      o << " \"" << *_cprocs.begin() << "\" -> \"" << *_sprocs.begin()
         << "\" [ color=\"#000000\", arrowhead=\"none\",arrowtail=\"none\" ]\n";
       return;
     }
@@ -203,7 +203,7 @@ namespace
     if( conCnt < 100 ){
       o << ", fixedsize=true, height=\"0.4\"";
     }
-    o << " ]\n"; 
+    o << " ]\n";
 
     // Write processes connected to server side
     std::list<int>::iterator lit;
@@ -246,7 +246,7 @@ namespace
       TcpConnection& tcpCon = con.asTcp();
       if( tcpCon.tcpType() == TcpConnection::TCP_ACCEPT ||
           tcpCon.tcpType() == TcpConnection::TCP_CONNECT ){
-        // if it is new connection  (when running full inspection 
+        // if it is new connection  (when running full inspection
         // each connection appears twice - on each node)
         if( find(tcpCon) == _connections.end() )
           _connections.push_back(GConnection(tcpCon));
@@ -263,7 +263,7 @@ namespace
       }
     }
     return _connections.end();
-  } 
+  }
 
   void ConnectionGraph::importProcess(ConnectionToFds &conToFd)
   {
@@ -278,8 +278,8 @@ namespace
 
     // Add to _row_process Map table
     _row_processes[pit->pid] = &(*pit);
-    
-    std::cout << "Add process: " << pit->pid 
+
+    std::cout << "Add process: " << pit->pid
               << ". Result: " << _row_processes.find(pit->pid)->second->pid << "\n";
 
     // Run through all connections of the process
@@ -300,7 +300,7 @@ namespace
 
       // Map process to connection
       std::list<GConnection>::iterator gcit = find(tcpCon);
-      if( gcit != _connections.end() ){ 
+      if( gcit != _connections.end() ){
         gcit->addProc(conId,pit->index(),pit->hostname);
       }
     }
@@ -338,7 +338,7 @@ namespace
     }
     conCnt++;
 
-    // Head of dot-file 
+    // Head of dot-file
     o << "digraph { \n";
 
     // Create nodes for processes
@@ -356,8 +356,8 @@ namespace
       // write all inhost connections
       if( sockets ){
         if( inhost_conn.find(cur_hostname) != inhost_conn.end() ){
-          for(gcit = inhost_conn[cur_hostname].begin(); 
-              gcit != inhost_conn[cur_hostname].end(); 
+          for(gcit = inhost_conn[cur_hostname].begin();
+              gcit != inhost_conn[cur_hostname].end();
               gcit++ ){
             (*gcit)->writeConnection(o,conCnt);
           }
@@ -379,26 +379,26 @@ namespace
     if( parent_child ){
       DMTCP_process::iterator dit,dit1;
       for(dit = _row_processes.begin(); dit != _row_processes.end(); dit++){
-        std::cout << "Inspect process: " << dit->second->procname 
-                  << "[" << dit->second->pid << "," 
+        std::cout << "Inspect process: " << dit->second->procname
+                  << "[" << dit->second->pid << ","
                   << dit->second->ppid << "]:\n";
         dit1 = _row_processes.find(dit->second->ppid);
         if( dit1 != _row_processes.end() ){
-          std::cout << "find " << dit1->second->procname 
+          std::cout << "find " << dit1->second->procname
                     << "[" << dit1->second->pid << "]\n";
-          o << " \"" << dit1->second->index() << "\" -> \"" << dit->second->index() 
+          o << " \"" << dit1->second->index() << "\" -> \"" << dit->second->index()
             << "\" [ color=\"#FF0000\", style=\"bold\" ]\n";
         }
       }
     }
-    o << "}\n"; 
+    o << "}\n";
   }
 }
 
-  
 
 
-static const char* theUsage = 
+
+static const char* theUsage =
     "USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
     "\t-o <filename> - Output in dot-like format\n"
     "\t-d <filename> - Create graph using dot command (need graphviz package)\n"
@@ -423,7 +423,7 @@ int main ( int argc, char** argv )
   while (1) {
 //    int this_option_optind = optind ? optind : 1;
     int option_index = 0;
-    static struct option long_options[] = 
+    static struct option long_options[] =
     {
     {"out-file", 1, 0, 'o'},
     {"dot", 1, 0, 'd'},
@@ -442,7 +442,7 @@ int main ( int argc, char** argv )
     switch (c) {
     case 0:{
       std::string tmp = long_options[option_index].name;
-      
+
       if ( tmp == "par-ch-off" ){
         std::cout << "Turn off parent-child relation\n";
         parent_child = false;
@@ -501,11 +501,11 @@ int main ( int argc, char** argv )
   std::ostringstream buf(out_string);
   conGr.writeGraph(buf);
   std::cout << buf.str();
-  if( usedot ){ 
+  if( usedot ){
     // Create pipe to dot
     std::string popen_str = "dot -Tpdf -o ";
     popen_str += dotfile;
-    std::cout << "Popen arg: " << popen_str 
+    std::cout << "Popen arg: " << popen_str
               << "\nInput len=" << buf.str().length() << "\n";
     FILE *fp = popen(popen_str.c_str(),"w");
     if( !fp ){

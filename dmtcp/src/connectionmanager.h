@@ -24,8 +24,8 @@
 #include <list>
 #include <map>
 #include <string>
-#include "jserialize.h"
-#include "jfilesystem.h"
+#include  "../jalib/jserialize.h"
+#include  "../jalib/jfilesystem.h"
 
 
 namespace dmtcp

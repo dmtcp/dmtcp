@@ -20,12 +20,12 @@
 
 
 #include "sockettable.h"
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 #include "dmtcpmessagetypes.h"
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
-#include "jfilesystem.h"
+#include  "../jalib/jfilesystem.h"
 #include <netdb.h>
 #include <map>
 #include <sys/types.h>
