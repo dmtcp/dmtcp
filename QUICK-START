@@ -36,12 +36,16 @@ To run a program with checkpointing:
     q<return> to kill processes to be checkpointed and quit the coordinator.]
 
 
-Creating a checkpoint causes the dmtcp_coordinator to write
-a script, dmtcp_restart_script.sh, along with a
-checkpoint file (file type: .dmtcp) for each client process.
-The simplest way to restart a previously checkpointed computation is:
-[ Edit ./dmtcp_restart_script.sh ]
+  4) RESTART:
+    Creating a checkpoint causes the dmtcp_coordinator to write
+    a script, dmtcp_restart_script.sh, along with a
+    checkpoint file (file type: .dmtcp) for each client process.
+    The simplest way to restart a previously checkpointed computation is:
+    [ Edit ./dmtcp_restart_script.sh ]
         ./bin/dmtcp_restart_script.sh
+    [ Alternatively, if all processes were on the same processor,
+        and there were no .dmtcp files prior to this checkpoint: ]
+        ./bin/dmtcp_restart ckpt_*.dmtcp
 
 ============================================
 CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
@@ -77,6 +81,7 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
     DMTCP_PORT=<coordinator listener port> (default: 7779)
     DMTCP_GZIP=<0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
+    DMTCP_CHECKPOINT_DIR=<location to store checkpoints> (default: ./)
     DMTCP_SIGCKPT=<signal number> (default: 12, where SIGUSR2=12)
 
   dmtcp_command:
@@ -95,7 +100,7 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
 SHORT NOTES:
 
     1. A restarted process sees the shared libraries and environment variables
-       that existed prior to checkpoint. These are contained in the .mtcp
+       that existed prior to checkpoint. These are contained in the .dmtcp
        checkpoint file.
     2. At restart time, one can choose either to use the original
        dmtcp_coordinator or else to start a new coordinator. Each process
@@ -131,9 +136,9 @@ SHORT NOTES:
        for an error return of EINTR (interrupted, due to a simultaneous
        checkpoint invocation or other kernel activity), in which case you
        can call the system call again.
-    6. See comment before mtcp/mtcp_restart_nolibc.c:readmemoryareas() for
-       specific handling of mapping of memory objects via mmap: MAP_PRIVATE,
-       MAP_SHARED, MAP_ANONYMOUS
+    6. See comment in code before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
+       for specific handling of mapping of memory objects via mmap:
+         MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
        Heuristically, if a memory area is mapped to a file for which user has
        only read permission, then a restarted process uses the most recent
        file. If a memory area is mapped to a file with write or execute
@@ -155,7 +160,7 @@ SHORT NOTES:
        to the end of the file, for example:
         [ to use /usr/lib/jamvm/libjvm.so, Debian package: jamvm ]
         LDPATH_PREFIX=/usr/lib/jamvm
-      Other possible virtual machines for LDPATH_PREFIX are:  
-        LDPATH_PREFIX=/usr/lib/gcj-4.3-90, Debian package:  libgcj9-0
+      Other possible virtual machines for LDPATH_PREFIX are (from Debian package libgcj9-0):
+        LDPATH_PREFIX=/usr/lib/gcj-4.3-90
       and others from:
 	http://www.roseindia.net/opensource/open-source-jvm.shtml
