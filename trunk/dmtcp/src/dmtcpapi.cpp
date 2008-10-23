@@ -41,8 +41,9 @@ static DmtcpFunctionPointer userHookPreCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostRestart = NULL;
 
-//I wish we could use pthreads for the trickery in this file, but much of our code 
-//is execute before the thread we want to wake is restored.  Thus we do it the bad way.
+//I wish we could use pthreads for the trickery in this file, but much of our
+//code is execute before the thread we want to wake is restored.  Thus we do
+//it the bad way.
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
 
 //needed for sizeof()
@@ -72,7 +73,7 @@ EXTERNC int dmtcpCheckpoint(){
       //nanosleep should get interupped by checkpointing with an EINTR error
       //though there is a race to get to nanosleep() before the checkpoint
       struct timespec t = {1,0};
-      nanosleep(&t, NULL); 
+      nanosleep(&t, NULL);
       memfence();  //make sure the loop condition doesn't get optimized
     }
     rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
@@ -104,14 +105,14 @@ EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   static std::string pid;
   static DmtcpLocalStatus status;
   ckpt.reserve(1024);
-  
+
   //get filenames
   pid=dmtcp::UniquePid::ThisProcess().toString();
   ckpt=dmtcp::UniquePid::checkpointFilename();
-  
+
   status.numCheckpoints          = numCheckpoints;
   status.numRestarts             = numRestarts;
-  status.checkpointFilename      = ckpt.c_str(); 
+  status.checkpointFilename      = ckpt.c_str();
   status.uniquePidStr            = pid.c_str();
   return &status;
 }
@@ -121,7 +122,7 @@ EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                               , DmtcpFunctionPointer postRestart){
   userHookPreCheckpoint  = preCheckpoint;
   userHookPostCheckpoint = postCheckpoint;
-  userHookPostRestart    = postRestart; 
+  userHookPostRestart    = postRestart;
   return 1;
 }
 
@@ -136,7 +137,7 @@ EXTERNC int dmtcpDelayCheckpointsUnlock(){
 }
 
 void dmtcp::userHookTrampoline_preCkpt() {
-  if(userHookPreCheckpoint != NULL) 
+  if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
 }
 
@@ -144,11 +145,11 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   //this function runs before other threads are resumed
   if(isRestart){
     numRestarts++;
-    if(userHookPostRestart != NULL) 
+    if(userHookPostRestart != NULL)
       (*userHookPostRestart)();
   }else{
     numCheckpoints++;
-    if(userHookPostCheckpoint != NULL) 
+    if(userHookPostCheckpoint != NULL)
       (*userHookPostCheckpoint)();
   }
 }

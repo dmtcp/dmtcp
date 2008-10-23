@@ -129,7 +129,7 @@ namespace jalib
     protected:
       int _fd;
   };
-  
+
   class JBinarySerializeReader : public JBinarySerializeReaderRaw
   {
     public:

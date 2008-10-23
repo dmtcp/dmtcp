@@ -20,7 +20,7 @@
 #include "connectionidentifier.h"
 #include "constants.h"
 #include "syscallwrappers.h"
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 
 static int _nextConnectionId()
 {

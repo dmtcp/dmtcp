@@ -30,7 +30,7 @@
 using namespace dmtcp;
 
 
-static const char* theUsage = 
+static const char* theUsage =
   "PURPOSE:\n"
   "  Send a command to the dmtcp_coordinator remotely.\n\n"
   "USAGE:\n"
@@ -55,7 +55,7 @@ static const char* theUsage =
 
 int main ( int argc, char** argv )
 {
-  //process args 
+  //process args
   shift;
   while(true){
     std::string s = argc>0 ? argv[0] : "--help";
@@ -81,7 +81,7 @@ int main ( int argc, char** argv )
     fprintf(stderr, theUsage);
     return 1;
   }
-  
+
   int result[DMTCPMESSAGE_NUM_PARAMS];
   DmtcpWorker worker(false);
   worker.connectAndSendUserCommand(*cmd, result);

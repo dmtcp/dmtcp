@@ -19,7 +19,7 @@
  ***************************************************************************/
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "jassert.h"
+#include  "../jalib/jassert.h"
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -30,8 +30,8 @@
 #include <unistd.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "jfilesystem.h"
-#include "jconvert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 namespace
 {
   static const char* REOPEN_MTCP = ( char* ) 0x1;
@@ -56,7 +56,7 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
     //must get ref count down to 0 so it is really unloaded
     for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
       if(dlclose(theMtcpHandle) != 0){
-        //failed call means it is unloaded 
+        //failed call means it is unloaded
         JTRACE("dlclose(mtcp.so) worked");
         break;
       }else{

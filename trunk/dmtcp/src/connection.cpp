@@ -18,16 +18,16 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 #include "connection.h"
-#include "jassert.h"
-#include "jfilesystem.h"
-#include "jconvert.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 #include "kernelbufferdrainer.h"
 #include "syscallwrappers.h"
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -299,8 +299,8 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
     {
       JWARNING (  (_sockDomain == AF_INET || _sockDomain == AF_UNIX ) && _sockType == SOCK_STREAM )
         ( id() )
-        ( _sockDomain ) 
-        ( _sockType ) 
+        ( _sockDomain )
+        ( _sockType )
         ( _sockProtocol )
         .Text ( "socket type not yet [fully] supported" );
 
@@ -542,7 +542,7 @@ void dmtcp::FileConnection::preCheckpoint ( const std::vector<int>& fds
   _offset = lseek(fds[0], 0, SEEK_CUR);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))   
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))
     saveFile(fds[0]);
 }
 void dmtcp::FileConnection::postCheckpoint ( const std::vector<int>& fds )
@@ -566,7 +566,7 @@ void dmtcp::FileConnection::restore ( const std::vector<int>& fds, ConnectionRew
   }
 
   errno = 0;
-  JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset ) 
+  JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
     ( _path ) ( _offset ) ( JASSERT_ERRNO );
 
 //     flags = O_RDWR;
@@ -614,7 +614,7 @@ static void CreateDirectoryStructure(const std::string& path)
       std::string dirName = path.substr(0, index);
 
       int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      JASSERT(res != -1 || errno==EEXIST) (dirName) (path) 
+      JASSERT(res != -1 || errno==EEXIST) (dirName) (path)
         .Text("Unable to create directory in File Path");
     }
     index = path.find('/', index+1);
@@ -641,12 +641,12 @@ int dmtcp::FileConnection::openFile()
 
     std::string savedFilePath = getSavedFilePath(_path);
 
-    JASSERT( jalib::Filesystem::FileExists(savedFilePath) ) 
+    JASSERT( jalib::Filesystem::FileExists(savedFilePath) )
       (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
 
     CreateDirectoryStructure(_path);
 
-    JTRACE("Copying saved checkpointed file to original location") 
+    JTRACE("Copying saved checkpointed file to original location")
       (savedFilePath) (_path);
     CopyFile(savedFilePath, _path);
   }
@@ -675,7 +675,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     CopyFile(_path, savedFilePath);
     return;
   }
-  /* File not present in File System 
+  /* File not present in File System
    *
    * The name for deleted files in /proc file system is listed as:
    *   "<original_file_name> (deleted)"
@@ -745,9 +745,9 @@ std::string dmtcp::FileConnection::getSavedFilePath(const std::string& path)
   if ( curDir == NULL ) {
     curDir = get_current_dir_name();
   }
-  
+
   if (_savedRelativePath.empty()) {
-    relPath << CHECKPOINT_FILES_SUBDIR_PREFIX 
+    relPath << CHECKPOINT_FILES_SUBDIR_PREFIX
             << jalib::Filesystem::GetProgramName()
             << "_" << _id.pid()
             << "/" << fileName << "_" << _id.conId();

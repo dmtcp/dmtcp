@@ -24,8 +24,8 @@
 #include <string>
 #include <sstream>
 #include "constants.h"
-#include "jconvert.h"
-#include "jfilesystem.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
@@ -125,11 +125,11 @@ const char* dmtcp::UniquePid::checkpointFilename()
       os << dir << '/';
     }
 
-    os << CHECKPOINT_FILE_PREFIX 
-       << jalib::Filesystem::GetProgramName() 
+    os << CHECKPOINT_FILE_PREFIX
+       << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
        << ".dmtcp";
-    
+
     checkpointFilename_str = os.str();
   }
   return checkpointFilename_str.c_str();
@@ -140,7 +140,7 @@ std::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   std::ostringstream os;
 
-  os << "/tmp/dmtcpConTable." 
+  os << "/tmp/dmtcpConTable."
      << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();

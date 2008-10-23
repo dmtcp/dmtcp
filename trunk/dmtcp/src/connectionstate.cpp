@@ -55,7 +55,7 @@ void dmtcp::ConnectionState::preCheckpointLock()
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
   ConnectionList& connections = ConnectionList::Instance();
-  
+
   //build list of stale connections
   std::vector<ConnectionList::iterator> staleConnections;
   for ( ConnectionList::iterator i = connections.begin()
@@ -72,7 +72,7 @@ void dmtcp::ConnectionState::preCheckpointDrain()
     JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
     connections.erase ( staleConnections[i] );
   }
-  
+
   //initialize the drainer
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
@@ -86,7 +86,7 @@ void dmtcp::ConnectionState::preCheckpointDrain()
 
   //this will block until draining is complete
   _drain.monitorSockets ( DRAINER_CHECK_FREQ );
-  
+
   //handle disconnected sockets
   const std::vector<ConnectionIdentifier>& discn = _drain.getDisconnectedSockets();
   for(size_t i=0; i<discn.size(); ++i){
@@ -95,16 +95,16 @@ void dmtcp::ConnectionState::preCheckpointDrain()
     std::vector<int>& fds = _conToFds[discn[i]];
     JASSERT(fds.size()>0);
     JTRACE("recreating disconnected socket")(fds[0])(id);
-    
+
     //reading from the socket, and taking the error, resulted in an implicit close().
     //we will create a new, broken socket that is not closed
-    
+
     con.onError();
     static ConnectionRewirer ignored;
     con.restore(fds, ignored); //restoring a TCP_ERROR connection makes a dead socket
     KernelDeviceToConnection::Instance().redirect(fds[0], id);
   }
-  
+
   //re build fd table without stale connections and with disconnects
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
 }
@@ -126,7 +126,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
     }
   }
 
-  //now receive 
+  //now receive
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i )

@@ -22,7 +22,7 @@
 
 #include "uniquepid.h"
 #include "dmtcpmessagetypes.h"
-#include "jsocket.h"
+#include  "../jalib/jsocket.h"
 
 #include <map>
 

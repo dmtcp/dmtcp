@@ -51,9 +51,9 @@ namespace dmtcp
     bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
 
     static void resetOnFork ( const dmtcp::UniquePid& newId );
-    
+
     std::string toString() const;
-    
+
     bool isNull() const;
   private:
     pid_t _pid; //getpid()

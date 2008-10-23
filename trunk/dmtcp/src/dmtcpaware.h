@@ -28,7 +28,7 @@ extern "C" {
 /// Return value of dmtcpCheckpoint
 #define DMTCP_AFTER_CHECKPOINT 1
 /// Return value of dmtcpCheckpoint
-#define DMTCP_AFTER_RESTART    2 
+#define DMTCP_AFTER_RESTART    2
 
 /// Returned when DMTCP is disabled, unless stated otherwise
 #define DMTCP_ERROR_DISABLED -128
@@ -57,7 +57,7 @@ typedef struct _DmtcpLocalStatus {
   int numRestarts;
 
   /// Filename of .dmtcp checkpoint file for this process
-  const char* checkpointFilename; 
+  const char* checkpointFilename;
 
   /// The DMTCP cluster-wide unique process identifier for this process.
   /// Format is "HostHash-PID-Timestamp"
@@ -97,7 +97,7 @@ int dmtcpDelayCheckpointsLock();
 int dmtcpDelayCheckpointsUnlock();
 
 /**
- * Sets the hook functions that DMTCP calls when it checkpoints/restarts. 
+ * Sets the hook functions that DMTCP calls when it checkpoints/restarts.
  * - These functions are called from the DMTCP thread while all user threads
  *   are suspended.
  * - First preCheckpoint() is called, then either postCheckpoint() or

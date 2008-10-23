@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
-#include "jassert.h"
-#include "jfilesystem.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
 #include "connectionmanager.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -48,7 +48,7 @@ namespace
       RestoreTarget ( const std::string& path )
           : _path ( path )
       {
-        
+
         JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
         _conToFd.loadFromFile(_path);
         JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() );
@@ -148,7 +148,7 @@ namespace
 
 }//namespace
 
-static const char* theUsage = 
+static const char* theUsage =
   "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
@@ -172,7 +172,7 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
-  //process args 
+  //process args
   shift;
   while(true){
     std::string s = argc>0 ? argv[0] : "--help";
@@ -233,7 +233,7 @@ int main ( int argc, char** argv )
   worker.restoreSockets ( ckptCoord );
 
   int i = (int)targets.size();
-  
+
   //fork into targs.size() processes
   while(--i > 0){
     int cid = fork();
