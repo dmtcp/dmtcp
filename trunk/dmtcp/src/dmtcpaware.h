@@ -1,22 +1,11 @@
-/***************************************************************************
- *   Copyright (C) 2008 by Jason Ansel                                     *
- *   jansel@ccs.neu.edu                                                    *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
- ***************************************************************************/
+/*************************************************************************
+ * This file, dmtcpaware.h, is placed in the public domain.              *
+ * The motivation for this is to allow anybody to freely use this file   *
+ * without restriction to statically link this file with any software.   *
+ * This allows that software to communicate with the DMTCP libraries.    *
+ * -  Jason Ansel, Kapil Arya, and Gene Cooperman                        *
+ *      jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu        *
+ *************************************************************************/
 
 #ifndef DMTCPAWARE_H
 #define DMTCPAWARE_H

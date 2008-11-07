@@ -15,7 +15,7 @@ MPICH_MPICC=@MPICH_MPICC@
 READLINE_LIBS=-lreadline -lhistory -lcurses
 PWD=$(shell pwd)
 
-TESTS=$(basename $(wildcard *.c *.cpp echoserver/*.c))
+TESTS=$(basename $(wildcard *.c *.cpp))
 
 tests: $(TESTS)
 

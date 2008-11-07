@@ -1,20 +1,25 @@
-//+++2006-05-03
-//    Copyright (C) 2006  Mike Rieker, Beverly, MA USA
-//    EXPECT it to FAIL when someone's HeALTh or PROpeRTy is at RISk
-//
-//    This program is free software; you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation; version 2 of the License.
-//
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU General Public License
-//    along with this program; if not, write to the Free Software
-//    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-//---2006-05-03
+/*****************************************************************************
+ *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *                                                            Gene Cooperman *
+ *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
+ *                                                          gene@ccs.neu.edu *
+ *                                                                           *
+ *   This file is part of the MTCP module of DMTCP (DMTCP:mtcp).             *
+ *                                                                           *
+ *  DMTCP:mtcp is free software: you can redistribute it and/or              *
+ *  modify it under the terms of the GNU Lesser General Public License as    *
+ *  published by the Free Software Foundation, either version 3 of the       *
+ *  License, or (at your option) any later version.                          *
+ *                                                                           *
+ *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,       *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU Lesser General Public License for more details.                      *
+ *                                                                           *
+ *  You should have received a copy of the GNU Lesser General Public         *
+ *  License along with DMTCP:dmtcp/src.  If not, see                         *
+ *  <http://www.gnu.org/licenses/>.                                          *
+ *****************************************************************************/
 
 /********************************************************************************************************************************/
 /*																*/
