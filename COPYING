@@ -1,0 +1,26 @@
+DMTCP (and the included MTCP) is free software; you can redistribute it
+and/or modify it under the terms of the GNU Lesser General Public License
+(LGLP) as published by the Free Software Foundation; either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT 
+ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+for more details.
+
+As a special exception, the copyright holders contribute the two files
+dmtcp/src/dmtcpaware.c and dmtcp/src/dmtcpaware.h to the public domain and
+grant permission for these two files to be redistributed or changed under
+any license.
+
+Files found in the directory dmtcp/src are Copyright (C) 2006-2008 by Jason
+Ansel, Kapil Arya, and Gene Cooperman.
+
+Files found in the directory dmtcp/jalib are Copyright (C) 2005-2008 by
+Jason Ansel.
+
+Files found in the directory mtcp are Copyright (C) 2006-2008 by Michael
+Rieker, Jason Ansel, Kapil Arya, and Gene Cooperman.
+
+Any remaining files (for building/testing) are Copyright (C) 2006-2008 Jason
+Ansel, Kapil Arya, and Gene Cooperman.

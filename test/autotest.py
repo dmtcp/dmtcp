@@ -307,9 +307,6 @@ runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
 runTest("shared-fd",     2, ["./test/shared-fd"])
 
-runTest("echoserver",    2, ["./test/echoserver/server "+p0,
-                             "./test/echoserver/client localhost "+p0])
-
 # frisbee creates three processes, each with 14 MB, if no gzip is used
 os.environ['DMTCP_GZIP'] = "1"
 runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,

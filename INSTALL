@@ -8,11 +8,11 @@ test subdirectory:
   check2: readline.c
   check3: shared-memory.c
 
-The code is still experimental, and so we don't currently offer a system-wide
-installation.  It will install in the build directory.
+This software will install in the build directory.
+A Debian package is available that will install system-wide.
 
-If you only want to checkpoint one process (possibly multi-threaded), you are
-better off with the simpler MTCP.  Do:
+To checkpoint only a single process (possibly multi-threaded), you may
+also consider using only the MTCP module.  To use MTCP, do:
     cd mtcp; make check  [to try it out]
     [ First, modify Makefile to uncomment "CFLAGS=...-DDEBUG" if desired. ]
 The mtcp subdirectory is independent of the rest of DMTCP.  To include it
