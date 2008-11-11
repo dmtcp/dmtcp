@@ -55,7 +55,9 @@ static const char* theUsage =
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
-  "      Checkpoint open open files\n\n"
+  "      Checkpoint open open files\n"
+  "  --quiet:\n"
+  "      Skip copyright notice\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -78,24 +80,8 @@ int main ( int argc, char** argv )
   bool isSSHSlave=false;
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
+  bool quiet=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
-
-#ifdef __GNUC__
-# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
-  if ( strcmp(argv[1], "matlab") == 0 )
-    printf(
-   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
-   "****  with gcc-4.1 and g++-4.1\n"
-   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-   "****   (Will try to execute anyway with current compiler version.)\n\n"
-   );
-# endif
-#endif
 
   //process args
   shift;
@@ -134,6 +120,9 @@ int main ( int argc, char** argv )
     }else if(s == "--checkpoint-open-files"){
       checkpointOpenFiles = true;
       shift;
+    }else if(s == "-q" || s == "--quiet"){
+      quiet = true;
+      shift;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -141,6 +130,31 @@ int main ( int argc, char** argv )
       break;
     }
   }
+
+  if (! quiet)
+    printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+           "                                       Kapil Arya, and Gene Cooperman\n"
+           "This program comes with ABSOLUTELY NO WARRANTY.\n"
+           "This is free software, and you are welcome to redistribute it\n"
+	   "under certain conditions; see COPYING file for details.\n"
+	   "(Use flag \"-q\" to hide this message.)\n\n");
+
+#ifdef __GNUC__
+# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+  if ( strcmp(argv[0], "matlab") == 0 )
+    printf(
+   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
+   "****  with gcc-4.1 and g++-4.1\n"
+   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+   "****   (Will try to execute anyway with current compiler version.)\n\n"
+   );
+# endif
+#endif
 
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
