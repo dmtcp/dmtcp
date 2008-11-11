@@ -161,7 +161,9 @@ static const char* theUsage =
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
   "  --no-check:\n"
-  "      Skip check for valid coordinator and never start one automatically\n\n"
+  "      Skip check for valid coordinator and never start one automatically\n"
+  "  --quiet, -q:\n"
+  "      Skip copyright notice\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -170,6 +172,7 @@ static const char* theUsage =
 
 int main ( int argc, char** argv )
 {
+  bool quiet = false;
   bool autoStartCoordinator=true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
@@ -195,6 +198,9 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
+    }else if(s == "-q" || s == "--quiet"){
+      quiet = true;
+      shift;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -202,6 +208,14 @@ int main ( int argc, char** argv )
       break;
     }
   }
+
+  if (! quiet)
+    printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+           "                                       Kapil Arya, and Gene Cooperman\n"
+           "This program comes with ABSOLUTELY NO WARRANTY.\n"
+           "This is free software, and you are welcome to redistribute it\n"
+           "under certain conditions; see COPYING file for details.\n"
+           "(Use flag \"-q\" to hide this message.)\n\n");
 
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
