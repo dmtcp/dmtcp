@@ -681,6 +681,7 @@ int main ( int argc, char** argv )
     if(fork()>0){
       exit(0);
     }
+    pid_t sid = setsid();
   }else{
     JASSERT_STDERR <<
       "dmtcp_coordinator starting..." <<
