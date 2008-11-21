@@ -175,6 +175,7 @@ Area mtcp_libc_area;               // some area of that libc.so
 	/* Static data */
 
 static char const *nscd_mmap_str = "/var/run/nscd/";
+static char const *nscd_mmap_str2 = "/var/cache/nscd";
 static char const *perm_checkpointfilename = NULL;
 static char const *temp_checkpointfilename = NULL;
 static unsigned long long checkpointsize;
@@ -1545,7 +1546,8 @@ static void checkpointeverything (void)
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
     /* Special Case Handling: nscd is enabled*/
-    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 ){
+    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
+        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ){
       DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
                "                           this area in read/write mode and then will fill it with zeros so that\n" \
                "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
@@ -2197,10 +2199,8 @@ static int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 ) { /* if nscd active*/
-    while ((c != '\n') && (c != 0)) {
-      c = mtcp_readchar (mapsfd);
-    }
+  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
+      || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0  ) { /* if nscd active*/
   }
   else if (area -> name[0] == '/') { /* if an absolute pathname */
     rc = mtcp_safestat (area -> name, &statbuf);
