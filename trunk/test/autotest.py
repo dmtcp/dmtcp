@@ -54,6 +54,11 @@ def shouldRunTest(name):
     return True
   return args.has_key(name)
 
+#make sure we are in svn root
+if os.system("test -d bin") is not 0:
+  os.chdir("..")
+assert os.system("test -d bin") is 0
+
 #make sure dmtcp is built
 if os.system("make -s --no-print-directory all tests") != 0:
   print "`make all tests` FAILED"
@@ -63,11 +68,6 @@ if os.system("make -s --no-print-directory all tests") != 0:
 def printFixed(str, w=1):
   print str.ljust(w),
   sys.stdout.flush()
-
-#make sure we are in svn root
-if os.system("test -d bin") is not 0:
-  os.chdir("..")
-assert os.system("test -d bin") is 0
 
 #exception on failed check
 class CheckFailed(Exception):
