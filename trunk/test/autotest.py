@@ -21,7 +21,7 @@ RETRIES=2
 S=0.3
 
 #Max time to wait for ckpt/restart to finish (sec)
-TIMEOUT=5
+TIMEOUT=15
 
 #Interval between checks for ckpt/restart complete
 INTERVAL=0.1
