@@ -179,7 +179,7 @@ def clearCkptDir():
         os.rmdir(os.path.join(root, name))
 
 def getNumCkptFiles(dir):
-  return len(filter(lambda f: f.startswith("ckpt_"), listdir(dir)))
+  return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"), listdir(dir)))
 
 
 #test a given list of commands to see if they checkpoint

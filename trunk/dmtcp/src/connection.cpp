@@ -655,11 +655,15 @@ int dmtcp::FileConnection::openFile()
 
   fd = open(_path.c_str(), _fcntlFlags);
 
-  // Unlink the File if the File was unlinked at the time of checkpoint
-  if (_fileType == FILE_DELETED) {
-    JASSERT( unlink(_path.c_str()) != -1 )
-      .Text("Unlinking of pre-checkpoint-deleted file failed");
-  }
+  //HACK: This was deleting our checkpoint files on RHEL5.2,
+  //      perhaps we are leaking file descriptors in the restart process.
+  //      Deleting files is scary... maybe we want to make a stricter test.
+  //
+  // // Unlink the File if the File was unlinked at the time of checkpoint
+  // if (_fileType == FILE_DELETED) {
+  //   JASSERT( unlink(_path.c_str()) != -1 )
+  //     .Text("Unlinking of pre-checkpoint-deleted file failed");
+  // }
 
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
   return fd;
