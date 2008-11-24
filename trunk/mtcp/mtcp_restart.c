@@ -50,13 +50,16 @@ static void readfile (int fd, void *buf, int size);
 
 static pid_t gzip_child_pid = -1;
 
-int main (int argc, char *argv[])
+int main (int argc, char *argv[], char *envp[])
 
 {
   char magicbuf[MAGIC_LEN], *restorename;
   int fd, restore_size, verify;
   void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid);
+  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,
+			 char *cmd_file, char *argv[], char *envp[]);
+  char cmd_file[MAXPATHLEN+1];
+  int cmd_len;
 
   if (getuid() == 0 || geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
@@ -126,7 +129,7 @@ int main (int argc, char *argv[])
       mtcp_printf("mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();
     } else {
-      mtcp_printf("mtcp_restart: restarting due to address conflict...\n");
+      mtcp_printf("mtcp_restart: info: restarting due to address conflict...\n");
       close (fd);
       execvp (argv[0], argv);
     }
@@ -137,7 +140,18 @@ int main (int argc, char *argv[])
   }
   readcs (fd, CS_RESTOREIMAGE);
   readfile (fd, restore_begin, restore_size);
-  /* Now call it - it shouldn't return */
+
+#ifndef __x86_64__
+  // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
+  //   steps on us.  This won't be needed when we use the linker to map areas.
+  cmd_file[0] = '\0';
+  cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
+  if (cmd_len == -1)
+    mtcp_printf("WARNING:  Couldn't find /proc/self/exe."
+		"  Trying to continue anyway.\n");
+  else
+    cmd_file[cmd_len] = '\0';
+#endif
 
 #if defined(DEBUG) && ! DMTCP
     char *p, symbolbuff[256];
@@ -168,7 +182,8 @@ int main (int argc, char *argv[])
     mtcp_maybebpt ();
 #endif
 
-  (*restore_start) (fd, verify, gzip_child_pid);
+  /* Now call it - it shouldn't return */
+  (*restore_start) (fd, verify, gzip_child_pid, cmd_file, argv, envp);
   mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);

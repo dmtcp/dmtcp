@@ -227,6 +227,19 @@ static size_t mtcp_sys_strlen(const char *s) {
 # endif
 #endif
 
+#ifdef MTCP_SYS_STRCPY
+# ifndef _MTCP_STRCPY_
+#  define _MTCP_STRCPY_
+static char * mtcp_sys_strcpy(char *dest, const char *source) {
+  char *d = dest;
+  for (; *source != (char)'\0'; source++)
+    *d++ = *source;
+  *d = '\0';
+  return dest;
+}
+# endif
+#endif
+
 //======================================================================
 
 // Rename it for cosmetic reasons.  We export mtcp_inline_syscall.
@@ -296,6 +309,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)
 #define mtcp_sys_getpid(args...)  mtcp_inline_syscall(getpid,0)
 #define mtcp_sys_getppid(args...)  mtcp_inline_syscall(getppid,0)
+#define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
 #define mtcp_sys_mmap(args...)  mtcp_inline_syscall(mmap,6,args)

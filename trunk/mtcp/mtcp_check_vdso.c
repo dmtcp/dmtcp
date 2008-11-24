@@ -40,7 +40,7 @@
 #include <errno.h>
 #include <elf.h> // For value of AT_SYSINFO, Elf??_auxv_t
 #include "mtcp_sys.h" // For CLEAN_FOR_64BIT
-#include "mtcp_internal.h" // For CLEAN_FOR_64BIT
+#include "mtcp_internal.h" // For CLEAN_FOR_64BIT and MAXPATHLEN
 
 #ifndef __xa86_64__
 // For __i386__, we turn off va_addr_rand.  For a _given_ binary,
@@ -252,9 +252,6 @@ void mtcp_check_vdso_enabled() {
     return; /* skip the rest */
   }
 
-#ifndef MAXPATHLEN
-# define MAXPATHLEN 1024
-#endif
   if (! (pers & ADDR_NO_RANDOMIZE)) /* if addr space randomization ... */
   { 
     unsigned long oldpers = pers;

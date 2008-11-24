@@ -53,6 +53,10 @@ __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify = 0;// 0: normal restore; 1: verification restore
 __attribute__ ((visibility ("hidden")))
   pid_t mtcp_restore_gzip_child_pid = -1; // '= -1' puts it in regular data instead of common
+#define MAX_ARGS 50
+__attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
+__attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[MAX_ARGS+1];
+__attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden")))
   void *mtcp_saved_break = NULL;  // saved brk (0) value
 
@@ -72,6 +76,8 @@ static void readfile (void *buf, int size);
 static void skipfile(int size);
 static VA highest_userspace_address (VA *vdso_addr);
 static int open_shared_file(char* fileName);
+// These will all go away when we use a linker to reserve space.
+static VA global_vdso_addr = 0;
 
 /********************************************************************************************************************************/
 /*																*/
@@ -208,6 +214,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   /* Restore memory areas */
 
+  global_vdso_addr = vdso_addr;/* This global var goes away when linker used. */
   DPRINTF (("mtcp restoreverything*: restoring memory areas\n"));
   readmemoryareas ();
 
@@ -419,8 +426,31 @@ static void readmemoryareas (void)
         readfile (area.addr, area.size);
 # endif
 #else
+# ifdef __x86_64__
         // This fails on teracluster.  Presumably extra symbols cause overflow.
         skipfile (area.size);
+# else
+      // With Red Hat Release 5.2, Red Hat allows vdso to go almost anywhere.
+      // If we were unlucky and it was randomized onto our memory area, re-exec.
+      // In the future, a cleaner fix will be a linker script to reserve
+      //   or even load our own memory segments at fixed addresses, so that
+      //   vdso will be placed elsewhere.
+      // This patch is not safe, because there are unnamed segments that
+      //   might be required.  But early 32-bit Linux kernels also don't name
+      //   [vdso] in the /proc filesystem, and it's safe to skipfile() there.
+      // This code is based on what's in mtcp_check_vdso.c .
+      { if (area.name[0] == '/' /* If not null string, not [stack] or [vdso] */
+            && global_vdso_addr >= (VA)area.addr
+            && global_vdso_addr < (VA)area.addr + area.size
+           ) {
+          DPRINTF(("randomized vdso conflict; retrying\n"));
+          if (-1 == mtcp_sys_execve(mtcp_restore_cmd_file,
+			   mtcp_restore_argv, mtcp_restore_envp))
+            DPRINTF(("execve failed.  Restart may fail.\n"));
+        } else
+          skipfile (area.size);
+      }
+# endif
 #endif
       else {
         readfile (area.addr, area.size);
@@ -656,7 +686,7 @@ static VA highest_userspace_address (VA *vdso_addr)
     mtcp_abort();
   }
 
-  *vdso_addr = NULL;
+  *vdso_addr = (VA)NULL;
   while (1) {
 
     /* Read a line from /proc/self/maps */
