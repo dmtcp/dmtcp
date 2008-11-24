@@ -199,12 +199,17 @@ static void inline mtcp_abort (void)
 extern char mtcp_shareable_begin[];
 extern char mtcp_shareable_end[];
 
-extern __attribute__ ((visibility ("hidden")))
-  int mtcp_restore_cpfd;
-extern __attribute__ ((visibility ("hidden")))
-  int mtcp_restore_verify;
-extern __attribute__ ((visibility ("hidden")))
-  pid_t mtcp_restore_gzip_child_pid;
+#ifndef MAXPATHLEN
+# define MAXPATHLEN 512
+#endif
+// mtcp_restore_XXX are globals for arguments to mtcp_restore_start();
+extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_cpfd;
+extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_verify;
+extern __attribute__ ((visibility ("hidden"))) pid_t mtcp_restore_gzip_child_pid;
+extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
+extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[];
+extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[];
+
 extern __attribute__ ((visibility ("hidden")))
   void *mtcp_saved_break;
 extern void *mtcp_libc_dl_handle;
@@ -241,7 +246,8 @@ char *mtcp_executable_path(char *filename);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid);
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+			 char *cmd_file, char *argv[], char *envp[]);
 __attribute__ ((visibility ("hidden")))
    void mtcp_restoreverything (void);
 __attribute__ ((visibility ("hidden")))

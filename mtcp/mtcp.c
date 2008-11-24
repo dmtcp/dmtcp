@@ -61,6 +61,8 @@
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
 
+#define MTCP_SYS_STRCPY
+#define MTCP_SYS_STRLEN
 #include "mtcp_internal.h"
 
 #if 0
@@ -2262,9 +2264,14 @@ skipeol:
 /*																*/
 /********************************************************************************************************************************/
 
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
+#define STRINGS_LEN 10000
+static char STRINGS[STRINGS_LEN];
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+			 char *cmd_file, char *argv[], char *envp[] )
 
-{
+{ int i;
+  char *strings = STRINGS;
+
   DEBUG_RESTARTING = 1;
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
    * below, the optimizer generates non-PIC code if it's not -O0 - Gene
@@ -2282,6 +2289,31 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid )
   mtcp_restore_cpfd   = fd;
   mtcp_restore_verify = verify;
   mtcp_restore_gzip_child_pid = gzip_child_pid;
+#ifndef __x86_64__
+  // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
+  //   steps on us.  This won't be needed when we use the linker to map areas.
+  strings = STRINGS;
+  // This version of STRCPY copies source string into STRINGS bugger,
+  // and sets destination string to point there.
+# define STRCPY(x,y) \
+	if (strings + 256 < STRINGS + STRINGS_LEN) { \
+	  mtcp_sys_strcpy(strings,y); \
+	  x = strings; \
+	  strings += mtcp_sys_strlen(y) + 1; \
+	} else { \
+	  DPRINTF(("MTCP:  ran out of string space." \
+		   "  Trying to continue anyway\n")); \
+	}
+  STRCPY(mtcp_restore_cmd_file, cmd_file);
+  for (i = 0; argv[i] != NULL; i++) {
+    STRCPY(mtcp_restore_argv[i], argv[i]);
+  }
+  mtcp_restore_argv[i] = NULL;
+  for (i = 0; envp[i] != NULL; i++) {
+    STRCPY(mtcp_restore_envp[i], envp[i]);
+  }
+  mtcp_restore_envp[i] = NULL;
+#endif
 
   /* Switch to a stack area that's part of the shareable's memory address range
    * and thus not used by the checkpointed program
