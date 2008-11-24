@@ -54,7 +54,7 @@ int main (int argc, char *argv[], char *envp[])
 
 {
   char magicbuf[MAGIC_LEN], *restorename;
-  int fd, restore_size, verify;
+  int fd, restore_size, verify, offset=0;
   void *restore_begin, *restore_mmap;
   void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,
 			 char *cmd_file, char *argv[], char *envp[]);
@@ -76,6 +76,10 @@ int main (int argc, char *argv[], char *envp[])
   } else if ((argc == 3) && (strcasecmp (argv[1], "-verify") == 0)) {
     verify = 1;
     restorename = argv[2];
+  } else if ((argc == 4) && (strcasecmp (argv[1], "-offset") == 0)) {
+    verify = 0;
+    offset = atoi(argv[2]);
+    restorename = argv[3];
   } else if ((argc == 3) && (strcasecmp (argv[1], "-fd") == 0)) {
     /* This case used only when dmtcp_restart exec's to mtcp_restart. */
     verify = 0;
@@ -94,6 +98,12 @@ int main (int argc, char *argv[], char *envp[])
   }
 
   if(restorename!=NULL) fd = open_ckpt_to_read(restorename);
+  if(offset>0){
+    //skip into the file a bit
+    char* tmp = malloc(offset);
+    readfile(fd, tmp, offset);
+    free(tmp);
+  }
   memset(magicbuf, 0, sizeof magicbuf);
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
@@ -245,7 +255,7 @@ static int open_ckpt_to_read(char *filename)
         abort();
     }
 
-    if(fc == MAGIC_FIRST) /* no compression */
+    if(fc == MAGIC_FIRST || fc=='D') /* no compression */
         return fd;
     else if(fc == GZIP_FIRST) /* gzip */
     {

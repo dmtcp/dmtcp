@@ -131,7 +131,7 @@ namespace dmtcp
       static int openDmtcpCheckpointFile(const std::string& filename);
       static int openMtcpCheckpointFile(const std::string& filename);
 
-      void loadFromFile(const std::string& filename);
+      int loadFromFile(const std::string& filename);
 
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;

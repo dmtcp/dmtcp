@@ -36,7 +36,7 @@
 #include <fcntl.h>
 
 
-static void runMtcpRestore ( const char* path );
+static void runMtcpRestore ( const char* path, int offset );
 
 using namespace dmtcp;
 
@@ -51,8 +51,8 @@ namespace
       {
 
         JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
-        _conToFd.loadFromFile(_path);
-        JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() );
+        _offset = _conToFd.loadFromFile(_path);
+        JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() ) (_offset);
       }
 
 
@@ -136,13 +136,14 @@ namespace
       void mtcpRestart()
       {
         DmtcpWorker::maskStdErr();
-        runMtcpRestore ( _path.c_str() );
+        runMtcpRestore ( _path.c_str(), _offset );
       }
 
       const UniquePid& pid() const { return _conToFd.pid(); }
       const std::string& procname() const { return _conToFd.procname(); }
 
       std::string     _path;
+      int _offset;
       ConnectionToFds _conToFd;
   };
 
@@ -275,10 +276,11 @@ int main ( int argc, char** argv )
   return -1;
 }
 
-static void runMtcpRestore ( const char* path )
+static void runMtcpRestore ( const char* path, int offset )
 {
   static std::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
+#ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
   sprintf(buf,"%d", fd);
@@ -296,8 +298,23 @@ static void runMtcpRestore ( const char* path )
   };
   if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
     newArgs[3] = NULL;
+  
+  JTRACE ( "launching mtcp_restart -fd" )(fd)(path);
+#else
+  char buf[64];
+  sprintf(buf,"%d", offset);
 
-  JTRACE ( "launching mtcp_restart" ) ( newArgs[2] );
+  char* newArgs[] = {
+    ( char* ) mtcprestart.c_str(),
+    ( char* ) "-offset",
+    buf,
+    (char*) path,
+    NULL
+  };
+  
+  JTRACE ( "launching mtcp_restart -offset" )(path)(offset);
+
+#endif
 
   execvp ( newArgs[0], newArgs );
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );

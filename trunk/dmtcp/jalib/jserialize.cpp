@@ -67,11 +67,13 @@ bool jalib::JBinarySerializeReaderRaw::isReader() {return true;}
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
   JASSERT ( write (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "write() failed" );
+  _bytes+=len;
 }
 
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
   JASSERT ( read (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "read() failed" );
+  _bytes+=len;
 }
 
