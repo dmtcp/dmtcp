@@ -41,9 +41,8 @@ namespace jalib
   class JBinarySerializer
   {
     public:
+      JBinarySerializer ( const std::string& filename ) : _filename ( filename ), _bytes(0) {}
       virtual ~JBinarySerializer() {}
-
-
 
       virtual void readOrWrite ( void* buffer, size_t len ) = 0;
       virtual bool isReader() = 0;
@@ -85,9 +84,11 @@ namespace jalib
       }
 
       const std::string& filename() const {return _filename;}
-      JBinarySerializer ( const std::string& filename ) : _filename ( filename ) {}
+      size_t bytes() const { return _bytes; }
     private:
       std::string _filename;
+    protected:
+      size_t _bytes;
   };
 
   template <>

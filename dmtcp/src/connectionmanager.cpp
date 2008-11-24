@@ -686,7 +686,7 @@ static int open_ckpt_to_read(const char *filename)
         if(cpid > 0) /* parent process */
         {
            JTRACE ( "created gzip child process to uncompress checkpoint file");
-	    dmtcp::ConnectionToFds::gzip_child_pid = cpid;
+            dmtcp::ConnectionToFds::gzip_child_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
@@ -700,7 +700,7 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-	    unsetenv("LD_PRELOAD");
+            unsetenv("LD_PRELOAD");
             execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
@@ -762,9 +762,10 @@ int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const std::string& path){
   return fd;
 }
 
-void dmtcp::ConnectionToFds::loadFromFile(const std::string& path){
+int dmtcp::ConnectionToFds::loadFromFile(const std::string& path){
   int fd = openDmtcpCheckpointFile(path);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   serialize(rdr);
   close_ckpt_to_read(fd);
+  return rdr.bytes() + strlen(DMTCP_FILE_HEADER);
 }
