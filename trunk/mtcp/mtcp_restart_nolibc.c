@@ -444,8 +444,10 @@ static void readmemoryareas (void)
             && global_vdso_addr < (VA)area.addr + area.size
            ) {
           DPRINTF(("randomized vdso conflict; retrying\n"));
+          mtcp_sys_close (mtcp_restore_cpfd);
+          mtcp_restore_cpfd = -1;
           if (-1 == mtcp_sys_execve(mtcp_restore_cmd_file,
-			   mtcp_restore_argv, mtcp_restore_envp))
+                                    mtcp_restore_argv, mtcp_restore_envp))
             DPRINTF(("execve failed.  Restart may fail.\n"));
         } else
           skipfile (area.size);
