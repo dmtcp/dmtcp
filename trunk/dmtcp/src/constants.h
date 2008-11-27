@@ -89,7 +89,9 @@
 
 #define CONNECTION_ID_START 99000
 
-#define MAX_DLCLOSE_MTCP_CALLS 10
+// Fix dlclose segfault bug
+//#define MAX_DLCLOSE_MTCP_CALLS 10
+#define MAX_DLCLOSE_MTCP_CALLS 1
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
