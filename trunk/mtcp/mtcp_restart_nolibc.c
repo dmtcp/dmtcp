@@ -395,11 +395,11 @@ static void readmemoryareas (void)
       if (area.flags & MAP_ANONYMOUS) {
         DPRINTF (("mtcp restoreverything*: restoring anonymous area 0x%X at %p\n", area.size, area.addr));
       } else {
-        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
+        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
       mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        DPRINTF(("mtcp_restart_nolibc: error %d mapping %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
+        DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
 	try_skipping_existing_segment = 1;
       }
@@ -458,7 +458,7 @@ static void readmemoryareas (void)
         readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
       }
@@ -472,7 +472,7 @@ static void readmemoryareas (void)
     /* Otherwise, we mmap the original file contents to the area */
 
     else {
-      DPRINTF (("mtcp restoreverything*: restoring mapped area 0x%X at %p to %s + %X\n", area.size, area.addr, area.name, area.offset));
+      DPRINTF (("mtcp restoreverything*: restoring mapped area 0x%X at %p to %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
       // O_WRONLY = 01

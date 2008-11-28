@@ -44,7 +44,7 @@ for i in sys.argv:
   if i=="--stress":
     CYCLES=999999999
   if i=="-h" or i=="--help":
-    print "USAGE "+sys.argv[0]+" [-v] [testname] [testname...]  "
+    print "USAGE "+sys.argv[0]+" [-v] [--stress] [testname] [testname...]  "
     sys.exit(1)
 
 stats = [0, 0]
@@ -221,7 +221,7 @@ def runTest(name, numProcs, cmds):
 
   def testRestart():
     #build restart command
-    cmd=BIN+"dmtcp_restart"
+    cmd=BIN+"dmtcp_restart --quiet"
     for i in listdir(ckptDir):
       if i.endswith(".dmtcp"):
         cmd+= " "+ckptDir+"/"+i
