@@ -87,7 +87,7 @@ int main ( int argc, char** argv )
            "This program comes with ABSOLUTELY NO WARRANTY.\n"
            "This is free software, and you are welcome to redistribute it\n"
            "under certain conditions; see COPYING file for details.\n"
-           "(Use flag \"-q\" to hide this message.)\n\n");
+           "(Use flag \"--quiet\" to hide this message.)\n\n");
 
   const char* cmd = argv[0];
   //ignore leading dashes
