@@ -287,7 +287,7 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD = libdmtcpinternal.a -ldl -lpthread
-dmtcp_inspector_LDADD = -ldl libdmtcpinternal.a
+dmtcp_inspector_LDADD = libdmtcpinternal.a -ldl -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
@@ -320,9 +320,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  src/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  src/Makefile
+	  $(AUTOMAKE) --gnu  src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
