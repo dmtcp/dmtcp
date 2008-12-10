@@ -45,7 +45,7 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a -ldl -lpthread
-dmtcp_inspector_LDADD = -ldl libdmtcpinternal.a
+dmtcp_inspector_LDADD = libdmtcpinternal.a -ldl -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c

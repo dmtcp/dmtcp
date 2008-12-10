@@ -19,6 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#define __USE_GNU
+#define __USE_UNIX98
+
+#include <pthread.h>
 #include "syscallwrappers.h"
 #include <dlfcn.h>
 #include <stdio.h>
@@ -26,22 +30,33 @@
 #include <string.h>
 #include "constants.h"
 #include "sockettable.h"
-#include <pthread.h>
 #include <sys/select.h>
-
-/* According to earlier standards */
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 
+//this should be defined in pthread.h, but on RHEL 5.2 it is stubborn
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
+  { { 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP, 0, { 0 } } }
+#endif
 
 typedef int ( *funcptr ) ();
 
 typedef funcptr ( *signal_funcptr ) ();
 
-static pthread_mutex_t theMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
+void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
+void _dmtcp_remutex_on_fork() {
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
+  pthread_mutex_init ( &theMutex, &attr);
+  pthread_mutexattr_destroy(&attr);
+}
 
 static funcptr get_libc_symbol ( const char* name )
 {
@@ -164,10 +179,6 @@ void _real_closelog ( void )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( closelog ) ();
 }
-
-void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
-void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
-void _dmtcp_remutex_on_fork() {pthread_mutex_init ( &theMutex, NULL );}
 
 //set the handler
 sighandler_t _real_signal(int signum, sighandler_t handler){
