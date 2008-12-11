@@ -353,10 +353,12 @@ runTest("perl",          1, ["/usr/bin/perl"])
 
 runTest("python",        1, ["/usr/bin/python"])
 
+os.environ['DMTCP_GZIP'] = "0"
 runTest("bash",          1, ["/bin/bash"])
+os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_GCL == "yes":
-  runTest("gcl",         1,  ["/usr/bin/gcl"])
+#if testconfig.HAS_GCL == "yes":
+#  runTest("gcl",         1,  ["/usr/bin/gcl"])
 
 if testconfig.HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
