@@ -32,6 +32,12 @@ BUFFER_SIZE=4096*8
 #False redirects process stderr
 VERBOSE=False
 
+#Run (most) tests with gzip enable 
+GZIP="1"
+
+#Warn cant create a file of size:
+REQUIRE_MB=50
+
 #Binaries
 BIN="./bin/"
 
@@ -96,9 +102,24 @@ os.unsetenv('DMTCP_SIGCKPT')
 os.unsetenv('MTCP_SIGCKPT')
 #No gzip by default.  (Isolate gzip failures from other test failures.)
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
-os.environ['DMTCP_GZIP'] = "0"
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = "/dev/null"
+
+#verify there is enough free space
+tmpfile=ckptDir + "/freeSpaceTest.tmp"
+if os.system("dd if=/dev/zero of="+tmpfile+" bs=1MB count="+str(REQUIRE_MB)+" 2>/dev/null") != 0:
+  GZIP="1"
+  print '''
+
+!!!WARNING!!!
+Fewer than '''+str(REQUIRE_MB)+'''MB are available on the current volume.
+Many of the tests below may fail due to insufficient space.
+!!!WARNING!!!
+
+'''
+os.system("rm -f "+tmpfile)
+
+os.environ['DMTCP_GZIP'] = GZIP
 
 #launch the coordinator
 coordinator = launch(BIN+"dmtcp_coordinator")
@@ -299,9 +320,9 @@ runTest("dmtcp1",        1, ["./test/dmtcp1"])
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
 # dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
-os.environ['DMTCP_GZIP'] = "1"
+os.environ['DMTCP_GZIP'] = "1" 
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
-os.environ['DMTCP_GZIP'] = "0"
+os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
@@ -324,7 +345,7 @@ runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
-os.environ['DMTCP_GZIP'] = "0"
+os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
