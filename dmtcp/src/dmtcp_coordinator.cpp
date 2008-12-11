@@ -567,7 +567,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   gethostname ( hostname,80 );
   JTRACE ( "writing restart script" ) ( filename );
   FILE* fp = fopen ( filename.c_str(),"w" );
-  JASSERT ( fp!=0 ) ( filename ).Text ( "failed to open file" );
+  JASSERT ( fp!=0 )(JASSERT_ERRNO)( filename ).Text ( "failed to open file" );
   fprintf ( fp, "%s", "#!/bin/bash \nset -m # turn on job control\n\n"
             "#This script launches all the restarts in the background.\n"
             "#Suggestions for editing:\n"
