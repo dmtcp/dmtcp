@@ -47,12 +47,22 @@
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 bool dmtcp::DmtcpWorker::_stdErrMasked = false;
+bool dmtcp::DmtcpWorker::_stdErrClosed = false;
 
 void dmtcp::DmtcpWorker::maskStdErr()
 {
   if ( _stdErrMasked == true ) return;
-  int newfd = PROTECTED_STDERR_FD;
-  JASSERT ( _real_dup2 ( 2, newfd ) == newfd );
+
+  // if the stderr fd is already closed, we don't want to protect it
+  if ( fcntl( 2, F_GETFD) == -1 )
+    _stdErrClosed = true;
+  else
+    _stdErrClosed = false;
+
+  if ( _stdErrClosed == false) {
+    int newfd = PROTECTED_STDERR_FD;
+    JASSERT ( _real_dup2 ( 2, newfd ) == newfd );
+  }
   JASSERT ( _real_dup2 ( JASSERT_STDERR_FD, 2 ) == 2 );
   _stdErrMasked = true;
 }
@@ -60,9 +70,17 @@ void dmtcp::DmtcpWorker::maskStdErr()
 void dmtcp::DmtcpWorker::unmaskStdErr()
 {
   if ( _stdErrMasked == false ) return;
+  
   int oldfd = PROTECTED_STDERR_FD;
-  JASSERT ( _real_dup2 ( oldfd, 2 ) == 2 );
-  _real_close ( oldfd );
+
+  // if stderr fd of the process was closed before masking, then make sure to close it here.
+  if ( _stdErrClosed == false ) {
+    JASSERT ( _real_dup2 ( oldfd, 2 ) == 2 );
+    _real_close ( oldfd );
+  } else {
+    _real_close ( 2 );
+  }
+
   _stdErrMasked = false;
 }
 
