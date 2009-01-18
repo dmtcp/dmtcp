@@ -80,6 +80,7 @@ namespace dmtcp
       UniquePid      _coordinatorId;
       jalib::JSocket _restoreSocket;
       static bool _stdErrMasked;// = false;
+      static bool _stdErrClosed;
   };
 
 }
