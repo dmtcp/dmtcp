@@ -47,6 +47,7 @@ namespace jalib
 
     std::vector<int> ListOpenFds();
 
+    std::string GetCurrentTty();
 
     std::string GetCurrentHostname();
 

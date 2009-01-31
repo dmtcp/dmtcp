@@ -62,6 +62,10 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   # Have gdb attach to a restarted process, and debug
   # NOTE:  You must specify single-process 'mtcp_restart', not 'dmtcp_restart'
   gdb ./a.out `pgrep -n mtcp_restart`
+  # force a.out to exit any low level libraries and return to a known location
+  # set a breakpoint on a common function and continue:
+  (gdb) break write   
+  (gdb) continue
 
 ============================================
 COMMAND-LINE OPTIONS:

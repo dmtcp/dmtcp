@@ -433,32 +433,52 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 // }
 
 ////////////
-///// PTS CHECKPOINTING
+///// PTY CHECKPOINTING
 
-void dmtcp::PtsConnection::preCheckpoint ( const std::vector<int>& fds
+void dmtcp::PtyConnection::preCheckpoint ( const std::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
 
 }
-void dmtcp::PtsConnection::postCheckpoint ( const std::vector<int>& fds )
+void dmtcp::PtyConnection::postCheckpoint ( const std::vector<int>& fds )
 {
 
 }
-void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
 
   int tempfd;
   char pts_name[80];
 
-  switch ( ( int ) type() )
+  switch ( ptyType() )
   {
-    case INVALID:
+    case PTY_INVALID:
       //tempfd = open("/dev/null", O_RDWR);
-      JTRACE("restoring invalid PTS")(id());
+      JTRACE("restoring invalid PTY")(id());
       return;
 
-    case Pt_Master:
+    case PTY_TTY:
+    {
+      std::string currentTty = jalib::Filesystem::GetCurrentTty();
+      JASSERT ( currentTty.length() > 0 ) ( STDIN_FILENO ) 
+        . Text ("Unable to restore terminal attached with the process");
+
+      tempfd = open ( currentTty.c_str(), _fcntlFlags );
+      JASSERT ( tempfd >= 0 ) ( tempfd ) ( currentTty ) ( JASSERT_ERRNO )
+        .Text ( "Error Opening the terminal attached with the process" );
+
+      JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
+        .Text ( "dup2() failed" );
+
+      JTRACE ( "Restoring TTY for the process" ) ( currentTty ) ( fds[0] );
+
+      _device = currentTty;
+
+      break;
+    }
+
+    case PTY_MASTER:
     {
       JTRACE ( "Restoring /dev/ptmx" ) ( fds[0] );
 
@@ -493,7 +513,7 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
 
       break;
     }
-    case Pt_Slave:
+    case PTY_SLAVE:
     {
         if ( _device.compare ( "?" ) == 0 )
       {
@@ -527,7 +547,7 @@ void dmtcp::PtsConnection::restore ( const std::vector<int>& fds, ConnectionRewi
       JASSERT ( false ).Text ( "should never reach here" );
   }
 }
-void dmtcp::PtsConnection::restoreOptions ( const std::vector<int>& fds )
+void dmtcp::PtyConnection::restoreOptions ( const std::vector<int>& fds )
 {
 
 }
@@ -861,9 +881,9 @@ void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   o & _path & _savedRelativePath & _offset & _fileType;
 }
 
-void dmtcp::PtsConnection::serializeSubClass ( jalib::JBinarySerializer& o )
+void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
-  JSERIALIZE_ASSERT_POINT ( "dmtcp::PtsConnection" );
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::PtyConnection" );
   o & _device & _symlinkFilename & _type;
 
   if ( o.isReader() )
@@ -911,9 +931,9 @@ void dmtcp::TcpConnection::mergeWith ( const Connection& _that ){
   }
 }
 
-void dmtcp::PtsConnection::mergeWith ( const Connection& _that ){
+void dmtcp::PtyConnection::mergeWith ( const Connection& _that ){
   Connection::mergeWith(_that);
-  const PtsConnection& that = (const PtsConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
+  const PtyConnection& that = (const PtyConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
   JWARNING(_type            == that._type)           MERGE_MISMATCH_TEXT;
   JWARNING(_symlinkFilename == that._symlinkFilename)MERGE_MISMATCH_TEXT;
   JWARNING(_device          == that._device)         MERGE_MISMATCH_TEXT;

@@ -21,6 +21,7 @@
 
 #include "jfilesystem.h"
 #include <sys/types.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include "jconvert.h"
 #include <dirent.h>
@@ -194,3 +195,47 @@ std::string jalib::Filesystem::GetCurrentHostname()
 //   #endif
   return name;
 }
+
+std::string jalib::Filesystem::GetCurrentTty()
+{
+  char sbuf[1024];
+  std::ostringstream ttyName;
+  char *tmp;
+  char *S;
+  char state;
+  int ppid, pgrp, session, tty, tpgid;
+
+  int fd, num_read;
+
+  fd = open("/proc/self/stat", O_RDONLY, 0);
+  JASSERT( fd >= 0 ) (strerror(errno))
+    .Text ("Unable to open /proc/self/stat\n");
+
+  num_read = read(fd, sbuf, sizeof sbuf - 1);
+  close(fd);
+  if(num_read<=0) return NULL;
+  sbuf[num_read] = '\0';
+
+  S = strchr(sbuf, '(') + 1;
+  tmp = strrchr(S, ')');
+  S = tmp + 2;                 // skip ") "
+
+  sscanf(S,
+      "%c "
+      "%d %d %d %d %d ",
+      &state,
+      &ppid, &pgrp, &session, &tty, &tpgid
+      );
+
+  int maj =  ((unsigned)(tty)>>8u) & 0xfffu;
+  int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
+
+  /* /dev/pts/ * has major numbers in the range 136 - 143 */
+  if ( maj >= 136 && maj <= 143) 
+    ttyName << "/dev/pts/" << min+(maj-136)*256;
+  else
+    ttyName << "";
+
+  return ttyName.str();
+}
+

@@ -144,8 +144,8 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
 
       JTRACE ( "creating ptmx connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
 
-      dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
-      Connection * c = new PtsConnection ( device, symlinkFilename, type );
+      int type = dmtcp::PtyConnection::PTY_MASTER;
+      Connection * c = new PtyConnection ( device, symlinkFilename, type );
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
@@ -165,12 +165,24 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
     {
-      std::string symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
+      int type;
+      std::string symlinkFilename;
+      std::string currentTty = jalib::Filesystem::GetCurrentTty();
 
-      JTRACE ( "creating pts connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
+      if ( currentTty.compare(device) == 0 ) {
+        type = dmtcp::PtyConnection::PTY_TTY;
+        symlinkFilename = "";
+        JTRACE ( "creating TTY connection [on-demand]" ) 
+          ( deviceName ) ( symlinkFilename );
+      }
+      else {
+        type = dmtcp::PtyConnection::PTY_SLAVE;
+        symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
+        JTRACE ( "creating pts connection [on-demand]" ) 
+          ( deviceName ) ( symlinkFilename );
+      }
 
-      dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Slave;
-      Connection * c = new PtsConnection ( device, symlinkFilename, type );
+      Connection * c = new PtyConnection ( device, symlinkFilename, type );
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
@@ -335,8 +347,8 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         //             case Connection::PIPE:
         //                 con = new PipeConnection();
         //                 break;
-      case Connection::PTS:
-        con = new PtsConnection();
+      case Connection::PTY:
+        con = new PtyConnection();
         break;
       case Connection::STDIO:
         con = new StdioConnection();
@@ -392,7 +404,19 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
     {
       create(fd, new StdioConnection(fd));
     }
-    else
+    else if ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 )
+    {
+      std::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
+      JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
+        ( fd ) ( deviceName );
+
+      std::string symlinkFilename = "?";
+      int type = dmtcp::PtyConnection::PTY_TTY;
+
+      PtyConnection *con = new PtyConnection ( device, symlinkFilename, type );
+      create ( fd, con );
+    }
+    else 
     {
       JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
       TcpConnection* con = new TcpConnection ( 0, 0, 0 );

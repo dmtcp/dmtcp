@@ -54,11 +54,11 @@ namespace dmtcp
         INVALID = 0x0000,
         TCP     = 0x1000,
         PIPE    = 0x2000,
-        PTS     = 0x3000,
+        PTY     = 0x3000,
         FILE    = 0x4000,
         STDIO   = 0x5000,
 
-        TYPEMASK = TCP | PIPE | PTS | FILE | STDIO
+        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO
       };
 
       virtual ~Connection() {}
@@ -176,41 +176,42 @@ namespace dmtcp
 //
 // };
 
-  class PtsConnection : public Connection
+  class PtyConnection : public Connection
   {
     public:
-      enum PtsType
+      enum PtyType
       {
-        INVALID   = PTS,
-        Pt_Master,
-        Pt_Slave,
+        PTY_INVALID   = PTY,
+        PTY_TTY,
+        PTY_MASTER,
+        PTY_SLAVE//,
 
-        TYPEMASK = Pt_Master | Pt_Slave
+//        TYPEMASK = PTY_TTY | PTY_Master | PTY_Slave
       };
 
-      PtsConnection ( const std::string& device, const std::string& filename, PtsType type )
-          : Connection ( PTS )
-          , _type ( type )
+      PtyConnection ( const std::string& device, const std::string& filename, int type )
+          : Connection ( PTY )
           , _symlinkFilename ( filename )
           , _device ( device )
       {
-        JTRACE("Creating PtsConnection")(device)(filename)(id());
-        if ( filename.compare ( "?" ) == 0 )
+        _type = type;
+        JTRACE("Creating PtyConnection")(device)(filename)(id());
+        if ( type != PTY_TTY &&  filename.compare ( "?" ) == 0 )
         {
-          _type = INVALID;
+          _type = PTY_INVALID;
         }
       }
 
-      PtsConnection()
-          : Connection ( PTS )
-          , _type ( INVALID )
+      PtyConnection()
+          : Connection ( PTY )
           , _symlinkFilename ( "?" )
           , _device ( "?" )
       {
-        JTRACE("Creating null PtsConnection")(id());
+        _type = PTY_INVALID;
+        JTRACE("Creating null PtyConnection")(id());
       }
 
-      PtsType type() { return PtsType ( _type & TYPEMASK ); }
+      int  ptyType() { return _type;}// & TYPEMASK ); }
       virtual void preCheckpoint ( const std::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const std::vector<int>& fds );
@@ -222,7 +223,7 @@ namespace dmtcp
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
     private:
-      PtsType   _type;
+      //PtyType   _type;
       std::string _symlinkFilename;
       std::string _device;
 
