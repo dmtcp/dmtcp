@@ -368,7 +368,7 @@ void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
     {
       JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
       int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
-      JASSERT ( ret == 0 ) ( fds[0] ) ( opt->first ) ( opt->second.size() )
+      JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( opt->first ) ( opt->second.size() )
         .Text ( "restoring setsockopt failed" );
     }
   }

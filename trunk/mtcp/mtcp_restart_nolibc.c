@@ -591,10 +591,10 @@ static void readmemoryareas (void)
 	// Because Linux library files have execute permission,
 	//   the dynamic libraries from time of checkpoint will be used.
 	else {
-           mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version"
+           mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
 	   		"of %s into memory;\n"
 			"  _not_ file as it existed at time of checkpoint.\n"
-			"  Change %s:%d and re-compile, if you want different"
+			"  Change %s:%d and re-compile, if you want different "
 			  "behavior.\n",
 			area.name, __FILE__, __LINE__);
           skipfile (area.size);

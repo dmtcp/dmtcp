@@ -2204,18 +2204,19 @@ static int readmapsline (int mapsfd, Area *area)
   if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
       || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0  ) { /* if nscd active*/
   }
-  else if (area -> name[0] == '/') { /* if an absolute pathname */
+  else if (area -> name[0] == '/'                  /* if an absolute pathname */
+	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
     rc = mtcp_safestat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("mtcp readmapsline: error %d statting %s\n",
                    -rc, area -> name);
-      return (0);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
     devnum = makedev (devmajor, devminor);
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
       mtcp_printf ("mtcp readmapsline: image %s dev:inode %X:%u not eq maps %X:%u\n",
                 area -> name, statbuf.st_dev, statbuf.st_ino, devnum, inodenum);
-      return (0);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
   }
   else if (c == '[') {
@@ -2240,7 +2241,7 @@ static int readmapsline (int mapsfd, Area *area)
 
 skipeol:
   DPRINTF (("mtcp readmapsline*: bad maps line <%c", c));
-  while ((c != '\n') && (c != 0)) {
+  while ((c != '\n') && (c != '\0')) {
     c = mtcp_readchar (mapsfd);
     mtcp_printf ("%c", c);
   }

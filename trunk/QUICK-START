@@ -156,7 +156,10 @@ SHORT NOTES:
        images.  Run it without arguments for a usage message.
     9. dmtcpaware exists for programs that wish to directly talk to the
        dmtcp_coordinator, without the intervention of a human being.
-    10. As of Oct., 2009, DMTCP does not correctly handle checkpointing
+    10. bin/gdb-add-symbol-file may be a useful debugging tool.  It computes
+	the arguments for the add-symbol-file command of gdb, to import
+	symbol information about a dynamic library.
+    11. As of Oct., 2008, DMTCP does not correctly handle checkpointing
        matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
        FOR libjvm.so .  We are working toward a fix.
          A simple workaround for now is to copy the .matlab7rc.sh
