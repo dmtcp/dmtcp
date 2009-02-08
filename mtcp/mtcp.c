@@ -1547,9 +1547,13 @@ static void checkpointeverything (void)
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
+    // Consider skipping deleted sections when we know when they're so labelled
+    // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
+    // if (strstr(area.name, " (deleted)")) continue;
+
     /* Special Case Handling: nscd is enabled*/
     if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
-        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ){
+        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ) {
       DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
                "                           this area in read/write mode and then will fill it with zeros so that\n" \
                "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
@@ -1579,7 +1583,7 @@ static void checkpointeverything (void)
       area.flags |= MAP_ANONYMOUS;
     }
 
-    if ( area.flags & MAP_SHARED ){
+    if ( area.flags & MAP_SHARED ) {
       /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
       if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
         mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X"
@@ -2208,19 +2212,20 @@ static int readmapsline (int mapsfd, Area *area)
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
     rc = mtcp_safestat (area -> name, &statbuf);
     if (rc < 0) {
-      mtcp_printf ("mtcp readmapsline: error %d statting %s\n",
+      mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
                    -rc, area -> name);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
     devnum = makedev (devmajor, devminor);
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
-      mtcp_printf ("mtcp readmapsline: image %s dev:inode %X:%u not eq maps %X:%u\n",
+      mtcp_printf ("ERROR:  mtcp readmapsline: image %s dev:inode %X:%u"
+		   " not eq maps %X:%u\n",
                 area -> name, statbuf.st_dev, statbuf.st_ino, devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
   }
   else if (c == '[') {
-    while ((c != '\n') && (c != 0)) {
+    while ((c != '\n') && (c != '\0')) {
       c = mtcp_readchar (mapsfd);
     }
   }
@@ -2235,12 +2240,12 @@ static int readmapsline (int mapsfd, Area *area)
   area -> flags = MAP_FIXED;
   if (sflag == 's') area -> flags |= MAP_SHARED;
   if (sflag == 'p') area -> flags |= MAP_PRIVATE;
-  if (area -> name[0] == 0) area -> flags |= MAP_ANONYMOUS;
+  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
 
   return (1);
 
 skipeol:
-  DPRINTF (("mtcp readmapsline*: bad maps line <%c", c));
+  DPRINTF (("ERROR:  mtcp readmapsline*: bad maps line <%c", c));
   while ((c != '\n') && (c != '\0')) {
     c = mtcp_readchar (mapsfd);
     mtcp_printf ("%c", c);
@@ -2553,6 +2558,8 @@ static void sync_shared_mem(void)
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
     if (!(area.flags & MAP_SHARED)) continue;
+
+    if (strstr(area.name, " (deleted)")) continue;
 
     DPRINTF(("mtcp sync_shared_memory: syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
 
