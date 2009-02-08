@@ -190,7 +190,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
       }
       if (cnt == 0)
       {
-        JWARNING(cnt!=0)(sockfd())(origLen)(len).Text( "JSocket needed to read origLen chars, read only len chars before EOF" );
+        JWARNING(cnt!=0)(sockfd())(origLen)(len).Text( "JSocket needed to read origLen chars,\n still needs to read len chars, but EOF reached" );
         return -1;
       }
       if ( cnt > 0 )

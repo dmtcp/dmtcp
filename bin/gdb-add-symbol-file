@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# This command will produce the add-symbol-file command with the
+#  correct parameters, as needed by gdb, for loading debugging
+#  information about a dynamic library (.so file)
+
+test -z "$2" && echo Usage:  add-symbol-file PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && echo Note: '(gdb) info proc'
+test -z "$2" && echo '    ' will print PROCESS_PID of process debugged by gdb
+test -z "$2" && echo Then try: '(gdb) shell gdb-add-symbol-file' \
+				PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && exit
+
+# processPID=`pgrep -n $1`
+processPID=$1
+lib=`cat /proc/$processPID/maps | grep $2 | head -1 | \
+	sed -e 's%[^/]*\(/.*\)%\1%'`
+segAddr=`cat /proc/$processPID/maps | grep $lib | grep r-xp | \
+	sed -e 's%^\([0-9a-f]*\).*%0x\1%'`
+textOffset=`readelf -S $lib | grep '\.text ' | \
+	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+dataOffset=`readelf -S $lib | grep '\.data ' | \
+	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+bssOffset=`readelf -S $lib | grep '\.bss ' | \
+	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+echo add-symbol-file $lib $(($segAddr + $textOffset)) \
+	 -s .data $(($segAddr + $dataOffset)) -s .bss $(($segAddr + $bssOffset))
