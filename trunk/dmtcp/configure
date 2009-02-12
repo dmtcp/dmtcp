@@ -21244,6 +21244,8 @@ cat >>confdefs.h <<\_ACEOF
 #define DEBUG
 _ACEOF
 
+  CFLAGS="-g -O0"
+  CXXFLAGS="-g -O0"
 fi
 
 # Check whether --enable-timing was given.
