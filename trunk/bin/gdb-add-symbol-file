@@ -25,11 +25,11 @@ segDataAddr=`cat /proc/$processPID/maps | grep $lib | grep rw-p | \
 	sed -e 's%^\([0-9a-f]*\).*%0x\1%'`
 
 textOffset=`readelf -S $lib | grep '\.text ' | \
-	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+	sed -e 's%^.*text[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
 dataOffset=`readelf -S $lib | grep '\.data ' | \
-	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+	sed -e 's%^.*data[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
 bssOffset=`readelf -S $lib | grep '\.bss ' | \
-	sed -e 's%[^0]*\(0[0-9a-f]*\).*%0x\1%'`
+	sed -e 's%^.*bss[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
 
 echo add-symbol-file $lib $(($segAddr + $textOffset)) \
 	 -s .data $(($segDataAddr + $dataOffset)) \

@@ -1225,6 +1225,11 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
+  --disable-pid-virtualization
+                          disable pid virtualization. Pid virtualization is
+                          needed for checkpointing shells and certain other
+                          programs. Disable it for performance reasons or for
+                          diagnosis of bugs.
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
 
 Optional Packages:
@@ -3086,6 +3091,13 @@ if test "${enable_timing+set}" = set; then
   enableval=$enable_timing; use_jtiming=$enableval
 else
   use_jtiming=no
+fi
+
+# Check whether --enable-pid_virtualization was given.
+if test "${enable_pid_virtualization+set}" = set; then
+  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
+else
+  use_pid_virt=yes
 fi
 
 

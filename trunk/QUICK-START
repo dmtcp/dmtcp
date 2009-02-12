@@ -158,7 +158,10 @@ SHORT NOTES:
        dmtcp_coordinator, without the intervention of a human being.
     10. bin/gdb-add-symbol-file may be a useful debugging tool.  It computes
 	the arguments for the add-symbol-file command of gdb, to import
-	symbol information about a dynamic library.
+	symbol information about a dynamic library.  It is most useful in
+	combination with *-dbg Linux packages and prefix to dmtcp_checkpoint:
+	  env LD_LIBRARY_PATH=/usr/lib/debug dmtcp_checkpoint ...
+	followed by 'attach' in gdb.
     11. As of Oct., 2008, DMTCP does not correctly handle checkpointing
        matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
        FOR libjvm.so .  We are working toward a fix.

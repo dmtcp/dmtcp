@@ -19,7 +19,7 @@ AC_ARG_ENABLE([debug],
             [use_jassert=no])
 
 if test "$use_jassert" = "yes"; then
-  AC_DEFINE([DEBUG],[],[verbose debug printouts and log files in /tmp])
+  AC_DEFINE([DEBUG],[],[Verbose debug printouts and log files in /tmp])
 fi
 
 AC_ARG_ENABLE([timing],
@@ -31,7 +31,20 @@ AC_ARG_ENABLE([timing],
             [use_jtiming=no])
 
 if test "$use_jtiming" = "yes"; then
-  AC_DEFINE([TIMING],[],[record timing information to stderr and jtimings.csv])
+  AC_DEFINE([TIMING],[],[Record timing information to stderr and jtimings.csv])
+fi
+
+AC_ARG_ENABLE([pid_virtualization],
+            [AS_HELP_STRING([--disable-pid-virtualization],
+                            [disable pid virtualization.  Pid virtualization
+                            is needed for checkpointing shells and certain
+                            other programs.  Disable it for performance
+                            reasons or for diagnosis of bugs.])],
+            [use_pid_virt=$enableval],
+            [use_pid_virt=yes])
+
+if test "$use_pid_virt" = "yes"; then
+  AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls])
 fi
 
 AC_ARG_ENABLE([m32],
