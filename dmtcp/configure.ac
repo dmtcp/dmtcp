@@ -20,6 +20,8 @@ AC_ARG_ENABLE([debug],
 
 if test "$use_jassert" = "yes"; then
   AC_DEFINE([DEBUG],[],[Verbose debug printouts and log files in /tmp])
+  CFLAGS="-g -O0"
+  CXXFLAGS="-g -O0"
 fi
 
 AC_ARG_ENABLE([timing],

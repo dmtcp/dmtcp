@@ -162,7 +162,15 @@ SHORT NOTES:
 	combination with *-dbg Linux packages and prefix to dmtcp_checkpoint:
 	  env LD_LIBRARY_PATH=/usr/lib/debug dmtcp_checkpoint ...
 	followed by 'attach' in gdb.
-    11. As of Oct., 2008, DMTCP does not correctly handle checkpointing
+    11. The particular combination of Ubuntu 8.10 (Intrepid) and
+	 g++-4.3 with the default -O2 flag appears to have a bug.
+         (g++-4.3 decides to inline a certain function, and then fails
+	 to compile because it decides that that function cannot be inlined.)  
+	There are two easy workarounds.  First, if make fails, then manually
+	re-execute the g++ compilation from the last line output by make,
+	but do not include "-O2".  Alternatively, when configuring, use:
+	  env CXXFLAGS=-O1 ./configure
+    12. As of Oct., 2008, DMTCP does not correctly handle checkpointing
        matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
        FOR libjvm.so .  We are working toward a fix.
          A simple workaround for now is to copy the .matlab7rc.sh
