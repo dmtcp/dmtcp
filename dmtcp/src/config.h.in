@@ -1,6 +1,6 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* verbose debug printouts and log files in /tmp */
+/* Verbose debug printouts and log files in /tmp */
 #undef DEBUG
 
 /* Always enable this. */
@@ -57,10 +57,13 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* Use virtual pids for pid-related system calls */
+#undef PID_VIRTUALIZATION
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* record timing information to stderr and jtimings.csv */
+/* Record timing information to stderr and jtimings.csv */
 #undef TIMING
 
 /* Version number of package */

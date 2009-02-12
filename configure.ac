@@ -20,6 +20,14 @@ AC_ARG_ENABLE([timing],
                             dmtcp_coordinator, and to stderr.])],
             [use_jtiming=$enableval],
             [use_jtiming=no])
+AC_ARG_ENABLE([pid_virtualization],
+            [AS_HELP_STRING([--disable-pid-virtualization],
+                            [disable pid virtualization.  Pid virtualization
+			    is needed for checkpointing shells and certain
+			    other programs.  Disable it for performance
+			    reasons or for diagnosis of bugs.])],
+            [use_pid_virt=$enableval],
+            [use_pid_virt=yes])
 
 #checkfor -lreadline -lhistory v5, does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
