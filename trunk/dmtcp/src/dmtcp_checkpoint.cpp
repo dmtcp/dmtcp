@@ -87,7 +87,7 @@ int main ( int argc, char** argv )
   shift;
   while(true){
     std::string s = argc>0 ? argv[0] : "--help";
-    if(s=="--help"){
+    if(s=="--help" || s=="-h" && argc==1){
       fprintf(stderr, theUsage);
       return 1;
     }else if(s=="--ssh-slave"){
