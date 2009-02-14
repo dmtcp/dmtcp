@@ -593,7 +593,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
     fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
                   " --host \"$"ENV_VAR_NAME_ADDR"\""
-                  " --port \"$"ENV_VAR_NAME_ADDR"\""
+                  " --port \"$"ENV_VAR_NAME_PORT"\""
                   " --join",
                   host->first.c_str());
 
