@@ -70,7 +70,7 @@ namespace dmtcp
         COORD_NEW  = 2,
         COORD_ANY  = COORD_JOIN | COORD_NEW
       };
-      static void startCoordinatorIfNeeded(int modes);
+      static void startCoordinatorIfNeeded(int modes, int isRestart=0);
     protected:
       void sendUserCommand(char c, int* result = NULL);
     private:
