@@ -188,7 +188,7 @@ static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
 static int verify_total;  // value given by envar
-static pid_t mtcp_ckpt_gzip_child_pid = -1;
+/* static pid_t mtcp_ckpt_gzip_child_pid = -1; */
 static int volatile checkpointhreadstarting = 0;
 static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
 static MtcpState threadslocked = MTCP_STATE_INITIALIZER;
@@ -233,6 +233,7 @@ static void setup_clone_entry (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
 static int open_ckpt_to_write(void);
+static pid_t create_worker_process(void);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area,
@@ -1349,6 +1350,7 @@ again:
 static int open_ckpt_to_write(void)
 {
   pid_t cpid;
+  pid_t gcpid;
   int fd;
   int fds[2]; /* for potential piping */
   char *do_we_compress;
@@ -1396,17 +1398,17 @@ static int open_ckpt_to_write(void)
       return fd;
     }
 
-    cpid = mtcp_sys_kernel_fork();
+    cpid = create_worker_process();
     if (cpid == -1) {
-      mtcp_printf("WARNING: error forking child.  Compression will "
+      mtcp_printf("WARNING: error creating worker process. Compression will "
                   "not be used.\n");
       return fd;
     } else if (cpid > 0) { /* parent process */
-      mtcp_ckpt_gzip_child_pid = cpid;
+      /*mtcp_ckpt_gzip_child_pid = gcpid;*/
       close(fds[0]);
       close(fd);
       return fds[1];
-    } else { /* child process */
+    } else { /* worker process */
       close(fds[1]);
       fds[0] = dup(dup(dup(fds[0])));
       fd = dup(fd);
@@ -1429,8 +1431,51 @@ static int open_ckpt_to_write(void)
   return fd;
 }
 
+static pid_t create_worker_process(void)
+{
+  pid_t workerpid = -1;
+  pid_t cpid;
 
-
+  cpid = mtcp_sys_kernel_fork();
+  if (cpid == -1) {
+    mtcp_printf("create_worker_process: fork failed.");
+    workerpid = -1;
+  } 
+  
+  else if (cpid > 0 ) { /* patent process (MTCP) */
+    int status;
+    waitpid(cpid, &status, 0);
+    if (status == -1) {
+      mtcp_printf("create_worker_process: unable to create worker process");
+    }
+    workerpid = status;
+    return workerpid;
+  } 
+  
+  else if (cpid == 0) { /* child process */
+
+      /* Here we employ a fork-fork policy to get rid of wait in the parent process. 
+       * This child process will exit after creating a grandchild process, so, the 
+       * parent of the newly created grandchild would be 1 and the parent process 
+       * of this process would not need to call a wait(). 
+       * The grandchild is the one who does the actual work.
+       */
+    workerpid = mtcp_sys_kernel_fork();
+    
+    if (workerpid == -1) {
+      mtcp_printf("create_worker_process: fork failed to create worker process.");
+      _exit(-1);
+    } else if (workerpid > 0) {
+      _exit(workerpid);
+    } else { /* This is the real worker process (grand child) */
+      return workerpid;
+    }
+  }
+
+  return workerpid;
+}
+
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called from time-to-time to write a new checkpoint file.							*/
@@ -1633,11 +1678,18 @@ static void checkpointeverything (void)
     mtcp_printf ("mtcp checkpointeverything: error closing checkpoint file: %s\n", strerror (errno));
     mtcp_abort ();
   }
+
+  /* This piece of code is not required anymore.
+   * see the comments for the gzip process in open_ckpt_to_write()
+   */
+  /*
   if( mtcp_ckpt_gzip_child_pid != -1 ) {
     if(waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
 	perror("ckeckpointeverything: waitpid");
     mtcp_ckpt_gzip_child_pid = -1;
   }
+  */
+  
 
   /* Maybe it's time to verify the checkpoint                                                                 */
   /* If so, exec an mtcp_restore with the temp file (in case temp file is bad, we'll still have the last one) */
