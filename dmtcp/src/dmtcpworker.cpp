@@ -582,7 +582,7 @@ void dmtcp::DmtcpWorker::recvCoordinatorHandshake(){
   DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
 }
 
-void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
+void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
   const static int CS_OK = 91;
   const static int CS_NO = 92;
   int coordinatorStatus = -1;
@@ -594,7 +594,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes){
     int result[DMTCPMESSAGE_NUM_PARAMS];
     dmtcp::DmtcpWorker worker(false);
     worker.connectAndSendUserCommand('s', result);
-    if(result[0]==0 || result[1]){
+    if(result[0]==0 || result[1]^isRestart){
       if(result[0] != 0)
         printf("[DMTCP] Joining existing computation of %d processes.\n", result[0]);
       exit(CS_OK);
