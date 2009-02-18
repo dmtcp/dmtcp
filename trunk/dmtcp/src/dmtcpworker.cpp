@@ -138,18 +138,34 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     //find the start of the command
     std::string& cmd = args[commandStart];
 
-    const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
-    const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
-    const char * sigckpt = getenv( ENV_VAR_SIGCKPT );
 
+    const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_ADDR );
+    const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
+    const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
+    const char * compression          = getenv ( ENV_VAR_COMPRESSION );
+    const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES ); 
+    const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
 
     //modify the command
-    std::string prefix = "env ";
-    if ( coordinatorAddr != NULL )    prefix += std::string() + ENV_VAR_NAME_ADDR      "=" + coordinatorAddr    + " ";
-    if ( coordinatorPortStr != NULL ) prefix += std::string() + ENV_VAR_NAME_PORT      "=" + coordinatorPortStr + " ";
-    if ( sigckpt != NULL )            prefix += std::string() + ENV_VAR_SIGCKPT        "=" + sigckpt            + " ";
 
-    prefix += DMTCP_CHECKPOINT_CMD " --ssh-slave ";
+    //std::string prefix = "env ";
+
+    std::string prefix = DMTCP_CHECKPOINT_CMD " --ssh-slave ";
+
+
+    if ( coordinatorAddr != NULL )    prefix += std::string() + "--host " + coordinatorAddr    + " ";
+    if ( coordinatorPortStr != NULL ) prefix += std::string() + "--port " + coordinatorPortStr + " ";
+    if ( sigckpt != NULL )            prefix += std::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
+    if ( ckptDir != NULL )            prefix += std::string() + "--dir "  + ckptDir            + " ";
+    if ( ckptOpenFiles != NULL )      prefix += std::string() + "--checkpoint-open-files ";
+
+    if ( compression != NULL ) {
+      if ( strcmp ( compression, "0" ) )
+        prefix += "--no-gzip ";
+      else 
+        prefix += "--gzip ";
+    }
+
     cmd = prefix + cmd;
 
     //now repack args
@@ -162,8 +178,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
       argv[i] = ( char* ) args[i].c_str();
       newCommand += args[i] + ' ';
     }
-
-
 
     //we don't want to get into an infinite loop now do we?
     unsetenv ( "LD_PRELOAD" );

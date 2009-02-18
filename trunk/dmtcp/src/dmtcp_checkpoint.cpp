@@ -56,6 +56,8 @@ static const char* theUsage =
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
   "      Checkpoint open open files\n"
+  "  --mtcp-checkpoint-signal:\n"
+  "      Signal number used by MTCP for checkpointing (default: 12)\n"
   "  --quiet:\n"
   "      Skip copyright notice\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -116,6 +118,9 @@ int main ( int argc, char** argv )
       shift; shift;
     }else if(argc>1 && (s == "-d" || s == "--dir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && s == "--mtcp-checkpoint-signal"){
+      setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
     }else if(s == "--checkpoint-open-files"){
       checkpointOpenFiles = true;
