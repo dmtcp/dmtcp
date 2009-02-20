@@ -28,6 +28,7 @@
 #include <string>
 #include  "../jalib/jserialize.h"
 #include  "../jalib/jfilesystem.h"
+#include "virtualpidtable.h"
 
 
 namespace dmtcp
@@ -131,8 +132,11 @@ namespace dmtcp
       static int openDmtcpCheckpointFile(const std::string& filename);
       static int openMtcpCheckpointFile(const std::string& filename);
 
+#ifdef PID_VIRTUALIZATION
+      int loadFromFile(const std::string& filename, VirtualPidTable& virtualPidTable);
+#else
       int loadFromFile(const std::string& filename);
-
+#endif
     private:
       std::map< ConnectionIdentifier, std::vector<int> > _table;
       std::string _procname;

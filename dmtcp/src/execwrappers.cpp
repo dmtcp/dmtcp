@@ -95,13 +95,13 @@ extern "C" pid_t fork()
 
   if ( child_pid == 0 )
   {
-    child_pid = getpid();
+    child_pid = _real_getpid();
 #ifdef DEBUG
     //child should get new logfile
     JASSERT_SET_LOGFILE ( "/tmp/jassertlog." + jalib::XToString ( child_pid ) );
 #endif
 
-    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host,child_pid,child_time );
+    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
     JTRACE ( "fork()ed [CHILD]" ) ( child ) ( getenv ( "LD_PRELOAD" ) );
 
@@ -110,6 +110,10 @@ extern "C" pid_t fork()
 
     //update ThisProcess()
     dmtcp::UniquePid::resetOnFork ( child );
+
+#ifdef PID_VIRTUALIZATION
+    dmtcp::VirtualPidTable::Instance().resetOnFork( );
+#endif
 
     dmtcp::SyslogCheckpointer::resetOnFork();
 
@@ -125,7 +129,11 @@ extern "C" pid_t fork()
   }
   else
   {
-    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host,child_pid,child_time );
+    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
+
+#ifdef PID_VIRTUALIZATION
+    dmtcp::VirtualPidTable::Instance().insert ( child_pid, child );
+#endif
 
     JTRACE ( "fork()ed [PARENT] done" ) ( child ) ( getenv ( "LD_PRELOAD" ) );;
 
@@ -230,6 +238,9 @@ static void dmtcpPrepareForExec()
   std::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().serialize ( wr );
+#endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Prepared for Exec" );
 }

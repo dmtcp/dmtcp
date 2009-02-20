@@ -75,7 +75,7 @@ void dmtcp::DmtcpWorker::unmaskStdErr()
 
   // if stderr fd of the process was closed before masking, then make sure to close it here.
   if ( _stdErrClosed == false ) {
-    JASSERT ( _real_dup2 ( oldfd, 2 ) == 2 );
+    JASSERT ( _real_dup2 ( oldfd, 2 ) == 2 ) (oldfd);
     _real_close ( oldfd );
   } else {
     _real_close ( 2 );
@@ -210,6 +210,10 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     jalib::JBinarySerializeReader rd ( serialFile );
     KernelDeviceToConnection::Instance().serialize ( rd );
 
+#ifdef PID_VIRTUALIZATION
+    VirtualPidTable::Instance().serialize ( rd );
+#endif 
+
 #ifdef DEBUG
     JTRACE ( "initial socket table:" );
     KernelDeviceToConnection::Instance().dbgSpamFds();
@@ -220,6 +224,14 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   else
   {
     JTRACE ( "root of processes tree, checking for pre-existing sockets" );
+
+#ifdef PID_VIRTUALIZATION
+    if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
+      dmtcp::VirtualPidTable::Instance().setRootOfProcessTree();
+      unsetenv( ENV_VAR_ROOT_PROCESS );
+    }
+#endif 
+
     ConnectionList::Instance().scanForPreExisting();
   }
 
@@ -436,6 +448,10 @@ void dmtcp::DmtcpWorker::postRestart()
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().postRestart();
+#endif
+
   maskStdErr();
 }
 
@@ -594,7 +610,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
     int result[DMTCPMESSAGE_NUM_PARAMS];
     dmtcp::DmtcpWorker worker(false);
     worker.connectAndSendUserCommand('s', result);
-    if(result[0]==0 || result[1]^isRestart){
+    if(result[0]==0 || result[1] ^ isRestart){
       if(result[0] != 0)
         printf("[DMTCP] Joining existing computation of %d processes.\n", result[0]);
       exit(CS_OK);

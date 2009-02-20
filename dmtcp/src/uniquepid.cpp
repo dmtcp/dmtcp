@@ -27,6 +27,7 @@
 #include "constants.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
+#include "syscallwrappers.h"
 
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
@@ -71,7 +72,9 @@ const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
 {
   if ( theProcess() == nullProcess() )
   {
-    theProcess() = dmtcp::UniquePid ( theUniqueHostId() , ::getpid(), ::time(NULL) );
+    theProcess() = dmtcp::UniquePid ( theUniqueHostId() , 
+                                      ::_real_getpid(), 
+                                      ::time(NULL) );
     JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
   }
 
@@ -146,6 +149,19 @@ std::string dmtcp::UniquePid::dmtcpTableFilename()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
+
+#ifdef PID_VIRTUALIZATION
+std::string dmtcp::UniquePid::pidTableFilename()
+{
+  static int count = 0;
+  std::ostringstream os;
+
+  os << "/tmp/dmtcpPidTable."
+     << ThisProcess()
+     << '_' << jalib::XToString ( count++ );
+  return os.str();
+}
+#endif
 
 const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
 {

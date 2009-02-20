@@ -43,7 +43,7 @@ static bool hasLock ( const std::vector<int>& fds )
   JASSERT ( fds.size() > 0 );
   int owner = fcntl ( fds[0], F_GETOWN );
   JASSERT ( owner != 0 );
-  int self = getpid();
+  int self = _real_getpid();
   JASSERT ( self >= 0 );
   return owner == self;
 }
@@ -382,7 +382,7 @@ void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
 void dmtcp::TcpConnection::doLocking ( const std::vector<int>& fds )
 {
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, getpid() ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
+  JASSERT ( fcntl ( fds[0], F_SETOWN, _real_getpid() ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
 }
 
 

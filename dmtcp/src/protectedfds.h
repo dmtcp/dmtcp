@@ -29,6 +29,8 @@
 #define PFD(i) (PROTECTED_FD_START + (i))
 #define PROTECTEDFD(i) PFD(i)
 #define PROTECTED_STDERR_FD PFD(5)
+#define PROTECTED_PIDTBL_FD PFD(8)
+#define PROTECTED_PIDMAP_FD PFD(9)
 
 namespace dmtcp
 {

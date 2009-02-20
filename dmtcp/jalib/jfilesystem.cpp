@@ -32,7 +32,7 @@ namespace
 {
   std::string _GetProgramExe()
   {
-    std::string exe = "/proc/" + jalib::XToString ( getpid() ) + "/exe";
+    std::string exe = "/proc/self/exe";
     std::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
     return exeRes;
@@ -138,7 +138,7 @@ std::vector<std::string> jalib::Filesystem::GetProgramArgs()
 {
   std::vector<std::string> rv;
 
-  std::string path = "/proc/" + jalib::XToString ( getpid() ) + "/cmdline";
+  std::string path = "/proc/self/cmdline";
   FILE* args = fopen ( path.c_str(),"r" );
 
   JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
@@ -158,7 +158,7 @@ std::vector<std::string> jalib::Filesystem::GetProgramArgs()
 
 std::vector<int> jalib::Filesystem::ListOpenFds()
 {
-  std::string dir = "/proc/" + XToString ( getpid() ) + "/fd";
+  std::string dir = "/proc/self/fd";
   std::vector<int> rv;
   struct dirent **namelist;
   char* p;

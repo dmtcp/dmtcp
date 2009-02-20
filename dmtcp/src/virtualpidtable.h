@@ -24,57 +24,58 @@
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
-#include "constants.h"
+#include <map>
+#include  "../jalib/jserialize.h"
+#include "uniquepid.h"
 
-#ifndef UNIQUEPID_H
-#define UNIQUEPID_H
+#ifndef VIRTUAL_PID_TABLE_H
+#define VIRTUAL_PID_TABLE_H
 
+#ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
-
-  struct UniquePid
+  class VirtualPidTable
   {
-  public:
-    static dmtcp::UniquePid& ParentProcess();
-    static const dmtcp::UniquePid& ThisProcess();
-    UniquePid();
-    UniquePid ( long host, pid_t pd, time_t tm )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ) {}
+    public:
+      VirtualPidTable();
+      static VirtualPidTable& Instance();
+      void postRestart();
+      pid_t oldToNewPid( pid_t oldPid );
+      pid_t newToOldPid( pid_t newPid );
+      void  insert(pid_t oldPid,  dmtcp::UniquePid uniquePid);
+      void  erase(pid_t oldPid);
+      void serialize ( jalib::JBinarySerializer& o );
+      void serializePidMap ( jalib::JBinarySerializer& o );
 
-    long hostid() const;
-    pid_t pid() const;
-    time_t time() const;
-    static const char* checkpointFilename();
-    static std::string dmtcpTableFilename();
-#ifdef PID_VIRTUALIZATION
-    static std::string pidTableFilename();
-#endif
-    static const char* ptsSymlinkFilename ( char *pts );
+      void setRootOfProcessTree() { _isRootOfProcessTree = true; }
+      bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
+      void updateRootOfProcessTree();
 
-    bool operator< ( const UniquePid& that ) const;
-    bool operator== ( const UniquePid& that ) const;
-    bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
+      typedef std::map< pid_t , dmtcp::UniquePid >::iterator iterator;
+      iterator begin() { return _childTable.begin(); }
+      iterator end() { return _childTable.end(); }
 
-    static void resetOnFork ( const dmtcp::UniquePid& newId );
+      pid_t pid() const { return _pid; }
+      pid_t ppid() const { return _ppid; }
 
-    std::string toString() const;
+      void setppid( pid_t ppid ) { _ppid = ppid; }
 
-    bool isNull() const;
+      void updateMapping (pid_t old_pid, pid_t new_pid);
 
-  private:
-    pid_t _pid; //getpid()
-    long  _hostid; //gethostid()
-    time_t _time; //time()
+      void resetOnFork();
+
+    protected:
+
+    private:
+      std::map< pid_t , dmtcp::UniquePid > _childTable;
+      typedef std::map< pid_t , pid_t >::iterator pid_iterator;
+      std::map< pid_t , pid_t > _pidMapTable;
+      bool  _isRootOfProcessTree;
+      pid_t _pid;
+      pid_t _ppid;
   };
-}
 
-//to make older versions of gcc work
-namespace std
-{
-  std::ostream& operator << ( std::ostream& o,const dmtcp::UniquePid& id );
 }
 
 #endif
-
-
-
+#endif

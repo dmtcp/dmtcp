@@ -15,7 +15,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
-	uniquepid.h 
+	uniquepid.h virtualpidtable.h
 
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
@@ -23,7 +23,8 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
-	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
+	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
+  virtualpidtable.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
@@ -34,7 +35,8 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp
+	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp\
+  pidwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 

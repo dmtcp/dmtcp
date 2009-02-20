@@ -26,6 +26,8 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include "constants.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -89,7 +91,31 @@ extern "C"
 
   void _dmtcp_remutex_on_fork();
 
+#ifdef PID_VIRTUALIZATION
+  pid_t _real_getpid(void);
+  pid_t _real_getppid(void);
+  pid_t _real_tcgetpgrp(int fd);
+  int   _real_tcsetpgrp(int fd, pid_t pgrp);
 
+  pid_t _real_getpgrp(void);
+  pid_t _real_setpgrp(void);
+  
+  pid_t _real_getpgid(pid_t pid);
+  int   _real_setpgid(pid_t pid, pid_t pgid);
+  
+  pid_t _real_getsid(pid_t pid);
+  pid_t _real_setsid(void);
+  
+  int   _real_kill(pid_t pid, int sig);
+  
+  pid_t _real_wait(__WAIT_STATUS stat_loc);
+  pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
+  int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+
+  pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
+  pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
+
+#endif /* PID_VIRTUALIZATION */
 
 #ifdef __cplusplus
 }
