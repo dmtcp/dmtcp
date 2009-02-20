@@ -6,6 +6,9 @@
 /* Always enable this. */
 #undef DMTCP
 
+/* Child process does checkpointing */
+#undef FORKED_CHECKPOINTING
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 

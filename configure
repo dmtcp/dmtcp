@@ -1230,6 +1230,10 @@ Optional Features:
                           needed for checkpointing shells and certain other
                           programs. Disable it for performance reasons or for
                           diagnosis of bugs.
+  --enable-forked-checkpointing
+                          fork a child process to do checkpointing, so that
+                          parent sees only minor delay during checkpoint
+                          (experimental)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
 
 Optional Packages:
@@ -3098,6 +3102,13 @@ if test "${enable_pid_virtualization+set}" = set; then
   enableval=$enable_pid_virtualization; use_pid_virt=$enableval
 else
   use_pid_virt=yes
+fi
+
+# Check whether --enable-forked_checkpointing was given.
+if test "${enable_forked_checkpointing+set}" = set; then
+  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
+else
+  use_forked_ckpt=no
 fi
 
 

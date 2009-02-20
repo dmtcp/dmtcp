@@ -135,6 +135,14 @@ int main ( int argc, char** argv )
       break;
     }
   }
+#ifdef FORKED_CHECKPOINTING
+  /* When this is robust, add --forked-checkpointing option on command-line,
+   * with #ifdef FORKED_CHECKPOINTING around the option, change default of
+   * configure.ac, dmtcp/configure.ac, to enable, and change them
+   * from enable-forked... to disable-...
+   */
+  setenv(ENV_VAR_FORKED_CKPT, "1", 1);
+#endif
 
   if (! quiet)
     printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
