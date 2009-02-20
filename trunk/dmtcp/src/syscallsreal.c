@@ -33,6 +33,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -217,4 +218,69 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
 
+#ifdef PID_VIRTUALIZATION
+pid_t _real_getpid(void){
+ // syscall(SYS_getpid);
+  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+}
 
+pid_t _real_getppid(void){
+  REAL_FUNC_PASSTHROUGH ( getppid ) ( );
+}
+
+int _real_tcsetpgrp(int fd, pid_t pgrp){
+  REAL_FUNC_PASSTHROUGH ( tcsetpgrp ) ( fd, pgrp );
+}
+
+int _real_tcgetpgrp(int fd) {
+  REAL_FUNC_PASSTHROUGH ( tcgetpgrp ) ( fd );
+}
+
+pid_t _real_getpgrp(void) {
+  REAL_FUNC_PASSTHROUGH ( getpgrp ) ( );
+}
+
+pid_t _real_setpgrp(void) {
+  REAL_FUNC_PASSTHROUGH ( setpgrp ) ( );
+}
+
+pid_t _real_getpgid(pid_t pid) {
+  REAL_FUNC_PASSTHROUGH ( getpgid ) ( pid );
+}
+
+int   _real_setpgid(pid_t pid, pid_t pgid) {
+  REAL_FUNC_PASSTHROUGH ( setpgid ) ( pid, pgid );
+}
+
+pid_t _real_getsid(pid_t pid) {
+  REAL_FUNC_PASSTHROUGH ( getsid ) ( pid );
+}
+
+pid_t _real_setsid(void) {
+  REAL_FUNC_PASSTHROUGH ( setsid ) ( );
+}
+
+int   _real_kill(pid_t pid, int sig) {
+  REAL_FUNC_PASSTHROUGH ( kill ) ( pid, sig );
+}
+
+pid_t _real_wait(__WAIT_STATUS stat_loc) {
+  REAL_FUNC_PASSTHROUGH ( wait ) ( stat_loc );
+}
+
+pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
+  REAL_FUNC_PASSTHROUGH ( waitpid ) ( pid, stat_loc, options );
+}
+
+int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
+  REAL_FUNC_PASSTHROUGH ( waitid ) ( idtype, id, infop, options );
+}
+
+pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
+  REAL_FUNC_PASSTHROUGH ( wait3 ) ( status, options, rusage );
+}
+
+pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
+  REAL_FUNC_PASSTHROUGH ( wait4 ) ( pid, status, options, rusage );
+}
+#endif

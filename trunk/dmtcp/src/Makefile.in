@@ -63,7 +63,7 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	protectedfds.$(OBJEXT) signalmanager.$(OBJEXT) \
 	sockettable.$(OBJEXT) syscallsreal.$(OBJEXT) \
 	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
-	dmtcpworker.$(OBJEXT)
+	dmtcpworker.$(OBJEXT) virtualpidtable.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -101,7 +101,7 @@ dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcphijack_so_OBJECTS = dmtcpapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrapers.$(OBJEXT) syscallwrappers.$(OBJEXT) \
-	workerhijack.$(OBJEXT)
+	workerhijack.$(OBJEXT) pidwrappers.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a
 dmtcphijack_so_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
@@ -248,6 +248,7 @@ sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
@@ -271,14 +272,16 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
-	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp
+	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
+  virtualpidtable.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp 
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp
+	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp\
+  pidwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 dmtcphijack_so_LDFLAGS = -shared 
@@ -470,6 +473,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kernelbufferdrainer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalmanager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrapers.Po@am__quote@
@@ -478,6 +482,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogcheckpointer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/virtualpidtable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 
 .c.o:
@@ -816,7 +821,7 @@ uninstall-am: uninstall-pkglibHEADERS uninstall-pkglibLTLIBRARIES \
 
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
-	uniquepid.h 
+	uniquepid.h virtualpidtable.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

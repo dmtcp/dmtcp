@@ -217,6 +217,10 @@ int main ( int argc, char** argv )
   else
     unsetenv( ENV_VAR_CKPT_OPEN_FILES);
 
+#ifdef PID_VIRTUALIZATION
+  setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
+#endif
+
   //copy args into new structure
   //char** newArgs = new char* [argc];
   //memset ( newArgs, 0, sizeof ( char* ) *argc );

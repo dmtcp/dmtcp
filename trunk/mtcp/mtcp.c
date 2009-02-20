@@ -1685,11 +1685,9 @@ static void checkpointeverything (void)
      */
 
     else renametempoverperm ();
-DPRINTF(("getpid, forked_cpid: %d %d\n", mtcp_sys_getpid(), forked_cpid));
 
     if (forked_checkpointing)
       mtcp_sys_exit (0); /* grandchild exits */
-DPRINTF(("after exit: getpid, forked_cpid: %d %d\n", mtcp_sys_getpid(), forked_cpid));
   }
 
   /* For forked checkpointing, only the original parent process executes here */
@@ -1699,7 +1697,6 @@ DPRINTF(("after exit: getpid, forked_cpid: %d %d\n", mtcp_sys_getpid(), forked_c
       mtcp_printf ("mtcp checkpointeverything: error closing checkpoint file: %s\n", strerror (errno));
       mtcp_abort ();
     }
-DPRINTF(("before waitpid: getpid, forked_cpid: %d %d\n", mtcp_sys_getpid(), forked_cpid));
     // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
     if( waitpid(forked_cpid, NULL, 0) == -1 )
       DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d",

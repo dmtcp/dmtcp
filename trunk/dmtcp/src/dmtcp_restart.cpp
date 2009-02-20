@@ -31,9 +31,11 @@
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
+#include "protectedfds.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
 
 static void runMtcpRestore ( const char* path, int offset );
@@ -51,10 +53,13 @@ namespace
       {
 
         JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
+#ifdef PID_VIRTUALIZATION
+        _offset = _conToFd.loadFromFile(_path, _virtualPidTable);
+#else
         _offset = _conToFd.loadFromFile(_path);
+#endif
         JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() ) (_offset);
       }
-
 
       void dupAllSockets ( SlidingFdTable& slidingFd )
       {
@@ -142,9 +147,16 @@ namespace
       const UniquePid& pid() const { return _conToFd.pid(); }
       const std::string& procname() const { return _conToFd.procname(); }
 
+#ifdef PID_VIRTUALIZATION
+      VirtualPidTable& getVirtualPidTable() { return _virtualPidTable; }
+#endif
+
       std::string     _path;
       int _offset;
       ConnectionToFds _conToFd;
+#ifdef PID_VIRTUALIZATION
+      VirtualPidTable _virtualPidTable;
+#endif
   };
 
 
@@ -170,6 +182,14 @@ static const char* theUsage =
 
 //shift args
 #define shift argc--,argv++
+
+std::vector<RestoreTarget> targets;
+
+#ifdef PID_VIRTUALIZATION
+void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& slidingFd, pid_t ppid, jalib::JBinarySerializeWriterRaw& wr );
+static jalib::JBinarySerializeWriterRaw& createPidMapFile();
+static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_t newPid);
+#endif
 
 int main ( int argc, char** argv )
 {
@@ -223,8 +243,6 @@ int main ( int argc, char** argv )
   //make sure JASSERT initializes now, rather than during restart
   JASSERT_INIT();
 
-  std::vector<RestoreTarget> targets;
-
   for(; argc>0; shift){
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
@@ -248,6 +266,7 @@ int main ( int argc, char** argv )
 
   worker.restoreSockets ( ckptCoord );
 
+#ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
 
   //fork into targs.size() processes
@@ -275,6 +294,160 @@ int main ( int argc, char** argv )
   JASSERT ( false ).Text ( "unreachable" );
   return -1;
 }
+#else
+  int i = (int)targets.size();
+
+  jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
+
+  wr & i;
+
+  int pgrp_index=-1;
+  JTRACE ( "Creating ROOT Processes" );
+  for ( int j = 0 ; j < targets.size(); ++j ) 
+  {
+    //RestoreTarget& targ1 = targets[i];
+    VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
+    if ( virtualPidTable.isRootOfProcessTree() == true ) 
+    {
+      if (pgrp_index == -1)
+      {
+        pgrp_index = j;
+        continue;
+      }
+      int cid = fork();
+      if ( cid == 0 ) 
+      {
+        JTRACE ( "Root of process tree, Creating Child Processes" ) ( _real_getpid() ) ( _real_getppid() );
+
+//       //setpgid(0, 0);
+//       JTRACE( "this" ) (ttyname(0));
+//         sleep(30);
+//       int err = tcsetpgrp(0, 0);
+//       JTRACE ("this is the error*****************************") (errno)(strerror(errno));
+       CreateProcess( targets[j], worker, slidingFd, _real_getppid(), wr);
+        JASSERT (false) . Text( "Unreachable" );
+      }
+      JASSERT ( cid > 0 );
+    }
+  }
+  CreateProcess( targets[pgrp_index], worker, slidingFd, _real_getppid(), wr );
+}
+
+void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& slidingFd, pid_t ppid, jalib::JBinarySerializeWriterRaw& wr)
+{
+  //change UniquePid
+  UniquePid::resetOnFork(targ.pid());
+
+  VirtualPidTable& virtualPidTable = targ.getVirtualPidTable();
+  virtualPidTable.updateMapping( targ.pid().pid(), _real_getpid() );
+
+  for ( VirtualPidTable::iterator i = virtualPidTable.begin(); i != virtualPidTable.end(); ++i )
+  {
+    bool found = false;
+    pid_t childOldPid = i->first;
+    UniquePid& childUniquePid = i->second;
+
+    for ( int j = 0; j < targets.size(); ++j )
+    {
+      if ( childUniquePid == targets[j].pid() )
+      {
+        JTRACE ( "Forking Child Process" ) ( targ.pid() ) ( childUniquePid ); 
+        pid_t cid = fork();
+        if ( cid == 0 )
+        {
+          CreateProcess ( targets[j], worker, slidingFd, targ.pid().pid(), wr );
+          JASSERT ( false ) . Text ( "Unreachable" );
+        }
+        JASSERT ( cid > 0 );
+        virtualPidTable.updateMapping ( childOldPid, cid );
+        found = true;
+      }
+    }
+    if ( !found ){
+      virtualPidTable.erase( childOldPid );
+    }
+  }
+
+  JTRACE("Child Processes forked, restoring process")(targets.size())(targ.pid())(getpid());
+
+  insertIntoPidMapFile ( wr, targ.pid().pid(), _real_getpid() );
+
+  //Reconnect to dmtcp_coordinator
+  WorkerState::setCurrentState ( WorkerState::RESTARTING );
+  worker.connectToCoordinator(false);
+  worker.sendCoordinatorHandshake(targ.procname());
+ 
+  std::string serialFile = dmtcp::UniquePid::pidTableFilename();
+  JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
+  jalib::JBinarySerializeWriter tblwr ( serialFile );
+  virtualPidTable.serialize ( tblwr );
+  tblwr.~JBinarySerializeWriter();
+
+  int stmpfd =  open( serialFile.c_str(), O_RDONLY);
+  JASSERT ( stmpfd >= 0 ) ( serialFile ) ( errno );
+
+  JASSERT ( dup2 ( stmpfd, PROTECTED_PIDTBL_FD) == PROTECTED_PIDTBL_FD ) ( serialFile ) ( stmpfd );
+
+  close (stmpfd);
+ 
+ //restart targets[i]
+  targ.dupAllSockets ( slidingFd );
+  targ.mtcpRestart();
+
+  JASSERT ( false ).Text ( "unreachable" );
+}
+
+static jalib::JBinarySerializeWriterRaw& createPidMapFile()
+{
+  std::ostringstream os;
+
+  os << "/tmp/dmtcpPidMap."
+     << dmtcp::UniquePid::ThisProcess();
+
+  int fd = open(os.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC|O_APPEND, 0600); 
+  JASSERT(fd>=0) ( os.str() ) (strerror(errno))
+    .Text("Failed to create file to store node wide PID Maps");
+
+  JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( os.str() );
+
+  static jalib::JBinarySerializeWriterRaw wr ( os.str(), PROTECTED_PIDMAP_FD );
+
+  close (fd);
+
+  return wr;
+}
+
+static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_t newPid)
+{
+  struct flock fl;
+  int fd;
+
+  fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
+  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+  fl.l_start  = 0;        /* Offset from l_whence         */
+  fl.l_len    = 0;        /* length, 0 = to EOF           */
+  fl.l_pid    = getpid(); /* our PID                      */
+
+  int result = -1;
+  errno = 0;
+  while (result == -1 || errno == EINTR )
+    result = fcntl(PROTECTED_PIDMAP_FD, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+
+  JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
+
+  JTRACE ( "Serializing PID MAP:" ) ( oldPid ) ( newPid );
+  /* Write the mapping to the file*/
+  JSERIALIZE_ASSERT_POINT ( "PID_MAP_TABLE:[" );
+  o & oldPid & newPid;
+  JSERIALIZE_ASSERT_POINT ( "]" );
+
+  fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
+  result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
+
+  JASSERT (result != -1 || errno == ENOLCK) .Text ( "Unlock Failed" ) ;
+}
+
+#endif
 
 static void runMtcpRestore ( const char* path, int offset )
 {

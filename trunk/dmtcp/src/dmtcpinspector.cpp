@@ -59,7 +59,11 @@ namespace
       InspectTarget (const std::string& path)
       {
         JASSERT (jalib::Filesystem::FileExists(path)) (path).Text("missing file");
+#ifdef PID_VIRTUALIZATION
+        _conToFd.loadFromFile(path, dmtcp::VirtualPidTable::Instance());
+#else
         _conToFd.loadFromFile(path);
+#endif
       }
       ConnectionToFds _conToFd;
   };

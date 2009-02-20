@@ -39,7 +39,7 @@
 
 static std::string _procFDPath ( int fd )
 {
-  return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fd );
+  return "/proc/self/fd/" + jalib::XToString ( fd );
 }
 
 static bool _isBadFd ( int fd )
@@ -786,10 +786,17 @@ int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const std::string& path){
   return fd;
 }
 
+#ifdef PID_VIRTUALIZATION
+int dmtcp::ConnectionToFds::loadFromFile(const std::string& path, dmtcp::VirtualPidTable& virtualPidTable){
+#else
 int dmtcp::ConnectionToFds::loadFromFile(const std::string& path){
+#endif
   int fd = openDmtcpCheckpointFile(path);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   serialize(rdr);
+#ifdef PID_VIRTUALIZATION
+  virtualPidTable.serialize(rdr);
+#endif
   close_ckpt_to_read(fd);
   return rdr.bytes() + strlen(DMTCP_FILE_HEADER);
 }
