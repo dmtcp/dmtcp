@@ -309,6 +309,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)
 #define mtcp_sys_getpid(args...)  mtcp_inline_syscall(getpid,0)
 #define mtcp_sys_getppid(args...)  mtcp_inline_syscall(getppid,0)
+#define mtcp_sys_fork(args...)   mtcp_inline_syscall(fork,0)
 #define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
@@ -404,8 +405,6 @@ static unsigned long int myinfo_gs;
  *   For:	pid_t tkill(void);
  */
 #define mtcp_sys_kernel_tkill(args...)  mtcp_inline_syscall(tkill,2,args)
-
-#define mtcp_sys_kernel_fork(args...)   mtcp_inline_syscall(fork,0)
 
 //==================================================================
 

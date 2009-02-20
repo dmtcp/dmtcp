@@ -36,6 +36,19 @@ if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[],[Record timing information to stderr and jtimings.csv])
 fi
 
+AC_ARG_ENABLE([forked_checkpointing],
+            [AS_HELP_STRING([--enable-forked-checkpointing],
+                            [fork a child process to do checkpointing, so that
+                            parent sees only minor delay during checkpoint
+                            (experimental)])],
+            [use_forked_ckpt=$enableval],
+            [use_forked_ckpt=no])
+
+if test "$use_forked_ckpt" = "yes"; then
+  AC_DEFINE([FORKED_CHECKPOINTING],[],[Child process does checkpointing])
+fi
+
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization

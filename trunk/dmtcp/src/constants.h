@@ -54,6 +54,7 @@
 #define ENV_VAR_UTILITY_DIR "JALIB_UTILITY_DIR"
 #define ENV_VAR_STDERR_PATH "JALIB_STDERR_PATH"
 #define ENV_VAR_COMPRESSION "DMTCP_GZIP"
+#define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
 
 //this list should be kept up to data with all "protected" environment vars

@@ -28,6 +28,13 @@ AC_ARG_ENABLE([pid_virtualization],
 			    reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
+AC_ARG_ENABLE([forked_checkpointing],
+            [AS_HELP_STRING([--enable-forked-checkpointing],
+                            [fork a child process to do checkpointing, so that
+                            parent sees only minor delay during checkpoint
+			    (experimental)])],
+            [use_forked_ckpt=$enableval],
+            [use_forked_ckpt=no])
 
 #checkfor -lreadline -lhistory v5, does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])

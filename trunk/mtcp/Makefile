@@ -29,7 +29,7 @@
 ##																##
 ##################################################################################################################################
 
-MTCP_VERSION = 72
+MTCP_VERSION = 73
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
@@ -47,22 +47,25 @@ ifdef M32
 CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
+LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
 AS = as
 else
 CC = gcc
 UNAME = uname
 LD_RAW = ld
+LDFLAGS =  -shared
 AS = as --32
 endif
 
 #Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
-CFLAGS = -O0 -g
+CFLAGS += -O0 -g
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
 # CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
+# Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
+#  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of mtcp.so for others to use.
 LD = ${CC}
-LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
@@ -185,6 +188,8 @@ LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 mtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o mtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up
+	echo LD $(LD)
+	echo LDFLAGS $(LDFLAGS)
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o mtcp.so \
 	  ${LIBRARY_OBJS} -ldl -lpthread
 
