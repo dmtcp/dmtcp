@@ -26,6 +26,7 @@
 #include "dmtcpworker.h"
 #include "sockettable.h"
 #include "protectedfds.h"
+#include "constants.h"
 // extern "C" int fexecve(int fd, char *const argv[], char *const envp[])
 // {
 //     _real_fexecve(fd,argv,envp);

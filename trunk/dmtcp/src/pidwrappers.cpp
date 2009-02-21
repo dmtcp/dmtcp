@@ -81,7 +81,7 @@ extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
   pid_t newpgrp = oldToNewPid( pgrp );
 //  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (newpgrp); 
-  pid_t retval = _real_tcsetpgrp(fd, newpgrp);
+  int retval = _real_tcsetpgrp(fd, newpgrp);
 
   JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (newpgrp) (retval);
   return retval;
@@ -102,7 +102,7 @@ extern "C" pid_t tcgetpgrp(int fd)
 
 extern "C" pid_t getpgrp(void)
 {
-  pid_t pgrp = getpgrp();
+  pid_t pgrp = _real_getpgrp();
   return newToOldPid( pgrp );
 }
 
@@ -181,9 +181,9 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
   pid_t newid = oldToNewPid (id);
 
-  pid_t retval = _real_waitid (idtype, newid, infop, options);
+  int retval = _real_waitid (idtype, newid, infop, options);
 
-  return newToOldPid ( retval );
+  return retval;
 }
 
 extern "C" pid_t wait3(__WAIT_STATUS status, int options,      struct rusage *rusage)

@@ -314,7 +314,7 @@ int main ( int argc, char** argv )
         pgrp_index = j;
         continue;
       }
-      int cid = fork();
+      pid_t cid = fork();
       if ( cid == 0 ) 
       {
         JTRACE ( "Root of process tree, Creating Child Processes" ) ( _real_getpid() ) ( _real_getppid() );
