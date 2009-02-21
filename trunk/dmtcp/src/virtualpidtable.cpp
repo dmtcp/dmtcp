@@ -59,24 +59,24 @@ void dmtcp::VirtualPidTable::postRestart()
   jalib::JBinarySerializeReader rd ( serialFile );
   serialize ( rd );
 
-//   std::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
-//   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-//   JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
-// 
-//   _real_close( PROTECTED_PIDMAP_FD );
-// 
-//   jalib::JBinarySerializeReader pidrd ( pidMapFile );
-//   serializePidMap( pidrd );
+  std::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
+  JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
+
+  _real_close( PROTECTED_PIDMAP_FD );
+
+  jalib::JBinarySerializeReader pidrd ( pidMapFile );
+  serializePidMap( pidrd );
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
 {
   _pid = _real_getpid();
-  _ppid = _real_getppid();
+  _ppid = newToOldPid ( _real_getppid() );
   _isRootOfProcessTree = false;
   _childTable.clear();
-  _pidMapTable.clear();
-  _pidMapTable[_pid] = _pid;
+  //_pidMapTable.clear();
+  //_pidMapTable[_pid] = _pid;
 }
 
 pid_t dmtcp::VirtualPidTable::oldToNewPid( pid_t oldPid )

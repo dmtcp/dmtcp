@@ -437,7 +437,7 @@ static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_
 
   JTRACE ( "Serializing PID MAP:" ) ( oldPid ) ( newPid );
   /* Write the mapping to the file*/
-  JSERIALIZE_ASSERT_POINT ( "PID_MAP_TABLE:[" );
+  JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
   o & oldPid & newPid;
   JSERIALIZE_ASSERT_POINT ( "]" );
 
