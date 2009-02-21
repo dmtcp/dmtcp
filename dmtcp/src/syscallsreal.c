@@ -220,12 +220,13 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
 
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
- // syscall(SYS_getpid);
-  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+  return (pid_t) syscall(SYS_getpid);
+//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){
-  REAL_FUNC_PASSTHROUGH ( getppid ) ( );
+  return (pid_t) syscall(SYS_getppid);
+  //REAL_FUNC_PASSTHROUGH ( getppid ) ( );
 }
 
 int _real_tcsetpgrp(int fd, pid_t pgrp){
