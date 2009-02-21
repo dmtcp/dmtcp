@@ -27,6 +27,7 @@
 #include <map>
 #include  "../jalib/jserialize.h"
 #include "uniquepid.h"
+#include "constants.h"
 
 #ifndef VIRTUAL_PID_TABLE_H
 #define VIRTUAL_PID_TABLE_H

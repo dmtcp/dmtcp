@@ -24,6 +24,7 @@
 
 #include  "../jalib/jsocket.h"
 #include "uniquepid.h"
+#include "constants.h"
 
 namespace dmtcp
 {

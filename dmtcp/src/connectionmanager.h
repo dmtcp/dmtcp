@@ -29,6 +29,7 @@
 #include  "../jalib/jserialize.h"
 #include  "../jalib/jfilesystem.h"
 #include "virtualpidtable.h"
+#include "constants.h"
 
 
 namespace dmtcp
