@@ -4,3 +4,12 @@ PID-VIRTUALIZATION:
 3. add TID-Virtualization support at DMTCP layer.
 4. better error handling for missing processes.
 5. Tab completion fails on tcsh.
+
+GENERAL:
+1. Should refuse to call DMTCP recursively, perhaps by maintaining
+  environment variable $DMTCPLVL (similar to $SHLVL), and refusing
+  to recurse if it's already 1.  (Maybe in the future, we might
+  support this.)
+2. dmtcp_coordinator should refuse to allow other users to connect to it.
+  (Are there security issues with respect to spoofing, also?)
+

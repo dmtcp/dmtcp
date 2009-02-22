@@ -709,7 +709,7 @@ static int open_ckpt_to_read(const char *filename)
         JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
         if(cpid > 0) /* parent process */
         {
-           JTRACE ( "created gzip child process to uncompress checkpoint file");
+           JTRACE ( "created gzip child process to uncompress checkpoint file")(cpid);
             dmtcp::ConnectionToFds::gzip_child_pid = cpid;
             close(fd);
             close(fds[1]);
@@ -717,6 +717,7 @@ static int open_ckpt_to_read(const char *filename)
         }
         else /* child process */
         {
+           JTRACE ( "child process, will exec into gzip");
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);

@@ -114,6 +114,11 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   }
 
   new_brk = mtcp_sys_brk (mtcp_saved_break);
+  if (new_brk == (void *)-1) {
+    mtcp_printf( "mtcp_restoreverything: sbrk(%p): %s (bad heap)\n",
+		 mtcp_saved_break, strerror(errno) );
+    mtcp_abort();
+  }
   if (new_brk != mtcp_saved_break) {
     if (new_brk == current_brk && new_brk > mtcp_saved_break)
       DPRINTF(("mtcp_restoreverything: new_brk == current_brk == %p\n"
@@ -140,7 +145,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
    *   was intended to make sure we don't overwrite [vdso] or [vsyscall].
    *   But it was heuristically chosen as a constant (works for earlier
    *   Linuxes), or as the end of stack.  Probably, we should review that,
-   *   and just make it beginning of [vsyscall]] where that exists.
+   *   and just make it beginning of [vsyscall] where that exists.
    */
 
   holebase  = (VA)mtcp_shareable_begin;

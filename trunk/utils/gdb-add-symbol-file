@@ -12,6 +12,8 @@ test -z "$2" && echo Note: '(gdb) info proc'
 test -z "$2" && echo '    ' will print PROCESS_PID of process debugged by gdb
 test -z "$2" && echo Then try: '(gdb) shell gdb-add-symbol-file' \
 				PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && echo '    ' ... and paste the output of that command into gdb:
+test -z "$2" && echo Hence: '(gdb) add-symbol-file ...'
 test -z "$2" && exit
 
 # processPID=`pgrep -n $1`
