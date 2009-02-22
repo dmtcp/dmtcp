@@ -154,52 +154,92 @@ extern "C" int   kill(pid_t pid, int sig)
 //long sys_tgkill (int tgid, int pid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
-/*typedef union
-  {
-    int *__ip;
-    void *__up;
-  } wait_status_ptr_t __attribute__ ((__transparent_union__));
-*/
+
 extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 //extern "C" pid_t wait(int *stat_loc)
 {
-  pid_t pid = _real_wait (stat_loc);
+  pid_t retval = _real_wait (stat_loc);
 
-  return newToOldPid (pid);
+  pid_t pid = newToOldPid (retval);
+
+  if ( pid > 0 )
+    dmtcp::VirtualPidTable::Instance().erase(pid);
+
+  return pid;
 }
 
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
+  int status;
+
+  if ( stat_loc == NULL )
+    stat_loc = &status;
+  
   pid_t newpid = oldToNewPid (pid);
 
   pid_t retval = _real_waitpid (newpid, stat_loc, options);
 
-  return newToOldPid (retval);
+  pid_t oldPid = newToOldPid ( retval );
+
+  if ( retval > 0
+       && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
+    dmtcp::VirtualPidTable::Instance().erase(oldPid);
+
+  return oldPid;
 }
 
 extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
+  siginfo_t status;
+
+  if ( infop == NULL )
+    infop = &status;
+  
   pid_t newid = oldToNewPid (id);
 
   int retval = _real_waitid (idtype, newid, infop, options);
 
+  if (retval != -1) {
+    pid_t oldPid = newToOldPid ( infop->si_pid );
+    infop->si_pid = oldPid;
+
+    if ( infop->si_code == CLD_EXITED || infop->si_code == CLD_KILLED )
+      dmtcp::VirtualPidTable::Instance().erase ( oldPid );
+  }
+
   return retval;
 }
 
-extern "C" pid_t wait3(__WAIT_STATUS status, int options,      struct rusage *rusage)
+extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   pid_t retval = _real_wait3 (status, options, rusage);
   
-  return newToOldPid ( retval );
+  pid_t oldPid = newToOldPid ( retval );
+
+  if ( oldPid > 0 )
+    dmtcp::VirtualPidTable::Instance().erase(oldPid);
+
+  return oldPid;
 }
 
-extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage)
+extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
+  int stat;
+
+  if ( status == NULL )
+    status = (__WAIT_STATUS) &stat;
+  
   pid_t newpid = oldToNewPid (pid);
 
   pid_t retval = _real_wait4 ( newpid, status, options, rusage );;
 
-  return newToOldPid ( retval );
+  pid_t oldPid = newToOldPid ( retval );
+
+  if ( retval > 0
+       && ( WIFEXITED ( * (int*) status )  || WIFSIGNALED ( * (int*) status ) ) )
+    dmtcp::VirtualPidTable::Instance().erase ( oldPid );
+
+  return oldPid;
 }
 
 
