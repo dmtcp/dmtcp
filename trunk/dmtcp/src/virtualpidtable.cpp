@@ -84,7 +84,7 @@ pid_t dmtcp::VirtualPidTable::oldToNewPid( pid_t oldPid )
   pid_iterator i = _pidMapTable.find(oldPid); 
   if ( i == _pidMapTable.end() ) 
   {
-    JTRACE ( "No newPid not found for the given oldPid, returning the oldPid") ( oldPid );
+    JTRACE ( "No newPid found for the given oldPid, returning the oldPid") ( oldPid );
     return oldPid;
   }
 
@@ -98,7 +98,7 @@ pid_t dmtcp::VirtualPidTable::newToOldPid( pid_t newPid )
     if ( newPid == i->second )
       return i->first;
   }
-    JTRACE ( "No oldPid not found for the given newPid, returning the newPid") ( newPid );
+    JTRACE ( "No oldPid found for the given newPid, returning the newPid") ( newPid );
 
   return newPid;
 }
@@ -118,7 +118,9 @@ void dmtcp::VirtualPidTable::insert ( pid_t oldPid, dmtcp::UniquePid uniquePid )
 
 void dmtcp::VirtualPidTable::erase( pid_t oldPid )
 {
-  _childTable.erase( oldPid );
+  iterator i = _childTable.find ( oldPid );
+  if ( i != _childTable.end() )
+    _childTable.erase( oldPid );
 }
 
 void dmtcp::VirtualPidTable::updateRootOfProcessTree()
