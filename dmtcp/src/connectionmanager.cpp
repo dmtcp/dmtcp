@@ -187,7 +187,10 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
           ( deviceName ) ( symlinkFilename );
       }
       else {
-        JASSERT ( false ) .Text ( "The PTY should either be some PTMX terminal's slave or a controlling terminal" );
+        type = dmtcp::PtyConnection::PTY_SLAVE;
+        symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
+        JTRACE ( "creating pts connection [on-demand]" )
+          ( deviceName ) ( symlinkFilename );
       }
 
       Connection * c = new PtyConnection ( device, symlinkFilename, type );
