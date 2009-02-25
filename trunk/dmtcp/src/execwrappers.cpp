@@ -187,7 +187,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
     return -1;
   }
 
-  if ( dmtcp::PtsToSymlink::Instance().isDuplicate(device) == true )
+  if ( dmtcp::PtsToSymlink::Instance().exists(device) == true )
   {
     std::string name = dmtcp::PtsToSymlink::Instance().getFilename(device);
     strcpy ( buf, name.c_str() );
@@ -199,8 +199,8 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 
   strcpy ( buf, ptr );
 
-  //  dmtcp::PtsConnection::PtsType type = dmtcp::PtsConnection::Pt_Master;
-  //  dmtcp::PtsConnection *master = new dmtcp::PtsConnection ( device, ptr, type );
+  //  dmtcp::PtyConnection::PtyType type = dmtcp::PtyConnection::PTY_MASTER;
+  //  dmtcp::PtyConnection *master = new dmtcp::PtyConnection ( device, ptr, type );
   //  dmtcp::KernelDeviceToConnection::Instance().create ( fd, master );
 
   dmtcp::PtsToSymlink::Instance().add ( device, buf );
