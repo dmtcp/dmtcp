@@ -131,6 +131,9 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
   {
     std::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
 
+    if(noOnDemandPts)
+      return deviceName;
+
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
     {
@@ -169,17 +172,22 @@ std::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDeman
       std::string symlinkFilename;
       std::string currentTty = jalib::Filesystem::GetCurrentTty();
 
-      if ( currentTty.compare(device) == 0 ) {
-        type = dmtcp::PtyConnection::PTY_TTY;
-        symlinkFilename = "";
-        JTRACE ( "creating TTY connection [on-demand]" ) 
-          ( deviceName ) ( symlinkFilename );
-      }
-      else {
+      JTRACE( "Controlling Terminal###################" ) (currentTty);
+
+      if (PtsToSymlink::Instance().exists(device) )
+      {
         type = dmtcp::PtyConnection::PTY_SLAVE;
         symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
         JTRACE ( "creating pts connection [on-demand]" ) 
           ( deviceName ) ( symlinkFilename );
+      } else if ( currentTty.compare(device) == 0 ) {
+        type = dmtcp::PtyConnection::PTY_TTY;
+        symlinkFilename = "?";
+        JTRACE ( "creating TTY connection [on-demand]" ) 
+          ( deviceName ) ( symlinkFilename );
+      }
+      else {
+        JASSERT ( false ) .Text ( "The PTY should either be some PTMX terminal's slave or a controlling terminal" );
       }
 
       Connection * c = new PtyConnection ( device, symlinkFilename, type );
@@ -634,7 +642,7 @@ std::string dmtcp::PtsToSymlink::getFilename ( std::string device )
   return filename;
 }
 
-bool dmtcp::PtsToSymlink::isDuplicate( std::string device )
+bool dmtcp::PtsToSymlink::exists( std::string device )
 {
   std::string filename = getFilename(device);
   if (filename.compare("?") == 0){

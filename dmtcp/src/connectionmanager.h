@@ -195,7 +195,7 @@ namespace dmtcp
 
       void add ( std::string device, std::string filename );
       std::string getFilename ( std::string device );
-      bool isDuplicate(std::string);
+      bool exists(std::string);
 
     private:
       std::map<std::string, std::string> _table;
