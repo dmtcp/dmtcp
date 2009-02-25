@@ -35,22 +35,30 @@
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
+  /* Shall we create seperate classes for holding original to current pid map
+   * and  for holding child process ids?
+   */
+
   class VirtualPidTable
   {
     public:
       VirtualPidTable();
       static VirtualPidTable& Instance();
       void postRestart();
-      pid_t oldToNewPid( pid_t oldPid );
-      pid_t newToOldPid( pid_t newPid );
-      void  insert(pid_t oldPid,  dmtcp::UniquePid uniquePid);
-      void  erase(pid_t oldPid);
+      pid_t originalToCurrentPid( pid_t originalPid );
+      pid_t currentToOriginalPid( pid_t currentPid );
+      void  insert(pid_t originalPid,  dmtcp::UniquePid uniquePid);
+      //void  insertTid(pid_t tid) { _tids.pushback(tid); }
+      void  erase(pid_t originalPid);
       void serialize ( jalib::JBinarySerializer& o );
       void serializePidMap ( jalib::JBinarySerializer& o );
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
       void updateRootOfProcessTree();
+
+      std::vector< pid_t > getPidVector();
+      bool pidExists( pid_t pid );
 
       typedef std::map< pid_t , dmtcp::UniquePid >::iterator iterator;
       iterator begin() { return _childTable.begin(); }
@@ -61,7 +69,7 @@ namespace dmtcp
 
       void setppid( pid_t ppid ) { _ppid = ppid; }
 
-      void updateMapping (pid_t old_pid, pid_t new_pid);
+      void updateMapping (pid_t originalPid, pid_t currentPid);
 
       void resetOnFork();
 
@@ -71,6 +79,10 @@ namespace dmtcp
       std::map< pid_t , dmtcp::UniquePid > _childTable;
       typedef std::map< pid_t , pid_t >::iterator pid_iterator;
       std::map< pid_t , pid_t > _pidMapTable;
+
+      //std::vector< pid_t > _tids;
+      //typedef std::vector< pid_t >::iterator tid_iterator;
+
       bool  _isRootOfProcessTree;
       pid_t _pid;
       pid_t _ppid;
@@ -78,5 +90,5 @@ namespace dmtcp
 
 }
 
-#endif
+#endif /* PID_VIRTUALIZATION */
 #endif
