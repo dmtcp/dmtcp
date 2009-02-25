@@ -37,24 +37,24 @@
 
 #ifdef PID_VIRTUALIZATION                                                         
 
-static pid_t oldToNewPid( pid_t oldPid )
+static pid_t originalToCurrentPid( pid_t originalPid )
 {
-  pid_t newPid = dmtcp::VirtualPidTable::Instance().oldToNewPid( oldPid );
+  pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
   
-  if (newPid == -1)
-    newPid = oldPid;
+  if (currentPid == -1)
+    currentPid = originalPid;
   
-  return newPid;
+  return currentPid;
 }
 
-static pid_t newToOldPid( pid_t newPid )
+static pid_t currentToOriginalPid( pid_t currentPid )
 {
-  pid_t oldPid = dmtcp::VirtualPidTable::Instance().newToOldPid( newPid );
+  pid_t originalPid = dmtcp::VirtualPidTable::Instance().currentToOriginalPid( currentPid );
   
-  if (oldPid == -1)
-    oldPid = newPid;
+  if (originalPid == -1)
+    originalPid = currentPid;
   
-  return oldPid;
+  return originalPid;
 }
 
 
@@ -62,7 +62,7 @@ extern "C" pid_t getpid()
 {
   //pid_t pid = _real_getpid();//dmtcp::UniquePid::ThisProcess().pid();
   
-  //return newToOldPid ( pid );
+  //return currentToOriginalPid ( pid );
   return dmtcp::VirtualPidTable::Instance().pid(); 
 }
 
@@ -79,78 +79,95 @@ extern "C" pid_t getppid()
 
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
-  pid_t newpgrp = oldToNewPid( pgrp );
-//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (newpgrp); 
-  int retval = _real_tcsetpgrp(fd, newpgrp);
+  pid_t currPgrp = originalToCurrentPid( pgrp );
+//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
+  int retval = _real_tcsetpgrp(fd, currPgrp);
 
-  JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (newpgrp) (retval);
+  JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
   return retval;
 }
 
 extern "C" pid_t tcgetpgrp(int fd)
 {
-  pid_t retval = newToOldPid( _real_tcgetpgrp(fd) );
+  pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
   JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
   return retval;
 }
 
-// extern "C" pid_t gettid()
-// {
-// 
-// }
+extern "C" pid_t gettid()
+{
+  pid_t currentTid = _real_gettid();
+
+  return currentToOriginalPid ( currentTid );
+}
 
 extern "C" pid_t getpgrp(void)
 {
   pid_t pgrp = _real_getpgrp();
-  return newToOldPid( pgrp );
+  return currentToOriginalPid( pgrp );
 }
 
 extern "C" pid_t setpgrp(void)
 {
   pid_t pgrp = _real_setpgrp();
-  return newToOldPid( pgrp );
+  return currentToOriginalPid( pgrp );
 }
 
 extern "C" pid_t getpgid(pid_t pid)
 {
-  pid_t newPid = oldToNewPid (pid);
-  pid_t res = _real_getpgid (newPid);
-  return newToOldPid (res);
+  pid_t currentPid = originalToCurrentPid (pid);
+  pid_t res = _real_getpgid (currentPid);
+  return currentToOriginalPid (res);
 }
 
 extern "C" int   setpgid(pid_t pid, pid_t pgid)
 {
-  pid_t newpid = oldToNewPid (pid);
-  pid_t newpgid = oldToNewPid (pgid);
+  pid_t currPid = originalToCurrentPid (pid);
+  pid_t currPgid = originalToCurrentPid (pgid);
 
-  return _real_setpgid (newpid, newpgid);
+  return _real_setpgid (currPid, currPgid);
 }
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  pid_t newpid = oldToNewPid (pid);
+  pid_t currPid = originalToCurrentPid (pid);
   
-  pid_t res = _real_getsid (newpid);
+  pid_t res = _real_getsid (currPid);
 
-  return newToOldPid (res);
+  return currentToOriginalPid (res);
 }
 
 extern "C" pid_t setsid(void)
 {
   pid_t pid = _real_setsid();
 
-  return newToOldPid (pid);
+  return currentToOriginalPid (pid);
 }
 
 extern "C" int   kill(pid_t pid, int sig)
 {
-  pid_t newpid = oldToNewPid (pid);
+  pid_t currPid = originalToCurrentPid (pid);
 
-  return _real_kill (newpid, sig);
+  return _real_kill (currPid, sig);
 }
 
-//extern "C" int   tkill(int tid, int sig)
+extern "C" int   tkill(int tid, int sig)
+{
+  int currentTid = originalToCurrentPid ( tid );
+  
+  return _real_tkill ( currentTid, sig );
+}
+
+extern "C" int   tgkill(int tgid, int tid, int sig)
+{
+  int currentTgid = originalToCurrentPid ( tgid );
+  int currentTid = originalToCurrentPid ( tid );
+  
+  return _real_tgkill ( currentTgid, currentTid, sig );
+}
+
+
 //long sys_tgkill (int tgid, int pid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
@@ -160,7 +177,7 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 {
   pid_t retval = _real_wait (stat_loc);
 
-  pid_t pid = newToOldPid (retval);
+  pid_t pid = currentToOriginalPid (retval);
 
   if ( pid > 0 )
     dmtcp::VirtualPidTable::Instance().erase(pid);
@@ -175,17 +192,17 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
   if ( stat_loc == NULL )
     stat_loc = &status;
   
-  pid_t newpid = oldToNewPid (pid);
+  pid_t currPid = originalToCurrentPid (pid);
 
-  pid_t retval = _real_waitpid (newpid, stat_loc, options);
+  pid_t retval = _real_waitpid (currPid, stat_loc, options);
 
-  pid_t oldPid = newToOldPid ( retval );
+  pid_t originalPid = currentToOriginalPid ( retval );
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
-    dmtcp::VirtualPidTable::Instance().erase(oldPid);
+    dmtcp::VirtualPidTable::Instance().erase(originalPid);
 
-  return oldPid;
+  return originalPid;
 }
 
 extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
@@ -195,16 +212,16 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
   if ( infop == NULL )
     infop = &status;
   
-  pid_t newid = oldToNewPid (id);
+  pid_t currPd = originalToCurrentPid (id);
 
-  int retval = _real_waitid (idtype, newid, infop, options);
+  int retval = _real_waitid (idtype, currPd, infop, options);
 
   if (retval != -1) {
-    pid_t oldPid = newToOldPid ( infop->si_pid );
-    infop->si_pid = oldPid;
+    pid_t originalPid = currentToOriginalPid ( infop->si_pid );
+    infop->si_pid = originalPid;
 
     if ( infop->si_code == CLD_EXITED || infop->si_code == CLD_KILLED )
-      dmtcp::VirtualPidTable::Instance().erase ( oldPid );
+      dmtcp::VirtualPidTable::Instance().erase ( originalPid );
   }
 
   return retval;
@@ -214,12 +231,12 @@ extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   pid_t retval = _real_wait3 (status, options, rusage);
   
-  pid_t oldPid = newToOldPid ( retval );
+  pid_t originalPid = currentToOriginalPid ( retval );
 
-  if ( oldPid > 0 )
-    dmtcp::VirtualPidTable::Instance().erase(oldPid);
+  if ( originalPid > 0 )
+    dmtcp::VirtualPidTable::Instance().erase(originalPid);
 
-  return oldPid;
+  return originalPid;
 }
 
 extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
@@ -229,17 +246,17 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
   if ( status == NULL )
     status = (__WAIT_STATUS) &stat;
   
-  pid_t newpid = oldToNewPid (pid);
+  pid_t currPid = originalToCurrentPid (pid);
 
-  pid_t retval = _real_wait4 ( newpid, status, options, rusage );;
+  pid_t retval = _real_wait4 ( currPid, status, options, rusage );;
 
-  pid_t oldPid = newToOldPid ( retval );
+  pid_t originalPid = currentToOriginalPid ( retval );
 
   if ( retval > 0
        && ( WIFEXITED ( * (int*) status )  || WIFSIGNALED ( * (int*) status ) ) )
-    dmtcp::VirtualPidTable::Instance().erase ( oldPid );
+    dmtcp::VirtualPidTable::Instance().erase ( originalPid );
 
-  return oldPid;
+  return originalPid;
 }
 
 

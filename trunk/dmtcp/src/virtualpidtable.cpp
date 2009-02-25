@@ -72,55 +72,59 @@ void dmtcp::VirtualPidTable::postRestart()
 void dmtcp::VirtualPidTable::resetOnFork()
 {
   _pid = _real_getpid();
-  _ppid = newToOldPid ( _real_getppid() );
+  _ppid = currentToOriginalPid ( _real_getppid() );
   _isRootOfProcessTree = false;
   _childTable.clear();
   //_pidMapTable.clear();
   //_pidMapTable[_pid] = _pid;
 }
 
-pid_t dmtcp::VirtualPidTable::oldToNewPid( pid_t oldPid )
+pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
 {
-  pid_iterator i = _pidMapTable.find(oldPid); 
+  pid_iterator i = _pidMapTable.find(originalPid); 
   if ( i == _pidMapTable.end() ) 
   {
-    JTRACE ( "No newPid found for the given oldPid, returning the oldPid") ( oldPid );
-    return oldPid;
+    JTRACE ( "No currentPid found for the given originalPid, returning the originalPid") ( originalPid );
+    return originalPid;
   }
 
   return i->second;
 }
 
-pid_t dmtcp::VirtualPidTable::newToOldPid( pid_t newPid )
+pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
 {
   for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i)
   {
-    if ( newPid == i->second )
+    if ( currentPid == i->second )
       return i->first;
   }
-    JTRACE ( "No oldPid found for the given newPid, returning the newPid") ( newPid );
+    JTRACE ( "No originalPid found for the given currentPid, returning the currentPid") ( currentPid );
 
-  return newPid;
+  return currentPid;
 }
 
-void dmtcp::VirtualPidTable::insert ( pid_t oldPid, dmtcp::UniquePid uniquePid )
+void dmtcp::VirtualPidTable::insert ( pid_t originalPid, dmtcp::UniquePid uniquePid )
 {
-  iterator i = _childTable.find( oldPid );
+  iterator i = _childTable.find( originalPid );
   if ( i != _childTable.end() )
-    JTRACE ( "oldPid -> newPid mapping exists!") ( oldPid ) ( i->second );
+    JTRACE ( "originalPid -> currentPid mapping exists!") ( originalPid ) ( i->second );
 
-  JTRACE ( "Creating new oldPid -> newPid mapping." ) ( oldPid ) ( uniquePid );
+  JTRACE ( "Creating new originalPid -> currentPid mapping." ) ( originalPid ) ( uniquePid );
 
-  _childTable[oldPid] = uniquePid;
+  _childTable[originalPid] = uniquePid;
 
-  _pidMapTable[oldPid] = oldPid;
+  _pidMapTable[originalPid] = originalPid;
 }
 
-void dmtcp::VirtualPidTable::erase( pid_t oldPid )
+void dmtcp::VirtualPidTable::erase( pid_t originalPid )
 {
-  iterator i = _childTable.find ( oldPid );
+  iterator i = _childTable.find ( originalPid );
   if ( i != _childTable.end() )
-    _childTable.erase( oldPid );
+    _childTable.erase( originalPid );
+
+  pid_iterator j = _pidMapTable.find ( originalPid );
+  if ( j != _pidMapTable.end() )
+    _pidMapTable.erase( originalPid );
 }
 
 void dmtcp::VirtualPidTable::updateRootOfProcessTree()
@@ -129,11 +133,28 @@ void dmtcp::VirtualPidTable::updateRootOfProcessTree()
     _isRootOfProcessTree = true;
 }
 
-void dmtcp::VirtualPidTable::updateMapping( pid_t old_pid, pid_t new_pid )
+void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid )
 {
-  _pidMapTable[old_pid] = new_pid;
+  _pidMapTable[originalPid] = currentPid;
 }
 
+std::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
+{
+  std::vector< pid_t > pidVec;
+  for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
+    pidVec.push_back ( i->first );
+  return pidVec;
+}
+
+bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
+{
+  pid_iterator j = _pidMapTable.find ( pid );
+
+  if ( j == _pidMapTable.end() )
+    return false;
+
+  return true;
+}
 
 void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 {
@@ -158,16 +179,16 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
     for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
     {
       JSERIALIZE_ASSERT_POINT ( "ChildPid:" );
-      pid_t oldPid = i->first;
+      pid_t originalPid = i->first;
       dmtcp::UniquePid uniquePid = i->second;
-      o & oldPid & uniquePid;//.pid() & uniquePid.ppid() & uniquePid.hostid() & uniquePid.time();
+      o & originalPid & uniquePid;//.pid() & uniquePid.ppid() & uniquePid.hostid() & uniquePid.time();
     }
     for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
     {
       JSERIALIZE_ASSERT_POINT ( "PidMap:" );
-      pid_t oldPid = i->first;
-      pid_t newPid = i->second;
-      o & oldPid & newPid;
+      pid_t originalPid = i->first;
+      pid_t currentPid = i->second;
+      o & originalPid & currentPid;
     }
   }
   else
@@ -175,24 +196,24 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
     while ( numPids-- > 0 )
     {
       JSERIALIZE_ASSERT_POINT ( "ChildPid:" );
-      pid_t oldPid;
+      pid_t originalPid;
       pid_t pid, ppid;
       time_t time;
       long host;
       dmtcp::UniquePid uniquePid;//(host, pid, ppid, time);
-      o & oldPid & uniquePid;//pid & ppid & host & time;
+      o & originalPid & uniquePid;//pid & ppid & host & time;
 //      dmtcp::UniquePid uniquePid(host, pid, ppid, time);
 
-      _childTable[oldPid] = uniquePid;
+      _childTable[originalPid] = uniquePid;
     }
     while ( numMaps-- > 0 )
     {
       JSERIALIZE_ASSERT_POINT ( "PidMap:" );
-      pid_t oldPid;
-      pid_t newPid;
-      o & oldPid & newPid;
+      pid_t originalPid;
+      pid_t currentPid;
+      o & originalPid & currentPid;
 
-      _pidMapTable[oldPid] = newPid;
+      _pidMapTable[originalPid] = currentPid;
     }
   }
 
@@ -207,12 +228,12 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
   while ( numMaps-- > 0 )
   {
     JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
-    pid_t oldPid;
-    pid_t newPid;
-    o & oldPid & newPid;
+    pid_t originalPid;
+    pid_t currentPid;
+    o & originalPid & currentPid;
     JSERIALIZE_ASSERT_POINT ( "]" );
 
-    _pidMapTable[oldPid] = newPid;
+    _pidMapTable[originalPid] = currentPid;
   }
 }
 

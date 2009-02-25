@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
+#include "virtualpidtable.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 namespace
@@ -152,6 +153,36 @@ void dmtcp::initializeMtcpEngine()
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
 }
 
+#ifdef PID_VIRTUALIZATION
+struct ThreadArg {
+  int ( *fn ) ( void *arg );
+  void *arg;
+};
+
+bool isConflictingTid( pid_t tid )
+{
+  return dmtcp::VirtualPidTable::Instance().pidExists( tid );
+}
+
+int thread_start(void *arg)
+{
+  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
+  pid_t tid = _real_gettid();
+
+  if ( isConflictingTid ( tid ) ) {
+    JTRACE (" Exiting Thread ***********************");
+
+    return 0;
+  }
+
+  int (*fn) (void *) = threadArg->fn;
+
+  JTRACE ( "Calling user function" );
+
+  return (*fn) ( threadArg->arg );
+}
+#endif
+
 //need to forward user clone
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
@@ -163,7 +194,41 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   JTRACE ( "forwarding user's clone call to mtcp" );
 
+#ifndef PID_VIRTUALIZATION
+
   return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
+    
+#else
+
+  struct ThreadArg threadArg;
+  threadArg.fn = fn;
+  threadArg.arg = arg;
+
+  int tid;
+  
+  while (1) {
+
+    JTRACE ( "calling realclone" );
+
+    tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+    
+    if (tid == -1)
+      break;
+
+    if ( isConflictingTid ( tid ) ) {
+      /* Issue a waittid for the newly created thread (if reqd.) */
+      JTRACE ( "TID Conflict, creating a new child thread" ) ( tid );
+
+    } else {
+      JTRACE ("New Thread Created ***********************") (tid);
+      dmtcp::VirtualPidTable::Instance().updateMapping( tid, tid );
+      break;
+    }
+  }
+
+  return tid;
+
+#endif
 }
 
 // This is a copy of the same function in signalwrapers.cpp

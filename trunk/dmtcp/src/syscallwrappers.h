@@ -94,6 +94,8 @@ extern "C"
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
+  pid_t _real_gettid(void);
+
   pid_t _real_tcgetpgrp(int fd);
   int   _real_tcsetpgrp(int fd, pid_t pgrp);
 
@@ -107,6 +109,9 @@ extern "C"
   pid_t _real_setsid(void);
   
   int   _real_kill(pid_t pid, int sig);
+
+  int   _real_tkill(int tid, int sig);
+  int   _real_tgkill(int tgid, int tid, int sig);
   
   pid_t _real_wait(__WAIT_STATUS stat_loc);
   pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);

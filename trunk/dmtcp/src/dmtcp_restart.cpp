@@ -159,6 +159,39 @@ namespace
 #endif
   };
 
+#ifdef PID_VIRTUALIZATION
+
+  class OriginalPidTable {
+
+    public:
+      OriginalPidTable(){}
+      void insert ( std::vector< pid_t > newVector )
+      {
+        for ( int i = 0; i < newVector.size(); ++i )
+        {
+          _vector.push_back ( newVector[i] );
+        }
+      }
+
+      bool isConflictingChildPid ( pid_t pid )
+      {
+        //iterator i = _vector.find ( pid );
+        //if ( i == _vector.end() )
+        //  return false;
+        for ( int i = 0; i < _vector.size(); ++i )
+          if ( _vector[i] == pid )
+            return true;
+
+        return false;
+      }
+
+
+    private:
+      typedef std::vector< pid_t >::iterator iterator;
+      std::vector< pid_t > _vector;
+  };
+
+#endif
 
 }//namespace
 
@@ -186,9 +219,11 @@ static const char* theUsage =
 std::vector<RestoreTarget> targets;
 
 #ifdef PID_VIRTUALIZATION
+OriginalPidTable originalPidTable;
 void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& slidingFd, pid_t ppid, jalib::JBinarySerializeWriterRaw& wr );
 static jalib::JBinarySerializeWriterRaw& createPidMapFile();
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_t newPid);
+static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid);
+static pid_t forkChild();
 #endif
 
 int main ( int argc, char** argv )
@@ -301,6 +336,13 @@ int main ( int argc, char** argv )
 
   wr & i;
 
+  for (int j = 0; j < targets.size(); ++j) 
+  {
+    VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
+    originalPidTable.insert ( virtualPidTable.getPidVector() );
+  }
+
+
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" );
   for ( int j = 0 ; j < targets.size(); ++j ) 
@@ -344,7 +386,7 @@ void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& sli
   for ( VirtualPidTable::iterator i = virtualPidTable.begin(); i != virtualPidTable.end(); ++i )
   {
     bool found = false;
-    pid_t childOldPid = i->first;
+    pid_t childOriginalPid = i->first;
     UniquePid& childUniquePid = i->second;
 
     for ( int j = 0; j < targets.size(); ++j )
@@ -352,19 +394,19 @@ void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& sli
       if ( childUniquePid == targets[j].pid() )
       {
         JTRACE ( "Forking Child Process" ) ( targ.pid() ) ( childUniquePid ); 
-        pid_t cid = fork();
+        pid_t cid = forkChild();
         if ( cid == 0 )
         {
           CreateProcess ( targets[j], worker, slidingFd, targ.pid().pid(), wr );
           JASSERT ( false ) . Text ( "Unreachable" );
         }
         JASSERT ( cid > 0 );
-        virtualPidTable.updateMapping ( childOldPid, cid );
+        virtualPidTable.updateMapping ( childOriginalPid, cid );
         found = true;
       }
     }
     if ( !found ){
-      virtualPidTable.erase( childOldPid );
+      virtualPidTable.erase( childOriginalPid );
     }
   }
 
@@ -397,6 +439,33 @@ void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& sli
   JASSERT ( false ).Text ( "unreachable" );
 }
 
+
+static pid_t forkChild()
+{
+  while ( 1 ) {
+
+    pid_t childPid = fork();
+    
+    if ( childPid == 0 ) { /* child process */
+      if ( originalPidTable.isConflictingChildPid ( getpid() ) )
+        _exit(1);
+      else
+        return 0;
+    } 
+    else { /* Parent Process */
+      if ( originalPidTable.isConflictingChildPid ( childPid ) ) {
+        JTRACE( "PID Conflict, creating new child" ) (childPid);
+        waitpid ( childPid, NULL, 0 );
+      }
+      else 
+        return childPid;
+    }
+  }
+
+  return -1;
+}
+
+
 static jalib::JBinarySerializeWriterRaw& createPidMapFile()
 {
   std::ostringstream os;
@@ -417,7 +486,7 @@ static jalib::JBinarySerializeWriterRaw& createPidMapFile()
   return wr;
 }
 
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_t newPid)
+static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid)
 {
   struct flock fl;
   int fd;
@@ -435,10 +504,10 @@ static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t oldPid, pid_
 
   JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
 
-  JTRACE ( "Serializing PID MAP:" ) ( oldPid ) ( newPid );
+  JTRACE ( "Serializing PID MAP:" ) ( originalPid ) ( currentPid );
   /* Write the mapping to the file*/
   JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
-  o & oldPid & newPid;
+  o & originalPid & currentPid;
   JSERIALIZE_ASSERT_POINT ( "]" );
 
   fl.l_type   = F_UNLCK;  /* tell it to unlock the region */

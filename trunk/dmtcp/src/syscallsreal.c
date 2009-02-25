@@ -224,6 +224,11 @@ pid_t _real_getpid(void){
 //  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
 }
 
+pid_t _real_gettid(void){
+  return (pid_t) syscall(SYS_gettid);
+//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+}
+
 pid_t _real_getppid(void){
   return (pid_t) syscall(SYS_getppid);
   //REAL_FUNC_PASSTHROUGH ( getppid ) ( );
@@ -263,6 +268,14 @@ pid_t _real_setsid(void) {
 
 int   _real_kill(pid_t pid, int sig) {
   REAL_FUNC_PASSTHROUGH ( kill ) ( pid, sig );
+}
+
+int   _real_tkill(int tid, int sig) {
+  REAL_FUNC_PASSTHROUGH ( tkill ) ( tid, sig );
+}
+
+int   _real_tgkill(int tgid, int tid, int sig) {
+  REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
 }
 
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
