@@ -84,7 +84,7 @@ pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
   pid_iterator i = _pidMapTable.find(originalPid); 
   if ( i == _pidMapTable.end() ) 
   {
-    JTRACE ( "No currentPid found for the given originalPid, returning the originalPid") ( originalPid );
+    JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
     return originalPid;
   }
 
@@ -98,7 +98,7 @@ pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
     if ( currentPid == i->second )
       return i->first;
   }
-    JTRACE ( "No originalPid found for the given currentPid, returning the currentPid") ( currentPid );
+    JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
 
   return currentPid;
 }
