@@ -49,6 +49,8 @@ char *mtcp_executable_path(char *name)
     path = getenv("PATH");
     if(path == NULL)
         return NULL;
+    if (name == NULL)
+        return NULL;
 
     current_path = calloc(PATH_MAX, sizeof(char));
 
