@@ -131,7 +131,13 @@ extern "C" int   setpgid(pid_t pid, pid_t pgid)
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  pid_t currPid = originalToCurrentPid (pid);
+  pid_t currPid;
+  
+  // If !pid then we ask SID of this process
+  if( pid )
+  	currPid = originalToCurrentPid (pid);
+  else
+    currPid = getpid();
   
   pid_t res = _real_getsid (currPid);
 
