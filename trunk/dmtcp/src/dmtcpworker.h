@@ -22,6 +22,7 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
+#include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "uniquepid.h"
 #include "constants.h"
@@ -61,7 +62,7 @@ namespace dmtcp
       static void delayCheckpointsUnlock();
 
       void connectToCoordinator(bool doHanshaking=true);
-      void sendCoordinatorHandshake(const std::string& procName);
+      void sendCoordinatorHandshake(const dmtcp::string& procName);
       void recvCoordinatorHandshake();
 
       void writeCheckpointPrefix(int fd);

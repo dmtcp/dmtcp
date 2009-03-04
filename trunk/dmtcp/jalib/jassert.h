@@ -23,6 +23,8 @@
 #define JASSERT_H
 
 
+#include "stlwrapper.h"
+#include <string>
 #include <iostream>
 #include <sstream>
 #include <string.h>
@@ -126,7 +128,7 @@ namespace jassert_internal
     return *this;
   }
 
-  void set_log_file ( const std::string& path );
+  void set_log_file ( const jalib::string& path );
 
   int jassert_console_fd();
 

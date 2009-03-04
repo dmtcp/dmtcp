@@ -118,7 +118,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     _real_close ( PROTECTEDFD ( 1 ) );
 
     //get prog args
-    std::vector<std::string> args = jalib::Filesystem::GetProgramArgs();
+    dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
     JASSERT ( args.size() >= 3 ) ( args.size() ).Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
 
     //find command part
@@ -136,7 +136,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     .Text ( "failed to parse ssh command line" );
 
     //find the start of the command
-    std::string& cmd = args[commandStart];
+    dmtcp::string& cmd = args[commandStart];
 
 
     const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_ADDR );
@@ -148,16 +148,16 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
     //modify the command
 
-    //std::string prefix = "env ";
+    //dmtcp::string prefix = "env ";
 
-    std::string prefix = DMTCP_CHECKPOINT_CMD " --ssh-slave ";
+    dmtcp::string prefix = DMTCP_CHECKPOINT_CMD " --ssh-slave ";
 
 
-    if ( coordinatorAddr != NULL )    prefix += std::string() + "--host " + coordinatorAddr    + " ";
-    if ( coordinatorPortStr != NULL ) prefix += std::string() + "--port " + coordinatorPortStr + " ";
-    if ( sigckpt != NULL )            prefix += std::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
-    if ( ckptDir != NULL )            prefix += std::string() + "--dir "  + ckptDir            + " ";
-    if ( ckptOpenFiles != NULL )      prefix += std::string() + "--checkpoint-open-files ";
+    if ( coordinatorAddr != NULL )    prefix += dmtcp::string() + "--host " + coordinatorAddr    + " ";
+    if ( coordinatorPortStr != NULL ) prefix += dmtcp::string() + "--port " + coordinatorPortStr + " ";
+    if ( sigckpt != NULL )            prefix += dmtcp::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
+    if ( ckptDir != NULL )            prefix += dmtcp::string() + "--dir "  + ckptDir            + " ";
+    if ( ckptOpenFiles != NULL )      prefix += dmtcp::string() + "--checkpoint-open-files ";
 
     if ( compression != NULL ) {
       if ( strcmp ( compression, "0" ) )
@@ -169,7 +169,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     cmd = prefix + cmd;
 
     //now repack args
-    std::string newCommand = "";
+    dmtcp::string newCommand = "";
     char** argv = new char*[args.size() +2];
     memset ( argv,0,sizeof ( char* ) * ( args.size() +2 ) );
 
@@ -380,8 +380,8 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
 
   {
     // Tell coordinator to record our filename in the restart script
-    std::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
-    std::string hostname = jalib::Filesystem::GetCurrentHostname();
+    dmtcp::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
+    dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
     JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
     dmtcp::DmtcpMessage msg;
     msg.type = DMT_CKPT_FILENAME;
@@ -573,10 +573,10 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
   }
 }
 
-void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const std::string& progname){
+void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname){
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
-  std::string hostname = jalib::Filesystem::GetCurrentHostname();
+  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   dmtcp::DmtcpMessage hello_local;
   hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
   hello_local.restorePort = theRestorPort;
@@ -643,7 +643,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
     }
 
     if(coordinatorAddr!=NULL){
-      std::string s=coordinatorAddr;
+      dmtcp::string s=coordinatorAddr;
       if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
         fprintf(stderr, "[DMTCP] Won't automatically start coordinator because DMTCP_HOST is set to a remote host.\n");
         exit(1);
@@ -653,7 +653,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
     fprintf(stderr, "[DMTCP] Starting a new coordinator automatically.\n");
 
     if(fork()==0){
-      std::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+      dmtcp::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
       char * args[] = {
         (char*)coordinator.c_str(),
         (char*)"--exit-on-last",

@@ -67,7 +67,7 @@ extern "C" int close ( int fd )
   // #ifdef DEBUG
   //     if(rv==0)
   //     {
-  //         std::string closeDevice = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( fd );
+  //         dmtcp::string closeDevice = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( fd );
   //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
   //     }
   // #endif
@@ -189,7 +189,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 
   if ( dmtcp::PtsToSymlink::Instance().exists(device) == true )
   {
-    std::string name = dmtcp::PtsToSymlink::Instance().getFilename(device);
+    dmtcp::string name = dmtcp::PtsToSymlink::Instance().getFilename(device);
     strcpy ( buf, name.c_str() );
     return rv;
   }
@@ -236,7 +236,7 @@ extern "C" int pipe ( int fds[2] )
 static void dmtcpPrepareForExec()
 {
   protectLD_PRELOAD();
-  std::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
+  dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
@@ -264,7 +264,7 @@ static const char* ourImportantEnvs[] =
 };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
-static bool isImportantEnv ( std::string str )
+static bool isImportantEnv ( dmtcp::string str )
 {
   for ( size_t i=0; i<str.size(); ++i )
     if ( str[i] == '=' )
@@ -284,8 +284,8 @@ static bool isImportantEnv ( std::string str )
 
 static char** patchUserEnv ( char *const envp[] )
 {
-  static std::vector<char*> envVect;
-  static std::list<std::string> strStorage;
+  static dmtcp::vector<char*> envVect;
+  static dmtcp::list<dmtcp::string> strStorage;
   envVect.clear();
   strStorage.clear();
 
@@ -303,7 +303,7 @@ static char** patchUserEnv ( char *const envp[] )
     const char* v = getenv ( ourImportantEnvs[i] );
     if ( v != NULL )
     {
-      strStorage.push_back ( std::string ( ourImportantEnvs[i] ) + '=' + v );
+      strStorage.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
       envVect.push_back ( &strStorage.back() [0] );
       if(dbg) JASSERT_STDERR << "     addenv[dmtcp]:" << strStorage.back() << '\n';
     }

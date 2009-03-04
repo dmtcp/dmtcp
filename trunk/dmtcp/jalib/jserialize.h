@@ -25,12 +25,13 @@
 
 #include "jassert.h"
 
+#include "stlwrapper.h"
 #include <string>
 #include <vector>
 
 #define JSERIALIZE_ASSERT_POINT(str) \
     { char versionCheck[] = str;                                        \
-    std::string correctValue = versionCheck;               \
+    jalib::string correctValue = versionCheck;               \
     o & versionCheck;                                                      \
     JASSERT(versionCheck == correctValue)(versionCheck)(correctValue)(o.filename()) \
             .Text("invalid file format"); }
@@ -41,7 +42,7 @@ namespace jalib
   class JBinarySerializer
   {
     public:
-      JBinarySerializer ( const std::string& filename ) : _filename ( filename ), _bytes(0) {}
+      JBinarySerializer ( const jalib::string& filename ) : _filename ( filename ), _bytes(0) {}
       virtual ~JBinarySerializer() {}
 
       virtual void readOrWrite ( void* buffer, size_t len ) = 0;
@@ -58,8 +59,8 @@ namespace jalib
         return *this;
       }
 
-      template < typename T >
-      void serializeVector ( std::vector<T>& t )
+      template < typename T, typename A >
+      void serializeVector ( std::vector<T, A>& t )
       {
         JBinarySerializer& o = *this;
 
@@ -83,16 +84,16 @@ namespace jalib
         JSERIALIZE_ASSERT_POINT ( "endvector" );
       }
 
-      const std::string& filename() const {return _filename;}
+      const jalib::string& filename() const {return _filename;}
       size_t bytes() const { return _bytes; }
     private:
-      std::string _filename;
+      jalib::string _filename;
     protected:
       size_t _bytes;
   };
 
   template <>
-  inline void JBinarySerializer::serialize<std::string> ( std::string& t )
+  inline void JBinarySerializer::serialize<jalib::string> ( jalib::string& t )
   {
     size_t len = t.length();
     serialize ( len );
@@ -101,15 +102,15 @@ namespace jalib
   }
 
   template <>
-  inline void JBinarySerializer::serialize<std::vector<int> > ( std::vector<int>& t )
+  inline void JBinarySerializer::serialize<jalib::IntVector > ( jalib::IntVector& t )
   {
-    serializeVector<int> ( t );
+    serializeVector( t );
   }
 
   class JBinarySerializeWriterRaw : public JBinarySerializer
   {
     public:
-      JBinarySerializeWriterRaw ( const std::string& file, int fd );
+      JBinarySerializeWriterRaw ( const jalib::string& file, int fd );
       void readOrWrite ( void* buffer, size_t len );
       bool isReader();
     protected:
@@ -119,14 +120,14 @@ namespace jalib
   class JBinarySerializeWriter : public JBinarySerializeWriterRaw
   {
     public:
-      JBinarySerializeWriter ( const std::string& path );
+      JBinarySerializeWriter ( const jalib::string& path );
       ~JBinarySerializeWriter();
   };
 
   class JBinarySerializeReaderRaw : public JBinarySerializer
   {
     public:
-      JBinarySerializeReaderRaw ( const std::string& file, int fd );
+      JBinarySerializeReaderRaw ( const jalib::string& file, int fd );
       void readOrWrite ( void* buffer, size_t len );
       bool isReader();
     protected:
@@ -136,7 +137,7 @@ namespace jalib
   class JBinarySerializeReader : public JBinarySerializeReaderRaw
   {
     public:
-      JBinarySerializeReader ( const std::string& path );
+      JBinarySerializeReader ( const jalib::string& path );
       ~JBinarySerializeReader();
   };
 

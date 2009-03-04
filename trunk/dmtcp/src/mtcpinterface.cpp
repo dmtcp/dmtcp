@@ -41,7 +41,7 @@ namespace
 
   static void* find_and_open_mtcp_so()
   {
-    std::string mtcpso = jalib::Filesystem::FindHelperUtility ( "mtcp.so" );
+    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "mtcp.so" );
     void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
     JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load mtcp.so" );
     return handle;

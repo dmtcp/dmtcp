@@ -30,15 +30,15 @@
 
 namespace
 {
-  std::string _GetProgramExe()
+  jalib::string _GetProgramExe()
   {
-    std::string exe = "/proc/self/exe";
-    std::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
+    jalib::string exe = "/proc/self/exe";
+    jalib::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
     return exeRes;
   }
 
-  std::string _FileBaseName ( const std::string& str )
+  jalib::string _FileBaseName ( const jalib::string& str )
   {
     int lastSlash = 0;
     for ( size_t i = 0; i<str.length(); ++i )
@@ -47,7 +47,7 @@ namespace
     return str.substr ( lastSlash+1 );
   }
 
-  std::string _DirBaseName ( const std::string& str )
+  jalib::string _DirBaseName ( const jalib::string& str )
   {
     int lastSlash = 0;
     for ( size_t i = 0; i<str.length(); ++i )
@@ -57,26 +57,26 @@ namespace
   }
 }
 
-std::string jalib::Filesystem::GetProgramDir()
+jalib::string jalib::Filesystem::GetProgramDir()
 {
-  static std::string value = _DirBaseName ( GetProgramPath() );
+  static jalib::string value = _DirBaseName ( GetProgramPath() );
   return value;
 }
 
-std::string jalib::Filesystem::GetProgramName()
+jalib::string jalib::Filesystem::GetProgramName()
 {
-  static std::string value = _FileBaseName ( GetProgramPath() );
+  static jalib::string value = _FileBaseName ( GetProgramPath() );
   return value;
 }
 
-std::string jalib::Filesystem::GetProgramPath()
+jalib::string jalib::Filesystem::GetProgramPath()
 {
-  static std::string value = _GetProgramExe();
+  static jalib::string value = _GetProgramExe();
   return value;
 }
 
 
-std::string jalib::Filesystem::ResolveSymlink ( const std::string& path )
+jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
   char buf [1024];
   memset ( buf,0,sizeof ( buf ) );
@@ -86,7 +86,7 @@ std::string jalib::Filesystem::ResolveSymlink ( const std::string& path )
   return buf;
 }
 
-bool jalib::Filesystem::FileExists ( const std::string& str )
+bool jalib::Filesystem::FileExists ( const jalib::string& str )
 {
   FILE* fp = fopen ( str.c_str(),"r" );
   if ( fp != NULL ) fclose ( fp );
@@ -94,17 +94,17 @@ bool jalib::Filesystem::FileExists ( const std::string& str )
 }
 
 #define FHU_TRY_DIR(expr) {\
-    std::string pth = expr; \
+    jalib::string pth = expr; \
     if(FileExists(pth)) \
         return pth;}
 
 
-std::string jalib::Filesystem::FindHelperUtility ( const std::string& file, bool dieOnError /*= true*/ )
+jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, bool dieOnError /*= true*/ )
 {
   const char* d = NULL;
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL )
   {
-    std::string udir = d;
+    jalib::string udir = d;
     FHU_TRY_DIR ( udir + "/" + file );
     FHU_TRY_DIR ( udir + "/mtcp/" + file );
     FHU_TRY_DIR ( udir + "/../mtcp/" + file );
@@ -134,11 +134,11 @@ std::string jalib::Filesystem::FindHelperUtility ( const std::string& file, bool
 }
 
 
-std::vector<std::string> jalib::Filesystem::GetProgramArgs()
+jalib::StringVector jalib::Filesystem::GetProgramArgs()
 {
-  std::vector<std::string> rv;
+  StringVector rv;
 
-  std::string path = "/proc/self/cmdline";
+  jalib::string path = "/proc/self/cmdline";
   FILE* args = fopen ( path.c_str(),"r" );
 
   JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
@@ -156,10 +156,10 @@ std::vector<std::string> jalib::Filesystem::GetProgramArgs()
   return rv;
 }
 
-std::vector<int> jalib::Filesystem::ListOpenFds()
+jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
-  std::string dir = "/proc/self/fd";
-  std::vector<int> rv;
+  jalib::string dir = "/proc/self/fd";
+  IntVector rv;
   struct dirent **namelist;
   char* p;
   int nents = scandir ( dir.c_str(), &namelist, NULL, versionsort );
@@ -181,25 +181,25 @@ std::vector<int> jalib::Filesystem::ListOpenFds()
 }
 
 
-std::string jalib::Filesystem::GetCurrentHostname()
+jalib::string jalib::Filesystem::GetCurrentHostname()
 {
   struct utsname tmp;
   memset ( &tmp,0,sizeof ( tmp ) );
   uname ( &tmp );
-  std::string name = "unknown";
+  jalib::string name = "unknown";
   if ( tmp.nodename != 0 )
     name = tmp.nodename;
 //   #ifdef _GNU_SOURCE
 //   if(tmp.domainname != 0)
-//     name += std::string(".") + tmp.domainname;
+//     name += jalib::string(".") + tmp.domainname;
 //   #endif
   return name;
 }
 
-std::string jalib::Filesystem::GetCurrentTty()
+jalib::string jalib::Filesystem::GetCurrentTty()
 {
   char sbuf[1024];
-  std::ostringstream ttyName;
+  jalib::ostringstream ttyName;
   char *tmp;
   char *S;
   char state;

@@ -22,6 +22,7 @@
 #ifndef DMTCPCONNECTIONREWIRER_H
 #define DMTCPCONNECTIONREWIRER_H
 
+#include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
 #include <map>
@@ -42,10 +43,10 @@ namespace dmtcp
       void doReconnect();
 
       void registerIncoming ( const ConnectionIdentifier& local
-                              , const std::vector<int>& fds );
+                              , const dmtcp::vector<int>& fds );
 
       void registerOutgoing ( const ConnectionIdentifier& remote
-                              , const std::vector<int>& fds );
+                              , const dmtcp::vector<int>& fds );
 
 
     protected:
@@ -64,10 +65,10 @@ namespace dmtcp
 
     private:
       int _coordinatorFd;
-      std::map<ConnectionIdentifier, std::vector<int> > _pendingIncoming;
-      std::map<ConnectionIdentifier, std::vector<int> > _pendingOutgoing;
-      typedef std::map<ConnectionIdentifier, std::vector<int> >::iterator iterator;
-      typedef std::map<ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
+      dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> > _pendingIncoming;
+      dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> > _pendingOutgoing;
+      typedef dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> >::iterator iterator;
+      typedef dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> >::const_iterator const_iterator;
   };
 
 }

@@ -22,6 +22,7 @@
 #ifndef DMTCPNODETABLE_H
 #define DMTCPNODETABLE_H
 
+#include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include "dmtcpmessagetypes.h"
 #include  "../jalib/jsocket.h"
@@ -80,7 +81,7 @@
 //
 //     void dbgPrint() const;
 // private:
-//     std::map<UniquePid, WorkerNode> _table;
+//     dmtcp::map<UniquePid, WorkerNode> _table;
 // };
 //
 //

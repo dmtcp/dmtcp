@@ -29,7 +29,7 @@ namespace
 {
   bool         _isSuspended = false;
   bool         _syslogEnabled = false;
-  std::string& _ident() {static std::string t; return t;}
+  dmtcp::string& _ident() {static dmtcp::string t; return t;}
   int          _option = -1;
   int          _facility = -1;
 }

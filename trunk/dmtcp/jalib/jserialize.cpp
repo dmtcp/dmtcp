@@ -26,25 +26,25 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const std::string& path, int fd )
+jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::string& path, int fd )
     : JBinarySerializer ( path )
     , _fd ( fd )
 {
   JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const std::string& path )
+jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const jalib::string& path )
   : JBinarySerializeWriterRaw ( path , open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
 {}
 
-jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const std::string& path, int fd )
+jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::string& path, int fd )
   : JBinarySerializer ( path )
   , _fd ( fd )
 {
   JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeReader::JBinarySerializeReader ( const std::string& path )
+jalib::JBinarySerializeReader::JBinarySerializeReader ( const jalib::string& path )
   : JBinarySerializeReaderRaw ( path , open ( path.c_str(), O_RDONLY ) )
 {}
 

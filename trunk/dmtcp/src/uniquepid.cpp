@@ -118,11 +118,11 @@ time_t  dmtcp::UniquePid::time() const
 static bool checkpointFilename_initialized = false;
 const char* dmtcp::UniquePid::checkpointFilename()
 {
-  static std::string checkpointFilename_str = "";
+  static dmtcp::string checkpointFilename_str = "";
   if ( !checkpointFilename_initialized )
   {
     checkpointFilename_initialized = true;
-    std::ostringstream os;
+    dmtcp::ostringstream os;
 
     const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
     if ( dir != NULL ){
@@ -139,10 +139,10 @@ const char* dmtcp::UniquePid::checkpointFilename()
   return checkpointFilename_str.c_str();
 }
 
-std::string dmtcp::UniquePid::dmtcpTableFilename()
+dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
 {
   static int count = 0;
-  std::ostringstream os;
+  dmtcp::ostringstream os;
 
   os << "/tmp/dmtcpConTable."
      << ThisProcess()
@@ -151,10 +151,10 @@ std::string dmtcp::UniquePid::dmtcpTableFilename()
 }
 
 #ifdef PID_VIRTUALIZATION
-std::string dmtcp::UniquePid::pidTableFilename()
+dmtcp::string dmtcp::UniquePid::pidTableFilename()
 {
   static int count = 0;
-  std::ostringstream os;
+  dmtcp::ostringstream os;
 
   os << "/tmp/dmtcpPidTable."
      << ThisProcess()
@@ -167,8 +167,8 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
 {
   char *devicename = ptsname + strlen ( "/dev/pts/" );
 
-  //this must be static so std::string isn't destructed
-  static std::string ptsSymlinkFilename_str;
+  //this must be static so dmtcp::string isn't destructed
+  static dmtcp::string ptsSymlinkFilename_str;
 
   ptsSymlinkFilename_str = "/tmp/pts_" + ThisProcess().toString() + '_';
   ptsSymlinkFilename_str += devicename;
@@ -195,14 +195,14 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
          && _time==that.time();
 }
 
-std::ostream& std::operator<< ( std::ostream& o,const dmtcp::UniquePid& id )
+dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
 {
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }
 
-std::string dmtcp::UniquePid::toString() const{
-  std::ostringstream o;
+dmtcp::string dmtcp::UniquePid::toString() const{
+  dmtcp::ostringstream o;
   o << *this;
   return o.str();
 }

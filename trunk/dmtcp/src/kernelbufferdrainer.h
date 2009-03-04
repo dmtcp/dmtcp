@@ -25,6 +25,7 @@
 #include <map>
 #include <vector>
 
+#include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
 
@@ -43,12 +44,12 @@ namespace dmtcp
       virtual void onTimeoutInterval();
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
 
-      const std::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
+      const dmtcp::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
 
     private:
-      std::map<int , std::vector<char> >    _drainedData;
-      std::map<int , ConnectionIdentifier > _reverseLookup;
-      std::vector<ConnectionIdentifier>     _disconnectedSockets;
+      dmtcp::map<int , dmtcp::vector<char> >    _drainedData;
+      dmtcp::map<int , ConnectionIdentifier > _reverseLookup;
+      dmtcp::vector<ConnectionIdentifier>     _disconnectedSockets;
       int _timeoutCount;
   };
 

@@ -48,7 +48,7 @@ bool parent_child = true;
 bool sockets = true;
 bool usedot = false;
 bool show_all_conn = false;
-std::string outfile,dotfile;
+dmtcp::string outfile,dotfile;
 
 using namespace dmtcp;
 
@@ -57,7 +57,7 @@ namespace
   class InspectTarget
   {
     public:
-      InspectTarget (const std::string& path)
+      InspectTarget (const dmtcp::string& path)
       {
         JASSERT (jalib::Filesystem::FileExists(path)) (path).Text("missing file");
 #ifdef PID_VIRTUALIZATION
@@ -82,12 +82,12 @@ namespace
       }
 
       int index() { return _index; }
-      std::string procname;
-      std::string hostname;
-      std::string inhostname;
+      dmtcp::string procname;
+      dmtcp::string hostname;
+      dmtcp::string inhostname;
       UniquePid pid;
       UniquePid ppid;
-      void writeNode(std::ostringstream &o){
+      void writeNode(dmtcp::ostringstream &o){
         o << " \"" << _index << "\""
           << " [ label=\"" << procname;
         if( fullinfo ){
@@ -115,19 +115,19 @@ namespace
   class GConnection{
     public:
       GConnection(TcpConnection &tcpCon);
-      void addProc(ConnectionIdentifier &id, int pindex, std::string hname);
+      void addProc(ConnectionIdentifier &id, int pindex, dmtcp::string hname);
       bool operator == (TcpConnection &tcpCon);
       bool operator == (ConnectionIdentifier &conId);
       ConnectionIdentifier srv() const { return _srv; }
       ConnectionIdentifier cli() const { return _cli; }
-      void writeConnection(std::ostringstream &o,int &conCnt);
+      void writeConnection(dmtcp::ostringstream &o,int &conCnt);
       bool is_loop(){ return _loop; }
-      std::string hostname(){ return _hostname; }
+      dmtcp::string hostname(){ return _hostname; }
     private:
       bool _loop;
-      std::string _hostname;
+      dmtcp::string _hostname;
       ConnectionIdentifier _srv,_cli;
-      std::list<int> _sprocs,_cprocs;
+      dmtcp::list<int> _sprocs,_cprocs;
   };
 
   GConnection::GConnection(TcpConnection &tcpCon)
@@ -175,7 +175,7 @@ namespace
     return false;
   }
 
-  void GConnection::addProc(ConnectionIdentifier &id,int pindex,std::string hostname)
+  void GConnection::addProc(ConnectionIdentifier &id,int pindex,dmtcp::string hostname)
   {
     // Double check of loop connection
     // in the case host_hash has collision
@@ -192,7 +192,7 @@ namespace
     }
   }
 
-  void GConnection::writeConnection(std::ostringstream &o,int &conCnt)
+  void GConnection::writeConnection(dmtcp::ostringstream &o,int &conCnt)
   {
     // if connection have only one part (client or server)
     // show it only if requested
@@ -217,7 +217,7 @@ namespace
     o << " ]\n";
 
     // Write processes connected to server side
-    std::list<int>::iterator lit;
+    dmtcp::list<int>::iterator lit;
     for(lit = _sprocs.begin(); lit != _sprocs.end(); lit++){
       o << " \"" << (*lit) << "\" -> \"" << conCnt << "\" [ color=\"#000000\", arrowhead=\"tee\" ]\n";
     }
@@ -235,14 +235,14 @@ namespace
     public:
       ConnectionGraph(ConnectionList &list);
       void importProcess(ConnectionToFds &conToFd);
-      bool exportGraph(std::string ofile);
-      std::list<GConnection>::iterator find(TcpConnection &tcpCon);
-      void writeGraph(std::ostringstream &o);
+      bool exportGraph(dmtcp::string ofile);
+      dmtcp::list<GConnection>::iterator find(TcpConnection &tcpCon);
+      void writeGraph(dmtcp::ostringstream &o);
     private:
-      std::list<GConnection> _connections;
-      typedef std::map<std::string,std::list<GProcess> > ClusterProcesses;
+      dmtcp::list<GConnection> _connections;
+      typedef dmtcp::map<dmtcp::string,dmtcp::list<GProcess> > ClusterProcesses;
       ClusterProcesses _processes;
-      typedef std::map<dmtcp::UniquePid,GProcess*> DMTCP_process;
+      typedef dmtcp::map<dmtcp::UniquePid,GProcess*> DMTCP_process;
       DMTCP_process _row_processes;
   };
 
@@ -265,9 +265,9 @@ namespace
     }
   }
 
-  std::list<GConnection>::iterator
+  dmtcp::list<GConnection>::iterator
   ConnectionGraph::find(TcpConnection &tcpCon){
-    std::list<GConnection>::iterator it = _connections.begin();
+    dmtcp::list<GConnection>::iterator it = _connections.begin();
     for(; it != _connections.end(); it++){
       if( (*it) == tcpCon ){
         return it;
@@ -279,7 +279,7 @@ namespace
   void ConnectionGraph::importProcess(ConnectionToFds &conToFd)
   {
     ConnectionToFds::const_iterator cit;
-    std::list<GProcess>::iterator pit;
+    dmtcp::list<GProcess>::iterator pit;
 
     //    std::cout << "\nimportProcess:\n";
 
@@ -310,20 +310,20 @@ namespace
       }
 
       // Map process to connection
-      std::list<GConnection>::iterator gcit = find(tcpCon);
+      dmtcp::list<GConnection>::iterator gcit = find(tcpCon);
       if( gcit != _connections.end() ){
         gcit->addProc(conId,pit->index(),pit->hostname);
       }
     }
   }
 
-  void ConnectionGraph::writeGraph(std::ostringstream &o)
+  void ConnectionGraph::writeGraph(dmtcp::ostringstream &o)
   {
-    std::list<GConnection>::iterator cit;
+    dmtcp::list<GConnection>::iterator cit;
     ClusterProcesses::iterator cpit;
-    std::list<GConnection*>::iterator gcit;
-    std::map< std::string, std::list<GConnection *> > inhost_conn;
-    std::list<GConnection*> interhost_conn;
+    dmtcp::list<GConnection*>::iterator gcit;
+    dmtcp::map< dmtcp::string, dmtcp::list<GConnection *> > inhost_conn;
+    dmtcp::list<GConnection*> interhost_conn;
 
     // Divide connections on two groups:
     // 1. All communicated processes are at one host
@@ -341,7 +341,7 @@ namespace
     // Count max process index
     int conCnt = 0;
     for(cpit = _processes.begin(); cpit != _processes.end(); cpit++ ){
-      std::list<GProcess>::iterator pit = cpit->second.begin();
+      dmtcp::list<GProcess>::iterator pit = cpit->second.begin();
       for(; pit != cpit->second.end(); pit++){
         if( pit->index() > conCnt )
           conCnt = pit->index();
@@ -355,8 +355,8 @@ namespace
     // Create nodes for processes
     int cnt;
     for(cnt=0, cpit = _processes.begin(); cpit != _processes.end(); cpit++,cnt++ ){
-      std::list<GProcess>::iterator pit = cpit->second.begin();
-      std::string cur_hostname = pit->hostname;
+      dmtcp::list<GProcess>::iterator pit = cpit->second.begin();
+      dmtcp::string cur_hostname = pit->hostname;
       o << "subgraph cluster" << cnt << " {\n";
       o << " label=\"" << cur_hostname << "\";\n";
       o << " color=blue;\n";
@@ -452,7 +452,7 @@ int main ( int argc, char** argv )
 
     switch (c) {
     case 0:{
-      std::string tmp = long_options[option_index].name;
+      dmtcp::string tmp = long_options[option_index].name;
 
       if ( tmp == "par-ch-off" ){
         std::cout << "Turn off parent-child relation\n";
@@ -490,7 +490,7 @@ int main ( int argc, char** argv )
     }
   }
 
-  std::vector<InspectTarget> targets;
+  dmtcp::vector<InspectTarget> targets;
   if (optind < argc) {
     std::cout << "Loading checkpoint files:\n";
     for(int i = optind; i < argc; i++){
@@ -508,13 +508,13 @@ int main ( int argc, char** argv )
   }
 
 
-  std::string out_string;
-  std::ostringstream buf(out_string);
+  dmtcp::string out_string;
+  dmtcp::ostringstream buf(out_string);
   conGr.writeGraph(buf);
   std::cout << buf.str();
   if( usedot ){
     // Create pipe to dot
-    std::string popen_str = "dot -Tpdf -o ";
+    dmtcp::string popen_str = "dot -Tpdf -o ";
     popen_str += dotfile;
     std::cout << "Popen arg: " << popen_str
               << "\nInput len=" << buf.str().length() << "\n";
@@ -526,7 +526,7 @@ int main ( int argc, char** argv )
     fprintf(fp,"%s",buf.str().c_str());
     pclose(fp);
   }else{
-    std::ofstream o(outfile.c_str());
+    dmtcp::ofstream o(outfile.c_str());
     o << buf.str();
     o.close();
   }

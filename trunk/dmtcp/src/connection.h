@@ -22,6 +22,7 @@
 #ifndef DMTCPCONNECTION_H
 #define DMTCPCONNECTION_H
 
+#include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>
@@ -67,16 +68,16 @@ namespace dmtcp
 
       const ConnectionIdentifier& id() const { return _id; }
 
-      virtual void preCheckpoint ( const std::vector<int>& fds, KernelBufferDrainer& ) = 0;
-      virtual void postCheckpoint ( const std::vector<int>& fds ) = 0;
-      virtual void restore ( const std::vector<int>&, ConnectionRewirer& ) = 0;
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& ) = 0;
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds ) = 0;
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
 
-      virtual void doLocking ( const std::vector<int>& fds ) {};
-      virtual void saveOptions ( const std::vector<int>& fds );
-      virtual void restoreOptions ( const std::vector<int>& fds );
+      virtual void doLocking ( const dmtcp::vector<int>& fds ) {};
+      virtual void saveOptions ( const dmtcp::vector<int>& fds );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
-      virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
-      virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
+      virtual void doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
+      virtual void doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ) {};
 
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
@@ -125,23 +126,23 @@ namespace dmtcp
       void onConnect(); // connect side does not know remote host
       /*onAccept*/ TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
       void onError();
-      void onDisconnect(const std::vector<int>& fds);
+      void onDisconnect(const dmtcp::vector<int>& fds);
       void addSetsockopt ( int level, int option, const char* value, int len );
 
       void markPreExisting() { _type = TCP_PREEXISTING; }
 
       //basic checkpointing commands
-      virtual void preCheckpoint ( const std::vector<int>& fds
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const std::vector<int>& fds );
-      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
 
-      virtual void doLocking ( const std::vector<int>& fds );
+      virtual void doLocking ( const dmtcp::vector<int>& fds );
 
-      virtual void restoreOptions ( const std::vector<int>& fds );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
-      virtual void doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator);
-      virtual void doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator);
+      virtual void doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator);
+      virtual void doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator);
 
       void sendHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
       void recvHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
@@ -161,16 +162,16 @@ namespace dmtcp
       socklen_t               _bindAddrlen;
       struct sockaddr_storage _bindAddr;
       ConnectionIdentifier    _acceptRemoteId;
-      std::map< int, std::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
+      dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
   };
 
 // class PipeConnection : public Connection
 // {
 // public:
-//     virtual void preCheckpoint(const std::vector<int>& fds
+//     virtual void preCheckpoint(const dmtcp::vector<int>& fds
 //                             , KernelBufferDrainer& drain);
-//     virtual void postCheckpoint(const std::vector<int>& fds);
-//     virtual void restore(const std::vector<int>&, ConnectionRewirer&);
+//     virtual void postCheckpoint(const dmtcp::vector<int>& fds);
+//     virtual void restore(const dmtcp::vector<int>&, ConnectionRewirer&);
 //
 //     virtual void serializeSubClass(jalib::JBinarySerializer& o);
 //
@@ -189,7 +190,7 @@ namespace dmtcp
 //        TYPEMASK = PTY_TTY | PTY_Master | PTY_Slave
       };
 
-      PtyConnection ( const std::string& device, const std::string& filename, int type )
+      PtyConnection ( const dmtcp::string& device, const dmtcp::string& filename, int type )
           : Connection ( PTY )
           , _symlinkFilename ( filename )
           , _device ( device )
@@ -212,11 +213,11 @@ namespace dmtcp
       }
 
       int  ptyType() { return _type;}// & TYPEMASK ); }
-      virtual void preCheckpoint ( const std::vector<int>& fds
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const std::vector<int>& fds );
-      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
-      virtual void restoreOptions ( const std::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
@@ -224,8 +225,8 @@ namespace dmtcp
       virtual void mergeWith ( const Connection& that );
     private:
       //PtyType   _type;
-      std::string _symlinkFilename;
-      std::string _device;
+      dmtcp::string _symlinkFilename;
+      dmtcp::string _device;
 
   };
 
@@ -249,11 +250,11 @@ namespace dmtcp
       StdioConnection(): Connection ( STDIO_INVALID ) {}
 
 
-      virtual void preCheckpoint ( const std::vector<int>& fds
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const std::vector<int>& fds );
-      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
-      virtual void restoreOptions ( const std::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
@@ -274,28 +275,28 @@ namespace dmtcp
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
-      inline FileConnection ( const std::string& path, off_t offset=-1 )
+      inline FileConnection ( const dmtcp::string& path, off_t offset=-1 )
           : Connection ( FILE )
           , _fileType (FILE_REGULAR)
           , _path ( path )
           , _offset ( offset )
       {}
 
-      virtual void preCheckpoint ( const std::vector<int>& fds
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const std::vector<int>& fds );
-      virtual void restore ( const std::vector<int>&, ConnectionRewirer& );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
     private:
       void saveFile (int fd);
       int  openFile ();
-      std::string getSavedFilePath(const std::string& path);
+      dmtcp::string getSavedFilePath(const dmtcp::string& path);
 
       int         _fileType;
-      std::string _path;
-      std::string _savedRelativePath;
+      dmtcp::string _path;
+      dmtcp::string _savedRelativePath;
       off_t       _offset;
       struct stat _stat;
   };

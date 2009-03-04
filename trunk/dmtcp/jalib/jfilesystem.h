@@ -24,6 +24,7 @@
 
 #include <string>
 #include <vector>
+#include "stlwrapper.h"
 
 namespace jalib
 {
@@ -32,24 +33,24 @@ namespace jalib
   {
 
     //true if a given file exists
-    bool FileExists ( const std::string& str );
+    bool FileExists ( const jalib::string& str );
 
     //search for a given utility in many different places
-    std::string FindHelperUtility ( const std::string& name, bool dieOnError = true );
+    jalib::string FindHelperUtility ( const jalib::string& name, bool dieOnError = true );
 
-    std::string GetProgramDir();
-    std::string GetProgramName();
-    std::string GetProgramPath();
+    jalib::string GetProgramDir();
+    jalib::string GetProgramName();
+    jalib::string GetProgramPath();
 
-    std::string ResolveSymlink ( const std::string& file );
+    jalib::string ResolveSymlink ( const jalib::string& file );
 
-    std::vector<std::string> GetProgramArgs();
+    StringVector GetProgramArgs();
 
-    std::vector<int> ListOpenFds();
+    IntVector ListOpenFds();
 
-    std::string GetCurrentTty();
+    jalib::string GetCurrentTty();
 
-    std::string GetCurrentHostname();
+    jalib::string GetCurrentHostname();
 
   }
 

@@ -1,10 +1,10 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2006-2008 by Jason Ansel                                 *
+ *   jansel@csail.mit.edu                                                   *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *   This file is part of the JALIB module of DMTCP (DMTCP:dmtcp/jalib).    *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP:dmtcp/jalib is free software: you can redistribute it and/or      *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
@@ -19,41 +19,38 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPCHECKPOINTSTATE_H
-#define DMTCPCHECKPOINTSTATE_H
+#ifndef STLWRAPPER_H
+#define STLWRAPPER_H
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#ifdef DMTCP
 #include "dmtcpalloc.h"
-#include "kernelbufferdrainer.h"
-#include "connectionmanager.h"
-#include "connectionrewirer.h"
-#include  "../jalib/jsocket.h"
+#endif
 
-namespace dmtcp
-{
+#include <string>
+#include <vector>
 
-  /**
-  *  State of open connections, stored in checkpoint image
-  */
-  class ConnectionState
-  {
-    public:
-      ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
-      void preCheckpointLock();
-      void preCheckpointDrain();
-      void preCheckpointHandshakes(const UniquePid& coordinator);
-      void postCheckpoint();
-      void outputDmtcpConnectionTable(int fd);
-
-      void postRestart();
-      void doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen );
-
-    private:
-      KernelBufferDrainer _drain;
-      ConnectionToFds     _conToFds;
-      ConnectionRewirer   _rewirer;
-  };
-
+namespace jalib {
+#ifdef DMTCP
+  typedef dmtcp::string string;
+  typedef dmtcp::ostringstream ostringstream;
+  typedef dmtcp::vector<int> IntVector;
+  typedef dmtcp::set<int> IntSet;
+  typedef dmtcp::vector<string> StringVector;
+  using dmtcp::vector;
+#else
+  typedef std::string string;
+  typedef std::ostringstream ostringstream;
+  typedef std::vector<int> IntVector;
+  typedef std::set<int> IntSet;
+  typedef std::vector<string> StringVector;
+  using std::vector;
+#endif
 }
 
-#endif
+#endif 
+

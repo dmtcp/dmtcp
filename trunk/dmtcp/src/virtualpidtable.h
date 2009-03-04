@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -57,10 +58,10 @@ namespace dmtcp
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
       void updateRootOfProcessTree();
 
-      std::vector< pid_t > getPidVector();
+      dmtcp::vector< pid_t > getPidVector();
       bool pidExists( pid_t pid );
 
-      typedef std::map< pid_t , dmtcp::UniquePid >::iterator iterator;
+      typedef dmtcp::map< pid_t , dmtcp::UniquePid >::iterator iterator;
       iterator begin() { return _childTable.begin(); }
       iterator end() { return _childTable.end(); }
 
@@ -76,12 +77,12 @@ namespace dmtcp
     protected:
 
     private:
-      std::map< pid_t , dmtcp::UniquePid > _childTable;
-      typedef std::map< pid_t , pid_t >::iterator pid_iterator;
-      std::map< pid_t , pid_t > _pidMapTable;
+      dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
+      typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
+      dmtcp::map< pid_t , pid_t > _pidMapTable;
 
-      //std::vector< pid_t > _tids;
-      //typedef std::vector< pid_t >::iterator tid_iterator;
+      //dmtcp::vector< pid_t > _tids;
+      //typedef dmtcp::vector< pid_t >::iterator tid_iterator;
 
       bool  _isRootOfProcessTree;
       pid_t _pid;

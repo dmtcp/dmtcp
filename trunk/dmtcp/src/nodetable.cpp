@@ -106,11 +106,11 @@ void dmtcp::WorkerNode::setClientNumer(const int& theValue)
 dmtcp::WorkerState dmtcp::NodeTable::minimumState() const
 {
     int t = 999999;
-    for(std::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
+    for(dmtcp::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
       ;i != _table.end()
       ;++i)
     {
-        t = std::min(t,(int)i->second.state().value());
+        t = dmtcp::min(t,(int)i->second.state().value());
     }
     return (WorkerState::eWorkerState)t;
 }
@@ -118,18 +118,18 @@ dmtcp::WorkerState dmtcp::NodeTable::minimumState() const
 dmtcp::WorkerState dmtcp::NodeTable::maximumState() const
 {
     int t = 0;
-    for(std::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
+    for(dmtcp::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
       ;i != _table.end()
       ;++i)
     {
-       t = std::max(t,(int)i->second.state().value());
+       t = dmtcp::max(t,(int)i->second.state().value());
     }
     return (WorkerState::eWorkerState)t;
 }
 
 void dmtcp::NodeTable::removeClient(int clientNumer)
 {
-    for( std::map<UniquePid, WorkerNode>::iterator i = _table.begin()
+    for( dmtcp::map<UniquePid, WorkerNode>::iterator i = _table.begin()
        ; i != _table.end()
        ; ++i)
     {
@@ -146,13 +146,13 @@ void dmtcp::NodeTable::removeClient(int clientNumer)
 
 void dmtcp::NodeTable::dbgPrint() const
 {
-    JASSERT_STDERR << "Listing table entries..." << std::endl;
-    for( std::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
+    JASSERT_STDERR << "Listing table entries..." << dmtcp::endl;
+    for( dmtcp::map<UniquePid, WorkerNode>::const_iterator i = _table.begin()
        ; i != _table.end()
        ; ++i)
     {
         JASSERT_STDERR << "Entry: clientNumber=" << i->second.clientNumer()
-                << " " <<  i->first << std::endl;
+                << " " <<  i->first << dmtcp::endl;
     }
 }
 

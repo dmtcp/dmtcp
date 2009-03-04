@@ -403,8 +403,8 @@ extern "C" int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optn
 // //
 // // void dmtcp::SocketEntry::restoreOptions()
 // // {
-// //     typedef std::map< int, std::map< int, jalib::JBuffer > >::iterator levelIterator;
-// //     typedef std::map< int, jalib::JBuffer >::iterator optionIterator;
+// //     typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
+// //     typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 // //
 // //     for(levelIterator lvl = _options.begin(); lvl!=_options.end(); ++lvl)
 // //     {

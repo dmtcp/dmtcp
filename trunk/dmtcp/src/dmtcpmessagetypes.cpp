@@ -71,7 +71,7 @@ dmtcp::WorkerState::eWorkerState dmtcp::WorkerState::value() const
   return _state;
 }
 
-std::ostream& dmtcp::operator << ( std::ostream& o, const dmtcp::WorkerState& s )
+dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState& s )
 {
   o << "WorkerState::";
   switch ( s.value() )
