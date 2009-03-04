@@ -8,11 +8,17 @@ AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp])
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug printouts
+                            [enable (very) verbose debug output
                              and write log files to /tmp (default is
                              disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
+AC_ARG_ENABLE([quiet],
+            [AS_HELP_STRING([--enable-quiet],
+                            [disable NOTE and WARNING (default is
+                             to print NOTE, WARNING, but no TRACE)])],
+            [use_quiet=$enableval],
+            [use_quiet=no])
 AC_ARG_ENABLE([timing],
             [AS_HELP_STRING([--enable-timing],
                             [record checkpoint/restart timing information

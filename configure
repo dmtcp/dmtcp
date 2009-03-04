@@ -1220,8 +1220,10 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-debug          enable (very) verbose debug printouts and write log
+  --enable-debug          enable (very) verbose debug output and write log
                           files to /tmp (default is disabled)
+  --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
+                          WARNING, but no TRACE)
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
@@ -3088,6 +3090,13 @@ if test "${enable_debug+set}" = set; then
   enableval=$enable_debug; use_jassert=$enableval
 else
   use_jassert=no
+fi
+
+# Check whether --enable-quiet was given.
+if test "${enable_quiet+set}" = set; then
+  enableval=$enable_quiet; use_quiet=$enableval
+else
+  use_quiet=no
 fi
 
 # Check whether --enable-timing was given.
