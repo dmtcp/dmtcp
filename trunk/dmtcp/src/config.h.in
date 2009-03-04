@@ -1,6 +1,6 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Verbose debug printouts and log files in /tmp */
+/* Verbose debug output and log files in /tmp */
 #undef DEBUG
 
 /* Always enable this. */
@@ -62,6 +62,9 @@
 
 /* Use virtual pids for pid-related system calls */
 #undef PID_VIRTUALIZATION
+
+/* No output, not even NOTE and WARNING */
+#undef QUIET
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

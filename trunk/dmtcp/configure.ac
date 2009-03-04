@@ -12,16 +12,26 @@ AC_PROG_RANLIB
 
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug printouts
+                            [enable (very) verbose debug output
                              and write log files to /tmp (default is
                              disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
 
 if test "$use_jassert" = "yes"; then
-  AC_DEFINE([DEBUG],[],[Verbose debug printouts and log files in /tmp])
+  AC_DEFINE([DEBUG],[],[Verbose debug output and log files in /tmp])
   CFLAGS="-g -O0"
   CXXFLAGS="-g -O0"
+fi
+
+AC_ARG_ENABLE([quiet],
+            [AS_HELP_STRING([--enable-quiet],
+                            [disable NOTE and WARNING (default is                             to print NOTE, WARNING, but no TRACE)])],
+            [use_quiet=$enableval],
+            [use_quiet=no])
+
+if test "$use_quiet" = "yes"; then
+  AC_DEFINE([QUIET],[],[No output, not even NOTE and WARNING])
 fi
 
 AC_ARG_ENABLE([timing],
