@@ -22,6 +22,7 @@
 #ifndef DMTCPMESSAGETYPES_H
 #define DMTCPMESSAGETYPES_H
 
+#include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include  "../jalib/jassert.h"
 #include "constants.h"
@@ -135,7 +136,7 @@ namespace dmtcp
   };
 
 
-  std::ostream& operator << ( std::ostream& o, const WorkerState& s );
+  dmtcp::ostream& operator << ( dmtcp::ostream& o, const WorkerState& s );
 
 
 

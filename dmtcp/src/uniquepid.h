@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -45,9 +46,9 @@ namespace dmtcp
     pid_t pid() const;
     time_t time() const;
     static const char* checkpointFilename();
-    static std::string dmtcpTableFilename();
+    static dmtcp::string dmtcpTableFilename();
 #ifdef PID_VIRTUALIZATION
-    static std::string pidTableFilename();
+    static dmtcp::string pidTableFilename();
 #endif
     static const char* ptsSymlinkFilename ( char *pts );
 
@@ -57,7 +58,7 @@ namespace dmtcp
 
     static void resetOnFork ( const dmtcp::UniquePid& newId );
 
-    std::string toString() const;
+    dmtcp::string toString() const;
 
     bool isNull() const;
 
@@ -69,9 +70,9 @@ namespace dmtcp
 }
 
 //to make older versions of gcc work
-namespace std
+namespace dmtcp
 {
-  std::ostream& operator << ( std::ostream& o,const dmtcp::UniquePid& id );
+  dmtcp::ostream& operator << ( dmtcp::ostream& o,const dmtcp::UniquePid& id );
 }
 
 #endif

@@ -59,7 +59,7 @@ void dmtcp::ConnectionState::preCheckpointDrain()
   ConnectionList& connections = ConnectionList::Instance();
 
   //build list of stale connections
-  std::vector<ConnectionList::iterator> staleConnections;
+  dmtcp::vector<ConnectionList::iterator> staleConnections;
   for ( ConnectionList::iterator i = connections.begin()
         ; i!= connections.end()
         ; ++i )
@@ -90,11 +90,11 @@ void dmtcp::ConnectionState::preCheckpointDrain()
   _drain.monitorSockets ( DRAINER_CHECK_FREQ );
 
   //handle disconnected sockets
-  const std::vector<ConnectionIdentifier>& discn = _drain.getDisconnectedSockets();
+  const dmtcp::vector<ConnectionIdentifier>& discn = _drain.getDisconnectedSockets();
   for(size_t i=0; i<discn.size(); ++i){
     const ConnectionIdentifier& id = discn[i];
     TcpConnection& con = connections[id].asTcp();
-    std::vector<int>& fds = _conToFds[discn[i]];
+    dmtcp::vector<int>& fds = _conToFds[discn[i]];
     JASSERT(fds.size()>0);
     JTRACE("recreating disconnected socket")(fds[0])(id);
 
@@ -121,7 +121,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
       ; i!= connections.end()
       ; ++i )
   {
-    const std::vector<int>& fds = _conToFds[i->first];
+    const dmtcp::vector<int>& fds = _conToFds[i->first];
     Connection* con =  i->second;
     if ( fds.size() > 0 ){
       con->doSendHandshakes(fds, coordinator);
@@ -133,7 +133,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
       ; i!= connections.end()
       ; ++i )
   {
-    const std::vector<int>& fds = _conToFds[i->first];
+    const dmtcp::vector<int>& fds = _conToFds[i->first];
     Connection* con =  i->second;
     if ( fds.size() > 0 ){
       con->doRecvHandshakes(fds, coordinator);
@@ -144,7 +144,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
 void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
 {
     //write out the *.dmtcp file
-  //std::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
+  //dmtcp::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
   //JTRACE ( "Writing *.dmtcp checkpoint file" );
   jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
   _conToFds.serialize ( wr );

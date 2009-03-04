@@ -109,7 +109,7 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // dmtcp::ConnectionIdentifier& dmtcp::ConnectionIdentifiers::lookup( int id )
 // {
-//     std::map< int, ConnectionIdentifier* >::iterator i = _table.find(id);
+//     dmtcp::map< int, ConnectionIdentifier* >::iterator i = _table.find(id);
 //     JASSERT(i != _table.end())(id).Text("ConnectionIdentifer does not exist");
 //     return *i->second;
 // }
@@ -123,7 +123,7 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // void dmtcp::ConnectionIdentifiers::removeFd( int fd )
 // {
-//     std::map< int, ConnectionIdentifier* >::iterator i;
+//     dmtcp::map< int, ConnectionIdentifier* >::iterator i;
 //     for(i=_table.begin(); i!=_table.end(); ++i)
 //     {
 //         i->second->removeFd( fd );
@@ -142,7 +142,7 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // void dmtcp::ConnectionIdentifiers::updateAfterDup(int oldfd,int newfd)
 // {
-//     std::map< int, ConnectionIdentifier* >::iterator i;
+//     dmtcp::map< int, ConnectionIdentifier* >::iterator i;
 //     for(i=_table.begin(); i!=_table.end(); ++i)
 //     {
 //         i->second->updateAfterDup(oldfd,newfd);

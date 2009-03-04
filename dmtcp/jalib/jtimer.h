@@ -25,6 +25,7 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "stlwrapper.h"
 #include "jconvert.h"
 #include "jassert.h"
 
@@ -65,7 +66,7 @@ namespace jalib
   class JTimeRecorder
   {
     public:
-      JTimeRecorder ( const std::string& name );
+      JTimeRecorder ( const jalib::string& name );
       void start()
       {
         JWARNING ( !_isStarted ) ( _name );
@@ -82,7 +83,7 @@ namespace jalib
     protected:
       void recordTime ( double time );
     private:
-      std::string _name;
+      jalib::string _name;
       bool  _isStarted;
       JTime _start;
   };

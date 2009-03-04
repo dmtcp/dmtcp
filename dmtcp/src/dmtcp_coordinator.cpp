@@ -108,10 +108,10 @@ namespace
       socklen_t addrlen() const { return _addrlen; }
       int restorePort() const { return _restorePort; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
-      void progname(std::string pname){ _progname = pname; }
-      std::string progname(void) const { return _progname; }
-      void hostname(std::string hname){ _hostname = hname; }
-      std::string hostname(void) const { return _hostname; }
+      void progname(dmtcp::string pname){ _progname = pname; }
+      dmtcp::string progname(void) const { return _progname; }
+      void hostname(dmtcp::string hname){ _hostname = hname; }
+      dmtcp::string hostname(void) const { return _hostname; }
     private:
       dmtcp::UniquePid _identity;
       int _clientNumber;
@@ -119,8 +119,8 @@ namespace
       struct sockaddr_storage _addr;
       socklen_t               _addrlen;
       int _restorePort;
-      std::string _hostname;
-      std::string _progname;
+      dmtcp::string _hostname;
+      dmtcp::string _progname;
   };
 }
 
@@ -151,7 +151,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   case 't': case 'T':
     JASSERT_STDERR << "Client List:\n";
     JASSERT_STDERR << "#, PROG[PID]@HOST, DMTCP-UNIQUEPID, STATE\n";
-    for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+    for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
             ;i!= _dataSockets.end()
             ;++i )
     {
@@ -172,13 +172,13 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'q': case 'Q':
     JASSERT_STDERR << "exiting... (per request)\n";
-    for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+    for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
         ; i!= _dataSockets.end()
         ; ++i )
     {
       (*i)->socket().close();
     }
-    for ( std::vector<jalib::JSocket>::iterator i = _listenSockets.begin()
+    for ( dmtcp::vector<jalib::JSocket>::iterator i = _listenSockets.begin()
         ; i!= _listenSockets.end()
         ; ++i )
     {
@@ -315,8 +315,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       case DMT_CKPT_FILENAME:
       {
         JASSERT ( extraData!=0 ).Text ( "extra data expected with DMT_CKPT_FILENAME message" );
-        std::string ckptFilename;
-        std::string hostname;
+        dmtcp::string ckptFilename;
+        dmtcp::string hostname;
         ckptFilename = extraData;
         hostname = extraData + ckptFilename.length() + 1;
 
@@ -424,8 +424,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   if( hello_remote.extraBytes > 0 ){
     char* extraData = new char[hello_remote.extraBytes];
     remote.readAll(extraData, hello_remote.extraBytes);
-    std::string hostname = extraData;
-    std::string progname = extraData + hostname.length() + 1;
+    dmtcp::string hostname = extraData;
+    dmtcp::string progname = extraData + hostname.length() + 1;
     ds->progname(progname);
     ds->hostname(hostname);
     delete [] extraData;
@@ -518,7 +518,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type )
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
 {
-  for ( std::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
+  for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
           ;i!= _dataSockets.end()
           ;++i )
   {
@@ -557,12 +557,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
   const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
   if(dir==NULL) dir = ".";
-  std::string filename = std::string(dir)+"/"+RESTART_SCRIPT_NAME;
+  dmtcp::string filename = dmtcp::string(dir)+"/"+RESTART_SCRIPT_NAME;
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
 
-  std::map< std::string, std::vector<std::string> >::const_iterator host;
-  std::vector<std::string>::const_iterator file;
+  dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> >::const_iterator host;
+  dmtcp::vector<dmtcp::string>::const_iterator file;
   char hostname[80];
   gethostname ( hostname,80 );
   JTRACE ( "writing restart script" ) ( filename );
@@ -632,7 +632,7 @@ int main ( int argc, char** argv )
 
   shift;
   while(argc > 0){
-    std::string s = argv[0];
+    dmtcp::string s = argv[0];
     if(s=="-h" || s=="--help"){
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;

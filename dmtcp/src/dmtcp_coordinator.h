@@ -22,6 +22,7 @@
 #ifndef DMTCPDMTCPCOORDINATOR_H
 #define DMTCPDMTCPCOORDINATOR_H
 
+#include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "nodetable.h"
 #include "dmtcpmessagetypes.h"
@@ -58,13 +59,13 @@ namespace dmtcp
     protected:
       void writeRestartScript();
     private:
-      typedef std::vector<jalib::JReaderInterface*>::iterator iterator;
-      typedef std::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
+      typedef dmtcp::vector<jalib::JReaderInterface*>::iterator iterator;
+      typedef dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
 //     NodeTable _table;
-      std::vector< DmtcpMessage > _restoreWaitingMessages;
+      dmtcp::vector< DmtcpMessage > _restoreWaitingMessages;
 
       //map from hostname to checkpoint files
-      std::map< std::string, std::vector<std::string> > _restartFilenames;
+      dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
   };
 
 }

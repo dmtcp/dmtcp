@@ -48,7 +48,7 @@ namespace
   class RestoreTarget
   {
     public:
-      RestoreTarget ( const std::string& path )
+      RestoreTarget ( const dmtcp::string& path )
           : _path ( path )
       {
 
@@ -64,7 +64,7 @@ namespace
       void dupAllSockets ( SlidingFdTable& slidingFd )
       {
         int lastfd = -1;
-        std::vector<int> fdlist;
+        dmtcp::vector<int> fdlist;
         for ( ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i )
         {
           Connection& con = ConnectionList::Instance() [i->first];
@@ -73,7 +73,7 @@ namespace
             continue;
           }
 
-          const std::vector<int>& fds = i->second;
+          const dmtcp::vector<int>& fds = i->second;
           for ( size_t x=0; x<fds.size(); ++x )
           {
             int fd = fds[x];
@@ -109,7 +109,7 @@ namespace
       }
       /*      else if(ConnectionList::Instance()[i->first].conType() == Connection::PTS)
             {
-              const std::vector<int>& fds = i->second;
+              const dmtcp::vector<int>& fds = i->second;
               for(size_t x=0; x<fds.size(); ++x)
               {
                 int fd = fds[x];
@@ -123,7 +123,7 @@ namespace
             }
             else if(ConnectionList::Instance()[i->first].conType() == Connection::FILE)
             {
-              const std::vector<int>& fds = i->second;
+              const dmtcp::vector<int>& fds = i->second;
               for(size_t x=0; x<fds.size(); ++x)
               {
                 int fd = fds[x];
@@ -145,13 +145,13 @@ namespace
       }
 
       const UniquePid& pid() const { return _conToFd.pid(); }
-      const std::string& procname() const { return _conToFd.procname(); }
+      const dmtcp::string& procname() const { return _conToFd.procname(); }
 
 #ifdef PID_VIRTUALIZATION
       VirtualPidTable& getVirtualPidTable() { return _virtualPidTable; }
 #endif
 
-      std::string     _path;
+      dmtcp::string     _path;
       int _offset;
       ConnectionToFds _conToFd;
 #ifdef PID_VIRTUALIZATION
@@ -165,7 +165,7 @@ namespace
 
     public:
       OriginalPidTable(){}
-      void insert ( std::vector< pid_t > newVector )
+      void insert ( dmtcp::vector< pid_t > newVector )
       {
         for ( int i = 0; i < newVector.size(); ++i )
         {
@@ -187,8 +187,8 @@ namespace
 
 
     private:
-      typedef std::vector< pid_t >::iterator iterator;
-      std::vector< pid_t > _vector;
+      typedef dmtcp::vector< pid_t >::iterator iterator;
+      dmtcp::vector< pid_t > _vector;
   };
 
 #endif
@@ -216,7 +216,7 @@ static const char* theUsage =
 //shift args
 #define shift argc--,argv++
 
-std::vector<RestoreTarget> targets;
+dmtcp::vector<RestoreTarget> targets;
 
 #ifdef PID_VIRTUALIZATION
 OriginalPidTable originalPidTable;
@@ -235,7 +235,7 @@ int main ( int argc, char** argv )
   //process args
   shift;
   while(true){
-    std::string s = argc>0 ? argv[0] : "--help";
+    dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
       fprintf(stderr, theUsage);
       return 1;
@@ -419,7 +419,7 @@ void CreateProcess(RestoreTarget& targ, DmtcpWorker& worker, SlidingFdTable& sli
   worker.connectToCoordinator(false);
   worker.sendCoordinatorHandshake(targ.procname());
  
-  std::string serialFile = dmtcp::UniquePid::pidTableFilename();
+  dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
   JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
   jalib::JBinarySerializeWriter tblwr ( serialFile );
   virtualPidTable.serialize ( tblwr );
@@ -468,7 +468,7 @@ static pid_t forkChild()
 
 static jalib::JBinarySerializeWriterRaw& createPidMapFile()
 {
-  std::ostringstream os;
+  dmtcp::ostringstream os;
 
   os << "/tmp/dmtcpPidMap."
      << dmtcp::UniquePid::ThisProcess();
@@ -520,7 +520,7 @@ static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid,
 
 static void runMtcpRestore ( const char* path, int offset )
 {
-  static std::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
+  static dmtcp::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
 #ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);

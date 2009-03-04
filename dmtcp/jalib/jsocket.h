@@ -22,6 +22,7 @@
 #ifndef JALIBJSOCKET_H
 #define JALIBJSOCKET_H
 
+#include "stlwrapper.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -196,9 +197,9 @@ namespace jalib
       virtual void onTimeoutInterval() {};
       void addWrite ( JWriterInterface* write );
     protected:
-      std::vector<JReaderInterface*> _dataSockets;
-      std::vector<JSocket> _listenSockets;
-      std::vector<JWriterInterface*> _writes;
+      jalib::vector<JReaderInterface*> _dataSockets;
+      jalib::vector<JSocket> _listenSockets;
+      jalib::vector<JWriterInterface*> _writes;
   };
 
 } //namespace jalib

@@ -50,7 +50,7 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::Instance()
 void dmtcp::VirtualPidTable::postRestart()
 {
   //getenv ( ENV_VAR_PIDTBLFILE_INITIAL );
-  std::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDTBL_FD );
+  dmtcp::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDTBL_FD );
 
   serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
   JASSERT ( serialFile.length() > 0 ) ( serialFile );
@@ -59,7 +59,7 @@ void dmtcp::VirtualPidTable::postRestart()
   jalib::JBinarySerializeReader rd ( serialFile );
   serialize ( rd );
 
-  std::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+  dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
   JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
 
@@ -138,9 +138,9 @@ void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid 
   _pidMapTable[originalPid] = currentPid;
 }
 
-std::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
+dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
 {
-  std::vector< pid_t > pidVec;
+  dmtcp::vector< pid_t > pidVec;
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
     pidVec.push_back ( i->first );
   return pidVec;

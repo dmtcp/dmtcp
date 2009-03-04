@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include "jassert.h"
+#include "stlwrapper.h"
 #include <string>
 
 namespace jalib
@@ -34,7 +35,7 @@ namespace jalib
   {
     //about 15x faster than sringstream method
     template < typename T, T ( strtoT ) ( const char *, char**, int ) >
-    inline T StdLibEC ( const std::string& s, bool strict )
+    inline T StdLibEC ( const jalib::string& s, bool strict )
     {
       const char * begin = s.c_str();
       char * end = 0;
@@ -45,7 +46,7 @@ namespace jalib
     }
     //about 15x faster than sringstream method
     template < typename T, T ( strtoT ) ( const char *, char** ) >
-    inline T StdLibEC ( const std::string& s,bool strict )
+    inline T StdLibEC ( const jalib::string& s,bool strict )
     {
       const char * begin = s.c_str();
       char * end = 0;
@@ -57,29 +58,29 @@ namespace jalib
 
   }
 
-  template<typename X> inline std::string XToString ( const X& x )
+  template<typename X> inline jalib::string XToString ( const X& x )
   {
-    std::ostringstream tmp;
+    jalib::ostringstream tmp;
     tmp << x;
     return tmp.str();
   }
 
-  template<typename X> inline X StringToX ( const std::string& s, bool strict=true );
+  template<typename X> inline X StringToX ( const jalib::string& s, bool strict=true );
 // this is too slow
 // {
-//     std::istringstream tmp(s);
+//     jalib::istringstream tmp(s);
 //     X x;
 //     tmp >> x;
 //     return x;
 // }
 
-  template<> inline std::string StringToX<std::string> ( const std::string& s, bool strict )
+  template<> inline jalib::string StringToX<jalib::string> ( const jalib::string& s, bool strict )
   {
     return s;
   }
 
 #define JCONVERT_DECLARE_StringToX(T,TFunc,Function)\
-    template<> inline T StringToX<T>(const std::string& s, bool strict){ \
+    template<> inline T StringToX<T>(const jalib::string& s, bool strict){ \
         return jconvert_internal::StdLibEC<TFunc,Function>(s,strict);}
 
   JCONVERT_DECLARE_StringToX ( short, long, strtol );

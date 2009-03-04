@@ -48,7 +48,7 @@ void dmtcp::KernelBufferDrainer::onConnect ( const jalib::JSocket& sock, const s
 
 void dmtcp::KernelBufferDrainer::onData ( jalib::JReaderInterface* sock )
 {
-  std::vector<char>& buffer = _drainedData[sock->socket().sockfd() ];
+  dmtcp::vector<char>& buffer = _drainedData[sock->socket().sockfd() ];
   buffer.resize ( buffer.size() + sock->bytesRead() );
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy ( &buffer[startIdx],sock->buffer(),sock->bytesRead() );
@@ -73,7 +73,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
   for ( size_t i = 0; i < _dataSockets.size();++i )
   {
     if ( _dataSockets[i]->bytesRead() > 0 ) onData ( _dataSockets[i] );
-    std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
+    dmtcp::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
     if ( buffer.size() >= sizeof ( theMagicDrainCookie )
 	 && memcmp ( &buffer[buffer.size() - sizeof ( theMagicDrainCookie ) ]
                      , theMagicDrainCookie
@@ -96,7 +96,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
     if(_timeoutCount++ > WARN_INTERVAL_TICKS){
       _timeoutCount=0;
       for ( size_t i = 0; i < _dataSockets.size();++i ){
-        std::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
+        dmtcp::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
         JWARNING(false)(_dataSockets[i]->socket().sockfd())(buffer.size())(WARN_INTERVAL_SEC)
                  .Text("Still draining socket... perhaps remote host is not running under DMTCP?");
 #ifdef CERN_CMS
@@ -178,7 +178,7 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
   JTRACE ( "refilling socket buffers" ) ( _drainedData.size() );
 
   //write all buffers out
-  for ( std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
+  for ( dmtcp::map<int , dmtcp::vector<char> >::iterator i = _drainedData.begin()
           ;i != _drainedData.end()
           ;++i )
   {
@@ -198,7 +198,7 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
 //     JTRACE("repeating our friends buffers...");
 
   //read all buffers in
-  for ( std::map<int , std::vector<char> >::iterator i = _drainedData.begin()
+  for ( dmtcp::map<int , dmtcp::vector<char> >::iterator i = _drainedData.begin()
           ;i != _drainedData.end()
           ;++i )
   {

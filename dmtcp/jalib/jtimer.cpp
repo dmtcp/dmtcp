@@ -39,23 +39,23 @@ double jalib::operator- ( const jalib::JTime& a, const jalib::JTime& b )
   return sec;
 }
 
-jalib::JTimeRecorder::JTimeRecorder ( const std::string& name )
+jalib::JTimeRecorder::JTimeRecorder ( const jalib::string& name )
     : _name ( name )
     , _isStarted ( false )
 {}
 
 namespace
 {
-  static const std::string& _testName()
+  static const jalib::string& _testName()
   {
     static const char* env = getenv ( "TESTNAME" );
-    static std::string tn = jalib::Filesystem::GetProgramName()
+    static jalib::string tn = jalib::Filesystem::GetProgramName()
                             + jalib::XToString ( getpid() )
-                            + ',' + std::string ( env == NULL ? "unamedtest" : env );
+                            + ',' + jalib::string ( env == NULL ? "unamedtest" : env );
     return tn;
   }
 
-  static void _writeTimerLogLine ( const std::string& name, double time )
+  static void _writeTimerLogLine ( const jalib::string& name, double time )
   {
     static std::ofstream logfile ( "jtimings.csv", std::ios::out | std::ios::app );
     logfile << _testName() <<  ',' << name << ',' << time << std::endl;

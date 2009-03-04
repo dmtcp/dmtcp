@@ -53,7 +53,7 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
   {
     JTRACE ( "got RESTORE_WAITING MESSAGE, reconnecting..." )
     ( msg.restorePid ) ( msg.restorePort ) ( msg.restoreAddrlen ) ( _pendingOutgoing.size() ) ( _pendingIncoming.size() );
-    const std::vector<int>& fds = i->second;
+    const dmtcp::vector<int>& fds = i->second;
     JASSERT ( fds.size() > 0 );
     int fd0 = fds[0];
 
@@ -101,7 +101,7 @@ void dmtcp::ConnectionRewirer::onConnect ( const jalib::JSocket& sock,  const st
   JASSERT ( i != _pendingIncoming.end() ) ( msg.restorePid )
   .Text ( "got unexpected incoming restore request" );
 
-  const std::vector<int>& fds = i->second;
+  const dmtcp::vector<int>& fds = i->second;
   JASSERT ( fds.size() > 0 );
   int fd0 = fds[0];
 
@@ -162,7 +162,7 @@ void dmtcp::ConnectionRewirer::doReconnect()
 }
 
 void dmtcp::ConnectionRewirer::registerIncoming ( const ConnectionIdentifier& local
-        , const std::vector<int>& fds )
+        , const dmtcp::vector<int>& fds )
 {
   _pendingIncoming[local] = fds;
 
@@ -176,7 +176,7 @@ void dmtcp::ConnectionRewirer::registerIncoming ( const ConnectionIdentifier& lo
 }
 
 void dmtcp::ConnectionRewirer::registerOutgoing ( const ConnectionIdentifier& remote
-        , const std::vector<int>& fds )
+        , const dmtcp::vector<int>& fds )
 {
   _pendingOutgoing[remote] = fds;
 }

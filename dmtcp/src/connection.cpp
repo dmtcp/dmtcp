@@ -38,7 +38,7 @@
 #include <ios>
 #include <fstream>
 
-static bool hasLock ( const std::vector<int>& fds )
+static bool hasLock ( const dmtcp::vector<int>& fds )
 {
   JASSERT ( fds.size() > 0 );
   int owner = fcntl ( fds[0], F_GETOWN );
@@ -164,7 +164,7 @@ void dmtcp::TcpConnection::addSetsockopt ( int level, int option, const char* va
 }
 
 
-void dmtcp::Connection::saveOptions ( const std::vector<int>& fds )
+void dmtcp::Connection::saveOptions ( const dmtcp::vector<int>& fds )
 {
   errno = 0;
   _fcntlFlags = fcntl ( fds[0],F_GETFL );
@@ -176,7 +176,7 @@ void dmtcp::Connection::saveOptions ( const std::vector<int>& fds )
   _fcntlSignal = fcntl ( fds[0],F_GETSIG );
   JASSERT ( _fcntlSignal >= 0 ) ( _fcntlSignal ) ( JASSERT_ERRNO );
 }
-void dmtcp::Connection::restoreOptions ( const std::vector<int>& fds )
+void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
   //restore F_GETFL flags
   JASSERT ( _fcntlFlags >= 0 ) ( _fcntlFlags );
@@ -193,7 +193,7 @@ void dmtcp::Connection::restoreOptions ( const std::vector<int>& fds )
 ////////////
 ///// TCP CHECKPOINTING
 
-void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
+void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
   JASSERT ( fds.size() > 0 ) ( id() );
@@ -230,7 +230,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
   }
 }
 
-  void dmtcp::TcpConnection::doSendHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+  void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
     switch ( tcpType() )
     {
       case TCP_CONNECT:
@@ -248,7 +248,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
         break;
     }
   }
-  void dmtcp::TcpConnection::doRecvHandshakes( const std::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+  void dmtcp::TcpConnection::doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
     switch ( tcpType() )
     {
       case TCP_CONNECT:
@@ -268,7 +268,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const std::vector<int>& fds
     }
   }
 
-void dmtcp::TcpConnection::postCheckpoint ( const std::vector<int>& fds )
+void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
@@ -276,7 +276,7 @@ void dmtcp::TcpConnection::postCheckpoint ( const std::vector<int>& fds )
     restoreOptions ( fds );
   }
 }
-void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
   switch ( tcpType() )
@@ -356,11 +356,11 @@ void dmtcp::TcpConnection::restore ( const std::vector<int>& fds, ConnectionRewi
 }
 
 
-void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
+void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
 
-  typedef std::map< int, std::map< int, jalib::JBuffer > >::iterator levelIterator;
-  typedef std::map< int, jalib::JBuffer >::iterator optionIterator;
+  typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
+  typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
   for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl )
   {
@@ -379,7 +379,7 @@ void dmtcp::TcpConnection::restoreOptions ( const std::vector<int>& fds )
 
 }
 
-void dmtcp::TcpConnection::doLocking ( const std::vector<int>& fds )
+void dmtcp::TcpConnection::doLocking ( const dmtcp::vector<int>& fds )
 {
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETOWN, _real_getpid() ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
@@ -419,15 +419,15 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 ///// PIPE CHECKPOINTING
 
 
-// void dmtcp::PipeConnection::preCheckpoint(const std::vector<int>& fds
+// void dmtcp::PipeConnection::preCheckpoint(const dmtcp::vector<int>& fds
 //                         , KernelBufferDrainer& drain)
 // {
 // }
-// void dmtcp::PipeConnection::postCheckpoint(const std::vector<int>& fds)
+// void dmtcp::PipeConnection::postCheckpoint(const dmtcp::vector<int>& fds)
 // {
 //
 // }
-// void dmtcp::PipeConnection::restore(const std::vector<int>&, ConnectionRewirer&)
+// void dmtcp::PipeConnection::restore(const dmtcp::vector<int>&, ConnectionRewirer&)
 // {
 //
 // }
@@ -435,16 +435,16 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 ////////////
 ///// PTY CHECKPOINTING
 
-void dmtcp::PtyConnection::preCheckpoint ( const std::vector<int>& fds
+void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
 
 }
-void dmtcp::PtyConnection::postCheckpoint ( const std::vector<int>& fds )
+void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
 
 }
-void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
 
@@ -460,7 +460,7 @@ void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewi
 
     case PTY_TTY:
     {
-      std::string currentTty = jalib::Filesystem::GetCurrentTty();
+      dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
       JASSERT ( currentTty.length() > 0 ) ( STDIN_FILENO ) 
         . Text ("Unable to restore terminal attached with the process");
 
@@ -522,7 +522,7 @@ void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewi
       }
 
       errno = 0;
-      std::string devicename = jalib::Filesystem::ResolveSymlink ( _symlinkFilename );
+      dmtcp::string devicename = jalib::Filesystem::ResolveSymlink ( _symlinkFilename );
       JASSERT ( devicename.length() > 0 ) ( _device ) ( _symlinkFilename ) ( JASSERT_ERRNO )
         .Text ( "PTS does not exist" );
 
@@ -533,8 +533,8 @@ void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewi
       JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
         .Text ( "dup2() failed" );
 
-      //std::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
-      //std::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
+      //dmtcp::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
+      //dmtcp::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
 
       JTRACE ( "Restoring PTS real" ) ( devicename ) ( _symlinkFilename ) ( fds[0] );
 
@@ -547,7 +547,7 @@ void dmtcp::PtyConnection::restore ( const std::vector<int>& fds, ConnectionRewi
       JASSERT ( false ).Text ( "should never reach here" );
   }
 }
-void dmtcp::PtyConnection::restoreOptions ( const std::vector<int>& fds )
+void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
 
 }
@@ -555,7 +555,7 @@ void dmtcp::PtyConnection::restoreOptions ( const std::vector<int>& fds )
 ////////////
 ///// FILE CHECKPOINTING
 
-void dmtcp::FileConnection::preCheckpoint ( const std::vector<int>& fds
+void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
   JASSERT ( fds.size() > 0 );
@@ -567,11 +567,11 @@ void dmtcp::FileConnection::preCheckpoint ( const std::vector<int>& fds
   if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))
     saveFile(fds[0]);
 }
-void dmtcp::FileConnection::postCheckpoint ( const std::vector<int>& fds )
+void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
 
 }
-void dmtcp::FileConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
 
@@ -621,19 +621,19 @@ void dmtcp::FileConnection::restore ( const std::vector<int>& fds, ConnectionRew
 
 }
 
-static void CreateDirectoryStructure(const std::string& path)
+static void CreateDirectoryStructure(const dmtcp::string& path)
 {
   size_t index = path.rfind('/');
 
   if (index == -1)
     return;
 
-  std::string dir = path.substr(0, index);
+  dmtcp::string dir = path.substr(0, index);
 
   index = path.find('/');
   while (index != -1) {
     if (index > 1) {
-      std::string dirName = path.substr(0, index);
+      dmtcp::string dirName = path.substr(0, index);
 
       int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
       JASSERT(res != -1 || errno==EEXIST) (dirName) (path)
@@ -643,13 +643,13 @@ static void CreateDirectoryStructure(const std::string& path)
   }
 }
 
-static void CopyFile(const std::string& src, const std::string& dest)
+static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
 {
-  //std::ifstream in(src.c_str(), std::ios::in | std::ios::binary);
-  //std::ofstream out(dest.c_str(), std::ios::in | std::ios::binary);
+  //dmtcp::ifstream in(src.c_str(), dmtcp::ios::in | dmtcp::ios::binary);
+  //dmtcp::ofstream out(dest.c_str(), dmtcp::ios::in | dmtcp::ios::binary);
   //out << in.rdbuf();
 
-  std::string command = "cp -f " + src + " " + dest;
+  dmtcp::string command = "cp -f " + src + " " + dest;
   JASSERT(_real_system(command.c_str()) != -1);
 }
 
@@ -661,7 +661,7 @@ int dmtcp::FileConnection::openFile()
 
     JTRACE("File not present, copying from saved checkpointed file") (_path);
 
-    std::string savedFilePath = getSavedFilePath(_path);
+    dmtcp::string savedFilePath = getSavedFilePath(_path);
 
     JASSERT( jalib::Filesystem::FileExists(savedFilePath) )
       (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
@@ -692,7 +692,7 @@ int dmtcp::FileConnection::openFile()
 void dmtcp::FileConnection::saveFile(int fd)
 {
   if (jalib::Filesystem::FileExists(_path)) {
-    std::string savedFilePath = getSavedFilePath(_path);
+    dmtcp::string savedFilePath = getSavedFilePath(_path);
 
     CreateDirectoryStructure(savedFilePath);
 
@@ -711,7 +711,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     int index = _path.find(DELETED_FILE_SUFFIX);
 
     // extract <original_file_name> from _path
-    std::string name = _path.substr(0, index);
+    dmtcp::string name = _path.substr(0, index);
 
     // Make sure _path ends with DELETED_FILE_SUFFIX
     JASSERT( _path.length() == index + strlen(DELETED_FILE_SUFFIX) );
@@ -720,7 +720,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     _fileType = FILE_DELETED;
   }
 
-  std::string savedFilePath = getSavedFilePath(_path);
+  dmtcp::string savedFilePath = getSavedFilePath(_path);
 
   CreateDirectoryStructure(savedFilePath);
 
@@ -755,11 +755,11 @@ void dmtcp::FileConnection::saveFile(int fd)
   JASSERT( lseek(fd, _offset, SEEK_SET) != -1 ) (_path);
 }
 
-std::string dmtcp::FileConnection::getSavedFilePath(const std::string& path)
+dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
 {
-  std::ostringstream os;
-  std::ostringstream relPath;
-  std::string fileName;
+  dmtcp::ostringstream os;
+  dmtcp::ostringstream relPath;
+  dmtcp::string fileName;
 
   size_t index = path.rfind('/');
   if (index != -1)
@@ -807,8 +807,8 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   if ( o.isWriter() )
   {
     JTRACE ( "TCP Serialize " ) ( _type ) ( _id.conId() );
-    typedef std::map< int, std::map< int, jalib::JBuffer > >::iterator levelIterator;
-    typedef std::map< int, jalib::JBuffer >::iterator optionIterator;
+    typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
+    typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
     size_t numLvl = _sockOptions.size();
     o & numLvl;
@@ -872,7 +872,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 
   JSERIALIZE_ASSERT_POINT ( "EndSockOpts" );
 
-  std::map< int, std::map< int, jalib::JBuffer > > _sockOptions;
+  dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions;
 }
 
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
@@ -947,13 +947,13 @@ void dmtcp::FileConnection::mergeWith ( const Connection& that ){
 ////////////
 ///// STDIO CHECKPOINTING
 
-void dmtcp::StdioConnection::preCheckpoint ( const std::vector<int>& fds, KernelBufferDrainer& drain ){
+void dmtcp::StdioConnection::preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& drain ){
   JTRACE("Checkpointing stdio")(fds[0])(id());
 }
-void dmtcp::StdioConnection::postCheckpoint ( const std::vector<int>& fds ){
+void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds ){
   //nothing
 }
-void dmtcp::StdioConnection::restore ( const std::vector<int>& fds, ConnectionRewirer& ){
+void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& ){
   for(size_t i=0; i<fds.size(); ++i){
     int fd = fds[i];
     if(fd <= 2){
@@ -981,7 +981,7 @@ void dmtcp::StdioConnection::restore ( const std::vector<int>& fds, ConnectionRe
     JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
   }
 }
-void dmtcp::StdioConnection::restoreOptions ( const std::vector<int>& fds ){
+void dmtcp::StdioConnection::restoreOptions ( const dmtcp::vector<int>& fds ){
   //nothing
 }
 
@@ -995,6 +995,6 @@ void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
 
 void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
   static ConnectionRewirer ignored;
-  restore(std::vector<int>(1,newFd), ignored);
+  restore(dmtcp::vector<int>(1,newFd), ignored);
 }
 

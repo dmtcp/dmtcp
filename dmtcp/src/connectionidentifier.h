@@ -22,6 +22,7 @@
 #ifndef DMTCPCONNECTIONIDENTIFIER_H
 #define DMTCPCONNECTIONIDENTIFIER_H
 
+#include "dmtcpalloc.h"
 #include "uniquepid.h"
 
 // #include <vector>
@@ -49,7 +50,7 @@ namespace dmtcp
 //     void removeFd(int fd);
 //     size_t fdCount() const;
 //     void dup2AllFds(int sourceFd);
-//     typedef std::vector<int>::iterator fditerator;
+//     typedef dmtcp::vector<int>::iterator fditerator;
 //     fditerator begin(){ return _fds.begin(); }
 //     fditerator end(){ return _fds.end(); }
 //     void updateAfterDup(int oldfd,int newfd);
@@ -80,14 +81,14 @@ namespace dmtcp
 // protected:
 //     ConnectionIdentifiers();
 // private:
-//     std::map< int, ConnectionIdentifier* > _table;
+//     dmtcp::map< int, ConnectionIdentifier* > _table;
 // };
 
 }
 
 namespace std
 {
-  inline std::ostream& operator<< ( std::ostream& o, const dmtcp::ConnectionIdentifier& i )
+  inline dmtcp::ostream& operator<< ( dmtcp::ostream& o, const dmtcp::ConnectionIdentifier& i )
   {
     o << i.pid() << '(' << i.conId() << ')';
     return o;

@@ -102,8 +102,8 @@ EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
 
 EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   //these must be static so their memory is not deleted.
-  static std::string ckpt;
-  static std::string pid;
+  static dmtcp::string ckpt;
+  static dmtcp::string pid;
   static DmtcpLocalStatus status;
   ckpt.reserve(1024);
 

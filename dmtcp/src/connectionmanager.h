@@ -22,6 +22,7 @@
 #ifndef CONNECTIONMANAGER_H
 #define CONNECTIONMANAGER_H
 
+#include "dmtcpalloc.h"
 #include <connection.h>
 #include <list>
 #include <map>
@@ -43,7 +44,7 @@ namespace dmtcp
   {
       friend class KernelDeviceToConnection;
     public:
-      typedef std::map<ConnectionIdentifier, Connection*>::iterator iterator;
+      typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
       static ConnectionList& Instance();
@@ -58,7 +59,7 @@ namespace dmtcp
     protected:
       void add ( Connection* c );
     private:
-      typedef  std::map<ConnectionIdentifier, Connection*> ConnectionMapT;
+      typedef  dmtcp::map<ConnectionIdentifier, Connection*> ConnectionMapT;
       ConnectionMapT _connections;
   };
 
@@ -74,7 +75,7 @@ namespace dmtcp
 
       void erase(const ConnectionIdentifier&);
 
-      std::string fdToDevice ( int fd , bool noOnDemandPts = false );
+      dmtcp::string fdToDevice ( int fd , bool noOnDemandPts = false );
 
       void dbgSpamFds();
 
@@ -94,8 +95,8 @@ namespace dmtcp
 
 
     private:
-      typedef std::map< std::string , ConnectionIdentifier >::iterator iterator;
-      std::map< std::string , ConnectionIdentifier > _table;
+      typedef dmtcp::map< dmtcp::string , ConnectionIdentifier >::iterator iterator;
+      dmtcp::map< dmtcp::string , ConnectionIdentifier > _table;
   };
 
 
@@ -110,12 +111,12 @@ namespace dmtcp
 				_ppid = UniquePid::ParentProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
-      std::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
+      dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
 
-      typedef std::map< ConnectionIdentifier, std::vector<int> >::iterator iterator;
+      typedef dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> >::iterator iterator;
       iterator begin() { return _table.begin(); }
       iterator end() { return _table.end(); }
-      typedef std::map< ConnectionIdentifier, std::vector<int> >::const_iterator const_iterator;
+      typedef dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> >::const_iterator const_iterator;
       const_iterator begin() const { return _table.begin(); }
       const_iterator end() const { return _table.end(); }
 
@@ -123,26 +124,26 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
 
-      const std::string& procname()   const { return _procname; }
-      const std::string& hostname()   const { return _hostname; }
-      const std::string& inhostname() const { return _inhostname; }
+      const dmtcp::string& procname()   const { return _procname; }
+      const dmtcp::string& hostname()   const { return _hostname; }
+      const dmtcp::string& inhostname() const { return _inhostname; }
       const UniquePid&   pid()        const { return _pid; }
       const UniquePid&   ppid()       const { return _ppid; }
 
       static pid_t gzip_child_pid;
-      static int openDmtcpCheckpointFile(const std::string& filename);
-      static int openMtcpCheckpointFile(const std::string& filename);
+      static int openDmtcpCheckpointFile(const dmtcp::string& filename);
+      static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
 #ifdef PID_VIRTUALIZATION
-      int loadFromFile(const std::string& filename, VirtualPidTable& virtualPidTable);
+      int loadFromFile(const dmtcp::string& filename, VirtualPidTable& virtualPidTable);
 #else
-      int loadFromFile(const std::string& filename);
+      int loadFromFile(const dmtcp::string& filename);
 #endif
     private:
-      std::map< ConnectionIdentifier, std::vector<int> > _table;
-      std::string _procname;
-      std::string _hostname;
-      std::string _inhostname;
+      dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
+      dmtcp::string _procname;
+      dmtcp::string _hostname;
+      dmtcp::string _inhostname;
       UniquePid _pid,_ppid;
   };
 
@@ -174,8 +175,8 @@ namespace dmtcp
 
       void closeAll();
     private:
-      std::map< ConnectionIdentifier, int > _conToFd;
-      std::map< int, ConnectionIdentifier > _fdToCon;
+      dmtcp::map< ConnectionIdentifier, int > _conToFd;
+      dmtcp::map< int, ConnectionIdentifier > _fdToCon;
       int _nextFd;
       int _startFd;
   };
@@ -187,18 +188,18 @@ namespace dmtcp
   {
     public:
       static PtsToSymlink& Instance();
-      typedef std::map<std::string, std::string>::iterator iterator;
-      void replace ( std::string oldDevice, std::string newDevice );
+      typedef dmtcp::map<dmtcp::string, dmtcp::string>::iterator iterator;
+      void replace ( dmtcp::string oldDevice, dmtcp::string newDevice );
       PtsToSymlink();
 
       //void serialize(jalib::JBinarySerializer& o);
 
-      void add ( std::string device, std::string filename );
-      std::string getFilename ( std::string device );
-      bool exists(std::string);
+      void add ( dmtcp::string device, dmtcp::string filename );
+      dmtcp::string getFilename ( dmtcp::string device );
+      bool exists(dmtcp::string);
 
     private:
-      std::map<std::string, std::string> _table;
+      dmtcp::map<dmtcp::string, dmtcp::string> _table;
   };
 
 }

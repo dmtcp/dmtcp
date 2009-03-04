@@ -430,7 +430,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
   JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
 
-  std::set<int> closedFds;
+  IntSet closedFds;
   fd_set rfds;
   fd_set wfds;
   int maxFd;

@@ -69,7 +69,7 @@ static const char* theExecFailedMsg =
   "See `dmtcp_checkpoint --help` for usage.\n"
 ;
 
-static std::string _stderrProcPath()
+static dmtcp::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
 }
@@ -88,7 +88,7 @@ int main ( int argc, char** argv )
   //process args
   shift;
   while(true){
-    std::string s = argc>0 ? argv[0] : "--help";
+    dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
       fprintf(stderr, theUsage);
       return 1;
@@ -172,8 +172,8 @@ int main ( int argc, char** argv )
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
   //Detect important paths
-  std::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
-  std::string searchDir = jalib::Filesystem::GetProgramDir();
+  dmtcp::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here
   JASSERT_INIT();
@@ -183,7 +183,7 @@ int main ( int argc, char** argv )
     const char* ckptDir = get_current_dir_name();
     if(ckptDir != NULL ){
       //copy to private buffer
-      static std::string _buf = ckptDir;
+      static dmtcp::string _buf = ckptDir;
       ckptDir = _buf.c_str();
     }else{
       ckptDir=".";
@@ -192,7 +192,7 @@ int main ( int argc, char** argv )
     JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
   }
 
-  std::string stderrDevice = jalib::Filesystem::ResolveSymlink ( _stderrProcPath() );
+  dmtcp::string stderrDevice = jalib::Filesystem::ResolveSymlink ( _stderrProcPath() );
 
   //TODO:
   // When stderr is a pseudo terminal for IPC between parent/child processes,

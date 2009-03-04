@@ -63,7 +63,7 @@ int main ( int argc, char** argv )
   //process args
   shift;
   while(true){
-    std::string s = argc>0 ? argv[0] : "--help";
+    dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
       fprintf(stderr, theUsage);
       return 1;

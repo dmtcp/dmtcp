@@ -129,12 +129,12 @@ namespace dmtcp
 //         UniquePidConId             _remoteId;
 //         bool   _needRestore;
 //         bool   _isLoopback;
-//         std::map< int, std::map< int, jalib::JBuffer > > _options; // _options[level][option] = value
+//         dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _options; // _options[level][option] = value
 //     };
 //
 //     class SocketTable {
 //     public:
-//         typedef std::vector<SocketEntry>::iterator iterator;
+//         typedef dmtcp::vector<SocketEntry>::iterator iterator;
 //
 //         static SocketTable& Instance();
 //         SocketEntry& operator[] (int sockfd);
@@ -151,7 +151,7 @@ namespace dmtcp
 //         SocketTable();
 //     private:
 //         //entries by sockfd
-//         std::vector<SocketEntry> _entries;
+//         dmtcp::vector<SocketEntry> _entries;
 //     };
 //
 //

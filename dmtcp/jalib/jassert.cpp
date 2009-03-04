@@ -94,7 +94,7 @@ static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
   //promote it to a stream
   return fdopen ( nfd,"w" );
 }
-static FILE* _fopen_log_safe ( const std::string& s, int protectedFd )
+static FILE* _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _fopen_log_safe ( s.c_str(), protectedFd );
 }
@@ -102,9 +102,9 @@ static FILE* _fopen_log_safe ( const std::string& s, int protectedFd )
 
 static FILE* theLogFile = NULL;
 
-static std::string& theLogFilePath() {static std::string s;return s;};
+static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
-void jassert_internal::set_log_file ( const std::string& path )
+void jassert_internal::set_log_file ( const jalib::string& path )
 {
   theLogFilePath() = path;
   if ( theLogFile != NULL ) fclose ( theLogFile );
