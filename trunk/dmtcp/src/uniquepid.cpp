@@ -144,7 +144,7 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << "/tmp/dmtcpConTable."
+  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpConTable."
      << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
@@ -156,7 +156,7 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << "/tmp/dmtcpPidTable."
+  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidTable."
      << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
@@ -170,7 +170,8 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   //this must be static so dmtcp::string isn't destructed
   static dmtcp::string ptsSymlinkFilename_str;
 
-  ptsSymlinkFilename_str = "/tmp/pts_" + ThisProcess().toString() + '_';
+  ptsSymlinkFilename_str = getenv(ENV_VAR_TMPDIR);
+  ptsSymlinkFilename_str += "/pts_" + ThisProcess().toString() + '_';
   ptsSymlinkFilename_str += devicename;
 
   return ptsSymlinkFilename_str.c_str();

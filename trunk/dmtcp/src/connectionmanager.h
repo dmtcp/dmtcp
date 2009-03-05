@@ -182,7 +182,7 @@ namespace dmtcp
   };
 
   ///
-  /// Mapping from pts device to symlink file in /tmp
+  /// Mapping from pts device to symlink file in $DMTCP_TMPDIR
   ///
   class PtsToSymlink
   {

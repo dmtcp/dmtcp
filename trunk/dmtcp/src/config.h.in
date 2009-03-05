@@ -1,6 +1,6 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Verbose debug output and log files in /tmp */
+/* Verbose debug output and log files in $DMTCP_TMPDIR */
 #undef DEBUG
 
 /* Always enable this. */

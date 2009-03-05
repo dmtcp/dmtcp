@@ -79,6 +79,8 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
     DMTCP_CHECKPOINT_INTERVAL=<time in seconds> (default: 0, disabled)
     DMTCP_PORT=<coordinator listener port> (default: 7779)
     DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)
+    DMTCP_TMPDIR=<where temporary files are written>
+					 (default: env var TMPDIR or /tmp)
 
   dmtcp_checkpoint / dmtcp_restart:
     DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
@@ -86,7 +88,9 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
     DMTCP_GZIP=<0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
     DMTCP_CHECKPOINT_DIR=<location to store checkpoints> (default: ./)
-    DMTCP_SIGCKPT=<signal number> (default: 12, where SIGUSR2=12)
+    DMTCP_SIGCKPT=<internal signal number> (default: 12 = SIGUSR2)
+    DMTCP_TMPDIR=<where temporary files are written>
+					 (default: env var TMPDIR or /tmp)
 
   dmtcp_command:
     DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
@@ -116,17 +120,17 @@ SHORT NOTES:
        dmtcp_restart is needed if they start on a different host than that of
        the coordinator.
     3. In order to enable various types of debugging, do:
-         1. To enable debug statements for DMTCP only (related to multi-process
+         A. To enable debug statements for DMTCP only (related to multi-process
             communication), configure with: ./configure --enable-debug
             (or './configure --help', in general)
             --enable-debug both prints to stderr and writes files. This both
-            prints to stderr and writes files /tmp/jassert.log.XXX where XXX is
-            the pid of a process (checkpoint coordinator or application
-            process). In reading this, it's useful to know that DMTCP sets up
-            barriers so that all processes proceed to the following states
-            together during checkpoint: RUNNING, SUSPENDED, LOCKED, DRAINED,
-            CHECKPOINTED, REFILLED.
-         2. To enable debug statements from MTCP (single-process component),
+            prints to stderr and writes files $DMTCP_TMPIDR/jassert.log.XXX
+            where XXX is the pid of a process (checkpoint coordinator or
+            application process). In reading this, it's useful to know that
+            DMTCP sets up barriers so that all processes proceed to the
+            following states together during checkpoint: RUNNING, SUSPENDED,
+            LOCKED, DRAINED, CHECKPOINTED, REFILLED.
+         B. To enable debug statements from MTCP (single-process component),
             do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g

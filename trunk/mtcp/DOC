@@ -216,7 +216,7 @@ checkpointhread:
   while (1)
     sleep for intervalsecs
     for all thread in threads do
-      tkill(thread, STOPSIGNAL)  (send STOPSIGNAL == SIGUSR2 to thread)
+      tkill(thread, STOPSIGNAL)  (send internal STOPSIGNAL == SIGUSR2 to thread)
         calls stopthisthread() of a different thread.
     checkpointeverything:
       write out everything to checkpoint file.
