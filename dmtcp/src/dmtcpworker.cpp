@@ -145,6 +145,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     const char * compression          = getenv ( ENV_VAR_COMPRESSION );
     const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES ); 
     const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
+    const char * tmpDir               = getenv ( ENV_VAR_TMPDIR );
 
     //modify the command
 
@@ -156,8 +157,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     if ( coordinatorAddr != NULL )    prefix += dmtcp::string() + "--host " + coordinatorAddr    + " ";
     if ( coordinatorPortStr != NULL ) prefix += dmtcp::string() + "--port " + coordinatorPortStr + " ";
     if ( sigckpt != NULL )            prefix += dmtcp::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
-    if ( ckptDir != NULL )            prefix += dmtcp::string() + "--dir "  + ckptDir            + " ";
-    if ( ckptOpenFiles != NULL )      prefix += dmtcp::string() + "--checkpoint-open-files ";
+    if ( ckptDir != NULL )            prefix += dmtcp::string() + "--ckptdir " + ckptDir         + " ";
+    if ( tmpDir != NULL )             prefix += dmtcp::string() + "--tmpdir " + tmpDir           + " ";
+    if ( ckptOpenFiles != NULL )      prefix += dmtcp::string() + "--checkpoint-open-files"      + " ";
 
     if ( compression != NULL ) {
       if ( strcmp ( compression, "0" ) )

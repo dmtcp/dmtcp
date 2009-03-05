@@ -13,13 +13,13 @@ AC_PROG_RANLIB
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [enable (very) verbose debug output
-                             and write log files to /tmp (default is
+                             and write log files to \$DMTCP_TMPDIR (default is
                              disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
 
 if test "$use_jassert" = "yes"; then
-  AC_DEFINE([DEBUG],[],[Verbose debug output and log files in /tmp])
+  AC_DEFINE([DEBUG],[],[Verbose debug output and log files in $DMTCP_TMPDIR])
   CFLAGS="-g -O0"
   CXXFLAGS="-g -O0"
 fi

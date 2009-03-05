@@ -1221,7 +1221,7 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-debug          enable (very) verbose debug output and write log
-                          files to /tmp (default is disabled)
+                          files to \$DMTCP_TMPDIR (default is disabled)
   --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
                           WARNING, but no TRACE)
   --enable-timing         record checkpoint/restart timing information to

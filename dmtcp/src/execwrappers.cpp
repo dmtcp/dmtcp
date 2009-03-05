@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 #include "uniquepid.h"
@@ -99,7 +100,8 @@ extern "C" pid_t fork()
     child_pid = _real_getpid();
 #ifdef DEBUG
     //child should get new logfile
-    JASSERT_SET_LOGFILE ( "/tmp/jassertlog." + jalib::XToString ( child_pid ) );
+    JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
+			  + "/jassertlog." + jalib::XToString ( child_pid ) );
 #endif
 
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );

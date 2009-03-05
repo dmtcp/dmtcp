@@ -25,6 +25,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include  "../jalib/jtimer.h"
 #include <algorithm>
@@ -56,8 +57,10 @@ static const char* theUsage =
   "OPTIONS:\n"
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port to listen on (default: 7779)\n"
-  "  --dir, -d, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
+  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
+  "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints (default: 0, disabled)\n"
   "  --exit-on-last\n"
@@ -630,6 +633,11 @@ int main ( int argc, char** argv )
 
   bool background = false;
 
+  if (getenv("TMPDIR"))
+    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
+  else
+    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+
   shift;
   while(argc > 0){
     dmtcp::string s = argv[0];
@@ -648,8 +656,11 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       thePort = jalib::StringToInt( argv[1] );
       shift; shift;
-    }else if(argc>1 && (s == "-d" || s == "--dir")){
+    }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
+      setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
     }else if(argc == 1){ //last arg can be port
       thePort = jalib::StringToInt( argv[0] );
@@ -659,6 +670,9 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
+  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), R_OK|W_OK))
+    (getenv(ENV_VAR_TMPDIR))
+      . Text("ERROR: Missing read- or write-access to tmp dir: %s");
 
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );

@@ -46,8 +46,10 @@ static const char* theUsage =
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"
-  "  --dir, -d, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store checkpoint images (default: ./)\n"
+  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
+  "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, do not create one automatically\n"
   "  --new, -n:\n"
@@ -85,6 +87,11 @@ int main ( int argc, char** argv )
   bool quiet=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  if (getenv("TMPDIR"))
+    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
+  else
+    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+
   //process args
   shift;
   while(true){
@@ -116,8 +123,11 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && (s == "-d" || s == "--dir")){
+    }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
+      setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && s == "--mtcp-checkpoint-signal"){
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
@@ -135,6 +145,10 @@ int main ( int argc, char** argv )
       break;
     }
   }
+  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), R_OK|W_OK))
+    (getenv(ENV_VAR_TMPDIR))
+      . Text("ERROR: Missing read- or write-access to tmp dir: %s");
+
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
    * with #ifdef FORKED_CHECKPOINTING around the option, change default of

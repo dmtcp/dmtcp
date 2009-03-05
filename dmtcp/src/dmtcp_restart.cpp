@@ -202,6 +202,8 @@ static const char* theUsage =
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
+  "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, do not create one automatically\n"
   "  --new, -n:\n"
@@ -232,6 +234,11 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  if (getenv("TMPDIR"))
+    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
+  else
+    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+
   //process args
   shift;
   while(true){
@@ -254,6 +261,9 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
+    }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
+      setenv(ENV_VAR_TMPDIR, argv[1], 1);
+      shift; shift;
     }else if(s == "-q" || s == "--quiet"){
       quiet = true;
       shift;
@@ -264,6 +274,8 @@ int main ( int argc, char** argv )
       break;
     }
   }
+  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), R_OK|W_OK))
+    (getenv(ENV_VAR_TMPDIR)).Text("ERROR: Missing read- or write-access to tmp dir: %s");
 
   if (! quiet)
     printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
@@ -470,7 +482,7 @@ static jalib::JBinarySerializeWriterRaw& createPidMapFile()
 {
   dmtcp::ostringstream os;
 
-  os << "/tmp/dmtcpPidMap."
+  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
      << dmtcp::UniquePid::ThisProcess();
 
   int fd = open(os.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC|O_APPEND, 0600); 
