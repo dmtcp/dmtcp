@@ -83,6 +83,15 @@ namespace jalib
       JSocket& operator >> ( T& t ) { readAll ( ( char* ) &t, sizeof ( T ) ); return *this; }
 
       int sockfd() const { return _sockfd; }
+      // If socket originally bound to port 0, we need this to find actual port
+      int port() const { struct sockaddr_in addr;
+			 socklen_t addrlen = sizeof(addr);
+			 if (-1 == getsockname(_sockfd,
+					 (struct sockaddr *)&addr, &addrlen))
+			   return -1;
+			 else
+			   return (int)ntohs(addr.sin_port);
+		       }
       operator int () { return _sockfd; }
       void changeFd ( int newFd );
     protected:

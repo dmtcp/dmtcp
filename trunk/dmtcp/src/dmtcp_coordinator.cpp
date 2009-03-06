@@ -174,7 +174,15 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     broadcastMessage ( DMT_FORCE_RESTART );
     break;
   case 'q': case 'Q':
-    JASSERT_STDERR << "exiting... (per request)\n";
+    {
+      CoordinatorStatus s = getStatus();
+      if (s.numPeers > 0) {
+      //Can't send DMTCP_KILL_PEER msg. Delivered by monitorSockets, our caller.
+      JASSERT_STDERR << "DMTCP Coordinator quitting uncleanly:  " << s.numPeers
+		     << " peer(s) still running\n";
+      }
+    }
+    JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
     for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
         ; i!= _dataSockets.end()
         ; ++i )
@@ -633,7 +641,9 @@ int main ( int argc, char** argv )
 
   bool background = false;
 
-  if (getenv("TMPDIR"))
+  if (getenv(ENV_VAR_TMPDIR))
+    {}
+  else if (getenv("TMPDIR"))
     setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
   else
     setenv(ENV_VAR_TMPDIR, "/tmp", 0);
@@ -670,15 +680,15 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), R_OK|W_OK))
+  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
     (getenv(ENV_VAR_TMPDIR))
-      . Text("ERROR: Missing read- or write-access to tmp dir: %s");
+    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
   if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
 
-  if ( thePort <= 0 )
+  if ( thePort < 0 )
   {
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
@@ -687,6 +697,7 @@ int main ( int argc, char** argv )
   errno = 0;
   jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
   JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
+  thePort = sock.port();
 
   if(background){
     JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);

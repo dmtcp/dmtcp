@@ -234,7 +234,9 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
-  if (getenv("TMPDIR"))
+  if (getenv(ENV_VAR_TMPDIR))
+    {}
+  else if (getenv("TMPDIR"))
     setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
   else
     setenv(ENV_VAR_TMPDIR, "/tmp", 0);
@@ -274,8 +276,9 @@ int main ( int argc, char** argv )
       break;
     }
   }
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), R_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR)).Text("ERROR: Missing read- or write-access to tmp dir: %s");
+  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
+    (getenv(ENV_VAR_TMPDIR))
+    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
   if (! quiet)
     printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
