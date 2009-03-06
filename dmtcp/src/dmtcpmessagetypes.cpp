@@ -58,7 +58,8 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
 void dmtcp::DmtcpMessage::assertValid() const
 {
   JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )( _magicBits )
-	  .Text ( "read invalid message, _magicBits mismatch." );
+	  .Text ( "read invalid message, _magicBits mismatch."
+		  "  Did DMTCP coordinator die?" );
   JASSERT ( _msgSize == sizeof ( DmtcpMessage ) ) ( _msgSize ) ( sizeof ( DmtcpMessage ) )
 	  .Text ( "read invalid message, size mismatch." );
 }
