@@ -595,26 +595,49 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf(fp, "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  " ENV_VAR_NAME_ADDR "=%s\nfi\n\n", hostname);
   fprintf(fp, "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  " ENV_VAR_NAME_PORT "=%d\nfi\n\n", thePort);
 
-
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
-    if(isSingleHost && host->first==hostname){
-      fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
-    }
-
-    fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
-                  " --host \"$"ENV_VAR_NAME_ADDR"\""
-                  " --port \"$"ENV_VAR_NAME_PORT"\""
-                  " --join",
-                  host->first.c_str());
-
-    if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
-
-    for ( file=host->second.begin(); file!=host->second.end(); ++file )
+    fprintf ( fp, "\nif test -z \"$" ENV_VAR_NAME_DIR "\"; then\n\n" );
     {
-      fprintf ( fp," %s", file->c_str() );
+      if(isSingleHost && host->first==hostname){
+        fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
+      }
+
+      fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
+                    " --host \"$"ENV_VAR_NAME_ADDR"\""
+                    " --port \"$"ENV_VAR_NAME_PORT"\""
+                    " --join",
+                    host->first.c_str());
+
+      if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
+
+      for ( file=host->second.begin(); file!=host->second.end(); ++file )
+      {
+        fprintf ( fp," %s", file->c_str() );
+      }
+      if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
     }
-    if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
+    fprintf ( fp, "\n\nelse\n\n" );
+    {
+      if(isSingleHost && host->first==hostname){
+        fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
+      }
+
+      fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
+                    " --host \"$"ENV_VAR_NAME_ADDR"\""
+                    " --port \"$"ENV_VAR_NAME_PORT"\""
+                    " --join",
+                    host->first.c_str());
+
+      if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
+
+      for ( file=host->second.begin(); file!=host->second.end(); ++file )
+      {
+        fprintf ( fp," $" ENV_VAR_NAME_DIR "/`basename %s`", file->c_str() );
+      }
+      if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
+    }
+    fprintf ( fp, "\n\nfi\n" );
   }
 
   fprintf ( fp,"\n\n#wait for them all to finish\nwait\n" );
@@ -699,6 +722,17 @@ int main ( int argc, char** argv )
   JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
   thePort = sock.port();
 
+  JASSERT_STDERR <<
+    "dmtcp_coordinator starting..." <<
+    "\n    Port: " << thePort <<
+    "\n    Checkpoint Interval: ";
+  if(theCheckpointInterval==0)
+    JASSERT_STDERR << "disabled (checkpoint manually instead)";
+  else
+    JASSERT_STDERR << theCheckpointInterval;
+  JASSERT_STDERR  <<
+    "\n    Exit on last client: " << exitOnLast << "\n";
+
   if(background){
     JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
     JASSERT(dup2(open("/dev/null",O_RDWR), 1)==1);
@@ -708,17 +742,8 @@ int main ( int argc, char** argv )
     }
     pid_t sid = setsid();
   }else{
-    JASSERT_STDERR <<
-      "dmtcp_coordinator starting..." <<
-      "\n    Port: " << thePort <<
-      "\n    Checkpoint Interval: ";
-    if(theCheckpointInterval==0)
-      JASSERT_STDERR << "disabled (checkpoint manually instead)";
-    else
-      JASSERT_STDERR << theCheckpointInterval;
     JASSERT_STDERR  <<
-      "\n    Exit on last client: " << exitOnLast <<
-      "\nType '?' for help." <<
+      "Type '?' for help." <<
       "\n\n";
   }
 
