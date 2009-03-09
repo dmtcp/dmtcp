@@ -41,6 +41,12 @@ AC_ARG_ENABLE([forked_checkpointing],
 			    (experimental)])],
             [use_forked_ckpt=$enableval],
             [use_forked_ckpt=no])
+AC_ARG_ENABLE([allocator],
+            [AS_HELP_STRING([--enable-allocator],
+                            [cause DMTCP to use a custom allocator based on mmap 
+                             and avoid calling malloc and free (EXPERIMENTAL)])],
+            [use_allocator=$enableval],
+            [use_allocator=no])
 
 #checkfor -lreadline -lhistory v5, does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
@@ -99,5 +105,6 @@ if test "$use_m32" = "yes"; then
 else
   AC_SUBST([M32], [0])
 fi
+
 
 AC_OUTPUT

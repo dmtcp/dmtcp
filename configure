@@ -1236,6 +1236,8 @@ Optional Features:
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint
                           (experimental)
+  --enable-allocator      cause DMTCP to use a custom allocator based on mmap
+                          and avoid calling malloc and free.
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
 
 Optional Packages:
@@ -3120,6 +3122,13 @@ else
   use_forked_ckpt=no
 fi
 
+# Check whether --enable-allocator was given.
+if test "${enable_allocator+set}" = set; then
+  enableval=$enable_allocator; use_allocator=$enableval
+else
+  use_allocator=no
+fi
+
 
 #checkfor -lreadline -lhistory v5, does not require curses
 
@@ -3536,6 +3545,7 @@ else
   M32=0
 
 fi
+
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
