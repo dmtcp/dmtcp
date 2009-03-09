@@ -21,6 +21,7 @@
 #ifndef DMTCPALLOC_H
 #define DMTCPALLOC_H
 
+#include "../jalib/jalloc.h"
 #include <memory>
 #include <limits>
 #include <stdlib.h>
@@ -114,10 +115,11 @@ public:
     // Allocate raw memory
     pointer allocate( size_type n, const void* = NULL )
     {
-        void* p = malloc( n * sizeof(T) );
-        if( p == NULL )
-            throw std::bad_alloc();
-        return pointer(p);
+      //void* p = malloc( n * sizeof(T) );
+      //if( p == NULL )
+      //    throw std::bad_alloc();
+      //return pointer(p);
+      return pointer(jalib::JAllocDispatcher::allocate(n*sizeof(T)));
     }
 
     // Free raw memory.
@@ -125,15 +127,16 @@ public:
     // deallocate( pointer p, size_type). Because Visual C++ 6.0
     // compiler doesn't support template rebind, Dinkumware uses
     // void* hack.
-    void deallocate( void* p, size_type )
+    void deallocate( void* p, size_type n )
     {
-        // assert( p != NULL );
-        // The standard states that p must not be NULL. However, some
-        // STL implementations fail this requirement, so the check must
-        // be made here.
-        if( p == NULL )
-            return;
-        free( p );
+      //// assert( p != NULL );
+      //// The standard states that p must not be NULL. However, some
+      //// STL implementations fail this requirement, so the check must
+      //// be made here.
+      //if( p == NULL )
+      //    return;
+      //free( p );
+      jalib::JAllocDispatcher::deallocate(p, n*sizeof(T));
     }
 
  // // Non-standard Dinkumware hack for Visual C++ 6.0 compiler.
@@ -163,7 +166,6 @@ bool operator!=( const DmtcpAlloc<T1>&,
     return false;
 }
 
-
 typedef std::basic_string< char, std::char_traits<char>, DmtcpAlloc<char> > string;
 typedef std::basic_stringstream< char, std::char_traits<char>, DmtcpAlloc<char> > stringstream;
 typedef std::basic_istringstream< char, std::char_traits<char>, DmtcpAlloc<char> > istringstream;
@@ -175,14 +177,14 @@ typedef std::fstream fstream;
 typedef std::ofstream ofstream;
 typedef std::ifstream ifstream;
 
-template < typename T > class vector          : public std::vector<T, dmtcp::DmtcpAlloc<T> > {
+template < typename T > class vector: public std::vector<T, dmtcp::DmtcpAlloc<T> > {
 public:
   vector(size_t n, const T& v=T()) : std::vector<T, dmtcp::DmtcpAlloc<T> >(n, v) {}
   vector() : std::vector<T, dmtcp::DmtcpAlloc<T> >() {}
 };
 template < typename T > class list: public std::list<T, dmtcp::DmtcpAlloc<T> > {};
-template < typename K, typename V > class map : public std::map<K, V, std::less<K>, dmtcp::DmtcpAlloc<std::pair<K, V> > > {};
-template < typename K > class set             : public std::set<K, std::less<K>, dmtcp::DmtcpAlloc<K> > {};
+template < typename K, typename V > class map: public std::map<K, V, std::less<K>, dmtcp::DmtcpAlloc<std::pair<K, V> > > {};
+template < typename K > class set: public std::set<K, std::less<K>, dmtcp::DmtcpAlloc<K> > {};
 
 }
 #endif 

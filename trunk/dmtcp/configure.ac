@@ -72,6 +72,17 @@ if test "$use_pid_virt" = "yes"; then
   AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls])
 fi
 
+AC_ARG_ENABLE([allocator],
+            [AS_HELP_STRING([--enable-allocator],
+                            [cause DMTCP to use a custom allocator based on mmap 
+                             and avoid calling malloc and free (EXPERIMENTAL)])],
+            [use_allocator=$enableval],
+            [use_allocator=no])
+
+if test "$use_allocator" = "yes"; then
+  AC_DEFINE([JALIB_ALLOCATOR],[],[Use a custom allocator based on mmap])
+fi
+
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
                             [Compile in 32 bit mode on 64 bit linux.])],
