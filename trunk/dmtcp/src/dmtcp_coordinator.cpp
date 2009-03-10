@@ -722,6 +722,7 @@ int main ( int argc, char** argv )
   JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
   thePort = sock.port();
 
+#if 0
   JASSERT_STDERR <<
     "dmtcp_coordinator starting..." <<
     "\n    Port: " << thePort <<
@@ -732,11 +733,28 @@ int main ( int argc, char** argv )
     JASSERT_STDERR << theCheckpointInterval;
   JASSERT_STDERR  <<
     "\n    Exit on last client: " << exitOnLast << "\n";
+#else
+    fprintf(stderr, "dmtcp_coordinator starting..."
+    "\n    Port: %d"
+    "\n    Checkpoint Interval: ", thePort);
+  if(theCheckpointInterval==0)
+    fprintf(stderr, "disabled (checkpoint manually instead)");
+  else
+    fprintf(stderr, "%d", theCheckpointInterval);
+  fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
+#endif
 
   if(background){
+    JASSERT_STDERR  << "Backgrounding...\n";
     JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
-    JASSERT(dup2(open("/dev/null",O_RDWR), 1)==1);
-    JASSERT(dup2(open("/dev/null",O_RDWR), 2)==2);
+    fflush(stdout);
+    JASSERT(close(1)==0);
+    JASSERT(open("/dev/null", O_WRONLY)==1);
+    fflush(stderr);
+    if (close(2) != 0 || dup2(1,2) != 2)
+      exit(1); /* Can't print to stderr */
+    close(JASSERT_STDERR_FD);
+    dup2(2, JASSERT_STDERR_FD);
     if(fork()>0){
       exit(0);
     }
