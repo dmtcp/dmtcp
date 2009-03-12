@@ -53,8 +53,10 @@ __attribute__ ((visibility ("hidden")))
   int mtcp_restore_verify = 0;// 0: normal restore; 1: verification restore
 __attribute__ ((visibility ("hidden")))
   pid_t mtcp_restore_gzip_child_pid = -1; // '= -1' puts it in regular data instead of common
+__attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[MAXPATHLEN+1];
 #define MAX_ARGS 50
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
+
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden")))

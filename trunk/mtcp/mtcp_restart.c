@@ -56,9 +56,10 @@ int main (int argc, char *argv[], char *envp[])
   char magicbuf[MAGIC_LEN], *restorename;
   int fd, restore_size, verify, offset=0;
   void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,
+  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[]);
   char cmd_file[MAXPATHLEN+1];
+  char ckpt_newname[MAXPATHLEN+1] = "";
   int cmd_len;
 
   if (getuid() == 0 || geteuid() == 0) {
@@ -80,6 +81,7 @@ int main (int argc, char *argv[], char *envp[])
     verify = 0;
     offset = atoi(argv[2]);
     restorename = argv[3];
+	strncpy(ckpt_newname,restorename,MAXPATHLEN);
   } else if ((argc == 3) && (strcasecmp (argv[1], "-fd") == 0)) {
     /* This case used only when dmtcp_restart exec's to mtcp_restart. */
     verify = 0;
@@ -92,6 +94,15 @@ int main (int argc, char *argv[], char *envp[])
     restorename = NULL;
     fd = atoi(argv[2]);
     gzip_child_pid = atoi(argv[4]);
+  } else if ((argc == 7) && (strcasecmp (argv[1], "-fd") == 0)
+	     && (strcasecmp (argv[3], "-gzip_child_pid") == 0)
+		 && (strcasecmp (argv[5], "-rename-ckpt") == 0)) {
+    /* This case used only when dmtcp_restart exec's to mtcp_restart. & wants to rename checkpoint filename */
+    verify = 0;
+    restorename = NULL;
+    fd = atoi(argv[2]);
+    gzip_child_pid = atoi(argv[4]);
+	strncpy(ckpt_newname,argv[6],MAXPATHLEN);
   } else {
     mtcp_printf("usage: mtcp_restart [-verify] <checkpointfile>\n");
     return (-1);
@@ -193,7 +204,7 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
   /* Now call it - it shouldn't return */
-  (*restore_start) (fd, verify, gzip_child_pid, cmd_file, argv, envp);
+  (*restore_start) (fd, verify, gzip_child_pid, ckpt_newname, cmd_file, argv, envp);
   mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);

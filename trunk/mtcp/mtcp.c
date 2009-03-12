@@ -179,8 +179,10 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
-static char const *perm_checkpointfilename = NULL;
-static char const *temp_checkpointfilename = NULL;
+//static char const *perm_checkpointfilename = NULL;
+//static char const *temp_checkpointfilename = NULL;
+static char perm_checkpointfilename[MAXPATHLEN];
+static char temp_checkpointfilename[MAXPATHLEN];
 static unsigned long long checkpointsize;
 static int intervalsecs;
 static pid_t motherpid;
@@ -344,15 +346,13 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   }
 #endif
 
-
   intervalsecs = interval;
 
-  perm_checkpointfilename = checkpointfilename;  // this is what user wants the checkpoint file called
+  strncpy(perm_checkpointfilename,checkpointfilename,MAXPATHLEN);  // this is what user wants the checkpoint file called
   len = strlen (perm_checkpointfilename);        // make up another name, same as that, with ".temp" on the end
-  tmp = malloc (len + 6);
-  memcpy (tmp, perm_checkpointfilename, len);
-  strcpy (tmp + len, ".temp");
-  temp_checkpointfilename = tmp;                 // ... we use it to write to in case we crash while writing
+  memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
+  strncpy(temp_checkpointfilename + len, ".temp",MAXPATHLEN-len);
+                                                 // ... we use it to write to in case we crash while writing
                                                  //     we will leave the previous good one intact
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
@@ -2359,7 +2359,7 @@ skipeol:
 
 #define STRINGS_LEN 10000
 static char STRINGS[STRINGS_LEN];
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[] )
 
 { int i;
@@ -2382,6 +2382,16 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
   mtcp_restore_cpfd   = fd;
   mtcp_restore_verify = verify;
   mtcp_restore_gzip_child_pid = gzip_child_pid;
+  // Copy newname to save it too
+  {
+  	int i;
+	for(i=0;ckpt_newname[i];i++){
+	  mtcp_ckpt_newname[i] = ckpt_newname[i];
+	}
+	mtcp_ckpt_newname[i] = '\0';
+  }
+	
+
 #ifndef __x86_64__
   // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
@@ -2436,8 +2446,18 @@ static void finishrestore (void)
 
 {
   struct timeval stopped;
+  int nnamelen;
 
   DPRINTF (("mtcp finishrestore*: mtcp_printf works\n"));
+
+  if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ){
+  	// we start from different place - change it!
+	char *tmp;
+    DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
+    strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
+    memcpy (temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);
+    strncpy(temp_checkpointfilename + nnamelen, ".temp",MAXPATHLEN - nnamelen);
+  }
 
   mtcp_sys_gettimeofday (&stopped, NULL);
   stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000 - restorestarted.tv_usec;
