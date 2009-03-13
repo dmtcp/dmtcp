@@ -280,11 +280,26 @@ namespace dmtcp
           , _fileType (FILE_REGULAR)
           , _path ( path )
           , _offset ( offset )
-      {}
+      {
+        const char *cur_dir = get_current_dir_name();
+        dmtcp::string curDir = cur_dir;
+        int offs = _path.find(curDir);
+        if( offs < 0 ){
+        _rel_path = "*";
+        }else{
+          offs += curDir.size();
+          offs = _path.find('/',offs);
+          offs++;
+          _rel_path = _path.substr(offs);
+        }
+        JTRACE("New File connection created")(_path)(_rel_path);
+      }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
@@ -296,6 +311,7 @@ namespace dmtcp
 
       int         _fileType;
       dmtcp::string _path;
+      dmtcp::string _rel_path;
       dmtcp::string _savedRelativePath;
       off_t       _offset;
       struct stat _stat;

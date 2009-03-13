@@ -571,11 +571,32 @@ void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
 
 }
+
+void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+
+  const char* cur_dir = get_current_dir_name();
+  dmtcp::string curDir = cur_dir;
+  if( _rel_path != "*" ){ // file path is relative to executable current dir
+    string oldPath = _path;
+    ostringstream fullPath;
+    fullPath << curDir << "/" << _rel_path;
+    if( jalib::Filesystem::FileExists(fullPath.str()) ){
+      _path = fullPath.str();
+	  JTRACE("Change _path based on relative path")(oldPath)(_path);
+    }
+  }
+
+  //call base version (F_GETFL etc)
+  Connection::restoreOptions ( fds );
+}
+
+
 void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
 
-  JTRACE("Restoring File Connection") (_id.conId()) (_path);
+  JTRACE("Restoring File Connection") (id()) (_path);
   errno = 0;
   int tempfd = openFile ();
 
@@ -656,6 +677,18 @@ static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
 int dmtcp::FileConnection::openFile()
 {
   int fd;
+
+  const char* cur_dir = get_current_dir_name();
+  dmtcp::string curDir = cur_dir;
+  if( _rel_path != "*" ){ // file path is relative to executable current dir
+    string oldPath = _path;
+    ostringstream fullPath;
+    fullPath << curDir << "/" << _rel_path;
+    if( jalib::Filesystem::FileExists(fullPath.str()) ){
+      _path = fullPath.str();
+	  JTRACE("Change _path based on relative path")(oldPath)(_path);
+    }
+  }
 
   if (!jalib::Filesystem::FileExists(_path)) {
 
@@ -878,7 +911,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
-  o & _path & _savedRelativePath & _offset & _fileType;
+  o & _path & _rel_path & _savedRelativePath & _offset & _fileType;
 }
 
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
