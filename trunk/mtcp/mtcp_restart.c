@@ -60,7 +60,6 @@ int main (int argc, char *argv[], char *envp[])
 			 char *cmd_file, char *argv[], char *envp[]);
   char cmd_file[MAXPATHLEN+1];
   char ckpt_newname[MAXPATHLEN+1] = "";
-  int cmd_len;
 
   if (getuid() == 0 || geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
@@ -166,12 +165,13 @@ int main (int argc, char *argv[], char *envp[])
   // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   cmd_file[0] = '\0';
-  cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
-  if (cmd_len == -1)
-    mtcp_printf("WARNING:  Couldn't find /proc/self/exe."
-		"  Trying to continue anyway.\n");
-  else
-    cmd_file[cmd_len] = '\0';
+  { int cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
+    if (cmd_len == -1)
+      mtcp_printf("WARNING:  Couldn't find /proc/self/exe."
+		  "  Trying to continue anyway.\n");
+    else
+      cmd_file[cmd_len] = '\0';
+  }
 #endif
 
 #if defined(DEBUG) && ! DMTCP

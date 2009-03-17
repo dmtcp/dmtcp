@@ -1608,7 +1608,7 @@ static void checkpointeverything (void)
 
       if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
-      // Consider skipping deleted sections when we know when they're so labelled
+      // Consider skipping deleted sections when we know they're so labelled
       // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
       // if (strstr(area.name, " (deleted)")) continue;
 
@@ -1655,7 +1655,7 @@ static void checkpointeverything (void)
       }
 
 
-      /* Skip any mapping for this image - it got saved as CS_RESTOREIMAGE at the beginning */
+      /* Skip any mapping for this mtcp.so image - it got saved as CS_RESTOREIMAGE at the beginning */
 
       if (area_begin < restore_begin) {
         if (area_end <= restore_begin) {
