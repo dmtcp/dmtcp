@@ -53,11 +53,10 @@ int main(int argc, char **argv) {
     }
   }
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    fprintf (stderr, "readmtcp: '%s' is '%s', but this restore"
-		     " is '%s' (fd=%d)\n"
-		     "Consider:  gzip -dc %s | %s -\n",
-		     restorename, magicbuf, MAGIC, fd, restorename, argv[0]);
-    exit(1);
+    char command[512];
+    fprintf (stderr, "readmtcp: Not an mtcp image; trying it as dmtcp image\n");
+    sprintf (command, "gzip -dc %s | %s -", restorename, argv[0]);
+    exit( system(command) );
   }
 
 

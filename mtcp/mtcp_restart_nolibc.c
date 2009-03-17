@@ -76,7 +76,8 @@ static void readmemoryareas (void);
 static void readcs (char cs);
 static void readfile (void *buf, int size);
 static void skipfile(int size);
-static VA highest_userspace_address (VA *vdso_addr);
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
+				     VA * stack_end_addr);
 static int open_shared_file(char* fileName);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
@@ -92,7 +93,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
 {
   int rc;
-  VA holebase, highest_va, vdso_addr = (VA)NULL; /* VA = virtual address */
+  VA holebase, highest_va;
+  VA vdso_addr = (VA)NULL, vsyscall_addr = (VA)NULL,
+	stack_end_addr = (VA)NULL; /* VA = virtual address */
   void *current_brk;
   void *new_brk;
   void (*finishrestore) (void);
@@ -158,9 +161,17 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
                                                                   // ... it's left dangling on something I want
 
   /* Unmap from address 0 to holebase, except for [vdso] segment */
-  highest_va = highest_userspace_address(&vdso_addr);
-  if (highest_va == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
+  vdso_addr = vsyscall_addr = stack_end_addr = 0;
+  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
+					 &stack_end_addr);
+  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
+  else
+    highest_va = stack_end_addr;
+  DPRINTF(("new_brk (end of heap): %p, holebase (mtcp.so): %p, stack_end_addr: %p\n"
+	   "    vdso_addr: %p, highest_va: %p, vsyscall_addr: %p\n",
+	   new_brk, holebase, stack_end_addr,
+	   vdso_addr, highest_va, vsyscall_addr));
 
   if (vdso_addr != (VA)NULL && vdso_addr < holebase) {
     DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
@@ -179,11 +190,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   }
 
   /* Unmap from address holebase to highest_va, except for [vdso] segment */
+  /* Value of mtcp_shareable_end (end of data segment) can change from before */
   holebase  = (VA)mtcp_shareable_end;
   holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
-  if (highest_va == 0) { /* 0 means /proc/self/maps doesn't mark "[stack]" */
-    highest_va = HIGHEST_VA;
-  }
   if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE <= (VA)highest_va) {
     if (vdso_addr > holebase) {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
@@ -208,6 +217,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 		   mtcp_sys_errno, holebase, highest_va - holebase);
       mtcp_abort ();
   }
+  DPRINTF(("\n")); /* end of munmap */
 
   /* Read address of mtcp.c's finishrestore routine */
 
@@ -674,15 +684,17 @@ static void skipfile(int size)
 
 #if 1
 /* Modelled after mtcp_safemmap.  - Gene */
-static VA highest_userspace_address (VA *vdso_addr)
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
+				     VA *stack_end_addr)
 {
   char c;
   int mapsfd, i;
   VA endaddr, startaddr;
-  VA histackaddr = 0; /* high stack address should be highest userspace addr */
+  VA highaddr = 0; /* high stack address should be highest userspace addr */
   const char *stackstring = "[stack]";
   const char *vdsostring = "[vdso]";
-  const int bufsize = sizeof "[stack]"; /* larger of "[vdso]" and "[stack]" */
+  const char *vsyscallstring = "[vsyscall]";
+  const int bufsize = sizeof "[vsyscall]"; /* largest of last 3 strings */
   char buf[bufsize];
 
   buf[0] = '\0';
@@ -704,35 +716,53 @@ static VA highest_userspace_address (VA *vdso_addr)
 #ifndef __x86_64__
 DPRINTF(("startaddr: %x\n", startaddr));
 #endif
-    if (c != '-') goto skipeol;
+    if (c == '\0') break;
+    if (c != '-') continue; /* skip to next line */
     c = mtcp_readhex (mapsfd, &endaddr);
 #ifndef __x86_64__
 DPRINTF(("endaddr: %x\n", endaddr));
 #endif
-    if (c != ' ') goto skipeol;
+    if (c == '\0') break;
+    if (c != ' ') continue; /* skip to next line */
 
-    /* skip to next line */
-
-skipeol:
-    buf[bufsize-1] = '\0';
-    while ((c != 0) && (c != '\n')) {
-      for (i = 0; i < bufsize-2; i++)
-        buf[i] = buf[i+1];
-      buf[bufsize-2] = c;
-      c = mtcp_readchar (mapsfd);
+    while ((c != '\0') && (c != '\n')) {
+      if (c != ' ') {
+        for (i = 0; (i < bufsize) && (c != ' ')
+		    && (c != 0) && (c != '\n'); i++) {
+          buf[i] = c;
+          c = mtcp_readchar (mapsfd);
+        }
+      } else {
+        c = mtcp_readchar (mapsfd);
+      }
     }
-    if (c == 0) break;  /* Must be end of file */
+    /* i < bufsize - 1 */
+    buf[i] = '\0';
+
     /* emulate strcmp */
     for (i = 0; i < sizeof "[stack]"; i++)
       if (buf[i] != stackstring[i])
         break;
-    if (i == sizeof "[stack]")
-      histackaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
+    if (i == sizeof "[stack]") {
+      *stack_end_addr = endaddr;
+      highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
+    }
+
     for (i = 0; i < sizeof "[vdso]"; i++)
-      if (buf[i+1] != vdsostring[i])
+      if (buf[i] != vdsostring[i])
         break;
-    if (i == sizeof "[vdso]")
+    if (i == sizeof "[vdso]") {
       *vdso_addr = startaddr;
+      highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
+    }
+
+    for (i = 0; i < sizeof "[vsyscall]"; i++)
+      if (buf[i] != vsyscallstring[i])
+        break;
+    if (i == sizeof "[vsyscall]") {
+      *vsyscall_addr = startaddr;
+      highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
+    }
 #ifndef __x86_64__
 DPRINTF(("startaddr: %p\n", startaddr));
 DPRINTF(("vdso_addr: %p\n", *vdso_addr));
@@ -741,13 +771,13 @@ DPRINTF(("vdso_addr: %p\n", *vdso_addr));
 
   mtcp_sys_close (mapsfd);
 
-  return (VA)histackaddr;
-
+  return (VA)highaddr;
 }
 
 #else
 /* Added by Gene Cooperman */
-static VA highest_userspace_address (VA *vdso_addr)
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
+				     VA *stack_end_addr)
 {
   Area area;
   VA area_end = 0;
@@ -769,6 +799,12 @@ static VA highest_userspace_address (VA *vdso_addr)
     p = strstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;
+    p = strstr (area.name, "[vsyscall]");
+    if (p != NULL)
+      *vsyscall_addr = area.addr;
+    p = strstr (area.name, "[stack]");
+    if (p != NULL)
+      *stack_end_addr = area.addr + addr.size;
     p = strstr (area.name, "[vsyscall]");
     if (p != NULL) /* vsyscall is highest segment, when it exists */
       return area.addr;
