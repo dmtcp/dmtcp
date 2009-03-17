@@ -562,6 +562,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);
+  stat(_path.c_str(),&_stat);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
   if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))
@@ -572,9 +573,8 @@ void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 
 }
 
-void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+void dmtcp::FileConnection::refreshPath()
 {
-
   const char* cur_dir = get_current_dir_name();
   dmtcp::string curDir = cur_dir;
   if( _rel_path != "*" ){ // file path is relative to executable current dir
@@ -586,7 +586,11 @@ void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 	  JTRACE("Change _path based on relative path")(oldPath)(_path);
     }
   }
+}
 
+void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+  refreshPath();
   //call base version (F_GETFL etc)
   Connection::restoreOptions ( fds );
 }
@@ -598,6 +602,8 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
 
   JTRACE("Restoring File Connection") (id()) (_path);
   errno = 0;
+  refreshPath();
+  truncate(_path.c_str(),_stat.st_size);
   int tempfd = openFile ();
 
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
@@ -677,18 +683,6 @@ static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
 int dmtcp::FileConnection::openFile()
 {
   int fd;
-
-  const char* cur_dir = get_current_dir_name();
-  dmtcp::string curDir = cur_dir;
-  if( _rel_path != "*" ){ // file path is relative to executable current dir
-    string oldPath = _path;
-    ostringstream fullPath;
-    fullPath << curDir << "/" << _rel_path;
-    if( jalib::Filesystem::FileExists(fullPath.str()) ){
-      _path = fullPath.str();
-	  JTRACE("Change _path based on relative path")(oldPath)(_path);
-    }
-  }
 
   if (!jalib::Filesystem::FileExists(_path)) {
 
@@ -911,7 +905,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
-  o & _path & _rel_path & _savedRelativePath & _offset & _fileType;
+  o & _path & _rel_path & _savedRelativePath & _offset & _fileType & _stat;
 }
 
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
