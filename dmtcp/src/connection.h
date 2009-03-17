@@ -307,6 +307,7 @@ namespace dmtcp
     private:
       void saveFile (int fd);
       int  openFile ();
+      void refreshPath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
 
       int         _fileType;
