@@ -88,9 +88,18 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 
 bool jalib::Filesystem::FileExists ( const jalib::string& str )
 {
+  struct stat st;
+  
+  if( !stat(str.c_str(),&st) ){
+    return true;
+  }else {
+    return false;
+  } 
+  /* Old variant. If file is write-only we fail but this is wrong 
   FILE* fp = fopen ( str.c_str(),"r" );
   if ( fp != NULL ) fclose ( fp );
   return fp != NULL;
+   */
 }
 
 #define FHU_TRY_DIR(expr) {\
