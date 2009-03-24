@@ -43,7 +43,7 @@ static pid_t originalToCurrentPid( pid_t originalPid )
   
   if (currentPid == -1)
     currentPid = originalPid;
-  
+
   return currentPid;
 }
 
@@ -131,13 +131,13 @@ extern "C" int   setpgid(pid_t pid, pid_t pgid)
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  pid_t currPid;
+	pid_t currPid;
   
   // If !pid then we ask SID of this process
   if( pid )
   	currPid = originalToCurrentPid (pid);
   else
-    currPid = getpid();
+    currPid = _real_getpid();
   
   pid_t res = _real_getsid (currPid);
 
@@ -147,8 +147,9 @@ extern "C" pid_t getsid(pid_t pid)
 extern "C" pid_t setsid(void)
 {
   pid_t pid = _real_setsid();
-
-  return currentToOriginalPid (pid);
+  pid_t origPid = currentToOriginalPid (pid);
+  dmtcp::VirtualPidTable::Instance().setsid(origPid);
+  return origPid;
 }
 
 extern "C" int   kill(pid_t pid, int sig)
