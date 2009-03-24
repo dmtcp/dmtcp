@@ -67,8 +67,10 @@ namespace dmtcp
 
       pid_t pid() const { return _pid; }
       pid_t ppid() const { return _ppid; }
+      pid_t sid() const { return _sid; }
 
       void setppid( pid_t ppid ) { _ppid = ppid; }
+      void setsid( pid_t sid ) { _sid = sid; }
 
       void updateMapping (pid_t originalPid, pid_t currentPid);
 
@@ -87,6 +89,7 @@ namespace dmtcp
       bool  _isRootOfProcessTree;
       pid_t _pid;
       pid_t _ppid;
+      pid_t _sid;
   };
 
 }

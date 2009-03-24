@@ -36,6 +36,7 @@ dmtcp::VirtualPidTable::VirtualPidTable()
 {
   _pid = _real_getpid();
   _ppid = _real_getppid();
+  _sid = -1;
   _isRootOfProcessTree = false;
   _childTable.clear();
   _pidMapTable.clear();
@@ -163,7 +164,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
   if (o.isWriter() )
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
 
-  o & _isRootOfProcessTree;
+  o & _isRootOfProcessTree & _sid & _ppid;
 
   if ( _isRootOfProcessTree )
     JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
