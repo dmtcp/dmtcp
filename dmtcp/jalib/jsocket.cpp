@@ -176,8 +176,10 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
 
     if ( retval == -1 )
     {
-      JWARNING ( retval >= 0 ) ( _sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
-      return -1;
+      if( errno != EINTR ){ 
+        JWARNING ( retval >= 0 ) ( _sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
+        return -1;
+      }
     }
     else if ( retval )
     {
