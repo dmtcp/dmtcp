@@ -28,6 +28,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "constants.h"
+#include <sys/ptrace.h>
+#include <stdarg.h>
+#include <asm/ldt.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -121,6 +124,12 @@ extern "C"
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
 
 #endif /* PID_VIRTUALIZATION */
+
+  long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+
+  long int _real_syscall(long int sys_num, ... );
+  
+  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 #ifdef __cplusplus
 }

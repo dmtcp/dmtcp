@@ -220,17 +220,17 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
 
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
-  return (pid_t) syscall(SYS_getpid);
+  return (pid_t) _real_syscall(SYS_getpid);
 //  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
 }
 
 pid_t _real_gettid(void){
-  return (pid_t) syscall(SYS_gettid);
+  return (pid_t) _real_syscall(SYS_gettid);
 //  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){
-  return (pid_t) syscall(SYS_getppid);
+  return (pid_t) _real_syscall(SYS_getppid);
   //REAL_FUNC_PASSTHROUGH ( getppid ) ( );
 }
 
@@ -298,3 +298,27 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
   REAL_FUNC_PASSTHROUGH ( wait4 ) ( pid, status, options, rusage );
 }
 #endif
+
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
+  REAL_FUNC_PASSTHROUGH ( ptrace ) ( request, pid, addr, data );
+}
+
+/* See comments for syscall wrapper */
+long int _real_syscall(long int sys_num, ... ) {
+  int i;
+  void * arg[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+  for (i = 0; i < 7; i++)
+    arg[i] = va_arg(ap, void *);
+  va_end(ap);
+
+  REAL_FUNC_PASSTHROUGH ( syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+}
+
+int _real_clone ( int ( *function ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
+{ 
+  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
+}
+

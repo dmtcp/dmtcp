@@ -80,6 +80,7 @@ namespace dmtcp
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
+      dmtcp::map< pid_t , pid_t > _threadTable;
       typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
       dmtcp::map< pid_t , pid_t > _pidMapTable;
 

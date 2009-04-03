@@ -61,9 +61,15 @@
 #include <sys/types.h>     // for gettid, tkill, waitpid
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
+#include <sys/ptrace.h>
+#include <sys/user.h>
 
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
+
+#define PTRACE_SLEEP_INTERVAL 2
+#define EFLAGS_OFFSET (64)
+
 #include "mtcp_internal.h"
 
 #if 0
@@ -127,6 +133,9 @@ if (DEBUG_RESTARTING) \
 	 (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
 #define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
 
+/* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
+#define GETTID() syscall(SYS_gettid)
+
 sem_t sem_start;
 
 typedef struct Thread Thread;
@@ -134,6 +143,7 @@ typedef struct Thread Thread;
 struct Thread { Thread *next;                       // next thread in 'threads' list
                 Thread **prev;                      // prev thread in 'threads' list
                 int tid;                            // this thread's id as returned by mtcp_sys_kernel_gettid ()
+                int original_tid;                   // this is the the thread's "original" tid
                 MtcpState state;                    // see ST_... below
                 Thread *parent;                     // parent thread (or NULL if top-level thread)
                 Thread *children;                   // one of this thread's child threads
@@ -162,6 +172,27 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 #endif
               };
 
+/* 
+ * struct MtcpRestartThreadArg 
+ *
+ * DMTCP requires the original_tids  of the threads being created during
+ *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
+ *  the original_tid of the thread being created from MTCP to DMTCP. 
+ *
+ * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+ * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
+ *
+ * DMTCP automatically extracts arg from this structure and passes that
+ * to the _real_clone call.
+ * 
+ * IMPORTANT NOTE: While updating, this structure must be kept in sync
+ * with the structure defined with the same name in mtcpinterface.cpp 
+ */
+struct MtcpRestartThreadArg { 
+  void *arg;
+  pid_t original_tid;
+};
+
 #define ST_RUNDISABLED 0     // thread is running normally but with checkpointing disabled
 #define ST_RUNENABLED 1      // thread is running normally and has checkpointing enabled
 #define ST_SIGDISABLED 2     // thread is running normally with cp disabled, but checkpoint thread is waiting for it to enable
@@ -177,6 +208,7 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 	/* Static data */
 
+static char const *ptrace_shared_file = "/tmp/ptrace_shared_file.txt";
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
 //static char const *perm_checkpointfilename = NULL;
@@ -260,6 +292,16 @@ static void sync_shared_mem(void);
 
 typedef void (*sighandler_t)(int);
 
+const unsigned char DMTCP_SYS_sigreturn =  0x77;
+const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
+
+static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
+#define LINUX_SYSCALL_LEN (sizeof linux_syscall)
+
+static __thread pid_t old_tid = -1;
+__thread int dmtcp_status = 0;
+__thread int dmtcp_code = 0;
+
 sighandler_t _real_signal(int signum, sighandler_t handler){
   return signal(signum, handler);
 }
@@ -270,23 +312,21 @@ int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return sigprocmask(how, set, oldset);
 }
 
-
-
 /********************************************************************************************************************************/
-/*																*/
-/*  This routine must be called at startup time to initiate checkpointing							*/
-/*																*/
-/*    Input:															*/
-/*																*/
-/*	checkpointfilename = name to give the checkpoint file									*/
-/*	interval = interval, in seconds, to write the checkpoint file								*/
-/*	clonenabledefault = 0 : clone checkpointing blocked by default (call mtcp_ok in the thread to enable)			*/
-/*	                    1 : clone checkpointing enabled by default (call mtcp_no in the thread to block if you want)	*/
-/*																*/
-/*	envar MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers (default libc.??.so)				*/
-/*	envar MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by doing a restore to resume					*/
-/*	                               default is 0, ie, don't ever verify							*/
-/*																*/
+/*                                                                                                                              */
+/*  This routine must be called at startup time to initiate checkpointing                                                       */
+/*                                                                                                                              */
+/*    Input:                                                                                                                    */
+/*                                                                                                                              */
+/*  checkpointfilename = name to give the checkpoint file                                                                       */
+/*  interval = interval, in seconds, to write the checkpoint file                                                               */
+/*  clonenabledefault = 0 : clone checkpointing blocked by default (call mtcp_ok in the thread to enable)                       */
+/*                      1 : clone checkpointing enabled by default (call mtcp_no in the thread to block if you want)            */
+/*                                                                                                                              */
+/*  envar MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers (default libc.??.so)                                    */
+/*  envar MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by doing a restore to resume                                     */
+/*                                 default is 0, ie, don't ever verify                                                          */
+/*                                                                                                                              */
 /********************************************************************************************************************************/
 /* These hook functions provide an alternative to DMTCP callbacks, using
  * weak symbols.  While MTCP is immature, let's allow both, in case
@@ -517,7 +557,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_ckpt_fd = ckpt_fd;
     callback_write_ckpt_prefix = write_ckpt_prefix;
 }
-
+
 /*************************************************************************/
 /*						                         */
 /*  Dump out the TLS stuff pointed to by %gs	                         */
@@ -606,7 +646,7 @@ void mtcp_dump_tls (char const *file, int line)
   }
 #endif
 }
-
+
 /*****************************************************************************/
 /*									     */
 /*  This is our clone system call wrapper				     */
@@ -706,7 +746,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 }
 
 asm (".global clone ; .type clone,@function ; clone = __clone");
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called (via clone) as the top-level routine of a thread that we are tracking.				*/
@@ -789,7 +829,7 @@ static int threadcloned (void *threadv)
 
   return (rc);
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  set_tid_address wrapper routine												*/
@@ -810,7 +850,7 @@ static long set_tid_address (int *tidptr)
   mtcp_sys_set_tid_address(tidptr);
   return (rc);                       // now we tell kernel to change it for the current thread
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Link thread struct to the lists and finish filling it in									*/
@@ -837,6 +877,7 @@ static void setupthread (Thread *thread)
   /* Set state to disable checkpointing so checkpointer won't race between adding to list and setting up handler */
 
   thread -> tid = mtcp_sys_kernel_gettid ();
+  thread -> original_tid = GETTID ();
 
   lock_threads ();
 
@@ -858,7 +899,7 @@ static void setupthread (Thread *thread)
 
   setup_sig_handler ();
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Set up 'clone_entry' variable												*/
@@ -908,7 +949,7 @@ static void setup_clone_entry (void)
 
   clone_entry = mtcp_get_libc_symbol ("__clone");
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Thread has exited - unlink it from lists and free struct									*/
@@ -974,7 +1015,7 @@ static void threadisdead (Thread *thread)
 
   free (thread);
 }
-
+
 void *mtcp_get_libc_symbol (char const *name)
 
 {
@@ -988,7 +1029,7 @@ void *mtcp_get_libc_symbol (char const *name)
   }
   return (temp);
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Call this when it's OK to checkpoint											*/
@@ -1087,7 +1128,7 @@ again:
     }
   }
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.		*/
@@ -1123,7 +1164,8 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-  DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
+  DPRINTF (("mtcp checkpointhread*: after getcontext :curr%d, orig:%d\n",
+        mtcp_sys_kernel_gettid(), GETTID()));
   if (originalstartup)
     originalstartup = 0;
   else {
@@ -1415,7 +1457,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 }
 
 
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called from time-to-time to write a new checkpoint file.							*/
@@ -1941,7 +1983,228 @@ static void writefile (int fd, void const *buff, int size)
     bf += rc;
   }
 }
-
+
+void writeptraceinfo (pid_t parent_tid, pid_t child_tid) 
+{
+/*  
+  int ptrace_fd;
+  struct flock lock;
+ 
+  ptrace_fd = open(ptrace_shared_file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
+  if ( ptrace_fd == -1 ) {
+	perror("writeptraceinfo: Error opening file\n");
+	mtcp_abort();
+  }			
+
+  lock.l_type = F_WRLCK;
+  lock.l_whence = SEEK_CUR;
+  lock.l_start = 0;
+  lock.l_len = 0;
+  lock.l_pid = mtcp_sys_getpid();
+  // file locking: only one process can write at one time; this is the only place where it is required 
+  if (fcntl(ptrace_fd, F_GETLK, &lock ) == -1) {
+        perror("writeptraceinfo: Error acquiring lock\n");
+        mtcp_abort();
+  }
+	
+  //original parent_tid 
+  if (write(ptrace_fd, &parent_tid, sizeof(pid_t)) == -1) {
+	perror("writeptraceinfo: Error writing to file\n");
+	mtcp_abort();
+  }
+  //original child_tid
+  if (write(ptrace_fd, &child_tid, sizeof(pid_t)) == -1) {
+	perror("writeptraceinfo: Error writing to file\n");
+	mtcp_abort();
+  }	
+  lock.l_type = F_UNLCK;
+  lock.l_whence = SEEK_CUR;
+  lock.l_start = 0;
+  lock.l_len = 0;
+  // file locking: release the lock
+  if (fcntl(ptrace_fd, F_SETLK, &lock) == -1) {
+  	perror("writeptraceinfo: Error releasing lock\n");
+        mtcp_abort();
+  }
+  if ( close(ptrace_fd) != 0 ) {
+	perror("writeptraceinfo: Error closing file\n");
+	mtcp_abort();
+  }
+*/
+}
+
+void ptrace_detach_threads() 
+{
+  /*
+	int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
+	//pid_t curr_parent_tid;
+	//pid_t curr_child_tid;
+	pid_t initial_parent_tid;
+	pid_t initial_child_tid;
+  pid_t superior;
+  pid_t inferior;
+	int status;
+	siginfo_t infoop;
+
+	// in the case we're not ptracing
+	if (ptrace_fd != -1) {
+		printf("ptrace_detach_threads for thread %d\n", GETTID());
+		// required for all user threads to get SIGUSR2 from their checkpoint thread
+		sleep(PTRACE_SLEEP_INTERVAL);
+		while (read(ptrace_fd, &superior, sizeof(pid_t)) != 0) {
+			read(ptrace_fd, &inferior, sizeof(pid_t));
+      //superior = initial_parent_tid;
+      //inferior = initial_child_tid;
+			//curr_parent_tid = originalToCurrent(initial_parent_tid);
+			//if (curr_parent_tid == mtcp_sys_kernel_gettid()) { 
+			if ( superior == GETTID() ) { 
+				if (waitid(P_PID, inferior, &infoop, WSTOPPED | WNOHANG | WNOWAIT) < 0) {
+					perror("ptrace_detach_threads: waitid");
+					mtcp_abort();
+				}	
+				dmtcp_status = infoop.si_status;
+				dmtcp_code = infoop.si_code;
+				printf("si_code = %d \nsi_status = %d \n", infoop.si_code, infoop.si_status);
+				//setenv("PTRACE_LOCAL_CALL","yes", 1);
+				//if (ptrace(PTRACE_DETACH, initial_child_tid, 0, SIGUSR2) == -1) {
+				if (ptrace(PTRACE_DETACH, inferior, 0, SIGUSR2) == -1) {
+					//curr_child_tid = originalToChild(initial_child_tid);
+					printf("ptrace_detach_threads: parent = %ld child = %ld\n", superior, inferior);
+					perror("ptrace_detach_threads: PTRACE_DETACH failed"); 
+					mtcp_abort();
+				}
+			}
+		}
+  		if ( close(ptrace_fd) != 0 ) {
+			perror("ptrace_detach_threads: Error closing file\n");
+			mtcp_abort();
+  		}
+        	//lazy synchronization; 
+		sleep(PTRACE_SLEEP_INTERVAL);
+		printf("ptrace_detach_threads: finished for thread %d\n\n", GETTID());
+	}
+  */
+}
+
+void ptrace_attach_threads(int isRestart) 
+
+{
+  /*
+	int ptrace_fd;
+	//pid_t curr_parent_tid;
+	//pid_t curr_child_tid;
+	pid_t superior;
+	pid_t inferior;
+	pid_t initial_parent_tid;
+	pid_t initial_child_tid;
+	pid_t trash;
+	//pid_t current_tid;
+	//struct pt_regs regs;
+	long peekdata;
+	long low, upp;
+	int status;
+	long addr;
+	unsigned long int eflags;
+	
+	//current_tid = mtcp_sys_kernel_gettid();
+	
+	//lazy synchronization; we can now reattach
+	sleep(PTRACE_SLEEP_INTERVAL);
+
+	ptrace_fd = open(ptrace_shared_file, O_RDONLY);
+	if (ptrace_fd != -1) {
+		while (read(ptrace_fd, &superior, sizeof(pid_t)) != 0) {
+			read(ptrace_fd, &inferior, sizeof(pid_t));
+      //superior = initial_parent_tid;
+      //inferior = initial_child_tid;
+			//curr_parent_tid = originalToCurrent(initial_parent_tid);
+			//curr_child_tid = originalToCurrent(initial_child_tid);
+			printf("read: parent_tid = %d child_tid = %d \n", superior, inferior);
+			if (superior == GETTID()) { 
+				printf("attaching parent = %d child = %d\n", superior, inferior);
+				//setenv("PTRACE_LOCAL_CALL", "yes", 1);
+				if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
+					perror("ptrace_attach_threads: PTRACE_ATTACH failed");
+					printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", superior, inferior);
+  					mtcp_abort();
+				}
+        
+				while(1) {
+					if (waitpid(inferior, &status, 0) == -1) {
+						perror("ptrace_attach_threads: waitpid failed\n");	
+						mtcp_abort();
+					} 
+      					if (WIFEXITED(status)) { 
+        					printf("The reason for childs death was %d\n",WEXITSTATUS(status));
+      					}
+					else if(WIFSIGNALED(status)) {
+        					printf("The reason for child's death was signal %d\n",WTERMSIG(status));
+      					}
+					setenv("PTRACE_LOCAL_CALL", "yes", 1);
+					if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
+						perror("ptrace_attach_threads: PTRACE_GETREGS failed");
+						mtcp_abort();
+					}
+					setenv("PTRACE_LOCAL_CALL", "yes", 1);
+ 					peekdata = ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
+					low = peekdata & 0xff;
+                			peekdata >>=8;
+                			upp = peekdata & 0xff;
+				        if (((low == 0xcd) && (upp == 0x80)) &&
+					    ((regs.eax == DMTCP_SYS_sigreturn) ||
+					     (regs.eax == DMTCP_SYS_rt_sigreturn))) { 
+						if (isRestart) {
+							printf("isRestart\n");	
+							if (regs.eax == DMTCP_SYS_sigreturn) { 
+								addr = regs.esp;
+							}
+							else { 
+								printf("SYS_RT_SIGRETURN\n");
+								//UNTESTED -> TODO; gdb very unclear
+								addr = regs.esp + 8; 
+								setenv("PTRACE_LOCAL_CALL", "yes", 1);	
+								addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+								addr += 20;
+							}
+							addr += EFLAGS_OFFSET;
+							setenv("PTRACE_LOCAL_CALL", "yes", 1);
+							eflags = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+							eflags |= 0x0100;								
+							setenv("PTRACE_LOCAL_CALL", "yes", 1);
+							if (ptrace(PTRACE_POKEDATA, inferior, addr, &eflags) < 0) {
+								perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
+								mtcp_abort();
+							}
+						}		
+						if (dmtcp_code && dmtcp_status) {
+							//the user thread didn't read the status of waitpid 
+							setenv("PTRACE_LOCAL_CALL", "yes", 1);
+							if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+								perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+								mtcp_abort();
+							}
+						}
+						break;  	
+					}
+					setenv("PTRACE_LOCAL_CALL", "yes", 1);
+					if (ptrace(PTRACE_SINGLESTEP,inferior, 0, 0) < 0) {
+						perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+						mtcp_abort();
+					}
+				}
+			}
+		}
+  		if ( close(ptrace_fd) != 0 ) {
+			perror("ptrace_attach_threads: Error closing file\n");
+			mtcp_abort();
+  		}
+	}
+	sleep(PTRACE_SLEEP_INTERVAL);
+	printf("ptrace_attach_threads: finished for %d\n", GETTID());
+  */
+}
+
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a 	*/
@@ -1954,6 +2217,9 @@ static void stopthisthread (int signum)
 {
   int rc;
   Thread *thread;
+
+  old_tid = GETTID(); 
+  ptrace_detach_threads(); 	
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
@@ -1991,6 +2257,8 @@ static void stopthisthread (int signum)
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
 
+      ptrace_attach_threads(0);	
+      
       /* Maybe there is to be a checkpoint verification.  If so, and we're the main    */
       /* thread, exec the restore program.  If so and we're not the main thread, exit. */
 
@@ -2031,12 +2299,13 @@ static void stopthisthread (int signum)
 
         if (mtcp_restore_verify) renametempoverperm ();
       }
+      ptrace_attach_threads(1);	      
     }
   }
   DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
-	    mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
+        mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Wait for all threads to finish restoring their context, then release them all to continue on their way.			*/
@@ -2078,7 +2347,7 @@ static void wait_for_all_restored (void)
     }
   }
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Save signal handlers and block signal delivery										*/
@@ -2110,7 +2379,7 @@ static void save_sig_state (Thread *thisthread)
     }
   }
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Save state necessary for TLS restore											*/
@@ -2159,7 +2428,7 @@ static void save_tls_state (Thread *thisthread)
   }
 #endif
 }
-
+
 static void renametempoverperm (void)
 
 {
@@ -2168,7 +2437,7 @@ static void renametempoverperm (void)
     mtcp_abort ();
   }
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Get current thread struct pointer												*/
@@ -2195,7 +2464,7 @@ static Thread *getcurrenthread (void)
   mtcp_abort ();
   return thread; /* NOTREACHED : stop compiler warning */
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Lock and unlock the 'threads' list												*/
@@ -2218,7 +2487,7 @@ static void unlk_threads (void)
   mtcp_state_set(&threadslocked , 0, 1);
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Read /proc/self/maps line, converting it to an Area descriptor struct							*/
@@ -2341,7 +2610,7 @@ skipeol:
   mtcp_abort ();
   return (0);  /* NOTREACHED : stop compiler warning */
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Do restore from checkpoint file												*/
@@ -2461,7 +2730,7 @@ static void finishrestore (void)
 
   mtcp_sys_gettimeofday (&stopped, NULL);
   stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000 - restorestarted.tv_usec;
-  TPRINTF (("mtcp finishrestore*: time %u uS\n", stopped.tv_usec));
+  DPRINTF (("mtcp finishrestore*: time %u uS\n", stopped.tv_usec));
 
   /* Now we can access all our files and memory that existed at the time of the checkpoint  */
   /* We are still on the temporary stack, though                                            */
@@ -2479,11 +2748,11 @@ static void finishrestore (void)
 }
 
 static int restarthread (void *threadv)
-
 {
   int rip;
   Thread *child;
   Thread *const thread = threadv;
+  struct MtcpRestartThreadArg mtcpRestartThreadArg;
 
   restore_tls_state (thread);
 
@@ -2494,8 +2763,8 @@ static int restarthread (void *threadv)
 
     if (callback_post_ckpt != NULL) {
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1=restarting)"
-		 " (&%x,%x) \n",
-		 &callback_post_ckpt, callback_post_ckpt));
+              " (&%x,%x) \n",
+              &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(1);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
@@ -2518,15 +2787,41 @@ static int restarthread (void *threadv)
 
     ///JA: v54b port
     errno = -1;
-    if ((*clone_entry) (restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
-                        (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
-                        child, child -> parent_tidptr, NULL, child -> actual_tidptr) < 0) {
+
+    void *clone_arg = (void *)child;
+
+//#ifdef DMTCP    
+    /* 
+     * DMTCP needs to know original_tid of the thread being created by the 
+     *  following clone() call.
+     *
+     * Threads are created by using syscall which is intercepted by DMTCP and
+     *  the original_tid is sent to DMTCP as a field of MtcpRestartThreadArg
+     *  structure. DMTCP will automatically extract the actual argument 
+     *  (clone_arg -> arg) from clone_arg and will pass it on to the real
+     *  clone call.
+     *                                                           (--Kapil)
+     */
+    mtcpRestartThreadArg.arg = (void *)child;
+    mtcpRestartThreadArg.original_tid = child -> original_tid;
+    clone_arg = (void *) &mtcpRestartThreadArg;
+    //clone_arg = (void *) child;
+//#endif
+
+    //if ( (*clone_entry)( restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+    pid_t tid = syscall( SYS_clone, restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+                  (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
+                  clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
+
+
+    if ( tid < 0) {
 
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
       mtcp_printf ("mtcp restarthread:   clone_flags %X, savedsp %p\n",
                    child -> clone_flags, child -> savctx.SAVEDSP);
       mtcp_abort ();
     }
+    DPRINTF((" Parent:%d, tid of newly created thread:%d\n\n", GETTID(), tid));
   }
 
   /* All my children have been created, jump to the stopthisthread routine just after getcontext call */
@@ -2535,13 +2830,13 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
-  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d\n",
-	    thread->tid));
+  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d  orig:%d\n",
+	    thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
   return (0); /* NOTREACHED : stop compiler warning */
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Restore the GDT entries that are part of a thread's state									*/
@@ -2608,7 +2903,7 @@ static void restore_tls_state (Thread *thisthread)
 
   thisthread -> tid = mtcp_sys_kernel_gettid ();
 }
-
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Set the thread's STOPSIGNAL handler.  Threads are sent STOPSIGNAL when they are to suspend execution the application, save 	*/

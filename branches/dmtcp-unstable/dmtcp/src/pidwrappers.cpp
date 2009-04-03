@@ -34,6 +34,7 @@
 #include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
+#include <sys/syscall.h>
 
 #ifdef PID_VIRTUALIZATION                                                         
 
@@ -55,6 +56,52 @@ static pid_t currentToOriginalPid( pid_t currentPid )
     originalPid = currentPid;
   
   return originalPid;
+}
+
+static pid_t gettid()
+{
+  pid_t currentTid = _real_gettid();
+  return currentToOriginalPid ( currentTid );
+}
+
+
+/* Comments by Gene:
+ * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
+ * We would add a special case for SYS_gettid, while all others default as below
+ * It depends on the idea that arguments are stored in registers, whose
+ *  natural size is:  sizeof(void*)
+ * So, we pass six arguments to syscall, and it will ignore any extra arguments
+ * I believe that all Linux system calls have no more than 7 args.
+ * clone() is an example of one with 7 arguments.
+ * If we discover system calls for which the 7 args strategy doesn't work,
+ *  we can special case them. 
+ *
+ * XXX: DONOT USE JTRACE/JNOTE/JASSERT in this function, even better, do not
+ *      any C++ things here.  (--Kapil)
+ */
+
+extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
+extern "C" long int syscall(long int sys_num, ... )
+{
+  int i;
+  void * arg[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+  for (i = 0; i < 7; i++)
+    arg[i] = va_arg(ap, void *);
+  va_end(ap);
+  switch ( sys_num ) {
+    case SYS_gettid:
+      return gettid(); 
+      break;
+    case SYS_clone:
+      return __clone((int (*)(void*))arg[0], arg[1], (int)(long int) arg[2], arg[3], (pid_t *)arg[4], (struct user_desc*)arg[5], (pid_t*)arg[6]);
+      break;
+  }
+
+  return _real_syscall(sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
 }
 
 
@@ -83,7 +130,7 @@ extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 //  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
   int retval = _real_tcsetpgrp(fd, currPgrp);
 
-  JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
+  //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
   return retval;
 }
 
@@ -91,15 +138,8 @@ extern "C" pid_t tcgetpgrp(int fd)
 {
   pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
-  JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
+  //JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
   return retval;
-}
-
-extern "C" pid_t gettid()
-{
-  pid_t currentTid = _real_gettid();
-
-  return currentToOriginalPid ( currentTid );
 }
 
 extern "C" pid_t getpgrp(void)
