@@ -1164,7 +1164,7 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-  DPRINTF (("mtcp checkpointhread*: after getcontext :curr%d, orig:%d\n",
+  DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
         mtcp_sys_kernel_gettid(), GETTID()));
   if (originalstartup)
     originalstartup = 0;
@@ -2830,7 +2830,7 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
-  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d  orig:%d\n",
+  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d, original_tid:%d\n",
 	    thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();

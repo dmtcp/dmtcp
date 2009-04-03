@@ -76,6 +76,7 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _ppid = currentToOriginalPid ( _real_getppid() );
   _isRootOfProcessTree = false;
   _childTable.clear();
+  _tidVector.clear();
   //_pidMapTable.clear();
   //_pidMapTable[_pid] = _pid;
 }
@@ -85,7 +86,7 @@ pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
   pid_iterator i = _pidMapTable.find(originalPid); 
   if ( i == _pidMapTable.end() ) 
   {
-    //JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
+    JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
     return originalPid;
   }
 
@@ -99,7 +100,7 @@ pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
     if ( currentPid == i->second )
       return i->first;
   }
-  // JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
+    JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
 
   return currentPid;
 }
@@ -147,6 +148,30 @@ dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
   return pidVec;
 }
 
+dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getTidVector( )
+{
+  return _tidVector;
+}
+
+void dmtcp::VirtualPidTable::insertTid( pid_t tid )
+{
+  eraseTid( tid );
+  _tidVector.push_back ( tid );
+  return;
+}
+
+void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
+{
+  dmtcp::vector< pid_t >::iterator iter = _tidVector.begin();
+  while ( iter != _tidVector.end() ) {
+    if ( *iter == tid )
+      _tidVector.erase( iter );
+    else
+      ++iter;
+  }
+  return;
+}
+
 bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 {
   pid_iterator j = _pidMapTable.find ( pid );
@@ -173,30 +198,39 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
   size_t numMaps = _pidMapTable.size();
   o & numPids & numMaps;
 
+  //JTRACE ("Serializing tidVector");
+
+  //JSERIALIZE_ASSERT_POINT ( "TID Vector:{" );
+  //o & _tidVector;
+  //JSERIALIZE_ASSERT_POINT ( "}" );
+
+
   JTRACE ("Serializing Virtual Pid Table") (numPids);
 
   if ( o.isWriter() )
   {
     for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
     {
-      JSERIALIZE_ASSERT_POINT ( "ChildPid:" );
+      JSERIALIZE_ASSERT_POINT ( "ChildPid:{" );
       pid_t originalPid = i->first;
       dmtcp::UniquePid uniquePid = i->second;
       o & originalPid & uniquePid;//.pid() & uniquePid.ppid() & uniquePid.hostid() & uniquePid.time();
+      JSERIALIZE_ASSERT_POINT ( "}" );
     }
     for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
     {
-      JSERIALIZE_ASSERT_POINT ( "PidMap:" );
+      JSERIALIZE_ASSERT_POINT ( "PidMap:{" );
       pid_t originalPid = i->first;
       pid_t currentPid = i->second;
       o & originalPid & currentPid;
+      JSERIALIZE_ASSERT_POINT ( "}" );
     }
   }
   else
   {
     while ( numPids-- > 0 )
     {
-      JSERIALIZE_ASSERT_POINT ( "ChildPid:" );
+      JSERIALIZE_ASSERT_POINT ( "ChildPid:{" );
       pid_t originalPid;
       pid_t pid, ppid;
       time_t time;
@@ -206,15 +240,17 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 //      dmtcp::UniquePid uniquePid(host, pid, ppid, time);
 
       _childTable[originalPid] = uniquePid;
+      JSERIALIZE_ASSERT_POINT ( "}" );
     }
     while ( numMaps-- > 0 )
     {
-      JSERIALIZE_ASSERT_POINT ( "PidMap:" );
+      JSERIALIZE_ASSERT_POINT ( "PidMap:{" );
       pid_t originalPid;
       pid_t currentPid;
       o & originalPid & currentPid;
 
       _pidMapTable[originalPid] = currentPid;
+      JSERIALIZE_ASSERT_POINT ( "}" );
     }
   }
 

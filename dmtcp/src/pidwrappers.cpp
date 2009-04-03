@@ -60,6 +60,14 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 
 static pid_t gettid()
 {
+  /* 
+   * We might want to cache the tid of all threads to avoid redundant calls
+   *  to _real_gettid() and currentToOriginalPid().
+   * To cache, we must make sure that this function is invoked by each thread
+   *  at least once prior to checkpoint.
+   * __thread can be used along with static storage class to make this cached
+   *  value specific to each thread
+   */
   pid_t currentTid = _real_gettid();
   return currentToOriginalPid ( currentTid );
 }
@@ -127,7 +135,6 @@ extern "C" pid_t getppid()
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
   pid_t currPgrp = originalToCurrentPid( pgrp );
-//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
   int retval = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
