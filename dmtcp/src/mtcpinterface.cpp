@@ -35,6 +35,12 @@
 #include "virtualpidtable.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
+#include <sys/types.h>
+#include <sys/ptrace.h>
+#include <stdarg.h>
+#include <linux/unistd.h>
+#include <sys/syscall.h>
+
 namespace
 {
   static const char* REOPEN_MTCP = ( char* ) 0x1;
@@ -147,9 +153,9 @@ void dmtcp::initializeMtcpEngine()
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
                  , &callbackWriteCkptPrefix);
+  JTRACE ("Calling mtcp_init");
   ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
   ( *okFn ) ();
-
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
 }
@@ -158,6 +164,7 @@ void dmtcp::initializeMtcpEngine()
 struct ThreadArg {
   int ( *fn ) ( void *arg );
   void *arg;
+  pid_t original_tid;
 };
 
 bool isConflictingTid( pid_t tid )
@@ -179,10 +186,15 @@ int thread_start(void *arg)
   pid_t tid = _real_gettid();
 
   if ( isConflictingTid ( tid ) ) {
+  //return (*(threadArg->fn)) ( threadArg->arg );
     JTRACE ("Tid Conflict detected. Exiting Thread");
 
     return 0;
   }
+  if (threadArg -> original_tid != -1)
+    dmtcp::VirtualPidTable::Instance().updateMapping ( threadArg -> original_tid, tid );
+
+  return (*(threadArg->fn)) ( threadArg->arg );
 
   int (*fn) (void *) = threadArg->fn;
 
@@ -195,23 +207,58 @@ int thread_start(void *arg)
 //need to forward user clone
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
+  /* 
+   * struct MtcpRestartThreadArg 
+   *
+   * DMTCP requires the original_tids  of the threads being created during
+   *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
+   *  the original_tid of the thread being created from MTCP to DMTCP. 
+   *
+   * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+   * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
+   *
+   * DMTCP automatically extracts arg from this structure and passes that
+   * to the _real_clone call.
+   * 
+   * IMPORTANT NOTE: While updating, this structure must be kept in sync
+   * with the structure defined with the same name in mtcp.c 
+   */
+  struct MtcpRestartThreadArg { 
+    void * arg;
+    pid_t original_tid;
+  } *mtcpRestartThreadArg;
+
   typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
   // Don't make realclone statically initialized.  After a fork, some
   // loaders will relocate mtcp.so on REOPEN_MTCP.  And we must then
   // call _get_mtcp_symbol again on the newly relocated mtcp.so .
   cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
-  JTRACE ( "forwarding user's clone call to mtcp" );
 
 #ifndef PID_VIRTUALIZATION
+  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
+  {
+    mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
+    arg         = mtcpRestartThreadArg -> arg;
+  }
 
+  JTRACE ( "forwarding user's clone call to mtcp" );
   return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
     
 #else
+  pid_t originalTid = -1;
+
+  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
+  {
+    mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
+    arg         = mtcpRestartThreadArg -> arg;
+    originalTid = mtcpRestartThreadArg -> original_tid;
+  }
 
   struct ThreadArg threadArg;
   threadArg.fn = fn;
   threadArg.arg = arg;
+  threadArg.original_tid = originalTid;
 
   int tid;
   
@@ -219,8 +266,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     JTRACE ( "calling realclone" );
 
-    tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
-    
+    if (originalTid == -1) {
+      JTRACE ( "forwarding user's clone call to mtcp" );
+      tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+    } else {
+      tid = _real_clone ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+    }
+
     if (tid == -1)
       break;
 
@@ -230,7 +282,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     } else {
       JTRACE ("New Thread Created") (tid);
-      dmtcp::VirtualPidTable::Instance().updateMapping( tid, tid );
+      if (originalTid != -1)
+      {
+        dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
+        tid = originalTid;
+      } else {
+        dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );
+      }
       break;
     }
   }
@@ -238,6 +296,65 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return tid;
 
 #endif
+}
+
+
+extern "C" long ptrace( enum __ptrace_request request, ... )
+{
+  va_list ap;
+  pid_t pid;
+  void *addr; 
+  void *data;
+  
+  pid_t superior;
+  pid_t inferior;
+
+  typedef long ( *ptraceptr ) ( enum __ptrace_request, ... );
+  typedef long ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
+  static ptraceptr realptrace = (ptraceptr) _get_mtcp_symbol ( "ptrace" );
+  static writeptraceinfo_t writeptraceinfo_ptr  = (writeptraceinfo_t) _get_mtcp_symbol ( "writeptraceinfo" );
+
+  va_start(ap, request);
+  pid = va_arg(ap, pid_t);
+  addr = va_arg(ap, void *);
+  data = va_arg(ap, void *);
+  va_end(ap);
+
+  switch (request) {
+
+    case PTRACE_ATTACH:
+      superior = syscall(SYS_gettid);
+      inferior = pid;		
+
+      // write info to file 
+      (*writeptraceinfo_ptr) ( superior, inferior );
+
+      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+
+      break;
+
+    case PTRACE_TRACEME:
+      superior = getppid();
+      inferior = syscall(SYS_gettid);
+
+      // write info to file 
+      (*writeptraceinfo_ptr)( superior, inferior );
+
+      break;
+
+    case PTRACE_DETACH:
+      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+
+      break;
+
+    default:
+      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+
+      break;
+
+  } 	
+
+  return _real_ptrace ( request, pid, addr, data );
 }
 
 // This is a copy of the same function in signalwrapers.cpp
