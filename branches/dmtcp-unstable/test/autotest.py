@@ -18,7 +18,7 @@ CYCLES=2
 RETRIES=2
 
 #Sleep after each program startup (sec)
-S=0.3
+S=2
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=15

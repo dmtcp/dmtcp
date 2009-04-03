@@ -188,19 +188,37 @@ int thread_start(void *arg)
   if ( isConflictingTid ( tid ) ) {
   //return (*(threadArg->fn)) ( threadArg->arg );
     JTRACE ("Tid Conflict detected. Exiting Thread");
-
     return 0;
   }
-  if (threadArg -> original_tid != -1)
-    dmtcp::VirtualPidTable::Instance().updateMapping ( threadArg -> original_tid, tid );
 
-  return (*(threadArg->fn)) ( threadArg->arg );
+  pid_t original_tid = threadArg -> original_tid;
+  if (original_tid == -1) {
+    /* 
+     * original tid is not known, which means this thread never existed before
+     * checkpoint, so will insert the original_tid into virtualpidtable
+     */
+    original_tid = syscall(SYS_gettid);
+    JASSERT ( tid == original_tid ) (tid) (original_tid) 
+      .Text ( "syscall(SYS_gettid) and _real_gettid() returning different values for the newly created thread!" );
+    dmtcp::VirtualPidTable::Instance().insertTid ( original_tid );
+  }
 
-  int (*fn) (void *) = threadArg->fn;
+  dmtcp::VirtualPidTable::Instance().updateMapping ( original_tid, tid );
 
   JTRACE ( "Calling user function" );
 
-  return (*fn) ( threadArg->arg );
+  // return (*(threadArg->fn)) ( threadArg->arg );
+  int result = (*(threadArg->fn)) ( threadArg->arg );
+  
+  /* 
+   * This thread has finished its execution, do some cleanup on our part.
+   *  erasing the original_tid entry from virtualpidtable
+   */
+
+  dmtcp::VirtualPidTable::Instance().erase ( original_tid );
+  dmtcp::VirtualPidTable::Instance().eraseTid ( original_tid );
+   
+  return result;
 }
 #endif
 
@@ -211,7 +229,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * struct MtcpRestartThreadArg 
    *
    * DMTCP requires the original_tids  of the threads being created during
-   *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
+   *  the RESTARTING phase. We use MtcpRestartThreadArg structure to pass
    *  the original_tid of the thread being created from MTCP to DMTCP. 
    *
    * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
@@ -239,7 +257,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
   {
     mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
-    arg         = mtcpRestartThreadArg -> arg;
+    arg                  = mtcpRestartThreadArg -> arg;
   }
 
   JTRACE ( "forwarding user's clone call to mtcp" );
