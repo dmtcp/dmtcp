@@ -264,6 +264,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
     
 #else
+
+/* 
+ * Undefine the macro DISABLE_TID_CONFLICT_HANDLING to enable tid conflict handling
+ * TID conflict handling is fragile right now
+ */
+#define DISABLE_CONFLICT_HANDLING
+
   pid_t originalTid = -1;
 
   if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
@@ -288,7 +295,11 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ( "forwarding user's clone call to mtcp" );
       tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
     } else {
+#ifdef DISABLE_CONFLICT_HANDLING
+      tid = _real_clone ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
+#else
       tid = _real_clone ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+#endif
     }
 
     if (tid == -1)
@@ -296,7 +307,11 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if reqd.) */
+#ifdef DISABLE_CONFLICT_HANDLING
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
+#else
+      JASSERT (false) (tid) .Text ( "TID Conflict Detected!" );
+#endif
 
     } else {
       JTRACE ("New Thread Created") (tid);
