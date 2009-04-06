@@ -22,4 +22,5 @@
 - Many more exotic fcntl()/ioctl() flags are not checkpointed
 
 - Fifos are not handled correctly, do any apps use them?
+  Yes, screen (Artem)
 
