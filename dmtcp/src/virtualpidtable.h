@@ -46,15 +46,28 @@ namespace dmtcp
       VirtualPidTable();
       static VirtualPidTable& Instance();
       void postRestart();
+
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
+
       void  insert(pid_t originalPid,  dmtcp::UniquePid uniquePid);
       void  insertTid(pid_t tid);
+      void  insertInferior(pid_t tid);
       //void  insertTid(pid_t tid) { _tids.pushback(tid); }
+
       void  erase(pid_t originalPid);
       void  eraseTid(pid_t tid);
+      void  eraseInferior(pid_t tid);
+
       void serialize ( jalib::JBinarySerializer& o );
+      void serializeChildTable ( jalib::JBinarySerializer& o );
+      static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
+                                             pid_t& originalPid,
+                                             dmtcp::UniquePid& uniquePid );
       void serializePidMap ( jalib::JBinarySerializer& o );
+      static void serializePidMapEntry ( jalib::JBinarySerializer& o,
+                                         pid_t& originalPid,
+                                         pid_t& currentPid );
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
@@ -62,6 +75,8 @@ namespace dmtcp
 
       dmtcp::vector< pid_t > getPidVector();
       dmtcp::vector< pid_t > getTidVector();
+      dmtcp::vector< pid_t > getInferiorVector();
+
       bool pidExists( pid_t pid );
 
       typedef dmtcp::map< pid_t , dmtcp::UniquePid >::iterator iterator;
@@ -83,7 +98,9 @@ namespace dmtcp
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
+      dmtcp::vector< pid_t > _inferiorVector;
       dmtcp::vector< pid_t > _tidVector;
+
       typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
       dmtcp::map< pid_t , pid_t > _pidMapTable;
 

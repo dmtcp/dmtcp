@@ -60,7 +60,9 @@ namespace dmtcp
     DMT_FORCE_RESTART,  //force a restart even if not all sockets are reconnected
     DMT_KILL_PEER,      // send kill message to peer
     DMT_USER_CMD,       // simulate typing params[0] into coordinator
-    DMT_USER_CMD_RESULT // return code of user command
+    DMT_USER_CMD_RESULT, // return code of user command
+
+    DMT_PTRACE_CHILD_ID  // send original_pid and unique_pid of inferior process to superior process 
   };
 
   class WorkerState
@@ -115,6 +117,8 @@ namespace dmtcp
 //         UniquePidConId to;
 
     UniquePid   coordinator;
+    UniquePid   parent;
+    pid_t       tid;
     WorkerState state;
 
 
