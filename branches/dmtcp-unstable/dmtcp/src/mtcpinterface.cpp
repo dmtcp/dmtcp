@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
 #include "virtualpidtable.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -386,6 +387,19 @@ extern "C" long ptrace( enum __ptrace_request request, ... )
       break;
 
   } 	
+
+  if ( request == PTRACE_TRACEME ) {
+    int retval = _real_ptrace ( request, pid, addr, data );
+    if (retval != -1 ) {
+      // Send message to coordinator to inform superior about the inferior
+      jalib::JSocket coordinatorSocket = dmtcp::DmtcpWorker::instance().getCoordinatorSocket();
+      dmtcp::DmtcpMessage msg;
+      msg.type = dmtcp::DMT_PTRACE_CHILD_ID;
+      msg.tid = syscall(SYS_gettid);
+      coordinatorSocket << msg;
+    }
+  }
+
 
   return _real_ptrace ( request, pid, addr, data );
 }

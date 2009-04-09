@@ -635,7 +635,7 @@ int main ( int argc, char** argv )
   return -1;
 }
 #else
-  int i = (int)targets.size();
+  size_t i = targets.size();
   
   jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
 
@@ -784,11 +784,9 @@ static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid,
 
   JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
 
-  JTRACE ( "Serializing PID MAP:" ) ( originalPid ) ( currentPid );
+  JTRACE ( "Serializing PID MAP Entry:" ) ( originalPid ) ( currentPid );
   /* Write the mapping to the file*/
-  JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
-  o & originalPid & currentPid;
-  JSERIALIZE_ASSERT_POINT ( "]" );
+  dmtcp::VirtualPidTable::serializePidMapEntry ( o, originalPid, currentPid);
 
   fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
   result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */

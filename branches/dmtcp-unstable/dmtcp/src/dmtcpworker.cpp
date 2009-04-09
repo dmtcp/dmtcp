@@ -278,7 +278,19 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       _coordinatorSocket >> msg;
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
-      if ( msg.type == dmtcp::DMT_KILL_PEER ) exit ( 0 );
+      switch (msg.type) {
+        case dmtcp::DMT_KILL_PEER:
+          exit ( 0 );
+          break;
+        case dmtcp::DMT_PTRACE_CHILD_ID:
+          if ( msg.parent == dmtcp::UniquePid::ThisProcess() ) {
+            pid_t inferior = msg.tid;
+            dmtcp::VirtualPidTable::Instance().insertInferior( inferior );
+          }
+          break;
+        default:
+          break;
+      }
       msg.poison();
     }
   }
