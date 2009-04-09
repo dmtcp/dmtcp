@@ -67,7 +67,7 @@
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
 
-#define PTRACE_SLEEP_INTERVAL 2
+#define PTRACE_SLEEP_INTERVAL 0
 #define EFLAGS_OFFSET (64)
 
 #include "mtcp_internal.h"
@@ -208,6 +208,7 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 	/* Static data */
 
+static pid_t inferior_tid = -1;
 static char const *ptrace_shared_file = "/tmp/ptrace_shared_file.txt";
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
@@ -1984,9 +1985,11 @@ static void writefile (int fd, void const *buff, int size)
   }
 }
 
-void writeptraceinfo (pid_t parent_tid, pid_t child_tid) 
+void writeptraceinfo (pid_t inferior, pid_t dummy /* not used*/) //parent_tid, pid_t child_tid) 
 {
+  inferior_tid = inferior;
 /*  
+ // This code is no longer needed
   int ptrace_fd;
   struct flock lock;
  
@@ -2035,173 +2038,131 @@ void writeptraceinfo (pid_t parent_tid, pid_t child_tid)
 
 void ptrace_detach_threads() 
 {
-  /*
-	int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
-	//pid_t curr_parent_tid;
-	//pid_t curr_child_tid;
-	pid_t initial_parent_tid;
-	pid_t initial_child_tid;
-  pid_t superior;
-  pid_t inferior;
+  return;
+
+
 	int status;
 	siginfo_t infoop;
 
-	// in the case we're not ptracing
-	if (ptrace_fd != -1) {
-		printf("ptrace_detach_threads for thread %d\n", GETTID());
-		// required for all user threads to get SIGUSR2 from their checkpoint thread
-		sleep(PTRACE_SLEEP_INTERVAL);
-		while (read(ptrace_fd, &superior, sizeof(pid_t)) != 0) {
-			read(ptrace_fd, &inferior, sizeof(pid_t));
-      //superior = initial_parent_tid;
-      //inferior = initial_child_tid;
-			//curr_parent_tid = originalToCurrent(initial_parent_tid);
-			//if (curr_parent_tid == mtcp_sys_kernel_gettid()) { 
-			if ( superior == GETTID() ) { 
-				if (waitid(P_PID, inferior, &infoop, WSTOPPED | WNOHANG | WNOWAIT) < 0) {
-					perror("ptrace_detach_threads: waitid");
-					mtcp_abort();
-				}	
-				dmtcp_status = infoop.si_status;
-				dmtcp_code = infoop.si_code;
-				printf("si_code = %d \nsi_status = %d \n", infoop.si_code, infoop.si_status);
-				//setenv("PTRACE_LOCAL_CALL","yes", 1);
-				//if (ptrace(PTRACE_DETACH, initial_child_tid, 0, SIGUSR2) == -1) {
-				if (ptrace(PTRACE_DETACH, inferior, 0, SIGUSR2) == -1) {
-					//curr_child_tid = originalToChild(initial_child_tid);
-					printf("ptrace_detach_threads: parent = %ld child = %ld\n", superior, inferior);
-					perror("ptrace_detach_threads: PTRACE_DETACH failed"); 
-					mtcp_abort();
-				}
-			}
-		}
-  		if ( close(ptrace_fd) != 0 ) {
-			perror("ptrace_detach_threads: Error closing file\n");
-			mtcp_abort();
-  		}
-        	//lazy synchronization; 
-		sleep(PTRACE_SLEEP_INTERVAL);
-		printf("ptrace_detach_threads: finished for thread %d\n\n", GETTID());
-	}
-  */
+  if (inferior_tid != -1) {
+    printf("ptrace_detach_threads for thread %d\n", GETTID());
+    // required for all user threads to get SIGUSR2 from their checkpoint thread
+    sleep(PTRACE_SLEEP_INTERVAL);
+    if (waitid(P_PID, inferior_tid, &infoop, WSTOPPED | WNOHANG | WNOWAIT) < 0) {
+      perror("ptrace_detach_threads: waitid");
+      mtcp_abort();
+    }	
+    dmtcp_status = infoop.si_status;
+    dmtcp_code = infoop.si_code;
+    printf("si_code = %d \nsi_status = %d \n", infoop.si_code, infoop.si_status);
+    //setenv("PTRACE_LOCAL_CALL","yes", 1);
+    if (ptrace(PTRACE_DETACH, inferior_tid, 0, SIGUSR2) == -1) {
+      printf("ptrace_detach_threads: parent = %ld child = %ld\n", GETTID(), inferior_tid);
+      perror("ptrace_detach_threads: PTRACE_DETACH failed"); 
+      mtcp_abort();
+    }
+  }
+  //lazy synchronization; 
+  sleep(PTRACE_SLEEP_INTERVAL);
+  printf("ptrace_detach_threads: finished for thread %d\n\n", GETTID());
 }
 
 void ptrace_attach_threads(int isRestart) 
-
 {
-  /*
-	int ptrace_fd;
-	//pid_t curr_parent_tid;
-	//pid_t curr_child_tid;
-	pid_t superior;
-	pid_t inferior;
-	pid_t initial_parent_tid;
-	pid_t initial_child_tid;
-	pid_t trash;
-	//pid_t current_tid;
-	//struct pt_regs regs;
-	long peekdata;
-	long low, upp;
-	int status;
-	long addr;
-	unsigned long int eflags;
-	
-	//current_tid = mtcp_sys_kernel_gettid();
-	
-	//lazy synchronization; we can now reattach
-	sleep(PTRACE_SLEEP_INTERVAL);
+  return;
 
-	ptrace_fd = open(ptrace_shared_file, O_RDONLY);
-	if (ptrace_fd != -1) {
-		while (read(ptrace_fd, &superior, sizeof(pid_t)) != 0) {
-			read(ptrace_fd, &inferior, sizeof(pid_t));
-      //superior = initial_parent_tid;
-      //inferior = initial_child_tid;
-			//curr_parent_tid = originalToCurrent(initial_parent_tid);
-			//curr_child_tid = originalToCurrent(initial_child_tid);
-			printf("read: parent_tid = %d child_tid = %d \n", superior, inferior);
-			if (superior == GETTID()) { 
-				printf("attaching parent = %d child = %d\n", superior, inferior);
-				//setenv("PTRACE_LOCAL_CALL", "yes", 1);
-				if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
-					perror("ptrace_attach_threads: PTRACE_ATTACH failed");
-					printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", superior, inferior);
-  					mtcp_abort();
-				}
-        
-				while(1) {
-					if (waitpid(inferior, &status, 0) == -1) {
-						perror("ptrace_attach_threads: waitpid failed\n");	
-						mtcp_abort();
-					} 
-      					if (WIFEXITED(status)) { 
-        					printf("The reason for childs death was %d\n",WEXITSTATUS(status));
-      					}
-					else if(WIFSIGNALED(status)) {
-        					printf("The reason for child's death was signal %d\n",WTERMSIG(status));
-      					}
-					setenv("PTRACE_LOCAL_CALL", "yes", 1);
-					if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
-						perror("ptrace_attach_threads: PTRACE_GETREGS failed");
-						mtcp_abort();
-					}
-					setenv("PTRACE_LOCAL_CALL", "yes", 1);
- 					peekdata = ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
-					low = peekdata & 0xff;
-                			peekdata >>=8;
-                			upp = peekdata & 0xff;
-				        if (((low == 0xcd) && (upp == 0x80)) &&
-					    ((regs.eax == DMTCP_SYS_sigreturn) ||
-					     (regs.eax == DMTCP_SYS_rt_sigreturn))) { 
-						if (isRestart) {
-							printf("isRestart\n");	
-							if (regs.eax == DMTCP_SYS_sigreturn) { 
-								addr = regs.esp;
-							}
-							else { 
-								printf("SYS_RT_SIGRETURN\n");
-								//UNTESTED -> TODO; gdb very unclear
-								addr = regs.esp + 8; 
-								setenv("PTRACE_LOCAL_CALL", "yes", 1);	
-								addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
-								addr += 20;
-							}
-							addr += EFLAGS_OFFSET;
-							setenv("PTRACE_LOCAL_CALL", "yes", 1);
-							eflags = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
-							eflags |= 0x0100;								
-							setenv("PTRACE_LOCAL_CALL", "yes", 1);
-							if (ptrace(PTRACE_POKEDATA, inferior, addr, &eflags) < 0) {
-								perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
-								mtcp_abort();
-							}
-						}		
-						if (dmtcp_code && dmtcp_status) {
-							//the user thread didn't read the status of waitpid 
-							setenv("PTRACE_LOCAL_CALL", "yes", 1);
-							if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
-								perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
-								mtcp_abort();
-							}
-						}
-						break;  	
-					}
-					setenv("PTRACE_LOCAL_CALL", "yes", 1);
-					if (ptrace(PTRACE_SINGLESTEP,inferior, 0, 0) < 0) {
-						perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
-						mtcp_abort();
-					}
-				}
-			}
-		}
-  		if ( close(ptrace_fd) != 0 ) {
-			perror("ptrace_attach_threads: Error closing file\n");
-			mtcp_abort();
-  		}
-	}
-	sleep(PTRACE_SLEEP_INTERVAL);
-	printf("ptrace_attach_threads: finished for %d\n", GETTID());
-  */
+
+  pid_t trash;
+  long peekdata;
+  long low, upp;
+  int status;
+  long addr;
+  unsigned long int eflags;
+  pid_t superior = GETTID();
+  /* original_tid of the inferior thread */
+  pid_t inferior = inferior_tid;
+
+  //lazy synchronization; we can now reattach
+  sleep(PTRACE_SLEEP_INTERVAL);
+
+  if (inferior_tid != -1) {
+    printf("read: parent_tid = %d child_tid = %d \n", superior, inferior);
+    printf("attaching parent = %d child = %d\n", superior, inferior);
+    //setenv("PTRACE_LOCAL_CALL", "yes", 1);
+    if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
+      perror("ptrace_attach_threads: PTRACE_ATTACH failed");
+      printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", superior, inferior);
+      mtcp_abort();
+    }
+
+/* the following code won't compile on x64 
+    while(1) {
+      if (waitpid(inferior, &status, 0) == -1) {
+        perror("ptrace_attach_threads: waitpid failed\n");	
+        mtcp_abort();
+      } 
+      if (WIFEXITED(status)) { 
+        printf("The reason for childs death was %d\n",WEXITSTATUS(status));
+      }
+      else if(WIFSIGNALED(status)) {
+        printf("The reason for child's death was signal %d\n",WTERMSIG(status));
+      }
+      setenv("PTRACE_LOCAL_CALL", "yes", 1);
+      if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
+        perror("ptrace_attach_threads: PTRACE_GETREGS failed");
+        mtcp_abort();
+      }
+      setenv("PTRACE_LOCAL_CALL", "yes", 1);
+      peekdata = ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
+      low = peekdata & 0xff;
+      peekdata >>=8;
+      upp = peekdata & 0xff;
+      if (((low == 0xcd) && (upp == 0x80)) &&
+          ((regs.eax == DMTCP_SYS_sigreturn) ||
+           (regs.eax == DMTCP_SYS_rt_sigreturn))) { 
+        if (isRestart) {
+          printf("isRestart\n");	
+          if (regs.eax == DMTCP_SYS_sigreturn) { 
+            addr = regs.esp;
+          }
+          else { 
+            printf("SYS_RT_SIGRETURN\n");
+            //UNTESTED -> TODO; gdb very unclear
+            addr = regs.esp + 8; 
+            setenv("PTRACE_LOCAL_CALL", "yes", 1);	
+            addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+            addr += 20;
+          }
+          addr += EFLAGS_OFFSET;
+          setenv("PTRACE_LOCAL_CALL", "yes", 1);
+          eflags = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+          eflags |= 0x0100;								
+          setenv("PTRACE_LOCAL_CALL", "yes", 1);
+          if (ptrace(PTRACE_POKEDATA, inferior, addr, &eflags) < 0) {
+            perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
+            mtcp_abort();
+          }
+        }		
+        if (dmtcp_code && dmtcp_status) {
+          //the user thread didn't read the status of waitpid 
+          setenv("PTRACE_LOCAL_CALL", "yes", 1);
+          if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+            perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+            mtcp_abort();
+          }
+        }
+        break;  	
+      }
+      setenv("PTRACE_LOCAL_CALL", "yes", 1);
+      if (ptrace(PTRACE_SINGLESTEP,inferior, 0, 0) < 0) {
+        perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+        mtcp_abort();
+      }
+    }
+*/
+  }
+  sleep(PTRACE_SLEEP_INTERVAL);
+  printf("ptrace_attach_threads: finished for %d\n", GETTID());
 }
 
 
