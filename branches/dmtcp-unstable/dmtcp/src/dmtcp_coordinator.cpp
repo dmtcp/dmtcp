@@ -346,14 +346,6 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
         }
         break;
-      case DMT_PTRACE_CHILD_ID:
-      {
-        JTRACE("PTRACE_TRACEME called, sending inferior's uniquepid to superior")
-          (msg.from) (msg.parent);
-
-        broadcastMessage ( msg );
-      }
-      break;
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type ).Text ( "unexpected message from worker" );
     }
