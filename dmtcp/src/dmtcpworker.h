@@ -74,8 +74,6 @@ namespace dmtcp
       };
       static void startCoordinatorIfNeeded(int modes, int isRestart=0);
 
-      jalib::JSocket getCoordinatorSocket () { return _coordinatorSocket; }
-
     protected:
       void sendUserCommand(char c, int* result = NULL);
     private:
