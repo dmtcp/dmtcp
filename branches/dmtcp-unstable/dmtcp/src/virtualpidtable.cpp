@@ -249,7 +249,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 void dmtcp::VirtualPidTable::serializeChildTable ( jalib::JBinarySerializer& o )
 {
   size_t numPids = _childTable.size();
-  o & numPids;
+  serializeEntryCount(o, numPids);
 
   JTRACE ("Serializing ChildPid Table") (numPids);
   pid_t originalPid;
@@ -285,7 +285,7 @@ void  dmtcp::VirtualPidTable::serializeChildTableEntry (
 void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
 {
   size_t numMaps = _pidMapTable.size();
-  o & numMaps;
+  serializeEntryCount(o, numMaps);
 
   JTRACE ("Serializing PidMap Table") (numMaps);
 
@@ -319,6 +319,13 @@ void dmtcp::VirtualPidTable::serializePidMapEntry (
   JSERIALIZE_ASSERT_POINT ( "]" );
 }
 
+void dmtcp::VirtualPidTable::serializeEntryCount (
+    jalib::JBinarySerializer& o, size_t& count )
+{
+  JSERIALIZE_ASSERT_POINT ( "NumEntries:[" );
+  o & count;
+  JSERIALIZE_ASSERT_POINT ( "]" );
+}
 
 
 #endif
