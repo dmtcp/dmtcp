@@ -638,8 +638,7 @@ int main ( int argc, char** argv )
   size_t i = targets.size();
   
   jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
-
-  wr & i;
+  dmtcp::VirtualPidTable::serializeEntryCount ( wr, i);
 
   // Create roots vector, assign childs to their parents
   // Delete not existing childs.
