@@ -2790,7 +2790,6 @@ static int restarthread (void *threadv)
 
     void *clone_arg = (void *)child;
 
-//#ifdef DMTCP    
     /* 
      * DMTCP needs to know original_tid of the thread being created by the 
      *  following clone() call.
@@ -2805,17 +2804,23 @@ static int restarthread (void *threadv)
     mtcpRestartThreadArg.arg = (void *)child;
     mtcpRestartThreadArg.original_tid = child -> original_tid;
     clone_arg = (void *) &mtcpRestartThreadArg;
-    //clone_arg = (void *) child;
-//#endif
 
-    //if ( (*clone_entry)( restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
-    pid_t tid = syscall( SYS_clone, restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
-                  (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
-                  clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
+    pid_t tid;
 
+    if ( callback_sleep_between_ckpt != NULL ) /* If running under DMTCP */
+    {
+      tid = syscall( SYS_clone, restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+          (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
+          clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
+    }
+    else 
+    {
+      tid =  ( (*clone_entry)( restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+            (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
+            child, child -> parent_tidptr, NULL, child -> actual_tidptr));
+    }
 
     if ( tid < 0) {
-
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
       mtcp_printf ("mtcp restarthread:   clone_flags %X, savedsp %p\n",
                    child -> clone_flags, child -> savctx.SAVEDSP);
