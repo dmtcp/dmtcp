@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <string.h>
+#include <sys/resource.h>
 
 #include "mtcp_internal.h"
 
@@ -121,8 +122,14 @@ int main (int argc, char *argv[], char *envp[])
     return (-1);
   }
 
-  /* Find where the restore image goes */
+  /* Set the resourse limits for stack from saved values */
+  struct rlimit stack_rlimit;
+  readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
+  readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+  mtcp_printf("mtcp_restart: saved stack rsourcelimit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+  setrlimit(RLIMIT_STACK, &stack_rlimit);
 
+  /* Find where the restore image goes */
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */
   readfile (fd, &restore_begin, sizeof restore_begin);
   readcs (fd, CS_RESTORESIZE); /* size of checkpointed mtcp.so image */
