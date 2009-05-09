@@ -1519,8 +1519,16 @@ static void checkpointeverything (void)
 
     writefile (fd, MAGIC, MAGIC_LEN);
 
-    /* Write out the shareable parameters and the image   */
+    /* Write out the resource limits from stack, shareable parameters and the image   */
     /* Put this all at the front to make the restore easy */
+
+    struct rlimit stack_rlimit;
+    getrlimit(RLIMIT_STACK, &stack_rlimit);
+
+    DPRINTF(("mtcp_restart: saved stack rsourcelimit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
+
+    writecs (fd, CS_STACKRLIMIT);
+    writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
     DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so]\n", restore_size, restore_begin));
 
