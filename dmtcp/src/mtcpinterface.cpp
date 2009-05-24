@@ -209,9 +209,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     
 #else
 
-  struct ThreadArg threadArg;
-  threadArg.fn = fn;
-  threadArg.arg = arg;
+  struct ThreadArg *threadArg = (struct ThreadArg *) malloc (sizeof (struct ThreadArg));
+  threadArg->fn = fn;
+  threadArg->arg = arg;
 
   int tid;
   
@@ -219,7 +219,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     JTRACE ( "calling realclone" );
 
-    tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+    tid = ( *realclone ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     
     if (tid == -1)
       break;
