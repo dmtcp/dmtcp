@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=1.01
+VERSION=1.02
 
 #run a command with error checking
 function e(){
@@ -36,7 +36,7 @@ REV=`getRev dmtcp_staging`
 NAME=dmtcp_$VERSION-r$REV
 
 e mv dmtcp_staging $NAME
-e rm -f $NAME/makeRelease.sh
+e rm -f $NAME/makeRelease.sh branches
 e removeSvnDirs
 e tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
