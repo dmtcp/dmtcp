@@ -185,10 +185,14 @@ int thread_start(void *arg)
   }
 
   int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+
+  // Free the memory
+  free(threadArg);
 
   JTRACE ( "Calling user function" );
 
-  return (*fn) ( threadArg->arg );
+  return (*fn) ( thread_arg );
 }
 #endif
 
