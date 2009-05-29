@@ -26,6 +26,7 @@
 #include <time.h>
 #include <iostream>
 #include "constants.h"
+#include "../jalib/jserialize.h"
 
 #ifndef UNIQUEPID_H
 #define UNIQUEPID_H
@@ -51,6 +52,8 @@ namespace dmtcp
     static dmtcp::string pidTableFilename();
 #endif
     static const char* ptsSymlinkFilename ( char *pts );
+
+    static void serialize( jalib::JBinarySerializer& o );
 
     bool operator< ( const UniquePid& that ) const;
     bool operator== ( const UniquePid& that ) const;
