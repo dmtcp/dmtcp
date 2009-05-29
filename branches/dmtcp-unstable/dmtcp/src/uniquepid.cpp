@@ -28,6 +28,7 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 #include "syscallwrappers.h"
+#include "../jalib/jserialize.h"
 
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
@@ -222,3 +223,23 @@ bool dmtcp::UniquePid::isNull() const
 {
   return (*this == nullProcess());
 }
+
+void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
+{
+  UniquePid theCurrentProcess, theParentProcess;
+
+  if ( o.isWriter() )
+  {
+    theCurrentProcess = ThisProcess();
+    theParentProcess = ParentProcess();
+  }
+
+  o & theCurrentProcess & theParentProcess;
+
+  if ( o.isReader() )
+  {
+    theProcess() = theCurrentProcess;
+    parentProcess() = theParentProcess;
+  }
+}
+

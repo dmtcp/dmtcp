@@ -240,6 +240,7 @@ static void dmtcpPrepareForExec()
   protectLD_PRELOAD();
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
+  dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().serialize ( wr );

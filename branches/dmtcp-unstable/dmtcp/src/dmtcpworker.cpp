@@ -196,10 +196,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
-  connectToCoordinator();
-
-  initializeMtcpEngine();
-
   if ( serialFile != NULL )
   {
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
@@ -210,6 +206,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
     //load file
     jalib::JBinarySerializeReader rd ( serialFile );
+    UniquePid::serialize ( rd );
     KernelDeviceToConnection::Instance().serialize ( rd );
 
 #ifdef PID_VIRTUALIZATION
@@ -237,6 +234,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
+  connectToCoordinator();
+
+  initializeMtcpEngine();
 
 // #ifdef DEBUG
 //     JTRACE("listing fds");
