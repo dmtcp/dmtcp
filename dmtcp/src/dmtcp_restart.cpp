@@ -522,6 +522,7 @@ int main ( int argc, char** argv )
 {
   bool quiet = false;
   bool autoStartCoordinator=true;
+  bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
   if (getenv(ENV_VAR_TMPDIR))
@@ -578,7 +579,7 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"-q\" to hide this message.)\n\n");
 
-  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
   JASSERT_INIT();
