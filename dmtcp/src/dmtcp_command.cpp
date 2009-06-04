@@ -44,11 +44,11 @@ static const char* theUsage =
   "  --quiet:\n"
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
-  "    s : Print status message\n"
-  "    c : Checkpoint all nodes\n"
-  "    f : Force a restart even if there are missing nodes (debugging only)\n"
-  "    k : Kill all nodes\n"
-  "    q : Kill all nodes and quit\n\n"
+  "    s, -s, --status : Print status message\n"
+  "    c, -c, --checkpoint : Checkpoint all nodes\n"
+  "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
+  "    k, -k, --kill : Kill all nodes\n"
+  "    q, -q, --quit : Kill all nodes and quit\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 

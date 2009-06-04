@@ -110,7 +110,9 @@ Coordinator commands can also be issued remotely using \fBdmtcp_command\fR.
 .TP 
 3. To manually initiate a checkpoint, either run the command below or type "c" followed by <return> into the coordinator.  Checkpoint files for each process will be written to DMTCP_CHECKPOINT_DIR. The dmtcp_coordinator will write "dmtcp_restart_script.sh" to its working directory.  This script contains the necessary calls to dmtcp_restart to restart the entire computation.
 
-  dmtcp_command \-c
+     dmtcp_command \-c
+.br 
+OR:  dmtcp_command \-\-checkpoint
 
 .TP 
 4. To restart, one should use dmtcp_restart_script.sh created by the dmtcp_coordinator. One can optionally edit this script to migrate processes to different hosts.  In order to give a restarted program standard input, the script must be edited to run the desired process in the foreground of a terminal.

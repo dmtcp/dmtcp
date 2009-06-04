@@ -52,9 +52,9 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   # Automatically start a coordinator in background
   ./bin/dmtcp_checkpoint ./a.out &
   # Checkpoint all processes of the default coordinator
-  ./bin/dmtcp_command -c
+  ./bin/dmtcp_command --checkpoint
   # Kill a.out, and optionally kill coordinator process
-  ./bin/dmtcp_command -q
+  ./bin/dmtcp_command --quit
   # Restart directly from local checkpoint images (.dmtcp files)
   # (Be sure there are no old ckpt_a.out_*.dmtcp files.
   #  Ensure that the restarted process is running, and not suspended.)
