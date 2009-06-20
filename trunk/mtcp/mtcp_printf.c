@@ -45,8 +45,10 @@
    File descriptor where all the debugging outputs should go.
    This const is also defined by the same name in jassert.cpp.
    These two consts must always be in sync.
+ SHOULD THE CONSTANTS BE PASSED AS COMMAND LINE ARGUMENTS TO MTCP_RESTART?
 */
-static const int DUP_STDERR_FD = 826;
+static const int DUP_STDERR_FD = 826; /* stderr */
+// static const int DUP_STDERR_FD = 827;    /* jassertlog */
 #else
 // Please don't change this.  It's needed for standalone MTCP debugging.
 static const int DUP_STDERR_FD = 2;
