@@ -66,12 +66,16 @@
 #define MTCP_SYS_STRLEN
 #include "mtcp_internal.h"
 
+static int WAIT=1;
+// static int WAIT=0;
+
 #if 0
 // Force thread to stop, without use of a system call.
+static int WAIT=1;
 # define DEBUG_WAIT \
 if (DEBUG_RESTARTING) \
   {int i,j; \
-    for (i = 0; i < 1000000000; i++) \
+    for (i = 0; WAIT && i < 1000000000; i++) \
       for (j = 0; j < 1000000000; j++) ; \
   }
 #else
@@ -1272,6 +1276,7 @@ again:
     if (needrescan) goto rescan;
     RMB; // matched by WMB in stopthisthread
     DPRINTF (("mtcp checkpointhread*: everything suspended\n"));
+DPRINTF(("mtcp_sys_brk(0): %p\n", mtcp_sys_brk(0)));
 
     /* If no threads, we're all done */
 
@@ -1498,7 +1503,7 @@ static void checkpointeverything (void)
 		"  Continue at your own risk. ***\n\n\n");
 #endif
 
-  /* Drain stdin and stdout before checkpoint */
+  /* Drain stdout and stderr before checkpoint */
   tcdrain(STDOUT_FILENO);
   tcdrain(STDERR_FILENO);
 
@@ -1579,7 +1584,7 @@ static void checkpointeverything (void)
      * But libpthread/libdl/libc libraries are loaded above vdso in user image.
      * So, we must use the opposite of the user's setting (no randomization if
      *     user turned it on, and vice versa).  We must also keep the
-     *     new vdso segment, provided by mtcp_restart.
+     *     new vdso section, provided by mtcp_restart.
      */
     while (readmapsline (mapsfd, &area)) {
       if (0 == strcmp(area.name, "[vsyscall]"))
@@ -1856,15 +1861,24 @@ static void writefiledescrs (int fd)
 static void writememoryarea (int fd, Area *area, int stack_was_seen,
 			     int vsyscall_exists)
 
-{
+{ static void * orig_stack = NULL;
+
   /* Write corresponding descriptor to the file */
 
+  if (orig_stack == NULL && 0 == strcmp(area -> name, "[stack]"))
+    orig_stack = area -> addr + area -> size;
+
   if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] segment"
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] section"
               " %X at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] segment"
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] section"
     	      " %X at %p\n", area -> size, area -> addr));
+  else if (0 == strcmp(area -> name, "[stack]") &&
+	   orig_stack != area -> addr + area -> size)
+    /* Kernel won't let us munmap this.  But we don't need to restore it. */
+    DPRINTF (("mtcp checkpointeverything*: skipping over [stack] segment"
+    	      " %X at %pi (not the orig stack)\n", area -> size, area -> addr));
   else if (!(area -> flags & MAP_ANONYMOUS))
     DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n",
               area -> size, area -> addr, area -> name, area -> offset));
