@@ -120,8 +120,8 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   new_brk = mtcp_sys_brk (mtcp_saved_break);
   if (new_brk == (void *)-1) {
-    mtcp_printf( "mtcp_restoreverything: sbrk(%p): %s (bad heap)\n",
-		 mtcp_saved_break, strerror(errno) );
+    mtcp_printf( "mtcp_restoreverything: sbrk(%p): errno:  %d (bad heap)\n",
+		 mtcp_saved_break, errno );
     mtcp_abort();
   }
   if (new_brk != mtcp_saved_break) {
@@ -789,7 +789,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
   mapsfd = open ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     mtcp_printf ("mtcp highest_userspace_address:"
-            " error opening /proc/self/maps: %s\n", strerror (errno));
+            " error opening /proc/self/maps: errno: %d\n", errno);
     mtcp_abort ();
   }
 
