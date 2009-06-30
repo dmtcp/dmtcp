@@ -121,7 +121,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   new_brk = mtcp_sys_brk (mtcp_saved_break);
   if (new_brk == (void *)-1) {
     mtcp_printf( "mtcp_restoreverything: sbrk(%p): errno:  %d (bad heap)\n",
-		 mtcp_saved_break, errno );
+		 mtcp_saved_break, mtcp_sys_errno );
     mtcp_abort();
   }
   if (new_brk != mtcp_saved_break) {
