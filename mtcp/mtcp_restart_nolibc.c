@@ -416,7 +416,9 @@ static void readmemoryareas (void)
       } else {
         DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
-      mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
+      /* POSIX says mmap would unmap old memory.  Munmap never fails if args are valid.  Can we unmap vdso and
+        vsyscall in Linux?  Used to use mtcp_safemmap here to check for address conflicts.  */
+      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
