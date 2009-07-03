@@ -126,7 +126,7 @@ int main (int argc, char *argv[], char *envp[])
   struct rlimit stack_rlimit;
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
-  mtcp_printf("mtcp_restart: saved stack rsourcelimit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+  mtcp_printf("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
   setrlimit(RLIMIT_STACK, &stack_rlimit);
 
   /* Find where the restore image goes */

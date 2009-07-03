@@ -7,10 +7,10 @@
 #  correct parameters, as needed by gdb, for loading debugging
 #  information about a dynamic library (.so file)
 
-test -z "$2" && echo Usage:  add-symbol-file PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && echo Usage:  $0 PROCESS_PID LIBRARY_NAME_SUBSTRING
 test -z "$2" && echo Note: '(gdb) info proc'
 test -z "$2" && echo '    ' will print PROCESS_PID of process debugged by gdb
-test -z "$2" && echo Then try: '(gdb) shell gdb-add-symbol-file' \
+test -z "$2" && echo Then try: '(gdb) shell '$0 \
 				PROCESS_PID LIBRARY_NAME_SUBSTRING
 test -z "$2" && echo '    ' ... and paste the output of that command into gdb:
 test -z "$2" && echo Hence: '(gdb) add-symbol-file ...'

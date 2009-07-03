@@ -1276,7 +1276,6 @@ again:
     if (needrescan) goto rescan;
     RMB; // matched by WMB in stopthisthread
     DPRINTF (("mtcp checkpointhread*: everything suspended\n"));
-DPRINTF(("mtcp_sys_brk(0): %p\n", mtcp_sys_brk(0)));
 
     /* If no threads, we're all done */
 
@@ -1530,7 +1529,7 @@ static void checkpointeverything (void)
     struct rlimit stack_rlimit;
     getrlimit(RLIMIT_STACK, &stack_rlimit);
 
-    DPRINTF(("mtcp_restart: saved stack rsourcelimit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
+    DPRINTF(("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
 
     writecs (fd, CS_STACKRLIMIT);
     writefile (fd, &stack_rlimit, sizeof stack_rlimit);
