@@ -1299,7 +1299,7 @@ again:
       (*callback_pre_ckpt)();
     }
 
-    mtcp_saved_break = (void*) mtcp_sys_brk(0);  // kernel returns mm->brk when passed zero
+    mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
     /* Do this once, same for all threads.  But restore for each thread. */
     if (mtcp_have_thread_sysinfo_offset())
       saved_sysinfo = mtcp_get_thread_sysinfo();
@@ -1463,13 +1463,12 @@ static void checkpointeverything (void)
     use_compression = 0;
   }
   /* 3. Get gzip path */
-  if ((gzip_path = mtcp_executable_path(gzip_path)) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
-                "not be used.\n");
+  if (use_compression && (gzip_path = mtcp_executable_path(gzip_path)) == NULL) {
+    mtcp_printf("WARNING: gzip not found.  Compression will not be used.\n");
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
-  /* Create temp checkpoint file and write magic number to it */
+  /* Create temp checkpoint file and write magic number to it. */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
   fd = mtcp_safe_open(temp_checkpointfilename,
 		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
@@ -1523,7 +1522,7 @@ static void checkpointeverything (void)
 
     writefile (fd, MAGIC, MAGIC_LEN);
 
-    /* Write out the resource limits from stack, shareable parameters and the image   */
+    /* Write out stack resource limit, shareable parameters and the image */
     /* Put this all at the front to make the restore easy */
 
     struct rlimit stack_rlimit;
@@ -1534,7 +1533,7 @@ static void checkpointeverything (void)
     writecs (fd, CS_STACKRLIMIT);
     writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
-    DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so]\n", restore_size, restore_begin));
+    DPRINTF (("mtcp checkpointeverything*: [mtcp.so] image of size %X at %p\n", restore_size, restore_begin));
 
     writecs (fd, CS_RESTOREBEGIN);
     writefile (fd, &restore_begin, sizeof restore_begin);
@@ -1887,6 +1886,13 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
                  " from %s + %X\n",
 		 area -> size, area -> addr, area -> name, area -> offset));
+
+  if ((area -> name[0]) == '\0') {
+    void *brk = mtcp_sys_brk(NULL);
+    static char * heap_area = "[heap]";
+    if (brk > area -> addr && brk <= area -> addr + area -> size)
+      mtcp_sys_strcpy(area -> name, "[heap]");
+  }
 
   if ( 0 != strcmp(area -> name, "[vsyscall]")
        && ( (0 != strcmp(area -> name, "[vdso]")
@@ -2417,7 +2423,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
   // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   strings = STRINGS;
-  // This version of STRCPY copies source string into STRINGS bugger,
+  // This version of STRCPY copies source string into STRINGS,
   // and sets destination string to point there.
 # define STRCPY(x,y) \
 	if (strings + 256 < STRINGS + STRINGS_LEN) { \
