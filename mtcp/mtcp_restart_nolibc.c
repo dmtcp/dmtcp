@@ -638,6 +638,10 @@ static void readmemoryareas (void)
           mtcp_sys_close (imagefd); // don't leave dangling fd
       }
     }
+  if (area.name && mystrstr(area.name, "[heap]")
+      && mtcp_sys_brk(NULL) != area.name + area.size)
+    DPRINTF(("WARNING: break (%p) not equal to end of heap (%p)\n",
+             mtcp_sys_brk(NULL), area.name + area.size));
   }
 }
 

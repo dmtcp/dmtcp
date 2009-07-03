@@ -1,3 +1,8 @@
+/* IT'S TIME TO RE-WRITE THIS CODE.  SEE BUG BELOW.
+ * Also, see if we need ckpt_services.c .  If not, remove it.
+ * Also, look at dmtcp/src/connectionmanager.cpp:open_ckpt_to_read()
+ */
+
 /*****************************************************************************
  *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
@@ -42,7 +47,9 @@
 char *mtcp_executable_path(char *name)
 {
     char *path;
-    char *current_path;
+/* REPLACE ORIGINAL BY STATIC ALLOCATIONTO AVOID USE OF MALLOC. */
+    /* ORIGINAL CODE: char *current_path; */
+    static char current_path[256];
     char *current_path_traverse;
     struct stat stat_buf;
 
@@ -52,7 +59,11 @@ char *mtcp_executable_path(char *name)
     if (name == NULL)
         return NULL;
 
-    current_path = calloc(PATH_MAX, sizeof(char));
+/* THIS CREATES SPACE THAT'S NEVER FREED.  EVEN WORSE, IT EXTENDS HEAP,
+ * AND THE mtcp_saved_break HAS ALREADY RECORDED AN EARLIER mtcp_saved_break.
+ * NOW, current_path IS STATICALLY ALLOCATED ABOVE.
+ */
+    /* ORIGINAL:  current_path = calloc(PATH_MAX, sizeof(char)); */
 
     while(*path != '\0')
     {
@@ -64,6 +75,8 @@ char *mtcp_executable_path(char *name)
         if(*path == ':')
             path++;
 
+/* CAN'T THIS MODIFY THE USER'S "PATH" ENVIRONMENT VARIABLE??
+ */
         *current_path_traverse = '\0';
 
         /* only add the '/' if it doesn't already exist.  This way, we won't
