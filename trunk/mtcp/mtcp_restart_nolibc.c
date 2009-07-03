@@ -82,6 +82,18 @@ static int open_shared_file(char* fileName);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
+static void *mystrstr(char *string, char *substring) {
+  for ( ; *string != '\0' ; string++) {
+    char *ptr1, *ptr2;
+    for (ptr1 = string, ptr2 = substring;
+         *ptr1 == *ptr2 && *ptr2 != '\0';
+         ptr1++, ptr2++) ;
+    if (*ptr2 == '\0')
+      return *string;
+  }
+  return NULL;
+}
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called executing on the temporary stack									*/
@@ -416,8 +428,10 @@ static void readmemoryareas (void)
       } else {
         DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
-      /* POSIX says mmap would unmap old memory.  Munmap never fails if args are valid.  Can we unmap vdso and
-        vsyscall in Linux?  Used to use mtcp_safemmap here to check for address conflicts.  */
+      /* POSIX says mmap would unmap old memory.  Munmap never fails if args
+       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
+       * mtcp_safemmap here to check for address conflicts.
+       */
       mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
@@ -797,19 +811,20 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
 
   *vdso_addr = NULL; /* Default to NULL if not found. */
   while (readmapsline (mapsfd, &area)) {
-    p = strstr (area.name, "[stack]");
+    /* Gcc expands strstr() inline, but it's safer to use our own function. */
+    p = mystrstr (area.name, "[stack]");
     if (p != NULL)
       area_end = (VA)area.addr + area.size;
-    p = strstr (area.name, "[vdso]");
+    p = mystrstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;
-    p = strstr (area.name, "[vsyscall]");
+    p = mystrstr (area.name, "[vsyscall]");
     if (p != NULL)
       *vsyscall_addr = area.addr;
-    p = strstr (area.name, "[stack]");
+    p = mystrstr (area.name, "[stack]");
     if (p != NULL)
       *stack_end_addr = area.addr + addr.size;
-    p = strstr (area.name, "[vsyscall]");
+    p = mystrstr (area.name, "[vsyscall]");
     if (p != NULL) /* vsyscall is highest section, when it exists */
       return area.addr;
   }
