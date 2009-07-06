@@ -126,7 +126,9 @@ int main (int argc, char *argv[], char *envp[])
   struct rlimit stack_rlimit;
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+#ifdef DEBUG
   mtcp_printf("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+#endif
   setrlimit(RLIMIT_STACK, &stack_rlimit);
 
   /* Find where the restore image goes */
@@ -252,59 +254,53 @@ static char first_char(char *filename)
  * It will check the magic number and take the appropriate action.  If the
  * magic number is unknown, we will abort.  The fd returned points to the
  * beginning of the uncompressed data.
+ * NOTE: related code in ../dmtcp/src/connectionmanager.cpp:open_ckpt_to_read()
  *
  * @param filename the name of the checkpoint file
  * @return the fd to use
  */
-static int open_ckpt_to_read(char *filename)
-{
+static int open_ckpt_to_read(char *filename) {
     int fd;
     int fds[2];
     char fc;
-    char *gzip_path = "gzip";
+    char *gzip_cmd = "gzip";
+    char gzip_path[MTCP_MAX_PATH];
     static char *gzip_args[] = { "gzip", "-d", "-", NULL };
     pid_t cpid;
 
     fc = first_char(filename);
     fd = open(filename, O_RDONLY);
-    if(fd < 0)
-    {
+    if(fd < 0) {
         mtcp_printf("ERROR: Cannot open checkpoint file %s\n", filename);
         abort();
     }
 
-    if(fc == MAGIC_FIRST || fc=='D') /* no compression */
+    if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
         return fd;
-    else if(fc == GZIP_FIRST) /* gzip */
-    {
-        if((gzip_path = mtcp_executable_path("gzip")) == NULL)
-        {
+    else if (fc == GZIP_FIRST) /* gzip : Set gzip_path */ {
+        if (mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
             fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
             abort();
         }
 
-        if(pipe(fds) == -1)
-        {
+        if (pipe(fds) == -1) {
             fputs("ERROR: Cannot create pipe to execute gunzip to decompress checkpoint file!\n", stderr);
             abort();
         }
 
         cpid = fork();
 
-        if(cpid == -1)
-        {
+        if(cpid == -1) {
             fputs("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!\n", stderr);
             abort();
         }
-        else if(cpid > 0) /* parent process */
-        {
+        else if(cpid > 0) /* parent process */ {
             gzip_child_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
         }
-        else /* child process */
-        {
+        else /* child process */ {
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
@@ -319,8 +315,7 @@ static int open_ckpt_to_read(char *filename)
             abort();
         }
     }
-    else /* invalid magic number */
-    {
+    else /* invalid magic number */ {
         fputs("ERROR: Invalid magic number in this checkpoint file!\n", stderr);
         abort();
     }

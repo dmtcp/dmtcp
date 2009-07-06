@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -246,8 +246,8 @@ static char * mtcp_sys_strcpy(char *dest, const char *source) {
 #define mtcp_inline_syscall(name, num_args, args...) \
                                         INLINE_SYSCALL(name, num_args, args)
 
-/* We allocate this in mtcp_safemmap.c, because any object using mtcp_sys.h
- * should also be linking with mtcp_safemmap.c.
+/* We allocate this in mtcp_safemmap.c.  Files using mtcp_sys.h
+ * are also linking with mtcp_safemmap.c.
  */
 extern int mtcp_sys_errno;
 

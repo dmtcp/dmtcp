@@ -22,9 +22,9 @@
 ##  Compile and link the shareable, restore utility and test programs								##
 ##																##
 ##  Versions tested with:													##
-##    binutils-2.15.92, 2.16.1, 2.18.1												##
-##    glibc-2.3.4, 2.3.6, 2.7.12, 2.7												##
-##    linux-2.6.9-34, 2.6.9-78, 2.6.10, 2.6.14, 2.6.25										##
+##    binutils-2.15.92, 2.16.1, 2.18.1, 2.19.1											##
+##    glibc-2.3.4, 2.3.6, 2.7.12, 2.7, 2.9											##
+##    linux-2.6.9-34, 2.6.9-78, 2.6.10, 2.6.14, 2.6.25, 2.6.26									##
 ##    gcc-3.4.4, 4.0.2, 4.1.3, 4.3.2												##
 ##																##
 ##################################################################################################################################
@@ -133,20 +133,20 @@ threadtest: threadtest.c
 
 
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
-	mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o \
+	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safestat.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o
 	${CC} $(CFLAGS) -static \
-    -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
+    -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
     mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o \
     mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
-# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
 # 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 # 	${CC} $(CFLAGS) -shared \
-# 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_executable_path.o \
+# 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
 # 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
@@ -177,7 +177,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	fi
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
-	mtcp_maybebpt.o mtcp_executable_path.o mtcp_printf.o mtcp_readhexetc.o \
+	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safestat.o mtcp_safe_open.o \
 	mtcp_state.o mtcp_check_vdso.o
 
@@ -222,8 +222,8 @@ mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
-mtcp_executable_path.o: mtcp_executable_path.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_executable_path.o mtcp_executable_path.c
+mtcp_find_executable.o: mtcp_find_executable.c mtcp_internal.h
+	${CC} $(CFLAGS) -c -o mtcp_find_executable.o mtcp_find_executable.c
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
