@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -89,7 +89,7 @@ static void *mystrstr(char *string, char *substring) {
          *ptr1 == *ptr2 && *ptr2 != '\0';
          ptr1++, ptr2++) ;
     if (*ptr2 == '\0')
-      return *string;
+      return string;
   }
   return NULL;
 }
@@ -432,7 +432,7 @@ static void readmemoryareas (void)
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
        * mtcp_safemmap here to check for address conflicts.
        */
-      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
+      mmappedat = (void *)mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 

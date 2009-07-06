@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -1418,7 +1418,6 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
   return fd;
 }
 
-
 
 /********************************************************************************************************************************/
 /*																*/
@@ -1438,7 +1437,8 @@ static void checkpointeverything (void)
   int forked_cpid;
   int use_compression = -1; /* decide later */
   int pipe_fds[2]; /* for potential piping */
-  char *gzip_path = "gzip";
+  char *gzip_cmd = "gzip";
+  char gzip_path[MTCP_MAX_PATH];
 
   static void *const frpointer = finishrestore;
 
@@ -1462,8 +1462,8 @@ static void checkpointeverything (void)
                 "not be used.\n");
     use_compression = 0;
   }
-  /* 3. Get gzip path */
-  if (use_compression && (gzip_path = mtcp_executable_path(gzip_path)) == NULL) {
+  /* 3. Set gzip_path */
+  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
     mtcp_printf("WARNING: gzip not found.  Compression will not be used.\n");
     use_compression = 0;
   }
@@ -1506,7 +1506,7 @@ static void checkpointeverything (void)
   tcdrain(STDERR_FILENO);
 
   /* if no forked checkpointing, or if child with forked checkpointing */
-  if (forked_checkpointing && ((forked_cpid = mtcp_sys_fork()) == 0)
+  if ((forked_checkpointing && ((forked_cpid = mtcp_sys_fork()) == 0))
       || ! forked_checkpointing) {
 
     /* grandchild continues; no need now to waitpid() on grandchild */
@@ -1889,7 +1889,6 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 
   if ((area -> name[0]) == '\0') {
     void *brk = mtcp_sys_brk(NULL);
-    static char * heap_area = "[heap]";
     if (brk > area -> addr && brk <= area -> addr + area -> size)
       mtcp_sys_strcpy(area -> name, "[heap]");
   }
@@ -2389,8 +2388,11 @@ static char STRINGS[STRINGS_LEN];
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[] )
 
-{ int i;
+{
+#ifndef __x86_64__
+  int i;
   char *strings = STRINGS;
+#endif
 
   DEBUG_RESTARTING = 1;
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
@@ -2475,11 +2477,10 @@ static void finishrestore (void)
   struct timeval stopped;
   int nnamelen;
 
-  DPRINTF (("mtcp finishrestore*: mtcp_printf works\n"));
+  DPRINTF (("mtcp finishrestore*: mtcp_printf works; libc should work\n"));
 
-  if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ){
+  if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
   	// we start from different place - change it!
-	char *tmp;
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
     memcpy (temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);

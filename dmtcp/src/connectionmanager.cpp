@@ -693,6 +693,7 @@ static char first_char(const char *filename)
 
 // Copied from mtcp/mtcp_restart.c.
 // Let's keep this code close to MTCP code to avoid maintenance problems.
+// MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
 // A previous version tried to replace this with popen, causing a regression:
 //   (no call to pclose, and possibility of using a wrong fd).
 // Returns fd; sets dmtcp::gzip_child_pid::ConnectionToFds, if gzip compression.
