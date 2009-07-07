@@ -38,7 +38,7 @@ NAME=dmtcp_$VERSION-r$REV
 e mv dmtcp_staging $NAME
 e rm -rf $NAME/{makeRelease.sh,branches}
 e removeSvnDirs
-e tar cf $NAME.tar $NAME
+e fakeroot tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
 e rm -rf $NAME
 e mv $NAME.tar.gz $OLDDIR
