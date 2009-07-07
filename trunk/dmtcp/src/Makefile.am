@@ -40,7 +40,7 @@ dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 
-dmtcphijack_so_LDFLAGS = -shared 
+dmtcphijack_so_LDFLAGS = -shared -avoid-version -module 
 
 dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
@@ -51,10 +51,10 @@ dmtcp_inspector_LDADD = libdmtcpinternal.a -ldl -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
-pkglib_LTLIBRARIES = libdmtcpaware.la
-libdmtcpaware_la_SOURCES = dmtcpaware.c 
-#libdmtcpaware_la_LDFLAGS = -avoid-version -module
-libdmtcpaware_la_LDFLAGS = -avoid-version 
+pkglib_LIBRARIES = libdmtcpaware.a
+libdmtcpaware_a_SOURCES = dmtcpaware.c 
+#libdmtcpaware_a_LDFLAGS = -avoid-version -module
+#libdmtcpaware_a_LDFLAGS = -avoid-version 
 
 #libdmtcpaware_so_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.0
 #libdmtcpaware_so_SOURCES = dmtcpaware.c
