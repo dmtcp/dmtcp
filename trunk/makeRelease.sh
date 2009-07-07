@@ -36,7 +36,7 @@ REV=`getRev dmtcp_staging`
 NAME=dmtcp_$VERSION-r$REV
 
 e mv dmtcp_staging $NAME
-e rm -f $NAME/makeRelease.sh branches
+e rm -rf $NAME/{makeRelease.sh,branches}
 e removeSvnDirs
 e tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
