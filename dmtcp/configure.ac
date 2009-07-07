@@ -1,8 +1,8 @@
-AC_INIT([dmtcp],[1.02])
+AC_INIT([dmtcp],[1.03])
 
 AM_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dmtcp], [1.02])
-AM_PROG_LIBTOOL
+AM_INIT_AUTOMAKE([dmtcp], [1.03])
+#AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
 AC_PROG_CC
