@@ -51,7 +51,7 @@ namespace
     static const char* env = getenv ( "TESTNAME" );
     static jalib::string tn = jalib::Filesystem::GetProgramName()
                             + jalib::XToString ( getpid() )
-                            + ',' + jalib::string ( env == NULL ? "unamedtest" : env );
+                            + ',' + jalib::string ( env == NULL ? "unnamed test" : env );
     return tn;
   }
 

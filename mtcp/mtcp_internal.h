@@ -136,7 +136,7 @@ typedef unsigned int mtcp_segreg_t;
 
 int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
-#define MTCP_MAX_PATH 256   // maximum path length for find_executable
+#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
@@ -244,7 +244,8 @@ int mtcp_have_thread_sysinfo_offset();
 void *mtcp_get_thread_sysinfo(void);
 void mtcp_set_thread_sysinfo(void *);
 void mtcp_dump_tls (char const *file, int line);
-char *mtcp_executable_path(char *filename);
+int mtcp_is_executable(const char *exec_path);
+char *mtcp_find_executable(char *filename, char exec_path[MTCP_MAX_PATH]);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
