@@ -49,8 +49,30 @@ typedef funcptr ( *signal_funcptr ) ();
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
-void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
+/*
+static print_mutex(pthread_mutex_t *m,char *func)
+{
+	int i = 0;
+	printf("theMutex(%s) internals: ",func);
+	for(i=0;i<sizeof(pthread_mutex_t);i++){
+		printf("%02x ",*((char*)m + i) );
+	}
+	printf("\n");
+}
+*/
+
+void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
+
+void _dmtcp_unlock() {
+  int ret = pthread_mutex_unlock ( &theMutex );
+  if( ret == EPERM ){
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE_NP);
+	pthread_mutex_init(&theMutex,&attr);
+  }
+}
+
 void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_t attr;
   pthread_mutexattr_init(&attr);
