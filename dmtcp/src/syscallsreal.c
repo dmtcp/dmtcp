@@ -63,8 +63,8 @@ static print_mutex(pthread_mutex_t *m,char *func)
 
 void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
 
-void _dmtcp_unlock() {
-  int ret = pthread_mutex_unlock ( &theMutex );
+void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
+/*
   if( ret == EPERM ){
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
@@ -72,6 +72,7 @@ void _dmtcp_unlock() {
 	pthread_mutex_init(&theMutex,&attr);
   }
 }
+*/
 
 void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_t attr;
