@@ -283,13 +283,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     }
   }
 
-  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get syncronized with _runCoordinatorCmd if we use DMTCP API" );
-  _dmtcp_lock();
-  // TODO: may be it is better to move unlock to more appropriate place. 
-  // For example after suspendinf all threads
-  _dmtcp_unlock();
-
-
   JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
   JTRACE ( "Starting checkpoint, suspending..." );
