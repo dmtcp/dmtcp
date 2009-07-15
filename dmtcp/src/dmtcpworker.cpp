@@ -98,10 +98,10 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
-  if ( getenv("JALIB_UTILITY_DIR") == NULL ) {
+  if ( getenv(ENV_VAR_UTILITY_DIR) == NULL ) {
     JNOTE ( "\n **** Not checkpointing this process,"
             " due to missing environment var ****" )
-          ( getenv("JALIB_UTILITY_DIR") )
+          ( getenv(ENV_VAR_UTILITY_DIR) )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
