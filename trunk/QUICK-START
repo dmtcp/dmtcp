@@ -175,7 +175,7 @@ SHORT NOTES:
 	re-execute the g++ compilation from the last line output by make,
 	but do not include "-O2".  Alternatively, when configuring, use:
 	  env CXXFLAGS=-O1 ./configure
-    12. matlab has several issues:
+    12. matlab has several issues at this time:
 	A.  If you see a message about GLIBCXX-3.4 not found, you can either
 	    use root privilege to replace matlab's older libstdc++  by your
 	    system's newer libstdc++ (back up matlab's older libstdc++),
@@ -183,16 +183,16 @@ SHORT NOTES:
 		env CC=gcc-4.1 CXX=g++-4.1 ./configure
 		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
                 make clean; make
-        B. As of Oct., 2008, DMTCP does not correctly handle checkpointing
-           matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
-           FOR libjvm.so .  We are working toward a fix.
-             A simple workaround for now is to copy the .matlab7rc.sh
-           file into your current directory or home directory, and add
-           to the end of the file, for example:
-            [ to use /usr/lib/jamvm/libjvm.so, Debian package: jamvm ]
-            LDPATH_PREFIX=/usr/lib/jamvm
-          Other possible virtual machines for LDPATH_PREFIX
-          are (from Debian package libgcj9-0):
-            LDPATH_PREFIX=/usr/lib/gcj-4.3-90
-          and others from:
-	    http://www.roseindia.net/opensource/open-source-jvm.shtml
+        B. Matlab should be invoked without graphics, and to be extra safe,
+	   without the JVM.  The -nodisplay and -nojvm matlab flags suffice.
+	C. Matlab has an unfortunate interaction with the bash shell.
+	   The dash script is a small Linux shell compliant with /bin/sh.
+	   If /bin/sh is aliased to /bin/dash on your system ("ls -l /bin/sh"),
+	   you should see no problem.  You can also type:
+	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
+	   Another option is to directly invoke the matlab binary:
+    	     bin/dmtcp_checkpoint /usr/local/matlabr2007a/bin/glnxa64/MATLAB -nodisplay -nojvm
+        D.  Hence, at our site, we are able to successfully
+	   checkpoint and restart matlab with the following invocation:
+	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
+           We are working toward a more general fix.
