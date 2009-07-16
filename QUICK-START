@@ -137,6 +137,21 @@ SHORT NOTES:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
             Then (cd mtcp; make clean; make)
+	 C. If debugging MTCP from within DMTCP, then:
+	      a.  uncomment the line:
+		 CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
+	      b.  set DUP_STDERR_FD in mtcp/mtcp_printf.c to 826 or 827
+		  depending on whether MTCP debug output should go to
+		  stdout or $DMTCP_TMPDIR/jassertlog.*
+              c.  Then (cd mtcp; make clean; make)
+	 D. If debugging:  dmtcp_checkpoint a.out
+	    and you wish to attach to a.out when it starts, then
+	      a.  Set the environment variable MTCP_INIT_PAUSE
+			mtcp/mtcp.c:mtcp_init() will pause 15 seconds.
+	      b.  dmtcp_checkpoint a.out &
+	      c.  gdb a.out `pgrep -n a.out`  [During the 15 second pause.]
+	      d.  The usual gdb commands should be available to debug
+			a.out/mtcp.so/dmtcphijack.so
     4. It often works to migrate processes by moving the checkpoint files to
        another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting.  Whether it works is affected by how different are the
