@@ -303,13 +303,17 @@ __attribute__ ((weak)) void mtcpHookPostCheckpoint( void ) { }
 
 __attribute__ ((weak)) void mtcpHookRestart( void ) { }
 
+/* Statically allocate this.  Malloc is dangerous here if application is
+ *   defining its own (possibly not thread-safe) malloc routine.
+ */
+static Thread ckptThreadStorage;
 
 void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
 {
   char *p, *tmp, *endp;
   pid_t tls_pid, tls_tid;
   int len;
-  Thread *thread;
+  Thread *ckptThreadDescriptor = & ckptThreadStorage;
   mtcp_segreg_t TLSSEGREG;
 
   if (sizeof(void *) != sizeof(long)) {
@@ -360,6 +364,9 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
                                                  //     we will leave the previous good one intact
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
+  /* If DMTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
+  if (getenv("MTCP_INIT_PAUSE"))
+    sleep(15);
 
   threadenabledefault = clonenabledefault;       // save this away where it's easy to get
 
@@ -458,13 +465,12 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
   /* Set up caller as one of our threads so we can work on it */
 
-  thread = malloc (sizeof *thread);
-  memset (thread, 0, sizeof *thread);
-  setupthread (thread);
-  thread -> child_tid = mtcp_sys_kernel_gettid (); // need to set this up so the checkpointhread can see we haven't exited
-  set_tid_address (&(thread -> child_tid));  // we are assuming mtcp_init has been called before application may have called set_tid_address
+  memset (ckptThreadDescriptor, 0, sizeof *ckptThreadDescriptor);
+  setupthread (ckptThreadDescriptor);
+  ckptThreadDescriptor -> child_tid = mtcp_sys_kernel_gettid (); // need to set this up so the checkpointhread can see we haven't exited
+  set_tid_address (&(ckptThreadDescriptor -> child_tid));  // we are assuming mtcp_init has been called before application may have called set_tid_address
                                              // ... or else we will end up overwriting that set_tid_address value
-  motherofall = thread;
+  motherofall = ckptThreadDescriptor;
 
   /* Spawn off a thread that will perform the checkpoints from time to time */
 
