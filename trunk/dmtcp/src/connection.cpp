@@ -603,7 +603,9 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   JTRACE("Restoring File Connection") (id()) (_path);
   errno = 0;
   refreshPath();
-  truncate(_path.c_str(),_stat.st_size);
+  JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+    ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+
   int tempfd = openFile ();
 
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );

@@ -30,9 +30,11 @@
 
 using namespace dmtcp;
 
-
+// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
+// string has atleast one format specifier with corresponding format argument.
+// Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "PURPOSE:\n"
+  "%sPURPOSE:\n"
   "  Send a command to the dmtcp_coordinator remotely.\n\n"
   "USAGE:\n"
   "  dmtcp_command [OPTIONS] COMMAND\n\n"
@@ -65,7 +67,7 @@ int main ( int argc, char** argv )
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage);
+      fprintf(stderr, theUsage, "");
       return 1;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
@@ -94,7 +96,7 @@ int main ( int argc, char** argv )
   while(*cmd == '-') cmd++;
 
   if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
-    fprintf(stderr, theUsage);
+    fprintf(stderr, theUsage, "");
     return 1;
   }
 

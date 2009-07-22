@@ -480,8 +480,11 @@ namespace
 
 }//namespace
 
+// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
+// string has atleast one format specifier with corresponding format argument.
+// Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
+  "%sUSAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
@@ -537,7 +540,7 @@ int main ( int argc, char** argv )
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage);
+      fprintf(stderr, theUsage, "");
       return 1;
     }else if(s == "--no-check"){
       autoStartCoordinator = false;
