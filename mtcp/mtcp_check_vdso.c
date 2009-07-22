@@ -213,8 +213,9 @@ unsigned long getenv_oldpers() {
       oldpers = (oldpers << 1) + (*oldpers_str++ == '1' ? 1 : 0);
     return oldpers;
 }
+
 int setenv_oldpers(int oldpers) {
-    char oldpers_str[sizeof(oldpers)*8+1];
+    static char oldpers_str[sizeof(oldpers)*8+1];
     int i = sizeof(oldpers_str); 
     oldpers_str[i--] = '\0';
     while (i >= 0) {
