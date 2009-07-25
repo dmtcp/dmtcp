@@ -26,6 +26,7 @@
 # include "config.h"
 #endif
 
+#define LIBPTHREAD_FILENAME "libpthread.so.0"
 #define LIBC_FILENAME "libc.so.6"
 #define MTCP_FILENAME "mtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"

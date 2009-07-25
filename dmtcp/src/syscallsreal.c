@@ -77,11 +77,33 @@ static funcptr get_libc_symbol ( const char* name )
   return ( funcptr ) tmp;
 }
 
+static funcptr get_libpthread_symbol ( const char* name )
+{
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBPTHREAD_FILENAME, RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",dlerror() );
+    abort();
+  }
+
+  void* tmp = dlsym ( handle, name );
+  if ( tmp==NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",dlerror() );
+    abort();
+  }
+  return ( funcptr ) tmp;
+}
+
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
 #define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL;\
     if(fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_LIBPTHREAD(name) static funcptr fn = NULL;\
+    if(fn==NULL) fn = get_libpthread_symbol(#name); \
     return (*fn)
 
 #define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL;\
@@ -214,8 +236,7 @@ int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
 }
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
-  //**** TODO Link with the "real" pthread_sigmask ******
-  REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
+  REAL_FUNC_PASSTHROUGH_LIBPTHREAD ( pthread_sigmask ) ( how, a, b);
 }
 
 #ifdef PID_VIRTUALIZATION
