@@ -63,6 +63,10 @@
 #include <linux/unistd.h>  // for gettid, tkill
 #include <sys/ptrace.h>
 #include <sys/user.h>
+/* sys/user.h defines PAGE_SIZE and so do we in mtcp_internal.h.  We have to agree.
+ * Since sys/user.h doesn't make it a constant, we'll use our value for now.
+ */
+#undef PAGE_SIZE
 
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
@@ -334,7 +338,11 @@ static __thread int has_status_and_pid = 0;
 static __thread pid_t setoptions_superior = -1;
 static __thread int is_ptrace_setoptions = FALSE;
 
-#define MAX_PTRACE_PAIRS_COUNT 20
+/***************************************************************************/
+/* THIS CODE MUST BE CHANGED TO CHECK TO SEE IF THE USER CREATES EVEN MORE */
+/* THREADS.                                                                */
+/***************************************************************************/
+#define MAX_PTRACE_PAIRS_COUNT 100
 static struct ptrace_tid_pairs ptrace_pairs[MAX_PTRACE_PAIRS_COUNT];
 static int ptrace_pairs_count = 0;
 static int init_ptrace_pairs = 0;
@@ -389,7 +397,6 @@ __attribute__ ((weak)) void mtcpHookPreCheckpoint( void ) { }
 __attribute__ ((weak)) void mtcpHookPostCheckpoint( void ) { }
 
 __attribute__ ((weak)) void mtcpHookRestart( void ) { }
-
 
 void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
 {
