@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "mtcpinterface.h"
 #include <stdarg.h>
 #include <vector>
 #include <list>
@@ -239,18 +240,82 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
   return pid;
 }
 
+#define TRUE 1
+#define FALSE 0
+
+typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int value );
+extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;      
+
+typedef int ( *get_is_waitpid_local_t ) ();
+extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
+
+typedef void ( *unset_is_waitpid_local_t ) ();
+extern "C" unset_is_waitpid_local_t unset_is_waitpid_local_ptr;
+
+typedef pid_t ( *get_saved_pid_t) ( );
+extern "C" get_saved_pid_t get_saved_pid_ptr;
+
+typedef int ( *get_saved_status_t) ( );
+extern "C" get_saved_status_t get_saved_status_ptr;
+
+typedef int ( *get_has_status_and_pid_t) ( );
+extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
+
+typedef void ( *reset_pid_status_t) ( );
+extern "C" reset_pid_status_t reset_pid_status_ptr;
+
+extern "C" sigset_t signals_set;
+
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
-
+  pid_t superior;
+  pid_t inferior;
+  pid_t retval;
+  static int i = 0;
+  pid_t originalPid;	
+  
   if ( stat_loc == NULL )
     stat_loc = &status;
-  
+
   pid_t currPid = originalToCurrentPid (pid);
 
-  pid_t retval = _real_waitpid (currPid, stat_loc, options);
+  superior = syscall (SYS_gettid);
 
-  pid_t originalPid = currentToOriginalPid ( retval );
+  inferior = pid;
+
+  if (!get_is_waitpid_local_ptr ()) {
+	if (get_has_status_and_pid_ptr ()) {
+		*stat_loc = get_saved_status_ptr ();
+		retval = get_saved_pid_ptr ();
+		reset_pid_status_ptr ();
+	}	 
+	else {
+		if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+			perror ("waitpid wrapper");
+			exit(-1);
+		}		
+
+  		set_singlestep_waited_on_ptr (superior, inferior, TRUE);
+
+ 		retval = _real_waitpid (currPid, stat_loc, options);
+
+  		originalPid = currentToOriginalPid (retval);
+  		
+		if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
+			perror ("waitpid wrapper");
+			exit(-1);
+  		}
+	}	
+  }
+  else {
+	
+ 	retval = _real_waitpid (currPid, stat_loc, options);
+
+	unset_is_waitpid_local_ptr ();
+
+  	originalPid = currentToOriginalPid (retval);
+  }	
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
@@ -258,6 +323,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   return originalPid;
 }
+
 
 extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {

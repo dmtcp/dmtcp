@@ -40,6 +40,9 @@
 #include <stdarg.h>
 #include <linux/unistd.h>
 #include <sys/syscall.h>
+#include <fcntl.h>
+
+static char const *ptrace_shared_file = "/tmp/amvisan_ptrace_shared_file.txt";
 
 namespace
 {
@@ -140,6 +143,36 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
 }
 
+typedef pid_t ( *get_saved_pid_t) ( );
+get_saved_pid_t get_saved_pid_ptr = NULL; 
+
+typedef int ( *get_saved_status_t) ( );
+get_saved_pid_t get_saved_status_ptr = NULL; 
+
+typedef int ( *get_has_status_and_pid_t) ( );
+get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL; 
+
+typedef void ( *reset_pid_status_t) ( );
+reset_pid_status_t reset_pid_status_ptr = NULL; 
+
+typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
+set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL; 
+
+typedef int ( *get_is_waitpid_local_t ) ();
+get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
+
+typedef int ( *get_is_ptrace_local_t ) ();
+get_is_ptrace_local_t get_is_ptrace_local_ptr = NULL;
+
+typedef void ( *unset_is_waitpid_local_t ) ();
+unset_is_waitpid_local_t unset_is_waitpid_local_ptr = NULL;
+
+typedef void ( *unset_is_ptrace_local_t ) ();
+unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
+
+sigset_t signals_set;
+#define MTCP_DEFAULT_SIGNAL SIGUSR2
+
 void dmtcp::initializeMtcpEngine()
 {
 
@@ -147,6 +180,27 @@ void dmtcp::initializeMtcpEngine()
 
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
   t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
+
+  sigemptyset (&signals_set);
+  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
+
+  set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
+ 
+  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" ); 
+
+  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" ); 	
+
+  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" ); 
+
+  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" ); 	
+
+  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" ); 
+
+  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" ); 
+
+  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );  
+
+  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" ); 
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
@@ -331,8 +385,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
+// These constants must agree with the constants in mtcp/mtcp.c
+#define PTRACE_UNSPECIFIED_COMMAND 0
+#define PTRACE_SINGLESTEP_COMMAND 1
+#define PTRACE_CONTINUE_COMMAND 2
 
-extern "C" long ptrace( enum __ptrace_request request, ... )
+
+extern "C" long ptrace ( enum __ptrace_request request, ... )
 {
   va_list ap;
   pid_t pid;
@@ -342,53 +401,90 @@ extern "C" long ptrace( enum __ptrace_request request, ... )
   pid_t superior;
   pid_t inferior;
 
-  typedef long ( *ptraceptr ) ( enum __ptrace_request, ... );
-  typedef long ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
-  static ptraceptr realptrace = (ptraceptr) _get_mtcp_symbol ( "ptrace" );
-  static writeptraceinfo_t writeptraceinfo_ptr  = (writeptraceinfo_t) _get_mtcp_symbol ( "writeptraceinfo" );
+  long ptrace_ret;
 
-  va_start(ap, request);
-  pid = va_arg(ap, pid_t);
-  addr = va_arg(ap, void *);
-  data = va_arg(ap, void *);
-  va_end(ap);
+  typedef void ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
+  static writeptraceinfo_t writeptraceinfo_ptr = ( writeptraceinfo_t ) _get_mtcp_symbol ( "writeptraceinfo" );
 
+  typedef void ( *write_info_to_file_t ) ( int file, pid_t superior, pid_t inferior );
+  static write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
+
+  typedef void ( *remove_from_ptrace_pairs_t) ( pid_t superior, pid_t inferior );
+  static remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr = 
+                           ( remove_from_ptrace_pairs_t ) _get_mtcp_symbol ( "remove_from_ptrace_pairs" );
+
+  typedef void ( *handle_command_t ) ( pid_t superior, pid_t inferior, int last_command );
+  static handle_command_t handle_command_ptr = ( handle_command_t ) _get_mtcp_symbol ( "handle_command" );
+
+
+  va_start( ap, request );
+  pid = va_arg( ap, pid_t );
+  addr = va_arg( ap, void * );
+  data = va_arg( ap, void * );
+  va_end( ap );
+
+  superior = syscall( SYS_gettid );
+  inferior = pid;		
+  
   switch (request) {
-
-    case PTRACE_ATTACH:
-      superior = syscall(SYS_gettid);
-      inferior = pid;		
-
-      // write info to file 
-      (*writeptraceinfo_ptr) ( superior, inferior );
-
-      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
-
+    case PTRACE_ATTACH: {
+     if (!get_is_ptrace_local_ptr ()) writeptraceinfo_ptr ( superior, inferior );
+      else unset_is_ptrace_local_ptr ();	
       break;
-
-    case PTRACE_TRACEME:
+    }	
+    case PTRACE_TRACEME: { 
       superior = getppid();
-      inferior = syscall(SYS_gettid);
-
-      // write info to file 
-      (*writeptraceinfo_ptr)( superior, inferior );
-
+      inferior = syscall( SYS_gettid );
+      writeptraceinfo_ptr( superior, inferior );
       break;
-
-    case PTRACE_DETACH:
-      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
-
+    }	
+    case PTRACE_DETACH: {
+     if (!get_is_ptrace_local_ptr ()) remove_from_ptrace_pairs_ptr ( superior, inferior );
+     else unset_is_ptrace_local_ptr ();	
+     break;
+    }
+    case PTRACE_CONT: {
+     if (!get_is_ptrace_local_ptr ()) handle_command_ptr ( superior, inferior, PTRACE_CONTINUE_COMMAND );	
+     else unset_is_ptrace_local_ptr (); 	
+     break;
+    }
+    case PTRACE_SINGLESTEP: {     
+     pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+     if (!get_is_ptrace_local_ptr ()) {	
+     	if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+     		perror ("waitpid wrapper");
+       		 exit(-1);
+     	}
+     	handle_command_ptr (superior, inferior, PTRACE_SINGLESTEP_COMMAND);	
+     	ptrace_ret =  _real_ptrace (request, pid, addr, data);
+        if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
+     		perror ("waitpid wrapper");
+        	exit(-1);
+     	}
+     }	
+     else {
+        ptrace_ret =  _real_ptrace (request, pid, addr, data);
+	unset_is_ptrace_local_ptr ();	
+     }		
+     break;
+    }			
+    case PTRACE_SETOPTIONS: {
+     write_info_to_file_ptr (1, superior, inferior);    
+     break;
+    }		
+    default: {
       break;
-
-    default:
-      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
-
-      break;
-
+    }	
   } 	
 
   /* TODO: We might want to check the return value in certain cases */
-  return _real_ptrace ( request, pid, addr, data );
+
+  if ( request != PTRACE_SINGLESTEP ) {	
+  	pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+  	ptrace_ret =  _real_ptrace( request, pid, addr, data );
+  }  
+
+  return ptrace_ret;	
 }
 
 // This is a copy of the same function in signalwrapers.cpp
