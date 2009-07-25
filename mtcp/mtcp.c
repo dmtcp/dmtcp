@@ -2196,7 +2196,7 @@ void print_ptrace_pairs ()
   int i;
   
   for ( i = 0; i < ptrace_pairs_count; i++ )
-     printf ( "tid = %d superior = %d inferior = %d \n", GETTID(), ptrace_pairs[i].superior, ptrace_pairs[i].inferior );
+     printf ( "tid = %d superior = %d inferior = %d \n", GETTID(), (int)ptrace_pairs[i].superior, (int)ptrace_pairs[i].inferior );
   printf ( "tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count );	
 }
 
@@ -2618,13 +2618,13 @@ void ptrace_detach_user_threads ()
         ptrace_pairs[i].singlestep_waited_on = TRUE; 
       }  
       
-      printf ("tid = %d detaching superior = %d from inferior = %d\n", GETTID(), ptrace_pairs[i].superior, 
-                           ptrace_pairs[i].inferior);
+      printf ("tid = %d detaching superior = %d from inferior = %d\n", GETTID(), (int)ptrace_pairs[i].superior, 
+                           (int)ptrace_pairs[i].inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_DETACH, ptrace_pairs[i].inferior, 0, MTCP_DEFAULT_SIGNAL) == -1) {
         printf("ptrace_detach_user_threads: parent = %ld child = %ld\n", 
-          ptrace_pairs[i].superior, 
-          ptrace_pairs[i].inferior);
+          (int)ptrace_pairs[i].superior, 
+          (int)ptrace_pairs[i].inferior);
         perror("ptrace_detach_user_threads: PTRACE_DETACH failed"); 
         mtcp_abort();
       }
@@ -2733,7 +2733,7 @@ void ptrace_attach_threads(int isRestart)
     superior = ptrace_pairs[i].superior;
     inferior = ptrace_pairs[i].inferior;
 
-    printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), superior, inferior);
+    printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), (int)superior, (int)inferior);
 
     last_command = ptrace_pairs[i].last_command;
     singlestep_waited_on = ptrace_pairs[i].singlestep_waited_on;
@@ -2742,11 +2742,11 @@ void ptrace_attach_threads(int isRestart)
       // we must make sure the inferior process was created 
       have_file (superior);        
 
-      printf("attaching parent = %d child = %d\n", superior, inferior);
+      printf("attaching parent = %d child = %d\n", (int)superior, (int)inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
         perror("ptrace_attach_threads: PTRACE_ATTACH failed");
-        printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", superior, inferior);
+        printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", (int)superior, (int)inferior);
           mtcp_abort();
       }
       create_file (inferior);
