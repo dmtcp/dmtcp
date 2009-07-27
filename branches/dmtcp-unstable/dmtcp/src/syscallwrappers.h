@@ -31,6 +31,7 @@
 #include <sys/ptrace.h>
 #include <stdarg.h>
 #include <asm/ldt.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -122,6 +123,9 @@ extern "C"
 
   pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
+
+  int _real_open(const char *pathname, int flags, mode_t mode);
+  FILE * _real_fopen(const char *path, const char *mode);
 
 #endif /* PID_VIRTUALIZATION */
 
