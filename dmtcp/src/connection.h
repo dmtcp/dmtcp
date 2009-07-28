@@ -58,8 +58,8 @@ namespace dmtcp
         PTY     = 0x3000,
         FILE    = 0x4000,
         STDIO   = 0x5000,
-
-        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO
+        FIFO    = 0x6000,
+        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO | FIFO
       };
 
       virtual ~Connection() {}
@@ -316,6 +316,55 @@ namespace dmtcp
       dmtcp::string _savedRelativePath;
       off_t       _offset;
       struct stat _stat;
+  };
+
+  class FifoConnection : public Connection
+  {
+    public:
+      //called on restart when _id collides with another connection
+      virtual void mergeWith ( const Connection& that );
+
+      inline FifoConnection ( const dmtcp::string& path )
+          : Connection ( FIFO )
+		  , _path ( path )
+      {
+        const char *cur_dir = get_current_dir_name();
+        dmtcp::string curDir = cur_dir;
+        int offs = _path.find(curDir);
+        if( offs < 0 ){
+	        _rel_path = "*";
+        }else{
+          offs += curDir.size();
+          offs = _path.find('/',offs);
+          offs++;
+          _rel_path = _path.substr(offs);
+        }
+        JTRACE("New Fifo connection created")(_path)(_rel_path);
+		_in_data.clear();
+      }
+
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual void doLocking ( const dmtcp::vector<int>& fds );
+
+    private:
+      int  openFile();
+      void refreshPath();
+      dmtcp::string getSavedFilePath(const dmtcp::string& path);
+      dmtcp::string _path;
+      dmtcp::string _rel_path;
+      dmtcp::string _savedRelativePath;
+      struct stat _stat;
+	  bool _has_lock;
+	  vector<char> _in_data;
+	  int ckptfd;
   };
 }
 

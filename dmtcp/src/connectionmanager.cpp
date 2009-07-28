@@ -205,21 +205,44 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   }
   else if ( isFile )
   {
-    dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
-    iterator i = _table.find ( deviceName );
-    if ( i == _table.end() )
-    {
-      JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
-      off_t offset = lseek ( fd, 0, SEEK_CUR );
-      Connection * c = new FileConnection ( device, offset );
-      ConnectionList::Instance().add ( c );
-      _table[deviceName] = c->id();
-      return deviceName;
-    }
-    else
-    {
-      return deviceName;
-    }
+  	// Can be file or FIFO channel
+	struct stat buf;
+    stat(device.c_str(),&buf);
+    if( S_ISREG(buf.st_mode) ){
+      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+      iterator i = _table.find ( deviceName );
+      if ( i == _table.end() )
+      {
+        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
+        off_t offset = lseek ( fd, 0, SEEK_CUR );
+        Connection * c = new FileConnection ( device, offset );
+        ConnectionList::Instance().add ( c );
+        _table[deviceName] = c->id();
+        return deviceName;
+      }
+      else
+      {
+        return deviceName;
+      }
+	  
+	}
+	else if(S_ISFIFO(buf.st_mode)){
+      dmtcp::string deviceName = "fifo["+jalib::XToString ( fd ) +"]:" + device;
+      iterator i = _table.find ( deviceName );
+      if( i == _table.end() )
+      {
+        JTRACE ( "creating fifo connection [on-demand]" ) ( deviceName );
+        Connection * c = new FifoConnection( device );
+        ConnectionList::Instance().add( c );
+        _table[deviceName] = c->id();
+        return deviceName;
+      }
+      else
+      {
+        return deviceName;
+      }
+	}
+	
   }
 
 
@@ -358,6 +381,9 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         //             case Connection::PIPE:
         //                 con = new PipeConnection();
         //                 break;
+      case Connection::FIFO:
+        con = new FifoConnection ( "?" );
+        break;
       case Connection::PTY:
         con = new PtyConnection();
         break;
