@@ -830,10 +830,6 @@ void dmtcp::FifoConnection::doLocking ( const dmtcp::vector<int>& fds )
   int i=0,trials = 4;
 
   JTRACE("doLocking for FIFO");
-  if( (_fcntlFlags & O_WRONLY) ){
-  	_has_lock = false;
-	return;
-  }
   while( i < trials ){ 
     JTRACE("Loop iteration")(i);
     errno = 0;
