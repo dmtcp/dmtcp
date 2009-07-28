@@ -34,6 +34,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <iostream>
 #include <ios>
 #include <fstream>
@@ -230,7 +231,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
 }
 
-  void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
     switch ( tcpType() )
     {
       case TCP_CONNECT:
@@ -547,6 +548,8 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       JASSERT ( false ).Text ( "should never reach here" );
   }
 }
+
+
 void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
 
@@ -565,8 +568,10 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   stat(_path.c_str(),&_stat);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path)){
+  	JTRACE("SaveFile()")(_path.c_str());
     saveFile(fds[0]);
+  }
 }
 void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
@@ -619,6 +624,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   errno = 0;
   JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
     ( _path ) ( _offset ) ( JASSERT_ERRNO );
+JTRACE("lseek ( fds[0], _offset, SEEK_SET )")(fds[0])(_offset);
 
 //     flags = O_RDWR;
 //     if (!(statbuf.st_mode & S_IWUSR)) flags = O_RDONLY;
@@ -702,7 +708,9 @@ int dmtcp::FileConnection::openFile()
     CopyFile(savedFilePath, _path);
   }
 
+	JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
   fd = open(_path.c_str(), _fcntlFlags);
+	JTRACE("Is opened")(_path.c_str())(fd);
 
   //HACK: This was deleting our checkpoint files on RHEL5.2,
   //      perhaps we are leaking file descriptors in the restart process.
@@ -814,6 +822,171 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   return os.str();
 }
 
+////////////
+///// FIFO CHECKPOINTING
+
+void dmtcp::FifoConnection::doLocking ( const dmtcp::vector<int>& fds )
+{
+  int i=0,trials = 4;
+
+  JTRACE("doLocking for FIFO");
+  if( (_fcntlFlags & O_WRONLY) ){
+  	_has_lock = false;
+	return;
+  }
+  while( i < trials ){ 
+    JTRACE("Loop iteration")(i);
+    errno = 0;
+    int ret = flock(fds[0],LOCK_EX | LOCK_NB);
+    JTRACE("flock ret")(ret);
+    if( !ret ){
+      JTRACE("fd has lock")(ret);
+      _has_lock = true;
+      return;
+    }else if( errno == EWOULDBLOCK ){
+      JTRACE("fd has no lock")(ret);
+      _has_lock = false;
+      return;
+    }
+  }
+  _has_lock=false;
+  JTRACE("Error while locking FIFO")(errno);
+}
+
+
+void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
+    , KernelBufferDrainer& drain )
+{
+  JASSERT ( fds.size() > 0 );
+
+  JTRACE("start")(fds[0]);
+
+  stat(_path.c_str(),&_stat);
+  
+  if( !_has_lock ){
+    JTRACE("no lock => don't checkpoint fifo")(fds[0]);
+    return;
+  }
+
+  JTRACE("checkpoint fifo")(fds[0]);
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+  ckptfd = open(_path.c_str(),new_flags);
+  JASSERT(ckptfd >= 0)(ckptfd)(JASSERT_ERRNO);
+
+  _in_data.clear();
+  int bufsize = 256;
+  char buf[bufsize];
+  int size;
+
+
+  while(1){ // flush fifo
+    size = read(ckptfd,buf,bufsize);
+    if( size < 0 ){
+      break; // nothing to flush 
+    }
+	for(int i=0;i<size;i++){
+		_in_data.push_back(buf[i]);
+	}
+  }
+  close(ckptfd);
+  JTRACE("checkpoint fifo - end")(fds[0])(_in_data.size());
+  
+}
+
+void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
+{
+  if( !_has_lock )
+    return; // nothing to do now
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+  ckptfd = open(_path.c_str(),new_flags);
+  JASSERT(ckptfd >= 0)(ckptfd)(JASSERT_ERRNO);
+
+  int bufsize = 256;
+  char buf[bufsize];
+  int j;
+  int ret;
+  for(int i=0;i<(_in_data.size()/bufsize);i++){ // refill fifo
+    for(j=0;j<bufsize;j++){
+		buf[j] = _in_data[j+i*bufsize];
+	}
+	JASSERT( (ret=write(ckptfd,buf,j)) == j)(JASSERT_ERRNO)(ret)(j)(fds[0])(i);
+  }
+  int start = (_in_data.size()/bufsize)*bufsize;
+  for(j=0;j<_in_data.size()%bufsize;j++){
+    buf[j] = _in_data[start+j];
+  }
+  errno=0;
+  buf[j] ='\0';
+  JTRACE("Buf internals")((const char*)buf);
+  JASSERT( (ret=write(ckptfd,buf,j)) == j)(JASSERT_ERRNO)(ret)(j)(fds[0]);
+
+  close(ckptfd);  
+  // unlock fifo
+  flock(fds[0],LOCK_UN);
+  JTRACE("end checkpointing fifo")(fds[0]);
+}
+
+void dmtcp::FifoConnection::refreshPath()
+{
+  const char* cur_dir = get_current_dir_name();
+  dmtcp::string curDir = cur_dir;
+  if( _rel_path != "*" ){ // file path is relative to executable current dir
+    string oldPath = _path;
+    ostringstream fullPath;
+    fullPath << curDir << "/" << _rel_path;
+    if( jalib::Filesystem::FileExists(fullPath.str()) ){
+      _path = fullPath.str();
+	  JTRACE("Change _path based on relative path")(oldPath)(_path);
+    }
+  }
+}
+
+void dmtcp::FifoConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+  refreshPath();
+  //call base version (F_GETFL etc)
+  Connection::restoreOptions ( fds );
+}
+
+
+void dmtcp::FifoConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+{
+  JASSERT ( fds.size() > 0 );
+
+  JTRACE("Restoring Fifo Connection") (id()) (_path);
+  errno = 0;
+  refreshPath();
+  int tempfd = openFile ();
+  JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
+  
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+
+  for(size_t i=0; i<fds.size(); ++i)
+  {
+    JASSERT ( _real_dup2 ( tempfd, fds[i] ) == fds[i] ) ( tempfd ) ( fds[i] )
+      .Text ( "dup2() failed" );
+  }
+}
+
+int dmtcp::FifoConnection::openFile()
+{
+  int fd;
+
+  if (!jalib::Filesystem::FileExists(_path)) {
+    JTRACE("Fifo file not present, creating new one") (_path);
+	mkfifo(_path.c_str(),_stat.st_mode);
+  }
+
+  JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
+  fd = open(_path.c_str(), O_RDWR | O_NONBLOCK);
+  JTRACE("Is opened")(_path.c_str())(fd);
+
+  JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
+  return fd;
+}
+
 /////////
 //// SERIALIZATION
 
@@ -910,6 +1083,13 @@ void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   o & _path & _rel_path & _savedRelativePath & _offset & _fileType & _stat;
 }
 
+
+void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
+{
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::FifoConnection" );
+  o & _path & _rel_path & _savedRelativePath & _stat & _in_data & _has_lock;
+}
+
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::PtyConnection" );
@@ -971,6 +1151,11 @@ void dmtcp::PtyConnection::mergeWith ( const Connection& _that ){
 void dmtcp::FileConnection::mergeWith ( const Connection& that ){
   Connection::mergeWith(that);
   JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
+}
+
+void dmtcp::FifoConnection::mergeWith ( const Connection& that ){
+  Connection::mergeWith(that);
+  JWARNING(false)(id()).Text("We shouldn't be merging fifo connections, should we?");
 }
 
 ////////////
