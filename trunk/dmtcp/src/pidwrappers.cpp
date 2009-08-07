@@ -265,7 +265,59 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   return originalPid;
 }
+extern "C" void change_path (char *pathname)
+{
+  char path [ strlen ( pathname ) + 1 ];
+  char temp [ 6 ];
+  int index, oldPid, tempIndex, currentPid;
+  if ( strncmp ( pathname, "/proc/", 6 ) == 0 )
+  {
+    strcpy ( path, "/proc/" );
+    index = 6;
+    tempIndex = 0;
+    while ( pathname [ index ] != '/' )
+    {
+      if ( pathname [ index ] > 47 && pathname [ index ] < 58 )
+        temp [ tempIndex++ ] = pathname [ index++ ];
+      else return;
+    }
+    temp [ tempIndex ] = '\0';
+    oldPid = atoi ( temp );
+    currentPid = originalToCurrentPid ( oldPid );
+    sprintf ( path, "/proc/%d%s", currentPid, &pathname [ index ] );
+    strcpy ( pathname, path );
+  }
+  return;
+}
 
+extern "C" int open (const char *pathname, ... )
+{
+  va_list ap;
+  int flags;
+  mode_t mode;
+  int rc;
+  char path [ strlen ( pathname ) + 1 ];
+  int len,i;
+
+  // Handling the variable number of arguments
+  va_start( ap, pathname );
+  flags = va_arg ( ap, int );
+  mode = va_arg ( ap, mode_t );
+  va_end ( ap );
+
+  strcpy ( path, pathname );
+  change_path ( path );
+  return _real_open( path, flags, mode );
+}
+
+extern "C" FILE *fopen (const char* path, const char* mode)
+{
+  char pathname [ strlen ( path ) + 1 ];
+
+  strcpy ( pathname, path );
+  change_path ( pathname );
+  return _real_fopen ( pathname, mode );
+}
 
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)

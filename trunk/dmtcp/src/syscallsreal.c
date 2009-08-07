@@ -320,4 +320,13 @@ pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
 pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
   REAL_FUNC_PASSTHROUGH ( wait4 ) ( pid, status, options, rusage );
 }
+
+int _real_open ( const char *pathname, int flags, mode_t mode ) {
+  REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
+}
+
+FILE * _real_fopen( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH ( fopen ) ( path, mode );
+}
+
 #endif
