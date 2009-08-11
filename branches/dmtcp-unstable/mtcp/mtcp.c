@@ -2196,8 +2196,8 @@ void print_ptrace_pairs ()
   int i;
   
   for ( i = 0; i < ptrace_pairs_count; i++ )
-     printf ( "tid = %d superior = %d inferior = %d \n", GETTID(), (int)ptrace_pairs[i].superior, (int)ptrace_pairs[i].inferior );
-  printf ( "tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count );	
+     mtcp_printf ( "tid = %d superior = %d inferior = %d \n", GETTID(), (int)ptrace_pairs[i].superior, (int)ptrace_pairs[i].inferior );
+  mtcp_printf ( "tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count );	
 }
 
 void write_info_to_file (int file, pid_t superior, pid_t inferior)
@@ -2220,7 +2220,7 @@ void write_info_to_file (int file, pid_t superior, pid_t inferior)
       break;
     }		
     default: {
-      printf ("write_info_to_file: unknown option\n");
+      mtcp_printf ("write_info_to_file: unknown option\n");
       return;
     }
   }
@@ -2368,7 +2368,7 @@ void print_ckpt_threads ()
 {
   int i;
   for (i = 0; i < ckpt_threads_count; i++) 
-    printf ("moa = %d pid = %d tid = %d \n", GETTID(), ckpt_threads[i].pid, ckpt_threads[i].tid);  
+    mtcp_printf ("moa = %d pid = %d tid = %d \n", GETTID(), ckpt_threads[i].pid, ckpt_threads[i].tid);  
 }
 
 void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file, 
@@ -2439,7 +2439,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
           ptrace_pairs[i].eligible_for_deletion = FALSE;
       }
     }
-    else printf("process_ptrace_info: NO ptrace file\n");
+    else mtcp_printf("process_ptrace_info: NO ptrace file\n");
     
     // read the information from the setoptions file
     setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
@@ -2459,7 +2459,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
         mtcp_abort();
         }
     }
-    else printf ("process_ptrace_info: NO setoptions file\n");
+    else mtcp_printf ("process_ptrace_info: NO setoptions file\n");
     
     // read the information from the checkpoint threads file  
     /* GDB specific code */
@@ -2468,7 +2468,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
       *has_checkpoint_file = 1;
       while (read(checkpoint_fd, &pid, sizeof(pid_t)) != 0) {
         read(checkpoint_fd, &tid, sizeof(pid_t));
-        printf ("{%d} checkpoint threads: pid = %d tid = %d\n", GETTID(), pid, tid);
+        mtcp_printf ("{%d} checkpoint threads: pid = %d tid = %d\n", GETTID(), pid, tid);
         if (is_alive(pid) && is_alive(tid)) {
           /* only the pid matters 
             * for the first alive tid & pid, then tid is the ckpt of pid 
@@ -2488,7 +2488,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
         mtcp_abort();
         }
     }
-    else printf("process_ptrace_info: NO checkpoint file\n");
+    else mtcp_printf("process_ptrace_info: NO checkpoint file\n");
 
     print_ptrace_pairs ();    
     
@@ -2523,47 +2523,56 @@ void ptrace_detach_checkpoint_threads ()
 {
   int i;
   int status;
-        pid_t tgid;
-  
+  pid_t tgid, tpid;
+
+  // Release only checkpoint threads
   for (i = 0; i < ptrace_pairs_count; i++) {
-    tgid = is_checkpoint_thread (ptrace_pairs[i].inferior);   
+    int tid = ptrace_pairs[i].inferior;
+    tgid = is_checkpoint_thread (tid);
     if ((ptrace_pairs[i].superior == GETTID()) && tgid ) {
-        /* and if inferior is a checkpoint thread */
-      if (kill(tgid, SIGSTOP) == -1) {
-        perror ("ptrace_detach_checkpoint_threads: kill");
+      mtcp_printf("tid=%d, tgid = %d\n",tid,tgid);
+
+      /* and if inferior is a checkpoint thread */
+      if (kill(tid, SIGSTOP) == -1) {
+	    perror ("ptrace_detach_checkpoint_threads: kill");
         mtcp_abort ();
-      }
-     
+	  }
       is_waitpid_local = 1;
-      if (waitpid (tgid, &status, 0) == -1) {
-        perror("ptrace_detach_checkpoint_threads: waitpid failed\n");
-        mtcp_abort();
-      } 
-      if (WIFSTOPPED(status)) {
+      tpid = waitpid (tid, &status, 0);
+      mtcp_printf("tpid1=%d,errno=%d,ECHILD=%d\n",tpid,errno,ECHILD);
+      if( (tpid) == -1 && errno == ECHILD){
+        mtcp_printf("Check cloned process\n");
+        /* Try again with __WCLONE to check cloned processes.  */
+        if( (tpid = waitpid (tid, &status, __WCLONE) ) ){
+          perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+        }
+      }
+
+      mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d,err=%s\n",
+        tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status),strerror(errno) );
+      if(WIFSTOPPED(status)) {
         if (WSTOPSIG(status) == SIGSTOP)
-          printf ("checkpoint thread %d was stopped by the delivery of SIGSTOP\n", ptrace_pairs[i].inferior);
-        else  //we should never get here  
-          printf ("checkpoint thread %d was stopped by the delivery of %d\n", ptrace_pairs[i].inferior, 
-            WSTOPSIG(status));
+          mtcp_printf ("checkpoint thread %d was stopped by the delivery of SIGSTOP\n", tid);
+        else{  //we should never get here  
+          mtcp_printf ("checkpoint thread %d was stopped by the delivery of %d\n", tid,WSTOPSIG(status));
+        }
       }
       else  //we should never end up here 
-        printf ("checkpoint thread %d was NOT stopped by a signal\n", ptrace_pairs[i].inferior);
-    
+        mtcp_printf ("checkpoint thread %d was NOT stopped by a signal\n", tid);
+
       is_ptrace_local = 1;
-      if (ptrace(PTRACE_DETACH, ptrace_pairs[i].inferior, 0, SIGCONT) == -1) {
-        printf("ptrace_detach_checkpoint_threads: parent = %ld child = %ld\n", 
-          ptrace_pairs[i].superior, 
-          ptrace_pairs[i].inferior);
+      if (ptrace(PTRACE_DETACH,tid,0,SIGCONT) == -1) {
+        mtcp_printf("ptrace_detach_checkpoint_threads: parent = %d child = %d\n", 
+          ptrace_pairs[i].superior, tid);
         perror("ptrace_detach_checkpoint_threads: PTRACE_DETACH failed"); 
         mtcp_abort();
       }
     }
   }
-  printf (">>>>>>>>> done ptrace_detach_checkpoint_threads %d\n", GETTID());
+  mtcp_printf (">>>>>>>>> done ptrace_detach_checkpoint_threads %d\n", GETTID());
 }
 
 void ptrace_remove_all_checkpoint_threads ()
-
 {
   int i;
   struct ptrace_tid_pairs temp;  
@@ -2587,7 +2596,7 @@ void ptrace_remove_all_checkpoint_threads ()
   }
   
   print_ptrace_pairs ();
-  printf (">>>>>>>>>>> done ptrace_remove_all_checkpoint_threads %d\n", GETTID());  
+  mtcp_printf (">>>>>>>>>>> done ptrace_remove_all_checkpoint_threads %d\n", GETTID());  
 }
 
 
@@ -2601,36 +2610,52 @@ void ptrace_detach_user_threads ()
     if (ptrace_pairs[i].superior == GETTID()) { 
       // required for all user threads to get SIGUSR2 from their checkpoint thread
       // TODO: to be removed by waiting for the signal to have been delivered
-      sleep(PTRACE_SLEEP_INTERVAL);
+      // sleep(PTRACE_SLEEP_INTERVAL);
+      int tid = ptrace_pairs[i].inferior, tpid;
+      mtcp_printf("start witing on %d\n",tid);
+      is_waitpid_local = 1;
+      tpid = waitpid (tid, &status, 0);
+      if(tpid == -1 && errno == ECHILD){
+        printf("Check cloned process\n");
+        // Try again with __WCLONE to check cloned processes.
+        if( (tpid = waitpid (tid, &status, __WCLONE) ) ){
+          perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+        }
+      }
+
+	  mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
+        tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status) );
+      if(WIFSTOPPED(status)) {
+        if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
+          mtcp_printf ("user thread %d was stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",tid);
+        else{  //we should never get here  
+          mtcp_printf ("user thread %d was stopped by the delivery of %d\n", tid,WSTOPSIG(status));
+        }
+      }
+      else  //we should never end up here 
+        mtcp_printf ("user thread %d was NOT stopped by a signal\n", ptrace_pairs[i].inferior);
       
       if (( ptrace_pairs[i].last_command == PTRACE_SINGLESTEP_COMMAND ) && 
           ( ptrace_pairs[i].singlestep_waited_on == FALSE )) {
-        printf ("++++++++++++++++++++++++++++++++++++++++ptrace_detach_user_threads: BEFORE WAITPID\n");
         is_waitpid_local = 1;
-        saved_pid = waitpid(ptrace_pairs[i].inferior, &status, 0);
-        if (saved_pid == -1) { 
-          perror("ptrace_detach_user_threads: waitpid failed\n");  
-          mtcp_abort();
-        }
         has_status_and_pid = 1;
         saved_status = status;
-        printf ("+++++++++++++++++++++++++++++++ptrace_detach_user_threads: AFTER WAITPID %d\n", status);
+        mtcp_printf ("+++++++++++++++++++++++++++++++ptrace_detach_user_threads: AFTER WAITPID %d\n", status);
         ptrace_pairs[i].singlestep_waited_on = TRUE; 
       }  
       
-      printf ("tid = %d detaching superior = %d from inferior = %d\n", GETTID(), (int)ptrace_pairs[i].superior, 
+      mtcp_printf ("tid = %d detaching superior = %d from inferior = %d\n", GETTID(), (int)ptrace_pairs[i].superior, 
                            (int)ptrace_pairs[i].inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_DETACH, ptrace_pairs[i].inferior, 0, MTCP_DEFAULT_SIGNAL) == -1) {
-        printf("ptrace_detach_user_threads: parent = %ld child = %ld\n", 
+        mtcp_printf("ptrace_detach_user_threads: parent = %d child = %d\n", 
           (int)ptrace_pairs[i].superior, 
           (int)ptrace_pairs[i].inferior);
-        perror("ptrace_detach_user_threads: PTRACE_DETACH failed"); 
-        mtcp_abort();
+        mtcp_printf("ptrace_detach_user_threads: PTRACE_DETACH failed with error=%d",errno); 
       }
     }
   }
-  printf (">>>>>>>>> done ptrace_detach_user_threads %d\n", GETTID());
+  mtcp_printf (">>>>>>>>> done ptrace_detach_user_threads %d\n", GETTID());
 }
 
 void delete_file (int file, int delete_leader, int has_file) 
@@ -2660,7 +2685,7 @@ void delete_file (int file, int delete_leader, int has_file)
         break;
       }
       default: {
-        printf ("delete_file: unknown option\n");
+        mtcp_printf ("delete_file: unknown option\n");
       }
     }
   } 
@@ -2727,13 +2752,13 @@ void ptrace_attach_threads(int isRestart)
   unsigned long int eflags;
   int i;
 
-  printf ("attach started %d\n", GETTID());  
+  mtcp_printf ("attach started %d\n", GETTID());  
 
   for(i = 0; i < ptrace_pairs_count; i++) {
     superior = ptrace_pairs[i].superior;
     inferior = ptrace_pairs[i].inferior;
 
-    printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), (int)superior, (int)inferior);
+    mtcp_printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), (int)superior, (int)inferior);
 
     last_command = ptrace_pairs[i].last_command;
     singlestep_waited_on = ptrace_pairs[i].singlestep_waited_on;
@@ -2742,11 +2767,11 @@ void ptrace_attach_threads(int isRestart)
       // we must make sure the inferior process was created 
       have_file (superior);        
 
-      printf("attaching parent = %d child = %d\n", (int)superior, (int)inferior);
+      mtcp_printf("attaching parent = %d child = %d\n", (int)superior, (int)inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
+        mtcp_printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", (int)superior, (int)inferior);
         perror("ptrace_attach_threads: PTRACE_ATTACH failed");
-        printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", (int)superior, (int)inferior);
           mtcp_abort();
       }
       create_file (inferior);
@@ -2757,10 +2782,10 @@ void ptrace_attach_threads(int isRestart)
           mtcp_abort();
         } 
               if (WIFEXITED(status)) { 
-                printf("The reason for childs death was %d\n",WEXITSTATUS(status));
+                mtcp_printf("The reason for childs death was %d\n",WEXITSTATUS(status));
               }
         else if(WIFSIGNALED(status)) {
-                printf("The reason for child's death was signal %d\n",WTERMSIG(status));
+                mtcp_printf("The reason for child's death was signal %d\n",WTERMSIG(status));
               }
         if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
           perror("ptrace_attach_threads: PTRACE_GETREGS failed");
@@ -2789,7 +2814,7 @@ void ptrace_attach_threads(int isRestart)
               addr = regs.esp;
             }
             else { 
-              printf("SYS_RT_SIGRETURN\n");
+              mtcp_printf("SYS_RT_SIGRETURN\n");
               //UNTESTED -> TODO; gdb very unclear
               addr = regs.esp + 8; 
               addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
@@ -2831,7 +2856,7 @@ void ptrace_attach_threads(int isRestart)
       have_file (inferior); 
     }
   }
-  printf("ptrace_attach_threads: finished for %d\n", GETTID());
+  mtcp_printf("ptrace_attach_threads: finished for %d\n", GETTID());
 }
 
 
@@ -2895,7 +2920,6 @@ static void stopthisthread (int signum)
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);                            // wake checkpoint thread if it's waiting for me
  
       /* Then we wait for the checkpoint thread to write the checkpoint file then wake us up */
-
       DPRINTF (("mtcp stopthisthread*: thread %d suspending\n", thread -> tid));
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
