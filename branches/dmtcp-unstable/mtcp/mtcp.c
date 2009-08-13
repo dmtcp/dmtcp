@@ -1450,7 +1450,7 @@ again:
       (*callback_pre_ckpt)();
     }
 
-    mtcp_saved_break = (void*) mtcp_sys_brk(0);  // kernel returns mm->brk when passed zero
+    mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
     /* Do this once, same for all threads.  But restore for each thread. */
     if (mtcp_have_thread_sysinfo_offset())
       saved_sysinfo = mtcp_get_thread_sysinfo();
@@ -1591,7 +1591,8 @@ static void checkpointeverything (void)
   int forked_cpid;
   int use_compression = -1; /* decide later */
   int pipe_fds[2]; /* for potential piping */
-  char *gzip_path = "gzip";
+  char *gzip_cmd = "gzip";
+  char gzip_path[MTCP_MAX_PATH];
 
   static void *const frpointer = finishrestore;
 
@@ -1615,10 +1616,10 @@ static void checkpointeverything (void)
                 "not be used.\n");
     use_compression = 0;
   }
-  /* 3. Get gzip path */
-  if ((gzip_path = mtcp_executable_path(gzip_path)) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
-                "not be used.\n");
+  
+  /* 3. Set gzip_path */
+  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
+    mtcp_printf("WARNING: gzip not found.  Compression will not be used.\n");
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
@@ -1660,8 +1661,8 @@ static void checkpointeverything (void)
   tcdrain(STDERR_FILENO);
 
   /* if no forked checkpointing, or if child with forked checkpointing */
-  if (forked_checkpointing && ((forked_cpid = mtcp_sys_fork()) == 0)
-      || ! forked_checkpointing) {
+  if ((forked_checkpointing && ((forked_cpid = mtcp_sys_fork()) == 0))
+       || ! forked_checkpointing) {
 
     /* grandchild continues; no need now to waitpid() on grandchild */
     if (forked_checkpointing && mtcp_sys_fork() != 0) 
@@ -1679,8 +1680,7 @@ static void checkpointeverything (void)
     /* Write out the shareable parameters and the image   */
     /* Put this all at the front to make the restore easy */
 
-    DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so] %d\n", restore_size, restore_begin, 
-				mtcp_sys_kernel_gettid()));
+   DPRINTF (("mtcp checkpointeverything*: [mtcp.so] image of size %X at %p\n", restore_size, restore_begin));
 
     writecs (fd, CS_RESTOREBEGIN);
     writefile (fd, &restore_begin, sizeof restore_begin);
@@ -2026,6 +2026,13 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
                  " from %s + %X\n",
 		 area -> size, area -> addr, area -> name, area -> offset));
+
+  if ((area -> name[0]) == '\0') {
+    void *brk = mtcp_sys_brk(NULL);
+    if (brk > area -> addr && brk <= area -> addr + area -> size)
+      mtcp_sys_strcpy(area -> name, "[heap]");
+  }
+
 
   if ( 0 != strcmp(area -> name, "[vsyscall]")
        && ( (0 != strcmp(area -> name, "[vdso]")
@@ -2543,7 +2550,7 @@ void ptrace_detach_checkpoint_threads ()
       if( (tpid) == -1 && errno == ECHILD){
         mtcp_printf("Check cloned process\n");
         /* Try again with __WCLONE to check cloned processes.  */
-        if( (tpid = waitpid (tid, &status, __WCLONE) ) ){
+        if( (tpid = waitpid (tid, &status, __WCLONE) ) == -1 ){
           perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
         }
       }
@@ -2600,40 +2607,97 @@ void ptrace_remove_all_checkpoint_threads ()
 }
 
 
-void ptrace_detach_user_threads ()
+char procfs_state(int tid)
+{
+  char name[64];
+  char sbuf[256], *S, *tmp;
+  int num_read, fd, state;
+  
+  sprintf(name,"/proc/%d/stat",tid);
+  fd = open(name, O_RDONLY, 0);
+  if( fd < 0 ){
+    mtcp_printf("procfs_status: cannot open %s\n",name);
+    return 0;
+  }
+  num_read = read(fd, sbuf, sizeof sbuf - 1);
+  close(fd);
+  if(num_read<=0) return 0;
+  sbuf[num_read] = '\0';
 
+  S = strchr(sbuf, '(') + 1;
+  tmp = strrchr(S, ')');
+  S = tmp + 2;                 // skip ") "
+
+  sscanf(S,"%c",&state);
+  
+  return state;
+}
+
+
+void ptrace_detach_user_threads ()
 {
   int i;
   int status = 0;
 
   for(i = 0; i < ptrace_pairs_count; i++) {
     if (ptrace_pairs[i].superior == GETTID()) { 
+      char pstate;
       // required for all user threads to get SIGUSR2 from their checkpoint thread
       // TODO: to be removed by waiting for the signal to have been delivered
       // sleep(PTRACE_SLEEP_INTERVAL);
       int tid = ptrace_pairs[i].inferior, tpid;
       mtcp_printf("start witing on %d\n",tid);
-      is_waitpid_local = 1;
-      tpid = waitpid (tid, &status, 0);
-      if(tpid == -1 && errno == ECHILD){
-        printf("Check cloned process\n");
-        // Try again with __WCLONE to check cloned processes.
-        if( (tpid = waitpid (tid, &status, __WCLONE) ) ){
-          perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
-        }
-      }
+      
+      // Check if status of this thread already readed by debugger
+      
+      pstate = procfs_state(tid);
+      mtcp_printf("procfs_state(%d) = %c\n",tid,pstate);
 
-	  mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
-        tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status) );
-      if(WIFSTOPPED(status)) {
-        if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
-          mtcp_printf ("user thread %d was stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",tid);
-        else{  //we should never get here  
-          mtcp_printf ("user thread %d was stopped by the delivery of %d\n", tid,WSTOPSIG(status));
+      if( pstate == 'T'){
+        // There can be posibility that GDB (or other) reads status of this
+        // thread before us. So we will block. We don't want that.
+        // Read anyway but without hang
+        mtcp_printf("!!!! Process already stopped !!!!\n");
+        
+        is_waitpid_local = 1;
+        tpid = waitpid (tid, &status, WNOHANG);
+        if(tpid == -1 && errno == ECHILD){
+          printf("Check cloned process\n");
+          // Try again with __WCLONE to check cloned processes.
+          if( (tpid = waitpid (tid, &status, __WCLONE | WNOHANG ) ) == -1 ){
+            perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+          }
         }
-      }
-      else  //we should never end up here 
-        mtcp_printf ("user thread %d was NOT stopped by a signal\n", ptrace_pairs[i].inferior);
+        
+        mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
+            tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status) );
+            
+      }else{
+        // Process not in stopped state. We are in signal handler of GDB thread which waits for status change 
+        // for this process. Now it is safe to call blocking waitpid.
+
+        mtcp_printf("!!!! Process is not stopped yet !!!!\n");
+        is_waitpid_local = 1;
+        tpid = waitpid (tid, &status, 0);
+        if(tpid == -1 && errno == ECHILD){
+          printf("Check cloned process\n");
+          // Try again with __WCLONE to check cloned processes.
+          if( (tpid = waitpid (tid, &status, __WCLONE ) ) == -1 ){
+            perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+          }
+        }
+        mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
+            tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status) );
+        if(WIFSTOPPED(status)) {
+          if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
+            mtcp_printf ("user thread %d was stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",tid);
+          else{  //we should never get here  
+            mtcp_printf ("user thread %d was stopped by the delivery of %d\n", tid,WSTOPSIG(status));
+          }
+        }else  //we should never end up here 
+          mtcp_printf ("user thread %d was NOT stopped by a signal\n", ptrace_pairs[i].inferior);
+      }     
+      
       
       if (( ptrace_pairs[i].last_command == PTRACE_SINGLESTEP_COMMAND ) && 
           ( ptrace_pairs[i].singlestep_waited_on == FALSE )) {
@@ -3304,8 +3368,11 @@ static char STRINGS[STRINGS_LEN];
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[] )
 
-{ int i;
-  char *strings = STRINGS;
+{ 
+#ifndef __x86_64__
+  int i;
+   char *strings = STRINGS;
+#endif
 
   DEBUG_RESTARTING = 1;
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"

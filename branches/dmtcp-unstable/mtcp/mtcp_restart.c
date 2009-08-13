@@ -254,24 +254,22 @@ static int open_ckpt_to_read(char *filename)
     int fd;
     int fds[2];
     char fc;
-    char *gzip_path = "gzip";
+    char *gzip_cmd = "gzip";
+    char gzip_path[MTCP_MAX_PATH];
     static char *gzip_args[] = { "gzip", "-d", "-", NULL };
     pid_t cpid;
 
     fc = first_char(filename);
     fd = open(filename, O_RDONLY);
-    if(fd < 0)
-    {
+    if(fd < 0) {
         mtcp_printf("ERROR: Cannot open checkpoint file %s\n", filename);
         abort();
     }
 
     if(fc == MAGIC_FIRST || fc=='D') /* no compression */
         return fd;
-    else if(fc == GZIP_FIRST) /* gzip */
-    {
-        if((gzip_path = mtcp_executable_path("gzip")) == NULL)
-        {
+    else if (fc == GZIP_FIRST) /* gzip : Set gzip_path */ {
+        if (mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
             fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
             abort();
         }

@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -82,6 +82,18 @@ static int open_shared_file(char* fileName);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
+static void *mystrstr(char *string, char *substring) {
+  for ( ; *string != '\0' ; string++) {
+    char *ptr1, *ptr2;
+    for (ptr1 = string, ptr2 = substring;
+         *ptr1 == *ptr2 && *ptr2 != '\0';
+         ptr1++, ptr2++) ;
+    if (*ptr2 == '\0')
+      return string;
+  }
+  return NULL;
+}
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called executing on the temporary stack									*/
@@ -120,8 +132,8 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   new_brk = mtcp_sys_brk (mtcp_saved_break);
   if (new_brk == (void *)-1) {
-    mtcp_printf( "mtcp_restoreverything: sbrk(%p): %s (bad heap)\n",
-		 mtcp_saved_break, strerror(errno) );
+    mtcp_printf( "mtcp_restoreverything: sbrk(%p): errno:  %d (bad heap)\n",
+		 mtcp_saved_break, mtcp_sys_errno );
     mtcp_abort();
   }
   if (new_brk != mtcp_saved_break) {
@@ -135,12 +147,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
       mtcp_abort ();
     }
   }
+  DPRINTF(("current_brk: %p; mtcp_saved_break: %p; new_brk: %p\n",
+	   current_brk, mtcp_saved_break, new_brk));
 
   /* Unmap everything except for this image as everything we need
    *   is contained in the mtcp.so image.
    * Unfortunately, in later Linuxes, it's important also not to wipe
    *   out [vsyscall] if it exists (we may not have permission to remove it).
-   *   In any case, [vsyscall] is the highest segment if it exists.
+   *   In any case, [vsyscall] is the highest section if it exists.
    * Further, if the [vdso] when we restart is different from the old
    *   [vdso] that was saved at checkpoint time, then we need to keep
    *   both of them.  The old one may be needed if we're returning from
@@ -160,7 +174,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
                                                                   // ... it's left dangling on something I want
 
-  /* Unmap from address 0 to holebase, except for [vdso] segment */
+  /* Unmap from address 0 to holebase, except for [vdso] section */
   vdso_addr = vsyscall_addr = stack_end_addr = 0;
   highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
 					 &stack_end_addr);
@@ -189,7 +203,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
       mtcp_abort ();
   }
 
-  /* Unmap from address holebase to highest_va, except for [vdso] segment */
+  /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
   holebase  = (VA)mtcp_shareable_end;
   holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
@@ -414,7 +428,11 @@ static void readmemoryareas (void)
       } else {
         DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
-      mmappedat = mtcp_safemmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
+      /* POSIX says mmap would unmap old memory.  Munmap never fails if args
+       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
+       * mtcp_safemmap here to check for address conflicts.
+       */
+      mmappedat = (void *)mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
@@ -450,9 +468,9 @@ static void readmemoryareas (void)
       // With Red Hat Release 5.2, Red Hat allows vdso to go almost anywhere.
       // If we were unlucky and it was randomized onto our memory area, re-exec.
       // In the future, a cleaner fix will be a linker script to reserve
-      //   or even load our own memory segments at fixed addresses, so that
+      //   or even load our own memory section at fixed addresses, so that
       //   vdso will be placed elsewhere.
-      // This patch is not safe, because there are unnamed segments that
+      // This patch is not safe, because there are unnamed sections that
       //   might be required.  But early 32-bit Linux kernels also don't name
       //   [vdso] in the /proc filesystem, and it's safe to skipfile() there.
       // This code is based on what's in mtcp_check_vdso.c .
@@ -620,6 +638,10 @@ static void readmemoryareas (void)
           mtcp_sys_close (imagefd); // don't leave dangling fd
       }
     }
+  if (area.name && mystrstr(area.name, "[heap]")
+      && mtcp_sys_brk(NULL) != area.name + area.size)
+    DPRINTF(("WARNING: break (%p) not equal to end of heap (%p)\n",
+             mtcp_sys_brk(NULL), area.name + area.size));
   }
 }
 
@@ -787,26 +809,27 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
   mapsfd = open ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     mtcp_printf ("mtcp highest_userspace_address:"
-            " error opening /proc/self/maps: %s\n", strerror (errno));
+            " error opening /proc/self/maps: errno: %d\n", errno);
     mtcp_abort ();
   }
 
   *vdso_addr = NULL; /* Default to NULL if not found. */
   while (readmapsline (mapsfd, &area)) {
-    p = strstr (area.name, "[stack]");
+    /* Gcc expands strstr() inline, but it's safer to use our own function. */
+    p = mystrstr (area.name, "[stack]");
     if (p != NULL)
       area_end = (VA)area.addr + area.size;
-    p = strstr (area.name, "[vdso]");
+    p = mystrstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;
-    p = strstr (area.name, "[vsyscall]");
+    p = mystrstr (area.name, "[vsyscall]");
     if (p != NULL)
       *vsyscall_addr = area.addr;
-    p = strstr (area.name, "[stack]");
+    p = mystrstr (area.name, "[stack]");
     if (p != NULL)
       *stack_end_addr = area.addr + addr.size;
-    p = strstr (area.name, "[vsyscall]");
-    if (p != NULL) /* vsyscall is highest segment, when it exists */
+    p = mystrstr (area.name, "[vsyscall]");
+    if (p != NULL) /* vsyscall is highest section, when it exists */
       return area.addr;
   }
 
