@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -136,6 +136,7 @@ typedef unsigned int mtcp_segreg_t;
 
 int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
+#define MTCP_MAX_PATH 256   // maximum path length for find_executable
 
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
