@@ -329,6 +329,11 @@ struct ptrace_tid_pairs {
   int eligible_for_deletion;
 };
 
+void ptrace_lock_inferior();
+void ptrace_free_inferior();
+void ptrace_unlock_inferior();
+
+
 static __thread int is_waitpid_local = 0;
 static __thread int is_ptrace_local = 0;
 static __thread pid_t saved_pid = -1;
@@ -337,6 +342,14 @@ static __thread int has_status_and_pid = 0;
 
 static __thread pid_t setoptions_superior = -1;
 static __thread int is_ptrace_setoptions = FALSE;
+
+int has_ptrace_file = 0;	
+pid_t delete_ptrace_leader = -1;	
+int has_setoptions_file = 0;
+pid_t delete_setoptions_leader = -1; 	
+int has_checkpoint_file = 0;
+pid_t delete_checkpoint_leader = -1; 		
+
 
 /***************************************************************************/
 /* THIS CODE MUST BE CHANGED TO CHECK TO SEE IF THE USER CREATES EVEN MORE */
@@ -1240,10 +1253,65 @@ again:
 }
 
 /********************************************************************************************************************************/
+/* ptrace locking
+/********************************************************************************************************************************/
+
+void ptrace_unlock_inferiors()
+{
+    char file[256];
+    int fd;
+    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",GETTID());
+    
+    fd = creat(file,0644);
+    if( fd < 0 ){
+        perror("init_lock: Error while creating lock file\n");
+        mtcp_abort();
+    }
+    close(fd);
+}
+
+void ptrace_lock_inferiors()
+{
+    char file[256];
+    int fd;
+    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",GETTID());
+    unlink(file);
+}
+
+void ptrace_wait4(pid_t pid)
+{
+    char file[256];
+    struct stat buf;
+    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",pid);
+    
+    mtcp_printf("%d: Start waiting for superior\n",GETTID());
+    while( stat(file,&buf) < 0 ){
+        struct timespec ts;
+        mtcp_printf("%d: Superior is not ready\n",GETTID());
+        ts.tv_sec = 0;
+        ts.tv_nsec = 1000;
+      if( errno != ENOENT ){
+        mtcp_printf("prtrace_wait4: Unexpected error int stat: %d\n",errno);
+        mtcp_abort();
+      }
+      nanosleep(&ts,NULL);      
+    }
+    mtcp_printf("%d: Superior unlocked us\n",GETTID());
+}
+
+
+
+
+/********************************************************************************************************************************/
 /*																*/
 /*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.		*/
 /*																*/
 /********************************************************************************************************************************/
+
+void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file, 
+        pid_t *delete_setoptions_leader, int *has_setoptions_file,
+        pid_t *delete_checkpoint_leader, int *has_checkpoint_file);
+
 
 static void *checkpointhread (void *dummy)
 {
@@ -1267,7 +1335,7 @@ static void *checkpointhread (void *dummy)
   DPRINTF (("mtcp checkpointhread*: %d started\n", mtcp_sys_kernel_gettid ()));
 
   /* Set up our restart point, ie, we get jumped to here after a restore */
-
+  
   ckpthread = getcurrenthread ();
   save_sig_state (ckpthread);
   save_tls_state (ckpthread);
@@ -1297,7 +1365,7 @@ static void *checkpointhread (void *dummy)
 	    mtcp_sys_kernel_gettid ()));
 
   while (1) {
-
+    int ptraced_by = 0;
     /* Wait a while between writing checkpoint files */
 
     if(callback_sleep_between_ckpt == NULL)
@@ -1317,9 +1385,43 @@ static void *checkpointhread (void *dummy)
     mtcp_sys_gettimeofday (&started, NULL);
     checkpointsize = 0;
 
+    // Refresh ptrace information
+    has_ptrace_file = 0;	
+    delete_ptrace_leader = -1;	
+    has_setoptions_file = 0;
+    delete_setoptions_leader = -1; 	
+    has_checkpoint_file = 0;
+    delete_checkpoint_leader = -1; 		
+    process_ptrace_info( &delete_ptrace_leader, &has_ptrace_file, 
+		       &delete_setoptions_leader, &has_setoptions_file, 
+		       &delete_checkpoint_leader, &has_checkpoint_file); 	
+    
+    for (thread = threads; thread != NULL; thread = thread -> next) {
+      int i;
+      for (i = 0; i < ptrace_pairs_count; i++) {
+        mtcp_printf("COMPARE: intf=%d, tid=%d\n", ptrace_pairs[i].inferior, thread->original_tid);
+        if( ptrace_pairs[i].inferior == thread->original_tid ){
+          ptraced_by = ptrace_pairs[i].superior;
+          break;
+        }
+      }	
+      if( ptraced_by )
+        break;
+    }
+
+    mtcp_printf("\n\n%d ptraced by %d\n\n",(thread) ? thread->tid : 0,ptraced_by);
+    if( ptraced_by ){
+      mtcp_printf("\n\n%d Wait for superior %d\n\n",thread->tid,ptraced_by);
+      ptrace_wait4(ptraced_by);
+      //sleep(1);
+      mtcp_printf("\n\n%d Wait for superior %d - SUCCESS\n\n",thread->tid,ptraced_by);
+    }
+     
+
     /* Halt all other threads - force them to call stopthisthread                    */
     /* If any have blocked checkpointing, wait for them to unblock before signalling */
-
+    
+    
 rescan:
     needrescan = 0;
     lock_threads ();
@@ -2400,8 +2502,9 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
     thread = getcurrenthread ();   
  
   printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>process_ptrace_info: thread = %d\n", GETTID()); 
-  
-  if (thread == motherofall) {
+
+// TODO: consider that only checkpoint thread now runs this code  
+//  if (thread == motherofall) {
     // read the information from the ptrace file  
     ptrace_fd = open(ptrace_shared_file, O_RDONLY);
     if (ptrace_fd != -1) {
@@ -2501,22 +2604,26 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
     
     print_ckpt_threads ();
 
+    // We dont need sem_post anymore because this function is only called by checkpoint thread
+    // TODO: remove semaphor-related stuff
+    
     /* allow all other threads to proceed 
      * for all the threads excluding motherofall and checkpoint thread */
+/*     
     for (loopthread = threads; loopthread != NULL && loopthread->next != NULL && loopthread->next->next != NULL;
                   loopthread = loopthread->next) { 
       sem_post(&ptrace_read_pairs_sem);
+
     }
-  }
-  else 
-    /* all threads with the exception of motherofall (checkpoint thread does NOT run this code) wait for motherofall to write
-       the info from the ptrace file to memory (shared among all threads of a process) */  
+  }else 
+    // all threads with the exception of motherofall (checkpoint thread does NOT run this code) wait for motherofall to write
+    //   the info from the ptrace file to memory (shared among all threads of a process) 
     sem_wait(&ptrace_read_pairs_sem); 
+*/
 
 }
 
 int is_checkpoint_thread (pid_t tid) 
-
 {
   int i;
   for (i = 0; i < ckpt_threads_count; i++) {
@@ -2526,7 +2633,6 @@ int is_checkpoint_thread (pid_t tid)
 }
 
 void ptrace_detach_checkpoint_threads () 
-
 {
   int i;
   int status;
@@ -2923,7 +3029,6 @@ void ptrace_attach_threads(int isRestart)
   mtcp_printf("ptrace_attach_threads: finished for %d\n", GETTID());
 }
 
-
 /********************************************************************************************************************************/
 /*																*/
 /*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a 	*/
@@ -2936,6 +3041,9 @@ static void stopthisthread (int signum)
 {
 
   int rc;
+  Thread *thread;
+  
+/*
   int has_ptrace_file = 0;	
   pid_t delete_ptrace_leader = -1;	
   int has_setoptions_file = 0;
@@ -2943,16 +3051,15 @@ static void stopthisthread (int signum)
   int has_checkpoint_file = 0;
   pid_t delete_checkpoint_leader = -1; 		
 
-  Thread *thread;
-
   process_ptrace_info( &delete_ptrace_leader, &has_ptrace_file, 
 		       &delete_setoptions_leader, &has_setoptions_file, 
 		       &delete_checkpoint_leader, &has_checkpoint_file); 	
- 
+*/
+  ptrace_unlock_inferiors();
+  
   ptrace_detach_checkpoint_threads ();
   ptrace_remove_all_checkpoint_threads ();
   ptrace_detach_user_threads (); 	 
-
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
@@ -3041,6 +3148,8 @@ static void stopthisthread (int signum)
   }
   DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
         mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
+  ptrace_lock_inferiors();
+        
 }
 
 /********************************************************************************************************************************/
