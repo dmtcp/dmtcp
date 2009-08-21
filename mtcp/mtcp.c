@@ -327,6 +327,7 @@ struct ptrace_tid_pairs {
   int singlestep_waited_on;
   int free; //TODO: to be used at a later date
   int eligible_for_deletion;
+  int ckpt_detached;
 };
 
 void ptrace_lock_inferior();
@@ -825,6 +826,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
       ptrace_pairs[i].singlestep_waited_on = FALSE;
       ptrace_pairs[i].free = TRUE;
+      ptrace_pairs[i].ckpt_detached = FALSE;
     }
     init_ptrace_pairs = 1;		
   }
@@ -2220,6 +2222,7 @@ void reset_ptrace_pairs_entry ( int i )
   ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
   ptrace_pairs[i].singlestep_waited_on = FALSE;
   ptrace_pairs[i].free = TRUE;
+  ptrace_pairs[i].ckpt_detached = FALSE;
 }
 
 void move_last_ptrace_pairs_entry_to_i ( int i ) 
@@ -2230,6 +2233,7 @@ void move_last_ptrace_pairs_entry_to_i ( int i )
   ptrace_pairs[i].last_command = ptrace_pairs[ptrace_pairs_count-1].last_command;
   ptrace_pairs[i].singlestep_waited_on = ptrace_pairs[ptrace_pairs_count-1].singlestep_waited_on;
   ptrace_pairs[i].free = ptrace_pairs[ptrace_pairs_count-1].free;
+  ptrace_pairs[i].ckpt_detached = ptrace_pairs[ptrace_pairs_count-1].ckpt_detached;
 }
 
 void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
@@ -2277,6 +2281,7 @@ void add_to_ptrace_pairs ( pid_t superior, pid_t inferior, int last_command, int
   new_pair.last_command = last_command; 
   new_pair.singlestep_waited_on = singlestep_waited_on;
   new_pair.free = FALSE;
+  new_pair.ckpt_detached = FALSE;
   new_pair.eligible_for_deletion = TRUE;
 
   pthread_mutex_lock(&ptrace_pairs_mutex);
@@ -2480,6 +2485,32 @@ void print_ckpt_threads ()
     mtcp_printf ("moa = %d pid = %d tid = %d \n", GETTID(), ckpt_threads[i].pid, ckpt_threads[i].tid);  
 }
 
+char procfs_state(int tid)
+{
+  char name[64];
+  char sbuf[256], *S, *tmp;
+  int num_read, fd, state;
+  
+  sprintf(name,"/proc/%d/stat",tid);
+  fd = open(name, O_RDONLY, 0);
+  if( fd < 0 ){
+    mtcp_printf("procfs_status: cannot open %s\n",name);
+    return 0;
+  }
+  num_read = read(fd, sbuf, sizeof sbuf - 1);
+  close(fd);
+  if(num_read<=0) return 0;
+  sbuf[num_read] = '\0';
+
+  S = strchr(sbuf, '(') + 1;
+  tmp = strrchr(S, ')');
+  S = tmp + 2;                 // skip ") "
+
+  sscanf(S,"%c",&state);
+  
+  return state;
+}
+
 void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file, 
         pid_t *delete_setoptions_leader, int *has_setoptions_file,
         pid_t *delete_checkpoint_leader, int *has_checkpoint_file) 
@@ -2632,6 +2663,129 @@ int is_checkpoint_thread (pid_t tid)
   return 0;
 }
 
+int
+ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
+{
+  int status;
+  char pstate;
+  pid_t tpid;
+  
+  mtcp_printf("detach_ckpthread: tid=%d, tgid = %d >>>>>>>>>>>>>>>>>>>>>>>>>>\n", tid, tgid);
+
+  pstate = procfs_state(tid);
+  mtcp_printf("detach_ckpthread: CKPT Thread procfs_state(%d) = %c\n", tid, pstate);
+
+  if (pstate == 'T') {
+    // There can be posibility that GDB (or other) reads status of this
+    // thread before us. So we will block. We don't want that.
+    // Read anyway but without hang
+    mtcp_printf("detach_ckpthread: Checkpoint thread already stopped\n");
+
+    is_waitpid_local = 1;
+    tpid = waitpid(tid, &status, WNOHANG);
+    if (tpid == -1 && errno == ECHILD) {
+      mtcp_printf("detach_ckpthread: Check cloned process\n");
+      // Try again with __WCLONE to check cloned processes.
+      if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
+        perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+      }
+    }
+
+    mtcp_printf("detach_ckpthread: tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
+                tid, tpid, WIFSTOPPED(status),
+                WSTOPSIG(status) == SIGSTOP, WSTOPSIG(status));
+  } else {
+    /*
+     * and if inferior is a checkpoint thread 
+     */
+    if (kill(tid, SIGSTOP) == -1) {
+      perror("detach_ckpthread: ptrace_detach_checkpoint_threads: kill");
+      return -1;
+    }
+    is_waitpid_local = 1;
+    tpid = waitpid(tid, &status, 0);
+    mtcp_printf("detach_ckpthread: tpid1=%d,errno=%d,ECHILD=%d\n", tpid, errno, ECHILD);
+    if ((tpid) == -1 && errno == ECHILD) {
+      mtcp_printf("detach_ckpthread: Check cloned process\n");
+      /*
+       * Try again with __WCLONE to check cloned processes.  
+       */
+      is_waitpid_local = 1;
+      if ((tpid = waitpid(tid, &status, __WCLONE)) == -1) {
+        perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+        return -1;
+      }
+    }
+  }
+  mtcp_printf("detach_ckpthread: tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d,err=%s\n",
+       tid, tpid, WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP, 
+       WSTOPSIG(status), strerror(errno));
+  if (WIFSTOPPED(status)) {
+    if (WSTOPSIG(status) == SIGSTOP)
+      mtcp_printf("detach_ckpthread: checkpoint thread %d was stopped by the delivery of SIGSTOP\n",tid);
+    else {                      // we should never get here 
+      mtcp_printf("detach_ckpthread: checkpoint thread %d was stopped by the delivery of %d\n", 
+           tid,WSTOPSIG(status));
+    }
+  } else                        // we should never end up here 
+    mtcp_printf("detach_ckpthread: checkpoint thread %d was NOT stopped by a signal\n", tid);
+
+  is_ptrace_local = 1;
+  if (ptrace(PTRACE_DETACH, tid, 0, SIGCONT) == -1) {
+    mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: parent = %d child = %d\n",
+         supid, tid);
+    perror("detach_ckpthread: ptrace_detach_checkpoint_threads: PTRACE_DETACH failed");
+    return -1;
+  }
+
+  mtcp_printf("detach_ckpthread: tid=%d, tgid = %d <<<<<<<<<<<<<<<<<<<<<<<<<<\n", tid, tgid);
+  return 0;
+}
+
+int
+ptrace_control_ckpthread(pid_t tgid, pid_t tid)
+{
+  int status;
+  char pstate;
+  pid_t tpid;
+  
+  mtcp_printf("control_ckpthread: tid=%d, tgid = %d >>>>>>>>>>>>>>>>>>>>>>>>>>\n", tid, tgid);
+
+  pstate = procfs_state(tid);
+  mtcp_printf("control_ckpthread: CKPT Thread procfs_state(%d) = %c\n", tid, pstate);
+
+  if( pstate == 'T') {
+    // There can be posibility that GDB (or other) reads status of this
+    // thread before us. So we will block. We don't want that.
+    // Read anyway but without hang
+    mtcp_printf("control_ckpthread: Checkpoint thread stopped by controlled debugger\n");
+
+    mtcp_sys_kernel_tkill(tid,SIGCONT);
+/*    
+    is_waitpid_local = 1;
+    mtcp_printf("control_ckpthread: Check cloned process\n");
+    // Try again with __WCLONE to check cloned processes.
+    if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
+      perror("control_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+      return -1;
+    }
+
+    mtcp_printf("control_ckpthread: tgid = %d, tpid=%d,continued=%d,err=%s\n",
+       tid, tpid, WIFCONTINUED(status), strerror(errno));
+
+    if( WIFCONTINUED(status) ) {
+      mtcp_printf("control_ckpthread: checkpoint thread %d was stopped by the delivery of SIGSTOP\n",tid);
+    }else{                        // we should never end up here 
+      mtcp_printf("control_ckpthread: checkpoint thread %d was NOT stopped by a signal\n", tid);
+    }
+*/    
+  }
+
+  mtcp_printf("control_ckpthread: tid=%d, tgid = %d <<<<<<<<<<<<<<<<<<<<<<<<<<\n", tid, tgid);
+  return 0;
+}
+
+
 void ptrace_detach_checkpoint_threads () 
 {
   int i;
@@ -2643,48 +2797,31 @@ void ptrace_detach_checkpoint_threads ()
     int tid = ptrace_pairs[i].inferior;
     tgid = is_checkpoint_thread (tid);
     if ((ptrace_pairs[i].superior == GETTID()) && tgid ) {
-      mtcp_printf("tid=%d, tgid = %d\n",tid,tgid);
-
-      /* and if inferior is a checkpoint thread */
-      if (kill(tid, SIGSTOP) == -1) {
-	    perror ("ptrace_detach_checkpoint_threads: kill");
-        mtcp_abort ();
-	  }
-      is_waitpid_local = 1;
-      tpid = waitpid (tid, &status, 0);
-      mtcp_printf("tpid1=%d,errno=%d,ECHILD=%d\n",tpid,errno,ECHILD);
-      if( (tpid) == -1 && errno == ECHILD){
-        mtcp_printf("Check cloned process\n");
-        /* Try again with __WCLONE to check cloned processes.  */
-        if( (tpid = waitpid (tid, &status, __WCLONE) ) == -1 ){
-          perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+      mtcp_printf("\n\nptrace_pairs[%d].ckpt_detached = %d, FALSE = %d\n",
+          i,ptrace_pairs[i].ckpt_detached, FALSE);
+          
+      if( ptrace_pairs[i].ckpt_detached == FALSE ){
+        mtcp_printf("ptrace_detach_checkpoint_threads: ptrace_detach_ckpthread(%d,%d,%d)\n",
+              tgid,tid,ptrace_pairs[i].superior);
+        if( ptrace_detach_ckpthread(tgid,tid,ptrace_pairs[i].superior) ){
+          mtcp_abort();
+        }
+        ptrace_pairs[i].ckpt_detached = TRUE;
+      }else{
+        mtcp_printf("ptrace_detach_checkpoint_threads: ptrace_control_ckpthread(%d,%d)\n",
+              tgid,tid);
+        if( ptrace_control_ckpthread(tgid,tid) ){
+          mtcp_abort();
         }
       }
-
-      mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d,err=%s\n",
-        tid,tpid,WIFSTOPPED(status),WSTOPSIG(status) == SIGSTOP,WSTOPSIG(status),strerror(errno) );
-      if(WIFSTOPPED(status)) {
-        if (WSTOPSIG(status) == SIGSTOP)
-          mtcp_printf ("checkpoint thread %d was stopped by the delivery of SIGSTOP\n", tid);
-        else{  //we should never get here  
-          mtcp_printf ("checkpoint thread %d was stopped by the delivery of %d\n", tid,WSTOPSIG(status));
-        }
-      }
-      else  //we should never end up here 
-        mtcp_printf ("checkpoint thread %d was NOT stopped by a signal\n", tid);
-
-      is_ptrace_local = 1;
-      if (ptrace(PTRACE_DETACH,tid,0,SIGCONT) == -1) {
-        mtcp_printf("ptrace_detach_checkpoint_threads: parent = %d child = %d\n", 
-          ptrace_pairs[i].superior, tid);
-        perror("ptrace_detach_checkpoint_threads: PTRACE_DETACH failed"); 
-        mtcp_abort();
-      }
+      mtcp_printf("After: ptrace_pairs[%d].ckpt_detached = %d, FALSE = %d\n",
+          i,ptrace_pairs[i].ckpt_detached, FALSE);
     }
   }
   mtcp_printf (">>>>>>>>> done ptrace_detach_checkpoint_threads %d\n", GETTID());
 }
 
+/*
 void ptrace_remove_all_checkpoint_threads ()
 {
   int i;
@@ -2711,33 +2848,7 @@ void ptrace_remove_all_checkpoint_threads ()
   print_ptrace_pairs ();
   mtcp_printf (">>>>>>>>>>> done ptrace_remove_all_checkpoint_threads %d\n", GETTID());  
 }
-
-
-char procfs_state(int tid)
-{
-  char name[64];
-  char sbuf[256], *S, *tmp;
-  int num_read, fd, state;
-  
-  sprintf(name,"/proc/%d/stat",tid);
-  fd = open(name, O_RDONLY, 0);
-  if( fd < 0 ){
-    mtcp_printf("procfs_status: cannot open %s\n",name);
-    return 0;
-  }
-  num_read = read(fd, sbuf, sizeof sbuf - 1);
-  close(fd);
-  if(num_read<=0) return 0;
-  sbuf[num_read] = '\0';
-
-  S = strchr(sbuf, '(') + 1;
-  tmp = strrchr(S, ')');
-  S = tmp + 2;                 // skip ") "
-
-  sscanf(S,"%c",&state);
-  
-  return state;
-}
+*/
 
 
 void ptrace_detach_user_threads ()
@@ -2746,7 +2857,13 @@ void ptrace_detach_user_threads ()
   int status = 0;
 
   for(i = 0; i < ptrace_pairs_count; i++) {
-    if (ptrace_pairs[i].superior == GETTID()) { 
+
+    if( is_checkpoint_thread(ptrace_pairs[i].inferior) ){
+      mtcp_printf("ptrace_detach_user_threads: SKIP checkpoint thread %d\n",ptrace_pairs[i].inferior);
+      continue;
+    }
+    
+    if( ptrace_pairs[i].superior == GETTID()) { 
       char pstate;
       // required for all user threads to get SIGUSR2 from their checkpoint thread
       // TODO: to be removed by waiting for the signal to have been delivered
@@ -2927,6 +3044,11 @@ void ptrace_attach_threads(int isRestart)
   for(i = 0; i < ptrace_pairs_count; i++) {
     superior = ptrace_pairs[i].superior;
     inferior = ptrace_pairs[i].inferior;
+    
+    if(  is_checkpoint_thread(inferior) ){
+      mtcp_printf("ptrace_attach_threads: SKIP checkpoint thread: %d\n",inferior);
+      continue;
+    }
 
     mtcp_printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), (int)superior, (int)inferior);
 
@@ -3058,7 +3180,7 @@ static void stopthisthread (int signum)
   ptrace_unlock_inferiors();
   
   ptrace_detach_checkpoint_threads ();
-  ptrace_remove_all_checkpoint_threads ();
+//  ptrace_remove_all_checkpoint_threads ();
   ptrace_detach_user_threads (); 	 
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
