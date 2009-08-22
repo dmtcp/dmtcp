@@ -26,6 +26,7 @@
 # include "config.h"
 #endif
 
+#define LIBTHREAD_DB "libthread_db.so.1"
 #define LIBPTHREAD_FILENAME "libpthread.so.0"
 #define LIBC_FILENAME "libc.so.6"
 #define MTCP_FILENAME "mtcp.so"

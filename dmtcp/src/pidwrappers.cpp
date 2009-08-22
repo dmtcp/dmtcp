@@ -36,6 +36,8 @@
 #include  "../jalib/jconvert.h"
 #include "constants.h"
 #include <sys/syscall.h>
+#include <thread_db.h>
+#include <sys/procfs.h>
 
 #ifdef PID_VIRTUALIZATION                                                         
 
@@ -261,6 +263,28 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   return _real_fopen ( pathname, mode );
 }
 
+extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p, 
+                                               td_thrinfo_t *ti_p) 
+{
+  td_err_e td_err;
+
+  td_err = _real_td_thr_get_info ( th_p, ti_p);
+  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
+  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
+  return td_err;
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. It should be safe to comment this out if you don't
+   need to checkpoint gdb.
+*/ 
+extern "C" void *dlsym ( void *handle, const char *symbol)
+{
+  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
+    return (void *) &_dmtcp_td_thr_get_info;
+  else 
+    return _real_dlsym ( handle, symbol );
+}
 
 extern "C" int   tkill(int tid, int sig)
 {

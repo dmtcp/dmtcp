@@ -36,6 +36,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
+#include <thread_db.h>
+#include <sys/procfs.h>
 
 //this should be defined in pthread.h, but on RHEL 5.2 it is stubborn
 #ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
@@ -44,9 +46,11 @@
 #endif
 
 typedef int ( *funcptr ) ();
+typedef void* ( *funcptr_64 ) ();
+typedef pid_t ( *funcptr_pid_t ) ();
+typedef td_err_e ( *funcptr_td_err_e ) ();
 
 typedef funcptr ( *signal_funcptr ) ();
-
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
@@ -59,19 +63,44 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_destroy(&attr);
 }
 
+static funcptr get_libthread_db_symbol ( const char* name )
+{
+  void* tmp = NULL;
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB ,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",dlerror() );
+    abort();
+  }
+  tmp = _real_dlsym ( handle, name );
+  if ( tmp == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",dlerror() );
+    abort();
+  }
+  return ( funcptr ) tmp;
+}
+
 static funcptr get_libc_symbol ( const char* name )
 {
+  void* tmp;
   static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
+  // DMTCP should not calls dlsym.  It should call _real_dlsym  instead.
+  if ( strcmp ( name, "dlsym" ) == 0 )
   {
-    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: name is dlsym \n");
     abort();
   }
 
-  void* tmp = dlsym ( handle, name );
-  if ( tmp==NULL )
+  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n", dlerror() );
+    abort();
+  }
+  tmp = _real_dlsym ( handle, name );
+  if ( tmp == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n", dlerror() );
     abort();
   }
   return ( funcptr ) tmp;
@@ -85,8 +114,7 @@ static funcptr get_libpthread_symbol ( const char* name )
     fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",dlerror() );
     abort();
   }
-
-  void* tmp = dlsym ( handle, name );
+  void* tmp = _real_dlsym ( handle, name );
   if ( tmp==NULL )
   {
     fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",dlerror() );
@@ -102,6 +130,14 @@ static funcptr get_libpthread_symbol ( const char* name )
     if(fn==NULL) fn = get_libc_symbol(#name); \
     return (*fn)
 
+#define REAL_FUNC_PASSTHROUGH_64(name) static funcptr_64 fn = NULL;\
+    if(fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL;\
+    if(fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
+
 #define REAL_FUNC_PASSTHROUGH_LIBPTHREAD(name) static funcptr fn = NULL;\
     if(fn==NULL) fn = get_libpthread_symbol(#name); \
     return (*fn)
@@ -109,6 +145,10 @@ static funcptr get_libpthread_symbol ( const char* name )
 #define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL;\
     if(fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_TD_ERR_E(name) static funcptr_td_err_e fn = NULL;\
+    if(fn==NULL) fn = get_libthread_db_symbol(#name); \
+    return (*fn)
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
@@ -175,7 +215,7 @@ int _real_system ( const char *cmd )
 
 pid_t _real_fork()
 {
-  REAL_FUNC_PASSTHROUGH ( fork ) ();
+  REAL_FUNC_PASSTHROUGH_PID_T ( fork ) ();
 }
 
 int _real_close ( int fd )
@@ -242,17 +282,17 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) _real_syscall(SYS_getpid);
-//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_gettid(void){
   return (pid_t) _real_syscall(SYS_gettid);
-//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){
   return (pid_t) _real_syscall(SYS_getppid);
-  //REAL_FUNC_PASSTHROUGH ( getppid ) ( );
+  //REAL_FUNC_PASSTHROUGH_PID_T ( getppid ) ( );
 }
 
 int _real_tcsetpgrp(int fd, pid_t pgrp){
@@ -264,15 +304,15 @@ int _real_tcgetpgrp(int fd) {
 }
 
 pid_t _real_getpgrp(void) {
-  REAL_FUNC_PASSTHROUGH ( getpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgrp ) ( );
 }
 
 pid_t _real_setpgrp(void) {
-  REAL_FUNC_PASSTHROUGH ( setpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setpgrp ) ( );
 }
 
 pid_t _real_getpgid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH ( getpgid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgid ) ( pid );
 }
 
 int   _real_setpgid(pid_t pid, pid_t pgid) {
@@ -280,11 +320,11 @@ int   _real_setpgid(pid_t pid, pid_t pgid) {
 }
 
 pid_t _real_getsid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH ( getsid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getsid ) ( pid );
 }
 
 pid_t _real_setsid(void) {
-  REAL_FUNC_PASSTHROUGH ( setsid ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setsid ) ( );
 }
 
 int   _real_kill(pid_t pid, int sig) {
@@ -300,11 +340,11 @@ int   _real_tgkill(int tgid, int tid, int sig) {
 }
 
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
-  REAL_FUNC_PASSTHROUGH ( wait ) ( stat_loc );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait ) ( stat_loc );
 }
 
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
-  REAL_FUNC_PASSTHROUGH ( waitpid ) ( pid, stat_loc, options );
+  REAL_FUNC_PASSTHROUGH_PID_T ( waitpid ) ( pid, stat_loc, options );
 }
 
 int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
@@ -312,11 +352,11 @@ int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
 }
 
 pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH ( wait3 ) ( status, options, rusage );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait3 ) ( status, options, rusage );
 }
 
 pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH ( wait4 ) ( pid, status, options, rusage );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
@@ -324,13 +364,45 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
 }
 
 FILE * _real_fopen( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH ( fopen ) ( path, mode );
+  REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
+}
+
+void *_real_dlsym ( void *handle, const char *symbol ) {
+  /* In the future dlsym_offset should be global variable defined in 
+     dmtcpworker.cpp. For some unclear reason doing that causes a link
+     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp 
+     and  dmtcpworker.cpp. Commenting out the extra definition in 
+     dmtcp_coordinator.cpp sometimes caused an seg fault on 
+       dmtcp_checkpoint gdb a.out 
+     when user types run in gdb.
+  */
+  static int dlsym_offset = 0;
+  if (dlsym_offset == 0 && getenv("DMTCP_DLSYM_OFFSET"))
+  { 
+    dlsym_offset = ( int ) strtol ( getenv ("DMTCP_DLSYM_OFFSET") , NULL, 10 );
+    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
+        fails to start.
+    */
+    //unsetenv ( "DMTCP_DLSYM_OFFSET" );
+  } 
+  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol); 
+  if ( dlsym_offset == 0)
+    return dlsym ( handle, symbol );
+  else  
+  {
+    funcptr_64 dlsym_addr = (char *)&dlopen + dlsym_offset;
+    return (*dlsym_addr) ( handle, symbol );
+  }
+}
+
+td_err_e   _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
+  REAL_FUNC_PASSTHROUGH_TD_ERR_E ( td_thr_get_info ) ( th_p, ti_p );
 }
 
 #endif
 
 long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
-  REAL_FUNC_PASSTHROUGH ( ptrace ) ( request, pid, addr, data );
+  REAL_FUNC_PASSTHROUGH_64 ( ptrace ) ( request, pid, addr, data );
 }
 
 /* See comments for syscall wrapper */
@@ -344,7 +416,7 @@ long int _real_syscall(long int sys_num, ... ) {
     arg[i] = va_arg(ap, void *);
   va_end(ap);
 
-  REAL_FUNC_PASSTHROUGH ( syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+  REAL_FUNC_PASSTHROUGH_64 ( syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
 int _real_clone ( int ( *function ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )

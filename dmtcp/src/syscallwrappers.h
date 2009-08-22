@@ -32,6 +32,8 @@
 #include <stdarg.h>
 #include <asm/ldt.h>
 #include <stdio.h>
+#include <thread_db.h>
+#include <sys/procfs.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -126,6 +128,8 @@ extern "C"
 
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE * _real_fopen(const char *path, const char *mode);
+  void * _real_dlsym ( void *handle, const char *symbol );
+  td_err_e   _real_td_thr_get_info ( const td_thrhandle_t  *th_p, td_thrinfo_t *ti_p);
 
 #endif /* PID_VIRTUALIZATION */
 
