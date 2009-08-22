@@ -101,8 +101,8 @@ int main ( int argc, char** argv )
     fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
     abort();
   }
-  tmp1 = &dlopen;
-  tmp2 = &dlsym;
+  tmp1 = (void *) &dlopen;
+  tmp2 = (void *) &dlsym;
   tmp3 = (char *)tmp2 - (char *) tmp1;
   char str[21] = {0} ;
   sprintf(str,"%d",tmp3);
