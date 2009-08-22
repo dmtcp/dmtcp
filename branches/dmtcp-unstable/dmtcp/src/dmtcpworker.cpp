@@ -46,6 +46,11 @@
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+/* See comment in _real_dlsym. */
+//extern "C" {
+//  int dlsym_offset = 0;
+//}
+
 bool dmtcp::DmtcpWorker::_stdErrMasked = false;
 bool dmtcp::DmtcpWorker::_stdErrClosed = false;
 
@@ -107,11 +112,14 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   }
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
+  
+//  dlsym_offset = (int) strtol ( getenv ( "DMTCP_DLSYM_OFFSET" ), NULL, 10 );
+//  unsetenv ( "DMTCP_DLSYM_OFFSET" );
 
   JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
-
+  
   if ( jalib::Filesystem::GetProgramName() == "ssh" )
   {
     //make sure coordinator connection is closed
