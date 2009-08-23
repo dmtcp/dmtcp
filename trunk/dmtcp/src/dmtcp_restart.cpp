@@ -347,7 +347,7 @@ namespace
           for(it; it != _childs.end(); it++){
               s_iterator sit = (*it)->getSmap().find(psid);
               JTRACE("Restore processes that was created before their parent called setsid()");
-              if( sit != (*it)->getSmap().end() ){
+              if( sit == (*it)->getSmap().end() ){
                 JTRACE ( "Forking Child Process" ) ( (*it)->pid() ); 
                 pid_t cid = forkChild();
                 if ( cid == 0 )
@@ -402,7 +402,6 @@ namespace
               JASSERT (false) . Text( "Unreachable" );
             }
           }
-
         }          
 
         JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid());
