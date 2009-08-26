@@ -277,7 +277,6 @@ void change_path ( const char *path, char *newpath )
   }
   if ( strncmp ( path, "/proc/", 6 ) == 0 )
   {
-    printf ( "Inside if \n");
     index = 6;
     tempIndex = 0;
     while ( path [ index ] != '/' )
