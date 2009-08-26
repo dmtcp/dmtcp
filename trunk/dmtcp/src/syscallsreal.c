@@ -44,6 +44,8 @@
 #endif
 
 typedef int ( *funcptr ) ();
+typedef void* ( *funcptr_64 ) ();
+typedef pid_t ( *funcptr_pid_t ) ();
 
 typedef funcptr ( *signal_funcptr ) ();
 
@@ -104,6 +106,14 @@ static funcptr get_libc_symbol ( const char* name )
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
 #define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL;\
+    if(fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_64(name) static funcptr_64 fn = NULL;\
+    if(fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL;\
     if(fn==NULL) fn = get_libc_symbol(#name); \
     return (*fn)
 
@@ -176,7 +186,7 @@ int _real_system ( const char *cmd )
 
 pid_t _real_fork()
 {
-  REAL_FUNC_PASSTHROUGH ( fork ) ();
+  REAL_FUNC_PASSTHROUGH_PID_T ( fork ) ();
 }
 
 int _real_close ( int fd )
@@ -244,17 +254,17 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) syscall(SYS_getpid);
-//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_gettid(void){
   return (pid_t) syscall(SYS_gettid);
-//  REAL_FUNC_PASSTHROUGH ( getpid ) ( );
+//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){
   return (pid_t) syscall(SYS_getppid);
-  //REAL_FUNC_PASSTHROUGH ( getppid ) ( );
+  //REAL_FUNC_PASSTHROUGH_PID_T ( getppid ) ( );
 }
 
 int _real_tcsetpgrp(int fd, pid_t pgrp){
@@ -266,15 +276,15 @@ int _real_tcgetpgrp(int fd) {
 }
 
 pid_t _real_getpgrp(void) {
-  REAL_FUNC_PASSTHROUGH ( getpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgrp ) ( );
 }
 
 pid_t _real_setpgrp(void) {
-  REAL_FUNC_PASSTHROUGH ( setpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setpgrp ) ( );
 }
 
 pid_t _real_getpgid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH ( getpgid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgid ) ( pid );
 }
 
 int   _real_setpgid(pid_t pid, pid_t pgid) {
@@ -282,11 +292,11 @@ int   _real_setpgid(pid_t pid, pid_t pgid) {
 }
 
 pid_t _real_getsid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH ( getsid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getsid ) ( pid );
 }
 
 pid_t _real_setsid(void) {
-  REAL_FUNC_PASSTHROUGH ( setsid ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setsid ) ( );
 }
 
 int   _real_kill(pid_t pid, int sig) {
@@ -302,11 +312,11 @@ int   _real_tgkill(int tgid, int tid, int sig) {
 }
 
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
-  REAL_FUNC_PASSTHROUGH ( wait ) ( stat_loc );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait ) ( stat_loc );
 }
 
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
-  REAL_FUNC_PASSTHROUGH ( waitpid ) ( pid, stat_loc, options );
+  REAL_FUNC_PASSTHROUGH_PID_T ( waitpid ) ( pid, stat_loc, options );
 }
 
 int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
@@ -314,11 +324,11 @@ int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
 }
 
 pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH ( wait3 ) ( status, options, rusage );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait3 ) ( status, options, rusage );
 }
 
 pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH ( wait4 ) ( pid, status, options, rusage );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
@@ -326,7 +336,7 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
 }
 
 FILE * _real_fopen( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH ( fopen ) ( path, mode );
+  REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
 }
 
 #endif
