@@ -209,58 +209,57 @@ extern "C" int   kill(pid_t pid, int sig)
   return _real_kill (currPid, sig);
 }
 
-extern "C" void change_path (char *pathname)
+extern "C" void change_path (const char *path, char *newpath)
 {
-  char path [ strlen ( pathname ) + 1 ];
-  char temp [ 6 ];
+  char temp [ 10 ];
   int index, oldPid, tempIndex, currentPid;
-  if ( strncmp ( pathname, "/proc/", 6 ) == 0 )
+  if ( strncmp ( path, "/proc/", 6 ) == 0 )
   {
-    strcpy ( path, "/proc/" );
     index = 6;
     tempIndex = 0;
-    while ( pathname [ index ] != '/' )
+    while ( path [ index ] != '/' )
     {
-      if ( pathname [ index ] > 47 && pathname [ index ] < 58 )
-        temp [ tempIndex++ ] = pathname [ index++ ];
-      else return;
+      if ( path [ index ] > 47 && path [ index ] < 58 )
+        temp [ tempIndex++ ] = path [ index++ ];
+      else 
+      {
+        strcpy ( newpath, path );
+        return;
+      }
     }
     temp [ tempIndex ] = '\0';
     oldPid = atoi ( temp );
     currentPid = originalToCurrentPid ( oldPid );
-    sprintf ( path, "/proc/%d%s", currentPid, &pathname [ index ] );
-    strcpy ( pathname, path );
+    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
   }
   return;
 }
 
-extern "C" int open (const char *pathname, ... ) 
+extern "C" int open (const char *path, ... ) 
 {
   va_list ap;
   int flags;
   mode_t mode;
   int rc;
-  char path [ strlen ( pathname ) + 1 ];
+  char newpath [ 1024 ];
   int len,i;
 
   // Handling the variable number of arguments
-  va_start( ap, pathname );
+  va_start( ap, path );
   flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
 
-  strcpy ( path, pathname );
-  change_path ( path );
-  return _real_open( path, flags, mode );
+  change_path ( path, newpath );
+  return _real_open( newpath, flags, mode );
 }
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
-  char pathname [ strlen ( path ) + 1 ];
+  char newpath [ 1024 ];
 
-  strcpy ( pathname, path );
-  change_path ( pathname );
-  return _real_fopen ( pathname, mode );
+  change_path ( path, newpath );
+  return _real_fopen ( newpath, mode );
 }
 
 extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p, 
