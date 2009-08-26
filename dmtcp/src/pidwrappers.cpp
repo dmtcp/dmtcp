@@ -209,10 +209,15 @@ extern "C" int   kill(pid_t pid, int sig)
   return _real_kill (currPid, sig);
 }
 
-extern "C" void change_path (const char *path, char *newpath)
+void change_path ( const char *path, char *newpath )
 {
   char temp [ 10 ];
   int index, oldPid, tempIndex, currentPid;
+  if (  path == "" || path == NULL )
+  {
+    newpath = "";
+    return;
+  }
   if ( strncmp ( path, "/proc/", 6 ) == 0 )
   {
     index = 6;
@@ -221,7 +226,7 @@ extern "C" void change_path (const char *path, char *newpath)
     {
       if ( path [ index ] > 47 && path [ index ] < 58 )
         temp [ tempIndex++ ] = path [ index++ ];
-      else 
+      else
       {
         strcpy ( newpath, path );
         return;
@@ -232,16 +237,17 @@ extern "C" void change_path (const char *path, char *newpath)
     currentPid = originalToCurrentPid ( oldPid );
     sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
   }
+  else strcpy ( newpath, path );
   return;
 }
 
-extern "C" int open (const char *path, ... ) 
+extern "C" int open (const char *path, ... )
 {
   va_list ap;
   int flags;
   mode_t mode;
   int rc;
-  char newpath [ 1024 ];
+  char newpath [ 1024 ] = {0} ;
   int len,i;
 
   // Handling the variable number of arguments
@@ -256,7 +262,7 @@ extern "C" int open (const char *path, ... )
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
-  char newpath [ 1024 ];
+  char newpath [ 1024 ] = {0} ;
 
   change_path ( path, newpath );
   return _real_fopen ( newpath, mode );
