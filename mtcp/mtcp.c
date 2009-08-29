@@ -2674,8 +2674,10 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
 
   pstate = procfs_state(tid);
   mtcp_printf("detach_ckpthread: CKPT Thread procfs_state(%d) = %c\n", tid, pstate);
-
-  if (pstate == 'T') {
+  if( pstate == 0 ){
+  // such process not exist 
+    return -ENOENT;
+  }else if (pstate == 'T') {
     // There can be posibility that GDB (or other) reads status of this
     // thread before us. So we will block. We don't want that.
     // Read anyway but without hang
@@ -2690,17 +2692,16 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
         perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
       }
     }
-
     mtcp_printf("detach_ckpthread: tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
                 tid, tpid, WIFSTOPPED(status),
                 WSTOPSIG(status) == SIGSTOP, WSTOPSIG(status));
-  } else {
+  }else{
     /*
      * and if inferior is a checkpoint thread 
      */
     if (kill(tid, SIGSTOP) == -1) {
       perror("detach_ckpthread: ptrace_detach_checkpoint_threads: kill");
-      return -1;
+      return -EAGAIN;
     }
     is_waitpid_local = 1;
     tpid = waitpid(tid, &status, 0);
@@ -2713,7 +2714,7 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
       is_waitpid_local = 1;
       if ((tpid = waitpid(tid, &status, __WCLONE)) == -1) {
         perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
-        return -1;
+        return -EAGAIN;
       }
     }
   }
@@ -2735,7 +2736,7 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
     mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: parent = %d child = %d\n",
          supid, tid);
     perror("detach_ckpthread: ptrace_detach_checkpoint_threads: PTRACE_DETACH failed");
-    return -1;
+    return -EAGAIN;
   }
 
   mtcp_printf("detach_ckpthread: tid=%d, tgid = %d <<<<<<<<<<<<<<<<<<<<<<<<<<\n", tid, tgid);
@@ -2754,20 +2755,24 @@ ptrace_control_ckpthread(pid_t tgid, pid_t tid)
   pstate = procfs_state(tid);
   mtcp_printf("control_ckpthread: CKPT Thread procfs_state(%d) = %c\n", tid, pstate);
 
-  if( pstate == 'T') {
+  if( pstate == 0 ){
+    // process not exist
+    return -ENOENT;
+  }else if( pstate == 'T') {
     // There can be posibility that GDB (or other) reads status of this
     // thread before us. So we will block. We don't want that.
     // Read anyway but without hang
     mtcp_printf("control_ckpthread: Checkpoint thread stopped by controlled debugger\n");
 
-    mtcp_sys_kernel_tkill(tid,SIGCONT);
-/*    
+    if( mtcp_sys_kernel_tkill(tid,SIGCONT) )
+      return -EAGAIN;
+       
     is_waitpid_local = 1;
     mtcp_printf("control_ckpthread: Check cloned process\n");
     // Try again with __WCLONE to check cloned processes.
     if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
       perror("control_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
-      return -1;
+      return -EAGAIN;
     }
 
     mtcp_printf("control_ckpthread: tgid = %d, tpid=%d,continued=%d,err=%s\n",
@@ -2778,7 +2783,6 @@ ptrace_control_ckpthread(pid_t tgid, pid_t tid)
     }else{                        // we should never end up here 
       mtcp_printf("control_ckpthread: checkpoint thread %d was NOT stopped by a signal\n", tid);
     }
-*/    
   }
 
   mtcp_printf("control_ckpthread: tid=%d, tgid = %d <<<<<<<<<<<<<<<<<<<<<<<<<<\n", tid, tgid);
@@ -2788,31 +2792,41 @@ ptrace_control_ckpthread(pid_t tgid, pid_t tid)
 
 void ptrace_detach_checkpoint_threads () 
 {
-  int i;
+  int i,ret;
   int status;
   pid_t tgid, tpid;
 
   // Release only checkpoint threads
   for (i = 0; i < ptrace_pairs_count; i++) {
     int tid = ptrace_pairs[i].inferior;
+    int sup = ptrace_pairs[i].superior;
     tgid = is_checkpoint_thread (tid);
-    if ((ptrace_pairs[i].superior == GETTID()) && tgid ) {
+    if ((sup == GETTID()) && tgid ) {
+      
       mtcp_printf("\n\nptrace_pairs[%d].ckpt_detached = %d, FALSE = %d\n",
           i,ptrace_pairs[i].ckpt_detached, FALSE);
           
       if( ptrace_pairs[i].ckpt_detached == FALSE ){
         mtcp_printf("ptrace_detach_checkpoint_threads: ptrace_detach_ckpthread(%d,%d,%d)\n",
-              tgid,tid,ptrace_pairs[i].superior);
-        if( ptrace_detach_ckpthread(tgid,tid,ptrace_pairs[i].superior) ){
+              tgid,tid,sup);
+        if( ret = ptrace_detach_ckpthread(tgid,tid,sup) ){
+          if( ret == -ENOENT ){
+            mtcp_printf("%s: process not exist %d\n",__FUNCTION__,tid);
+          }
           mtcp_abort();
         }
         ptrace_pairs[i].ckpt_detached = TRUE;
       }else{
         mtcp_printf("ptrace_detach_checkpoint_threads: ptrace_control_ckpthread(%d,%d)\n",
               tgid,tid);
-        if( ptrace_control_ckpthread(tgid,tid) ){
+        if( ret = ptrace_control_ckpthread(tgid,tid) ){
+          if( ret == -ENOENT ){
+            mtcp_printf("%s: process not exist %d\n",__FUNCTION__,tid);
+          }
           mtcp_abort();
         }
+
+
       }
       mtcp_printf("After: ptrace_pairs[%d].ckpt_detached = %d, FALSE = %d\n",
           i,ptrace_pairs[i].ckpt_detached, FALSE);
@@ -2821,14 +2835,20 @@ void ptrace_detach_checkpoint_threads ()
   mtcp_printf (">>>>>>>>> done ptrace_detach_checkpoint_threads %d\n", GETTID());
 }
 
-/*
-void ptrace_remove_all_checkpoint_threads ()
+
+void ptrace_remove_notexisted()
 {
   int i;
   struct ptrace_tid_pairs temp;  
 
+  mtcp_printf ("<<<<<<<<<<< start ptrace_remove_notexisted %d\n", GETTID());  
+
   for (i = 0; i < ptrace_pairs_count; i++) {
-    if (is_checkpoint_thread (ptrace_pairs[i].inferior)) {
+    int tid = ptrace_pairs[i].inferior;
+    char pstate = procfs_state(tid);
+    mtcp_printf("checking status of %d = %c\n",tid,pstate);
+    if( pstate == 0) {
+      // process not exist
       if ( i != (ptrace_pairs_count - 1)) {
         temp = ptrace_pairs[i];
         ptrace_pairs[i] = ptrace_pairs[ptrace_pairs_count - 1];
@@ -2846,10 +2866,8 @@ void ptrace_remove_all_checkpoint_threads ()
   }
   
   print_ptrace_pairs ();
-  mtcp_printf (">>>>>>>>>>> done ptrace_remove_all_checkpoint_threads %d\n", GETTID());  
+  mtcp_printf (">>>>>>>>>>> done ptrace_remove_notexisted %d\n", GETTID());  
 }
-*/
-
 
 void ptrace_detach_user_threads ()
 {
@@ -2872,11 +2890,13 @@ void ptrace_detach_user_threads ()
       mtcp_printf("start witing on %d\n",tid);
       
       // Check if status of this thread already readed by debugger
-      
       pstate = procfs_state(tid);
       mtcp_printf("procfs_state(%d) = %c\n",tid,pstate);
-
-      if( pstate == 'T'){
+      if( pstate == 0){
+      // process not exist
+        mtcp_printf("%s: process not exist %d\n",__FUNCTION__,tid);
+        mtcp_abort();
+      } else if( pstate == 'T'){
         // There can be posibility that GDB (or other) reads status of this
         // thread before us. So we will block. We don't want that.
         // Read anyway but without hang
@@ -3062,7 +3082,7 @@ void ptrace_attach_threads(int isRestart)
       mtcp_printf("attaching parent = %d child = %d\n", (int)superior, (int)inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
-        mtcp_printf("PTRACE_ATTACH failed for parent = %ld child = %ld\n", (int)superior, (int)inferior);
+        mtcp_printf("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior);
         perror("ptrace_attach_threads: PTRACE_ATTACH failed");
           mtcp_abort();
       }
@@ -3179,8 +3199,8 @@ static void stopthisthread (int signum)
 */
   ptrace_unlock_inferiors();
   
+	ptrace_remove_notexisted();
   ptrace_detach_checkpoint_threads ();
-//  ptrace_remove_all_checkpoint_threads ();
   ptrace_detach_user_threads (); 	 
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
@@ -3708,13 +3728,13 @@ static void finishrestore (void)
 
   /* Fill in the new mother process id */
   motherpid = mtcp_sys_getpid();
-
   /* Call another routine because our internal stack is wacked and we can't have local vars */
 
   ///JA: v54b port
   // so restarthread will have a big stack
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
 		: : "g" (motherofall -> savctx.SAVEDSP - 128 ) : "memory");  // -128 for red zone
+		
   restarthread (motherofall);
 }
 
@@ -3739,6 +3759,7 @@ static int restarthread (void *threadv)
         (*callback_post_ckpt)(1);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
+
     /* Do it once only, in motherofall thread. */
     if (saved_termios_exists)
       if ( ! isatty(STDIN_FILENO)
