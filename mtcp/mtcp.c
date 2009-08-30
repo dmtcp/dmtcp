@@ -3069,7 +3069,6 @@ void ptrace_attach_threads(int isRestart)
       mtcp_printf("ptrace_attach_threads: SKIP checkpoint thread: %d\n",inferior);
       continue;
     }
-
     mtcp_printf ("(attach) tid = %d superior = %d inferior = %d\n", GETTID(), (int)superior, (int)inferior);
 
     last_command = ptrace_pairs[i].last_command;
@@ -3115,7 +3114,39 @@ void ptrace_attach_threads(int isRestart)
         #ifdef __x86_64__
         if ((low == 0xf) && (upp == 0x05) && (regs.rax == 0xf)) {
           /* This code is yet to be written */
-                                  break;    
+          if ( isRestart && ( last_command == PTRACE_SINGLESTEP_COMMAND )) {
+            if (regs.eax == DMTCP_SYS_sigreturn) {
+              addr = regs.esp;
+            }
+            else {
+              mtcp_printf("SYS_RT_SIGRETURN\n");
+              //UNTESTED -> TODO; gdb very unclear
+              addr = regs.esp + 8;
+              addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+              addr += 20;
+            }
+            addr += EFLAGS_OFFSET;
+            errno = 0;
+            if ((eflags = ptrace(PTRACE_PEEKDATA, inferior, (void *)addr, 0)) < 0) {
+              if (errno != 0) {
+                perror ("ptrace_attach_threads: PTRACE_PEEKDATA failed");
+                mtcp_abort ();
+              }
+            }
+            eflags |= 0x0100;
+            if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
+              perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
+              mtcp_abort();
+            }
+          }
+          else {
+            is_ptrace_local = 1;
+            if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              perror("ptrace_attach_threads: PTRACE_CONT failed");
+              mtcp_abort();
+            }
+          }
+          break;    
         }
         #else
         if (((low == 0xcd) && (upp == 0x80)) &&
