@@ -152,9 +152,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
-    }
-    else
-    {
+    } else {
       return deviceName;
     }
   }
@@ -197,18 +195,18 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
-    }
-    else
-    {
+    } else {
       return deviceName;
     }
   }
   else if ( isFile )
   {
   	// Can be file or FIFO channel
-	struct stat buf;
+    struct stat buf;
     stat(device.c_str(),&buf);
-    if( S_ISREG(buf.st_mode) ){
+
+    /* /dev/null is a character special file (non-regular file) */
+    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode)) {
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
       iterator i = _table.find ( deviceName );
       if ( i == _table.end() )
@@ -219,35 +217,28 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
         ConnectionList::Instance().add ( c );
         _table[deviceName] = c->id();
         return deviceName;
-      }
-      else
-      {
+      } else {
         return deviceName;
       }
-	  
-	}
-	else if(S_ISFIFO(buf.st_mode)){
+    } else if (S_ISFIFO(buf.st_mode)){
       dmtcp::string deviceName = "fifo["+jalib::XToString ( fd ) +"]:" + device;
       iterator i = _table.find ( deviceName );
-      if( i == _table.end() )
+      if (i == _table.end())
       {
         JTRACE ( "creating fifo connection [on-demand]" ) ( deviceName );
         Connection * c = new FifoConnection( device );
         ConnectionList::Instance().add( c );
         _table[deviceName] = c->id();
         return deviceName;
-      }
-      else
-      {
+      } else {
         return deviceName;
       }
-	}
-	
+    } else {
+      JASSERT(false)(device) .Text("Unimplemented file type.");
+    }
   }
-
-
+  JWARNING(false).Text("UnImplemented Connection Type.");
   return device;
-
 }
 
 void dmtcp::ConnectionList::erase ( iterator i )
@@ -382,6 +373,7 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         //                 con = new PipeConnection();
         //                 break;
       case Connection::FIFO:
+        // sleep(15);
         con = new FifoConnection ( "?" );
         break;
       case Connection::PTY:

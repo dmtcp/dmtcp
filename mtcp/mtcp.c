@@ -501,20 +501,21 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* The child thread checkpointhread will now wake us. */
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  The routine mtcp_set_callbacks below may be called BEFORE the first
+/********************************************************************************************************************************
+ *
+ *  The routine mtcp_set_callbacks below may be called BEFORE the first
  *  MTCP checkpoint, to add special functionality to checkpointing
- */
-/*    Its arguments (callback functions) are:  */
-//
-// sleep_between_ckpt:  Called in between checkpoints to replace the default "sleep(sec)" functionality,
-//                      when this function returns checkpoint will start
-// pre_ckpt:            Called after all user threads are suspended, but BEFORE checkpoint written
-// post_ckpt:           Called after checkpoint, and after restore.  is_restarting will be 1 for restore 0 for after checkpoint
-// ckpt_fd:             Called to test if mtcp should checkpoint a given FD returns 1 if it should
-//
-/********************************************************************************************************************************/
+ * 
+ *    Its arguments (callback functions) are:
+ *
+ * sleep_between_ckpt:  Called in between checkpoints to replace the default "sleep(sec)" functionality,
+ *                      when this function returns checkpoint will start
+ * pre_ckpt:            Called after all user threads are suspended, but BEFORE checkpoint written
+ * post_ckpt:           Called after checkpoint, and after restore.  is_restarting will be 1 for restore 0 for after checkpoint
+ * ckpt_fd:             Called to test if mtcp should checkpoint a given FD returns 1 if it should
+ *
+ *******************************************************************************************************************************/
+
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
@@ -527,7 +528,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_ckpt_fd = ckpt_fd;
     callback_write_ckpt_prefix = write_ckpt_prefix;
 }
-
+
 /*************************************************************************/
 /*						                         */
 /*  Dump out the TLS stuff pointed to by %gs	                         */
@@ -617,28 +618,28 @@ void mtcp_dump_tls (char const *file, int line)
 #endif
 }
 
-/*****************************************************************************/
-/*									     */
-/*  This is our clone system call wrapper				     */
-/*									     */
-/*    Note:								     */
-/*									     */
-/*      pthread_create eventually calls __clone to create threads	     */
-/*      It uses flags = 0x7D0F00:					     */
-/*	      CLONE_VM = VM shared between processes		             */
-/*	      CLONE_FS = fs info shared between processes (root, cwd, umask) */
-/*	   CLONE_FILES = open files shared between processes (fd table)	     */
-/*	 CLONE_SIGHAND = signal handlers and blocked signals shared	     */
-/*	 			 (sigaction common to parent and child)      */
-/*	  CLONE_THREAD = add to same thread group			     */
-/*	 CLONE_SYSVSEM = share system V SEM_UNDO semantics		     */
-/*	  CLONE_SETTLS = create a new TLS for the child from newtls parameter*/
-/*	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)    */
-/*	CLONE_CHILD_CLEARTID = clear the TID in the child and do a	     */
-/*				 futex wake at that address		     */
-/*	      CLONE_DETACHED = create clone detached			     */
-/*									     */
-/*****************************************************************************/
+/*****************************************************************************
+ *
+ *  This is our clone system call wrapper
+ *
+ *    Note:
+ *
+ *      pthread_create eventually calls __clone to create threads
+ *      It uses flags = 0x7D0F00:
+ *	      CLONE_VM = VM shared between processes
+ *	      CLONE_FS = fs info shared between processes (root, cwd, umask)
+ *	   CLONE_FILES = open files shared between processes (fd table)
+ *	 CLONE_SIGHAND = signal handlers and blocked signals shared
+ *	 			 (sigaction common to parent and child)
+ *	  CLONE_THREAD = add to same thread group
+ *	 CLONE_SYSVSEM = share system V SEM_UNDO semantics
+ *	  CLONE_SETTLS = create a new TLS for the child from newtls parameter
+ *	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)
+ *	CLONE_CHILD_CLEARTID = clear the TID in the child and do 
+ *				 futex wake at that address
+ *	      CLONE_DETACHED = create clone detached
+ *
+ *****************************************************************************/
 
 int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
@@ -1445,6 +1446,9 @@ static void checkpointeverything (void)
   int pipe_fds[2]; /* for potential piping */
   char *gzip_cmd = "gzip";
   char gzip_path[MTCP_MAX_PATH];
+  char tmpDMTCPHeaderBuf[] = "/tmp/dmtcp.XXXXXX";
+  char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
+  int tmpDMTCPHeaderFd = -1;
 
   static void *const frpointer = finishrestore;
 
@@ -1455,6 +1459,48 @@ static void checkpointeverything (void)
 #ifdef TEST_FORKED_CHECKPOINTING
   forked_checkpointing = 1;
 #endif
+
+  if(callback_write_ckpt_prefix != 0) {
+    /* Temp file foe DMTCP prefix; will be written into the checkpoint file.  */
+    tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
+    if (tmpDMTCPHeaderFd < 0) {
+      mtcp_printf("error %d creating temp file: %s\n", errno, strerror(errno));
+      mtcp_abort();
+    }
+
+    if (unlink(tmpDMTCPHeaderFileName) == -1) {
+      mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno, strerror(errno));
+    }
+
+    /* Better to do this in parent, not child, for most accurate prefix info. */
+    (*callback_write_ckpt_prefix)(tmpDMTCPHeaderFd);
+  }
+
+  if (forked_checkpointing) {
+    forked_cpid = mtcp_sys_fork();
+    if (forked_cpid == -1) {
+      mtcp_printf("WARNING: Failed to do forked checkpointing, trying normal checkpoint\n");
+    } else if (forked_cpid > 0) {
+      /* Parent process*/
+      if (tmpDMTCPHeaderFd == -1)
+        close(tmpDMTCPHeaderFd);
+      // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
+      if( waitpid(forked_cpid, NULL, 0) == -1 )
+        DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d",
+              mtcp_sys_errno));
+      DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
+      return;
+    } else {
+      pid_t grandchild_pid = mtcp_sys_fork();
+      if(grandchild_pid == -1) {
+        mtcp_printf("WARNING: Forked checkpoint failed, no checkpoint available\n");
+      } else if (grandchild_pid > 0) {
+        mtcp_sys_exit(0); /* child exits */
+      }
+      /* grandchild continues; no need now to waitpid() on grandchild */
+      DPRINTF (("mtcp checkpointeverything*: inside grandchild process\n"));
+    }
+  }
 
   /* 1. Test if using compression */
   use_compression = test_use_compression();
@@ -1468,13 +1514,14 @@ static void checkpointeverything (void)
                 "not be used.\n");
     use_compression = 0;
   }
-  /* 3. Set gzip_path */
+  /* 3. Get gzip path */
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    mtcp_printf("WARNING: gzip not found.  Compression will not be used.\n");
+    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+                "not be used.\n");
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
-  /* Create temp checkpoint file and write magic number to it. */
+  /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
   fd = mtcp_safe_open(temp_checkpointfilename,
 		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
@@ -1488,14 +1535,6 @@ static void checkpointeverything (void)
   *       when using forked checkpointing.
   */
 
-  /* Better to do this in parent, not child, for most accurate prefix info. */
-  /* In Linux, pipe always has at least one page (4KB), which is enough
-   * for DMTCP header.  This could be more portable by having DMTCP write
-   * to buffer, and we would later write the buffer to the pipe.
-   */
-  if(callback_write_ckpt_prefix != 0)
-    (*callback_write_ckpt_prefix)(use_compression ? pipe_fds[1] : fd);
-
 #if 1
   /* Temporary fix, until DMTCP uses its own separate allocator.
    * The else code should really go lower down, just before we checkpoint
@@ -1507,251 +1546,249 @@ static void checkpointeverything (void)
 		"  Continue at your own risk. ***\n\n\n");
 #endif
 
-  /* Drain stdout and stderr before checkpoint */
+  /* Drain stdin and stdout before checkpoint */
   tcdrain(STDOUT_FILENO);
   tcdrain(STDERR_FILENO);
 
-  /* if no forked checkpointing, or if child with forked checkpointing */
-  if ((forked_checkpointing && ((forked_cpid = mtcp_sys_fork()) == 0))
-      || ! forked_checkpointing) {
+  if (use_compression) /* if use_compression, fork a gzip process */
+    fd = open_ckpt_to_write(fd, pipe_fds, gzip_path);
 
-    /* grandchild continues; no need now to waitpid() on grandchild */
-    if (forked_checkpointing && mtcp_sys_fork() != 0) 
-      mtcp_sys_exit(0); /* child exits */
+  if (tmpDMTCPHeaderFd != -1 ) {
+    char tmpBuff[1024];
+    int retval = -1;
+    lseek(tmpDMTCPHeaderFd, 0, SEEK_SET);
 
-    if (forked_checkpointing) {
-      DPRINTF (("mtcp checkpointeverything*: inside grandchild process\n"));
+    while (retval != 0) {
+      retval = read (tmpDMTCPHeaderFd, tmpBuff, 1024);
+      if (retval == -1 && (errno == EAGAIN || errno == EINTR))
+        continue;
+      if (retval == -1) {
+        mtcp_printf("Error writing checkpoint file: %s\n", strerror(errno));
+        mtcp_abort();
+      }
+      writefile(fd, tmpBuff, retval);
     }
+  }
 
-    if (use_compression) /* if use_compression, fork a gzip process */
-      fd = open_ckpt_to_write(fd, pipe_fds, gzip_path);
+  writefile (fd, MAGIC, MAGIC_LEN);
 
-    writefile (fd, MAGIC, MAGIC_LEN);
+  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so]\n", 
+            restore_size, restore_begin));
 
-    /* Write out stack resource limit, shareable parameters and the image */
-    /* Put this all at the front to make the restore easy */
+  struct rlimit stack_rlimit;
+  getrlimit(RLIMIT_STACK, &stack_rlimit);
 
-    struct rlimit stack_rlimit;
-    getrlimit(RLIMIT_STACK, &stack_rlimit);
+  DPRINTF(("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
 
-    DPRINTF(("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
+  writecs (fd, CS_STACKRLIMIT);
+  writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
-    writecs (fd, CS_STACKRLIMIT);
-    writefile (fd, &stack_rlimit, sizeof stack_rlimit);
+  DPRINTF (("mtcp checkpointeverything*: [mtcp.so] image of size %X at %p\n", restore_size, restore_begin));
 
-    DPRINTF (("mtcp checkpointeverything*: [mtcp.so] image of size %X at %p\n", restore_size, restore_begin));
+  writecs (fd, CS_RESTOREBEGIN);
+  writefile (fd, &restore_begin, sizeof restore_begin);
+  writecs (fd, CS_RESTORESIZE);
+  writefile (fd, &restore_size, sizeof restore_size);
+  writecs (fd, CS_RESTORESTART);
+  writefile (fd, &restore_start, sizeof restore_start);
+  writecs (fd, CS_RESTOREIMAGE);
+  writefile (fd, (void *)restore_begin, restore_size);
+  writecs (fd, CS_FINISHRESTORE);
+  writefile (fd, &frpointer, sizeof frpointer);
 
-    writecs (fd, CS_RESTOREBEGIN);
-    writefile (fd, &restore_begin, sizeof restore_begin);
-    writecs (fd, CS_RESTORESIZE);
-    writefile (fd, &restore_size, sizeof restore_size);
-    writecs (fd, CS_RESTORESTART);
-    writefile (fd, &restore_start, sizeof restore_start);
-    writecs (fd, CS_RESTOREIMAGE);
-    writefile (fd, (void *)restore_begin, restore_size);
-    writecs (fd, CS_FINISHRESTORE);
-    writefile (fd, &frpointer, sizeof frpointer);
+  /* Write out file descriptors */
 
-    /* Write out file descriptors */
+  writefiledescrs (fd);
 
-    writefiledescrs (fd);
+  /* Finally comes the memory contents */
 
-    /* Finally comes the memory contents */
+  /**************************************************************************/
+  /* We can't do any more mallocing at this point because malloc stuff is   */
+  /* outside the limits of the mtcp.so image, so it won't get checkpointed, */
+  /* and it's possible that we would checkpoint an inconsistent state.      */
+  /* See note in restoreverything routine.                                  */
+  /**************************************************************************/
 
-    /**************************************************************************/
-    /* We can't do any more mallocing at this point because malloc stuff is   */
-    /* outside the limits of the mtcp.so image, so it won't get checkpointed, */
-    /* and it's possible that we would checkpoint an inconsistent state.      */
-    /* See note in restoreverything routine.                                  */
-    /**************************************************************************/
+  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    mtcp_printf ("mtcp checkpointeverything: error opening"
+        " /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
+    mtcp_abort ();
+  }
 
-    mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
-    if (mapsfd < 0) {
-      mtcp_printf ("mtcp checkpointeverything: error opening"
-		   " /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
-      mtcp_abort ();
-    }
+  /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
+   * [vdso] will be saved and restored.
+   * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
+   * We must restore old [vdso] and also keep [vdso] in that case.
+   * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
+   * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
+   *   and at least for gcl, [stack], mtcp.so, [vsyscall] seen.
+   * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
+   * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
+   * Need to restore old [vdso] into mtcp_restart, to restart.
+   * With randomize_va_space turned off, libraries start at high address
+   *     0xb8000000 and are loaded progressively at lower addresses.
+   * mtcp_restart loads vdso (which looks like a shared library) first.
+   * But libpthread/libdl/libc libraries are loaded above vdso in user image.
+   * So, we must use the opposite of the user's setting (no randomization if
+   *     user turned it on, and vice versa).  We must also keep the
+   *     new vdso segment, provided by mtcp_restart.
+   */
+  while (readmapsline (mapsfd, &area)) {
+    if (0 == strcmp(area.name, "[vsyscall]"))
+      vsyscall_exists = 1;
+  }
+  close(mapsfd);
+  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
-    /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
-     * [vdso] will be saved and restored.
-     * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
-     * We must restore old [vdso] and also keep [vdso] in that case.
-     * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
-     * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
-     *   and at least for gcl, [stack], mtcp.so, [vsyscall] seen.
-     * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
-     * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
-     * Need to restore old [vdso] into mtcp_restart, to restart.
-     * With randomize_va_space turned off, libraries start at high address
-     *     0xb8000000 and are loaded progressively at lower addresses.
-     * mtcp_restart loads vdso (which looks like a shared library) first.
-     * But libpthread/libdl/libc libraries are loaded above vdso in user image.
-     * So, we must use the opposite of the user's setting (no randomization if
-     *     user turned it on, and vice versa).  We must also keep the
-     *     new vdso section, provided by mtcp_restart.
+  while (readmapsline (mapsfd, &area)) {
+    area_begin = (VA)area.addr;
+    area_end   = area_begin + area.size;
+
+    /* Original comment:  Skip anything in kernel address space ---
+     *   beats me what's at FFFFE000..FFFFFFFF - we can't even read it;
+     * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
+     *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
+     *  then we simply won't copy it.  But let's try to read all areas, anyway.
+     * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
      */
-    while (readmapsline (mapsfd, &area)) {
-      if (0 == strcmp(area.name, "[vsyscall]"))
-        vsyscall_exists = 1;
-    }
-    close(mapsfd);
-    mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
-
-    while (readmapsline (mapsfd, &area)) {
-      area_begin = (VA)area.addr;
-      area_end   = area_begin + area.size;
-
-      /* Original comment:  Skip anything in kernel address space ---
-       *   beats me what's at FFFFE000..FFFFFFFF - we can't even read it;
-       * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
-       *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
-       *  then we simply won't copy it.  But let's try to read all areas, anyway.
-       * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
-       */
-       /* If it's readable, but it's VDSO, it will be dangerous to restore it.
-        * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
-        * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
-        * implies we're in 32-bit mode.
-        */
-       if (area_begin >= HIGHEST_VA && area_begin == 0xffffe000) continue;
+    /* If it's readable, but it's VDSO, it will be dangerous to restore it.
+     * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
+     * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
+     * implies we're in 32-bit mode.
+     */
+    if (area_begin >= HIGHEST_VA && area_begin == 0xffffe000) continue;
 #ifdef __x86_64__
-       /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
-        * use 0xffffffffff600000 for VDSO.
-        */
-       if (area_begin >= HIGHEST_VA && area_begin == 0xffffffffff600000) continue;
+    /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
+     * use 0xffffffffff600000 for VDSO.
+     */
+    if (area_begin >= HIGHEST_VA && area_begin == 0xffffffffff600000) continue;
 #endif
 
-      /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
+    /* Skip anything that has no read or execute permission.  This occurs on one page in a Linux 2.6.9 installation.  No idea why.  This code would also take care of kernel sections since we don't have read/execute permission there.  */
 
-      if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
+    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
-      // Consider skipping deleted sections when we know they're so labelled
-      // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
-      // if (strstr(area.name, " (deleted)")) continue;
+    // Consider skipping deleted sections when we know when they're so labelled
+    // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
+    // if (strstr(area.name, " (deleted)")) continue;
 
-      /* Special Case Handling: nscd is enabled*/
-      if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
-          || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ) {
-        DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
-               "                           this area in read/write mode and then will fill it with zeros so that\n" \
-               "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
-        area.prot = PROT_READ | PROT_WRITE;
-        area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    /* Special Case Handling: nscd is enabled*/
+    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
+        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ) {
+      DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
+            "                           this area in read/write mode and then will fill it with zeros so that\n" \
+            "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
+      area.prot = PROT_READ | PROT_WRITE;
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
-        if ( munmap(area.addr, area.size) == -1) {
-          mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
-          mtcp_abort();
-        }
-
-        if ( mmap(area.addr, area.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0) == MAP_FAILED ){
-          mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", strerror (mtcp_sys_errno));
-          mtcp_abort();
-        }
-
-        memset(area.addr, 0, area.size);
+      if ( munmap(area.addr, area.size) == -1) {
+        mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n", 
+                     strerror (mtcp_sys_errno));
+        mtcp_abort();
       }
 
-      /* Force the anonymous flag if it's a private writeable section, as the */
-      /* data has probably changed from the contents of the original images   */
-
-      /* We also do this for read-only private sections as it's possible      */
-      /* to modify a page there, too (via mprotect)                           */
-
-      if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
-        area.flags |= MAP_ANONYMOUS;
+      if ( mmap(area.addr, area.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0) 
+           == MAP_FAILED ){
+        mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", 
+                     strerror (mtcp_sys_errno));
+        mtcp_abort();
       }
 
-      if ( area.flags & MAP_SHARED ) {
-        /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
-        if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
-          mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X"
-                       " at %p from %s + %X\n", mtcp_sys_errno, area.size,
-		       area.addr, area.name, area.offset);
-          mtcp_abort();
-        }
+      memset(area.addr, 0, area.size);
+    }
+
+    /* Force the anonymous flag if it's a private writeable section, as the */
+    /* data has probably changed from the contents of the original images   */
+
+    /* We also do this for read-only private sections as it's possible      */
+    /* to modify a page there, too (via mprotect)                           */
+
+    if ((area.flags & MAP_PRIVATE) /*&& (area.prot & PROT_WRITE)*/) {
+      area.flags |= MAP_ANONYMOUS;
+    }
+
+    if ( area.flags & MAP_SHARED ) {
+      /* invalidate shared memory pages so that the next read to it (when we are writing them to ckpt file) will cause them to be reloaded from the disk */
+      if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
+        mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X"
+            " at %p from %s + %X\n", mtcp_sys_errno, area.size,
+            area.addr, area.name, area.offset);
+        mtcp_abort();
       }
+    }
 
 
-      /* Skip any mapping for this mtcp.so image - it got saved as CS_RESTOREIMAGE at the beginning */
+    /* Skip any mapping for this image - it got saved as CS_RESTOREIMAGE at the beginning */
 
-      if (area_begin < restore_begin) {
-        if (area_end <= restore_begin) {
-          writememoryarea (fd, &area, 0, vsyscall_exists); // the whole thing is before the restore image
-        } else if (area_end <= restore_end) {
-          area.size = restore_begin - area_begin;    // we just have to chop the end part off
-          writememoryarea (fd, &area, 0, vsyscall_exists);
-        } else {
-          area.size = restore_begin - area_begin;    // we have to write stuff that comes before restore image
-          writememoryarea (fd, &area, 0, vsyscall_exists);
-          area.offset += restore_end - area_begin;   // ... and we have to write stuff that comes after restore image
-          area.size = area_end - restore_end;
-          area.addr = (void *)restore_end;
-          writememoryarea (fd, &area, 0, vsyscall_exists);
-        }
-      } else if (area_begin < restore_end) {
-        if (area_end > restore_end) {
-          area.offset += restore_end - area_begin;   // we have to write stuff that comes after restore image
-          area.size = area_end - restore_end;
-          area.addr = (void *)restore_end;
-          writememoryarea (fd, &area, 0, vsyscall_exists);
-        }
+    if (area_begin < restore_begin) {
+      if (area_end <= restore_begin) {
+        writememoryarea (fd, &area, 0, vsyscall_exists); // the whole thing is before the restore image
+      } else if (area_end <= restore_end) {
+        area.size = restore_begin - area_begin;    // we just have to chop the end part off
+        writememoryarea (fd, &area, 0, vsyscall_exists);
       } else {
-        if ( strstr (area.name, "[stack]") )
-          stack_was_seen = 1;
-        writememoryarea (fd, &area, stack_was_seen, vsyscall_exists); // the whole thing comes after the restore image
+        area.size = restore_begin - area_begin;    // we have to write stuff that comes before restore image
+        writememoryarea (fd, &area, 0, vsyscall_exists);
+        area.offset += restore_end - area_begin;   // ... and we have to write stuff that comes after restore image
+        area.size = area_end - restore_end;
+        area.addr = (void *)restore_end;
+        writememoryarea (fd, &area, 0, vsyscall_exists);
       }
+    } else if (area_begin < restore_end) {
+      if (area_end > restore_end) {
+        area.offset += restore_end - area_begin;   // we have to write stuff that comes after restore image
+        area.size = area_end - restore_end;
+        area.addr = (void *)restore_end;
+        writememoryarea (fd, &area, 0, vsyscall_exists);
+      }
+    } else {
+      if ( strstr (area.name, "[stack]") )
+        stack_was_seen = 1;
+      writememoryarea (fd, &area, stack_was_seen, vsyscall_exists); // the whole thing comes after the restore image
     }
-
-    close (mapsfd);
-
-    /* That's all folks */
-
-    writecs (fd, CS_THEEND);
-    if (close (fd) < 0) {
-      mtcp_printf ("mtcp checkpointeverything(grandchild):"
-                   " error closing checkpoint file: %s\n", strerror (errno));
-      mtcp_abort ();
-    }
-    if (use_compression) {
-      /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-      if( waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
-	  mtcp_printf ("mtcp checkpointeverything(grandchild): waitpid: %s\n",
-                       strerror (errno));
-      mtcp_ckpt_gzip_child_pid = -1;
-    }
-
-    /* Maybe it's time to verify the checkpoint                                                                 */
-    /* If so, exec an mtcp_restore with the temp file (in case temp file is bad, we'll still have the last one) */
-    /* If the new file is good, mtcp_restore will rename it over the last one                                   */
-
-    if (verify_total != 0) -- verify_count;
-
-    /* Now that temp checkpoint file is complete, rename it over old permanent
-     * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
-     * So, gzip process can continue to write to file even after renaming.
-     */
-
-    else renametempoverperm ();
-
-    if (forked_checkpointing)
-      mtcp_sys_exit (0); /* grandchild exits */
   }
 
-  /* For forked checkpointing, only the original parent process executes here */
+  close (mapsfd);
 
-  if (forked_checkpointing) {
-    if (close (fd) < 0) { /* parent and grandchild must both close fd. */
-      mtcp_printf ("mtcp checkpointeverything: error closing checkpoint file: %s\n", strerror (errno));
-      mtcp_abort ();
-    }
-    /* parent and grandchild both close pipe_fds[] (parent didn't use it) */
-    close(pipe_fds[0]);
-    close(pipe_fds[1]);
-    // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
-    if( waitpid(forked_cpid, NULL, 0) == -1 )
-      DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d",
-	        mtcp_sys_errno));
+  /* That's all folks */
+
+  writecs (fd, CS_THEEND);
+  if (close (fd) < 0) {
+    mtcp_printf ("mtcp checkpointeverything(grandchild):"
+                 " error closing checkpoint file: %s\n", strerror (errno));
+    mtcp_abort ();
   }
+  if (use_compression) {
+    /* IF OUT OF DISK SPACE, REPORT IT HERE. */
+    if( waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
+      mtcp_printf ("mtcp checkpointeverything(grandchild): waitpid: %s\n",
+                   strerror (errno));
+    mtcp_ckpt_gzip_child_pid = -1;
+  }
+
+  /* Maybe it's time to verify the checkpoint. 
+   * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
+   *   we'll still have the last one). 
+   * If the new file is good, mtcp_restore will rename it over the last one.
+   */
+
+  if (verify_total != 0) -- verify_count;
+
+  /* Now that temp checkpoint file is complete, rename it over old permanent
+   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+   * So, gzip process can continue to write to file even after renaming.
+   */
+
+  else renametempoverperm ();
+
+  if (forked_checkpointing)
+    mtcp_sys_exit (0); /* grandchild exits */
+
+  /* Only the original parent process executes here */
+
+  if (tmpDMTCPHeaderFd == -1)
+    close(tmpDMTCPHeaderFd);
 
   DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
 }

@@ -211,3 +211,25 @@ SHORT NOTES:
 	   checkpoint and restart matlab with the following invocation:
 	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
            We are working toward a more general fix.
+    13. How to checkpoint OpenMPI with DMTCP
+        Verify that mpirun works.
+        pid-virtualization currently conflicts with OpenMPI; We will fix this in future.
+
+        ./configure --disable-pid-virtualization
+        make clean
+        make
+        make check
+
+        dmtcp_checkpoint --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
+        dmtcp_command --checkpoint
+
+        ./dmtcp_restart_script.sh
+
+        DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
+        any other convinient SIGNUM above.
+
+        Verify "ssh <remote-host>" works without password otherwise do the following:
+          ssh-keygen -t dsa       [accept default values]
+          ssh-keygen -t rsa       [accept default values]
+          cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
+
