@@ -1568,6 +1568,7 @@ static void checkpointeverything (void)
       }
       writefile(fd, tmpBuff, retval);
     }
+    close(tmpDMTCPHeaderFd);
   }
 
   writefile (fd, MAGIC, MAGIC_LEN);
@@ -1784,11 +1785,6 @@ static void checkpointeverything (void)
 
   if (forked_checkpointing)
     mtcp_sys_exit (0); /* grandchild exits */
-
-  /* Only the original parent process executes here */
-
-  if (tmpDMTCPHeaderFd == -1)
-    close(tmpDMTCPHeaderFd);
 
   DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
 }

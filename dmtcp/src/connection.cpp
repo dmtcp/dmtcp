@@ -603,13 +603,20 @@ void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
+  struct stat buf;
+
   JASSERT ( fds.size() > 0 );
 
   JTRACE("Restoring File Connection") (id()) (_path);
   errno = 0;
   refreshPath();
-  JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
-    ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+
+  stat(_path.c_str() ,&buf);
+
+  if (S_ISREG(buf.st_mode)) {
+    JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+            ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+  }
 
   int tempfd = openFile ();
 
@@ -622,38 +629,11 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   }
 
   errno = 0;
-  JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
-    ( _path ) ( _offset ) ( JASSERT_ERRNO );
-JTRACE("lseek ( fds[0], _offset, SEEK_SET )")(fds[0])(_offset);
-
-//     flags = O_RDWR;
-//     if (!(statbuf.st_mode & S_IWUSR)) flags = O_RDONLY;
-//     else if (!(statbuf.st_mode & S_IRUSR)) flags = O_WRONLY;
-//     tempfd = mtcp_sys_open (linkbuf, flags, 0);
-//     if (tempfd < 0) {
-//       mtcp_printf ("mtcp readfiledescrs: error %d re-opening %s flags %o\n", mtcp_sy_errno, linkbuf, flags);
-//       if (mtcp_sy_errno == EACCES)
-//         mtcp_printf("  Permission denied.\n");
-//       mtcp_abort ();
-//     }
-//
-//     /* Move it to the original fd if it didn't coincidentally open there */
-//
-//     if (tempfd != fdnum) {
-//       if (mtcp_sy_dup2 (tempfd, fdnum) < 0) {
-//         mtcp_printf ("mtcp readfiledescrs: error %d duping %s from %d to %d\n", mtcp_sy_errno, linkbuf, tempfd, fdnum);
-//         mtcp_abort ();
-//       }
-//       mtcp_sys_close (tempfd);
-//     }
-//
-//     /* Position the file to its same spot it was at when checkpointed */
-//
-//     if (S_ISREG (statbuf.st_mode) && (mtcp_sy_lseek (fdnum, offset, SEEK_SET) != offset)) {
-//       mtcp_printf ("mtcp readfiledescrs: error %d positioning %s to %ld\n", mtcp_sy_errno, linkbuf, (long)offset);
-//       mtcp_abort ();
-//     }
-
+  if (S_ISREG(buf.st_mode)) {
+    JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
+            ( _path ) ( _offset ) ( JASSERT_ERRNO );
+    JTRACE("lseek ( fds[0], _offset, SEEK_SET )")(fds[0])(_offset);
+  }
 }
 
 static void CreateDirectoryStructure(const dmtcp::string& path)
