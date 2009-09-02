@@ -162,7 +162,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     if ( ckptOpenFiles != NULL )      prefix += dmtcp::string() + "--checkpoint-open-files"      + " ";
 
     if ( compression != NULL ) {
-      if ( strcmp ( compression, "0" ) )
+      if ( strcmp ( compression, "0" ) == 0 )
         prefix += "--no-gzip ";
       else 
         prefix += "--gzip ";
