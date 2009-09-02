@@ -234,10 +234,10 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
         return deviceName;
       }
     } else {
-      JASSERT(false)(device) .Text("Unimplemented file type.");
+      JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
-  JWARNING(false).Text("UnImplemented Connection Type.");
+  JWARNING(false) (device) .Text("UnImplemented Connection Type.");
   return device;
 }
 
