@@ -213,6 +213,13 @@ SHORT NOTES:
            We are working toward a more general fix.
     13. How to checkpoint OpenMPI with DMTCP
         Verify that mpirun works.
+        Verify dmtcp_{checkpoint,restart} commands are in your path:
+          ssh <REMOTE-HOST> dmtcp_checkpoint --help
+        Verify "ssh <REMOTE-HOST>" works without password otherwise do the following:
+          ssh-keygen -t dsa       [accept default values]
+          ssh-keygen -t rsa       [accept default values]
+          cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
+
         pid-virtualization currently conflicts with OpenMPI; We will fix this in future.
 
         ./configure --disable-pid-virtualization
@@ -227,9 +234,4 @@ SHORT NOTES:
 
         DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
         any other convinient SIGNUM above.
-
-        Verify "ssh <remote-host>" works without password otherwise do the following:
-          ssh-keygen -t dsa       [accept default values]
-          ssh-keygen -t rsa       [accept default values]
-          cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
 
