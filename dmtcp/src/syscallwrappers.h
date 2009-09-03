@@ -124,6 +124,8 @@ extern "C"
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE * _real_fopen(const char *path, const char *mode);
 
+  int _dmtcp_unsetenv(const char *name);
+
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef __cplusplus

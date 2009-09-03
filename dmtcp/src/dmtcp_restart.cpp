@@ -644,8 +644,8 @@ int main ( int argc, char** argv )
 
   wr & i;
 
-  // Create roots vector, assign childs to their parents
-  // Delete not existing childs.
+  // Create roots vector, assign children to their parents
+  // Delete non-existing children.
   BuildProcessTree();
 
 	// Create session meta-information in each node of the process tree

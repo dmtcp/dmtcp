@@ -755,7 +755,7 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-            unsetenv("LD_PRELOAD");
+            _dmtcp_unsetenv("LD_PRELOAD");
             execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
