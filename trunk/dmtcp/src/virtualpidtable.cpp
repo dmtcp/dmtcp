@@ -167,7 +167,9 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
   o & _isRootOfProcessTree & _sid & _ppid;
 
   if ( _isRootOfProcessTree )
-    JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
+    JTRACE ( "This process is Root of Process Tree" )( _pid )( _ppid )( UniquePid::ThisProcess() );
+  else
+    JTRACE ( "This process is _NOT_ Root of Process Tree" )( _pid )( _ppid )( UniquePid::ThisProcess() );
 
   size_t numPids = _childTable.size();
   size_t numMaps = _pidMapTable.size();

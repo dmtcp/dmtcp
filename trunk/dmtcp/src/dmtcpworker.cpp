@@ -182,8 +182,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     }
 
     //we don't want to get into an infinite loop now do we?
-    unsetenv ( "LD_PRELOAD" );
-    unsetenv ( ENV_VAR_HIJACK_LIB );
+    _dmtcp_unsetenv ( "LD_PRELOAD" );
+    _dmtcp_unsetenv ( ENV_VAR_HIJACK_LIB );
 
     JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
 
@@ -221,7 +221,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     KernelDeviceToConnection::Instance().dbgSpamFds();
 #endif
 
-    unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
+    _dmtcp_unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
   }
   else
   {
@@ -230,7 +230,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 #ifdef PID_VIRTUALIZATION
     if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
       dmtcp::VirtualPidTable::Instance().setRootOfProcessTree();
-      unsetenv( ENV_VAR_ROOT_PROCESS );
+      _dmtcp_unsetenv( ENV_VAR_ROOT_PROCESS );
     }
 #endif 
 

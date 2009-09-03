@@ -339,4 +339,17 @@ FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
 }
 
+/* In dmtcphijack.so code always use this function instead of unsetenv.
+ * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
+ * environment equivalent to its shell variables. If DMTCP uses the bash
+ * unsetenv, bash will unset its internal environment variable but won't remove
+ * the process environment variable and yet on the next getenv, bash will
+ * return the process environment variable.
+ * This is arguably a bug in bash.
+ */
+int _dmtcp_unsetenv( const char *name ) {
+  unsetenv (name);
+  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+}
+
 #endif

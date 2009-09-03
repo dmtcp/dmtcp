@@ -235,3 +235,9 @@ SHORT NOTES:
         DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
         any other convinient SIGNUM above.
 
+    14. OpenSUSE and bash
+        The OpenSUSE bash package uses an unusual memory layout. DMTCP
+        currently does not checkpoint bash. This will be fixed in the future.
+        The current workaround is to download and use vanilla bash package from
+        http://www.gnu.org/software/bash.
+
