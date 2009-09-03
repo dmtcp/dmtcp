@@ -1,4 +1,4 @@
-AC_INIT([dmtcp],[1.04])
+AC_INIT([dmtcp],[1.05])
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
