@@ -585,7 +585,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
     errno = 0;
   }
   if (errno != 0)
-    perror("ERROR: continue anyway from " __FILE__ ":mtcp_init:sem_trywait()");
+    mtcp_printf("ERROR: continue anyway from " __FILE__ ":mtcp_init:sem_trywait(): %s\n",
+                strerror(errno));
   /* Now we successfully locked it.  The sempaphore value is zero. */
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
     mtcp_printf ("mtcp_init: error creating checkpoint thread: %s\n", strerror (errno));
@@ -856,7 +857,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 	}	
       } 
       if ( close(setoptions_fd) != 0 ) {
-        perror("__clone: Error closing file\n");
+        mtcp_printf("__clone: Error closing file: %s\n",
+                    strerror(errno));
 	mtcp_abort();
       }
     }
@@ -1266,7 +1268,8 @@ void ptrace_unlock_inferiors()
     
     fd = creat(file,0644);
     if( fd < 0 ){
-        perror("init_lock: Error while creating lock file\n");
+        mtcp_printf("init_lock: Error while creating lock file: %s\n",
+                    strerror(errno));
         mtcp_abort();
     }
     close(fd);
@@ -2340,7 +2343,8 @@ void write_info_to_file (int file, pid_t superior, pid_t inferior)
   }
 
   if (fd == -1) {
-    perror("write_info_to_file: Error opening file\n");
+    mtcp_printf("write_info_to_file: Error opening file\n: %s\n",
+                strerror(errno));
     abort();
   }
 
@@ -2351,16 +2355,19 @@ void write_info_to_file (int file, pid_t superior, pid_t inferior)
   lock.l_pid = getpid();
 
   if (fcntl(fd, F_GETLK, &lock ) == -1) {
-    perror("write_info_to_file: Error acquiring lock\n");
+    mtcp_printf("write_info_to_file: Error acquiring lock: %s\n",
+                strerror(errno));
     abort();
   }
 
   if (write(fd, &superior, sizeof(pid_t)) == -1) {
-    perror("write_info_to_file: Error writing to file\n");
+    mtcp_printf("write_info_to_file: Error writing to file: %s\n",
+                strerror(errno));
     abort();
   }
   if (write(fd, &inferior, sizeof(pid_t)) == -1) {
-    perror("write_info_to_file: Error writing to file\n");
+    mtcp_printf("write_info_to_file: Error writing to file: %s\n",
+                strerror(errno));
     abort();
   }
 
@@ -2370,11 +2377,13 @@ void write_info_to_file (int file, pid_t superior, pid_t inferior)
   lock.l_len = 0;
 
   if (fcntl(fd, F_SETLK, &lock) == -1) {
-    perror("write_info_to_file: Error releasing lock\n");
+    mtcp_printf("write_info_to_file: Error releasing lock: %s\n",
+                strerror(errno));
     abort();
   }
   if (close(fd) != 0) {
-    perror("write_info_to_file: Error closing file\n");
+    mtcp_printf("write_info_to_file: Error closing file: %s\n",
+                strerror(errno));
     abort();
   }
 }
@@ -2459,7 +2468,8 @@ int is_alive (pid_t pid)
   fd = open(str, O_RDONLY);
     if (fd != -1) {
       if ( close(fd) != 0 ) {
-      perror("is_alive: Error closing file\n");
+      mtcp_printf("is_alive: Error closing file: %s\n",
+                  strerror(errno));
       mtcp_abort();
       }
     return 1;
@@ -2532,7 +2542,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
 
     thread = getcurrenthread ();   
  
-  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>process_ptrace_info: thread = %d\n", GETTID()); 
+  DPRINTF((">>>>>>>>>>>>>>>>>>>>>>>>>>>>process_ptrace_info: thread = %d\n", GETTID())); 
 
 // TODO: consider that only checkpoint thread now runs this code  
 //  if (thread == motherofall) {
@@ -2549,7 +2559,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
           *delete_ptrace_leader = superior;
       }
         if ( close(ptrace_fd) != 0 ) {
-        perror("process_ptrace_info: Error closing file\n");
+        mtcp_printf("process_ptrace_info: Error closing file. Error: %s\n", strerror(errno));
         mtcp_abort();
         }
 
@@ -2596,7 +2606,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
           *delete_setoptions_leader = superior;
       }
         if ( close(setoptions_fd) != 0 ) {
-        perror("process_ptrace_info: Error closing file\n");
+        mtcp_printf("process_ptrace_info: Error closing file: %s\n", strerror(errno));
         mtcp_abort();
         }
     }
@@ -2625,7 +2635,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
         }
       }
         if ( close(checkpoint_fd) != 0 ) {
-        perror("process_ptrace_info: Error closing file\n");
+        mtcp_printf("process_ptrace_info: Error closing file: %s\n", strerror(errno));
         mtcp_abort();
         }
     }
@@ -2689,7 +2699,8 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
       mtcp_printf("detach_ckpthread: Check cloned process\n");
       // Try again with __WCLONE to check cloned processes.
       if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
-        perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+        mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
+                    strerror(errno));
       }
     }
     mtcp_printf("detach_ckpthread: tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
@@ -2700,7 +2711,8 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
      * and if inferior is a checkpoint thread 
      */
     if (kill(tid, SIGSTOP) == -1) {
-      perror("detach_ckpthread: ptrace_detach_checkpoint_threads: kill");
+      mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: kill: %s\n",
+                  strerror(errno));
       return -EAGAIN;
     }
     is_waitpid_local = 1;
@@ -2713,7 +2725,8 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
        */
       is_waitpid_local = 1;
       if ((tpid = waitpid(tid, &status, __WCLONE)) == -1) {
-        perror("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+        mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
+                    strerror(errno));
         return -EAGAIN;
       }
     }
@@ -2735,7 +2748,8 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
   if (ptrace(PTRACE_DETACH, tid, 0, SIGCONT) == -1) {
     mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: parent = %d child = %d\n",
          supid, tid);
-    perror("detach_ckpthread: ptrace_detach_checkpoint_threads: PTRACE_DETACH failed");
+    mtcp_printf("detach_ckpthread: ptrace_detach_checkpoint_threads: PTRACE_DETACH failed: %s\n",
+                strerror(errno));
     return -EAGAIN;
   }
 
@@ -2771,7 +2785,8 @@ ptrace_control_ckpthread(pid_t tgid, pid_t tid)
     mtcp_printf("control_ckpthread: Check cloned process\n");
     // Try again with __WCLONE to check cloned processes.
     if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
-      perror("control_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+      mtcp_printf("control_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
+                  strerror(errno));
       return -EAGAIN;
     }
 
@@ -2905,10 +2920,11 @@ void ptrace_detach_user_threads ()
         is_waitpid_local = 1;
         tpid = waitpid (tid, &status, WNOHANG);
         if(tpid == -1 && errno == ECHILD){
-          printf("Check cloned process\n");
+          DPRINTF(("Check cloned process\n"));
           // Try again with __WCLONE to check cloned processes.
           if( (tpid = waitpid (tid, &status, __WCLONE | WNOHANG ) ) == -1 ){
-            perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+            mtcp_printf("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): : %s\n", 
+                        strerror(errno));
           }
         }
         
@@ -2923,10 +2939,11 @@ void ptrace_detach_user_threads ()
         is_waitpid_local = 1;
         tpid = waitpid (tid, &status, 0);
         if(tpid == -1 && errno == ECHILD){
-          printf("Check cloned process\n");
+          DPRINTF(("Check cloned process\n"));
           // Try again with __WCLONE to check cloned processes.
           if( (tpid = waitpid (tid, &status, __WCLONE ) ) == -1 ){
-            perror("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE)");
+            mtcp_printf("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
+                        strerror(errno));
           }
         }
         mtcp_printf("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
@@ -2972,21 +2989,24 @@ void delete_file (int file, int delete_leader, int has_file)
     switch (file) {
       case 0: {
         if (unlink(ptrace_shared_file) == -1) {
-          perror("delete_file: unlink failed");
+          mtcp_printf("delete_file: unlink failed: %s\n",
+                      strerror(errno));
           mtcp_abort();
         } 
         break;
       }
       case 1: {
         if (unlink(ptrace_setoptions_file) == -1) {
-          perror("delete_file: unlink failed");
+          mtcp_printf("delete_file: unlink failed: %s\n",
+                      strerror(errno));
           mtcp_abort();
         } 
         break;
       }
       case 2: {
         if (unlink(checkpoint_threads_file) == -1) {
-          perror("delete_file: unlink failed");
+          mtcp_printf("delete_file: unlink failed: %s\n",
+                      strerror(errno));
           mtcp_abort();
         } 
         break;
@@ -3009,11 +3029,13 @@ void create_file(pid_t pid)
   
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
     if (fd == -1) {
-    perror("create_file: Error opening file\n");
+    mtcp_printf("create_file: Error opening file\n: %s\n",
+                strerror(errno));
     abort();
   }
     if ( close(fd) != 0 ) {
-    perror("create_file: Error closing file\n");
+    mtcp_printf("create_file: Error closing file\n: %s\n",
+                strerror(errno));
     mtcp_abort();
     }
 }
@@ -3031,11 +3053,13 @@ void have_file(pid_t pid)
     fd = open(str, O_RDONLY);
     if (fd != -1) {
         if (close(fd) != 0) {
-        perror("have_file: Error closing file\n");
+        mtcp_printf("have_file: Error closing file: %s\n",
+                    strerror(errno));
         mtcp_abort();
         }
       if (unlink(str) == -1) {
-        perror("have_file: unlink failed");
+        mtcp_printf("have_file: unlink failed: %s\n",
+                    strerror(errno));
         mtcp_abort();
       }   
       break;
@@ -3082,14 +3106,16 @@ void ptrace_attach_threads(int isRestart)
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
         mtcp_printf("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior);
-        perror("ptrace_attach_threads: PTRACE_ATTACH failed");
+        mtcp_printf("ptrace_attach_threads: PTRACE_ATTACH failed: %s\n",
+                    strerror(errno));
           mtcp_abort();
       }
       create_file (inferior);
       while(1) {
         is_waitpid_local = 1;
         if (waitpid(inferior, &status, 0) == -1) {
-          perror("ptrace_attach_threads: waitpid failed\n");  
+          mtcp_printf("ptrace_attach_threads: waitpid failed: %s\n",
+                      strerror(errno));  
           mtcp_abort();
         } 
               if (WIFEXITED(status)) { 
@@ -3099,7 +3125,8 @@ void ptrace_attach_threads(int isRestart)
                 mtcp_printf("The reason for child's death was signal %d\n",WTERMSIG(status));
               }
         if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
-          perror("ptrace_attach_threads: PTRACE_GETREGS failed");
+          mtcp_printf("ptrace_attach_threads: PTRACE_GETREGS failed: %s\n",
+                      strerror(errno));
           mtcp_abort();
         }
         #ifdef __x86_64__ 
@@ -3129,20 +3156,23 @@ void ptrace_attach_threads(int isRestart)
             errno = 0;
             if ((eflags = ptrace(PTRACE_PEEKDATA, inferior, (void *)addr, 0)) < 0) {
               if (errno != 0) {
-                perror ("ptrace_attach_threads: PTRACE_PEEKDATA failed");
+                mtcp_printf("ptrace_attach_threads: PTRACE_PEEKDATA failed: %s\n",
+                            strerror(errno));
                 mtcp_abort ();
               }
             }
             eflags |= 0x0100;
             if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
-              perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
+              mtcp_printf("ptrace_attach_threads: PTRACE_POKEDATA failed: %s\n",
+                          strerror(errno));
               mtcp_abort();
             }
           }
           else {
             is_ptrace_local = 1;
             if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
-              perror("ptrace_attach_threads: PTRACE_CONT failed");
+              mtcp_printf("ptrace_attach_threads: PTRACE_CONT failed: %s\n",
+                          strerror(errno));
               mtcp_abort();
             }
           }
@@ -3167,20 +3197,23 @@ void ptrace_attach_threads(int isRestart)
             errno = 0;
             if ((eflags = ptrace(PTRACE_PEEKDATA, inferior, (void *)addr, 0)) < 0) {
               if (errno != 0) {
-                perror ("ptrace_attach_threads: PTRACE_PEEKDATA failed");
+                mtcp_printf("ptrace_attach_threads: PTRACE_PEEKDATA failed: %s\n",
+                            strerror(errno));
                 mtcp_abort ();
               }
             }
             eflags |= 0x0100;                
             if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
-              perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
+              mtcp_printf("ptrace_attach_threads: PTRACE_POKEDATA failed: %s\n",
+                          strerror(errno));
               mtcp_abort();
             }
           }
           else {
             is_ptrace_local = 1;
             if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
-              perror("ptrace_attach_threads: PTRACE_CONT failed");
+              mtcp_printf("ptrace_attach_threads: PTRACE_CONT failed: %s\n",
+                          strerror(errno));
               mtcp_abort();
             }
           }  
@@ -3189,7 +3222,8 @@ void ptrace_attach_threads(int isRestart)
         #endif 
         is_ptrace_local = 1;
         if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
-          perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+          mtcp_printf("ptrace_attach_threads: PTRACE_SINGLESTEP failed: %s\n",
+                      strerror(errno));
           mtcp_abort();
         }
       }
