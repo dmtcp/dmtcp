@@ -377,13 +377,13 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
      when user types run in gdb.
   */
   static int dlsym_offset = 0;
-  if (dlsym_offset == 0 && getenv("DMTCP_DLSYM_OFFSET"))
+  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
   { 
-    dlsym_offset = ( int ) strtol ( getenv ("DMTCP_DLSYM_OFFSET") , NULL, 10 );
+    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
     /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
         fails to start.
     */
-    //unsetenv ( "DMTCP_DLSYM_OFFSET" );
+    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
   } 
   //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol); 
   if ( dlsym_offset == 0)

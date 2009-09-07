@@ -106,8 +106,8 @@ int main ( int argc, char** argv )
   tmp3 = (char *)tmp2 - (char *) tmp1;
   char str[21] = {0} ;
   sprintf(str,"%d",tmp3);
-  setenv ( "DMTCP_DLSYM_OFFSET",str,0);
-  dlclose ( handle );
+  setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
+  dlclose(handle);
 
   if (getenv(ENV_VAR_TMPDIR))
     {}
