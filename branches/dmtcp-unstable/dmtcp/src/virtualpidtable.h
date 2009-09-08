@@ -46,6 +46,7 @@ namespace dmtcp
       VirtualPidTable();
       static VirtualPidTable& Instance();
       void postRestart();
+      void postRestart2();
 
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
@@ -70,6 +71,10 @@ namespace dmtcp
                                          pid_t& currentPid );
       static void serializeEntryCount( jalib::JBinarySerializer& o,         
                                        size_t& count );
+      
+      static void InsertIntoPidMapFile(jalib::JBinarySerializer& o,
+                                       pid_t originalPid,
+                                       pid_t currentPid);
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }

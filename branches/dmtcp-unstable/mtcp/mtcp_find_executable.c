@@ -43,6 +43,11 @@ char * mtcp_find_executable(char *executable, char exec_path[MTCP_MAX_PATH]){
   char *path_env = getenv("PATH");
   int len;
 
+  if (path_env == NULL) {
+    *exec_path = 0;
+    return NULL;
+  }
+
   while (*path_env != '\0') {
     path = exec_path;
     len = 0;
