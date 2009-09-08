@@ -251,6 +251,7 @@ static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_ckpt_prefix)(int fd) = NULL;
+static void (*callback_write_tid_maps)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -622,13 +623,15 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_ckpt_prefix)(int fd))
+                        void (*write_ckpt_prefix)(int fd),
+                        void (*write_tid_maps)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
     callback_write_ckpt_prefix = write_ckpt_prefix;
+    callback_write_tid_maps = write_tid_maps;
 }
 
 /*************************************************************************/
@@ -3383,7 +3386,14 @@ static void wait_for_all_restored (void)
   do rip = mtcp_state_value(&restoreinprog);                         // dec number of threads cloned but not completed longjmp'ing
   while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
   if (-- rip == 0) {
+    if (callback_write_tid_maps != NULL) {
+      DPRINTF(("Before callback_write_tid_maps\n"));
+      (*callback_write_tid_maps)();
+      DPRINTF(("After callback_write_tid_maps\n"));
+    }
+
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up
+
     // NOTE:  This is last safe moment for hook.  All previous threads
     //   have executed the "else" and are waiting on the futex.
     //   This last thread has not yet unlocked the threads: unlk_threads()

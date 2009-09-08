@@ -33,6 +33,7 @@
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
+#include "protectedfds.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include <sys/types.h>
@@ -95,7 +96,8 @@ extern "C"
           void ( *pre_ckpt ) (),
           void ( *post_ckpt ) ( int is_restarting ),
           int  ( *ckpt_fd ) ( int fd ),
-          void ( *write_ckpt_prefix ) ( int fd ));
+          void ( *write_ckpt_prefix ) ( int fd ),
+          void ( *write_tid_maps) ());
   typedef int ( *t_mtcp_ok ) ( void );
 }
 
@@ -127,7 +129,7 @@ static void callbackPostCheckpoint ( int isRestart )
   {
     JNOTE ( "checkpointed" ) ( dmtcp::UniquePid::checkpointFilename() );
   }
-  dmtcp::DmtcpWorker::instance().waitForStage3Resume();
+  dmtcp::DmtcpWorker::instance().waitForStage3Resume(isRestart);
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(isRestart);
 }
@@ -142,6 +144,11 @@ static void callbackWriteCkptPrefix ( int fd )
 {
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
 }
+
+static void callbackWriteTidMaps ( )
+{
+  dmtcp::DmtcpWorker::instance().writeTidMaps();
+} 
 
 typedef pid_t ( *get_saved_pid_t) ( );
 get_saved_pid_t get_saved_pid_ptr = NULL; 
@@ -206,7 +213,8 @@ void dmtcp::initializeMtcpEngine()
                  , &callbackPreCheckpoint
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
-                 , &callbackWriteCkptPrefix);
+                 , &callbackWriteCkptPrefix
+                 , &callbackWriteTidMaps);
   JTRACE ("Calling mtcp_init");
   ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
   ( *okFn ) ();
@@ -246,6 +254,12 @@ int thread_start(void *arg)
   }
 
   pid_t original_tid = threadArg -> original_tid;
+  int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+
+  // Free the memory
+  free(threadArg);
+
   if (original_tid == -1) {
     /* 
      * original tid is not known, which means this thread never existed before
@@ -262,7 +276,7 @@ int thread_start(void *arg)
   JTRACE ( "Calling user function" );
 
   // return (*(threadArg->fn)) ( threadArg->arg );
-  int result = (*(threadArg->fn)) ( threadArg->arg );
+  int result = (*fn) ( thread_arg );
   
   /* 
    * This thread has finished its execution, do some cleanup on our part.
@@ -323,7 +337,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
  * Undefine the macro DISABLE_TID_CONFLICT_HANDLING to enable tid conflict handling
  * TID conflict handling is fragile right now
  */
-#define DISABLE_CONFLICT_HANDLING
+//#define DISABLE_CONFLICT_HANDLING
 
   pid_t originalTid = -1;
 
@@ -334,10 +348,10 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  struct ThreadArg threadArg;
-  threadArg.fn = fn;
-  threadArg.arg = arg;
-  threadArg.original_tid = originalTid;
+  struct ThreadArg *threadArg = (struct ThreadArg *) malloc (sizeof (struct ThreadArg));
+  threadArg->fn = fn;
+  threadArg->arg = arg;
+  threadArg->original_tid = originalTid;
 
   int tid;
   
@@ -347,12 +361,12 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     if (originalTid == -1) {
       JTRACE ( "forwarding user's clone call to mtcp" );
-      tid = ( *realclone ) ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+      tid = ( *realclone ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     } else {
 #ifdef DISABLE_CONFLICT_HANDLING
       tid = _real_clone ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
 #else
-      tid = _real_clone ( thread_start,child_stack,flags,&threadArg,parent_tidptr,newtls,child_tidptr );
+      tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
 #endif
     }
 
@@ -372,6 +386,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       if (originalTid != -1)
       {
         dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
+
+        dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+        pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
+        JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
+        
+        jalib::JBinarySerializeWriterRaw wrr ( pidMapFile, PROTECTED_PIDMAP_FD );
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile( wrr, originalTid, tid );
+
         tid = originalTid;
       } else {
         dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );

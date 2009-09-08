@@ -24,6 +24,7 @@
 #include <string.h>
 #include <string>
 #include <sstream>
+#include <fcntl.h>
 #include "constants.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
@@ -61,6 +62,7 @@ void dmtcp::VirtualPidTable::postRestart()
    * PROTECTED_PIDMAP_FD corresponds to the file containg computation wide
    *  original_pid -> current_pid map to avoid pid/tid collisions.
    */
+  JTRACE("VirtualPidTable::postRestart");
   dmtcp::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDTBL_FD );
 
   serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
@@ -69,7 +71,11 @@ void dmtcp::VirtualPidTable::postRestart()
   
   jalib::JBinarySerializeReader rd ( serialFile );
   serialize ( rd );
+}
 
+void dmtcp::VirtualPidTable::postRestart2()
+{
+  JTRACE("VirtualPidTable::postRestart2");
   dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
   JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
@@ -79,6 +85,7 @@ void dmtcp::VirtualPidTable::postRestart()
   jalib::JBinarySerializeReader pidrd ( pidMapFile );
   serializePidMap( pidrd );
 }
+
 
 void dmtcp::VirtualPidTable::resetOnFork()
 {
@@ -327,5 +334,35 @@ void dmtcp::VirtualPidTable::serializeEntryCount (
   JSERIALIZE_ASSERT_POINT ( "]" );
 }
 
+
+void dmtcp::VirtualPidTable::InsertIntoPidMapFile(jalib::JBinarySerializer& o,
+                                                  pid_t originalPid,
+                                                  pid_t currentPid)
+{
+  struct flock fl;
+  int fd;
+
+  fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
+  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+  fl.l_start  = 0;        /* Offset from l_whence         */
+  fl.l_len    = 0;        /* length, 0 = to EOF           */
+  fl.l_pid    = _real_getpid(); /* our PID                      */
+
+  int result = -1;
+  errno = 0;
+  while (result == -1 || errno == EINTR )
+    result = fcntl(PROTECTED_PIDMAP_FD, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+
+  JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
+
+  JTRACE ( "Serializing PID MAP Entry:" ) ( originalPid ) ( currentPid );
+  /* Write the mapping to the file*/
+  dmtcp::VirtualPidTable::serializePidMapEntry ( o, originalPid, currentPid );
+
+  fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
+  result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
+
+  JASSERT (result != -1 || errno == ENOLCK) .Text ( "Unlock Failed" ) ;
+}
 
 #endif
