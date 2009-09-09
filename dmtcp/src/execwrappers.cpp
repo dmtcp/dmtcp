@@ -243,6 +243,7 @@ static void dmtcpPrepareForExec()
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().prepareForExec();
   dmtcp::VirtualPidTable::Instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );

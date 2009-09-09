@@ -60,6 +60,8 @@ namespace dmtcp
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
 
+      void  prepareForExec();
+
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
       static void serializeChildTableEntry ( jalib::JBinarySerializer& o,

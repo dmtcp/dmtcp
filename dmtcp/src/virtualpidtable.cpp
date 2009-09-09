@@ -178,6 +178,7 @@ dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getInferiorVector( )
 void dmtcp::VirtualPidTable::insertTid( pid_t tid )
 {
   eraseTid( tid );
+  JTRACE ( "Inserting TID into tidVector" ) ( tid );
   _tidVector.push_back ( tid );
   return;
 }
@@ -193,12 +194,24 @@ void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
 {
   dmtcp::vector< pid_t >::iterator iter = _tidVector.begin();
   while ( iter != _tidVector.end() ) {
-    if ( *iter == tid )
+    if ( *iter == tid ) {
       _tidVector.erase( iter );
+      _pidMapTable.erase(tid);
+    }
     else
       ++iter;
   }
   return;
+}
+
+void dmtcp::VirtualPidTable::prepareForExec( )
+{
+  int i;
+  JTRACE("Preparing for exec. Emptying tidVector");
+  for (i = 0; i < _tidVector.size(); i++) {
+    _pidMapTable.erase( _tidVector[i] );
+  }
+  _tidVector.clear();
 }
 
 void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
@@ -358,6 +371,8 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile(jalib::JBinarySerializer& o,
   JTRACE ( "Serializing PID MAP Entry:" ) ( originalPid ) ( currentPid );
   /* Write the mapping to the file*/
   dmtcp::VirtualPidTable::serializePidMapEntry ( o, originalPid, currentPid );
+
+  //fsync(PROTECTED_PIDMAP_FD);
 
   fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
   result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
