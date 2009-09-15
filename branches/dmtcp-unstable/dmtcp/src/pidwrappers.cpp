@@ -107,6 +107,11 @@ extern "C" long int syscall(long int sys_num, ... )
     case SYS_gettid:
       return gettid(); 
       break;
+    case SYS_tkill:{
+      int currentTid = originalToCurrentPid ( (int)arg[0] );
+//      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
+      return _real_syscall(SYS_tkill,currentTid,(int)arg[1]); 
+    }
     case SYS_clone:
       return __clone((int (*)(void*))arg[0], arg[1], (int)(long int) arg[2], arg[3], (pid_t *)arg[4], (struct user_desc*)arg[5], (pid_t*)arg[6]);
       break;
@@ -205,7 +210,7 @@ extern "C" pid_t setsid(void)
 extern "C" int   kill(pid_t pid, int sig)
 {
   pid_t currPid = originalToCurrentPid (pid);
-
+  
   return _real_kill (currPid, sig);
 }
 
@@ -294,7 +299,6 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
 extern "C" int   tkill(int tid, int sig)
 {
   int currentTid = originalToCurrentPid ( tid );
-  
   return _real_tkill ( currentTid, sig );
 }
 
