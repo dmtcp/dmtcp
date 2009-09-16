@@ -251,6 +251,19 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
 
+/* In dmtcphijack.so code always use this function instead of unsetenv.
+ * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
+ * environment equivalent to its shell variables. If DMTCP uses the bash
+ * unsetenv, bash will unset its internal environment variable but won't remove
+ * the process environment variable and yet on the next getenv, bash will
+ * return the process environment variable.
+ * This is arguably a bug in bash-3.2.
+ */
+int _dmtcp_unsetenv( const char *name ) {
+  unsetenv (name);
+  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+}
+
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) syscall(SYS_getpid);
@@ -337,19 +350,6 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
 
 FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
-}
-
-/* In dmtcphijack.so code always use this function instead of unsetenv.
- * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
- * environment equivalent to its shell variables. If DMTCP uses the bash
- * unsetenv, bash will unset its internal environment variable but won't remove
- * the process environment variable and yet on the next getenv, bash will
- * return the process environment variable.
- * This is arguably a bug in bash-3.2.
- */
-int _dmtcp_unsetenv( const char *name ) {
-  unsetenv (name);
-  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
 }
 
 #endif

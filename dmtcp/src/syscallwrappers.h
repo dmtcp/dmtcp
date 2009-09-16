@@ -92,6 +92,8 @@ extern "C"
 
   void _dmtcp_remutex_on_fork();
 
+  int _dmtcp_unsetenv(const char *name);
+
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
@@ -123,8 +125,6 @@ extern "C"
 
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE * _real_fopen(const char *path, const char *mode);
-
-  int _dmtcp_unsetenv(const char *name);
 
 #endif /* PID_VIRTUALIZATION */
 
