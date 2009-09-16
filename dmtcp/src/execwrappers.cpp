@@ -153,6 +153,14 @@ extern "C" pid_t fork()
   }
 }
 
+extern "C" pid_t vfork()
+{
+  JTRACE ( "vfork wrapper calling fork" );
+  // This might not preserve the full semantics of vfork. 
+  // Used for checkpointing gdb.
+  return fork();
+}
+
 extern "C" char *ptsname ( int fd )
 {
   JTRACE ( "ptsname() promoted to ptsname_r()" );
