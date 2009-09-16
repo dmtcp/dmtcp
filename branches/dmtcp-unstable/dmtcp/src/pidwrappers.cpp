@@ -96,28 +96,42 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 extern "C" long int syscall(long int sys_num, ... )
 {
   int i;
-  void * arg[7];
+  void * args[7];
   va_list ap;
 
   va_start(ap, sys_num);
-  for (i = 0; i < 7; i++)
-    arg[i] = va_arg(ap, void *);
-  va_end(ap);
+  
   switch ( sys_num ) {
     case SYS_gettid:
+      va_end(ap);
       return gettid(); 
       break;
     case SYS_tkill:{
-      int currentTid = originalToCurrentPid ( (int)arg[0] );
+      pid_t pid = va_arg(ap, pid_t);
+      int currentTid = originalToCurrentPid ( pid );
+      int sig = va_arg(ap, int);
+      va_end(ap);
 //      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
-      return _real_syscall(SYS_tkill,currentTid,(int)arg[1]); 
+      return _real_syscall(SYS_tkill,currentTid,sig); 
+      break;
     }
     case SYS_clone:
-      return __clone((int (*)(void*))arg[0], arg[1], (int)(long int) arg[2], arg[3], (pid_t *)arg[4], (struct user_desc*)arg[5], (pid_t*)arg[6]);
+      typedef int (*fnc) (void*);
+      fnc fn = va_arg(ap, fnc); 
+      void* child_stack = va_arg(ap, void*);
+      int flags = va_arg(ap, int);
+      void* arg = va_arg(ap, void*);
+      pid_t* pid = va_arg(ap, pid_t*);
+      struct user_desc* tls = va_arg(ap, struct user_desc*);
+      pid_t* ctid = va_arg(ap, pid_t*);
+      va_end(ap);
+      return __clone(fn, child_stack, flags, arg, pid, tls, ctid);
       break;
   }
-
-  return _real_syscall(sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
+  for (i = 0; i < 7; i++)
+    args[i] = va_arg(ap, void *);
+  va_end(ap);
+  return _real_syscall(sys_num, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
 }
 
 

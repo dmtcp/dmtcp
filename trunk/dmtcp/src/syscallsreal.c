@@ -345,7 +345,7 @@ FILE * _real_fopen( const char *path, const char *mode ) {
  * unsetenv, bash will unset its internal environment variable but won't remove
  * the process environment variable and yet on the next getenv, bash will
  * return the process environment variable.
- * This is arguably a bug in bash.
+ * This is arguably a bug in bash-3.2.
  */
 int _dmtcp_unsetenv( const char *name ) {
   unsetenv (name);
