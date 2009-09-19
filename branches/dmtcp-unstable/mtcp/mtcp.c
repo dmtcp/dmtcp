@@ -1320,6 +1320,9 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
         pid_t *delete_setoptions_leader, int *has_setoptions_file,
         pid_t *delete_checkpoint_leader, int *has_checkpoint_file);
 
+char procfs_state(int tid);
+
+void ptrace_save_threads_state ();
 
 static void *checkpointhread (void *dummy)
 {
@@ -1467,15 +1470,48 @@ again:
 
         case ST_RUNENABLED: {
           if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
-          if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_errno != ESRCH) {
-              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
-                           thread -> tid, strerror (mtcp_sys_errno));
-            }
-            unlk_threads ();
-            threadisdead (thread);
-            goto rescan;
-          }
+
+	  ptrace_save_threads_state ();
+	  int index; 
+          char inferior_st = 'N';
+	  char inf_st;
+	  mtcp_printf("\n\n\n");
+	  for (index = 0; index < ptrace_pairs_count; index++) {
+		inf_st = procfs_state(ptrace_pairs[index].inferior);
+                mtcp_printf("tid = %d now=%c stored=%c superior = %d inferior = %d\n", GETTID(), inf_st, ptrace_pairs[index].inferior_st, ptrace_pairs[index].superior, ptrace_pairs[index].inferior);
+		if (ptrace_pairs[index].inferior == thread -> original_tid) { 
+			inferior_st = ptrace_pairs[index].inferior_st;
+			break;
+		}
+	  }          
+	  mtcp_printf("\n\n\n");
+	  if (inferior_st == 'N') {
+		// superior 
+          	if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+            		if (mtcp_sys_errno != ESRCH) {
+              			mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
+                           		thread -> tid, strerror (mtcp_sys_errno));
+            		}
+            		unlk_threads ();
+            		threadisdead (thread);
+            		goto rescan;
+          	}
+	  }
+	  else { 
+          	// inferior 
+          	mtcp_printf("++++++++++++++++++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid);
+		if (inferior_st != 'T') {
+          		if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+            			if (mtcp_sys_errno != ESRCH) {
+              				mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
+                           		thread -> tid, strerror (mtcp_sys_errno));
+            			}
+            			unlk_threads ();
+            			threadisdead (thread);
+            			goto rescan;
+          		}
+	  	}
+	  }
           needrescan = 1;
           break;
         }
@@ -2512,7 +2548,9 @@ char procfs_state(int tid)
   }
   num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);
-  if(num_read<=0) return 0;
+  if(num_read<=0) {
+	return 0;
+  }
   sbuf[num_read] = '\0';
 
   S = strchr(sbuf, '(') + 1;
@@ -2848,13 +2886,13 @@ void ptrace_save_threads_state ()
       continue;
     }
   */  
-    if( ptrace_pairs[i].superior == GETTID()){
+    //if( ptrace_pairs[i].superior == GETTID()){
       char pstate;
       int tid = ptrace_pairs[i].inferior, tpid;
       pstate = procfs_state(tid);
       mtcp_printf("save state of thread %d = %c\n",tid,pstate);
       ptrace_pairs[i].inferior_st = pstate;
-    }     
+    //}     
   }
   mtcp_printf (">>>>>>>>> done ptrace_save_threads_state %d\n", GETTID());
 }
@@ -3219,8 +3257,8 @@ void ptrace_attach_threads(int isRestart)
         if (((low == 0xcd) && (upp == 0x80)) &&
                   ((regs.eax == DMTCP_SYS_sigreturn) ||
                    (regs.eax == DMTCP_SYS_rt_sigreturn))) {
-          if ( (isRestart && ( last_command == PTRACE_SINGLESTEP_COMMAND )) || 
-            (inferior_st == 'T') ) {
+          if ( isRestart ) {
+           if (last_command == PTRACE_SINGLESTEP_COMMAND ) { 
             if (regs.eax == DMTCP_SYS_sigreturn) { 
               addr = regs.esp;
             }
@@ -3245,11 +3283,21 @@ void ptrace_attach_threads(int isRestart)
               mtcp_abort();
             }
           }
+          else if (inferior_st != 'T') {
+            	is_ptrace_local = 1;
+            	if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              		perror("ptrace_attach_threads: PTRACE_CONT failed");
+              		mtcp_abort();
+            	}
+	       }
+          }
           else {
+	    if (inferior_st != 'T') {
             is_ptrace_local = 1;
             if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
               perror("ptrace_attach_threads: PTRACE_CONT failed");
               mtcp_abort();
+            }
             }
           }  
           break;    
@@ -3263,6 +3311,9 @@ void ptrace_attach_threads(int isRestart)
       }
     }
     else if (inferior == GETTID()) {
+
+      mtcp_printf("\n\nPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP %d\n\n", inferior);
+
       create_file (superior);
       have_file (inferior); 
     }
@@ -3296,7 +3347,14 @@ static void stopthisthread (int signum)
 		       &delete_setoptions_leader, &has_setoptions_file, 
 		       &delete_checkpoint_leader, &has_checkpoint_file); 	
 */
-  ptrace_save_threads_state();
+  //ptrace_save_threads_state();
+ 
+  int index;
+
+  for (index = 0; index < ptrace_pairs_count; index++) {
+	mtcp_printf("STT: %c superior = %d inferior = %d\n", ptrace_pairs[index].inferior_st, ptrace_pairs[index].superior, ptrace_pairs[index].inferior);
+  }
+
   ptrace_unlock_inferiors();
   
 	ptrace_remove_notexisted();
@@ -3868,10 +3926,26 @@ static int restarthread (void *threadv)
     }
 
     /* Do it once only, in motherofall thread. */
+    /*
     if (saved_termios_exists)
       if ( ! isatty(STDIN_FILENO)
            || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+     */
+    if (saved_termios_exists){
+      int i1,i2;
+      mtcp_printf("mtcp finishrestore* %d : saved_termios_exists\n",getpid());
+      i1 = isatty(STDIN_FILENO);
+      mtcp_printf("mtcp finishrestore* %d : isatty\n",getpid());
+      void (*shndl)(inf);
+      shndl = signal(SIGTTOU,SIG_IGN);
+      i2 = tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
+      printf("mtcp finishrestore* %d : tcsetattr = %d\n",getpid(),i2);
+      signal(SIGTTOU,shndl);
+      mtcp_printf("mtcp finishrestore* %d : tcsetattr\n",getpid());
+      if( !i1 || i2 < 0 )
+        DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+     }
   }
 
   for (child = thread -> children; child != NULL; child = child -> siblings) {
