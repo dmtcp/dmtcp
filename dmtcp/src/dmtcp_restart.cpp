@@ -328,8 +328,10 @@ namespace
         vt.updateMapping(pid().pid(),_real_getpid());
         pid_t psid = vt.sid();
         
-        setpgid(0,0);
-        
+        #ifndef __x86_64__
+          setpgid(0,0);
+        #endif
+          
         if( !isSessionLeader() ){
           // If process is not session leader - restore all childs and restore it
           t_iterator it = _childs.begin();
