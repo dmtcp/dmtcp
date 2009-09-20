@@ -328,9 +328,7 @@ namespace
         vt.updateMapping(pid().pid(),_real_getpid());
         pid_t psid = vt.sid();
         
-        #ifndef __x86_64__
-          setpgid(0,0);
-        #endif
+        setpgid(0,0);
           
         if( !isSessionLeader() ){
           // If process is not session leader - restore all childs and restore it
