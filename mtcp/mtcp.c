@@ -3255,27 +3255,25 @@ void ptrace_attach_threads(int isRestart)
             }
             else if (inferior_st != 'T' ) {
               is_ptrace_local = 1;
-//              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-//              {
-//                perror("ptrace_attach_threads: tcsetpgrp failed");
-//                mtcp_abort();
-//              }
+              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
+              {
+                perror("ptrace_attach_threads: tcsetpgrp failed");
+                mtcp_abort();
+              }
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
               }
             }  
-          }
-          else
-          {
+          } else {
             if (inferior_st != 'T')
             {
               is_ptrace_local = 1;
-//              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-//              {
-//                perror("ptrace_attach_threads: tcsetpgrp failed");
-//                mtcp_abort();
-//              }
+              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
+              {
+                perror("ptrace_attach_threads: tcsetpgrp failed");
+                mtcp_abort();
+              }
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
@@ -3313,28 +3311,26 @@ void ptrace_attach_threads(int isRestart)
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
                 mtcp_abort();
               }
-            }
-            else if (inferior_st != 'T') {
+            } else if (inferior_st != 'T') {
               is_ptrace_local = 1;
-//                if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-//                {
-//                  perror("ptrace_attach_threads: tcsetpgrp failed");
-//                  mtcp_abort();
-//                }
+              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
+              {
+                perror("ptrace_attach_threads: tcsetpgrp failed");
+                mtcp_abort();
+              }
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
               }
             }
-          }
-          else {
+          } else {
             if (inferior_st != 'T') {
               is_ptrace_local = 1;
-//            if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-//            {
-//              perror("ptrace_attach_threads: tcsetpgrp failed");
-//              mtcp_abort();
-//            }
+              if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
+              {
+                perror("ptrace_attach_threads: tcsetpgrp failed");
+                mtcp_abort();
+              }
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
