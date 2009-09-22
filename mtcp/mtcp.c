@@ -2762,7 +2762,7 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
     }
     is_waitpid_local = 1;
     tpid = waitpid(tid, &status, 0);
-    mtcp_printf(("detach_ckpthread: tpid1=%d,errno=%d,ECHILD=%d\n", tpid, errno, ECHILD));
+    DPRINTF(("detach_ckpthread: tpid1=%d,errno=%d,ECHILD=%d\n", tpid, errno, ECHILD));
     if ((tpid) == -1 && errno == ECHILD) {
       DPRINTF(("detach_ckpthread: Check cloned process\n"));
       /*
