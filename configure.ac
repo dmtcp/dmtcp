@@ -57,9 +57,14 @@ else
 fi
 
 
-#checkfor gcl
+#check for gcl
 AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [/usr/bin])
 
+#check for patch utility
+AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [/usr/bin:/bin])
+
+#check for gzip utility
+AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
 #check for mpich2
 AC_ARG_WITH([mpich],
