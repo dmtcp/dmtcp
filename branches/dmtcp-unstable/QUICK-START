@@ -52,9 +52,9 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   # Automatically start a coordinator in background
   ./bin/dmtcp_checkpoint ./a.out &
   # Checkpoint all processes of the default coordinator
-  ./bin/dmtcp_command -c
+  ./bin/dmtcp_command --checkpoint
   # Kill a.out, and optionally kill coordinator process
-  ./bin/dmtcp_command -q
+  ./bin/dmtcp_command --quit
   # Restart directly from local checkpoint images (.dmtcp files)
   # (Be sure there are no old ckpt_a.out_*.dmtcp files.
   #  Ensure that the restarted process is running, and not suspended.)
@@ -137,6 +137,21 @@ SHORT NOTES:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
             Then (cd mtcp; make clean; make)
+	 C. If debugging MTCP from within DMTCP, then:
+	      a.  uncomment the line:
+		 CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
+	      b.  set DUP_STDERR_FD in mtcp/mtcp_printf.c to 826 or 827
+		  depending on whether MTCP debug output should go to
+		  stdout or $DMTCP_TMPDIR/jassertlog.*
+              c.  Then (cd mtcp; make clean; make)
+	 D. If debugging:  dmtcp_checkpoint a.out
+	    and you wish to attach to a.out when it starts, then
+	      a.  Set the environment variable MTCP_INIT_PAUSE
+			mtcp/mtcp.c:mtcp_init() will pause 15 seconds.
+	      b.  dmtcp_checkpoint a.out &
+	      c.  gdb a.out `pgrep -n a.out`  [During the 15 second pause.]
+	      d.  The usual gdb commands should be available to debug
+			a.out/mtcp.so/dmtcphijack.so
     4. It often works to migrate processes by moving the checkpoint files to
        another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting.  Whether it works is affected by how different are the
@@ -175,16 +190,59 @@ SHORT NOTES:
 	re-execute the g++ compilation from the last line output by make,
 	but do not include "-O2".  Alternatively, when configuring, use:
 	  env CXXFLAGS=-O1 ./configure
-    12. As of Oct., 2008, DMTCP does not correctly handle checkpointing
-       matlab WHEN MATLAB USES ITS DEFAULT SUN JAVA VIRTUAL MACHINE
-       FOR libjvm.so .  We are working toward a fix.
-         A simple workaround for now is to copy the .matlab7rc.sh
-       file into your current directory or home directory, and add
-       to the end of the file, for example:
-        [ to use /usr/lib/jamvm/libjvm.so, Debian package: jamvm ]
-        LDPATH_PREFIX=/usr/lib/jamvm
-      Other possible virtual machines for LDPATH_PREFIX
-      are (from Debian package libgcj9-0):
-        LDPATH_PREFIX=/usr/lib/gcj-4.3-90
-      and others from:
-	http://www.roseindia.net/opensource/open-source-jvm.shtml
+    12. matlab has several issues at this time:
+	A.  If you see a message about GLIBCXX-3.4 not found, you can either
+	    use root privilege to replace matlab's older libstdc++  by your
+	    system's newer libstdc++ (back up matlab's older libstdc++),
+	    or else just re-configure and re-compile DMTCP as follows:
+		env CC=gcc-4.1 CXX=g++-4.1 ./configure
+		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
+                make clean; make
+        B. Matlab should be invoked without graphics, and to be extra safe,
+	   without the JVM.  The -nodisplay and -nojvm matlab flags suffice.
+	C. Matlab has an unfortunate interaction with the bash shell.
+	   The dash script is a small Linux shell compliant with /bin/sh.
+	   If /bin/sh is aliased to /bin/dash on your system ("ls -l /bin/sh"),
+	   you should see no problem.  You can also type:
+	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
+	   Another option is to directly invoke the matlab binary:
+    	     bin/dmtcp_checkpoint \
+	       /usr/local/matlabr2007a/bin/glnxa64/MATLAB -nodisplay -nojvm
+        D.  Hence, at our site, we are able to successfully
+	   checkpoint and restart matlab with the following invocation:
+	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
+           We are working toward a more general fix.
+    13. How to checkpoint OpenMPI with DMTCP
+        Verify that mpirun works.
+        Verify dmtcp_{checkpoint,restart} commands are in your path:
+          ssh <REMOTE-HOST> dmtcp_checkpoint --help
+	If they are not in your path, adjust your shell initialization file
+           to extend your path.
+        Verify "ssh <REMOTE-HOST>" works without password otherwise
+        do the following:
+          ssh-keygen -t dsa       [accept default values]
+          ssh-keygen -t rsa       [accept default values]
+          cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
+
+        pid-virtualization currently conflicts with OpenMPI; We will fix
+        this in future.
+
+        ./configure --disable-pid-virtualization
+        make clean
+        make
+        make check
+
+        dmtcp_checkpoint --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
+        dmtcp_command --checkpoint
+
+        ./dmtcp_restart_script.sh
+
+        DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
+        any other convinient SIGNUM above.
+
+    14. OpenSUSE and bash
+        The OpenSUSE bash package uses an unusual memory layout. DMTCP
+        currently does not checkpoint bash. This will be fixed in the future.
+        The current workaround is to download and use vanilla bash package from
+        http://www.gnu.org/software/bash.
+

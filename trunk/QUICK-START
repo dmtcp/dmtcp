@@ -206,7 +206,8 @@ SHORT NOTES:
 	   you should see no problem.  You can also type:
 	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
 	   Another option is to directly invoke the matlab binary:
-    	     bin/dmtcp_checkpoint /usr/local/matlabr2007a/bin/glnxa64/MATLAB -nodisplay -nojvm
+    	     bin/dmtcp_checkpoint \
+	       /usr/local/matlabr2007a/bin/glnxa64/MATLAB -nodisplay -nojvm
         D.  Hence, at our site, we are able to successfully
 	   checkpoint and restart matlab with the following invocation:
 	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
@@ -215,12 +216,16 @@ SHORT NOTES:
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
           ssh <REMOTE-HOST> dmtcp_checkpoint --help
-        Verify "ssh <REMOTE-HOST>" works without password otherwise do the following:
+	If they are not in your path, adjust your shell initialization file
+           to extend your path.
+        Verify "ssh <REMOTE-HOST>" works without password otherwise
+        do the following:
           ssh-keygen -t dsa       [accept default values]
           ssh-keygen -t rsa       [accept default values]
           cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
 
-        pid-virtualization currently conflicts with OpenMPI; We will fix this in future.
+        pid-virtualization currently conflicts with OpenMPI; We will fix
+        this in future.
 
         ./configure --disable-pid-virtualization
         make clean

@@ -561,6 +561,8 @@ MPICH_MPDCLEANUP
 MPICH_MPDALLEXIT
 MPICH_MPDBOOT
 MPICH_MPD
+HAS_GZIP
+HAS_PATCH
 HAS_GCL
 HAS_READLINE
 subdirs
@@ -3069,7 +3071,7 @@ else
 fi
 
 
-#checkfor gcl
+#check for gcl
 # Extract the first word of "gcl", so it can be a program name with args.
 set dummy gcl; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -3107,6 +3109,87 @@ else
 $as_echo "no" >&6; }
 fi
 
+
+
+#check for patch utility
+# Extract the first word of "patch", so it can be a program name with args.
+set dummy patch; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_PATCH+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_PATCH"; then
+  ac_cv_prog_HAS_PATCH="$HAS_PATCH" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="/usr/bin:/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_PATCH="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_PATCH" && ac_cv_prog_HAS_PATCH="no"
+fi
+fi
+HAS_PATCH=$ac_cv_prog_HAS_PATCH
+if test -n "$HAS_PATCH"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_PATCH" >&5
+$as_echo "$HAS_PATCH" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check for gzip utility
+# Extract the first word of "gzip", so it can be a program name with args.
+set dummy gzip; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_GZIP+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_GZIP"; then
+  ac_cv_prog_HAS_GZIP="$HAS_GZIP" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="/usr/bin:/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_GZIP="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_GZIP" && ac_cv_prog_HAS_GZIP="no"
+fi
+fi
+HAS_GZIP=$ac_cv_prog_HAS_GZIP
+if test -n "$HAS_GZIP"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_GZIP" >&5
+$as_echo "$HAS_GZIP" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
 
 
 
