@@ -1476,7 +1476,6 @@ again:
           int index; 
           char inferior_st = 'N';
           char inf_st;
-          mtcp_printf("\n\n\n");
           for (index = 0; index < ptrace_pairs_count; index++) {
             inf_st = procfs_state(ptrace_pairs[index].inferior);
             DPRINTF(("tid = %d now=%c stored=%c superior = %d inferior = %d\n", 
@@ -1487,7 +1486,7 @@ again:
               break;
             }
           }
-          mtcp_printf("\n\n\n");
+	  mtcp_printf("%d %c\n", GETTID(), inferior_st);
           if (inferior_st == 'N') {
             // superior 
             if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
@@ -1503,7 +1502,7 @@ again:
           else { 
             // inferior 
             DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid));
-            if (inferior_st != 'T') {
+            if ((inferior_st != 'T') && (inferior_st != 'R')) {
               if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
                   mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
