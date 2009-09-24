@@ -89,14 +89,16 @@ static funcptr get_libc_symbol ( const char* name )
   static void* handle = NULL;
   if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
     abort();
   }
 
   void* tmp = dlsym ( handle, name );
-  if ( tmp==NULL )
+  if ( tmp == NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
     abort();
   }
   return ( funcptr ) tmp;

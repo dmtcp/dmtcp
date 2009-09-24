@@ -292,18 +292,16 @@ extern int mtcp_sys_errno;
 //==================================================================
 
 /* USAGE:  mtcp_inline_syscall:  second arg is number of args of system call */
-#define mtcp_sys_read(args...) mtcp_inline_syscall(read,3,args)
-#define mtcp_sys_write(args...) mtcp_inline_syscall(write,3,args)
-#define mtcp_sys_open(args...) mtcp_inline_syscall(open,3,args)
-    // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
-    //   otherwise.
-#define mtcp_sys_open2(args...) mtcp_sys_open(args,0777)
-#define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
-#define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
 #define mtcp_sys_read(args...)  mtcp_inline_syscall(read,3,args)
 #define mtcp_sys_write(args...)  mtcp_inline_syscall(write,3,args)
-#define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_lseek(args...)  mtcp_inline_syscall(lseek,3,args)
+#define mtcp_sys_open(args...)  mtcp_inline_syscall(open,3,args)
+    // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
+    //   otherwise.
+#define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
+#define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
+#define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
+#define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
 #define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)

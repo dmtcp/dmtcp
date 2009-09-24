@@ -278,7 +278,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       _coordinatorSocket >> msg;
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
-      if ( msg.type == dmtcp::DMT_KILL_PEER ) exit ( 0 );
+      if ( msg.type == dmtcp::DMT_KILL_PEER )
+        exit ( 0 );
       msg.poison();
     }
   }
@@ -288,9 +289,10 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   // TODO: may be it is better to move unlock to more appropriate place. 
   // For example after suspendinf all threads
   _dmtcp_unlock();
-		  
+
 
   JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
+
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
   JTRACE ( "Starting checkpoint, suspending..." );
 }
@@ -444,7 +446,6 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
   }
   JTRACE ( "got resume signal" );
 }
-
 
 void dmtcp::DmtcpWorker::postRestart()
 {
