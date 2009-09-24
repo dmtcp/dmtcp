@@ -103,10 +103,10 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
-  if ( getenv("JALIB_UTILITY_DIR") == NULL ) {
+  if ( getenv(ENV_VAR_UTILITY_DIR) == NULL ) {
     JNOTE ( "\n **** Not checkpointing this process,"
             " due to missing environment var ****" )
-          ( getenv("JALIB_UTILITY_DIR") )
+          ( getenv(ENV_VAR_UTILITY_DIR) )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
@@ -114,12 +114,12 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
   
 //  dlsym_offset = (int) strtol ( getenv ( "DMTCP_DLSYM_OFFSET" ), NULL, 10 );
-//  unsetenv ( "DMTCP_DLSYM_OFFSET" );
+//  _dmtcp_unsetenv ( "DMTCP_DLSYM_OFFSET" );
 
   JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
-  
+
   if ( jalib::Filesystem::GetProgramName() == "ssh" )
   {
     //make sure coordinator connection is closed
@@ -170,7 +170,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     if ( ckptOpenFiles != NULL )      prefix += dmtcp::string() + "--checkpoint-open-files"      + " ";
 
     if ( compression != NULL ) {
-      if ( strcmp ( compression, "0" ) )
+      if ( strcmp ( compression, "0" ) == 0 )
         prefix += "--no-gzip ";
       else 
         prefix += "--gzip ";
@@ -190,8 +190,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     }
 
     //we don't want to get into an infinite loop now do we?
-    unsetenv ( "LD_PRELOAD" );
-    unsetenv ( ENV_VAR_HIJACK_LIB );
+    _dmtcp_unsetenv ( "LD_PRELOAD" );
+    _dmtcp_unsetenv ( ENV_VAR_HIJACK_LIB );
 
     JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
 
@@ -226,7 +226,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     KernelDeviceToConnection::Instance().dbgSpamFds();
 #endif
 
-    unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
+    _dmtcp_unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
   }
   else
   {
@@ -235,7 +235,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 #ifdef PID_VIRTUALIZATION
     if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
       dmtcp::VirtualPidTable::Instance().setRootOfProcessTree();
-      unsetenv( ENV_VAR_ROOT_PROCESS );
+      _dmtcp_unsetenv( ENV_VAR_ROOT_PROCESS );
     }
 #endif 
 
@@ -286,7 +286,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       _coordinatorSocket >> msg;
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
-      if (msg.type == dmtcp::DMT_KILL_PEER )
+      if ( msg.type == dmtcp::DMT_KILL_PEER )
         exit ( 0 );
       msg.poison();
     }
@@ -297,8 +297,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   // TODO: may be it is better to move unlock to more appropriate place. 
   // For example after suspendinf all threads
   _dmtcp_unlock();
-  
-  
+
+
   JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
 
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
@@ -457,7 +457,6 @@ void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
     }
     JTRACE ( "got resume signal" );
   }
-  
 }
 
 void dmtcp::DmtcpWorker::writeTidMaps()

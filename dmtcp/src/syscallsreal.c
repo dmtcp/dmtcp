@@ -63,19 +63,23 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_destroy(&attr);
 }
 
+// gdb calls dlsym on td_thr_get_info.  Need wrapper for tid virtualization.
+// The fnc td_thr_get_info is in libthread_db, and not in libc.
 static funcptr get_libthread_db_symbol ( const char* name )
 {
   void* tmp = NULL;
   static void* handle = NULL;
   if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB ,RTLD_NOW ) ) == NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
     abort();
   }
   tmp = _real_dlsym ( handle, name );
   if ( tmp == NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",dlerror() );
+    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
     abort();
   }
   return ( funcptr ) tmp;
@@ -83,9 +87,8 @@ static funcptr get_libthread_db_symbol ( const char* name )
 
 static funcptr get_libc_symbol ( const char* name )
 {
-  void* tmp;
   static void* handle = NULL;
-  // DMTCP should not calls dlsym.  It should call _real_dlsym  instead.
+  // DMTCP should not call dlsym.  It should call _real_dlsym  instead.
   if ( strcmp ( name, "dlsym" ) == 0 )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: name is dlsym \n");
@@ -94,13 +97,16 @@ static funcptr get_libc_symbol ( const char* name )
 
   if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
   {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n", dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
+	      dlerror() );
     abort();
   }
-  tmp = _real_dlsym ( handle, name );
+
+  void* tmp = _real_dlsym ( handle, name );
   if ( tmp == NULL )
   {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n", dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
+	      dlerror() );
     abort();
   }
   return ( funcptr ) tmp;
@@ -279,6 +285,19 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH_LIBPTHREAD ( pthread_sigmask ) ( how, a, b);
 }
 
+/* In dmtcphijack.so code always use this function instead of unsetenv.
+ * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
+ * environment equivalent to its shell variables. If DMTCP uses the bash
+ * unsetenv, bash will unset its internal environment variable but won't remove
+ * the process environment variable and yet on the next getenv, bash will
+ * return the process environment variable.
+ * This is arguably a bug in bash-3.2.
+ */
+int _dmtcp_unsetenv( const char *name ) {
+  unsetenv (name);
+  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+}
+
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) _real_syscall(SYS_getpid);
@@ -394,8 +413,9 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     return (*dlsym_addr) ( handle, symbol );
   }
 }
-
-td_err_e   _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. */
+td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
   REAL_FUNC_PASSTHROUGH_TD_ERR_E ( td_thr_get_info ) ( th_p, ti_p );
 }
 
@@ -416,6 +436,7 @@ long int _real_syscall(long int sys_num, ... ) {
     arg[i] = va_arg(ap, void *);
   va_end(ap);
 
+  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
   REAL_FUNC_PASSTHROUGH_64 ( syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 

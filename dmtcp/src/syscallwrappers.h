@@ -97,6 +97,8 @@ extern "C"
 
   void _dmtcp_remutex_on_fork();
 
+  int _dmtcp_unsetenv(const char *name);
+
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
