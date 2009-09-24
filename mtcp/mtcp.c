@@ -1486,7 +1486,7 @@ again:
               break;
             }
           }
-	  mtcp_printf("%d %c\n", GETTID(), inferior_st);
+	  DPRINTF(("%d %c\n", GETTID(), inferior_st));
           if (inferior_st == 'N') {
             // superior 
             if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
@@ -1502,8 +1502,8 @@ again:
           else { 
             // inferior 
             DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid));
-            if ((inferior_st != 'T') && (inferior_st != 'R')) {
-              if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+	    if (inferior_st != 'T') {
+            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
                   mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
                                thread -> tid, strerror (mtcp_sys_errno));
@@ -1512,7 +1512,8 @@ again:
                 threadisdead (thread);
                 goto rescan;
               }
-            }
+	    }
+	    create_file( thread -> original_tid );
           }
           needrescan = 1;
           break;
@@ -3022,6 +3023,7 @@ void ptrace_detach_user_threads ()
       
       DPRINTF(("tid = %d detaching superior = %d from inferior = %d\n", 
                GETTID(), (int)ptrace_pairs[i].superior, (int)ptrace_pairs[i].inferior));
+      have_file (ptrace_pairs[i].inferior);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_DETACH, ptrace_pairs[i].inferior, 0, MTCP_DEFAULT_SIGNAL) == -1) {
         DPRINTF(("ptrace_detach_user_threads: parent = %d child = %d\n", 
@@ -3077,7 +3079,7 @@ void create_file(pid_t pid)
   int fd;
   
   memset(str, 0, 15);
-    sprintf(str, "/tmp/%d", pid);
+  sprintf(str, "/tmp/%d", pid);
   
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
     if (fd == -1) {
@@ -3099,7 +3101,7 @@ void have_file(pid_t pid)
   int fd;
    
   memset(str, 0, 15);
-    sprintf(str, "/tmp/%d", pid);
+  sprintf(str, "/tmp/%d", pid);
   while(1) {
     fd = open(str, O_RDONLY);
     if (fd != -1) {
