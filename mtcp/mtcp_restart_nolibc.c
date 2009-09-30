@@ -386,7 +386,7 @@ static void readmemoryareas (void)
   int flags, imagefd, rc;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
-#if 1
+#if 0
   /* If not using gzip decompression, then use mmapfile instead of readfile. */
   int do_mmap_ckpt_image = (mtcp_restore_gzip_child_pid == -1);
 #else
@@ -700,9 +700,9 @@ static void mmapfile(void *buf, int size, int prot, int flags)
 
     /* Use mmap for this portion of checkpoint image. */
     rc = mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
-    if (rc < 0) {
+    if (rc == MAP_FAILED) {
         mtcp_printf("mtcp_restart_nolibc mmapfile:"
-		    " error %d reading checkpoint\n", mtcp_sys_errno);
+		    " error %d reading checkpoint file\n", mtcp_sys_errno);
         mtcp_abort();
     }
     /* Now update mtcp_restore_cpfd so as to work the same way as readfile() */
