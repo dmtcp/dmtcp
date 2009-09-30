@@ -102,7 +102,11 @@ static funcptr get_libc_symbol ( const char* name )
     abort();
   }
 
+#ifdef PID_VIRTUALIZATION
   void* tmp = _real_dlsym ( handle, name );
+#else
+  void* tmp = dlsym ( handle, name );
+#endif
   if ( tmp == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
@@ -120,7 +124,11 @@ static funcptr get_libpthread_symbol ( const char* name )
     fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",dlerror() );
     abort();
   }
+#ifdef PID_VIRTUALIZATION
   void* tmp = _real_dlsym ( handle, name );
+#else
+  void* tmp = dlsym ( handle, name );
+#endif
   if ( tmp==NULL )
   {
     fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",dlerror() );

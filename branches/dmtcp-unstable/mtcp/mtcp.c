@@ -138,7 +138,7 @@ if (DEBUG_RESTARTING) \
 #define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
-#define GETTID() syscall(SYS_gettid)
+#define GETTID() (int)syscall(SYS_gettid)
 
 sem_t sem_start;
 
@@ -302,14 +302,26 @@ static void sync_shared_mem(void);
 
 typedef void (*sighandler_t)(int);
 
+/*******************************************
+ * used for sake of ptrace                 *
+ *******************************************/
 const unsigned char DMTCP_SYS_sigreturn =  0x77;
 const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
 
 static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
 #define LINUX_SYSCALL_LEN (sizeof linux_syscall)
 
-void write_info_to_file (int file, pid_t superior, pid_t inferior);
-void writeptraceinfo (pid_t superior, pid_t inferior);
+static void write_info_to_file (int file, pid_t superior, pid_t inferior);
+static void writeptraceinfo (pid_t superior, pid_t inferior);
+static void create_file(pid_t pid);
+static void process_ptrace_info (pid_t *delete_ptrace_leader,
+	int *has_ptrace_file, 
+        pid_t *delete_setoptions_leader, int *has_setoptions_file,
+        pid_t *delete_checkpoint_leader, int *has_checkpoint_file);
+static char procfs_state(int tid);
+static void ptrace_save_threads_state ();
+static void create_file(pid_t pid);
+static void have_file(pid_t pid);
 
 // values for last_command of struct ptrace_tid_pairs
 // These constants must agree with the constants in dmtcp/src/mtcpinterface.cpp
@@ -331,10 +343,13 @@ struct ptrace_tid_pairs {
   int eligible_for_deletion;
 };
 
-void ptrace_lock_inferior();
-void ptrace_free_inferior();
-void ptrace_unlock_inferior();
+static void ptrace_lock_inferiors();
+static void ptrace_unlock_inferiors();
 
+
+/*******************************************
+ * continue with non-ptrace declarations   *
+ *******************************************/
 
 static __thread int is_waitpid_local = 0;
 static __thread int is_ptrace_local = 0;
@@ -345,12 +360,12 @@ static __thread int has_status_and_pid = 0;
 static __thread pid_t setoptions_superior = -1;
 static __thread int is_ptrace_setoptions = FALSE;
 
-int has_ptrace_file = 0;  
-pid_t delete_ptrace_leader = -1;  
-int has_setoptions_file = 0;
-pid_t delete_setoptions_leader = -1;   
-int has_checkpoint_file = 0;
-pid_t delete_checkpoint_leader = -1;     
+static int has_ptrace_file = 0;  
+static pid_t delete_ptrace_leader = -1;  
+static int has_setoptions_file = 0;
+static pid_t delete_setoptions_leader = -1;   
+static int has_checkpoint_file = 0;
+static pid_t delete_checkpoint_leader = -1;     
 
 
 /***************************************************************************/
@@ -752,7 +767,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   int rc;
   Thread *thread;
   int i;
-  Thread *loopthread;  
 
   /* Maybe they decided not to call mtcp_init */
   if (motherofall != NULL) {
@@ -1263,11 +1277,11 @@ again:
 /* ptrace locking */
 /********************************************************************************************************************************/
 
-void ptrace_unlock_inferiors()
+static void ptrace_unlock_inferiors()
 {
     char file[256];
     int fd;
-    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",GETTID());
+    snprintf(file, 256, "/tmp/dmtcp_ptrace_unlocked.%d", GETTID());
     
     fd = creat(file,0644);
     if( fd < 0 ){
@@ -1278,15 +1292,14 @@ void ptrace_unlock_inferiors()
     close(fd);
 }
 
-void ptrace_lock_inferiors()
+static void ptrace_lock_inferiors()
 {
     char file[256];
-    int fd;
     snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",GETTID());
     unlink(file);
 }
 
-void ptrace_wait4(pid_t pid)
+static void ptrace_wait4(pid_t pid)
 {
     char file[256];
     struct stat buf;
@@ -1308,21 +1321,11 @@ void ptrace_wait4(pid_t pid)
 }
 
 
-
-
 /********************************************************************************************************************************/
 /*                                */
 /*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.    */
 /*                                */
 /********************************************************************************************************************************/
-
-void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file, 
-        pid_t *delete_setoptions_leader, int *has_setoptions_file,
-        pid_t *delete_checkpoint_leader, int *has_checkpoint_file);
-
-char procfs_state(int tid);
-
-void ptrace_save_threads_state ();
 
 static void *checkpointhread (void *dummy)
 {
@@ -2259,9 +2262,12 @@ static void writefile (int fd, void const *buff, int size)
 
 /*************************************************************************/
 /* Utilities for ptrace code                                             */
+/* IF ALL THESE FUNCTIONS MUST EXIST INSIDE mtcp.c AND NOT IN SEAPARATE  */
+/* FILE, THEN WE MUST RENAME THEM ALL WITH SOME PREFIX LIKE pt_          */
+/* (DIFFERENT NAMESPACE FROM REST OF FILE).  IF WE CAN MOVE THEM TO      */
+/* A DIFFERENT FILE, THAT WOULD BE EVEN BETTER.   - Gene                 */
 /*************************************************************************/
-void reset_ptrace_pairs_entry ( int i ) 
-
+static void reset_ptrace_pairs_entry ( int i ) 
 {
   ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
   ptrace_pairs[i].singlestep_waited_on = FALSE;
@@ -2269,8 +2275,7 @@ void reset_ptrace_pairs_entry ( int i )
   ptrace_pairs[i].inferior_st = 'u';
 }
 
-void move_last_ptrace_pairs_entry_to_i ( int i ) 
-
+static void move_last_ptrace_pairs_entry_to_i ( int i ) 
 {
   ptrace_pairs[i].superior = ptrace_pairs[ptrace_pairs_count-1].superior;
   ptrace_pairs[i].inferior = ptrace_pairs[ptrace_pairs_count-1].inferior;
@@ -2280,8 +2285,7 @@ void move_last_ptrace_pairs_entry_to_i ( int i )
   ptrace_pairs[i].inferior_st = ptrace_pairs[ptrace_pairs_count-1].inferior_st;
 }
 
-void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
-
+static void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
 {
   int i;
   for (i = 0; i < ptrace_pairs_count; i++) {
@@ -2305,8 +2309,7 @@ void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
   }      
 }
 
-int is_in_ptrace_pairs ( pid_t superior, pid_t inferior ) 
-
+static int is_in_ptrace_pairs ( pid_t superior, pid_t inferior ) 
 {
   int i;
   for (i = 0; i < ptrace_pairs_count; i++) {
@@ -2315,8 +2318,7 @@ int is_in_ptrace_pairs ( pid_t superior, pid_t inferior )
   return -1;     
 }
 
-void add_to_ptrace_pairs ( pid_t superior, pid_t inferior, int last_command, int singlestep_waited_on ) 
-
+static void add_to_ptrace_pairs ( pid_t superior, pid_t inferior, int last_command, int singlestep_waited_on ) 
 {
   struct ptrace_tid_pairs new_pair;
 
@@ -2332,10 +2334,9 @@ void add_to_ptrace_pairs ( pid_t superior, pid_t inferior, int last_command, int
   ptrace_pairs[ptrace_pairs_count] = new_pair;
   ptrace_pairs_count++; 
   pthread_mutex_unlock(&ptrace_pairs_mutex);        
-} 
+}
 
-void handle_command ( pid_t superior, pid_t inferior, int last_command )
-
+static void handle_command ( pid_t superior, pid_t inferior, int last_command )
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
   if ( index >= 0 ) {
@@ -2348,8 +2349,7 @@ void handle_command ( pid_t superior, pid_t inferior, int last_command )
   }       
 }
 
-void print_ptrace_pairs () 
-
+static void print_ptrace_pairs () 
 {
   int i;
   
@@ -2359,8 +2359,7 @@ void print_ptrace_pairs ()
   DPRINTF(("tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count));  
 }
 
-void write_info_to_file (int file, pid_t superior, pid_t inferior)
-
+static void write_info_to_file (int file, pid_t superior, pid_t inferior)
 {
   int fd;
   struct flock lock;
@@ -2430,8 +2429,7 @@ void write_info_to_file (int file, pid_t superior, pid_t inferior)
   }
 }
 
-void writeptraceinfo (pid_t superior, pid_t inferior)
-
+static void writeptraceinfo (pid_t superior, pid_t inferior)
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
   if (index == -1 ) { 
@@ -2440,66 +2438,93 @@ void writeptraceinfo (pid_t superior, pid_t inferior)
   }   
 }
 
-void set_singlestep_waited_on ( pid_t superior, pid_t inferior, int value ) 
-
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
+void set_singlestep_waited_on ( pid_t superior, pid_t inferior,
+				       int value ) 
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
   if (( index >= 0 ) && ( ptrace_pairs[index].last_command == PTRACE_SINGLESTEP_COMMAND )) 
     ptrace_pairs[index].singlestep_waited_on = value;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 int get_is_waitpid_local ()
-
 {
   return is_waitpid_local;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 int get_is_ptrace_local () 
-
 {
   return is_ptrace_local;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 void unset_is_waitpid_local ()
-
 {
   is_waitpid_local = 0;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 void unset_is_ptrace_local () 
-
 {
   is_ptrace_local = 0;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 pid_t get_saved_pid () 
-
 {
   return saved_pid;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 int get_saved_status () 
-
 {
   return saved_status;
 }  
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 int get_has_status_and_pid ()
-
 {
   return has_status_and_pid;
 }
 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
 void reset_pid_status ()
-
 {
   saved_pid = -1;
   saved_status = -1;
   has_status_and_pid = 0;
 }
 
-int is_alive (pid_t pid)
-
+static int is_alive (pid_t pid)
 {
   char str[20];
   int fd;
@@ -2519,8 +2544,7 @@ int is_alive (pid_t pid)
   return 0;
 }
 
-int is_in_ckpt_threads (pid_t pid)
-
+static int is_in_ckpt_threads (pid_t pid)
 {
   int i;
   for (i = 0; i < ckpt_threads_count; i++) {
@@ -2529,8 +2553,7 @@ int is_in_ckpt_threads (pid_t pid)
   return 0;
 }
 
-void print_ckpt_threads ()
-
+static void print_ckpt_threads ()
 {
   int i;
   for (i = 0; i < ckpt_threads_count; i++) 
@@ -2538,7 +2561,7 @@ void print_ckpt_threads ()
              GETTID(), ckpt_threads[i].pid, ckpt_threads[i].tid));
 }
 
-char procfs_state(int tid)
+static char procfs_state(int tid)
 {
   char name[64];
   char sbuf[256], *S, *tmp;
@@ -2550,6 +2573,10 @@ char procfs_state(int tid)
     mtcp_printf("procfs_status: cannot open %s\n",name);
     return 0;
   }
+  /* THIS CODE CAN'T WORK RELIABLY.  SUPPOSE read() RETURNS 0,
+   * OR -1 WITH EAGAIN OR EINTR?  LOOK FOR EXAMPLES IN
+   *  mtcp_restart_nolibc.c:readfile() OR ELSEWHERE.   - Gene
+   */
   num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);
   if(num_read<=0) {
@@ -2561,15 +2588,18 @@ char procfs_state(int tid)
   tmp = strrchr(S, ')');
   S = tmp + 2;                 // skip ") "
 
-  sscanf(S,"%c",&state);
+  /* YOU SEEM TO WANT S[0] HERE.  WHY sscanf?  ALSO WHY ARE WE USING
+   * CAPS ("S") FOR VAR NAME?  - Gene
+   */
+  sscanf(S, "%c", &state);
 
   return state;
 }
 
-void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file, 
+static void process_ptrace_info (pid_t *delete_ptrace_leader,
+	int *has_ptrace_file, 
         pid_t *delete_setoptions_leader, int *has_setoptions_file,
         pid_t *delete_checkpoint_leader, int *has_checkpoint_file) 
-
 {
     Thread *thread;
   Thread *loopthread;
@@ -2631,6 +2661,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
       
       /* none of the eligible for deletion entries can be deleted anymore */  
       for (i = 0; i < ptrace_pairs_count; i++) {
+        /* SHOULDN'T "=" BE REPLACED BY "==" IN IF CONDITION?  - Gene */
         if (ptrace_pairs[i].eligible_for_deletion = TRUE) 
           ptrace_pairs[i].eligible_for_deletion = FALSE;
       }
@@ -2709,7 +2740,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader, int *has_ptrace_file,
 
 }
 
-int is_checkpoint_thread (pid_t tid) 
+static int is_checkpoint_thread (pid_t tid) 
 {
   int i;
   for (i = 0; i < ckpt_threads_count; i++) {
@@ -2718,8 +2749,7 @@ int is_checkpoint_thread (pid_t tid)
   return 0;
 }
 
-int
-ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
+static int ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
 {
   int status;
   char pstate;
@@ -2803,8 +2833,7 @@ ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
   return 0;
 }
 
-int
-ptrace_control_ckpthread(pid_t tgid, pid_t tid)
+static int ptrace_control_ckpthread(pid_t tgid, pid_t tid)
 {
   int status;
   char pstate;
@@ -2850,12 +2879,10 @@ ptrace_control_ckpthread(pid_t tgid, pid_t tid)
   return 0;
 }
 
-
-void ptrace_detach_checkpoint_threads () 
+static void ptrace_detach_checkpoint_threads () 
 {
   int i,ret;
-  int status;
-  pid_t tgid, tpid;
+  pid_t tgid;
 
   // Release only checkpoint threads
   for (i = 0; i < ptrace_pairs_count; i++) {
@@ -2876,11 +2903,9 @@ void ptrace_detach_checkpoint_threads ()
   DPRINTF((">>>>>>>>> done ptrace_detach_checkpoint_threads %d\n", GETTID()));
 }
 
-
-void ptrace_save_threads_state ()
+static void ptrace_save_threads_state ()
 {
   int i;
-  int status = 0;
 
   DPRINTF((">>>>>>>>> start ptrace_save_threads_state %d\n", GETTID()));
 
@@ -2893,7 +2918,7 @@ void ptrace_save_threads_state ()
   */  
     //if( ptrace_pairs[i].superior == GETTID()){
       char pstate;
-      int tid = ptrace_pairs[i].inferior, tpid;
+      int tid = ptrace_pairs[i].inferior;
       pstate = procfs_state(tid);
       DPRINTF(("save state of thread %d = %c\n",tid,pstate));
       ptrace_pairs[i].inferior_st = pstate;
@@ -2902,8 +2927,7 @@ void ptrace_save_threads_state ()
   DPRINTF((">>>>>>>>> done ptrace_save_threads_state %d\n", GETTID()));
 }
 
-
-void ptrace_remove_notexisted()
+static void ptrace_remove_notexisted()
 {
   int i;
   struct ptrace_tid_pairs temp;  
@@ -2936,7 +2960,7 @@ void ptrace_remove_notexisted()
   DPRINTF((">>>>>>>>>>> done ptrace_remove_notexisted %d\n", GETTID()));  
 }
 
-void ptrace_detach_user_threads ()
+static void ptrace_detach_user_threads ()
 {
   int i;
   int status = 0;
@@ -3036,8 +3060,7 @@ void ptrace_detach_user_threads ()
   DPRINTF((">>>>>>>>> done ptrace_detach_user_threads %d\n", GETTID()));
 }
 
-void delete_file (int file, int delete_leader, int has_file) 
-
+static void delete_file (int file, int delete_leader, int has_file) 
 {
   if ((delete_leader == GETTID()) && has_file) {
     switch (file) {
@@ -3072,8 +3095,7 @@ void delete_file (int file, int delete_leader, int has_file)
   } 
 }
 
-void create_file(pid_t pid)
-
+static void create_file(pid_t pid)
 {
   char str[15];
   int fd;
@@ -3095,7 +3117,7 @@ void create_file(pid_t pid)
 }
 
 
-void have_file(pid_t pid)
+static void have_file(pid_t pid)
 {
   char str[15];
   int fd;
@@ -3121,7 +3143,7 @@ void have_file(pid_t pid)
   } 
 }
 
-void ptrace_attach_threads(int isRestart) 
+static void ptrace_attach_threads(int isRestart) 
 {
   pid_t superior;
   pid_t inferior;
@@ -3917,7 +3939,6 @@ static void finishrestore (void)
 
   if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ){
     // we start from different place - change it!
-    char *tmp;
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
     memcpy (temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);

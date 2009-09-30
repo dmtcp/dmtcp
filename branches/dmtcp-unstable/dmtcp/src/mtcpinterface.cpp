@@ -407,6 +407,11 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
+#ifdef PID_VIRTUALIZATION
+// ptrace cannot work without pid virtualization.  If we're not using
+// pid virtualization, then disable this wrapper around ptrace, and
+// let the application call ptrace from libc.
+
 // These constants must agree with the constants in mtcp/mtcp.c
 #define PTRACE_UNSPECIFIED_COMMAND 0
 #define PTRACE_SINGLESTEP_COMMAND 1
@@ -508,6 +513,7 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
 
   return ptrace_ret;	
 }
+#endif
 
 // This is a copy of the same function in signalwrapers.cpp
 // FEEL FREE TO CHANGE THIS TO USE THE ORIGINAL
