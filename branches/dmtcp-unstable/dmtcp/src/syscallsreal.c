@@ -19,8 +19,12 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#define __USE_GNU
-#define __USE_UNIX98
+
+#define _GNU_SOURCE
+#define _XOPEN_SOURCE 500
+// These next two are defined in features.h based on the user macros above.
+// #define GNU_SRC
+// #define __USE_UNIX98
 
 #include <pthread.h>
 #include "syscallwrappers.h"
@@ -39,22 +43,16 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-//this should be defined in pthread.h, but on RHEL 5.2 it is stubborn
-#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
-  { { 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP, 0, { 0 } } }
-#endif
-
 typedef int ( *funcptr ) ();
-typedef void* ( *funcptr_64 ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
-typedef td_err_e ( *funcptr_td_err_e ) ();
-
 typedef funcptr ( *signal_funcptr ) ();
+
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-void _dmtcp_lock() {pthread_mutex_lock ( &theMutex );}
-void _dmtcp_unlock() {pthread_mutex_unlock ( &theMutex );}
+void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
+
+void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
+
 void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_t attr;
   pthread_mutexattr_init(&attr);
@@ -98,7 +96,7 @@ static funcptr get_libc_symbol ( const char* name )
   if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-	      dlerror() );
+              dlerror() );
     abort();
   }
 
@@ -110,7 +108,7 @@ static funcptr get_libc_symbol ( const char* name )
   if ( tmp == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
-	      dlerror() );
+              dlerror() );
     abort();
   }
   return ( funcptr ) tmp;
@@ -140,28 +138,24 @@ static funcptr get_libpthread_symbol ( const char* name )
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
-#define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_64(name) static funcptr_64 fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL; \
+    if (fn==NULL) fn = (funcptr_pid_t)get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_LIBPTHREAD(name) static funcptr fn = NULL;\
-    if(fn==NULL) fn = get_libpthread_symbol(#name); \
-    return (*fn)
-
-#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_TD_ERR_E(name) static funcptr_td_err_e fn = NULL;\
-    if(fn==NULL) fn = get_libthread_db_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_LIBPTHREAD(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libpthread_symbol(#name); \
     return (*fn)
 
 /// call the libc version of this function via dlopen/dlsym
@@ -227,7 +221,7 @@ int _real_system ( const char *cmd )
   REAL_FUNC_PASSTHROUGH ( system ) ( cmd );
 }
 
-pid_t _real_fork()
+pid_t _real_fork( void )
 {
   REAL_FUNC_PASSTHROUGH_PID_T ( fork ) ();
 }
@@ -391,7 +385,7 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
 }
 
 FILE * _real_fopen( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
 void *_real_dlsym ( void *handle, const char *symbol ) {
@@ -417,20 +411,21 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     return dlsym ( handle, symbol );
   else  
   {
-    funcptr_64 dlsym_addr = (char *)&dlopen + dlsym_offset;
+    typedef void* ( *fncptr ) (void *handle, const char *symbol);
+    fncptr dlsym_addr = (fncptr)((char *)&dlopen + dlsym_offset);
     return (*dlsym_addr) ( handle, symbol );
   }
 }
 /* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
    tid virtualization. */
 td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  REAL_FUNC_PASSTHROUGH_TD_ERR_E ( td_thr_get_info ) ( th_p, ti_p );
+  REAL_FUNC_PASSTHROUGH_TYPED ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
 }
 
 #endif
 
 long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
-  REAL_FUNC_PASSTHROUGH_64 ( ptrace ) ( request, pid, addr, data );
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
 }
 
 /* See comments for syscall wrapper */
@@ -445,10 +440,10 @@ long int _real_syscall(long int sys_num, ... ) {
   va_end(ap);
 
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_64 ( syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
-int _real_clone ( int ( *function ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
+int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 { 
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
