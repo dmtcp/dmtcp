@@ -182,6 +182,14 @@ sigset_t signals_set;
 
 void dmtcp::initializeMtcpEngine()
 {
+  int *dmtcp_info_pid_virtualization_enabled_ptr = 
+    (int*) _get_mtcp_symbol( "dmtcp_info_pid_virtualization_enabled" );
+
+#ifdef PID_VIRTUALIZATION
+  *dmtcp_info_pid_virtualization_enabled_ptr = 1;
+#else
+  *dmtcp_info_pid_virtualization_enabled_ptr = 0;
+#endif 
 
   t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 

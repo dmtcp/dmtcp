@@ -212,6 +212,10 @@ Area mtcp_libc_area;               // some area of that libc.so
 sem_t ptrace_read_pairs_sem;
 int init_ptrace_read_pairs_sem = 0;
 
+/* DMTCP Info Variables */
+
+int dmtcp_info_pid_virtualization_enabled = -1;
+
   /* Static data */
 
 static char const *ptrace_shared_file = "/tmp/amvisan_ptrace_shared_file.txt";
@@ -4042,28 +4046,25 @@ static int restarthread (void *threadv)
 
     pid_t tid;
 
-/****************************************************************************
- * ON 64-bit LINUX, THIS WAS BREAKING 'make check' with
- *  './configure --disable-pid-virtuation'.  PRESUMABLY, THE
- * THE MOTIVATION FOR USING syscall(SYS_clone), IS THAT WE WANT TO
- * AVOID the MTCP and DMTCP WRAPPERS AROUND __clone.  WE NEED A COMMENT
- * EXPLAINING WHY THIS IS NEEDED.  clone_entry IS
- * THE ADDRESS OF __clone glibc ONLY.  DOES __clone CALL ONE OF OUR WRAPPERS?
- * WE NEED TO REPLACE THIS COMMENT WITH AN EXPLANATION FOR THE TWO CASES.
- *    ALSO, ON 64-bit Debian, THIS CODE BREAKS DMTCP IF WE DO:
- * ./configure --disable-pid-virtualization.  WHY IS THIS SO?
- * IF WE COMMENT OUT THE "if" CONDITION AND USE ONLY THE "else"
- * CONDITION FOR 64-bit DEBIAN, THEN IT WORKS AGAIN FOR NO PID VIRTUALIZATION.
- * WHY IS THIS?
- *    FINALLY, 'man clone' claims that sys_clone (the system call) reverses
- * the order of the args:
- *  (..., STACK, ARG, ...) .  I DON'T OBSERVE THIS.
- * DOES THE man page LIE AGAIN?  WE SHOULD NOTE THE man page (release 3.15)
- * IS WRONG ON THIS, IF THAT'S THE CASE.
- *                                                             - Gene
- ****************************************************************************/
-    if (callback_sleep_between_ckpt != NULL) /* If running under DMTCP */
+    /*
+     * syscall is wrapped by DMTCP when configured with PID-Virtualization.
+     * It calls __clone which goes to DMTCP:__clone which then calls MTCP:__clone.
+     * DMTCP:__clone checks for tid-conflict with any original tid. If
+     * conflict, it replaces the thread with a new one with a new tid.
+     * DMTCP:__clone wrapper calls the glibc:__clone if the computation is not
+     * in RUNNING state (must be restarting), it calls the mtcp:__clone otherwise.
+     * IF No PID-Virtualization, call glibc:__clone because threads created
+     * during mtcp_restart should not go to MTCP:__clone; MTCP remembers those
+     * threads from the checkpoint image.
+     */
+    if (callback_sleep_between_ckpt != NULL && dmtcp_info_pid_virtualization_enabled == -1) {
+      mtcp_printf("error: uninitialized variable dmtcp_info_pid_virtualization_enabled\n");
+      mtcp_abort();
+    }
+    if (dmtcp_info_pid_virtualization_enabled == 1) 
     {
+      /* If running under DMTCP */
+      if (dmtcp_info_pid_virtualization_enabled == 1)
       tid = syscall(SYS_clone, restarthread,
           (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
           (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
