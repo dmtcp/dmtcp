@@ -695,14 +695,19 @@ static void readfile(void *buf, int size)
 
 static void mmapfile(void *buf, int size, int prot, int flags)
 {
+    void *addr;
     int rc, ar;
     ar = 0;
 
     /* Use mmap for this portion of checkpoint image. */
-    rc = mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
-    if (rc == MAP_FAILED) {
-        mtcp_printf("mtcp_restart_nolibc mmapfile:"
-		    " error %d reading checkpoint file\n", mtcp_sys_errno);
+    addr = (void *)mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
+    if (addr != buf) {
+        if (addr == MAP_FAILED)
+            mtcp_printf("mtcp_restart_nolibc mmapfile:"
+		        " error %d reading checkpoint file\n", mtcp_sys_errno);
+	else
+	    mtcp_printf("mmapfile: Requested address %p, but got address %p\n",
+			buf, addr);
         mtcp_abort();
     }
     /* Now update mtcp_restore_cpfd so as to work the same way as readfile() */
