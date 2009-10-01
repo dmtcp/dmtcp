@@ -745,7 +745,7 @@ void mtcp_dump_tls (char const *file, int line)
 /*    Note:                     */
 /*                       */
 /*      pthread_create eventually calls __clone to create threads       */
-/*      It uses flags = 0x7D0F00:               */
+/*      It uses flags = 0x3D0F00:               */
 /*        CLONE_VM = VM shared between processes                 */
 /*        CLONE_FS = fs info shared between processes (root, cwd, umask) */
 /*     CLONE_FILES = open files shared between processes (fd table)       */
@@ -2438,10 +2438,11 @@ static void writeptraceinfo (pid_t superior, pid_t inferior)
   }   
 }
 
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+/***********************************************************************
+ * This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
  * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
+ * WE'RE A GUEST IN THE USER'S PROCESS.    - Gene
+ ***********************************************************************/
 void set_singlestep_waited_on ( pid_t superior, pid_t inferior,
 				       int value ) 
 {
@@ -4041,15 +4042,37 @@ static int restarthread (void *threadv)
 
     pid_t tid;
 
+/****************************************************************************
+ * ON 64-bit LINUX, THIS WAS BREAKING 'make check' with
+ *  './configure --disable-pid-virtuation'.  PRESUMABLY, THE
+ * THE MOTIVATION FOR USING syscall(SYS_clone), IS THAT WE WANT TO
+ * AVOID the MTCP and DMTCP WRAPPERS AROUND __clone.  WE NEED A COMMENT
+ * EXPLAINING WHY THIS IS NEEDED.  clone_entry IS
+ * THE ADDRESS OF __clone glibc ONLY.  DOES __clone CALL ONE OF OUR WRAPPERS?
+ * WE NEED TO REPLACE THIS COMMENT WITH AN EXPLANATION FOR THE TWO CASES.
+ *    ALSO, ON 64-bit Debian, THIS CODE BREAKS DMTCP IF WE DO:
+ * ./configure --disable-pid-virtualization.  WHY IS THIS SO?
+ * IF WE COMMENT OUT THE "if" CONDITION AND USE ONLY THE "else"
+ * CONDITION FOR 64-bit DEBIAN, THEN IT WORKS AGAIN FOR NO PID VIRTUALIZATION.
+ * WHY IS THIS?
+ *    FINALLY, 'man clone' claims that sys_clone (the system call) reverses
+ * the order of the args:
+ *  (..., STACK, ARG, ...) .  I DON'T OBSERVE THIS.
+ * DOES THE man page LIE AGAIN?  WE SHOULD NOTE THE man page (release 3.15)
+ * IS WRONG ON THIS, IF THAT'S THE CASE.
+ *                                                             - Gene
+ ****************************************************************************/
     if (callback_sleep_between_ckpt != NULL) /* If running under DMTCP */
     {
-      tid = syscall(SYS_clone, restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+      tid = syscall(SYS_clone, restarthread,
+          (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
           (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
           clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
     }
     else 
     {
-      tid = ((*clone_entry)( restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+      tid = ((*clone_entry)( restarthread,
+	    (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
             (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
             child, child -> parent_tidptr, NULL, child -> actual_tidptr));
     }
