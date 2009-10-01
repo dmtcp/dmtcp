@@ -386,6 +386,7 @@ static void readmemoryareas (void)
   int flags, imagefd, rc;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
+/* make check:  stale-fd and forkexec fail (and others?) with this turned on. */
 #if 0
   /* If not using gzip decompression, then use mmapfile instead of readfile. */
   int do_mmap_ckpt_image = (mtcp_restore_gzip_child_pid == -1);
@@ -500,7 +501,10 @@ static void readmemoryareas (void)
         /* This mmapfile after prev. mmap is okay; use same args again.
          *  Posix says prev. map will be munmapped.
          */
-        if (do_mmap_ckpt_image)
+/* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
+        if (do_mmap_ckpt_image
+	    && mystrstr(area.name, "[vdso]")
+	    && mystrstr(area.name, "[vsyscall]"))
           mmapfile (area.addr, area.size, area.prot | PROT_WRITE, area.flags);
         else
           readfile (area.addr, area.size);
