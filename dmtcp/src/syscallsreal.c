@@ -19,8 +19,12 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#define __USE_GNU
-#define __USE_UNIX98
+
+#define _GNU_SOURCE
+#define _XOPEN_SOURCE 500
+// These next two are defined in features.h based on the user macros above.
+// #define GNU_SRC
+// #define __USE_UNIX98
 
 #include <pthread.h>
 #include "syscallwrappers.h"
@@ -37,16 +41,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-//this should be defined in pthread.h, but on RHEL 5.2 it is stubborn
-#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
-  { { 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP, 0, { 0 } } }
-#endif
-
 typedef int ( *funcptr ) ();
-typedef void* ( *funcptr_64 ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
-
 typedef funcptr ( *signal_funcptr ) ();
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -107,20 +103,20 @@ static funcptr get_libc_symbol ( const char* name )
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
-#define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_64(name) static funcptr_64 fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL; \
+    if (fn==NULL) fn = (funcptr_pid_t)get_libc_symbol(#name); \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL;\
-    if(fn==NULL) fn = get_libc_symbol(#name); \
+#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
 
 /// call the libc version of this function via dlopen/dlsym
@@ -186,7 +182,7 @@ int _real_system ( const char *cmd )
   REAL_FUNC_PASSTHROUGH ( system ) ( cmd );
 }
 
-pid_t _real_fork()
+pid_t _real_fork( void )
 {
   REAL_FUNC_PASSTHROUGH_PID_T ( fork ) ();
 }
@@ -351,7 +347,7 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
 }
 
 FILE * _real_fopen( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH_64 ( fopen ) ( path, mode );
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
 #endif

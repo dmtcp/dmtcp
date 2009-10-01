@@ -625,7 +625,7 @@ void mtcp_dump_tls (char const *file, int line)
  *    Note:
  *
  *      pthread_create eventually calls __clone to create threads
- *      It uses flags = 0x7D0F00:
+ *      It uses flags = 0x3D0F00:
  *	      CLONE_VM = VM shared between processes
  *	      CLONE_FS = fs info shared between processes (root, cwd, umask)
  *	   CLONE_FILES = open files shared between processes (fd table)
