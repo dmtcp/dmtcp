@@ -146,6 +146,11 @@ static funcptr get_libpthread_symbol ( const char* name )
     if (fn==NULL) fn = (void *)get_libc_symbol(#name); \
     return (*fn)
 
+// Adding the macro for calls to get_libthread_db_symbol
+#define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libthread_db_symbol(#name); \
+    return (*fn)
+
 #define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL; \
     if (fn==NULL) fn = (funcptr_pid_t)get_libc_symbol(#name); \
     return (*fn)
@@ -419,7 +424,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
 /* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
    tid virtualization. */
 td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
+  REAL_FUNC_PASSTHROUGH_TD_THR ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
 }
 
 #endif

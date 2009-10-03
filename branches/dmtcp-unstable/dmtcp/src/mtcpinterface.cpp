@@ -80,8 +80,10 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
     JTRACE ( "reopening mtcp.so DONE" ) ( theMtcpHandle );
     return 0;
   }
-
+  
+  dlerror();
   void* tmp = dlsym ( theMtcpHandle, name );
+  JTRACE ( "dlsym result" ) ( dlerror() );
   JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find mtcp.so symbol" );
 
   //JTRACE("looking up mtcp.so symbol")(name);

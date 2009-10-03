@@ -315,8 +315,8 @@ const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
 static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
 #define LINUX_SYSCALL_LEN (sizeof linux_syscall)
 
-static void write_info_to_file (int file, pid_t superior, pid_t inferior);
-static void writeptraceinfo (pid_t superior, pid_t inferior);
+void write_info_to_file (int file, pid_t superior, pid_t inferior);
+void writeptraceinfo (pid_t superior, pid_t inferior);
 static void create_file(pid_t pid);
 static void process_ptrace_info (pid_t *delete_ptrace_leader,
 	int *has_ptrace_file, 
@@ -2289,7 +2289,11 @@ static void move_last_ptrace_pairs_entry_to_i ( int i )
   ptrace_pairs[i].inferior_st = ptrace_pairs[ptrace_pairs_count-1].inferior_st;
 }
 
-static void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
+void remove_from_ptrace_pairs ( pid_t superior, pid_t inferior )
 {
   int i;
   for (i = 0; i < ptrace_pairs_count; i++) {
@@ -2339,8 +2343,12 @@ static void add_to_ptrace_pairs ( pid_t superior, pid_t inferior, int last_comma
   ptrace_pairs_count++; 
   pthread_mutex_unlock(&ptrace_pairs_mutex);        
 }
-
-static void handle_command ( pid_t superior, pid_t inferior, int last_command )
+ 
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
+void handle_command ( pid_t superior, pid_t inferior, int last_command )
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
   if ( index >= 0 ) {
@@ -2363,7 +2371,11 @@ static void print_ptrace_pairs ()
   DPRINTF(("tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count));  
 }
 
-static void write_info_to_file (int file, pid_t superior, pid_t inferior)
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
+void write_info_to_file (int file, pid_t superior, pid_t inferior)
 {
   int fd;
   struct flock lock;
@@ -2433,7 +2445,11 @@ static void write_info_to_file (int file, pid_t superior, pid_t inferior)
   }
 }
 
-static void writeptraceinfo (pid_t superior, pid_t inferior)
+/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
+ * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
+ * WE'RE A GUEST IN HIS PROCESS.    - Gene
+ */
+void writeptraceinfo (pid_t superior, pid_t inferior)
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
   if (index == -1 ) { 
