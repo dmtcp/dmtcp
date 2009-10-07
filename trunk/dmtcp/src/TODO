@@ -1,4 +1,8 @@
 PID-VIRTUALIZATION:
+0. wait status of zombie processes
+     Store status of those processes which were zombie at checkpoint time. If
+     the parent process does a wait() system call for that child after restart
+     we should return its status.
 1. restore process group leader, session leader, terminal owner etc.
 2. update dmtcp_restart.cpp to check and restore orphaned child processes at restart.
 3. add TID-Virtualization support at DMTCP layer.

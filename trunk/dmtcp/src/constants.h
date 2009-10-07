@@ -25,6 +25,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
+#include "linux/version.h"
 
 #define LIBC_FILENAME "libc.so.6"
 #define MTCP_FILENAME "mtcp.so"
@@ -111,6 +112,10 @@
 
 #ifndef PID_VIRTUALIZATION
 #define _real_getpid getpid
+#endif
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
+#define user_desc modify_ldt_ldt_s
 #endif
 
 #endif

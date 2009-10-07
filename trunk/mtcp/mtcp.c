@@ -131,6 +131,9 @@ if (DEBUG_RESTARTING) \
 	 (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
 #define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
 
+/* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
+#define GETTID() (int)syscall(SYS_gettid)
+
 sem_t sem_start;
 
 typedef struct Thread Thread;
@@ -138,6 +141,7 @@ typedef struct Thread Thread;
 struct Thread { Thread *next;                       // next thread in 'threads' list
                 Thread **prev;                      // prev thread in 'threads' list
                 int tid;                            // this thread's id as returned by mtcp_sys_kernel_gettid ()
+                int original_tid;                   // this is the the thread's "original" tid
                 MtcpState state;                    // see ST_... below
                 Thread *parent;                     // parent thread (or NULL if top-level thread)
                 Thread *children;                   // one of this thread's child threads
@@ -166,6 +170,27 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 #endif
               };
 
+/* 
+ * struct MtcpRestartThreadArg 
+ *
+ * DMTCP requires the original_tids  of the threads being created during
+ *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
+ *  the original_tid of the thread being created from MTCP to DMTCP. 
+ *
+ * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+ * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
+ *
+ * DMTCP automatically extracts arg from this structure and passes that
+ * to the _real_clone call.
+ * 
+ * IMPORTANT NOTE: While updating, this structure must be kept in sync
+ * with the structure defined with the same name in mtcpinterface.cpp 
+ */
+struct MtcpRestartThreadArg { 
+  void *arg;
+  pid_t original_tid;
+};
+
 #define ST_RUNDISABLED 0     // thread is running normally but with checkpointing disabled
 #define ST_RUNENABLED 1      // thread is running normally and has checkpointing enabled
 #define ST_SIGDISABLED 2     // thread is running normally with cp disabled, but checkpoint thread is waiting for it to enable
@@ -178,6 +203,10 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 
 void *mtcp_libc_dl_handle = NULL;  // dlopen handle for whatever libc.so is loaded with application program
 Area mtcp_libc_area;               // some area of that libc.so
+
+/* DMTCP Info Variables */
+
+int dmtcp_info_pid_virtualization_enabled = -1;
 
 	/* Static data */
 
@@ -214,6 +243,7 @@ static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_ckpt_prefix)(int fd) = NULL;
+static void (*callback_write_tid_maps)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -520,13 +550,15 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_ckpt_prefix)(int fd))
+                        void (*write_ckpt_prefix)(int fd),
+                        void (*write_tid_maps)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
     callback_write_ckpt_prefix = write_ckpt_prefix;
+    callback_write_tid_maps = write_tid_maps;
 }
 
 /*************************************************************************/
@@ -848,6 +880,7 @@ static void setupthread (Thread *thread)
   /* Set state to disable checkpointing so checkpointer won't race between adding to list and setting up handler */
 
   thread -> tid = mtcp_sys_kernel_gettid ();
+  thread -> original_tid = GETTID ();
 
   lock_threads ();
 
@@ -1134,7 +1167,9 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-  DPRINTF (("mtcp checkpointhread*: after getcontext\n"));
+  
+  DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
+        mtcp_sys_kernel_gettid(), GETTID()));
   if (originalstartup)
     originalstartup = 0;
   else {
@@ -2126,7 +2161,14 @@ static void wait_for_all_restored (void)
   do rip = mtcp_state_value(&restoreinprog);                         // dec number of threads cloned but not completed longjmp'ing
   while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
   if (-- rip == 0) {
+    if (callback_write_tid_maps != NULL) {
+      DPRINTF(("Before callback_write_tid_maps\n"));
+      (*callback_write_tid_maps)();
+      DPRINTF(("After callback_write_tid_maps\n"));
+    }
+
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up
+
     // NOTE:  This is last safe moment for hook.  All previous threads
     //   have executed the "else" and are waiting on the futex.
     //   This last thread has not yet unlocked the threads: unlk_threads()
@@ -2546,11 +2588,11 @@ static void finishrestore (void)
 }
 
 static int restarthread (void *threadv)
-
 {
   int rip;
   Thread *child;
   Thread *const thread = threadv;
+  struct MtcpRestartThreadArg mtcpRestartThreadArg;
 
   restore_tls_state (thread);
 
@@ -2585,15 +2627,63 @@ static int restarthread (void *threadv)
 
     ///JA: v54b port
     errno = -1;
-    if ((*clone_entry) (restarthread, (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
-                        (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
-                        child, child -> parent_tidptr, NULL, child -> actual_tidptr) < 0) {
 
+    void *clone_arg = (void *)child;
+
+    /* 
+     * DMTCP needs to know original_tid of the thread being created by the 
+     *  following clone() call.
+     *
+     * Threads are created by using syscall which is intercepted by DMTCP and
+     *  the original_tid is sent to DMTCP as a field of MtcpRestartThreadArg
+     *  structure. DMTCP will automatically extract the actual argument 
+     *  (clone_arg -> arg) from clone_arg and will pass it on to the real
+     *  clone call.
+     *                                                           (--Kapil)
+     */
+    mtcpRestartThreadArg.arg = (void *)child;
+    mtcpRestartThreadArg.original_tid = child -> original_tid;
+    clone_arg = (void *) &mtcpRestartThreadArg;
+
+    pid_t tid;
+
+    /*
+     * syscall is wrapped by DMTCP when configured with PID-Virtualization.
+     * It calls __clone which goes to DMTCP:__clone which then calls MTCP:__clone.
+     * DMTCP:__clone checks for tid-conflict with any original tid. If
+     * conflict, it replaces the thread with a new one with a new tid.
+     * DMTCP:__clone wrapper calls the glibc:__clone if the computation is not
+     * in RUNNING state (must be restarting), it calls the mtcp:__clone otherwise.
+     * IF No PID-Virtualization, call glibc:__clone because threads created
+     * during mtcp_restart should not go to MTCP:__clone; MTCP remembers those
+     * threads from the checkpoint image.
+     */
+    if (callback_sleep_between_ckpt != NULL && dmtcp_info_pid_virtualization_enabled == -1) {
+      mtcp_printf("error: uninitialized variable dmtcp_info_pid_virtualization_enabled\n");
+      mtcp_abort();
+    }
+    if (dmtcp_info_pid_virtualization_enabled == 1) 
+    {
+      /* If running under DMTCP */
+      if (dmtcp_info_pid_virtualization_enabled == 1)
+      tid = syscall(SYS_clone, restarthread,
+          (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+          (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
+          clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
+    } else {
+      tid = ((*clone_entry)( restarthread,
+	    (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
+            (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
+            child, child -> parent_tidptr, NULL, child -> actual_tidptr));
+    }
+
+    if (tid < 0) {
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
       mtcp_printf ("mtcp restarthread:   clone_flags %X, savedsp %p\n",
                    child -> clone_flags, child -> savctx.SAVEDSP);
       mtcp_abort ();
     }
+    DPRINTF((" Parent:%d, tid of newly created thread:%d\n\n", GETTID(), tid));
   }
 
   /* All my children have been created, jump to the stopthisthread routine just after getcontext call */
@@ -2602,8 +2692,8 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
-  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d\n",
-	    thread->tid));
+  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d, original_tid:%d\n",
+            thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
   return (0); /* NOTREACHED : stop compiler warning */
@@ -2708,7 +2798,6 @@ static void setup_sig_handler (void)
   }
 }
 
-/* Code Added by Kapil Arya */
 /********************************************************************************************************************************/
 /*                                                                                                                              */
 /*  Sync shared memory pages with backup files on disk                                                                          */

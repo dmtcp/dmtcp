@@ -40,10 +40,6 @@
 
 static void runMtcpRestore ( const char* path, int offset );
 
-#ifdef PID_VIRTUALIZATION
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid);
-#endif
-
 using namespace dmtcp;
 
 namespace
@@ -54,11 +50,20 @@ namespace
   class OriginalPidTable {
     public:
       OriginalPidTable(){}
-      void insert ( dmtcp::vector< pid_t > newVector )
+
+      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
       {
-        for ( int i = 0; i < newVector.size(); ++i )
-        {
-          _vector.push_back ( newVector[i] );
+        _insert(vt.getPidVector());
+        _insert(vt.getTidVector());
+      }
+
+      void _insert ( dmtcp::vector< pid_t > newVector )
+      {
+        for ( int i = 0; i < newVector.size(); ++i ) {
+          if (!isConflictingChildPid (newVector[i]) /* && newVector[i] != getpid()*/) {
+            _vector.push_back ( newVector[i] );
+            JTRACE("New Pid Pushed to PidVector") (newVector[i]);
+          }
         }
       }
 
@@ -74,6 +79,7 @@ namespace
         return false;
       }
 
+      size_t numPids () { return _vector.size(); }
 
     private:
       typedef dmtcp::vector< pid_t >::iterator iterator;
@@ -96,6 +102,7 @@ namespace
         JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
 #ifdef PID_VIRTUALIZATION
         _offset = _conToFd.loadFromFile(_path, _virtualPidTable);
+        _virtualPidTable.erase(getpid());
         _roots.clear();
         _childs.clear();
         _smap.clear();
@@ -317,6 +324,8 @@ namespace
         vt.updateMapping(pid().pid(),_real_getpid());
         pid_t psid = vt.sid();
         
+        setpgid(0,0);
+          
         if( !isSessionLeader() ){
           // If process is not session leader - restore all childs and restore it
           t_iterator it = _childs.begin();
@@ -406,7 +415,7 @@ namespace
 
         JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid());
 
-        insertIntoPidMapFile ( wr, pid().pid(), _real_getpid() );
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile ( wr, pid().pid(), _real_getpid() );
 
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
@@ -509,7 +518,6 @@ dmtcp::vector<RestoreTarget> targets;
 
 #ifdef PID_VIRTUALIZATION
 static jalib::JBinarySerializeWriterRaw& createPidMapFile();
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid);
 typedef struct {
   RestoreTarget *t;
   bool indep;
@@ -638,21 +646,23 @@ int main ( int argc, char** argv )
   return -1;
 }
 #else
-  int i = (int)targets.size();
-  
-  jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
+  size_t i = targets.size();
 
-  wr & i;
-
-  // Create roots vector, assign children to their parents
-  // Delete non-existing children.
+  // Create roots vector, assign childs to their parents
+  // Delete not existing childs.
   BuildProcessTree();
 
-	// Create session meta-information in each node of the process tree
+        // Create session meta-information in each node of the process tree
 	// Node contains info about all sessions which exists at lower levels.
-	// Also node is aware about session leader existense at lower levels
+        // Also node is aware about session leader existense at lower levels
   SetupSessions();
   
+  /* Create the file to hold the pid/tid maps*/
+  jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
+
+  size_t numMaps = originalPidTable.numPids();
+  dmtcp::VirtualPidTable::serializeEntryCount ( wr, numMaps );
+
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
   for ( int j = 0 ; j < roots.size(); ++j ) 
@@ -694,7 +704,7 @@ void BuildProcessTree()
   for (int j = 0; j < targets.size(); ++j) 
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
-    originalPidTable.insert ( virtualPidTable.getPidVector() );
+    originalPidTable.insertFromVirtualPidTable ( virtualPidTable );
     if( virtualPidTable.isRootOfProcessTree() == true ){
       RootTarget rt;
       rt.t = &targets[j];
@@ -769,35 +779,6 @@ static jalib::JBinarySerializeWriterRaw& createPidMapFile()
   return wr;
 }
 
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid)
-{
-  struct flock fl;
-  int fd;
-
-  fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
-  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
-  fl.l_start  = 0;        /* Offset from l_whence         */
-  fl.l_len    = 0;        /* length, 0 = to EOF           */
-  fl.l_pid    = getpid(); /* our PID                      */
-
-  int result = -1;
-  errno = 0;
-  while (result == -1 || errno == EINTR )
-    result = fcntl(PROTECTED_PIDMAP_FD, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
-
-  JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
-
-  JTRACE ( "Serializing PID MAP:" ) ( originalPid ) ( currentPid );
-  /* Write the mapping to the file*/
-  JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
-  o & originalPid & currentPid;
-  JSERIALIZE_ASSERT_POINT ( "]" );
-
-  fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
-  result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
-
-  JASSERT (result != -1 || errno == ENOLCK) .Text ( "Unlock Failed" ) ;
-}
 
 #endif
 

@@ -29,6 +29,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "constants.h"
+#include <sys/ptrace.h>
+#include <stdarg.h>
+#include <asm/ldt.h>
+#include <stdio.h>
+#include <thread_db.h>
+#include <sys/procfs.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -127,6 +133,10 @@ extern "C"
   FILE * _real_fopen(const char *path, const char *mode);
 
 #endif /* PID_VIRTUALIZATION */
+
+  long int _real_syscall(long int sys_num, ... );
+  
+  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 #ifdef __cplusplus
 }

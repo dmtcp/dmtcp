@@ -50,12 +50,12 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 /*
 static print_mutex(pthread_mutex_t *m,char *func)
 {
-	int i = 0;
-	printf("theMutex(%s) internals: ",func);
-	for(i=0;i<sizeof(pthread_mutex_t);i++){
-		printf("%02x ",*((char*)m + i) );
-	}
-	printf("\n");
+        int i = 0;
+        printf("theMutex(%s) internals: ",func);
+        for(i=0;i<sizeof(pthread_mutex_t);i++){
+                printf("%02x ",*((char*)m + i) );
+        }
+        printf("\n");
 }
 */
 
@@ -67,7 +67,7 @@ void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE_NP);
-	pthread_mutex_init(&theMutex,&attr);
+        pthread_mutex_init(&theMutex,&attr);
   }
 }
 */
@@ -264,17 +264,17 @@ int _dmtcp_unsetenv( const char *name ) {
 
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
-  return (pid_t) syscall(SYS_getpid);
+  return (pid_t) _real_syscall(SYS_getpid);
 //  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_gettid(void){
-  return (pid_t) syscall(SYS_gettid);
+  return (pid_t) _real_syscall(SYS_gettid);
 //  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){
-  return (pid_t) syscall(SYS_getppid);
+  return (pid_t) _real_syscall(SYS_getppid);
   //REAL_FUNC_PASSTHROUGH_PID_T ( getppid ) ( );
 }
 
@@ -351,3 +351,24 @@ FILE * _real_fopen( const char *path, const char *mode ) {
 }
 
 #endif
+
+/* See comments for syscall wrapper */
+long int _real_syscall(long int sys_num, ... ) {
+  int i;
+  void * arg[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+  for (i = 0; i < 7; i++)
+    arg[i] = va_arg(ap, void *);
+  va_end(ap);
+
+  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
+  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+}
+
+int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
+{ 
+  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
+}
+
