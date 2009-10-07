@@ -107,7 +107,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   }
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
-
+  
   JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
@@ -196,10 +196,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
-  connectToCoordinator();
-
-  initializeMtcpEngine();
-
   if ( serialFile != NULL )
   {
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
@@ -210,6 +206,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
     //load file
     jalib::JBinarySerializeReader rd ( serialFile );
+    UniquePid::serialize ( rd );
     KernelDeviceToConnection::Instance().serialize ( rd );
 
 #ifdef PID_VIRTUALIZATION
@@ -237,6 +234,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
+  connectToCoordinator();
+
+  initializeMtcpEngine();
 
 // #ifdef DEBUG
 //     JTRACE("listing fds");
@@ -384,7 +384,7 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd){
   maskStdErr();
 }
 
-void dmtcp::DmtcpWorker::waitForStage3Resume()
+void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
 {
   JTRACE ( "unmasking stderr" );
   unmaskStdErr();
@@ -428,6 +428,33 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
   theCheckpointState->postCheckpoint();
   delete theCheckpointState;
   theCheckpointState = 0;
+
+  if (!isRestart) {
+
+    JTRACE ( "refilled" );
+    WorkerState::setCurrentState ( WorkerState::REFILLED );
+    {
+      dmtcp::DmtcpMessage msg;
+      msg.type = DMT_OK;
+      msg.state = WorkerState::REFILLED;
+      _coordinatorSocket << msg;
+    }
+    JTRACE ( "waiting for resume signal" );
+    {
+      dmtcp::DmtcpMessage msg;
+      msg.poison();
+      _coordinatorSocket >> msg;
+      msg.assertValid();
+      JASSERT ( msg.type == dmtcp::DMT_DO_RESUME ) ( msg.type );
+    }
+    JTRACE ( "got resume signal" );
+  }
+}
+
+void dmtcp::DmtcpWorker::writeTidMaps()
+{
+  unmaskStdErr();
+
   JTRACE ( "refilled" );
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   {
@@ -445,6 +472,12 @@ void dmtcp::DmtcpWorker::waitForStage3Resume()
     JASSERT ( msg.type == dmtcp::DMT_DO_RESUME ) ( msg.type );
   }
   JTRACE ( "got resume signal" );
+
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().postRestart2();
+#endif
+
+  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::postRestart()

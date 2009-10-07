@@ -40,7 +40,7 @@ namespace dmtcp
 
       void waitForStage1Suspend();
       void waitForStage2Checkpoint();
-      void waitForStage3Resume();
+      void waitForStage3Resume(int isRestart);
       void restoreSockets ( ConnectionState& coordinator );
       void postRestart();
 
@@ -66,6 +66,7 @@ namespace dmtcp
       void recvCoordinatorHandshake();
 
       void writeCheckpointPrefix(int fd);
+      void writeTidMaps();
 
       enum {
         COORD_JOIN = 1,
@@ -73,6 +74,7 @@ namespace dmtcp
         COORD_ANY  = COORD_JOIN | COORD_NEW
       };
       static void startCoordinatorIfNeeded(int modes, int isRestart=0);
+
     protected:
       void sendUserCommand(char c, int* result = NULL);
     private:

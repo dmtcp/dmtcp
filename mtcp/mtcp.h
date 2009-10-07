@@ -43,7 +43,8 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_ckpt_prefix)(int fd));
+                        void (*write_ckpt_prefix)(int fd),
+                        void (*write_tid_maps)());
 
 #ifdef __cplusplus
 }

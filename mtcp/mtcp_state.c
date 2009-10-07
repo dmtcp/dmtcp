@@ -56,7 +56,7 @@ __attribute__ ((visibility ("hidden")))
       rc = -rc;
       if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
       if (rc != EINTR) {
-        mtcp_printf ("mtcp_state_futex: futex error (errno) %d\n", rc);
+        mtcp_printf ("mtcp_state_futex: futex error %d: %s\n", rc, strerror (rc));
         mtcp_printf ("mtcp_state_futex: (%p, %d, %d, %p, NULL, 0)\n", &state->value, func, val, timeout);
         mtcp_abort ();
       }
