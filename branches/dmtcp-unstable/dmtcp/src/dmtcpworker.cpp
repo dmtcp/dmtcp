@@ -91,7 +91,7 @@ void dmtcp::DmtcpWorker::unmaskStdErr()
 
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
 static dmtcp::ConnectionState* theCheckpointState = 0;
-static int theRestorPort = RESTORE_PORT_START;
+static int theRestorePort = RESTORE_PORT_START;
 
 void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
@@ -292,10 +292,10 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     }
   }
 
-  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get syncronized with _runCoordinatorCmd if we use DMTCP API" );
+  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
   _dmtcp_lock();
   // TODO: may be it is better to move unlock to more appropriate place. 
-  // For example after suspendinf all threads
+  // For example after suspending all threads
   _dmtcp_unlock();
 
 
@@ -488,7 +488,6 @@ void dmtcp::DmtcpWorker::writeTidMaps()
   maskStdErr();
 }
 
-
 void dmtcp::DmtcpWorker::postRestart()
 {
   unmaskStdErr();
@@ -511,20 +510,20 @@ void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator )
 {
   JTRACE ( "restoreSockets begin" );
 
-  theRestorPort = RESTORE_PORT_START;
+  theRestorePort = RESTORE_PORT_START;
 
   //open up restore socket
   {
-    jalib::JSocket restorSocket ( -1 );
-    while ( !restorSocket.isValid() && theRestorPort < RESTORE_PORT_STOP )
+    jalib::JSocket restoreSocket ( -1 );
+    while ( !restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP )
     {
-      restorSocket = jalib::JServerSocket ( jalib::JSockAddr::ANY, ++theRestorPort );
-      JTRACE ( "open listen socket attempt" ) ( theRestorPort );
+      restoreSocket = jalib::JServerSocket ( jalib::JSockAddr::ANY, ++theRestorePort );
+      JTRACE ( "open listen socket attempt" ) ( theRestorePort );
     }
-    JASSERT ( restorSocket.isValid() ) ( RESTORE_PORT_START ).Text ( "failed to open listen socket" );
-    restorSocket.changeFd ( _restoreSocket.sockfd() );
-    JTRACE ( "openning listen sockets" ) ( _restoreSocket.sockfd() ) ( restorSocket.sockfd() );
-    _restoreSocket = restorSocket;
+    JASSERT ( restoreSocket.isValid() ) ( RESTORE_PORT_START ).Text ( "failed to open listen socket" );
+    restoreSocket.changeFd ( _restoreSocket.sockfd() );
+    JTRACE ( "openning listen sockets" ) ( _restoreSocket.sockfd() ) ( restoreSocket.sockfd() );
+    _restoreSocket = restoreSocket;
   }
 
   //reconnect to our coordinator
@@ -631,7 +630,7 @@ void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname)
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   dmtcp::DmtcpMessage hello_local;
   hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
-  hello_local.restorePort = theRestorPort;
+  hello_local.restorePort = theRestorePort;
   hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
   _coordinatorSocket << hello_local;
   _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);

@@ -71,7 +71,7 @@ EXTERNC int dmtcpCheckpoint(){
   if(dmtcpRunCommand('c')){ //request checkpoint
     //and wait for the checkpoint
     while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
-      //nanosleep should get interupped by checkpointing with an EINTR error
+      //nanosleep should get interrupted by checkpointing with an EINTR error
       //though there is a race to get to nanosleep() before the checkpoint
       struct timespec t = {1,0};
       nanosleep(&t, NULL);
