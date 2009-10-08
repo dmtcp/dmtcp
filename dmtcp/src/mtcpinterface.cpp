@@ -83,7 +83,7 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
-  typedef int ( *t_mtcp_init ) ( char const *checkpointfilename, int interval, int clonenabledefault );
+  typedef int ( *t_mtcp_init ) ( char const *checkpointFilename, int interval, int clonenabledefault );
   typedef void ( *t_mtcp_set_callbacks ) ( void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) (),
           void ( *post_ckpt ) ( int is_restarting ),
@@ -323,7 +323,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       break;
 
     if ( isConflictingTid ( tid ) ) {
-      /* Issue a waittid for the newly created thread (if reqd.) */
+      /* Issue a waittid for the newly created thread (if required.) */
 #ifdef DISABLE_CONFLICT_HANDLING
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
 #else
