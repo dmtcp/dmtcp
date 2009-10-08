@@ -406,7 +406,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   remote >> hello_remote;
   hello_remote.assertValid();
 
-  //dmtcp_command doesn't hanshake (it is antisocial)
+  //dmtcp_command doesn't handshake (it is antisocial)
   if(hello_remote.type == DMT_USER_CMD){
     JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
     DmtcpMessage reply;

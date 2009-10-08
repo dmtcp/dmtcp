@@ -36,7 +36,7 @@
 
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 extern "C" int dmtcp_on_socket ( int ret, int domain, int type, int protocol )
 {
 
