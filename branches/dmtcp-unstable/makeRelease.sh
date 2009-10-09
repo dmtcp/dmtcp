@@ -1,15 +1,15 @@
 #!/bin/sh
 
-VERSION=1.01
+VERSION=1.06
 
 #run a command with error checking
-function e(){
+e() {
   echo "$@" >&2
   $@ || (echo "ERROR '$@' failed!">&2; exit 1)
 }
 
 #get svn revision number
-function getRev(){
+getRev() {
   if [[ -z "$1" ]]
   then
     getRev .
@@ -19,7 +19,7 @@ function getRev(){
 }
 
 #list a dirs named ".svn"
-function removeSvnDirs(){
+removeSvnDirs() {
   find $@ -type d | grep '[.]svn$' | xargs rm -rf
 }
 
@@ -36,9 +36,15 @@ REV=`getRev dmtcp_staging`
 NAME=dmtcp_$VERSION-r$REV
 
 e mv dmtcp_staging $NAME
-e rm -f $NAME/makeRelease.sh
+e rm -rf $NAME/{makeRelease.sh,branches}
 e removeSvnDirs
-e tar cf $NAME.tar $NAME
+archName=`dpkg-architecture | grep DEB_HOST_ARCH_CPU | \
+          sed -e's%DEB_HOST_ARCH_CPU=%%'`
+e sed -e"s%Architecture: any%Architecture: $archName%" $NAME/debian/control \
+	> debianControl
+e rm $NAME/debian/control
+e mv debianControl $NAME/debian/control
+e fakeroot tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
 e rm -rf $NAME
 e mv $NAME.tar.gz $OLDDIR
