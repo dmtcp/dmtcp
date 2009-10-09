@@ -218,9 +218,9 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 
   /* Static data */
 
-static char const *ptrace_shared_file = "/tmp/amvisan_ptrace_shared_file.txt";
-static char const *ptrace_setoptions_file = "/tmp/amvisan_ptrace_setoptions_file.txt";
-static char const *checkpoint_threads_file = "/tmp/amvisan_checkpoint_threads_file.txt";
+static char ptrace_shared_file[MAXPATHLEN];
+static char ptrace_setoptions_file[MAXPATHLEN]; 
+static char checkpoint_threads_file[MAXPATHLEN];
 
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
@@ -439,6 +439,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   int len;
   Thread *thread;
   mtcp_segreg_t TLSSEGREG;
+  char dir[MAXPATHLEN]; 
 
   if (sizeof(void *) != sizeof(long)) {
     mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
@@ -486,6 +487,33 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   strncpy(temp_checkpointfilename + len, ".temp",MAXPATHLEN-len);
                                                  // ... we use it to write to in case we crash while writing
                                                  //     we will leave the previous good one intact
+
+  /* auxiliary files used by ptrace */
+
+  if (mkdir("/tmp/dmtcp", 0755) < 0) {
+	if (errno != EEXIST) {
+		perror("/tmp/dmtcp");
+		mtcp_abort();
+	}
+  } 
+ 
+  memset(dir, '\0', MAXPATHLEN);
+  sprintf(dir, "/tmp/dmtcp/%s", getenv("USER"));
+
+  if (mkdir(dir, 0755) < 0) {
+	if (errno != EEXIST) {
+		perror("dir");
+		mtcp_abort();
+	}
+  }
+
+  memset(ptrace_shared_file, '\0', MAXPATHLEN);
+  sprintf(ptrace_shared_file, "%s/ptrace_shared_file.txt", dir);
+  memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
+  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions_file.txt", dir);
+  memset(checkpoint_threads_file, '\0', MAXPATHLEN);
+  sprintf(checkpoint_threads_file, "%s/checkpoint_threads_file.txt", dir);
+  
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
 

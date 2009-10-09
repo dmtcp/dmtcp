@@ -43,8 +43,6 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 
-static char const *ptrace_shared_file = "/tmp/amvisan_ptrace_shared_file.txt";
-
 namespace
 {
   static const char* REOPEN_MTCP = ( char* ) 0x1;
