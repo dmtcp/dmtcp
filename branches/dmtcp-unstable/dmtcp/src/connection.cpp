@@ -230,7 +230,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
 }
 
-  void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
+void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
     switch ( tcpType() )
     {
       case TCP_CONNECT:
@@ -598,12 +598,20 @@ void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
+  struct stat buf;
+
   JASSERT ( fds.size() > 0 );
 
   JTRACE("Restoring File Connection") (id()) (_path);
   errno = 0;
   refreshPath();
-  truncate(_path.c_str(),_stat.st_size);
+
+  stat(_path.c_str() ,&buf);
+  if (S_ISREG(buf.st_mode)) {
+    JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+            ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+  }
+
   int tempfd = openFile ();
 
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
@@ -812,7 +820,7 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   return os.str();
 }
 
-/////////
+////////////
 //// SERIALIZATION
 
 void dmtcp::Connection::serialize ( jalib::JBinarySerializer& o )
@@ -1024,4 +1032,3 @@ void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
   static ConnectionRewirer ignored;
   restore(dmtcp::vector<int>(1,newFd), ignored);
 }
-

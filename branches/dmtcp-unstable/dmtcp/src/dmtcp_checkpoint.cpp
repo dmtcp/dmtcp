@@ -37,8 +37,11 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 
+// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
+// string has atleast one format specifier with corresponding format argument.
+// Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "USAGE: \n"
+  "%sUSAGE: \n"
   "  dmtcp_checkpoint [OPTIONS] <command> [args...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
@@ -61,8 +64,8 @@ static const char* theUsage =
   "      Checkpoint open files\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --quiet:\n"
-  "      Skip copyright notice\n\n"
+  "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
+  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -85,7 +88,6 @@ int main ( int argc, char** argv )
   bool isSSHSlave=false;
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
-  bool quiet=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
   /*  
@@ -116,12 +118,15 @@ int main ( int argc, char** argv )
   else
     setenv(ENV_VAR_TMPDIR, "/tmp", 0);
 
+  if (! getenv(ENV_VAR_QUIET))
+    setenv(ENV_VAR_QUIET, "0", 0);
+
   //process args
   shift;
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage);
+      fprintf(stderr, theUsage, "");
       return 1;
     }else if(s=="--ssh-slave"){
       isSSHSlave = true;
@@ -160,7 +165,9 @@ int main ( int argc, char** argv )
       checkpointOpenFiles = true;
       shift;
     }else if(s == "-q" || s == "--quiet"){
-      quiet = true;
+      *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
+      // Just in case a non-standard version of setenv is being used:
+      setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
     }else if(argc>1 && s=="--"){
       shift;
@@ -172,6 +179,7 @@ int main ( int argc, char** argv )
   JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
     (getenv(ENV_VAR_TMPDIR))
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
+  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -182,7 +190,7 @@ int main ( int argc, char** argv )
   setenv(ENV_VAR_FORKED_CKPT, "1", 1);
 #endif
 
-  if (! quiet)
+  if (jassert_quiet == 0)
     printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
            "                                       Kapil Arya, and Gene Cooperman\n"
            "This program comes with ABSOLUTELY NO WARRANTY.\n"
@@ -273,4 +281,3 @@ int main ( int argc, char** argv )
 
   return -1;
 }
-

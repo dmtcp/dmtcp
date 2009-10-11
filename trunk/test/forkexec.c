@@ -55,7 +55,8 @@ int main ( int argc, char** argv )
       {
 //                 if(c=='\n') c = '\n';
 //                 printf("sending: %c\n",c);
-        write ( WELL_KNOWN_FD, &c, 1 );
+        while ( write ( WELL_KNOWN_FD, &c, 1 ) != 1)
+          continue;
       }
 
       die ( "parent done" );
