@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from subprocess import Popen,PIPE
+from popen2 import Popen3,Popen4
 from random import randint
 from time   import sleep
 from os     import listdir
@@ -89,8 +89,7 @@ def launch(cmd):
     os.stat(cmd[0])
   except:
     raise CheckFailed(cmd[0] + " not found")
-  return Popen(cmd, shell=True, bufsize=BUFFER_SIZE,
-               stdin=PIPE, stdout=PIPE, close_fds=True)
+  return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
 
 #randomize port and dir, so multiple processes works
 ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
@@ -130,10 +129,10 @@ def coordinatorCmd(cmd):
   try:
     if VERBOSE and cmd != "s":
       print "COORDINATORCMD(",cmd,")"
-    coordinator.stdin.write(cmd+"\n")
+    coordinator.tochild.write(cmd+"\n")
+    coordinator.tochild.flush()
   except:
-    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)"
-                      %  (cmd, coordinator.pid))
+    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %  (cmd, coordinator.pid))
 
 #clean up after ourselves
 def SHUTDOWN():
@@ -169,7 +168,7 @@ def getStatus():
 
   while True:
     try:
-      line=coordinator.stdout.readline().strip()
+      line=coordinator.fromchild.readline().strip()
       if line=="Status...":
         break;
       if VERBOSE:
@@ -182,9 +181,9 @@ def getStatus():
         continue
       raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
-  x,peers=coordinator.stdout.readline().strip().split("=")
+  x,peers=coordinator.fromchild.readline().strip().split("=")
   CHECK(x=="NUM_PEERS", "reading coordinator status")
-  x,running=coordinator.stdout.readline().strip().split("=")
+  x,running=coordinator.fromchild.readline().strip().split("=")
   CHECK(x=="RUNNING", "reading coordinator status")
 
   if VERBOSE:
@@ -221,9 +220,9 @@ def runTest(name, numProcs, cmds):
     for x in procs:
       #cleanup proc
       try:
-        x.stdin.close()
-        x.stdout.close()
-        x.stderr.close()
+        x.tochild.close()
+        x.fromchild.close()
+        x.childerr.close()
         os.waitpid(x.pid, os.WNOHANG)
       except:
         None
@@ -322,11 +321,7 @@ runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
 # dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
 os.environ['DMTCP_GZIP'] = "1" 
-# slower machines need extra time to create 10 threads
-oldSleepInterval=S
-S=2.0
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
-S=oldSleepInterval
 os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
