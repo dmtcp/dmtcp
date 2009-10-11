@@ -35,6 +35,8 @@
 # include "config.h"
 #endif
 
+extern int jassert_quiet;
+
 /**  USAGE EXAMPLE:
  *
  * int a=1,b=2,c=3,d=4;
@@ -164,14 +166,15 @@ namespace jassert_internal
 #ifdef QUIET
 #define JNOTE(msg) if(true){}else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
 #else
-#define JNOTE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
+#define JNOTE(msg) if(jassert_quiet >= 1){}else \
+    jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
 #endif
 
 #ifdef QUIET
 #define JWARNING(term) if(true){}else \
     jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
 #else
-#define JWARNING(term) if((term)){}else \
+#define JWARNING(term) if((term) || jassert_quiet >= 2){}else \
     jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
 #endif
 

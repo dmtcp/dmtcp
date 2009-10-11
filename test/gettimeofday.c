@@ -20,7 +20,7 @@ int main ()
     struct timeval tv;
     if (! getenv("NO_GETTIMEOFDAY"))
       gettimeofday(&tv, NULL);
-    printf("TIME (gettimeofday): %d\n",   tv.tv_sec);
+    printf("TIME (gettimeofday): %d\n", (int)tv.tv_sec);
     sleep(2);
   }
   return (0);

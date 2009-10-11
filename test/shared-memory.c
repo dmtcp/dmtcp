@@ -29,7 +29,9 @@ int main() {
   //}
   //fd = open("/tmp/dmtcp-shared-memory.dat", O_RDWR | O_CREAT, S_IREAD|S_IWRITE);
   // if (fd == -1) perror("open");
-  write(fd, &initValue, sizeof(int)); /* Extend file to needed size */
+  /* Extend file to needed size */
+  while ( write(fd, &initValue, sizeof(int)) != sizeof(int) )
+    continue;
   printf("creating temporary file in local directory: %s\n", filename);
   //printf("creating file: %s\n", "/tmp/dmtcp-shared-memory.dat");
 
