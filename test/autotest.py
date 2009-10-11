@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from popen2 import Popen3,Popen4
+from subprocess import Popen,PIPE
 from random import randint
 from time   import sleep
 from os     import listdir
@@ -89,7 +89,8 @@ def launch(cmd):
     os.stat(cmd[0])
   except:
     raise CheckFailed(cmd[0] + " not found")
-  return Popen3(cmd, not VERBOSE, BUFFER_SIZE)
+  return Popen(cmd, shell=True, bufsize=BUFFER_SIZE,
+               stdin=PIPE, stdout=PIPE, close_fds=True)
 
 #randomize port and dir, so multiple processes works
 ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
@@ -129,10 +130,10 @@ def coordinatorCmd(cmd):
   try:
     if VERBOSE and cmd != "s":
       print "COORDINATORCMD(",cmd,")"
-    coordinator.tochild.write(cmd+"\n")
-    coordinator.tochild.flush()
+    coordinator.stdin.write(cmd+"\n")
   except:
-    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %  (cmd, coordinator.pid))
+    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)"
+                      %  (cmd, coordinator.pid))
 
 #clean up after ourselves
 def SHUTDOWN():
@@ -168,7 +169,7 @@ def getStatus():
 
   while True:
     try:
-      line=coordinator.fromchild.readline().strip()
+      line=coordinator.stdout.readline().strip()
       if line=="Status...":
         break;
       if VERBOSE:
@@ -181,9 +182,9 @@ def getStatus():
         continue
       raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
-  x,peers=coordinator.fromchild.readline().strip().split("=")
+  x,peers=coordinator.stdout.readline().strip().split("=")
   CHECK(x=="NUM_PEERS", "reading coordinator status")
-  x,running=coordinator.fromchild.readline().strip().split("=")
+  x,running=coordinator.stdout.readline().strip().split("=")
   CHECK(x=="RUNNING", "reading coordinator status")
 
   if VERBOSE:
@@ -220,9 +221,9 @@ def runTest(name, numProcs, cmds):
     for x in procs:
       #cleanup proc
       try:
-        x.tochild.close()
-        x.fromchild.close()
-        x.childerr.close()
+        x.stdin.close()
+        x.stdout.close()
+        x.stderr.close()
         os.waitpid(x.pid, os.WNOHANG)
       except:
         None

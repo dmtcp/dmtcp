@@ -105,6 +105,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
+  if (! getenv(ENV_VAR_QUIET))
+    setenv(ENV_VAR_QUIET, "0", 0);
+  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
   
@@ -146,6 +149,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES ); 
     const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
     const char * tmpDir               = getenv ( ENV_VAR_TMPDIR );
+    jassert_quiet                     = *getenv ( ENV_VAR_QUIET ) - '0';
 
     //modify the command
 

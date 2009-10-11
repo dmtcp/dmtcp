@@ -489,7 +489,7 @@ namespace
 }//namespace
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
-// string has atleast one format specifier with corresponding format argument.
+// string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
   "%sUSAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
@@ -506,8 +506,8 @@ static const char* theUsage =
   "      Create a new coordinator, raise error if one already exists\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
-  "  --quiet, -q:\n"
-  "      Skip copyright notice\n\n"
+  "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
+  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -530,7 +530,6 @@ void SetupSessions();
 
 int main ( int argc, char** argv )
 {
-  bool quiet = false;
   bool autoStartCoordinator=true;
   bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
@@ -541,6 +540,9 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
   else
     setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+
+  if (! getenv(ENV_VAR_QUIET))
+    setenv(ENV_VAR_QUIET, "0", 0);
 
   //process args
   shift;
@@ -568,7 +570,9 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
     }else if(s == "-q" || s == "--quiet"){
-      quiet = true;
+      *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
+      // Just in case a non-standard version of setenv is being used:
+      setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
     }else if(argc>1 && s=="--"){
       shift;
@@ -580,8 +584,9 @@ int main ( int argc, char** argv )
   JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
     (getenv(ENV_VAR_TMPDIR))
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
+  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
-  if (! quiet)
+  if (jassert_quiet == 0)
     printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
            "                                       Kapil Arya, and Gene Cooperman\n"
            "This program comes with ABSOLUTELY NO WARRANTY.\n"
@@ -652,9 +657,9 @@ int main ( int argc, char** argv )
   // Delete not existing childs.
   BuildProcessTree();
 
-        // Create session meta-information in each node of the process tree
-	// Node contains info about all sessions which exists at lower levels.
-        // Also node is aware about session leader existense at lower levels
+  // Create session meta-information in each node of the process tree
+  // Node contains info about all sessions which exists at lower levels.
+  // Also node is aware about session leader existense at lower levels
   SetupSessions();
   
   /* Create the file to hold the pid/tid maps*/
@@ -778,7 +783,6 @@ static jalib::JBinarySerializeWriterRaw& createPidMapFile()
 
   return wr;
 }
-
 
 #endif
 

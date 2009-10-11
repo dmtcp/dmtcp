@@ -612,7 +612,6 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   refreshPath();
 
   stat(_path.c_str() ,&buf);
-
   if (S_ISREG(buf.st_mode)) {
     JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
             ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
@@ -963,7 +962,7 @@ int dmtcp::FifoConnection::openFile()
   return fd;
 }
 
-/////////
+////////////
 //// SERIALIZATION
 
 void dmtcp::Connection::serialize ( jalib::JBinarySerializer& o )
@@ -1187,4 +1186,3 @@ void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
   static ConnectionRewirer ignored;
   restore(dmtcp::vector<int>(1,newFd), ignored);
 }
-

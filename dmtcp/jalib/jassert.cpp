@@ -32,6 +32,8 @@
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
 
+int jassert_quiet = 0;
+
 /*
    When updating value of DUP_STDERR_FD, the same value should be updated
    in mtcp_printf.c. The two consts must always in sync.
