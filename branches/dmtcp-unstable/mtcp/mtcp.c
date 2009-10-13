@@ -489,20 +489,32 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
                                                  //     we will leave the previous good one intact
 
   /* auxiliary files used by ptrace */
+ 
+  /* "/tmp/dmtcp" owned by only one user.  No one else can use this.
+     Better programming would be to create "/tmp/FILE", open it with
+     a file descriptor, and then immediately unlink them.  Then the
+     next program can create "/tmp/FILE" with no name conflict,
+	(or sleep for 1 second if we're so unlucky that the other
+	user hasn't unlinked yet.
+     Can't we just use local variables instead of files and
+     avoid this whole issue?
+							- Gene */
 
-  if (mkdir("/tmp/dmtcp", 0755) < 0) {
+  if (mkdir("/tmp/dmtcp", 0777) < 0) { /* Others need to write into this. */
 	if (errno != EEXIST) {
 		perror("/tmp/dmtcp");
 		mtcp_abort();
 	}
   } 
- 
   memset(dir, '\0', MAXPATHLEN);
   sprintf(dir, "/tmp/dmtcp/%s", getenv("USER"));
+  if (! getenv("USER"))
+    sprintf(dir, "/tmp/dmtcp/unknown");
 
   if (mkdir(dir, 0755) < 0) {
 	if (errno != EEXIST) {
-		perror("dir");
+		perror("mtcp_init: mkdir");
+	        printf("mtcp_init: mkdir: dir: %s\n", dir);
 		mtcp_abort();
 	}
   }
@@ -1339,12 +1351,12 @@ static void ptrace_wait4(pid_t pid)
     
     DPRINTF(("%d: Start waiting for superior\n",GETTID()));
     while( stat(file,&buf) < 0 ){
-        struct timespec ts;
-        DPRINTF(("%d: Superior is not ready\n",GETTID()));
-        ts.tv_sec = 0;
-        ts.tv_nsec = 1000;
+      struct timespec ts;
+      DPRINTF(("%d: Superior is not ready\n",GETTID()));
+      ts.tv_sec = 0;
+      ts.tv_nsec = 100000000;
       if( errno != ENOENT ){
-        mtcp_printf("prtrace_wait4: Unexpected error int stat: %d\n",errno);
+        mtcp_printf("prtrace_wait4: Unexpected error in stat: %d\n",errno);
         mtcp_abort();
       }
       nanosleep(&ts,NULL);      
