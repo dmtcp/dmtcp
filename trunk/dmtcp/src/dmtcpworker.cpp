@@ -372,6 +372,10 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 //   JTRACE("writing *.dmtcp file");
 //   theCheckpointState->outputDmtcpConnectionTable();
 
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().preCheckpoint();
+#endif
+
   JTRACE ( "masking stderr from mtcp" );
   //because MTCP spams, and the user may have a socket for stderr
   maskStdErr();

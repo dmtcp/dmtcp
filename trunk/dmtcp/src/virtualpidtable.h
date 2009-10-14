@@ -47,6 +47,7 @@ namespace dmtcp
       static VirtualPidTable& Instance();
       void postRestart();
       void postRestart2();
+      void preCheckpoint();
 
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
@@ -120,6 +121,8 @@ namespace dmtcp
       pid_t _pid;
       pid_t _ppid;
       pid_t _sid;
+      pid_t _gid;
+      pid_t _fgid;
   };
 
 }

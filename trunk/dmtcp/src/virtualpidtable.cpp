@@ -38,6 +38,7 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _pid = _real_getpid();
   _ppid = _real_getppid();
   _sid = -1;
+  _gid = _real_getpgid(0);
   _isRootOfProcessTree = false;
   _childTable.clear();
   _tidVector.clear();
@@ -49,6 +50,14 @@ dmtcp::VirtualPidTable::VirtualPidTable()
 dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::Instance()
 {
   static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
+}
+
+void dmtcp::VirtualPidTable::preCheckpoint()
+{
+  // Update Group information before checkpoint
+  _gid = getpgid(0);
+  _fgid = tcgetpgrp(STDIN_FILENO);
+  JTRACE("VirtualPidTable::preCheckpoint()")(_gid)(_fgid);
 }
 
 void dmtcp::VirtualPidTable::postRestart()
@@ -84,6 +93,65 @@ void dmtcp::VirtualPidTable::postRestart2()
 
   jalib::JBinarySerializeReader pidrd ( pidMapFile );
   serializePidMap( pidrd );
+
+  // At this point all PIDs participated in computations are known
+  // including mapping of parent pids. So we can restore group information
+  
+  // 1. Restore group ID
+  JTRACE("VirtualPidTable::postRestart2 Restore Group Information")(_gid)(_fgid)(_pid)(_ppid)(getppid());
+  if( pidExists(_gid) ){
+    // Group ID is known inside checkpointed processes
+    pid_t cgid = getpgid(0);
+
+    JTRACE("VirtualPidTable::postRestart2 restore Group information")(cgid);
+    if( _gid != cgid ){
+      if( _pid == _gid )
+        setpgid(0,0);
+      else{
+        int ret = 1, i = 0;
+        struct timespec ts = {0,100000};
+        
+        // Try to change group number of process. 
+        // There is source of race condition: group member change it's group before leader create this group
+        // Trial Timeout = 2 seconds
+        while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
+          ret = setpgid(0,_gid);
+          if( ret ){
+            JTRACE("VirtualPidTable::postRestart2 restore Group information")(i);
+            nanosleep(&ts,NULL);
+          }
+          i++;
+        }
+      }
+    }
+  }else{
+    JTRACE("VirtualPidTable::postRestart SKIP Group information, GID unknown");
+  }
+  
+
+  // Restore foreground group
+  pid_t fgid = tcgetpgrp(STDIN_FILENO);
+  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid);
+  if( fgid >= 0 && pidExists(_fgid) ){
+    if( _pid == fgid && _fgid != fgid ){
+      // this is leader of foreground group
+      int ret = 1, i = 0;
+      struct timespec ts = {0,100000};
+        
+      // Try to change foreground group 
+      // There is source of race condition: group member change it's group before leader create this group
+      // Trial Timeout = 2 seconds
+      while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
+        ret = tcsetpgrp(STDIN_FILENO,_fgid);
+        JTRACE("VirtualPidTable::postRestart2 tcsetpgrp = ")(ret);
+        if( ret ){
+          JTRACE("VirtualPidTable::postRestart2 wait with foreground restore")(i);
+          nanosleep(&ts,NULL);
+        }
+        i++;
+      }
+    }
+  }
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
