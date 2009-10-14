@@ -548,8 +548,6 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       JASSERT ( false ).Text ( "should never reach here" );
   }
 }
-
-
 void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
 
@@ -613,8 +611,11 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
 
   stat(_path.c_str() ,&buf);
   if (S_ISREG(buf.st_mode)) {
-    JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
-            ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+    if (buf.st_size > _stat.st_size)
+    	JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+                ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+    else if (buf.st_size < _stat.st_size)  
+	JWARNING ("Size of file smaller than what we expected");
   }
 
   int tempfd = openFile ();
@@ -629,9 +630,14 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
 
   errno = 0;
   if (S_ISREG(buf.st_mode)) {
-    JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
-            ( _path ) ( _offset ) ( JASSERT_ERRNO );
-    JTRACE("lseek ( fds[0], _offset, SEEK_SET )")(fds[0])(_offset);
+    if (_offset <= buf.st_size && _offset <= _stat.st_size) {
+      JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
+	      ( _path ) ( _offset ) ( JASSERT_ERRNO );
+      JTRACE("lseek ( fds[0], _offset, SEEK_SET )")(fds[0])(_offset);
+    } else if (_offset > buf.st_size || _offset > _stat.st_size) {
+      JWARNING("no lseek done:  offset is larger than min of old and new size")
+	      ( _path ) (_offset ) ( _stat.st_size ) ( buf.st_size );
+    }
   }
 }
 
@@ -687,9 +693,9 @@ int dmtcp::FileConnection::openFile()
     CopyFile(savedFilePath, _path);
   }
 
-	JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
+  JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
   fd = open(_path.c_str(), _fcntlFlags);
-	JTRACE("Is opened")(_path.c_str())(fd);
+  JTRACE("Is opened")(_path.c_str())(fd);
 
   //HACK: This was deleting our checkpoint files on RHEL5.2,
   //      perhaps we are leaking file descriptors in the restart process.
@@ -1057,7 +1063,6 @@ void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
   o & _path & _rel_path & _savedRelativePath & _offset & _fileType & _stat;
 }
-
 
 void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
