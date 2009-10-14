@@ -3359,6 +3359,9 @@ static void ptrace_attach_threads(int isRestart)
             }
             else if (inferior_st != 'T' ) {
               is_ptrace_local = 1;
+/*
+TODO: remove in future as GROUP restore becames stable
+- Artem              
 	      if (getsid(inferior) == getsid(superior)) {
               	if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
               	{
@@ -3366,6 +3369,7 @@ static void ptrace_attach_threads(int isRestart)
                 	 mtcp_abort();
               	}
 	      }
+*/        
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
