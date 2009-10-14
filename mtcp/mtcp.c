@@ -350,6 +350,17 @@ struct ptrace_tid_pairs {
 static void ptrace_lock_inferiors();
 static void ptrace_unlock_inferiors();
 
+int readall(int fd, void *buf, size_t count) {
+    int rc;
+    do
+      rc = read(fd, buf, count);
+    while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
+    if (rc == -1) { /* if not harmless error */
+      mtcp_printf("readall: Internal error\n");
+      mtcp_abort();
+    }
+    return rc; /* else rc >= 0; success */
+}
 
 /*******************************************
  * continue with non-ptrace declarations   *
@@ -519,13 +530,13 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 	}
   }
 
+  /* TODO:  USE flock WHEN WRITING TO THESE THREE FILES (NOT YET DONE FOR ptrace_setoptions_file? */
   memset(ptrace_shared_file, '\0', MAXPATHLEN);
   sprintf(ptrace_shared_file, "%s/ptrace_shared_file.txt", dir);
   memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
   sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions_file.txt", dir);
   memset(checkpoint_threads_file, '\0', MAXPATHLEN);
   sprintf(checkpoint_threads_file, "%s/checkpoint_threads_file.txt", dir);
-  
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
 
@@ -909,8 +920,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
   
     if (setoptions_fd != -1) {
-      while (read(setoptions_fd, &superior, sizeof(pid_t)) != 0) {
-        read(setoptions_fd, &inferior, sizeof(pid_t));
+      while (readall(setoptions_fd, &superior, sizeof(pid_t)) > 0) {
+        readall(setoptions_fd, &inferior, sizeof(pid_t));
   if (inferior == GETTID()) {
     setoptions_superior = superior;
     is_ptrace_setoptions = TRUE;
@@ -1644,6 +1655,15 @@ again:
          &callback_pre_ckpt,callback_pre_ckpt, mtcp_sys_kernel_gettid()));
       (*callback_pre_ckpt)();
     }
+
+    /* If old stale files of these names exist, we append, with big problems
+     * It's okay if files don't exist and unlink fails.
+     * Pre_ckpt is a barrier from coordinator.  So, all processes finished
+     *  reading ptrace pairs from files prior to this barrier.
+     */
+    unlink(ptrace_shared_file);
+    unlink(ptrace_setoptions_file);
+    unlink(checkpoint_threads_file);
 
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
     /* Do this once, same for all threads.  But restore for each thread. */
@@ -2686,8 +2706,8 @@ static void process_ptrace_info (pid_t *delete_ptrace_leader,
     ptrace_fd = open(ptrace_shared_file, O_RDONLY);
     if (ptrace_fd != -1) {
       *has_ptrace_file = 1;
-      while (read(ptrace_fd, &superior, sizeof(pid_t)) != 0) {
-        read(ptrace_fd, &inferior, sizeof(pid_t));
+      while (readall(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
+        readall(ptrace_fd, &inferior, sizeof(pid_t));
         if ( is_in_ptrace_pairs(superior, inferior) == -1 ) {
           add_to_ptrace_pairs(superior, inferior, PTRACE_UNSPECIFIED_COMMAND, FALSE);
         }
@@ -2733,8 +2753,8 @@ static void process_ptrace_info (pid_t *delete_ptrace_leader,
     setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
     if (setoptions_fd != -1) {
       *has_setoptions_file = 1;
-      while (read(setoptions_fd, &superior, sizeof(pid_t)) != 0) {
-        read(setoptions_fd, &inferior, sizeof(pid_t));
+      while (readall(setoptions_fd, &superior, sizeof(pid_t)) > 0) {
+        readall(setoptions_fd, &inferior, sizeof(pid_t));
         if (inferior == GETTID()) {
           setoptions_superior = superior;
           is_ptrace_setoptions = TRUE;
@@ -2754,8 +2774,8 @@ static void process_ptrace_info (pid_t *delete_ptrace_leader,
     checkpoint_fd = open(checkpoint_threads_file, O_RDONLY);
     if (checkpoint_fd != -1) {
       *has_checkpoint_file = 1;
-      while (read(checkpoint_fd, &pid, sizeof(pid_t)) != 0) {
-        read(checkpoint_fd, &tid, sizeof(pid_t));
+      while (readall(checkpoint_fd, &pid, sizeof(pid_t)) >  0) {
+        readall(checkpoint_fd, &tid, sizeof(pid_t));
         DPRINTF(("{%d} checkpoint threads: pid = %d tid = %d\n", GETTID(), pid, tid));
         if (is_alive(pid) && is_alive(tid)) {
           /* only the pid matters 
@@ -3126,7 +3146,7 @@ static void delete_file (int file, int delete_leader, int has_file)
   if ((delete_leader == GETTID()) && has_file) {
     switch (file) {
       case 0: {
-        if (unlink(ptrace_shared_file) == -1) {
+        if (unlink(ptrace_shared_file) == -1 && errno != ENOENT) {
           mtcp_printf("delete_file: unlink failed: %s\n",
                       strerror(errno));
           mtcp_abort();
@@ -3134,7 +3154,7 @@ static void delete_file (int file, int delete_leader, int has_file)
         break;
       }
       case 1: {
-        if (unlink(ptrace_setoptions_file) == -1) {
+        if (unlink(ptrace_setoptions_file) == -1 && errno != ENOENT) {
           mtcp_printf("delete_file: unlink failed: %s\n",
                       strerror(errno));
           mtcp_abort();
@@ -3142,7 +3162,7 @@ static void delete_file (int file, int delete_leader, int has_file)
         break;
       }
       case 2: {
-        if (unlink(checkpoint_threads_file) == -1) {
+        if (unlink(checkpoint_threads_file) == -1 && errno != ENOENT) {
           mtcp_printf("delete_file: unlink failed: %s\n",
                       strerror(errno));
           mtcp_abort();
