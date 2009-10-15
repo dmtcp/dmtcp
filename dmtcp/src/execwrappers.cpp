@@ -501,13 +501,177 @@ extern "C" int execle(const char *path, const char *arg, ...)
   return ret;
 }
 
-extern "C" int system ( const char *cmd )
+
+/*
+ * The following code including the the macros, do_system() and system() has
+ * been taken from  glibc
+ */
+#define  SHELL_PATH  "/bin/sh"  /* Path of the shell.  */
+#define  SHELL_NAME  "sh"    /* Name to give it.  */
+
+
+#ifdef _LIBC_REENTRANT
+static struct sigaction intr, quit;
+static int sa_refcntr;
+__libc_lock_define_initialized (static, lock);
+
+# define DO_LOCK() __libc_lock_lock (lock)
+# define DO_UNLOCK() __libc_lock_unlock (lock)
+# define INIT_LOCK() ({ __libc_lock_init (lock); sa_refcntr = 0; })
+# define ADD_REF() sa_refcntr++
+# define SUB_REF() --sa_refcntr
+#else
+# define DO_LOCK()
+# define DO_UNLOCK()
+# define INIT_LOCK()
+# define ADD_REF() 0
+# define SUB_REF() 0
+#endif
+
+
+/* Execute LINE as a shell command, returning its status.  */
+static int
+do_system (const char *line)
+{
+  int status, save;
+  pid_t pid;
+  struct sigaction sa;
+#ifndef _LIBC_REENTRANT
+  struct sigaction intr, quit;
+#endif
+  sigset_t omask;
+
+  sa.sa_handler = SIG_IGN;
+  sa.sa_flags = 0;
+  sigemptyset (&sa.sa_mask);
+
+  DO_LOCK ();
+  if (ADD_REF () == 0)
+    {
+      if (sigaction (SIGINT, &sa, &intr) < 0)
+  {
+    SUB_REF ();
+    goto out;
+  }
+      if (sigaction (SIGQUIT, &sa, &quit) < 0)
+  {
+    save = errno;
+    SUB_REF ();
+    goto out_restore_sigint;
+  }
+    }
+  DO_UNLOCK ();
+
+  /* We reuse the bitmap in the 'sa' structure.  */
+  sigaddset (&sa.sa_mask, SIGCHLD);
+  save = errno;
+  if (sigprocmask (SIG_BLOCK, &sa.sa_mask, &omask) < 0)
+    {
+#ifndef _LIBC
+      if (errno == ENOSYS)
+  errno = save;
+      else
+#endif
+  {
+    DO_LOCK ();
+    if (SUB_REF () == 0)
+      {
+        save = errno;
+        (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
+      out_restore_sigint:
+        (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
+        errno = save;
+        //set_errno (save);
+      }
+  out:
+    DO_UNLOCK ();
+    return -1;
+  }
+    }
+
+#ifdef CLEANUP_HANDLER
+  CLEANUP_HANDLER;
+#endif
+
+#ifdef FORK
+  pid = fork ();
+#else
+  pid = fork ();
+#endif
+  if (pid == (pid_t) 0)
+    {
+      /* Child side.  */
+      const char *new_argv[4];
+      new_argv[0] = SHELL_NAME;
+      new_argv[1] = "-c";
+      new_argv[2] = line;
+      new_argv[3] = NULL;
+
+      /* Restore the signals.  */
+      (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
+      (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
+      (void) sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL);
+      INIT_LOCK ();
+
+      /* Exec the shell.  */
+      (void) execve (SHELL_PATH, (char *const *) new_argv, __environ);
+      _exit (127);
+    }
+  else if (pid < (pid_t) 0)
+    /* The fork failed.  */
+    status = -1;
+  else
+    /* Parent side.  */
+  {
+    /* Note the system() is a cancellation point.  But since we call
+       waitpid() which itself is a cancellation point we do not
+       have to do anything here.  */
+    do {
+      if (TEMP_FAILURE_RETRY (waitpid (pid, &status, 0)) != pid)
+        status = -1;
+    }
+    while (WIFEXITED(status) == 0);
+  }
+
+#ifdef CLEANUP_HANDLER
+  CLEANUP_RESET;
+#endif
+
+  save = errno;
+  DO_LOCK ();
+  if ((SUB_REF () == 0
+       && (sigaction (SIGINT, &intr, (struct sigaction *) NULL)
+     | sigaction (SIGQUIT, &quit, (struct sigaction *) NULL)) != 0)
+      || sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL) != 0)
+    {
+#ifndef _LIBC
+      /* glibc cannot be used on systems without waitpid.  */
+      if (errno == ENOSYS)
+        errno = save;
+      else
+#endif
+  status = -1;
+    }
+  DO_UNLOCK ();
+
+  return status;
+}
+
+extern "C" int
+system (const char *line)
 {
   JTRACE ( "before system(), checkpointing may not work" )
-    ( cmd ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
+    ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
   protectLD_PRELOAD();
-  int rv = _real_system ( cmd );
+
+  if (line == NULL)
+    /* Check that we have a command processor available.  It might
+       not be available after a chroot(), for example.  */
+    return do_system ("exit 0") == 0;
+
+  int result = do_system (line);
+
   JTRACE ( "after system()" );
-  //JASSERT ( false )( cmd ).Text ( "system() is called" );
-  return rv;
+
+  return result;
 }
