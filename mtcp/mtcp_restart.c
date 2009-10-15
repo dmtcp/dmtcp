@@ -47,7 +47,7 @@
 static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename);
 static void readcs (int fd, char cs);
-static void readfile (int fd, void *buf, int size);
+static void readfile (int fd, void *buf, size_t size);
 
 static pid_t gzip_child_pid = -1;
 
@@ -55,7 +55,8 @@ int main (int argc, char *argv[], char *envp[])
 
 {
   char magicbuf[MAGIC_LEN], *restorename;
-  int fd, restore_size, verify, offset=0;
+  int fd, verify;
+  size_t restore_size, offset=0;
   void *restore_begin, *restore_mmap;
   void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[]);
@@ -333,7 +334,7 @@ static void readcs (int fd, char cs)
   }
 }
 
-static void readfile(int fd, void *buf, int size)
+static void readfile(int fd, void *buf, size_t size)
 {
     int rc, ar;
 

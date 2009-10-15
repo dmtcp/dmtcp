@@ -21,8 +21,8 @@ int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 
 static char first_char(char *filename);
 static void readcs (int fd, char cs);
-static void readfile (int fd, void *buf, int size);
-static void skipfile (int fd, int size);
+static void readfile (int fd, void *buf, size_t size);
+static void skipfile (int fd, size_t size);
 
 int main(int argc, char **argv) {
   int fd = -1;
@@ -165,9 +165,9 @@ static void readcs (int fd, char cs)
   }
 }
 
-static void readfile(int fd, void *buf, int size)
+static void readfile(int fd, void *buf, size_t size)
 {
-  int rc, ar;
+  size_t rc, ar;
 
   ar = 0;
 
@@ -181,7 +181,7 @@ static void readfile(int fd, void *buf, int size)
         }
       else if(rc == 0)
 	{
-          fprintf(stderr, "readmtcp readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+          fprintf(stderr, "readmtcp readfile: only read %zu bytes instead of %zu from checkpoint file\n", ar, size);
           abort();
 	}
 
@@ -189,11 +189,11 @@ static void readfile(int fd, void *buf, int size)
     }
 }
 
-static void skipfile(int fd, int size)
+static void skipfile(int fd, size_t size)
 {
-  int rc, ar;
-  ar = 0;
+  size_t rc, ar;
   char array[512];
+  ar = 0;
 
   while(ar != size)
     {
@@ -205,7 +205,7 @@ static void skipfile(int fd, int size)
         }
       else if(rc == 0)
         {
-	  printf("readmtcp skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
+	  printf("readmtcp skipfile: only skipped %zu bytes instead of %zu from checkpoint file\n", ar, size);
 	  exit(1);
         }
 
