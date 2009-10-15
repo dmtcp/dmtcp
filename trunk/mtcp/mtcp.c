@@ -216,10 +216,10 @@ static char const *nscd_mmap_str2 = "/var/cache/nscd";
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[MAXPATHLEN];
 static char temp_checkpointfilename[MAXPATHLEN];
-static unsigned long long checkpointsize;
+static size_t checkpointsize;
 static int intervalsecs;
 static pid_t motherpid;
-static int restore_size;
+static size_t restore_size;
 static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
@@ -276,7 +276,7 @@ static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
 static void writecs (int fd, char cs);
-static void writefile (int fd, void const *buff, int size);
+static void writefile (int fd, void const *buff, size_t size);
 static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
@@ -1999,11 +1999,12 @@ static void writecs (int fd, char cs)
 
 static char const zeroes[PAGE_SIZE] = { 0 };
 
-static void writefile (int fd, void const *buff, int size)
+static void writefile (int fd, void const *buff, size_t size)
 
 {
   char const *bf;
-  int rc, sz, wt;
+  ssize_t rc;
+  size_t sz, wt;
 
   checkpointsize += size;
 

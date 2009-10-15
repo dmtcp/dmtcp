@@ -74,9 +74,9 @@ asm (".text");
 static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
-static void readfile (void *buf, int size);
-static void mmapfile(void *buf, int size, int prot, int flags);
-static void skipfile(int size);
+static void readfile (void *buf, size_t size);
+static void mmapfile(void *buf, size_t size, int prot, int flags);
+static void skipfile(size_t size);
 static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
                                      VA * stack_end_addr);
 static int open_shared_file(char* fileName);
@@ -674,9 +674,9 @@ static void readcs (char cs)
   }
 }
 
-static void readfile(void *buf, int size)
+static void readfile(void *buf, size_t size)
 {
-    int rc, ar;
+    size_t rc, ar;
     ar = 0;
 
     while(ar != size)
@@ -689,7 +689,7 @@ static void readfile(void *buf, int size)
         }
         else if(rc == 0)
         {
-            mtcp_printf("mtcp_restart_nolibc readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_printf("mtcp_restart_nolibc readfile: only read %zu bytes instead of %zu from checkpoint file\n", ar, size);
             mtcp_abort();
         }
 
@@ -697,7 +697,7 @@ static void readfile(void *buf, int size)
     }
 }
 
-static void mmapfile(void *buf, int size, int prot, int flags)
+static void mmapfile(void *buf, size_t size, int prot, int flags)
 {
     void *addr;
     int rc, ar;
@@ -718,9 +718,9 @@ static void mmapfile(void *buf, int size, int prot, int flags)
     rc = mtcp_sys_lseek(mtcp_restore_cpfd, size, SEEK_CUR);
 }
 
-static void skipfile(int size)
+static void skipfile(size_t size)
 {
-    int rc, ar;
+    size_t rc, ar;
     ar = 0;
     char array[512];
 
@@ -734,7 +734,7 @@ static void skipfile(int size)
         }
         else if(rc == 0)
         {
-            mtcp_printf("mtcp_restart_nolibc skipfile: only skipped %d bytes instead of %d from checkpoint file\n", ar, size);
+            mtcp_printf("mtcp_restart_nolibc skipfile: only skipped %zu bytes instead of %zu from checkpoint file\n", ar, size);
             mtcp_abort();
         }
 
