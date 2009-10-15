@@ -232,6 +232,14 @@ dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
   return pidVec;
 }
 
+dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getChildPidVector( )
+{
+  dmtcp::vector< pid_t > childPidVec;
+  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
+    childPidVec.push_back ( i->first );
+  return childPidVec;
+}
+
 dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getTidVector( )
 {
   return _tidVector;
@@ -303,12 +311,27 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
   return true;
 }
 
+void dmtcp::VirtualPidTable::refreshChildTable()
+{
+  int status;
+  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i ) {
+    pid_t originalPid = i->first;
+    int retVal = kill(originalPid, 0);
+    /* Check to see if the child process is alive*/
+    if (retVal == -1 && errno == ESRCH) {
+      erase(originalPid);
+    }
+  }
+}
+
 void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::VirtualPidTable:" );
 
-  if (o.isWriter() )
+  if (o.isWriter()){
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
+    refreshChildTable();
+  }
 
   o & _isRootOfProcessTree & _sid & _ppid;
 
