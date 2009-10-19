@@ -722,7 +722,10 @@ int main ( int argc, char** argv )
 
   errno = 0;
   jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
-  JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO ).Text ( "Failed to create listen socket" );
+  JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO )
+  .Text ( "Failed to create listen socket."
+     "\nIf msg is \"Address already in use\", this may be an old coordinator."
+     "\nKill other coordinators and try again in a minute or so." );
   thePort = sock.port();
 
 #if 0

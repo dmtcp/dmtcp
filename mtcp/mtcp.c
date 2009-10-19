@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2008 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -21,18 +21,18 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*                                */
-/*  Multi-threaded checkpoint library                        */
-/*                                */
-/*  Link this in as part of your program that you want checkpoints taken              */
-/*  Call the mtcp_init routine at the beginning of your program                  */
-/*  Call the mtcp_ok routine when it's OK to do checkpointing                  */
-/*  Call the mtcp_no routine when you want checkpointing inhibited                */
-/*                                */
+/***************************************************************************/
+/*                                                                         */
+/*  Multi-threaded checkpoint library                                      */
+/*                                                                         */
+/*  Link this in as part of your program that you want checkpoints taken   */
+/*  Call the mtcp_init routine at the beginning of your program            */
+/*  Call the mtcp_ok routine when it's OK to do checkpointing              */
+/*  Call the mtcp_no routine when you want checkpointing inhibited         */
+/*                                                                         */
 /*  This module also contains a __clone wrapper routine                    */
-/*                                */
-/********************************************************************************************************************************/
+/*                                                                         */
+/***************************************************************************/
 
 
 #include <asm/ldt.h>      // for struct user_desc
@@ -228,10 +228,10 @@ static char const *nscd_mmap_str2 = "/var/cache/nscd";
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[MAXPATHLEN];
 static char temp_checkpointfilename[MAXPATHLEN];
-static unsigned long long checkpointsize;
+static size_t checkpointsize;
 static int intervalsecs;
 static pid_t motherpid;
-static int restore_size;
+static size_t restore_size;
 static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
@@ -288,7 +288,7 @@ static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area,
            int stack_was_seen, int vsyscall_exists);
 static void writecs (int fd, char cs);
-static void writefile (int fd, void const *buff, int size);
+static void writefile (int fd, void const *buff, size_t size);
 static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
@@ -2281,11 +2281,12 @@ static void writecs (int fd, char cs)
 
 static char const zeroes[PAGE_SIZE] = { 0 };
 
-static void writefile (int fd, void const *buff, int size)
+static void writefile (int fd, void const *buff, size_t size)
 
 {
   char const *bf;
-  int rc, sz, wt;
+  ssize_t rc;
+  size_t sz, wt;
 
   checkpointsize += size;
 
