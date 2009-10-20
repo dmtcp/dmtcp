@@ -4148,17 +4148,13 @@ static int restarthread (void *threadv)
       mtcp_printf("error: uninitialized variable dmtcp_info_pid_virtualization_enabled\n");
       mtcp_abort();
     }
-    if (dmtcp_info_pid_virtualization_enabled == 1) 
-    {
-      /* If running under DMTCP */
-      if (dmtcp_info_pid_virtualization_enabled == 1)
+    /* If running under DMTCP */
+    if (dmtcp_info_pid_virtualization_enabled == 1) {
       tid = syscall(SYS_clone, restarthread,
           (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
           (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
           clone_arg, child -> parent_tidptr, NULL, child -> actual_tidptr);
-    }
-    else 
-    {
+    } else {
       tid = ((*clone_entry)( restarthread,
 	    (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
             (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
