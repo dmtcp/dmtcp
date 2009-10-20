@@ -63,6 +63,8 @@ namespace dmtcp
 
       void  prepareForExec();
 
+      void refreshChildTable();
+
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
       static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
@@ -84,6 +86,7 @@ namespace dmtcp
       void updateRootOfProcessTree();
 
       dmtcp::vector< pid_t > getPidVector();
+      dmtcp::vector< pid_t > getChildPidVector();
       dmtcp::vector< pid_t > getTidVector();
       dmtcp::vector< pid_t > getInferiorVector();
 
