@@ -57,7 +57,7 @@ namespace
 
       void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
       {
-        _insert(vt.getChildPidVector());
+        _insert(vt.getPidVector());
         _insert(vt.getTidVector());
       }
 

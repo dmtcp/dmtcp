@@ -331,7 +331,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 
   if (o.isWriter()){
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
-    refreshChildTable();
+    // refreshChildTable();
   }
 
   o & _isRootOfProcessTree & _sid & _ppid & _gid & _fgid;
