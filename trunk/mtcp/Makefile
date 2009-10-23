@@ -81,13 +81,16 @@ readmtcp: readmtcp.c
 	${CC} -o readmtcp readmtcp.c
 
 build: mtcp.so mtcp_restart
-tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
+tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
 
 # Test programs
 
 testmtcp: testmtcp.o mtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
 	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
+
+bigtestmtcp: bigtestmtcp.o mtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic mtcp.so
 
 testgettimeofday: testgettimeofday.o mtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) \
