@@ -212,6 +212,10 @@ Area mtcp_libc_area;               // some area of that libc.so
 sem_t ptrace_read_pairs_sem;
 int init_ptrace_read_pairs_sem = 0;
 
+int only_once = 0;
+sem_t __sem;
+int init__sem = 0;
+
 /* DMTCP Info Variables */
 
 int dmtcp_info_pid_virtualization_enabled = -1;
@@ -909,6 +913,11 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     sem_init(&ptrace_read_pairs_sem, 0, 0); 
     init_ptrace_read_pairs_sem = 1;
   }   
+
+  if (!init__sem) {
+    sem_init(&__sem, 0, 1);
+    init__sem = 1;
+  }
 
   if (is_ptrace_setoptions == TRUE) writeptraceinfo (setoptions_superior, rc);    
   else {
@@ -2912,6 +2921,7 @@ static int ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
   }
 
   DPRINTF(("detach_ckpthread: tid=%d, tgid = %d <<<<<<<<<<<<<<<<<<<<<<<<<<\n", tid, tgid));
+  only_once = 0; /* no need for semaphore here - the UT execute this code */
   return 0;
 }
 
@@ -3240,19 +3250,33 @@ static void ptrace_attach_threads(int isRestart)
   int i;
 
   DPRINTF(("attach started %d\n", GETTID()));
+	
+  for (i = 0; i < ptrace_pairs_count; i++) {
 
-  for(i = 0; i < ptrace_pairs_count; i++) {
     superior = ptrace_pairs[i].superior;
     inferior = ptrace_pairs[i].inferior;
+    last_command = ptrace_pairs[i].last_command;
+    singlestep_waited_on = ptrace_pairs[i].singlestep_waited_on;
+
     char inferior_st = ptrace_pairs[i].inferior_st;
 
-    DPRINTF(("ptrace_attach_threads: inferior state = %c, %c\n",
-            inferior_st, ptrace_pairs[i].inferior_st));
-
 //    kill(inferior,0);
+    if (superior == GETTID()) { 
 
-    if(  is_checkpoint_thread(inferior) && superior == GETTID()) { 
+      DPRINTF (("(attach) tid = %d superior = %d inferior = %d\n", 
+              GETTID(), (int)superior, (int)inferior));
+      // we must make sure the inferior process was created 
+	
+      sem_wait( &__sem);
+      if (only_once == 0) {
+      	have_file (superior);
+        only_once = 1;
+      }
+      sem_post( &__sem);
+
+    if(  is_checkpoint_thread(inferior)) { 
       DPRINTF(("ptrace_attach_threads: attach to checkpoint thread: %d\n",inferior));
+	//sleep(5);
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
         DPRINTF(("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior));
         perror("ptrace_attach_threads: PTRACE_ATTACH for CKPT failed");
@@ -3281,18 +3305,7 @@ static void ptrace_attach_threads(int isRestart)
       continue;
     }
 
-    DPRINTF (("(attach) tid = %d superior = %d inferior = %d\n", 
-              GETTID(), (int)superior, (int)inferior));
 
-    last_command = ptrace_pairs[i].last_command;
-    singlestep_waited_on = ptrace_pairs[i].singlestep_waited_on;
-
-    if (superior == GETTID()) { 
-      // we must make sure the inferior process was created 
-      
-        have_file (superior);
-
-      DPRINTF(("attaching parent = %d child = %d\n", (int)superior, (int)inferior));
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
         mtcp_printf("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior);
