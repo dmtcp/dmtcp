@@ -1423,21 +1423,23 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 {
   pid_t cpid;
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
+  char *old_ldpreload = getenv("LD_PRELOAD");
+  if(old_ldpreload!=NULL) old_ldpreload=strdup(old_ldpreload);
 
   gzip_args[0] = gzip_path;
 
-  cpid = mtcp_sys_fork();
+  cpid = mtcp_sys_vfork();
   if (cpid == -1) {
-    mtcp_printf("WARNING: error forking child.  Compression will "
-                "not be used.\n");
+    mtcp_printf("WARNING: error forking child process `%s`.  Compression will "
+                "not be used [%s].\n", gzip_path, strerror(mtcp_sys_errno));
     close(pipe_fds[0]);
     close(pipe_fds[1]);
-    return fd;
+    //fall through to return fd
   } else if (cpid > 0) { /* parent process */
     mtcp_ckpt_gzip_child_pid = cpid;
     close(pipe_fds[0]);
     close(fd);
-    return pipe_fds[1];
+    fd=pipe_fds[1];//change return value
   } else { /* child process */
     close(pipe_fds[1]);
     pipe_fds[0] = dup(dup(dup(pipe_fds[0])));
@@ -1455,6 +1457,13 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     mtcp_printf("ERROR: compression failed!  No checkpointing will be"
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
+  }
+
+
+  if(old_ldpreload!=NULL){
+    //need to restore LD_PRELOAD as vforked child may have modified it
+    setenv("LD_PRELOAD", old_ldpreload, 1);
+    free(old_ldpreload);
   }
 
   return fd;
