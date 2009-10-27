@@ -3245,7 +3245,7 @@ static void ptrace_attach_threads(int isRestart)
   long peekdata;
   long low, upp;
   int status;
-  long addr;
+  unsigned long addr;
   unsigned long int eflags;
   int i;
 
@@ -3366,7 +3366,7 @@ static void ptrace_attach_threads(int isRestart)
                 }
               }
               eflags |= 0x0100;
-              if (ptrace(PTRACE_POKEDATA, inferior, addr, eflags) < 0) {
+              if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
                 mtcp_abort();
               }
