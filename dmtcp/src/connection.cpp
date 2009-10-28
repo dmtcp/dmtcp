@@ -327,10 +327,21 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         JTRACE ( "unlinking stale unix domain socket" ) ( un_path );
         JWARNING ( unlink ( un_path ) == 0 ) ( un_path );
       }
-      JTRACE("restoring socket options before binding");
-
+      /*
+       * During restart, some socket options must be restored (using
+       * setsockopt) before the socket is used (bind etc.), otherwise we might
+       * not be able to restore them at all. One such option is set in the
+       * following way for IPV6 family: 
+       * setsockopt (sd, IPPROTO_IPV6, IPV6_V6ONLY,...) 
+       * This fix works for now. A better approach would be to restore the
+       * socket options in the order in which they are set by the user program.
+       * This fix solves a bug that caused OpenMPI to fail to restart under
+       * DMTCP. 
+       *                               --Kapil
+       */
 
       if (_sockDomain == AF_INET6) { 
+        JTRACE("restoring some socket options before binding");
         typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
         typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
@@ -385,10 +396,8 @@ void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
   if (_sockDomain != AF_INET6) { 
-    for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl )
-    {
-      for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt )
-      {
+    for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl ) {
+      for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt ) {
         JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
         int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
         JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) (lvl->first) ( opt->first ) ( opt->second.size() )
@@ -589,8 +598,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   stat(_path.c_str(),&_stat);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path)){
-  	JTRACE("SaveFile()")(_path.c_str());
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path)) {
     saveFile(fds[0]);
   }
 }
@@ -716,9 +724,8 @@ int dmtcp::FileConnection::openFile()
     CopyFile(savedFilePath, _path);
   }
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
   fd = open(_path.c_str(), _fcntlFlags);
-  JTRACE("Is opened")(_path.c_str())(fd);
+  JTRACE("open(_path.c_str(), _fcntlFlags)")(fd)(_path.c_str())(_fcntlFlags);
 
   //HACK: This was deleting our checkpoint files on RHEL5.2,
   //      perhaps we are leaking file descriptors in the restart process.
