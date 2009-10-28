@@ -326,6 +326,38 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         JTRACE ( "unlinking stale unix domain socket" ) ( un_path );
         JWARNING ( unlink ( un_path ) == 0 ) ( un_path );
       }
+      /*
+       * During restart, some socket options must be restored (using
+       * setsockopt) before the socket is used (bind etc.), otherwise we might
+       * not be able to restore them at all. One such option is set in the
+       * following way for IPV6 family: 
+       * setsockopt (sd, IPPROTO_IPV6, IPV6_V6ONLY,...) 
+       * This fix works for now. A better approach would be to restore the
+       * socket options in the order in which they are set by the user program.
+       * This fix solves a bug that caused OpenMPI to fail to restart under
+       * DMTCP. 
+       *                               --Kapil
+       */
+
+      if (_sockDomain == AF_INET6) { 
+        JTRACE("restoring some socket options before binding");
+        typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
+        typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
+
+        for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl ) {
+          if (lvl->first == IPPROTO_IPV6) { 
+            for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt ) {
+              if (opt->first == IPV6_V6ONLY) {
+              JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
+              int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
+              JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) (lvl->first) ( opt->first ) (opt->second.buffer()) ( opt->second.size() )
+                  .Text ( "restoring setsockopt failed" );
+              }
+            }
+          }
+        }
+      }
+
       JTRACE ( "binding socket" ) ( id() );
       errno = 0;
       JWARNING ( sock.bind ( ( sockaddr* ) &_bindAddr,_bindAddrlen ) )
@@ -362,14 +394,14 @@ void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
   typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
-  for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl )
-  {
-    for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt )
-    {
-      JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
-      int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
-      JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( opt->first ) ( opt->second.size() )
-        .Text ( "restoring setsockopt failed" );
+  if (_sockDomain != AF_INET6) { 
+    for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl ) {
+      for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt ) {
+        JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
+        int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
+        JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) (lvl->first) ( opt->first ) ( opt->second.size() )
+          .Text ( "restoring setsockopt failed" );
+      }
     }
   }
 
@@ -565,8 +597,9 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   stat(_path.c_str(),&_stat);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path))
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path)) {
     saveFile(fds[0]);
+  }
 }
 void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
@@ -636,35 +669,6 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
 	      ( _path ) (_offset ) ( _stat.st_size ) ( buf.st_size );
     }
   }
-
-//     flags = O_RDWR;
-//     if (!(statbuf.st_mode & S_IWUSR)) flags = O_RDONLY;
-//     else if (!(statbuf.st_mode & S_IRUSR)) flags = O_WRONLY;
-//     tempfd = mtcp_sys_open (linkbuf, flags, 0);
-//     if (tempfd < 0) {
-//       mtcp_printf ("mtcp readfiledescrs: error %d re-opening %s flags %o\n", mtcp_sy_errno, linkbuf, flags);
-//       if (mtcp_sy_errno == EACCES)
-//         mtcp_printf("  Permission denied.\n");
-//       mtcp_abort ();
-//     }
-//
-//     /* Move it to the original fd if it didn't coincidentally open there */
-//
-//     if (tempfd != fdnum) {
-//       if (mtcp_sy_dup2 (tempfd, fdnum) < 0) {
-//         mtcp_printf ("mtcp readfiledescrs: error %d duping %s from %d to %d\n", mtcp_sy_errno, linkbuf, tempfd, fdnum);
-//         mtcp_abort ();
-//       }
-//       mtcp_sys_close (tempfd);
-//     }
-//
-//     /* Position the file to its same spot it was at when checkpointed */
-//
-//     if (S_ISREG (statbuf.st_mode) && (mtcp_sy_lseek (fdnum, offset, SEEK_SET) != offset)) {
-//       mtcp_printf ("mtcp readfiledescrs: error %d positioning %s to %ld\n", mtcp_sy_errno, linkbuf, (long)offset);
-//       mtcp_abort ();
-//     }
-
 }
 
 static void CreateDirectoryStructure(const dmtcp::string& path)
@@ -720,6 +724,7 @@ int dmtcp::FileConnection::openFile()
   }
 
   fd = open(_path.c_str(), _fcntlFlags);
+  JTRACE("open(_path.c_str(), _fcntlFlags)")(fd)(_path.c_str())(_fcntlFlags);
 
   //HACK: This was deleting our checkpoint files on RHEL5.2,
   //      perhaps we are leaking file descriptors in the restart process.
@@ -885,7 +890,6 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   }
   else
   {
-
     size_t numLvl = 0;
     o & numLvl;
 
