@@ -327,6 +327,27 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         JTRACE ( "unlinking stale unix domain socket" ) ( un_path );
         JWARNING ( unlink ( un_path ) == 0 ) ( un_path );
       }
+      JTRACE("restoring socket options before binding");
+
+
+      if (_sockDomain == AF_INET6) { 
+        typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
+        typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
+
+        for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl ) {
+          if (lvl->first == IPPROTO_IPV6) { 
+            for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt ) {
+              if (opt->first == IPV6_V6ONLY) {
+              JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
+              int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
+              JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) (lvl->first) ( opt->first ) (opt->second.buffer()) ( opt->second.size() )
+                  .Text ( "restoring setsockopt failed" );
+              }
+            }
+          }
+        }
+      }
+
       JTRACE ( "binding socket" ) ( id() );
       errno = 0;
       JWARNING ( sock.bind ( ( sockaddr* ) &_bindAddr,_bindAddrlen ) )
@@ -363,14 +384,16 @@ void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
   typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
-  for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl )
-  {
-    for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt )
+  if (_sockDomain != AF_INET6) { 
+    for ( levelIterator lvl = _sockOptions.begin(); lvl!=_sockOptions.end(); ++lvl )
     {
-      JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
-      int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
-      JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( opt->first ) ( opt->second.size() )
-        .Text ( "restoring setsockopt failed" );
+      for ( optionIterator opt = lvl->second.begin(); opt!=lvl->second.end(); ++opt )
+      {
+        JTRACE ( "restoring socket option" ) ( fds[0] ) ( opt->first ) ( opt->second.size() );
+        int ret = _real_setsockopt ( fds[0],lvl->first,opt->first,opt->second.buffer(), opt->second.size() );
+        JASSERT ( ret == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) (lvl->first) ( opt->first ) ( opt->second.size() )
+          .Text ( "restoring setsockopt failed" );
+      }
     }
   }
 
@@ -1022,7 +1045,6 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   }
   else
   {
-
     size_t numLvl = 0;
     o & numLvl;
 
