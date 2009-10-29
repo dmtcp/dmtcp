@@ -43,6 +43,8 @@ static int in_dmtcp_on_helper_fnc = 0;
 
 #define PASSTHROUGH_DMTCP_HELPER(func, ...) {\
     int ret = _real_ ## func (__VA_ARGS__); \
+    int saved_errno; \
+    saved_errno = errno; \
       PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); \
     }
 
@@ -55,6 +57,7 @@ static int in_dmtcp_on_helper_fnc = 0;
       in_dmtcp_on_helper_fnc = 0; \
     } \
     _dmtcp_unlock();\
+    errno =saved_errno; \
     return ret;}
 
 int socket ( int domain, int type, int protocol )
@@ -66,6 +69,7 @@ int socket ( int domain, int type, int protocol )
 int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
+  int saved_errno = errno;
 
   //no blocking connect... need to hang around until it is writable
   if ( ret < 0 && errno == EINPROGRESS )
@@ -96,6 +100,7 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
       printf ( "No data within five seconds.\n" );
   }
 
+  saved_errno = errno;
   PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
 }
 
