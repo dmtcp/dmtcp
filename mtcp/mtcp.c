@@ -1438,9 +1438,9 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
   } else if (cpid > 0) { /* parent process */
     mtcp_ckpt_gzip_child_pid = cpid;
     if (close(pipe_fds[0]) == -1) 
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno))
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
     if (close(fd) == -1)
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno))
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
     fd=pipe_fds[1];//change return value
   } else { /* child process */
     /* Since we are creating the child using the vfork() system call, we should
