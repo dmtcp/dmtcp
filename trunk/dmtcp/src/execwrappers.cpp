@@ -161,6 +161,13 @@ extern "C" pid_t vfork()
   return fork();
 }
 
+/* Support for epoll will be added in future */
+extern "C" int epoll_create(int size)
+{
+  JTRACE("Support for epoll will be added in the future.");
+  return -1;
+}
+
 extern "C" char *ptsname ( int fd )
 {
   JTRACE ( "ptsname() promoted to ptsname_r()" );
