@@ -30,17 +30,17 @@ STAGING=/tmp/dmtcp_release_staging_`whoami`
 mkdir -p $STAGING
 e cd $STAGING
 
-e svn co https://dmtcp.svn.sourceforge.net/svnroot/dmtcp dmtcp_staging
+e svn co https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp_staging
 
 REV=`getRev dmtcp_staging`
 NAME=dmtcp_$VERSION-r$REV
 
 e mv dmtcp_staging $NAME
-e rm -rf $NAME/{makeRelease.sh,branches}
+e rm -rf $NAME/{makeRelease.sh}
 e removeSvnDirs
 archName=`dpkg-architecture | grep DEB_HOST_ARCH_CPU | \
           sed -e's%DEB_HOST_ARCH_CPU=%%'`
-e sed -e"s%Architecture: any%Architecture: $archName%" $NAME/debian/control \
+sed -e "s%Architecture: any%Architecture: $archName%" $NAME/debian/control \
 	> debianControl
 e rm $NAME/debian/control
 e mv debianControl $NAME/debian/control
