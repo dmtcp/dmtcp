@@ -161,10 +161,11 @@ extern "C" pid_t vfork()
   return fork();
 }
 
-/* Support for epoll will be added in future */
+/* epoll is currently not supported by DMTCP */
 extern "C" int epoll_create(int size)
 {
-  JTRACE("Support for epoll will be added in the future.");
+  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
+  errno = EPERM;
   return -1;
 }
 
