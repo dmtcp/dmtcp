@@ -1437,16 +1437,27 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
     mtcp_ckpt_gzip_child_pid = cpid;
-    close(pipe_fds[0]);
-    close(fd);
+    if (close(pipe_fds[0]) == -1) 
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno))
+    if (close(fd) == -1)
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno))
     fd=pipe_fds[1];//change return value
   } else { /* child process */
+    /* Since we are creating the child using the vfork() system call, we should
+     * make sure that we don't end up overwriting any of the parents memory
+     * area. Thus the variables pipe_fds and fd should never be written to. The
+     * workaround is to create two local variables fd_in, and fd_out to do the
+     * work of pipe_fds[0] and fd.
+     */
+    int fd_in, fd_out;
     close(pipe_fds[1]);
-    pipe_fds[0] = dup(dup(dup(pipe_fds[0])));
-    fd = dup(fd);
-    dup2(pipe_fds[0], STDIN_FILENO);
+    fd_in = dup(dup(dup(pipe_fds[0])));
+    fd_out = dup(fd);
+    dup2(fd_in, STDIN_FILENO);
+    close(fd_in);
     close(pipe_fds[0]);
-    dup2(fd, STDOUT_FILENO);
+    dup2(fd_out, STDOUT_FILENO);
+    close(fd_out);
     close(fd);
     //make sure DMTCP doesn't catch gzip
     unsetenv("LD_PRELOAD");
