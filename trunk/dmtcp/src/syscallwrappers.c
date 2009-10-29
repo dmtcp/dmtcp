@@ -60,6 +60,13 @@ static int in_dmtcp_on_helper_fnc = 0;
     errno =saved_errno; \
     return ret;}
 
+/* Support for epoll will be added in future */
+int epoll_create(int size)
+{
+  JTRACE("Support for epoll will be added in the future.");
+  return -1;
+}
+
 int socket ( int domain, int type, int protocol )
 {
   static int sockfd = -1;
