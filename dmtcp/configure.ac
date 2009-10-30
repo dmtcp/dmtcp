@@ -1,4 +1,4 @@
-AC_INIT([dmtcp],[1.1.0])
+AC_INIT([DMTCP],[1.1.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
 
 AM_CONFIG_HEADER([src/config.h])
 AM_INIT_AUTOMAKE([dmtcp], [1.1.0])
@@ -56,6 +56,19 @@ AC_ARG_ENABLE([forked_checkpointing],
 
 if test "$use_forked_ckpt" = "yes"; then
   AC_DEFINE([FORKED_CHECKPOINTING],[],[Child process does checkpointing])
+fi
+
+
+AC_ARG_ENABLE([unique_checkpoint_filenames],
+            [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
+                            [By default, successive checkpoints are written
+                            to the same filename.  Enable if each successive
+			    checkpoint should be a unique filename.])],
+            [use_unique_checkpoint_filenames=$enableval],
+            [use_unique_checkpoint_filenames=no])
+
+if test "$use_unique_checkpoint_filenames" = "yes"; then
+  AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[],[Use unique filenames for checkpoint images])
 fi
 
 

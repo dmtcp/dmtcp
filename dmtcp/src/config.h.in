@@ -30,9 +30,6 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
-/* Define to the home page for this package. */
-#undef PACKAGE_URL
-
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -44,6 +41,9 @@
 
 /* Record timing information to stderr and jtimings.csv */
 #undef TIMING
+
+/* Use unique filenames for checkpoint images */
+#undef UNIQUE_CHECKPOINT_FILENAMES
 
 /* Version number of package */
 #undef VERSION

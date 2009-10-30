@@ -120,7 +120,11 @@ static bool checkpointFilename_initialized = false;
 const char* dmtcp::UniquePid::checkpointFilename()
 {
   static dmtcp::string checkpointFilename_str = "";
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+  if ( true ) // unique checkpoint name can change
+#else
   if ( !checkpointFilename_initialized )
+#endif
   {
     checkpointFilename_initialized = true;
     dmtcp::ostringstream os;
@@ -133,6 +137,9 @@ const char* dmtcp::UniquePid::checkpointFilename()
     os << CHECKPOINT_FILE_PREFIX
        << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+       << '_0001'
+#endif
        << ".dmtcp";
 
     checkpointFilename_str = os.str();
