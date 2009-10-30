@@ -425,7 +425,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #define PTRACE_SINGLESTEP_COMMAND 1
 #define PTRACE_CONTINUE_COMMAND 2
 
-
 extern "C" long ptrace ( enum __ptrace_request request, ... )
 {
   va_list ap;

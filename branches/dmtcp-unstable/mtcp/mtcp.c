@@ -2115,6 +2115,7 @@ static void checkpointeverything (void)
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
+    is_waitpid_local = 1;
     if( waitpid(forked_cpid, NULL, 0) == -1 )
       DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d %d",
           mtcp_sys_errno, mtcp_sys_kernel_gettid()));
@@ -2539,6 +2540,8 @@ void set_singlestep_waited_on ( pid_t superior, pid_t inferior,
   int index = is_in_ptrace_pairs ( superior, inferior );
   if (( index >= 0 ) && ( ptrace_pairs[index].last_command == PTRACE_SINGLESTEP_COMMAND )) 
     ptrace_pairs[index].singlestep_waited_on = value;
+  if (index >= 0)
+  	ptrace_pairs[index].last_command = PTRACE_UNSPECIFIED_COMMAND;
 }
 
 /* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
@@ -2864,6 +2867,7 @@ static int ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid)
     if (tpid == -1 && errno == ECHILD) {
       DPRINTF(("detach_ckpthread: Check cloned process\n"));
       // Try again with __WCLONE to check cloned processes.
+      is_waitpid_local = 1;
       if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
         DPRINTF(("detach_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
                     strerror(errno)));
@@ -2948,9 +2952,9 @@ static int ptrace_control_ckpthread(pid_t tgid, pid_t tid)
     if( mtcp_sys_kernel_tkill(tid,SIGCONT) )
       return -EAGAIN;
        
-    is_waitpid_local = 1;
     DPRINTF(("control_ckpthread: Check cloned process\n"));
     // Try again with __WCLONE to check cloned processes.
+    is_waitpid_local = 1;
     if ((tpid = waitpid(tid, &status, __WCLONE | WNOHANG)) == -1) {
       mtcp_printf("control_ckpthread: ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
                   strerror(errno));
@@ -3058,7 +3062,10 @@ static void ptrace_detach_user_threads ()
   int status = 0;
 
   for(i = 0; i < ptrace_pairs_count; i++) {
-
+    /*
+    mtcp_printf("tid = %d superior = %d inferior = %d last_command = %d\n", GETTID(), ptrace_pairs[i].superior, 
+	ptrace_pairs[i].inferior, ptrace_pairs[i].last_command);
+    */
     if( is_checkpoint_thread(ptrace_pairs[i].inferior) ){
       DPRINTF(("ptrace_detach_user_threads: SKIP checkpoint thread %d\n",ptrace_pairs[i].inferior));
       continue;
@@ -3090,6 +3097,7 @@ static void ptrace_detach_user_threads ()
         if(tpid == -1 && errno == ECHILD){
           DPRINTF(("Check cloned process\n"));
           // Try again with __WCLONE to check cloned processes.
+          is_waitpid_local = 1;
           if( (tpid = waitpid (tid, &status, __WCLONE | WNOHANG ) ) == -1 ){
             DPRINTF(("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): : %s\n", 
                         strerror(errno)));
@@ -3109,6 +3117,7 @@ static void ptrace_detach_user_threads ()
         if(tpid == -1 && errno == ECHILD){
           DPRINTF(("Check cloned process\n"));
           // Try again with __WCLONE to check cloned processes.
+          is_waitpid_local = 1;
           if( (tpid = waitpid (tid, &status, __WCLONE ) ) == -1 ){
             mtcp_printf("ptrace_detach_checkpoint_threads: waitpid(..,__WCLONE): %s\n",
                         strerror(errno));
@@ -3129,12 +3138,13 @@ static void ptrace_detach_user_threads ()
       
       if (( ptrace_pairs[i].last_command == PTRACE_SINGLESTEP_COMMAND ) && 
           ( ptrace_pairs[i].singlestep_waited_on == FALSE )) {
-        is_waitpid_local = 1;
+        //is_waitpid_local = 1;
         has_status_and_pid = 1;
         saved_status = status;
         DPRINTF(("+++++++++++++++++++++++++ptrace_detach_user_threads: AFTER WAITPID %d\n",
                  status));
         ptrace_pairs[i].singlestep_waited_on = TRUE; 
+	ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
       }  
       
       DPRINTF(("tid = %d detaching superior = %d from inferior = %d\n", 
@@ -3251,6 +3261,11 @@ static void ptrace_attach_threads(int isRestart)
 
   DPRINTF(("attach started %d\n", GETTID()));
 	
+  /*
+  for (i = 0; i < ptrace_pairs_count; i++) {
+    mtcp_printf("tid = %d superior = %d inferior = %d last_command = %d\n", GETTID(), ptrace_pairs[i].superior, ptrace_pairs[i].inferior, ptrace_pairs[i].last_command); 
+  }
+  */
   for (i = 0; i < ptrace_pairs_count; i++) {
 
     superior = ptrace_pairs[i].superior;
@@ -3277,6 +3292,7 @@ static void ptrace_attach_threads(int isRestart)
     if(  is_checkpoint_thread(inferior)) { 
       DPRINTF(("ptrace_attach_threads: attach to checkpoint thread: %d\n",inferior));
 	//sleep(5);
+      is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) { 
         DPRINTF(("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior));
         perror("ptrace_attach_threads: PTRACE_ATTACH for CKPT failed");
@@ -3317,6 +3333,7 @@ static void ptrace_attach_threads(int isRestart)
 //        mtcp_printf("new iter for sup=%d, inf=%d\n",superior,inferior);
         is_waitpid_local = 1;
         if( waitpid(inferior, &status, 0 ) == -1) {
+          is_waitpid_local = 1;
           if( waitpid(inferior, &status, __WCLONE ) == -1) {
             while(1);
             perror("ptrace_attach_threads: waitpid failed\n");  
@@ -3366,13 +3383,13 @@ static void ptrace_attach_threads(int isRestart)
                 }
               }
               eflags |= 0x0100;
-              if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
+              printf("inferior = %d addr = %ld eflags = %ld \n", inferior, addr, eflags);
+              if (ptrace(PTRACE_POKEDATA, inferior, addr, eflags) < 0) {
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
                 mtcp_abort();
               }
             }
             else if (inferior_st != 'T' ) {
-              is_ptrace_local = 1;
 /*
 TODO: remove in future as GROUP restore becames stable
 - Artem              
@@ -3384,6 +3401,7 @@ TODO: remove in future as GROUP restore becames stable
               	}
 	      }
 */        
+              is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
@@ -3392,7 +3410,6 @@ TODO: remove in future as GROUP restore becames stable
           } else {
             if (inferior_st != 'T')
             {
-              is_ptrace_local = 1;
 	      if (getsid(inferior) == getsid(superior)) {
               	if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
               	{
@@ -3400,6 +3417,7 @@ TODO: remove in future as GROUP restore becames stable
                		 mtcp_abort();
               	}
 	      }
+              is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
@@ -3438,7 +3456,6 @@ TODO: remove in future as GROUP restore becames stable
                 mtcp_abort();
               }
             } else if (inferior_st != 'T') {
-              is_ptrace_local = 1;
 	      if (getsid(inferior) == getsid(superior)) {
               	if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
               	{
@@ -3446,6 +3463,7 @@ TODO: remove in future as GROUP restore becames stable
                 	 mtcp_abort();
               	}
 	      }
+              is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
@@ -3453,7 +3471,6 @@ TODO: remove in future as GROUP restore becames stable
             }
           } else {
             if (inferior_st != 'T') {
-              is_ptrace_local = 1;
 	      if (getsid(inferior) == getsid(superior)) {
              	 if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
              	 {
@@ -3461,6 +3478,7 @@ TODO: remove in future as GROUP restore becames stable
                		 mtcp_abort();
              	 }
    	      }
+              is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
                 mtcp_abort();
