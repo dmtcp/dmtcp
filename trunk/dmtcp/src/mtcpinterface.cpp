@@ -324,7 +324,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
     if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if required.) */
-#ifdef DISABLE_CONFLICT_HANDLING
+#ifndef DISABLE_CONFLICT_HANDLING
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
 #else
       JASSERT (false) (tid) .Text ( "TID Conflict Detected!" );

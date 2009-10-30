@@ -17,12 +17,12 @@ loaded, DMTCP transparently and automatically tracks them.
 
 To run a program with checkpointing:
   1) Run dmtcp_coordinator in a separate terminal/window
-        
+
         ./bin/dmtcp_coordinator
-        
+
   2) In separate terminal(s), replace each command(s)
      with "dmtcp_checkpoint [command]"
-        
+
         ./bin/dmtcp_checkpoint ./a.out
 
   3) To checkpoint, type 'c'<return> into dmtcp_coordinator
@@ -224,10 +224,6 @@ SHORT NOTES:
           ssh-keygen -t rsa       [accept default values]
           cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
 
-        pid-virtualization currently conflicts with OpenMPI; We will fix
-        this in future.
-
-        ./configure --disable-pid-virtualization
         make clean
         make
         make check
@@ -240,7 +236,75 @@ SHORT NOTES:
         DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
         any other convinient SIGNUM above.
 
-    14. OpenSUSE and bash
+    14. Using DMTCP with X-Windows:
+	Install TightVNC (either as a package from your Linux distro,
+	or at:  http://www.tightvnc.com/
+	with installation instructions at:
+	  http://www.tightvnc.com/doc/unix/README.txt
+
+        If the server fails to start, you may need to specify the location of
+        fonts on your system. Do this by editing the "vncserver" Perl script (which
+        you put in your path above).  Modify the $fontPath variable to point to your
+        font directories. For example, I listed all of the subdirectories of
+        /usr/share/fonts/ in the fontPath.
+
+        The processes started up automatically by the VNC server are listed in
+        the ~/.vnc/xstartup file. Use the following as your ~/.vnc/xstartup,
+        where we use the blackbox window manager and the xterm application as an example:
+           #!/bin/csh
+           blackbox &
+           xterm
+
+        You should test that you can use the vncserver and vncviewer now.
+        This example uses desktop number 1:
+           vncserver :1
+           vncviewer localhost:1
+           # Kill vncviewer window manually, and then:
+           vncserver -kill :1
+
+        Make sure the executables dmtcp_checkpoint, dmtcp_coordinator,
+        dmtcp_restart, and dmtcp_command are in your path.
+
+        Note that if the VNC server is killed without using the "vncserver -kill",
+        there will be some temporary files left over that prevent the server
+        from restarting.  If this occurs, remove them:
+           rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
+        where X1 corresponds to starting the server on port 1.
+
+        Now, start the VNC server under checkpointing control:
+           dmtcp_checkpoint vncserver :1
+
+        Use the VNC viewer to view your xterm application in the blackbox window manager:
+           vncviewer localhost:1
+
+        Before checkpointing, close the vncviewer. It can be reopened again after
+        the checkpoint has completed.
+
+        [Optional] To verify that vncserver is running under checkpoint control:
+           dmtcp_command h
+           dmtcp_command s
+
+        To checkpoint the VNC server, xterm, and any other processes running under
+        the VNC server, remove any old checkpoint files, and type:
+           rm -f ckpt_*.dmtcp
+           dmtcp_command --checkpoint
+
+        This creates a file of the form ckpt_*.dmtcp for each process being checkpointed.
+        To kill the vncviewer and restart, use the restart script:
+           vncserver -kill :1
+           # This script assumes dmtcp_restart is in your path.  If not,
+           #  modify the script to replace dmtcp_restart by a full path to it.
+           ./dmtcp_restart_script.sh
+
+        Alternatively, you may prefer to directly use the dmtcp_restart command:
+           vncserver -kill :1
+           dmtcp_restart ckpt_*.dmtcp
+
+        Note: if checkpointing doesn't fully complete, make sure you're not out of
+        disk space, and that there are no other file system problems.
+
+
+    15. OpenSUSE and bash
         The OpenSUSE bash package uses an unusual memory layout. DMTCP
         currently does not checkpoint bash. This will be fixed in the future.
         The current workaround is to download and use vanilla bash package from
