@@ -1,4 +1,4 @@
-AC_INIT([dmtcp],[1.1.0])
+AC_INIT([DMTCP],[1.1.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
@@ -6,6 +6,19 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp])
+
+dnl Autoconf manual says option checking is set to warn ("yes") by
+dnl  by default.  But it's actually set to "no".
+dnl So, we enforce our own choice ("fatal") if autoconf won't cooperate.
+enable_option_checking=fatal
+if test -n "$ac_unrecognized_opts"; then
+  case $enable_option_checking in
+    no) ;;
+    fatal) { $as_echo "$as_me: error: unrecognized options: $ac_unrecognized_opts" >&2
+   { (exit 1); exit 1; }; } ;;
+    *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
+  esac
+fi
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [enable (very) verbose debug output
@@ -26,6 +39,13 @@ AC_ARG_ENABLE([timing],
                             dmtcp_coordinator, and to stderr.])],
             [use_jtiming=$enableval],
             [use_jtiming=no])
+dnl AC_ARG_ENABLE([unique_checkpoint_filenames],
+dnl             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
+dnl                             [By default, successive checkpoints are written
+dnl                             to the same filename.  Enable if each successive
+dnl 			    checkpoint should be a unique filename.])],
+dnl             [use_unique_checkpoint_filenames=$enableval],
+dnl             [use_unique_checkpoint_filenames=no])
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
