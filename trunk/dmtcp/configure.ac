@@ -107,4 +107,3 @@ AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 AC_DEFINE([DMTCP],[],[Always enable this.])
 
 AC_OUTPUT(Makefile src/Makefile)
-

@@ -304,7 +304,6 @@ int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return sigprocmask(how, set, oldset);
 }
 
-
 
 /********************************************************************************************************************************/
 /*																*/
@@ -650,28 +649,28 @@ void mtcp_dump_tls (char const *file, int line)
 #endif
 }
 
-/*****************************************************************************
- *
- *  This is our clone system call wrapper
- *
- *    Note:
- *
- *      pthread_create eventually calls __clone to create threads
- *      It uses flags = 0x3D0F00:
- *	      CLONE_VM = VM shared between processes
- *	      CLONE_FS = fs info shared between processes (root, cwd, umask)
- *	   CLONE_FILES = open files shared between processes (fd table)
- *	 CLONE_SIGHAND = signal handlers and blocked signals shared
- *	 			 (sigaction common to parent and child)
- *	  CLONE_THREAD = add to same thread group
- *	 CLONE_SYSVSEM = share system V SEM_UNDO semantics
- *	  CLONE_SETTLS = create a new TLS for the child from newtls parameter
- *	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)
- *	CLONE_CHILD_CLEARTID = clear the TID in the child and do 
- *				 futex wake at that address
- *	      CLONE_DETACHED = create clone detached
- *
- *****************************************************************************/
+/*****************************************************************************/
+/*									     */
+/*  This is our clone system call wrapper				     */
+/*									     */
+/*    Note:								     */
+/*									     */
+/*      pthread_create eventually calls __clone to create threads	     */
+/*      It uses flags = 0x3D0F00:					     */
+/*	      CLONE_VM = VM shared between processes			     */
+/*	      CLONE_FS = fs info shared between processes (root, cwd, umask) */
+/*	   CLONE_FILES = open files shared between processes (fd table)	     */
+/*	 CLONE_SIGHAND = signal handlers and blocked signals shared	     */
+/*	 			 (sigaction common to parent and child)	     */
+/*	  CLONE_THREAD = add to same thread group			     */
+/*	 CLONE_SYSVSEM = share system V SEM_UNDO semantics		     */
+/*	  CLONE_SETTLS = create a new TLS for the child from newtls parameter*/
+/*	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)    */
+/*	CLONE_CHILD_CLEARTID = clear the TID in the child and do	     */
+/*				 futex wake at that address		     */
+/*	      CLONE_DETACHED = create clone detached			     */
+/*									     */
+/*****************************************************************************/
 
 int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
@@ -2288,11 +2287,48 @@ static void save_tls_state (Thread *thisthread)
 #endif
 }
 
+static void update_perm_filenae_generation(char * perm_checkpointfilename) {
+  int i;
+  int underscore_idx = 0;
+  int carry = 1; /* Force generation number to be incremented by 1 */
+  for (i = 0; perm_checkpointfilename[i] != '\0' ; i++)
+    if (perm_checkpointfilename[i] == '_')
+      underscore_idx = i;
+  if (perm_checkpointfilename[underscore_idx] != '_')
+    return;
+  if (perm_checkpointfilename[underscore_idx+1] < '0'
+      || perm_checkpointfilename[underscore_idx+1] > '9'
+      || perm_checkpointfilename[underscore_idx+2] < '0'
+      || perm_checkpointfilename[underscore_idx+2] > '9'
+      || perm_checkpointfilename[underscore_idx+3] < '0'
+      || perm_checkpointfilename[underscore_idx+3] > '9'
+      || perm_checkpointfilename[underscore_idx+4] < '0'
+      || perm_checkpointfilename[underscore_idx+4] > '9'
+      || perm_checkpointfilename[underscore_idx+5] != '.'
+      || perm_checkpointfilename[underscore_idx+6] != 'd'
+      || perm_checkpointfilename[underscore_idx+7] != 'm'
+      || perm_checkpointfilename[underscore_idx+8] != 't'
+      || perm_checkpointfilename[underscore_idx+9] != 'c'
+      || perm_checkpointfilename[underscore_idx+10] != 'p')
+    return;
+  for (i = underscore_idx+4; i > underscore_idx; i--) {
+    perm_checkpointfilename[i] += carry;
+    if (perm_checkpointfilename[i] > '9') {
+      perm_checkpointfilename[i] -= 10;
+      carry = 1;
+    } else {
+       carry = 0;
+    }
+  }
+}
+
 static void renametempoverperm (void)
 
 {
+  update_perm_filenae_generation(perm_checkpointfilename);
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n", temp_checkpointfilename, perm_checkpointfilename, strerror (errno));
+    mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n",  			temp_checkpointfilename, perm_checkpointfilename,
+		 strerror (errno));
     mtcp_abort ();
   }
 }
@@ -2423,7 +2459,7 @@ static int readmapsline (int mapsfd, Area *area)
   if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
       || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0  ) { /* if nscd active*/
   }
-  else if (area -> name[0] == '/'                  /* if an absolute pathname */
+  else if (area -> name[0] == '/'                 /* if an absolute pathname */
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
     rc = mtcp_safestat (area -> name, &statbuf);
     if (rc < 0) {
@@ -2435,7 +2471,8 @@ static int readmapsline (int mapsfd, Area *area)
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
       mtcp_printf ("ERROR:  mtcp readmapsline: image %s dev:inode %X:%u"
 		   " not eq maps %X:%u\n",
-                area -> name, statbuf.st_dev, statbuf.st_ino, devnum, inodenum);
+                   area -> name, statbuf.st_dev, statbuf.st_ino,
+		   devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
   }
@@ -2515,13 +2552,13 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
   mtcp_restore_gzip_child_pid = gzip_child_pid;
   // Copy newname to save it too
   {
-  	int i;
-	for(i=0;ckpt_newname[i];i++){
-	  mtcp_ckpt_newname[i] = ckpt_newname[i];
-	}
-	mtcp_ckpt_newname[i] = '\0';
+    int i;
+    for(i=0;ckpt_newname[i];i++){
+      mtcp_ckpt_newname[i] = ckpt_newname[i];
+    }
+    mtcp_ckpt_newname[i] = '\0';
   }
-	
+
 
 #ifndef __x86_64__
   // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
@@ -2582,7 +2619,7 @@ static void finishrestore (void)
   DPRINTF (("mtcp finishrestore*: mtcp_printf works; libc should work\n"));
 
   if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
-  	// we start from different place - change it!
+    // we start from different place - change it!
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
     memcpy (temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);
@@ -2599,7 +2636,7 @@ static void finishrestore (void)
   /* Fill in the new mother process id */
   motherpid = mtcp_sys_getpid();
 
-  /* Call another routine because our internal stack is wacked and we can't have local vars */
+  /* Call another routine because our internal stack is whacked and we can't have local vars */
 
   ///JA: v54b port
   // so restarthread will have a big stack
@@ -2684,8 +2721,7 @@ static int restarthread (void *threadv)
       mtcp_abort();
     }
     /* If running under DMTCP */
-    if (dmtcp_info_pid_virtualization_enabled == 1) 
-    {
+    if (dmtcp_info_pid_virtualization_enabled == 1) {
       tid = syscall(SYS_clone, restarthread,
           (void *)(child -> savctx.SAVEDSP - 128),  // -128 for red zone
           (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
@@ -2854,5 +2890,3 @@ static void sync_shared_mem(void)
 
   close (mapsfd);
 }
-
-

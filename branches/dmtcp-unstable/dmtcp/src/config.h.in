@@ -75,5 +75,8 @@
 /* Record timing information to stderr and jtimings.csv */
 #undef TIMING
 
+/* Use unique filenames for checkpoint images */
+#undef UNIQUE_CHECKPOINT_FILENAMES
+
 /* Version number of package */
 #undef VERSION

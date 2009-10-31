@@ -670,6 +670,7 @@ enable_option_checking
 enable_debug
 enable_quiet
 enable_timing
+enable_unique_checkpoint_filenames
 enable_pid_virtualization
 enable_forked_checkpointing
 enable_allocator
@@ -1315,6 +1316,10 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
+  --enable-unique-checkpoint-filenames
+                          By default, successive checkpoints are written to
+                          the same filename. Enable if each successive
+                          checkpoint should be a unique filename.
   --disable-pid-virtualization
                           disable pid virtualization. Pid virtualization is
                           needed for checkpointing shells and certain other
@@ -3246,6 +3251,13 @@ if test "${enable_timing+set}" = set; then
   enableval=$enable_timing; use_jtiming=$enableval
 else
   use_jtiming=no
+fi
+
+# Check whether --enable-unique_checkpoint_filenames was given.
+if test "${enable_unique_checkpoint_filenames+set}" = set; then
+  enableval=$enable_unique_checkpoint_filenames; use_unique_checkpoint_filenames=$enableval
+else
+  use_unique_checkpoint_filenames=no
 fi
 
 # Check whether --enable-pid_virtualization was given.
