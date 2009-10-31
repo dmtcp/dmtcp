@@ -133,6 +133,9 @@ const char* dmtcp::UniquePid::checkpointFilename()
     os << CHECKPOINT_FILE_PREFIX
        << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+       << "_0000"
+#endif
        << ".dmtcp";
 
     checkpointFilename_str = os.str();

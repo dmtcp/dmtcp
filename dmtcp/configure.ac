@@ -1,8 +1,8 @@
-AC_INIT([dmtcp],[1.01])
+AC_INIT([DMTCP],[1.1.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
 
 AM_CONFIG_HEADER([src/config.h])
 AM_INIT_AUTOMAKE([dmtcp], [1.01])
-AM_PROG_LIBTOOL
+#AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
 AC_PROG_CC
@@ -59,6 +59,19 @@ if test "$use_forked_ckpt" = "yes"; then
 fi
 
 
+AC_ARG_ENABLE([unique_checkpoint_filenames],
+            [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
+                            [By default, successive checkpoints are written
+                            to the same filename.  Enable if each successive
+			    checkpoint should be a unique filename.])],
+            [use_unique_checkpoint_filenames=$enableval],
+            [use_unique_checkpoint_filenames=no])
+
+if test "$use_unique_checkpoint_filenames" = "yes"; then
+  AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[],[Use unique filenames for checkpoint images])
+fi
+
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
@@ -94,4 +107,3 @@ AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 AC_DEFINE([DMTCP],[],[Always enable this.])
 
 AC_OUTPUT(Makefile src/Makefile)
-

@@ -420,21 +420,22 @@ int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return sigprocmask(how, set, oldset);
 }
 
+
 /********************************************************************************************************************************/
-/*                                                                                                                              */
-/*  This routine must be called at startup time to initiate checkpointing                                                       */
-/*                                                                                                                              */
-/*    Input:                                                                                                                    */
-/*                                                                                                                              */
-/*  checkpointfilename = name to give the checkpoint file                                                                       */
-/*  interval = interval, in seconds, to write the checkpoint file                                                               */
-/*  clonenabledefault = 0 : clone checkpointing blocked by default (call mtcp_ok in the thread to enable)                       */
-/*                      1 : clone checkpointing enabled by default (call mtcp_no in the thread to block if you want)            */
-/*                                                                                                                              */
-/*  envar MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers (default libc.??.so)                                    */
-/*  envar MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by doing a restore to resume                                     */
-/*                                 default is 0, ie, don't ever verify                                                          */
-/*                                                                                                                              */
+/*																*/
+/*  This routine must be called at startup time to initiate checkpointing							*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	checkpointfilename = name to give the checkpoint file									*/
+/*	interval = interval, in seconds, to write the checkpoint file								*/
+/*	clonenabledefault = 0 : clone checkpointing blocked by default (call mtcp_ok in the thread to enable)			*/
+/*	                    1 : clone checkpointing enabled by default (call mtcp_no in the thread to block if you want)	*/
+/*																*/
+/*	envar MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers (default libc.??.so)				*/
+/*	envar MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by doing a restore to resume					*/
+/*	                               default is 0, ie, don't ever verify							*/
+/*																*/
 /********************************************************************************************************************************/
 /* These hook functions provide an alternative to DMTCP callbacks, using
  * weak symbols.  While MTCP is immature, let's allow both, in case
@@ -796,32 +797,32 @@ void mtcp_dump_tls (char const *file, int line)
   }
 #endif
 }
-
+
 /*****************************************************************************/
-/*                       */
-/*  This is our clone system call wrapper             */
-/*                       */
-/*    Note:                     */
-/*                       */
-/*      pthread_create eventually calls __clone to create threads       */
-/*      It uses flags = 0x3D0F00:               */
-/*        CLONE_VM = VM shared between processes                 */
-/*        CLONE_FS = fs info shared between processes (root, cwd, umask) */
-/*     CLONE_FILES = open files shared between processes (fd table)       */
-/*   CLONE_SIGHAND = signal handlers and blocked signals shared       */
-/*          (sigaction common to parent and child)      */
-/*    CLONE_THREAD = add to same thread group           */
-/*   CLONE_SYSVSEM = share system V SEM_UNDO semantics         */
-/*    CLONE_SETTLS = create a new TLS for the child from newtls parameter*/
-/*   CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)    */
-/*  CLONE_CHILD_CLEARTID = clear the TID in the child and do a       */
-/*         futex wake at that address         */
-/*        CLONE_DETACHED = create clone detached           */
-/*                       */
+/*									     */
+/*  This is our clone system call wrapper				     */
+/*									     */
+/*    Note:								     */
+/*									     */
+/*      pthread_create eventually calls __clone to create threads	     */
+/*      It uses flags = 0x3D0F00:					     */
+/*	      CLONE_VM = VM shared between processes			     */
+/*	      CLONE_FS = fs info shared between processes (root, cwd, umask) */
+/*	   CLONE_FILES = open files shared between processes (fd table)	     */
+/*	 CLONE_SIGHAND = signal handlers and blocked signals shared	     */
+/*	 			 (sigaction common to parent and child)	     */
+/*	  CLONE_THREAD = add to same thread group			     */
+/*	 CLONE_SYSVSEM = share system V SEM_UNDO semantics		     */
+/*	  CLONE_SETTLS = create a new TLS for the child from newtls parameter*/
+/*	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)    */
+/*	CLONE_CHILD_CLEARTID = clear the TID in the child and do	     */
+/*				 futex wake at that address		     */
+/*	      CLONE_DETACHED = create clone detached			     */
+/*									     */
 /*****************************************************************************/
 
 int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
-       int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
+	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
 {
   int rc;
   Thread *thread;
@@ -847,9 +848,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     }
 
     DPRINTF (("mtcp wrapper clone*: calling clone thread=%p,"
-        " fn=%p, flags=0x%X\n", thread, fn, flags));
+	      " fn=%p, flags=0x%X\n", thread, fn, flags));
     DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p,"
-        " child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
+	      " child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
     //asm volatile ("int3");
 
     /* Save exactly what the caller is supplying */
@@ -858,8 +859,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     thread -> parent_tidptr = parent_tidptr;
     thread -> given_tidptr  = child_tidptr;
 
-    /* We need the CLEARTID feature so we can detect           */
-    /*   when the thread has exited               */
+    /* We need the CLEARTID feature so we can detect			     */
+    /*   when the thread has exited					     */
     /* So if the caller doesn't want it, we enable it                        */
     /* Retain what the caller originally gave us so we can pass the tid back */
 
@@ -868,7 +869,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     }
     thread -> actual_tidptr = child_tidptr;
     DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n",
-        thread, thread -> actual_tidptr));
+	      thread, thread -> actual_tidptr));
 
     /* Alter call parameters, forcing CLEARTID and make it call the wrapper routine */
 
@@ -892,7 +893,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   } else {
     DPRINTF (("mtcp wrapper clone*: clone rc=%d\n", rc));
   }
- 
+
   /*************************************************************************/
   /*  Code added to keep record of new tasks and processes in a file       */
   /*************************************************************************/
@@ -954,13 +955,13 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 }
 
 asm (".global clone ; .type clone,@function ; clone = __clone");
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  This routine is called (via clone) as the top-level routine of a thread that we are tracking.        */
-/*                                */
-/*  It fills in remaining items of our thread struct, calls the user function, then cleans up the thread struct before exiting.  */
-/*                                */
+/*																*/
+/*  This routine is called (via clone) as the top-level routine of a thread that we are tracking.				*/
+/*																*/
+/*  It fills in remaining items of our thread struct, calls the user function, then cleans up the thread struct before exiting.	*/
+/*																*/
 /********************************************************************************************************************************/
 
 static int threadcloned (void *threadv)
@@ -1037,13 +1038,13 @@ static int threadcloned (void *threadv)
 
   return (rc);
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  set_tid_address wrapper routine                        */
-/*                                */
-/*  We save the new address of the tidptr that will get cleared when the thread exits            */
-/*                                */
+/*																*/
+/*  set_tid_address wrapper routine												*/
+/*																*/
+/*  We save the new address of the tidptr that will get cleared when the thread exits						*/
+/*																*/
 /********************************************************************************************************************************/
 
 static long set_tid_address (int *tidptr)
@@ -1058,22 +1059,22 @@ static long set_tid_address (int *tidptr)
   mtcp_sys_set_tid_address(tidptr);
   return (rc);                       // now we tell kernel to change it for the current thread
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Link thread struct to the lists and finish filling it in                  */
-/*                                */
-/*    Input:                              */
-/*                                */
-/*  thread = thread to set up                        */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  thread linked to 'threads' list and 'motherofall' tree                  */
-/*  thread -> tid = filled in with thread id                    */
-/*  thread -> state = ST_RUNDISABLED (thread initially has checkpointing disabled)            */
-/*  signal handler set up                          */
-/*                                */
+/*																*/
+/*  Link thread struct to the lists and finish filling it in									*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	thread = thread to set up												*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	thread linked to 'threads' list and 'motherofall' tree									*/
+/*	thread -> tid = filled in with thread id										*/
+/*	thread -> state = ST_RUNDISABLED (thread initially has checkpointing disabled)						*/
+/*	signal handler set up													*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void setupthread (Thread *thread)
@@ -1107,15 +1108,15 @@ static void setupthread (Thread *thread)
 
   setup_sig_handler ();
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Set up 'clone_entry' variable                        */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  clone_entry = points to clone routine within libc.so                  */
-/*                                */
+/*																*/
+/*  Set up 'clone_entry' variable												*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	clone_entry = points to clone routine within libc.so									*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void setup_clone_entry (void)
@@ -1157,21 +1158,21 @@ static void setup_clone_entry (void)
 
   clone_entry = mtcp_get_libc_symbol ("__clone");
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Thread has exited - unlink it from lists and free struct                  */
-/*                                */
-/*    Input:                              */
-/*                                */
-/*  thread = thread that has exited                        */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  thread removed from 'threads' list and motherofall tree                  */
-/*  thread pointer no longer valid                        */
-/*  checkpointer woken if waiting for this thread                    */
-/*                                */
+/*																*/
+/*  Thread has exited - unlink it from lists and free struct									*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	thread = thread that has exited												*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	thread removed from 'threads' list and motherofall tree									*/
+/*	thread pointer no longer valid												*/
+/*	checkpointer woken if waiting for this thread										*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void threadisdead (Thread *thread)
@@ -1223,7 +1224,7 @@ static void threadisdead (Thread *thread)
 
   free (thread);
 }
-
+
 void *mtcp_get_libc_symbol (char const *name)
 
 {
@@ -1237,11 +1238,10 @@ void *mtcp_get_libc_symbol (char const *name)
   }
   return (temp);
 }
-
 /********************************************************************************************************************************/
-/*                                */
-/*  Call this when it's OK to checkpoint                      */
-/*                                */
+/*																*/
+/*  Call this when it's OK to checkpoint											*/
+/*																*/
 /********************************************************************************************************************************/
 
 int mtcp_ok (void)
@@ -1336,9 +1336,11 @@ again:
     }
   }
 }
-
+
 /********************************************************************************************************************************/
-/* ptrace locking */
+/*																*/
+/*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.		*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void ptrace_unlock_inferiors()
@@ -1413,7 +1415,7 @@ static void *checkpointhread (void *dummy)
   DPRINTF (("mtcp checkpointhread*: %d started\n", mtcp_sys_kernel_gettid ()));
 
   /* Set up our restart point, ie, we get jumped to here after a restore */
-  
+
   ckpthread = getcurrenthread ();
   save_sig_state (ckpthread);
   save_tls_state (ckpthread);
@@ -1440,7 +1442,7 @@ static void *checkpointhread (void *dummy)
 
   verify_count = verify_total;
   DPRINTF (("After verify count mtcp checkpointhread*: %d started\n",
-      mtcp_sys_kernel_gettid ()));
+	    mtcp_sys_kernel_gettid ()));
 
   while (1) {
     int ptraced_by = 0;
@@ -1499,8 +1501,7 @@ static void *checkpointhread (void *dummy)
 
     /* Halt all other threads - force them to call stopthisthread                    */
     /* If any have blocked checkpointing, wait for them to unblock before signalling */
-    
-    
+
 rescan:
     needrescan = 0;
     lock_threads ();
@@ -1623,12 +1624,12 @@ again:
         /* Don't do anything to the checkpointhread (this) thread */
 
         case ST_CKPNTHREAD: {
-           break;
-         }
+          break;
+        }
 
-         /* Who knows? */
+        /* Who knows? */
 
-        default: {  
+        default: {
           DPRINTF (("mtcp checkpointhread*: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%d\n", 
                     mtcp_sys_kernel_gettid()));
           mtcp_abort ();
@@ -1661,7 +1662,7 @@ again:
       sync_shared_mem();
 
       DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) %d \n",
-         &callback_pre_ckpt,callback_pre_ckpt, mtcp_sys_kernel_gettid()));
+	       &callback_pre_ckpt,callback_pre_ckpt, mtcp_sys_kernel_gettid()));
       (*callback_pre_ckpt)();
     }
 
@@ -1680,15 +1681,15 @@ again:
       saved_sysinfo = mtcp_get_thread_sysinfo();
     /* Do this once.  It's the same for all threads. */
     saved_termios_exists = ( isatty(STDIN_FILENO)
-               && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+    			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
 
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p %d\n", mtcp_saved_break, mtcp_sys_kernel_gettid()));
 
     checkpointeverything ();
-  
+
     if(callback_post_ckpt != NULL){
         DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n"
-        ,&callback_post_ckpt,callback_post_ckpt));
+				,&callback_post_ckpt,callback_post_ckpt));
         (*callback_post_ckpt)(0);
     }
     if (showtiming) {
@@ -1712,7 +1713,7 @@ again:
       if (mtcp_state_value (&(thread -> state)) != ST_CKPNTHREAD) {
         if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();
     DPRINTF (("mtcp checkpointhread*: before futex %d\n", mtcp_sys_kernel_gettid()));
-        mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);  
+        mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
     DPRINTF (("mtcp checkpointhread*: after futex %d\n", mtcp_sys_kernel_gettid()));
       }
     }
@@ -1744,8 +1745,8 @@ static int test_use_compression(void)
   strtol(do_we_compress, &endptr, 0);
   if ( *do_we_compress == '\0' || *endptr != '\0' ) {
     mtcp_printf("WARNING: MTCP_GZIP/DMTCP_GZIP defined as %s (not a number)\n"
-          "  Checkpoint image will not be compressed.\n",
-          do_we_compress);
+	        "  Checkpoint image will not be compressed.\n",
+	        do_we_compress);
     do_we_compress = "0";
   }
   if ( 0 == strcmp(do_we_compress, "0") )
@@ -1795,13 +1796,12 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
   return fd;
 }
 
-
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  This routine is called from time-to-time to write a new checkpoint file.              */
-/*  It assumes all the threads are suspended.                      */
-/*                                */
+/*																*/
+/*  This routine is called from time-to-time to write a new checkpoint file.							*/
+/*  It assumes all the threads are suspended.											*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void checkpointeverything (void)
@@ -1840,17 +1840,17 @@ static void checkpointeverything (void)
                 "not be used.\n");
     use_compression = 0;
   }
-  
-  /* 3. Set gzip_path */
+  /* 3. Get gzip path */
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    mtcp_printf("WARNING: gzip not found.  Compression will not be used.\n");
+    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+                "not be used.\n");
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
   fd = mtcp_safe_open(temp_checkpointfilename,
-          O_CREAT | O_TRUNC | O_WRONLY, 0600);
+		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
   if (fd < 0) {
     mtcp_printf("mtcp.c: checkpointeverything: error creating %s: %s\n",
                 temp_checkpointfilename, strerror(mtcp_sys_errno));
@@ -1877,7 +1877,7 @@ static void checkpointeverything (void)
 #else
   if (mtcp_sys_break(0) != mtcp_saved_break)
     mtcp_printf("\n\n*** ERROR:  End of heap grew."
-    "  Continue at your own risk. ***\n\n\n");
+		"  Continue at your own risk. ***\n\n\n");
 #endif
 
   /* Drain stdin and stdout before checkpoint */
@@ -2177,7 +2177,7 @@ static void writefiledescrs (int fd)
         if ((linklen >= 0) || (errno != ENOENT)) { // probably was the proc/self/fd directory itself
           if (linklen < 0) {
             mtcp_printf ("mtcp writefiledescrs: error reading %s: %s\n",
-                   procfdname, strerror (errno));
+	                 procfdname, strerror (errno));
             mtcp_abort ();
           }
           linkbuf[linklen] = '\0';
@@ -2187,7 +2187,7 @@ static void writefiledescrs (int fd)
           rc = mtcp_safelstat (procfdname, &lstatbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
-                   procfdname, linkbuf, strerror (-rc));
+	                 procfdname, linkbuf, strerror (-rc));
             mtcp_abort ();
           }
 
@@ -2196,7 +2196,7 @@ static void writefiledescrs (int fd)
           rc = mtcp_safestat (linkbuf, &statbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
-                   procfdname, linkbuf, strerror (-rc));
+	                 procfdname, linkbuf, strerror (-rc));
           }
 
           /* Write state information to checkpoint file                                               */
@@ -2231,17 +2231,17 @@ static void writefiledescrs (int fd)
 }
 
 static void writememoryarea (int fd, Area *area, int stack_was_seen,
-           int vsyscall_exists)
+			     int vsyscall_exists)
 
 {
   /* Write corresponding descriptor to the file */
 
   if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] segment"
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] section"
               " %X at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] segment"
-            " %X at %p\n", area -> size, area -> addr));
+    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] section"
+    	      " %X at %p\n", area -> size, area -> addr));
   else if (!(area -> flags & MAP_ANONYMOUS))
     DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n",
               area -> size, area -> addr, area -> name, area -> offset));
@@ -2250,14 +2250,13 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
               area -> size, area -> addr));
   else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
                  " from %s + %X\n",
-     area -> size, area -> addr, area -> name, area -> offset));
+		 area -> size, area -> addr, area -> name, area -> offset));
 
   if ((area -> name[0]) == '\0') {
     void *brk = mtcp_sys_brk(NULL);
     if (brk > area -> addr && brk <= area -> addr + area -> size)
       mtcp_sys_strcpy(area -> name, "[heap]");
   }
-
 
   if ( 0 != strcmp(area -> name, "[vsyscall]")
        && ( (0 != strcmp(area -> name, "[vdso]")
@@ -2323,7 +2322,7 @@ static void writefile (int fd, void const *buff, size_t size)
       if (rc == 0) errno = EPIPE;
       if (rc <= 0) {
         mtcp_printf ("mtcp writefile: error writing from %p to %s: %s\n",
-                     bf, temp_checkpointfilename, strerror (errno));
+	             bf, temp_checkpointfilename, strerror (errno));
         mtcp_abort ();
       }
     }
@@ -2334,7 +2333,7 @@ static void writefile (int fd, void const *buff, size_t size)
     bf += rc;
   }
 }
-
+
 /*************************************************************************/
 /* Utilities for ptrace code                                             */
 /* IF ALL THESE FUNCTIONS MUST EXIST INSIDE mtcp.c AND NOT IN SEAPARATE  */
@@ -3504,20 +3503,20 @@ TODO: remove in future as GROUP restore becames stable
   DPRINTF(("ptrace_attach_threads: finished for %d\n", GETTID()));
 }
 
+
 /********************************************************************************************************************************/
-/*                                */
-/*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a   */
-/*  checkpoint                              */
-/*                                */
+/*																*/
+/*  This signal handler is forced by the main thread doing a 'mtcp_sys_kernel_tkill' to stop these threads so it can do a 	*/
+/*  checkpoint															*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void stopthisthread (int signum)
 
 {
-
   int rc;
   Thread *thread;
-  
+
 /*
   int has_ptrace_file = 0;  
   pid_t delete_ptrace_leader = -1;  
@@ -3574,7 +3573,7 @@ static void stopthisthread (int signum)
       /* Tell the checkpoint thread that we're all saved away */
       if (!mtcp_state_set (&(thread -> state), ST_SUSPENDED, ST_SUSPINPROG)) mtcp_abort ();  // tell checkpointhread all our context is saved
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);                            // wake checkpoint thread if it's waiting for me
- 
+
       /* Then we wait for the checkpoint thread to write the checkpoint file then wake us up */
       DPRINTF (("mtcp stopthisthread*: thread %d suspending\n", thread -> tid));
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
@@ -3632,25 +3631,24 @@ static void stopthisthread (int signum)
     }
   }
   DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
-        mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
-  ptrace_lock_inferiors();
-        
+	    mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
+	    ptrace_lock_inferiors();
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Wait for all threads to finish restoring their context, then release them all to continue on their way.      */
-/*                                */
-/*    Input:                              */
-/*                                */
-/*  restoreinprog = number of threads, including this, that hasn't called 'wait_for_all_restored' yet      */
-/*  thread list locked                          */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  restoreinprog = decremented                        */
-/*                  if now zero, all threads woken and thread list unlocked              */
-/*                                */
+/*																*/
+/*  Wait for all threads to finish restoring their context, then release them all to continue on their way.			*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	restoreinprog = number of threads, including this, that hasn't called 'wait_for_all_restored' yet			*/
+/*	thread list locked													*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	restoreinprog = decremented												*/
+/*	                if now zero, all threads woken and thread list unlocked							*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void wait_for_all_restored (void)
@@ -3685,11 +3683,11 @@ static void wait_for_all_restored (void)
     }
   }
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Save signal handlers and block signal delivery                    */
-/*                                */
+/*																*/
+/*  Save signal handlers and block signal delivery										*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void save_sig_state (Thread *thisthread)
@@ -3717,12 +3715,12 @@ static void save_sig_state (Thread *thisthread)
     }
   }
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Save state necessary for TLS restore                      */
-/*  Linux saves stuff in the GDT, switching it on a per-thread basis                */
-/*                                */
+/*																*/
+/*  Save state necessary for TLS restore											*/
+/*  Linux saves stuff in the GDT, switching it on a per-thread basis								*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void save_tls_state (Thread *thisthread)
@@ -3766,22 +3764,59 @@ static void save_tls_state (Thread *thisthread)
   }
 #endif
 }
+
+static void update_perm_filenae_generation(char * perm_checkpointfilename) {
+  int i;
+  int underscore_idx = 0;
+  int carry = 1; /* Force generation number to be incremented by 1 */
+  for (i = 0; perm_checkpointfilename[i] != '\0' ; i++)
+    if (perm_checkpointfilename[i] == '_')
+      underscore_idx = i;
+  if (perm_checkpointfilename[underscore_idx] != '_')
+    return;
+  if (perm_checkpointfilename[underscore_idx+1] < '0'
+      || perm_checkpointfilename[underscore_idx+1] > '9'
+      || perm_checkpointfilename[underscore_idx+2] < '0'
+      || perm_checkpointfilename[underscore_idx+2] > '9'
+      || perm_checkpointfilename[underscore_idx+3] < '0'
+      || perm_checkpointfilename[underscore_idx+3] > '9'
+      || perm_checkpointfilename[underscore_idx+4] < '0'
+      || perm_checkpointfilename[underscore_idx+4] > '9'
+      || perm_checkpointfilename[underscore_idx+5] != '.'
+      || perm_checkpointfilename[underscore_idx+6] != 'd'
+      || perm_checkpointfilename[underscore_idx+7] != 'm'
+      || perm_checkpointfilename[underscore_idx+8] != 't'
+      || perm_checkpointfilename[underscore_idx+9] != 'c'
+      || perm_checkpointfilename[underscore_idx+10] != 'p')
+    return;
+  for (i = underscore_idx+4; i > underscore_idx; i--) {
+    perm_checkpointfilename[i] += carry;
+    if (perm_checkpointfilename[i] > '9') {
+      perm_checkpointfilename[i] -= 10;
+      carry = 1;
+    } else {
+       carry = 0;
+    }
+  }
+}
 
 static void renametempoverperm (void)
 
 {
+  update_perm_filenae_generation(perm_checkpointfilename);
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n", temp_checkpointfilename, perm_checkpointfilename, strerror (errno));
+    mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n",  			temp_checkpointfilename, perm_checkpointfilename,
+		 strerror (errno));
     mtcp_abort ();
   }
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Get current thread struct pointer                        */
-/*  It is keyed by the calling thread's gettid value                    */
-/*  Maybe improve someday by using TLS                        */
-/*                                */
+/*																*/
+/*  Get current thread struct pointer												*/
+/*  It is keyed by the calling thread's gettid value										*/
+/*  Maybe improve someday by using TLS												*/
+/*																*/
 /********************************************************************************************************************************/
 
 static Thread *getcurrenthread (void)
@@ -3802,11 +3837,11 @@ static Thread *getcurrenthread (void)
   mtcp_abort ();
   return thread; /* NOTREACHED : stop compiler warning */
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Lock and unlock the 'threads' list                        */
-/*                                */
+/*																*/
+/*  Lock and unlock the 'threads' list												*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void lock_threads (void)
@@ -3825,29 +3860,29 @@ static void unlk_threads (void)
   mtcp_state_set(&threadslocked , 0, 1);
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Read /proc/self/maps line, converting it to an Area descriptor struct              */
-/*                                */
-/*    Input:                              */
-/*                                */
-/*  mapsfd = /proc/self/maps file, positioned to beginning of a line              */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  readmapsline = 0 : was at end-of-file, nothing read                  */
-/*                 1 : read and processed one line                    */
-/*  *area = filled in                          */
-/*                                */
-/*    Note:                              */
-/*                                */
-/*  Line from /procs/self/maps is in form:                      */
-/*                                */
-/*  <startaddr>-<endaddrexclusive> rwxs <fileoffset> <devmaj>:<devmin> <inode>    <filename>\n        */
-/*  all numbers in hexadecimal except inode is in decimal                  */
-/*  anonymous will be shown with offset=devmaj=devmin=inode=0 and no '     filename'          */
-/*                                */
+/*																*/
+/*  Read /proc/self/maps line, converting it to an Area descriptor struct							*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	mapsfd = /proc/self/maps file, positioned to beginning of a line							*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	readmapsline = 0 : was at end-of-file, nothing read									*/
+/*	               1 : read and processed one line										*/
+/*	*area = filled in													*/
+/*																*/
+/*    Note:															*/
+/*																*/
+/*	Line from /procs/self/maps is in form:											*/
+/*																*/
+/*	<startaddr>-<endaddrexclusive> rwxs <fileoffset> <devmaj>:<devmin> <inode>    <filename>\n				*/
+/*	all numbers in hexadecimal except inode is in decimal									*/
+/*	anonymous will be shown with offset=devmaj=devmin=inode=0 and no '     filename'					*/
+/*																*/
 /********************************************************************************************************************************/
 
 static int readmapsline (int mapsfd, Area *area)
@@ -3902,8 +3937,8 @@ static int readmapsline (int mapsfd, Area *area)
   if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
       || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0  ) { /* if nscd active*/
   }
-  else if (area -> name[0] == '/'                  /* if an absolute pathname */
-           && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
+  else if (area -> name[0] == '/'                 /* if an absolute pathname */
+	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
     rc = mtcp_safestat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
@@ -3913,8 +3948,9 @@ static int readmapsline (int mapsfd, Area *area)
     devnum = makedev (devmajor, devminor);
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
       mtcp_printf ("ERROR:  mtcp readmapsline: image %s dev:inode %X:%u"
-                   " not eq maps %X:%u\n",
-                   area -> name, statbuf.st_dev, statbuf.st_ino, devnum, inodenum);
+		   " not eq maps %X:%u\n",
+                   area -> name, statbuf.st_dev, statbuf.st_ino,
+		   devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
   }
@@ -3948,31 +3984,30 @@ skipeol:
   mtcp_abort ();
   return (0);  /* NOTREACHED : stop compiler warning */
 }
-
-/********************************************************************************************************************************/
-/*                                */
-/*  Do restore from checkpoint file                        */
-/*  This routine is called from the mtcp_restore program to perform the restore              */
-/*  It resides in the mtcp.so image in exactly the same spot that the checkpointed process had its mtcp.so loaded at, so this   */
-/*    can't possibly interfere with restoring the checkpointed process                */
-/*  The restore can't use malloc because that might create memory sections.              */
-/*  Strerror seems to mess up with its Locale stuff in here too.                */
-/*                                */
-/*    Input:                              */
-/*                                */
-/*  fd = checkpoint file, positioned just after the CS_RESTOREIMAGE data              */
-/*                                */
+
+/*																*/
+/*  Do restore from checkpoint file												*/
+/*  This routine is called from the mtcp_restore program to perform the restore							*/
+/*  It resides in the mtcp.so image in exactly the same spot that the checkpointed process had its mtcp.so loaded at, so this 	*/
+/*    can't possibly interfere with restoring the checkpointed process								*/
+/*  The restore can't use malloc because that might create memory sections.							*/
+/*  Strerror seems to mess up with its Locale stuff in here too.								*/
+/*																*/
+/*    Input:															*/
+/*																*/
+/*	fd = checkpoint file, positioned just after the CS_RESTOREIMAGE data							*/
+/*																*/
 /********************************************************************************************************************************/
 
 #define STRINGS_LEN 10000
 static char STRINGS[STRINGS_LEN];
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
-                         char *cmd_file, char *argv[], char *envp[] )
+			 char *cmd_file, char *argv[], char *envp[] )
 
-{ 
+{
 #ifndef __x86_64__
   int i;
-   char *strings = STRINGS;
+  char *strings = STRINGS;
 #endif
 
   DEBUG_RESTARTING = 1;
@@ -4000,23 +4035,23 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
     }
     mtcp_ckpt_newname[i] = '\0';
   }
-  
+
 
 #ifndef __x86_64__
   // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   strings = STRINGS;
-  // This version of STRCPY copies source string into STRINGS bugger,
+  // This version of STRCPY copies source string into STRINGS,
   // and sets destination string to point there.
 # define STRCPY(x,y) \
-  if (strings + 256 < STRINGS + STRINGS_LEN) { \
-    mtcp_sys_strcpy(strings,y); \
-    x = strings; \
-    strings += mtcp_sys_strlen(y) + 1; \
-  } else { \
-    DPRINTF(("MTCP:  ran out of string space." \
-             "  Trying to continue anyway\n")); \
-  }
+	if (strings + 256 < STRINGS + STRINGS_LEN) { \
+	  mtcp_sys_strcpy(strings,y); \
+	  x = strings; \
+	  strings += mtcp_sys_strlen(y) + 1; \
+	} else { \
+	  DPRINTF(("MTCP:  ran out of string space." \
+		   "  Trying to continue anyway\n")); \
+	}
   STRCPY(mtcp_restore_cmd_file, cmd_file);
   for (i = 0; argv[i] != NULL; i++) {
     STRCPY(mtcp_restore_argv[i], argv[i]);
@@ -4034,7 +4069,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
                 /* This next assembly language confuses gdb,
-                   but seems to work fine anyway */
+		   but seems to work fine anyway */
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
                 : : "g" (extendedStack) : "memory");
 
@@ -4047,9 +4082,9 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 }
 
 /********************************************************************************************************************************/
-/*                                */
-/*  The original program's memory and files have been restored                  */
-/*                                */
+/*																*/
+/*  The original program's memory and files have been restored									*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void finishrestore (void)
@@ -4060,7 +4095,7 @@ static void finishrestore (void)
 
   DPRINTF (("mtcp finishrestore*: mtcp_printf works\n"));
 
-  if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ){
+  if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
@@ -4070,20 +4105,20 @@ static void finishrestore (void)
 
   mtcp_sys_gettimeofday (&stopped, NULL);
   stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000 - restorestarted.tv_usec;
-  DPRINTF (("mtcp finishrestore*: time %u uS\n", stopped.tv_usec));
+  TPRINTF (("mtcp finishrestore*: time %u uS\n", stopped.tv_usec));
 
   /* Now we can access all our files and memory that existed at the time of the checkpoint  */
   /* We are still on the temporary stack, though                                            */
 
   /* Fill in the new mother process id */
   motherpid = mtcp_sys_getpid();
-  /* Call another routine because our internal stack is wacked and we can't have local vars */
+
+  /* Call another routine because our internal stack is whacked and we can't have local vars */
 
   ///JA: v54b port
   // so restarthread will have a big stack
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
-                : : "g" (motherofall -> savctx.SAVEDSP - 128 ) : "memory");  // -128 for red zone
-    
+		: : "g" (motherofall -> savctx.SAVEDSP - 128 ) : "memory");  // -128 for red zone
   restarthread (motherofall);
 }
 
@@ -4103,12 +4138,11 @@ static int restarthread (void *threadv)
 
     if (callback_post_ckpt != NULL) {
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1=restarting)"
-              " (&%x,%x) \n",
-              &callback_post_ckpt, callback_post_ckpt));
+		 " (&%x,%x) \n",
+		 &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(1);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
-
     /* Do it once only, in motherofall thread. */
     /*
     if (saved_termios_exists)
@@ -4213,15 +4247,15 @@ static int restarthread (void *threadv)
   mtcp_abort ();
   return (0); /* NOTREACHED : stop compiler warning */
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Restore the GDT entries that are part of a thread's state                  */
-/*                                */
-/*  The kernel provides set_thread_area system call for a thread to alter a particular range of GDT entries, and it switches   */
-/*  those entries on a per-thread basis.  So from our perspective, this is per-thread state that is saved outside user     */
-/*  addressable memory that must be manually saved.                    */
-/*                                */
+/*																*/
+/*  Restore the GDT entries that are part of a thread's state									*/
+/*																*/
+/*  The kernel provides set_thread_area system call for a thread to alter a particular range of GDT entries, and it switches 	*/
+/*  those entries on a per-thread basis.  So from our perspective, this is per-thread state that is saved outside user 		*/
+/*  addressable memory that must be manually saved.										*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void restore_tls_state (Thread *thisthread)
@@ -4280,16 +4314,16 @@ static void restore_tls_state (Thread *thisthread)
 
   thisthread -> tid = mtcp_sys_kernel_gettid ();
 }
-
+
 /********************************************************************************************************************************/
-/*                                */
-/*  Set the thread's STOPSIGNAL handler.  Threads are sent STOPSIGNAL when they are to suspend execution the application, save   */
-/*  their state and wait for the checkpointhread to write the checkpoint file.              */
-/*                                */
-/*    Output:                              */
-/*                                */
-/*  Calling thread will call stopthisthread () when sent a STOPSIGNAL              */
-/*                                */
+/*																*/
+/*  Set the thread's STOPSIGNAL handler.  Threads are sent STOPSIGNAL when they are to suspend execution the application, save 	*/
+/*  their state and wait for the checkpointhread to write the checkpoint file.							*/
+/*																*/
+/*    Output:															*/
+/*																*/
+/*	Calling thread will call stopthisthread () when sent a STOPSIGNAL							*/
+/*																*/
 /********************************************************************************************************************************/
 
 static void setup_sig_handler (void)
@@ -4307,7 +4341,7 @@ static void setup_sig_handler (void)
     mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).\n"
                  " You may employ a different signal by setting the\n"
                  " environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
-                 " to the number\n of the signal MTCP should "
+		 " to the number\n of the signal MTCP should "
                  "use for checkpointing.\n", STOPSIGNAL, oldhandler);
     mtcp_abort ();
   }
