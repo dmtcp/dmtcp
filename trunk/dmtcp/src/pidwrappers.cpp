@@ -41,6 +41,10 @@
 
 #ifdef PID_VIRTUALIZATION                                                         
 
+static pid_t gettid();
+static int tkill(int tid, int sig);
+static int tgkill(int tgid, int tid, int sig);
+
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
   pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
@@ -107,12 +111,20 @@ extern "C" long int syscall(long int sys_num, ... )
       return gettid(); 
       break;
     case SYS_tkill:{
-      pid_t pid = va_arg(ap, pid_t);
-      int currentTid = originalToCurrentPid ( pid );
+      int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
 //      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
-      return _real_syscall(SYS_tkill,currentTid,sig); 
+      return tkill(tid,sig); 
+      break;
+    }
+    case SYS_tgkill:{
+      int tgid = va_arg(ap, int);
+      int tid = va_arg(ap, int);
+      int sig = va_arg(ap, int);
+      va_end(ap);
+//      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
+      return tgkill(tgid,tid,sig); 
       break;
     }
     case SYS_clone:
@@ -229,14 +241,14 @@ extern "C" int   kill(pid_t pid, int sig)
   return _real_kill (currPid, sig);
 }
 
-extern "C" int   tkill(int tid, int sig)
+static int   tkill(int tid, int sig)
 {
   int currentTid = originalToCurrentPid ( tid );
   
   return _real_tkill ( currentTid, sig );
 }
 
-extern "C" int   tgkill(int tgid, int tid, int sig)
+static int   tgkill(int tgid, int tid, int sig)
 {
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );

@@ -25,6 +25,7 @@
 #include <string>
 #include <sstream>
 #include <fcntl.h>
+#include <sys/syscall.h>
 #include "constants.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
@@ -311,6 +312,26 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
   return true;
 }
 
+void dmtcp::VirtualPidTable::refresh()
+{
+  updateRootOfProcessTree();//      _isRootOfProcessTree = true;
+  refreshChildTable();
+  refreshTidVector();
+}
+
+void dmtcp::VirtualPidTable::refreshTidVector()
+{
+  dmtcp::vector< pid_t >::iterator iter;
+  for (iter = _tidVector.begin(); iter != _tidVector.end(); ++iter) {
+    int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
+    if (retVal == -1 && errno == ESRCH) {
+      _tidVector.erase( iter );
+      erase(*iter);
+    }
+  }
+  return;
+}
+
 void dmtcp::VirtualPidTable::refreshChildTable()
 {
   int status;
@@ -330,7 +351,8 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 
   if (o.isWriter()){
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
-    refreshChildTable();
+    //refreshChildTable();
+    //refreshTidVector();
   }
 
   o & _isRootOfProcessTree & _sid & _ppid;
@@ -409,6 +431,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
       originalPid = i->first;
       currentPid  = i->second;
       serializePidMapEntry ( o, originalPid, currentPid );
+      JTRACE("PidMaps: ") (originalPid) (currentPid);
     }
   }
   else
@@ -417,6 +440,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
     {
       serializePidMapEntry ( o, originalPid, currentPid );
       _pidMapTable[originalPid] = currentPid;
+      JTRACE("PidMaps: ") (originalPid) (currentPid);
     }
   }
 }

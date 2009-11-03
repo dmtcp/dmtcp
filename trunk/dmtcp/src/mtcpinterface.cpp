@@ -221,10 +221,12 @@ int thread_start(void *arg)
 
   dmtcp::VirtualPidTable::Instance().updateMapping ( original_tid, tid );
 
-  JTRACE ( "Calling user function" );
+  JTRACE ( "Calling user function" ) (original_tid);
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
+
+  JTRACE ( "Thread returned:" ) (original_tid);
   
   /* 
    * This thread has finished its execution, do some cleanup on our part.

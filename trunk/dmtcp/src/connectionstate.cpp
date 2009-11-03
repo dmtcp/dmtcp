@@ -150,6 +150,7 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
   _conToFds.serialize ( wr );
 
 #ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().refresh( );
   dmtcp::VirtualPidTable::Instance().serialize( wr );
 #endif
 }
