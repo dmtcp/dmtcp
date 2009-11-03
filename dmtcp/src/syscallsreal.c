@@ -315,11 +315,13 @@ int   _real_kill(pid_t pid, int sig) {
 }
 
 int   _real_tkill(int tid, int sig) {
-  REAL_FUNC_PASSTHROUGH ( tkill ) ( tid, sig );
+  return (int) _real_syscall(SYS_tkill, tid, sig);
+  //REAL_FUNC_PASSTHROUGH ( tkill ) ( tid, sig );
 }
 
 int   _real_tgkill(int tgid, int tid, int sig) {
-  REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
+  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
+  //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
 }
 
 pid_t _real_wait(__WAIT_STATUS stat_loc) {

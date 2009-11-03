@@ -63,7 +63,9 @@ namespace dmtcp
 
       void  prepareForExec();
 
+      void refresh();
       void refreshChildTable();
+      void refreshTidVector();
 
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
