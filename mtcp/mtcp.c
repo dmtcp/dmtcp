@@ -212,6 +212,8 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
+static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
+static char const *dev_null_deleted_str = "/dev/null (deleted)";
 //static char const *perm_checkpointfilename = NULL;
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[MAXPATHLEN];
@@ -1724,9 +1726,24 @@ static void checkpointeverything (void)
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
-    // Consider skipping deleted sections when we know when they're so labelled
-    // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
-    // if (strstr(area.name, " (deleted)")) continue;
+    // If the process has an area labelled as "/dev/zero (deleted)", we mark
+    //   the area as Anonymous and save the contents to the ckpt image file.
+    // IF this area has a MAP_SHARED attribute, it should be replaced with
+    //   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is an
+    //   absolute source and sink. Anything written to it will be discarded and
+    //   anything read from it will be all zeros.
+    // The following call to mmap will create "/dev/zero (deleted)" area
+    //         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
+    //
+    // The above explanation also applies to "/dev/null (deleted)"
+ 
+    if ( strncmp (area.name, dev_zero_deleted_str, strlen(dev_zero_deleted_str)) == 0 
+        || strncmp (area.name, dev_null_deleted_str, strlen(dev_null_deleted_str)) == 0 ) {
+      DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n", area.name));
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      area.name[0] = '\0';
+    }
+
 
     /* Special Case Handling: nscd is enabled*/
     if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
@@ -1743,7 +1760,7 @@ static void checkpointeverything (void)
         mtcp_abort();
       }
 
-      if ( mmap(area.addr, area.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0) 
+      if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0) 
            == MAP_FAILED ){
         mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", 
                      strerror (mtcp_sys_errno));

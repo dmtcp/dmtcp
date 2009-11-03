@@ -320,9 +320,12 @@ runTest("dmtcp1",        1, ["./test/dmtcp1"])
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
 # dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
+# Also, it needs some extra time to startup
+S=3
 os.environ['DMTCP_GZIP'] = "1" 
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
 os.environ['DMTCP_GZIP'] = GZIP
+S=0.3
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
