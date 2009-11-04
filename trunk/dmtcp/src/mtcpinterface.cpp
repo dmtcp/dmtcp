@@ -227,8 +227,7 @@ int thread_start(void *arg)
    * participate in checkpoint. Decrement the unInitializedThreadCount in
    * DmtcpWorker.
    */ 
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
-    dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
+  dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
@@ -277,7 +276,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   // call _get_mtcp_symbol again on the newly relocated mtcp.so .
   cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
-  JTRACE ( "forwarding user's clone call to mtcp" );
+  //JTRACE ( "forwarding user's clone call to mtcp" );
 
 #ifndef PID_VIRTUALIZATION
   if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
@@ -295,7 +294,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * (Make sure to unlock before returning from this function)
    * Also increment the uninitialized thread count.
    */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+  {
     JTRACE("Aquiring wrapperProtectionLock");
     dmtcp::DmtcpWorker::wrapperProtectionLock();
     dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
@@ -333,8 +332,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
-      if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
-        dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
+      dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
       break;
     }
 
@@ -363,7 +361,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   }
 
   /* Release the wrapperExeution lock */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+  {
     dmtcp::DmtcpWorker::wrapperProtectionUnlock();
     JTRACE("Releasing wrapperProtectionLock");
   }

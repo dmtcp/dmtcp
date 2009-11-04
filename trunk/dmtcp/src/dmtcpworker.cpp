@@ -44,6 +44,26 @@
 #include <sys/wait.h>
 
 
+/* Read-write lock initializers.  */
+#ifdef __USE_GNU
+# if __WORDSIZE == 64
+#  define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
+ { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,					      \
+       PTHREAD_RWLOCK_PREFER_WRITER_NP } }
+# else
+#  if __BYTE_ORDER == __LITTLE_ENDIAN
+#   define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
+ { { 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NP, \
+     0, 0, 0, 0 } }
+#  else
+#   define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
+ { { 0, 0, 0, 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NP,\
+     0 } }
+#  endif
+# endif
+#endif
+
+
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 /* 
@@ -282,6 +302,12 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
+  pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
+  theWrapperProtectionLock = newLock;
+  unInitializedThreadCountLock = newCountLock;
+  unInitializedThreadCount = 0;
+  WorkerState::setCurrentState( WorkerState::UNKNOWN); 
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
 }
@@ -583,11 +609,17 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 }
 
 void dmtcp::DmtcpWorker::wrapperProtectionLock(){
-  JASSERT(pthread_rwlock_rdlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  int saved_errno = errno;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) 
+    JASSERT(pthread_rwlock_rdlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  errno = saved_errno;
 }
 
 void dmtcp::DmtcpWorker::wrapperProtectionUnlock(){
-  JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  int saved_errno = errno;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) 
+    JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  errno = saved_errno;
 }
 
 void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
@@ -598,18 +630,26 @@ void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
 }
 
 void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount(){
-  JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
-  unInitializedThreadCount++;
-  JTRACE(":") (unInitializedThreadCount);
-  JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  int saved_errno = errno;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+    unInitializedThreadCount++;
+    JTRACE(":") (unInitializedThreadCount);
+    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  }
+  errno = saved_errno;
 }
 
 void dmtcp::DmtcpWorker::decrementUnInitializedThreadCount(){
-  JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
-  JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
-  unInitializedThreadCount--;
-  JTRACE(":") (unInitializedThreadCount);
-  JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  int saved_errno = errno;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+    JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
+    unInitializedThreadCount--;
+    JTRACE(":") (unInitializedThreadCount);
+    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  }
+  errno = saved_errno;
 }
 
 void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
