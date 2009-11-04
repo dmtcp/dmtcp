@@ -61,6 +61,13 @@ namespace dmtcp
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
 
+      static void wrapperProtectionLock();
+      static void wrapperProtectionUnlock();
+
+      static void waitForThreadsToFinishInitialization();
+      static void incrementUnInitializedThreadCount();
+      static void decrementUnInitializedThreadCount();
+
       void connectToCoordinator(bool doHanshaking=true);
       void sendCoordinatorHandshake(const dmtcp::string& procName);
       void recvCoordinatorHandshake();
