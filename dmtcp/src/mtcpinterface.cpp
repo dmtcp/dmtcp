@@ -223,6 +223,13 @@ int thread_start(void *arg)
 
   JTRACE ( "Calling user function" ) (original_tid);
 
+  /* Thread finished initialization, its now safe for this thread to
+   * participate in checkpoint. Decrement the unInitializedThreadCount in
+   * DmtcpWorker.
+   */ 
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
+    dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
+
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
 
@@ -284,11 +291,16 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     
 #else
 
-/* 
- * Undefine the macro DISABLE_TID_CONFLICT_HANDLING to enable tid conflict handling
- * TID conflict handling is fragile right now
- */
-//#define DISABLE_CONFLICT_HANDLING
+  /* Acquire the wrapperExeution lock 
+   * (Make sure to unlock before returning from this function)
+   * Also increment the uninitialized thread count.
+   */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    JTRACE("Aquiring wrapperProtectionLock");
+    dmtcp::DmtcpWorker::wrapperProtectionLock();
+    dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
+    JTRACE("After Aquiring wrapperProtectionLock");
+  }
 
   pid_t originalTid = -1;
 
@@ -314,24 +326,21 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ( "forwarding user's clone call to mtcp" );
       tid = ( *realclone ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     } else {
-#ifdef DISABLE_CONFLICT_HANDLING
-      tid = _real_clone ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
-#else
       tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
-#endif
     }
 
-    if (tid == -1)
+    if (tid == -1) {
+      /* If clone() failed, decrement the uninitialized thread count, since
+       * there is none
+       */
+      if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
+        dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
       break;
+    }
 
     if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if required.) */
-#ifndef DISABLE_CONFLICT_HANDLING
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
-#else
-      JASSERT (false) (tid) .Text ( "TID Conflict Detected!" );
-#endif
-
     } else {
       JTRACE ("New Thread Created") (tid);
       if (originalTid != -1)
@@ -351,6 +360,12 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       }
       break;
     }
+  }
+
+  /* Release the wrapperExeution lock */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+    JTRACE("Releasing wrapperProtectionLock");
   }
 
   return tid;

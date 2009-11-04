@@ -46,6 +46,37 @@
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+/* 
+ * WrapperProtectionLock is used to make the checkpoint safe by making sure that
+ *   no user-thread is executing any DMTCP wrapper code when it receives the
+ *   checkpoint signal. 
+ * Working: 
+ *   On entering the wrapper in DMTCP, the user-thread acquires the read lock,
+ *     and releases it before leaving the wrapper.
+ *   When the Checkpoint-thread wants to send the SUSPEND signal to user
+ *     threads, it must acquire the write lock. It is blocked until all the
+ *     existing read-locks by user threads have been released. NOTE that this is
+ *     a WRITER-PREFERRED lock.
+ *
+ * There is a corner case too -- the newly created thread that has not been
+ *   initialized yet; we need to take some extra efforts for that. 
+ * Here are the steps to handle the newly created uninitialized thread:
+ *   A counter for the number of newly created uninitialized threads is kept.
+ *     The counter is made thread safe by using a mutex.
+ *   The calling thread (parent) increments the counter before calling clone.
+ *   The newly created child thread decrements the counter at the end of
+ *     initialization in MTCP/DMTCP.
+ *   After acquiring the Write lock, the checkpoint thread waits until the
+ *     number of uninitialized threads is zero. At that point, no thread is
+ *     executing in the clone wrapper and it is safe to do a checkpoint.
+ *                       
+ * XXX: Currently this security is provided only for the clone wrapper; this
+ * should be extended to other calls as well.           -- KAPIL
+ */
+static pthread_rwlock_t theWrapperProtectionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
+static int unInitializedThreadCount = 0;
+
 bool dmtcp::DmtcpWorker::_stdErrMasked = false;
 bool dmtcp::DmtcpWorker::_stdErrClosed = false;
 
@@ -296,16 +327,23 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
 
   JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
-
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+
+  JTRACE ( "got SUSPEND signal, waiting for other threads to exit DMTCP-Wrappers" );
+  JASSERT(pthread_rwlock_wrlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  JTRACE ( "got SUSPEND signal, waiting for newly created threads to finish initialization" )(unInitializedThreadCount);
+  waitForThreadsToFinishInitialization();
+
   JTRACE ( "Starting checkpoint, suspending..." );
 }
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
+  JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   {
@@ -542,6 +580,36 @@ void dmtcp::DmtcpWorker::delayCheckpointsLock(){
 
 void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+}
+
+void dmtcp::DmtcpWorker::wrapperProtectionLock(){
+  JASSERT(pthread_rwlock_rdlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+}
+
+void dmtcp::DmtcpWorker::wrapperProtectionUnlock(){
+  JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+}
+
+void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
+  JTRACE(":") (unInitializedThreadCount);
+  while (unInitializedThreadCount != 0) {
+    sleep(0.1);
+  }
+}
+
+void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount(){
+  JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  unInitializedThreadCount++;
+  JTRACE(":") (unInitializedThreadCount);
+  JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+}
+
+void dmtcp::DmtcpWorker::decrementUnInitializedThreadCount(){
+  JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
+  JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
+  unInitializedThreadCount--;
+  JTRACE(":") (unInitializedThreadCount);
+  JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
 }
 
 void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
