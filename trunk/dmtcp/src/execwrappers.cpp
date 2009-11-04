@@ -239,21 +239,15 @@ static int ptsname_r_work ( int fd, char * buf, size_t buflen )
 
 extern "C" char *ptsname ( int fd )
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
-
+  /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
   JTRACE ( "ptsname() promoted to ptsname_r()" );
   static char tmpbuf[1024];
 
-  if ( ptsname_r_work ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
+  if ( ptsname_r ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
   {
-    JTRACE("Releasing wrapperProtectionLock");
-    dmtcp::DmtcpWorker::wrapperProtectionLock();
     return NULL;
   }
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
   return tmpbuf;
 }
 
@@ -265,7 +259,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
   int retVal = ptsname_r_work(fd, buf, buflen);
 
   JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
 
   return retVal;
 }
@@ -273,7 +267,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
   JTRACE("Aquiring wrapperProtectionLock");
-  //dmtcp::DmtcpWorker::wrapperProtectionLock();
+  dmtcp::DmtcpWorker::wrapperProtectionLock();
 
   JASSERT ( sv != NULL );
   int rv = _real_socketpair ( d,type,protocol,sv );
@@ -289,7 +283,7 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   dmtcp::KernelDeviceToConnection::Instance().create ( sv[1] , b );
 
   JTRACE("Releasing wrapperProtectionLock");
-  //dmtcp::DmtcpWorker::wrapperProtectionLock();
+  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
 
   return rv;
 }
