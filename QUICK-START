@@ -237,23 +237,31 @@ SHORT NOTES:
         any other convinient SIGNUM above.
 
     14. Using DMTCP with X-Windows:
+	Note that this method does not work with X extensions like OpenGL.
+	If someone wishes to extend this method to OpenGL, we have some
+	ideas for an approach that we can share.  Also, this method does
+	not currently successfully checkpoint an xterm, for reasons that
+	we do not fully understand.  We will look further into this later
+	when time and resources permit.
+
 	Install TightVNC (either as a package from your Linux distro,
 	or at:  http://www.tightvnc.com/
 	with installation instructions at:
 	  http://www.tightvnc.com/doc/unix/README.txt
 
         If the server fails to start, you may need to specify the location of
-        fonts on your system. Do this by editing the "vncserver" Perl script (which
-        you put in your path above).  Modify the $fontPath variable to point to your
-        font directories. For example, I listed all of the subdirectories of
-        /usr/share/fonts/ in the fontPath.
+        fonts on your system. Do this by editing the "vncserver" Perl script
+	(which you put in your path above).  Modify the $fontPath variable
+	to point to your font directories. For example, I listed all of the
+	subdirectories of /usr/share/fonts/ in the fontPath.
 
         The processes started up automatically by the VNC server are listed in
         the ~/.vnc/xstartup file. Use the following as your ~/.vnc/xstartup,
-        where we use the blackbox window manager and the xterm application as an example:
+        where we use the blackbox window manager and an x_app application
+	as an example:
            #!/bin/csh
            blackbox &
-           xterm
+           x_app
 
         You should test that you can use the vncserver and vncviewer now.
         This example uses desktop number 1:
@@ -274,23 +282,26 @@ SHORT NOTES:
         Now, start the VNC server under checkpointing control:
            dmtcp_checkpoint vncserver :1
 
-        Use the VNC viewer to view your xterm application in the blackbox window manager:
+        Use the VNC viewer to view your x_app application in the blackbox
+	window manager:
            vncviewer localhost:1
 
-        Before checkpointing, close the vncviewer. It can be reopened again after
+        Before checkpointing, close any xterm windows.  Also, close
+	the vncviewer itself.  They can be reopened again after
         the checkpoint has completed.
 
         [Optional] To verify that vncserver is running under checkpoint control:
            dmtcp_command h
            dmtcp_command s
 
-        To checkpoint the VNC server, xterm, and any other processes running under
-        the VNC server, remove any old checkpoint files, and type:
+        To checkpoint the VNC server, x_app, and any other processes running
+	under the VNC server, remove any old checkpoint files, and type:
            rm -f ckpt_*.dmtcp
            dmtcp_command --checkpoint
 
-        This creates a file of the form ckpt_*.dmtcp for each process being checkpointed.
-        To kill the vncviewer and restart, use the restart script:
+        This creates a file of the form ckpt_*.dmtcp for each process being
+	checkpointed.  To kill the vncviewer and restart,
+	use the restart script:
            vncserver -kill :1
            # This script assumes dmtcp_restart is in your path.  If not,
            #  modify the script to replace dmtcp_restart by a full path to it.
