@@ -35,6 +35,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+/*
+ * XXX: TODO: Add wrapper protection for socket() family of system calls
+ */
+
 //////////////////////////////////////
 //////// Now we define our wrappers
 

@@ -162,6 +162,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
   
+  WorkerState::setCurrentState( WorkerState::UNKNOWN); 
+
   JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
@@ -625,7 +627,8 @@ void dmtcp::DmtcpWorker::wrapperProtectionUnlock(){
 void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
   JTRACE(":") (unInitializedThreadCount);
   while (unInitializedThreadCount != 0) {
-    sleep(0.1);
+    struct timespec sleepTime = {0, 10*1000*1000};
+    nanosleep(&sleepTime, NULL);
   }
 }
 
