@@ -324,7 +324,8 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_getdents64(args...)  mtcp_inline_syscall(getdents64,3,args)
 #endif
 
-#define mtcp_sys_fcntl(args...) mtcp_inline_syscall(fcntl,2,args)
+#define mtcp_sys_fcntl2(args...) mtcp_inline_syscall(fcntl,2,args)
+#define mtcp_sys_fcntl3(args...) mtcp_inline_syscall(fcntl,3,args)
 #define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdir,2,args)
 
 /* These functions are not defined for x86_64. */

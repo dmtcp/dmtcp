@@ -167,7 +167,8 @@ static void readcs (int fd, char cs)
 
 static void readfile(int fd, void *buf, size_t size)
 {
-  size_t rc, ar;
+  ssize_t rc;
+  size_t ar;
 
   ar = 0;
 
@@ -191,7 +192,8 @@ static void readfile(int fd, void *buf, size_t size)
 
 static void skipfile(int fd, size_t size)
 {
-  size_t rc, ar;
+  ssize_t rc;
+  size_t ar;
   char array[512];
   ar = 0;
 

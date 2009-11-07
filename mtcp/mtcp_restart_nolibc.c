@@ -80,6 +80,7 @@ static void skipfile(size_t size);
 static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
                                      VA * stack_end_addr);
 static int open_shared_file(char* fileName);
+static void lock_file(int fd, char* name, short l_type);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
@@ -385,7 +386,6 @@ static void readmemoryareas (void)
   char cstype;
   int flags, imagefd, rc;
   void *mmappedat;
-  int areaContentsAlreadyRead = 0;
 /* make check:  stale-fd and forkexec fail (and others?) with this turned on. */
 #if 0
   /* If not using gzip decompression, then use mmapfile instead of readfile. */
@@ -395,6 +395,7 @@ static void readmemoryareas (void)
 #endif
 
   while (1) {
+    int areaContentsAlreadyRead = 0;
     int try_skipping_existing_segment = 0;
 
     readfile (&cstype, sizeof cstype);
@@ -548,6 +549,16 @@ static void readmemoryareas (void)
 	/*  duplicate the work of the first process, with no ill effect.*/
         imagefd = open_shared_file(area.name);
 
+        /* Acquire write lock on the file before writing anything to it 
+         * If we don't, then there is a weird RACE going on between the
+         * restarting processes which causes problems with mmap()ed area for
+         * this file and hence the restart fails. We still don't know the
+         * reason for it.                                       --KAPIL 
+         * NOTE that we don't need to unlock the file as it will be
+         * automatically done when we close it.
+         */
+        lock_file(imagefd, area.name, F_WRLCK);
+
         // create a temp area in the memory exactly of the size of the
         // shared file.  We read the contents of the shared file from
 	// checkpoint file(.mtcp) into system memory. From system memory,
@@ -588,6 +599,13 @@ static void readmemoryareas (void)
 		       mtcp_sys_errno, area.name);
           mtcp_abort ();
         }
+      } else if (imagefd >= 0 && (area.prot & MAP_SHARED)) {
+        /* Acquire read lock on the shared file before doing an mmap. See
+         * detailed comments above.
+         */
+        DPRINTF(("Acquiring lock on shared file :%s\n", area.name));
+        lock_file(imagefd, area.name, F_RDLCK); 
+        DPRINTF(("After Acquiring lock on shared file :%s\n", area.name));
       }
 
     /* CASE NOT MAP_ANONYMOUS, MAP_PRIVATE, backing file doesn't exist:	     */
@@ -636,7 +654,8 @@ static void readmemoryareas (void)
 	     || (0 == mtcp_sys_access(area.name, X_OK)) ) {
            mtcp_printf ("mtcp_restart_nolibc: mapping %s with data from ckpt image\n",
 			area.name);
-          readfile (area.addr, area.size);
+           readfile (area.addr, area.size);
+           mtcp_sys_close (imagefd); // don't leave dangling fd
 	}
 	// If we have no write permission on file, then we should use data
 	//   from version of file at restart-time (not from checkpoint-time).
@@ -651,8 +670,6 @@ static void readmemoryareas (void)
 			area.name, __FILE__, __LINE__);
           skipfile (area.size);
 	}
-	if (imagefd >= 0)
-          mtcp_sys_close (imagefd); // don't leave dangling fd
       }
     }
   if (area.name && mystrstr(area.name, "[heap]")
@@ -676,7 +693,8 @@ static void readcs (char cs)
 
 static void readfile(void *buf, size_t size)
 {
-    size_t rc, ar;
+    ssize_t rc;
+    size_t ar;
     ar = 0;
 
     while(ar != size)
@@ -700,7 +718,8 @@ static void readfile(void *buf, size_t size)
 static void mmapfile(void *buf, size_t size, int prot, int flags)
 {
     void *addr;
-    int rc, ar;
+    off_t rc;
+    size_t ar;
     ar = 0;
 
     /* Use mmap for this portion of checkpoint image. */
@@ -720,7 +739,8 @@ static void mmapfile(void *buf, size_t size, int prot, int flags)
 
 static void skipfile(size_t size)
 {
-    size_t rc, ar;
+    size_t ar;
+    ssize_t rc;
     ar = 0;
     char array[512];
 
@@ -877,6 +897,27 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
 #endif
 
 #if 1
+static void lock_file(int fd, char* name, short l_type)
+{
+  struct flock fl;
+
+  fl.l_type   = l_type;   /* F_RDLCK, F_WRLCK, F_UNLCK    */
+  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+  fl.l_start  = 0;        /* Offset from l_whence         */
+  fl.l_len    = 0;        /* length, 0 = to EOF           */
+
+  int result = -1;
+  mtcp_sys_errno = 0;
+  while (result == -1 || mtcp_sys_errno == EINTR )
+    result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+
+  if ( result == -1 ) {
+    mtcp_printf("mtcp_restart_nolibc lock_file: error %d locking shared file: %s\n",
+        mtcp_sys_errno, name);
+    mtcp_abort();
+  }
+}
+
 static int open_shared_file(char* fileName)
 {
   int i;
