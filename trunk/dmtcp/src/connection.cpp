@@ -300,7 +300,7 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
     case TCP_BIND:
     case TCP_LISTEN:
     {
-      JWARNING (  (_sockDomain == AF_INET || _sockDomain == AF_UNIX ) && _sockType == SOCK_STREAM )
+      JWARNING (  (_sockDomain == AF_INET || _sockDomain == AF_UNIX || _sockDomain == AF_INET6) && _sockType == SOCK_STREAM )
         ( id() )
         ( _sockDomain )
         ( _sockType )
