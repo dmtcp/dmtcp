@@ -1878,7 +1878,7 @@ static void writefiledescrs (int fd)
   int doff, dsiz, fddir, fdnum, linklen, rc;
   off_t offset;
   struct dirent *dent;
-  struct Stat lstatbuf, statbuf;
+  struct stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
 
@@ -1920,7 +1920,7 @@ static void writefiledescrs (int fd)
 
           /* Read about the link itself so we know read/write open flags */
 
-          rc = mtcp_safelstat (procfdname, &lstatbuf);
+          rc = lstat (procfdname, &lstatbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
@@ -1929,7 +1929,7 @@ static void writefiledescrs (int fd)
 
           /* Read about the actual file open on the fd */
 
-          rc = mtcp_safestat (linkbuf, &statbuf);
+          rc = stat (linkbuf, &statbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
@@ -2429,7 +2429,7 @@ static int readmapsline (int mapsfd, Area *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i, rc;
-  struct Stat statbuf;
+  struct stat statbuf;
   VA devmajor, devminor, devnum, endaddr, inodenum, startaddr;
 
   c = mtcp_readhex (mapsfd, &startaddr);
@@ -2478,7 +2478,7 @@ static int readmapsline (int mapsfd, Area *area)
   }
   else if (area -> name[0] == '/'                 /* if an absolute pathname */
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
-    rc = mtcp_safestat (area -> name, &statbuf);
+    rc = stat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
                    -rc, area -> name);
