@@ -140,7 +140,6 @@ int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpo
 
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
-typedef struct Stat Stat;
 
 struct Area { void *addr;   // args required for mmap to restore memory area
               size_t size;
@@ -155,10 +154,6 @@ struct Area { void *addr;   // args required for mmap to restore memory area
 //                 uByte fpusave[232];
 //               };
 
-struct Stat { uLong st_mode;
-              uLong st_dev;
-              uLong st_ino;
-            };
 #define CS_STACKRLIMIT 101   // saved stack resource limit of this process
 #define CS_RESTOREBEGIN 1    // beginning address of restore shareable image
 #define CS_RESTORESIZE 2     // size (in bytes) of restore shareable image
