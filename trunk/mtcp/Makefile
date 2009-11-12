@@ -137,20 +137,20 @@ threadtest: threadtest.c
 
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
-	mtcp_safemmap.o mtcp_safestat.o mtcp_state.o mtcp_safe_open.o \
+	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o
 	${CC} $(CFLAGS) -static \
     -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
-    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o \
+    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
     mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
-# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o
+# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_state.o
 # 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 # 	${CC} $(CFLAGS) -shared \
 # 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
-# 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_safestat.o mtcp_state.o \
+# 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
 # This is the shareable that a user links with the application
@@ -181,7 +181,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
-	mtcp_safemmap.o mtcp_safestat.o mtcp_safe_open.o \
+	mtcp_safemmap.o mtcp_safe_open.o \
 	mtcp_state.o mtcp_check_vdso.o
 
 # for libtools -- not used
@@ -244,9 +244,6 @@ mtcp_readhexetc.o: mtcp_readhexetc.c mtcp_internal.h
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
-
-mtcp_safestat.o: mtcp_safestat.c mtcp_internal.h glibc_kernel_stat.h
-	${CC} $(CFLAGS) -c -o mtcp_safestat.o mtcp_safestat.c
 
 mtcp_state.o: mtcp_state.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_state.o mtcp_state.c
