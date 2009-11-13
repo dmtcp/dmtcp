@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 
   char linkbuf[FILENAMESIZE];
   int fdnum, flags, linklen, tempfd;
-  struct Stat statbuf;
+  struct stat statbuf;
 
   off_t offset;
   Area area;
