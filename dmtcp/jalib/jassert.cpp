@@ -33,13 +33,12 @@
 #undef JASSERT_CONT_B
 
 int jassert_quiet = 0;
-
 /*
-   When updating value of DUP_STDERR_FD, the same value should be updated
-   in mtcp_printf.c. The two consts must always in sync.
+   The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
+   PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
 */
-static const int DUP_STDERR_FD = 826;
-static const int DUP_LOG_FD    = 827;
+static const int DUP_STDERR_FD = 826; // PFD(5)
+static const int DUP_LOG_FD    = 827; // PFD(6)
 
 int jassert_internal::jassert_console_fd()
 {
