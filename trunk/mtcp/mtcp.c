@@ -207,6 +207,9 @@ Area mtcp_libc_area;               // some area of that libc.so
 /* DMTCP Info Variables */
 
 int dmtcp_info_pid_virtualization_enabled = -1;
+/* The following two DMTCP Info variables are defined in mtcp_printf.c */
+//int dmtcp_info_stderr_fd = 2;
+//int dmtcp_info_jassertlog_fd = -1;
 
 	/* Static data */
 

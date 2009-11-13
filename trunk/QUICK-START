@@ -132,6 +132,8 @@ SHORT NOTES:
             DMTCP sets up barriers so that all processes proceed to the
             following states together during checkpoint: RUNNING, SUSPENDED,
             LOCKED, DRAINED, CHECKPOINTED, REFILLED.
+            - Currently DMTCP will not work with --enable-debug and
+              --enable-pid-virtualization. This will be fixed.
          B. To enable debug statements from MTCP (single-process component),
             do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
@@ -228,13 +230,15 @@ SHORT NOTES:
         make
         make check
 
-        dmtcp_checkpoint --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
+        dmtcp_checkpoint mpirun ./hello_mpi
         dmtcp_command --checkpoint
 
         ./dmtcp_restart_script.sh
 
-        DMTCP uses SIGUSR2 as default and so does OpenMPI so we need to choose
-        any other convinient SIGNUM above.
+        DMTCP uses SIGUSR2 as default and so do older versions of OpenMPI.
+        If you have an older version (e.g < 1.3), try choosing a different
+        value of SIGNUM for DMTCP as follows:
+        dmtcp_checkpoint --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
 
     14. Using DMTCP with X-Windows:
 	Note that this method does not work with X extensions like OpenGL.

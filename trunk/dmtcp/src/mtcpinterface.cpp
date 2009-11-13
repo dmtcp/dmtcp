@@ -37,6 +37,7 @@
 #include "protectedfds.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
+
 namespace
 {
   static const char* REOPEN_MTCP = ( char* ) 0x1;
@@ -151,6 +152,16 @@ void dmtcp::initializeMtcpEngine()
   *dmtcp_info_pid_virtualization_enabled_ptr = 1;
 #else
   *dmtcp_info_pid_virtualization_enabled_ptr = 0;
+#endif 
+
+  int *dmtcp_info_stderr_fd = 
+    (int*) _get_mtcp_symbol( "dmtcp_info_stderr_fd" );
+  *dmtcp_info_stderr_fd = PROTECTED_STDERR_FD;
+
+#ifdef DEBUG
+  int *dmtcp_info_jassertlog_fd = 
+    (int*) _get_mtcp_symbol( "dmtcp_info_jassertlog_fd" );
+  *dmtcp_info_jassertlog_fd = PROTECTED_JASSERTLOG_FD;
 #endif 
 
   t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );

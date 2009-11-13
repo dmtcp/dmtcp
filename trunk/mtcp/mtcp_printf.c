@@ -40,19 +40,23 @@
 
 #include "mtcp_internal.h"
 
-#ifdef DMTCP
-/* 
-   File descriptor where all the debugging outputs should go.
-   This const is also defined by the same name in jassert.cpp.
-   These two consts must always be in sync.
- SHOULD THE CONSTANTS BE PASSED AS COMMAND LINE ARGUMENTS TO MTCP_RESTART?
-*/
-static const int DUP_STDERR_FD = 826; /* stderr */
-// static const int DUP_STDERR_FD = 827;    /* jassertlog */
-#else
-// Please don't change this.  It's needed for standalone MTCP debugging.
-static const int DUP_STDERR_FD = 2;
-#endif
+//#ifdef DMTCP
+///* 
+//   File descriptor where all the debugging outputs should go.
+//   This const is also defined by the same name in jassert.cpp.
+//   These two consts must always be in sync.
+// SHOULD THE CONSTANTS BE PASSED AS COMMAND LINE ARGUMENTS TO MTCP_RESTART?
+//*/
+//static const int DUP_STDERR_FD = 826; /* stderr */
+//// static const int DUP_STDERR_FD = 827;    /* jassertlog */
+//#else
+//// Please don't change this.  It's needed for standalone MTCP debugging.
+//static const int DUP_STDERR_FD = 2;
+//#endif
+
+int dmtcp_info_stderr_fd = 2;
+/* For the default value of -1, mtcp_printf() should not go to jassertlogs */
+int dmtcp_info_jassertlog_fd = -1;
 
 static char const hexdigits[] = "0123456789ABCDEF";
 static MtcpState printflocked = MTCP_STATE_INITIALIZER;
@@ -224,7 +228,14 @@ static void rwrite (char const *buff, int size)
   int offs, rc;
 
   for (offs = 0; offs < size; offs += rc) {
-    rc = mtcp_sys_write (DUP_STDERR_FD, buff + offs, size - offs);
+    rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
     if (rc <= 0) break;
+  }
+
+  if (dmtcp_info_jassertlog_fd != -1) {
+    for (offs = 0; offs < size; offs += rc) {
+      rc = mtcp_sys_write (dmtcp_info_jassertlog_fd, buff + offs, size - offs);
+      if (rc <= 0) break;
+    }
   }
 }
