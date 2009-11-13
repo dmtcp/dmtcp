@@ -31,6 +31,14 @@
 
 - Tab completion fails on tcsh. (?)
 
+- Wrapper protection lock for vfprintf (called by all functions of printf
+  family) and iofputs(used for )
+
+- Analyze why the return from maskstderr() and unmaskstderr() solves the problem.
+
+- --enable-debug  when combined with enable-pid-virtualization exposes some
+  problems which are visible in OpenMPI and some other programs.
+
 PID-VIRTUALIZATION:
 1. wait status of zombie processes
      Store status of those processes which were zombie at checkpoint time. If
