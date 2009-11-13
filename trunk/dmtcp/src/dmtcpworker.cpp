@@ -102,6 +102,7 @@ bool dmtcp::DmtcpWorker::_stdErrClosed = false;
 
 void dmtcp::DmtcpWorker::maskStdErr()
 {
+  return;
   if ( _stdErrMasked == true ) return;
 
   // if the stderr fd is already closed, we don't want to protect it
@@ -120,6 +121,7 @@ void dmtcp::DmtcpWorker::maskStdErr()
 
 void dmtcp::DmtcpWorker::unmaskStdErr()
 {
+  return;
   if ( _stdErrMasked == false ) return;
   
   int oldfd = PROTECTED_STDERR_FD;
@@ -523,6 +525,8 @@ void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
     }
     JTRACE ( "got resume signal" );
   }
+  JTRACE ( "masking stderr" );
+  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::writeTidMaps()

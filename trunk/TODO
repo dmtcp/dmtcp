@@ -21,5 +21,21 @@
           
 - Many more exotic fcntl()/ioctl() flags are not checkpointed
 
-- Fifos are not handled correctly, do any apps use them?
+- Should refuse to call DMTCP recursively, perhaps by maintaining
+  environment variable $DMTCPLVL (similar to $SHLVL), and refusing
+  to recurse if it's already 1.  (Maybe in the future, we might
+  support this.)
+
+- dmtcp_coordinator should refuse to allow other users to connect to it.
+  (Are there security issues with respect to spoofing, also?)
+
+- Tab completion fails on tcsh. (?)
+
+PID-VIRTUALIZATION:
+1. wait status of zombie processes
+     Store status of those processes which were zombie at checkpoint time. If
+     the parent process does a wait() system call for that child after restart
+     we should return its status.
+2. update dmtcp_restart.cpp to check and restore orphaned child processes at restart.
+3. better error handling for missing processes.
 
