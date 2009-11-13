@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=1.1.0
+VERSION=1.1.1
 
 #run a command with error checking
 e() {
@@ -33,7 +33,8 @@ e cd $STAGING
 e svn co https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp_staging
 
 REV=`getRev dmtcp_staging`
-NAME=dmtcp_$VERSION-r$REV
+NAME=dmtcp_$VERSION
+#NAME=dmtcp_$VERSION-r$REV
 
 e mv dmtcp_staging $NAME
 e rm -rf $NAME/{makeRelease.sh}
