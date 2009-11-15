@@ -140,7 +140,6 @@ int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpo
 
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
-typedef struct Stat Stat;
 
 struct Area { void *addr;   // args required for mmap to restore memory area
               size_t size;
@@ -154,11 +153,6 @@ struct Area { void *addr;   // args required for mmap to restore memory area
 //                 uLong eip;
 //                 uByte fpusave[232];
 //               };
-
-struct Stat { uLong st_mode;
-              uLong st_dev;
-              uLong st_ino;
-            };
 
 #define CS_RESTOREBEGIN 1    // beginning address of restore shareable image
 #define CS_RESTORESIZE 2     // size (in bytes) of restore shareable image
@@ -256,8 +250,6 @@ __attribute__ ((visibility ("hidden")))
    void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
 __attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
-int mtcp_safestat (char const *name, Stat *statbuf);
-int mtcp_safelstat (char const *name, Stat *statbuf);
 int mtcp_setjmp (Jmpbuf *jmpbuf);
 void mtcp_longjmp (Jmpbuf *jmpbuf, int retval);
 int mtcp_safe_open(char const *filename, int flags, mode_t mode);
