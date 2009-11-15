@@ -61,6 +61,7 @@
 #include <sys/types.h>     // for gettid, tkill, waitpid
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
+#include <gnu/libc-version.h>
 
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
@@ -127,9 +128,16 @@ if (DEBUG_RESTARTING) \
  *  struct list_head *prev;
  * } list_t;
  */
-#define TLS_PID_OFFSET \
-	 (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+
+#if __GLIBC_PREREQ (2,10)
+# define TLS_PID_OFFSET \
+	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+#else
+# define TLS_PID_OFFSET \
+	  (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+#endif
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
 #define GETTID() (int)syscall(SYS_gettid)
@@ -2670,7 +2678,7 @@ static int restarthread (void *threadv)
   int rip;
   Thread *child;
   Thread *const thread = threadv;
-  struct MtcpRestartThreadArg mtcpRestartThreadArg;
+  struct MtcpRestartThreadArg *mtcpRestartThreadArg;
 
   restore_tls_state (thread);
 
@@ -2719,9 +2727,10 @@ static int restarthread (void *threadv)
      *  clone call.
      *                                                           (--Kapil)
      */
-    mtcpRestartThreadArg.arg = (void *)child;
-    mtcpRestartThreadArg.original_tid = child -> original_tid;
-    clone_arg = (void *) &mtcpRestartThreadArg;
+    mtcpRestartThreadArg = (struct MtcpRestartThreadArg*) malloc(sizeof(struct MtcpRestartThreadArg));
+    mtcpRestartThreadArg->arg = (void *)child;
+    mtcpRestartThreadArg->original_tid = child -> original_tid;
+    clone_arg = (void *) mtcpRestartThreadArg;
 
     pid_t tid;
 
@@ -2752,6 +2761,7 @@ static int restarthread (void *threadv)
             (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
             child, child -> parent_tidptr, NULL, child -> actual_tidptr));
     }
+    free(mtcpRestartThreadArg);
 
     if (tid < 0) {
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
