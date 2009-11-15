@@ -127,8 +127,9 @@ if (DEBUG_RESTARTING) \
  *  struct list_head *next;
  *  struct list_head *prev;
  * } list_t;
+ *
+ * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
  */
-
 #if __GLIBC_PREREQ (2,10)
 # define TLS_PID_OFFSET \
 	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
@@ -2678,7 +2679,7 @@ static int restarthread (void *threadv)
   int rip;
   Thread *child;
   Thread *const thread = threadv;
-  struct MtcpRestartThreadArg *mtcpRestartThreadArg;
+  struct MtcpRestartThreadArg mtcpRestartThreadArg;
 
   restore_tls_state (thread);
 
@@ -2727,10 +2728,9 @@ static int restarthread (void *threadv)
      *  clone call.
      *                                                           (--Kapil)
      */
-    mtcpRestartThreadArg = (struct MtcpRestartThreadArg*) malloc(sizeof(struct MtcpRestartThreadArg));
-    mtcpRestartThreadArg->arg = (void *)child;
-    mtcpRestartThreadArg->original_tid = child -> original_tid;
-    clone_arg = (void *) mtcpRestartThreadArg;
+    mtcpRestartThreadArg.arg = (void *)child;
+    mtcpRestartThreadArg.original_tid = child -> original_tid;
+    clone_arg = (void *) &mtcpRestartThreadArg;
 
     pid_t tid;
 
@@ -2761,7 +2761,6 @@ static int restarthread (void *threadv)
             (child -> clone_flags & ~CLONE_SETTLS) | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID,
             child, child -> parent_tidptr, NULL, child -> actual_tidptr));
     }
-    free(mtcpRestartThreadArg);
 
     if (tid < 0) {
       mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);

@@ -283,7 +283,7 @@ static void readfiledescrs (void)
   char linkbuf[FILENAMESIZE];
   int fdnum, flags, linklen, tempfd;
   off_t offset;
-  struct Stat statbuf;
+  struct stat statbuf;
 
   readcs (CS_FILEDESCRS);
 

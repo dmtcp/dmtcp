@@ -61,6 +61,7 @@
 #include <sys/types.h>     // for gettid, tkill, waitpid
 #include <sys/wait.h>     // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
+#include <gnu/libc-version.h>
 #include <sys/ptrace.h>
 #include <sys/user.h>
 /* sys/user.h defines PAGE_SIZE and so do we in mtcp_internal.h.  We have to agree.
@@ -132,10 +133,17 @@ if (DEBUG_RESTARTING) \
  *  struct list_head *next;
  *  struct list_head *prev;
  * } list_t;
+ * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
  */
-#define TLS_PID_OFFSET \
-   (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+#if __GLIBC_PREREQ (2,10)
+# define TLS_PID_OFFSET \
+	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+#else
+# define TLS_PID_OFFSET \
+	  (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+#endif
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
 #define GETTID() (int)syscall(SYS_gettid)
@@ -2142,7 +2150,7 @@ static void writefiledescrs (int fd)
   int doff, dsiz, fddir, fdnum, linklen, rc;
   off_t offset;
   struct dirent *dent;
-  struct Stat lstatbuf, statbuf;
+  struct stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
 
@@ -2184,7 +2192,7 @@ static void writefiledescrs (int fd)
 
           /* Read about the link itself so we know read/write open flags */
 
-          rc = mtcp_safelstat (procfdname, &lstatbuf);
+          rc = lstat (procfdname, &lstatbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
@@ -2193,7 +2201,7 @@ static void writefiledescrs (int fd)
 
           /* Read about the actual file open on the fd */
 
-          rc = mtcp_safestat (linkbuf, &statbuf);
+          rc = stat (linkbuf, &statbuf);
           if (rc < 0) {
             mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
@@ -3890,7 +3898,7 @@ static int readmapsline (int mapsfd, Area *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i, rc;
-  struct Stat statbuf;
+  struct stat statbuf;
   VA devmajor, devminor, devnum, endaddr, inodenum, startaddr;
 
   c = mtcp_readhex (mapsfd, &startaddr);
@@ -3939,7 +3947,7 @@ static int readmapsline (int mapsfd, Area *area)
   }
   else if (area -> name[0] == '/'                 /* if an absolute pathname */
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
-    rc = mtcp_safestat (area -> name, &statbuf);
+    rc = stat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
                    -rc, area -> name);
