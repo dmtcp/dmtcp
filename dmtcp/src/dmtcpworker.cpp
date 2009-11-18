@@ -151,6 +151,21 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+
+  WorkerState::setCurrentState( WorkerState::UNKNOWN); 
+
+#ifdef DEBUG
+  /* Disable Jassert Logging */
+  dmtcp::UniquePid::ThisProcess(true);
+
+  dmtcp::ostringstream o;
+  o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_SET_LOGFILE (o.str());
+  JASSERT_INIT();
+
+  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
+#endif
+
   if ( getenv(ENV_VAR_UTILITY_DIR) == NULL ) {
     JNOTE ( "\n **** Not checkpointing this process,"
             " due to missing environment var ****" )
@@ -164,9 +179,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
   
-  WorkerState::setCurrentState( WorkerState::UNKNOWN); 
-
-  JASSERT_INIT();
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
 
@@ -561,6 +573,11 @@ void dmtcp::DmtcpWorker::writeTidMaps()
 void dmtcp::DmtcpWorker::postRestart()
 {
   unmaskStdErr();
+#ifdef DEBUG
+  dmtcp::ostringstream o;
+  o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_SET_LOGFILE (o.str());
+#endif
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);

@@ -127,8 +127,9 @@ void jassert_internal::set_log_file ( const jalib::string& path )
 static FILE* _initJassertOutputDevices()
 {
 #ifdef DEBUG
-  JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
-			+ "/jassertlog." + jalib::XToString ( getpid() ) );
+  if (theLogFile == NULL)
+    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
+                          + "/jassertlog." + jalib::XToString ( getpid() ) );
 #endif
 
   const char* errpath = getenv ( "JALIB_STDERR_PATH" );

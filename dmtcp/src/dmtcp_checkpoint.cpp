@@ -52,7 +52,8 @@ static const char* theUsage =
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store checkpoint images (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
-  "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
+  "      Directory to store temporary files \n"
+  "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, do not create one automatically\n"
   "  --new, -n:\n"
@@ -89,12 +90,16 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  dmtcp::ostringstream o;
   if (getenv(ENV_VAR_TMPDIR))
     {}
-  else if (getenv("TMPDIR"))
-    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
-  else
-    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+  else if (getenv("TMPDIR")) {
+    o << getenv("TMPDIR") << "/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
+  } else {
+    o << "/tmp/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
+  }
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -154,6 +159,10 @@ int main ( int argc, char** argv )
       break;
     }
   }
+
+  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
+    .Text("Error creating tmp directory");
+
   JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
     (getenv(ENV_VAR_TMPDIR))
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
