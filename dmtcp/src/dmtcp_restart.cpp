@@ -40,10 +40,6 @@
 
 static void runMtcpRestore ( const char* path, int offset );
 
-#ifdef PID_VIRTUALIZATION
-//static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid);
-#endif
-
 using namespace dmtcp;
 
 namespace
@@ -319,6 +315,11 @@ namespace
 
       void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd, jalib::JBinarySerializeWriterRaw& wr)
       {
+        dmtcp::ostringstream o;
+        o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << pid();
+        JASSERT_SET_LOGFILE(o.str());
+        JASSERT_INIT();
+
         //change UniquePid
         UniquePid::resetOnFork(pid());
         VirtualPidTable &vt = _virtualPidTable;
@@ -501,7 +502,8 @@ static const char* theUsage =
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
-  "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
+  "      Directory to store temporary files \n"
+  "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, do not create one automatically\n"
   "  --new, -n:\n"
@@ -520,7 +522,6 @@ dmtcp::vector<RestoreTarget> targets;
 
 #ifdef PID_VIRTUALIZATION
 static jalib::JBinarySerializeWriterRaw& createPidMapFile();
-//static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid);
 typedef struct {
   RestoreTarget *t;
   bool indep;
@@ -534,14 +535,20 @@ void SetupSessions();
 int main ( int argc, char** argv )
 {
   bool autoStartCoordinator=true;
+  bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  dmtcp::ostringstream o;
   if (getenv(ENV_VAR_TMPDIR))
     {}
-  else if (getenv("TMPDIR"))
-    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
-  else
-    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
+  else if (getenv("TMPDIR")) {
+    o << getenv("TMPDIR") << "/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
+    //setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
+  } else {
+    o << "/tmp/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
+  }
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -583,9 +590,14 @@ int main ( int argc, char** argv )
       break;
     }
   }
+
+  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
+    .Text("Error creating tmp directory");
+  
   JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
     (getenv(ENV_VAR_TMPDIR))
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
+
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   if (jassert_quiet == 0)
@@ -596,7 +608,7 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"-q\" to hide this message.)\n\n");
 
-  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
   JASSERT_INIT();
@@ -784,34 +796,6 @@ static jalib::JBinarySerializeWriterRaw& createPidMapFile()
   close (fd);
 
   return wr;
-}
-
-static void insertIntoPidMapFile(jalib::JBinarySerializer& o, pid_t originalPid, pid_t currentPid)
-{
-  struct flock fl;
-  int fd;
-
-  fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
-  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
-  fl.l_start  = 0;        /* Offset from l_whence         */
-  fl.l_len    = 0;        /* length, 0 = to EOF           */
-  fl.l_pid    = getpid(); /* our PID                      */
-
-  int result = -1;
-  errno = 0;
-  while (result == -1 || errno == EINTR )
-    result = fcntl(PROTECTED_PIDMAP_FD, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
-
-  JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
-
-  JTRACE ( "Serializing PID MAP Entry:" ) ( originalPid ) ( currentPid );
-  /* Write the mapping to the file*/
-  dmtcp::VirtualPidTable::serializePidMapEntry ( o, originalPid, currentPid );
-
-  fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
-  result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
-
-  JASSERT (result != -1 || errno == ENOLCK) .Text ( "Unlock Failed" ) ;
 }
 
 #endif

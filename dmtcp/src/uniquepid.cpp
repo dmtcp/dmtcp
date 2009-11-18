@@ -69,14 +69,15 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
-const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess()
+const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace)
 {
   if ( theProcess() == nullProcess() )
   {
     theProcess() = dmtcp::UniquePid ( theUniqueHostId() , 
                                       ::_real_getpid(), 
                                       ::time(NULL) );
-    JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
+    if (disableJTrace == false)
+      JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
   }
 
   return theProcess();

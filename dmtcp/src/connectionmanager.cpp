@@ -152,9 +152,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
-    }
-    else
-    {
+    } else {
       return deviceName;
     }
   }
@@ -197,9 +195,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
       return deviceName;
-    }
-    else
-    {
+    } else {
       return deviceName;
     }
   }
@@ -715,7 +711,7 @@ static int open_ckpt_to_read(const char *filename)
     {
         JASSERT(pipe(fds) != -1)(filename).Text("Cannote create pipe to execute gunzip to decompress checkpoint file!");
 
-        cpid = fork();
+        cpid = _real_fork();
 
         JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
         if(cpid > 0) /* parent process */
@@ -737,7 +733,7 @@ static int open_ckpt_to_read(const char *filename)
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
             _dmtcp_unsetenv("LD_PRELOAD");
-            execvp(gzip_path, (char **)gzip_args);
+            _real_execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
             JASSERT(false)("ERROR: Decompression failed!  No restoration will be performed!  Cancelling now!");
