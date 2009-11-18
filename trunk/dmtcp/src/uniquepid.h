@@ -38,7 +38,7 @@ namespace dmtcp
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
-    static const dmtcp::UniquePid& ThisProcess();
+    static const dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
     UniquePid ( long host, pid_t pd, time_t tm )
         : _pid ( pd ), _hostid ( host ), _time ( tm ) {}
