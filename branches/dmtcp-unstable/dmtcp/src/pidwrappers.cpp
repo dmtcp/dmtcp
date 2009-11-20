@@ -41,6 +41,10 @@
 
 #ifdef PID_VIRTUALIZATION                                                         
 
+static pid_t gettid();
+static int tkill(int tid, int sig);
+static int tgkill(int tgid, int tid, int sig);
+
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
   pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
@@ -107,12 +111,20 @@ extern "C" long int syscall(long int sys_num, ... )
       return gettid(); 
       break;
     case SYS_tkill:{
-      pid_t pid = va_arg(ap, pid_t);
-      int currentTid = originalToCurrentPid ( pid );
+      int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
 //      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
-      return _real_syscall(SYS_tkill,currentTid,sig); 
+      return tkill(tid,sig); 
+      break;
+    }
+    case SYS_tgkill:{
+      int tgid = va_arg(ap, int);
+      int tid = va_arg(ap, int);
+      int sig = va_arg(ap, int);
+      va_end(ap);
+//      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
+      return tgkill(tgid,tid,sig); 
       break;
     }
     case SYS_clone:
@@ -228,95 +240,13 @@ extern "C" int   kill(pid_t pid, int sig)
   return _real_kill (currPid, sig);
 }
 
-void change_path ( const char *path, char *newpath )
-{
-  char temp [ 10 ];
-  int index, oldPid, tempIndex, currentPid;
-  if (  path == "" || path == NULL )
-  {
-    newpath = "";
-    return;
-  }
-  if ( strncmp ( path, "/proc/", 6 ) == 0 )
-  {
-    index = 6;
-    tempIndex = 0;
-    while ( path [ index ] != '/' )
-    {
-      if ( path [ index ] > 47 && path [ index ] < 58 )
-        temp [ tempIndex++ ] = path [ index++ ];
-      else
-      {
-        strcpy ( newpath, path );
-        return;
-      }
-    }
-    temp [ tempIndex ] = '\0';
-    oldPid = atoi ( temp );
-    currentPid = originalToCurrentPid ( oldPid );
-    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
-  }
-  else strcpy ( newpath, path );
-  return;
-}
-
-extern "C" int open (const char *path, ... )
-{
-  va_list ap;
-  int flags;
-  mode_t mode;
-  int rc;
-  char newpath [ 1024 ] = {0} ;
-  int len,i;
-
-  // Handling the variable number of arguments
-  va_start( ap, path );
-  flags = va_arg ( ap, int );
-  mode = va_arg ( ap, mode_t );
-  va_end ( ap );
-
-  change_path ( path, newpath );
-  return _real_open( newpath, flags, mode );
-}
-
-extern "C" FILE *fopen (const char* path, const char* mode)
-{
-  char newpath [ 1024 ] = {0} ;
-
-  change_path ( path, newpath );
-  return _real_fopen ( newpath, mode );
-}
-
-extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p, 
-                                               td_thrinfo_t *ti_p) 
-{
-  td_err_e td_err;
-
-  td_err = _real_td_thr_get_info ( th_p, ti_p);
-  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
-  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
-  return td_err;
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. It should be safe to comment this out if you don't
-   need to checkpoint gdb.
-*/ 
-extern "C" void *dlsym ( void *handle, const char *symbol)
-{
-  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
-    return (void *) &_dmtcp_td_thr_get_info;
-  else 
-    return _real_dlsym ( handle, symbol );
-}
-
-extern "C" int   tkill(int tid, int sig)
+static int   tkill(int tid, int sig)
 {
   int currentTid = originalToCurrentPid ( tid );
   return _real_tkill ( currentTid, sig );
 }
 
-extern "C" int   tgkill(int tgid, int tid, int sig)
+static int   tgkill(int tgid, int tid, int sig)
 {
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
@@ -328,19 +258,6 @@ extern "C" int   tgkill(int tgid, int tid, int sig)
 //long sys_tgkill (int tgid, int pid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
-
-extern "C" pid_t wait (__WAIT_STATUS stat_loc)
-//extern "C" pid_t wait(int *stat_loc)
-{
-  pid_t retval = _real_wait (stat_loc);
-
-  pid_t pid = currentToOriginalPid (retval);
-
-  if ( pid > 0 )
-    dmtcp::VirtualPidTable::Instance().erase(pid);
-
-  return pid;
-}
 
 #define TRUE 1
 #define FALSE 0
@@ -367,6 +284,19 @@ typedef void ( *reset_pid_status_t) ( );
 extern "C" reset_pid_status_t reset_pid_status_ptr;
 
 extern "C" sigset_t signals_set;
+
+extern "C" pid_t wait (__WAIT_STATUS stat_loc)
+//extern "C" pid_t wait(int *stat_loc)
+{
+  pid_t retval = _real_wait (stat_loc);
+
+  pid_t pid = currentToOriginalPid (retval);
+
+  if ( pid > 0 )
+    dmtcp::VirtualPidTable::Instance().erase(pid);
+
+  return pid;
+}
 
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
@@ -479,6 +409,104 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
     dmtcp::VirtualPidTable::Instance().erase ( originalPid );
 
   return originalPid;
+}
+
+void change_path ( const char *path, char *newpath )
+{
+  char temp [ 10 ];
+  int index, oldPid, tempIndex, currentPid;
+  if (  path == "" || path == NULL )
+  {
+    newpath = "";
+    return;
+  }
+  if ( strncmp ( path, "/proc/", 6 ) == 0 )
+  {
+    index = 6;
+    tempIndex = 0;
+    while ( path [ index ] != '/' )
+    {
+      if ( path [ index ] > 47 && path [ index ] < 58 )
+        temp [ tempIndex++ ] = path [ index++ ];
+      else
+      {
+        strcpy ( newpath, path );
+        return;
+      }
+    }
+    temp [ tempIndex ] = '\0';
+    oldPid = atoi ( temp );
+    currentPid = originalToCurrentPid ( oldPid );
+    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
+  }
+  else strcpy ( newpath, path );
+  return;
+}
+
+extern "C" int open (const char *path, ... )
+{
+  va_list ap;
+  int flags;
+  mode_t mode;
+  int rc;
+  char newpath [ 1024 ] = {0} ;
+  int len,i;
+
+  // Handling the variable number of arguments
+  va_start( ap, path );
+  flags = va_arg ( ap, int );
+  mode = va_arg ( ap, mode_t );
+  va_end ( ap );
+  
+  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
+   * calling this function to open jassert log files. Therefore we shouldn't be
+   * playing with locks etc.
+   */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+    return _real_open ( path, flags, mode );
+  }
+
+  change_path ( path, newpath );
+  return _real_open( newpath, flags, mode );
+}
+
+extern "C" FILE *fopen (const char* path, const char* mode)
+{
+  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
+   * calling this function to open jassert log files. Therefore we shouldn't be
+   * playing with locks etc.
+   */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+    return _real_fopen ( path, mode );
+  }
+
+  char newpath [ 1024 ] = {0} ;
+
+  change_path ( path, newpath );
+  return _real_fopen ( newpath, mode );
+}
+
+extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p, 
+                                               td_thrinfo_t *ti_p) 
+{
+  td_err_e td_err;
+
+  td_err = _real_td_thr_get_info ( th_p, ti_p);
+  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
+  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
+  return td_err;
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. It should be safe to comment this out if you don't
+   need to checkpoint gdb.
+*/ 
+extern "C" void *dlsym ( void *handle, const char *symbol)
+{
+  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
+    return (void *) &_dmtcp_td_thr_get_info;
+  else 
+    return _real_dlsym ( handle, symbol );
 }
 
 
