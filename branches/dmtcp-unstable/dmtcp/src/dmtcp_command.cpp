@@ -30,9 +30,11 @@
 
 using namespace dmtcp;
 
-
+// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
+// string has atleast one format specifier with corresponding format argument.
+// Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "PURPOSE:\n"
+  "%sPURPOSE:\n"
   "  Send a command to the dmtcp_coordinator remotely.\n\n"
   "USAGE:\n"
   "  dmtcp_command [OPTIONS] COMMAND\n\n"
@@ -44,11 +46,11 @@ static const char* theUsage =
   "  --quiet:\n"
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
-  "    s : Print status message\n"
-  "    c : Checkpoint all nodes\n"
-  "    f : Force a restart even if there are missing nodes (debugging only)\n"
-  "    k : Kill all nodes\n"
-  "    q : Kill all nodes and quit\n\n"
+  "    s, -s, --status : Print status message\n"
+  "    c, -c, --checkpoint : Checkpoint all nodes\n"
+  "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
+  "    k, -k, --kill : Kill all nodes\n"
+  "    q, -q, --quit : Kill all nodes and quit\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
@@ -65,7 +67,7 @@ int main ( int argc, char** argv )
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage);
+      fprintf(stderr, theUsage, "");
       return 1;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
@@ -94,7 +96,7 @@ int main ( int argc, char** argv )
   while(*cmd == '-') cmd++;
 
   if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
-    fprintf(stderr, theUsage);
+    fprintf(stderr, theUsage, "");
     return 1;
   }
 

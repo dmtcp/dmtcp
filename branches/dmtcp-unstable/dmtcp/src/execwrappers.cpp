@@ -171,6 +171,14 @@ extern "C" pid_t vfork()
   return fork();
 }
 
+/* epoll is currently not supported by DMTCP */
+extern "C" int epoll_create(int size)
+{
+  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
+  errno = EPERM;
+  return -1;
+}
+
 extern "C" char *ptsname ( int fd )
 {
   JTRACE ( "ptsname() promoted to ptsname_r()" );
