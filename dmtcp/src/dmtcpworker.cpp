@@ -573,11 +573,6 @@ void dmtcp::DmtcpWorker::writeTidMaps()
 void dmtcp::DmtcpWorker::postRestart()
 {
   unmaskStdErr();
-#ifdef DEBUG
-  dmtcp::ostringstream o;
-  o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-  JASSERT_SET_LOGFILE (o.str());
-#endif
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);

@@ -1182,7 +1182,7 @@ static void *checkpointhread (void *dummy)
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
   
   DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
-        mtcp_sys_kernel_gettid(), GETTID()));
+        mtcp_sys_kernel_gettid()));
   if (originalstartup)
     originalstartup = 0;
   else {
@@ -2768,7 +2768,7 @@ static int restarthread (void *threadv)
                    child -> clone_flags, child -> savctx.SAVEDSP);
       mtcp_abort ();
     }
-    DPRINTF((" Parent:%d, tid of newly created thread:%d\n\n", GETTID(), tid));
+    DPRINTF((" Parent:%d, tid of newly created thread:%d\n\n", thread->tid, tid));
   }
 
   /* All my children have been created, jump to the stopthisthread routine just after getcontext call */

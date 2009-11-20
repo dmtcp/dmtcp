@@ -55,14 +55,29 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
   return *this;
 }
 
+static pthread_mutex_t logLock = PTHREAD_MUTEX_INITIALIZER;
+
+void jassert_internal::lockLog()
+{
+  pthread_mutex_lock(&logLock);
+}
+
+void jassert_internal::unlockLog()
+{
+  pthread_mutex_unlock(&logLock);
+}
+
 jassert_internal::JAssert::JAssert ( bool exitWhenDone )
     : JASSERT_CONT_A ( *this )
     , JASSERT_CONT_B ( *this )
     , _exitWhenDone ( exitWhenDone )
-{}
+{
+  jassert_internal::lockLog();
+}
 
 jassert_internal::JAssert::~JAssert()
 {
+  jassert_internal::unlockLog();
   if ( _exitWhenDone )
   {
     Print ( "Terminating...\n" );
@@ -88,12 +103,12 @@ static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
   //open file
   int tfd = open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
   if ( tfd < 0 ) return NULL;
-  //change fd to 211
+  //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   close ( tfd );
   if ( nfd < 0 ) return NULL;
   //promote it to a stream
-  return fdopen ( nfd,"w" );
+  return fdopen ( nfd,"a" );
 }
 static FILE* _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {

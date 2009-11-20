@@ -113,8 +113,11 @@ static void callbackPostCheckpoint ( int isRestart )
   {
 #ifdef DEBUG
     //logfile closed, must reopen it
-    JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
-			  + "/jassertlog." + jalib::XToString ( getpid() ) );
+    dmtcp::ostringstream o;
+    o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+    JASSERT_SET_LOGFILE (o.str());
+    //JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
+			  //+ "/jassertlog." + jalib::XToString ( getpid() ) );
 #endif
     dmtcp::DmtcpWorker::instance().postRestart();
   }
