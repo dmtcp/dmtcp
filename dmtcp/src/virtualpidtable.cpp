@@ -25,6 +25,7 @@
 #include <string>
 #include <sstream>
 #include <fcntl.h>
+#include <sys/syscall.h>
 #include "constants.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
@@ -154,7 +155,6 @@ void dmtcp::VirtualPidTable::postRestart2()
   }
 }
 
-
 void dmtcp::VirtualPidTable::resetOnFork()
 {
   _pid = _real_getpid();
@@ -199,7 +199,6 @@ void dmtcp::VirtualPidTable::insert ( pid_t originalPid, dmtcp::UniquePid unique
   JTRACE ( "Creating new originalPid -> currentPid mapping." ) ( originalPid ) ( uniquePid );
 
   _childTable[originalPid] = uniquePid;
-
   _pidMapTable[originalPid] = originalPid;
 }
 
@@ -310,6 +309,26 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
     return false;
 
   return true;
+}
+
+void dmtcp::VirtualPidTable::refresh()
+{
+  updateRootOfProcessTree();//      _isRootOfProcessTree = true;
+  refreshChildTable();
+  refreshTidVector();
+}
+
+void dmtcp::VirtualPidTable::refreshTidVector()
+{
+  dmtcp::vector< pid_t >::iterator iter;
+  for (iter = _tidVector.begin(); iter != _tidVector.end(); ++iter) {
+    int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
+    if (retVal == -1 && errno == ESRCH) {
+      _tidVector.erase( iter );
+      erase(*iter);
+    }
+  }
+  return;
 }
 
 void dmtcp::VirtualPidTable::refreshChildTable()
