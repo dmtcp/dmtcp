@@ -21,18 +21,18 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/***************************************************************************/
-/*                                                                         */
-/*  Multi-threaded checkpoint library                                      */
-/*                                                                         */
-/*  Link this in as part of your program that you want checkpoints taken   */
-/*  Call the mtcp_init routine at the beginning of your program            */
-/*  Call the mtcp_ok routine when it's OK to do checkpointing              */
-/*  Call the mtcp_no routine when you want checkpointing inhibited         */
-/*                                                                         */
-/*  This module also contains a __clone wrapper routine                    */
-/*                                                                         */
-/***************************************************************************/
+/********************************************************************************************************************************/
+/*																*/
+/*  Multi-threaded checkpoint library												*/
+/*																*/
+/*  Link this in as part of your program that you want checkpoints taken							*/
+/*  Call the mtcp_init routine at the beginning of your program									*/
+/*  Call the mtcp_ok routine when it's OK to do checkpointing									*/
+/*  Call the mtcp_no routine when you want checkpointing inhibited								*/
+/*																*/
+/*  This module also contains a __clone wrapper routine										*/
+/*																*/
+/********************************************************************************************************************************/
 
 
 #include <asm/ldt.h>      // for struct user_desc
@@ -236,6 +236,8 @@ static char checkpoint_threads_file[MAXPATHLEN];
 
 static char const *nscd_mmap_str = "/var/run/nscd/";
 static char const *nscd_mmap_str2 = "/var/cache/nscd";
+static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
+static char const *dev_null_deleted_str = "/dev/null (deleted)";
 //static char const *perm_checkpointfilename = NULL;
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[MAXPATHLEN];
@@ -1998,9 +2000,23 @@ static void checkpointeverything (void)
 
       if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
 
-      // Consider skipping deleted sections when we know they're so labelled
-      // bash creates "/dev/zero (deleted)" after checkpoint in Ubuntu 8.04
-      // if (strstr(area.name, " (deleted)")) continue;
+    // If the process has an area labelled as "/dev/zero (deleted)", we mark
+    //   the area as Anonymous and save the contents to the ckpt image file.
+    // IF this area has a MAP_SHARED attribute, it should be replaced with
+    //   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is an
+    //   absolute source and sink. Anything written to it will be discarded and
+    //   anything read from it will be all zeros.
+    // The following call to mmap will create "/dev/zero (deleted)" area
+    //         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
+    //
+    // The above explanation also applies to "/dev/null (deleted)"
+ 
+    if ( strncmp (area.name, dev_zero_deleted_str, strlen(dev_zero_deleted_str)) == 0 
+        || strncmp (area.name, dev_null_deleted_str, strlen(dev_null_deleted_str)) == 0 ) {
+      DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n", area.name));
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      area.name[0] = '\0';
+    }
 
       /* Special Case Handling: nscd is enabled*/
       if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
