@@ -34,8 +34,21 @@
 
 #ifdef PID_VIRTUALIZATION
 
+static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
+
+static void _do_lock_tbl()
+{
+  JASSERT(pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
+}
+
+static void _do_unlock_tbl()
+{
+  JASSERT(pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+}
+
 dmtcp::VirtualPidTable::VirtualPidTable()
 {
+  _do_lock_tbl();
   _pid = _real_getpid();
   _ppid = _real_getppid();
   _sid = -1;
@@ -46,6 +59,7 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _inferiorVector.clear();
   _pidMapTable.clear();
   _pidMapTable[_pid] = _pid;
+  _do_unlock_tbl();
 }
 
 dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::Instance()
@@ -168,42 +182,56 @@ void dmtcp::VirtualPidTable::resetOnFork()
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
 {
+  _do_lock_tbl();
   pid_iterator i = _pidMapTable.find(originalPid); 
   if ( i == _pidMapTable.end() ) 
   {
+    _do_unlock_tbl();
     JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
     return originalPid;
   }
 
+  _do_unlock_tbl();
   return i->second;
 }
 
 pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
 {
+  _do_lock_tbl();
   for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i)
   {
-    if ( currentPid == i->second )
-      return i->first;
-  }
-    JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
+    if ( currentPid == i->second ) {
+      _do_unlock_tbl();
 
+      return i->first;
+    }
+  }
+  JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
+
+  _do_unlock_tbl();
   return currentPid;
 }
 
 void dmtcp::VirtualPidTable::insert ( pid_t originalPid, dmtcp::UniquePid uniquePid )
-{
+{ 
+  _do_lock_tbl();
   iterator i = _childTable.find( originalPid );
-  if ( i != _childTable.end() )
+  if ( i != _childTable.end() ) {
+    _do_unlock_tbl();
     JTRACE ( "originalPid -> currentPid mapping exists!") ( originalPid ) ( i->second );
-
-  JTRACE ( "Creating new originalPid -> currentPid mapping." ) ( originalPid ) ( uniquePid );
+  }
 
   _childTable[originalPid] = uniquePid;
   _pidMapTable[originalPid] = originalPid;
+
+  _do_unlock_tbl();
+
+  JTRACE ( "Creating new originalPid -> currentPid mapping." ) ( originalPid ) ( uniquePid );
 }
 
 void dmtcp::VirtualPidTable::erase( pid_t originalPid )
 {
+  _do_lock_tbl();
   iterator i = _childTable.find ( originalPid );
   if ( i != _childTable.end() )
     _childTable.erase( originalPid );
@@ -211,6 +239,7 @@ void dmtcp::VirtualPidTable::erase( pid_t originalPid )
   pid_iterator j = _pidMapTable.find ( originalPid );
   if ( j != _pidMapTable.end() )
     _pidMapTable.erase( originalPid );
+  _do_unlock_tbl();
 }
 
 void dmtcp::VirtualPidTable::updateRootOfProcessTree()
@@ -221,7 +250,9 @@ void dmtcp::VirtualPidTable::updateRootOfProcessTree()
 
 void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid )
 {
+  _do_lock_tbl();
   _pidMapTable[originalPid] = currentPid;
+  _do_unlock_tbl();
 }
 
 dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
@@ -254,19 +285,24 @@ void dmtcp::VirtualPidTable::insertTid( pid_t tid )
 {
   eraseTid( tid );
   JTRACE ( "Inserting TID into tidVector" ) ( tid );
+  _do_lock_tbl();
   _tidVector.push_back ( tid );
+  _do_unlock_tbl();
   return;
 }
 
 void dmtcp::VirtualPidTable::insertInferior( pid_t tid )
 {
   eraseInferior( tid );
+  _do_lock_tbl();
   _inferiorVector.push_back ( tid );
+  _do_unlock_tbl();
   return;
 }
 
 void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
 {
+  _do_lock_tbl();
   dmtcp::vector< pid_t >::iterator iter = _tidVector.begin();
   while ( iter != _tidVector.end() ) {
     if ( *iter == tid ) {
@@ -276,6 +312,7 @@ void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
     else
       ++iter;
   }
+  _do_unlock_tbl();
   return;
 }
 
@@ -283,14 +320,17 @@ void dmtcp::VirtualPidTable::prepareForExec( )
 {
   int i;
   JTRACE("Preparing for exec. Emptying tidVector");
+  _do_lock_tbl();
   for (i = 0; i < _tidVector.size(); i++) {
     _pidMapTable.erase( _tidVector[i] );
   }
   _tidVector.clear();
+  _do_unlock_tbl();
 }
 
 void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
 {
+  _do_lock_tbl();
   dmtcp::vector< pid_t >::iterator iter = _inferiorVector.begin();
   while ( iter != _inferiorVector.end() ) {
     if ( *iter == tid )
@@ -298,17 +338,20 @@ void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
     else
       ++iter;
   }
+  _do_unlock_tbl();
   return;
 }
 
 bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 {
+  bool retVal = false;
+  _do_lock_tbl();
   pid_iterator j = _pidMapTable.find ( pid );
+  if ( j != _pidMapTable.end() )
+    retVal = true;
 
-  if ( j == _pidMapTable.end() )
-    return false;
-
-  return true;
+  _do_unlock_tbl();
+  return retVal;
 }
 
 void dmtcp::VirtualPidTable::refresh()
@@ -350,7 +393,8 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 
   if (o.isWriter()){
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
-    refreshChildTable();
+    //refreshChildTable();
+    //refreshTidVector();
   }
 
   o & _isRootOfProcessTree & _sid & _ppid & _gid & _fgid;
@@ -429,6 +473,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
       originalPid = i->first;
       currentPid  = i->second;
       serializePidMapEntry ( o, originalPid, currentPid );
+      JTRACE("PidMaps: ") (originalPid) (currentPid);
     }
   }
   else
@@ -437,6 +482,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
     {
       serializePidMapEntry ( o, originalPid, currentPid );
       _pidMapTable[originalPid] = currentPid;
+      JTRACE("PidMaps: ") (originalPid) (currentPid);
     }
   }
 }
@@ -469,7 +515,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile(jalib::JBinarySerializer& o,
   fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
   fl.l_start  = 0;        /* Offset from l_whence         */
   fl.l_len    = 0;        /* length, 0 = to EOF           */
-  fl.l_pid    = _real_getpid(); /* our PID                      */
+  //fl.l_pid    = _real_getpid(); /* our PID                      */
 
   int result = -1;
   errno = 0;
