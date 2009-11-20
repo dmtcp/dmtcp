@@ -89,8 +89,15 @@ extern "C" int close ( int fd )
 extern "C" pid_t fork()
 {
   protectLD_PRELOAD();
-  pid_t child_pid = _real_fork();
+
+  /* Little bit cheating here: child_time should be same for both parent and
+   * child, thus we compute it before forking the child. */
   time_t child_time = time ( NULL );
+  pid_t child_pid = _real_fork();
+  if (child_pid < 0) {
+    return child_pid;
+  }
+
   long child_host = dmtcp::UniquePid::ThisProcess().hostid();
 
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
@@ -98,13 +105,16 @@ extern "C" pid_t fork()
   if ( child_pid == 0 )
   {
     child_pid = _real_getpid();
+    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 #ifdef DEBUG
     //child should get new logfile
-    JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
-			  + "/jassertlog." + jalib::XToString ( child_pid ) );
+    dmtcp::ostringstream o;
+    o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << child.toString();
+    JASSERT_SET_LOGFILE (o.str());
+    //JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
+    //                      + "/jassertlog." + jalib::XToString ( child_pid ) );
 #endif
 
-    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
     JTRACE ( "fork()ed [CHILD]" ) ( child ) ( getenv ( "LD_PRELOAD" ) );
 

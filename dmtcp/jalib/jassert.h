@@ -116,6 +116,9 @@ namespace jassert_internal
   const char* jassert_basename ( const char* str );
   std::ostream& jassert_output_stream();
   void jassert_safe_print ( const char* );
+  void lockLog();
+  void unlockLog();
+
 
   template < typename T >
   inline JAssert& JAssert::Print ( const T& t )
