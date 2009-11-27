@@ -106,6 +106,7 @@ namespace
         _roots.clear();
         _childs.clear();
         _smap.clear();
+        _used = 0;
 #else
         _offset = _conToFd.loadFromFile(_path);
 #endif
@@ -485,6 +486,7 @@ namespace
       // i.e. have SID of this target in its tree.
       vector<RestoreTarget *> _roots;
       sidMapping _smap;
+      bool _used;
 #endif
   };
 
@@ -712,10 +714,47 @@ int main ( int argc, char** argv )
       waitpid(cid,NULL,0);
     }
   }
-  if( pgrp_index < 0 )
+
+  JTRACE("Restore processes without corresponding Root Target");
+  int flat_index = -1;
+  int j = 0;
+  if( pgrp_index < 0 ){ // No root processes at all
+    // Find first flat process who can replace currently rinning dmtcp_restart context
+    for (j = 0; j < targets.size(); ++j){
+      if( !targets[j]._used ){
+            // Save first flat-like process to be restored after all others
+            flat_index = j;
+            j++;
+            break;
+      }
+    }
+  }
+  // Use j setted to 0 (if at least one root non-init-child process exist
+  // or to some value if no such process found
+  for(; j < targets.size(); ++j) 
+  {
+    if( !targets[j]._used ){
+      if( pgrp_index < 0 ){
+          // Save first flat-like process to be restored after all others
+          pgrp_index = j;
+          continue;
+      }else{
+        targets[j].CreateProcess(worker, slidingFd, wr);
+        JTRACE("Need in flat-like restore for process")(targets[j].pid());
+      }
+    }
+  }
+  
+  if( pgrp_index >=0 ){
+    JTRACE("Restore first Root Target")(roots[pgrp_index].t->pid());
+    roots[pgrp_index].t->CreateProcess(worker, slidingFd, wr );
+  }else if (flat_index >= 0){
+    JTRACE("Restore first Flat Target")(targets[flat_index].pid());
+    targets[flat_index].CreateProcess(worker, slidingFd, wr );
+  }else{
     _exit(0);
-  JTRACE("Restore first Root Target")(roots[pgrp_index].t->pid());
-  roots[pgrp_index].t->CreateProcess(worker, slidingFd, wr );
+  }
+
 }
 
 void BuildProcessTree()
@@ -729,6 +768,7 @@ void BuildProcessTree()
       rt.t = &targets[j];
       rt.indep = true;
       roots.push_back(rt);
+      targets[j]._used = true;
     }
 
     // Add all childs
@@ -745,10 +785,12 @@ void BuildProcessTree()
         {
           found = 1;
           JTRACE ( "Add child to current target" ) ( targets[j].pid() ) ( childUniquePid );
+          targets[i]._used = true;
           targets[j].addChild(&targets[i]);
         }
       }
       if ( !found ){
+        JTRACE("Child not found")(childOriginalPid);
         virtualPidTable.erase( childOriginalPid );
       }
     }      
