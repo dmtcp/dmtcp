@@ -764,11 +764,39 @@ void BuildProcessTree()
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
     originalPidTable.insertFromVirtualPidTable ( virtualPidTable );
     if( virtualPidTable.isRootOfProcessTree() == true ){
+      // If this process is independent (root of process tree
       RootTarget rt;
       rt.t = &targets[j];
       rt.indep = true;
       roots.push_back(rt);
       targets[j]._used = true;
+    }else if( !targets[j]._used ){ 
+      // We set used flag if we use target as somebodys child. If it is used - no need to check is it roor
+      // Iterate through all targets and try to find the one who has this process 
+      // as child process
+      JTRACE("Process is not root of process tree: try to find if it has parent");
+      bool is_root = true;
+      for (int i = 0; i < targets.size(); i++) {
+        VirtualPidTable & virtualPidTable = targets[i].getVirtualPidTable();
+        VirtualPidTable::iterator it;
+        // Search inside the child list of target[j], make sure that i != j
+        for (it = virtualPidTable.begin(); (i != j) && (it != virtualPidTable.end()) ; it++) {
+          UniquePid& childUniquePid = it->second;
+          JTRACE("Check child")(childUniquePid)(" parent ")(targets[i].pid())("checked ")(targets[j].pid());
+          if (childUniquePid == targets[j].pid()){
+            is_root = false;
+            break;
+          }
+        }
+      }
+      JTRACE("Root detection:")(is_root)(targets[j].pid());
+      if( is_root ){
+        RootTarget rt;
+        rt.t = &targets[j];
+        rt.indep = true;
+        roots.push_back(rt);
+        targets[j]._used = true;        
+      }
     }
 
     // Add all childs
