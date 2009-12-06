@@ -241,9 +241,11 @@ void mtcp_check_vdso_enabled() {
    */
   int pers = personality(0xffffffffUL); /* get current personality */
   if (pers & ADDR_NO_RANDOMIZE) { /* if no addr space randomization ... */
-    personality(getenv_oldpers()); /* restore orig pre-exec personality */
-    if (-1 == unsetenv("MTCP_OLDPERS"))
-      perror("unsetenv");
+    if (getenv("MTCP_OLDPERS") != NULL) {
+      personality(getenv_oldpers()); /* restore orig pre-exec personality */
+      if (-1 == unsetenv("MTCP_OLDPERS"))
+        perror("unsetenv");
+    }
     return; /* skip the rest */
   }
 
