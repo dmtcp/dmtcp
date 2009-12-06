@@ -262,7 +262,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
-  connectToCoordinator();
+  connectToCoordinator(true,false);
+
 
   initializeMtcpEngine();
 
@@ -278,9 +279,6 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
 }
-
-
-
 
 const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
@@ -329,8 +327,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
-
-
+  
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   {
     dmtcp::DmtcpMessage msg;
@@ -383,6 +380,9 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     _coordinatorSocket >> msg;
     msg.assertValid();
     JASSERT ( msg.type == dmtcp::DMT_DO_CHECKPOINT ) ( msg.type );
+    JTRACE("===================")(msg.params[0])("===================");
+    theCheckpointState->numPeers(msg.params[0]);
+    theCheckpointState->compGroup(msg.compGroup);
   }
   JTRACE ( "got checkpoint signal" );
 
@@ -410,7 +410,6 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd){
 
   const int len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
-
   theCheckpointState->outputDmtcpConnectionTable(fd);
 
   maskStdErr();
@@ -532,7 +531,7 @@ void dmtcp::DmtcpWorker::postRestart()
   maskStdErr();
 }
 
-void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator )
+void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator, bool undefCompGroup )
 {
   JTRACE ( "restoreSockets begin" );
 
@@ -554,7 +553,11 @@ void dmtcp::DmtcpWorker::restoreSockets ( ConnectionState& coordinator )
 
   //reconnect to our coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
-  connectToCoordinator();
+  if( undefCompGroup ){
+    connectToCoordinator();
+  }else{
+    connectToCoordinator(true,false);
+  }
 
   coordinator.doReconnect ( _coordinatorSocket,_restoreSocket );
 
@@ -613,7 +616,7 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
 /*!
     \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
+void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking,bool undefCompGroup)
 {
 
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
@@ -643,19 +646,26 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
 
   if(doHanshaking)
   {
-    sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
-    recvCoordinatorHandshake();
+    if( undefCompGroup ){
+      sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
+      recvCoordinatorHandshake();
+    }else{
+      sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),dmtcp::UniquePid(),-1);
+      recvCoordinatorHandshake();
+    }
   }else{
     JTRACE ( "connected to dmtcp coordinator, no handshake" ) ( coordinatorAddr ) ( coordinatorPort );
   }
 }
 
-void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname){
+void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,UniquePid compGroup,int np){
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   dmtcp::DmtcpMessage hello_local;
   hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
+  hello_local.params[0] = np;
+  hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
   hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
   _coordinatorSocket << hello_local;

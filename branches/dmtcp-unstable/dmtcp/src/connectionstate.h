@@ -47,8 +47,14 @@ namespace dmtcp
 
       void postRestart();
       void doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen );
-
+      int numPeers(){ return _numPeers; }
+      int numPeers(int np){ return _numPeers = np; }
+      UniquePid compGroup(){ return _compGroup; }
+      void compGroup(UniquePid cg){ _compGroup = cg; }
+      
     private:
+      int _numPeers;
+      UniquePid _compGroup;
       KernelBufferDrainer _drain;
       ConnectionToFds     _conToFds;
       ConnectionRewirer   _rewirer;

@@ -81,6 +81,12 @@ const int STDIN_FD = fileno ( stdin );
 JTIMER ( checkpoint );
 JTIMER ( restart );
 
+
+dmtcp::UniquePid curCompGroup = dmtcp::UniquePid();
+dmtcp::UniquePid zeroCompGroup = dmtcp::UniquePid();
+int _numPeers = -1;
+
+
 namespace
 {
   static int theNextClientNumber = 1;
@@ -277,7 +283,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
                 && newState == WorkerState::DRAINED )
         {
           JNOTE ( "checkpointing all nodes" );
-          broadcastMessage ( DMT_DO_CHECKPOINT );
+          // Pass number of connected peers to all clients
+          broadcastMessage ( DMT_DO_CHECKPOINT , curCompGroup, getStatus().numPeers );
         }
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
@@ -292,6 +299,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           JTRACE ( "resetting _restoreWaitingMessages" )
           ( _restoreWaitingMessages.size() );
           _restoreWaitingMessages.clear();
+          
+          JTRACE ("::::::::::::::::::::::::::::::::::::::::::\n") (msg.coordinator.hostid()) (msg.coordinator.pid())
+          (msg.coordinator.time()) ("::::::::::::::::::::::::::::::::::::::::::\n");
 
           JTIMER_STOP ( restart );
 
@@ -381,13 +391,16 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
 
 void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen )
 {
+  bool isFirstConn = false;
   if ( _dataSockets.size() <= 1 )
   {
     if ( _dataSockets.size() == 0
             || _dataSockets[0]->socket().sockfd() == STDIN_FD )
     {
       //this is the first connection
-
+      _numPeers = -1; // Drop number of peers to unknown
+      curCompGroup = dmtcp::UniquePid();
+      JTRACE("==================================")("CHECK")(curCompGroup.pid())(curCompGroup.hostid())("==================================");
       JTRACE ( "resetting _restoreWaitingMessages" )
       ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
@@ -395,9 +408,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
       JTIMER_START ( restart );
     }
   }
-
-
-
+  
+  
   jalib::JSocket remote ( sock );
   dmtcp::DmtcpMessage hello_local, hello_remote;
   hello_remote.poison();
@@ -417,8 +429,42 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
     return;
   }
 
-  remote << hello_local;
+  //dmtcp::UniquePid::ThisProcess();
+  
   JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR );
+  if( hello_remote.params[0] != -2 ){
+    if( curCompGroup == zeroCompGroup ){
+      JTRACE("First connection. Defines numPeers")(_numPeers);
+      if( hello_remote.params[0] == -1 ){
+        // this is new process who has no compGroup.
+        // So its uniqueID will be the compGroup ID
+        JTRACE("this is new process who has no compGroup. So its uniqueID will be the compGroup ID");
+        curCompGroup = hello_remote.from.pid();
+        _numPeers = -1;
+      }else{
+        // this is restarted process
+        JTRACE("this is restarted process. compGroup is")(hello_remote.compGroup);
+        curCompGroup = hello_remote.compGroup;
+        _numPeers = hello_remote.params[0];
+      }
+      JTRACE("First connection")(_numPeers);
+    }else {
+      JTRACE("Non-First connection. Compare compGroups")(curCompGroup)(hello_remote.compGroup);
+      if( minimumState() == WorkerState::RESTARTING && curCompGroup != hello_remote.compGroup){
+        JTRACE("Reject incoming message since it is not from current computation");
+        hello_local.type = dmtcp::DMT_REJECT;
+        remote << hello_local;
+        remote.close();
+        return;
+      }
+      JTRACE("Accept incoming message since it is from current computation");
+    }
+  }else{
+    JTRACE("Skip - it is service connection");
+  }
+
+  remote << hello_local;
+
   JNOTE ( "worker connected" )
   ( hello_remote.from );
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
@@ -523,10 +569,14 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
   return * ( ( UniquePid* ) 0 );
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type )
+void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type, dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int param1 = -1 )
 {
   DmtcpMessage msg;
   msg.type = type;
+  if( param1 > 0 ){
+      msg.params[0] = param1;
+      msg.compGroup = compGroup;
+  }
   broadcastMessage ( msg );
 }
 
@@ -562,6 +612,10 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
   }
 
   status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
+  if( status.minimumState == WorkerState::CHECKPOINTED && count < _numPeers ){
+    JTRACE("minimal statete counted as CHECKPOINTED but not all processes are connected yet. So we wait") (_numPeers)(count);
+    status.minimumState = WorkerState::RESTARTING;
+  }
   status.minimumStateUnanimous = unanimous;
   status.numPeers = count;
   return status;

@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <unistd.h>
+
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
@@ -36,7 +37,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-
 
 static void runMtcpRestore ( const char* path, int offset );
 
@@ -101,16 +101,16 @@ namespace
 
         JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
 #ifdef PID_VIRTUALIZATION
-        _offset = _conToFd.loadFromFile(_path, _virtualPidTable);
+        _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers, _virtualPidTable);
         _virtualPidTable.erase(getpid());
         _roots.clear();
         _childs.clear();
         _smap.clear();
         _used = 0;
 #else
-        _offset = _conToFd.loadFromFile(_path);
+        _offset = _conToFd.loadFromFile(_path,_compFroup,_numPeers);
 #endif
-        JTRACE ( "restore target" ) ( _path ) ( _conToFd.size() ) (_offset);
+        JTRACE ( "restore target" ) ( _path ) (_numPeers ) (_compGroup) ( _conToFd.size() ) (_offset);
       }
 
       void dupAllSockets ( SlidingFdTable& slidingFd )
@@ -424,7 +424,7 @@ namespace
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
         worker.connectToCoordinator(false);
-        worker.sendCoordinatorHandshake(procname());
+        worker.sendCoordinatorHandshake(procname(),_compGroup,_numPeers);
        
         dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
         JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
@@ -478,6 +478,8 @@ namespace
       dmtcp::string     _path;
       int _offset;
       ConnectionToFds _conToFd;
+      UniquePid _compGroup;
+      int _numPeers;
 #ifdef PID_VIRTUALIZATION
       VirtualPidTable _virtualPidTable;
       // Links to childs of this process
@@ -635,8 +637,8 @@ int main ( int argc, char** argv )
 
   DmtcpWorker worker ( false );
   ConnectionState ckptCoord ( conToFd );
-
   worker.restoreSockets ( ckptCoord );
+
 
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
