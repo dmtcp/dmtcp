@@ -397,7 +397,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
     //refreshTidVector();
   }
 
-  o & _isRootOfProcessTree & _sid & _ppid;
+  o & _isRootOfProcessTree & _sid & _ppid & _gid & _fgid;
 
   if ( _isRootOfProcessTree )
     JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
@@ -498,6 +498,7 @@ void dmtcp::VirtualPidTable::serializePidMapEntry (
 void dmtcp::VirtualPidTable::serializeEntryCount (
     jalib::JBinarySerializer& o, size_t& count )
 {
+  JTRACE("Num PidMaps:")(count);
   JSERIALIZE_ASSERT_POINT ( "NumEntries:[" );
   o & count;
   JSERIALIZE_ASSERT_POINT ( "]" );
