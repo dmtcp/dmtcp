@@ -53,17 +53,24 @@ namespace
 
       void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
       {
-        _insert(vt.getChildPidVector());
-        _insert(vt.getTidVector());
+        dmtcp::vector< pid_t > tmpVector; 
+
+        _insert(vt.pid());
+
+        tmpVector = vt.getChildPidVector();
+        for ( int i = 0; i < tmpVector.size(); ++i )
+          _insert(tmpVector[i]);
+
+        tmpVector = vt.getTidVector();
+        for ( int i = 0; i < tmpVector.size(); ++i )
+          _insert(tmpVector[i]);
       }
 
-      void _insert ( dmtcp::vector< pid_t > newVector )
+      void _insert( pid_t pid )
       {
-        for ( int i = 0; i < newVector.size(); ++i ) {
-          if (!isConflictingChildPid (newVector[i]) /* && newVector[i] != getpid()*/) {
-            _vector.push_back ( newVector[i] );
-            JTRACE("New Pid Pushed to PidVector") (newVector[i]);
-          }
+        if (!isConflictingChildPid (pid) /* && newVector[i] != getpid()*/) {
+          _vector.push_back ( pid );
+          JTRACE("New Pid Pushed to PidVector") (pid);
         }
       }
 

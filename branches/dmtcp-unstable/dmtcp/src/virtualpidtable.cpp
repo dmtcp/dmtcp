@@ -498,6 +498,7 @@ void dmtcp::VirtualPidTable::serializePidMapEntry (
 void dmtcp::VirtualPidTable::serializeEntryCount (
     jalib::JBinarySerializer& o, size_t& count )
 {
+  JTRACE("Num PidMaps:")(count);
   JSERIALIZE_ASSERT_POINT ( "NumEntries:[" );
   o & count;
   JSERIALIZE_ASSERT_POINT ( "]" );
