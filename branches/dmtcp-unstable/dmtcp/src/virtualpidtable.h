@@ -78,11 +78,10 @@ namespace dmtcp
                                          pid_t& currentPid );
       static void serializeEntryCount( jalib::JBinarySerializer& o,         
                                        size_t& count );
+      static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
+      void ReadFromPidMapFile();
       
-      static void InsertIntoPidMapFile(jalib::JBinarySerializer& o,
-                                       pid_t originalPid,
-                                       pid_t currentPid);
-
+      
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
       void updateRootOfProcessTree();

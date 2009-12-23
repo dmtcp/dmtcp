@@ -38,6 +38,17 @@
 #include <fcntl.h>
 #include <errno.h>
 
+// Some global definitions
+dmtcp::UniquePid compGroup;
+int numPeers;
+int coordTstamp = 0;
+
+
+#ifdef PID_VIRTUALIZATION
+static void createPidMapFiles();
+static void openPidMapFiles();
+void unlockPidMapFile();
+#endif
 static void runMtcpRestore ( const char* path, int offset );
 
 using namespace dmtcp;
@@ -321,12 +332,13 @@ namespace
         return -1;
       }
 
-      void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd, jalib::JBinarySerializeWriterRaw& wr)
+      void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
       {
         dmtcp::ostringstream o;
         o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << pid();
         JASSERT_SET_LOGFILE(o.str());
         JASSERT_INIT();
+        
 
         //change UniquePid
         UniquePid::resetOnFork(pid());
@@ -346,7 +358,7 @@ namespace
             
             if ( cid == 0 )
             {
-              (*it)->CreateProcess (worker, slidingFd, wr );
+              (*it)->CreateProcess (worker, slidingFd);
               JASSERT ( false ) . Text ( "Unreachable" );
             }
             JASSERT ( cid > 0 );
@@ -372,7 +384,7 @@ namespace
                 pid_t cid = forkChild();
                 if ( cid == 0 )
                 {
-                  (*it)->CreateProcess (worker, slidingFd, wr );
+                  (*it)->CreateProcess (worker, slidingFd);
                   JASSERT ( false ) . Text ( "Unreachable" );
                 }
                 JASSERT ( cid > 0 );
@@ -396,7 +408,7 @@ namespace
               JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
               pid_t cid = forkChild();
               if ( cid == 0 ){
-                (*it)->CreateProcess (worker, slidingFd, wr );
+                (*it)->CreateProcess (worker, slidingFd );
                 JASSERT ( false ) . Text ( "Unreachable" );
               }
               JASSERT ( cid> 0 );
@@ -418,7 +430,7 @@ namespace
             }else{
               if( fork() )
                 exit(0);
-              (*it)->CreateProcess(worker, slidingFd, wr);
+              (*it)->CreateProcess(worker, slidingFd );
               JASSERT (false) . Text( "Unreachable" );
             }
           }
@@ -426,14 +438,18 @@ namespace
 
         JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid());
 
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile ( wr, pid().pid(), _real_getpid() );
+        // Save PID mapping information
+        pid_t orig = pid().pid();
+        pid_t curr = _real_getpid();
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile(curr, orig);
+        
 
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
         worker.connectToCoordinator(false);
-        worker.sendCoordinatorHandshake(procname(),_compGroup,_numPeers);
-       
+        worker.sendCoordinatorHandshake(procname(),_compGroup);
         dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
+       
         JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
         jalib::JBinarySerializeWriter tblwr ( serialFile );
         _virtualPidTable.serialize ( tblwr );
@@ -532,7 +548,6 @@ static const char* theUsage =
 dmtcp::vector<RestoreTarget> targets;
 
 #ifdef PID_VIRTUALIZATION
-static jalib::JBinarySerializeWriterRaw& createPidMapFile();
 typedef struct {
   RestoreTarget *t;
   bool indep;
@@ -618,7 +633,7 @@ int main ( int argc, char** argv )
            "This is free software, and you are welcome to redistribute it\n"
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"-q\" to hide this message.)\n\n");
-
+  
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
@@ -642,11 +657,33 @@ int main ( int argc, char** argv )
     JTRACE ( "will restore" ) ( i->first ) ( conToFd[i->first].back() );
   }
 
+  // Check that all targets belongs to one computation group
+  // If not - abort
+  compGroup = targets[0]._compGroup;
+  numPeers = targets[0]._numPeers;
+  for(int i=0; i<targets.size(); i++){
+    if( compGroup != targets[i]._compGroup){
+      JASSERT(1==0)(compGroup)(targets[i]._compGroup).Text("ERROR: Restored programs belongs to different computation IDs");
+    }else if( numPeers != targets[i]._numPeers ){
+      JASSERT(1==0)(numPeers)(targets[i]._numPeers).Text("ERROR: Different numpber of processes saved in checkpoint images");
+    }
+  }
+
+  //------------------------
+  int isfirst;
   DmtcpWorker worker ( false );
   ConnectionState ckptCoord ( conToFd );
-  worker.restoreSockets ( ckptCoord );
+  worker.restoreSockets1 ( ckptCoord );
+  
+  //reconnect to our coordinator
+  WorkerState::setCurrentState ( WorkerState::RESTARTING );
+  worker.connectToCoordinator(false);
+  worker.sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers);
+  worker.recvCoordinatorHandshake(&coordTstamp,&isfirst);
+  JTRACE("Connected to coordinator")(coordTstamp)(isfirst);
+  worker.restoreSockets2 ( ckptCoord );
 
-
+  
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
 
@@ -688,10 +725,9 @@ int main ( int argc, char** argv )
   SetupSessions();
   
   /* Create the file to hold the pid/tid maps*/
-  jalib::JBinarySerializeWriterRaw& wr = createPidMapFile();
-
-  size_t numMaps = originalPidTable.numPids();
-  dmtcp::VirtualPidTable::serializeEntryCount ( wr, numMaps );
+  if( isfirst )
+    createPidMapFiles();
+  openPidMapFiles();
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
@@ -715,7 +751,7 @@ int main ( int argc, char** argv )
         if( fork() )
           _exit(0);
       }
-      roots[j].t->CreateProcess(worker, slidingFd, wr);
+      roots[j].t->CreateProcess(worker, slidingFd);
       JASSERT (false) . Text( "Unreachable" );
     }
     JASSERT ( cid > 0 );
@@ -748,7 +784,7 @@ int main ( int argc, char** argv )
           pgrp_index = j;
           continue;
       }else{
-        targets[j].CreateProcess(worker, slidingFd, wr);
+        targets[j].CreateProcess(worker, slidingFd);
         JTRACE("Need in flat-like restore for process")(targets[j].pid());
       }
     }
@@ -756,10 +792,10 @@ int main ( int argc, char** argv )
   
   if( pgrp_index >=0 ){
     JTRACE("Restore first Root Target")(roots[pgrp_index].t->pid());
-    roots[pgrp_index].t->CreateProcess(worker, slidingFd, wr );
+    roots[pgrp_index].t->CreateProcess(worker, slidingFd);
   }else if (flat_index >= 0){
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
-    targets[flat_index].CreateProcess(worker, slidingFd, wr );
+    targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
     _exit(0);
   }
@@ -856,25 +892,73 @@ void SetupSessions()
   }
 }
 
-
-static jalib::JBinarySerializeWriterRaw& createPidMapFile()
+static void createPidMapFiles()
 {
-  dmtcp::ostringstream os;
+  dmtcp::ostringstream pidMapFile,pidMapCountFile;
 
-  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
-     << dmtcp::UniquePid::ThisProcess();
+  pidMapFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
+     << compGroup << "." << std::hex << coordTstamp;
+  pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
+     << compGroup << "." << std::hex << coordTstamp;
+  
+  JTRACE("Create dmtcpPidMap & dmtcpPidMapCount")(pidMapFile.str())(pidMapCountFile.str());
 
-  int fd = open(os.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC|O_APPEND, 0600); 
-  JASSERT(fd>=0) ( os.str() ) (strerror(errno))
-    .Text("Failed to create file to store node wide PID Maps");
+  /*
+   * 1. We know that coordinator generates new timestamp for this restart.
+   * So we can not worry about existence of this files.
+   * TODO: Maybe we should worry?
+   * 2. We need to initially write numPidMaps = 0 to count file. Since in 
+   * openPidMapFiles map file opens pidMap file first - we can easily open map count
+   * file first and initialize it without worrying about race conditions 
+   */ 
+  int fd = open(pidMapCountFile.str().c_str(), O_CREAT|O_RDWR|O_TRUNC, 0600);
+  JASSERT( fd > 0 )(pidMapCountFile).Text("Cannot create pidMapCountFile");
+  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(), fd );
+  countwr.rewind();
+  size_t numMaps = 0;
+  dmtcp::VirtualPidTable::serializeEntryCount (countwr,numMaps);
+  close(fd);
+  JTRACE("pidMap count file initialize - OK")(numMaps);
+  
+  fd = open(pidMapFile.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
+  JASSERT( fd > 0 )(pidMapFile).Text("Cannot create pidMapFile");
+  close(fd);
+}
 
-  JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( os.str() );
+static void openPidMapFiles()
+{
+  dmtcp::ostringstream pidMapFile,pidMapCountFile;
+  int fd,i;
 
-  static jalib::JBinarySerializeWriterRaw wr ( os.str(), PROTECTED_PIDMAP_FD );
-
+  pidMapFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
+     << compGroup << "." << std::hex << coordTstamp;
+  pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
+     << compGroup << "." << std::hex << coordTstamp;
+  
+  // Open pidMapFile
+  JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
+  for(i = 0, fd = -1; (fd < 0) && (i < 1000); i++){
+    if( fd = open(pidMapFile.str().c_str(), O_RDWR|O_APPEND, 0600) ){
+      struct timespec ts = {0,1000};
+      nanosleep(&ts,NULL);
+    }
+  }
+  JASSERT(fd>=0) ( pidMapFile.str() ) (strerror(errno)).Text("Failed to open file to store node wide PID Maps");
+  JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( pidMapFile.str() );
   close (fd);
 
-  return wr;
+  // Open pidMapCountFile
+  JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
+  for(i = 0, fd = -1; (fd < 0) && (i < 1000); i++){
+    if( fd = open(pidMapCountFile.str().c_str(), O_RDWR, 0600) ){
+      struct timespec ts = {0,1000};
+      nanosleep(&ts,NULL);
+    }
+  }
+  JASSERT(fd>=0 ) ( pidMapCountFile.str() ) (strerror(errno))
+    .Text("Failed to open file containig count of PID Maps for reading or writing");
+  JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD ) ( pidMapCountFile.str() );
+  close(fd);
 }
 
 #endif
