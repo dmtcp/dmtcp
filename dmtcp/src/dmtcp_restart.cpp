@@ -441,7 +441,7 @@ namespace
         // Save PID mapping information
         pid_t orig = pid().pid();
         pid_t curr = _real_getpid();
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile(curr, orig);
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig,curr);
         
 
         //Reconnect to dmtcp_coordinator
