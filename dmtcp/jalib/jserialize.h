@@ -48,6 +48,7 @@ namespace jalib
       virtual void readOrWrite ( void* buffer, size_t len ) = 0;
       virtual bool isReader() = 0;
       bool isWriter() { return ! isReader(); }
+      virtual void rewind() = 0;
 
       template < typename T >
       void serialize ( T& t ) {readOrWrite ( &t, sizeof ( T ) );}
@@ -113,6 +114,7 @@ namespace jalib
       JBinarySerializeWriterRaw ( const jalib::string& file, int fd );
       void readOrWrite ( void* buffer, size_t len );
       bool isReader();
+      void rewind();
     protected:
       int _fd;
   };
@@ -130,6 +132,7 @@ namespace jalib
       JBinarySerializeReaderRaw ( const jalib::string& file, int fd );
       void readOrWrite ( void* buffer, size_t len );
       bool isReader();
+      void rewind();
     protected:
       int _fd;
   };

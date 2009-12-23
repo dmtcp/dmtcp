@@ -63,17 +63,29 @@ bool jalib::JBinarySerializeWriterRaw::isReader() {return false;}
 
 bool jalib::JBinarySerializeReaderRaw::isReader() {return true;}
 
+// Rewind file descriptor to start value
+void jalib::JBinarySerializeWriterRaw::rewind()
+{
+  JASSERT(lseek(_fd,0,SEEK_SET) == 0).Text("Cannot rewind");
+}
+
+void jalib::JBinarySerializeReaderRaw::rewind()
+{
+  JASSERT(lseek(_fd,0,SEEK_SET) == 0).Text("Cannot rewind");
+}
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  JASSERT ( write (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "write() failed" );
+  int ret;
+  JASSERT ( (ret = write (_fd, buffer, len)) == len ) ( filename() ) (ret) ( len ).Text ( "write() failed" );
   _bytes+=len;
 }
 
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  JASSERT ( read (_fd, buffer, len) == len ) ( filename() ) ( len ).Text ( "read() failed" );
+  int ret;
+  JASSERT ( (ret = read (_fd, buffer, len)) == len ) ( filename() )(ret)( len ).Text ( "read() failed" );
   _bytes+=len;
 }
 
