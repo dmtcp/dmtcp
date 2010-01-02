@@ -69,6 +69,8 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
+      static void _lock_file(int fd);
+      static void _unlock_file(int fd);
       static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
                                              pid_t& originalPid,
                                              dmtcp::UniquePid& uniquePid );
