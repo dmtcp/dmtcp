@@ -66,13 +66,38 @@ bool jalib::JBinarySerializeReaderRaw::isReader() {return true;}
 // Rewind file descriptor to start value
 void jalib::JBinarySerializeWriterRaw::rewind()
 {
-  JASSERT(lseek(_fd,0,SEEK_SET) == 0).Text("Cannot rewind");
+  JASSERT(lseek(_fd,0,SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
 }
 
 void jalib::JBinarySerializeReaderRaw::rewind()
 {
-  JASSERT(lseek(_fd,0,SEEK_SET) == 0).Text("Cannot rewind");
+  JASSERT(lseek(_fd,0,SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
 }
+
+bool jalib::JBinarySerializeWriterRaw::isempty()
+{
+  bool ret = false;
+  off_t cur = lseek(_fd,0,SEEK_CUR);
+  off_t end = lseek(_fd,0,SEEK_END);
+  if( end == 0 )
+    ret = true;
+  JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
+  JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
+  return ret;
+}
+
+bool jalib::JBinarySerializeReaderRaw::isempty()
+{
+  bool ret = false;
+    off_t cur = lseek(_fd,0,SEEK_CUR);
+    off_t end = lseek(_fd,0,SEEK_END);
+    if( end == 0 )
+      ret = true;
+    JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
+    JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
+    return ret;
+}
+
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {

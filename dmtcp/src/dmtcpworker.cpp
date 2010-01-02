@@ -531,7 +531,10 @@ void dmtcp::DmtcpWorker::postRestart()
   maskStdErr();
 }
 
-void dmtcp::DmtcpWorker::restoreSockets1 ( ConnectionState& coordinator)
+void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
+    dmtcp::UniquePid compGroup,
+    int numPeers,
+    int &coordTstamp)
 {
   JTRACE ( "restoreSockets begin" );
 
@@ -539,10 +542,10 @@ void dmtcp::DmtcpWorker::restoreSockets1 ( ConnectionState& coordinator)
 
   //open up restore socket
   {
-    jalib::JSocket restoreSocket ( -1 );
-    while ( !restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP )
-    {
-      restoreSocket = jalib::JServerSocket ( jalib::JSockAddr::ANY, ++theRestorePort );
+    jalib::JSocket restoreSocket(-1);
+    while (!restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP) {
+      restoreSocket
+          = jalib::JServerSocket(jalib::JSockAddr::ANY, ++theRestorePort);
       JTRACE ( "open listen socket attempt" ) ( theRestorePort );
     }
     JASSERT ( restoreSocket.isValid() ) ( RESTORE_PORT_START ).Text ( "failed to open listen socket" );
@@ -550,10 +553,14 @@ void dmtcp::DmtcpWorker::restoreSockets1 ( ConnectionState& coordinator)
     JTRACE ( "openning listen sockets" ) ( _restoreSocket.sockfd() ) ( restoreSocket.sockfd() );
     _restoreSocket = restoreSocket;
   }
-}
 
-void dmtcp::DmtcpWorker::restoreSockets2 ( ConnectionState& coordinator)
-{
+  //reconnect to our coordinator
+  connectToCoordinator(false);
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers);
+  recvCoordinatorHandshake(&coordTstamp);
+  JTRACE("Connected to coordinator")(coordTstamp);
+
+  // finish sockets restoration
   coordinator.doReconnect ( _coordinatorSocket,_restoreSocket );
   JTRACE ( "sockets restored!" );
 }
@@ -664,7 +671,7 @@ void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,
   _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
 }
 
-void dmtcp::DmtcpWorker::recvCoordinatorHandshake( int *param1, int *first ){
+void dmtcp::DmtcpWorker::recvCoordinatorHandshake( int *param1 ){
   JTRACE("receiving coordinator handshake");
 
   dmtcp::DmtcpMessage hello_remote;
@@ -676,11 +683,8 @@ void dmtcp::DmtcpWorker::recvCoordinatorHandshake( int *param1, int *first ){
   DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
   if( param1 ){
     *param1 = hello_remote.params[0];
-    if( first ){
-        *first = hello_remote.params[1];
-    }
   }
-  JTRACE("Coordinator handshake RECIVED!!!!!");
+  JTRACE("Coordinator handshake RECEIVED!!!!!");
 }
 
 void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){

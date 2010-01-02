@@ -45,7 +45,6 @@ int coordTstamp = 0;
 
 
 #ifdef PID_VIRTUALIZATION
-static void createPidMapFiles();
 static void openPidMapFiles();
 void unlockPidMapFile();
 #endif
@@ -663,26 +662,17 @@ int main ( int argc, char** argv )
   numPeers = targets[0]._numPeers;
   for(int i=0; i<targets.size(); i++){
     if( compGroup != targets[i]._compGroup){
-      JASSERT(1==0)(compGroup)(targets[i]._compGroup).Text("ERROR: Restored programs belongs to different computation IDs");
+      JASSERT(false)(compGroup)(targets[i]._compGroup).Text("ERROR: Restored programs belongs to different computation IDs");
     }else if( numPeers != targets[i]._numPeers ){
-      JASSERT(1==0)(numPeers)(targets[i]._numPeers).Text("ERROR: Different numpber of processes saved in checkpoint images");
+      JASSERT(false)(numPeers)(targets[i]._numPeers).Text("ERROR: Different numpber of processes saved in checkpoint images");
     }
   }
 
   //------------------------
-  int isfirst;
   DmtcpWorker worker ( false );
-  ConnectionState ckptCoord ( conToFd );
-  worker.restoreSockets1 ( ckptCoord );
-  
-  //reconnect to our coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
-  worker.connectToCoordinator(false);
-  worker.sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers);
-  worker.recvCoordinatorHandshake(&coordTstamp,&isfirst);
-  JTRACE("Connected to coordinator")(coordTstamp)(isfirst);
-  worker.restoreSockets2 ( ckptCoord );
-
+  ConnectionState ckptCoord ( conToFd );
+  worker.restoreSockets ( ckptCoord,compGroup,numPeers,coordTstamp );
   
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
@@ -725,8 +715,6 @@ int main ( int argc, char** argv )
   SetupSessions();
   
   /* Create the file to hold the pid/tid maps*/
-  if( isfirst )
-    createPidMapFiles();
   openPidMapFiles();
 
   int pgrp_index=-1;
@@ -892,38 +880,23 @@ void SetupSessions()
   }
 }
 
-static void createPidMapFiles()
+int openSharedFile(dmtcp::string name, int flags)
 {
-  dmtcp::ostringstream pidMapFile,pidMapCountFile;
-
-  pidMapFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
-     << compGroup << "." << std::hex << coordTstamp;
-  pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
-     << compGroup << "." << std::hex << coordTstamp;
-  
-  JTRACE("Create dmtcpPidMap & dmtcpPidMapCount")(pidMapFile.str())(pidMapCountFile.str());
-
-  /*
-   * 1. We know that coordinator generates new timestamp for this restart.
-   * So we can not worry about existence of this files.
-   * TODO: Maybe we should worry?
-   * 2. We need to initially write numPidMaps = 0 to count file. Since in 
-   * openPidMapFiles map file opens pidMap file first - we can easily open map count
-   * file first and initialize it without worrying about race conditions 
-   */ 
-  int fd = open(pidMapCountFile.str().c_str(), O_CREAT|O_RDWR|O_TRUNC, 0600);
-  JASSERT( fd > 0 )(pidMapCountFile).Text("Cannot create pidMapCountFile");
-  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(), fd );
-  countwr.rewind();
-  size_t numMaps = 0;
-  dmtcp::VirtualPidTable::serializeEntryCount (countwr,numMaps);
-  close(fd);
-  JTRACE("pidMap count file initialize - OK")(numMaps);
-  
-  fd = open(pidMapFile.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
-  JASSERT( fd > 0 )(pidMapFile).Text("Cannot create pidMapFile");
-  close(fd);
+  int fd;
+  // try to create, truncate & open file
+  if( (fd = open(name.c_str(), O_EXCL|O_CREAT|O_TRUNC | flags, 0600)) >= 0) {
+    return fd;
+  }
+  if (fd < 0 && errno == EEXIST) {
+    if ((fd = open(name.c_str(), flags, 0600)) > 0) {
+      return fd;
+    }
+  }
+  // unable to create & open OR open
+  JASSERT( false )(name)(strerror(errno)).Text("Cannot open file");
+  return -1;
 }
+
 
 static void openPidMapFiles()
 {
@@ -934,31 +907,30 @@ static void openPidMapFiles()
      << compGroup << "." << std::hex << coordTstamp;
   pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
-  
-  // Open pidMapFile
+
+  // Open & create pidMapFile if not exist
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
-  for(i = 0, fd = -1; (fd < 0) && (i < 1000); i++){
-    if( fd = open(pidMapFile.str().c_str(), O_RDWR|O_APPEND, 0600) ){
-      struct timespec ts = {0,1000};
-      nanosleep(&ts,NULL);
-    }
-  }
-  JASSERT(fd>=0) ( pidMapFile.str() ) (strerror(errno)).Text("Failed to open file to store node wide PID Maps");
+  fd = openSharedFile(pidMapFile.str(),(O_WRONLY|O_APPEND));
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( pidMapFile.str() );
   close (fd);
 
-  // Open pidMapCountFile
+  // Open & create pidMapCountFile if not exist
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
-  for(i = 0, fd = -1; (fd < 0) && (i < 1000); i++){
-    if( fd = open(pidMapCountFile.str().c_str(), O_RDWR, 0600) ){
-      struct timespec ts = {0,1000};
-      nanosleep(&ts,NULL);
-    }
-  }
-  JASSERT(fd>=0 ) ( pidMapCountFile.str() ) (strerror(errno))
-    .Text("Failed to open file containig count of PID Maps for reading or writing");
+  fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD ) ( pidMapCountFile.str() );
   close(fd);
+  // initialize pidMapCountFile with zero value
+  dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
+  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(), PROTECTED_PIDMAPCNT_FD);
+  if( countwr.isempty() ){
+    JTRACE("pidMapCountFile is empty - initialize it with count = 0")(pidMapCountFile.str());
+    size_t numMaps = 0; 
+    dmtcp::VirtualPidTable::serializeEntryCount (countwr,numMaps); 
+    fsync(PROTECTED_PIDMAPCNT_FD);
+  }else{
+    JTRACE("pidMapCountFile is not empty - do nothing");
+  }
+  dmtcp::VirtualPidTable::_unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
 
 #endif

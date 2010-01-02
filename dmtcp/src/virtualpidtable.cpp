@@ -496,7 +496,7 @@ void dmtcp::VirtualPidTable::serializeEntryCount (
   JSERIALIZE_ASSERT_POINT ( "]" );
 }
 
-static void __lock_file(int fd)
+void dmtcp::VirtualPidTable::_lock_file(int fd)
 {
   struct flock fl;
 
@@ -514,7 +514,7 @@ static void __lock_file(int fd)
   JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
 }
 
-static void __unlock_file(int fd)
+void dmtcp::VirtualPidTable::_unlock_file(int fd)
 {
   struct flock fl;
   int result;
@@ -545,7 +545,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
     
   // Lock fileset before any operations
   JTRACE("Try to lock file set" );
-  __lock_file(PROTECTED_PIDMAP_FD);
+  _lock_file(PROTECTED_PIDMAP_FD);
   JTRACE("Try to lock file set - OK" );
   // Read old number of saved pid maps
   countrd.rewind();
@@ -560,7 +560,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   numMaps++;
   serializeEntryCount (countwr,numMaps);
   // unlock fileset
-  __unlock_file(PROTECTED_PIDMAP_FD);
+  _unlock_file(PROTECTED_PIDMAP_FD);
   JTRACE("Unlock file set");
 } 
 
