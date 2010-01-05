@@ -47,8 +47,8 @@ static const char* theUsage =
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
-  "    c, -c, --bcheckpoint : Checkpoint all nodes\n"
-  "    bc, -bc, --checkpoint : Checkpoint all nodes, blocking until done\n"
+  "    c, -c, --checkpoint : Checkpoint all nodes\n"
+  "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"
   "    q, -q, --quit : Kill all nodes and quit\n\n"
@@ -106,7 +106,12 @@ int main ( int argc, char** argv )
 
   int result[DMTCPMESSAGE_NUM_PARAMS];
   DmtcpWorker worker(false);
-  worker.connectAndSendUserCommand(*cmd, result);
+  if (*cmd == 'b') {
+    worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
+    worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
+  } else {
+    worker.connectAndSendUserCommand(*cmd, result);
+  }
 
   //check for error
   if(result[0]<0){
