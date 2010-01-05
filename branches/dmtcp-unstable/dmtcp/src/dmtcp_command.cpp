@@ -106,7 +106,12 @@ int main ( int argc, char** argv )
 
   int result[DMTCPMESSAGE_NUM_PARAMS];
   DmtcpWorker worker(false);
-  worker.connectAndSendUserCommand(*cmd, result);
+  if (*cmd == 'b') {
+    worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
+    worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
+  } else {
+    worker.connectAndSendUserCommand(*cmd, result);
+  }
 
   //check for error
   if(result[0]<0){

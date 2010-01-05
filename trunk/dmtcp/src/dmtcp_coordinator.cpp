@@ -75,7 +75,7 @@ static const char* theUsage =
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
-static int blockUntilDoneRemote;
+static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
 int theCheckpointInterval = -1;
 
@@ -145,6 +145,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   replyParams[1] = NOERROR;
 
   switch ( cmd ){
+  case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
+    blockUntilDone = true;
   case 'c': case 'C':
     if(startCheckpoint()){
       replyParams[0] = getStatus().numPeers;
@@ -314,6 +316,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
             remote << blockUntilDoneReply;
             remote.close();
             blockUntilDone = false;
+            blockUntilDoneRemote = -1;
           }
         }
         break;
@@ -348,13 +351,13 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       case DMT_USER_CMD:  // dmtcpaware API being used
         {
           JTRACE("got user command from client")(msg.params[0])(client->identity());
+	  // Checkpointing commands should always block, to prevent
+	  //   dmtcpaware checkpoint call from returning prior to checkpoint.
+	  if (msg.params[0] == 'c')
+            handleUserCommand( 'b', NULL );
           DmtcpMessage reply;
           reply.type = DMT_USER_CMD_RESULT;
           handleUserCommand( msg.params[0], &reply );
-	  // handleUserCommand ONLY BROADCASTS CHECKPOINT REQUEST TO CLIENTS.
-	  // COULDN'T THIS REPLY ARRIVE AT CLIENT FIRST, CAUSING CLIENT TO
-	  // EXECUTE FURTHER STATEMENTS BEFORE SEEING CHECKPOINT REQUEST?
-	  // COULD FIX THIS SIMILARLY TO:  blockUntilDone, blockUntilDoneRemote
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
@@ -423,18 +426,13 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
     JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
     DmtcpMessage reply;
     reply.type = DMT_USER_CMD_RESULT;
-    // if blockUntilDone already true, ignore new request to block
-    if (hello_remote.params[0] == 'b' && blockUntilDone)
-      hello_remote.params[0] = hello_remote.params[1];
-    // if blocking command
-    if (hello_remote.params[0] == 'b') {
-      blockUntilDone = true;
-      // hello_remote.params truncates after first char;  Assume it was 'c'.
-      // handleUserCommand( hello_remote.params[1], &reply );
-      handleUserCommand( 'c', &reply );
-      // This will be used in dmtcp::DmtcpCoordinator::onData in this file.
+    // if previous 'b' blocking prefix command had set blockUntilDone
+    if (blockUntilDone && blockUntilDoneRemote == -1  &&
+      hello_remote.params[0] == 'c') {
+      // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
       blockUntilDoneRemote = remote.sockfd();
       blockUntilDoneReply = reply;
+      handleUserCommand( hello_remote.params[0], &reply );
     } else {
       handleUserCommand( hello_remote.params[0], &reply );
       remote << reply;
@@ -448,7 +446,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   JNOTE ( "worker connected" )
   ( hello_remote.from );
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
-
 
   NamedChunkReader * ds = new NamedChunkReader (
       sock
@@ -804,4 +801,3 @@ int main ( int argc, char** argv )
   prog.monitorSockets ( theCheckpointInterval > 0 ? theCheckpointInterval : 3600 );
   return 0;
 }
-
