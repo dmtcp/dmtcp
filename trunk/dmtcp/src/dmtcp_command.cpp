@@ -47,7 +47,7 @@ static const char* theUsage =
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
-  "    c, -c, --checkpoint : Checkpoint all nodes\n"
+  "    c, -c, --bcheckpoint : Checkpoint all nodes\n"
   "    bc, -bc, --checkpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"

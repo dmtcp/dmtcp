@@ -48,7 +48,7 @@ static const char* theUsage =
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
-  "    bc, -bc, --checkpoint : Checkpoint all nodes, blocking until done\n"
+  "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"
   "    q, -q, --quit : Kill all nodes and quit\n\n"
