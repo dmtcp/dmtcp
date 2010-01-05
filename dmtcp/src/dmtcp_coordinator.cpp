@@ -74,6 +74,9 @@ static const char* theUsage =
 
 
 static bool exitOnLast = false;
+static bool blockUntilDone = false;
+static int blockUntilDoneRemote;
+static dmtcp::DmtcpMessage blockUntilDoneReply;
 int theCheckpointInterval = -1;
 
 const int STDIN_FD = fileno ( stdin );
@@ -305,6 +308,13 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_RESUME );
 
           JTIMER_STOP ( checkpoint );
+          if (blockUntilDone) {
+	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
+	    jalib::JSocket remote ( blockUntilDoneRemote );
+            remote << blockUntilDoneReply;
+            remote.close();
+            blockUntilDone = false;
+          }
         }
         break;
       }
@@ -335,12 +345,16 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         _restartFilenames[hostname].push_back ( ckptFilename );
       }
       break;
-      case DMT_USER_CMD:
+      case DMT_USER_CMD:  // dmtcpaware API being used
         {
           JTRACE("got user command from client")(msg.params[0])(client->identity());
           DmtcpMessage reply;
           reply.type = DMT_USER_CMD_RESULT;
           handleUserCommand( msg.params[0], &reply );
+	  // handleUserCommand ONLY BROADCASTS CHECKPOINT REQUEST TO CLIENTS.
+	  // COULDN'T THIS REPLY ARRIVE AT CLIENT FIRST, CAUSING CLIENT TO
+	  // EXECUTE FURTHER STATEMENTS BEFORE SEEING CHECKPOINT REQUEST?
+	  // COULD FIX THIS SIMILARLY TO:  blockUntilDone, blockUntilDoneRemote
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
@@ -396,8 +410,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
     }
   }
 
-
-
   jalib::JSocket remote ( sock );
   dmtcp::DmtcpMessage hello_local, hello_remote;
   hello_remote.poison();
@@ -411,9 +423,23 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
     JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
     DmtcpMessage reply;
     reply.type = DMT_USER_CMD_RESULT;
-    handleUserCommand( hello_remote.params[0], &reply );
-    remote << reply;
-    remote.close();
+    // if blockUntilDone already true, ignore new request to block
+    if (hello_remote.params[0] == 'b' && blockUntilDone)
+      hello_remote.params[0] = hello_remote.params[1];
+    // if blocking command
+    if (hello_remote.params[0] == 'b') {
+      blockUntilDone = true;
+      // hello_remote.params truncates after first char;  Assume it was 'c'.
+      // handleUserCommand( hello_remote.params[1], &reply );
+      handleUserCommand( 'c', &reply );
+      // This will be used in dmtcp::DmtcpCoordinator::onData in this file.
+      blockUntilDoneRemote = remote.sockfd();
+      blockUntilDoneReply = reply;
+    } else {
+      handleUserCommand( hello_remote.params[0], &reply );
+      remote << reply;
+      remote.close();
+    }
     return;
   }
 
@@ -600,7 +626,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
-    fprintf ( fp, "\nif test -z \"$" ENV_VAR_NAME_DIR "\"; then\n\n" );
+    fprintf ( fp, "\nif test -z \"$" ENV_VAR_NAME_RESTART_DIR "\"; then\n\n" );
     {
       if(isSingleHost && host->first==hostname){
         fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
@@ -636,7 +662,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
       for ( file=host->second.begin(); file!=host->second.end(); ++file )
       {
-        fprintf ( fp," $" ENV_VAR_NAME_DIR "/`basename %s`", file->c_str() );
+        fprintf ( fp," $" ENV_VAR_NAME_RESTART_DIR "/`basename %s`",
+		  file->c_str() );
       }
       if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
     }
