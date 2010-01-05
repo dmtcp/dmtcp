@@ -48,6 +48,7 @@ static const char* theUsage =
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
+  "    bc, -bc, --checkpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"
   "    q, -q, --quit : Kill all nodes and quit\n\n"
@@ -91,9 +92,12 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  const char* cmd = argv[0];
+  char* cmd = argv[0];
   //ignore leading dashes
   while(*cmd == '-') cmd++;
+
+  if(*cmd == 'b' && *(cmd+1) != 'c')
+    *cmd = 'h';  // If blocking ckpt, next letter must be 'c'; else print usage
 
   if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
     fprintf(stderr, theUsage, "");
