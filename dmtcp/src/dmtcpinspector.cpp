@@ -60,10 +60,12 @@ namespace
       InspectTarget (const dmtcp::string& path)
       {
         JASSERT (jalib::Filesystem::FileExists(path)) (path).Text("missing file");
+        int numPeers;
+        dmtcp::UniquePid cg;
 #ifdef PID_VIRTUALIZATION
-        _conToFd.loadFromFile(path, dmtcp::VirtualPidTable::Instance());
+        _conToFd.loadFromFile(path, cg,numPeers,dmtcp::VirtualPidTable::Instance());
 #else
-        _conToFd.loadFromFile(path);
+        _conToFd.loadFromFile(path, cg,numPeers);
 #endif
       }
       ConnectionToFds _conToFd;

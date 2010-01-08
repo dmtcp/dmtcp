@@ -818,12 +818,14 @@ int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const dmtcp::string& path){
 }
 
 #ifdef PID_VIRTUALIZATION
-int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path, dmtcp::VirtualPidTable& virtualPidTable){
+int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path, UniquePid &compGroup, int &numPeers, dmtcp::VirtualPidTable& virtualPidTable){
 #else
-int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path){
+int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,UniquePid &compGroup,  int &numPeers){
 #endif
   int fd = openDmtcpCheckpointFile(path);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
+  rdr & compGroup;
+  rdr & numPeers;
   serialize(rdr);
 #ifdef PID_VIRTUALIZATION
   virtualPidTable.serialize(rdr);

@@ -100,14 +100,8 @@ void dmtcp::VirtualPidTable::postRestart()
 void dmtcp::VirtualPidTable::postRestart2()
 {
   JTRACE("VirtualPidTable::postRestart2");
-  dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
-  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-  JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
 
-  _real_close( PROTECTED_PIDMAP_FD );
-
-  jalib::JBinarySerializeReader pidrd ( pidMapFile );
-  serializePidMap( pidrd );
+  ReadFromPidMapFile();
 
   // At this point all PIDs participated in computations are known
   // including mapping of parent pids. So we can restore group information
@@ -118,21 +112,21 @@ void dmtcp::VirtualPidTable::postRestart2()
     // Group ID is known inside checkpointed processes
     pid_t cgid = getpgid(0);
 
-    JTRACE("VirtualPidTable::postRestart2 restore Group information")(cgid);
+    JTRACE("VirtualPidTable::postRestart2 restore Group information")(cgid)(_gid);
     if( _gid != cgid ){
       if( _pid == _gid )
         setpgid(0,0);
       else{
         int ret = 1, i = 0;
-        struct timespec ts = {0,100000};
+        struct timespec ts = {0,10000000};
         
         // Try to change group number of process. 
         // There is source of race condition: group member change it's group before leader create this group
         // Trial Timeout = 2 seconds
+        JTRACE("VirtualPidTable::postRestart2 restore Group information")(_gid);
         while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
           ret = setpgid(0,_gid);
           if( ret ){
-            JTRACE("VirtualPidTable::postRestart2 restore Group information")(i);
             nanosleep(&ts,NULL);
           }
           i++;
@@ -151,16 +145,15 @@ void dmtcp::VirtualPidTable::postRestart2()
     if( _pid == fgid && _fgid != fgid ){
       // this is leader of foreground group
       int ret = 1, i = 0;
-      struct timespec ts = {0,100000};
+      struct timespec ts = {0,10000000};
         
       // Try to change foreground group 
       // There is source of race condition: group member change it's group before leader create this group
       // Trial Timeout = 2 seconds
+      JTRACE("VirtualPidTable::postRestart2 wait with foreground restore")(_fgid);
       while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
         ret = tcsetpgrp(STDIN_FILENO,_fgid);
-        JTRACE("VirtualPidTable::postRestart2 tcsetpgrp = ")(ret);
         if( ret ){
-          JTRACE("VirtualPidTable::postRestart2 wait with foreground restore")(i);
           nanosleep(&ts,NULL);
         }
         i++;
@@ -505,36 +498,104 @@ void dmtcp::VirtualPidTable::serializeEntryCount (
 }
 
 
-void dmtcp::VirtualPidTable::InsertIntoPidMapFile(jalib::JBinarySerializer& o,
-                                                  pid_t originalPid,
-                                                  pid_t currentPid)
+void dmtcp::VirtualPidTable::_lock_file(int fd)
 {
   struct flock fl;
-  int fd;
 
-  fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
-  fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
-  fl.l_start  = 0;        /* Offset from l_whence         */
-  fl.l_len    = 0;        /* length, 0 = to EOF           */
-  //fl.l_pid    = _real_getpid(); /* our PID                      */
+  fl.l_type   = F_WRLCK;  // F_RDLCK, F_WRLCK, F_UNLCK 
+  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
+  fl.l_start  = 0;        // Offset from l_whence       
+  fl.l_len    = 0;        // length, 0 = to EOF         
+  //fl.l_pid    = _real_getpid(); // our PID            
 
   int result = -1;
   errno = 0;
   while (result == -1 || errno == EINTR )
-    result = fcntl(PROTECTED_PIDMAP_FD, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
 
   JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
+}
 
-  JTRACE ( "Serializing PID MAP Entry:" ) ( originalPid ) ( currentPid );
-  /* Write the mapping to the file*/
-  dmtcp::VirtualPidTable::serializePidMapEntry ( o, originalPid, currentPid );
+void dmtcp::VirtualPidTable::_unlock_file(int fd)
+{
+  struct flock fl;
+  int result;
+  fl.l_type   = F_UNLCK;  // tell it to unlock the region
+  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END 
+  fl.l_start  = 0;        // Offset from l_whence         
+  fl.l_len    = 0;        // length, 0 = to EOF 
+  
+  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
-  //fsync(PROTECTED_PIDMAP_FD);
+  JASSERT (result != -1 || errno == ENOLCK) (strerror(errno))(errno) .Text ( "Unlock Failed" ) ;
+}
 
-  fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
-  result = fcntl(PROTECTED_PIDMAP_FD, F_SETLK, &fl); /* set the region to unlocked */
+void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid) 
+{ 
+  dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
+  dmtcp::string pidMapCountFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
+  pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
+  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 ) ( pidMapFile )( pidMapCountFile );
+  JTRACE("All PidMap related files are opened successful" ) ( pidMapFile )( pidMapCountFile );
+  
+  // Create Serializers
+  jalib::JBinarySerializeWriterRaw mapwr( pidMapFile, PROTECTED_PIDMAP_FD );
+  jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
+  jalib::JBinarySerializeReaderRaw countrd(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
+  JTRACE("All Serializers created successfuly" );
+    
+  // Lock fileset before any operations
+  JTRACE("Try to lock file set" );
+  _lock_file(PROTECTED_PIDMAP_FD);
+  JTRACE("Try to lock file set - OK" );
+  // Read old number of saved pid maps
+  countrd.rewind();
+  size_t numMaps;
+  serializeEntryCount (countrd,numMaps);
+  JTRACE("Read current count of pidMaps")(numMaps);
+  // Serialize new pair
+  serializePidMapEntry (mapwr, originalPid, currentPid );
+  
+  // Commit changes into map count file
+  countwr.rewind();
+  numMaps++;
+  serializeEntryCount (countwr,numMaps);
+  // unlock fileset
+  _unlock_file(PROTECTED_PIDMAP_FD);
+  JTRACE("Unlock file set");
+} 
 
-  JASSERT (result != -1 || errno == ENOLCK) .Text ( "Unlock Failed" ) ;
+void dmtcp::VirtualPidTable::ReadFromPidMapFile() 
+{ 
+  dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
+  dmtcp::string pidMapCountFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
+  pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
+  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 ) ( pidMapFile )( pidMapCountFile );
+  
+  JASSERT("Close PidMap related files");
+   _real_close( PROTECTED_PIDMAP_FD );
+   _real_close( PROTECTED_PIDMAPCNT_FD );
+
+   JTRACE("Open PidMap related files" ) ( pidMapFile )( pidMapFile );
+   jalib::JBinarySerializeReader maprd( pidMapFile);
+   jalib::JBinarySerializeReader countrd(pidMapCountFile);
+   JTRACE("Open PidMap related files - SUCCESS" ) ( pidMapFile )( pidMapFile );
+
+   // Read nember of PID mappings
+   size_t numMaps;
+   serializeEntryCount (countrd,numMaps);
+   JTRACE ("Read number of PID mappings - OK")(numMaps);
+
+   // Read pidMapping content
+   pid_t originalPid;
+   pid_t currentPid;
+   while ( numMaps-- > 0 ){
+     serializePidMapEntry ( maprd, originalPid, currentPid );
+     _pidMapTable[originalPid] = currentPid;
+     JTRACE("PidMaps: ") (originalPid) (currentPid);
+   }
 }
 
 #endif

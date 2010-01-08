@@ -358,14 +358,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       if (originalTid != -1)
       {
         dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
-
-        dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
-        pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-        JASSERT ( pidMapFile.length() > 0 ) ( pidMapFile );
-        
-        jalib::JBinarySerializeWriterRaw wrr ( pidMapFile, PROTECTED_PIDMAP_FD );
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile( wrr, originalTid, tid );
-
+		dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
         tid = originalTid;
       } else {
         dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );
