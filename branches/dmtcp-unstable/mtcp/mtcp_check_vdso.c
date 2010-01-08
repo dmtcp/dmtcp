@@ -42,20 +42,18 @@
 #include "mtcp_sys.h" // For CLEAN_FOR_64BIT
 #include "mtcp_internal.h" // For CLEAN_FOR_64BIT and MAXPATHLEN
 
-#ifndef __xa86_64__
-// For __i386__, we turn off va_addr_rand.  For a _given_ binary,
+// We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).  
+// For a _given_ binary,
 // this fixes the address of the vdso.  Luckily, on restart, we
 // get our vdso from mtcp_restart.  So, we need to maintain two
 // vdso segments:  one from the user binary and one from each
 // invocation of mtcp_restart during iterated restarts.
-# define NO_RAND_VA_PERSONALITY_I386 1
-// # define RESET_THREAD_SYSINFO 1
-#endif
+# define NO_RAND_VA_PERSONALITY 1
 
 //======================================================================
 // Get and set AT_SYSINFO for purposes of patching address in vdso
 
-#ifdef __xa86_64__
+#ifdef __x86_64__
 # define ELF_AUXV_T Elf64_auxv_t
 # define UINT_T uint64_t
 #else
@@ -215,6 +213,7 @@ unsigned long getenv_oldpers() {
       oldpers = (oldpers << 1) + (*oldpers_str++ == '1' ? 1 : 0);
     return oldpers;
 }
+
 int setenv_oldpers(int oldpers) {
     static char oldpers_str[sizeof(oldpers)*8+1];
     int i = sizeof(oldpers_str); 
@@ -233,12 +232,8 @@ void mtcp_check_vdso_enabled() {
 #ifdef RESET_THREAD_SYSINFO
   get_at_sysinfo(); /* Initialize pointer to environ for later calls */
 #endif
-#ifdef __x86_64__
-  // If we're a 32-bit image on a 64-bit Linux, this will not execute.
-  return;
-#endif
 
-#ifdef NO_RAND_VA_PERSONALITY_I386
+#ifdef NO_RAND_VA_PERSONALITY
   /* Set ADDR_NO_RANDOMIZE bit;
    * In Ubuntu Linux 2.6.24 kernel, This places vdso in  a different
    * fixed position in mtcp_init (since /lib/ld-2.7.so is inserted
@@ -246,9 +241,11 @@ void mtcp_check_vdso_enabled() {
    */
   int pers = personality(0xffffffffUL); /* get current personality */
   if (pers & ADDR_NO_RANDOMIZE) { /* if no addr space randomization ... */
-    personality(getenv_oldpers()); /* restore orig pre-exec personality */
-    if (-1 == unsetenv("MTCP_OLDPERS"))
-      perror("unsetenv");
+    if (getenv("MTCP_OLDPERS") != NULL) {
+      personality(getenv_oldpers()); /* restore orig pre-exec personality */
+      if (-1 == unsetenv("MTCP_OLDPERS"))
+        perror("unsetenv");
+    }
     return; /* skip the rest */
   }
 
@@ -265,15 +262,39 @@ void mtcp_check_vdso_enabled() {
         extern char **environ;
 	struct rlimit rlim;
 
-	/* On Ubuntu 8.04, "make" has the capability to raise RLIMIT_STACK
- 	 * to infinity.  This is a problem.  When the kernel detects this,
- 	 * it falls back to an older "standard" memory layout for libs.
- 	 */
-        if ( -1 == getrlimit(RLIMIT_STACK, &rlim) ||
-	    ( rlim.rlim_cur = rlim.rlim_max = 0x40000000, /* 1 GB stack */
-	      setrlimit(RLIMIT_STACK, &rlim),
-	      getrlimit(RLIMIT_STACK, &rlim),
-	      rlim.rlim_max == RLIM_INFINITY )
+	/* "make" has the capability to raise RLIMIT_STACK to infinity.
+	 * This is a problem.  When the kernel (2.6.24 or later) detects this,
+	 * it falls back to an older "standard" memory layout for libs.
+	 * 
+	 * "standard" memory layout puts [vdso] segment in low memory, which 
+	 *  MTCP currently doesn't handle properly.
+	 *
+	 * glibc:nptl/sysdeps/<ARCH>/pthreaddef.h defines the default stack for 
+	 *  pthread_create to be ARCH_STACK_DEFAULT_SIZE if rlimit is set to be
+	 *  unlimited. We follow the same default.
+	 */
+//#ifdef __x86_64__
+//# define ARCH_STACK_DEFAULT_SIZE (32 * 1024 * 1024)
+//#else
+//# define ARCH_STACK_DEFAULT_SIZE (2 * 1024 * 1024)
+//#endif 
++        /*
++         * XXX: TODO: Due to some reason, manual restart of checkpointed
++         *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
++         *  has to do with VDSO. The location of VDSO section conflicts with the
++         *  location of process libraries and hence it is unmapped which causes
++         *  failure during thre restarting phase. If we set the stack limit to
++         *  256 MB or higher, we donot see this bug. 
++         * It Should also be noted that the process will call setrlimit to set
++         *  the resource limites to their pre-checkpoint values.
++         */
++#define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
+	 
+	if ( -1 == getrlimit(RLIMIT_STACK, &rlim) ||
+             ( rlim.rlim_cur = rlim.rlim_max = ARCH_STACK_DEFAULT_SIZE,
+	       setrlimit(RLIMIT_STACK, &rlim),
+	       getrlimit(RLIMIT_STACK, &rlim),
+	       rlim.rlim_max == RLIM_INFINITY )
 	   ) {
           mtcp_printf("Failed to reduce RLIMIT_STACK"
 			  " below RLIM_INFINITY\n");
@@ -290,10 +311,13 @@ void mtcp_check_vdso_enabled() {
   }
 #endif
 
-  /* We failed to turn off address space rand., but maybe vdso is not enabled */
+  /* We failed to turn off address space rand., but maybe vdso is not enabled 
+   * On newer kernels, there is no /proc/sys/vm/vdso_enabled, we will cross our
+   *  fingers and continue anyways.
+   */
   FILE * stream = fopen("/proc/sys/vm/vdso_enabled", "r");
   if (stream == NULL)
-    return;  /* Good news.  If it doesn't exist, it can't be enabled. :-) */
+    return;  /* In older kernels, if it doesn't exist, it can't be enabled. */
   clearerr(stream);
   if (fread(buf, sizeof(buf[0]), 1, stream) < 1) {
     if (ferror(stream)) {
