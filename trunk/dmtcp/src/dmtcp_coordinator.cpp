@@ -84,6 +84,10 @@ const int STDIN_FD = fileno ( stdin );
 JTIMER ( checkpoint );
 JTIMER ( restart );
 
+dmtcp::UniquePid curCompGroup = dmtcp::UniquePid();
+int numPeers = -1;
+int curTimeStamp = -1;
+
 namespace
 {
   static int theNextClientNumber = 1;
@@ -282,7 +286,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
                 && newState == WorkerState::DRAINED )
         {
           JNOTE ( "checkpointing all nodes" );
-          broadcastMessage ( DMT_DO_CHECKPOINT );
+          // Pass number of connected peers to all clients
+          broadcastMessage ( DMT_DO_CHECKPOINT , curCompGroup, getStatus().numPeers );
         }
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
@@ -382,9 +387,9 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
     NamedChunkReader& client = * ( ( NamedChunkReader* ) sock );
     JNOTE ( "client disconnected" ) ( client.identity() );
 
-    if(exitOnLast){
-      CoordinatorStatus s = getStatus();
-      if(s.numPeers <= 1){
+    CoordinatorStatus s = getStatus(); 
+    if( s.numPeers <= 1 ){ 
+      if(exitOnLast){
         JNOTE ("last client exited, shutting down..");
         handleUserCommand('q');
       }
@@ -398,13 +403,18 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
 
 void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen )
 {
+  bool isFirstConn = false;
   if ( _dataSockets.size() <= 1 )
   {
     if ( _dataSockets.size() == 0
             || _dataSockets[0]->socket().sockfd() == STDIN_FD )
     {
       //this is the first connection
-
+      curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
+      curTimeStamp = 0; // Drop timestamp to 0
+      numPeers = -1; // Drop number of peers to unknown
+      
+      JTRACE("CHECK")(curCompGroup.pid())(curCompGroup.hostid());
       JTRACE ( "resetting _restoreWaitingMessages" )
       ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
@@ -441,8 +451,63 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
     return;
   }
 
-  remote << hello_local;
   JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR );
+  // if parameter #1 is not -1 - this is dmtcp_restart process, connecting to
+  // get timestamp and set current compGroup
+  if( hello_remote.params[0] > 0 ){
+    if( curCompGroup == dmtcp::UniquePid() ){
+      // Coordinator is free at this moment - setup all the things
+      curCompGroup = hello_remote.compGroup;
+      numPeers = hello_remote.params[0];
+      curTimeStamp = time(NULL);
+      hello_local.params[1] = 1;
+      JTRACE("----------------------------------------\n"
+        "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp")
+          (numPeers)(curTimeStamp)(curCompGroup);
+    }else{
+      // Coordinator already serving some computation. So check if new connection
+      // is from current computation
+      if( (curCompGroup != hello_remote.compGroup) || (numPeers != hello_remote.params[0]) ){
+        // this is connection from other computation group - reject it.
+        JTRACE("Reject incoming dmtcp_restart connection since it is not from current computation");
+        hello_local.type = dmtcp::DMT_REJECT;
+        remote << hello_local;
+        remote.close();
+        return;
+      }
+      hello_local.params[1] = 0;
+    }
+    // Sent generated timestamp in local massage for dmtcp_restart process.
+    hello_local.params[0] = curTimeStamp;
+  }else if( curCompGroup != dmtcp::UniquePid() ){
+    // dmtcp_restart already connected and compGroup created. 
+    // Computation process connection
+    
+    JTRACE("Connection from computation process")(curCompGroup)
+    (hello_remote.compGroup)(minimumState());
+    // Current computation allocated by restarting processes
+    if( curTimeStamp ) {
+      if( ( hello_remote.compGroup == dmtcp::UniquePid() &&
+              minimumState() == WorkerState::RESTARTING ) ||
+          (hello_remote.compGroup != curCompGroup)) {
+        // New process, has no computation group 
+        JTRACE("Reject computation process");
+        hello_local.type = dmtcp::DMT_REJECT;
+        remote << hello_local;
+        remote.close();
+        return;
+      }
+    }
+  }else{
+    // Connection of new computation.
+    curCompGroup = hello_remote.from.pid();
+    curTimeStamp = 0;
+    numPeers = -1;
+    JTRACE("New process who has no compGroup.");
+  }
+    
+  remote << hello_local;
+
   JNOTE ( "worker connected" )
   ( hello_remote.from );
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
@@ -485,6 +550,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
       );
     }
   }
+
+  JTRACE("END")(_dataSockets.size())(_dataSockets.size() ? _dataSockets[0]->socket().sockfd() == STDIN_FD : 5);
 
 //     WorkerNode& node = _table[hello_remote.from.pid()];
 //     node.setClientNumer( ds->clientNumber() );
@@ -546,10 +613,15 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
   return * ( ( UniquePid* ) 0 );
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type )
+void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type, 
+    dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int param1 = -1 )
 {
   DmtcpMessage msg;
   msg.type = type;
+  if( param1 > 0 ){
+    msg.params[0] = param1;
+    msg.compGroup = compGroup;
+  }
   broadcastMessage ( msg );
 }
 
@@ -585,6 +657,10 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
   }
 
   status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
+  if( status.minimumState == WorkerState::CHECKPOINTED && count < numPeers ){
+    JTRACE("minimal statete counted as CHECKPOINTED but not all processes are connected yet. So we wait") (numPeers)(count);
+    status.minimumState = WorkerState::RESTARTING;
+  }
   status.minimumStateUnanimous = unanimous;
   status.numPeers = count;
   return status;

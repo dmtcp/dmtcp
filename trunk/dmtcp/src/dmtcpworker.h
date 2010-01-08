@@ -41,7 +41,7 @@ namespace dmtcp
       void waitForStage1Suspend();
       void waitForStage2Checkpoint();
       void waitForStage3Resume(int isRestart);
-      void restoreSockets ( ConnectionState& coordinator );
+      void restoreSockets(ConnectionState& coordinator,dmtcp::UniquePid compGroup,int numPeers,int &coordTstamp);
       void postRestart();
 
       static void resetOnFork();
@@ -69,8 +69,11 @@ namespace dmtcp
       static void decrementUnInitializedThreadCount();
 
       void connectToCoordinator(bool doHanshaking=true);
-      void sendCoordinatorHandshake(const dmtcp::string& procName);
-      void recvCoordinatorHandshake();
+      // np > -1 means it is restarting process that have np processes in its computation group
+      // np == -1 means it is new pure process, so coordinator needs to generate compGroup ID for it
+      // np == -2 means it is service connection from dmtcp_restart - irnore it
+      void sendCoordinatorHandshake(const dmtcp::string& procName, UniquePid compGroup = UniquePid(),int np = -1);
+      void recvCoordinatorHandshake(int *param1 = NULL);
 
       void writeCheckpointPrefix(int fd);
       void writeTidMaps();

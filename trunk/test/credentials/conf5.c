@@ -76,7 +76,7 @@ process(char *name,pid_t *cids, int cnum){
 			parse_credentials(ret,name,pid,ppid,pgrp,sid);
 		for(i=0;i<cnum;i++){
 			if( kill(cids[i],0) < 0 ){
-				printf("%s: no child #%d\n",i);
+				printf("%s: no child #%d = %d\n",name,i,cids[i]);
 			}
 		}
 		sleep(1);
@@ -137,7 +137,7 @@ int main()
 			_exit(0);
 		}
 		waitpid(ret,NULL,0);
-		process("p13",p1_cids,1);
+		process("p13",p13_cids,1);
 	}
 	process("p1",p1_cids,1);
 }

@@ -147,6 +147,9 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
   //dmtcp::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
   //JTRACE ( "Writing *.dmtcp checkpoint file" );
   jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
+
+  wr & _compGroup;
+  wr & _numPeers;
   _conToFds.serialize ( wr );
 
 #ifdef PID_VIRTUALIZATION

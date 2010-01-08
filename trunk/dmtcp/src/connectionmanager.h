@@ -135,9 +135,9 @@ namespace dmtcp
       static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
 #ifdef PID_VIRTUALIZATION
-      int loadFromFile(const dmtcp::string& filename, VirtualPidTable& virtualPidTable);
+      int loadFromFile(const dmtcp::string& filename,UniquePid &cg,int &, VirtualPidTable& virtualPidTable);
 #else
-      int loadFromFile(const dmtcp::string& filename);
+      int loadFromFile(const dmtcp::string& filename,UniquePid &cg,int &);
 #endif
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;

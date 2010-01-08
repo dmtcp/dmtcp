@@ -79,19 +79,19 @@ int main()
 	int ret;
 
 	if( !(p1_cids[0] = fork()) ){
-		eq_ppid = 1; // after restart we should find thi same PPID
+		eq_ppid = 1; // after restart we should find the same PPID
 		process("p11",NULL,0);
 	}
 
 	if( !(p1_cids[1] = fork()) ){
-		eq_ppid = 1; // after restart we should find thi same PPID
+		eq_ppid = 1; // after restart we should find the same PPID
 		process("p12",NULL,0);
 	}
 
 	if( !(p1_cids[2] = fork()) ){
 		// p13
-		eq_ppid = 1; // after restart we should find thi same PPID
-		eq_sid = 1; // after restart we should find thi same PPID
+		eq_ppid = 1; // after restart we should find the same PPID
+		eq_sid = 1; // after restart we should find the same PPID
 		setsid();
 		process("p13",NULL,0);
 	}

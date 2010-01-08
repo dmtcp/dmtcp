@@ -47,7 +47,8 @@ namespace dmtcp
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
       virtual void onTimeoutInterval();
-      void broadcastMessage ( DmtcpMessageType type );
+      
+      void broadcastMessage( DmtcpMessageType type, dmtcp::UniquePid, int );
       void broadcastMessage ( const DmtcpMessage& msg );
       bool startCheckpoint();
 
