@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <pwd.h>
 
 // Some global definitions
 dmtcp::UniquePid compGroup;
@@ -276,7 +277,7 @@ namespace
               if( it2->second != it1->second ) {
                 // Session was created after child creation so child from 
                 // one thread cannot be slave of child from other thread
-                printf("One child contain session leader and other session slave slave!\n");
+                JASSERT(false). Text("One child contain session leader and other session slave slave!\n");
                 exit(0);
               }
             } else {
@@ -290,7 +291,7 @@ namespace
         if( sit != _smap.end() ) {
           if( sit->second && !isSessionLeader() ) {
             // child is leader and parent is slave - impossible
-            printf("child is leader and parent is slave - impossible\n");
+            JASSERT(false). Text("child is leader and parent is slave - impossible\n");
             exit(0);
           }
         }
@@ -306,9 +307,8 @@ namespace
           JTRACE("")(pid());
           s_iterator sit = _smap.begin();
           for(; sit != _smap.end(); sit++){
-              printf("(%d,%d) ",sit->first,sit->second);
+              JTRACE("") (sit->first) (sit->second);
           }
-          printf("\n");
       }
       
       sidMapping &getSmap(){ return _smap; }
@@ -521,7 +521,7 @@ namespace
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "%sUSAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
+  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
@@ -539,6 +539,15 @@ static const char* theUsage =
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
   "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
+;
+
+static const char* theBanner =
+  "DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+  "                                       Kapil Arya, and Gene Cooperman\n"
+  "This program comes with ABSOLUTELY NO WARRANTY.\n"
+  "This is free software, and you are welcome to redistribute it\n"
+  "under certain conditions; see COPYING file for details.\n"
+  "(Use flag \"-q\" to hide this message.)\n\n"
 ;
 
 //shift args
@@ -563,15 +572,17 @@ int main ( int argc, char** argv )
   bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  char hostname[80];
+  gethostname(hostname, 80);
+
   dmtcp::ostringstream o;
   if (getenv(ENV_VAR_TMPDIR))
     {}
   else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
     setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-    //setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
   } else {
-    o << "/tmp/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
     setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
   }
 
@@ -583,7 +594,8 @@ int main ( int argc, char** argv )
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage, "");
+      JASSERT_STDERR << theUsage;
+      //fprintf(stderr, theUsage, "");
       return 1;
     }else if(s == "--no-check"){
       autoStartCoordinator = false;
@@ -626,12 +638,7 @@ int main ( int argc, char** argv )
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   if (jassert_quiet == 0)
-    printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
-           "                                       Kapil Arya, and Gene Cooperman\n"
-           "This program comes with ABSOLUTELY NO WARRANTY.\n"
-           "This is free software, and you are welcome to redistribute it\n"
-           "under certain conditions; see COPYING file for details.\n"
-           "(Use flag \"-q\" to hide this message.)\n\n");
+    JASSERT_STDERR << theBanner;
   
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 

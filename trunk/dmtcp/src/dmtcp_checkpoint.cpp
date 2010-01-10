@@ -35,12 +35,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pwd.h>
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "%sUSAGE: \n"
+  "USAGE: \n"
   "  dmtcp_checkpoint [OPTIONS] <command> [args...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
@@ -69,12 +70,32 @@ static const char* theUsage =
   "See http://dmtcp.sf.net/ for more information.\n"
 ;
 
+static const char* theBanner =
+  "DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+  "                                       Kapil Arya, and Gene Cooperman\n"
+  "This program comes with ABSOLUTELY NO WARRANTY.\n"
+  "This is free software, and you are welcome to redistribute it\n"
+  "under certain conditions; see COPYING file for details.\n"
+  "(Use flag \"-q\" to hide this message.)\n\n"
+;
+
 static const char* theExecFailedMsg =
   "ERROR: Failed to exec(\"%s\"): %s\n"
   "Perhaps it is not in your $PATH?\n"
   "See `dmtcp_checkpoint --help` for usage.\n"
 ;
 
+static const char* theMatlabWarning =
+  "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
+  "****  with gcc-4.1 and g++-4.1\n"
+  "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+  "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+  "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+  "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+  "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+  "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+  "****   (Will try to execute anyway with current compiler version.)\n\n"
+;
 static dmtcp::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
@@ -90,14 +111,17 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
+  char hostname[80];
+  gethostname(hostname, 80);
+
   dmtcp::ostringstream o;
   if (getenv(ENV_VAR_TMPDIR))
     {}
   else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
     setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
   } else {
-    o << "/tmp/dmtcp-" << getenv("USER") << "@" << getenv("HOSTNAME");
+    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
     setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
   }
 
@@ -109,7 +133,8 @@ int main ( int argc, char** argv )
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if(s=="--help" || s=="-h" && argc==1){
-      fprintf(stderr, theUsage, "");
+      JASSERT_STDERR << theUsage;
+      //fprintf(stderr, theUsage, "");
       return 1;
     }else if(s=="--ssh-slave"){
       isSSHSlave = true;
@@ -178,27 +203,29 @@ int main ( int argc, char** argv )
 #endif
 
   if (jassert_quiet == 0)
-    printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
-           "                                       Kapil Arya, and Gene Cooperman\n"
-           "This program comes with ABSOLUTELY NO WARRANTY.\n"
-           "This is free software, and you are welcome to redistribute it\n"
-	   "under certain conditions; see COPYING file for details.\n"
-	   "(Use flag \"-q\" to hide this message.)\n\n");
+    JASSERT_STDERR << theBanner;
+    //printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+           //"                                       Kapil Arya, and Gene Cooperman\n"
+           //"This program comes with ABSOLUTELY NO WARRANTY.\n"
+           //"This is free software, and you are welcome to redistribute it\n"
+	   //"under certain conditions; see COPYING file for details.\n"
+	   //"(Use flag \"-q\" to hide this message.)\n\n");
 
 #ifdef __GNUC__
 # if __GNUC__ == 4 && __GNUC_MINOR__ > 1
   if ( strcmp(argv[0], "matlab") == 0 )
-    printf(
-   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
-   "****  with gcc-4.1 and g++-4.1\n"
-   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-   "****   (Will try to execute anyway with current compiler version.)\n\n"
-   );
+    JASSERT_STDERR << theMatlabWarning;
+//    printf(
+//   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
+//   "****  with gcc-4.1 and g++-4.1\n"
+//   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+//   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+//   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+//   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+//   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+//   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+//   "****   (Will try to execute anyway with current compiler version.)\n\n"
+//   );
 # endif
 #endif
 
@@ -264,7 +291,11 @@ int main ( int argc, char** argv )
   execvp ( argv[0], argv );
 
   //should be unreachable
-  fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+  JASSERT_STDERR << 
+    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
+    << "Perhaps it is not in your $PATH?\n"
+    << "See `dmtcp_checkpoint --help` for usage.\n";
+  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
 
   return -1;
 }

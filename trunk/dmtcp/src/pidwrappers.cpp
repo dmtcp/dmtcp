@@ -121,7 +121,6 @@ extern "C" long int syscall(long int sys_num, ... )
       int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
-//      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
       return tkill(tid,sig); 
       break;
     }
@@ -130,7 +129,6 @@ extern "C" long int syscall(long int sys_num, ... )
       int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
-//      printf("syscall: tid=%d, currentTid=%d\n",(int)arg[0],currentTid);
       return tgkill(tgid,tid,sig); 
       break;
     }
