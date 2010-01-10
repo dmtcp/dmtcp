@@ -278,17 +278,17 @@ void mtcp_check_vdso_enabled() {
 //#else
 //# define ARCH_STACK_DEFAULT_SIZE (2 * 1024 * 1024)
 //#endif 
-+        /*
-+         * XXX: TODO: Due to some reason, manual restart of checkpointed
-+         *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
-+         *  has to do with VDSO. The location of VDSO section conflicts with the
-+         *  location of process libraries and hence it is unmapped which causes
-+         *  failure during thre restarting phase. If we set the stack limit to
-+         *  256 MB or higher, we donot see this bug. 
-+         * It Should also be noted that the process will call setrlimit to set
-+         *  the resource limites to their pre-checkpoint values.
-+         */
-+#define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
+        /*
+         * XXX: TODO: Due to some reason, manual restart of checkpointed
+         *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
+         *  has to do with VDSO. The location of VDSO section conflicts with the
+         *  location of process libraries and hence it is unmapped which causes
+         *  failure during thre restarting phase. If we set the stack limit to
+         *  256 MB or higher, we donot see this bug. 
+         * It Should also be noted that the process will call setrlimit to set
+         *  the resource limites to their pre-checkpoint values.
+         */
+#define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
 	 
 	if ( -1 == getrlimit(RLIMIT_STACK, &rlim) ||
              ( rlim.rlim_cur = rlim.rlim_max = ARCH_STACK_DEFAULT_SIZE,
