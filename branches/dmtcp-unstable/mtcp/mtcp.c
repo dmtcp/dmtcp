@@ -3631,7 +3631,7 @@ static void stopthisthread (int signum)
          */
 
         DPRINTF (("mtcp checkpointeverything*: verifying checkpoint...\n"));
-        execlp ("mtcp_restart", "mtcp_restart", "-verify", temp_checkpointfilename, NULL);
+        execlp ("mtcp_restart", "mtcp_restart", "--verify", temp_checkpointfilename, NULL);
         mtcp_printf ("mtcp checkpointeverything: error execing mtcp_restart %s: %s\n", temp_checkpointfilename, strerror (errno));
         mtcp_abort ();
       }
@@ -4120,7 +4120,7 @@ static void finishrestore (void)
   struct timeval stopped;
   int nnamelen;
 
-  DPRINTF (("mtcp finishrestore*: mtcp_printf works\n"));
+  DPRINTF (("mtcp finishrestore*: mtcp_printf works; libc should work\n"));
 
   if( (nnamelen = strlen(mtcp_ckpt_newname)) && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
