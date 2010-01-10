@@ -2157,7 +2157,7 @@ static void stopthisthread (int signum)
          */
 
         DPRINTF (("mtcp checkpointeverything*: verifying checkpoint...\n"));
-        execlp ("mtcp_restart", "mtcp_restart", "-verify", temp_checkpointfilename, NULL);
+        execlp ("mtcp_restart", "mtcp_restart", "--verify", temp_checkpointfilename, NULL);
         mtcp_printf ("mtcp checkpointeverything: error execing mtcp_restart %s: %s\n", temp_checkpointfilename, strerror (errno));
         mtcp_abort ();
       }

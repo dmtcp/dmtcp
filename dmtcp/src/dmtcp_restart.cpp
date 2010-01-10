@@ -945,6 +945,12 @@ static void runMtcpRestore ( const char* path, int offset )
 {
   static dmtcp::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
+  // Tell mtcp_restart process to write its debugging information to
+  // PROTECTED_STDERR_FD. This way we prevent it from spitting out garbage onto
+  // FD_STDERR if it is being used by the user process in a special way.
+  char protected_stderr_fd_str[16];
+  sprintf(protected_stderr_fd_str,"%d", PROTECTED_STDERR_FD);
+
 #ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
@@ -955,29 +961,33 @@ static void runMtcpRestore ( const char* path, int offset )
 
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
-    ( char* ) "-fd",
+    ( char* ) "--stderr-fd",
+    protected_stderr_fd_str,
+    ( char* ) "--fd",
     buf,
-    ( char* ) "-gzip_child_pid",
+    ( char* ) "--gzip-child-pid",
     buf2,
     NULL
   };
   if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
     newArgs[3] = NULL;
   
-  JTRACE ( "launching mtcp_restart -fd" )(fd)(path);
+  JTRACE ( "launching mtcp_restart --fd" )(fd)(path);
 #else
   char buf[64];
   sprintf(buf,"%d", offset);
 
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
-    ( char* ) "-offset",
+    ( char* ) "--stderr-fd",
+    protected_stderr_fd_str,
+    ( char* ) "--offset",
     buf,
     (char*) path,
     NULL
   };
   
-  JTRACE ( "launching mtcp_restart -offset" )(path)(offset);
+  JTRACE ( "launching mtcp_restart --offset" )(path)(offset);
 
 #endif
 

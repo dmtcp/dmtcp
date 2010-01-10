@@ -28,7 +28,7 @@
 /*  from the last checkpoint.													*/
 /*																*/
 /*  It is also used by the checkpoint verification to perform a restore while the original application program is running, to 	*/
-/*  make sure the restore works.  The -verify option tells it to rename the checkpoint file, removing the .temp from the end.	*/
+/*  make sure the restore works.  The --verify option tells it to rename the checkpoint file, removing the .temp from the end.	*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -51,8 +51,19 @@ static void readfile (int fd, void *buf, size_t size);
 
 static pid_t gzip_child_pid = -1;
 
-int main (int argc, char *argv[], char *envp[])
+extern int dmtcp_info_stderr_fd;
 
+//shift args
+#define shift argc--,argv++
+
+static const char* theUsage =
+  "USAGE:\n"
+  "mtcp_restart [--verify] <ckeckpointfile>\n\n"
+  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] <ckeckpointfile>\n\n"
+  "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>] [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
+;
+
+int main (int argc, char *argv[], char *envp[])
 {
   char magicbuf[MAGIC_LEN], *restorename;
   int fd, verify;
@@ -72,32 +83,92 @@ int main (int argc, char *argv[], char *envp[])
 
   mtcp_check_vdso_enabled();
 
+#if 1
+  fd = gzip_child_pid = -1;
+  verify = 0;
+
+  shift;
+  while(1) {
+    if (argc == 0 || (strcasecmp(argv[0], "--help") == 0 && argc == 1)) {
+      mtcp_printf("%s", theUsage);
+      return (-1);
+    } else if (strcasecmp (argv[0], "--verify") == 0 && argc == 2) {
+      verify = 1;
+      restorename = argv[0];
+      break;
+    } else if (strcasecmp (argv[0], "--offset") == 0 && argc == 3) {
+      offset = atoi(argv[1]);
+      shift; shift;
+    } else if (strcasecmp (argv[0], "--fd") == 0 && argc > 1) {
+      fd = atoi(argv[1]);
+      shift; shift;
+    } else if (strcasecmp (argv[0], "--gzip-child-pid") == 0 && argc > 1) {
+      gzip_child_pid = atoi(argv[1]);
+      shift; shift;
+    } else if (strcasecmp (argv[0], "--rename-ckpt") == 0 && argc > 1) {
+      strncpy(ckpt_newname, argv[1], MAXPATHLEN);
+      shift; shift;
+    } else if (strcasecmp (argv[0], "--stderr-fd") == 0 && argc > 1) {
+      dmtcp_info_stderr_fd = atoi(argv[1]);
+      shift; shift;
+    } else if (strcasecmp (argv[0], "--") == 0 && argc > 1) {
+      shift;
+      break;
+    } else if (argc == 1) {
+      restorename = argv[0];
+      break;
+    } else {
+      argc = 0;
+    }
+  }
+
+  /* XXX XXX XXX:
+   *     DO NOT USE mtcp_printf OR DPRINTF BEFORE THIS BLOCK, ITS DANGEROUS AND
+   *     CAN MESS UP WITH YOUR PROCESSES BY WRITING GARBAGE TO THEIR STDERR FD,
+   *     IF THEY ARE NOT USING IT AS STDERR.
+   *                                                                    --Kapil
+   */
+
+  if (fd != -1 && gzip_child_pid != -1) {
+    restorename = NULL;
+  } else if ((fd == -1 && gzip_child_pid != -1) ||
+             (offset != 0 && fd != -1)) {
+    mtcp_printf("%s", theUsage);
+    return (-1);
+  }
+
+  if (strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
+    strncpy(ckpt_newname, restorename, MAXPATHLEN);
+  }
+
+#else
+
   if (argc == 2) {
     verify = 0;
     restorename = argv[1];
-  } else if ((argc == 3) && (strcasecmp (argv[1], "-verify") == 0)) {
+  } else if ((argc == 3) && (strcasecmp (argv[1], "--verify") == 0)) {
     verify = 1;
     restorename = argv[2];
-  } else if ((argc == 4) && (strcasecmp (argv[1], "-offset") == 0)) {
+  } else if ((argc == 4) && (strcasecmp (argv[1], "--offset") == 0)) {
     verify = 0;
     offset = atoi(argv[2]);
     restorename = argv[3];
 	strncpy(ckpt_newname,restorename,MAXPATHLEN);
-  } else if ((argc == 3) && (strcasecmp (argv[1], "-fd") == 0)) {
+  } else if ((argc == 3) && (strcasecmp (argv[1], "--fd") == 0)) {
     /* This case used only when dmtcp_restart exec's to mtcp_restart. */
     verify = 0;
     restorename = NULL;
     fd = atoi(argv[2]);
-  } else if ((argc == 5) && (strcasecmp (argv[1], "-fd") == 0)
-	     && (strcasecmp (argv[3], "-gzip_child_pid") == 0)) {
+  } else if ((argc == 5) && (strcasecmp (argv[1], "--fd") == 0)
+	     && (strcasecmp (argv[3], "--gzip-child-pid") == 0)) {
     /* This case used only when dmtcp_restart exec's to mtcp_restart. */
     verify = 0;
     restorename = NULL;
     fd = atoi(argv[2]);
     gzip_child_pid = atoi(argv[4]);
-  } else if ((argc == 7) && (strcasecmp (argv[1], "-fd") == 0)
-	     && (strcasecmp (argv[3], "-gzip_child_pid") == 0)
-		 && (strcasecmp (argv[5], "-rename-ckpt") == 0)) {
+  } else if ((argc == 7) && (strcasecmp (argv[1], "--fd") == 0)
+	     && (strcasecmp (argv[3], "--gzip-child-pid") == 0)
+		 && (strcasecmp (argv[5], "--rename-ckpt") == 0)) {
     /* This case used only when dmtcp_restart exec's to mtcp_restart. & wants to rename checkpoint filename */
     verify = 0;
     restorename = NULL;
@@ -105,9 +176,11 @@ int main (int argc, char *argv[], char *envp[])
     gzip_child_pid = atoi(argv[4]);
 	strncpy(ckpt_newname,argv[6],MAXPATHLEN);
   } else {
-    mtcp_printf("usage: mtcp_restart [-verify] <checkpointfile>\n");
+    mtcp_printf("%s", theUsage);
     return (-1);
   }
+
+#endif
 
   if(restorename!=NULL) fd = open_ckpt_to_read(restorename);
   if(offset>0){
