@@ -101,7 +101,7 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
       if ( val==0 ) ret = 0;
     }
     else
-      printf ( "No data within five seconds.\n" );
+      JTRACE ( "No data within five seconds." );
   }
 
   saved_errno = errno;
