@@ -59,7 +59,7 @@ extern int dmtcp_info_stderr_fd;
 static const char* theUsage =
   "USAGE:\n"
   "mtcp_restart [--verify] <ckeckpointfile>\n\n"
-  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] <ckeckpointfile>\n\n"
+  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] [--] <ckeckpointfile>\n\n"
   "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>] [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
 ;
 
@@ -69,8 +69,9 @@ int main (int argc, char *argv[], char *envp[])
   int fd, verify;
   size_t restore_size, offset=0;
   void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
-			 char *cmd_file, char *argv[], char *envp[]);
+  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,
+                         char *ckpt_newname, char *cmd_file,
+                         char *argv[], char *envp[]);
   char cmd_file[MAXPATHLEN+1];
   char ckpt_newname[MAXPATHLEN+1] = "";
 
@@ -83,50 +84,54 @@ int main (int argc, char *argv[], char *envp[])
 
   mtcp_check_vdso_enabled();
 
+/* DELETE THE "#else" CASE AND MAKE THIS PERMANENT, ONCE IT'S BEEN USED A LOT.
+ * IT WAS ADDED IN rev. 458.
+ */
 #if 1
   fd = gzip_child_pid = -1;
   verify = 0;
 
   shift;
-  while(1) {
+  while (1) {
     if (argc == 0 || (strcasecmp(argv[0], "--help") == 0 && argc == 1)) {
       mtcp_printf("%s", theUsage);
       return (-1);
     } else if (strcasecmp (argv[0], "--verify") == 0 && argc == 2) {
       verify = 1;
-      restorename = argv[0];
+      restorename = argv[1];
       break;
-    } else if (strcasecmp (argv[0], "--offset") == 0 && argc == 3) {
+    } else if (strcasecmp (argv[0], "--offset") == 0 && argc >= 3) {
       offset = atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--fd") == 0 && argc > 1) {
+    } else if (strcasecmp (argv[0], "--fd") == 0 && argc >= 2) {
       fd = atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--gzip-child-pid") == 0 && argc > 1) {
+    } else if (strcasecmp (argv[0], "--gzip-child-pid") == 0 && argc >= 2) {
       gzip_child_pid = atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--rename-ckpt") == 0 && argc > 1) {
+    } else if (strcasecmp (argv[0], "--rename-ckpt") == 0 && argc >= 2) {
       strncpy(ckpt_newname, argv[1], MAXPATHLEN);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--stderr-fd") == 0 && argc > 1) {
+    } else if (strcasecmp (argv[0], "--stderr-fd") == 0 && argc >= 2) {
       dmtcp_info_stderr_fd = atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--") == 0 && argc > 1) {
-      shift;
+    } else if (strcasecmp (argv[0], "--") == 0 && argc == 2) {
+      restorename = argv[1];
       break;
     } else if (argc == 1) {
       restorename = argv[0];
       break;
     } else {
-      argc = 0;
+      mtcp_printf("%s", theUsage);
+      return (-1);
     }
   }
 
   /* XXX XXX XXX:
-   *     DO NOT USE mtcp_printf OR DPRINTF BEFORE THIS BLOCK, ITS DANGEROUS AND
-   *     CAN MESS UP WITH YOUR PROCESSES BY WRITING GARBAGE TO THEIR STDERR FD,
-   *     IF THEY ARE NOT USING IT AS STDERR.
-   *                                                                    --Kapil
+   *    DO NOT USE mtcp_printf OR DPRINTF BEFORE THIS BLOCK, IT'S DANGEROUS AND
+   *    CAN MESS UP YOUR PROCESSES BY WRITING GARBAGE TO THEIR STDERR FD,
+   *    IF THEY ARE NOT USING IT AS STDERR.
+   *                                                                   --Kapil
    */
 
   if (fd != -1 && gzip_child_pid != -1) {
