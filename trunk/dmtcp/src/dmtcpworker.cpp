@@ -93,7 +93,7 @@ static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
  * XXX: Currently this security is provided only for the clone wrapper; this
  * should be extended to other calls as well.           -- KAPIL
  */
-static pthread_rwlock_t theWrapperProtectionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+static pthread_rwlock_t theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 
@@ -320,7 +320,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
-  theWrapperProtectionLock = newLock;
+  theWrapperExecutionLock = newLock;
   unInitializedThreadCountLock = newCountLock;
   unInitializedThreadCount = 0;
   WorkerState::setCurrentState( WorkerState::UNKNOWN); 
@@ -372,7 +372,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   JTRACE ( "got SUSPEND signal, waiting for other threads to exit DMTCP-Wrappers" );
-  JASSERT(pthread_rwlock_wrlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  JASSERT(pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
   JTRACE ( "got SUSPEND signal, waiting for newly created threads to finish initialization" )(unInitializedThreadCount);
   waitForThreadsToFinishInitialization();
 
@@ -383,7 +383,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
 
-  JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
 
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
@@ -570,6 +570,11 @@ void dmtcp::DmtcpWorker::writeTidMaps()
   dmtcp::VirtualPidTable::Instance().postRestart2();
 #endif
 
+  // After this point, the user threads will be unlocked in mtcp.c and will
+  // resume their computation and so it is OK to set the process state to
+  // RUNNING.
+  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+
   maskStdErr();
 }
 
@@ -635,21 +640,29 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
-void dmtcp::DmtcpWorker::wrapperProtectionLock(){
+bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
+{
   int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) 
-    JASSERT(pthread_rwlock_rdlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
+  bool lockAcquired = false;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    JASSERT(pthread_rwlock_rdlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+    lockAcquired = true;
+  }
+  errno = saved_errno;
+  return lockAcquired;
+}
+
+void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
+{
+  int saved_errno = errno;
+  JASSERT( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
+    .Text( "This implies process is not in running state and yet this thread managed to acquire the wrapperExecutionLock. This is wrong." );
+  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
   errno = saved_errno;
 }
 
-void dmtcp::DmtcpWorker::wrapperProtectionUnlock(){
-  int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) 
-    JASSERT(pthread_rwlock_unlock(&theWrapperProtectionLock) == 0)(JASSERT_ERRNO);
-  errno = saved_errno;
-}
-
-void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
+void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
+{
   JTRACE(":") (unInitializedThreadCount);
   while (unInitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
@@ -657,7 +670,8 @@ void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization() {
   }
 }
 
-void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount(){
+void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount()
+{
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
@@ -668,7 +682,8 @@ void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount(){
   errno = saved_errno;
 }
 
-void dmtcp::DmtcpWorker::decrementUnInitializedThreadCount(){
+void dmtcp::DmtcpWorker::decrementUnInitializedThreadCount()
+{
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
