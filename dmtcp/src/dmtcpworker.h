@@ -27,6 +27,18 @@
 #include "uniquepid.h"
 #include "constants.h"
 
+#define WRAPPER_EXECUTION_LOCK_LOCK() \
+  JTRACE("Acquiring wrapperExecutionLock"); \
+  bool __wrapperExecutionLockAcquired = dmtcp::DmtcpWorker::wrapperExecutionLockLock(); \
+  if ( 0 && __wrapperExecutionLockAcquired ) \
+    JTRACE("Acquired wrapperExecutionLock");
+
+#define WRAPPER_EXECUTION_LOCK_UNLOCK() \
+  if ( __wrapperExecutionLockAcquired ) { \
+    JTRACE("Releasing wrapperExecutionLock"); \
+    dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
+  }
+
 namespace dmtcp
 {
 
@@ -61,8 +73,8 @@ namespace dmtcp
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
 
-      static void wrapperProtectionLock();
-      static void wrapperProtectionUnlock();
+      static bool wrapperExecutionLockLock();
+      static void wrapperExecutionLockUnlock();
 
       static void waitForThreadsToFinishInitialization();
       static void incrementUnInitializedThreadCount();

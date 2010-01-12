@@ -308,12 +308,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * (Make sure to unlock before returning from this function)
    * Also increment the uninitialized thread count.
    */
-  {
-    JTRACE("Aquiring wrapperProtectionLock");
-    dmtcp::DmtcpWorker::wrapperProtectionLock();
-    dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
-    JTRACE("After Aquiring wrapperProtectionLock");
-  }
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
+
 
   pid_t originalTid = -1;
 
@@ -368,10 +365,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   }
 
   /* Release the wrapperExeution lock */
-  {
-    dmtcp::DmtcpWorker::wrapperProtectionUnlock();
-    JTRACE("Releasing wrapperProtectionLock");
-  }
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return tid;
 

@@ -168,14 +168,12 @@ extern "C" pid_t fork()
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int retVal = fork_work();
 
   if (retVal != 0) {
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+    WRAPPER_EXECUTION_LOCK_UNLOCK();
   }
 
   return retVal;
@@ -258,21 +256,18 @@ extern "C" char *ptsname ( int fd )
 
 extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   JASSERT ( sv != NULL );
   int rv = _real_socketpair ( d,type,protocol,sv );
@@ -287,8 +282,7 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   dmtcp::KernelDeviceToConnection::Instance().create ( sv[0] , a );
   dmtcp::KernelDeviceToConnection::Instance().create ( sv[1] , b );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return rv;
 }
@@ -404,14 +398,12 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec();
   int retVal = _real_execve ( filename, argv, patchUserEnv ( envp ) );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -425,14 +417,12 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec();
   int retVal = _real_fexecve ( fd, argv, patchUserEnv ( envp ) );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -443,14 +433,12 @@ extern "C" int execv ( const char *path, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec();
   int retVal = _real_execv ( path, argv );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -461,14 +449,12 @@ extern "C" int execvp ( const char *file, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec();
   int retVal = _real_execvp ( file, argv );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }

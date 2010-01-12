@@ -67,8 +67,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 
 static pid_t gettid()
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   /* 
    * We might want to cache the tid of all threads to avoid redundant calls
    *  to _real_gettid() and currentToOriginalPid().
@@ -80,8 +79,7 @@ static pid_t gettid()
   pid_t currentTid = _real_gettid();
   pid_t origTid =  currentToOriginalPid ( currentTid );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origTid;
 }
@@ -162,8 +160,7 @@ extern "C" pid_t getpid()
 
 extern "C" pid_t getppid()
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
@@ -173,105 +170,91 @@ extern "C" pid_t getppid()
 
   pid_t origPpid = dmtcp::VirtualPidTable::Instance().ppid( );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPpid;
 }
 
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPgrp = originalToCurrentPid( pgrp );
 //  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
   int retVal = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 extern "C" pid_t tcgetpgrp(int fd)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
   //JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retval;
 }
 
 extern "C" pid_t getpgrp(void)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pgrp = _real_getpgrp();
   pid_t origPgrp =  currentToOriginalPid( pgrp );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgrp;
 }
 
 extern "C" pid_t setpgrp(void)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pgrp = _real_setpgrp();
   pid_t origPgrp = currentToOriginalPid( pgrp );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgrp;
 }
 
 extern "C" pid_t getpgid(pid_t pid)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currentPid = originalToCurrentPid (pid);
   pid_t res = _real_getpgid (currentPid);
   pid_t origPgid = currentToOriginalPid (res);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgid;
 }
 
 extern "C" int   setpgid(pid_t pid, pid_t pgid)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid = originalToCurrentPid (pid);
   pid_t currPgid = originalToCurrentPid (pgid);
 
   int retVal = _real_setpgid (currPid, currPgid);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid;
   
@@ -285,69 +268,60 @@ extern "C" pid_t getsid(pid_t pid)
 
   pid_t origSid = currentToOriginalPid (res);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origSid;
 }
 
 extern "C" pid_t setsid(void)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
   dmtcp::VirtualPidTable::Instance().setsid(origPid);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPid;
 }
 
 extern "C" int   kill(pid_t pid, int sig)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid = originalToCurrentPid (pid);
   
   int retVal = _real_kill (currPid, sig);
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 static int   tkill(int tid, int sig)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int currentTid = originalToCurrentPid ( tid );
   
   int retVal = _real_tkill ( currentTid, sig );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 static int   tgkill(int tgid, int tid, int sig)
 {
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
   
   int retVal = _real_tgkill ( currentTgid, currentTid, sig );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -509,14 +483,12 @@ extern "C" int open (const char *path, ... )
     return _real_open ( path, flags, mode );
   }
 
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   change_path ( path, newpath );
   int fd = _real_open( newpath, flags, mode );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return fd;
 }
@@ -531,16 +503,14 @@ extern "C" FILE *fopen (const char* path, const char* mode)
     return _real_fopen ( path, mode );
   }
 
-  JTRACE("Aquiring wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionLock();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   char newpath [ 1024 ] = {0} ;
 
   change_path ( path, newpath );
   FILE *file = _real_fopen ( newpath, mode );
 
-  JTRACE("Releasing wrapperProtectionLock");
-  dmtcp::DmtcpWorker::wrapperProtectionUnlock();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return file;
 }
