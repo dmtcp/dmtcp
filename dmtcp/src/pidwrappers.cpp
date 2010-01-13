@@ -85,6 +85,8 @@ static pid_t gettid()
 }
 
 
+extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
 /* Comments by Gene:
  * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
  * We would add a special case for SYS_gettid, while all others default as below
@@ -96,12 +98,9 @@ static pid_t gettid()
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them. 
  *
- * XXX: DONOT USE JTRACE/JNOTE/JASSERT in this function, even better, do not
+ * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      any C++ things here.  (--Kapil)
  */
-
-extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-
 extern "C" long int syscall(long int sys_num, ... )
 {
   int i;
@@ -148,7 +147,6 @@ extern "C" long int syscall(long int sys_num, ... )
   va_end(ap);
   return _real_syscall(sys_num, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
 }
-
 
 extern "C" pid_t getpid()
 {
@@ -260,7 +258,7 @@ extern "C" pid_t getsid(pid_t pid)
   
   // If !pid then we ask SID of this process
   if( pid )
-  	currPid = originalToCurrentPid (pid);
+    currPid = originalToCurrentPid (pid);
   else
     currPid = _real_getpid();
   

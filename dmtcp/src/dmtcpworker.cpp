@@ -640,13 +640,16 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
+// XXX: Handle deadlock error code
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(pthread_rwlock_rdlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-    lockAcquired = true;
+    int retVal = pthread_rwlock_rdlock(&theWrapperExecutionLock);
+    JASSERT(retVal == 0 || retVal == EDEADLK) (retVal) (strerror(retVal))
+      .Text("Failed to acquire rdlock");
+    lockAcquired = retVal == 0 ? true : false;
   }
   errno = saved_errno;
   return lockAcquired;
