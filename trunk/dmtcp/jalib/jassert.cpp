@@ -26,19 +26,50 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 
 #include <fstream>
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
 
+// This macro is also defined in ../src/constants.h and should always be kept
+// in sync with that.
+#define LIBC_FILENAME "libc.so.6"
+
 int jassert_quiet = 0;
+
 /*
    The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
    PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
 */
 static const int DUP_STDERR_FD = 826; // PFD(5)
 static const int DUP_LOG_FD    = 827; // PFD(6)
+
+// DMTCP provides a wrapper for open/fopen. We don't want to go to that wrapper
+// and so we call open() directly from libc. This implementation follows the
+// one used in ../src/syscallsreal.c
+static int _real_open ( const char *pathname, int flags, mode_t mode )
+{
+  static void* handle = NULL;
+  if ( handle == NULL && ( handle = dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+
+  typedef int ( *funcptr ) (const char*, int, mode_t);
+  funcptr openFuncptr = NULL;
+  openFuncptr = (funcptr)dlsym ( handle, "open" );
+  if ( openFuncptr == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return (*openFuncptr)(pathname, flags, mode);
+}
 
 int jassert_internal::jassert_console_fd()
 {
@@ -55,16 +86,24 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
   return *this;
 }
 
-static pthread_mutex_t logLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t logLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 
 void jassert_internal::lockLog()
 {
-  pthread_mutex_lock(&logLock);
+  int retVal = pthread_mutex_lock(&logLock);
+  if (retVal != 0) {
+    fprintf ( stderr, "\n\n\n%s:%d (%s) Error %d acquiring mutex in Jassert\n\n\n"
+              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+  }
 }
 
 void jassert_internal::unlockLog()
 {
-  pthread_mutex_unlock(&logLock);
+  int retVal = pthread_mutex_unlock(&logLock);
+  if (retVal != 0) {
+    fprintf ( stderr, "\n\n\n%s:%d (%s) Error %d releasing mutex in Jassert\n\n\n"
+              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+  }
 }
 
 jassert_internal::JAssert::JAssert ( bool exitWhenDone )
@@ -101,7 +140,7 @@ const char* jassert_internal::jassert_basename ( const char* str )
 static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
-  int tfd = open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
+  int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
   if ( tfd < 0 ) return NULL;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
@@ -110,6 +149,7 @@ static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
   //promote it to a stream
   return fdopen ( nfd,"a" );
 }
+
 static FILE* _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _fopen_log_safe ( s.c_str(), protectedFd );

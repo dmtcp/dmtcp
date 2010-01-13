@@ -27,7 +27,10 @@
 #endif
 #include "linux/version.h"
 
+// This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
+// always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
+
 #define MTCP_FILENAME "mtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
 #define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_files_"
