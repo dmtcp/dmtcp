@@ -22,5 +22,8 @@ Jason Ansel.
 Files found in the directory mtcp are Copyright (C) 2006-2008 by Michael
 Rieker, Jason Ansel, Kapil Arya, and Gene Cooperman.
 
+The contents of file dmtcp/src/glibcsystem.cpp are taken from glibc and is
+Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+
 Any remaining files (for building/testing) are Copyright (C) 2006-2008 Jason
 Ansel, Kapil Arya, and Gene Cooperman.

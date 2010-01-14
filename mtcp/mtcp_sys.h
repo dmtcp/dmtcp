@@ -380,9 +380,12 @@ static unsigned long int myinfo_gs;
  *
  * See glibc:/var/tmp/cooperma/glibc-2.5/sysdeps/unix/sysv/linux/i386/lxstat.c
  *   for other concerns about using stat in a 64-bit environment.
+ * 
+ * NOTE:  MTCP no longer needs the following two mtcp_sys_kernel_stat so
+ * commenting them out.                                            --Kapil
  */
-#define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
-#define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
+//#define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
+//#define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
 
 /* NOTE:  this calls kernel version of futex, not glibc sys_futex ("man futex")
  *   There is no library supporting futex.  Syscall is the only way to call it.

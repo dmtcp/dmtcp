@@ -24,7 +24,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
-  virtualpidtable.cpp ../jalib/jalloc.cpp
+	virtualpidtable.cpp ../jalib/jalloc.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
@@ -35,8 +35,8 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp\
-  pidwrappers.cpp
+	mtcpinterface.cpp signalwrapers.cpp socketwrappers.c workerhijack.cpp\
+	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 
@@ -47,7 +47,7 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a -ldl -lpthread
-dmtcp_inspector_LDADD = libdmtcpinternal.a -ldl -lpthread
+dmtcp_inspector_LDADD   = libdmtcpinternal.a -ldl -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
