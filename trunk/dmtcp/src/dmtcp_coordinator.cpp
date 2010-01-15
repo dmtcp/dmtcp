@@ -73,6 +73,75 @@ static const char* theUsage =
 ;
 
 
+static const char* theRestartScriptHeader = 
+  "#!/bin/bash \n"
+  "set -m # turn on job control\n\n"
+  "#This script launches all the restarts in the background.\n"
+  "#Suggestions for editing:\n"
+  "#  1. For those processes executing on the localhost, remove 'ssh <hostname>' from the start of the line. \n"
+  "#  2. If using ssh, verify that ssh does not require passwords or other prompts.\n"
+  "#  3. Verify that the dmtcp_restart command is in your path on all hosts.\n"
+  "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the dmtcp_coordinator.\n"
+  "#     If necessary, add 'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
+  "#  5. Remove the '&' from a line if that process reads STDIN.\n"
+  "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
+  "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n\n\n"
+;
+
+static const char* theRestartScriptUsage = 
+  "usage_str='USAGE:\n"
+  "  dmtcp_restart_script [OPTIONS]\n\n"
+  "OPTIONS:\n"
+  "  --host, -h, (environment variable DMTCP_HOST):\n"
+  "      Hostname where dmtcp_coordinator is running\n"
+  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "      Port where dmtcp_coordinator is running\n"
+  "  --hostfile <arg0> :\n"
+  "      Provide a hostfile (One host per line, \"#\" indicates comments)\n"
+  "  --restartdir, -d, (environment variable DMTCP_RESTART_DIR):\n"
+  "      Directory to read checkpoint images from\n"
+  "  --help:\n"
+  "      Print this message\'\n\n\n"
+;
+
+static const char* theRestartScriptCmdlineArgHandler = 
+  "if [ $# -gt 0 ]; then\n"
+  "  while [ $# -gt 0 ]\n"
+  "  do\n"
+  "    if [ $# -ge 2 ]; then\n"
+  "      case \"$1\" in \n"
+  "        --host|-h)\n"
+  "          coord_host=\"$2\";;\n"
+  "        --port|-p)\n"
+  "          coord_port=\"$2\";;\n"
+  "        --hostfile)\n"
+  "          hostfile=\"$2\"\n"
+  "          if [ ! -f \"$hostfile\" ]; then\n"
+  "            echo \"ERROR: hostfile $hostfile not found\"\n"
+  "            exit\n"
+  "          fi;;\n"
+  "        --restartdir|-d)\n"
+  "          DMTCP_RESTART_DIR=$2;;\n"
+  "        *)\n"
+  "          echo \"$0: unrecognized option \'$1\'. See correct usage below\"\n"
+  "          echo \"$usage_str\"\n"
+  "          exit;;\n"
+  "      esac\n"
+  "      shift\n"
+  "      shift\n"
+  "    elif [ $1 = \"--help\" ]; then\n"
+  "      echo \"$usage_str\"\n"
+  "      exit\n"
+  "    else\n"
+  "      echo \"$0: Incorrect usage. See correct usage below\"\n"
+  "      echo\n"
+  "      echo \"$usage_str\"\n"
+  "      exit\n"
+  "    fi\n"
+  "  done\n"
+  "fi\n\n"
+;
+
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
@@ -676,74 +745,113 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> >::const_iterator host;
   dmtcp::vector<dmtcp::string>::const_iterator file;
+
   char hostname[80];
-  gethostname ( hostname,80 );
+  gethostname ( hostname, 80 );
+
   JTRACE ( "writing restart script" ) ( filename );
+  
   FILE* fp = fopen ( filename.c_str(),"w" );
   JASSERT ( fp!=0 )(JASSERT_ERRNO)( filename ).Text ( "failed to open file" );
-  fprintf ( fp, "%s", "#!/bin/bash \nset -m # turn on job control\n\n"
-            "#This script launches all the restarts in the background.\n"
-            "#Suggestions for editing:\n"
-            "#  1. For those processes executing on the localhost, remove 'ssh <hostname>' from the start of the line. \n"
-            "#  2. If using ssh, verify that ssh does not require passwords or other prompts.\n"
-            "#  3. Verify that the dmtcp_restart command is in your path on all hosts.\n"
-            "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the dmtcp_coordinator.\n"
-            "#     If necessary, add 'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
-            "#  5. Remove the '&' from a line if that process reads STDIN.\n"
-            "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
-            "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n"
-            "\n"
-            "\n");
-  fprintf(fp, "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  " ENV_VAR_NAME_ADDR "=%s\nfi\n\n", hostname);
-  fprintf(fp, "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  " ENV_VAR_NAME_PORT "=%d\nfi\n\n", thePort);
+
+  fprintf ( fp, "%s", theRestartScriptHeader );
+  fprintf ( fp, "%s", theRestartScriptUsage );
+
+  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\nif test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  coord_host=%s\nfi\n\n", hostname );
+  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\nif test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  coord_port=%d\nfi\n\n", thePort );
+
+  fprintf ( fp, "# Number of hosts in the computation = %d\n", _restartFilenames.size() );
+  fprintf ( fp, "# Number of processes in the computation = %d\n\n", getStatus().numPeers );
+
+  fprintf ( fp, "%s", 
+            "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
+            "# SYNTAX:\n"
+            "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
+            "# Host names and filenames must not include \':\'\n"
+            "# At most one fg (foreground) mode allowed; it must be last.\n"
+            "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n"
+            "worker_ckpts=\'" );
 
   for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
   {
-    fprintf ( fp, "\nif test -z \"$" ENV_VAR_NAME_RESTART_DIR "\"; then\n\n" );
+    fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
+    for ( file=host->second.begin(); file!=host->second.end(); ++file )
     {
-      if(isSingleHost && host->first==hostname){
-        fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
-      }
-
-      fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
-                    " --host \"$"ENV_VAR_NAME_ADDR"\""
-                    " --port \"$"ENV_VAR_NAME_PORT"\""
-                    " --join",
-                    host->first.c_str());
-
-      if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
-
-      for ( file=host->second.begin(); file!=host->second.end(); ++file )
-      {
-        fprintf ( fp," %s", file->c_str() );
-      }
-      if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
+      fprintf ( fp," %s", file->c_str() );
     }
-    fprintf ( fp, "\n\nelse\n\n" );
-    {
-      if(isSingleHost && host->first==hostname){
-        fprintf ( fp, "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n# If this were a multi-host computation the calls would look like this:\n#" );
-      }
-
-      fprintf ( fp, "ssh %s "DMTCP_RESTART_CMD
-                    " --host \"$"ENV_VAR_NAME_ADDR"\""
-                    " --port \"$"ENV_VAR_NAME_PORT"\""
-                    " --join",
-                    host->first.c_str());
-
-      if(isSingleHost && host->first==hostname) fprintf (fp, " ...\nexec "DMTCP_RESTART_CMD );
-
-      for ( file=host->second.begin(); file!=host->second.end(); ++file )
-      {
-        fprintf ( fp," $" ENV_VAR_NAME_RESTART_DIR "/`basename %s`",
-		  file->c_str() );
-      }
-      if(!isSingleHost || host->first!=hostname) fprintf ( fp," & \n" );
-    }
-    fprintf ( fp, "\n\nfi\n" );
   }
 
-  fprintf ( fp,"\n\n#wait for them all to finish\nwait\n" );
+  fprintf ( fp, "%s", "\n\'\n\n\n" );
+
+
+  fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
+
+  fprintf ( fp, "%s", 
+            "worker_hosts=\\\n"
+            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
+            "restart_modes=\\\n"
+            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
+            "ckpt_files_groups=\\\n"
+            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
+            "\n"
+            "if [ ! -z \"$hostfile\" ]; then\n"
+            "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
+            "fi\n\n" 
+
+            "for worker_host in $worker_hosts\n"
+            "do\n\n"
+            "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+            "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
+            "\n"
+            "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+            "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
+            "  maybexterm=\n"
+            "  maybebg=\n"
+            "  case $mode in\n"
+            "    bg) maybebg=\'bg\';;\n"
+            "    xterm) maybexterm=xterm;;\n"
+            "    fg) ;;\n"
+            "    *) echo \"WARNING: Unknown Mode\";;\n"
+            "  esac\n\n"
+            "  if [ -z \"$ckpt_files_group\" ]; then\n"
+            "    break;\n"
+            "  fi\n\n"
+
+            "  new_ckpt_files_group=\"\"\n"
+            "  for tmp in $ckpt_files_group\n"
+            "  do\n"
+            "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+            "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
+            "      fi\n"
+            "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
+            "  done\n\n" );
+  
+  if (isSingleHost && _restartFilenames.begin()->first == hostname){
+    fprintf ( fp, "%s",
+              "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n"
+              "# If this were a multi-host computation the calls would look like this:\n"
+              "#  $maybexterm ssh \"$worker_host\" \\\n"
+              "#    "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
+              "#    --join $new_ckpt_files_group [&]\n\n"
+              "exec "DMTCP_RESTART_CMD" $new_ckpt_files_group\n\n" );
+  } else {
+    fprintf ( fp, "%s",
+              "  if [ -z $maybebg ]; then\n"
+              "    $maybexterm ssh \"$worker_host\" \\\n"
+              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
+              "        --join $new_ckpt_files_group\n"
+              "  else\n"
+              "    $maybexterm ssh \"$worker_host\" \\\n"
+              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
+              "        --join $new_ckpt_files_group &\n"
+              "  fi\n\n" );
+  }
+
+  fprintf ( fp, "%s",
+            "done\n\n\n"
+            "#wait for them all to finish\n"
+            "wait\n");
+
   fclose ( fp );
   {
     /* Set execute permission for user. */
