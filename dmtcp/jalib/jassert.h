@@ -110,13 +110,14 @@ namespace jassert_internal
       ///
       /// if set true (on construction) call exit() on destruction
       bool _exitWhenDone;
+      bool _logLockAcquired;
   };
 
 
   const char* jassert_basename ( const char* str );
   std::ostream& jassert_output_stream();
   void jassert_safe_print ( const char* );
-  void lockLog();
+  bool lockLog();
   void unlockLog();
 
 

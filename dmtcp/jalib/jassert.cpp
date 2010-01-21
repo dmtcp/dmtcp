@@ -88,21 +88,22 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
 
 static pthread_mutex_t logLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 
-void jassert_internal::lockLog()
+bool jassert_internal::lockLog()
 {
   int retVal = pthread_mutex_lock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr, "\n\n\n%s:%d (%s) Error %d acquiring mutex in Jassert\n\n\n"
+    fprintf ( stderr, "\n\n\n%s:%d in %s Error %d acquiring mutex in Jassert: %s\n\n\n"
               __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
   }
+  return retVal == 0;
 }
 
 void jassert_internal::unlockLog()
 {
   int retVal = pthread_mutex_unlock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr, "\n\n\n%s:%d (%s) Error %d releasing mutex in Jassert\n\n\n"
-              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+    fprintf ( stderr, "\n\n\n%s:%d in %s Error %d releasing mutex in Jassert: %s\n\n\n"
+        __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
   }
 }
 
@@ -111,12 +112,14 @@ jassert_internal::JAssert::JAssert ( bool exitWhenDone )
     , JASSERT_CONT_B ( *this )
     , _exitWhenDone ( exitWhenDone )
 {
-  jassert_internal::lockLog();
+  _logLockAcquired = jassert_internal::lockLog();
 }
 
 jassert_internal::JAssert::~JAssert()
 {
-  jassert_internal::unlockLog();
+  if ( _logLockAcquired )
+    jassert_internal::unlockLog();
+
   if ( _exitWhenDone )
   {
     Print ( "Terminating...\n" );
@@ -162,6 +165,9 @@ static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
 void jassert_internal::set_log_file ( const jalib::string& path )
 {
+  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
+  logLock = newLock;
+
   theLogFilePath() = path;
   if ( theLogFile != NULL ) fclose ( theLogFile );
   theLogFile = NULL;
