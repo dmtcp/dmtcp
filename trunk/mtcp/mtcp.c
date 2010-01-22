@@ -222,8 +222,9 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 
 	/* Static data */
 
-static char const *nscd_mmap_str = "/var/run/nscd/";
-static char const *nscd_mmap_str2 = "/var/cache/nscd";
+static char const *nscd_mmap_str = "/var/run/nscd/";    // OpenSUSE
+static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
+static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat (Linux 2.6.9)
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
 //static char const *perm_checkpointfilename = NULL;
@@ -1758,8 +1759,9 @@ static void checkpointeverything (void)
 
 
     /* Special Case Handling: nscd is enabled*/
-    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
-        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0 ) {
+    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
+        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
+        || strncmp (area.name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0 ) {
       DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
             "                           this area in read/write mode and then will fill it with zeros so that\n" \
             "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
@@ -2486,7 +2488,8 @@ static int readmapsline (int mapsfd, Area *area)
     area -> name[i] = '\0';
   }
   if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
-      || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0  ) { /* if nscd active*/
+      || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
+      || strncmp(area -> name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0  ) { /* if nscd active*/
   }
   else if (area -> name[0] == '/'                 /* if an absolute pathname */
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
