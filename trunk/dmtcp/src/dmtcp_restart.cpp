@@ -37,13 +37,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <pwd.h>
 
 // Some global definitions
 dmtcp::UniquePid compGroup;
 int numPeers;
 int coordTstamp = 0;
 
+dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
 #ifdef PID_VIRTUALIZATION
 static void openPidMapFiles();
@@ -334,7 +334,7 @@ namespace
       void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
       {
         dmtcp::ostringstream o;
-        o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << pid();
+        o << dmtcpTmpDir << "/jassertlog." << pid();
         JASSERT_SET_LOGFILE(o.str());
         JASSERT_INIT();
         
@@ -572,20 +572,6 @@ int main ( int argc, char** argv )
   bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
-  char hostname[80];
-  gethostname(hostname, 80);
-
-  dmtcp::ostringstream o;
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  } else {
-    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  }
-
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
 
@@ -628,11 +614,13 @@ int main ( int argc, char** argv )
     }
   }
 
-  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
+  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+
+  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
     .Text("Error creating tmp directory");
   
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
+  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
+    (dmtcpTmpDir.c_str())
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
@@ -916,9 +904,9 @@ static void openPidMapFiles()
   dmtcp::ostringstream pidMapFile,pidMapCountFile;
   int fd,i;
 
-  pidMapFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
+  pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
-  pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
+  pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
 
   // Open & create pidMapFile if not exist

@@ -159,7 +159,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   dmtcp::UniquePid::ThisProcess(true);
 
   dmtcp::ostringstream o;
-  o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
   JASSERT_SET_LOGFILE (o.str());
   JASSERT_INIT();
 
