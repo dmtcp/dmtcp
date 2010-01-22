@@ -70,10 +70,9 @@ static pid_t fork_work()
 #ifdef DEBUG
     //child should get new logfile
     dmtcp::ostringstream o;
-    o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << child.toString();
+    o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
+      << "/jassertlog." << child.toString();
     JASSERT_SET_LOGFILE (o.str());
-    //JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
-    //                      + "/jassertlog." + jalib::XToString ( child_pid ) );
 #endif
 
 

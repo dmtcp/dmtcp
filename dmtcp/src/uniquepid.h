@@ -52,6 +52,7 @@ namespace dmtcp
     static dmtcp::string pidTableFilename();
 #endif
     static const char* ptsSymlinkFilename ( char *pts );
+    static dmtcp::string getTmpDir(const char * envVarTmpDir);
 
     static void serialize( jalib::JBinarySerializer& o );
 

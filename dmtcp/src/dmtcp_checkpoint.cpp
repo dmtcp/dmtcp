@@ -35,7 +35,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <pwd.h>
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -110,20 +109,7 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
-
-  char hostname[80];
-  gethostname(hostname, 80);
-
-  dmtcp::ostringstream o;
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  } else {
-    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  }
+  dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -185,11 +171,13 @@ int main ( int argc, char** argv )
     }
   }
 
-  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
+  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+
+  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
     .Text("Error creating tmp directory");
 
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
+  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
+    (dmtcpTmpDir.c_str())
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 

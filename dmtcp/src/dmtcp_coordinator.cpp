@@ -666,6 +666,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     return false;
   }
 }
+
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
 {
   JASSERT ( false ).Text ( "This method is only available on workers" );
@@ -875,13 +876,6 @@ int main ( int argc, char** argv )
 
   bool background = false;
 
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR"))
-    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
-  else
-    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
-
   shift;
   while(argc > 0){
     dmtcp::string s = argv[0];
@@ -914,8 +908,11 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
+
+  dmtcp::string dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+
+  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
+    (dmtcpTmpDir)
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
   //parse checkpoint interval

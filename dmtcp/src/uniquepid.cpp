@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <pwd.h>
 #include <sstream>
 #include "constants.h"
 #include  "../jalib/jconvert.h"
@@ -149,7 +150,7 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpConTable."
+  os << getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/dmtcpConTable."
      << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
@@ -161,7 +162,7 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidTable."
+  os << getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/dmtcpPidTable."
      << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
@@ -175,11 +176,34 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   //this must be static so dmtcp::string isn't destructed
   static dmtcp::string ptsSymlinkFilename_str;
 
-  ptsSymlinkFilename_str = getenv(ENV_VAR_TMPDIR);
+  ptsSymlinkFilename_str = getTmpDir(getenv(ENV_VAR_TMPDIR));
   ptsSymlinkFilename_str += "/pts_" + ThisProcess().toString() + '_';
   ptsSymlinkFilename_str += devicename;
 
   return ptsSymlinkFilename_str.c_str();
+}
+
+dmtcp::string dmtcp::UniquePid::getTmpDir(const char * envVarTmpDir) {
+  static bool initialized = false;
+  static dmtcp::string tmpDir;
+  if (initialized) {
+    return tmpDir;
+  }
+
+  char hostname[80];
+  gethostname(hostname, 80);
+  dmtcp::ostringstream o;
+
+  if (envVarTmpDir) {
+    o << envVarTmpDir;
+  } else if (getenv("TMPDIR")) {
+    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
+  } else {
+    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
+  }
+  tmpDir = o.str();
+  initialized = true;
+  return tmpDir;
 }
 
 /*!
