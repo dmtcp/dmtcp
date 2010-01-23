@@ -220,6 +220,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
     blockUntilDone = true;
+    replyParams[0] = 0;  // reply from prefix command will be ignored
+    break;
   case 'c': case 'C':
     if(startCheckpoint()){
       replyParams[0] = getStatus().numPeers;
@@ -385,6 +387,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 
           JTIMER_STOP ( checkpoint );
           if (blockUntilDone) {
+          JNOTE ( "replying to dmtcp_command:  we're done" );
 	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
 	    jalib::JSocket remote ( blockUntilDoneRemote );
             remote << blockUntilDoneReply;
@@ -693,6 +696,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
     msg.compGroup = compGroup;
   }
   broadcastMessage ( msg );
+  JTRACE ("sending message")( type );
 }
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
