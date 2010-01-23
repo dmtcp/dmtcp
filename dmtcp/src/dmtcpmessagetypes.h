@@ -65,6 +65,8 @@ namespace dmtcp
 
   };
 
+  dmtcp::ostream& operator << ( dmtcp::ostream& o, const DmtcpMessageType& s );
+
   class WorkerState
   {
     public:

@@ -82,6 +82,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( UNKNOWN )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
+      OSHIFTPRINTF ( LOCKED )
       OSHIFTPRINTF ( DRAINED )
       OSHIFTPRINTF ( RESTARTING )
       OSHIFTPRINTF ( CHECKPOINTED )
@@ -104,5 +105,42 @@ const char* dmtcp::WorkerState::toString() const{
   case REFILLED:     return "REFILLED";
   default:           return "???";
   }
+}
+
+dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessageType & s )
+{
+  // o << "DmtcpMessageType: ";
+  switch ( s )
+  {
+#undef OSHIFTPRINTF
+#define OSHIFTPRINTF(name) case name: o << #name; break;
+
+      OSHIFTPRINTF ( DMT_NULL )
+      OSHIFTPRINTF ( DMT_HELLO_PEER )
+      OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
+      OSHIFTPRINTF ( DMT_HELLO_WORKER )
+
+      OSHIFTPRINTF ( DMT_DO_SUSPEND )
+      OSHIFTPRINTF ( DMT_DO_RESUME )
+      OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
+      OSHIFTPRINTF ( DMT_DO_DRAIN )
+      OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
+      OSHIFTPRINTF ( DMT_DO_REFILL )
+
+      OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
+      OSHIFTPRINTF ( DMT_RESTORE_WAITING )
+
+      OSHIFTPRINTF ( DMT_PEER_ECHO )
+      OSHIFTPRINTF ( DMT_OK )
+      OSHIFTPRINTF ( DMT_CKPT_FILENAME )
+      OSHIFTPRINTF ( DMT_FORCE_RESTART )
+      OSHIFTPRINTF ( DMT_KILL_PEER )
+      OSHIFTPRINTF ( DMT_USER_CMD )
+      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
+
+    default:
+      o << s;
+  }
+  return o;
 }
 
