@@ -19,6 +19,33 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+/****************************************************************************
+ * Coordinator code logic:                                                  *
+ * main calls monitorSockets, which acts as a top level event loop.         *
+ * monitorSockets calls:  onConnect, onData, onDisconnect, onTimeoutInterval*
+ *   when client or dmtcp_command talks to coordinator.                     *
+ * onConnect and onData receive a socket parameter reads msg and passes to: *
+ *   handleUserCommand, which takes single char arg ('s', 'c', 'k', 'q', ...)*
+ * handleUserCommand calls broadcastMessage to send data back               *
+ * any message sent by broadcastMessage takes effect only on returning      *
+ *   back up to top level monitorSockets                                    *
+ * Hence, even for checkpoint, handleUserCommand just changes state,        *
+ *   broadcasts an initial checkpoint command, and then returns to top      *
+ *   level.  Replies from clients then driver further state changes.        *
+ * The prefix command 'b' (blocking) from dmtcp_command modifies behavior   *
+ *   of 'c' so that the reply to dmtcp_command happens only when clients    *
+ *   are back in RUNNING state.                                             *
+ * The states for a worker (client) are:                                    *
+ * Checkpoint: RUNNING -> SUSPENDED -> LOCKED -> DRAINED -> CHECKPOINTED    *
+ *       	 -> REFILLED -> RUNNING					    *
+ * Restart:    RESTARTING -> CHECKPOINTED -> REFILLED -> RUNNING	    *
+ * If debugging, set gdb breakpoint on:					    *
+ *   dmtcp::DmtcpCoordinator::onConnect					    *
+ *   dmtcp::DmtcpCoordinator::onData					    *
+ *   dmtcp::DmtcpCoordinator::handleUserCommand				    *
+ *   dmtcp::DmtcpCoordinator::broadcastMessage				    *
+ ****************************************************************************/
+
 #include "dmtcp_coordinator.h"
 #include "constants.h"
 #include  "../jalib/jconvert.h"
@@ -220,6 +247,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
     blockUntilDone = true;
+    replyParams[0] = 0;  // reply from prefix command will be ignored
+    break;
   case 'c': case 'C':
     if(startCheckpoint()){
       replyParams[0] = getStatus().numPeers;
@@ -385,6 +414,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 
           JTIMER_STOP ( checkpoint );
           if (blockUntilDone) {
+          JNOTE ( "replying to dmtcp_command:  we're done" );
 	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
 	    jalib::JSocket remote ( blockUntilDoneRemote );
             remote << blockUntilDoneReply;
@@ -666,6 +696,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     return false;
   }
 }
+
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
 {
   JASSERT ( false ).Text ( "This method is only available on workers" );
@@ -692,6 +723,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
     msg.compGroup = compGroup;
   }
   broadcastMessage ( msg );
+  JTRACE ("sending message")( type );
 }
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
