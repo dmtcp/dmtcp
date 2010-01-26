@@ -202,7 +202,9 @@ dmtcp::string dmtcp::UniquePid::getTmpDir(const char * envVarTmpDir) {
     o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
   }
   tmpDir = o.str();
-  initialized = true;
+  // This would persist through restart when we need to reinitialize tmpdir.
+  // Comment it out for now.
+  //initialized = true;
   return tmpDir;
 }
 
