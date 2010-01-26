@@ -183,36 +183,38 @@ namespace dmtcp
       enum PtyType
       {
         PTY_INVALID   = PTY,
-        PTY_TTY,
+        PTY_CTTY,
         PTY_MASTER,
         PTY_SLAVE//,
 
-//        TYPEMASK = PTY_TTY | PTY_Master | PTY_Slave
+//        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
 
-      PtyConnection ( const dmtcp::string& device, const dmtcp::string& filename, int type )
+      PtyConnection ( const dmtcp::string& ptsName, const dmtcp::string& uniquePtsName, int type )
           : Connection ( PTY )
-          , _symlinkFilename ( filename )
-          , _device ( device )
+          , _ptsName ( ptsName )
+          , _uniquePtsName ( uniquePtsName )
       {
         _type = type;
-        JTRACE("Creating PtyConnection")(device)(filename)(id());
-        if ( type != PTY_TTY &&  filename.compare ( "?" ) == 0 )
-        {
-          _type = PTY_INVALID;
-        }
+        JTRACE("Creating PtyConnection")(ptsName)(uniquePtsName)(id());
+        //if ( type != PTY_CTTY &&  filename.compare ( "?" ) == 0 )
+        //{
+        //  _type = PTY_INVALID;
+        //}
       }
 
       PtyConnection()
           : Connection ( PTY )
-          , _symlinkFilename ( "?" )
-          , _device ( "?" )
+          , _ptsName ( "?" )
+          , _uniquePtsName ( "?" )
       {
         _type = PTY_INVALID;
-        JTRACE("Creating null PtyConnection")(id());
+        JTRACE("Creating empty PtyConnection")(id());
       }
 
       int  ptyType() { return _type;}// & TYPEMASK ); }
+      dmtcp::string ptsName() { return _ptsName;; }
+      dmtcp::string uniquePtsName() { return _uniquePtsName;; }
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
@@ -225,8 +227,8 @@ namespace dmtcp
       virtual void mergeWith ( const Connection& that );
     private:
       //PtyType   _type;
-      dmtcp::string _symlinkFilename;
-      dmtcp::string _device;
+      dmtcp::string _ptsName;
+      dmtcp::string _uniquePtsName;
 
   };
 

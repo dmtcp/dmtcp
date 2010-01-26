@@ -28,14 +28,15 @@
 #include "constants.h"
 
 #define WRAPPER_EXECUTION_LOCK_LOCK() \
-  JTRACE("Acquiring wrapperExecutionLock"); \
+  /*JTRACE("Acquiring wrapperExecutionLock");*/ \
   bool __wrapperExecutionLockAcquired = dmtcp::DmtcpWorker::wrapperExecutionLockLock(); \
-  if ( 0 && __wrapperExecutionLockAcquired ) \
-    JTRACE("Acquired wrapperExecutionLock");
+  if ( __wrapperExecutionLockAcquired ) { \
+    /*JTRACE("Acquired wrapperExecutionLock");*/ \
+  }
 
 #define WRAPPER_EXECUTION_LOCK_UNLOCK() \
   if ( __wrapperExecutionLockAcquired ) { \
-    JTRACE("Releasing wrapperExecutionLock"); \
+    /*JTRACE("Releasing wrapperExecutionLock");*/ \
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
   }
 

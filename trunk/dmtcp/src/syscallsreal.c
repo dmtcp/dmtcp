@@ -192,6 +192,11 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+int _real_getpt ( void )
+{
+  REAL_FUNC_PASSTHROUGH ( getpt ) ( );
+}
+
 int _real_ptsname_r ( int fd, char * buf, size_t buflen )
 {
   REAL_FUNC_PASSTHROUGH ( ptsname_r ) ( fd, buf, buflen );

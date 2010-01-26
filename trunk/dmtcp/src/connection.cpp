@@ -491,22 +491,24 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       JTRACE("restoring invalid PTY")(id());
       return;
 
-    case PTY_TTY:
+    case PTY_CTTY:
     {
-      dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
-      JASSERT ( currentTty.length() > 0 ) ( STDIN_FILENO ) 
+      dmtcp::string controllingTty = jalib::Filesystem::GetCurrentTty();
+      JASSERT ( controllingTty.length() > 0 ) ( STDIN_FILENO ) 
         . Text ("Unable to restore terminal attached with the process");
 
-      tempfd = open ( currentTty.c_str(), _fcntlFlags );
-      JASSERT ( tempfd >= 0 ) ( tempfd ) ( currentTty ) ( JASSERT_ERRNO )
+      tempfd = open ( controllingTty.c_str(), _fcntlFlags );
+      JASSERT ( tempfd >= 0 ) ( tempfd ) ( controllingTty ) ( JASSERT_ERRNO )
         .Text ( "Error Opening the terminal attached with the process" );
 
       JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
         .Text ( "dup2() failed" );
 
-      JTRACE ( "Restoring TTY for the process" ) ( currentTty ) ( fds[0] );
+      close(tempfd);
 
-      _device = currentTty;
+      JTRACE ( "Restoring CTTY for the process" ) ( controllingTty ) ( fds[0] );
+
+      _ptsName = _uniquePtsName = controllingTty;
 
       break;
     }
@@ -520,69 +522,58 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       JASSERT ( tempfd >= 0 ) ( tempfd ) ( JASSERT_ERRNO )
         .Text ( "Error Opening /dev/ptmx" );
 
-      errno = 0;
       JASSERT ( grantpt ( tempfd ) >= 0 ) ( tempfd ) ( JASSERT_ERRNO );
 
-      errno = 0;
       JASSERT ( unlockpt ( tempfd ) >= 0 ) ( tempfd ) ( JASSERT_ERRNO );
 
       JASSERT ( _real_ptsname_r ( tempfd, pts_name, 80 ) == 0 ) ( tempfd ) ( JASSERT_ERRNO );
 
-      /*      if ( jalib::Filesystem::FileExists(_symlinkFilename) )
-              {
-              JNOTE("File Exists");
-              JASSERT(unlink(_symlinkFilename.c_str()) == 0)(pts_name)(_symlinkFilename)(JASSERT_ERRNO)
-              .Text("unlink() failed");
-              }
-       */
-      remove ( _symlinkFilename.c_str() );
-      JASSERT ( symlink ( pts_name, _symlinkFilename.c_str() ) == 0 ) ( pts_name ) ( _symlinkFilename ) ( JASSERT_ERRNO )
-        .Text ( "symlink() failed" );
-
       JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
         .Text ( "dup2() failed" );
 
-      _device = pts_name;
+      close(tempfd);
+
+      UniquePtsNameToPtmxConId::Instance().add ( _uniquePtsName, id() );
+
+      _ptsName = pts_name;
 
       break;
     }
     case PTY_SLAVE:
     {
-        if ( _device.compare ( "?" ) == 0 )
-      {
-        JTRACE ( "Restoring PTS ?" ) ( fds[0] );
-        return;
-      }
+      JASSERT( _ptsName.compare ( "?" ) != 0 );
 
-      errno = 0;
-      dmtcp::string devicename = jalib::Filesystem::ResolveSymlink ( _symlinkFilename );
-      JASSERT ( devicename.length() > 0 ) ( _device ) ( _symlinkFilename ) ( JASSERT_ERRNO )
-        .Text ( "PTS does not exist" );
+      _ptsName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName ( _uniquePtsName );
 
-      tempfd = open ( devicename.c_str(), O_RDWR );
-      JASSERT ( tempfd >= 0 ) ( tempfd ) ( devicename ) ( JASSERT_ERRNO )
+      tempfd = open ( _ptsName.c_str(), O_RDWR );
+      JASSERT ( tempfd >= 0 ) ( _uniquePtsName ) ( _ptsName ) ( JASSERT_ERRNO )
         .Text ( "Error Opening PTS" );
 
       JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
         .Text ( "dup2() failed" );
 
-      //dmtcp::string oldDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + _device;
-      //dmtcp::string newDeviceName = "pts["+jalib::XToString(fds[0])+"]:" + devicename;
+      close(tempfd);
 
-      JTRACE ( "Restoring PTS real" ) ( devicename ) ( _symlinkFilename ) ( fds[0] );
-
-      _device = devicename;
+      JTRACE ( "Restoring PTS real" ) ( _ptsName ) ( _uniquePtsName ) ( fds[0] );
 
       break;
     }
     default:
+    {
       // should never reach here
       JASSERT ( false ).Text ( "should never reach here" );
+    }
+  }
+
+  for ( size_t i=1; i<fds.size(); ++i )
+  {
+    JASSERT ( _real_dup2 ( fds[0], fds[i] ) == fds[i] ) ( fds[0] ) ( fds[i] )
+      .Text ( "dup2() failed" );
   }
 }
+
 void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
-
 }
 
 ////////////
@@ -1101,11 +1092,13 @@ void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::PtyConnection" );
-  o & _device & _symlinkFilename & _type;
+  o & _ptsName & _uniquePtsName & _type;
 
   if ( o.isReader() )
   {
-    dmtcp::PtsToSymlink::Instance().add ( _device,_symlinkFilename );
+    if ( _type == dmtcp::PtyConnection::PTY_MASTER ) {
+      dmtcp::UniquePtsNameToPtmxConId::Instance().add ( _uniquePtsName, _id );
+    }
   }
 }
 
@@ -1151,9 +1144,9 @@ void dmtcp::TcpConnection::mergeWith ( const Connection& _that ){
 void dmtcp::PtyConnection::mergeWith ( const Connection& _that ){
   Connection::mergeWith(_that);
   const PtyConnection& that = (const PtyConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
-  JWARNING(_type            == that._type)           MERGE_MISMATCH_TEXT;
-  JWARNING(_symlinkFilename == that._symlinkFilename)MERGE_MISMATCH_TEXT;
-  JWARNING(_device          == that._device)         MERGE_MISMATCH_TEXT;
+  JWARNING(_type          == that._type)          MERGE_MISMATCH_TEXT;
+  JWARNING(_ptsName       == that._ptsName)       MERGE_MISMATCH_TEXT;
+  JWARNING(_uniquePtsName == that._uniquePtsName) MERGE_MISMATCH_TEXT;
 }
 
 void dmtcp::FileConnection::mergeWith ( const Connection& that ){

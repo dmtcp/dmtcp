@@ -206,14 +206,36 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   _rewirer.setCoordinatorFd ( coordinator.sockfd() );
 
   ConnectionList& connections = ConnectionList::Instance();
+
+  // Here we modify the restore algorithm by splitting it in two parts. In the
+  // first part we restore all the connection except the PTY_SLAVE types and in
+  // the second part we restore only PTY_SLAVE connections. This is done to
+  // make sure that by the time we are trying to restore a PTY_SLAVE
+  // connection, its corresponding PTY_MASTER connection has already been
+  // restored.
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
-    ( i->second )->restore ( _conToFds[i->first], _rewirer );
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) { }
+    else {
+      ( i->second )->restore ( _conToFds[i->first], _rewirer );
+    }
   }
 
+  for ( ConnectionList::iterator i= connections.begin()
+      ; i!= connections.end()
+      ; ++i )
+  {
+    JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
+
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ((PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) {
+      ( i->second )->restore ( _conToFds[i->first], _rewirer );
+    }
+  }
   _rewirer.doReconnect();
 }
