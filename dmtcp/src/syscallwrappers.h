@@ -69,6 +69,7 @@ extern "C"
 //int _real_dup2(int oldfd, int newfd);
 
   int _real_ptsname_r ( int fd, char * buf, size_t buflen );
+  int _real_getpt ( void );
 
   int _real_socketpair ( int d, int type, int protocol, int sv[2] );
 
