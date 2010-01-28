@@ -92,7 +92,8 @@ bool jassert_internal::lockLog()
 {
   int retVal = pthread_mutex_lock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr, "\n\n\n%s:%d in %s Error %d acquiring mutex in Jassert: %s\n\n\n"
+    fprintf ( stderr,
+	      "\n\n\n%s:%d in %s Error %d acquiring mutex in Jassert: %s\n\n\n",
               __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
   }
   return retVal == 0;
@@ -102,8 +103,9 @@ void jassert_internal::unlockLog()
 {
   int retVal = pthread_mutex_unlock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr, "\n\n\n%s:%d in %s Error %d releasing mutex in Jassert: %s\n\n\n"
-        __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+    fprintf ( stderr,
+	      "\n\n\n%s:%d in %s Error %d releasing mutex in Jassert: %s\n\n\n",
+              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
   }
 }
 
