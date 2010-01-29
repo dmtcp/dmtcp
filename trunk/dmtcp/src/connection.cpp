@@ -39,6 +39,11 @@
 #include <ios>
 #include <fstream>
 
+static dmtcp::string _procFDPath ( int fd )
+{
+  return "/proc/self/fd/" + jalib::XToString ( fd );
+}
+
 static bool hasLock ( const dmtcp::vector<int>& fds )
 {
   JASSERT ( fds.size() > 0 );
@@ -533,9 +538,15 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
 
       close(tempfd);
 
-      UniquePtsNameToPtmxConId::Instance().add ( _uniquePtsName, id() );
-
       _ptsName = pts_name;
+
+      //dmtcp::string deviceName = "ptmx[" + _ptsName + "]:" + "/dev/ptmx";
+
+      //dmtcp::KernelDeviceToConnection::Instance().erase ( id() );
+      
+      //dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
+
+      UniquePtsNameToPtmxConId::Instance().add ( _uniquePtsName, id() );
 
       break;
     }
@@ -556,6 +567,11 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
 
       JTRACE ( "Restoring PTS real" ) ( _ptsName ) ( _uniquePtsName ) ( fds[0] );
 
+      //dmtcp::string deviceName = "pts:" + _ptsName;
+
+      //dmtcp::KernelDeviceToConnection::Instance().erase ( id() );
+      
+      //dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
       break;
     }
     default:
@@ -574,6 +590,48 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
 
 void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 {
+  switch ( ptyType() )
+  {
+    case PTY_INVALID:
+      return;
+
+    case PTY_CTTY:
+    {
+      dmtcp::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[0] ) );
+      _ptsName = _uniquePtsName = device;
+      break;
+    }
+
+    case PTY_MASTER:
+    {
+      char pts_name[80];
+
+      JASSERT ( _real_ptsname_r ( fds[0], pts_name, 80 ) == 0 ) ( fds[0] ) ( JASSERT_ERRNO );
+
+      _ptsName = pts_name;
+
+      JTRACE ( "Restoring Options /dev/ptmx real" ) ( _ptsName ) ( _uniquePtsName ) ( fds[0] );
+
+      UniquePtsNameToPtmxConId::Instance().add ( _uniquePtsName, id() );
+
+      break;
+    }
+    case PTY_SLAVE:
+    {
+      JASSERT( _ptsName.compare ( "?" ) != 0 );
+
+      _ptsName = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[0] ) );
+
+      JTRACE ( "Restoring Options PTS real" ) ( _ptsName ) ( _uniquePtsName ) ( fds[0] );
+
+      break;
+    }
+    default:
+    {
+      // should never reach here
+      JASSERT ( false ).Text ( "should never reach here" );
+    }
+  }
 }
 
 ////////////
