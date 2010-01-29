@@ -786,7 +786,7 @@ int main ( int argc, char** argv )
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
-    _exit(0);
+    JASSERT(false) .Text("unknown type of target?");
   }
 
 }
