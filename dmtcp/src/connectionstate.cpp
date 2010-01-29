@@ -168,8 +168,9 @@ void dmtcp::ConnectionState::postCheckpoint()
       ; i!= connections.end()
       ; ++i )
   {
-    JWARNING ( _conToFds[i->first].size() > 0 ) ( i->first.conId() )
-    .Text ( "stale connections should be gone by now" );
+    if ( _conToFds[i->first].size() <= 0 )
+      JTRACE ( "WARNING:: stale connections should be gone by now" ) ( i->first.conId() );
+
     if ( _conToFds[i->first].size() == 0 ) continue;
 
     ( i->second )->postCheckpoint ( _conToFds[i->first] );

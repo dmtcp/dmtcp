@@ -254,7 +254,7 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
       return;
     }
   }
-  JWARNING(false)(con).Text("failed to find connection in table to erase it");
+  JTRACE("WARNING:: failed to find connection in table to erase it")(con);
 }
 
 //called when a device name changes

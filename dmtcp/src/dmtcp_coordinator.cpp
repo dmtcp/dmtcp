@@ -868,13 +868,15 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "  fi\n\n"
 
             "  if [ -z $maybebg ]; then\n"
-            "    $maybexterm ssh \"$worker_host\" \\\n"
+            "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
             "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
             "        --join $new_ckpt_files_group\n"
             "  else\n"
-            "    $maybexterm ssh \"$worker_host\" \\\n"
-            "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-            "        --join $new_ckpt_files_group &\n"
+            "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
+            // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
+            // end of the computation until user presses enter key.
+            "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port \\\n"
+            "        --join $new_ckpt_files_group\'\" &\n"
             "  fi\n\n"
             "done\n\n"
 
