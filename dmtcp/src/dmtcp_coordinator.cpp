@@ -830,6 +830,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
             "fi\n\n" 
 
+            "localhost_ckpt_files_group=\n\n"
+
+            "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
+
             "for worker_host in $worker_hosts\n"
             "do\n\n"
             "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
@@ -856,31 +860,30 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
             "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
             "      fi\n"
             "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
-            "  done\n\n" );
+            "  done\n\n"
   
-  if (isSingleHost && _restartFilenames.begin()->first == hostname){
-    fprintf ( fp, "%s",
-              "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n"
-              "# If this were a multi-host computation the calls would look like this:\n"
-              "#  $maybexterm ssh \"$worker_host\" \\\n"
-              "#    "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "#    --join $new_ckpt_files_group [&]\n\n"
-              "exec "DMTCP_RESTART_CMD" $new_ckpt_files_group\n\n" );
-  } else {
-    fprintf ( fp, "%s",
-              "  if [ -z $maybebg ]; then\n"
-              "    $maybexterm ssh \"$worker_host\" \\\n"
-              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "        --join $new_ckpt_files_group\n"
-              "  else\n"
-              "    $maybexterm ssh \"$worker_host\" \\\n"
-              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "        --join $new_ckpt_files_group &\n"
-              "  fi\n\n" );
-  }
+            "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+            "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
+            "    continue\n"
+            "  fi\n\n"
 
-  fprintf ( fp, "%s",
-            "done\n\n\n"
+            "  if [ -z $maybebg ]; then\n"
+            "    $maybexterm ssh \"$worker_host\" \\\n"
+            "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
+            "        --join $new_ckpt_files_group\n"
+            "  else\n"
+            "    $maybexterm ssh \"$worker_host\" \\\n"
+            "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
+            "        --join $new_ckpt_files_group &\n"
+            "  fi\n\n"
+            "done\n\n"
+
+            "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
+            "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" \\\n"
+            "  --join $localhost_ckpt_files_group\n"
+            "fi\n\n"
+
+
             "#wait for them all to finish\n"
             "wait\n");
 

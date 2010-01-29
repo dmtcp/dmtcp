@@ -175,7 +175,6 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     {
       JWARNING(false) .Text("PTS Device not found");
       int type;
-      dmtcp::string symlinkFilename;
       dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
 
       JTRACE( "Controlling Terminal###################" ) (currentTty);
@@ -183,7 +182,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       if ( currentTty.compare(device) == 0 ) {
         type = dmtcp::PtyConnection::PTY_CTTY;
         JTRACE ( "creating TTY connection [on-demand]" ) 
-          ( deviceName ) ( symlinkFilename );
+          ( deviceName );
 
         Connection * c = new PtyConnection ( device, device, type );
         createPtyDevice ( fd, deviceName, c );
@@ -281,7 +280,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
   {
     if ( _isBadFd ( fds[i] ) ) continue;
     if(ProtectedFDs::isProtected( fds[i] )) continue;
-    dmtcp::string device = fdToDevice ( fds[i] );
+    dmtcp::string device = fdToDevice ( fds[i], true );
     bool exists = ( _table.find ( device ) != _table.end() );
     JASSERT_STDERR << fds[i]
                    << " -> "  << device
@@ -434,10 +433,9 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
         ( fd ) ( deviceName );
 
-      dmtcp::string symlinkFilename = "?";
       int type = dmtcp::PtyConnection::PTY_CTTY;
 
-      PtyConnection *con = new PtyConnection ( device, symlinkFilename, type );
+      PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
     else 

@@ -182,6 +182,9 @@ void dmtcp::ConnectionState::postCheckpoint()
 void dmtcp::ConnectionState::postRestart()
 {
   ConnectionList& connections = ConnectionList::Instance();
+
+  // Two part restoreOptions. See the comments in doReconnect()
+  // Part 1: Restore options for all but Pseudo-terminal slaves
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
@@ -189,8 +192,24 @@ void dmtcp::ConnectionState::postRestart()
     JWARNING ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
     if ( _conToFds[i->first].size() == 0 ) continue;
 
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) { }
+    else {
+      ( i->second )->restoreOptions ( _conToFds[i->first] );
+    }
+  }
 
-    ( i->second )->restoreOptions ( _conToFds[i->first] );
+  // Part 2: Restore options for all Pseudo-terminal slaves
+  for ( ConnectionList::iterator i= connections.begin()
+      ; i!= connections.end()
+      ; ++i )
+  {
+    if ( _conToFds[i->first].size() == 0 ) continue;
+
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) {
+      ( i->second )->restoreOptions ( _conToFds[i->first] );
+    }
   }
 
   KernelDeviceToConnection::Instance().dbgSpamFds();
@@ -213,6 +232,7 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   // make sure that by the time we are trying to restore a PTY_SLAVE
   // connection, its corresponding PTY_MASTER connection has already been
   // restored.
+  // Part 1: Restore all but Pseudo-terminal slaves
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
@@ -226,6 +246,7 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     }
   }
 
+  // Part 2: Restore all Pseudo-terminal slaves
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
