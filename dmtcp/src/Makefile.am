@@ -35,7 +35,7 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp socketwrappers.c workerhijack.cpp\
+	mtcpinterface.cpp signalwrapers.cpp socketwrappers.cpp workerhijack.cpp\
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
