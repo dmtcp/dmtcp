@@ -36,8 +36,8 @@
  *   of 'c' so that the reply to dmtcp_command happens only when clients    *
  *   are back in RUNNING state.                                             *
  * The states for a worker (client) are:                                    *
- * Checkpoint: RUNNING -> SUSPENDED -> LOCKED -> DRAINED -> CHECKPOINTED    *
- *       	 -> REFILLED -> RUNNING					    *
+ * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
+ *       	  -> CHECKPOINTED -> REFILLED -> RUNNING		    *
  * Restart:    RESTARTING -> CHECKPOINTED -> REFILLED -> RUNNING	    *
  * If debugging, set gdb breakpoint on:					    *
  *   dmtcp::DmtcpCoordinator::onConnect					    *
@@ -375,12 +375,12 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_LOCK_FDS );
         }
         if ( oldState == WorkerState::SUSPENDED
-                && newState == WorkerState::LOCKED )
+                && newState == WorkerState::FD_LEADER_ELECTION )
         {
           JNOTE ( "draining all nodes" );
           broadcastMessage ( DMT_DO_DRAIN );
         }
-        if ( oldState == WorkerState::LOCKED
+        if ( oldState == WorkerState::FD_LEADER_ELECTION
                 && newState == WorkerState::DRAINED )
         {
           JNOTE ( "checkpointing all nodes" );
