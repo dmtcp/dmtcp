@@ -82,7 +82,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( UNKNOWN )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
-      OSHIFTPRINTF ( LOCKED )
+      OSHIFTPRINTF ( FD_LEADER_ELECTION )
       OSHIFTPRINTF ( DRAINED )
       OSHIFTPRINTF ( RESTARTING )
       OSHIFTPRINTF ( CHECKPOINTED )
@@ -98,7 +98,7 @@ const char* dmtcp::WorkerState::toString() const{
   case UNKNOWN:      return "UNKNOWN";
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
-  case LOCKED:       return "LOCKED";
+  case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
   case DRAINED:      return "DRAINED";
   case RESTARTING:   return "RESTARTING";
   case CHECKPOINTED: return "CHECKPOINTED";

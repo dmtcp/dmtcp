@@ -407,11 +407,11 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState = new ConnectionState();
   theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
-  WorkerState::setCurrentState ( WorkerState::LOCKED );
+  WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
   {
     dmtcp::DmtcpMessage msg;
     msg.type = DMT_OK;
-    msg.state = WorkerState::LOCKED;
+    msg.state = WorkerState::FD_LEADER_ELECTION;
     _coordinatorSocket << msg;
   }
   JTRACE ( "waiting for drain signal" );

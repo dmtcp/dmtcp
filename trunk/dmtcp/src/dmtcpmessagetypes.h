@@ -75,7 +75,7 @@ namespace dmtcp
         UNKNOWN,
         RUNNING,
         SUSPENDED,
-        LOCKED,
+        FD_LEADER_ELECTION,
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
