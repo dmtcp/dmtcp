@@ -87,6 +87,14 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   }
 }
 
+void dmtcp::ConnectionToFds::erase ( const ConnectionIdentifier& conId )
+{
+  JTRACE("erasing connection from ConnectionToFds") (conId);
+  iterator it = _table.find(conId);
+  JASSERT(it != _table.end() );
+  _table.erase(it);
+}
+
 dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve ( int fd )
 {
   dmtcp::string device = fdToDevice ( fd );
@@ -195,7 +203,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     return deviceName;
 
   } else if ( isFile ) {
-  	// Can be file or FIFO channel
+    // Can be file or FIFO channel
     struct stat buf;
     stat(device.c_str(),&buf);
 
@@ -306,10 +314,17 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
       _table[device] = con;
 #ifdef DEBUG
       //double check to make sure all fds have same device
-      for ( size_t i=1; i<fds.size(); ++i )
-      {
-        JASSERT ( device == fdToDevice ( fds[i] ) )
-        ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+      Connection *c = &(ConnectionList::Instance()[con]);
+      for ( size_t i=1; i<fds.size(); ++i ) {
+        if ( c->conType() != Connection::FILE ) {
+          JASSERT ( device == fdToDevice ( fds[i] ) )
+            ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+        } else {
+          dmtcp::string filePath = 
+            jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[i] ) );
+          JASSERT ( filePath == ((FileConnection *)c)->filePath() ) 
+            ( fds[i] ) ( filePath ) ( fds[0] ) ( ((FileConnection *)c)->filePath() );
+        }
       }
 #endif
     }

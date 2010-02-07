@@ -23,7 +23,7 @@
 #define CONNECTIONMANAGER_H
 
 #include "dmtcpalloc.h"
-#include <connection.h>
+#include "connection.h"
 #include <list>
 #include <map>
 #include <string>
@@ -121,6 +121,7 @@ namespace dmtcp
       const_iterator end() const { return _table.end(); }
 
       size_t size() const { return _table.size(); }
+      void erase ( const ConnectionIdentifier& conId );
 
       void serialize ( jalib::JBinarySerializer& o );
 

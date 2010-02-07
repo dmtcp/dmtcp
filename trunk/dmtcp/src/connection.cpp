@@ -885,6 +885,37 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   return os.str();
 }
 
+/* We want to check if the two file descriptor corresponding to the two
+ * FileConnections are different or identical. This function verifies that the
+ * filenames and offset on both fds are same. If they are same, and if
+ * lseek()ing one fd changes the offset for other fd as well, then the two fds
+ * are identical i.e. they were created by dup() and not by open().
+ */
+bool dmtcp::FileConnection::isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds)
+{
+  bool retVal = false;
+
+  JASSERT ( _that.conType() == Connection::FILE );
+
+  const FileConnection& that = (const FileConnection&)_that; 
+
+  const dmtcp::vector<int>& thisFds = conToFds[_id];
+  const dmtcp::vector<int>& thatFds = conToFds[that._id];
+
+  if ( _path == that._path && 
+       ( lseek(thisFds[0], 0, SEEK_CUR) == lseek(thatFds[0], 0, SEEK_CUR) ) ) {
+    off_t newOffset = lseek (thisFds[0], 1, SEEK_CUR);
+    JASSERT (newOffset != -1) (JASSERT_ERRNO) .Text ("lseek failed");
+
+    if ( newOffset == lseek (thatFds[0], 0, SEEK_CUR) ) {
+      retVal = true;
+    }
+    // Now restore the old offset
+    JASSERT (-1 != lseek (thisFds[0], -1, SEEK_CUR)) .Text( "lseek failed" );
+  }
+  return retVal;
+}
+
 ////////////
 ///// FIFO CHECKPOINTING
 
@@ -1038,7 +1069,6 @@ int dmtcp::FifoConnection::openFile()
 	mkfifo(_path.c_str(),_stat.st_mode);
   }
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)")(_path.c_str())(_fcntlFlags);
   fd = open(_path.c_str(), O_RDWR | O_NONBLOCK);
   JTRACE("Is opened")(_path.c_str())(fd);
 
@@ -1138,6 +1168,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
+  JTRACE("Serializing")(_path)(_fcntlFlags);
   o & _path & _rel_path & _savedRelativePath & _offset & _fileType & _stat;
 }
 

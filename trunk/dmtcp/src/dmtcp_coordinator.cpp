@@ -834,6 +834,11 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
             "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
 
+            "maybejoin=\n"
+            "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
+            "  maybejoin='--join'\n"
+            "fi\n\n"
+
             "for worker_host in $worker_hosts\n"
             "do\n\n"
             "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
@@ -882,7 +887,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
             "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
             "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" \\\n"
-            "  --join $localhost_ckpt_files_group\n"
+            "  $maybejoin $localhost_ckpt_files_group\n"
             "fi\n\n"
 
 
