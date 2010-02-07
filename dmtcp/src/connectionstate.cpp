@@ -31,6 +31,66 @@ dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )
     : _conToFds ( ctfd )
 {}
 
+void dmtcp::ConnectionState::deleteDupFileConnections()
+{
+  ConnectionList& connections = ConnectionList::Instance();
+
+//  typedef dmtcp::map< ConnectionIdentifier, ConnectionList::iterator >::iterator iterator;
+//  dmtcp::map< ConnectionIdentifier, ConnectionList::iterator > dupFileConnectionTable;
+
+  // Create a list of all File Connections which were dup()'d
+  for ( ConnectionList::iterator i = connections.begin()
+      ; i!= connections.end()
+      ; ++i ) {
+    if ( ( i->second )->conType() != Connection::FILE ) continue;
+
+    FileConnection* fileConI = (FileConnection*) i->second;
+
+    ConnectionList::iterator j = i;
+    ++j;
+    while ( j != connections.end() ) {
+      ConnectionList::iterator tmpIt = j;
+      ++tmpIt;
+
+      if ( ( j->second )->conType() != Connection::FILE ) continue;
+
+      FileConnection* fileConJ = (FileConnection*) j->second;
+
+      if ( fileConJ->isDupConnection( *fileConI, _conToFds ) ) {
+
+        JTRACE ("dup()'s file connections found, merging them") (i->first ) ( j->first);
+
+        for ( size_t st = 0; st < _conToFds[j->first].size(); st++ ) {
+          _conToFds[i->first].push_back ( _conToFds[j->first][st] );
+        }
+
+        JTRACE("Deleting dup()'d file connection") (j->first);
+        ConnectionIdentifier conId = fileConJ->id();
+        connections.erase ( j );
+        _conToFds.erase(conId);
+        //JWARNING(1 == _conToFds.erase(fileConJ->id())) (j->first) .Text ("Erase failed");
+      }
+      j = tmpIt;
+    }
+  }
+
+  for ( ConnectionToFds::iterator cfIt = _conToFds.begin();
+        cfIt != _conToFds.end();
+        ++cfIt ) {
+    JTRACE("ConToFds")(cfIt->first);
+  }
+
+  // Delete the dup()'d connections and merge them with the original one's.
+  // NOTE that we do not gurantee that the original fd will be saved, instead
+  // we save any one.
+//   for ( iterator it = dupFileConnections.begin(); 
+//         it != dupFileConnections.end(); 
+//         ++it ) {
+//     JTRACE("Deleting dup()'d file connection") (it->first);
+//     _conToFds.erase(it->first);
+//     connections.erase ( it->second );
+//   }
+}
 
 void dmtcp::ConnectionState::preCheckpointLock()
 {
@@ -44,16 +104,15 @@ void dmtcp::ConnectionState::preCheckpointLock()
   ConnectionList& connections = ConnectionList::Instance();
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
-      ; ++i )
-  {
+      ; ++i ) {
     if ( _conToFds[i->first].size() == 0 ) continue;
 
     ( i->second )->saveOptions ( _conToFds[i->first] );
     ( i->second )->doLocking ( _conToFds[i->first] );
   }
-
-
 }
+
+
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
   ConnectionList& connections = ConnectionList::Instance();
@@ -109,6 +168,8 @@ void dmtcp::ConnectionState::preCheckpointDrain()
 
   //re build fd table without stale connections and with disconnects
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
+
+  deleteDupFileConnections();
 }
 
 void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinator)

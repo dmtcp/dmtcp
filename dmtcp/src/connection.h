@@ -45,6 +45,7 @@ namespace dmtcp
   class ConnectionRewirer;
   class TcpConnection;
   class KernelDeviceToConnection;
+  class ConnectionToFds;
 
 
   class Connection
@@ -72,6 +73,8 @@ namespace dmtcp
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds ) = 0;
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
 
+      virtual bool isDupConnection ( const Connection& _that, 
+                                     dmtcp::ConnectionToFds& conToFds ) {};
       virtual void doLocking ( const dmtcp::vector<int>& fds ) {};
       virtual void saveOptions ( const dmtcp::vector<int>& fds );
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
@@ -287,7 +290,7 @@ namespace dmtcp
         dmtcp::string curDir = cur_dir;
         int offs = _path.find(curDir);
         if( offs < 0 ){
-        _rel_path = "*";
+          _rel_path = "*";
         }else{
           offs += curDir.size();
           offs = _path.find('/',offs);
@@ -305,6 +308,10 @@ namespace dmtcp
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      dmtcp::string filePath() { return _path; }
+
+      bool isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds );
 
     private:
       void saveFile (int fd);

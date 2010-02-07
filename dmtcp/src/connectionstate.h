@@ -39,6 +39,7 @@ namespace dmtcp
     public:
       ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
+      void deleteDupFileConnections();
       void preCheckpointLock();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
