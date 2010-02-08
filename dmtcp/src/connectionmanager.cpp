@@ -133,7 +133,7 @@ void dmtcp::KernelDeviceToConnection::createPtyDevice ( int fd, dmtcp::string de
   _table[device] = c->id();
 }
 
-dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandPts )
+dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandConnection )
 {
   //gather evidence
   errno = 0;
@@ -162,7 +162,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
     dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + device;
 
-    if(noOnDemandPts)
+    if(noOnDemandConnection)
       return deviceName;
 
     iterator i = _table.find ( deviceName );
@@ -174,7 +174,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   } else if ( isPts ) {
     dmtcp::string deviceName = "pts:" + device;
 
-    if(noOnDemandPts)
+    if(noOnDemandConnection)
       return deviceName;
 
     iterator i = _table.find ( deviceName );
@@ -210,6 +210,10 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     /* /dev/null is a character special file (non-regular file) */
     if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode)) {
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
       iterator i = _table.find ( deviceName );
       if ( i == _table.end() )
       {
@@ -224,6 +228,10 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
     } else if (S_ISFIFO(buf.st_mode)){
       dmtcp::string deviceName = "fifo["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
       iterator i = _table.find ( deviceName );
       if (i == _table.end())
       {

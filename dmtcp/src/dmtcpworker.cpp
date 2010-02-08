@@ -355,8 +355,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       _coordinatorSocket >> msg;
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
-      if ( msg.type == dmtcp::DMT_KILL_PEER )
-        exit ( 0 );
       msg.poison();
     }
   }

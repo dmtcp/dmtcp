@@ -75,7 +75,7 @@ namespace dmtcp
 
       void erase(const ConnectionIdentifier&);
 
-      dmtcp::string fdToDevice ( int fd , bool noOnDemandPts = false );
+      dmtcp::string fdToDevice ( int fd , bool noOnDemandConnection = false );
 
       void dbgSpamFds();
 

@@ -654,14 +654,13 @@ int main ( int argc, char** argv )
   // Check that all targets belongs to one computation group
   // If not - abort
   for(int i=0; i<targets.size(); i++){
-    std::cout << "Check targets: " << targets[i]._path << " " << targets[i]._compGroup << " " << targets[i]._numPeers << std::endl;
+    JTRACE ( "Check targets: " ) 
+      ( targets[i]._path ) ( targets[i]._compGroup ) ( targets[i]._numPeers );
   }
   
-  std::cout << "-----------------------" << std::endl;
   compGroup = targets[0]._compGroup;
   numPeers = targets[0]._numPeers;
   for(int i=0; i<targets.size(); i++){
-//    std::cout << "Check targets: " << targets[i]._path << " " << targets[i]._compGroup << " " << targets[i]._numPeers << std::endl;
     if( compGroup != targets[i]._compGroup){
       JASSERT(false)(compGroup)(targets[i]._compGroup).Text("ERROR: Restored programs belongs to different computation IDs");
     }else if( numPeers != targets[i]._numPeers ){
