@@ -175,13 +175,14 @@ static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
 
 /* The coordinator can receive a second checkpoint request while processing the
- * first one.  If the second request at a point where the coordinator has
+ * first one.  If the second request comes at a point where the coordinator has
  * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
  * coordinator sends another DMTCP_DO_SUSPEND message.  The workers having
  * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
  * threads) are waiting for the next message (DMT_DO_LOCK_FDS or
- * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and exit()
- * indicating an error.  The fix to this problem is to introduce a global
+ * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
+ * indicating an error.  
+ * The fix to this problem is to introduce a global
  * variable "workersRunningAndSuspendMessageSend" which, as the name implies,
  * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
  * is waiting for replies from the workers. If this variable is set, the
