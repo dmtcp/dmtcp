@@ -173,6 +173,22 @@ static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
+
+/* The coordinator can receive a second checkpoint request while processing the
+ * first one.  If the second request at a point where the coordinator has
+ * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
+ * coordinator sends another DMTCP_DO_SUSPEND message.  The workers having
+ * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
+ * threads) are waiting for the next message (DMT_DO_LOCK_FDS or
+ * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and exit()
+ * indicating an error.  The fix to this problem is to introduce a global
+ * variable "workersRunningAndSuspendMessageSend" which, as the name implies,
+ * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
+ * is waiting for replies from the workers. If this variable is set, the
+ * coordinator will not process another checkpoint request.
+*/
+static bool workersRunningAndSuspendMsgSent = false;
+
 int theCheckpointInterval = -1;
 
 const int STDIN_FD = fileno ( stdin );
@@ -371,6 +387,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         if ( oldState == WorkerState::RUNNING
                 && newState == WorkerState::SUSPENDED )
         {
+          // All the workers are in SUSPENDED state, now it is safe to reset this flag.
+          workersRunningAndSuspendMsgSent = false;
+
           JNOTE ( "locking all nodes" );
           broadcastMessage ( DMT_DO_LOCK_FDS );
         }
@@ -682,12 +701,17 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
   CoordinatorStatus s = getStatus();
-  if ( s.minimumState == WorkerState::RUNNING )
+  if ( s.minimumState == WorkerState::RUNNING && !workersRunningAndSuspendMsgSent )
   {
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     broadcastMessage ( DMT_DO_SUSPEND );
+
+    // Suspend Message has been sent but the workers are still in running
+    // state, if the coordinator receives another checkpoint request from user
+    // at this point, it should fail.
+    workersRunningAndSuspendMsgSent = true;
     return true;
   }
   else
