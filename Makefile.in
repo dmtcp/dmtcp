@@ -96,7 +96,7 @@ bin/% : dmtcp/src/%
 bin/% : mtcp/%
 	(cd bin && $(LN_S) ../$< $*)
 
-bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart bin/dmtcp_command
+bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/mtcp.so bin/mtcp_restart bin/dmtcp_command bin/dmtcp_nocheckpoint
 
 install: all 
 	if test -z "$(prefix)"; then \
@@ -109,6 +109,7 @@ install: all
 	$(MKDIR_P) $(prefix)/bin
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
+	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_nocheckpoint)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
 	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
 
