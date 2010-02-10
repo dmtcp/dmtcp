@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "jassert.h"
+#include "jfilesystem.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include "jconvert.h"
@@ -124,7 +125,10 @@ jassert_internal::JAssert::~JAssert()
 
   if ( _exitWhenDone )
   {
-    Print ( "Terminating...\n" );
+    Print ( jalib::Filesystem::GetProgramName() );
+    Print ( " (" );
+    Print ( getpid() );
+    Print ( "): Terminating...\n" );
     _exit ( 1 );
   }
 }
