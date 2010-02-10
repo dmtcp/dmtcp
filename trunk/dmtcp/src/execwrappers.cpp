@@ -41,6 +41,8 @@ static void protectLD_PRELOAD()
   const char* actual = getenv ( "LD_PRELOAD" );
   const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
 
+  JTRACE ("LD_PRELOAD") (actual) (expctd);
+
   if ( actual!=0 && expctd!=0 ){
     JASSERT ( strcmp ( actual,expctd ) == 0 )( actual ) ( expctd )
       .Text ( "eeek! Someone stomped on LD_PRELOAD" );
@@ -76,7 +78,7 @@ static pid_t fork_work()
 #endif
 
 
-    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( getenv ( "LD_PRELOAD" ) );
+    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
 
     //fix the mutex
     _dmtcp_remutex_on_fork();
@@ -96,7 +98,7 @@ static pid_t fork_work()
     //make new connection to coordinator
     dmtcp::DmtcpWorker::resetOnFork();
 
-    JTRACE ( "fork() done [CHILD]" ) ( child ) ( getenv ( "LD_PRELOAD" ) );
+    JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
 
     return 0;
   }
@@ -237,7 +239,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
   //TODO: Right now we assume the user hasn't clobbered our setup of envp
   //(like LD_PRELOAD), we should really go check to make sure it hasn't
   //been destroyed....
-  JTRACE ( "exec() wrapper" );
+  JTRACE ( "execve() wrapper" ) ( filename );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -256,7 +258,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
   //TODO: Right now we assume the user hasn't clobbered our setup of envp
   //(like LD_PRELOAD), we should really go check to make sure it hasn't
   //been destroyed....
-  JTRACE ( "exec() wrapper" );
+  JTRACE ( "fexecve() wrapper" ) ( fd );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -272,7 +274,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 
 extern "C" int execv ( const char *path, char *const argv[] )
 {
-  JTRACE ( "exec() wrapper" );
+  JTRACE ( "execv() wrapper" ) ( path );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -288,7 +290,7 @@ extern "C" int execv ( const char *path, char *const argv[] )
 
 extern "C" int execvp ( const char *file, char *const argv[] )
 {
-  JTRACE ( "exec() wrapper" );
+  JTRACE ( "execvp() wrapper" ) ( file );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -304,6 +306,8 @@ extern "C" int execvp ( const char *file, char *const argv[] )
 
 extern "C" int execl ( const char *path, const char *arg, ... )
 {
+  JTRACE ( "execl() wrapper" ) ( path );
+
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
   const char **argv = initial_argv;
@@ -347,6 +351,8 @@ extern "C" int execl ( const char *path, const char *arg, ... )
 
 extern "C" int execlp ( const char *file, const char *arg, ... )
 {
+  JTRACE ( "execlp() wrapper" ) ( file );
+
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
   const char **argv = initial_argv;
@@ -390,6 +396,8 @@ extern "C" int execlp ( const char *file, const char *arg, ... )
 
 extern "C" int execle(const char *path, const char *arg, ...)
 {
+  JTRACE ( "execle() wrapper" ) ( path );
+
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
   const char **argv = initial_argv;

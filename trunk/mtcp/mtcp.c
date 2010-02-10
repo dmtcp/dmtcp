@@ -267,6 +267,7 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            int *parent_tidptr,
                            struct user_desc *newtls,
                            int *child_tidptr);
+static int (*unsetenv_entry) (const char *name);
 static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
@@ -1473,8 +1474,13 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     dup2(fd_out, STDOUT_FILENO);
     close(fd_out);
     close(fd);
+
     //make sure DMTCP doesn't catch gzip
-    unsetenv("LD_PRELOAD");
+    // Here we need to unset LD_PRELOAD in bash env and in process env. See
+    // revision log 342 for more details.
+    unsetenv("LD_PRELOAD"); // bash version
+    unsetenv_entry = mtcp_get_libc_symbol("unsetenv");
+    (*unsetenv_entry)("LD_PRELOAD");
 
     execvp_entry = mtcp_get_libc_symbol("execvp");
     (*execvp_entry)(gzip_path, gzip_args);

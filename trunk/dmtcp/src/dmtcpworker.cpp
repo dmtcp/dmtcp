@@ -182,6 +182,43 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
 
+  dmtcp::string programName = jalib::Filesystem::GetProgramName();
+
+  if ( programName == "dmtcp_coordinator"  ||
+       programName == "dmtcp_checkpoint"   ||
+       programName == "dmtcp_restart"      ||
+       programName == "dmtcp_command"      ||
+       programName == "mtcp_restart" ) {
+
+    //make sure coordinator connection is closed
+    _real_close ( PROTECTEDFD ( 1 ) );
+
+    //get program args
+    dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+
+    //now repack args
+    char** argv = new char*[args.size() + 1];
+    memset ( argv, 0, sizeof ( char* ) * ( args.size() + 1 ) );
+
+    for ( size_t i=0; i< args.size(); ++i )
+    {
+      argv[i] = ( char* ) args[i].c_str();
+    }
+
+    //we don't want to get into an infinite loop now do we?
+    _dmtcp_unsetenv ( "LD_PRELOAD" );
+    _dmtcp_unsetenv ( ENV_VAR_HIJACK_LIB );
+
+    JNOTE ( "re-running without checkpointing" ) ( programName );
+
+    //now re-call the command
+    _real_execvp ( jalib::Filesystem::GetProgramPath().c_str(), argv );
+
+    //should be unreachable
+    JASSERT ( false ) (jalib::Filesystem::GetProgramPath()) ( argv[0] ) 
+      ( JASSERT_ERRNO ) .Text ( "exec() failed" );
+  }
+
   if ( jalib::Filesystem::GetProgramName() == "ssh" )
   {
     //make sure coordinator connection is closed

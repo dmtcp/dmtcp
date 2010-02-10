@@ -144,7 +144,8 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
 
     default:
-      o << s;
+      OSHIFTPRINTF ( DMT_INVALID )
+      //o << s;
   }
   return o;
 }
