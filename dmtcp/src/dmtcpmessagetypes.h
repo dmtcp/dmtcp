@@ -61,7 +61,8 @@ namespace dmtcp
     DMT_KILL_PEER,      // send kill message to peer
     DMT_USER_CMD,       // simulate typing params[0] into coordinator
     DMT_USER_CMD_RESULT, // return code of user command
-    DMT_REJECT          // coordinator discards incoming connection because it is not from current computation group
+    DMT_REJECT,          // coordinator discards incoming connection because it is not from current computation group
+    DMT_INVALID          // Invalid message type
 
   };
 

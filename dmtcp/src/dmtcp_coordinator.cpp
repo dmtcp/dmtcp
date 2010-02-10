@@ -183,7 +183,7 @@ static dmtcp::DmtcpMessage blockUntilDoneReply;
  * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
  * indicating an error.  
  * The fix to this problem is to introduce a global
- * variable "workersRunningAndSuspendMessageSend" which, as the name implies,
+ * variable "workersRunningAndSuspendMsgSent" which, as the name implies,
  * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
  * is waiting for replies from the workers. If this variable is set, the
  * coordinator will not process another checkpoint request.
@@ -525,6 +525,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   bool isFirstConn = false;
   if ( _dataSockets.size() <= 1 )
   {
+    workersRunningAndSuspendMsgSent = false;
     if ( _dataSockets.size() == 0
             || _dataSockets[0]->socket().sockfd() == STDIN_FD )
     {
