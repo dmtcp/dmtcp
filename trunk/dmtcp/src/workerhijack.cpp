@@ -27,7 +27,7 @@ dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-  theInstance.~DmtcpWorker();
+  theInstance.CleanupWorker();
   shutdownMtcpEngineOnFork();
 
   /* If parent process had file connections and it fork()'d a child
