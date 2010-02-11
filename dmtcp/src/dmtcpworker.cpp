@@ -150,6 +150,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     :_coordinatorSocket ( PROTECTEDFD ( 1 ) )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
+  _chkpt_enabled = enableCheckpointing;
   if ( !enableCheckpointing ) return;
 
   WorkerState::setCurrentState( WorkerState::UNKNOWN); 
@@ -352,8 +353,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 // #endif
 }
 
-//called after user main()
-dmtcp::DmtcpWorker::~DmtcpWorker()
+void dmtcp::DmtcpWorker::CleanupWorker()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
@@ -363,6 +363,16 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   WorkerState::setCurrentState( WorkerState::UNKNOWN); 
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
+}
+
+//called after user main()
+dmtcp::DmtcpWorker::~DmtcpWorker()
+{
+  if( _chkpt_enabled ){
+    JTRACE("\n\n\nDESTRUCTOR\n\n\n\n");
+    _exit(0);
+  }
+  CleanupWorker();
 }
 
 
