@@ -191,25 +191,25 @@ struct ThreadArg {
   pid_t original_tid;
 };
 
-bool isConflictingTid( pid_t tid )
-{
-  /*  If tid is not an original tid (return same tid), then there is no conflict
-   *  If tid is an original tid with the same current tid, then there 
-   *   is no conflict because that's us.
-   *  If tid is an original tid with a different current tid, then there 
-   *   is a conflict.
-   */
-  if (tid == dmtcp::VirtualPidTable::Instance().originalToCurrentPid( tid ))
-    return false;
-  return true;
-}
+// bool isConflictingTid( pid_t tid )
+// {
+//   /*  If tid is not an original tid (return same tid), then there is no conflict
+//    *  If tid is an original tid with the same current tid, then there 
+//    *   is no conflict because that's us.
+//    *  If tid is an original tid with a different current tid, then there 
+//    *   is a conflict.
+//    */
+//   if (tid == dmtcp::VirtualPidTable::Instance().originalToCurrentPid( tid ))
+//     return false;
+//   return true;
+// }
 
 int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
 
-  if ( isConflictingTid ( tid ) ) {
+  if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
     return 0;
   }
@@ -346,7 +346,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       break;
     }
 
-    if ( isConflictingTid ( tid ) ) {
+    if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
+    //if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if required.) */
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
     } else {
