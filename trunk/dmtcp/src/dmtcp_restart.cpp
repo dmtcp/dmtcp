@@ -474,6 +474,8 @@ namespace
         while ( 1 ) {
 
           pid_t childPid = fork();
+
+          JASSERT ( childPid != -1 ) .Text ( "fork() failed" );
           
           if ( childPid == 0 ) { /* child process */
             if ( originalPidTable.isConflictingChildPid ( getpid() ) )

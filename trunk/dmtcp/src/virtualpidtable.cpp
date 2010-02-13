@@ -67,6 +67,23 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::Instance()
   static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
 }
 
+bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
+{
+  /*  If pid != originalToCurrentPid(pid), then there is a conflict because
+   *    there is an original_pid same as this pid.
+   *
+   *  If pid == originalToCurrentPid(pid), then there are two cases:
+   *    1. there is no mapping from some original_pid to pid ==> no conflict
+   *    2. there is a mapping from pid to pid in the table, in which case again
+   *       there is not conflict because that mapping essentially is about the
+   *       current pid.
+   */
+  if (pid == Instance().originalToCurrentPid( pid ))
+    return false;
+
+  return true;
+}
+
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
   // Update Group information before checkpoint

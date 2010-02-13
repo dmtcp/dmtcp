@@ -45,6 +45,7 @@ namespace dmtcp
     public:
       VirtualPidTable();
       static VirtualPidTable& Instance();
+      static bool isConflictingPid( pid_t pid );
       void postRestart();
       void postRestart2();
       void preCheckpoint();

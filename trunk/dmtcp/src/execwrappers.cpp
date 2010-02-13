@@ -49,6 +49,35 @@ static void protectLD_PRELOAD()
   }
 }
 
+static pid_t forkChild()
+{
+  while ( 1 ) {
+
+    pid_t childPid = _real_fork();
+
+    if ( childPid == -1 ) {
+      // fork() failed
+      return childPid;
+    } else if ( childPid == 0 ) { 
+      /* child process */
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( getpid() ) ) {
+        _exit(1);
+      } else {
+        return childPid;
+      }
+    } else { 
+      /* Parent Process */
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( childPid ) ) {
+        JTRACE( "PID Conflict, creating new child" ) (childPid);
+        _real_waitpid ( childPid, NULL, 0 );
+      } else {
+        return childPid;
+      }
+    }
+  }
+  return -1;
+}
+
 static pid_t fork_work()
 {
   protectLD_PRELOAD();
@@ -56,7 +85,8 @@ static pid_t fork_work()
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   time_t child_time = time ( NULL );
-  pid_t child_pid = _real_fork();
+  //pid_t child_pid = _real_fork();
+  pid_t child_pid = forkChild();
   if (child_pid < 0) {
     return child_pid;
   }
