@@ -116,6 +116,7 @@ install: all
 uninstall:
 	rm -f "$(prefix)/bin/dmtcp_coordinator"
 	rm -f "$(prefix)/bin/dmtcp_checkpoint"
+	rm -f "$(prefix)/bin/dmtcp_nocheckpoint"
 	rm -f "$(prefix)/bin/dmtcp_restart"
 	rm -f "$(prefix)/bin/dmtcp_command"
 	rm -f "$(prefix)/lib/libdmtcpaware.so"
