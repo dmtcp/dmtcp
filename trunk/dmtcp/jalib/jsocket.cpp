@@ -163,21 +163,29 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     struct timeval tv;
     int retval;
 
+    int tmp_sockfd = _sockfd;
+    if ( tmp_sockfd == -1 ) {
+      return -1;
+    }
+
     /* Watch stdin (fd 0) to see when it has input. */
     FD_ZERO ( &rfds );
-    FD_SET ( _sockfd, &rfds );
+    FD_SET ( tmp_sockfd, &rfds );
 
     tv.tv_sec = 120;
     tv.tv_usec = 0;
 
-    retval = select ( _sockfd+1, &rfds, NULL, NULL, &tv );
+    retval = select ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
     if ( retval == -1 )
     {
-      if( errno != EINTR ){ 
-        JWARNING ( retval >= 0 ) ( _sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
+      if ( errno == EBADF ) {
+        JWARNING (false) .Text ( "Socket already closed" );
+        return -1;
+      } else if( errno != EINTR ){ 
+        JWARNING ( retval >= 0 ) ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
         return -1;
       }
     }
@@ -203,7 +211,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     }
     else
     {
-      JTRACE ( "still waiting for data" ) ( _sockfd ) ( len );
+      JTRACE ( "still waiting for data" ) ( tmp_sockfd ) ( len );
     }
   }
   return origLen;
@@ -218,21 +226,30 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     struct timeval tv;
     int retval;
 
+    int tmp_sockfd = _sockfd;
+    if ( tmp_sockfd == -1 ) {
+      return -1;
+    }
+
     /* Watch stdin (fd 0) to see when it has input. */
     FD_ZERO ( &wfds );
-    FD_SET ( _sockfd, &wfds );
+    FD_SET ( tmp_sockfd, &wfds );
 
     /* Wait up to five seconds. */
     tv.tv_sec = 30;
     tv.tv_usec = 0;
 
-    retval = select ( _sockfd+1, NULL, &wfds, NULL, &tv );
+    retval = select ( tmp_sockfd+1, NULL, &wfds, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
     if ( retval == -1 )
     {
-      JWARNING ( retval >= 0 ) ( _sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
+      if ( errno == EBADF ) {
+        JWARNING (false) .Text ( "Socket already closed" );
+        return -1;
+      } 
+      JWARNING ( retval >= 0 ) ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
       return -1;
     }
     else if ( retval )
@@ -252,7 +269,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     }
     else
     {
-      JTRACE ( "still waiting for data" ) ( _sockfd ) ( len );
+      JTRACE ( "still waiting for data" ) ( tmp_sockfd ) ( len );
     }
   }
   return origLen;
