@@ -387,8 +387,6 @@ static int open_ckpt_to_read(char *filename) {
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-            // FIXME: Do we really need to unset LD_PRELOAD? Is it really set??
-	    unsetenv("LD_PRELOAD");
             execvp(gzip_path, gzip_args);
             /* should not get here */
             fputs("ERROR: Decompression failed!  No restoration will be performed!  Cancel now!\n", stderr);

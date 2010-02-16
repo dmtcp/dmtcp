@@ -174,16 +174,18 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char * preload =  getenv("LD_PRELOAD");
-  char * preload_rest = strstr(":", preload); 
+  char * preload_rest = strstr(preload, ":"); 
   if (preload_rest) {
     *preload_rest = '\0'; // Now preload is just our preload string
-    setenv("LD_PRELOAD", preload_rest + 1, 1); //and LD_PRELOAD is preload_rest
+    preload_rest++;
   }
   JASSERT(strlen(preload) < dmtcp::DmtcpWorker::ld_preload_c_len)
 	 (preload) (dmtcp::DmtcpWorker::ld_preload_c_len)
 	 .Text("preload string is longer than ld_preload_c_len");
   strcpy(dmtcp::DmtcpWorker::ld_preload_c, preload);  // Don't malloc
-  if (!preload_rest) {
+  if (preload_rest) {
+    setenv("LD_PRELOAD", preload_rest, 1);
+  } else {
     _dmtcp_unsetenv("LD_PRELOAD");
   }
 
@@ -239,10 +241,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     {
       argv[i] = ( char* ) args[i].c_str();
     }
-
-    //we don't want to get into an infinite loop now do we?
-    _dmtcp_unsetenv ( "LD_PRELOAD" );
-    _dmtcp_unsetenv ( ENV_VAR_HIJACK_LIB );
 
     JNOTE ( "re-running without checkpointing" ) ( programName );
 
@@ -323,10 +321,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
       argv[i] = ( char* ) args[i].c_str();
       newCommand += args[i] + ' ';
     }
-
-    //we don't want to get into an infinite loop now do we?
-    _dmtcp_unsetenv ( "LD_PRELOAD" );
-    _dmtcp_unsetenv ( ENV_VAR_HIJACK_LIB );
 
     JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
 
