@@ -209,3 +209,54 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
   return ret;
 }
 
+EXTERNC int sigwait(const sigset_t *set, int *sig) {
+  sigset_t tmp;
+  if (set != NULL) {
+    tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+
+  int ret = _real_sigwait( &tmp, sig );
+
+  return ret;
+}
+
+/* In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
+ * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
+ * that might have occured while executing the system call. These system call
+ * will return -1 with errno set to EINTR. 
+ * To deal with the situation, we do not remove the MTCP_SIGCKPT from the
+ * signal set (if it is present); instead, we check the return value and if it
+ * turns out to be MTCP_SIGCKPT, we raise the signal once again for this
+ * thread.
+ * Also note that once sigwaitinfo/sigtimedwait returns MTCP_SIGCKPT, we won't
+ * be receiving another MTCP_SIGCKPT until we have called _real_tkill due to
+ * obvious reasons so I believe it is safe to call _real_gettid() here.
+ *                                                              -- Kapil
+ */
+EXTERNC int sigwaitinfo(const sigset_t *set, siginfo_t *info) 
+{
+  int ret;
+  while ( 1 ) {
+    ret = _real_sigwaitinfo( set, info );
+    if ( ret != bannedSignalNumber() ) {
+      break;
+    }
+    _real_tkill(_real_gettid(), bannedSignalNumber());
+  } 
+  return ret;
+}
+
+EXTERNC int sigtimedwait(const sigset_t *set, siginfo_t *info,
+                         const struct timespec *timeout) 
+{
+  int ret;
+  while ( 1 ) {
+    ret = _real_sigtimedwait( set, info, timeout );
+    if ( ret != bannedSignalNumber() ) {
+      break;
+    }
+    _real_tkill(_real_gettid(), bannedSignalNumber());
+  } 
+  return ret;
+}
