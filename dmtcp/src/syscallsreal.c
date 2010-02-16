@@ -254,6 +254,17 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
 
+int _real_sigwait(const sigset_t *set, int *sig) {
+  REAL_FUNC_PASSTHROUGH ( sigwait ) ( set, sig);
+}
+int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info) {
+  REAL_FUNC_PASSTHROUGH ( sigwaitinfo ) ( set, info);
+}
+int _real_sigtimedwait(const sigset_t *set, siginfo_t *info, 
+                       const struct timespec *timeout) {
+  REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
+}
+
 /* In dmtcphijack.so code always use this function instead of unsetenv.
  * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
  * environment equivalent to its shell variables. If DMTCP uses the bash

@@ -94,6 +94,11 @@ extern "C"
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
 
+  int _real_sigwait(const sigset_t *set, int *sig);
+  int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
+  int _real_sigtimedwait(const sigset_t *set, siginfo_t *info, 
+                         const struct timespec *timeout);
+
   void _dmtcp_lock();
   void _dmtcp_unlock();
 
