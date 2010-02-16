@@ -213,6 +213,11 @@ void jassert_internal::jassert_safe_print ( const char* str )
 {
   static FILE* errconsole = _initJassertOutputDevices();
 
+  if( errconsole == NULL ){
+    fprintf ( stderr, "dmtcp: cannot open output channel for error logging\n");
+    abort();
+  }
+
   fprintf ( errconsole,"%s",str );
 
   if ( theLogFile != NULL )
