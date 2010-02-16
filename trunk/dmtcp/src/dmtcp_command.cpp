@@ -119,10 +119,13 @@ int main ( int argc, char** argv )
     if(result[0]<0){
       switch(result[0]){
       case DmtcpCoordinator::ERROR_INVALID_COMMAND:
-        fprintf(stderr, "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
+        fprintf(stderr,
+		"Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
         break;
       case DmtcpCoordinator::ERROR_NOT_RUNNING_STATE:
-        fprintf(stderr, "Error, computation not in running state.  Either a checkpoint is currently happening or there are no connected processes.\n");
+        fprintf(stderr, "Error, computation not in running state."
+		"  Either a checkpoint is\n"
+		" currently happening or there are no connected processes.\n");
         break;
       default:
         fprintf(stderr, "Unknown error\n");

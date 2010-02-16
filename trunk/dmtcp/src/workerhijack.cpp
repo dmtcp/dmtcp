@@ -23,6 +23,9 @@
 #include "mtcpinterface.h"
 #include "dmtcpmessagetypes.h"
 
+// Initializing variable, theInstance, to an object of type DmtcpWorker,
+//   with DmtcpWorker constructor called with arg, enableCheckpointing = true
+// This gets executed before main().
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()

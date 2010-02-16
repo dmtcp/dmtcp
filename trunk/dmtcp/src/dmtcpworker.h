@@ -49,6 +49,8 @@ namespace dmtcp
   {
     public:
       static DmtcpWorker& instance();
+      static const int ld_preload_c_len = 256;
+      static char ld_preload_c[ld_preload_c_len];
       const dmtcp::UniquePid& coordinatorId() const;
 
       void waitForStage1Suspend();
