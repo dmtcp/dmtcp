@@ -192,6 +192,11 @@ static void dmtcpPrepareForExec()
   dmtcp::VirtualPidTable::Instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
+  dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
+  if (getenv("LD_PRELOAD")) {
+    preload = preload + ":" + getenv("LD_PRELOAD");
+  }
+  setenv("LD_PRELOAD", preload.c_str(), 1);
   JTRACE ( "Prepared for Exec" );
 }
 

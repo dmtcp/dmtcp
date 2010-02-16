@@ -252,6 +252,10 @@ int main ( int argc, char** argv )
   else// if( isSSHSlave )
     setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
+  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
+  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
+  if (getenv("LD_PRELOAD"))
+    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );

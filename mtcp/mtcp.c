@@ -267,7 +267,7 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            int *parent_tidptr,
                            struct user_desc *newtls,
                            int *child_tidptr);
-static int (*unsetenv_entry) (const char *name);
+static int (*putenv_entry) (const char *name);
 static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
@@ -1437,6 +1437,7 @@ static int test_use_compression(void)
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 {
   pid_t cpid;
+  char *empty_ld_preload = "LD_PRELOAD=";
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
   char *old_ldpreload = getenv("LD_PRELOAD");
   if(old_ldpreload!=NULL) old_ldpreload=strdup(old_ldpreload);
@@ -1478,9 +1479,14 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     //make sure DMTCP doesn't catch gzip
     // Here we need to unset LD_PRELOAD in bash env and in process env. See
     // revision log 342 for more details.
-    unsetenv("LD_PRELOAD"); // bash version
-    unsetenv_entry = mtcp_get_libc_symbol("unsetenv");
-    (*unsetenv_entry)("LD_PRELOAD");
+    // Don't use unsetenv, because later LD_PRELOAD will appear in new
+    //  new location as last entry of environ.  This could confuse
+    //  a user program (or trigger a failure in a Condor test).
+    if (old_ldpreload!=NULL) {
+      putenv(empty_ld_preload); // If in bash, this is bash env. var. version
+      putenv_entry = mtcp_get_libc_symbol("putenv");
+      (*putenv_entry)(empty_ld_preload);
+    }
 
     execvp_entry = mtcp_get_libc_symbol("execvp");
     (*execvp_entry)(gzip_path, gzip_args);
@@ -1489,7 +1495,6 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
   }
-
 
   if(old_ldpreload!=NULL){
     //need to restore LD_PRELOAD as vforked child may have modified it
