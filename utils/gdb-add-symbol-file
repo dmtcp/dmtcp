@@ -18,6 +18,16 @@ test -z "$2" && exit
 
 # processPID=`pgrep -n $1`
 processPID=$1
+if ! test -e /proc/$processPID; then
+  echo Process $processPID does not exist.  Please use existing proces.
+  exit 1
+fi
+if test -z "`cat /proc/$processPID/maps | grep $2`"; then
+  echo "**** Library $2 not found. "\
+       "Do:  cat /proc/$processPID/maps  to see all libs."
+  exit 1
+fi
+
 lib=`cat /proc/$processPID/maps | grep $2 | head -1 | \
 	sed -e 's%[^/]*\(/.*\)%\1%'`
 
