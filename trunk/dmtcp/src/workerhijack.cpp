@@ -45,9 +45,13 @@ void dmtcp::DmtcpWorker::resetOnFork()
    */
   new ( &theInstance ) DmtcpWorker ( false );
 
-  WorkerState::setCurrentState ( WorkerState::RUNNING );
+  WorkerState::setCurrentState ( WorkerState::INITIALIZING );
   instance().connectToCoordinator();
+  WorkerState::setCurrentState ( WorkerState::RUNNING );
+
+  WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 }
 
 //to allow linking without mtcpinterface

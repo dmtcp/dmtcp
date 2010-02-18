@@ -38,6 +38,7 @@
 
 static void protectLD_PRELOAD()
 {
+  return;
   const char* actual = getenv ( "LD_PRELOAD" );
   const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
 
@@ -60,7 +61,7 @@ static pid_t forkChild()
       return childPid;
     } else if ( childPid == 0 ) { 
       /* child process */
-      if ( dmtcp::VirtualPidTable::isConflictingPid ( getpid() ) ) {
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
         _exit(1);
       } else {
         return childPid;
@@ -182,7 +183,7 @@ extern "C" pid_t vfork()
 
 static void dmtcpPrepareForExec()
 {
-  protectLD_PRELOAD();
+//  protectLD_PRELOAD();
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );

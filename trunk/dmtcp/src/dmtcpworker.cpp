@@ -331,6 +331,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     JASSERT ( false ) ( cmd ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
   }
 
+  // FIXME: The state here should be INITIALIZING but somehow its not working
+  //        that way, so reverting it back to RUNNING. This should be fixed in
+  //        future
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
   if ( serialFile != NULL )
@@ -371,9 +374,17 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
+  WorkerState::setCurrentState ( WorkerState::INITIALIZING );
   connectToCoordinator();
 
+  WorkerState::setCurrentState ( WorkerState::RUNNING );
+
+  /* Acquire the lock here, so that the checkpoint-thread won't be able to
+   * process CHECKPOINT request until we are done with initializeMtcpEngine()
+   */
+  WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
 // #ifdef DEBUG
 //     JTRACE("listing fds");
@@ -670,9 +681,9 @@ void dmtcp::DmtcpWorker::postRestart()
 }
 
 void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
-    dmtcp::UniquePid compGroup,
-    int numPeers,
-    int &coordTstamp)
+                                        dmtcp::UniquePid compGroup,
+                                        int numPeers,
+                                        int &coordTstamp)
 {
   JTRACE ( "restoreSockets begin" );
 
@@ -694,7 +705,7 @@ void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
 
   //reconnect to our coordinator
   connectToCoordinator(false);
-  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers);
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers, DMT_RESTART_PROCESS);
   recvCoordinatorHandshake(&coordTstamp);
   JTRACE("Connected to coordinator")(coordTstamp);
 
@@ -853,12 +864,16 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
   }
 }
 
-void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,UniquePid compGroup,int np){
+void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,
+                                                  UniquePid compGroup /*= UniquePid()*/,
+                                                  int np /*= -1*/,
+                                                  DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
+{
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   dmtcp::DmtcpMessage hello_local;
-  hello_local.type = dmtcp::DMT_HELLO_COORDINATOR;
+  hello_local.type = msgType;
   hello_local.params[0] = np;
   hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
@@ -875,7 +890,12 @@ void dmtcp::DmtcpWorker::recvCoordinatorHandshake( int *param1 ){
   hello_remote.poison();
   _coordinatorSocket >> hello_remote;
   hello_remote.assertValid();
-  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
+
+  if ( param1 == NULL )
+    JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
+  else
+    JASSERT ( hello_remote.type == dmtcp::DMT_RESTART_PROCESS_REPLY ) ( hello_remote.type );
+
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
   if( param1 ){

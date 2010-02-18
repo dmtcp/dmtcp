@@ -310,6 +310,9 @@ extern "C" int open (const char *path, ... )
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
    * playing with locks etc.
+   *
+   * FIXME: The following check is not required anymore. JASSERT_INIT calls
+   *        libc:open directly.
    */
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     return _real_open ( path, flags, mode );
@@ -342,6 +345,9 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
    * playing with locks etc.
+   *
+   * FIXME: The following check is not required anymore. JASSERT_INIT calls
+   *        libc:open directly.
    */
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     return _real_fopen ( path, mode );

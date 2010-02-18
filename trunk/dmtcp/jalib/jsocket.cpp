@@ -581,7 +581,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
           struct sockaddr_storage addr;
           socklen_t               addrlen=sizeof ( addr );
           JSocket sk = _listenSockets[i].accept ( &addr,&addrlen );
-          JTRACE ( "accepting new connection" ) ( i ) ( sk.sockfd() ) ( _listenSockets[i].sockfd() ) ( errno );
+          JTRACE ( "accepting new connection" ) ( i ) ( sk.sockfd() ) ( _listenSockets[i].sockfd() ) ( JASSERT_ERRNO );
           if ( sk.isValid() )
           {
             onConnect ( sk, ( sockaddr* ) &addr,addrlen );
