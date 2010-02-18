@@ -26,6 +26,7 @@
 #include  "../jalib/jsocket.h"
 #include "uniquepid.h"
 #include "constants.h"
+#include "dmtcpmessagetypes.h"
 
 #define WRAPPER_EXECUTION_LOCK_LOCK() \
   /*JTRACE("Acquiring wrapperExecutionLock");*/ \
@@ -87,7 +88,10 @@ namespace dmtcp
       // np > -1 means it is restarting process that have np processes in its computation group
       // np == -1 means it is new pure process, so coordinator needs to generate compGroup ID for it
       // np == -2 means it is service connection from dmtcp_restart - irnore it
-      void sendCoordinatorHandshake(const dmtcp::string& procName, UniquePid compGroup = UniquePid(),int np = -1);
+      void sendCoordinatorHandshake(const dmtcp::string& procName, 
+                                    UniquePid compGroup = UniquePid(),
+                                    int np = -1, 
+                                    DmtcpMessageType msgType = DMT_HELLO_COORDINATOR);
       void recvCoordinatorHandshake(int *param1 = NULL);
 
       void writeCheckpointPrefix(int fd);

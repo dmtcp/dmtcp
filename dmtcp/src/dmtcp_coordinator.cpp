@@ -520,116 +520,49 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
   }
 }
 
-void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen )
+void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
+                                          const struct sockaddr* remoteAddr,
+                                          socklen_t remoteLen )
 {
-  bool isFirstConn = false;
-  if ( _dataSockets.size() <= 1 )
+  // If no client is connected to Coordinator, then there can be only zero data
+  // sockets OR there can be one data socket and that should be STDIN.
+  if ( _dataSockets.size() == 0 ||
+       ( _dataSockets.size() == 1 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) )
   {
-    workersRunningAndSuspendMsgSent = false;
-    if ( _dataSockets.size() == 0
-            || _dataSockets[0]->socket().sockfd() == STDIN_FD )
-    {
-      //this is the first connection
+      //this is the first connection, do some initializations
+      workersRunningAndSuspendMsgSent = false;
       curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
       curTimeStamp = 0; // Drop timestamp to 0
       numPeers = -1; // Drop number of peers to unknown
       
-      JTRACE("CHECK")(curCompGroup.pid())(curCompGroup.hostid());
       JTRACE ( "resetting _restoreWaitingMessages" )
-      ( _restoreWaitingMessages.size() );
+        ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
 
       JTIMER_START ( restart );
-    }
   }
 
   jalib::JSocket remote ( sock );
-  dmtcp::DmtcpMessage hello_local, hello_remote;
+  dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();
-  hello_local.type = dmtcp::DMT_HELLO_WORKER;
   JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
   hello_remote.assertValid();
 
-  //dmtcp_command doesn't handshake (it is antisocial)
-  if(hello_remote.type == DMT_USER_CMD){
-    JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
-    DmtcpMessage reply;
-    reply.type = DMT_USER_CMD_RESULT;
-    // if previous 'b' blocking prefix command had set blockUntilDone
-    if (blockUntilDone && blockUntilDoneRemote == -1  &&
-      hello_remote.params[0] == 'c') {
-      // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
-      blockUntilDoneRemote = remote.sockfd();
-      blockUntilDoneReply = reply;
-      handleUserCommand( hello_remote.params[0], &reply );
-    } else {
-      handleUserCommand( hello_remote.params[0], &reply );
-      remote << reply;
-      remote.close();
-    }
+  if ( hello_remote.type == DMT_USER_CMD ) {
+    processDmtUserCmd ( hello_remote, remote );
     return;
+  } else if ( hello_remote.type == DMT_RESTART_PROCESS ) {
+    if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
+      return;
+  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR ) {
+    if ( validateWorkerProcess ( hello_remote, remote ) == false )
+      return;
+  } else {
+    JASSERT ( false ) .Text ( "Connect request from Unknown Remote Process Type" );
   }
 
-  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR );
-  // if parameter #1 is not -1 - this is dmtcp_restart process, connecting to
-  // get timestamp and set current compGroup
-  if( hello_remote.params[0] > 0 ){
-    if( curCompGroup == dmtcp::UniquePid() ){
-      // Coordinator is free at this moment - setup all the things
-      curCompGroup = hello_remote.compGroup;
-      numPeers = hello_remote.params[0];
-      curTimeStamp = time(NULL);
-      hello_local.params[1] = 1;
-      JTRACE("----------------------------------------\n"
-        "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp")
-          (numPeers)(curTimeStamp)(curCompGroup);
-    }else{
-      // Coordinator already serving some computation. So check if new connection
-      // is from current computation
-      if( (curCompGroup != hello_remote.compGroup) || (numPeers != hello_remote.params[0]) ){
-        // this is connection from other computation group - reject it.
-        JTRACE("Reject incoming dmtcp_restart connection since it is not from current computation");
-        hello_local.type = dmtcp::DMT_REJECT;
-        remote << hello_local;
-        remote.close();
-        return;
-      }
-      hello_local.params[1] = 0;
-    }
-    // Sent generated timestamp in local massage for dmtcp_restart process.
-    hello_local.params[0] = curTimeStamp;
-  }else if( curCompGroup != dmtcp::UniquePid() ){
-    // dmtcp_restart already connected and compGroup created. 
-    // Computation process connection
-    
-    JTRACE("Connection from computation process")(curCompGroup)
-    (hello_remote.compGroup)(minimumState());
-    // Current computation allocated by restarting processes
-    if( curTimeStamp ) {
-      if( ( hello_remote.compGroup == dmtcp::UniquePid() &&
-              minimumState() == WorkerState::RESTARTING ) ||
-          (hello_remote.compGroup != curCompGroup)) {
-        // New process, has no computation group 
-        JTRACE("Reject computation process");
-        hello_local.type = dmtcp::DMT_REJECT;
-        remote << hello_local;
-        remote.close();
-        return;
-      }
-    }
-  }else{
-    // Connection of new computation.
-    curCompGroup = hello_remote.from.pid();
-    curTimeStamp = 0;
-    numPeers = -1;
-    JTRACE("New process who has no compGroup.");
-  }
-    
-  remote << hello_local;
-
-  JNOTE ( "worker connected" )
-  ( hello_remote.from );
+  JNOTE ( "worker connected" ) ( hello_remote.from );
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
   NamedChunkReader * ds = new NamedChunkReader (
@@ -672,6 +605,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   }
 
   JTRACE("END")(_dataSockets.size())(_dataSockets.size() ? _dataSockets[0]->socket().sockfd() == STDIN_FD : 5);
+}
 
 //     WorkerNode& node = _table[hello_remote.from.pid()];
 //     node.setClientNumer( ds->clientNumber() );
@@ -691,6 +625,150 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
           msg.restorePort = node.restorePort();
           broadcastMessage( msg );
       }*/
+//}
+
+void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jalib::JSocket& remote )
+{
+  //dmtcp_command doesn't handshake (it is antisocial)
+  JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
+  DmtcpMessage reply;
+  reply.type = DMT_USER_CMD_RESULT;
+  // if previous 'b' blocking prefix command had set blockUntilDone
+  if (blockUntilDone && blockUntilDoneRemote == -1  &&
+      hello_remote.params[0] == 'c') {
+    // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
+    blockUntilDoneRemote = remote.sockfd();
+    blockUntilDoneReply = reply;
+    handleUserCommand( hello_remote.params[0], &reply );
+  } else {
+    handleUserCommand( hello_remote.params[0], &reply );
+    remote << reply;
+    remote.close();
+  }
+  return;
+}
+
+bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_remote, 
+                                                          jalib::JSocket& remote )
+{
+  // this is dmtcp_restart process, connecting to get timestamp and set current
+  // compGroup
+
+  JASSERT ( hello_remote.params[0] > 0 );
+
+  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_RESTART_PROCESS_REPLY );
+
+  if( curCompGroup == dmtcp::UniquePid() ){
+    JASSERT ( minimumState() == WorkerState::UNKNOWN )
+      .Text ( "Coordinator should idle at this moment" );
+    // Coordinator is free at this moment - setup all the things
+    curCompGroup = hello_remote.compGroup;
+    numPeers = hello_remote.params[0];
+    curTimeStamp = time(NULL);
+    hello_local.params[1] = 1;
+    JTRACE( "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp" )
+      ( numPeers ) ( curTimeStamp ) ( curCompGroup );
+  } else if ( curCompGroup != hello_remote.compGroup ) {
+    // Coordinator already serving some other computation group - reject this process.
+    JTRACE("Reject incoming dmtcp_restart connection since it is not from current computation")
+      ( curCompGroup ) ( hello_remote.compGroup );
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+  } else if ( numPeers != hello_remote.params[0] ) {
+    // Sanity check
+    JTRACE ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
+      ( numPeers ) ( hello_remote.params[0] );
+
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+  } else {
+    // This is a second or higher dmtcp_restart process connecting to the coordinator.
+    // FIXME: Should the following be a JASSERT instead?      -- Kapil
+    JWARNING ( minimumState() == WorkerState::RESTARTING );
+    hello_local.params[1] = 0;
+  }
+
+  // Sent generated timestamp in local massage for dmtcp_restart process.
+  hello_local.params[0] = curTimeStamp;
+
+  remote << hello_local;
+
+  return true;
+}
+
+bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote, 
+                                                      jalib::JSocket& remote )
+{
+  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
+
+  if ( hello_remote.state == WorkerState::RESTARTING ) {
+    if ( minimumState() != WorkerState::RESTARTING &&
+         minimumState() != WorkerState::CHECKPOINTED ) {
+      JTRACE("Computation not in RESTARTING or CHECKPOINTED state. Reject incoming restarting computation process.")
+        ( curCompGroup ) ( hello_remote.compGroup );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else if ( hello_remote.compGroup != curCompGroup) {
+      JTRACE("Reject incoming restarting computation process since it is not from current computation")
+        ( curCompGroup ) ( hello_remote.compGroup );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } 
+    // dmtcp_restart already connected and compGroup created. 
+    // Computation process connection
+    JASSERT ( curTimeStamp != 0 );
+
+    JTRACE("Connection from (restarting) computation process")
+      ( curCompGroup ) ( hello_remote.compGroup ) ( minimumState() );
+
+    remote << hello_local;
+
+  } else if ( hello_remote.state == WorkerState::INITIALIZING ) {
+    CoordinatorStatus s = getStatus();
+    // If some of the processes are not in RUNNING state, REJECT.
+    if ( s.numPeers > 0 &&
+         ( s.minimumState != WorkerState::RUNNING ||
+           s.minimumStateUnanimous == false ) ) {
+      JTRACE ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
+        ( curCompGroup ) ( hello_remote.from.pid() );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else if ( hello_remote.compGroup != UniquePid() ) {
+      // New Process trying to connect to Coordinator but has a non-zero compGroup
+      JTRACE ( "New Process, but has non-zero computation group. Rejecting" );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else {
+      // If first process, create the new computation group
+      if ( curCompGroup == UniquePid() ) {
+        // Connection of new computation.
+        curCompGroup = hello_remote.from.pid();
+        curTimeStamp = 0;
+        numPeers = -1;
+        JTRACE ( "First process connected. Creating new computation group" ) (curCompGroup );
+      } else {
+        JTRACE ( "New Process Connected" ) ( hello_remote.from.pid() );
+      }
+      remote << hello_local;
+    }
+  } else {
+    JASSERT ( false ) .Text ( "Invalid Worker Type" );
+    return false;
+  }
+
+  return true;
 }
 
 void dmtcp::DmtcpCoordinator::onTimeoutInterval()
@@ -785,7 +863,8 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
 
   status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
   if( status.minimumState == WorkerState::CHECKPOINTED && count < numPeers ){
-    JTRACE("minimal statete counted as CHECKPOINTED but not all processes are connected yet. So we wait") (numPeers)(count);
+    JTRACE("minimal state counted as CHECKPOINTED but not all processes are connected yet. So we wait")
+      ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
   }
   status.minimumStateUnanimous = unanimous;

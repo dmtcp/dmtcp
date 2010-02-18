@@ -85,6 +85,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 #define OSHIFTPRINTF(name) case WorkerState::name: o << #name; break;
 
       OSHIFTPRINTF ( UNKNOWN )
+      OSHIFTPRINTF ( INITIALIZING )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
       OSHIFTPRINTF ( FD_LEADER_ELECTION )
@@ -93,6 +94,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( CHECKPOINTED )
       OSHIFTPRINTF ( REFILLED )
     default:
+      JASSERT ( false ) .Text ( "Invalid WorkerState" );
       o << s.value();
   }
   return o;
@@ -101,6 +103,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 const char* dmtcp::WorkerState::toString() const{
   switch(_state){
   case UNKNOWN:      return "UNKNOWN";
+  case INITIALIZING: return "INITIALIZING";
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
   case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
@@ -125,6 +128,12 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
 
+      OSHIFTPRINTF ( DMT_USER_CMD )
+      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
+
+      OSHIFTPRINTF ( DMT_RESTART_PROCESS )
+      OSHIFTPRINTF ( DMT_RESTART_PROCESS_REPLY )
+
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
@@ -140,11 +149,10 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_CKPT_FILENAME )
       OSHIFTPRINTF ( DMT_FORCE_RESTART )
       OSHIFTPRINTF ( DMT_KILL_PEER )
-      OSHIFTPRINTF ( DMT_USER_CMD )
-      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
+      OSHIFTPRINTF ( DMT_REJECT )
 
     default:
-      OSHIFTPRINTF ( DMT_INVALID )
+      JASSERT ( false ) ( s ) .Text ( "Invalid Message Type" );
       //o << s;
   }
   return o;
