@@ -1584,7 +1584,13 @@ static void checkpointeverything (void)
 
   /* 1. Test if using compression */
   use_compression = test_use_compression();
-  /* 2. Create pipe */
+  /* 2. Get gzip path */
+  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
+    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+                "not be used.\n");
+    use_compression = 0;
+  }
+  /* 3. Create pipe */
   /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
    *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
    *   DMTCP doesn't directly checkpoint/restart pipes.
@@ -1592,14 +1598,6 @@ static void checkpointeverything (void)
   if ( use_compression && mtcp_sys_pipe(pipe_fds) == -1 ) {
     mtcp_printf("WARNING: error creating pipe. Compression will "
                 "not be used.\n");
-    use_compression = 0;
-  }
-  /* 3. Get gzip path */
-  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
-                "not be used.\n");
-    close(pipe_fds[0]);
-    close(pipe_fds[1]);
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
