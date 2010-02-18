@@ -85,7 +85,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 #define OSHIFTPRINTF(name) case WorkerState::name: o << #name; break;
 
       OSHIFTPRINTF ( UNKNOWN )
-      OSHIFTPRINTF ( INITIALIZING )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
       OSHIFTPRINTF ( FD_LEADER_ELECTION )
@@ -103,7 +102,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 const char* dmtcp::WorkerState::toString() const{
   switch(_state){
   case UNKNOWN:      return "UNKNOWN";
-  case INITIALIZING: return "INITIALIZING";
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
   case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
