@@ -3513,6 +3513,24 @@ TODO: remove in future as GROUP restore becames stable
               }
             }
           }  
+        /* this is needed because we are hitting the same breakpoint 
+           twice if we were ckpt at a breakpoint
+           info breakpoint was giving incorrect values 
+         */
+        is_ptrace_local = 1;
+        if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+          perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
+          mtcp_abort();
+        }
+        is_waitpid_local = 1;
+        if( waitpid(inferior, &status, 0 ) == -1) {
+          is_waitpid_local = 1;
+          if( waitpid(inferior, &status, __WCLONE ) == -1) {
+            while(1);
+            perror("ptrace_attach_threads: waitpid failed\n");  
+            mtcp_abort();
+          }
+        }
           break;    
         }
         #endif 
