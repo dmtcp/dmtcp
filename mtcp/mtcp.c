@@ -1598,6 +1598,8 @@ static void checkpointeverything (void)
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
     mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
                 "not be used.\n");
+    close(pipe_fds[0]);
+    close(pipe_fds[1]);
     use_compression = 0;
   }
   /* 4. Open fd to checkpoint image on disk */
