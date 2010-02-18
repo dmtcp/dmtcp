@@ -45,9 +45,8 @@ void dmtcp::DmtcpWorker::resetOnFork()
    */
   new ( &theInstance ) DmtcpWorker ( false );
 
-  WorkerState::setCurrentState ( WorkerState::INITIALIZING );
-  instance().connectToCoordinator();
   WorkerState::setCurrentState ( WorkerState::RUNNING );
+  instance().connectToCoordinator();
 
   WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();

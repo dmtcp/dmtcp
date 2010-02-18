@@ -666,11 +666,11 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
     numPeers = hello_remote.params[0];
     curTimeStamp = time(NULL);
     hello_local.params[1] = 1;
-    JTRACE( "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp" )
+    JNOTE ( "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( curCompGroup );
   } else if ( curCompGroup != hello_remote.compGroup ) {
     // Coordinator already serving some other computation group - reject this process.
-    JTRACE("Reject incoming dmtcp_restart connection since it is not from current computation")
+    JNOTE ("Reject incoming dmtcp_restart connection since it is not from current computation")
       ( curCompGroup ) ( hello_remote.compGroup );
     hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
@@ -678,7 +678,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
     return false;
   } else if ( numPeers != hello_remote.params[0] ) {
     // Sanity check
-    JTRACE ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
+    JNOTE  ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
       ( numPeers ) ( hello_remote.params[0] );
 
     hello_local.type = dmtcp::DMT_REJECT;
@@ -708,14 +708,14 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
   if ( hello_remote.state == WorkerState::RESTARTING ) {
     if ( minimumState() != WorkerState::RESTARTING &&
          minimumState() != WorkerState::CHECKPOINTED ) {
-      JTRACE("Computation not in RESTARTING or CHECKPOINTED state. Reject incoming restarting computation process.")
+      JNOTE ("Computation not in RESTARTING or CHECKPOINTED state. Reject incoming restarting computation process.")
         ( curCompGroup ) ( hello_remote.compGroup );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
       return false;
     } else if ( hello_remote.compGroup != curCompGroup) {
-      JTRACE("Reject incoming restarting computation process since it is not from current computation")
+      JNOTE ("Reject incoming restarting computation process since it is not from current computation")
         ( curCompGroup ) ( hello_remote.compGroup );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
@@ -731,13 +731,13 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
 
     remote << hello_local;
 
-  } else if ( hello_remote.state == WorkerState::INITIALIZING ) {
+  } else if ( hello_remote.state == WorkerState::RUNNING ) {
     CoordinatorStatus s = getStatus();
     // If some of the processes are not in RUNNING state, REJECT.
     if ( s.numPeers > 0 &&
          ( s.minimumState != WorkerState::RUNNING ||
            s.minimumStateUnanimous == false ) ) {
-      JTRACE ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
+      JNOTE  ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
         ( curCompGroup ) ( hello_remote.from.pid() );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
@@ -745,7 +745,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
       return false;
     } else if ( hello_remote.compGroup != UniquePid() ) {
       // New Process trying to connect to Coordinator but has a non-zero compGroup
-      JTRACE ( "New Process, but has non-zero computation group. Rejecting" );
+      JNOTE  ( "New Process, but has non-zero computation group. Rejecting" );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();

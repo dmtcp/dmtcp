@@ -331,9 +331,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     JASSERT ( false ) ( cmd ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
   }
 
-  // FIXME: The state here should be INITIALIZING but somehow its not working
-  //        that way, so reverting it back to RUNNING. This should be fixed in
-  //        future
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
   if ( serialFile != NULL )
@@ -374,7 +371,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
-  WorkerState::setCurrentState ( WorkerState::INITIALIZING );
   connectToCoordinator();
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
