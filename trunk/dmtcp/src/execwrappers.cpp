@@ -36,20 +36,6 @@
 
 #define INITIAL_ARGV_MAX 32
 
-static void protectLD_PRELOAD()
-{
-  return;
-  const char* actual = getenv ( "LD_PRELOAD" );
-  const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
-
-  JTRACE ("LD_PRELOAD") (actual) (expctd);
-
-  if ( actual!=0 && expctd!=0 ){
-    JASSERT ( strcmp ( actual,expctd ) == 0 )( actual ) ( expctd )
-      .Text ( "eeek! Someone stomped on LD_PRELOAD" );
-  }
-}
-
 static pid_t forkChild()
 {
   while ( 1 ) {
@@ -81,8 +67,6 @@ static pid_t forkChild()
 
 static pid_t fork_work()
 {
-  protectLD_PRELOAD();
-
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   time_t child_time = time ( NULL );
@@ -109,7 +93,7 @@ static pid_t fork_work()
 #endif
 
 
-    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
+    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent );
 
     //fix the mutex
     _dmtcp_remutex_on_fork();
@@ -129,7 +113,7 @@ static pid_t fork_work()
     //make new connection to coordinator
     dmtcp::DmtcpWorker::resetOnFork();
 
-    JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
+    JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent );
 
     return 0;
   }
@@ -141,7 +125,7 @@ static pid_t fork_work()
     dmtcp::VirtualPidTable::Instance().insert ( child_pid, child );
 #endif
 
-    JTRACE ( "fork()ed [PARENT] done" ) ( child ) ( getenv ( "LD_PRELOAD" ) );;
+    JTRACE ( "fork()ed [PARENT] done" ) ( child );;
 
     //         _dmtcp_lock();
 
@@ -183,7 +167,6 @@ extern "C" pid_t vfork()
 
 static void dmtcpPrepareForExec()
 {
-//  protectLD_PRELOAD();
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
@@ -198,7 +181,7 @@ static void dmtcpPrepareForExec()
     preload = preload + ":" + getenv("LD_PRELOAD");
   }
   setenv("LD_PRELOAD", preload.c_str(), 1);
-  JTRACE ( "Prepared for Exec" );
+  JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }
 
 static const char* ourImportantEnvs[] =
@@ -481,7 +464,6 @@ extern "C" int system (const char *line)
 {
   JTRACE ( "before system(), checkpointing may not work" )
     ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
-  protectLD_PRELOAD();
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might

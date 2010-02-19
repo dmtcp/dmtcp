@@ -210,7 +210,6 @@ namespace
 
       void mtcpRestart()
       {
-        DmtcpWorker::maskStdErr();
         runMtcpRestore ( _path.c_str(), _offset );
       }
 
