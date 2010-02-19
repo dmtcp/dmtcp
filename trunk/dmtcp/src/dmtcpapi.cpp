@@ -22,6 +22,7 @@
 #include "dmtcpaware.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
+#include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
 #include <string>
@@ -78,13 +79,37 @@ EXTERNC int dmtcpCheckpoint(){
       memfence();  //make sure the loop condition doesn't get optimized
     }
     rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
+  }else{
+  	/// TODO: Maybe we need to process it in some way????
+    /// EXIT????
+    /// -- Artem
+    //	printf("\n\n\nError requesting checkpoint\n\n\n");
   }
+  
   return rv;
 }
 
 EXTERNC int dmtcpRunCommand(char command){
   int result[sizeof(exampleMessage->params)/sizeof(int)];
-  _runCoordinatorCmd(command,result);
+  int i = 0;
+  while (i < 100) {
+    _runCoordinatorCmd(command, result);
+  // if we got error result - check it
+	// There is posibility that checkpoint thread did not send state=RUNNING yet 
+	// or Coordinator did not receive it
+	// -- Artem
+    if (result[0] == dmtcp::DmtcpCoordinator::ERROR_NOT_RUNNING_STATE) {
+      struct timespec t;
+      t.tv_sec = 0;
+      t.tv_nsec = 1000000;
+      nanosleep(&t, NULL);
+      //printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
+    } else {
+//      printf("\nEverything is OK - return\n");
+      break;
+    } 
+    i++;
+  }
   return result[0]>=0;
 }
 
