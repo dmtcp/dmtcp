@@ -660,7 +660,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
 
   if( curCompGroup == dmtcp::UniquePid() ){
     JASSERT ( minimumState() == WorkerState::UNKNOWN )
-      .Text ( "Coordinator should idle at this moment" );
+      .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - setup all the things
     curCompGroup = hello_remote.compGroup;
     numPeers = hello_remote.params[0];
@@ -744,8 +744,8 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
       remote.close();
       return false;
     } else if ( hello_remote.compGroup != UniquePid() ) {
-      // New Process trying to connect to Coordinator but has a non-zero compGroup
-      JNOTE  ( "New Process, but has non-zero computation group. Rejecting" );
+      // New Process trying to connect to Coordinator but already has a compGroup
+      JNOTE  ( "New Process, but already has computation group. Rejecting" );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();

@@ -97,46 +97,6 @@ static pthread_rwlock_t theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECUR
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 
-bool dmtcp::DmtcpWorker::_stdErrMasked = false;
-bool dmtcp::DmtcpWorker::_stdErrClosed = false;
-
-void dmtcp::DmtcpWorker::maskStdErr()
-{
-  return;
-  if ( _stdErrMasked == true ) return;
-
-  // if the stderr fd is already closed, we don't want to protect it
-  if ( fcntl( 2, F_GETFD) == -1 )
-    _stdErrClosed = true;
-  else
-    _stdErrClosed = false;
-
-  if ( _stdErrClosed == false) {
-    int newfd = PROTECTED_STDERR_FD;
-    JASSERT ( _real_dup2 ( 2, newfd ) == newfd );
-  }
-  JASSERT ( _real_dup2 ( JASSERT_STDERR_FD, 2 ) == 2 );
-  _stdErrMasked = true;
-}
-
-void dmtcp::DmtcpWorker::unmaskStdErr()
-{
-  return;
-  if ( _stdErrMasked == false ) return;
-  
-  int oldfd = PROTECTED_STDERR_FD;
-
-  // if stderr fd of the process was closed before masking, then make sure to close it here.
-  if ( _stdErrClosed == false ) {
-    JASSERT ( _real_dup2 ( oldfd, 2 ) == 2 ) (oldfd);
-    _real_close ( oldfd );
-  } else {
-    _real_close ( 2 );
-  }
-
-  _stdErrMasked = false;
-}
-
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
 static dmtcp::ConnectionState* theCheckpointState = 0;
 static int theRestorePort = RESTORE_PORT_START;
@@ -538,28 +498,18 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().preCheckpoint();
 #endif
-
-  JTRACE ( "masking stderr from mtcp" );
-  //because MTCP spams, and the user may have a socket for stderr
-  maskStdErr();
 }
 
-void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd){
-  unmaskStdErr();
-
+void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
+{
   const int len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
 
   theCheckpointState->outputDmtcpConnectionTable(fd);
-
-  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
 {
-  JTRACE ( "unmasking stderr" );
-  unmaskStdErr();
-
   {
     // Tell coordinator to record our filename in the restart script
     dmtcp::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
@@ -620,14 +570,10 @@ void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
     }
     JTRACE ( "got resume signal" );
   }
-  JTRACE ( "masking stderr" );
-  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::writeTidMaps()
 {
-  unmaskStdErr();
-
   JTRACE ( "refilled" );
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   {
@@ -654,13 +600,10 @@ void dmtcp::DmtcpWorker::writeTidMaps()
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-
-  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::postRestart()
 {
-  unmaskStdErr();
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -672,8 +615,6 @@ void dmtcp::DmtcpWorker::postRestart()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().postRestart();
 #endif
-
-  maskStdErr();
 }
 
 void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -38,8 +39,17 @@ int main ( int argc, char** argv )
       dup2 ( fd[0], WELL_KNOWN_FD );
       char* t[] = { argv[0] , "slave", 0};
       // BAD USER: just trashed our environment variables:
-      char* env[] = {"A=B","C=E","LD_PRELOAD=taco",0};
-      execve ( argv[0], t , env );
+      char* env[] = {"A=B","C=E","LD_PRELOAD=taco",0,0};
+
+      // On some systems, LD_LIBRARY_PATH might point to a required run-time
+      // library
+      if ( getenv("LD_LIBRARY_PATH") != (char*)NULL ) {
+        static char ldpath[2048];
+        sprintf ( ldpath, "LD_LIBRARY_PATH=%s", getenv("LD_LIBRARY_PATH") );
+        env[3] = ldpath;
+      }
+
+      execve ( argv[0], t, env );
       perror ( "exec()" );
       die ( "exec failed" );
 
