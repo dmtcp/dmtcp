@@ -70,7 +70,7 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
-const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace)
+const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
   if ( theProcess() == nullProcess() )
   {

@@ -169,11 +169,14 @@ static FILE* theLogFile = NULL;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
-void jassert_internal::set_log_file ( const jalib::string& path )
+void jassert_internal::reset_on_fork ( )
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
   logLock = newLock;
+}
 
+void jassert_internal::set_log_file ( const jalib::string& path )
+{
   theLogFilePath() = path;
   if ( theLogFile != NULL ) fclose ( theLogFile );
   theLogFile = NULL;
@@ -193,6 +196,9 @@ void jassert_internal::set_log_file ( const jalib::string& path )
 
 static FILE* _initJassertOutputDevices()
 {
+  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
+  logLock = newLock;
+
 #ifdef DEBUG
   if (theLogFile == NULL)
     JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
