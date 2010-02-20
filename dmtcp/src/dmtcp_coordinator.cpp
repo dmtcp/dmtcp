@@ -1064,6 +1064,18 @@ int main ( int argc, char** argv )
     (dmtcpTmpDir)
     .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
+#ifdef DEBUG
+  /* Disable Jassert Logging */
+  dmtcp::UniquePid::ThisProcess(true);
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_SET_LOGFILE (o.str());
+  JASSERT_INIT();
+
+  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
+#endif
+
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
   if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
@@ -1112,7 +1124,7 @@ int main ( int argc, char** argv )
     JASSERT(open("/dev/null", O_WRONLY)==1);
     fflush(stderr);
     if (close(2) != 0 || dup2(1,2) != 2)
-      exit(1); /* Can't print to stderr */
+      JASSERT(false) .Text( "Can't print to stderr");
     close(JASSERT_STDERR_FD);
     dup2(2, JASSERT_STDERR_FD);
     if(fork()>0){

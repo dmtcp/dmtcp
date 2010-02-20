@@ -183,25 +183,36 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   return ptsSymlinkFilename_str.c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::getTmpDir(const char * envVarTmpDir) {
+dmtcp::string dmtcp::UniquePid::getTmpDir(const char* envVarTmpDir) {
   static bool initialized = false;
   static dmtcp::string tmpDir;
   if (initialized) {
     return tmpDir;
   }
 
-  char hostname[80];
-  gethostname(hostname, 80);
+  char hostname[80] = {0};
+
+  JASSERT ( gethostname(hostname, 80) == 0) .Text ( "gethostname() failed" );
+
   dmtcp::ostringstream o;
+
+  char *userName = "";
+  if ( getpwuid ( getuid() ) != NULL ) {
+    userName = getpwuid ( getuid() ) -> pw_name;
+  } else if ( getenv("USER") != NULL ) {
+    userName = getenv("USER");
+  }
 
   if (envVarTmpDir) {
     o << envVarTmpDir;
   } else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
+    o << getenv("TMPDIR") << "/dmtcp-" << userName << "@" << hostname;
   } else {
-    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
+    o << "/tmp/dmtcp-" << userName << "@" << hostname;
   }
+
   tmpDir = o.str();
+
   // This would persist through restart when we need to reinitialize tmpdir.
   // Comment it out for now.
   //initialized = true;

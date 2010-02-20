@@ -212,21 +212,22 @@ static FILE* _initJassertOutputDevices()
 void jassert_internal::jassert_safe_print ( const char* str )
 {
   static FILE* errconsole = _initJassertOutputDevices();
+  static bool useErrorconsole = true;
 
-  if( errconsole == NULL ){
+  if( errconsole == NULL && useErrorconsole ) {
     fprintf ( stderr, "dmtcp: cannot open output channel for error logging\n");
-    abort();
+    useErrorconsole = false;
   }
 
-  fprintf ( errconsole,"%s",str );
+  if ( useErrorconsole )
+    fprintf ( errconsole,"%s",str );
 
-  if ( theLogFile != NULL )
-  {
+  if ( theLogFile != NULL ) {
     int rv = fprintf ( theLogFile,"%s",str );
 
-    if ( rv < 0 )
-    {
-      fprintf ( errconsole,"JASSERT: write failed, reopening log file.\n" );
+    if ( rv < 0 ) {
+      if ( useErrorconsole )
+        fprintf ( errconsole,"JASSERT: write failed, reopening log file.\n" );
       JASSERT_SET_LOGFILE ( theLogFilePath() );
       if ( theLogFile != NULL )
         fprintf ( theLogFile,"JASSERT: write failed, reopened log file.\n%s",str );
