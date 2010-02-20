@@ -36,29 +36,40 @@
 
 #define INITIAL_ARGV_MAX 32
 
-static pid_t forkChild()
+static pid_t forkChild ( time_t child_time, long child_host )
 {
   while ( 1 ) {
 
-    pid_t childPid = _real_fork();
+    pid_t child_pid = _real_fork();
 
-    if ( childPid == -1 ) {
+    if ( child_pid == -1 ) {
       // fork() failed
-      return childPid;
-    } else if ( childPid == 0 ) { 
+      return child_pid;
+    } else if ( child_pid == 0 ) { 
       /* child process */
+
+      JASSERT_RESET_ON_FORK ( );
+#ifdef DEBUG
+      dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
+      //child should get new logfile
+      dmtcp::ostringstream o;
+      o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
+        << "/jassertlog." << child.toString();
+      JASSERT_SET_LOGFILE (o.str());
+#endif
+
       if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
         _exit(1);
       } else {
-        return childPid;
+        return child_pid;
       }
     } else { 
       /* Parent Process */
-      if ( dmtcp::VirtualPidTable::isConflictingPid ( childPid ) ) {
-        JTRACE( "PID Conflict, creating new child" ) (childPid);
-        _real_waitpid ( childPid, NULL, 0 );
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( child_pid ) ) {
+        JTRACE( "PID Conflict, creating new child" ) (child_pid);
+        _real_waitpid ( child_pid, NULL, 0 );
       } else {
-        return childPid;
+        return child_pid;
       }
     }
   }
@@ -70,28 +81,20 @@ static pid_t fork_work()
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   time_t child_time = time ( NULL );
+  long child_host = dmtcp::UniquePid::ThisProcess().hostid();
+  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
+
   //pid_t child_pid = _real_fork();
-  pid_t child_pid = forkChild();
+  pid_t child_pid = forkChild ( child_host, child_time );
   if (child_pid < 0) {
     return child_pid;
   }
 
-  long child_host = dmtcp::UniquePid::ThisProcess().hostid();
 
-  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-
-  if ( child_pid == 0 )
-  {
+  if ( child_pid == 0 ) {
     child_pid = _real_getpid();
-    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
-#ifdef DEBUG
-    //child should get new logfile
-    dmtcp::ostringstream o;
-    o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
-      << "/jassertlog." << child.toString();
-    JASSERT_SET_LOGFILE (o.str());
-#endif
 
+    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
     JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent );
 
@@ -116,9 +119,7 @@ static pid_t fork_work()
     JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent );
 
     return 0;
-  }
-  else
-  {
+  } else {
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
 #ifdef PID_VIRTUALIZATION
