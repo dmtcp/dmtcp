@@ -70,7 +70,9 @@ int main(int argc, char **argv) {
   struct rlimit stack_rlimit;
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
-  printf("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+  printf("mtcp_restart: saved stack resource limit:" \
+	 " soft_lim: %lu, hard_lim: %lu\n",
+	 stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
   printf("*** restored mtcp.so\n");
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */
