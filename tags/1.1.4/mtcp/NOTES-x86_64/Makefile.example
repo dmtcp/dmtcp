@@ -1,0 +1,12 @@
+CFLAGS = -g
+
+# But for testmtcp, don't use CFLAGS
+ifeq (${shell uname -m},x86_64)
+  CFLAGS += -pie -fpie
+endif
+
+default:
+	echo CFLAGS: ${CFLAGS}
+	echo ${TMP}
+	echo TMP2: ${TMP2}
+	echo ARCH: ${ARCH}
