@@ -767,7 +767,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     }
 #else
     // FIXME: Check the PROT_EXEC condition here.
-    if ( area->prot & PROT_WRITE | area->prot & PROT_EXEC ) {
+    if ( (area->prot & PROT_WRITE) || (area->prot & PROT_EXEC) ) {
       mtcp_printf ("mtcp_restart_nolibc: mapping %s with data from ckpt image\n",
                    area->name);
       readfile (area->addr, area->size);
