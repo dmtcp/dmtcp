@@ -44,8 +44,8 @@ int jassert_quiet = 0;
    The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
    PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
 */
-static const int DUP_STDERR_FD = 826; // PFD(5)
-static const int DUP_LOG_FD    = 827; // PFD(6)
+static const int DUP_STDERR_FD = 825; // PFD(5)
+static const int DUP_LOG_FD    = 826; // PFD(6)
 
 // DMTCP provides a wrapper for open/fopen. We don't want to go to that wrapper
 // and so we call open() directly from libc. This implementation follows the
