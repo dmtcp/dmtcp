@@ -301,6 +301,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
+#define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
 #define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
