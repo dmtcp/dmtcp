@@ -92,5 +92,5 @@ skipeol:
     mtcp_sys_close (mapsfd);
   }
 
-  return ((void *)mtcp_sys_mmap (start, length, prot, flags, fd, offset));
+  return mtcp_sys_mmap (start, length, prot, flags, fd, offset);
 }
