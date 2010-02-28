@@ -40,20 +40,6 @@
 
 #include "mtcp_internal.h"
 
-//#ifdef DMTCP
-///* 
-//   File descriptor where all the debugging outputs should go.
-//   This const is also defined by the same name in jassert.cpp.
-//   These two consts must always be in sync.
-// SHOULD THE CONSTANTS BE PASSED AS COMMAND LINE ARGUMENTS TO MTCP_RESTART?
-//*/
-//static const int DUP_STDERR_FD = 826; /* stderr */
-//// static const int DUP_STDERR_FD = 827;    /* jassertlog */
-//#else
-//// Please don't change this.  It's needed for standalone MTCP debugging.
-//static const int DUP_STDERR_FD = 2;
-//#endif
-
 int dmtcp_info_stderr_fd = 2;
 /* For the default value of -1, mtcp_printf() should not go to jassertlogs */
 int dmtcp_info_jassertlog_fd = -1;
@@ -227,9 +213,23 @@ static void rwrite (char const *buff, int size)
 {
   int offs, rc;
 
-  for (offs = 0; offs < size; offs += rc) {
-    rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
-    if (rc <= 0) break;
+  if (dmtcp_info_stderr_fd != -1) {
+    for (offs = 0; offs < size; offs += rc) {
+#ifdef DMTCP
+      /* DEBUG macro says to print debugging info, and DMTCP macro says
+       * to do it even when DMTCP doesn't want to allow MTCP debugging.
+       * Many mtcp_printf() calls occur inside DEBUG conditional.
+       * NOTE:   ./configure --enable-debug doesn't automatically set DEBUG.
+       * This is useful, so that when DMTCP runs, MTCP debugging is off by
+       * default.  Setting DMTCP in mtcp/Makefile and re-compiling changes this.
+       */ 
+      rc = mtcp_sys_write (STDERR_FILENO, buff + offs, size - offs);
+#else
+      /* File descriptor where all the debugging outputs should go. */
+      rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
+#endif
+      if (rc <= 0) break;
+    }
   }
 
   if (dmtcp_info_jassertlog_fd != -1) {
