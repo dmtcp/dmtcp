@@ -441,7 +441,7 @@ static void readmemoryareas (void)
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
        * mtcp_safemmap here to check for address conflicts.
        */
-      mmappedat = (void *)mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
+      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
         DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
@@ -633,7 +633,6 @@ static void readmemoryareas (void)
  */
 static void read_shared_memory_area_from_file(Area* area, int flags)
 {
-  char cstype;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
   int imagefd, rc;
@@ -843,7 +842,7 @@ static void mmapfile(void *buf, size_t size, int prot, int flags)
     ar = 0;
 
     /* Use mmap for this portion of checkpoint image. */
-    addr = (void *)mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
+    addr = mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
     if (addr != buf) {
         if (addr == MAP_FAILED)
             mtcp_printf("mtcp_restart_nolibc mmapfile:"

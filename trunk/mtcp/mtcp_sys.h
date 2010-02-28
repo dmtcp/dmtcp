@@ -313,7 +313,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
-#define mtcp_sys_mmap(args...)  mtcp_inline_syscall(mmap,6,args)
+#define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
 #define mtcp_sys_set_tid_address(args...)  mtcp_inline_syscall(set_tid_address,1,args)
