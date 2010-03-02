@@ -62,8 +62,8 @@ int main(int argc, char **argv) {
 
 
   /* Find where the restore image goes */
-  void *restore_begin, *restore_mmap;
-  int restore_size;
+  VA restore_begin;
+  size_t restore_size;
   void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 
   /* Set the resourse limits for stack from saved values */
