@@ -254,8 +254,11 @@ void dmtcp::ConnectionState::postRestart()
     JWARNING ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
     if ( _conToFds[i->first].size() == 0 ) continue;
 
+    Connection *c = i->second;
+
     if ( ( i->second )->conType() == Connection::PTY &&
-         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) { }
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
     else {
       ( i->second )->restoreOptions ( _conToFds[i->first] );
     }
@@ -268,8 +271,11 @@ void dmtcp::ConnectionState::postRestart()
   {
     if ( _conToFds[i->first].size() == 0 ) continue;
 
+    Connection *c = i->second;
+
     if ( ( i->second )->conType() == Connection::PTY &&
-         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) {
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
       ( i->second )->restoreOptions ( _conToFds[i->first] );
     }
   }
@@ -302,7 +308,8 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
     if ( ( i->second )->conType() == Connection::PTY &&
-         ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) { }
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
     else {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
@@ -316,7 +323,8 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
     if ( ( i->second )->conType() == Connection::PTY &&
-         ((PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ) {
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }

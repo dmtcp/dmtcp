@@ -150,8 +150,12 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   }
 
   bool isFile  = ( device[0] == '/' );
+
   bool isPts   = ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 );
   bool isPtmx  = ( strncmp ( device.c_str(), "/dev/ptmx", strlen( "/dev/ptmx" ) ) ==0 );
+
+  bool isBSDMaster  = ( strncmp ( device.c_str(), "/dev/pty", strlen( "/dev/pty" ) ) ==0 );
+  bool isBSDSlave   = ( strncmp ( device.c_str(), "/dev/tty", strlen( "/dev/tty" ) ) ==0 );
 
   if ( isPtmx )
   {
@@ -198,6 +202,51 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
         JASSERT ( false ) ( fd ) ( device )
           .Text ("PTS Device not found in connection list");
       }
+    }
+
+    return deviceName;
+
+  } else if ( isBSDMaster ) {
+    dmtcp::string deviceName = "BSDMasterPty:" + device;
+    dmtcp::string slaveDeviceName = device.replace(0, strlen("/dev/pty"), "/dev/tty");
+
+    if(noOnDemandConnection)
+      return deviceName;
+
+    iterator i = _table.find ( deviceName );
+    if ( i == _table.end() )
+    {
+      JTRACE ( "creating BSD Master Pty connection [on-demand]" )
+        ( deviceName ) ( slaveDeviceName );
+
+      int type = dmtcp::PtyConnection::PTY_BSD_MASTER;
+      Connection * c = new dmtcp::PtyConnection ( device, type );
+
+      ConnectionList::Instance().add ( c );
+      _table[deviceName] = c->id();
+    }
+
+    return deviceName;
+
+  } else if ( isBSDSlave ) {
+    dmtcp::string deviceName = "BSDSlave:" + device;
+    dmtcp::string masterDeviceName = device.replace(0, strlen("/dev/tty"), "/dev/pty");
+
+
+    if(noOnDemandConnection)
+      return deviceName;
+
+    iterator i = _table.find ( deviceName );
+    if ( i == _table.end() )
+    {
+      JTRACE ( "creating BSD Slave Pty connection [on-demand]" )
+        ( deviceName ) ( masterDeviceName );
+
+      int type = dmtcp::PtyConnection::PTY_BSD_SLAVE;
+      Connection * c = new dmtcp::PtyConnection ( device, type );
+
+      ConnectionList::Instance().add ( c );
+      _table[deviceName] = c->id();
     }
 
     return deviceName;

@@ -473,6 +473,11 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 ////////////
 ///// PTY CHECKPOINTING
 
+static int _openBSDMasterPty ( dmtcp::string device ) 
+{
+
+}
+
 void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
@@ -572,6 +577,47 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       //dmtcp::KernelDeviceToConnection::Instance().erase ( id() );
       
       //dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
+      break;
+    }
+    case PTY_BSD_MASTER:
+    {
+      JTRACE ( "Restoring BSD Master Pty" ) ( _bsdDeviceName ) ( fds[0] );
+      dmtcp::string slaveDeviceName = _bsdDeviceName.replace(0, strlen("/dev/pty"), "/dev/tty");
+
+      tempfd = open ( _bsdDeviceName.c_str(), O_RDWR );
+
+      // FIXME: If unable to open the original BSD Master Pty, we should try to
+      // open another one until we succeed and then open slave device accordingly.
+      // This can be done by creating a function openBSDMaster, which will try
+      // to open the original master device, but if unable to do so, it would
+      // keep on trying all the possible BSD Master devices until one is
+      // opened. It should then create a mapping between original Master/Slave
+      // device name and current Master/Slave device name.
+      JASSERT ( tempfd >= 0 ) ( tempfd ) ( JASSERT_ERRNO )
+        .Text ( "Error Opening BSD Master Pty. (Already in use?)" );
+
+      JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
+        .Text ( "dup2() failed" );
+
+      close(tempfd);
+
+      break;
+    }
+    case PTY_BSD_SLAVE:
+    {
+      JTRACE ( "Restoring BSD Slave Pty" ) ( _bsdDeviceName ) ( fds[0] );
+      dmtcp::string masterDeviceName = _bsdDeviceName.replace(0, strlen("/dev/tty"), "/dev/pty");
+
+      tempfd = open ( _bsdDeviceName.c_str(), O_RDWR );
+
+      JASSERT ( tempfd >= 0 ) ( tempfd ) ( JASSERT_ERRNO )
+        .Text ( "Error Opening BSD Slave Pty. (Already in use?)" );
+
+      JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
+        .Text ( "dup2() failed" );
+
+      close(tempfd);
+
       break;
     }
     default:
