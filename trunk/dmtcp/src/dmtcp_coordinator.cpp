@@ -319,6 +319,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     {
       i->close();
     }
+    JTRACE ("Exiting ...");
     exit ( 0 );
     break;
   case 'k': case 'K':
@@ -1128,6 +1129,7 @@ int main ( int argc, char** argv )
     close(JASSERT_STDERR_FD);
     dup2(2, JASSERT_STDERR_FD);
     if(fork()>0){
+      JTRACE ( "Parent Exiting after fork()" );
       exit(0);
     }
     pid_t sid = setsid();

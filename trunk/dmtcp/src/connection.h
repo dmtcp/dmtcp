@@ -188,7 +188,9 @@ namespace dmtcp
         PTY_INVALID   = PTY,
         PTY_CTTY,
         PTY_MASTER,
-        PTY_SLAVE//,
+        PTY_SLAVE,
+        PTY_BSD_MASTER,
+        PTY_BSD_SLAVE//,
 
 //        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
@@ -204,6 +206,14 @@ namespace dmtcp
         //{
         //  _type = PTY_INVALID;
         //}
+      }
+
+      PtyConnection ( const dmtcp::string& device, int type )
+          : Connection ( PTY )
+          , _bsdDeviceName ( device )
+      {
+        _type = type;
+        JTRACE("Creating BSDPtyConnection")(device)(id());
       }
 
       PtyConnection()
@@ -232,6 +242,7 @@ namespace dmtcp
       //PtyType   _type;
       dmtcp::string _ptsName;
       dmtcp::string _uniquePtsName;
+      dmtcp::string _bsdDeviceName;
 
   };
 
