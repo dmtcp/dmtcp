@@ -86,7 +86,7 @@ extern "C"
 {
   typedef int ( *t_mtcp_init ) ( char const *checkpointFilename, int interval, int clonenabledefault );
   typedef void ( *t_mtcp_set_callbacks ) ( void ( *sleep_between_ckpt ) ( int sec ),
-          void ( *pre_ckpt ) (),
+          void ( *pre_ckpt ) ( char ** ckptFilename ),
           void ( *post_ckpt ) ( int is_restarting ),
           int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
@@ -99,8 +99,14 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 }
 
-static void callbackPreCheckpoint()
+static void callbackPreCheckpoint( char ** ckptFilename )
 {
+  // If we don't modify *ckptFilename, then MTCP will continue to use
+  //   its default filename, which was passed to it via our call to mtcp_init()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+  dmtcp::UniquePid::ThisProcess().incrementGeneration();
+  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
+#endif
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();

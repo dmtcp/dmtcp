@@ -120,8 +120,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   // We have now successfully used LD_PRELOAD to execute prior to main()
   // Next, hide our value of LD_PRELOAD, in a global variable.
   // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
-  // We will need it in only one places:
-  // 1. when the user application makes an exec call:
+  // We will need it in only one place:
+  //   when the user application makes an exec call:
   //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
   //   If they directly call _real_execve to get libc symbol, they will
   //   not be part of DMTCP computation.
@@ -762,7 +762,7 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
 /*!
     \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
+void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking)
 {
 
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
@@ -791,7 +791,7 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHanshaking)
   }
 
 
-  if(doHanshaking)
+  if(doHandshaking)
   {
     JTRACE("\n------------\n\nCONNECT TO coordinator\n\n--------------\n");
     sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
@@ -876,15 +876,17 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
 
     //get location of coordinator
     const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
-    if(coordinatorAddr==NULL) coordinatorAddr = "localhost";
+    if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
     const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
     int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(coordinatorPortStr);
 
+    // THIS JTRACE DOESN'T MAKE SENSE.  REMOVE OR REWRITE?  - Gene
     JTRACE("Coordinator not found.") (coordinatorAddr) (coordinatorPort);
 
     JASSERT( modes & COORD_NEW )
       .Text("Won't automatically start coordinator because '--join' flag is specified.");
 
+    // THIS if CONDITION MUST ALWAYS BE TRUE.  REMOVE IT?  - Gene
     if(coordinatorAddr!=NULL){
       dmtcp::string s=coordinatorAddr;
       if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
