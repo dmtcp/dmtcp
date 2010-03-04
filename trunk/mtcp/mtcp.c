@@ -257,7 +257,7 @@ static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
-static void (*callback_write_ckpt_prefix)(int fd) = NULL;
+static void (*callback_write_dmtcp_header)(int fd) = NULL;
 static void (*callback_write_tid_maps)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
@@ -565,14 +565,14 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_ckpt_prefix)(int fd),
+                        void (*write_dmtcp_header)(int fd),
                         void (*write_tid_maps)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
-    callback_write_ckpt_prefix = write_ckpt_prefix;
+    callback_write_dmtcp_header = write_dmtcp_header;
     callback_write_tid_maps = write_tid_maps;
 }
 
@@ -1159,6 +1159,7 @@ static void *checkpointhread (void *dummy)
   struct timespec sleeperiod;
   struct timeval started, stopped;
   Thread *ckpthread, *thread;
+  char * dmtcp_checkpoint_filename;
 
   /* This is the start function of the checkpoint thread.
    * We also call getcontext to get a snapshot of this call frame,
@@ -1352,8 +1353,11 @@ again:
       sync_shared_mem();
 
       DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n",
-	       &callback_pre_ckpt,callback_pre_ckpt));
-      (*callback_pre_ckpt)();
+	       &callback_pre_ckpt, callback_pre_ckpt));
+      dmtcp_checkpoint_filename = NULL;
+      (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
+      if (dmtcp_checkpoint_filename)
+        mtcp_sys_strcpy(perm_checkpointfilename,  dmtcp_checkpoint_filename);
     }
 
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
@@ -1540,8 +1544,8 @@ static void checkpointeverything (void)
   forked_checkpointing = 1;
 #endif
 
-  if(callback_write_ckpt_prefix != 0) {
-    /* Temp file foe DMTCP prefix; will be written into the checkpoint file.  */
+  if(callback_write_dmtcp_header != 0) {
+    /* Temp file for DMTCP header; will be written into the checkpoint file. */
     tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpDMTCPHeaderFd < 0) {
       mtcp_printf("error %d creating temp file: %s\n", errno, strerror(errno));
@@ -1552,8 +1556,8 @@ static void checkpointeverything (void)
       mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno, strerror(errno));
     }
 
-    /* Better to do this in parent, not child, for most accurate prefix info. */
-    (*callback_write_ckpt_prefix)(tmpDMTCPHeaderFd);
+    /* Better to do this in parent, not child, for most accurate header info */
+    (*callback_write_dmtcp_header)(tmpDMTCPHeaderFd);
   }
 
   if (forked_checkpointing) {
@@ -2329,45 +2333,9 @@ static void save_tls_state (Thread *thisthread)
 #endif
 }
 
-static void update_perm_filenae_generation(char * perm_checkpointfilename) {
-  int i;
-  int underscore_idx = 0;
-  int carry = 1; /* Force generation number to be incremented by 1 */
-  for (i = 0; perm_checkpointfilename[i] != '\0' ; i++)
-    if (perm_checkpointfilename[i] == '_')
-      underscore_idx = i;
-  if (perm_checkpointfilename[underscore_idx] != '_')
-    return;
-  if (perm_checkpointfilename[underscore_idx+1] < '0'
-      || perm_checkpointfilename[underscore_idx+1] > '9'
-      || perm_checkpointfilename[underscore_idx+2] < '0'
-      || perm_checkpointfilename[underscore_idx+2] > '9'
-      || perm_checkpointfilename[underscore_idx+3] < '0'
-      || perm_checkpointfilename[underscore_idx+3] > '9'
-      || perm_checkpointfilename[underscore_idx+4] < '0'
-      || perm_checkpointfilename[underscore_idx+4] > '9'
-      || perm_checkpointfilename[underscore_idx+5] != '.'
-      || perm_checkpointfilename[underscore_idx+6] != 'd'
-      || perm_checkpointfilename[underscore_idx+7] != 'm'
-      || perm_checkpointfilename[underscore_idx+8] != 't'
-      || perm_checkpointfilename[underscore_idx+9] != 'c'
-      || perm_checkpointfilename[underscore_idx+10] != 'p')
-    return;
-  for (i = underscore_idx+4; i > underscore_idx; i--) {
-    perm_checkpointfilename[i] += carry;
-    if (perm_checkpointfilename[i] > '9') {
-      perm_checkpointfilename[i] -= 10;
-      carry = 1;
-    } else {
-       carry = 0;
-    }
-  }
-}
-
 static void renametempoverperm (void)
 
 {
-  update_perm_filenae_generation(perm_checkpointfilename);
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
     mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n",  			temp_checkpointfilename, perm_checkpointfilename,
 		 strerror (errno));

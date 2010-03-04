@@ -70,7 +70,9 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
-const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+// _generation field of return value may later have to be modified.
+// So, it can't return a const dmtcp::UniquePid
+dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
   if ( theProcess() == nullProcess() )
   {
@@ -117,6 +119,15 @@ time_t  dmtcp::UniquePid::time() const
   return _time;
 }
 
+int  dmtcp::UniquePid::generation() const
+{
+  return _generation;
+}
+void  dmtcp::UniquePid::incrementGeneration()
+{
+  _generation++;
+}
+
 
 static bool checkpointFilename_initialized = false;
 const char* dmtcp::UniquePid::checkpointFilename()
@@ -136,12 +147,24 @@ const char* dmtcp::UniquePid::checkpointFilename()
        << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-       << "_0000"
-#endif
+        << "_XXXXX.dmtcp";
+#else
        << ".dmtcp";
+#endif
 
     checkpointFilename_str = os.str();
   }
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+  // Include 5-digit generation number in filename, which changes
+  //   after each checkpoint, during same process
+  JASSERT( dmtcp::string(".dmtcp") == checkpointFilename_str.c_str()
+                        + checkpointFilename_str.length() - strlen(".dmtcp") )
+	 ( checkpointFilename_str )
+	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
+  sprintf((char *)checkpointFilename_str.c_str()
+	  + checkpointFilename_str.length() - strlen("XXXXX.dmtcp"),
+	  "%5.5d.dmtcp", ThisProcess().generation());
+#endif
   return checkpointFilename_str.c_str();
 }
 
@@ -196,7 +219,7 @@ dmtcp::string dmtcp::UniquePid::getTmpDir(const char* envVarTmpDir) {
 
   dmtcp::ostringstream o;
 
-  char *userName = "";
+  char *userName = const_cast<char *>("");
   if ( getpwuid ( getuid() ) != NULL ) {
     userName = getpwuid ( getuid() ) -> pw_name;
   } else if ( getenv("USER") != NULL ) {
