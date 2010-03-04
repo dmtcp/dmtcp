@@ -776,10 +776,13 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking)
 
   _coordinatorSocket = jalib::JClientSocket ( coordinatorAddr,coordinatorPort );
 
+  if (coordinatorAddr = "127.0.0.1") // Used only for error diagnostics now.
+    coordinatorAddr = "127.0.0.1 (localhost)";
   JASSERT ( _coordinatorSocket.isValid() )
   ( coordinatorAddr )
   ( coordinatorPort )
-  .Text ( "Failed to connect to DMTCP coordinator" );
+  .Text ( "Failed to connect to DMTCP coordinator.\n" \
+          " (Probably there is no coordinator running at the address above.)" );
 
   if ( oldFd.isValid() )
   {
