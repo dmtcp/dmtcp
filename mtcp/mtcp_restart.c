@@ -34,6 +34,7 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -41,6 +42,7 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/types.h>
 
 #include "mtcp_internal.h"
 
@@ -76,9 +78,10 @@ int main (int argc, char *argv[], char *envp[])
   char ckpt_newname[MAXPATHLEN+1] = "";
 
   if (getuid() == 0 || geteuid() == 0) {
-    mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
-	   "If you still want to do this, modify %s:%d and re-compile.\n",
-	   __FILE__, __LINE__);
+    mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
+	   "If you still want to do this (at your own risk)," \
+	   "  then modify mtcp/%s:%d and re-compile.\n",
+	   __FILE__, __LINE__ - 4);
     abort();
   }
 
@@ -140,6 +143,24 @@ int main (int argc, char *argv[], char *envp[])
              (offset != 0 && fd != -1)) {
     mtcp_printf("%s", theUsage);
     return (-1);
+  }
+
+  if (restorename) {
+    struct stat buf;
+    int rc = stat(restorename, &buf);
+    if (rc == -1) {
+      char error_msg[MAXPATHLEN+35];
+      sprintf(error_msg, "\nmtcp_restart: ckpt image %s", restorename);
+      perror(error_msg);
+      abort();
+    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+      mtcp_printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
+	          "checkpoint image (%s).\n" \
+		  "This is dangerous.  Aborting for security reasons.\n" \
+	   "If you still want to do this, modify mtcp/%s:%d and re-compile.\n",
+	   getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 5);
+      abort();
+    }
   }
 
   if (strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {

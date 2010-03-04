@@ -634,7 +634,28 @@ int main ( int argc, char** argv )
   //make sure JASSERT initializes now, rather than during restart
   JASSERT_INIT();
 
+  bool doAbort = false;
   for(; argc>0; shift){
+    char *restorename = argv[0];
+    struct stat buf;
+    int rc = stat(restorename, &buf);
+    if (rc == -1) {
+      char error_msg[1024];
+      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename);
+      perror(error_msg);
+      doAbort = true;
+    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+      printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
+             "checkpoint image (%s).\n" \
+	     "This is dangerous.  Aborting for security reasons.\n" \
+           "If you still want to do this (at your own risk),\n" \
+           "  then modify dmtcp/src/%s:%d and re-compile.\n",
+           getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 6);
+      doAbort = true;
+    }
+    if (doAbort)
+      abort();
+
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
