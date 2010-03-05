@@ -48,6 +48,7 @@
 
 #include "dmtcp_coordinator.h"
 #include "constants.h"
+#include "protectedfds.h"
 #include  "../jalib/jconvert.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
@@ -89,11 +90,15 @@ static const char* theUsage =
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
-  "      Time in seconds between automatic checkpoints (default: 0, disabled)\n"
+  "      Time in seconds between automatic checkpoints\n"
+  "      (default: 0, disabled)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
   "  --background\n"
-  "      Run silently in the background\n"
+  "      Run silently in the background (mutually exclusive with --batch)\n"
+  "  --batch\n"
+  "      Run in batch mode (mutually exclusive with --background)\n"
+  "      The checkpoint interval is set to 3600 seconds (1 hr) by default\n"
   "COMMANDS:\n"
   "  (type '?<return>' at runtime for list)\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -127,6 +132,13 @@ static const char* theRestartScriptUsage =
   "      Provide a hostfile (One host per line, \"#\" indicates comments)\n"
   "  --restartdir, -d, (environment variable DMTCP_RESTART_DIR):\n"
   "      Directory to read checkpoint images from\n"
+  "  --batch, -b:\n"
+  "      Enable batch mode for dmtcp_restart\n"
+  "  --disable-batch, -b:\n"
+  "      Disable batch mode for dmtcp_restart (if previously enabled)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints\n"
+  "      (Default: Use pre-checkpoint value)\n"
   "  --help:\n"
   "      Print this message\'\n\n\n"
 ;
@@ -135,7 +147,16 @@ static const char* theRestartScriptCmdlineArgHandler =
   "if [ $# -gt 0 ]; then\n"
   "  while [ $# -gt 0 ]\n"
   "  do\n"
-  "    if [ $# -ge 2 ]; then\n"
+  "    if [ $1 = \"--help\" ]; then\n"
+  "      echo \"$usage_str\"\n"
+  "      exit\n"
+  "    elif [ $1 = \"--batch\" -o $1 = \"-b\" ]; then\n"
+  "      maybebatch='--batch'\n"
+  "      shift\n"
+  "    elif [ $1 = \"--disable-batch\" ]; then\n"
+  "      maybebatch=\n"
+  "      shift\n"
+  "    elif [ $# -ge 2 ]; then\n"
   "      case \"$1\" in \n"
   "        --host|-h)\n"
   "          coord_host=\"$2\";;\n"
@@ -149,6 +170,8 @@ static const char* theRestartScriptCmdlineArgHandler =
   "          fi;;\n"
   "        --restartdir|-d)\n"
   "          DMTCP_RESTART_DIR=$2;;\n"
+  "        --interval|-i)\n"
+  "          checkpoint_interval=$2;;\n"
   "        *)\n"
   "          echo \"$0: unrecognized option \'$1\'. See correct usage below\"\n"
   "          echo \"$usage_str\"\n"
@@ -190,7 +213,8 @@ static dmtcp::DmtcpMessage blockUntilDoneReply;
 */
 static bool workersRunningAndSuspendMsgSent = false;
 
-int theCheckpointInterval = -1;
+int theCheckpointInterval = 0;
+bool batchMode = false;
 
 const int STDIN_FD = fileno ( stdin );
 
@@ -895,8 +919,19 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
-  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\nif test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  coord_host=%s\nfi\n\n", hostname );
-  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\nif test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  coord_port=%d\nfi\n\n", thePort );
+  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\n"
+                "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n"
+                "  coord_host=%s\nfi\n\n", hostname );
+  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\n"
+                "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
+                "  coord_port=%d\nfi\n\n", thePort );
+  fprintf ( fp, "checkpoint_interval=$"ENV_VAR_CKPT_INTR"\n"
+                "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
+                "  checkpoint_interval=%d\nfi\n\n", theCheckpointInterval );
+  if ( batchMode )
+    fprintf ( fp, "maybebatch='--batch'\n\n" );
+  else
+    fprintf ( fp, "maybebatch=\n\n" );
 
   fprintf ( fp, "# Number of hosts in the computation = %d\n", _restartFilenames.size() );
   fprintf ( fp, "# Number of processes in the computation = %d\n\n", getStatus().numPeers );
@@ -980,20 +1015,20 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
             "  if [ -z $maybebg ]; then\n"
             "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-            "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-            "        --join $new_ckpt_files_group\n"
+            "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+            "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\n"
             "  else\n"
             "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
             // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
             // end of the computation until user presses enter key.
-            "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port \\\n"
-            "        --join $new_ckpt_files_group\'\" &\n"
+            "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
+            "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
             "  fi\n\n"
             "done\n\n"
 
             "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
-            "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" \\\n"
-            "  $maybejoin $localhost_ckpt_files_group\n"
+            "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+            "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
             "fi\n\n"
 
 
@@ -1035,8 +1070,11 @@ int main ( int argc, char** argv )
     }else if(s=="--background"){
       background = true;
       shift;
+    }else if(s=="--batch"){
+      batchMode = true;
+      shift;
     }else if(argc>1 && (s == "-i" || s == "--interval")){
-      setenv(ENV_VAR_NAME_CKPT_INTR, argv[1], 1);
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       thePort = jalib::StringToInt( argv[1] );
@@ -1055,6 +1093,9 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
+
+  JASSERT ( ! (background && batchMode) )
+    .Text ( "--background and --batch can't be specified together");
 
   dmtcp::string dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
 
@@ -1077,23 +1118,37 @@ int main ( int argc, char** argv )
   JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
 #endif
 
-  //parse checkpoint interval
-  const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
-  if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
-
   if ( thePort < 0 )
   {
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
   }
 
-  errno = 0;
-  jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
-  JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO )
-  .Text ( "Failed to create listen socket."
-     "\nIf msg is \"Address already in use\", this may be an old coordinator."
-     "\nKill other coordinators and try again in a minute or so." );
-  thePort = sock.port();
+  jalib::JServerSocket* sock;
+  /*Test if the listener socket is already open*/
+  if ( fcntl(PROTECTEDFD(1), F_GETFD) != -1 ) {
+    sock = new jalib::JServerSocket ( PROTECTEDFD(1) );
+    JASSERT ( sock->port() != -1 ) .Text ( "Invalid listener socket" );
+    JTRACE ( "Using already created listener socker" ) ( sock->port() );
+  } else {
+
+    errno = 0;
+    sock = new jalib::JServerSocket ( jalib::JSockAddr::ANY, thePort );
+    JASSERT ( sock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
+      .Text ( "Failed to create listen socket."
+          "\nIf msg is \"Address already in use\", this may be an old coordinator."
+          "\nKill other coordinators and try again in a minute or so." );
+  }
+
+  thePort = sock->port();
+
+  if ( batchMode && getenv ( ENV_VAR_CKPT_INTR ) == NULL ) {
+    setenv(ENV_VAR_CKPT_INTR, "3600", 1);
+  }
+  //parse checkpoint interval
+  const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+  if ( interval != NULL ) 
+    theCheckpointInterval = jalib::StringToInt ( interval );
 
 #if 0
   JASSERT_STDERR <<
@@ -1133,15 +1188,29 @@ int main ( int argc, char** argv )
       exit(0);
     }
     pid_t sid = setsid();
-  }else{
+  } else if ( batchMode ) {
+    JASSERT_STDERR  << "Going into Batch Mode...\n";
+    close(0);
+    close(1);
+    close(2);
+    close(JASSERT_STDERR_FD);
+
+    JASSERT(open("/dev/null", O_WRONLY)==0);
+
+    JASSERT(dup2(0, 1) == 1);
+    JASSERT(dup2(0, 2) == 2);
+    JASSERT(dup2(0, JASSERT_STDERR_FD) == JASSERT_STDERR_FD);
+
+  } else {
     JASSERT_STDERR  <<
       "Type '?' for help." <<
       "\n\n";
   }
 
   dmtcp::DmtcpCoordinator prog;
-  prog.addListenSocket ( sock );
-  if(!background) prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
+  prog.addListenSocket ( *sock );
+  if(!background && !batchMode) 
+    prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
   prog.monitorSockets ( theCheckpointInterval > 0 ? theCheckpointInterval : 3600 );
   return 0;
 }

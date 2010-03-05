@@ -58,6 +58,15 @@ static const char* theUsage =
   "      Join an existing coordinator, do not create one automatically\n"
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
+  "  --new-coordinator:\n"
+  "      Create a new coordinator, use random port if one already exists\n"
+  "  --batch, -b:\n"
+  "      Enable batch mode i.e. start the coordinator on the same node on\n"
+  "        a randomly assigned port (if no port is specified by --port)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints.\n"
+  "      Works only with --new or --batch flags.\n"
+  "      (default: 3600 seconds if --batch is specified, 0 [disabled] otherwise)\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
@@ -140,6 +149,15 @@ int main ( int argc, char** argv )
     }else if(s == "-n" || s == "--new"){
       allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
       shift;
+    }else if(s == "--new-coordinator"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
+      shift;
+    }else if(s == "-b" || s == "--batch"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
+      shift;
+    }else if(s == "-i" || s == "--interval"){
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
       shift; shift;
@@ -163,6 +181,11 @@ int main ( int argc, char** argv )
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
+    }else if( (s.length()>2 && s.substr(0,2)=="--") ||
+              (s.length()>1 && s.substr(0,1)=="-" ) ) {
+      JASSERT_STDERR << "Invalid Argument\n";
+      JASSERT_STDERR << theUsage;
+      return 1;
     }else if(argc>1 && s=="--"){
       shift;
       break;

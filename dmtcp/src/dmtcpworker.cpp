@@ -121,7 +121,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   // Next, hide our value of LD_PRELOAD, in a global variable.
   // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
   // We will need it in only one place:
-  //   when the user application makes an exec call:
+  //  when the user application makes an exec call:
   //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
   //   If they directly call _real_execve to get libc symbol, they will
   //   not be part of DMTCP computation.
@@ -776,13 +776,10 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking)
 
   _coordinatorSocket = jalib::JClientSocket ( coordinatorAddr,coordinatorPort );
 
-  if (coordinatorAddr = "127.0.0.1") // Used only for error diagnostics now.
-    coordinatorAddr = "127.0.0.1 (localhost)";
   JASSERT ( _coordinatorSocket.isValid() )
   ( coordinatorAddr )
   ( coordinatorPort )
-  .Text ( "Failed to connect to DMTCP coordinator.\n" \
-          " (Probably there is no coordinator running at the address above.)" );
+  .Text ( "Failed to connect to DMTCP coordinator" );
 
   if ( oldFd.isValid() )
   {
@@ -848,6 +845,11 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
   const static int CS_OK = 91;
   const static int CS_NO = 92;
   int coordinatorStatus = -1;
+
+  if (modes & COORD_BATCH) {
+    startNewCoordinator ( modes, isRestart );
+    return;
+  }
   //fork a child process to probe the coordinator
   if(fork()==0){
     //fork so if we hit an error parent wont die
@@ -874,54 +876,85 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
   if(WEXITSTATUS(coordinatorStatus) != CS_OK){
     //is coordinator in funny state?
     if(WEXITSTATUS(coordinatorStatus) == CS_NO){
-      exit(1);
+      JASSERT (false) .Text ("Coordinator in a funny state?");
     }
 
-    //get location of coordinator
-    const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
-    if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
-    const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
-    int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt(coordinatorPortStr);
+    startNewCoordinator ( modes, isRestart );
 
-    // THIS JTRACE DOESN'T MAKE SENSE.  REMOVE OR REWRITE?  - Gene
-    JTRACE("Coordinator not found.") (coordinatorAddr) (coordinatorPort);
-
-    JASSERT( modes & COORD_NEW )
-      .Text("Won't automatically start coordinator because '--join' flag is specified.");
-
-    // THIS if CONDITION MUST ALWAYS BE TRUE.  REMOVE IT?  - Gene
-    if(coordinatorAddr!=NULL){
-      dmtcp::string s=coordinatorAddr;
-      if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
-        JASSERT(false)
-          .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
-        exit(1);
-      }
+  }else{
+    if (modes & COORD_FORCE_NEW) {
+      startNewCoordinator ( modes, isRestart );
+      return;
     }
+    JASSERT( modes & COORD_JOIN )
+      .Text("Coordinator already running, but '--new' flag was given.");
+  }
+}
 
-    JTRACE("Starting a new coordinator automatically.");
+void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
+{
+  int coordinatorStatus = -1;
+  //get location of coordinator
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
+  const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
+  int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT 
+                                                 : jalib::StringToInt(coordinatorPortStr);
 
-    if(fork()==0){
-      dmtcp::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
-      char * args[] = {
-        (char*)coordinator.c_str(),
-        (char*)"--exit-on-last",
-        (char*)"--background",
-        NULL
-      };
-      execv(args[0], args);
-      JASSERT(false)(coordinator)(JASSERT_ERRNO).Text("exec(dmtcp_coordinator) failed");
-    }
+  dmtcp::string s=coordinatorAddr;
+  if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
+    JASSERT(false)
+      .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
+    exit(1);
+  }
+
+  if ( modes & COORD_BATCH || modes & COORD_FORCE_NEW ) {
+    // Create a socket and bind it to an unused port. 
+    jalib::JServerSocket coordinatorListenerSocket ( jalib::JSockAddr::ANY, 0 );
     errno = 0;
+    JASSERT ( coordinatorListenerSocket.isValid() ) 
+      ( coordinatorListenerSocket.port() ) ( JASSERT_ERRNO )
+      .Text ( "Failed to create listen socket."
+          "\nIf msg is \"Address already in use\", this may be an old coordinator."
+          "\nKill other coordinators and try again in a minute or so." );
+    // Now dup the sockfd to 
+    coordinatorListenerSocket.changeFd(PROTECTEDFD(1));
 
+    coordinatorPortStr = jalib::XToString(coordinatorListenerSocket.port()).c_str();
+    setenv ( ENV_VAR_NAME_PORT, coordinatorPortStr, 1 );
+  }
+
+  JTRACE("Starting a new coordinator automatically.") (coordinatorPortStr);
+
+  if(fork()==0){
+    dmtcp::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+    char *modeStr = (char *)"--background";
+    if ( modes & COORD_BATCH ) {
+      modeStr = (char *)"--batch";
+    }
+    char * args[] = {
+      (char*)coordinator.c_str(),
+      (char*)"--exit-on-last",
+      modeStr,
+      NULL
+    };
+    execv(args[0], args);
+    JASSERT(false)(coordinator)(JASSERT_ERRNO).Text("exec(dmtcp_coordinator) failed");
+  } else {
+    _real_close ( PROTECTEDFD (1) );
+  }
+
+  errno = 0;
+
+  if ( modes & COORD_BATCH ) {
+    // FIXME: If running in batch Mode, we sleep here for 5 seconds to let
+    // the coordinator get started up. We need to fix this in future.
+    sleep(5);
+  } else {
     JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
 
     JASSERT(WEXITSTATUS(coordinatorStatus) == 0)
       .Text("Failed to start coordinator, port already in use. You may use a different port by running with \'-p 12345\'\n");
-
-  }else{
-    JASSERT( modes & COORD_JOIN )
-      .Text("Coordinator already running, but '--new' flag was given.");
   }
 }
 
