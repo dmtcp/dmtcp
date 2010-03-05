@@ -98,11 +98,14 @@ namespace dmtcp
       void writeTidMaps();
 
       enum {
-        COORD_JOIN = 1,
-        COORD_NEW  = 2,
-        COORD_ANY  = COORD_JOIN | COORD_NEW
+        COORD_JOIN      = 0x0001,
+        COORD_NEW       = 0x0002,
+        COORD_FORCE_NEW = 0x0004,
+        COORD_BATCH     = 0x0008,
+        COORD_ANY       = COORD_JOIN | COORD_NEW 
       };
       static void startCoordinatorIfNeeded(int modes, int isRestart=0);
+      static void startNewCoordinator(int modes, int isRestart=0);
 
     protected:
       void sendUserCommand(char c, int* result = NULL);

@@ -111,6 +111,12 @@ namespace jalib
   class JServerSocket : public JSocket
   {
     public:
+      JServerSocket ( int sockfd ) 
+        : JSocket ( sockfd )
+      {
+        enablePortReuse();
+      }
+
       JServerSocket ( const JSockAddr& addr, int port, int backlog = 32 )
       {
         enablePortReuse();
