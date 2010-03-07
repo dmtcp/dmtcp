@@ -133,10 +133,13 @@ namespace dmtcp
     socklen_t               restoreAddrlen;
     int                     restorePort;
 
+    int theCheckpointInterval;
+
     //message type specific parameters
     int params[DMTCPMESSAGE_NUM_PARAMS];
 
-    //extraBytes are used for passing checkpoint filename to coordinator it must be zero in all messages except for in DMT_CKPT_FILENAME
+    //extraBytes are used for passing checkpoint filename to coordinator it
+    //must be zero in all messages except for in DMT_CKPT_FILENAME
     int extraBytes;
 
     static void setDefaultCoordinator ( const UniquePid& id );

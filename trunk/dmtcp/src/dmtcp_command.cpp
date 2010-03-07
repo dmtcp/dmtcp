@@ -47,6 +47,7 @@ static const char* theUsage =
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
+  "    i, -i, --interval <val> : Update checkpoint interval to <val> seconds\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
   "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
@@ -93,10 +94,11 @@ int main ( int argc, char** argv )
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
   for( ; argc>0; shift){
-
     char* cmd = argv[0];
     //ignore leading dashes
     while(*cmd == '-') cmd++;
+
+    dmtcp::string s = cmd;
 
     if(*cmd == 'b' && *(cmd+1) != 'c')
       *cmd = 'h';  // If blocking ckpt, next letter must be 'c'; else print usage
@@ -108,7 +110,12 @@ int main ( int argc, char** argv )
 
     int result[DMTCPMESSAGE_NUM_PARAMS];
     DmtcpWorker worker(false);
-    if (*cmd == 'b') {
+    if (s == "i" || s == "interval") {
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      cmd = (char *)s.c_str();
+      worker.connectAndSendUserCommand(*cmd, result);
+      shift;
+    } else if (*cmd == 'b') {
       worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
       worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
     } else {

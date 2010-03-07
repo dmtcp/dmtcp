@@ -98,7 +98,7 @@ static const char* theUsage =
   "      The checkpoint interval is set to 3600 seconds (1 hr) by default\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
-  "      --batch implies -i 3600, unless otherwise specified.\n"
+  "      (default: 0, disabled)\n"
   "COMMANDS:\n"
   "  (type '?<return>' at runtime for list)\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -122,7 +122,7 @@ static const char* theRestartScriptHeader =
 
 static const char* theRestartScriptUsage = 
   "usage_str='USAGE:\n"
-  "  dmtcp_restart_script [OPTIONS]\n\n"
+  "  dmtcp_restart_script.sh [OPTIONS]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is running\n"
@@ -271,7 +271,8 @@ namespace
   };
 }
 
-void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/){
+void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
+{
   int * replyParams;
   if(reply!=NULL){
     replyParams = reply->params;
@@ -298,6 +299,10 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
       replyParams[1] = ERROR_NOT_RUNNING_STATE;
     }
     break;
+  case 'i': case 'I':
+    setTimeoutInterval ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval Updated" ) ( theCheckpointInterval );
+    break;
   case 'l': case 'L':
   case 't': case 'T':
     JASSERT_STDERR << "Client List:\n";
@@ -321,15 +326,20 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JNOTE ( "forcing restart..." );
     broadcastMessage ( DMT_FORCE_RESTART );
     break;
-  case 'q': case 'Q':
-    {
+  case 'q': case 'Q': 
+  {
+    // FIXME: Is this wrong??
+#if 0
       CoordinatorStatus s = getStatus();
       if (s.numPeers > 0) {
       //Can't send DMTCP_KILL_PEER msg. Delivered by monitorSockets, our caller.
       JASSERT_STDERR << "DMTCP Coordinator quitting uncleanly:  " << s.numPeers
 		     << " peer(s) still running\n";
       }
-    }
+#else
+    JNOTE ( "Killing all connected Peers..." );
+    broadcastMessage ( DMT_KILL_PEER );
+#endif
     JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
     for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
         ; i!= _dataSockets.end()
@@ -346,6 +356,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JTRACE ("Exiting ...");
     exit ( 0 );
     break;
+  }
   case 'k': case 'K':
     JNOTE ( "Killing all connected Peers..." );
     broadcastMessage ( DMT_KILL_PEER );
@@ -458,6 +469,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_RESUME );
 
           JTIMER_STOP ( checkpoint );
+
+          setTimeoutInterval( theCheckpointInterval );
+
           if (blockUntilDone) {
           JNOTE ( "replying to dmtcp_command:  we're done" );
 	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
@@ -506,6 +520,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
             handleUserCommand( 'b', NULL );
           DmtcpMessage reply;
           reply.type = DMT_USER_CMD_RESULT;
+          if (msg.params[0] == 'i' &&  msg.theCheckpointInterval > 0 ) {
+            theCheckpointInterval = msg.theCheckpointInterval;
+          }
           handleUserCommand( msg.params[0], &reply );
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
@@ -556,6 +573,9 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   {
       //this is the first connection, do some initializations
       workersRunningAndSuspendMsgSent = false;
+
+      setTimeoutInterval( theCheckpointInterval );
+
       curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
       curTimeStamp = 0; // Drop timestamp to 0
       numPeers = -1; // Drop number of peers to unknown
@@ -588,6 +608,13 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   }
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
+
+  if ( hello_remote.theCheckpointInterval > 0 ) {
+    int oldInterval = theCheckpointInterval;
+    theCheckpointInterval = hello_remote.theCheckpointInterval;
+    setTimeoutInterval ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval Updated" ) ( oldInterval ) ( theCheckpointInterval );
+  }
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
   NamedChunkReader * ds = new NamedChunkReader (
@@ -665,6 +692,12 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jal
     blockUntilDoneRemote = remote.sockfd();
     blockUntilDoneReply = reply;
     handleUserCommand( hello_remote.params[0], &reply );
+  } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I') &&
+              hello_remote.theCheckpointInterval > 0 ) {
+    theCheckpointInterval = hello_remote.theCheckpointInterval;
+    handleUserCommand( hello_remote.params[0], &reply );
+    remote << reply;
+    remote.close();
   } else {
     handleUserCommand( hello_remote.params[0], &reply );
     remote << reply;
@@ -695,7 +728,8 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
       ( numPeers ) ( curTimeStamp ) ( curCompGroup );
   } else if ( curCompGroup != hello_remote.compGroup ) {
     // Coordinator already serving some other computation group - reject this process.
-    JNOTE ("Reject incoming dmtcp_restart connection since it is not from current computation")
+    JNOTE ("Reject incoming dmtcp_restart connection"
+           " since it is not from current computation")
       ( curCompGroup ) ( hello_remote.compGroup );
     hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
@@ -901,7 +935,16 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
   const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
   if(dir==NULL) dir = ".";
-  dmtcp::string filename = dmtcp::string(dir)+"/"+RESTART_SCRIPT_NAME;
+  dmtcp::ostringstream o1, o2;
+  dmtcp::string filename, uniqueFilename;
+
+  o1 << dmtcp::string(dir) << "/"
+     << RESTART_SCRIPT_BASENAME << RESTART_SCRIPT_EXT;
+  filename = o1.str();
+
+  o2 << dmtcp::string(dir) << "/"
+     << RESTART_SCRIPT_BASENAME << "_" << curCompGroup << RESTART_SCRIPT_EXT;
+  uniqueFilename = o2.str();
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
 
@@ -911,10 +954,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   char hostname[80];
   gethostname ( hostname, 80 );
 
-  JTRACE ( "writing restart script" ) ( filename );
+  JTRACE ( "writing restart script" ) ( uniqueFilename );
   
-  FILE* fp = fopen ( filename.c_str(),"w" );
-  JASSERT ( fp!=0 )(JASSERT_ERRNO)( filename ).Text ( "failed to open file" );
+  FILE* fp = fopen ( uniqueFilename.c_str(),"w" );
+  JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename ).Text ( "failed to open file" );
 
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
@@ -1039,8 +1082,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   {
     /* Set execute permission for user. */
     struct stat buf;
-    stat ( RESTART_SCRIPT_NAME, &buf );
-    chmod ( RESTART_SCRIPT_NAME, buf.st_mode | S_IXUSR );
+    stat ( uniqueFilename.c_str(), &buf );
+    chmod ( uniqueFilename.c_str(), buf.st_mode | S_IXUSR );
+    // Create a symlink from 
+    //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
+    unlink ( filename.c_str() );
+    symlink ( uniqueFilename.c_str(), filename.c_str() );
   }
   _restartFilenames.clear();
 }
@@ -1211,6 +1258,10 @@ int main ( int argc, char** argv )
   prog.addListenSocket ( *sock );
   if(!background && !batchMode) 
     prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
-  prog.monitorSockets ( theCheckpointInterval > 0 ? theCheckpointInterval : 3600 );
+
+  // FIXME: Should we use a default checkpoint interval (1 hour in this case)
+  //        even if the user has not explicitely requested it.
+  if ( theCheckpointInterval <= 0 ) theCheckpointInterval = 3600;
+  prog.monitorSockets ( theCheckpointInterval );
   return 0;
 }

@@ -46,6 +46,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
+    ,theCheckpointInterval ( 0 )
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;

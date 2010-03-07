@@ -95,7 +95,8 @@
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
 
-#define RESTART_SCRIPT_NAME "dmtcp_restart_script.sh"
+#define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
+#define RESTART_SCRIPT_EXT ".sh"
 
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
 
