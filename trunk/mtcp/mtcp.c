@@ -2114,6 +2114,21 @@ static void writefile (int fd, void const *buff, size_t size)
 /*  checkpoint															*/
 /*																*/
 /********************************************************************************************************************************/
+/* Grow the stack by kbStack*1024 so that large stack is allocated on restart
+ * The kernel won't do it automatically for us any more, since it thinks
+ * the stack is in a different place after restart.
+ */
+/* growstackValue is volatile so compiler doesn't optimize away growstack */
+static volatile unsigned int growstackValue = 0;
+static void growstack(kbStack) {
+  const int kBincrement = 1024;
+  char array[kBincrement * 1024];
+  volatile int dummy_value = 1; /*Again, try to prevent compiler optimization*/
+  if (kbStack > 0)
+    growstack(kbStack - kBincrement);
+  else
+    growstackValue++;
+}
 
 static void stopthisthread (int signum)
 
@@ -2128,8 +2143,19 @@ static void stopthisthread (int signum)
 
   thread = getcurrenthread ();                                              // see which thread this is
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
+    static int is_first_checkpoint = 1;
     save_sig_state (thread);                                                // save signal state (and block signal delivery)
     save_tls_state (thread);                                                // save thread local storage state
+    /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
+     * will mmap it.  On second ckpt and later, we would segfault if we tried
+     * to grow the former stack beyond the portion that is already mmap'ed.
+     */
+    if (is_first_checkpoint && thread == motherofall) {
+      int kbStack = 2048;
+      is_first_checkpoint = 0;
+      DPRINTF(("mtcp_stopthisthread*: temp. grow main stack by %d kilobytes"));
+      growstack(kbStack);
+    }
 
     ///JA: new code ported from v54b
     rc = getcontext (&(thread -> savctx));
@@ -2141,7 +2167,9 @@ static void stopthisthread (int signum)
     DPRINTF (("mtcp stopthisthread*: after getcontext\n"));
     if (mtcp_state_value(&restoreinprog) == 0) {
 
-      /* We are the original process and all context is saved */
+      /* We are the original process and all context is saved
+       * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
+       */
 
       WMB; // matched by RMB in checkpointhread
 
@@ -2184,7 +2212,7 @@ static void stopthisthread (int signum)
       DPRINTF (("mtcp stopthisthread*: thread %d resuming\n", thread -> tid));
     }
 
-    /* This stuff executes on restart */
+    /* Else restoreinprog >= 1;  This stuff executes to do a restart */
 
     else {
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
