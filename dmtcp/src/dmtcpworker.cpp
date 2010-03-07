@@ -65,6 +65,7 @@
 
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
 
 /* 
  * WrapperProtectionLock is used to make the checkpoint safe by making sure that
@@ -101,6 +102,8 @@ static int unInitializedThreadCount = 0;
 static dmtcp::ConnectionState* theCheckpointState = 0;
 static int theRestorePort = RESTORE_PORT_START;
 
+bool dmtcp::DmtcpWorker::_exitInProgress = false;
+
 void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
 }
@@ -114,7 +117,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     :_coordinatorSocket ( PROTECTEDFD ( 1 ) )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
-  _chkpt_enabled = enableCheckpointing;
   if ( !enableCheckpointing ) return;
 
   // We have now successfully used LD_PRELOAD to execute prior to main()
@@ -351,9 +353,14 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 void dmtcp::DmtcpWorker::CleanupWorker()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   theWrapperExecutionLock = newLock;
+
+  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   unInitializedThreadCountLock = newCountLock;
+
+  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
+  destroyDmtcpWorker = newDestroyDmtcpWorker;
+
   unInitializedThreadCount = 0;
   WorkerState::setCurrentState( WorkerState::UNKNOWN); 
   JTRACE ( "disconnecting from dmtcp coordinator" );
@@ -363,9 +370,30 @@ void dmtcp::DmtcpWorker::CleanupWorker()
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
-  if( _chkpt_enabled ){
-    JTRACE("\n\n\nDESTRUCTOR\n\n\n\n");
-    _exit(0);
+
+  if( exitInProgress() ){
+    /*
+     * Exit race fixed. If the user threads calls exit(), ~DmtcpWorker() is
+     * called.  Now if the ckpt-thread is trying to use DmtcpWorker object
+     * while it is being destroyed, there is a problem. 
+     *
+     * The fix here is to raise the flag exitInProgress in the exit() system
+     * call wrapper. Later in ~DmtcpWorker() we check if the flag has been
+     * raised or not.  If the exitInProgress flag has been raised, it closes
+     * the coordinator socket and tries to acquire destroyDmtcpWorker mutex. 
+     *
+     * The ckpt-thread tries to acquire the destroyDmtcpWorker mutex before
+     * writing/reading any message to/from coordinator socket while the user
+     * threads are running (i.e. messages like DMT_SUSPEND, DMT_SUSPENDED
+     * etc.)_. If it failes to acquire the lock, it verifies that the
+     * exitInProgress has been raised and performs pthread_exit().
+     *
+     * As obvious, once the user threads have been suspended the ckpt-thread
+     *  releases the destroyDmtcpWorker() mutex and continues normal execution.
+     */
+    JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
+    _coordinatorSocket.close();
+    JASSERT(pthread_mutex_lock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
   }
   CleanupWorker();
 }
@@ -386,6 +414,15 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     dmtcp::DmtcpMessage msg;
     msg.type = DMT_OK;
     msg.state = WorkerState::RUNNING;
+    if ( pthread_mutex_trylock(&destroyDmtcpWorker) != 0 ) {
+      JTRACE ( "User thread is performing exit(). ckpt thread exit()ing as well" );
+      pthread_exit(NULL);
+    }
+    if ( exitInProgress() ) {
+      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      pthread_exit(NULL);
+    }
+
     _coordinatorSocket << msg;
   }
   JTRACE ( "waiting for SUSPEND signal" );
@@ -395,6 +432,10 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     while ( msg.type != dmtcp::DMT_DO_SUSPEND )
     {
       _coordinatorSocket >> msg;
+      if ( exitInProgress() ) {
+        JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+        pthread_exit(NULL);
+      }
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
       msg.poison();
@@ -422,6 +463,14 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   JTRACE ( "suspended" );
+
+  if ( exitInProgress() ) {
+    JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+    pthread_exit(NULL);
+  }
+
+  JASSERT(_coordinatorSocket.isValid());
+  JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
 
   JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
 

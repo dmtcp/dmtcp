@@ -192,6 +192,11 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+void _real_exit ( int status )
+{
+  REAL_FUNC_PASSTHROUGH_VOID ( close ) ( status );
+}
+
 int _real_getpt ( void )
 {
   REAL_FUNC_PASSTHROUGH ( getpt ) ( );
