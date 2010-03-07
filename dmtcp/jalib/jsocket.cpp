@@ -435,19 +435,40 @@ void jalib::JMultiSocketProgram::addWrite ( JWriterInterface* write )
   _writes.push_back ( write );
 }
 
+void jalib::JMultiSocketProgram::setTimeoutInterval ( double dblTimeout )
+{
+  int tSec = ( int ) dblTimeout;
+  int tMs = ( int ) ( 1000000.0 * ( dblTimeout - tSec ) );
+  timeoutInterval.tv_sec  = tSec;
+  timeoutInterval.tv_usec = tMs;
+  timeoutEnabled = dblTimeout > 0 && timerisset ( &timeoutInterval );
+
+  JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
+  timeradd ( &timeoutInterval,&stoptime,&stoptime );
+}
+
 void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 {
+  /*
   int tSec = ( int ) dblTimeout;
   int tMs = ( int ) ( 1000000.0 * ( dblTimeout - tSec ) );
   const struct timeval timeoutInterval = {tSec,tMs};
   bool timeoutEnabled = dblTimeout > 0 && timerisset ( &timeoutInterval );
 
   struct timeval stoptime={0,0};
-  struct timeval tmptime={0,0};
   struct timeval timeoutBuf=timeoutInterval;
   struct timeval * timeout = timeoutEnabled ? &timeoutBuf : NULL;
   JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
+  */
+  struct timeval tmptime={0,0};
+  struct timeval timeoutBuf;
+  struct timeval * timeout;
+
+  setTimeoutInterval ( dblTimeout );
+
+  timeoutBuf=timeoutInterval;
+  timeout = timeoutEnabled ? &timeoutBuf : NULL;
 
   IntSet closedFds;
   fd_set rfds;
@@ -496,6 +517,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
         //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
         onDisconnect ( _dataSockets[i] );
         _dataSockets[i]->socket().close();
+
         delete _dataSockets[i];
         _dataSockets[i] = 0;
         //swap with last

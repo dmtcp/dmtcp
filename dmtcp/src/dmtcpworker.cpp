@@ -739,6 +739,13 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
   //send
   msg.type = DMT_USER_CMD;
   msg.params[0] = c;
+
+  if (c == 'i') {
+    const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+    if ( interval != NULL ) 
+      msg.theCheckpointInterval = jalib::StringToInt ( interval );
+  }
+
   _coordinatorSocket << msg;
 
   //the coordinator will violently close our socket...
@@ -762,7 +769,7 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
 /*!
     \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking)
+void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking /*=true*/)
 {
 
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
@@ -814,6 +821,11 @@ void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,
   hello_local.params[0] = np;
   hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
+
+  const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+  if ( interval != NULL ) 
+    hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
+
   hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
   _coordinatorSocket << hello_local;
   _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
