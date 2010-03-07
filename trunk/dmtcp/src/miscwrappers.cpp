@@ -34,6 +34,11 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
+extern "C" void exit ( int status )
+{
+  dmtcp::DmtcpWorker::setExitInProgress();
+  _real_exit ( status );
+}
 extern "C" int close ( int fd )
 {
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )

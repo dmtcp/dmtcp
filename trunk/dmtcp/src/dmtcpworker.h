@@ -83,6 +83,8 @@ namespace dmtcp
       static void waitForThreadsToFinishInitialization();
       static void incrementUnInitializedThreadCount();
       static void decrementUnInitializedThreadCount();
+      static void setExitInProgress() { _exitInProgress = true; };
+      static bool exitInProgress() { return _exitInProgress; };
 
       void connectToCoordinator(bool doHanshaking=true);
       // np > -1 means it is restarting process that have np processes in its computation group
@@ -117,7 +119,7 @@ namespace dmtcp
       jalib::JSocket _restoreSocket;
       static bool _stdErrMasked;// = false;
       static bool _stdErrClosed;
-      bool _chkpt_enabled;
+      static bool _exitInProgress;
   };
 
 }

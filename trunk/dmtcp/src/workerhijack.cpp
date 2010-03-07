@@ -45,6 +45,8 @@ void dmtcp::DmtcpWorker::resetOnFork()
    */
   new ( &theInstance ) DmtcpWorker ( false );
 
+  dmtcp::DmtcpWorker::_exitInProgress = false;
+
   WorkerState::setCurrentState ( WorkerState::RUNNING );
   instance().connectToCoordinator();
 
