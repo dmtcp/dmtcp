@@ -2150,11 +2150,19 @@ static void stopthisthread (int signum)
      * will mmap it.  On second ckpt and later, we would segfault if we tried
      * to grow the former stack beyond the portion that is already mmap'ed.
      */
-    if (is_first_checkpoint && thread == motherofall) {
+    if (thread == motherofall) {
+      static char *orig_stack_ptr;
       int kbStack = 2048;
-      is_first_checkpoint = 0;
-      DPRINTF(("mtcp_stopthisthread*: temp. grow main stack by %d kilobytes"));
-      growstack(kbStack);
+      if (is_first_checkpoint) {
+	orig_stack_ptr = (char *)&kbStack;
+        is_first_checkpoint = 0;
+        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes"));
+        growstack(kbStack);
+      } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
+        mtcp_printf("WARNING:  Stack within %d bytes of end;\n"
+		    "  Consider increasing 'kbStack' at line %d of mtcp/%s\n",
+		    kbStack*1024/4, __LINE__-9, __FILE__);
+      }
     }
 
     ///JA: new code ported from v54b
