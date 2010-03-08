@@ -385,7 +385,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * The ckpt-thread tries to acquire the destroyDmtcpWorker mutex before
      * writing/reading any message to/from coordinator socket while the user
      * threads are running (i.e. messages like DMT_SUSPEND, DMT_SUSPENDED
-     * etc.)_. If it failes to acquire the lock, it verifies that the
+     * etc.)_. If it fails to acquire the lock, it verifies that the
      * exitInProgress has been raised and performs pthread_exit().
      *
      * As obvious, once the user threads have been suspended the ckpt-thread
