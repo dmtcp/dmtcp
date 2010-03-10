@@ -194,7 +194,7 @@ int _real_close ( int fd )
 
 void _real_exit ( int status )
 {
-  REAL_FUNC_PASSTHROUGH_VOID ( close ) ( status );
+  REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
 }
 
 int _real_getpt ( void )
