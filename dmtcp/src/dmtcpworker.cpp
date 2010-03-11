@@ -462,6 +462,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
+  WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   JTRACE ( "suspended" );
 
   if ( exitInProgress() ) {
@@ -476,7 +477,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   {
     dmtcp::DmtcpMessage msg;
     msg.type = DMT_OK;
