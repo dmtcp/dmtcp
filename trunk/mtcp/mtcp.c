@@ -2135,6 +2135,9 @@ static void stopthisthread (int signum)
 {
   int rc;
   Thread *thread;
+#define BT_SIZE 1024
+#define STDERR_FD 826
+#define LOG_FD 826
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
@@ -2142,6 +2145,16 @@ static void stopthisthread (int signum)
   setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
 
   thread = getcurrenthread ();                                              // see which thread this is
+  if (0 && thread == motherofall) {
+    void *buffer[BT_SIZE];
+    int nptrs;
+
+    DPRINTF (( "printing stacktrace of the motherofall Thread\n\n" ));
+    nptrs = backtrace (buffer, BT_SIZE);
+    backtrace_symbols_fd ( buffer, nptrs, STDERR_FD );
+    backtrace_symbols_fd ( buffer, nptrs, LOG_FD );
+
+  }
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
     static int is_first_checkpoint = 1;
     save_sig_state (thread);                                                // save signal state (and block signal delivery)

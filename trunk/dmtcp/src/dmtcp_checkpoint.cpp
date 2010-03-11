@@ -24,6 +24,7 @@
 #include <string>
 #include <stdio.h>
 #include  "../jalib/jassert.h"
+#include <ctype.h>
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
@@ -111,7 +112,6 @@ static dmtcp::string _stderrProcPath()
 
 //shift args
 #define shift argc--,argv++
-
 int main ( int argc, char** argv )
 {
   bool isSSHSlave=false;
@@ -119,6 +119,21 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
   dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
+
+#ifdef ENABLE_MALLOC_WRAPPER
+  long mallocOff, callocOff, freeOff, reallocOff;
+
+  void *baseAddr = (void*)&toupper;
+  mallocOff  = (char*)&malloc  - (char*)baseAddr;
+  callocOff  = (char*)&calloc  - (char*)baseAddr;
+  reallocOff = (char*)&realloc - (char*)baseAddr;
+  freeOff    = (char*)&free    - (char*)baseAddr;
+
+  setenv ( ENV_VAR_MALLOC_OFFSET, jalib::XToString ( mallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_CALLOC_OFFSET, jalib::XToString ( callocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_REALLOC_OFFSET, jalib::XToString ( reallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_FREE_OFFSET, jalib::XToString ( freeOff ).c_str(), 1 );
+#endif
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
