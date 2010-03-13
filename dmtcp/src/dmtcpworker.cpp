@@ -644,11 +644,6 @@ void dmtcp::DmtcpWorker::writeTidMaps()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().postRestart2();
 #endif
-
-  // After this point, the user threads will be unlocked in mtcp.c and will
-  // resume their computation and so it is OK to set the process state to
-  // RUNNING.
-  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 }
 
 void dmtcp::DmtcpWorker::postRestart()
