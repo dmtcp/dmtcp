@@ -133,6 +133,13 @@ static void callbackPostCheckpoint ( int isRestart )
   dmtcp::DmtcpWorker::instance().waitForStage3Resume(isRestart);
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(isRestart);
+
+  if ( !isRestart ) {
+    // After this point, the user threads will be unlocked in mtcp.c and will
+    // resume their computation and so it is OK to set the process state to
+    // RUNNING.
+    dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+  }
 }
 
 static int callbackShouldCkptFD ( int /*fd*/ )
@@ -149,6 +156,11 @@ static void callbackWriteCkptPrefix ( int fd )
 static void callbackWriteTidMaps ( )
 {
   dmtcp::DmtcpWorker::instance().writeTidMaps();
+
+  // After this point, the user threads will be unlocked in mtcp.c and will
+  // resume their computation and so it is OK to set the process state to
+  // RUNNING.
+  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 } 
 
 void dmtcp::initializeMtcpEngine()
