@@ -150,7 +150,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     :_coordinatorSocket ( PROTECTEDFD ( 1 ) )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
-  _chkpt_enabled = enableCheckpointing;
   if ( !enableCheckpointing ) return;
 
   WorkerState::setCurrentState( WorkerState::UNKNOWN); 
@@ -368,10 +367,6 @@ void dmtcp::DmtcpWorker::CleanupWorker()
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
-  if( _chkpt_enabled ){
-    JTRACE("\n\n\nDESTRUCTOR\n\n\n\n");
-    _exit(0);
-  }
   CleanupWorker();
 }
 
