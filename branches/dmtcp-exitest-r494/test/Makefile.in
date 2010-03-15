@@ -1,0 +1,56 @@
+@SET_MAKE@
+LN_S=@LN_S@
+CC=@CC@
+CXX=@CXX@
+ifdef M32
+CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
+CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
+else
+CFLAGS=@CFLAGS@
+CXXFLAGS=@CXXFLAGS@
+endif
+HAS_READLINE=@HAS_READLINE@
+HAS_MPICH=@HAS_MPICH@
+MPICH_MPICC=@MPICH_MPICC@
+READLINE_LIBS=-lreadline -lhistory -lcurses
+PWD=$(shell pwd)
+
+TESTS=$(basename $(wildcard *.c *.cpp))
+
+tests: $(TESTS)
+
+clean distclean:
+	rm -f $(TESTS) *.pyc
+
+readline: readline.c
+ifeq ($(HAS_READLINE),yes)
+	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
+else
+	#$<: required libraries missing, skipping test
+endif
+
+hellompi: hellompi.c
+ifeq ($(HAS_MPICH),yes)
+	$(MPICH_MPICC) -o $@ $< $(CFLAGS) 
+else
+	#$<: required libraries missing, skipping test
+endif
+
+DMTCPAWARELIB=../dmtcpaware/libdmtcpaware.a
+
+dmtcpaware%: dmtcpaware%.c
+	-$(CC) -o $@ $< $(CFLAGS) $(DMTCPAWARELIB)
+
+dmtcp3: dmtcp3.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+dmtcp4: dmtcp4.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+%: %.c
+	$(CC) -o $@ $< $(CFLAGS)
+
+%: %.cpp
+	$(CXX) -o $@ $< $(CXXFLAGS)
+
+
