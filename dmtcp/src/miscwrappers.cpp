@@ -34,11 +34,6 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
-extern "C" void exit ( int status )
-{
-  dmtcp::DmtcpWorker::setExitInProgress();
-  _real_exit ( status );
-}
 extern "C" int close ( int fd )
 {
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
@@ -315,9 +310,6 @@ extern "C" int open (const char *path, ... )
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
    * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
    */
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     return _real_open ( path, flags, mode );
@@ -350,9 +342,6 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
    * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
    */
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     return _real_fopen ( path, mode );
@@ -387,109 +376,3 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   return file;
 }
 
-#ifdef ENABLE_MALLOC_WRAPPER
-extern "C" void *calloc(size_t nmemb, size_t size)
-{
-  WRAPPER_EXECUTION_LOCK_LOCK();
-  void *retVal = _real_calloc ( nmemb, size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-  return retVal;
-}
-extern "C" void *malloc(size_t size)
-{
-  WRAPPER_EXECUTION_LOCK_LOCK();
-  void *retVal = _real_malloc ( size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-  return retVal;
-}
-extern "C" void free(void *ptr)
-{
-  WRAPPER_EXECUTION_LOCK_LOCK();
-  _real_free ( ptr );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-}
-extern "C" void *realloc(void *ptr, size_t size)
-{
-  WRAPPER_EXECUTION_LOCK_LOCK();
-  void *retVal = _real_realloc ( ptr, size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-  return retVal;
-}
-
-
-/*
-extern "C" int
-printf (const char *format, ...)
-{
-  va_list arg;
-  int done;
-
-  va_start (arg, format);
-  done = vfprintf (stdout, format, arg);
-  va_end (arg);
-
-  return done;
-}
-
-extern "C" int
-fprintf (FILE *stream, const char *format, ...)
-{
-  va_list arg;
-  int done;
-
-  va_start (arg, format);
-  done = vfprintf (stream, format, arg);
-  va_end (arg);
-
-  return done;
-}
-
-extern "C" int
-vprintf (const char *format, __gnuc_va_list arg)
-{
-  return vfprintf (stdout, format, arg);
-}
-
-extern "C" int
-vfprintf (FILE *s, const char *format, va_list ap)
-{
-  WRAPPER_EXECUTION_LOCK_LOCK();
-  int retVal = _real_vfprintf ( s, format, ap );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-  return retVal;
-}
-
-
-extern "C" int
-sprintf (char *s, const char *format, ...)
-{
-  va_list arg;
-  int done;
-
-  va_start (arg, format);
-  done = vsprintf (s, format, arg);
-  va_end (arg);
-
-  return done;
-}
-
-
-extern "C" int
-snprintf (char *s, size_t maxlen, const char *format, ...)
-{
-  va_list arg;
-  int done;
-
-  va_start (arg, format);
-  done = vsnprintf (s, maxlen, format, arg);
-  va_end (arg);
-
-  return done;
-}
-
-
-extern "C" int vsprintf(char *str, const char *format, va_list ap);
-extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
-*/
-
-#endif

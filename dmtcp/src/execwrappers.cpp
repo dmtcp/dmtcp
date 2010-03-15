@@ -36,40 +36,42 @@
 
 #define INITIAL_ARGV_MAX 32
 
-static pid_t forkChild ( time_t child_time, long child_host )
+static void protectLD_PRELOAD()
+{
+  const char* actual = getenv ( "LD_PRELOAD" );
+  const char* expctd = getenv ( ENV_VAR_HIJACK_LIB );
+
+  JTRACE ("LD_PRELOAD") (actual) (expctd);
+
+  if ( actual!=0 && expctd!=0 ){
+    JASSERT ( strcmp ( actual,expctd ) == 0 )( actual ) ( expctd )
+      .Text ( "eeek! Someone stomped on LD_PRELOAD" );
+  }
+}
+
+static pid_t forkChild()
 {
   while ( 1 ) {
 
-    pid_t child_pid = _real_fork();
+    pid_t childPid = _real_fork();
 
-    if ( child_pid == -1 ) {
+    if ( childPid == -1 ) {
       // fork() failed
-      return child_pid;
-    } else if ( child_pid == 0 ) { 
+      return childPid;
+    } else if ( childPid == 0 ) { 
       /* child process */
-
-      JASSERT_RESET_ON_FORK ( );
-#ifdef DEBUG
-      dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
-      //child should get new logfile
-      dmtcp::ostringstream o;
-      o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
-        << "/jassertlog." << child.toString();
-      JASSERT_SET_LOGFILE (o.str());
-#endif
-
-      if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( getpid() ) ) {
         _exit(1);
       } else {
-        return child_pid;
+        return childPid;
       }
     } else { 
       /* Parent Process */
-      if ( dmtcp::VirtualPidTable::isConflictingPid ( child_pid ) ) {
-        JTRACE( "PID Conflict, creating new child" ) (child_pid);
-        _real_waitpid ( child_pid, NULL, 0 );
+      if ( dmtcp::VirtualPidTable::isConflictingPid ( childPid ) ) {
+        JTRACE( "PID Conflict, creating new child" ) (childPid);
+        _real_waitpid ( childPid, NULL, 0 );
       } else {
-        return child_pid;
+        return childPid;
       }
     }
   }
@@ -78,25 +80,35 @@ static pid_t forkChild ( time_t child_time, long child_host )
 
 static pid_t fork_work()
 {
+  protectLD_PRELOAD();
+
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   time_t child_time = time ( NULL );
-  long child_host = dmtcp::UniquePid::ThisProcess().hostid();
-  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-
   //pid_t child_pid = _real_fork();
-  pid_t child_pid = forkChild ( child_host, child_time );
+  pid_t child_pid = forkChild();
   if (child_pid < 0) {
     return child_pid;
   }
 
+  long child_host = dmtcp::UniquePid::ThisProcess().hostid();
 
-  if ( child_pid == 0 ) {
+  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
+
+  if ( child_pid == 0 )
+  {
     child_pid = _real_getpid();
-
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
+#ifdef DEBUG
+    //child should get new logfile
+    dmtcp::ostringstream o;
+    o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
+      << "/jassertlog." << child.toString();
+    JASSERT_SET_LOGFILE (o.str());
+#endif
 
-    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent );
+
+    JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
 
     //fix the mutex
     _dmtcp_remutex_on_fork();
@@ -116,17 +128,19 @@ static pid_t fork_work()
     //make new connection to coordinator
     dmtcp::DmtcpWorker::resetOnFork();
 
-    JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent );
+    JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent ) ( getenv ( "LD_PRELOAD" ) );
 
     return 0;
-  } else {
+  }
+  else
+  {
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
 #ifdef PID_VIRTUALIZATION
     dmtcp::VirtualPidTable::Instance().insert ( child_pid, child );
 #endif
 
-    JTRACE ( "fork()ed [PARENT] done" ) ( child );;
+    JTRACE ( "fork()ed [PARENT] done" ) ( child ) ( getenv ( "LD_PRELOAD" ) );;
 
     //         _dmtcp_lock();
 
@@ -168,6 +182,7 @@ extern "C" pid_t vfork()
 
 static void dmtcpPrepareForExec()
 {
+  protectLD_PRELOAD();
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
@@ -177,12 +192,7 @@ static void dmtcpPrepareForExec()
   dmtcp::VirtualPidTable::Instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
-  dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
-  if (getenv("LD_PRELOAD")) {
-    preload = preload + ":" + getenv("LD_PRELOAD");
-  }
-  setenv("LD_PRELOAD", preload.c_str(), 1);
-  JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
+  JTRACE ( "Prepared for Exec" );
 }
 
 static const char* ourImportantEnvs[] =
@@ -465,6 +475,7 @@ extern "C" int system (const char *line)
 {
   JTRACE ( "before system(), checkpointing may not work" )
     ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
+  protectLD_PRELOAD();
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might

@@ -23,9 +23,6 @@
 #include "mtcpinterface.h"
 #include "dmtcpmessagetypes.h"
 
-// Initializing variable, theInstance, to an object of type DmtcpWorker,
-//   with DmtcpWorker constructor called with arg, enableCheckpointing = true
-// This gets executed before main().
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
@@ -45,14 +42,9 @@ void dmtcp::DmtcpWorker::resetOnFork()
    */
   new ( &theInstance ) DmtcpWorker ( false );
 
-  dmtcp::DmtcpWorker::_exitInProgress = false;
-
   WorkerState::setCurrentState ( WorkerState::RUNNING );
   instance().connectToCoordinator();
-
-  WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
 }
 
 //to allow linking without mtcpinterface

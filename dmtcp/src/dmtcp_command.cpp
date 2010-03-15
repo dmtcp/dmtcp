@@ -37,7 +37,7 @@ static const char* theUsage =
   "%sPURPOSE:\n"
   "  Send a command to the dmtcp_coordinator remotely.\n\n"
   "USAGE:\n"
-  "  dmtcp_command [OPTIONS] COMMAND [COMMAND...]\n\n"
+  "  dmtcp_command [OPTIONS] COMMAND\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
@@ -47,7 +47,6 @@ static const char* theUsage =
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
-  "    i, -i, --interval <val> : Update checkpoint interval to <val> seconds\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
   "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
@@ -58,7 +57,7 @@ static const char* theUsage =
 
 
 //shift args
-#define shift argc--,argv++
+#define shift argc--; argv++
 
 int main ( int argc, char** argv )
 {
@@ -93,60 +92,47 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  for( ; argc>0; shift){
-    char* cmd = argv[0];
-    //ignore leading dashes
-    while(*cmd == '-') cmd++;
+  char* cmd = argv[0];
+  //ignore leading dashes
+  while(*cmd == '-') cmd++;
 
-    dmtcp::string s = cmd;
+  if(*cmd == 'b' && *(cmd+1) != 'c')
+    *cmd = 'h';  // If blocking ckpt, next letter must be 'c'; else print usage
 
-    if(*cmd == 'b' && *(cmd+1) != 'c')
-      *cmd = 'h';  // If blocking ckpt, next letter must be 'c'; else print usage
+  if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
+    fprintf(stderr, theUsage, "");
+    return 1;
+  }
 
-    if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
-      fprintf(stderr, theUsage, "");
-      return 1;
+  int result[DMTCPMESSAGE_NUM_PARAMS];
+  DmtcpWorker worker(false);
+  if (*cmd == 'b') {
+    worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
+    worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
+  } else {
+    worker.connectAndSendUserCommand(*cmd, result);
+  }
+
+  //check for error
+  if(result[0]<0){
+    switch(result[0]){
+    case DmtcpCoordinator::ERROR_INVALID_COMMAND:
+      fprintf(stderr, "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
+      break;
+    case DmtcpCoordinator::ERROR_NOT_RUNNING_STATE:
+      fprintf(stderr, "Error, computation not in running state.  Either a checkpoint is currently happening or there are no connected processes.\n");
+      break;
+    default:
+      fprintf(stderr, "Unknown error\n");
+      break;
     }
+    return 2;
+  }
 
-    int result[DMTCPMESSAGE_NUM_PARAMS];
-    DmtcpWorker worker(false);
-    if (s == "i" || s == "interval") {
-      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
-      cmd = (char *)s.c_str();
-      worker.connectAndSendUserCommand(*cmd, result);
-      shift;
-    } else if (*cmd == 'b') {
-      worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
-      worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
-    } else {
-      worker.connectAndSendUserCommand(*cmd, result);
-    }
-
-    //check for error
-    if(result[0]<0){
-      switch(result[0]){
-      case DmtcpCoordinator::ERROR_INVALID_COMMAND:
-        fprintf(stderr,
-		"Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
-        break;
-      case DmtcpCoordinator::ERROR_NOT_RUNNING_STATE:
-        fprintf(stderr, "Error, computation not in running state."
-		"  Either a checkpoint is\n"
-		" currently happening or there are no connected processes.\n");
-        break;
-      default:
-        fprintf(stderr, "Unknown error\n");
-        break;
-      }
-      return 2;
-    }
-
-    if(*cmd == 's'){
-        printf("Status...\n");
-        printf("NUM_PEERS=%d\n", result[0]);
-        printf("RUNNING=%s\n", (result[1]?"yes":"no"));
-    }
-
+  if(*cmd == 's'){
+      printf("Status...\n");
+      printf("NUM_PEERS=%d\n", result[0]);
+      printf("RUNNING=%s\n", (result[1]?"yes":"no"));
   }
 
   return 0;

@@ -46,7 +46,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
-    ,theCheckpointInterval ( 0 )
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
@@ -66,7 +65,7 @@ void dmtcp::DmtcpMessage::assertValid() const
 
   if ( type == DMT_KILL_PEER ) {
     JTRACE ( "Received KILL Message from coordinator, exiting" );
-    _exit ( 0 );
+    exit ( 0 );
   }
 }
 
@@ -94,7 +93,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( CHECKPOINTED )
       OSHIFTPRINTF ( REFILLED )
     default:
-      JASSERT ( false ) .Text ( "Invalid WorkerState" );
       o << s.value();
   }
   return o;
@@ -127,12 +125,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
 
-      OSHIFTPRINTF ( DMT_USER_CMD )
-      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
-
-      OSHIFTPRINTF ( DMT_RESTART_PROCESS )
-      OSHIFTPRINTF ( DMT_RESTART_PROCESS_REPLY )
-
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
@@ -148,10 +140,11 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_CKPT_FILENAME )
       OSHIFTPRINTF ( DMT_FORCE_RESTART )
       OSHIFTPRINTF ( DMT_KILL_PEER )
-      OSHIFTPRINTF ( DMT_REJECT )
+      OSHIFTPRINTF ( DMT_USER_CMD )
+      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
 
     default:
-      JASSERT ( false ) ( s ) .Text ( "Invalid Message Type" );
+      OSHIFTPRINTF ( DMT_INVALID )
       //o << s;
   }
   return o;

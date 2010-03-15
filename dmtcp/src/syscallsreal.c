@@ -40,7 +40,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
-#include <ctype.h>
 
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
@@ -193,11 +192,6 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
-void _real_exit ( int status )
-{
-  REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
-}
-
 int _real_getpt ( void )
 {
   REAL_FUNC_PASSTHROUGH ( getpt ) ( );
@@ -258,17 +252,6 @@ int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   //**** TODO Link with the "real" pthread_sigmask ******
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
-}
-
-int _real_sigwait(const sigset_t *set, int *sig) {
-  REAL_FUNC_PASSTHROUGH ( sigwait ) ( set, sig);
-}
-int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info) {
-  REAL_FUNC_PASSTHROUGH ( sigwaitinfo ) ( set, info);
-}
-int _real_sigtimedwait(const sigset_t *set, siginfo_t *info, 
-                       const struct timespec *timeout) {
-  REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
 }
 
 /* In dmtcphijack.so code always use this function instead of unsetenv.
@@ -366,17 +349,17 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
   REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
-#endif
-
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
-/* See comments for syscall wrapper */
 FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
+#endif
+
+/* See comments for syscall wrapper */
 long int _real_syscall(long int sys_num, ... ) {
   int i;
   void * arg[7];
@@ -396,83 +379,3 @@ int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
 
-#ifdef ENABLE_MALLOC_WRAPPER
-
-#define REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
-    if (fn==NULL) {\
-      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
-      if (offset == 0) abort();                                                   \
-      fn = (void*) ((char*)&toupper + offset);                                    \
-    }                                                                             \
-    (*fn)
-
-#define REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
-    if (fn==NULL) {\
-      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
-      if (offset == 0) abort();                                                   \
-      fn = (void*) ((char*)&toupper + offset);                                    \
-    }                                                                             \
-    return (*fn)
-
-void * _real_calloc(size_t nmemb, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, CALLOC) (nmemb, size);
-//  return NULL;
-//  static int dlsym_offset = 0;
-//  if (dlsym_offset == 0 && getenv(ENV_VAR_CALLOC_OFFSET))
-//  { 
-//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_CALLOC_OFFSET), NULL, 10 );
-//  } 
-//
-//  typedef void* ( *fncptr ) (size_t nmenb, size_t size);
-//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
-//  return (*dlsym_addr) (nmemb, size );
-}
-
-void * _real_malloc(size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, MALLOC) (size);
-//  return NULL;
-//  static int dlsym_offset = 0;
-//  if (dlsym_offset == 0 && getenv(ENV_VAR_MALLOC_OFFSET))
-//  { 
-//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_MALLOC_OFFSET), NULL, 10 );
-//  } 
-//
-//  typedef void* ( *fncptr ) (size_t size);
-//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
-//  return (*dlsym_addr) (size );
-}
-
-void * _real_realloc(void *ptr, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, REALLOC) (ptr, size);
-//  return NULL;
-//  static int dlsym_offset = 0;
-//  if (dlsym_offset == 0 && getenv(ENV_VAR_REALLOC_OFFSET))
-//  { 
-//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_REALLOC_OFFSET), NULL, 10 );
-//  } 
-//
-//  typedef void* ( *fncptr ) (void *ptr, size_t size);
-//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
-//  return (*dlsym_addr) (ptr, size );
-}
-
-void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void, FREE) (ptr);
-//   return ;
-//   static int dlsym_offset = 0;
-//   if (dlsym_offset == 0 && getenv(ENV_VAR_FREE_OFFSET))
-//   { 
-//     dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_FREE_OFFSET), NULL, 10 );
-//   } 
-// 
-//   typedef void ( *fncptr ) (void *ptr);
-//   fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
-//   return (*dlsym_addr) (ptr);
-}
-
-
-// int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
-//   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
-// }
-
-#endif 

@@ -70,9 +70,7 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
-// _generation field of return value may later have to be modified.
-// So, it can't return a const dmtcp::UniquePid
-dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+const dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace)
 {
   if ( theProcess() == nullProcess() )
   {
@@ -119,15 +117,6 @@ time_t  dmtcp::UniquePid::time() const
   return _time;
 }
 
-int  dmtcp::UniquePid::generation() const
-{
-  return _generation;
-}
-void  dmtcp::UniquePid::incrementGeneration()
-{
-  _generation++;
-}
-
 
 static bool checkpointFilename_initialized = false;
 const char* dmtcp::UniquePid::checkpointFilename()
@@ -147,24 +136,12 @@ const char* dmtcp::UniquePid::checkpointFilename()
        << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-        << "_XXXXX.dmtcp";
-#else
-       << ".dmtcp";
+       << "_0000"
 #endif
+       << ".dmtcp";
 
     checkpointFilename_str = os.str();
   }
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-  // Include 5-digit generation number in filename, which changes
-  //   after each checkpoint, during same process
-  JASSERT( dmtcp::string(".dmtcp") == checkpointFilename_str.c_str()
-                        + checkpointFilename_str.length() - strlen(".dmtcp") )
-	 ( checkpointFilename_str )
-	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
-  sprintf((char *)checkpointFilename_str.c_str()
-	  + checkpointFilename_str.length() - strlen("XXXXX.dmtcp"),
-	  "%5.5d.dmtcp", ThisProcess().generation());
-#endif
   return checkpointFilename_str.c_str();
 }
 
@@ -206,36 +183,25 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   return ptsSymlinkFilename_str.c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::getTmpDir(const char* envVarTmpDir) {
+dmtcp::string dmtcp::UniquePid::getTmpDir(const char * envVarTmpDir) {
   static bool initialized = false;
   static dmtcp::string tmpDir;
   if (initialized) {
     return tmpDir;
   }
 
-  char hostname[80] = {0};
-
-  JASSERT ( gethostname(hostname, 80) == 0) .Text ( "gethostname() failed" );
-
+  char hostname[80];
+  gethostname(hostname, 80);
   dmtcp::ostringstream o;
-
-  char *userName = const_cast<char *>("");
-  if ( getpwuid ( getuid() ) != NULL ) {
-    userName = getpwuid ( getuid() ) -> pw_name;
-  } else if ( getenv("USER") != NULL ) {
-    userName = getenv("USER");
-  }
 
   if (envVarTmpDir) {
     o << envVarTmpDir;
   } else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << userName << "@" << hostname;
+    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
   } else {
-    o << "/tmp/dmtcp-" << userName << "@" << hostname;
+    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
   }
-
   tmpDir = o.str();
-
   // This would persist through restart when we need to reinitialize tmpdir.
   // Comment it out for now.
   //initialized = true;

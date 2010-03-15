@@ -87,8 +87,7 @@ distclean: clean
 
 dist: distclean
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz --exclude='.*/.svn/*' \
-	                                     --exclude='*/.svn'    \
-					     --exclude='*/.deps' ./`basename $$dir`
+	                                   --exclude='*/.svn' ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
 bin/% : dmtcp/src/%

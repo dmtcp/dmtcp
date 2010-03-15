@@ -44,8 +44,8 @@ int jassert_quiet = 0;
    The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
    PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
 */
-static const int DUP_STDERR_FD = 825; // PFD(5)
-static const int DUP_LOG_FD    = 826; // PFD(6)
+static const int DUP_STDERR_FD = 826; // PFD(5)
+static const int DUP_LOG_FD    = 827; // PFD(6)
 
 // DMTCP provides a wrapper for open/fopen. We don't want to go to that wrapper
 // and so we call open() directly from libc. This implementation follows the
@@ -169,14 +169,11 @@ static FILE* theLogFile = NULL;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
-void jassert_internal::reset_on_fork ( )
+void jassert_internal::set_log_file ( const jalib::string& path )
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
   logLock = newLock;
-}
 
-void jassert_internal::set_log_file ( const jalib::string& path )
-{
   theLogFilePath() = path;
   if ( theLogFile != NULL ) fclose ( theLogFile );
   theLogFile = NULL;
@@ -196,9 +193,6 @@ void jassert_internal::set_log_file ( const jalib::string& path )
 
 static FILE* _initJassertOutputDevices()
 {
-  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
-  logLock = newLock;
-
 #ifdef DEBUG
   if (theLogFile == NULL)
     JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
@@ -218,22 +212,16 @@ static FILE* _initJassertOutputDevices()
 void jassert_internal::jassert_safe_print ( const char* str )
 {
   static FILE* errconsole = _initJassertOutputDevices();
-  static bool useErrorconsole = true;
 
-  if( errconsole == NULL && useErrorconsole ) {
-    fprintf ( stderr, "dmtcp: cannot open output channel for error logging\n");
-    useErrorconsole = false;
-  }
+  fprintf ( errconsole,"%s",str );
 
-  if ( useErrorconsole )
-    fprintf ( errconsole,"%s",str );
-
-  if ( theLogFile != NULL ) {
+  if ( theLogFile != NULL )
+  {
     int rv = fprintf ( theLogFile,"%s",str );
 
-    if ( rv < 0 ) {
-      if ( useErrorconsole )
-        fprintf ( errconsole,"JASSERT: write failed, reopening log file.\n" );
+    if ( rv < 0 )
+    {
+      fprintf ( errconsole,"JASSERT: write failed, reopening log file.\n" );
       JASSERT_SET_LOGFILE ( theLogFilePath() );
       if ( theLogFile != NULL )
         fprintf ( theLogFile,"JASSERT: write failed, reopened log file.\n%s",str );

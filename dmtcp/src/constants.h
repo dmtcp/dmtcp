@@ -27,8 +27,6 @@
 #endif
 #include "linux/version.h"
 
-//#define ENABLE_MALLOC_WRAPPER
-
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
@@ -51,7 +49,7 @@
 #define ENV_VAR_NAME_ADDR "DMTCP_HOST"
 #define ENV_VAR_NAME_PORT "DMTCP_PORT"
 #define ENV_VAR_NAME_RESTART_DIR  "DMTCP_RESTART_DIR"
-#define ENV_VAR_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
+#define ENV_VAR_NAME_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
 #define ENV_VAR_SERIALFILE_INITIAL "DMTCP_INITSOCKTBL"
 #define ENV_VAR_PIDTBLFILE_INITIAL "DMTCP_INITPIDTBL"
 #define ENV_VAR_HIJACK_LIB "DMTCP_HIJACK_LIB"
@@ -69,40 +67,11 @@
 #define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
 
-#ifdef ENABLE_MALLOC_WRAPPER
-// Malloc/Free Offsets from toupper
-#define GLIBC_BASE_FUNC "setlocale"
-#define ENV_VAR_MALLOC_OFFSET "DMTCP_MALLOC_OFFSET"
-#define ENV_VAR_CALLOC_OFFSET "DMTCP_CALLOC_OFFSET"
-#define ENV_VAR_REALLOC_OFFSET "DMTCP_REALLOC_OFFSET"
-#define ENV_VAR_FREE_OFFSET "DMTCP_FREE_OFFSET"
-
-//this list should be kept up to date with all "protected" environment vars
+//this list should be kept up to data with all "protected" environment vars
 #define ENV_VARS_ALL \
     ENV_VAR_NAME_ADDR,\
     ENV_VAR_NAME_PORT,\
-    ENV_VAR_CKPT_INTR,\
-    ENV_VAR_SERIALFILE_INITIAL,\
-    ENV_VAR_PIDTBLFILE_INITIAL,\
-    ENV_VAR_HIJACK_LIB,\
-    ENV_VAR_CHECKPOINT_DIR,\
-    ENV_VAR_TMPDIR,\
-    ENV_VAR_CKPT_OPEN_FILES,\
-    ENV_VAR_QUIET,\
-    ENV_VAR_UTILITY_DIR,\
-    ENV_VAR_STDERR_PATH,\
-    ENV_VAR_COMPRESSION,\
-    ENV_VAR_SIGCKPT,\
-    ENV_VAR_ROOT_PROCESS,\
-    ENV_VAR_MALLOC_OFFSET,\
-    ENV_VAR_CALLOC_OFFSET,\
-    ENV_VAR_REALLOC_OFFSET,\
-    ENV_VAR_FREE_OFFSET 
-#else
-#define ENV_VARS_ALL \
-    ENV_VAR_NAME_ADDR,\
-    ENV_VAR_NAME_PORT,\
-    ENV_VAR_CKPT_INTR,\
+    ENV_VAR_NAME_CKPT_INTR,\
     ENV_VAR_SERIALFILE_INITIAL,\
     ENV_VAR_PIDTBLFILE_INITIAL,\
     ENV_VAR_HIJACK_LIB,\
@@ -115,8 +84,6 @@
     ENV_VAR_COMPRESSION,\
     ENV_VAR_SIGCKPT,\
     ENV_VAR_ROOT_PROCESS
-#endif
-
 
 #define DRAINER_CHECK_FREQ 0.1
 
@@ -128,8 +95,7 @@
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
 
-#define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
-#define RESTART_SCRIPT_EXT ".sh"
+#define RESTART_SCRIPT_NAME "dmtcp_restart_script.sh"
 
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
 

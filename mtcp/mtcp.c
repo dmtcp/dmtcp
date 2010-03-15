@@ -257,7 +257,7 @@ static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
-static void (*callback_write_dmtcp_header)(int fd) = NULL;
+static void (*callback_write_ckpt_prefix)(int fd) = NULL;
 static void (*callback_write_tid_maps)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
@@ -267,7 +267,7 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            int *parent_tidptr,
                            struct user_desc *newtls,
                            int *child_tidptr);
-static int (*putenv_entry) (const char *name);
+static int (*unsetenv_entry) (const char *name);
 static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
@@ -565,14 +565,14 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_dmtcp_header)(int fd),
+                        void (*write_ckpt_prefix)(int fd),
                         void (*write_tid_maps)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
-    callback_write_dmtcp_header = write_dmtcp_header;
+    callback_write_ckpt_prefix = write_ckpt_prefix;
     callback_write_tid_maps = write_tid_maps;
 }
 
@@ -1159,7 +1159,6 @@ static void *checkpointhread (void *dummy)
   struct timespec sleeperiod;
   struct timeval started, stopped;
   Thread *ckpthread, *thread;
-  char * dmtcp_checkpoint_filename;
 
   /* This is the start function of the checkpoint thread.
    * We also call getcontext to get a snapshot of this call frame,
@@ -1353,11 +1352,8 @@ again:
       sync_shared_mem();
 
       DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n",
-	       &callback_pre_ckpt, callback_pre_ckpt));
-      dmtcp_checkpoint_filename = NULL;
-      (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
-      if (dmtcp_checkpoint_filename)
-        mtcp_sys_strcpy(perm_checkpointfilename,  dmtcp_checkpoint_filename);
+	       &callback_pre_ckpt,callback_pre_ckpt));
+      (*callback_pre_ckpt)();
     }
 
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
@@ -1441,7 +1437,6 @@ static int test_use_compression(void)
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 {
   pid_t cpid;
-  char *empty_ld_preload = "LD_PRELOAD=";
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
   char *old_ldpreload = getenv("LD_PRELOAD");
   if(old_ldpreload!=NULL) old_ldpreload=strdup(old_ldpreload);
@@ -1483,14 +1478,9 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     //make sure DMTCP doesn't catch gzip
     // Here we need to unset LD_PRELOAD in bash env and in process env. See
     // revision log 342 for more details.
-    // Don't use unsetenv, because later LD_PRELOAD will appear in new
-    //  new location as last entry of environ.  This could confuse
-    //  a user program (or trigger a failure in a Condor test).
-    if (old_ldpreload!=NULL) {
-      putenv(empty_ld_preload); // If in bash, this is bash env. var. version
-      putenv_entry = mtcp_get_libc_symbol("putenv");
-      (*putenv_entry)(empty_ld_preload);
-    }
+    unsetenv("LD_PRELOAD"); // bash version
+    unsetenv_entry = mtcp_get_libc_symbol("unsetenv");
+    (*unsetenv_entry)("LD_PRELOAD");
 
     execvp_entry = mtcp_get_libc_symbol("execvp");
     (*execvp_entry)(gzip_path, gzip_args);
@@ -1499,6 +1489,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
   }
+
 
   if(old_ldpreload!=NULL){
     //need to restore LD_PRELOAD as vforked child may have modified it
@@ -1544,8 +1535,8 @@ static void checkpointeverything (void)
   forked_checkpointing = 1;
 #endif
 
-  if(callback_write_dmtcp_header != 0) {
-    /* Temp file for DMTCP header; will be written into the checkpoint file. */
+  if(callback_write_ckpt_prefix != 0) {
+    /* Temp file foe DMTCP prefix; will be written into the checkpoint file.  */
     tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpDMTCPHeaderFd < 0) {
       mtcp_printf("error %d creating temp file: %s\n", errno, strerror(errno));
@@ -1556,8 +1547,8 @@ static void checkpointeverything (void)
       mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno, strerror(errno));
     }
 
-    /* Better to do this in parent, not child, for most accurate header info */
-    (*callback_write_dmtcp_header)(tmpDMTCPHeaderFd);
+    /* Better to do this in parent, not child, for most accurate prefix info. */
+    (*callback_write_ckpt_prefix)(tmpDMTCPHeaderFd);
   }
 
   if (forked_checkpointing) {
@@ -1588,19 +1579,19 @@ static void checkpointeverything (void)
 
   /* 1. Test if using compression */
   use_compression = test_use_compression();
-  /* 2. Get gzip path */
-  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
-                "not be used.\n");
-    use_compression = 0;
-  }
-  /* 3. Create pipe */
+  /* 2. Create pipe */
   /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
    *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
    *   DMTCP doesn't directly checkpoint/restart pipes.
    */
   if ( use_compression && mtcp_sys_pipe(pipe_fds) == -1 ) {
     mtcp_printf("WARNING: error creating pipe. Compression will "
+                "not be used.\n");
+    use_compression = 0;
+  }
+  /* 3. Get gzip path */
+  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
+    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
                 "not be used.\n");
     use_compression = 0;
   }
@@ -2114,30 +2105,12 @@ static void writefile (int fd, void const *buff, size_t size)
 /*  checkpoint															*/
 /*																*/
 /********************************************************************************************************************************/
-/* Grow the stack by kbStack*1024 so that large stack is allocated on restart
- * The kernel won't do it automatically for us any more, since it thinks
- * the stack is in a different place after restart.
- */
-/* growstackValue is volatile so compiler doesn't optimize away growstack */
-static volatile unsigned int growstackValue = 0;
-static void growstack(kbStack) {
-  const int kBincrement = 1024;
-  char array[kBincrement * 1024];
-  volatile int dummy_value = 1; /*Again, try to prevent compiler optimization*/
-  if (kbStack > 0)
-    growstack(kbStack - kBincrement);
-  else
-    growstackValue++;
-}
 
 static void stopthisthread (int signum)
 
 {
   int rc;
   Thread *thread;
-#define BT_SIZE 1024
-#define STDERR_FD 826
-#define LOG_FD 826
 
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
@@ -2145,38 +2118,9 @@ static void stopthisthread (int signum)
   setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
 
   thread = getcurrenthread ();                                              // see which thread this is
-  if (0 && thread == motherofall) {
-    void *buffer[BT_SIZE];
-    int nptrs;
-
-    DPRINTF (( "printing stacktrace of the motherofall Thread\n\n" ));
-    nptrs = backtrace (buffer, BT_SIZE);
-    backtrace_symbols_fd ( buffer, nptrs, STDERR_FD );
-    backtrace_symbols_fd ( buffer, nptrs, LOG_FD );
-
-  }
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
-    static int is_first_checkpoint = 1;
     save_sig_state (thread);                                                // save signal state (and block signal delivery)
     save_tls_state (thread);                                                // save thread local storage state
-    /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
-     * will mmap it.  On second ckpt and later, we would segfault if we tried
-     * to grow the former stack beyond the portion that is already mmap'ed.
-     */
-    if (thread == motherofall) {
-      static char *orig_stack_ptr;
-      int kbStack = 2048;
-      if (is_first_checkpoint) {
-	orig_stack_ptr = (char *)&kbStack;
-        is_first_checkpoint = 0;
-        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes"));
-        growstack(kbStack);
-      } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
-        mtcp_printf("WARNING:  Stack within %d bytes of end;\n"
-		    "  Consider increasing 'kbStack' at line %d of mtcp/%s\n",
-		    kbStack*1024/4, __LINE__-9, __FILE__);
-      }
-    }
 
     ///JA: new code ported from v54b
     rc = getcontext (&(thread -> savctx));
@@ -2188,9 +2132,7 @@ static void stopthisthread (int signum)
     DPRINTF (("mtcp stopthisthread*: after getcontext\n"));
     if (mtcp_state_value(&restoreinprog) == 0) {
 
-      /* We are the original process and all context is saved
-       * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
-       */
+      /* We are the original process and all context is saved */
 
       WMB; // matched by RMB in checkpointhread
 
@@ -2233,7 +2175,7 @@ static void stopthisthread (int signum)
       DPRINTF (("mtcp stopthisthread*: thread %d resuming\n", thread -> tid));
     }
 
-    /* Else restoreinprog >= 1;  This stuff executes to do a restart */
+    /* This stuff executes on restart */
 
     else {
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
@@ -2382,9 +2324,45 @@ static void save_tls_state (Thread *thisthread)
 #endif
 }
 
+static void update_perm_filenae_generation(char * perm_checkpointfilename) {
+  int i;
+  int underscore_idx = 0;
+  int carry = 1; /* Force generation number to be incremented by 1 */
+  for (i = 0; perm_checkpointfilename[i] != '\0' ; i++)
+    if (perm_checkpointfilename[i] == '_')
+      underscore_idx = i;
+  if (perm_checkpointfilename[underscore_idx] != '_')
+    return;
+  if (perm_checkpointfilename[underscore_idx+1] < '0'
+      || perm_checkpointfilename[underscore_idx+1] > '9'
+      || perm_checkpointfilename[underscore_idx+2] < '0'
+      || perm_checkpointfilename[underscore_idx+2] > '9'
+      || perm_checkpointfilename[underscore_idx+3] < '0'
+      || perm_checkpointfilename[underscore_idx+3] > '9'
+      || perm_checkpointfilename[underscore_idx+4] < '0'
+      || perm_checkpointfilename[underscore_idx+4] > '9'
+      || perm_checkpointfilename[underscore_idx+5] != '.'
+      || perm_checkpointfilename[underscore_idx+6] != 'd'
+      || perm_checkpointfilename[underscore_idx+7] != 'm'
+      || perm_checkpointfilename[underscore_idx+8] != 't'
+      || perm_checkpointfilename[underscore_idx+9] != 'c'
+      || perm_checkpointfilename[underscore_idx+10] != 'p')
+    return;
+  for (i = underscore_idx+4; i > underscore_idx; i--) {
+    perm_checkpointfilename[i] += carry;
+    if (perm_checkpointfilename[i] > '9') {
+      perm_checkpointfilename[i] -= 10;
+      carry = 1;
+    } else {
+       carry = 0;
+    }
+  }
+}
+
 static void renametempoverperm (void)
 
 {
+  update_perm_filenae_generation(perm_checkpointfilename);
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
     mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n",  			temp_checkpointfilename, perm_checkpointfilename,
 		 strerror (errno));

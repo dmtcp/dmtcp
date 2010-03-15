@@ -111,12 +111,6 @@ namespace jalib
   class JServerSocket : public JSocket
   {
     public:
-      JServerSocket ( int sockfd ) 
-        : JSocket ( sockfd )
-      {
-        enablePortReuse();
-      }
-
       JServerSocket ( const JSockAddr& addr, int port, int backlog = 32 )
       {
         enablePortReuse();
@@ -209,17 +203,12 @@ namespace jalib
       virtual void onData ( JReaderInterface* sock ) = 0;
       virtual void onConnect ( const JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen ) = 0;
       virtual void onDisconnect ( JReaderInterface* sock ) {};
-      void setTimeoutInterval ( double dblTimeout );
       virtual void onTimeoutInterval() {};
       void addWrite ( JWriterInterface* write );
     protected:
       jalib::vector<JReaderInterface*> _dataSockets;
       jalib::vector<JSocket> _listenSockets;
       jalib::vector<JWriterInterface*> _writes;
-    private:
-      bool timeoutEnabled;
-      struct timeval timeoutInterval;
-      struct timeval stoptime;
   };
 
 } //namespace jalib

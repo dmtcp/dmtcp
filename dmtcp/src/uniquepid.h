@@ -38,18 +38,14 @@ namespace dmtcp
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
-    static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
+    static const dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
     UniquePid ( long host, pid_t pd, time_t tm )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( 0 ) {}
-    UniquePid ( long host, pid_t pd, time_t tm, int gen )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen) {}
+        : _pid ( pd ), _hostid ( host ), _time ( tm ) {}
 
     long hostid() const;
     pid_t pid() const;
     time_t time() const;
-    int generation() const;
-    void incrementGeneration();
     static const char* checkpointFilename();
     static dmtcp::string dmtcpTableFilename();
 #ifdef PID_VIRTUALIZATION
@@ -74,7 +70,6 @@ namespace dmtcp
     pid_t _pid; //getpid()
     long  _hostid; //gethostid()
     time_t _time; //time()
-    int _generation; //generation()
   };
 }
 
@@ -85,3 +80,6 @@ namespace dmtcp
 }
 
 #endif
+
+
+
