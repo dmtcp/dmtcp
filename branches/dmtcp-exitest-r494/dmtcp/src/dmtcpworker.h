@@ -108,7 +108,6 @@ namespace dmtcp
       jalib::JSocket _restoreSocket;
       static bool _stdErrMasked;// = false;
       static bool _stdErrClosed;
-      bool _chkpt_enabled;
   };
 
 }
