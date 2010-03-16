@@ -457,7 +457,7 @@ void * _real_realloc(void *ptr, size_t size) {
 }
 
 void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void, FREE) (ptr);
+  REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET (void, FREE) (ptr);
 //   return ;
 //   static int dlsym_offset = 0;
 //   if (dlsym_offset == 0 && getenv(ENV_VAR_FREE_OFFSET))
