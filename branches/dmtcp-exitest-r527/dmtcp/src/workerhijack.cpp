@@ -60,5 +60,6 @@ void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
 {
   JASSERT(false).Text("should not be called");
 }
+
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
 

@@ -188,6 +188,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
         JWARNING ( retval >= 0 ) ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
         return -1;
       }
+      JTRACE("SELECT retval = -1")(strerror(errno));
     }
     else if ( retval )
     {
