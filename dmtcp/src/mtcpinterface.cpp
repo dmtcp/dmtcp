@@ -360,6 +360,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
+      free ( threadArg );
       dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
       break;
     }
