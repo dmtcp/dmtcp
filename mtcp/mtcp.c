@@ -1146,6 +1146,25 @@ again:
     }
   }
 }
+
+
+void kill_ckpthread (void)
+{
+  int tid;
+  Thread *thread;
+
+  lock_threads ();
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
+      unlk_threads ();
+      printf("\n\n\nKill checkpinthread, tid=%d\n\n\n",thread->tid);
+      mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
+      return;
+    }
+  }
+  unlk_threads ();
+}
+
 
 /********************************************************************************************************************************/
 /*																*/
@@ -1180,6 +1199,7 @@ static void *checkpointhread (void *dummy)
   ckpthread = getcurrenthread ();
   save_sig_state (ckpthread);
   save_tls_state (ckpthread);
+  
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
@@ -2139,12 +2159,19 @@ static void stopthisthread (int signum)
 #define STDERR_FD 826
 #define LOG_FD 826
 
+
+
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
   setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
 
   thread = getcurrenthread ();                                              // see which thread this is
+  
+  if(  mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ){
+    return ;
+  }
+  
   if (0 && thread == motherofall) {
     void *buffer[BT_SIZE];
     int nptrs;
@@ -2308,7 +2335,6 @@ static void wait_for_all_restored (void)
 /********************************************************************************************************************************/
 
 static void save_sig_state (Thread *thisthread)
-
 {
   int i;
   sigset_t blockall;
@@ -2330,6 +2356,11 @@ static void save_sig_state (Thread *thisthread)
         mtcp_abort ();
       }
     }
+  }
+
+  sigdelset(&blockall,STOPSIGNAL);
+  if (_real_sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
+    mtcp_abort ();
   }
 }
 

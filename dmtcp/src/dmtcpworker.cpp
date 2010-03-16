@@ -367,6 +367,14 @@ void dmtcp::DmtcpWorker::CleanupWorker()
   _coordinatorSocket.close();
 }
 
+
+void dmtcp::DmtcpWorker::interruptCkpthread()
+{
+    while( pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY){
+      killCkpthread();    
+    }
+}
+
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
@@ -393,7 +401,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      */
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
-    JASSERT(pthread_mutex_lock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+    interruptCkpthread();
   }
   CleanupWorker();
 }
@@ -1016,6 +1024,11 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
 
 //to allow linking without mtcpinterface
 void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
+{
+  JASSERT(false).Text("should not be called");
+}
+
+void __attribute__ ((weak)) dmtcp::killCkpthread()
 {
   JASSERT(false).Text("should not be called");
 }
