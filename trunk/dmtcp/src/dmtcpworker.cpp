@@ -459,15 +459,10 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   waitForThreadsToFinishInitialization();
 
   JTRACE ( "Starting checkpoint, suspending..." );
-
-  // After acquiring this lock, there shouldn't be any
-  // allocations/deallocation; they will freeze the process.
-  JALLOC_HELPER_LOCK();
 }
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
-  JALLOC_HELPER_UNLOCK();
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   JTRACE ( "suspended" );
 

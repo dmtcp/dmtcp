@@ -97,10 +97,16 @@ extern "C"
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+
+  // After acquiring this lock, there shouldn't be any
+  // allocations/deallocation; they will freeze the process.
+  JALLOC_HELPER_LOCK();
 }
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
+  JALLOC_HELPER_UNLOCK();
+
   // If we don't modify *ckptFilename, then MTCP will continue to use
   //   its default filename, which was passed to it via our call to mtcp_init()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
