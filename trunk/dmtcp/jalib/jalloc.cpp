@@ -20,18 +20,33 @@
  ****************************************************************************/
 
 #include "jalloc.h"
+#include <pthread.h>
+#include <stdio.h>
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
+
+static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
+
+void jalib::JAllocDispatcher::lock()
+{
+  if(pthread_mutex_lock(&allocateLock) != 0)
+    perror("JGlobalAlloc::ckptThreadAcquireLock");
+}
+
+void jalib::JAllocDispatcher::unlock()
+{
+  if(pthread_mutex_unlock(&allocateLock) != 0)
+    perror("JGlobalAlloc::ckptThreadReleaseLock");
+}
+
 
 #ifdef JALIB_ALLOCATOR
 
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <pthread.h>
 
 
 namespace jalib
@@ -103,33 +118,43 @@ private:
   char padding[128];
 };
 
+// FIXME: Do we really need this class now?     --Kapil
 template < typename Alloc >
 class JGlobalAlloc {
 public:
   enum { N = Alloc::N };
 
   static void* allocate(){
+#if 0
     if(pthread_mutex_lock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
+#endif
    
     void* ptr = theAlloc().allocate();
 
+#if 0
     if(pthread_mutex_unlock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
+#endif
 
     return ptr;
   }
 
   //deallocate a chunk of size N
   static void deallocate(void* ptr){
+#if 0
     if(pthread_mutex_lock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
+#endif
    
     theAlloc().deallocate(ptr);
 
+#if 0
     if(pthread_mutex_unlock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
+#endif
   }
+
 private:
   static pthread_mutex_t* theMutex() {
     static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
@@ -140,26 +165,54 @@ private:
     return a;
   }
 };
-                                                                                                    
+
 typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*8 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*8 > > lvl2;
 typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*8 > > lvl3;
 
 void* JAllocDispatcher::allocate(size_t n) {
-  if(n <= lvl1::N) return lvl1::allocate(); else
-  if(n <= lvl2::N) return lvl2::allocate(); else
-  if(n <= lvl3::N) return lvl3::allocate(); else
-  return _alloc_raw(n);
+  lock();
+  void *retVal;
+  if(n <= lvl1::N) retVal = lvl1::allocate(); else
+  if(n <= lvl2::N) retVal = lvl2::allocate(); else
+  if(n <= lvl3::N) retVal = lvl3::allocate(); else
+  retVal = _alloc_raw(n);
+  unlock();
+  return retVal;
 }
 void JAllocDispatcher::deallocate(void* ptr, size_t n){
+  lock();
   if(n <= lvl1::N) lvl1::deallocate(ptr); else
   if(n <= lvl2::N) lvl2::deallocate(ptr); else
   if(n <= lvl3::N) lvl3::deallocate(ptr); else
   _dealloc_raw(ptr, n);
+  unlock();
 }
 
+} // namespace jalib
+
+#else
+
+#include <stdlib.h>
+
+void* jalib::JAllocDispatcher::allocate(size_t n) {
+  lock();
+  void* p = malloc(n);
+  unlock();
+  return p;
+}
+void jalib::JAllocDispatcher::deallocate(void* ptr, size_t){
+  lock();
+  free(ptr);
+  unlock();
 }
 
+#endif
+
+#ifdef OVERRIDE_GLOBAL_ALLOCATOR
+#  ifndef JALIB_ALLOCATOR
+#    error "JALIB_ALLOCATOR must be #defined in dmtcp/jalib/jalloc.h for --enable-allocator to work"
+#  endif
 void* operator new(size_t nbytes){
   size_t* p = (size_t*) jalib::JAllocDispatcher::allocate(nbytes+sizeof(size_t));
   *p = nbytes;
@@ -172,18 +225,4 @@ void operator delete(void* _p){
   p-=1;
   jalib::JAllocDispatcher::deallocate(p, *p+sizeof(size_t));
 }
-
-#else
-
-#include <stdlib.h>
-
-void* jalib::JAllocDispatcher::allocate(size_t n) {
-  return malloc(n);
-}
-void jalib::JAllocDispatcher::deallocate(void* ptr, size_t){
-  free(ptr);
-}
-
 #endif
-
-

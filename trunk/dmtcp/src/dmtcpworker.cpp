@@ -22,6 +22,7 @@
 #include "dmtcpworker.h"
 #include "constants.h"
 #include  "../jalib/jconvert.h"
+#include  "../jalib/jalloc.h"
 #include "dmtcpmessagetypes.h"
 #include <stdlib.h>
 #include "mtcpinterface.h"
@@ -458,10 +459,15 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   waitForThreadsToFinishInitialization();
 
   JTRACE ( "Starting checkpoint, suspending..." );
+
+  // After acquiring this lock, there shouldn't be any
+  // allocations/deallocation; they will freeze the process.
+  JALLOC_HELPER_LOCK();
 }
 
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
+  JALLOC_HELPER_UNLOCK();
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   JTRACE ( "suspended" );
 
@@ -706,26 +712,37 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 }
 
 // XXX: Handle deadlock error code
+// NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     int retVal = pthread_rwlock_rdlock(&theWrapperExecutionLock);
-    JASSERT(retVal == 0 || retVal == EDEADLK) (retVal) (strerror(retVal))
-      .Text("Failed to acquire rdlock");
+    if ( retVal != 0 && retVal != EDEADLK ) {
+      perror ( "ERROR DmtcpWorker::wrapperExecutionLockLock: Failed to acquire lock" );
+      _exit(1);
+    }
     lockAcquired = retVal == 0 ? true : false;
   }
   errno = saved_errno;
   return lockAcquired;
 }
 
+// NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
-  JASSERT( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING )
-    .Text( "This implies process is not in running state and yet this thread managed to acquire the wrapperExecutionLock. This is wrong." );
-  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING ) {
+    printf ( "ERROR: DmtcpWorker::wrapperExecutionLockUnlock: This process is not in \n"
+             "RUNNING state and yet this thread managed to acquire the wrapperExecutionLock.\n"
+             "This should not be happening, something is wrong." );
+    _exit(1);
+  }
+  if ( pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
+    perror ( "ERROR DmtcpWorker::wrapperExecutionLockUnlock: Failed to release lock" );
+    _exit(1);
+    }
   errno = saved_errno;
 }
 
@@ -919,10 +936,10 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
         int num_processes = result[0];
         JTRACE("Joining existing computation.") (num_processes);
       }
-      exit(CS_OK);
+      _real_exit(CS_OK);
     }else{
       JTRACE("Existing computation not in a running state, perhaps checkpoint in progress?");
-      exit(CS_NO);
+      _real_exit(CS_NO);
     }
   }
   errno = 0;
@@ -961,7 +978,7 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
   if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
     JASSERT(false)
       .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
-    exit(1);
+    _real_exit(1);
   }
 
   if ( modes & COORD_BATCH || modes & COORD_FORCE_NEW ) {

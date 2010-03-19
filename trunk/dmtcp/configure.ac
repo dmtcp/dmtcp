@@ -93,7 +93,7 @@ AC_ARG_ENABLE([allocator],
             [use_allocator=no])
 
 if test "$use_allocator" = "yes"; then
-  AC_DEFINE([JALIB_ALLOCATOR],[],[Use a custom allocator based on mmap])
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 fi
 
 AC_ARG_ENABLE([m32],

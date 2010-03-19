@@ -415,6 +415,7 @@ extern "C" void *realloc(void *ptr, size_t size)
   WRAPPER_EXECUTION_LOCK_UNLOCK();
   return retVal;
 }
+#endif
 
 
 /*
@@ -492,4 +493,3 @@ extern "C" int vsprintf(char *str, const char *format, va_list ap);
 extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 */
 
-#endif

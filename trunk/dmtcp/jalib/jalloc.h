@@ -22,6 +22,8 @@
 #ifndef JALLOC_H
 #define JALLOC_H
 
+#define JALIB_ALLOCATOR
+
 #include <stdlib.h>
 
 namespace jalib
@@ -30,9 +32,47 @@ namespace jalib
 class JAllocDispatcher {
 public:
   static void* allocate(size_t n);
-  static void deallocate(void* ptr, size_t n);
+  static void  deallocate(void* ptr, size_t n);
+  static void* malloc(size_t nbytes) 
+  {
+    size_t* p = (size_t*) jalib::JAllocDispatcher::allocate(nbytes+sizeof(size_t));
+    *p = nbytes;
+    p+=1;
+    return p;
+  }
+  static void  free(void* p)
+  {
+    size_t* _p = (size_t*) p;
+    _p-=1;
+    jalib::JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));
+  }
+  static void lock();
+  static void unlock();
 };
 
 }
+
+#define JALLOC_HELPER_LOCK() jalib::JAllocDispatcher::lock();
+#define JALLOC_HELPER_UNLOCK() jalib::JAllocDispatcher::unlock();
+
+#define JALLOC_HELPER_NEW(nbytes) return jalib::JAllocDispatcher::malloc(nbytes)
+#define JALLOC_HELPER_DELETE(p) return jalib::JAllocDispatcher::free(p)
+
+// #define JALLOC_HELPER_NEW(nbytes) {\
+//   size_t* p = (size_t*) jalib::JAllocDispatcher::allocate(nbytes+sizeof(size_t));\
+//   *p = nbytes;\
+//   p+=1;\
+//   return p;}
+// 
+// #define JALLOC_HELPER_DELETE(p) {\
+//   size_t* _p = (size_t*) p;\
+//   _p-=1;\
+//   jalib::JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));}
+
+#define JALLOC_HELPER_MALLOC(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
+#define JALLOC_HELPER_FREE(p) jalib::JAllocDispatcher::free(p)
+
+//#define JALLOC_HELPER_MALLOC(nbytes) JALLOC_HELPER_NEW(nbytes)
+//#define JALLOC_HELPER_FREE(nbytes) JALLOC_HELPER_DELETE(nbytes)
 
 #endif

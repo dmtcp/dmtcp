@@ -34,6 +34,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
+#include "jalloc.h"
 
 extern int jassert_quiet;
 
@@ -85,6 +86,11 @@ namespace jassert_internal
   class JAssert
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       ///
       /// print a value of any type
       template < typename T > JAssert& Print ( const T& t );
@@ -115,7 +121,7 @@ namespace jassert_internal
 
 
   const char* jassert_basename ( const char* str );
-  std::ostream& jassert_output_stream();
+  dmtcp::ostream& jassert_output_stream();
   void jassert_safe_print ( const char* );
   bool lockLog();
   void unlockLog();
@@ -127,7 +133,7 @@ namespace jassert_internal
 #ifdef JASSERT_FAST
     jassert_output_stream() << t;
 #else
-    std::ostringstream ss;
+    dmtcp::ostringstream ss;
     ss << t;
     jassert_safe_print ( ss.str().c_str() );
 #endif
