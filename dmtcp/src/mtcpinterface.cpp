@@ -236,8 +236,8 @@ int thread_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 
-  // Free the memory
-  free(threadArg);
+  // Free the memory which was previously allocated by calling JALLOC_HELPER_MALLOC
+  JALLOC_HELPER_FREE(threadArg);
 
   if (original_tid == -1) {
     /* 
@@ -338,7 +338,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  struct ThreadArg *threadArg = (struct ThreadArg *) malloc (sizeof (struct ThreadArg));
+  // We have to use DMTCP specific memory allocator because using glibc:malloc
+  // can interfere with user theads
+  struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
@@ -357,10 +359,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if (tid == -1) {
+      // Free the memory which was previously allocated by calling
+      // JALLOC_HELPER_MALLOC
+      JALLOC_HELPER_FREE ( threadArg );
+
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
-      free ( threadArg );
       dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
       break;
     }

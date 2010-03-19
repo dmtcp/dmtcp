@@ -24,7 +24,8 @@
 
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jalloc.h"
 #include "constants.h"
 #include <string.h>
 #include <sys/types.h>
@@ -76,6 +77,11 @@ namespace dmtcp
   class WorkerState
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       enum eWorkerState
       {
         UNKNOWN,

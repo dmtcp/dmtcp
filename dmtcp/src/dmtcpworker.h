@@ -24,6 +24,7 @@
 
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
+#include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
@@ -49,6 +50,11 @@ namespace dmtcp
   class DmtcpWorker
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       static DmtcpWorker& instance();
       static const int ld_preload_c_len = 256;
       static char ld_preload_c[ld_preload_c_len];

@@ -24,7 +24,8 @@
 
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
-
+#include "../jalib/jalloc.h"
+ 
 // #include <vector>
 // #include <map>
 
@@ -37,6 +38,11 @@ namespace dmtcp
   {
 //     friend class ConnectionIdentifiers;
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       static ConnectionIdentifier Create();
       static ConnectionIdentifier Null();
       static ConnectionIdentifier Self();

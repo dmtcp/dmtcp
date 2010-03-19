@@ -22,6 +22,7 @@
 #ifndef JALIBJBUFFER_H
 #define JALIBJBUFFER_H
 
+#include "jalloc.h"
 namespace jalib
 {
 
@@ -31,6 +32,11 @@ namespace jalib
   class JBuffer
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JBuffer ( int size = 0 );
       JBuffer ( const char* source, int size );
       JBuffer ( const JBuffer& that );
