@@ -25,11 +25,13 @@
 #include <string>
 #include <pwd.h>
 #include <sstream>
+#include <fcntl.h>
 #include "constants.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
-#include "syscallwrappers.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
+#include "syscallwrappers.h"
+#include "protectedfds.h"
 
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
@@ -173,8 +175,7 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/dmtcpConTable."
-     << ThisProcess()
+  os << getTmpDir() << "/dmtcpConTable." << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
@@ -185,8 +186,7 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/dmtcpPidTable."
-     << ThisProcess()
+  os << getTmpDir() << "/dmtcpPidTable." << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
@@ -199,23 +199,52 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   //this must be static so dmtcp::string isn't destructed
   static dmtcp::string ptsSymlinkFilename_str;
 
-  ptsSymlinkFilename_str = getTmpDir(getenv(ENV_VAR_TMPDIR));
+  ptsSymlinkFilename_str = getTmpDir();
   ptsSymlinkFilename_str += "/pts_" + ThisProcess().toString() + '_';
   ptsSymlinkFilename_str += devicename;
 
   return ptsSymlinkFilename_str.c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::getTmpDir(const char* envVarTmpDir) {
-  static bool initialized = false;
-  static dmtcp::string tmpDir;
-  if (initialized) {
-    return tmpDir;
+dmtcp::string dmtcp::UniquePid::getTmpDir() 
+{
+  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/" 
+                           + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
+  if ( device.empty() ) {
+    JWARNING ( false ) .Text ("Unable to determine DMTCP TMPDIR, retrying.");
+    setTmpDir(getenv(ENV_VAR_TMPDIR));
+    device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/" 
+               + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
+    JASSERT ( !device.empty() ) 
+      .Text ( "Still unable to determine DMTCP_TMPDIR" );
   }
+  return device;
+}
 
-  char hostname[80] = {0};
+/*
+ * setTmpDir() computes the TmpDir to be used by DMTCP. It does so by using
+ * DMTCP_TMPDIR env, current username, and hostname. Once computed, we open the
+ * directory on file descriptor PROTECTED_TMPDIR_FD. The getTmpDir() routine
+ * finds the TmpDir from looking at PROTECTED_TMPDIR_FD in proc file system.
+ *
+ * This mechanism was introduced to avoid calls to gethostname(), getpwuid()
+ * etc. while DmtcpWorker was still initializing (in constructor) or the
+ * process was restarting. gethostname(), getpwuid() will create a socket
+ * connect to some DNS server to find out hostname and username. The socket is
+ * closed only at next exec() and thus it leaves a dangling socket in the
+ * worker process. To resolve this issue, we make sure to call setTmpDir() only
+ * from dmtcp_checkpoint and dmtcp_restart process and once the user process
+ * has been exec()ed, we use getTmpDir() only.
+ */
+void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
+  dmtcp::string tmpDir;
+#define HOSTNAME_MAX_CHARS 255
 
-  JASSERT ( gethostname(hostname, 80) == 0) .Text ( "gethostname() failed" );
+  char hostname[HOSTNAME_MAX_CHARS + 1];
+  bzero(hostname, HOSTNAME_MAX_CHARS + 1);
+
+  JASSERT ( gethostname(hostname, HOSTNAME_MAX_CHARS) == 0 || errno == ENAMETOOLONG)
+    .Text ( "gethostname() failed" );
 
   dmtcp::ostringstream o;
 
@@ -234,12 +263,16 @@ dmtcp::string dmtcp::UniquePid::getTmpDir(const char* envVarTmpDir) {
     o << "/tmp/dmtcp-" << userName << "@" << hostname;
   }
 
-  tmpDir = o.str();
+  JASSERT(mkdir(o.str().c_str(), S_IRWXU) == 0 || errno == EEXIST) 
+    (JASSERT_ERRNO) (o.str()) 
+    .Text("Error creating tmp directory");
 
-  // This would persist through restart when we need to reinitialize tmpdir.
-  // Comment it out for now.
-  //initialized = true;
-  return tmpDir;
+  JASSERT(0 == access(o.str().c_str(), X_OK|W_OK)) (o.str())
+    .Text("ERROR: Missing execute- or write-access to tmp dir");
+
+  int tmpFd = open ( o.str().c_str(), O_RDONLY  );
+  JASSERT(dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
+  close ( tmpFd );
 }
 
 /*!

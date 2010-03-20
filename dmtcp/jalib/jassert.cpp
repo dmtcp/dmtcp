@@ -169,6 +169,14 @@ static FILE* theLogFile = NULL;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
+void jassert_internal::jassert_init ( const jalib::string& f )
+{
+#ifdef DEBUG
+  set_log_file(f);
+#endif
+  jassert_safe_print("");
+}
+
 void jassert_internal::reset_on_fork ( )
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
