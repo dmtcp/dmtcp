@@ -159,9 +159,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   dmtcp::UniquePid::ThisProcess(true);
 
   dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-  JASSERT_SET_LOGFILE (o.str());
-  JASSERT_INIT();
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_INIT (o.str());
 
   JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
 #endif

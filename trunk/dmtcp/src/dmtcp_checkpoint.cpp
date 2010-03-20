@@ -118,7 +118,6 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
-  dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
 #ifdef ENABLE_MALLOC_WRAPPER
   long mallocOff, callocOff, freeOff, reallocOff;
@@ -209,14 +208,8 @@ int main ( int argc, char** argv )
     }
   }
 
-  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
-    .Text("Error creating tmp directory");
-
-  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
-    (dmtcpTmpDir.c_str())
-    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
 #ifdef FORKED_CHECKPOINTING
@@ -262,7 +255,7 @@ int main ( int argc, char** argv )
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here
-  JASSERT_INIT();
+  JASSERT_INIT( dmtcp::UniquePid::getTmpDir() );
 
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){

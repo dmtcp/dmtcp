@@ -48,14 +48,13 @@ static pid_t forkChild ( time_t child_time, long child_host )
     } else if ( child_pid == 0 ) { 
       /* child process */
 
-      JASSERT_RESET_ON_FORK ( );
+      JASSERT_RESET_ON_FORK ();
 #ifdef DEBUG
       dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
       //child should get new logfile
       dmtcp::ostringstream o;
-      o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
-        << "/jassertlog." << child.toString();
-      JASSERT_SET_LOGFILE (o.str());
+      o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << child.toString();
+      JASSERT_INIT (o.str());
 #endif
 
       if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
