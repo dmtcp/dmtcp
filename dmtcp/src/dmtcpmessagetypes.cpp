@@ -66,7 +66,7 @@ void dmtcp::DmtcpMessage::assertValid() const
 
   if ( type == DMT_KILL_PEER ) {
     JTRACE ( "Received KILL Message from coordinator, exiting" );
-    exit ( 0 );
+    _exit ( 0 );
   }
 }
 

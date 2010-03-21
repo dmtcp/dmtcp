@@ -713,6 +713,9 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 // XXX: Handle deadlock error code
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
+#ifdef PTRACE 
+  return false;
+#else
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
@@ -723,6 +726,7 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
   }
   errno = saved_errno;
   return lockAcquired;
+#endif
 }
 
 void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
