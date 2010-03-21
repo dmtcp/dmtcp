@@ -329,6 +329,36 @@ static int   tgkill(int tgid, int tid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
 
+#ifdef PTRACE
+
+#define TRUE 1
+#define FALSE 0
+
+typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int 
+value );
+extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;
+
+typedef int ( *get_is_waitpid_local_t ) ();
+extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
+
+typedef void ( *unset_is_waitpid_local_t ) ();
+extern "C" unset_is_waitpid_local_t unset_is_waitpid_local_ptr;
+
+typedef pid_t ( *get_saved_pid_t) ( );
+extern "C" get_saved_pid_t get_saved_pid_ptr;
+
+typedef int ( *get_saved_status_t) ( );
+extern "C" get_saved_status_t get_saved_status_ptr;
+
+typedef int ( *get_has_status_and_pid_t) ( );
+extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
+
+typedef void ( *reset_pid_status_t) ( );
+extern "C" reset_pid_status_t reset_pid_status_ptr;
+
+extern "C" sigset_t signals_set;
+#endif
+
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
  *       It wouldn't be a straight forward process, we need to take care of the

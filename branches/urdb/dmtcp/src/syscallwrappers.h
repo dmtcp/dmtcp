@@ -141,6 +141,10 @@ extern "C"
 
 #endif /* PID_VIRTUALIZATION */
 
+#ifdef PTRACE
+  long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+#endif
+
   long int _real_syscall(long int sys_num, ... );
   
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );

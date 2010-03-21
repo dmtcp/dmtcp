@@ -375,6 +375,12 @@ FILE * _real_fopen( const char *path, const char *mode ) {
 
 #endif
 
+#ifdef PTRACE
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
+}
+#endif
+
 /* See comments for syscall wrapper */
 long int _real_syscall(long int sys_num, ... ) {
   int i;

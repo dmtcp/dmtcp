@@ -157,7 +157,7 @@ extern "C" pid_t fork()
   return retVal;
 }
 
-
+#ifdef PTRACE
 extern "C" pid_t vfork()
 {
   JTRACE ( "vfork wrapper calling fork" );
@@ -165,6 +165,7 @@ extern "C" pid_t vfork()
   // Used for checkpointing gdb.
   return fork();
 }
+#endif 
 
 static void dmtcpPrepareForExec()
 {

@@ -27,6 +27,10 @@
 #endif
 #include "linux/version.h"
 
+/* TODO: we want to be able to switch this on and off - 
+   for the time being: not a concern*/
+//#define PTRACE 1
+
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
