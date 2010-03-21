@@ -334,7 +334,8 @@ namespace
       {
         dmtcp::ostringstream o;
         o << dmtcpTmpDir << "/jassertlog." << pid();
-        JASSERT_INIT(o.str());
+        JASSERT_SET_LOGFILE(o.str());
+        JASSERT_INIT();
         
 
         //change UniquePid
@@ -637,8 +638,14 @@ int main ( int argc, char** argv )
     }
   }
 
-  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir();
+  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+
+  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
+    .Text("Error creating tmp directory");
+  
+  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
+    (dmtcpTmpDir.c_str())
+    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
@@ -648,9 +655,7 @@ int main ( int argc, char** argv )
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
-  dmtcp::ostringstream o;
-  o << dmtcpTmpDir << "/jassertlog." << getpid();
-  JASSERT_INIT(o.str());
+  JASSERT_INIT();
 
   bool doAbort = false;
   for(; argc>0; shift){

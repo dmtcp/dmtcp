@@ -34,7 +34,6 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#include "jalloc.h"
 
 extern int jassert_quiet;
 
@@ -86,11 +85,6 @@ namespace jassert_internal
   class JAssert
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       ///
       /// print a value of any type
       template < typename T > JAssert& Print ( const T& t );
@@ -121,11 +115,11 @@ namespace jassert_internal
 
 
   const char* jassert_basename ( const char* str );
-  dmtcp::ostream& jassert_output_stream();
+  std::ostream& jassert_output_stream();
   void jassert_safe_print ( const char* );
-  void jassert_init ( const jalib::string& f );
   bool lockLog();
   void unlockLog();
+
 
   template < typename T >
   inline JAssert& JAssert::Print ( const T& t )
@@ -133,7 +127,7 @@ namespace jassert_internal
 #ifdef JASSERT_FAST
     jassert_output_stream() << t;
 #else
-    dmtcp::ostringstream ss;
+    std::ostringstream ss;
     ss << t;
     jassert_safe_print ( ss.str().c_str() );
 #endif
@@ -147,13 +141,10 @@ namespace jassert_internal
 
 }//jassert_internal
 
-#define JASSERT_INIT(p) (jassert_internal::jassert_init(p));
+#define JASSERT_INIT() jassert_internal::jassert_safe_print("")
 
 #define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
 #define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());
-
-#define JASSERT_CKPT_LOCK() (jassert_internal::lockLog());
-#define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
 
@@ -195,20 +186,5 @@ namespace jassert_internal
 
 #define JASSERT(term)  if((term)){}else \
     jassert_internal::JAssert(true).JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
-
-#define JALIB_CKPT_LOCK() do{\
-  JASSERT_CKPT_LOCK();\
-  JALLOC_HELPER_LOCK();\
-} while(0)
-
-#define JALIB_CKPT_UNLOCK() do{\
-  JALLOC_HELPER_UNLOCK();\
-  JASSERT_CKPT_UNLOCK();\
-} while(0)
-
-#define JALIB_RESET_ON_FORK() do{\
-  JASSERT_RESET_ON_FORK();\
-  JALLOC_HELPER_RESET_ON_FORK();\
-} while(0)
 
 #endif

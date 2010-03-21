@@ -21,8 +21,7 @@
 
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jalloc.h"
+#include  "../jalib/jassert.h"
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -36,8 +35,8 @@
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
 #include "protectedfds.h"
-#include "../jalib/jfilesystem.h"
-#include "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 
 namespace
 {
@@ -98,17 +97,10 @@ extern "C"
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
-
-  // After acquiring this lock, there shouldn't be any
-  // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
-  // process can deadlock.
-  JALIB_CKPT_LOCK();
 }
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
-  JALIB_CKPT_UNLOCK();
-
   // If we don't modify *ckptFilename, then MTCP will continue to use
   //   its default filename, which was passed to it via our call to mtcp_init()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
@@ -128,7 +120,7 @@ static void callbackPostCheckpoint ( int isRestart )
 #ifdef DEBUG
     //logfile closed, must reopen it
     dmtcp::ostringstream o;
-    o << dmtcp::UniquePid::getTmpDir() 
+    o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) 
       << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
     JASSERT_SET_LOGFILE (o.str());
 #endif
@@ -141,13 +133,6 @@ static void callbackPostCheckpoint ( int isRestart )
   dmtcp::DmtcpWorker::instance().waitForStage3Resume(isRestart);
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(isRestart);
-
-  if ( !isRestart ) {
-    // After this point, the user threads will be unlocked in mtcp.c and will
-    // resume their computation and so it is OK to set the process state to
-    // RUNNING.
-    dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-  }
 }
 
 static int callbackShouldCkptFD ( int /*fd*/ )
@@ -164,11 +149,6 @@ static void callbackWriteCkptPrefix ( int fd )
 static void callbackWriteTidMaps ( )
 {
   dmtcp::DmtcpWorker::instance().writeTidMaps();
-
-  // After this point, the user threads will be unlocked in mtcp.c and will
-  // resume their computation and so it is OK to set the process state to
-  // RUNNING.
-  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 } 
 
 void dmtcp::initializeMtcpEngine()
@@ -244,8 +224,8 @@ int thread_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 
-  // Free the memory which was previously allocated by calling JALLOC_HELPER_MALLOC
-  JALLOC_HELPER_FREE(threadArg);
+  // Free the memory
+  free(threadArg);
 
   if (original_tid == -1) {
     /* 
@@ -346,9 +326,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  // We have to use DMTCP specific memory allocator because using glibc:malloc
-  // can interfere with user theads
-  struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
+  struct ThreadArg *threadArg = (struct ThreadArg *) malloc (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
@@ -367,10 +345,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if (tid == -1) {
-      // Free the memory which was previously allocated by calling
-      // JALLOC_HELPER_MALLOC
-      JALLOC_HELPER_FREE ( threadArg );
-
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */

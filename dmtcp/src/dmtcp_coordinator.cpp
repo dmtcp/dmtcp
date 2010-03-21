@@ -1167,15 +1167,23 @@ int main ( int argc, char** argv )
   JASSERT ( ! (background && batchMode) )
     .Text ( "--background and --batch can't be specified together");
 
-  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcp::string dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+
+  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
+    .Text("Error creating tmp directory");
+
+  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
+    (dmtcpTmpDir)
+    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
 #ifdef DEBUG
   /* Disable Jassert Logging */
   dmtcp::UniquePid::ThisProcess(true);
 
   dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-  JASSERT_INIT(o.str());
+  o << dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR)) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_SET_LOGFILE (o.str());
+  JASSERT_INIT();
 
   JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
 #endif

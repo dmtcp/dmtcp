@@ -24,7 +24,6 @@
 
 
 #include "jassert.h"
-#include "jalloc.h"
 
 #include "stlwrapper.h"
 #include <string>
@@ -43,11 +42,6 @@ namespace jalib
   class JBinarySerializer
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       JBinarySerializer ( const jalib::string& filename ) : _filename ( filename ), _bytes(0) {}
       virtual ~JBinarySerializer() {}
 

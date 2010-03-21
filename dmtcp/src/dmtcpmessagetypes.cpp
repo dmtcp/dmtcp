@@ -43,7 +43,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,from ( ConnectionIdentifier::Self() )
     ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
-    ,compGroup ( UniquePid(0,0,0) )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
@@ -67,7 +66,7 @@ void dmtcp::DmtcpMessage::assertValid() const
 
   if ( type == DMT_KILL_PEER ) {
     JTRACE ( "Received KILL Message from coordinator, exiting" );
-    _exit ( 0 );
+    exit ( 0 );
   }
 }
 

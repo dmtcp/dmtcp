@@ -26,8 +26,7 @@
 #include "kernelbufferdrainer.h"
 #include "connectionmanager.h"
 #include "connectionrewirer.h"
-#include "../jalib/jsocket.h"
-#include "../jalib/jalloc.h"
+#include  "../jalib/jsocket.h"
 
 namespace dmtcp
 {
@@ -38,11 +37,6 @@ namespace dmtcp
   class ConnectionState
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
       void deleteDupFileConnections();

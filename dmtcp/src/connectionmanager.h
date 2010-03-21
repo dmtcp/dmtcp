@@ -27,9 +27,8 @@
 #include <list>
 #include <map>
 #include <string>
-#include "../jalib/jserialize.h"
-#include "../jalib/jfilesystem.h"
-#include "../jalib/jalloc.h"
+#include  "../jalib/jserialize.h"
+#include  "../jalib/jfilesystem.h"
 #include "virtualpidtable.h"
 #include "constants.h"
 
@@ -45,11 +44,6 @@ namespace dmtcp
   {
       friend class KernelDeviceToConnection;
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
@@ -73,11 +67,7 @@ namespace dmtcp
   class KernelDeviceToConnection
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+
       static KernelDeviceToConnection& Instance();
       Connection& retrieve ( int fd );
       void        create ( int fd, Connection* c );
@@ -113,11 +103,6 @@ namespace dmtcp
   class ConnectionToFds
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       ConnectionToFds() {
         _procname = jalib::Filesystem::GetProgramName();
         _hostname = jalib::Filesystem::GetCurrentHostname();
@@ -170,11 +155,6 @@ namespace dmtcp
   class SlidingFdTable
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       SlidingFdTable ( int startingFd = 500 )
         : _nextFd ( startingFd )
         , _startFd ( startingFd )
@@ -210,11 +190,6 @@ namespace dmtcp
   class UniquePtsNameToPtmxConId
   {
     public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
       UniquePtsNameToPtmxConId() {}
       static UniquePtsNameToPtmxConId& Instance();
 
