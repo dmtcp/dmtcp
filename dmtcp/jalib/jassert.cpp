@@ -72,6 +72,25 @@ static int _real_open ( const char *pathname, int flags, mode_t mode )
   return (*openFuncptr)(pathname, flags, mode);
 }
 
+static int jwrite(FILE *stream, const char *str)
+{
+#ifndef JASSERT_USE_FPRINTF
+  ssize_t offs, rc=-1;
+  ssize_t size = strlen(str);
+  int fd = fileno(stream);
+
+  if (fd != -1) {
+    for (offs = 0; offs < size; offs += rc) {
+      rc = TEMP_FAILURE_RETRY(write (fd, str + offs, size - offs));
+      if (rc <= 0) break;
+    }
+  }
+  return rc;
+#else
+  return fprintf( stream, "%s", str );
+#endif
+}
+
 int jassert_internal::jassert_console_fd()
 {
   //make sure stream is open
@@ -93,9 +112,7 @@ bool jassert_internal::lockLog()
 {
   int retVal = pthread_mutex_lock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr,
-	      "\n\n\n%s:%d in %s Error %d acquiring mutex in Jassert: %s\n\n\n",
-              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+    perror ( "jassert_internal::lockLog: Error acquiring mutex");
   }
   return retVal == 0;
 }
@@ -104,9 +121,7 @@ void jassert_internal::unlockLog()
 {
   int retVal = pthread_mutex_unlock(&logLock);
   if (retVal != 0) {
-    fprintf ( stderr,
-	      "\n\n\n%s:%d in %s Error %d releasing mutex in Jassert: %s\n\n\n",
-              __FILE__, __LINE__, __FUNCTION__, retVal, strerror(retVal) );
+    perror ( "jassert_internal::unlockLog: Error releasing mutex");
   }
 }
 
@@ -229,22 +244,24 @@ void jassert_internal::jassert_safe_print ( const char* str )
   static bool useErrorconsole = true;
 
   if( errconsole == NULL && useErrorconsole ) {
-    fprintf ( stderr, "dmtcp: cannot open output channel for error logging\n");
+    jwrite ( stderr, "dmtcp: cannot open output channel for error logging\n");
     useErrorconsole = false;
   }
 
   if ( useErrorconsole )
-    fprintf ( errconsole,"%s",str );
+    jwrite ( errconsole, str );
 
   if ( theLogFile != NULL ) {
-    int rv = fprintf ( theLogFile,"%s",str );
+    int rv = jwrite ( theLogFile, str );
 
     if ( rv < 0 ) {
       if ( useErrorconsole )
-        fprintf ( errconsole,"JASSERT: write failed, reopening log file.\n" );
+        jwrite ( errconsole, "JASSERT: write failed, reopening log file.\n" );
       JASSERT_SET_LOGFILE ( theLogFilePath() );
-      if ( theLogFile != NULL )
-        fprintf ( theLogFile,"JASSERT: write failed, reopened log file.\n%s",str );
+      if ( theLogFile != NULL ) {
+        jwrite ( theLogFile, "JASSERT: write failed, reopened log file:\n");
+        jwrite ( theLogFile, str );
+      }
     }
     fflush ( theLogFile );
   }
