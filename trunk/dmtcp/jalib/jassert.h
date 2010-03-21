@@ -127,7 +127,6 @@ namespace jassert_internal
   bool lockLog();
   void unlockLog();
 
-
   template < typename T >
   inline JAssert& JAssert::Print ( const T& t )
   {
@@ -152,6 +151,9 @@ namespace jassert_internal
 
 #define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
 #define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());
+
+#define JASSERT_CKPT_LOCK() (jassert_internal::lockLog());
+#define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
 
@@ -193,5 +195,20 @@ namespace jassert_internal
 
 #define JASSERT(term)  if((term)){}else \
     jassert_internal::JAssert(true).JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
+
+#define JALIB_CKPT_LOCK() do{\
+  JASSERT_CKPT_LOCK();\
+  JALLOC_HELPER_LOCK();\
+} while(0)
+
+#define JALIB_CKPT_UNLOCK() do{\
+  JALLOC_HELPER_UNLOCK();\
+  JASSERT_CKPT_UNLOCK();\
+} while(0)
+
+#define JALIB_RESET_ON_FORK() do{\
+  JASSERT_RESET_ON_FORK();\
+  JALLOC_HELPER_RESET_ON_FORK();\
+} while(0)
 
 #endif

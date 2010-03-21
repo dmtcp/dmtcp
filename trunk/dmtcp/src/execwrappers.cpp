@@ -48,7 +48,7 @@ static pid_t forkChild ( time_t child_time, long child_host )
     } else if ( child_pid == 0 ) { 
       /* child process */
 
-      JASSERT_RESET_ON_FORK ();
+      JALIB_RESET_ON_FORK ();
 #ifdef DEBUG
       dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
       //child should get new logfile
