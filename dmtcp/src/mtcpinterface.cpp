@@ -21,7 +21,8 @@
 
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jalloc.h"
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -35,8 +36,8 @@
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
 #include "protectedfds.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
 
 namespace
 {
@@ -99,13 +100,14 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   // After acquiring this lock, there shouldn't be any
-  // allocations/deallocation; they will freeze the process.
-  JALLOC_HELPER_LOCK();
+  // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
+  // process can deadlock.
+  JALIB_CKPT_LOCK();
 }
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
-  JALLOC_HELPER_UNLOCK();
+  JALIB_CKPT_UNLOCK();
 
   // If we don't modify *ckptFilename, then MTCP will continue to use
   //   its default filename, which was passed to it via our call to mtcp_init()

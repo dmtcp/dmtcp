@@ -29,6 +29,12 @@
 
 static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
 
+void jalib::JAllocDispatcher::reset_on_fork()
+{
+  pthread_mutex_t tmpLock = PTHREAD_MUTEX_INITIALIZER;
+  allocateLock = tmpLock;
+}
+
 void jalib::JAllocDispatcher::lock()
 {
   if(pthread_mutex_lock(&allocateLock) != 0)
