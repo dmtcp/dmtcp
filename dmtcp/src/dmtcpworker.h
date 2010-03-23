@@ -92,7 +92,10 @@ namespace dmtcp
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
 
-      void connectToCoordinator(bool doHanshaking=true);
+      bool connectToCoordinator(bool dieOnError=true);
+      bool tryConnectToCoordinator();
+      void connectToCoordinatorWithoutHandshake();
+      void connectToCoordinatorWithHandshake();
       // np > -1 means it is restarting process that have np processes in its computation group
       // np == -1 means it is new pure process, so coordinator needs to generate compGroup ID for it
       // np == -2 means it is service connection from dmtcp_restart - irnore it

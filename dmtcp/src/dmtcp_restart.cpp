@@ -443,7 +443,7 @@ namespace
 
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
-        worker.connectToCoordinator(false);
+        worker.connectToCoordinatorWithoutHandshake();
         worker.sendCoordinatorHandshake(procname(),_compGroup);
         dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
        
@@ -732,7 +732,7 @@ int main ( int argc, char** argv )
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
-  worker.connectToCoordinator(false);
+  worker.connectToCoordinatorWithoutHandshake();
   worker.sendCoordinatorHandshake(targ.procname());
 
   //restart targets[i]
