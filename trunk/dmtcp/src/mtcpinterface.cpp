@@ -125,13 +125,6 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
-#ifdef DEBUG
-    //logfile closed, must reopen it
-    dmtcp::ostringstream o;
-    o << dmtcp::UniquePid::getTmpDir() 
-      << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-    JASSERT_SET_LOGFILE (o.str());
-#endif
     dmtcp::DmtcpWorker::instance().postRestart();
   }
   else
