@@ -334,7 +334,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ConnectionList::Instance().scanForPreExisting();
   }
 
-  connectToCoordinator();
+  connectToCoordinatorWithHandshake();
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
@@ -704,7 +704,7 @@ void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
   }
 
   //reconnect to our coordinator
-  connectToCoordinator(false);
+  connectToCoordinatorWithoutHandshake();
   sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers, DMT_RESTART_PROCESS);
   recvCoordinatorHandshake(&coordTstamp);
   JTRACE("Connected to coordinator")(coordTstamp);
@@ -798,7 +798,7 @@ void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*
   //prevent checkpoints from starting
   delayCheckpointsLock();
   {
-    connectToCoordinator(false);
+    connectToCoordinatorWithoutHandshake();
     sendUserCommand(c,result);
     _coordinatorSocket.close();
   }
@@ -843,7 +843,25 @@ void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
 /*!
     \fn dmtcp::DmtcpWorker::connectToCoordinator()
  */
-void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking /*=true*/)
+bool dmtcp::DmtcpWorker::tryConnectToCoordinator()
+{
+  return connectToCoordinator ( false );
+}
+
+void dmtcp::DmtcpWorker::connectToCoordinatorWithoutHandshake()
+{
+  connectToCoordinator ( );
+}
+
+void dmtcp::DmtcpWorker::connectToCoordinatorWithHandshake()
+{
+  connectToCoordinator ( );
+  JTRACE("CONNECT TO coordinator, trying to handshake");
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
+  recvCoordinatorHandshake();
+}
+
+bool dmtcp::DmtcpWorker::connectToCoordinator(bool dieOnError /*= true*/)
 {
 
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
@@ -857,10 +875,16 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking /*=true*/)
 
   _coordinatorSocket = jalib::JClientSocket ( coordinatorAddr,coordinatorPort );
 
+  if ( ! _coordinatorSocket.isValid() && ! dieOnError ) {
+    return false;
+  } 
+
   JASSERT ( _coordinatorSocket.isValid() )
-  ( coordinatorAddr )
-  ( coordinatorPort )
-  .Text ( "Failed to connect to DMTCP coordinator" );
+    ( coordinatorAddr ) ( coordinatorPort )
+    .Text ( "Failed to connect to DMTCP coordinator" );
+
+  JTRACE ( "connected to dmtcp coordinator, no handshake" ) 
+    ( coordinatorAddr ) ( coordinatorPort );
 
   if ( oldFd.isValid() )
   {
@@ -870,16 +894,7 @@ void dmtcp::DmtcpWorker::connectToCoordinator(bool doHandshaking /*=true*/)
 
     _coordinatorSocket.changeFd ( oldFd.sockfd() );
   }
-
-
-  if(doHandshaking)
-  {
-    JTRACE("\n------------\n\nCONNECT TO coordinator\n\n--------------\n");
-    sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
-    recvCoordinatorHandshake();
-  }else{
-    JTRACE ( "connected to dmtcp coordinator, no handshake" ) ( coordinatorAddr ) ( coordinatorPort );
-  }
+  return true;
 }
 
 void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,
@@ -943,7 +958,16 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
     dup2(open("/dev/null",O_RDWR), 2);  //close stderr
     int result[DMTCPMESSAGE_NUM_PARAMS];
     dmtcp::DmtcpWorker worker(false);
-    worker.connectAndSendUserCommand('s', result);
+    {
+      if ( worker.tryConnectToCoordinator() == false ) {
+        JTRACE("Coordinator not found. Will try to start a new one");
+        _real_exit(1);
+      }
+
+      worker.sendUserCommand('s',result);
+      worker._coordinatorSocket.close();
+    }
+
     if(result[0]==0 || result[1] ^ isRestart){
       if(result[0] != 0) {
         int num_processes = result[0];
