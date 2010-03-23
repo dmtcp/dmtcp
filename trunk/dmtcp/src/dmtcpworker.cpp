@@ -98,6 +98,7 @@ static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
 static pthread_rwlock_t theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
+static dmtcp::UniquePid compGroup;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
 static dmtcp::ConnectionState* theCheckpointState = 0;
@@ -409,7 +410,23 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
 {
   JTRACE ( "running" );
+
   WorkerState::setCurrentState ( WorkerState::RUNNING );
+
+  if ( compGroup != UniquePid() ) {
+    dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
+                                + compGroup.toString() + "-"
+                                + jalib::XToString ( _real_getppid() );
+    JTRACE("creating signature file") (signatureFile)(_real_getpid());
+    int fd = _real_open ( signatureFile.c_str(), O_CREAT|O_WRONLY, 0600 );
+    JASSERT ( fd != -1 ) ( fd ) ( signatureFile )
+      .Text ( "Unable to create signature file" );
+    dmtcp::string pidstr = jalib::XToString(_real_getpid());
+    write(fd, pidstr.c_str(), pidstr.length()+1);
+    close(fd);
+  }
+
+
   {
     dmtcp::DmtcpMessage msg;
     msg.type = DMT_OK;
@@ -531,6 +548,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     JTRACE("===================")(msg.params[0])("===================");
     theCheckpointState->numPeers(msg.params[0]);
     theCheckpointState->compGroup(msg.compGroup);
+    compGroup = msg.compGroup;
   }
   JTRACE ( "got checkpoint signal" );
 
@@ -621,6 +639,21 @@ void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
   }
 }
 
+void dmtcp::DmtcpWorker::postRestart()
+{
+  JTRACE("begin postRestart()");
+
+  WorkerState::setCurrentState(WorkerState::RESTARTING);
+  recvCoordinatorHandshake();
+
+  JASSERT ( theCheckpointState != NULL );
+  theCheckpointState->postRestart();
+
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::Instance().postRestart();
+#endif
+}
+
 void dmtcp::DmtcpWorker::writeTidMaps()
 {
   JTRACE ( "refilled" );
@@ -646,20 +679,6 @@ void dmtcp::DmtcpWorker::writeTidMaps()
 #endif
 }
 
-void dmtcp::DmtcpWorker::postRestart()
-{
-  JTRACE("begin postRestart()");
-
-  WorkerState::setCurrentState(WorkerState::RESTARTING);
-  recvCoordinatorHandshake();
-
-  JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->postRestart();
-
-#ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().postRestart();
-#endif
-}
 
 void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
                                         dmtcp::UniquePid compGroup,
