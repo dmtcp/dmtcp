@@ -91,6 +91,7 @@ namespace dmtcp
       static void decrementUnInitializedThreadCount();
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
+      void interruptCkpthread();
 
       bool connectToCoordinator(bool dieOnError=true);
       bool tryConnectToCoordinator();

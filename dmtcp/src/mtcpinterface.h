@@ -26,6 +26,7 @@ namespace dmtcp
 {
 
   void initializeMtcpEngine();
+  void killCkpthread();
 
   void shutdownMtcpEngineOnFork();
 
