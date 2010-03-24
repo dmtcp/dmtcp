@@ -93,6 +93,7 @@ extern "C"
           void ( *write_ckpt_prefix ) ( int fd ),
           void ( *write_tid_maps) ());
   typedef int ( *t_mtcp_ok ) ( void );
+  typedef void ( *t_mtcp_kill_ckpthread ) ( void );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -457,3 +458,9 @@ void dmtcp::shutdownMtcpEngineOnFork()
   _get_mtcp_symbol ( REOPEN_MTCP );
 }
 
+void dmtcp::killCkpthread()
+{
+  t_mtcp_kill_ckpthread kill_ckpthread = 
+    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "kill_ckpthread" );
+  kill_ckpthread();
+}

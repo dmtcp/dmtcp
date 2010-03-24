@@ -1146,7 +1146,25 @@ again:
     }
   }
 }
-
+
+void kill_ckpthread (void)
+{
+  int tid;
+  Thread *thread;
+
+  lock_threads ();
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
+      unlk_threads ();
+      //printf("\n\n\nKill checkpinthread, tid=%d\n\n\n",thread->tid);
+      mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
+      return;
+    }
+  }
+  unlk_threads ();
+}
+
+
 /********************************************************************************************************************************/
 /*																*/
 /*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.		*/
@@ -2145,6 +2163,12 @@ static void stopthisthread (int signum)
   setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
 
   thread = getcurrenthread ();                                              // see which thread this is
+
+  // If this is checkpoint thread - exit immidiately
+  if(  mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ){
+    return ;
+  }
+  
   if (0 && thread == motherofall) {
     void *buffer[BT_SIZE];
     int nptrs;
@@ -2331,8 +2355,13 @@ static void save_sig_state (Thread *thisthread)
       }
     }
   }
-}
-
+
+  sigdelset(&blockall,STOPSIGNAL);
+  if (_real_sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
+    mtcp_abort ();
+  }
+}  
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Save state necessary for TLS restore											*/
