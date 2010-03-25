@@ -22,7 +22,7 @@ OPTIONS:
 sleep_interval=15
 min_seconds=2
 max_attempts=100
-start_suffix=0
+start_suffix= 
 
 if [ $# -gt 0 ]; then
   while [ $# -gt 0 ]
@@ -59,19 +59,14 @@ fi
 
 
 if [ "$#" == 0 ]; then
-  file="`pwd`/dmtcp_restart_script.sh"
+  restart_script="`pwd`/dmtcp_restart_script.sh"
 else
-  file=$1
+  restart_script=$1
 fi
+new_restart_script=${restart_script%.sh}_new.sh
 
-restart_file_path=`readlink $file`
-restart_file_name=`basename $restart_file_path .sh`
-comp_group=${restart_file_name#dmtcp_restart_script_}
-
-file_name="$comp_group-$$"
-
+# compute tmp dir. The functionality is equivalent to UniquePid::getTimDir()
 tmp_dir=
-
 if [ ! -z $DMTCP_TMPDIR ]; then
   tmp_dir=$DMTCP_TMPDIR
 elif [ ! -z $TMPDIR ]; then
@@ -79,42 +74,68 @@ elif [ ! -z $TMPDIR ]; then
 else
   tmp_dir=/tmp/dmtcp-$USER'@'`hostname`
 fi
-
 echo $tmp_dir
 mkdir -p $tmp_dir
 
-file_path=$tmp_dir/$file_name
+restart_script_path=`readlink $restart_script`
+if [ -z restart_script_path ]; then
+  restart_script_path=$restart_script
+fi
+if [ -f restart_script_path ]; then
+  echo "dmtcp_restart_wrapper: ERROR: dmtcp_restart_script not found"
+  echo "Exiting..."
+fi
+
+restart_script_name=`basename $restart_script_path .sh`
+comp_group=${restart_script_name#dmtcp_restart_script_}
+signature_file_path=$tmp_dir/"$comp_group-$$"
+
+ckpt_file_path=`grep ".*\.dmtcp" $restart_script_path|head -1|tr -d '\r\n\t '`
+new_ckpt_file_path=$ckpt_file_path
 
 current_attempt=0
 current_suffix=$start_suffix
-new_filename=$file
+new_restart_script=$restart_script_path
 
 while true
 do
-  rm -rf $file_path
+  rm -rf $signature_file_path
+  current_attempt=$((current_attempt+1))
+  echo "File: $new_ckpt_file_path; Attempt: $current_attempt"
 
-  if [ $current_attempt -eq $max_attempts ]; then
-    $current_attempt=0
+  if [ $current_attempt -gt $max_attempts ]; then
+    $current_attempt=1
     $current_suffix=$((current_suffix - 1))
     echo "*****Now trying suffix $current_suffix*********"
   fi
 
-  if [ $start_suffix -ne 0 ]; then
+  if [ ! -z $start_suffix ]; then
     if [ $current_suffix -eq 0 ];then
-      echo "dmtcp_restart_wrapper: done trying to restart all the images, none succeeded"
+      echo "dmtcp_restart_wrapper: tried to restart all the images, none succeeded"
       exit
     fi
-    s=`printf "%05d" $current_suffix`
-    new_filename=${file%.sh}_new.sh
-    cat $file |sed 's/_'$comp_group'\(_[0-9]*\)\.dmtcp/'$comp_group'_'$s'\.dmtcp/g' > $new_filename 
+    #compute new suffix
+    suffix=`printf "%05d" $current_suffix`
+    new_ckpt_file_path=`echo $ckpt_file_path|sed -e's^_[0-9]*\.dmtcp^_'$suffix'\.dmtcp^g'`
+
+    # create a new restart script by replacing the original checkpoint file
+    # path with the new one
+    cat $restart_script_path |sed 's^'$ckpt_file_path'^'$new_ckpt_file_path'^g' > $new_restart_script
   fi
 
+  #verify that the target checkpoint file exists
+  if [ ! -f $new_ckpt_file_path ]; then
+    echo "dmtcp_restart_wrapper: ERROR: checkpoint file $new_ckpt_file_path not found."
+    echo "Exiting..."
+    exit
+  fi
 
+  # start the dmtcp_restart_script in background
   if [ "$#" == 0 ];then
-    /bin/bash $new_filename &
+    /bin/bash $new_restart_script &
   else
     shift
-    /bin/bash $new_filename "$@" &
+    /bin/bash $new_restart_script "$@" &
   fi
 
   cpid=$!
@@ -128,9 +149,9 @@ do
     echo "dmtcp_restart_wrapper: process already dead, trying to restart"
     continue
   fi
-  cpu_usage_minutes=${cpu_usage%:*}
-  cpu_usage_seconds=${cpu_usage#*:}
-  cpu_usage_total_sec=$(( $cpu_usage_minutes * 60 + $cpu_usage_seconds ))
+
+  cpu_usage_seconds=$(( ${cpu_usage%:*} * 60 + ${cpu_usage#*:} ))
+  #cpu_usage_total_sec=$(( $cpu_usage_minutes * 60 + $cpu_usage_seconds ))
 
 #   if [ $cpu_usage_total_sec -lt $min_seconds ];then
 #     echo "dmtcp_restart_wrapper: process running but not consuming any cpu cycles\n"
@@ -142,7 +163,7 @@ do
 #     continue
 #   fi
 
-  if [ ! -f $file_path ]; then
+  if [ ! -f $signature_file_path ]; then
     echo "dmtcp_restart_wrapper: Signature file not found even though the process"
     echo "  has consumed $cpu_usage_total_seconds seconds of CPU time. This is strange!"
     echo "Killing and restarting it and hoping for the best"
@@ -150,9 +171,9 @@ do
     wait $cpid
     continue
   else
-    file_contents=`cat $file_path`
+    file_contents=`cat $signature_file_path`
     if [ $cpid != $file_contents ]; then
-      echo "dmtcp_restart_wrapper: Invalid contents in signature file: $file_path"
+      echo "dmtcp_restart_wrapper: Invalid contents in signature file: $signature_file_path"
       echo "  actual:   $file_contents"
       echo "  expected: $cpid"
       echo "Restarting process and hoping for the best"
@@ -172,6 +193,7 @@ do
     fi
 
     wait $cpid
+    echo "dmtcp_restart_wrapper: process finished successfully"
     break
   fi
 done
