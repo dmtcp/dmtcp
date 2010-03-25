@@ -148,6 +148,7 @@ do
     echo "Killing and restarting it and hoping for the best"
     kill -9 $cpid
     wait $cpid
+    continue
   else
     file_contents=`cat $file_path`
     if [ $cpid != $file_contents ]; then
@@ -166,7 +167,7 @@ do
       echo "Killing it and trying to restart**********\n\n"
 
       kill -9 $cpid 
-
+      wait $cpid
       continue
     fi
 
