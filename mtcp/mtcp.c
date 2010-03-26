@@ -2308,7 +2308,9 @@ static void wait_for_all_restored (void)
   if (-- rip == 0) {
 
     /* raise the signals which were pending for the entire process at the time
-     * of checkpoint
+     * of checkpoint. It is assumed that if a signal is pending for all threads
+     * including the ckpt-thread, then it was sent to the process as opposed to
+     * sent to individual threads.
      */
     int i;
     for (i = NSIG; -- i >= 0;) {

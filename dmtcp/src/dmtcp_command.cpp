@@ -125,6 +125,10 @@ int main ( int argc, char** argv )
     //check for error
     if(result[0]<0){
       switch(result[0]){
+      case DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND:
+        fprintf(stderr,
+		"Coordinator not found. Try specifying port with \'--port\'.\n" );
+        break;
       case DmtcpCoordinator::ERROR_INVALID_COMMAND:
         fprintf(stderr,
 		"Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
