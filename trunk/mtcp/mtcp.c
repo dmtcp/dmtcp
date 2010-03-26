@@ -166,6 +166,7 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
                 void *arg;
 
                 sigset_t sigblockmask;              // blocked signals
+                sigset_t sigpending;                // pending signals
                 struct sigaction sigactions[NSIG];  // signal handlers
 
                 ///JA: new code ported from v54b
@@ -222,6 +223,7 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 
 	/* Static data */
 
+static sigset_t sigpending_global;                // pending signals for the process
 static char const *nscd_mmap_str = "/var/run/nscd/";    // OpenSUSE
 static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
 static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat (Linux 2.6.9)
@@ -296,6 +298,7 @@ static void writefile (int fd, void const *buff, size_t size);
 static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
+static void restore_sig_state (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
 static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
@@ -1203,7 +1206,7 @@ static void *checkpointhread (void *dummy)
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
   
   DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
-        mtcp_sys_kernel_gettid()));
+        mtcp_sys_kernel_gettid(), ckpthread->original_tid));
   if (originalstartup)
     originalstartup = 0;
   else {
@@ -1239,6 +1242,8 @@ static void *checkpointhread (void *dummy)
         (*callback_sleep_between_ckpt)(intervalsecs);
         DPRINTF(("mtcp checkpointhread*: after callback_sleep_between_ckpt(%d)\n",intervalsecs));
     }
+
+    sigpending ( &(ckpthread->sigpending) ); // save pending signals
 
     setup_sig_handler();
     mtcp_sys_gettimeofday (&started, NULL);
@@ -2181,6 +2186,7 @@ static void stopthisthread (int signum)
   }
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
     static int is_first_checkpoint = 1;
+    sigpending ( &(thread->sigpending) ); // save pending signals
     save_sig_state (thread);                                                // save signal state (and block signal delivery)
     save_tls_state (thread);                                                // save thread local storage state
     /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
@@ -2300,6 +2306,17 @@ static void wait_for_all_restored (void)
   do rip = mtcp_state_value(&restoreinprog);                         // dec number of threads cloned but not completed longjmp'ing
   while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
   if (-- rip == 0) {
+
+    /* raise the signals which were pending for the entire process at the time
+     * of checkpoint
+     */
+    int i;
+    for (i = NSIG; -- i >= 0;) {
+      if (sigismember(&sigpending_global, i) == 1) {
+        kill(getpid(), i);
+      }
+    }
+
     if (callback_write_tid_maps != NULL) {
       DPRINTF(("Before callback_write_tid_maps\n"));
       (*callback_write_tid_maps)();
@@ -2362,6 +2379,29 @@ static void save_sig_state (Thread *thisthread)
   }
 }  
 
+/********************************************************************************************************************************/
+/*																*/
+/*  Save signal handlers and block signal delivery										*/
+/*																*/
+/********************************************************************************************************************************/
+
+static void restore_sig_state (Thread *thisthread)
+{
+  int i;
+  if (_real_sigprocmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
+    mtcp_abort ();
+  }
+
+  // Raise the signals which were pending for only this thread at the time of checkpoint.
+  for (i = NSIG; -- i >= 0;) {
+    if (sigismember(&(thisthread -> sigpending), i)  == 1  && 
+        sigismember(&(thisthread -> sigblockmask), i) == 1 &&
+        sigismember(&(sigpending_global), i) == 0) {
+      raise(i);
+    }
+  }
+}
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Save state necessary for TLS restore											*/
@@ -2746,6 +2786,18 @@ static int restarthread (void *threadv)
   setup_sig_handler ();
 
   if (thread == motherofall) {
+
+    // Compute the set of signals which was pending for all the threads at the
+    // time of checkpoint. This is a heuristic to compute the set of signals
+    // which were pending for the entire process at the time of checkpoint.
+    sigset_t tmp;
+    sigfillset ( &tmp );
+    Thread *th;
+    for (th = threads; th != NULL; th = th -> next) {
+      sigandset ( &sigpending_global, &tmp, &(th->sigpending) );
+      tmp = sigpending_global;
+    }
+
     set_tid_address (&(thread -> child_tid));
 
     if (callback_post_ckpt != NULL) {
@@ -2761,6 +2813,8 @@ static int restarthread (void *threadv)
            || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
   }
+
+  restore_sig_state (thread);
 
   for (child = thread -> children; child != NULL; child = child -> siblings) {
 

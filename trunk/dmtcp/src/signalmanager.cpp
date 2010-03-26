@@ -58,7 +58,8 @@ namespace
     SIGPROF,//  27  Profiling alarm clock (4.2 BSD)
     SIGWINCH,// 28  Window size change (4.3 BSD, Sun)
     SIGIO,//  29  I/O now possible (4.2 BSD)
-    SIGPWR//  30  Power failure restart (System V)
+    SIGPWR,//  30  Power failure restart (System V)
+    SIGSYS//  31  Bad system call. 
   };
 
 
