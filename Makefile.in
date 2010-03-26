@@ -1,5 +1,5 @@
 @SET_MAKE@
-LN_S=@LN_S@
+LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
