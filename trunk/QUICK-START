@@ -318,20 +318,10 @@ SHORT NOTES:
         Note: if checkpointing doesn't fully complete, make sure you're not out
         of disk space, and that there are no other file system problems.
 
-    15. For Mandriva Linux, you will need to ensure that the packages
-	  patch and glibc-static are installed.
-	For Ubunutu Linux, ensure that the 'patch' package is installed.  (If
-	  using the dmtcp .deb package to install in Ubuntu, the 'patch'
-	  package will be installed automatically for you.)
-
-    16. OpenSUSE Linux:
-        On OpenSUSE we are observing little instability in form of some random
-        failures in the test suite provided with DMTCP. Some of the tests fail
-        while trying to restart from the checkpoint image. However, if they are
-        restarted manually, everythings works fine. 
-
-    17. OpenSUSE and bash
-        The OpenSUSE bash package uses an unusual memory layout. DMTCP
-        currently does not checkpoint bash. This will be fixed in the future.
-        The current workaround is to download and use vanilla bash package from
-        http://www.gnu.org/software/bash.
+    15. For Mandriva Linux, and some others, you will need to ensure that the
+	  packages 'patch', 'glibc-static', and 'linux-userspace-headers'
+	  are installed in order to build DMTCP.
+	For Ubunutu/Debian Linux, ensure that the
+	  packages 'patch' and 'linux-libc-dev' are installed.
+	For OpenSuse Linux, ensure that the
+	  packages 'patch' and 'linux-kernel-headers'

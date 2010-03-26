@@ -84,6 +84,23 @@ AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [/usr/bin])
 #check for patch utility
 AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [/usr/bin:/bin])
 
+if test "$HAS_PATCH" != "yes"; then
+   AC_MSG_ERROR(
+    [Executable, patch, not found:  consider adding pkg:  'patch'])
+fi
+
+#if /usr/include/linux/version.h is missing, give up on configuring.
+AC_CHECK_HEADERS(linux/version.h,
+  [if ! readlink -e -q  /usr/include/linux/version.h > /dev/null; then
+   AC_MSG_ERROR(
+    [/usr/include/version.h not found: consider adding linux-libc-dev pkg])
+   fi],
+  [AC_MSG_ERROR(
+    [/usr/include/linux/version.h not found: consider adding linux-libc-dev pkg]
+   )])
+
+#Add check for libc.a next.  MTCP uses it in build.
+
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
