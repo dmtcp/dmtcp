@@ -37,6 +37,7 @@
 #include "connectionidentifier.h"
 #include "connectionmanager.h"
 #include "connectionstate.h"
+#include "dmtcp_coordinator.h"
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -805,7 +806,10 @@ void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*
   //prevent checkpoints from starting
   delayCheckpointsLock();
   {
-    connectToCoordinatorWithoutHandshake();
+    if ( tryConnectToCoordinator() == false ) {
+      *result = DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND;
+      return;
+    }
     sendUserCommand(c,result);
     _coordinatorSocket.close();
   }
