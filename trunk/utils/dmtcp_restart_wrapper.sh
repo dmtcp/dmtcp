@@ -150,7 +150,7 @@ do
     continue
   fi
 
-  cpu_usage_seconds=$(( ${cpu_usage%:*} * 60 + ${cpu_usage#*:} ))
+  cpu_usage_total_sec=$(( ${cpu_usage%:*} * 60 + ${cpu_usage#*:} ))
   #cpu_usage_total_sec=$(( $cpu_usage_minutes * 60 + $cpu_usage_seconds ))
 
 #   if [ $cpu_usage_total_sec -lt $min_seconds ];then
