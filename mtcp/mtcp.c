@@ -41,8 +41,6 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
-#include <semaphore.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -66,11 +64,8 @@
 
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
-
-#include "mtcp_internal.h"
-#ifdef PTRACE
 #include "mtcp_ptrace.h" 
-#endif
+#include "mtcp_internal.h"
 
 static int WAIT=1;
 // static int WAIT=0;
@@ -546,8 +541,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
   /* All routines needed to perform restore must be within this address range               */
 
-  restore_begin = (((VA)mtcp_shareable_begin) & -PAGE_SIZE);
-  restore_size  = ((VA)mtcp_shareable_end - restore_begin + PAGE_SIZE - 1) & -PAGE_SIZE;
+  restore_begin = (((VA)mtcp_shareable_begin) & -MTCP_PAGE_SIZE);
+  restore_size  = ((VA)mtcp_shareable_end - restore_begin + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
 
@@ -1413,18 +1408,10 @@ again:
 
         case ST_RUNENABLED: {
           if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
-          if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_errno != ESRCH) {
-              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
-                           thread -> tid, strerror (mtcp_sys_errno));
-            }
-            unlk_threads ();
-            threadisdead (thread);
-            goto rescan;
-          }
 #ifdef PTRACE
           ptrace_save_threads_state ();
-          int index;          char inferior_st = 'N';
+          int index;  
+          char inferior_st = 'N';
           char inf_st;
           for (index = 0; index < ptrace_pairs_count; index++) {
             inf_st = procfs_state(ptrace_pairs[index].inferior);
@@ -1451,8 +1438,7 @@ again:
           }
           else {
             // inferior 
-            DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_t
-id));
+            DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid));
             if (inferior_st != 'T') {
             if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
@@ -1465,6 +1451,16 @@ id));
               }
             }
             create_file( thread -> original_tid );
+          }
+#else
+          if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+            if (mtcp_sys_errno != ESRCH) {
+              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
+                           thread -> tid, strerror (mtcp_sys_errno));
+            }
+            unlk_threads ();
+            threadisdead (thread);
+            goto rescan;
           }
 #endif
           needrescan = 1;
@@ -2265,7 +2261,7 @@ static void writecs (int fd, char cs)
 
 /* Write something to checkpoint file */
 
-static char const zeroes[PAGE_SIZE] = { 0 };
+static char const zeroes[MTCP_PAGE_SIZE] = { 0 };
 
 static void writefile (int fd, void const *buff, size_t size)
 

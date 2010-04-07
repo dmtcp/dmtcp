@@ -28,8 +28,14 @@
 #include "linux/version.h"
 
 /* TODO: we want to be able to switch this on and off - 
-   for the time being: not a concern*/
-//#define PTRACE 1
+   for the time being: not a concern
+   when this works, then kleptocracy
+*/
+#define PTRACE 1
+
+#define LIBTHREAD_DB "libthread_db.so.1"
+#define LIBPTHREAD_FILENAME "libpthread.so.0"
+#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
@@ -87,7 +93,8 @@
     ENV_VAR_STDERR_PATH,\
     ENV_VAR_COMPRESSION,\
     ENV_VAR_SIGCKPT,\
-    ENV_VAR_ROOT_PROCESS
+    ENV_VAR_ROOT_PROCESS,\
+    ENV_VAR_DLSYM_OFFSET
 
 #define DRAINER_CHECK_FREQ 0.1
 
