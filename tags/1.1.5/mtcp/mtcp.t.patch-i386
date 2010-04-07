@@ -1,0 +1,26 @@
+*** mtcp.t	2007-03-03 04:14:37.000000000 -0500
+--- mtcp.t-good	2007-03-03 04:13:01.000000000 -0500
+***************
+*** 6,11 ****
+--- 6,14 ----
+  SEARCH_DIR("/usr/i486-linux-gnu/lib32"); SEARCH_DIR("/usr/local/lib32"); SEARCH_DIR("/lib32"); SEARCH_DIR("/usr/lib32"); SEARCH_DIR("/usr/i486-linux-gnu/lib"); SEARCH_DIR("/usr/local/lib"); SEARCH_DIR("/lib"); SEARCH_DIR("/usr/lib");
+  SECTIONS
+  {
++   .the.begin : {
++ 	*(__shareable_begin)
++ 	}
+    /* Read-only sections, merged into text segment: */
+    . = 0 + SIZEOF_HEADERS;
+    .hash           : { *(.hash) }
+***************
+*** 150,155 ****
+--- 153,161 ----
+    . = ALIGN(32 / 8);
+    _end = .; PROVIDE (end = .);
+    . = DATA_SEGMENT_END (.);
++   .the.end : {
++ 	*(__shareable_end)
++ 	}
+    /* Stabs debugging sections.  */
+    .stab          0 : { *(.stab) }
+    .stabstr       0 : { *(.stabstr) }
