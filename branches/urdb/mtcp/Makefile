@@ -44,13 +44,13 @@ endif
 
 ifdef M32
 # HIGHEST_VA is [vdso] (just above [stack])
-CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000
+CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000 
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
 AS = as
 else
-CC = gcc
+CC = gcc 
 UNAME = uname
 LD_RAW = ld
 LDFLAGS =  -shared
@@ -58,7 +58,7 @@ AS = as --32
 endif
 
 #Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
-CFLAGS += -O0 -g
+CFLAGS += -O0 -g -DPTRACE
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
 # CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make

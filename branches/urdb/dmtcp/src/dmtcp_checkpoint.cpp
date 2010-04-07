@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -119,6 +120,27 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
   dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
+
+/*  
+   * For the sake of dlsym wrapper.  We compute address of _real_dlsym by adding 
+   * dlsym_offset to address of dlopen after the exec into the user application.
+   */
+  void* tmp1 = NULL;
+  void* tmp2 = NULL;
+  int tmp3;
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( "libdl.so",RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
+    abort();
+  }
+  tmp1 = (void *) &dlopen;
+  tmp2 = (void *) &dlsym;
+  tmp3 = (char *)tmp2 - (char *) tmp1;
+  char str[21] = {0} ;
+  sprintf(str,"%d",tmp3);
+  setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
+  dlclose(handle);
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);

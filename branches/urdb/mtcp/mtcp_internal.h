@@ -24,10 +24,6 @@
 #ifndef _MTCP_INTERNAL_H
 #define _MTCP_INTERNAL_H
 
-/* TODO: we want to be able to switch this on and off - 
-   for the time being: not a concern*/
-//#define PTRACE 1
-
 #ifdef __x86_64__
 // The alternative to using futex is to load in the pthread library,
 //  which would be a real pain.  The __i386__ arch doesn't seem to be bothered
@@ -108,6 +104,7 @@ typedef unsigned short mtcp_segreg_t;
 typedef unsigned int mtcp_segreg_t;
 #endif
 
+#define MTCP_PAGE_SIZE 4096
 #define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
