@@ -391,6 +391,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
+    _exit(0);
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
     JASSERT(pthread_mutex_lock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
