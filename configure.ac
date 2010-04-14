@@ -1,5 +1,4 @@
 AC_INIT([DMTCP],[1.1.5],[],[dmtcp],[http://dmtcp.sourceforge.net])
-AC
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
@@ -79,10 +78,10 @@ fi
 
 
 #check for gcl
-AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [/usr/bin])
+AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
 
 #check for patch utility
-AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [/usr/bin:/bin])
+AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])
 
 if test "$HAS_PATCH" != "yes"; then
    AC_MSG_ERROR(
@@ -90,19 +89,12 @@ if test "$HAS_PATCH" != "yes"; then
 fi
 
 #if /usr/include/linux/version.h is missing, give up on configuring.
-AC_CHECK_HEADERS(linux/version.h,
-  [if ! readlink -e -q  /usr/include/linux/version.h > /dev/null; then
-   AC_MSG_ERROR(
-    [/usr/include/version.h not found: consider adding linux-libc-dev pkg])
-   fi],
-  [AC_MSG_ERROR(
-    [/usr/include/linux/version.h not found: consider adding linux-libc-dev pkg]
-   )])
+AC_CHECK_HEADERS([linux/version.h], [], [], [[#include <linux/version.h>]])
 
 #Add check for libc.a next.  MTCP uses it in build.
 
 #check for gzip utility
-AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
+AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [$PATH:/usr/bin:/bin])
 
 #check for mpich2
 AC_ARG_WITH([mpich],
