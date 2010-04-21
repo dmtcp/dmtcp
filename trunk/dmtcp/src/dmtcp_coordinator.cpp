@@ -197,6 +197,8 @@ static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
 
+static dmtcp::DmtcpCoordinator prog;
+
 /* The coordinator can receive a second checkpoint request while processing the
  * first one.  If the second request comes at a point where the coordinator has
  * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
@@ -328,18 +330,24 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'q': case 'Q': 
   {
-    // FIXME: Is this wrong??
-#if 0
-      CoordinatorStatus s = getStatus();
-      if (s.numPeers > 0) {
-      //Can't send DMTCP_KILL_PEER msg. Delivered by monitorSockets, our caller.
-      JASSERT_STDERR << "DMTCP Coordinator quitting uncleanly:  " << s.numPeers
-		     << " peer(s) still running\n";
-      }
-#else
-    JNOTE ( "Killing all connected Peers..." );
+    JNOTE ( "Killing all connected Peers ..." );
     broadcastMessage ( DMT_KILL_PEER );
-#endif
+    /* Call to broadcastMessage only puts the messages into the write queue. We
+     * actually want the messages to be written out to the respective sockets
+     * so that we can then close the sockets and exit gracefully. The following
+     * loop is taken from the implementation of monitorSocket() implementation
+     * in jsocket.cpp.
+     *
+     * Once the messages have been written out, the coordinator closes all the
+     * connections and calls exit().
+     */
+    for ( int i=0; i<_writes.size(); ++i )
+    {
+      int fd = _writes[i]->socket().sockfd();
+      if ( fd >= 0 ) {
+        _writes[i]->writeOnce();
+      }
+    }
     JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
     for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
         ; i!= _dataSockets.end()
@@ -1115,6 +1123,20 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   _restartFilenames.clear();
 }
 
+static void SIGINTHandler(int signum)
+{
+  prog.handleUserCommand('q');
+}
+
+static void setupSIGINTHandler()
+{
+  struct sigaction action;
+  action.sa_handler = SIGINTHandler;
+  sigemptyset ( &action.sa_mask );
+  action.sa_flags = 0;
+  sigaction ( SIGINT, &action, NULL );
+}
+
 #define shift argc--; argv++
 
 int main ( int argc, char** argv )
@@ -1269,7 +1291,10 @@ int main ( int argc, char** argv )
       "\n\n";
   }
 
-  dmtcp::DmtcpCoordinator prog;
+  /* We setup the signal handler for SIGINT so that it would send the
+   * DMT_KILL_PEER message to all the connected peers before exiting.
+   */
+  setupSIGINTHandler();
   prog.addListenSocket ( *sock );
   if(!background && !batchMode) 
     prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
