@@ -89,7 +89,9 @@ if test "$HAS_PATCH" != "yes"; then
 fi
 
 #if /usr/include/linux/version.h is missing, give up on configuring.
-AC_CHECK_HEADERS([linux/version.h], [], [], [[#include <linux/version.h>]])
+AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
+     [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
+    )])
 
 #Add check for libc.a next.  MTCP uses it in build.
 
