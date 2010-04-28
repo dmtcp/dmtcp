@@ -40,6 +40,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
+#include <ctype.h>
 
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
@@ -116,10 +117,12 @@ static funcptr get_libc_symbol ( const char* name )
     if (fn==NULL) fn = (void *)get_libc_symbol(#name); \
     return (*fn)
 
+#ifdef PTRACE
 // Adding the macro for calls to get_libthread_db_symbol
 #define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
     if (fn==NULL) fn = (void *)get_libthread_db_symbol(#name); \
     return (*fn)
+#endif
 
 #define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL; \
     if (fn==NULL) fn = (funcptr_pid_t)get_libc_symbol(#name); \
@@ -485,4 +488,85 @@ int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void
 { 
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
+
+#ifdef ENABLE_MALLOC_WRAPPER
+
+#define REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
+    if (fn==NULL) {\
+      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
+      if (offset == 0) abort();                                                   \
+      fn = (void*) ((char*)&toupper + offset);                                    \
+    }                                                                             \
+    (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
+    if (fn==NULL) {\
+      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
+      if (offset == 0) abort();                                                   \
+      fn = (void*) ((char*)&toupper + offset);                                    \
+    }                                                                             \
+    return (*fn)
+
+void * _real_calloc(size_t nmemb, size_t size) {
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, CALLOC) (nmemb, size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_CALLOC_OFFSET))
+//  { 
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_CALLOC_OFFSET), NULL, 10 );
+//  } 
+//
+//  typedef void* ( *fncptr ) (size_t nmenb, size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (nmemb, size );
+}
+
+void * _real_malloc(size_t size) {
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, MALLOC) (size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_MALLOC_OFFSET))
+//  { 
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_MALLOC_OFFSET), NULL, 10 );
+//  } 
+//
+//  typedef void* ( *fncptr ) (size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (size );
+}
+
+void * _real_realloc(void *ptr, size_t size) {
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, REALLOC) (ptr, size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_REALLOC_OFFSET))
+//  { 
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_REALLOC_OFFSET), NULL, 10 );
+//  } 
+//
+//  typedef void* ( *fncptr ) (void *ptr, size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (ptr, size );
+}
+
+void _real_free(void *ptr) {
+  REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET (void, FREE) (ptr);
+//   return ;
+//   static int dlsym_offset = 0;
+//   if (dlsym_offset == 0 && getenv(ENV_VAR_FREE_OFFSET))
+//   { 
+//     dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_FREE_OFFSET), NULL, 10 );
+//   } 
+// 
+//   typedef void ( *fncptr ) (void *ptr);
+//   fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//   return (*dlsym_addr) (ptr);
+}
+
+
+// int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
+//   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
+// }
+
+#endif
 

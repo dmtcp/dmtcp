@@ -27,15 +27,20 @@
 #endif
 #include "linux/version.h"
 
+//#define ENABLE_MALLOC_WRAPPER
+
 /* TODO: we want to be able to switch this on and off - 
    for the time being: not a concern
    when this works, then kleptocracy
 */
 #define PTRACE 1
 
+#ifdef PTRACE
 #define LIBTHREAD_DB "libthread_db.so.1"
 #define LIBPTHREAD_FILENAME "libpthread.so.0"
-#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
+#else
+
+#endif
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
@@ -77,7 +82,33 @@
 #define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
 
-//this list should be kept up to data with all "protected" environment vars
+#ifdef ENABLE_MALLOC_WRAPPER
+// Malloc/Free Offsets from toupper
+#define GLIBC_BASE_FUNC "setlocale"
+#define ENV_VAR_MALLOC_OFFSET "DMTCP_MALLOC_OFFSET"
+#define ENV_VAR_CALLOC_OFFSET "DMTCP_CALLOC_OFFSET"
+#define ENV_VAR_REALLOC_OFFSET "DMTCP_REALLOC_OFFSET"
+#define ENV_VAR_FREE_OFFSET "DMTCP_FREE_OFFSET"
+
+#define ENV_VARS_MALLOC_FAMILY \
+    , ENV_VAR_MALLOC_OFFSET\
+    , ENV_VAR_CALLOC_OFFSET\
+    , ENV_VAR_REALLOC_OFFSET\
+    , ENV_VAR_FREE_OFFSET
+#else
+#define ENV_VARS_MALLOC_FAMILY
+#endif
+
+#ifdef PTRACE
+#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
+
+#define ENV_PTRACE \
+    , ENV_VAR_DLSYM_OFFSET 
+#else
+#define ENV_PTRACE 
+#endif
+
+//this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
     ENV_VAR_NAME_ADDR,\
     ENV_VAR_NAME_PORT,\
@@ -93,8 +124,10 @@
     ENV_VAR_STDERR_PATH,\
     ENV_VAR_COMPRESSION,\
     ENV_VAR_SIGCKPT,\
-    ENV_VAR_ROOT_PROCESS,\
-    ENV_VAR_DLSYM_OFFSET
+    ENV_VAR_ROOT_PROCESS \
+    ENV_VARS_MALLOC_FAMILY \
+    ENV_PTRACE
+
 
 #define DRAINER_CHECK_FREQ 0.1
 
@@ -112,7 +145,7 @@
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
 
 #define PROTECTED_FD_START 820
-#define PROTECTED_FD_COUNT 11
+#define PROTECTED_FD_COUNT 12
 
 #define CONNECTION_ID_START 99000
 

@@ -24,6 +24,7 @@
 #include <string>
 #include <stdio.h>
 #include  "../jalib/jassert.h"
+#include <ctype.h>
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
@@ -35,7 +36,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef PTRACE
 #include <dlfcn.h>
+#endif
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -119,8 +122,23 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
-  dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
+#ifdef ENABLE_MALLOC_WRAPPER
+  long mallocOff, callocOff, freeOff, reallocOff;
+
+  void *baseAddr = (void*)&toupper;
+  mallocOff  = (char*)&malloc  - (char*)baseAddr;
+  callocOff  = (char*)&calloc  - (char*)baseAddr;
+  reallocOff = (char*)&realloc - (char*)baseAddr;
+  freeOff    = (char*)&free    - (char*)baseAddr;
+
+  setenv ( ENV_VAR_MALLOC_OFFSET, jalib::XToString ( mallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_CALLOC_OFFSET, jalib::XToString ( callocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_REALLOC_OFFSET, jalib::XToString ( reallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_FREE_OFFSET, jalib::XToString ( freeOff ).c_str(), 1 );
+#endif
+
+#ifdef PTRACE
 /*  
    * For the sake of dlsym wrapper.  We compute address of _real_dlsym by adding 
    * dlsym_offset to address of dlopen after the exec into the user application.
@@ -141,6 +159,7 @@ int main ( int argc, char** argv )
   sprintf(str,"%d",tmp3);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
   dlclose(handle);
+#endif
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -216,14 +235,8 @@ int main ( int argc, char** argv )
     }
   }
 
-  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  JASSERT(mkdir(dmtcpTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (dmtcpTmpDir.c_str())
-    .Text("Error creating tmp directory");
-
-  JASSERT(0 == access(dmtcpTmpDir.c_str(), X_OK|W_OK))
-    (dmtcpTmpDir.c_str())
-    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
 #ifdef FORKED_CHECKPOINTING
@@ -269,7 +282,7 @@ int main ( int argc, char** argv )
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here
-  JASSERT_INIT();
+  JASSERT_INIT( dmtcp::UniquePid::getTmpDir() );
 
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){

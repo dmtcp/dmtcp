@@ -41,14 +41,14 @@ void dmtcp::DmtcpWorker::resetOnFork()
    *
    * So, here while creating the instance, we do not want to execute everything
    * in the constructor since its not relevant. All we need to call is
-   * connectToCoordinator() and initializeMtcpEngine().
+   * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
   new ( &theInstance ) DmtcpWorker ( false );
 
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
-  instance().connectToCoordinator();
+  instance().connectToCoordinatorWithHandshake();
 
   WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
