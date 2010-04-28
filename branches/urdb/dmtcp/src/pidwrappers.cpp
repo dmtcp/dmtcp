@@ -408,17 +408,20 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
+#ifdef PTRACE
   pid_t superior;
   pid_t inferior;
   pid_t retval;
   static int i = 0;
   pid_t originalPid;
+#endif
 
   if ( stat_loc == NULL )
     stat_loc = &status;
 
   pid_t currPid = originalToCurrentPid (pid);
 
+#ifdef PTRACE
   superior = syscall (SYS_gettid);
 
   inferior = pid;
@@ -448,6 +451,11 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
         unset_is_waitpid_local_ptr ();
         originalPid = currentToOriginalPid (retval);
   }
+#else 
+  pid_t retval = _real_waitpid (currPid, stat_loc, options);
+
+  pid_t originalPid = currentToOriginalPid ( retval );
+#endif
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )

@@ -136,12 +136,11 @@ extern "C"
   pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
 
-  int _real_open(const char *pathname, int flags, mode_t mode);
-  FILE * _real_fopen(const char *path, const char *mode);
-
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef PTRACE
+  int _real_open(const char *pathname, int flags, mode_t mode);
+  FILE * _real_fopen(const char *path, const char *mode);
   void * _real_dlsym ( void *handle, const char *symbol );
   long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
   td_err_e   _real_td_thr_get_info ( const td_thrhandle_t  *th_p, td_thrinfo_t *ti_p);
@@ -150,6 +149,15 @@ extern "C"
   long int _real_syscall(long int sys_num, ... );
   
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
+#ifdef ENABLE_MALLOC_WRAPPER
+  void *_real_calloc(size_t nmemb, size_t size);
+  void *_real_malloc(size_t size);
+  void  _real_free(void *ptr);
+  void *_real_realloc(void *ptr, size_t size);
+
+  //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
+#endif
 
 #ifdef __cplusplus
 }

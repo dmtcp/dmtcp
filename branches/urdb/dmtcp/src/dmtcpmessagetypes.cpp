@@ -43,6 +43,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,from ( ConnectionIdentifier::Self() )
     ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
+    ,compGroup ( UniquePid(0,0,0) )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
@@ -60,7 +61,7 @@ void dmtcp::DmtcpMessage::assertValid() const
 {
   JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )( _magicBits )
 	  .Text ( "read invalid message, _magicBits mismatch."
-		  "  Did DMTCP coordinator die?" );
+		  "  Did DMTCP coordinator die uncleanly?" );
   JASSERT ( _msgSize == sizeof ( DmtcpMessage ) ) ( _msgSize ) ( sizeof ( DmtcpMessage ) )
 	  .Text ( "read invalid message, size mismatch." );
 

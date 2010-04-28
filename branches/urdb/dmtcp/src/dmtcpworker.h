@@ -24,6 +24,7 @@
 
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
+#include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
@@ -49,6 +50,11 @@ namespace dmtcp
   class DmtcpWorker
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       static DmtcpWorker& instance();
       static const int ld_preload_c_len = 256;
       static char ld_preload_c[ld_preload_c_len];
@@ -85,8 +91,12 @@ namespace dmtcp
       static void decrementUnInitializedThreadCount();
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
-
-      void connectToCoordinator(bool doHanshaking=true);
+      void interruptCkpthread();
+    
+      bool connectToCoordinator(bool dieOnError=true);
+      bool tryConnectToCoordinator();
+      void connectToCoordinatorWithoutHandshake();
+      void connectToCoordinatorWithHandshake();
       // np > -1 means it is restarting process that have np processes in its computation group
       // np == -1 means it is new pure process, so coordinator needs to generate compGroup ID for it
       // np == -2 means it is service connection from dmtcp_restart - irnore it

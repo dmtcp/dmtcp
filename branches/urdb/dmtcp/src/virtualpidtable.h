@@ -27,6 +27,7 @@
 #include <iostream>
 #include <map>
 #include  "../jalib/jserialize.h"
+#include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
 
@@ -43,6 +44,11 @@ namespace dmtcp
   class VirtualPidTable
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       VirtualPidTable();
       static VirtualPidTable& Instance();
       static bool isConflictingPid( pid_t pid );

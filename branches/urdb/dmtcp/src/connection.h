@@ -32,6 +32,7 @@
 #include  "../jalib/jserialize.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
+#include "../jalib/jalloc.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -51,6 +52,11 @@ namespace dmtcp
   class Connection
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       enum ConnectionType
       {
         INVALID = 0x0000,
