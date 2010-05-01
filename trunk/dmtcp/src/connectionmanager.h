@@ -119,11 +119,11 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       ConnectionToFds() {
-        _procname = jalib::Filesystem::GetProgramName();
-        _hostname = jalib::Filesystem::GetCurrentHostname();
+        _procname   = jalib::Filesystem::GetProgramName();
+        _hostname   = jalib::Filesystem::GetCurrentHostname();
         _inhostname = jalib::Filesystem::GetCurrentHostname();
-        _pid = UniquePid::ThisProcess();
-				_ppid = UniquePid::ParentProcess();
+        _pid        = UniquePid::ThisProcess();
+        _ppid       = UniquePid::ParentProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
