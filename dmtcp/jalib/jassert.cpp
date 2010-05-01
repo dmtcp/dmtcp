@@ -80,6 +80,7 @@ static int jwrite(FILE *stream, const char *str)
   int fd = fileno(stream);
 
   if (fd != -1) {
+    if (size == 0) rc = 0;
     for (offs = 0; offs < size; offs += rc) {
       rc = TEMP_FAILURE_RETRY(write (fd, str + offs, size - offs));
       if (rc <= 0) break;

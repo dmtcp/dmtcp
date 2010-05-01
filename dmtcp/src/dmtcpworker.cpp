@@ -453,9 +453,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE ( "waiting for SUSPEND signal" );
   {
     dmtcp::DmtcpMessage msg;
-    msg.poison();
-    while ( msg.type != dmtcp::DMT_DO_SUSPEND )
-    {
+    do {
+      msg.poison();
       _coordinatorSocket >> msg;
       if ( exitInProgress() ) {
         JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
@@ -463,8 +462,16 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       }
       msg.assertValid();
       JTRACE ( "got MSG from coordinator" ) ( msg.type );
-      msg.poison();
-    }
+    } while ( msg.type != dmtcp::DMT_DO_SUSPEND );
+
+    JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
+
+    JASSERT ( theCheckpointState == 0 );
+    theCheckpointState = new ConnectionState();
+
+    theCheckpointState->numPeers(msg.params[0]);
+    theCheckpointState->compGroup(msg.compGroup);
+    compGroup = msg.compGroup;
   }
 
   JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
@@ -517,8 +524,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     JASSERT ( msg.type == dmtcp::DMT_DO_LOCK_FDS ) ( msg.type );
   }
   JTRACE ( "locking..." );
-  JASSERT ( theCheckpointState == 0 );
-  theCheckpointState = new ConnectionState();
+  JASSERT ( theCheckpointState != 0 );
   theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
@@ -553,10 +559,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
     _coordinatorSocket >> msg;
     msg.assertValid();
     JASSERT ( msg.type == dmtcp::DMT_DO_CHECKPOINT ) ( msg.type );
-    JTRACE("===================")(msg.params[0])("===================");
-    theCheckpointState->numPeers(msg.params[0]);
-    theCheckpointState->compGroup(msg.compGroup);
-    compGroup = msg.compGroup;
   }
   JTRACE ( "got checkpoint signal" );
 

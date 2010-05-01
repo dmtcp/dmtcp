@@ -367,6 +367,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   }
   case 'k': case 'K':
     JNOTE ( "Killing all connected Peers..." );
+    //XXX: What happens if a 'k' command is followed by a 'c' command before
+    //     the *real* broadcast takes place?         --Kapil
     broadcastMessage ( DMT_KILL_PEER );
     break;
   case 'h': case 'H': case '?':
@@ -448,8 +450,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
                 && newState == WorkerState::DRAINED )
         {
           JNOTE ( "checkpointing all nodes" );
-          // Pass number of connected peers to all clients
-          broadcastMessage ( DMT_DO_CHECKPOINT , curCompGroup, getStatus().numPeers );
+          broadcastMessage ( DMT_DO_CHECKPOINT );
         }
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
@@ -724,7 +725,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
 
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_RESTART_PROCESS_REPLY );
 
-  if( curCompGroup == dmtcp::UniquePid() ){
+  if( curCompGroup == dmtcp::UniquePid(0,0,0) ){
     JASSERT ( minimumState() == WorkerState::UNKNOWN )
       .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - setup all the things
@@ -800,10 +801,12 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
 
   } else if ( hello_remote.state == WorkerState::RUNNING ) {
     CoordinatorStatus s = getStatus();
-    // If some of the processes are not in RUNNING state, REJECT.
+    // If some of the processes are not in RUNNING state OR if the SUSPEND
+    // message has been sent, REJECT.
     if ( s.numPeers > 0 &&
          ( s.minimumState != WorkerState::RUNNING ||
-           s.minimumStateUnanimous == false ) ) {
+           s.minimumStateUnanimous == false       ||
+           workersRunningAndSuspendMsgSent == true) ) {
       JNOTE  ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
         ( curCompGroup ) ( hello_remote.from.pid() );
       hello_local.type = dmtcp::DMT_REJECT;
@@ -819,7 +822,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
       return false;
     } else {
       // If first process, create the new computation group
-      if ( curCompGroup == UniquePid() ) {
+      if ( curCompGroup == UniquePid(0,0,0) ) {
         // Connection of new computation.
         curCompGroup = hello_remote.from.pid();
         curTimeStamp = 0;
@@ -853,10 +856,11 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
-    broadcastMessage ( DMT_DO_SUSPEND );
+    // Pass number of connected peers to all clients
+    broadcastMessage ( DMT_DO_SUSPEND , curCompGroup, getStatus().numPeers );
 
     // Suspend Message has been sent but the workers are still in running
-    // state, if the coordinator receives another checkpoint request from user
+    // state. If the coordinator receives another checkpoint request from user
     // at this point, it should fail.
     workersRunningAndSuspendMsgSent = true;
     return true;
