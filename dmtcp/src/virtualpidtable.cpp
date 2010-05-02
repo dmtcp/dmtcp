@@ -114,17 +114,14 @@ void dmtcp::VirtualPidTable::postRestart()
   serialize ( rd );
 }
 
-void dmtcp::VirtualPidTable::postRestart2()
+void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 {
-  JTRACE("VirtualPidTable::postRestart2");
-
-  ReadFromPidMapFile();
-
   // At this point all PIDs participated in computations are known
   // including mapping of parent pids. So we can restore group information
   
   // 1. Restore group ID
-  JTRACE("VirtualPidTable::postRestart2 Restore Group Information")(_gid)(_fgid)(_pid)(_ppid)(getppid());
+  JTRACE("VirtualPidTable::postRestart2 Restore Group Information")
+    ( _gid ) ( _fgid ) ( _pid ) ( _ppid ) ( getppid() );
   if( pidExists(_gid) ){
     // Group ID is known inside checkpointed processes
     pid_t cgid = getpgid(0);
@@ -583,7 +580,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   JTRACE("Unlock file set");
 } 
 
-void dmtcp::VirtualPidTable::ReadFromPidMapFile() 
+void dmtcp::VirtualPidTable::readPidMapsFromFile() 
 { 
   dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
@@ -591,6 +588,8 @@ void dmtcp::VirtualPidTable::ReadFromPidMapFile()
   pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
   JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 ) ( pidMapFile )( pidMapCountFile );
   
+  JTRACE ( "Read PidMaps from file" ) ( pidMapCountFile ) ( pidMapFile );
+
   JASSERT("Close PidMap related files");
    _real_close( PROTECTED_PIDMAP_FD );
    _real_close( PROTECTED_PIDMAPCNT_FD );

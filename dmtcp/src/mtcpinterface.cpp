@@ -91,7 +91,7 @@ extern "C"
           void ( *post_ckpt ) ( int is_restarting ),
           int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
-          void ( *write_tid_maps) ());
+          void ( *restore_virtual_pid_table) ());
   typedef int ( *t_mtcp_ok ) ( void );
   typedef void ( *t_mtcp_kill_ckpthread ) ( void );
 }
@@ -111,7 +111,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   JALIB_CKPT_UNLOCK();
 
   // If we don't modify *ckptFilename, then MTCP will continue to use
-  //   its default filename, which was passed to it via our call to mtcp_init()
+  //  its default filename, which was passed to it via our call to mtcp_init()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
   dmtcp::UniquePid::ThisProcess().incrementGeneration();
   *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
@@ -127,16 +127,42 @@ static void callbackPostCheckpoint ( int isRestart )
   if ( isRestart )
   {
     dmtcp::DmtcpWorker::instance().postRestart();
+    /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
+     *        we do not call it, it exposes a bug in dmtcp_coordinator.
+     * BUG: The restarting process reconnects to the coordinator and the old
+     *      connection is discarded. However, the coordinator doesn't discard
+     *      the old connection right away (since it can't detect if the other
+     *      end of the socket is closed). It is only discarded after the next
+     *      read phase (coordinator trying to read from all the connected
+     *      workers) in monitorSockets() is complete.  In this read phase, an
+     *      error is recorded on the closed socket and in the next iteration of
+     *      verifying the _dataSockets, this socket is closed and the
+     *      corresponding entry in _dataSockets is freed. 
+     *
+     *      The problem occurrs when some other worker sends a status messages
+     *      which should take the computation to the next barrier, but since
+     *      the _to_be_disconnected socket is present, the minimum state is not
+     *      reached unanimously and hence the coordinator doesn't raise the
+     *      barrier. 
+     *
+     *      The bug was observed by Kapil in gettimeofday test program. It can
+     *      be seen in 1 out of 3 restart attempts.
+     *
+     *      The current solution is to send a dummy message to coordinator here
+     *      before sending a proper request.
+     */
+    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
   }
   else
   {
-    JNOTE ( "checkpointed" ) ( dmtcp::UniquePid::checkpointFilename() );
-  }
-  dmtcp::DmtcpWorker::instance().waitForStage3Resume(isRestart);
-  //now everything but threads are restored
-  dmtcp::userHookTrampoline_postCkpt(isRestart);
+    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::instance().waitForStage4Resume();
 
-  if ( !isRestart ) {
+    //now everything but threads are restored
+    dmtcp::userHookTrampoline_postCkpt(isRestart);
+
     // After this point, the user threads will be unlocked in mtcp.c and will
     // resume their computation and so it is OK to set the process state to
     // RUNNING.
@@ -155,9 +181,13 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
 }
 
-static void callbackWriteTidMaps ( )
+static void callbackRestoreVirtualPidTable ( )
 {
-  dmtcp::DmtcpWorker::instance().writeTidMaps();
+  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
+
+  //now everything but threads are restored
+  dmtcp::userHookTrampoline_postCkpt(true);
 
   // After this point, the user threads will be unlocked in mtcp.c and will
   // resume their computation and so it is OK to set the process state to
@@ -196,7 +226,7 @@ void dmtcp::initializeMtcpEngine()
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
                  , &callbackWriteCkptPrefix
-                 , &callbackWriteTidMaps);
+                 , &callbackRestoreVirtualPidTable);
   JTRACE ("Calling mtcp_init");
   ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
   ( *okFn ) ();
@@ -381,7 +411,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       if (originalTid != -1)
       {
         dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
-		dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
         tid = originalTid;
       } else {
         dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );

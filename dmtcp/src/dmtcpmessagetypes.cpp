@@ -64,11 +64,6 @@ void dmtcp::DmtcpMessage::assertValid() const
 		  "  Did DMTCP coordinator die uncleanly?" );
   JASSERT ( _msgSize == sizeof ( DmtcpMessage ) ) ( _msgSize ) ( sizeof ( DmtcpMessage ) )
 	  .Text ( "read invalid message, size mismatch." );
-
-  if ( type == DMT_KILL_PEER ) {
-    JTRACE ( "Received KILL Message from coordinator, exiting" );
-    _exit ( 0 );
-  }
 }
 
 void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }

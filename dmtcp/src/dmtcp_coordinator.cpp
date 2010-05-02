@@ -665,7 +665,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     }
   }
 
-  JTRACE("END")(_dataSockets.size())(_dataSockets.size() ? _dataSockets[0]->socket().sockfd() == STDIN_FD : 5);
+  JTRACE( "END" )
+    ( _dataSockets.size() ) ( _dataSockets[0]->socket().sockfd() == STDIN_FD );
 }
 
 //     WorkerNode& node = _table[hello_remote.from.pid()];
