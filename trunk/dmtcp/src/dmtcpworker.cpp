@@ -408,11 +408,71 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
 }
 
 
-
-
 const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
   return _coordinatorId;
+}
+
+
+void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string signalStr,
+                                               DmtcpMessageType type )
+{
+  if ( type == DMT_DO_SUSPEND ) {
+    if ( pthread_mutex_trylock(&destroyDmtcpWorker) != 0 ) {
+      JTRACE ( "User thread is performing exit(). ckpt thread exit()ing as well" );
+      pthread_exit(NULL);
+    }
+    if ( exitInProgress() ) {
+      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      pthread_exit(NULL);
+    }
+  }
+
+  dmtcp::DmtcpMessage msg;
+
+  msg.type = DMT_OK;
+  msg.state = WorkerState::currentState();
+  _coordinatorSocket << msg;
+
+  JTRACE ( "waiting for " + signalStr + " Signal" );
+
+  do {
+    msg.poison();
+    _coordinatorSocket >> msg;
+    
+    if ( type == DMT_DO_SUSPEND && exitInProgress() ) {
+      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      pthread_exit(NULL);
+    }
+
+    msg.assertValid();
+
+    if ( msg.type == DMT_KILL_PEER ) {
+      JTRACE ( "Received KILL Message from coordinator, exiting" );
+      _exit ( 0 );
+    } 
+
+    // The ckpt thread can receive multiple DMT_RESTORE_WAITING or
+    // DMT_FORCE_RESTART messages while waiting for a DMT_DO_REFILL message, we
+    // need to ignore them and wait for the DMT_DO_REFILL message to arrive.
+    if ( type != DMT_DO_REFILL ) {
+      break;
+    }
+
+  } while ( type == DMT_DO_REFILL &&
+            ( msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART ) );
+
+  JASSERT ( msg.type == type ) ( msg.type );
+
+  // Coordinator sends some computation information along with the SUSPEND
+  // message. Extracting that.
+  if ( type == DMT_DO_SUSPEND ) {
+    JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
+    JASSERT ( theCheckpointState != 0 );
+    theCheckpointState->numPeers(msg.params[0]);
+    theCheckpointState->compGroup(msg.compGroup);
+    compGroup = msg.compGroup;
+  }
 }
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
@@ -434,45 +494,14 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     close(fd);
   }
 
-
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::RUNNING;
-    if ( pthread_mutex_trylock(&destroyDmtcpWorker) != 0 ) {
-      JTRACE ( "User thread is performing exit(). ckpt thread exit()ing as well" );
-      pthread_exit(NULL);
-    }
-    if ( exitInProgress() ) {
-      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
-      pthread_exit(NULL);
-    }
-
-    _coordinatorSocket << msg;
+  if ( theCheckpointState != 0 ) {
+    delete theCheckpointState;
+    theCheckpointState = 0;
   }
-  JTRACE ( "waiting for SUSPEND signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    do {
-      msg.poison();
-      _coordinatorSocket >> msg;
-      if ( exitInProgress() ) {
-        JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
-        pthread_exit(NULL);
-      }
-      msg.assertValid();
-      JTRACE ( "got MSG from coordinator" ) ( msg.type );
-    } while ( msg.type != dmtcp::DMT_DO_SUSPEND );
 
-    JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
+  theCheckpointState = new ConnectionState();
 
-    JASSERT ( theCheckpointState == 0 );
-    theCheckpointState = new ConnectionState();
-
-    theCheckpointState->numPeers(msg.params[0]);
-    theCheckpointState->compGroup(msg.compGroup);
-    compGroup = msg.compGroup;
-  }
+  waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
 
   JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
   _dmtcp_lock();
@@ -509,57 +538,24 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::SUSPENDED;
-    _coordinatorSocket << msg;
-  }
-  JTRACE ( "waiting for lock signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.poison();
-    _coordinatorSocket >> msg;
-    msg.assertValid();
-    JASSERT ( msg.type == dmtcp::DMT_DO_LOCK_FDS ) ( msg.type );
-  }
+  waitForCoordinatorMsg ( "LOCK", DMT_DO_LOCK_FDS );
+
   JTRACE ( "locking..." );
   JASSERT ( theCheckpointState != 0 );
   theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
+
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::FD_LEADER_ELECTION;
-    _coordinatorSocket << msg;
-  }
-  JTRACE ( "waiting for drain signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.poison();
-    _coordinatorSocket >> msg;
-    msg.assertValid();
-    JASSERT ( msg.type == dmtcp::DMT_DO_DRAIN ) ( msg.type );
-  }
+
+  waitForCoordinatorMsg ( "DRAIN", DMT_DO_DRAIN );
+
   JTRACE ( "draining..." );
   theCheckpointState->preCheckpointDrain();
   JTRACE ( "drained" );
+
   WorkerState::setCurrentState ( WorkerState::DRAINED );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::DRAINED;
-    _coordinatorSocket << msg;
-  }
-  JTRACE ( "waiting for checkpoint signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.poison();
-    _coordinatorSocket >> msg;
-    msg.assertValid();
-    JASSERT ( msg.type == dmtcp::DMT_DO_CHECKPOINT ) ( msg.type );
-  }
+
+  waitForCoordinatorMsg ( "CHECKPOINT", DMT_DO_CHECKPOINT );
   JTRACE ( "got checkpoint signal" );
 
 #if HANDSHAKE_ON_CHECKPOINT == 1
@@ -585,68 +581,40 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
   theCheckpointState->outputDmtcpConnectionTable(fd);
 }
 
-void dmtcp::DmtcpWorker::waitForStage3Resume(int isRestart)
+void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
 {
-  {
-    // Tell coordinator to record our filename in the restart script
-    dmtcp::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
-    dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
-    JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_CKPT_FILENAME;
-    msg.extraBytes = ckptFilename.length() +1 + hostname.length() +1;
-    _coordinatorSocket << msg;
-    _coordinatorSocket.writeAll ( ckptFilename.c_str(), ckptFilename.length() +1 );
-    _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
-  }
+  // Tell coordinator to record our filename in the restart script
+  dmtcp::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
+  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
+  JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
+  dmtcp::DmtcpMessage msg;
+  msg.type = DMT_CKPT_FILENAME;
+  msg.extraBytes = ckptFilename.length() +1 + hostname.length() +1;
+  _coordinatorSocket << msg;
+  _coordinatorSocket.writeAll ( ckptFilename.c_str(), ckptFilename.length() +1 );
+  _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
+}
 
+void dmtcp::DmtcpWorker::waitForStage3Refill()
+{
   JTRACE ( "checkpointed" );
-  WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
-  {
-    // Tell coordinator we are done checkpointing
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::CHECKPOINTED;
-    _coordinatorSocket << msg;
-  }
 
-  JTRACE ( "waiting for refill signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    do
-    {
-      msg.poison();
-      _coordinatorSocket >> msg;
-      msg.assertValid();
-    }
-    while ( msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART );
-    JASSERT ( msg.type == dmtcp::DMT_DO_REFILL ) ( msg.type );
-  }
+  WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
+
+  waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
+
   JASSERT ( theCheckpointState != 0 );
   theCheckpointState->postCheckpoint();
   delete theCheckpointState;
   theCheckpointState = 0;
+}
 
-  if (!isRestart) {
-
-    JTRACE ( "refilled" );
-    WorkerState::setCurrentState ( WorkerState::REFILLED );
-    {
-      dmtcp::DmtcpMessage msg;
-      msg.type = DMT_OK;
-      msg.state = WorkerState::REFILLED;
-      _coordinatorSocket << msg;
-    }
-    JTRACE ( "waiting for resume signal" );
-    {
-      dmtcp::DmtcpMessage msg;
-      msg.poison();
-      _coordinatorSocket >> msg;
-      msg.assertValid();
-      JASSERT ( msg.type == dmtcp::DMT_DO_RESUME ) ( msg.type );
-    }
-    JTRACE ( "got resume signal" );
-  }
+void dmtcp::DmtcpWorker::waitForStage4Resume()
+{
+  JTRACE ( "refilled" );
+  WorkerState::setCurrentState ( WorkerState::REFILLED );
+  waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
+  JTRACE ( "got resume signal" );
 }
 
 void dmtcp::DmtcpWorker::postRestart()
@@ -664,31 +632,13 @@ void dmtcp::DmtcpWorker::postRestart()
 #endif
 }
 
-void dmtcp::DmtcpWorker::writeTidMaps()
+void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 {
-  JTRACE ( "refilled" );
-  WorkerState::setCurrentState ( WorkerState::REFILLED );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.type = DMT_OK;
-    msg.state = WorkerState::REFILLED;
-    _coordinatorSocket << msg;
-  }
-  JTRACE ( "waiting for resume signal" );
-  {
-    dmtcp::DmtcpMessage msg;
-    msg.poison();
-    _coordinatorSocket >> msg;
-    msg.assertValid();
-    JASSERT ( msg.type == dmtcp::DMT_DO_RESUME ) ( msg.type );
-  }
-  JTRACE ( "got resume signal" );
-
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().postRestart2();
+  dmtcp::VirtualPidTable::Instance().readPidMapsFromFile();
+  dmtcp::VirtualPidTable::Instance().restoreProcessGroupInfo();
 #endif
 }
-
 
 void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
                                         dmtcp::UniquePid compGroup,
@@ -902,8 +852,7 @@ bool dmtcp::DmtcpWorker::connectToCoordinator(bool dieOnError /*= true*/)
   if ( oldFd.isValid() )
   {
     JTRACE ( "restoring old coordinatorsocket fd" )
-    ( oldFd.sockfd() )
-    ( _coordinatorSocket.sockfd() );
+      ( oldFd.sockfd() ) ( _coordinatorSocket.sockfd() );
 
     _coordinatorSocket.changeFd ( oldFd.sockfd() );
   }

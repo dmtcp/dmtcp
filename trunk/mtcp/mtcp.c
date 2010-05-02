@@ -260,7 +260,7 @@ static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_dmtcp_header)(int fd) = NULL;
-static void (*callback_write_tid_maps)() = NULL;
+static void (*callback_restore_virtual_pid_table)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -569,14 +569,14 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
                         void (*write_dmtcp_header)(int fd),
-                        void (*write_tid_maps)())
+                        void (*restore_virtual_pid_table)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
     callback_post_ckpt = post_ckpt;
     callback_ckpt_fd = ckpt_fd;
     callback_write_dmtcp_header = write_dmtcp_header;
-    callback_write_tid_maps = write_tid_maps;
+    callback_restore_virtual_pid_table = restore_virtual_pid_table;
 }
 
 /*************************************************************************/
@@ -2319,10 +2319,10 @@ static void wait_for_all_restored (void)
       }
     }
 
-    if (callback_write_tid_maps != NULL) {
-      DPRINTF(("Before callback_write_tid_maps\n"));
-      (*callback_write_tid_maps)();
-      DPRINTF(("After callback_write_tid_maps\n"));
+    if (callback_restore_virtual_pid_table != NULL) {
+      DPRINTF(("Before callback_restore_virtual_pid_table\n"));
+      (*callback_restore_virtual_pid_table)();
+      DPRINTF(("After callback_restore_virtual_pid_table\n"));
     }
 
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up

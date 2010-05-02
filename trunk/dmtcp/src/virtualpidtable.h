@@ -53,7 +53,7 @@ namespace dmtcp
       static VirtualPidTable& Instance();
       static bool isConflictingPid( pid_t pid );
       void postRestart();
-      void postRestart2();
+      void restoreProcessGroupInfo();
       void preCheckpoint();
 
       pid_t originalToCurrentPid( pid_t originalPid );
@@ -88,7 +88,7 @@ namespace dmtcp
       static void serializeEntryCount( jalib::JBinarySerializer& o,         
                                        size_t& count );
       static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
-      void ReadFromPidMapFile();
+      void readPidMapsFromFile();
       
       
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
