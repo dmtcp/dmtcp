@@ -114,7 +114,10 @@ if (DEBUG_RESTARTING) \
  *glibc-2.5/nptl/descr.h:
  * struct pthread
  * {
- *  void *__padding[16];
+ *  union {
+ *   tcbheader_t tcbheader;
+ *   void *__padding[16];
+ *  };
  *  list_t list;
  *  pid_t tid;
  *  pid_t pid;
@@ -129,8 +132,16 @@ if (DEBUG_RESTARTING) \
  * } list_t;
  *
  * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
+ *
+ * NOTE: glibc-2.10 further changes the size tcphead_t without updating the
+ *       size of __padding in struct pthread. We need to add an extra 512 bytes
+ *       to accomodate this.                                     -- KAPIL
  */
-#if __GLIBC_PREREQ (2,10)
+#if __GLIBC_PREREQ (2,11)
+# define TLS_PID_OFFSET \
+	  (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET (512+26*sizeof(void *))  // offset of tid in pthread struct
+#elif __GLIBC_PREREQ (2,10)
 # define TLS_PID_OFFSET \
 	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
 # define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
@@ -282,6 +293,7 @@ static long long tempstack[STACKSIZE + 1];
 
 static long set_tid_address (int *tidptr);
 
+static void *mtcp_get_tls_base_addr();
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
@@ -359,10 +371,8 @@ static Thread ckptThreadStorage;
 void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault)
 {
   char *p, *tmp, *endp;
-  pid_t tls_pid, tls_tid;
   int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
-  mtcp_segreg_t TLSSEGREG;
 
   if (sizeof(void *) != sizeof(long)) {
     mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
@@ -429,34 +439,19 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* When we do a restore, we will have to modify each thread's TLS with the new motherpid. */
   /* We also assume that GS uses the first GDT entry for its descriptor.                    */
 
-#ifdef __i386__
-  asm volatile ("movw %%gs,%0" : "=g" (TLSSEGREG)); /* any general register */
-#endif
-#ifdef __x86_64__
-  asm volatile ("movl %%fs,%0" : "=q" (TLSSEGREG)); /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
-#endif
-#if MTCP__SAVE_MANY_GDT_ENTRIES
-  if (TLSSEGREG / 8 != GDT_ENTRY_TLS_MIN) {
-    mtcp_printf ("mtcp_init: gs %X not set to first TLS GDT ENTRY %X\n",
-                 gs, GDT_ENTRY_TLS_MIN * 8 + 3);
-    mtcp_abort ();
-  }
-#endif
-
   motherpid = mtcp_sys_getpid (); /* libc/getpid can lie if we had
 				   * used kernel fork() instead of libc fork().
 				   */
-#ifdef __i386__
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET));
-#endif
-#ifdef __x86_64__
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET));
-#endif
-  if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
-    mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n", motherpid, tls_pid, tls_tid);
-    mtcp_abort ();
+  {
+    pid_t tls_pid, tls_tid;
+    tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET);
+    tls_tid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_TID_OFFSET);
+
+    if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
+      mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n", 
+                    motherpid, tls_pid, tls_tid);
+      mtcp_abort ();
+    }
   }
 
   /* Get verify envar */
@@ -780,9 +775,7 @@ static int threadcloned (void *threadv)
 
 {
   int rc;
-  pid_t tls_pid;
   Thread *const thread = threadv;
-  mtcp_segreg_t TLSSEGREG;
 
   DPRINTF (("mtcp threadcloned*: starting thread %p\n", thread));
 
@@ -790,35 +783,19 @@ static int threadcloned (void *threadv)
 
   /* The new TLS should have the process ID in place at TLS_PID_OFFSET */
   /* This is a verification step and is therefore optional as such     */
-
-#ifdef __i386__
-  asm volatile ("mov %%gs,%0" : "=g" (TLSSEGREG));
-#endif
-#ifdef __x86_64__
-  asm volatile ("mov %%fs,%0" : "=g" (TLSSEGREG));
-#endif
-#if MTCP__SAVE_MANY_GDT_ENTRIES
-  if (TLSSEGREG / 8 != GDT_ENTRY_TLS_MIN) {
-    mtcp_printf ("mtcp threadcloned: gs/fs %X not set to first TLS GDT ENTRY %X\n", TLSSEGREG, GDT_ENTRY_TLS_MIN * 8 + 3);
-    mtcp_abort ();
-  }
-#endif
-
-#ifdef __i386__
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-#endif
-#ifdef __x86_64__
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-#endif
-  if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
-    mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n", motherpid, tls_pid, TLS_PID_OFFSET);
-    mtcp_printf ("      %X\n", motherpid);
-    for (rc = 0; rc < 256; rc += 4) {
-      asm volatile ("movl %%gs:(%1),%0" : "=r" (tls_pid) : "r" (rc));
-      mtcp_printf ("   %d: %X", rc, tls_pid);
-      if ((rc & 31) == 28) mtcp_printf ("\n");
+  {
+    pid_t  tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET);
+    if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
+      mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n", 
+                    motherpid, tls_pid, TLS_PID_OFFSET);
+      mtcp_printf ("      %X\n", motherpid);
+      for (rc = 0; rc < 256; rc += 4) {
+        tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + rc);
+        mtcp_printf ("   %d: %X", rc, tls_pid);
+        if ((rc & 31) == 28) mtcp_printf ("\n");
+      }
+      mtcp_abort ();
     }
-    mtcp_abort ();
   }
 
   /* If the caller wants the child tid but didn't have CLEARTID, pass the tid back to it */
@@ -2427,7 +2404,7 @@ static void save_tls_state (Thread *thisthread)
 
   memset (thisthread -> gdtentrytls, 0, sizeof thisthread -> gdtentrytls);
 
-  /* On older Linuces, we must save several GDT entries available to threads. */
+  /* On older Linuxes, we must save several GDT entries available to threads. */
 
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   for (i = GDT_ENTRY_TLS_MIN; i <= GDT_ENTRY_TLS_MAX; i ++) {
@@ -2439,7 +2416,7 @@ static void save_tls_state (Thread *thisthread)
     }
   }
 
-  /* With newer Linuces, we just save the one GDT entry indexed by GS so we don't need the GDT_ENTRY_TLS_... definitions. */
+  /* With newer Linuxes, we just save the one GDT entry indexed by GS so we don't need the GDT_ENTRY_TLS_... definitions. */
   /* We get the particular index of the GDT entry to save by reading GS.                                                  */
 
 #else
@@ -2453,6 +2430,34 @@ static void save_tls_state (Thread *thisthread)
 #endif
 }
 
+static void *mtcp_get_tls_base_addr()
+{
+  mtcp_segreg_t TLSSEGREG;
+  struct user_desc gdtentrytls;
+
+#ifdef __i386__
+  asm volatile ("movw %%gs,%0" : "=g" (TLSSEGREG)); /* any general register */
+#endif
+#ifdef __x86_64__
+  asm volatile ("movl %%fs,%0" : "=q" (TLSSEGREG)); /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
+#endif
+#if MTCP__SAVE_MANY_GDT_ENTRIES
+  if (TLSSEGREG / 8 != GDT_ENTRY_TLS_MIN) {
+    mtcp_printf ("mtcp_init: gs %X not set to first TLS GDT ENTRY %X\n",
+                 gs, GDT_ENTRY_TLS_MIN * 8 + 3);
+    mtcp_abort ();
+  }
+#endif
+
+  gdtentrytls.entry_number = TLSSEGREG / 8;
+  if ( mtcp_sys_get_thread_area ( &gdtentrytls ) < 0 ) {
+    mtcp_printf ("mtcp_init: error getting GDT TLS entry: %s\n", 
+        strerror (mtcp_sys_errno));
+    mtcp_abort ();
+  }
+  return (void *)(*(unsigned long *)&(gdtentrytls.base_addr));
+}
+
 static void renametempoverperm (void)
 
 {
