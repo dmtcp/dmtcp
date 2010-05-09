@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=1.1.5
+VERSION=1.1.6
 
 #run a command with error checking
 e() {
