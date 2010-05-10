@@ -1,0 +1,22 @@
+Some useful gdb commands:
+
+set symbol-reloading on
+
+show symbol-reloading
+set symbol-reloading on
+maint info sections ALLOBJ CODE
+maint info psymtabs mtcp.so
+add-symbol-file mtcp.so 0x2a9555a1f0
+
+
+set symbol-reloading on
+info address SYMBOL
+info symbol ADDR
+info functions mtcp_sys_memcpy
+info variables
+info sources
+
+maint info psymtabs mtcp.so
+maint info sections ALLOBJ CODE
+
+info registers
