@@ -6,6 +6,9 @@
 /* Always enable this. */
 #undef DMTCP
 
+/* Socket with no peer is external; wait until communication finished */
+#undef EXTERNAL_SOCKET_HANDLING
+
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
@@ -30,6 +33,9 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -38,6 +44,9 @@
 
 /* No output, not even NOTE and WARNING */
 #undef QUIET
+
+/* Socket with no peer is stale (no peer exists); ignore socket */
+#undef STALE_SOCKET_HANDLING
 
 /* Record timing information to stderr and jtimings.csv */
 #undef TIMING
