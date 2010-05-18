@@ -23,7 +23,7 @@
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Static part of restore - This gets linked in the mtcp.so shareable image that gets loaded as part of the user's original 	*/
+/*  Static part of restore - This gets linked in the libmtcp.so shareable image that gets loaded as part of the user's original 	*/
 /*  application.  The makefile appends all the needed system call routines onto the end of this module so it will link with no 	*/
 /*  undefined symbols.  This allows the restore procedure to simply read this object image from the restore file, load it to 	*/
 /*  the same address it was in the user's original application, and jump to it.							*/
@@ -100,7 +100,7 @@ static void *mystrstr(char *string, char *substring) {
 /********************************************************************************************************************************/
 /*																*/
 /*  This routine is called executing on the temporary stack									*/
-/*  It performs the actual restore of everything (except the mtcp.so area)							*/
+/*  It performs the actual restore of everything (except the libmtcp.so area)							*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -154,7 +154,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 	   current_brk, mtcp_saved_break, new_brk));
 
   /* Unmap everything except for this image as everything we need
-   *   is contained in the mtcp.so image.
+   *   is contained in the libmtcp.so image.
    * Unfortunately, in later Linuxes, it's important also not to wipe
    *   out [vsyscall] if it exists (we may not have permission to remove it).
    *   In any case, [vsyscall] is the highest section if it exists.
@@ -185,7 +185,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
     highest_va = HIGHEST_VA;
   else
     highest_va = stack_end_addr;
-  DPRINTF(("new_brk (end of heap): %p, holebase (mtcp.so): %p, stack_end_addr: %p\n"
+  DPRINTF(("new_brk (end of heap): %p, holebase (libmtcp.so): %p, stack_end_addr: %p\n"
 	   "    vdso_addr: %p, highest_va: %p, vsyscall_addr: %p\n",
 	   new_brk, holebase, stack_end_addr,
 	   vdso_addr, highest_va, vsyscall_addr));
@@ -267,7 +267,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   DPRINTF (("mtcp restoreverything*: restore complete, resuming...\n"));
 
-  /* Jump to finishrestore in original program's mtcp.so image */
+  /* Jump to finishrestore in original program's libmtcp.so image */
 
   (*finishrestore) ();
 }

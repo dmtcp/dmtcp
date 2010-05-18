@@ -64,7 +64,7 @@ CFLAGS += -O0 -g
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
-#  install a copy of mtcp.so for others to use.
+#  install a copy of libmtcp.so for others to use.
 LD = ${CC}
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
@@ -80,24 +80,24 @@ all default: build tests readmtcp
 readmtcp: readmtcp.c
 	${CC} -o readmtcp readmtcp.c
 
-build: mtcp.so mtcp_restart
+build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
 
 # Test programs
 
-testmtcp: testmtcp.o mtcp.so
-	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
-	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
+testmtcp: testmtcp.o libmtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic libmtcp.so
+	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic libmtcp.so
 
-bigtestmtcp: bigtestmtcp.o mtcp.so
-	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic mtcp.so
+bigtestmtcp: bigtestmtcp.o libmtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic libmtcp.so
 
-testgettimeofday: testgettimeofday.o mtcp.so
+testgettimeofday: testgettimeofday.o libmtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) \
-	  -o testgettimeofday testgettimeofday.o -Wl,--export-dynamic mtcp.so
+	  -o testgettimeofday testgettimeofday.o -Wl,--export-dynamic libmtcp.so
 testgettimeofday.o: testgettimeofday.c
 	${CC} $(CFLAGS) -c -o testgettimeofday.o testgettimeofday.c
-checkgettimeofday: mtcp.so mtcp_restart testgettimeofday
+checkgettimeofday: libmtcp.so mtcp_restart testgettimeofday
 	(sleep 5; pkill testgettimeofda) &
 	env LD_LIBRARY_PATH=. ./testgettimeofday || true
 	@ echo ""
@@ -113,20 +113,20 @@ checkgettimeofday: mtcp.so mtcp_restart testgettimeofday
 testmtcp.o: testmtcp.c
 	${CC} $(CFLAGS) -c -o testmtcp.o testmtcp.c
 
-testmtcp2: testmtcp2.c mtcp.so
-	${CC} $(CFLAGS) -o testmtcp2 testmtcp2.c mtcp.so
+testmtcp2: testmtcp2.c libmtcp.so
+	${CC} $(CFLAGS) -o testmtcp2 testmtcp2.c libmtcp.so
 
-testmtcp3: testmtcp3.c mtcp.so
-	${CC} $(CFLAGS) -o testmtcp3 testmtcp3.c mtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
+testmtcp3: testmtcp3.c libmtcp.so
+	${CC} $(CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
 
-testmtcp4: testmtcp4.c mtcp.so
-	${CC} $(CFLAGS) -o testmtcp4 testmtcp4.c mtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
+testmtcp4: testmtcp4.c libmtcp.so
+	${CC} $(CFLAGS) -o testmtcp4 testmtcp4.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
 
-testmtcp5: testmtcp5.c mtcp.so
-	${CC} $(CFLAGS) -o testmtcp5 testmtcp5.c mtcp.so 
+testmtcp5: testmtcp5.c libmtcp.so
+	${CC} $(CFLAGS) -o testmtcp5 testmtcp5.c libmtcp.so 
 
-testmtcp6: testmtcp6.c mtcp.so
-	${CC} $(CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c mtcp.so \
+testmtcp6: testmtcp6.c libmtcp.so
+	${CC} $(CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
 	  -lreadline -lhistory -lcurses
 
 threadtest: threadtest.c
@@ -188,12 +188,12 @@ LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 %.lo : %.c
 	libtool --mode=compile gcc -c $(CFLAGS) $<
 
-mtcp.so: mtcp.t ${LIBRARY_OBJS}
-	##ld -shared -Map mtcp.map -o mtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
+libmtcp.so: mtcp.t ${LIBRARY_OBJS}
+	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up
 	echo LD $(LD)
 	echo LDFLAGS $(LDFLAGS)
-	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o mtcp.so \
+	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o libmtcp.so \
 	  ${LIBRARY_OBJS} -ldl -lpthread
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h
@@ -268,7 +268,7 @@ dist: distclean
 # check: default testmtcp
 # On recent 32-bit kernels, restart fails in "make", but succeeds manually.
 # WHY?
-check: mtcp.so mtcp_restart testmtcp
+check: libmtcp.so mtcp_restart testmtcp
 	@ echo ""
 	@ echo Type into program to verify it operates.  Will be killed in 13 s.
 	@ echo ""
@@ -294,6 +294,6 @@ distclean: clean
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
-	      testmtcp.mtcp mtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
+	      testmtcp.mtcp libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
 	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest

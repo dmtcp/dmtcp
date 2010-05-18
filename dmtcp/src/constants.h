@@ -33,7 +33,7 @@
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
 
-#define MTCP_FILENAME "mtcp.so"
+#define MTCP_FILENAME "libmtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
 #define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_files_"
 #define DELETED_FILE_SUFFIX " (deleted)"

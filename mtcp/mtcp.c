@@ -284,7 +284,7 @@ static int (*putenv_entry) (const char *name);
 static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
- *   mtcp.so address range for anything;
+ *   libmtcp.so address range for anything;
  * including "+ 1" since will set %esp/%rsp to tempstack+STACKSIZE
  */
 static long long tempstack[STACKSIZE + 1];
@@ -1657,7 +1657,7 @@ static void checkpointeverything (void)
 
   writefile (fd, MAGIC, MAGIC_LEN);
 
-  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [mtcp.so]\n", 
+  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [libmtcp.so]\n", 
             restore_size, restore_begin));
 
   struct rlimit stack_rlimit;
@@ -1668,7 +1668,7 @@ static void checkpointeverything (void)
   writecs (fd, CS_STACKRLIMIT);
   writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
-  DPRINTF (("mtcp checkpointeverything*: [mtcp.so] image of size %X at %p\n", restore_size, restore_begin));
+  DPRINTF (("mtcp checkpointeverything*: [libmtcp.so] image of size %X at %p\n", restore_size, restore_begin));
 
   writecs (fd, CS_RESTOREBEGIN);
   writefile (fd, &restore_begin, sizeof restore_begin);
@@ -1689,9 +1689,9 @@ static void checkpointeverything (void)
 
   /**************************************************************************/
   /* We can't do any more mallocing at this point because malloc stuff is   */
-  /* outside the limits of the mtcp.so image, so it won't get checkpointed, */
-  /* and it's possible that we would checkpoint an inconsistent state.      */
-  /* See note in restoreverything routine.                                  */
+  /* outside the limits of the libmtcp.so image, so it won't get            */
+  /* checkpointed, and it's possible that we would checkpoint an            */
+  /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
@@ -1707,7 +1707,7 @@ static void checkpointeverything (void)
    * We must restore old [vdso] and also keep [vdso] in that case.
    * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
    * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
-   *   and at least for gcl, [stack], mtcp.so, [vsyscall] seen.
+   *   and at least for gcl, [stack], libmtcp.so, [vsyscall] seen.
    * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
    * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
    * Need to restore old [vdso] into mtcp_restart, to restart.
@@ -2647,7 +2647,7 @@ skipeol:
 /*																*/
 /*  Do restore from checkpoint file												*/
 /*  This routine is called from the mtcp_restore program to perform the restore							*/
-/*  It resides in the mtcp.so image in exactly the same spot that the checkpointed process had its mtcp.so loaded at, so this 	*/
+/*  It resides in the libmtcp.so image in exactly the same spot that the checkpointed process had its libmtcp.so loaded at, so this 	*/
 /*    can't possibly interfere with restoring the checkpointed process								*/
 /*  The restore can't use malloc because that might create memory sections.							*/
 /*  Strerror seems to mess up with its Locale stuff in here too.								*/
@@ -2697,7 +2697,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 
 
 #ifndef __x86_64__
-  // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
+  // Copy command line to libmtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   strings = STRINGS;
   // This version of STRCPY copies source string into STRINGS,

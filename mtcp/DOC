@@ -66,7 +66,7 @@ On x86_64 (and on i386 programs using thread-local variables),
   function as a simple program-counter relative address.  This is because
   the ELF standard allows one to define an "interposing symbol" so
   that if one had previously linked a function external to a library,
-  and if one then links in the library (mtcp.so in our case), then
+  and if one then links in the library (libmtcp.so in our case), then
   even if the library also defines a function symbol of the same name,
   the library call will be bound to the previous (external function)
   that was linked in.  So, the GNU C compiler apparently is calling
@@ -89,13 +89,13 @@ RESTART: Overview
 
 [ READ FROM TOP TO BOTTOM:  new column represents alternative memory map ]
 mtcp_restart
-[load checkpointed mtcp.so from .mtcp image]
-  mtcp.so(mtcp.c):restore_start
-  [switch to temporary stack inside mtcp.so]
-                      mtcp.so(mtcp_restart_nolibc.c):restoreverything :
-		      [unmap everything except mtcp.so (and maybe except vdso)
+[load checkpointed libmtcp.so from .mtcp image]
+  libmtcp.so(mtcp.c):restore_start
+  [switch to temporary stack inside libmtcp.so]
+                      libmtcp.so(mtcp_restart_nolibc.c):restoreverything :
+		      [unmap everything except libmtcp.so (& maybe except vdso)
 		       and remap remaining sections from .mtcp image]
-  mtcp.so(mtcp.c):finishrestore
+  libmtcp.so(mtcp.c):finishrestore
   [reset stack ptr to old pre-checkpoint stack,
    reset kernel state appropriately]
   restarthread(motherofall)
@@ -105,23 +105,23 @@ mtcp_restart
    original pre-checkpoint call frame]
 
 1.  Run:  mtcp_restart FILE.mtcp
-2.  mtcp_restart loads into memory original mtcp.so from FILE.mtcp
+2.  mtcp_restart loads into memory original libmtcp.so from FILE.mtcp
 	along with entry point:
-		restore_start (a pointer to mtcp.so:mtcp_restore_start)
+		restore_start (a pointer to libmtcp.so:mtcp_restore_start)
     [Also read finishrestore pointer from FILE.mtcp for later use.
-     Couldn't we have just saved the pointer in mtcp.so ??]
-3.a.  Call restore_start (now inside mtcp.so in file mtcp.c)
+     Couldn't we have just saved the pointer in libmtcp.so ??]
+3.a.  Call restore_start (now inside libmtcp.so in file mtcp.c)
 3.b.  Switch to new stack; (can't even use local vars until in new callframe)
 3.c.  If tracing within gdb, set breakpoint to after this callframe, or
 	gdb will be very confused.
-4.  Switch to restoreverything (now inside mtcp.so
+4.  Switch to restoreverything (now inside libmtcp.so
 		in file mtcp_restart_nolibc.c; can again use local vars)
 5.  Unmap all other memory regions (except vdso and vsyscall, which belong
 	to the kernel); Not allowed to use libc.so at this point
-    (We had to switch to another temporary stack in mtcp.so before
+    (We had to switch to another temporary stack in libmtcp.so before
       making any function calls, since mtcp_restart's stack is now gone.)
-6.  Map in remaining memory regions from FILE.mtcp (mtcp.so already mapped in)
-7.  Now switch back to function finishrestore in file mtcp.c in mtcp.so .
+6.  Map remaining memory regions from FILE.mtcp (libmtcp.so already mapped in)
+7.  Now switch back to function finishrestore in file mtcp.c in libmtcp.so .
 	Use pointer to finishrestore pointer as entry point.  Don't
 	depend on the linker between files being functional yet.
 8.  Set stack pointer (%esp/%rsp) to the stack pointer that we saved
@@ -147,39 +147,42 @@ mtcp_restart
 
 RESTART: Details
 	    CAN USE CURRENT libc.so AT THIS POINT:
-            mtcp_restart.c:main restores old mtcp.so from checkpoint file.
-            mtcp_restart.c:main calls mtcp.so(mtcp.c):mtcp_restore_start
+            mtcp_restart.c:main restores old libmtcp.so from checkpoint file.
+            mtcp_restart.c:main calls libmtcp.so(mtcp.c):mtcp_restore_start
                via an absolute memory address saved in the checkpoint file.
 	    [ If executing under gdb, it will stop with suggested
 	      add-symbol-file ... command for gdb.
 	      Paste it into gdb to see stack (doesn't always work). ]
-            We are now executing inside mtcp.so, and will never again
+            We are now executing inside libmtcp.so, and will never again
                use mtcp_restart.c.
-            mtcp.so(mtcp.c):mtcp_restore_start then sets the stack pointer
-	       esp/rsp to a tempstack in mtcp.so of length only 1024 long
+            libmtcp.so(mtcp.c):mtcp_restore_start then sets the stack pointer
+	       esp/rsp to a tempstack in libmtcp.so of length only 1024 long
 	       (raise this if needed!) and sets ebp/rbp to 0, and then calls
                libmtcp.so(mtcp_restart_nolibc.c):mtcp_restoreverything.
 	       [ mtcp_restore_start will never execute again. ]
 
-	    mtcp.so(mtcp_restart_nolibc.c): CAN'T USE ANY libc.so AT THIS POINT
+	    libmtcp.so(mtcp_restart_nolibc.c): CAN'T USE ANY libc.so AT
+	    				       THIS POINT
 	    CAN NOT USE OLD STACK, AND ABOUT TO ALSO REMOVE OLD HEAP.
             Within mtcp_restoreverything, we unmap all other memory segments
-                except mtcp.so;  So, libc.so is no longer available.
+                except libmtcp.so;  So, libc.so is no longer available.
             All code within mtcp_restart_nolibc.c must follow the discipline of
                 not using libc.so. It either directly makes syscalls to kernel,
                 or else duplicates logic of simple libc.so functions.
             mtcp_restoreverything then restores file descriptors and
                 loads memory segments of checkpointed application.
-            mtcp_restoreverything then calls mtcp.so(mtcp.c):finishrestore
+            mtcp_restoreverything then calls libmtcp.so(mtcp.c):finishrestore
                 via absolute memory address saved in the checkpoint file.
                 [ IS IT NECESSARY TO USE ABSOLUTE MEMORY ADDRESS IF
                   WE DECLARE finishrestore TO HAVE
                    __attribute__ ((visibility ("hidden")))? ]
 
-	   mtcp.so(mtcp.c): CAN NOW USE OLD CHECKPOINTED libc.so AT THIS POINT:
-           mtcp.so(mtcp.c):finishrestore then restores the original application
+	   libmtcp.so(mtcp.c): CAN NOW USE OLD CHECKPOINTED libc.so
+	   		        AT THIS POINT:
+           libmtcp.so(mtcp.c):finishrestore then restores
+	   			the original application
                 stack pointer and calls restart_thread(motherofall).
-           mtcp.so(mtcp.c):restarthread then restores our thread manager
+           libmtcp.so(mtcp.c):restarthread then restores our thread manager
                 (motherofall), followed by the application threads.
                 It does so by calling restore_tls_state() for each thread?.
            It then calls setcontext, to restore the registers and signals
@@ -244,7 +247,7 @@ mtcp_restart.c:main():
   the checkpoint file into memory.
   The function pointer is called restore_start in main(), and
 	corresponds to mtcp_restore_start in mtcp.c.
-  Note that we are then in the restored mtcp.so.  We never again execute
+  Note that we are then in the restored libmtcp.so.  We never again execute
 	any code from mtcp_restart.c.
 
 mtcp.c:mtcp_restore_start():

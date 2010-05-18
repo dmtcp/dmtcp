@@ -45,9 +45,9 @@ namespace
 
   static void* find_and_open_mtcp_so()
   {
-    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "mtcp.so" );
+    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
     void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load mtcp.so" );
+    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load libmtcp.so" );
     return handle;
   }
 
@@ -59,26 +59,26 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
   if ( name == REOPEN_MTCP )
   {
-    JTRACE ( "reopening mtcp.so" ) ( theMtcpHandle );
+    JTRACE ( "reopening libmtcp.so" ) ( theMtcpHandle );
     //must get ref count down to 0 so it is really unloaded
     for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
       if(dlclose(theMtcpHandle) != 0){
         //failed call means it is unloaded
-        JTRACE("dlclose(mtcp.so) worked");
+        JTRACE("dlclose(libmtcp.so) worked");
         break;
       }else{
-        JTRACE("dlclose(mtcp.so) decremented refcount");
+        JTRACE("dlclose(libmtcp.so) decremented refcount");
       }
     }
     theMtcpHandle = find_and_open_mtcp_so();
-    JTRACE ( "reopening mtcp.so DONE" ) ( theMtcpHandle );
+    JTRACE ( "reopening libmtcp.so DONE" ) ( theMtcpHandle );
     return 0;
   }
 
   void* tmp = dlsym ( theMtcpHandle, name );
-  JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find mtcp.so symbol" );
+  JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find libmtcp.so symbol" );
 
-  //JTRACE("looking up mtcp.so symbol")(name);
+  //JTRACE("looking up libmtcp.so symbol")(name);
 
   return tmp;
 }
@@ -335,8 +335,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
   // Don't make realclone statically initialized.  After a fork, some
-  // loaders will relocate mtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated mtcp.so .
+  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
   cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
   //JTRACE ( "forwarding user's clone call to mtcp" );
@@ -472,8 +472,8 @@ static int _determineMtcpSignal(){
   //   Jason, PLEASE VERIFY THE LOGIC ABOVE.  IT'S FOR THIS REASON, WE
   //   SHOULDN'T NEED delayCheckpointsLock.  Thanks.  - Gene
 
-  // shutdownMtcpEngineOnFork will dlclose the old mtcp.so and will
-  //   dlopen a new mtcp.so.  DmtcpWorker constructor then calls
+  // shutdownMtcpEngineOnFork will dlclose the old libmtcp.so and will
+  //   dlopen a new libmtcp.so.  DmtcpWorker constructor then calls
   //   initializeMtcpEngine, which will then call mtcp_init.  We must close
   //   the old SIG_CKPT handler prior to this, so that MTCP and mtcp_init()
   //   don't think someone else is using their SIG_CKPT signal.
