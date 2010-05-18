@@ -23,7 +23,7 @@
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Dummy routines for mtcp.so so it won't reference any tls stuff during the restore						*/
+/*  Dummy routines for libmtcp.so so it won't reference any tls stuff during the restore						*/
 /*  The restore can't use %gs etc because it is not set up yet									*/
 /*																*/
 /********************************************************************************************************************************/

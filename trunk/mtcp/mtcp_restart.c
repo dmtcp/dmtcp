@@ -232,15 +232,15 @@ int main (int argc, char *argv[], char *envp[])
   setrlimit(RLIMIT_STACK, &stack_rlimit);
 
   /* Find where the restore image goes */
-  readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */
+  readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
   readfile (fd, &restore_begin, sizeof restore_begin);
-  readcs (fd, CS_RESTORESIZE); /* size of checkpointed mtcp.so image */
+  readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
   readfile (fd, &restore_size, sizeof restore_size);
   readcs (fd, CS_RESTORESTART);
   readfile (fd, &restore_start, sizeof restore_start);
 
   /* Read in the restore image to same address where it was loaded at time
-   *  of checkpoint.  This is mtcp.so, including both text and data sections
+   *  of checkpoint.  This is libmtcp.so, including both text and data sections
    *  as a single section.  Hence, we need both write and exec permission,
    *  and MAP_ANONYMOUS, since the data could have changed.
    */
@@ -271,7 +271,7 @@ int main (int argc, char *argv[], char *envp[])
   readfile (fd, restore_begin, restore_size);
 
 #ifndef __x86_64__
-  // Copy command line to mtcp.so, so that we can re-exec if randomized vdso
+  // Copy command line to libmtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   cmd_file[0] = '\0';
   { int cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
@@ -291,7 +291,7 @@ int main (int argc, char *argv[], char *envp[])
     mtcp_printf("mtcp_restart*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
     textbase = 0;
 
-    symbolfile = popen ("readelf -S mtcp.so", "r");
+    symbolfile = popen ("readelf -S libmtcp.so", "r");
     if (symbolfile != NULL) {
       while (fgets (symbolbuff, sizeof symbolbuff, symbolfile) != NULL) {
         if (memcmp (symbolbuff + 5, "] .text ", 8) == 0) {
@@ -303,7 +303,7 @@ int main (int argc, char *argv[], char *envp[])
 	mtcp_printf("\n**********\nmtcp_restart*: The symbol table of the"
 		 " checkpointed file can be\nmade available to gdb."
 		 "  Just type the command below in gdb:\n");
-        mtcp_printf("     add-symbol-file mtcp.so %p\n",
+        mtcp_printf("     add-symbol-file libmtcp.so %p\n",
                  restore_begin + textbase);
         mtcp_printf("Then type \"continue\" to continue debugging.\n");
 	mtcp_printf("**********\n");

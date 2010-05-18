@@ -74,17 +74,17 @@ int main(int argc, char **argv) {
 	 " soft_lim: %lu, hard_lim: %lu\n",
 	 stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
-  printf("*** restored mtcp.so\n");
-  readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */
+  printf("*** restored libmtcp.so\n");
+  readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
   readfile (fd, &restore_begin, sizeof restore_begin);
-  readcs (fd, CS_RESTORESIZE); /* size of checkpointed mtcp.so image */
+  readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
   readfile (fd, &restore_size, sizeof restore_size);
   readcs (fd, CS_RESTORESTART);
   readfile (fd, &restore_start, sizeof restore_start);
   readcs (fd, CS_RESTOREIMAGE);
   skipfile (fd, restore_size);
 
-  printf("%p-%p rwxp %p 00:00 0          [mtcp.so]\n",
+  printf("%p-%p rwxp %p 00:00 0          [libmtcp.so]\n",
 	restore_begin, restore_begin + restore_size, restore_begin);
   printf("restore_start routine: 0x%p\n", restore_start);
 
