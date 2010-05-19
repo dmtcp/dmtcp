@@ -138,9 +138,15 @@ if (DEBUG_RESTARTING) \
  *       to accomodate this.                                     -- KAPIL
  */
 #if __GLIBC_PREREQ (2,11)
-# define TLS_PID_OFFSET \
-	  (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET (512+26*sizeof(void *))  // offset of tid in pthread struct
+# ifdef __x86_64__
+#  define TLS_PID_OFFSET \
+           (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+#  define TLS_TID_OFFSET (512+26*sizeof(void *))  // offset of tid in pthread struct
+# else
+#  define TLS_PID_OFFSET \
+           (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+#  define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+# endif
 #elif __GLIBC_PREREQ (2,10)
 # define TLS_PID_OFFSET \
 	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
