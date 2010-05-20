@@ -315,14 +315,15 @@ int main ( int argc, char** argv )
 #if defined(__x86_64__) && !defined(CONFIG_M32)
   {  char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
      char argv_buf[5];
-     int fd open(argv[0], O_RDONLY);
+     int fd = open(argv[0], O_RDONLY);
      // Assume can read magic number; else exec failed message will handle it.
-     if (fd != -1 && 5 == read(fd, buf, 5) 0 != memcmp(str, buf, 5))
+     if (fd != -1 && 5 == read(fd, argv_buf, 5)
+         && 0 == memcmp(magic_elf32, argv_buf, 5))
        JASSERT_STDERR << 
          "*** ERROR:  You appear to be checkpointing "
-         << "32-bit target under 64-bit Linux.\n"
-         << "  If this fails, then please try re-configuring DMTCP:\n"
-         << "  configure --enable-m32 ; make clean ; make\n"
+         << "a 32-bit target under 64-bit Linux.\n"
+         << "***  If this fails, then please try re-configuring DMTCP:\n"
+         << "***  configure --enable-m32 ; make clean ; make\n";
   }
 #endif
 
