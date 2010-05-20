@@ -4046,6 +4046,11 @@ else
   CONFIG_M32_FALSE=
 fi
 
+if test "$use_quiet" = "yes"; then
+
+$as_echo "#define CONFIG_M32 /**/" >>confdefs.h
+
+fi
 
 
 $as_echo "#define DMTCP /**/" >>confdefs.h

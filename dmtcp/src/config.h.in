@@ -1,5 +1,8 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Compiling in 32 bit mode on 64 bit linux. */
+#undef CONFIG_M32
+
 /* Verbose debug output and log files in $DMTCP_TMPDIR */
 #undef DEBUG
 
