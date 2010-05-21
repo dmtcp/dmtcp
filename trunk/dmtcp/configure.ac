@@ -1,7 +1,7 @@
-AC_INIT([DMTCP],[1.1.7],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.1.6],[],[dmtcp],[http://dmtcp.sourceforge.net])
 
 AM_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dmtcp], [1.1.7])
+AM_INIT_AUTOMAKE([dmtcp], [1.1.6])
 #AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
@@ -44,6 +44,38 @@ AC_ARG_ENABLE([timing],
 
 if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[],[Record timing information to stderr and jtimings.csv])
+fi
+
+AC_ARG_ENABLE([condor_support],
+            [AS_HELP_STRING([--enable-condor-support],
+                            [set configure options to support Condor.])],
+            [use_condor_support=$enableval],
+            [use_condor_support=no])
+AC_ARG_ENABLE([external_socket_handling],
+            [AS_HELP_STRING([--enable-external-socket-handling],
+                            [wait for connection to external peer to close;
+			     expensive if stale-socket-handling
+			     also enabled.])],
+            [use_external_socket_handling=$enableval],
+            [use_external_socket_handling=no])
+AC_ARG_ENABLE([stale_socket_handling],
+            [AS_HELP_STRING([--disable-stale-socket-handling],
+                            [disable stale socket handling; unknown peer
+			     assumed to be external; follow poicy of
+			     external-socket-handling configure option.])],
+            [use_stale_socket_handling=$enableval],
+            [use_stale_socket_handling=yes])
+#Force other config options for Condor
+
+if test "$use_condor_support" = "yes"; then
+  use_external_socket_handling = yes
+  use_stale_socket_handling = no
+fi
+if test "$use_external_socket_handling" = "yes"; then
+  AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[],[Socket with no peer is external; wait until communication finished])
+fi
+if test "$use_stale_socket_handling" = "yes"; then
+  AC_DEFINE([STALE_SOCKET_HANDLING],[],[Socket with no peer is stale (no peer exists); ignore socket])
 fi
 
 AC_ARG_ENABLE([forked_checkpointing],
