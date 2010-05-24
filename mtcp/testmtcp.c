@@ -83,7 +83,6 @@ int main ()
 
 {
   int number;
-  char buf [ 1024 * 1024 ];
   Line *line, **lline, *lines;
 
   mtcp_init ("testmtcp.mtcp", 10, 0);

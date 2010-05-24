@@ -45,40 +45,41 @@ namespace
 
   static void* find_and_open_mtcp_so()
   {
-    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
+    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "mtcp.so" );
     void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load libmtcp.so" );
+    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load mtcp.so" );
     return handle;
   }
 
 }
 
+static bool delayedCheckpoint = false;
 extern "C" void* _get_mtcp_symbol ( const char* name )
 {
   static void* theMtcpHandle = find_and_open_mtcp_so();
 
   if ( name == REOPEN_MTCP )
   {
-    JTRACE ( "reopening libmtcp.so" ) ( theMtcpHandle );
+    JTRACE ( "reopening mtcp.so" ) ( theMtcpHandle );
     //must get ref count down to 0 so it is really unloaded
     for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
       if(dlclose(theMtcpHandle) != 0){
         //failed call means it is unloaded
-        JTRACE("dlclose(libmtcp.so) worked");
+        JTRACE("dlclose(mtcp.so) worked");
         break;
       }else{
-        JTRACE("dlclose(libmtcp.so) decremented refcount");
+        JTRACE("dlclose(mtcp.so) decremented refcount");
       }
     }
     theMtcpHandle = find_and_open_mtcp_so();
-    JTRACE ( "reopening libmtcp.so DONE" ) ( theMtcpHandle );
+    JTRACE ( "reopening mtcp.so DONE" ) ( theMtcpHandle );
     return 0;
   }
 
   void* tmp = dlsym ( theMtcpHandle, name );
-  JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find libmtcp.so symbol" );
+  JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find mtcp.so symbol" );
 
-  //JTRACE("looking up libmtcp.so symbol")(name);
+  //JTRACE("looking up mtcp.so symbol")(name);
 
   return tmp;
 }
@@ -98,7 +99,7 @@ extern "C"
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
-  dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+  dmtcp::DmtcpWorker::Instance().waitForStage1Suspend();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -110,15 +111,20 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 {
   JALIB_CKPT_UNLOCK();
 
-  // If we don't modify *ckptFilename, then MTCP will continue to use
-  //  its default filename, which was passed to it via our call to mtcp_init()
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-  dmtcp::UniquePid::ThisProcess().incrementGeneration();
-  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
-#endif
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
-  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
+  if (dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint() == false) {
+    char *nullDevice = (char *) "/dev/null";
+    *ckptFilename = nullDevice;
+    delayedCheckpoint = true;
+  } else {
+    // If we don't modify *ckptFilename, then MTCP will continue to use
+    //  its default filename, which was passed to it via our call to mtcp_init()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+    dmtcp::UniquePid::ThisProcess().incrementGeneration();
+    *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
+#endif
+  };
 }
 
 
@@ -126,7 +132,7 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
-    dmtcp::DmtcpWorker::instance().postRestart();
+    dmtcp::DmtcpWorker::Instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.
      * BUG: The restarting process reconnects to the coordinator and the old
@@ -151,14 +157,16 @@ static void callbackPostCheckpoint ( int isRestart )
      *      The current solution is to send a dummy message to coordinator here
      *      before sending a proper request.
      */
-    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
   }
   else
   {
-    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
-    dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+    if ( delayedCheckpoint == false ) {
+      dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
+      dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
+      dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+    }
 
     //now everything but threads are restored
     dmtcp::userHookTrampoline_postCkpt(isRestart);
@@ -178,13 +186,13 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
+  dmtcp::DmtcpWorker::Instance().writeCheckpointPrefix(fd);
 }
 
 static void callbackRestoreVirtualPidTable ( )
 {
-  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-  dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
+  dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::Instance().restoreVirtualPidTable();
 
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
@@ -335,8 +343,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
   // Don't make realclone statically initialized.  After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  // loaders will relocate mtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated mtcp.so .
   cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
   //JTRACE ( "forwarding user's clone call to mtcp" );
@@ -472,8 +480,8 @@ static int _determineMtcpSignal(){
   //   Jason, PLEASE VERIFY THE LOGIC ABOVE.  IT'S FOR THIS REASON, WE
   //   SHOULDN'T NEED delayCheckpointsLock.  Thanks.  - Gene
 
-  // shutdownMtcpEngineOnFork will dlclose the old libmtcp.so and will
-  //   dlopen a new libmtcp.so.  DmtcpWorker constructor then calls
+  // shutdownMtcpEngineOnFork will dlclose the old mtcp.so and will
+  //   dlopen a new mtcp.so.  DmtcpWorker constructor then calls
   //   initializeMtcpEngine, which will then call mtcp_init.  We must close
   //   the old SIG_CKPT handler prior to this, so that MTCP and mtcp_init()
   //   don't think someone else is using their SIG_CKPT signal.

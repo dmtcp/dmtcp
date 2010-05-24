@@ -23,6 +23,7 @@
 #define DMTCPCHECKPOINTSTATE_H
 
 #include "dmtcpalloc.h"
+#include "dmtcpworker.h"
 #include "kernelbufferdrainer.h"
 #include "connectionmanager.h"
 #include "connectionrewirer.h"
@@ -46,6 +47,8 @@ namespace dmtcp
       ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
       void deleteDupFileConnections();
+      void deleteStaleConnections();
+      void preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable );
       void preCheckpointLock();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);

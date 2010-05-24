@@ -23,6 +23,7 @@
 #define DMTCPCONNECTION_H
 
 #include "dmtcpalloc.h"
+#include "dmtcpworker.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>
@@ -126,7 +127,24 @@ namespace dmtcp
         TCP_PREEXISTING
       };
 
+      enum PeerType
+      {
+        PEER_UNKNOWN,
+        PEER_INTERNAL,
+        PEER_EXTERNAL
+      };
+
       int tcpType() const { return _type; }
+      enum PeerType peerType() const { return _peerType; }
+
+      void markInternal() { 
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
+          _peerType = PEER_INTERNAL; 
+      }
+      void markExternal() { 
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
+          _peerType = PEER_EXTERNAL; 
+      }
 
       //basic commands for updating state as a from wrappers
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
@@ -141,6 +159,8 @@ namespace dmtcp
       void markPreExisting() { _type = TCP_PREEXISTING; }
 
       //basic checkpointing commands
+      void preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
+                                     dmtcp::vector<TcpConnectionInfo>& conInfoTable);
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
@@ -168,6 +188,7 @@ namespace dmtcp
       int                     _sockType;
       int                     _sockProtocol;
       int                     _listenBacklog;
+      enum PeerType           _peerType;
       socklen_t               _bindAddrlen;
       struct sockaddr_storage _bindAddr;
       ConnectionIdentifier    _acceptRemoteId;

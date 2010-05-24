@@ -85,6 +85,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
       OSHIFTPRINTF ( FD_LEADER_ELECTION )
+      OSHIFTPRINTF ( PEER_LOOKUP_COMPLETE )
       OSHIFTPRINTF ( DRAINED )
       OSHIFTPRINTF ( RESTARTING )
       OSHIFTPRINTF ( CHECKPOINTED )
@@ -102,6 +103,7 @@ const char* dmtcp::WorkerState::toString() const{
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
   case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
+  case PEER_LOOKUP_COMPLETE:  return "PEER_LOOKUP_COMPLETE";
   case DRAINED:      return "DRAINED";
   case RESTARTING:   return "RESTARTING";
   case CHECKPOINTED: return "CHECKPOINTED";
@@ -132,9 +134,14 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
+      OSHIFTPRINTF ( DMT_DO_PEER_LOOKUP )
       OSHIFTPRINTF ( DMT_DO_DRAIN )
       OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
       OSHIFTPRINTF ( DMT_DO_REFILL )
+
+      OSHIFTPRINTF ( DMT_PEER_LOOKUP )
+      OSHIFTPRINTF ( DMT_UNKNOWN_PEER )
+      OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
 
       OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
       OSHIFTPRINTF ( DMT_RESTORE_WAITING )

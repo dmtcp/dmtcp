@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 
+#include <sys/un.h>
 //in this example, a disconnected fd is left open at checkpoint time
 //child closes both sides of socketpair
 //parent closes one side
@@ -34,6 +36,13 @@ int main(int argc, char* argv[])
   while (1)
   {
     printf("%s %d\n", me, count++);
+
+    socklen_t addrlen_local = sizeof(struct sockaddr_storage);
+    struct sockaddr_storage local, remote;
+
+    int ret = getsockname ( sockets[1], (struct sockaddr*)&local, &addrlen_local );
+    ret = getpeername ( sockets[1], (struct sockaddr*)&remote, &addrlen_local );
+
     sleep(2);
   }
 

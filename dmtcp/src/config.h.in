@@ -1,16 +1,10 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Compiling in 32 bit mode on 64 bit linux. */
-#undef CONFIG_M32
-
 /* Verbose debug output and log files in $DMTCP_TMPDIR */
 #undef DEBUG
 
 /* Always enable this. */
 #undef DMTCP
-
-/* Socket with no peer is external; wait until communication finished */
-#undef EXTERNAL_SOCKET_HANDLING
 
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
@@ -44,9 +38,6 @@
 
 /* No output, not even NOTE and WARNING */
 #undef QUIET
-
-/* Socket with no peer is stale (no peer exists); ignore socket */
-#undef STALE_SOCKET_HANDLING
 
 /* Record timing information to stderr and jtimings.csv */
 #undef TIMING

@@ -694,9 +694,6 @@ enable_dependency_tracking
 enable_debug
 enable_quiet
 enable_timing
-enable_condor_support
-enable_external_socket_handling
-enable_stale_socket_handling
 enable_forked_checkpointing
 enable_unique_checkpoint_filenames
 enable_pid_virtualization
@@ -1349,14 +1346,6 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
-  --enable-condor-support set configure options to support Condor.
-  --enable-external-socket-handling
-                          wait for connection to external peer to close;
-                          expensive if stale-socket-handling also enabled.
-  --disable-stale-socket-handling
-                          disable stale socket handling; unknown peer assumed
-                          to be external; follow poicy of
-                          external-socket-handling configure option.
   --enable-forked-checkpointing
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint
@@ -4245,48 +4234,6 @@ _ACEOF
 
 fi
 
-# Check whether --enable-condor_support was given.
-if test "${enable_condor_support+set}" = set; then
-  enableval=$enable_condor_support; use_condor_support=$enableval
-else
-  use_condor_support=no
-fi
-
-# Check whether --enable-external_socket_handling was given.
-if test "${enable_external_socket_handling+set}" = set; then
-  enableval=$enable_external_socket_handling; use_external_socket_handling=$enableval
-else
-  use_external_socket_handling=no
-fi
-
-# Check whether --enable-stale_socket_handling was given.
-if test "${enable_stale_socket_handling+set}" = set; then
-  enableval=$enable_stale_socket_handling; use_stale_socket_handling=$enableval
-else
-  use_stale_socket_handling=yes
-fi
-
-#Force other config options for Condor
-
-if test "$use_condor_support" = "yes"; then
-  use_external_socket_handling = yes
-  use_stale_socket_handling = no
-fi
-if test "$use_external_socket_handling" = "yes"; then
-
-cat >>confdefs.h <<\_ACEOF
-#define EXTERNAL_SOCKET_HANDLING /**/
-_ACEOF
-
-fi
-if test "$use_stale_socket_handling" = "yes"; then
-
-cat >>confdefs.h <<\_ACEOF
-#define STALE_SOCKET_HANDLING /**/
-_ACEOF
-
-fi
-
 # Check whether --enable-forked_checkpointing was given.
 if test "${enable_forked_checkpointing+set}" = set; then
   enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
@@ -4369,13 +4316,6 @@ else
   CONFIG_M32_FALSE=
 fi
 
-if test "$use_quiet" = "yes"; then
-
-cat >>confdefs.h <<\_ACEOF
-#define CONFIG_M32 /**/
-_ACEOF
-
-fi
 
 
 cat >>confdefs.h <<\_ACEOF

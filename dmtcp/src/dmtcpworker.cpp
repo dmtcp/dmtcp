@@ -103,6 +103,10 @@ static dmtcp::UniquePid compGroup;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = 0;
 static dmtcp::ConnectionState* theCheckpointState = 0;
+
+static dmtcp::vector <dmtcp::TcpConnectionInfo> theTcpConnections;
+dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
+static bool _waitingForExternalSocketsToClose = false;
 static int theRestorePort = RESTORE_PORT_START;
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
@@ -491,7 +495,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
       .Text ( "Unable to create signature file" );
     dmtcp::string pidstr = jalib::XToString(_real_getpid());
     write(fd, pidstr.c_str(), pidstr.length()+1);
-    close(fd);
+    _real_close(fd);
   }
 
   if ( theCheckpointState != 0 ) {
@@ -500,6 +504,19 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   }
 
   theCheckpointState = new ConnectionState();
+
+  JASSERT ( _waitingForExternalSocketsToClose == true || externalTcpConnections.empty() == true );
+
+  while ( externalTcpConnections.empty() == false ) {
+    JTRACE("Waiting for externalSockets toClose") (waitingForExternalSocketsToClose);
+    sleep ( 1 );
+  }
+  if ( _waitingForExternalSocketsToClose == true ) {
+    DmtcpMessage msg ( DMT_EXTERNAL_SOCKETS_CLOSED );
+    _coordinatorSocket << msg;
+    _waitingForExternalSocketsToClose = false;
+    JTRACE("externalSocketstoClosed") (waitingForExternalSocketsToClose);
+  }
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
 
@@ -521,7 +538,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE ( "Starting checkpoint, suspending..." );
 }
 
-void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
+bool dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 {
   WorkerState::setCurrentState ( WorkerState::SUSPENDED );
   JTRACE ( "suspended" );
@@ -547,7 +564,73 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
-  waitForCoordinatorMsg ( "DRAIN", DMT_DO_DRAIN );
+  waitForCoordinatorMsg ( "PEER_LOOKUP", DMT_DO_PEER_LOOKUP );
+  JTRACE ( "Looking up Socket Peers..." );
+  theTcpConnections.clear();
+  theCheckpointState->preCheckpointPeerLookup(theTcpConnections);
+  sendPeerLookupRequest(theTcpConnections);
+  JTRACE ( "Done Socket Peer Lookup" );
+
+
+  WorkerState::setCurrentState ( WorkerState::PEER_LOOKUP_COMPLETE );
+
+  {
+    dmtcp::DmtcpMessage msg;
+
+    msg.type = DMT_OK;
+    msg.state = WorkerState::currentState();
+    _coordinatorSocket << msg;
+
+    JTRACE ( "waiting for DRAIN/RESUME Signal" );
+
+    do {
+      msg.poison();
+      _coordinatorSocket >> msg;
+      msg.assertValid();
+
+      if ( msg.type == DMT_KILL_PEER ) {
+        JTRACE ( "Received KILL Message from coordinator, exiting" );
+        _exit ( 0 );
+      } 
+      JTRACE ( "received message" ) (msg.type );
+      if ( msg.type != DMT_UNKNOWN_PEER )
+        break;
+
+      JTRACE ("received DMT_UNKNOWN_PEER message") (msg.conId);
+
+      TcpConnection* con = (TcpConnection*) &( ConnectionList::Instance() [msg.conId] );
+      con->markExternal();
+      externalTcpConnections.push_back(msg.conId);
+      _waitingForExternalSocketsToClose = true;
+
+    } while ( msg.type == DMT_UNKNOWN_PEER );
+
+    JASSERT ( msg.type == DMT_DO_DRAIN || msg.type == DMT_DO_RESUME ) ( msg.type );
+
+    ConnectionList& connections = ConnectionList::Instance();
+
+    // Tcp Accept and Connect connection with PeerType UNKNOWN should be marked as INTERNAL
+    for ( ConnectionList::iterator i = connections.begin()
+        ; i!= connections.end()
+        ; ++i )
+    {
+      Connection* con =  i->second;
+      if ( con->conType() == Connection::TCP ) {
+        TcpConnection* tcpCon = (TcpConnection *) con;
+        if ( (tcpCon->tcpType() == TcpConnection::TCP_ACCEPT || tcpCon->tcpType() == TcpConnection::TCP_CONNECT) &&
+             tcpCon->peerType() == TcpConnection::PEER_UNKNOWN )
+          tcpCon->markInternal();
+      }
+    }
+    if ( msg.type == DMT_DO_RESUME ) {
+      JTRACE ( "Peer Lookup not complete, skipping checkpointing \n\n\n\n\n");
+      return false;
+    }
+
+    JASSERT (msg.type == DMT_DO_DRAIN);
+  }
+
+  //waitForCoordinatorMsg ( "DRAIN", DMT_DO_DRAIN );
 
   JTRACE ( "draining..." );
   theCheckpointState->preCheckpointDrain();
@@ -571,6 +654,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().preCheckpoint();
 #endif
+  return true;
 }
 
 void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
@@ -642,8 +726,8 @@ void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 
 void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
                                         dmtcp::UniquePid compGroup,
-                                        int numPeers,
-                                        int &coordTstamp)
+                                        int              numPeers,
+                                        int&             coordTstamp)
 {
   JTRACE ( "restoreSockets begin" );
 
@@ -675,6 +759,25 @@ void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
   JTRACE ( "sockets restored!" );
 
 }
+
+void dmtcp::DmtcpWorker::sendPeerLookupRequest (dmtcp::vector<TcpConnectionInfo>& conInfoTable )
+{
+  for (int i = 0; i < conInfoTable.size(); ++i) {
+    DmtcpMessage msg;
+    msg.type = DMT_PEER_LOOKUP;
+    msg.localAddr    = conInfoTable[i].localAddr();
+    msg.remoteAddr   = conInfoTable[i].remoteAddr();
+    msg.localAddrlen = conInfoTable[i].addrlen();
+    msg.conId        = conInfoTable[i].conId();
+
+    _coordinatorSocket << msg;
+  }
+}
+
+bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
+  return _waitingForExternalSocketsToClose;
+}
+
 
 void dmtcp::DmtcpWorker::delayCheckpointsLock(){
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
