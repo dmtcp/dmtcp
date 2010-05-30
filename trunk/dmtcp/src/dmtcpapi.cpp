@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "dmtcpaware.h"
+#include "dmtcpcoordinatorapi.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcp_coordinator.h"
@@ -54,9 +55,9 @@ static const dmtcp::DmtcpMessage * const exampleMessage = NULL;
 static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_lock();
   {
-    dmtcp::DmtcpWorker worker(false);
-    worker.useAlternateCoordinatorFd();
-    worker.connectAndSendUserCommand(c, result);
+    dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+    coordinatorAPI.useAlternateCoordinatorFd();
+    coordinatorAPI.connectAndSendUserCommand(c, result);
   }
   _dmtcp_unlock();
 }

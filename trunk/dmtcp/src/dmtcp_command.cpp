@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "dmtcpworker.h"
+#include "dmtcpcoordinatorapi.h"
 #include "dmtcp_coordinator.h"
 #include "dmtcpmessagetypes.h"
 #include "mtcpinterface.h"
@@ -109,17 +109,19 @@ int main ( int argc, char** argv )
     }
 
     int result[DMTCPMESSAGE_NUM_PARAMS];
-    DmtcpWorker worker(false);
+    DmtcpCoordinatorAPI coordinatorAPI;
     if (s == "i" || s == "interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       cmd = (char *)s.c_str();
-      worker.connectAndSendUserCommand(*cmd, result);
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
       shift;
     } else if (*cmd == 'b') {
-      worker.connectAndSendUserCommand(*cmd, result);     // blocking prefix
-      worker.connectAndSendUserCommand(*(cmd+1), result); // actual command
+      // blocking prefix
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+      // actual command
+      coordinatorAPI.connectAndSendUserCommand(*(cmd+1), result);
     } else {
-      worker.connectAndSendUserCommand(*cmd, result);
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
     }
 
     //check for error

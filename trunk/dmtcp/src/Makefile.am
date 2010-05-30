@@ -9,8 +9,9 @@ pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
-	connectionmanager.h connectionrewirer.h constants.h dmtcp_coordinator.h \
-	dmtcpmessagetypes.h dmtcpworker.h ../jalib/jassert.h \
+	connectionmanager.h connectionrewirer.h constants.h \
+	dmtcp_coordinator.h dmtcpmessagetypes.h \
+	dmtcpworker.h dmtcpcoordinatorapi.h ../jalib/jassert.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
@@ -24,7 +25,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
-	virtualpidtable.cpp ../jalib/jalloc.cpp
+	dmtcpcoordinatorapi.cpp virtualpidtable.cpp ../jalib/jalloc.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
@@ -36,8 +37,9 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
-dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp socketwrappers.cpp workerhijack.cpp\
+dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp dmtcpcoordinatorapi.cpp \
+	execwrappers.cpp mtcpinterface.cpp signalwrapers.cpp \
+	socketwrappers.cpp workerhijack.cpp\
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
