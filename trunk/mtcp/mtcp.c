@@ -1900,8 +1900,16 @@ static int should_ckpt_fd (int fd)
 {
    if( callback_ckpt_fd!=NULL )
      return (*callback_ckpt_fd)(fd); //delegate to callback
+   else if(fd > 2)
+     return 1;
    else
-     return fd>2; //ignore stdin/stdout
+   {
+     /* stdin/stdout/stderr */
+     /* we only want to checkpoint these if they are from a file */
+     struct stat statbuf;
+     fstat(fd, &statbuf);
+     return S_ISREG(statbuf.st_mode);
+   }
 }
 
 /* Write list of open files to the checkpoint file */
@@ -1912,7 +1920,7 @@ static void writefiledescrs (int fd)
   char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
   int doff, dsiz, fddir, fdnum, linklen, rc;
   off_t offset;
-  struct dirent *dent;
+  struct linux_dirent *dent;
   struct stat lstatbuf, statbuf;
 
   writecs (fd, CS_FILEDESCRS);
@@ -1932,14 +1940,15 @@ static void writefiledescrs (int fd)
     if (sizeof dent -> d_ino == 4) dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
     if (sizeof dent -> d_ino == 8) dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
     if (dsiz <= 0) break;
+
     for (doff = 0; doff < dsiz; doff += dent -> d_reclen) {
-      dent = (void *)(dbuf + doff);
+      dent = (struct linux_dirent *) (dbuf + doff);
 
       /* The filename should just be a decimal number = the fd it represents                                         */
       /* Also, skip the entry for the checkpoint and directory files as we don't want the restore to know about them */
 
       fdnum = strtol (dent -> d_name, &p, 10);
-      if ((*p == 0) && (fdnum >= 0) && (fdnum != fd) && (fdnum != fddir) && (should_ckpt_fd (fdnum) > 0)) {
+      if ((*p == '\0') && (fdnum >= 0) && (fdnum != fd) && (fdnum != fddir) && (should_ckpt_fd (fdnum) > 0)) {
 
         /* Read the symbolic link so we get the filename that's open on the fd */
 
@@ -1952,6 +1961,8 @@ static void writefiledescrs (int fd)
             mtcp_abort ();
           }
           linkbuf[linklen] = '\0';
+
+          DPRINTF (("mtcp writefiledescrs*: checkpointing fd %d -> %s\n", fdnum, linkbuf));
 
           /* Read about the link itself so we know read/write open flags */
 

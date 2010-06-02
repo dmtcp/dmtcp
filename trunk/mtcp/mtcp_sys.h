@@ -289,6 +289,17 @@ extern int mtcp_sys_errno;
 // #include <sysdeps/unix/x86_64/sysdep.h>  is not needed.
 #include <asm/unistd.h> /* translate __NR_getpid to syscall # using i386 or x86_64 */
 
+/* getdents() fills up the buffer not with 'struct dirent's as might be
+ * expected, but with custom 'struct linux_dirent's.  This structure, however,
+ * must be manually defined.  This definition is taken from the getdents(2) man
+ * page. */
+struct linux_dirent {
+    long 	  d_ino;
+    off_t	  d_off;
+    unsigned short d_reclen;
+    char 	  d_name[];
+};
+
 //==================================================================
 
 /* USAGE:  mtcp_inline_syscall:  second arg is number of args of system call */
@@ -320,6 +331,9 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_brk(args...)  (void *)(mtcp_inline_syscall(brk,1,args))
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
+   /* Note that getdents() does not fill the buf with 'struct dirent's, but
+    * instead with 'struct linux_dirent's.  These must be defined manually, and
+    * in our case have been defined earlier in this file. */
 #endif
 #ifdef __NR_getdents64
 #define mtcp_sys_getdents64(args...)  mtcp_inline_syscall(getdents64,3,args)
