@@ -1123,7 +1123,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     // Create a symlink from 
     //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
     unlink ( filename.c_str() );
-    symlink ( uniqueFilename.c_str(), filename.c_str() );
+    // FIXME:  Handle error case of symlink()
+    JWARNING( 0 == symlink ( uniqueFilename.c_str(), filename.c_str() ) );
   }
   _restartFilenames.clear();
 }

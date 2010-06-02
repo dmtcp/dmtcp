@@ -22,6 +22,7 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
+#include "dmtcpcoordinatorapi.h"
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
@@ -47,7 +48,7 @@ namespace dmtcp
 
   class ConnectionState;
 
-  class DmtcpWorker
+  class DmtcpWorker : public DmtcpCoordinatorAPI
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -105,11 +106,12 @@ namespace dmtcp
       bool tryConnectToCoordinator();
       void connectToCoordinatorWithoutHandshake();
       void connectToCoordinatorWithHandshake();
-      // np > -1  means it is restarting process that have np processes in its
+      // np > -1  means it is restarting a process that have np processes in its
       //           computation group
-      // np == -1 means it is new pure process, so coordinator needs to
+      // np == -1 means it is a new pure process, so coordinator needs to
       //           generate compGroup ID for it
-      // np == -2 means it is service connection from dmtcp_restart - irnore it
+      // np == -2 means it is a service connection from dmtcp_restart
+      //           - ignore it
       void sendCoordinatorHandshake(const dmtcp::string& procName, 
                                     UniquePid compGroup = UniquePid(),
                                     int np = -1, 

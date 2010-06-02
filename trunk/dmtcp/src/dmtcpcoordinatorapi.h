@@ -36,7 +36,7 @@ namespace dmtcp
   {
     public:
       DmtcpCoordinatorAPI ();
-      // Accept default destructor
+      // Use default destructor
 
       void connectAndSendUserCommand(char c, int* result = NULL);
 
@@ -44,11 +44,11 @@ namespace dmtcp
 
       bool connectToCoordinator(bool dieOnError=true);
       bool tryConnectToCoordinator();
-
-    protected:
       void sendUserCommand(char c, int* result = NULL);
 
       jalib::JSocket _coordinatorSocket;
+
+    protected:
       jalib::JSocket _restoreSocket;
   };
 
