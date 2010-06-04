@@ -47,6 +47,7 @@ namespace dmtcp
 
   class ConnectionState;
 
+#ifdef EXTERNAL_SOCKET_HANDLING
   class TcpConnectionInfo {
     public:
       TcpConnectionInfo (const ConnectionIdentifier& id, 
@@ -69,6 +70,7 @@ namespace dmtcp
     struct sockaddr_storage _remoteAddr;
     struct sockaddr_storage _localAddr;
   };
+#endif
 
   class DmtcpWorker
   {
@@ -87,7 +89,14 @@ namespace dmtcp
                                  DmtcpMessageType type);
       void sendCkptFilenameToCoordinator();
       void waitForStage1Suspend();
+#ifdef EXTERNAL_SOCKET_HANDLING
       bool waitForStage2Checkpoint();
+      bool waitForStage2bCheckpoint();
+      void sendPeerLookupRequest(dmtcp::vector<TcpConnectionInfo>& conInfoTable );
+      static bool waitingForExternalSocketsToClose();
+#else
+      void waitForStage2Checkpoint();
+#endif
       void waitForStage3Refill();
       void waitForStage4Resume();
       void restoreVirtualPidTable();
@@ -99,7 +108,6 @@ namespace dmtcp
 
 
 
-      void sendPeerLookupRequest(dmtcp::vector<TcpConnectionInfo>& conInfoTable );
       static void resetOnFork();
       void CleanupWorker();
 
@@ -125,8 +133,6 @@ namespace dmtcp
       static void decrementUnInitializedThreadCount();
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
-      static bool waitingForExternalSocketsToClose();
-      static void allKnownExternalSocketsClosed();
       void interruptCkpthread();
 
       bool connectToCoordinator(bool dieOnError=true);

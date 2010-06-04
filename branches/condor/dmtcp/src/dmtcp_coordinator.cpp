@@ -196,8 +196,10 @@ static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
+#ifdef EXTERNAL_SOCKET_HANDLING
 static int numWorkersWithExternalSockets = 0;
 static dmtcp::vector<dmtcp::ConnectionIdentifier> workersWithExternalSockets;
+#endif
 
 static dmtcp::DmtcpCoordinator prog;
 
@@ -275,6 +277,7 @@ namespace
   };
 }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
 void dmtcp::DmtcpCoordinator::sendUnIdentifiedPeerNotifications()
 {
   _socketPeerLookupMessagesIterator it;
@@ -301,6 +304,7 @@ void dmtcp::DmtcpCoordinator::sendUnIdentifiedPeerNotifications()
   }
   _socketPeerLookupMessages.clear();
 }
+#endif
 
 void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
@@ -469,12 +473,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           JNOTE ( "locking all nodes" );
           broadcastMessage ( DMT_DO_LOCK_FDS );
         }
-//        if ( oldState == WorkerState::SUSPENDED
-//                && newState == WorkerState::FD_LEADER_ELECTION )
-//        {
-//          JNOTE ( "draining all nodes" );
-//          broadcastMessage ( DMT_DO_DRAIN );
-//        }
+#ifdef EXTERNAL_SOCKET_HANDLING
         if ( oldState == WorkerState::SUSPENDED
                 && newState == WorkerState::FD_LEADER_ELECTION )
         {
@@ -499,6 +498,20 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           JNOTE ( "checkpointing all nodes" );
           broadcastMessage ( DMT_DO_CHECKPOINT );
         }
+#else
+        if ( oldState == WorkerState::SUSPENDED
+                && newState == WorkerState::FD_LEADER_ELECTION )
+        {
+          JNOTE ( "draining all nodes" );
+          broadcastMessage ( DMT_DO_DRAIN );
+        }
+        if ( oldState == WorkerState::FD_LEADER_ELECTION
+                && newState == WorkerState::DRAINED )
+        {
+          JNOTE ( "checkpointing all nodes" );
+          broadcastMessage ( DMT_DO_CHECKPOINT );
+        }
+#endif
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
         {
@@ -585,6 +598,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
         }
         break;
+#ifdef EXTERNAL_SOCKET_HANDLING
       case DMT_PEER_LOOKUP:
       {
         JTRACE ( "received PEER_LOOKUP msg" ) ( msg.conId );
@@ -633,6 +647,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         }
       }
       break;
+#endif
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type ).Text ( "unexpected message from worker" );
     }

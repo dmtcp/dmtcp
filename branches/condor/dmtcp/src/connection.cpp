@@ -96,9 +96,12 @@ void dmtcp::Connection::restartDup2(int oldFd, int fd){
 /////////////////////////
 ////// TCP UPDATE COMMANDS
 
-  /*onSocket*/ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
+/*onSocket*/ 
+dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   : Connection ( TCP_CREATED )
+#ifdef EXTERNAL_SOCKET_HANDLING
   , _peerType ( PEER_UNKNOWN )
+#endif
   , _sockDomain ( domain )
   , _sockType ( type )
   , _sockProtocol ( protocol )
@@ -144,9 +147,11 @@ void dmtcp::TcpConnection::onConnect()
   _type = TCP_CONNECT;
 }
 /*onAccept*/
-  dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
+dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
   : Connection ( TCP_ACCEPT )
+#ifdef EXTERNAL_SOCKET_HANDLING
   , _peerType ( PEER_UNKNOWN )
+#endif
   , _sockDomain ( parent._sockDomain )
   , _sockType ( parent._sockType )
   , _sockProtocol ( parent._sockProtocol )
@@ -200,7 +205,8 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 ////////////
 ///// TCP CHECKPOINTING
-
+  
+#ifdef EXTERNAL_SOCKET_HANDLING
 void dmtcp::TcpConnection::preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
                                                      dmtcp::vector<TcpConnectionInfo>& conInfoTable)
 {
@@ -234,6 +240,7 @@ void dmtcp::TcpConnection::preCheckpointPeerLookup ( const dmtcp::vector<int>& f
       break;
   }
 }
+#endif
 
 void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
