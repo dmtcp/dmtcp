@@ -874,7 +874,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   }
 }
 
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
+dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::Instance()
 {
   JASSERT ( false ).Text ( "This method is only available on workers" );
   return * ( ( DmtcpWorker* ) 0 );

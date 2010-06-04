@@ -30,7 +30,7 @@
 
 
 
-dmtcp::ProtectedFDs& dmtcp::ProtectedFDs::instance()
+dmtcp::ProtectedFDs& dmtcp::ProtectedFDs::Instance()
 {
   static ProtectedFDs inst;
   return inst;

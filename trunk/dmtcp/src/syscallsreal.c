@@ -193,6 +193,11 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+int _real_fclose ( FILE* fp )
+{
+  REAL_FUNC_PASSTHROUGH ( fclose ) ( fp );
+}
+
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );

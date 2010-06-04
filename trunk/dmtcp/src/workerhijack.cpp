@@ -48,7 +48,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
-  instance().connectToCoordinatorWithHandshake();
+  Instance().connectToCoordinatorWithHandshake();
 
   WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
@@ -60,5 +60,5 @@ void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
 {
   JASSERT(false).Text("should not be called");
 }
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
+dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::Instance() { return theInstance; }
 

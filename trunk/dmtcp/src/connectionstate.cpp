@@ -92,6 +92,28 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
 //   }
 }
 
+void dmtcp::ConnectionState::deleteStaleConnections()
+{
+  ConnectionList& connections = ConnectionList::Instance();
+
+  //build list of stale connections
+  dmtcp::vector<ConnectionList::iterator> staleConnections;
+  for ( ConnectionList::iterator i = connections.begin()
+        ; i!= connections.end()
+        ; ++i )
+  {
+    if ( _conToFds[i->first].size() == 0 )
+      staleConnections.push_back ( i );
+  }
+
+  //delete all the stale connections
+  for ( size_t i=0; i<staleConnections.size(); ++i )
+  {
+    JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
+    connections.erase ( staleConnections[i] );
+  }
+}
+
 void dmtcp::ConnectionState::preCheckpointLock()
 {
   SignalManager::saveSignals();
@@ -115,24 +137,8 @@ void dmtcp::ConnectionState::preCheckpointLock()
 
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
+  deleteStaleConnections();
   ConnectionList& connections = ConnectionList::Instance();
-
-  //build list of stale connections
-  dmtcp::vector<ConnectionList::iterator> staleConnections;
-  for ( ConnectionList::iterator i = connections.begin()
-        ; i!= connections.end()
-        ; ++i )
-  {
-    if ( _conToFds[i->first].size() == 0 )
-      staleConnections.push_back ( i );
-  }
-
-  //delete all the stale connections
-  for ( size_t i=0; i<staleConnections.size(); ++i )
-  {
-    JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
-    connections.erase ( staleConnections[i] );
-  }
 
   //initialize the drainer
   for ( ConnectionList::iterator i = connections.begin()

@@ -98,7 +98,7 @@ extern "C"
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
-  dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+  dmtcp::DmtcpWorker::Instance().waitForStage1Suspend();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -118,7 +118,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 #endif
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
-  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
+  dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint();
 }
 
 
@@ -126,7 +126,7 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
-    dmtcp::DmtcpWorker::instance().postRestart();
+    dmtcp::DmtcpWorker::Instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.
      * BUG: The restarting process reconnects to the coordinator and the old
@@ -151,14 +151,14 @@ static void callbackPostCheckpoint ( int isRestart )
      *      The current solution is to send a dummy message to coordinator here
      *      before sending a proper request.
      */
-    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
   }
   else
   {
-    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
-    dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+    dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
 
     //now everything but threads are restored
     dmtcp::userHookTrampoline_postCkpt(isRestart);
@@ -178,13 +178,13 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
+  dmtcp::DmtcpWorker::Instance().writeCheckpointPrefix(fd);
 }
 
 static void callbackRestoreVirtualPidTable ( )
 {
-  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-  dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
+  dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::Instance().restoreVirtualPidTable();
 
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
