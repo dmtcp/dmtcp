@@ -54,7 +54,7 @@ static void processClose(dmtcp::ConnectionIdentifier conId)
     }
     if ( externalTcpConnections.empty() == true ) {
     }
-    sleep(10);
+    sleep(4);
   }
 }
 #endif
