@@ -66,6 +66,7 @@
 
 
 int thePort = -1;
+static char *argv0;
 
 static const char* theHelpMessage =
   "COMMANDS:\n"
@@ -105,7 +106,7 @@ static const char* theUsage =
 ;
 
 
-static const char* theRestartScriptHeader = 
+static const char* theRestartScriptHeader =
   "#!/bin/bash \n"
   "set -m # turn on job control\n\n"
   "#This script launches all the restarts in the background.\n"
@@ -120,7 +121,7 @@ static const char* theRestartScriptHeader =
   "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n\n\n"
 ;
 
-static const char* theRestartScriptUsage = 
+static const char* theRestartScriptUsage =
   "usage_str='USAGE:\n"
   "  dmtcp_restart_script.sh [OPTIONS]\n\n"
   "OPTIONS:\n"
@@ -143,7 +144,7 @@ static const char* theRestartScriptUsage =
   "      Print this message\'\n\n\n"
 ;
 
-static const char* theRestartScriptCmdlineArgHandler = 
+static const char* theRestartScriptCmdlineArgHandler =
   "if [ $# -gt 0 ]; then\n"
   "  while [ $# -gt 0 ]\n"
   "  do\n"
@@ -206,7 +207,7 @@ static dmtcp::DmtcpCoordinator prog;
  * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
  * threads) are waiting for the next message (DMT_DO_LOCK_FDS or
  * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
- * indicating an error.  
+ * indicating an error.
  * The fix to this problem is to introduce a global
  * variable "workersRunningAndSuspendMsgSent" which, as the name implies,
  * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
@@ -328,7 +329,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JNOTE ( "forcing restart..." );
     broadcastMessage ( DMT_FORCE_RESTART );
     break;
-  case 'q': case 'Q': 
+  case 'q': case 'Q':
   {
     JNOTE ( "Killing all connected Peers ..." );
     broadcastMessage ( DMT_KILL_PEER );
@@ -557,8 +558,8 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
     NamedChunkReader& client = * ( ( NamedChunkReader* ) sock );
     JNOTE ( "client disconnected" ) ( client.identity() );
 
-    CoordinatorStatus s = getStatus(); 
-    if( s.numPeers <= 1 ){ 
+    CoordinatorStatus s = getStatus();
+    if( s.numPeers <= 1 ){
       if(exitOnLast){
         JNOTE ("last client exited, shutting down..");
         handleUserCommand('q');
@@ -588,7 +589,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
       curTimeStamp = 0; // Drop timestamp to 0
       numPeers = -1; // Drop number of peers to unknown
-      
+
       JTRACE ( "resetting _restoreWaitingMessages" )
         ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
@@ -716,7 +717,7 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jal
   return;
 }
 
-bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_remote, 
+bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_remote,
                                                           jalib::JSocket& remote )
 {
   // this is dmtcp_restart process, connecting to get timestamp and set current
@@ -769,7 +770,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
   return true;
 }
 
-bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote, 
+bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote,
                                                       jalib::JSocket& remote )
 {
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
@@ -790,8 +791,8 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
       remote << hello_local;
       remote.close();
       return false;
-    } 
-    // dmtcp_restart already connected and compGroup created. 
+    }
+    // dmtcp_restart already connected and compGroup created.
     // Computation process connection
     JASSERT ( curTimeStamp != 0 );
 
@@ -879,9 +880,9 @@ dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
   return * ( ( DmtcpWorker* ) 0 );
 }
 
-/* 
+/*
   Can cause conflict with method of same signature in dmtcpworker.cpp.
-  What was the purpose of this method? -- Praveen 
+  What was the purpose of this method? -- Praveen
 */
 const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
@@ -889,7 +890,7 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
   return * ( ( UniquePid* ) 0 );
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type, 
+void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
     dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int param1 = -1 )
 {
   DmtcpMessage msg;
@@ -968,7 +969,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   gethostname ( hostname, 80 );
 
   JTRACE ( "writing restart script" ) ( uniqueFilename );
-  
+
   FILE* fp = fopen ( uniqueFilename.c_str(),"w" );
   JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename ).Text ( "failed to open file" );
 
@@ -991,7 +992,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fprintf ( fp, "# Number of hosts in the computation = %d\n", _restartFilenames.size() );
   fprintf ( fp, "# Number of processes in the computation = %d\n\n", getStatus().numPeers );
-  
+
   if ( isSingleHost ) {
     JTRACE ( "Single HOST");
 
@@ -1002,19 +1003,22 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     }
 
     fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-    fprintf ( fp, 
+    fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
+    fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
+		  " || DMTCP_RESTART=`dirname %s`/dmtcp_restart\n\n", argv0 );
+    fprintf ( fp,
               "if [ ! -z \"$maybebatch\" ]; then\n"
-              "  exec dmtcp_restart $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "  exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
               "    %s\n"
               "else\n"
-              "  exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "  exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
               "    $maybejoin --interval \"$checkpoint_interval\"\\\n"
               "      %s\n"
               "fi\n", o.str().c_str(), o.str().c_str() );
   }
   else
   {
-    fprintf ( fp, "%s", 
+    fprintf ( fp, "%s",
               "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
               "# SYNTAX:\n"
               "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
@@ -1022,7 +1026,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "# At most one fg (foreground) mode allowed; it must be last.\n"
               "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n"
               "worker_ckpts=\'" );
-  
+
     for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
     {
       fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
@@ -1031,13 +1035,13 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
         fprintf ( fp," %s", file->c_str() );
       }
     }
-  
+
     fprintf ( fp, "%s", "\n\'\n\n\n" );
-  
-  
+
+
     fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-  
-    fprintf ( fp, "%s", 
+
+    fprintf ( fp, "%s",
               "worker_hosts=\\\n"
               "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
               "restart_modes=\\\n"
@@ -1047,17 +1051,17 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "\n"
               "if [ ! -z \"$hostfile\" ]; then\n"
               "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
-              "fi\n\n" 
-  
+              "fi\n\n"
+
               "localhost_ckpt_files_group=\n\n"
-  
+
               "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
-  
+
               "maybejoin=\n"
               "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
               "  maybejoin='--join'\n"
               "fi\n\n"
-  
+
               "for worker_host in $worker_hosts\n"
               "do\n\n"
               "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
@@ -1076,7 +1080,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "  if [ -z \"$ckpt_files_group\" ]; then\n"
               "    break;\n"
               "  fi\n\n"
-  
+
               "  new_ckpt_files_group=\"\"\n"
               "  for tmp in $ckpt_files_group\n"
               "  do\n"
@@ -1085,12 +1089,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "      fi\n"
               "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
               "  done\n\n"
-    
+
               "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
               "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
               "    continue\n"
               "  fi\n\n"
-  
+
               "  if [ -z $maybebg ]; then\n"
               "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
               "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
@@ -1102,14 +1106,19 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
               "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
               "  fi\n\n"
-              "done\n\n"
-  
+              "done\n\n");
+
+    fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
+    fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
+		  " || DMTCP_RESTART=`dirname %s`/dmtcp_restart\n\n", argv0 );
+
+    fprintf ( fp, "%s",
               "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
               "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
               "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
               "fi\n\n"
-  
-  
+
+
               "#wait for them all to finish\n"
               "wait\n");
   }
@@ -1120,7 +1129,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     struct stat buf;
     stat ( uniqueFilename.c_str(), &buf );
     chmod ( uniqueFilename.c_str(), buf.st_mode | S_IXUSR );
-    // Create a symlink from 
+    // Create a symlink from
     //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
     unlink ( filename.c_str() );
     // FIXME:  Handle error case of symlink()
@@ -1147,6 +1156,7 @@ static void setupSIGINTHandler()
 
 int main ( int argc, char** argv )
 {
+  argv0 = argv[0];
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
 
   //parse port
@@ -1237,7 +1247,7 @@ int main ( int argc, char** argv )
   }
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_CKPT_INTR );
-  if ( interval != NULL ) 
+  if ( interval != NULL )
     theCheckpointInterval = jalib::StringToInt ( interval );
 
 #if 0
@@ -1302,7 +1312,7 @@ int main ( int argc, char** argv )
    */
   setupSIGINTHandler();
   prog.addListenSocket ( *sock );
-  if(!background && !batchMode) 
+  if(!background && !batchMode)
     prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
 
   // FIXME: Should we use a default checkpoint interval (1 hour in this case)
