@@ -1362,7 +1362,8 @@ again:
 	       &callback_pre_ckpt, callback_pre_ckpt));
       dmtcp_checkpoint_filename = NULL;
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
-      if (dmtcp_checkpoint_filename)
+      if (dmtcp_checkpoint_filename &&
+          strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0)
         mtcp_sys_strcpy(perm_checkpointfilename,  dmtcp_checkpoint_filename);
     }
 
@@ -1376,7 +1377,13 @@ again:
 
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
-    checkpointeverything ();
+    if ( dmtcp_checkpoint_filename == NULL ||
+         strcmp (dmtcp_checkpoint_filename, "/dev/null") != 0) {
+      checkpointeverything ();
+    } else {
+      mtcp_printf("mtcp checkpointhread*: received \'/dev/null\' as ckpt filename,\n"
+                  "                       skipping checkpoint\n");
+    }
 
     if(callback_post_ckpt != NULL){
         DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n"

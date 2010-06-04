@@ -53,6 +53,10 @@ namespace
 
 }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+static bool delayedCheckpoint = false;
+#endif
+
 extern "C" void* _get_mtcp_symbol ( const char* name )
 {
   static void* theMtcpHandle = find_and_open_mtcp_so();
@@ -110,15 +114,25 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 {
   JALIB_CKPT_UNLOCK();
 
-  // If we don't modify *ckptFilename, then MTCP will continue to use
-  //  its default filename, which was passed to it via our call to mtcp_init()
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-  dmtcp::UniquePid::ThisProcess().incrementGeneration();
-  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
-#endif
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
+#ifdef EXTERNAL_SOCKET_HANDLING
+  if (dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint() == false) {
+    char *nullDevice = (char *) "/dev/null";
+    *ckptFilename = nullDevice;
+    delayedCheckpoint = true;
+  } else 
+#else
   dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint();
+#endif
+  {
+    // If we don't modify *ckptFilename, then MTCP will continue to use
+    //  its default filename, which was passed to it via our call to mtcp_init()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+    dmtcp::UniquePid::ThisProcess().incrementGeneration();
+    *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
+#endif
+  }
 }
 
 
@@ -156,9 +170,14 @@ static void callbackPostCheckpoint ( int isRestart )
   }
   else
   {
-    dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
-    dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+#ifdef EXTERNAL_SOCKET_HANDLING
+    if ( delayedCheckpoint == false )
+#endif
+    {
+      dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
+      dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
+      dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+    }
 
     //now everything but threads are restored
     dmtcp::userHookTrampoline_postCkpt(isRestart);

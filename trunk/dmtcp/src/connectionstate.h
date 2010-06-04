@@ -47,6 +47,9 @@ namespace dmtcp
 
       void deleteDupFileConnections();
       void deleteStaleConnections();
+#ifdef EXTERNAL_SOCKET_HANDLING
+      void preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable );
+#endif
       void preCheckpointLock();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);

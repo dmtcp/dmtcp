@@ -348,7 +348,7 @@ os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
-runTest("stale-fd",      2, ["./test/stale-fd"])
+#runTest("stale-fd",      2, ["./test/stale-fd"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 

@@ -193,7 +193,7 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
-int _real_fclose ( FILE* fp )
+int _real_fclose ( FILE *fp )
 {
   REAL_FUNC_PASSTHROUGH ( fclose ) ( fp );
 }

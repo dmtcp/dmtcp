@@ -39,6 +39,26 @@ extern "C" void exit ( int status )
   dmtcp::DmtcpWorker::setExitInProgress();
   _real_exit ( status );
 }
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+extern dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
+static void processClose(dmtcp::ConnectionIdentifier conId)
+{
+  if ( dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true ) {
+    dmtcp::vector <dmtcp::ConnectionIdentifier>::iterator i = externalTcpConnections.begin();
+    for ( i = externalTcpConnections.begin(); i != externalTcpConnections.end(); ++i ) {
+      if ( conId == *i ) {
+        externalTcpConnections.erase(i);
+        break;
+      }
+    }
+    if ( externalTcpConnections.empty() == true ) {
+    }
+    sleep(10);
+  }
+}
+#endif
+
 extern "C" int close ( int fd )
 {
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
@@ -48,7 +68,22 @@ extern "C" int close ( int fd )
     return -1;
   }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+  dmtcp::ConnectionIdentifier conId;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
+       dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
+       dup2(fd,fd) != -1 ) {
+    conId = dmtcp::KernelDeviceToConnection::Instance().retrieve(fd).id();
+  }
+#endif
+
   int rv = _real_close ( fd );
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+  if (rv == 0) {
+    processClose(conId);
+  }
+#endif
 
   // #ifdef DEBUG
   //     if(rv==0)
@@ -81,8 +116,23 @@ extern "C" int fclose(FILE *fp)
     return -1;
   }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+  dmtcp::ConnectionIdentifier conId;
+
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
+       dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
+       dup2(fd,fd) != -1 ) {
+    conId = dmtcp::KernelDeviceToConnection::Instance().retrieve(fd).id();
+  }
+#endif
+
   int rv = _real_fclose(fp);
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+  if (rv == 0 ) {
+    processClose(conId);
+  }
+#endif
   return rv;
 }
 
