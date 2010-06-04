@@ -134,7 +134,7 @@ void dmtcp::ConnectionState::preCheckpointLock()
   }
 }
 
-
+#ifdef EXTERNAL_SOCKET_HANDLING
 void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable )
 {
   deleteStaleConnections();
@@ -150,6 +150,7 @@ void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectio
     }
   }
 }
+#endif
 
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
