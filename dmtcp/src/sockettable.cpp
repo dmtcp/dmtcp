@@ -67,7 +67,7 @@ extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *s
 #if HANDSHAKE_ON_CONNECT == 1
   JTRACE ( "connected, sending 1-way handshake" ) ( sockfd ) ( con.id() );
   jalib::JSocket remote ( sockfd );
-  con.sendHandshake(remote, dmtcp::DmtcpWorker::instance().coordinatorId());
+  con.sendHandshake(remote, dmtcp::DmtcpWorker::Instance().coordinatorId());
   JTRACE ( "1-way handshake sent" );
 #else
   JTRACE ( "connected" ) ( sockfd ) ( con.id() );
@@ -126,7 +126,7 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 #if HANDSHAKE_ON_CONNECT == 1
   JTRACE ( "accepted, waiting for 1-way handshake" ) ( sockfd ) ( con->id() );
   jalib::JSocket remote ( ret );
-  con->recvHandshake(remote, dmtcp::DmtcpWorker::instance().coordinatorId());
+  con->recvHandshake(remote, dmtcp::DmtcpWorker::Instance().coordinatorId());
   JTRACE ( "1-way handshake received" )(con->getRemoteId());
 #else
   JTRACE ( "accepted incoming connection" ) ( sockfd ) ( con->id() );

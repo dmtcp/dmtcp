@@ -71,6 +71,21 @@ extern "C" int close ( int fd )
   return rv;
 }
 
+extern "C" int fclose(FILE *fp)
+{
+  int fd = fileno(fp);
+  if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
+  {
+    JTRACE ( "blocked attempt to fclose protected fd" ) ( fd );
+    errno = EBADF;
+    return -1;
+  }
+
+  int rv = _real_fclose(fp);
+
+  return rv;
+}
+
 /* epoll is currently not supported by DMTCP */
 extern "C" int epoll_create(int size)
 {

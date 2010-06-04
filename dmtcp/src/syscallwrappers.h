@@ -61,6 +61,7 @@ extern "C"
   int _real_system ( const char * cmd );
 
   int _real_close ( int fd );
+  int _real_fclose ( FILE* fp );
   void _real_exit ( int status );
 
 //we no longer wrap dup
