@@ -134,6 +134,23 @@ void dmtcp::ConnectionState::preCheckpointLock()
   }
 }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable )
+{
+  deleteStaleConnections();
+  ConnectionList& connections = ConnectionList::Instance();
+
+  for ( ConnectionList::iterator i = connections.begin()
+      ; i!= connections.end()
+      ; ++i )
+  {
+    if ( ( i->second )->conType() == Connection::TCP )
+    {
+      ( (TcpConnection *) (i->second) )->preCheckpointPeerLookup ( _conToFds[i->first], conInfoTable );
+    }
+  }
+}
+#endif
 
 void dmtcp::ConnectionState::preCheckpointDrain()
 {

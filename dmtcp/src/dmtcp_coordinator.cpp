@@ -197,6 +197,10 @@ static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
+#ifdef EXTERNAL_SOCKET_HANDLING
+static int numWorkersWithExternalSockets = 0;
+static dmtcp::vector<dmtcp::ConnectionIdentifier> workersWithExternalSockets;
+#endif
 
 static dmtcp::DmtcpCoordinator prog;
 
@@ -273,6 +277,35 @@ namespace
       dmtcp::string _progname;
   };
 }
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+void dmtcp::DmtcpCoordinator::sendUnIdentifiedPeerNotifications()
+{
+  _socketPeerLookupMessagesIterator it;
+  for ( it = _socketPeerLookupMessages.begin();
+        it != _socketPeerLookupMessages.end(); 
+        ++it ) {
+    DmtcpMessage msg (DMT_UNKNOWN_PEER);
+    msg.conId = it->conId;
+    jalib::JSocket remote(_workerSocketTable[it->from]);
+    remote << msg;
+    //*(it->second) << msg;
+
+    vector<dmtcp::ConnectionIdentifier>::iterator i;
+    for ( i  = workersWithExternalSockets.begin();
+          i != workersWithExternalSockets.end();
+          ++i) {
+      if ( *i == it->from ) {
+        break;
+      }
+    }
+    if ( i == workersWithExternalSockets.end() ) {
+      workersWithExternalSockets.push_back ( it->from );
+    }
+  }
+  _socketPeerLookupMessages.clear();
+}
+#endif
 
 void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
@@ -441,6 +474,32 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           JNOTE ( "locking all nodes" );
           broadcastMessage ( DMT_DO_LOCK_FDS );
         }
+#ifdef EXTERNAL_SOCKET_HANDLING
+        if ( oldState == WorkerState::SUSPENDED
+                && newState == WorkerState::FD_LEADER_ELECTION )
+        {
+          JNOTE ( "performing peerlookup for all sockets" );
+          broadcastMessage ( DMT_DO_PEER_LOOKUP );
+        }
+        if ( oldState == WorkerState::FD_LEADER_ELECTION
+                && newState == WorkerState::PEER_LOOKUP_COMPLETE )
+        {
+          if ( _socketPeerLookupMessages.empty() ) {
+            JNOTE ( "draining all nodes" );
+            broadcastMessage ( DMT_DO_DRAIN );
+          } else {
+            sendUnIdentifiedPeerNotifications();
+            JNOTE ( "Not all socket peers were Identified, resuming computation without checkpointing" );
+            broadcastMessage ( DMT_DO_RESUME );
+          }
+        }
+        if ( oldState == WorkerState::PEER_LOOKUP_COMPLETE
+                && newState == WorkerState::DRAINED )
+        {
+          JNOTE ( "checkpointing all nodes" );
+          broadcastMessage ( DMT_DO_CHECKPOINT );
+        }
+#else
         if ( oldState == WorkerState::SUSPENDED
                 && newState == WorkerState::FD_LEADER_ELECTION )
         {
@@ -453,6 +512,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           JNOTE ( "checkpointing all nodes" );
           broadcastMessage ( DMT_DO_CHECKPOINT );
         }
+#endif
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
         {
@@ -539,6 +599,56 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
         }
         break;
+#ifdef EXTERNAL_SOCKET_HANDLING
+      case DMT_PEER_LOOKUP:
+      {
+        JTRACE ( "received PEER_LOOKUP msg" ) ( msg.conId );
+        JASSERT ( msg.localAddrlen > 0 ) ( msg.localAddrlen ) ( client->identity() );
+        _socketPeerLookupMessagesIterator i;
+        bool foundPeer = false;
+        for ( i = _socketPeerLookupMessages.begin();
+              i != _socketPeerLookupMessages.end(); 
+              ++i ) {
+          if ( ( msg.localAddrlen == i->localAddrlen ) && 
+               ( memcmp ( (void*) &msg.localAddr, 
+                          (void*) &(i->remoteAddr), 
+                          msg.localAddrlen ) == 0 ) ) {
+            _socketPeerLookupMessages.erase(i);
+            foundPeer = true;
+            break;
+          }
+        }
+        if ( !foundPeer ) {
+          _socketPeerLookupMessages.push_back(msg);
+          _workerSocketTable[msg.from] = sock->socket().sockfd();
+        }
+      }
+      break;
+      case DMT_EXTERNAL_SOCKETS_CLOSED:
+      {
+        vector<dmtcp::ConnectionIdentifier>::iterator i;
+        for ( i  = workersWithExternalSockets.begin();
+              i != workersWithExternalSockets.end();
+              ++i) {
+          if ( *i == msg.from ) {
+            break;
+          }
+        }
+        JASSERT ( i != workersWithExternalSockets.end() ) ( msg.from )
+          .Text ( "DMT_EXTERNAL_SOCKETS_CLOSED msg received from worker but it never had one" );
+
+        workersWithExternalSockets.erase(i);
+        JTRACE ("(Known) External Sockets closed by worker") (msg.from);
+
+        client->setState ( msg.state );
+
+        if (workersWithExternalSockets.empty() == true) {
+          JTRACE ( "External Sockets on all workers are closed now. Trying to checkpoint." );
+          handleUserCommand('c');
+        }
+      }
+      break;
+#endif
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type ).Text ( "unexpected message from worker" );
     }

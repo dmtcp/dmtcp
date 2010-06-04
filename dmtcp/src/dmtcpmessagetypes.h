@@ -51,9 +51,18 @@ namespace dmtcp
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8 
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_LOCK_FDS,         // when coordinator wants lock fds
+#ifdef EXTERNAL_SOCKET_HANDLING
+    DMT_DO_PEER_LOOKUP,      // when coordinator wants, lookup peer for all sockets
+#endif
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+    DMT_PEER_LOOKUP,        // Peer not found
+    DMT_UNKNOWN_PEER,        // Peer not found
+    DMT_EXTERNAL_SOCKETS_CLOSED,
+#endif
 
     DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
     DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
@@ -88,6 +97,9 @@ namespace dmtcp
         RUNNING,
         SUSPENDED,
         FD_LEADER_ELECTION,
+#ifdef EXTERNAL_SOCKET_HANDLING
+        PEER_LOOKUP_COMPLETE,
+#endif
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
@@ -138,6 +150,13 @@ namespace dmtcp
     struct sockaddr_storage restoreAddr;
     socklen_t               restoreAddrlen;
     int                     restorePort;
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+    ConnectionIdentifier    conId;
+    struct sockaddr_storage localAddr;
+    socklen_t               localAddrlen;
+    struct sockaddr_storage remoteAddr;
+#endif
 
     int theCheckpointInterval;
 

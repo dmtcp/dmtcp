@@ -23,6 +23,7 @@
 #define DMTCPCONNECTION_H
 
 #include "dmtcpalloc.h"
+#include "dmtcpworker.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>
@@ -128,6 +129,28 @@ namespace dmtcp
 
       int tcpType() const { return _type; }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+      enum PeerType
+      {
+        PEER_UNKNOWN,
+        PEER_INTERNAL,
+        PEER_EXTERNAL
+      };
+
+      enum PeerType peerType() const { return _peerType; }
+
+      void markInternal() { 
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
+          _peerType = PEER_INTERNAL; 
+      }
+      void markExternal() { 
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
+          _peerType = PEER_EXTERNAL; 
+      }
+      void preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
+                                     dmtcp::vector<TcpConnectionInfo>& conInfoTable);
+#endif
+
       //basic commands for updating state as a from wrappers
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
       void onBind ( const struct sockaddr* addr, socklen_t len );
@@ -168,6 +191,9 @@ namespace dmtcp
       int                     _sockType;
       int                     _sockProtocol;
       int                     _listenBacklog;
+#ifdef EXTERNAL_SOCKET_HANDLING
+      enum PeerType           _peerType;
+#endif
       socklen_t               _bindAddrlen;
       struct sockaddr_storage _bindAddr;
       ConnectionIdentifier    _acceptRemoteId;

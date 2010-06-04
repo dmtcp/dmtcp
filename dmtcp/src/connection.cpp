@@ -96,8 +96,12 @@ void dmtcp::Connection::restartDup2(int oldFd, int fd){
 /////////////////////////
 ////// TCP UPDATE COMMANDS
 
-  /*onSocket*/ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
+/*onSocket*/ 
+dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   : Connection ( TCP_CREATED )
+#ifdef EXTERNAL_SOCKET_HANDLING
+  , _peerType ( PEER_UNKNOWN )
+#endif
   , _sockDomain ( domain )
   , _sockType ( type )
   , _sockProtocol ( protocol )
@@ -143,8 +147,11 @@ void dmtcp::TcpConnection::onConnect()
   _type = TCP_CONNECT;
 }
 /*onAccept*/
-  dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
+dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
   : Connection ( TCP_ACCEPT )
+#ifdef EXTERNAL_SOCKET_HANDLING
+  , _peerType ( PEER_UNKNOWN )
+#endif
   , _sockDomain ( parent._sockDomain )
   , _sockType ( parent._sockType )
   , _sockProtocol ( parent._sockProtocol )
@@ -198,6 +205,42 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 ////////////
 ///// TCP CHECKPOINTING
+  
+#ifdef EXTERNAL_SOCKET_HANDLING
+void dmtcp::TcpConnection::preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
+                                                     dmtcp::vector<TcpConnectionInfo>& conInfoTable)
+{
+  JASSERT ( fds.size() > 0 ) ( id() );
+
+  switch ( tcpType() )
+  {
+    case TCP_CONNECT:
+    case TCP_ACCEPT:
+      if ( hasLock ( fds ) && peerType() == PEER_UNKNOWN )
+      {
+        socklen_t addrlen_local = sizeof(struct sockaddr_storage);
+        socklen_t addrlen_remote = sizeof(struct sockaddr_storage);
+        struct sockaddr_storage local, remote;
+
+        JASSERT ( 0 == getsockname ( fds[0], (sockaddr*)&local, &addrlen_local ) ) (JASSERT_ERRNO);
+        JASSERT ( 0 == getpeername ( fds[0], (sockaddr*)&remote, &addrlen_remote ) ) (JASSERT_ERRNO);
+        JASSERT ( addrlen_local == addrlen_remote ) ( addrlen_local ) ( addrlen_remote );
+        JASSERT ( local.ss_family == remote.ss_family ) ( local.ss_family ) ( remote.ss_family );
+        TcpConnectionInfo conInfo(id(), addrlen_local, local, remote );
+        conInfoTable.push_back ( conInfo );
+      }
+      else
+      {
+        JTRACE ( "did not get lock.. wont lookup" ) ( fds[0] ) ( id() );
+      }
+      break;
+    case TCP_LISTEN:
+    case TCP_BIND:
+      JASSERT ( peerType() == PEER_UNKNOWN );
+      break;
+  }
+}
+#endif
 
 void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )

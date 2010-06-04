@@ -48,6 +48,31 @@ namespace dmtcp
 
   class ConnectionState;
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+  class TcpConnectionInfo {
+    public:
+      TcpConnectionInfo (const ConnectionIdentifier& id, 
+                       socklen_t& len, 
+                       struct sockaddr_storage& remote, 
+                       struct sockaddr_storage& local) {
+        _conId      = id;
+        _addrlen    = len;
+        memcpy ( &_remoteAddr, &remote, len );
+        memcpy ( &_localAddr, &local, len );
+      }
+
+    ConnectionIdentifier&  conId() { return _conId; }
+    socklen_t addrlen() { return _addrlen; }
+    struct sockaddr_storage remoteAddr() { return _remoteAddr; }
+    struct sockaddr_storage localAddr() { return _localAddr; }
+
+    ConnectionIdentifier    _conId;
+    socklen_t               _addrlen;
+    struct sockaddr_storage _remoteAddr;
+    struct sockaddr_storage _localAddr;
+  };
+#endif
+
   class DmtcpWorker : public DmtcpCoordinatorAPI
   {
     public:
@@ -65,7 +90,14 @@ namespace dmtcp
                                  DmtcpMessageType type);
       void sendCkptFilenameToCoordinator();
       void waitForStage1Suspend();
+#ifdef EXTERNAL_SOCKET_HANDLING
+      bool waitForStage2Checkpoint();
+      bool waitForStage2bCheckpoint();
+      void sendPeerLookupRequest(dmtcp::vector<TcpConnectionInfo>& conInfoTable );
+      static bool waitingForExternalSocketsToClose();
+#else
       void waitForStage2Checkpoint();
+#endif
       void waitForStage3Refill();
       void waitForStage4Resume();
       void restoreVirtualPidTable();
@@ -74,6 +106,8 @@ namespace dmtcp
                           int numPeers,
                           int &coordTstamp);
       void postRestart();
+
+
 
       static void resetOnFork();
       void CleanupWorker();

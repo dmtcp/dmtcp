@@ -29,9 +29,6 @@
 
 namespace dmtcp
 {
-
-
-
   class DmtcpCoordinator : public jalib::JMultiSocketProgram
   {
     public:
@@ -49,6 +46,9 @@ namespace dmtcp
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
       virtual void onTimeoutInterval();
       
+#ifdef EXTERNAL_SOCKET_HANDLING
+      void sendUnIdentifiedPeerNotifications();
+#endif
       void broadcastMessage( DmtcpMessageType type, dmtcp::UniquePid, int );
       void broadcastMessage ( const DmtcpMessage& msg );
       bool startCheckpoint();
@@ -71,6 +71,14 @@ namespace dmtcp
       typedef dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
 //     NodeTable _table;
       dmtcp::vector< DmtcpMessage > _restoreWaitingMessages;
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+      dmtcp::vector< DmtcpMessage > _socketPeerLookupMessages;
+      typedef dmtcp::vector< DmtcpMessage >::iterator _socketPeerLookupMessagesIterator;
+
+      dmtcp::map< ConnectionIdentifier, int > _workerSocketTable;
+      typedef dmtcp::map< ConnectionIdentifier, int >::iterator _workerSocketTableIterator;
+#endif
 
       //map from hostname to checkpoint files
       dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
