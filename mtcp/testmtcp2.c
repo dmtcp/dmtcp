@@ -130,7 +130,6 @@ int main ()
 }
 
 static int thread1_func (void *dummy)
-
 {
   int count, delay;
 
@@ -146,4 +145,5 @@ static int thread1_func (void *dummy)
     unlkstdout ();
     count += 10;
   }
+  return -1;
 }
