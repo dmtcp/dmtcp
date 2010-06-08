@@ -35,6 +35,8 @@
 /********************************************************************************************************************************/
 
 
+// Set _GNU_SOURCE in order to expose glibc-defined sigandset()
+#define _GNU_SOURCE 1
 #include <asm/ldt.h>      // for struct user_desc
 //#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
@@ -67,9 +69,6 @@
 #define MTCP_SYS_STRLEN
 #include "mtcp_internal.h"
 
-static int WAIT=1;
-// static int WAIT=0;
-
 #if 0
 // Force thread to stop, without use of a system call.
 static int WAIT=1;
@@ -91,11 +90,11 @@ if (DEBUG_RESTARTING) \
 
 /* Retrieve saved stack pointer saved by getcontext () */
 #ifdef __x86_64__
-#define REG_RSP 15
-#define SAVEDSP uc_mcontext.gregs[REG_RSP]
+#define MYREG_RSP 15
+#define SAVEDSP uc_mcontext.gregs[MYREG_RSP]
 #else
-#define REG_ESP 7
-#define SAVEDSP uc_mcontext.gregs[REG_ESP]
+#define MYREG_ESP 7
+#define SAVEDSP uc_mcontext.gregs[MYREG_ESP]
 #endif
 
 /* TLS segment registers used differently in i386 and x86_64. - Gene */
@@ -137,24 +136,81 @@ if (DEBUG_RESTARTING) \
  *       size of __padding in struct pthread. We need to add an extra 512 bytes
  *       to accomodate this.                                     -- KAPIL
  */
-#if __GLIBC_PREREQ (2,11)
+#if 0 && __GLIBC_PREREQ (2,12)
+/* WHEN WE HAVE CONFIDENCE IN THIS VERSION, REMOVE ALL OTHER __GLIBC_PREREQ
+ * AND MAKE THIS THE ONLY VERSION.  IT SHOULD BE BACKWARDS COMPATIBLE.
+ */
+/* These function definitions should succeed independently of the glibc version.
+ * They use get_thread_area() to match (tid, pid) and find offset.
+ * In other code, on restart, that offset is used to set (tid,pid) to
+ *   the latest tid and pid of the new thread, instead of the (tid,pid)
+ *   of the original thread.
+ * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
+ */
+// Remove this deprecated when we spawn a second thread and check the offset.
+static int TLS_TID_OFFSET(void) __attribute__ ((deprecated));
+
+static char *memsubarray (char *array, char *subarray, int len);
+static int mtcp_get_tls_segreg(void);
+static void *mtcp_get_tls_base_addr(void);
+
+static int TLS_TID_OFFSET(void) {
+  static int tid_offset = -1;
+  struct user_desc u_info;
+  if (tid_offset == -1) {
+    struct {pid_t tid; pid_t pid;} tid_pid;
+    /* struct pthread has adjacent fields, tid and pid, in that order.
+     * Try to find at what offset that bit patttern occurs in struct pthread.
+     */
+    char * tmp;
+    tid_pid.tid = mtcp_sys_kernel_gettid();
+    tid_pid.pid = mtcp_sys_getpid();
+    /* Get entry number of current thread from its segment register. */
+    //u_info.entry_number = mtcp_get_tls_segreg() / 8;
+    //mtcp_sys_get_thread_area(&u_info);
+    tmp = memsubarray((char *)mtcp_get_tls_base_addr(), (char *)&tid_pid,
+		       sizeof(tid_pid));
+    if (tmp == NULL) {
+      mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n");
+      mtcp_abort();
+    }
+    tid_offset = tmp - (char *)&u_info;
+    DPRINTF(("tid_offset: %d\n", tid_offset));
+    /* Should we do a double-check, and spawn a new thread and see
+     *  if its TID matches at this tid_offset?
+     * This would distinguish an accidental match with some non-changing data.
+     */
+  }
+  return tid_offset;
+}
+static int TLS_PID_OFFSET(void) {
+  static int pid_offset = -1;
+  struct {pid_t tid; pid_t pid;} tid_pid;
+  if (pid_offset == -1) {
+    int tid_offset = TLS_TID_OFFSET();
+    pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
+    DPRINTF(("pid_offset: %d\n", pid_offset));
+  }
+  return pid_offset;
+}
+#elif __GLIBC_PREREQ (2,11)
 # ifdef __x86_64__
-#  define TLS_PID_OFFSET \
+#  define TLS_PID_OFFSET() \
            (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#  define TLS_TID_OFFSET (512+26*sizeof(void *))  // offset of tid in pthread struct
+#  define TLS_TID_OFFSET() (512+26*sizeof(void *))  // offset of tid in pthread struct
 # else
-#  define TLS_PID_OFFSET \
+#  define TLS_PID_OFFSET() \
            (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#  define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+#  define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
 # endif
 #elif __GLIBC_PREREQ (2,10)
-# define TLS_PID_OFFSET \
+# define TLS_PID_OFFSET() \
 	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+# define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
 #else
-# define TLS_PID_OFFSET \
+# define TLS_PID_OFFSET() \
 	  (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+# define TLS_TID_OFFSET() (18*sizeof(void *))  // offset of tid in pthread struct
 #endif
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
@@ -197,23 +253,23 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 #endif
               };
 
-/* 
- * struct MtcpRestartThreadArg 
+/*
+ * struct MtcpRestartThreadArg
  *
  * DMTCP requires the original_tids  of the threads being created during
  *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
- *  the original_tid of the thread being created from MTCP to DMTCP. 
+ *  the original_tid of the thread being created from MTCP to DMTCP.
  *
- * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+ * actual clone call: clone (fn, child_stack, flags, void *, ... )
  * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
  *
  * DMTCP automatically extracts arg from this structure and passes that
  * to the _real_clone call.
- * 
+ *
  * IMPORTANT NOTE: While updating, this structure must be kept in sync
- * with the structure defined with the same name in mtcpinterface.cpp 
+ * with the structure defined with the same name in mtcpinterface.cpp
  */
-struct MtcpRestartThreadArg { 
+struct MtcpRestartThreadArg {
   void *arg;
   pid_t original_tid;
 };
@@ -299,7 +355,8 @@ static long long tempstack[STACKSIZE + 1];
 
 static long set_tid_address (int *tidptr);
 
-static void *mtcp_get_tls_base_addr();
+static int mtcp_get_tls_segreg(void);
+static void *mtcp_get_tls_base_addr(void);
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
@@ -428,9 +485,11 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
                                                  //     we will leave the previous good one intact
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
-  /* If DMTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
-  if (getenv("MTCP_INIT_PAUSE"))
+  /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
+  if (getenv("MTCP_INIT_PAUSE")) {
+    mtcp_printf("Pausing 15 seconds.  Do:  gdb attach %d\n", mtcp_sys_getpid());
     sleep(15);
+  }
 
   threadenabledefault = clonenabledefault;       // save this away where it's easy to get
 
@@ -450,11 +509,11 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 				   */
   {
     pid_t tls_pid, tls_tid;
-    tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET);
-    tls_tid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_TID_OFFSET);
+    tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());
+    tls_tid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_TID_OFFSET());
 
     if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
-      mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n", 
+      mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n",
                     motherpid, tls_pid, tls_tid);
       mtcp_abort ();
     }
@@ -554,7 +613,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
  *
  *  The routine mtcp_set_callbacks below may be called BEFORE the first
  *  MTCP checkpoint, to add special functionality to checkpointing
- * 
+ *
  *    Its arguments (callback functions) are:
  *
  * sleep_between_ckpt:  Called in between checkpoints to replace the default "sleep(sec)" functionality,
@@ -787,13 +846,13 @@ static int threadcloned (void *threadv)
 
   setupthread (thread);
 
-  /* The new TLS should have the process ID in place at TLS_PID_OFFSET */
+  /* The new TLS should have the process ID in place at TLS_PID_OFFSET() */
   /* This is a verification step and is therefore optional as such     */
   {
-    pid_t  tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET);
+    pid_t  tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());
     if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
-      mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n", 
-                    motherpid, tls_pid, TLS_PID_OFFSET);
+      mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n",
+                    motherpid, tls_pid, TLS_PID_OFFSET());
       mtcp_printf ("      %X\n", motherpid);
       for (rc = 0; rc < 256; rc += 4) {
         tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + rc);
@@ -849,9 +908,10 @@ static long set_tid_address (int *tidptr)
   Thread *thread;
 
   thread = getcurrenthread ();
-  DPRINTF (("set_tid_address wrapper*: thread %p -> tid %d, tidptr %p\n", thread, thread -> tid, tidptr));
+  DPRINTF (("set_tid_address wrapper*: thread %p -> tid %d, tidptr %p\n",
+	    thread, thread -> tid, tidptr));
   thread -> actual_tidptr = tidptr;  // save new tidptr so subsequent restore will create with new pointer
-  mtcp_sys_set_tid_address(tidptr);
+  rc = mtcp_sys_set_tid_address(tidptr);
   return (rc);                       // now we tell kernel to change it for the current thread
 }
 
@@ -1133,23 +1193,6 @@ again:
   }
 }
 
-void kill_ckpthread (void)
-{
-  int tid;
-  Thread *thread;
-
-  lock_threads ();
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
-      unlk_threads ();
-      //printf("\n\n\nKill checkpinthread, tid=%d\n\n\n",thread->tid);
-      mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
-      return;
-    }
-  }
-  unlk_threads ();
-}
-
 
 /********************************************************************************************************************************/
 /*																*/
@@ -1187,7 +1230,7 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-  
+
   DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
         mtcp_sys_kernel_gettid(), ckpthread->original_tid));
   if (originalstartup)
@@ -1470,7 +1513,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
     mtcp_ckpt_gzip_child_pid = cpid;
-    if (close(pipe_fds[0]) == -1) 
+    if (close(pipe_fds[0]) == -1)
       mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
     if (close(fd) == -1)
       mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
@@ -1670,7 +1713,7 @@ static void checkpointeverything (void)
 
   writefile (fd, MAGIC, MAGIC_LEN);
 
-  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [libmtcp.so]\n", 
+  DPRINTF (("mtcp checkpointeverything*: restore image %X at %p from [libmtcp.so]\n",
             restore_size, restore_begin));
 
   struct rlimit stack_rlimit;
@@ -1777,8 +1820,8 @@ static void checkpointeverything (void)
     //         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
     //
     // The above explanation also applies to "/dev/null (deleted)"
- 
-    if ( strncmp (area.name, dev_zero_deleted_str, strlen(dev_zero_deleted_str)) == 0 
+
+    if ( strncmp (area.name, dev_zero_deleted_str, strlen(dev_zero_deleted_str)) == 0
         || strncmp (area.name, dev_null_deleted_str, strlen(dev_null_deleted_str)) == 0 ) {
       DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n", area.name));
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
@@ -1797,14 +1840,14 @@ static void checkpointeverything (void)
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
       if ( munmap(area.addr, area.size) == -1) {
-        mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n", 
+        mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n",
                      strerror (mtcp_sys_errno));
         mtcp_abort();
       }
 
-      if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0) 
+      if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0)
            == MAP_FAILED ){
-        mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n", 
+        mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n",
                      strerror (mtcp_sys_errno));
         mtcp_abort();
       }
@@ -1881,9 +1924,9 @@ static void checkpointeverything (void)
     mtcp_ckpt_gzip_child_pid = -1;
   }
 
-  /* Maybe it's time to verify the checkpoint. 
+  /* Maybe it's time to verify the checkpoint.
    * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
-   *   we'll still have the last one). 
+   *   we'll still have the last one).
    * If the new file is good, mtcp_restore will rename it over the last one.
    */
 
@@ -2146,8 +2189,8 @@ static void writefile (int fd, void const *buff, size_t size)
 static volatile unsigned int growstackValue = 0;
 static void growstack(kbStack) {
   const int kBincrement = 1024;
-  char array[kBincrement * 1024];
-  volatile int dummy_value = 1; /*Again, try to prevent compiler optimization*/
+  char array[kBincrement * 1024] __attribute__ ((unused));
+  volatile int dummy_value __attribute__ ((unused)) = 1; /*Again, try to prevent compiler optimization*/
   if (kbStack > 0)
     growstack(kbStack - kBincrement);
   else
@@ -2174,8 +2217,9 @@ static void stopthisthread (int signum)
   if(  mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ){
     return ;
   }
-  
+
   if (0 && thread == motherofall) {
+#include <execinfo.h>
     void *buffer[BT_SIZE];
     int nptrs;
 
@@ -2183,7 +2227,6 @@ static void stopthisthread (int signum)
     nptrs = backtrace (buffer, BT_SIZE);
     backtrace_symbols_fd ( buffer, nptrs, STDERR_FD );
     backtrace_symbols_fd ( buffer, nptrs, LOG_FD );
-
   }
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
     static int is_first_checkpoint = 1;
@@ -2380,7 +2423,7 @@ static void save_sig_state (Thread *thisthread)
   if (_real_sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
     mtcp_abort ();
   }
-}  
+}
 
 /********************************************************************************************************************************/
 /*																*/
@@ -2397,7 +2440,7 @@ static void restore_sig_state (Thread *thisthread)
 
   // Raise the signals which were pending for only this thread at the time of checkpoint.
   for (i = NSIG; -- i >= 0;) {
-    if (sigismember(&(thisthread -> sigpending), i)  == 1  && 
+    if (sigismember(&(thisthread -> sigpending), i)  == 1  &&
         sigismember(&(thisthread -> sigblockmask), i) == 1 &&
         sigismember(&(sigpending_global), i) == 0) {
       raise(i);
@@ -2454,28 +2497,49 @@ static void save_tls_state (Thread *thisthread)
 #endif
 }
 
-static void *mtcp_get_tls_base_addr()
-{
-  mtcp_segreg_t TLSSEGREG;
-  struct user_desc gdtentrytls;
-
+static char *memsubarray (char *array, char *subarray, int len) {
+   char *i_ptr;
+   int j;
+   int word1 = *(int *)subarray;
+   // Assume subarray length is at least size(int) and < 1024.
+   if(len < sizeof(int))
+     mtcp_abort();
+   for (i_ptr = array; i_ptr < array+1024; i_ptr++) {
+     if (*(int *)i_ptr == word1) {
+       for (j=0; j < len; j++)
+	 if (i_ptr[j] != subarray[j])
+	   break;
+	if (j == len)
+	  return i_ptr;
+     }
+   }
+   return NULL;
+}
+static int mtcp_get_tls_segreg(void)
+{ mtcp_segreg_t tlssegreg;
 #ifdef __i386__
-  asm volatile ("movw %%gs,%0" : "=g" (TLSSEGREG)); /* any general register */
+  asm volatile ("movw %%gs,%0" : "=g" (tlssegreg)); /* any general register */
 #endif
 #ifdef __x86_64__
-  asm volatile ("movl %%fs,%0" : "=q" (TLSSEGREG)); /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
+  asm volatile ("movl %%fs,%0" : "=q" (tlssegreg)); /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
 #endif
+  return (int)tlssegreg;
+}
+static void *mtcp_get_tls_base_addr(void)
+{
+  struct user_desc gdtentrytls;
+
 #if MTCP__SAVE_MANY_GDT_ENTRIES
-  if (TLSSEGREG / 8 != GDT_ENTRY_TLS_MIN) {
+  if (mtcp_get_tls_segreg() / 8 != GDT_ENTRY_TLS_MIN) {
     mtcp_printf ("mtcp_init: gs %X not set to first TLS GDT ENTRY %X\n",
                  gs, GDT_ENTRY_TLS_MIN * 8 + 3);
     mtcp_abort ();
   }
 #endif
 
-  gdtentrytls.entry_number = TLSSEGREG / 8;
+  gdtentrytls.entry_number = mtcp_get_tls_segreg() / 8;
   if ( mtcp_sys_get_thread_area ( &gdtentrytls ) < 0 ) {
-    mtcp_printf ("mtcp_init: error getting GDT TLS entry: %s\n", 
+    mtcp_printf ("mtcp_init: error getting GDT TLS entry: %s\n",
         strerror (mtcp_sys_errno));
     mtcp_abort ();
   }
@@ -2615,7 +2679,7 @@ static int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0 
+  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
       || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
       || strncmp(area -> name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0  ) { /* if nscd active*/
   }
@@ -2862,13 +2926,13 @@ static int restarthread (void *threadv)
 
     void *clone_arg = (void *)child;
 
-    /* 
-     * DMTCP needs to know original_tid of the thread being created by the 
+    /*
+     * DMTCP needs to know original_tid of the thread being created by the
      *  following clone() call.
      *
      * Threads are created by using syscall which is intercepted by DMTCP and
      *  the original_tid is sent to DMTCP as a field of MtcpRestartThreadArg
-     *  structure. DMTCP will automatically extract the actual argument 
+     *  structure. DMTCP will automatically extract the actual argument
      *  (clone_arg -> arg) from clone_arg and will pass it on to the real
      *  clone call.
      *                                                           (--Kapil)
@@ -2949,12 +3013,12 @@ static void restore_tls_state (Thread *thisthread)
 
   /* The assumption that this points to the pid was checked by that tls_pid crap near the beginning */
 
-  *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_PID_OFFSET) = motherpid;
+  *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_PID_OFFSET()) = motherpid;
 
   /* Likewise, we must jam the new pid into the mother thread's tid slot (checked by tls_tid carpola) */
 
   if (thisthread == motherofall) {
-    *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_TID_OFFSET) = motherpid;
+    *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_TID_OFFSET()) = motherpid;
   }
 
   /* Restore all three areas */

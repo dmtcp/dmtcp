@@ -34,6 +34,8 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
+extern "C" void exit ( int status ) __attribute__ ((noreturn));
+
 extern "C" void exit ( int status )
 {
   dmtcp::DmtcpWorker::setExitInProgress();
@@ -184,7 +186,7 @@ static int ptsname_r_work ( int fd, char * buf, size_t buflen )
   dmtcp::string uniquePtsName = ptyCon->uniquePtsName();
 
   JTRACE("ptsname_r") (uniquePtsName);
-    
+
   if ( uniquePtsName.length() >= buflen )
   {
     JWARNING ( false ) ( uniquePtsName ) ( uniquePtsName.length() ) ( buflen )
@@ -231,7 +233,7 @@ static void updateProcPath ( const char *path, char *newpath )
   char temp [ 10 ];
   int index, tempIndex;
 
-  if (  path == "" || path == NULL ) 
+  if (  path == "" || path == NULL )
   {
     strcpy(newpath, "");
     return;
@@ -258,7 +260,7 @@ static void updateProcPath ( const char *path, char *newpath )
       currentPid = originalPid;
 
     sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
-  } 
+  }
   else strcpy ( newpath, path );
   return;
 }
@@ -278,7 +280,7 @@ void updateProcPath ( const char *path, char *newpath )
 // Although highly unlikely, this can cause a problem if the counter resets to
 // zero. In that case we should have some more sophisticated code which checks
 // to see if the value pointed by counter is in use or not.
-static int getNextFreeSlavePtyNum() 
+static int getNextFreeSlavePtyNum()
 {
   static int counter = -1;
   counter++;
@@ -312,7 +314,7 @@ static void processDevPtmxConnection (int fd)
   // glibc allows only 20 char long ptsname
   // Check if there is enough room to insert the string "dmtcp_" before the
   //   terminal number, if not then we ASSERT here.
-  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20) 
+  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20)
     .Text("string /dev/pts/<n> too long, can not be virtualized."
           "Once possible workarong here is to replace the string"
           "\"dmtcp_\" with something short like \"d_\" or even "
@@ -320,12 +322,12 @@ static void processDevPtmxConnection (int fd)
 
   // Generate new Unique ptsName
   uniquePtsNameStr = UNIQUE_PTS_PREFIX_STR;
-  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum()); 
+  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum());
 
   dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + "/dev/ptmx";
 
-//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString() 
-//                            + ":" + jalib::XToString ( _nextPtmxId() ) 
+//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString()
+//                            + ":" + jalib::XToString ( _nextPtmxId() )
 //                            + "]:" + device;
 
   JTRACE ( "creating ptmx connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
@@ -376,7 +378,7 @@ extern "C" int open (const char *path, ... )
   flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
-  
+
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
    * playing with locks etc.

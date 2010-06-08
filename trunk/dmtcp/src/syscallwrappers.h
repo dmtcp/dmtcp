@@ -62,7 +62,7 @@ extern "C"
 
   int _real_close ( int fd );
   int _real_fclose ( FILE *fp );
-  void _real_exit ( int status );
+  void _real_exit ( int status ) __attribute__ ((noreturn));
 
 //we no longer wrap dup
 #define _real_dup  dup
@@ -98,7 +98,7 @@ extern "C"
 
   int _real_sigwait(const sigset_t *set, int *sig);
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
-  int _real_sigtimedwait(const sigset_t *set, siginfo_t *info, 
+  int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                          const struct timespec *timeout);
 
   void _dmtcp_lock();
@@ -118,18 +118,18 @@ extern "C"
 
   pid_t _real_getpgrp(void);
   pid_t _real_setpgrp(void);
-  
+
   pid_t _real_getpgid(pid_t pid);
   int   _real_setpgid(pid_t pid, pid_t pgid);
-  
+
   pid_t _real_getsid(pid_t pid);
   pid_t _real_setsid(void);
-  
+
   int   _real_kill(pid_t pid, int sig);
 
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
-  
+
   pid_t _real_wait(__WAIT_STATUS stat_loc);
   pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
@@ -143,7 +143,7 @@ extern "C"
   FILE * _real_fopen(const char *path, const char *mode);
 
   long int _real_syscall(long int sys_num, ... );
-  
+
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 #ifdef ENABLE_MALLOC_WRAPPER
