@@ -202,7 +202,7 @@ static int write_args(char **vector, char *filename) {
   return 0;
 }
 
-unsigned long getenv_oldpers() {
+static unsigned long getenv_oldpers() {
     unsigned long oldpers = 0;
     char *oldpers_str = getenv("MTCP_OLDPERS");
     if (oldpers_str == NULL) {
@@ -214,7 +214,7 @@ unsigned long getenv_oldpers() {
     return oldpers;
 }
 
-int setenv_oldpers(int oldpers) {
+static int setenv_oldpers(int oldpers) {
     static char oldpers_str[sizeof(oldpers)*8+1];
     int i = sizeof(oldpers_str); 
     oldpers_str[i--] = '\0';
