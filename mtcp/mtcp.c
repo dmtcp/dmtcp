@@ -136,7 +136,7 @@ if (DEBUG_RESTARTING) \
  *       size of __padding in struct pthread. We need to add an extra 512 bytes
  *       to accomodate this.                                     -- KAPIL
  */
-#if 0 && __GLIBC_PREREQ (2,12)
+#if __GLIBC_PREREQ (2,12)
 /* WHEN WE HAVE CONFIDENCE IN THIS VERSION, REMOVE ALL OTHER __GLIBC_PREREQ
  * AND MAKE THIS THE ONLY VERSION.  IT SHOULD BE BACKWARDS COMPATIBLE.
  */
@@ -147,16 +147,16 @@ if (DEBUG_RESTARTING) \
  *   of the original thread.
  * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
  */
-// Remove this deprecated when we spawn a second thread and check the offset.
-static int TLS_TID_OFFSET(void) __attribute__ ((deprecated));
+static int TLS_TID_OFFSET(void);
 
-static char *memsubarray (char *array, char *subarray, int len);
+/* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
+static char *memsubarray (char *array, char *subarray, int len)
+					 __attribute__ ((unused));
 static int mtcp_get_tls_segreg(void);
 static void *mtcp_get_tls_base_addr(void);
 
 static int TLS_TID_OFFSET(void) {
   static int tid_offset = -1;
-  struct user_desc u_info;
   if (tid_offset == -1) {
     struct {pid_t tid; pid_t pid;} tid_pid;
     /* struct pthread has adjacent fields, tid and pid, in that order.
@@ -165,20 +165,35 @@ static int TLS_TID_OFFSET(void) {
     char * tmp;
     tid_pid.tid = mtcp_sys_kernel_gettid();
     tid_pid.pid = mtcp_sys_getpid();
-    /* Get entry number of current thread from its segment register. */
-    //u_info.entry_number = mtcp_get_tls_segreg() / 8;
-    //mtcp_sys_get_thread_area(&u_info);
-    tmp = memsubarray((char *)mtcp_get_tls_base_addr(), (char *)&tid_pid,
-		       sizeof(tid_pid));
+    /* Get entry number of current thread descriptor from its segment register:
+     * Segment register / 8 is the entry_number for the "thread area", which
+     * is of type 'struct user_desc'.   The base_addr field of that struct
+     * points to the struct pthread for the thread with that entry_number.
+     * The tid and pid are contained in the 'struct pthread'.
+     *   So, to access the tid/pid fields, first find the entry number.
+     * Then fill in the entry_number field of an empty 'struct user_desc', and
+     * get_thread_area(struct user_desc *uinfo) will fill in the rest.
+     * Then use the filled in base_address field to get the 'struct pthread'.
+     * The function mtcp_get_tls_base_addr() returns this 'struct pthread' addr.
+     */
+    void * pthread_desc = mtcp_get_tls_base_addr();
+    /* A false hit for tid_offset probably can't happen since a new
+     * 'struct pthread' is zeroed out before adding tid and pid.
+     */
+    tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     if (tmp == NULL) {
       mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n");
       mtcp_abort();
     }
-    tid_offset = tmp - (char *)&u_info;
+    tid_offset = tmp - (char *)pthread_desc;
     DPRINTF(("tid_offset: %d\n", tid_offset));
+    if (tid_offset / sizeof(int) != 0) {
+      mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n");
+      mtcp_abort{);
+    }
     /* Should we do a double-check, and spawn a new thread and see
-     *  if its TID matches at this tid_offset?
-     * This would distinguish an accidental match with some non-changing data.
+     *  if its TID matches at this tid_offset?  This would give greater
+     *  confidence, but for the reasons above, it's probably not necessary.
      */
   }
   return tid_offset;
@@ -355,6 +370,8 @@ static long long tempstack[STACKSIZE + 1];
 
 static long set_tid_address (int *tidptr);
 
+static char *memsubarray (char *array, char *subarray, int len)
+					 __attribute__ ((unused));
 static int mtcp_get_tls_segreg(void);
 static void *mtcp_get_tls_base_addr(void);
 static int threadcloned (void *threadv);
@@ -2501,10 +2518,10 @@ static char *memsubarray (char *array, char *subarray, int len) {
    char *i_ptr;
    int j;
    int word1 = *(int *)subarray;
-   // Assume subarray length is at least size(int) and < 1024.
+   // Assume subarray length is at least sizeof(int) and < 2048.
    if(len < sizeof(int))
      mtcp_abort();
-   for (i_ptr = array; i_ptr < array+1024; i_ptr++) {
+   for (i_ptr = array; i_ptr < array+2048; i_ptr++) {
      if (*(int *)i_ptr == word1) {
        for (j=0; j < len; j++)
 	 if (i_ptr[j] != subarray[j])
