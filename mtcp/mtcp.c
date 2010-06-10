@@ -186,10 +186,18 @@ static int TLS_TID_OFFSET(void) {
       mtcp_abort();
     }
     tid_offset = tmp - (char *)pthread_desc;
+#ifdef __x86_64__
+    if (tid_offset != 512+26*sizeof(void *))
+#else
+    if (tid_offset != 26*sizeof(void *))
+#endif
+      mtcp_printf("MTCP:  Warning:  tid_offset = %d; different from expected.\n"
+                  "  Continuing anyway.  If this fails, please try again.\n",
+                  tid_offset);
     DPRINTF(("tid_offset: %d\n", tid_offset));
-    if (tid_offset / sizeof(int) != 0) {
+    if (tid_offset % sizeof(int) != 0) {
       mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n");
-      mtcp_abort{);
+      mtcp_abort();
     }
     /* Should we do a double-check, and spawn a new thread and see
      *  if its TID matches at this tid_offset?  This would give greater
