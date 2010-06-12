@@ -46,6 +46,8 @@
 
 #include "mtcp_internal.h"
 
+#include <sys/personality.h>
+
 static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename);
 static void readcs (int fd, char cs);
@@ -76,6 +78,7 @@ int main (int argc, char *argv[], char *envp[])
                          char *argv[], char *envp[]);
   char cmd_file[MAXPATHLEN+1];
   char ckpt_newname[MAXPATHLEN+1] = "";
+  char **orig_argv = argv;
 
   if (getuid() == 0 || geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
@@ -85,6 +88,7 @@ int main (int argc, char *argv[], char *envp[])
     abort();
   }
 
+  /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
   mtcp_check_vdso_enabled();
 
 /* DELETE THE "#else" CASE AND MAKE THIS PERMANENT, ONCE IT'S BEEN USED A LOT.
@@ -249,6 +253,10 @@ int main (int argc, char *argv[], char *envp[])
   mtcp_printf("mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
               restore_size, restore_begin);
 #endif
+  if (munmap(restore_begin, restore_size) < 0) {
+    mtcp_printf("mtcp_restart.c: failed to unmap region at %p\n", restore_begin);
+    abort ();
+  }
   restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX
@@ -260,6 +268,7 @@ int main (int argc, char *argv[], char *envp[])
     } else {
       mtcp_printf("mtcp_restart: info: restarting due to address conflict...\n");
       close (fd);
+      argv = orig_argv;
       execvp (argv[0], argv);
     }
   }
