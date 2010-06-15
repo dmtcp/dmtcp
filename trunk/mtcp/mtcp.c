@@ -312,7 +312,10 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 /* DMTCP Info Variables */
 
-int dmtcp_info_pid_virtualization_enabled = -1;
+/* these are set by DMTCP: do not set here, but do check */
+/* TODO: Set as const? */
+int dmtcp_exists = 0; /* are we running under DMTCP? */
+int dmtcp_info_pid_virtualization_enabled = 0; /* are we running under DMTCP PID virtualization? */
 /* The following two DMTCP Info variables are defined in mtcp_printf.c */
 //int dmtcp_info_stderr_fd = 2;
 //int dmtcp_info_jassertlog_fd = -1;
@@ -399,6 +402,7 @@ static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
 static void restore_sig_state (Thread *thisthread);
+static void restore_sig_handlers (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
 static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
@@ -968,6 +972,8 @@ static void setupthread (Thread *thread)
   thread -> tid = mtcp_sys_kernel_gettid ();
   thread -> original_tid = GETTID ();
 
+  DPRINTF (("mtcp setupthread*: thread %p -> tid %d\n", thread, thread->tid));
+
   lock_threads ();
 
   if ((thread -> next = threads) != NULL) {
@@ -1431,8 +1437,10 @@ again:
       dmtcp_checkpoint_filename = NULL;
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
       if (dmtcp_checkpoint_filename &&
-          strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0)
+          strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
         mtcp_sys_strcpy(perm_checkpointfilename,  dmtcp_checkpoint_filename);
+        DPRINTF(("mtcp checkpointhread*: Checkpoint filename changed to %s\n", perm_checkpointfilename));
+      }
     }
 
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
@@ -2268,7 +2276,7 @@ static void stopthisthread (int signum)
       if (is_first_checkpoint) {
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
-        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes"));
+        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes\n"));
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
         mtcp_printf("WARNING:  Stack within %d bytes of end;\n"
@@ -2442,6 +2450,12 @@ static void save_sig_state (Thread *thisthread)
         mtcp_abort ();
       }
     }
+
+    DPRINTF (("mtcp save_sig_state*: saving signal handler for %d -> %p\n",
+              i,
+              ((thisthread -> sigactions + i)->sa_flags & SA_SIGINFO ?
+               (thisthread -> sigactions + i)->sa_sigaction :
+               (thisthread -> sigactions + i)->sa_handler) ));
   }
 
   sigdelset(&blockall,STOPSIGNAL);
@@ -2452,13 +2466,14 @@ static void save_sig_state (Thread *thisthread)
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Save signal handlers and block signal delivery										*/
+/*  Restore all pending signals										*/
 /*																*/
 /********************************************************************************************************************************/
 
 static void restore_sig_state (Thread *thisthread)
 {
   int i;
+  DPRINTF (("mtcp restore_sig_state*: restoring handlers for thread %d\n", thisthread->original_tid));
   if (_real_sigprocmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
     mtcp_abort ();
   }
@@ -2472,7 +2487,33 @@ static void restore_sig_state (Thread *thisthread)
     }
   }
 }
-
+
+/********************************************************************************************************************************/
+/*																*/
+/*  Restore all saved signal handlers										*/
+/*																*/
+/********************************************************************************************************************************/
+static void restore_sig_handlers (Thread *thisthread)
+{
+  int i;
+
+  for(i = NSIG; --i >= 0;) {
+    DPRINTF (("mtcp restore_sig_handlers*: restoring signal handler for %d -> %p\n",
+              i,
+              ((thisthread -> sigactions + i)->sa_flags & SA_SIGINFO ?
+               (thisthread -> sigactions + i)->sa_sigaction :
+               (thisthread -> sigactions + i)->sa_handler) ));
+
+
+    if(_real_sigaction(i, thisthread -> sigactions + i, NULL) < 0) {
+        if (errno != EINVAL) {
+          mtcp_printf ("mtcp restore_sig_handlers: error restoring signal %d handler: %s\n", i, strerror (errno));
+          mtcp_abort ();
+        }
+    }
+  }
+}
+
 /********************************************************************************************************************************/
 /*																*/
 /*  Save state necessary for TLS restore											*/
@@ -2932,6 +2973,11 @@ static int restarthread (void *threadv)
       if ( ! isatty(STDIN_FILENO)
            || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+
+    /* DMTCP restores signal handlers.  But if we are running standalone, MTCP must do it.
+     * Because signal handlers are per-process, we only do this once. */
+    if(!dmtcp_exists)
+        restore_sig_handlers(thread);
   }
 
   restore_sig_state (thread);
@@ -2968,21 +3014,6 @@ static int restarthread (void *threadv)
 
     pid_t tid;
 
-    /*
-     * syscall is wrapped by DMTCP when configured with PID-Virtualization.
-     * It calls __clone which goes to DMTCP:__clone which then calls MTCP:__clone.
-     * DMTCP:__clone checks for tid-conflict with any original tid. If
-     * conflict, it replaces the thread with a new one with a new tid.
-     * DMTCP:__clone wrapper calls the glibc:__clone if the computation is not
-     * in RUNNING state (must be restarting), it calls the mtcp:__clone otherwise.
-     * IF No PID-Virtualization, call glibc:__clone because threads created
-     * during mtcp_restart should not go to MTCP:__clone; MTCP remembers those
-     * threads from the checkpoint image.
-     */
-    if (callback_sleep_between_ckpt != NULL && dmtcp_info_pid_virtualization_enabled == -1) {
-      mtcp_printf("error: uninitialized variable dmtcp_info_pid_virtualization_enabled\n");
-      mtcp_abort();
-    }
     /* If running under DMTCP */
     if (dmtcp_info_pid_virtualization_enabled == 1) {
       tid = syscall(SYS_clone, restarthread,
