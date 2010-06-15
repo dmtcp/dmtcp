@@ -216,6 +216,10 @@ static void callbackRestoreVirtualPidTable ( )
 
 void dmtcp::initializeMtcpEngine()
 {
+  int *dmtcp_exists_ptr =
+    (int*) _get_mtcp_symbol( "dmtcp_exists" );
+  *dmtcp_exists_ptr = 1;
+
   int *dmtcp_info_pid_virtualization_enabled_ptr = 
     (int*) _get_mtcp_symbol( "dmtcp_info_pid_virtualization_enabled" );
 

@@ -215,7 +215,7 @@ static void rwrite (char const *buff, int size)
 
   if (dmtcp_info_stderr_fd != -1) {
     for (offs = 0; offs < size; offs += rc) {
-#ifdef DMTCP
+#ifdef DMTCP_DEBUG
       /* DEBUG macro says to print debugging info, and DMTCP macro says
        * to do it even when DMTCP doesn't want to allow MTCP debugging.
        * Many mtcp_printf() calls occur inside DEBUG conditional.
