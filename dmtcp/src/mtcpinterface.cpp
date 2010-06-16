@@ -102,7 +102,7 @@ extern "C"
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
-  dmtcp::DmtcpWorker::Instance().waitForStage1Suspend();
+  dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -117,13 +117,13 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
 #ifdef EXTERNAL_SOCKET_HANDLING
-  if (dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint() == false) {
+  if (dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint() == false) {
     char *nullDevice = (char *) "/dev/null";
     *ckptFilename = nullDevice;
     delayedCheckpoint = true;
   } else 
 #else
-  dmtcp::DmtcpWorker::Instance().waitForStage2Checkpoint();
+  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
 #endif
   {
     // If we don't modify *ckptFilename, then MTCP will continue to use
@@ -140,7 +140,7 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
-    dmtcp::DmtcpWorker::Instance().postRestart();
+    dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.
      * BUG: The restarting process reconnects to the coordinator and the old
@@ -165,8 +165,8 @@ static void callbackPostCheckpoint ( int isRestart )
      *      The current solution is to send a dummy message to coordinator here
      *      before sending a proper request.
      */
-    dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
   }
   else
   {
@@ -174,9 +174,9 @@ static void callbackPostCheckpoint ( int isRestart )
     if ( delayedCheckpoint == false )
 #endif
     {
-      dmtcp::DmtcpWorker::Instance().sendCkptFilenameToCoordinator();
-      dmtcp::DmtcpWorker::Instance().waitForStage3Refill();
-      dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
+      dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+      dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+      dmtcp::DmtcpWorker::instance().waitForStage4Resume();
     }
 
     //now everything but threads are restored
@@ -197,13 +197,13 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  dmtcp::DmtcpWorker::Instance().writeCheckpointPrefix(fd);
+  dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
 }
 
 static void callbackRestoreVirtualPidTable ( )
 {
-  dmtcp::DmtcpWorker::Instance().waitForStage4Resume();
-  dmtcp::DmtcpWorker::Instance().restoreVirtualPidTable();
+  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
@@ -272,7 +272,7 @@ struct ThreadArg {
 //    *  If tid is an original tid with a different current tid, then there 
 //    *   is a conflict.
 //    */
-//   if (tid == dmtcp::VirtualPidTable::Instance().originalToCurrentPid( tid ))
+//   if (tid == dmtcp::VirtualPidTable::instance().originalToCurrentPid( tid ))
 //     return false;
 //   return true;
 // }
@@ -302,10 +302,10 @@ int thread_start(void *arg)
     original_tid = syscall(SYS_gettid);
     JASSERT ( tid == original_tid ) (tid) (original_tid) 
       .Text ( "syscall(SYS_gettid) and _real_gettid() returning different values for the newly created thread!" );
-    dmtcp::VirtualPidTable::Instance().insertTid ( original_tid );
+    dmtcp::VirtualPidTable::instance().insertTid ( original_tid );
   }
 
-  dmtcp::VirtualPidTable::Instance().updateMapping ( original_tid, tid );
+  dmtcp::VirtualPidTable::instance().updateMapping ( original_tid, tid );
 
   JTRACE ( "Calling user function" ) (original_tid);
 
@@ -313,7 +313,7 @@ int thread_start(void *arg)
    * participate in checkpoint. Decrement the unInitializedThreadCount in
    * DmtcpWorker.
    */ 
-  dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
+  dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
@@ -325,8 +325,8 @@ int thread_start(void *arg)
    *  erasing the original_tid entry from virtualpidtable
    */
 
-  dmtcp::VirtualPidTable::Instance().erase ( original_tid );
-  dmtcp::VirtualPidTable::Instance().eraseTid ( original_tid );
+  dmtcp::VirtualPidTable::instance().erase ( original_tid );
+  dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
    
   return result;
 }
@@ -381,7 +381,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * Also increment the uninitialized thread count.
    */
   WRAPPER_EXECUTION_LOCK_LOCK();
-  dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
+  dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
 
 
   pid_t originalTid = -1;
@@ -421,7 +421,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
-      dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
+      dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
       break;
     }
 
@@ -433,11 +433,11 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ("New Thread Created") (tid);
       if (originalTid != -1)
       {
-        dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
+        dmtcp::VirtualPidTable::instance().updateMapping ( originalTid, tid );
         dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
         tid = originalTid;
       } else {
-        dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );
+        dmtcp::VirtualPidTable::instance().updateMapping ( tid, tid );
       }
       break;
     }

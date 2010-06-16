@@ -47,7 +47,7 @@ static int tgkill(int tgid, int tid, int sig);
 
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
-  pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
+  pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
   
   if (currentPid == -1)
     currentPid = originalPid;
@@ -57,7 +57,7 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
-  pid_t originalPid = dmtcp::VirtualPidTable::Instance().currentToOriginalPid( currentPid );
+  pid_t originalPid = dmtcp::VirtualPidTable::instance().currentToOriginalPid( currentPid );
   
   if (originalPid == -1)
     originalPid = currentPid;
@@ -153,7 +153,7 @@ extern "C" pid_t getpid()
   //pid_t pid = _real_getpid();//dmtcp::UniquePid::ThisProcess().pid();
   
   //return currentToOriginalPid ( pid );
-  return dmtcp::VirtualPidTable::Instance().pid(); 
+  return dmtcp::VirtualPidTable::instance().pid(); 
 }
 
 extern "C" pid_t getppid()
@@ -163,10 +163,10 @@ extern "C" pid_t getppid()
   pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
   {
-    dmtcp::VirtualPidTable::Instance().setppid( 1 );
+    dmtcp::VirtualPidTable::instance().setppid( 1 );
   }
 
-  pid_t origPpid = dmtcp::VirtualPidTable::Instance().ppid( );
+  pid_t origPpid = dmtcp::VirtualPidTable::instance().ppid( );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
@@ -277,7 +277,7 @@ extern "C" pid_t setsid(void)
 
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
-  dmtcp::VirtualPidTable::Instance().setsid(origPid);
+  dmtcp::VirtualPidTable::instance().setsid(origPid);
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
@@ -345,7 +345,7 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
     pid_t pid = currentToOriginalPid (retVal);
 
     if ( pid > 0 )
-      dmtcp::VirtualPidTable::Instance().erase(pid);
+      dmtcp::VirtualPidTable::instance().erase(pid);
 
     return pid;
   }
@@ -367,7 +367,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
-    dmtcp::VirtualPidTable::Instance().erase(originalPid);
+    dmtcp::VirtualPidTable::instance().erase(originalPid);
 
   return originalPid;
 }
@@ -388,7 +388,7 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
     infop->si_pid = originalPid;
 
     if ( infop->si_code == CLD_EXITED || infop->si_code == CLD_KILLED )
-      dmtcp::VirtualPidTable::Instance().erase ( originalPid );
+      dmtcp::VirtualPidTable::instance().erase ( originalPid );
   }
 
   return retval;
@@ -401,7 +401,7 @@ extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
   pid_t originalPid = currentToOriginalPid ( retval );
 
   if ( originalPid > 0 )
-    dmtcp::VirtualPidTable::Instance().erase(originalPid);
+    dmtcp::VirtualPidTable::instance().erase(originalPid);
 
   return originalPid;
 }
@@ -421,7 +421,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   if ( retval > 0
        && ( WIFEXITED ( * (int*) status )  || WIFSIGNALED ( * (int*) status ) ) )
-    dmtcp::VirtualPidTable::Instance().erase ( originalPid );
+    dmtcp::VirtualPidTable::instance().erase ( originalPid );
 
   return originalPid;
 }
@@ -531,9 +531,9 @@ static void processDevPtmxConnection (int fd)
   int type = dmtcp::PtyConnection::PTY_MASTER;
   dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
 
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
 
-  dmtcp::UniquePtsNameToPtmxConId::Instance().add ( uniquePtsNameStr, c->id() );
+  dmtcp::UniquePtsNameToPtmxConId::instance().add ( uniquePtsNameStr, c->id() );
 }
 
 static void processDevPtsConnection (int fd, const char* uniquePtsName, const char* ptsName)
@@ -548,7 +548,7 @@ static void processDevPtsConnection (int fd, const char* uniquePtsName, const ch
   int type = dmtcp::PtyConnection::PTY_SLAVE;
   dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
 
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
 }
 
 extern "C" int getpt()
@@ -586,7 +586,7 @@ extern "C" int open (const char *path, ... )
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );
@@ -621,7 +621,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   int fd = -1;
 
   if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );

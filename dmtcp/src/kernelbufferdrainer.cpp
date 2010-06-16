@@ -124,7 +124,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
 // {
 //     scaleSendBuffers(2);
 /*
-    SocketTable& table = SocketTable::Instance();
+    SocketTable& table = SocketTable::instance();
     for(  SocketTable::iterator i = table.begin()
         ; i != table.end()
         ; ++i)

@@ -26,7 +26,7 @@
 #include "constants.h"
 #include "../jalib/jalloc.h"
 
-#define PROTECTEDFDS (dmtcp::ProtectedFDs::Instance())
+#define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
 #define PFD(i) (PROTECTED_FD_START + (i))
 #define PROTECTEDFD(i) PFD(i)
 /*
@@ -53,7 +53,7 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static ProtectedFDs& Instance();
+      static ProtectedFDs& instance();
       static bool isProtected ( int fd );
     protected:
       ProtectedFDs();

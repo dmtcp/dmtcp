@@ -50,7 +50,7 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       VirtualPidTable();
-      static VirtualPidTable& Instance();
+      static VirtualPidTable& instance();
       static bool isConflictingPid( pid_t pid );
       void postRestart();
       void restoreProcessGroupInfo();

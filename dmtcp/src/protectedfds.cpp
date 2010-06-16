@@ -30,7 +30,7 @@
 
 
 
-dmtcp::ProtectedFDs& dmtcp::ProtectedFDs::Instance()
+dmtcp::ProtectedFDs& dmtcp::ProtectedFDs::instance()
 {
   static ProtectedFDs inst;
   return inst;
@@ -47,7 +47,7 @@ dmtcp::ProtectedFDs::ProtectedFDs()
   JASSERT ( PFD ( 0 ) == dup2 ( tmp,PFD ( 0 ) ) ) ( PFD ( 0 ) ) ( tmp );
   close ( tmp );
 
-  //"lock" all protected fds so system wont allocate them
+  //"lock" all protected fds so system won't allocate them
   for ( int i=1; i<PROTECTED_FD_COUNT; ++i )
   {
     JASSERT ( PFD ( i ) == dup2 ( PFD ( 0 ),PFD ( i ) ) ) ( i );

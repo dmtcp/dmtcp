@@ -81,7 +81,7 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static DmtcpWorker& Instance();
+      static DmtcpWorker& instance();
       static const int ld_preload_c_len = 256;
       static char ld_preload_c[ld_preload_c_len];
       const dmtcp::UniquePid& coordinatorId() const;
@@ -110,7 +110,7 @@ namespace dmtcp
 
 
       static void resetOnFork();
-      void CleanupWorker();
+      void cleanupWorker();
 
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
@@ -130,8 +130,8 @@ namespace dmtcp
       static void wrapperExecutionLockUnlock();
 
       static void waitForThreadsToFinishInitialization();
-      static void incrementUnInitializedThreadCount();
-      static void decrementUnInitializedThreadCount();
+      static void incrementUninitializedThreadCount();
+      static void decrementUninitializedThreadCount();
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
       void interruptCkpthread();

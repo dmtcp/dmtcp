@@ -45,7 +45,7 @@ static DmtcpFunctionPointer userHookPostCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostRestart = NULL;
 
 //I wish we could use pthreads for the trickery in this file, but much of our
-//code is execute before the thread we want to wake is restored.  Thus we do
+//code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
 

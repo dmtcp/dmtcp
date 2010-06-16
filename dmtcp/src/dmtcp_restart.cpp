@@ -137,7 +137,7 @@ namespace
         dmtcp::vector<int> fdlist;
         for ( ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i )
         {
-          Connection& con = ConnectionList::Instance() [i->first];
+          Connection& con = ConnectionList::instance() [i->first];
           if ( con.conType() == Connection::INVALID ){
             JWARNING(false)(i->first).Text("Can't restore invalid Connection");
             continue;
@@ -177,7 +177,7 @@ namespace
 
         slidingFd.closeAll();
       }
-      /*      else if(ConnectionList::Instance()[i->first].conType() == Connection::PTS)
+      /*      else if(ConnectionList::instance()[i->first].conType() == Connection::PTS)
             {
               const dmtcp::vector<int>& fds = i->second;
               for(size_t x=0; x<fds.size(); ++x)
@@ -191,7 +191,7 @@ namespace
                 //_real_dup2(oldFd, fd);
               }
             }
-            else if(ConnectionList::Instance()[i->first].conType() == Connection::FILE)
+            else if(ConnectionList::instance()[i->first].conType() == Connection::FILE)
             {
               const dmtcp::vector<int>& fds = i->second;
               for(size_t x=0; x<fds.size(); ++x)
@@ -682,7 +682,7 @@ int main ( int argc, char** argv )
   SlidingFdTable slidingFd;
   ConnectionToFds conToFd;
 
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()
                                      ; i!= connections.end()
           ; ++i )

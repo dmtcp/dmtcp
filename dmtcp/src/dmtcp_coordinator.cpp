@@ -777,7 +777,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   }
 
   JTRACE( "END" )
-    ( _dataSockets.size() ) ( _dataSockets[0]->socket().sockfd() == STDIN_FD );
+  ( _dataSockets.size() ) ( _dataSockets[0]->socket().sockfd() == STDIN_FD );
 }
 
 //     WorkerNode& node = _table[hello_remote.from.pid()];
@@ -984,7 +984,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   }
 }
 
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::Instance()
+dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
 {
   JASSERT ( false ).Text ( "This method is only available on workers" );
   return * ( ( DmtcpWorker* ) 0 );

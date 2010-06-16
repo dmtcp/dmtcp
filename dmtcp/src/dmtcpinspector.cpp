@@ -63,7 +63,7 @@ namespace
         int numPeers;
         dmtcp::UniquePid cg;
 #ifdef PID_VIRTUALIZATION
-        _conToFd.loadFromFile(path, cg,numPeers,dmtcp::VirtualPidTable::Instance());
+        _conToFd.loadFromFile(path, cg,numPeers,dmtcp::VirtualPidTable::instance());
 #else
         _conToFd.loadFromFile(path, cg,numPeers);
 #endif
@@ -298,7 +298,7 @@ namespace
     // Run through all connections of the process
     for(cit = conToFd.begin(); cit!=conToFd.end(); cit++){
       ConnectionIdentifier conId = cit->first;
-      Connection &con = ConnectionList::Instance()[cit->first];
+      Connection &con = ConnectionList::instance()[cit->first];
 
       // Process only network connections
       if( con.conType() != Connection::TCP )
@@ -504,7 +504,7 @@ int main ( int argc, char** argv )
     return 1;
   }
 
-  ConnectionGraph conGr(ConnectionList::Instance());
+  ConnectionGraph conGr(ConnectionList::instance());
   for(size_t i =0; i < targets.size(); i++){
     conGr.importProcess(targets[i]._conToFd);
   }

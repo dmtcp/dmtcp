@@ -53,7 +53,7 @@ namespace dmtcp
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
-      static ConnectionList& Instance();
+      static ConnectionList& instance();
       void erase ( iterator i );
       ConnectionList();
       Connection& operator[] ( const ConnectionIdentifier& id );
@@ -78,7 +78,7 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static KernelDeviceToConnection& Instance();
+      static KernelDeviceToConnection& instance();
       Connection& retrieve ( int fd );
       void        create ( int fd, Connection* c );
       void        createPtyDevice ( int fd, dmtcp::string deviceName, Connection* c );
@@ -216,7 +216,7 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       UniquePtsNameToPtmxConId() {}
-      static UniquePtsNameToPtmxConId& Instance();
+      static UniquePtsNameToPtmxConId& instance();
 
       ConnectionIdentifier& operator[] ( dmtcp::string s ) { return _table[s]; }
 
@@ -243,7 +243,7 @@ namespace dmtcp
   class PtsToSymlink
   {
     public:
-      static PtsToSymlink& Instance();
+      static PtsToSymlink& instance();
       typedef dmtcp::map<dmtcp::string, dmtcp::string>::iterator iterator;
       void replace ( dmtcp::string oldDevice, dmtcp::string newDevice );
       PtsToSymlink();

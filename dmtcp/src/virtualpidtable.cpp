@@ -62,7 +62,7 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _do_unlock_tbl();
 }
 
-dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::Instance()
+dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
 {
   static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
 }
@@ -78,7 +78,7 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
    *       there is not conflict because that mapping essentially is about the
    *       current pid.
    */
-  if (pid == Instance().originalToCurrentPid( pid ))
+  if (pid == instance().originalToCurrentPid( pid ))
     return false;
 
   return true;
@@ -551,13 +551,13 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   dmtcp::string pidMapCountFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
   pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
   JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 ) ( pidMapFile )( pidMapCountFile );
-  JTRACE("All PidMap related files are opened successful" ) ( pidMapFile )( pidMapCountFile );
+  JTRACE("All PidMap related files are opened successfully" ) ( pidMapFile )( pidMapCountFile );
   
   // Create Serializers
   jalib::JBinarySerializeWriterRaw mapwr( pidMapFile, PROTECTED_PIDMAP_FD );
   jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
   jalib::JBinarySerializeReaderRaw countrd(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
-  JTRACE("All Serializers created successfuly" );
+  JTRACE("All Serializers created successfully" );
     
   // Lock fileset before any operations
   JTRACE("Try to lock file set" );
