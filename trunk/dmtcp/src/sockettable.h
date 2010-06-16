@@ -136,9 +136,9 @@ namespace dmtcp
 //     public:
 //         typedef dmtcp::vector<SocketEntry>::iterator iterator;
 //
-//         static SocketTable& Instance();
+//         static SocketTable& instance();
 //         SocketEntry& operator[] (int sockfd);
-//         static SocketEntry& LookupByFd(int sockfd){ return Instance()[sockfd]; }
+//         static SocketEntry& LookupByFd(int sockfd){ return instance()[sockfd]; }
 //
 //         iterator begin() {return _entries.begin();}
 //         iterator end() {return _entries.end();}

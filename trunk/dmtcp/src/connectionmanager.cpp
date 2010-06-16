@@ -48,17 +48,17 @@ static bool _isBadFd ( int fd )
   return ( device == "" );
 }
 
-dmtcp::ConnectionList& dmtcp::ConnectionList::Instance()
+dmtcp::ConnectionList& dmtcp::ConnectionList::instance()
 {
   static ConnectionList inst; return inst;
 }
 
-dmtcp::KernelDeviceToConnection& dmtcp::KernelDeviceToConnection::Instance()
+dmtcp::KernelDeviceToConnection& dmtcp::KernelDeviceToConnection::instance()
 {
   static KernelDeviceToConnection inst; return inst;
 }
 
-dmtcp::UniquePtsNameToPtmxConId& dmtcp::UniquePtsNameToPtmxConId::Instance()
+dmtcp::UniquePtsNameToPtmxConId& dmtcp::UniquePtsNameToPtmxConId::instance()
 {
   static UniquePtsNameToPtmxConId inst; return inst;
 }
@@ -71,7 +71,7 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 {
   dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
   JTRACE("Creating Connection->FD mapping")(fds.size());
-  KernelDeviceToConnection::Instance().dbgSpamFds();
+  KernelDeviceToConnection::instance().dbgSpamFds();
   _procname = jalib::Filesystem::GetProgramName();
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _inhostname = jalib::Filesystem::GetCurrentHostname();
@@ -101,12 +101,12 @@ dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve ( int fd )
   JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
   iterator i = _table.find ( device );
   JASSERT ( i != _table.end() ) ( fd ) ( device ) ( _table.size() ).Text ( "failed to find connection for fd" );
-  return ConnectionList::Instance() [i->second];
+  return ConnectionList::instance() [i->second];
 }
 
 void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 {
-  ConnectionList::Instance().add ( c );
+  ConnectionList::instance().add ( c );
 
   dmtcp::string device = fdToDevice ( fd, true );
 
@@ -121,7 +121,7 @@ void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 
 void dmtcp::KernelDeviceToConnection::createPtyDevice ( int fd, dmtcp::string device, Connection* c )
 {
-  ConnectionList::Instance().add ( c );
+  ConnectionList::instance().add ( c );
 
   JTRACE ( "device created" ) ( fd ) ( device ) ( c->id() );
 
@@ -222,7 +222,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       int type = dmtcp::PtyConnection::PTY_BSD_MASTER;
       Connection * c = new dmtcp::PtyConnection ( device, type );
 
-      ConnectionList::Instance().add ( c );
+      ConnectionList::instance().add ( c );
       _table[deviceName] = c->id();
     }
 
@@ -245,7 +245,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       int type = dmtcp::PtyConnection::PTY_BSD_SLAVE;
       Connection * c = new dmtcp::PtyConnection ( device, type );
 
-      ConnectionList::Instance().add ( c );
+      ConnectionList::instance().add ( c );
       _table[deviceName] = c->id();
     }
 
@@ -269,7 +269,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
         JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
         off_t offset = lseek ( fd, 0, SEEK_CUR );
         Connection * c = new FileConnection ( device, offset );
-        ConnectionList::Instance().add ( c );
+        ConnectionList::instance().add ( c );
         _table[deviceName] = c->id();
       }
       
@@ -286,7 +286,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       {
         JTRACE ( "creating fifo connection [on-demand]" ) ( deviceName );
         Connection * c = new FifoConnection( device );
-        ConnectionList::Instance().add( c );
+        ConnectionList::instance().add( c );
         _table[deviceName] = c->id();
         return deviceName;
       } else {
@@ -305,7 +305,7 @@ void dmtcp::ConnectionList::erase ( iterator i )
   Connection * con = i->second;
   JTRACE ( "deleting stale connection..." ) ( con->id() );
   _connections.erase ( i );
-  KernelDeviceToConnection::Instance().erase( i->first );
+  KernelDeviceToConnection::instance().erase( i->first );
   delete con;
 }
 
@@ -371,7 +371,7 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
       _table[device] = con;
 #ifdef DEBUG
       //double check to make sure all fds have same device
-      Connection *c = &(ConnectionList::Instance()[con]);
+      Connection *c = &(ConnectionList::instance()[con]);
       for ( size_t i=1; i<fds.size(); ++i ) {
         if ( c->conType() != Connection::FILE ) {
           JASSERT ( device == fdToDevice ( fds[i] ) )
@@ -481,14 +481,14 @@ void dmtcp::ConnectionList::scanForPreExisting()
   {
     if ( _isBadFd ( fds[i] ) ) continue;
     if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
-    KernelDeviceToConnection::Instance().handlePreExistingFd ( fds[i] );
+    KernelDeviceToConnection::instance().handlePreExistingFd ( fds[i] );
   }
 }
 
 void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
 {
   //this has the side effect of on-demand creating everything except sockets
-  dmtcp::string device = KernelDeviceToConnection::Instance().fdToDevice ( fd, true );
+  dmtcp::string device = KernelDeviceToConnection::instance().fdToDevice ( fd, true );
 
   JTRACE ( "scanning pre-existing device" ) ( fd ) ( device );
 
@@ -524,7 +524,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
 void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp-serialized-connection-table!v0.07" );
-  ConnectionList::Instance().serialize ( o );
+  ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
   // Current process information
@@ -569,7 +569,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp-serialized-exec-lifeboat!v0.07" );
-  ConnectionList::Instance().serialize ( o );
+  ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::KernelDeviceToConnection:" );
 
   size_t numCons = _table.size();
@@ -697,7 +697,7 @@ dmtcp::Connection& dmtcp::UniquePtsNameToPtmxConId::retrieve ( dmtcp::string str
 {
   iterator i = _table.find ( str );
   JASSERT ( i != _table.end() ) ( str ) ( _table.size() ).Text ( "failed to find connection for fd" );
-  return ConnectionList::Instance() [i->second];
+  return ConnectionList::instance() [i->second];
 }
 
 
@@ -705,7 +705,7 @@ dmtcp::string dmtcp::UniquePtsNameToPtmxConId::retrieveCurrentPtsDeviceName ( dm
 {
   iterator i = _table.find ( str );
   JASSERT ( i != _table.end() ) ( str ) ( _table.size() ).Text ( "failed to find connection for fd" );
-  Connection* c = &(ConnectionList::Instance() [i->second]);
+  Connection* c = &(ConnectionList::instance() [i->second]);
 
   PtyConnection* ptmxConnection = (PtyConnection *)c;
 
@@ -718,7 +718,7 @@ dmtcp::string dmtcp::UniquePtsNameToPtmxConId::retrieveCurrentPtsDeviceName ( dm
 /*
 dmtcp::PtsToSymlink::PtsToSymlink() { }
 
-dmtcp::PtsToSymlink& dmtcp::PtsToSymlink::Instance()
+dmtcp::PtsToSymlink& dmtcp::PtsToSymlink::instance()
 {
   static PtsToSymlink inst; return inst;
 }

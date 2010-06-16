@@ -2276,7 +2276,8 @@ static void stopthisthread (int signum)
       if (is_first_checkpoint) {
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
-        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes\n"));
+        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes\n",
+		kbStack));
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
         mtcp_printf("WARNING:  Stack within %d bytes of end;\n"

@@ -33,7 +33,7 @@ dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )
 
 void dmtcp::ConnectionState::deleteDupFileConnections()
 {
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
 //  typedef dmtcp::map< ConnectionIdentifier, ConnectionList::iterator >::iterator iterator;
 //  dmtcp::map< ConnectionIdentifier, ConnectionList::iterator > dupFileConnectionTable;
@@ -94,7 +94,7 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
 
 void dmtcp::ConnectionState::deleteStaleConnections()
 {
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   //build list of stale connections
   dmtcp::vector<ConnectionList::iterator> staleConnections;
@@ -120,10 +120,10 @@ void dmtcp::ConnectionState::preCheckpointLock()
   SyslogCheckpointer::stopService();
 
   // build fd table with stale connections included
-  _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
+  _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
   //lock each fd
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i ) {
@@ -138,7 +138,7 @@ void dmtcp::ConnectionState::preCheckpointLock()
 void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable )
 {
   deleteStaleConnections();
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
@@ -155,7 +155,7 @@ void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectio
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
   deleteStaleConnections();
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   //initialize the drainer
   for ( ConnectionList::iterator i = connections.begin()
@@ -186,18 +186,18 @@ void dmtcp::ConnectionState::preCheckpointDrain()
     con.onError();
     static ConnectionRewirer ignored;
     con.restore(fds, ignored); //restoring a TCP_ERROR connection makes a dead socket
-    KernelDeviceToConnection::Instance().redirect(fds[0], id);
+    KernelDeviceToConnection::instance().redirect(fds[0], id);
   }
 
   //re build fd table without stale connections and with disconnects
-  _conToFds = ConnectionToFds ( KernelDeviceToConnection::Instance() );
+  _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
   deleteDupFileConnections();
 }
 
 void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinator)
 {
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   //must send first to avoid deadlock
   //we are relying on OS buffers holding our message without blocking
@@ -237,8 +237,8 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
   _conToFds.serialize ( wr );
 
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().refresh( );
-  dmtcp::VirtualPidTable::Instance().serialize( wr );
+  dmtcp::VirtualPidTable::instance().refresh( );
+  dmtcp::VirtualPidTable::instance().serialize( wr );
 #endif
 }
 
@@ -247,7 +247,7 @@ void dmtcp::ConnectionState::postCheckpoint()
 {
   _drain.refillAllSockets();
 
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
@@ -266,7 +266,7 @@ void dmtcp::ConnectionState::postCheckpoint()
 
 void dmtcp::ConnectionState::postRestart()
 {
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   // Two part restoreOptions. See the comments in doReconnect()
   // Part 1: Restore options for all but Pseudo-terminal slaves
@@ -303,10 +303,10 @@ void dmtcp::ConnectionState::postRestart()
     }
   }
 
-  KernelDeviceToConnection::Instance().dbgSpamFds();
+  KernelDeviceToConnection::instance().dbgSpamFds();
 
   //fix our device table to match the new world order
-  KernelDeviceToConnection::Instance() = KernelDeviceToConnection ( _conToFds );
+  KernelDeviceToConnection::instance() = KernelDeviceToConnection ( _conToFds );
 }
 
 void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen )
@@ -315,7 +315,7 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   _rewirer.addListenSocket ( restoreListen );
   _rewirer.setCoordinatorFd ( coordinator.sockfd() );
 
-  ConnectionList& connections = ConnectionList::Instance();
+  ConnectionList& connections = ConnectionList::instance();
 
   // Here we modify the restore algorithm by splitting it in two parts. In the
   // first part we restore all the connection except the PTY_SLAVE types and in

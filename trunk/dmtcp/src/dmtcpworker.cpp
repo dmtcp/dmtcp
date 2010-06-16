@@ -309,21 +309,21 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
 
     //reset state
-//         ConnectionList::Instance() = ConnectionList();
-//         KernelDeviceToConnection::Instance() = KernelDeviceToConnection();
+//         ConnectionList::instance() = ConnectionList();
+//         KernelDeviceToConnection::instance() = KernelDeviceToConnection();
 
     //load file
     jalib::JBinarySerializeReader rd ( serialFile );
     UniquePid::serialize ( rd );
-    KernelDeviceToConnection::Instance().serialize ( rd );
+    KernelDeviceToConnection::instance().serialize ( rd );
 
 #ifdef PID_VIRTUALIZATION
-    VirtualPidTable::Instance().serialize ( rd );
+    VirtualPidTable::instance().serialize ( rd );
 #endif
 
 #ifdef DEBUG
     JTRACE ( "initial socket table:" );
-    KernelDeviceToConnection::Instance().dbgSpamFds();
+    KernelDeviceToConnection::instance().dbgSpamFds();
 #endif
 
     _dmtcp_unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
@@ -334,12 +334,12 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 #ifdef PID_VIRTUALIZATION
     if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
-      dmtcp::VirtualPidTable::Instance().setRootOfProcessTree();
+      dmtcp::VirtualPidTable::instance().setRootOfProcessTree();
       _dmtcp_unsetenv( ENV_VAR_ROOT_PROCESS );
     }
 #endif
 
-    ConnectionList::Instance().scanForPreExisting();
+    ConnectionList::instance().scanForPreExisting();
   }
 
   connectToCoordinatorWithHandshake();
@@ -355,11 +355,11 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 // #ifdef DEBUG
 //     JTRACE("listing fds");
-//     KernelDeviceToConnection::Instance().dbgSpamFds();
+//     KernelDeviceToConnection::instance().dbgSpamFds();
 // #endif
 }
 
-void dmtcp::DmtcpWorker::CleanupWorker()
+void dmtcp::DmtcpWorker::cleanupWorker()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
   theWrapperExecutionLock = newLock;
@@ -411,7 +411,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
     _coordinatorSocket.close();
     interruptCkpthread();
   }
-  CleanupWorker();
+  cleanupWorker();
 }
 
 
@@ -604,7 +604,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 //   theCheckpointState->outputDmtcpConnectionTable();
 
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().preCheckpoint();
+  dmtcp::VirtualPidTable::instance().preCheckpoint();
 #endif
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
@@ -648,7 +648,7 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
 
       JTRACE ("received DMT_UNKNOWN_PEER message") (msg.conId);
 
-      TcpConnection* con = (TcpConnection*) &( ConnectionList::Instance() [msg.conId] );
+      TcpConnection* con = (TcpConnection*) &( ConnectionList::instance() [msg.conId] );
       con->markExternal();
       externalTcpConnections.push_back(msg.conId);
       _waitingForExternalSocketsToClose = true;
@@ -657,7 +657,7 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
 
     JASSERT ( msg.type == DMT_DO_DRAIN || msg.type == DMT_DO_RESUME ) ( msg.type );
 
-    ConnectionList& connections = ConnectionList::Instance();
+    ConnectionList& connections = ConnectionList::instance();
 
     // Tcp Accept and Connect connection with PeerType UNKNOWN should be marked as INTERNAL
     for ( ConnectionList::iterator i = connections.begin()
@@ -755,15 +755,15 @@ void dmtcp::DmtcpWorker::postRestart()
   theCheckpointState->postRestart();
 
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().postRestart();
+  dmtcp::VirtualPidTable::instance().postRestart();
 #endif
 }
 
 void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 {
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().readPidMapsFromFile();
-  dmtcp::VirtualPidTable::Instance().restoreProcessGroupInfo();
+  dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
+  dmtcp::VirtualPidTable::instance().restoreProcessGroupInfo();
 #endif
 }
 
@@ -855,7 +855,7 @@ void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
   }
 }
 
-void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount()
+void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
@@ -867,7 +867,7 @@ void dmtcp::DmtcpWorker::incrementUnInitializedThreadCount()
   errno = saved_errno;
 }
 
-void dmtcp::DmtcpWorker::decrementUnInitializedThreadCount()
+void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
@@ -1042,7 +1042,7 @@ void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
   }
   //fork a child process to probe the coordinator
   if (fork()==0) {
-    //fork so if we hit an error parent wont die
+    //fork so if we hit an error parent won't die
     dup2(2,1);                          //copy stderr to stdout
     dup2(open("/dev/null",O_RDWR), 2);  //close stderr
     int result[DMTCPMESSAGE_NUM_PARAMS];

@@ -30,7 +30,7 @@ dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-  theInstance.CleanupWorker();
+  theInstance.cleanupWorker();
   shutdownMtcpEngineOnFork();
 
   /* If parent process had file connections and it fork()'d a child
@@ -48,7 +48,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
-  Instance().connectToCoordinatorWithHandshake();
+  instance().connectToCoordinatorWithHandshake();
 
   WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
@@ -60,5 +60,5 @@ void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
 {
   JASSERT(false).Text("should not be called");
 }
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::Instance() { return theInstance; }
+dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
 

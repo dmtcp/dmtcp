@@ -36,7 +36,7 @@
 
 #define INITIAL_ARGV_MAX 32
 
-static pid_t forkChild ( time_t child_time, long child_host )
+static pid_t forkChild ( long child_host, time_t child_time )
 {
   while ( 1 ) {
 
@@ -104,13 +104,13 @@ static pid_t fork_work()
     dmtcp::UniquePid::resetOnFork ( child );
 
 #ifdef PID_VIRTUALIZATION
-    dmtcp::VirtualPidTable::Instance().resetOnFork( );
+    dmtcp::VirtualPidTable::instance().resetOnFork( );
 #endif
 
     dmtcp::SyslogCheckpointer::resetOnFork();
 
     //rewrite socket table
-    //         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
+    //         dmtcp::SocketTable::instance().onForkUpdate(parent,child);
 
     //make new connection to coordinator
     dmtcp::DmtcpWorker::resetOnFork();
@@ -122,7 +122,7 @@ static pid_t fork_work()
     dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
 
 #ifdef PID_VIRTUALIZATION
-    dmtcp::VirtualPidTable::Instance().insert ( child_pid, child );
+    dmtcp::VirtualPidTable::instance().insert ( child_pid, child );
 #endif
 
     JTRACE ( "fork()ed [PARENT] done" ) ( child );;
@@ -130,7 +130,7 @@ static pid_t fork_work()
     //         _dmtcp_lock();
 
     //rewrite socket table
-    //         dmtcp::SocketTable::Instance().onForkUpdate(parent,child);
+    //         dmtcp::SocketTable::instance().onForkUpdate(parent,child);
 
     //         _dmtcp_unlock();
 
@@ -170,10 +170,10 @@ static void dmtcpPrepareForExec()
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
-  dmtcp::KernelDeviceToConnection::Instance().serialize ( wr );
+  dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::Instance().prepareForExec();
-  dmtcp::VirtualPidTable::Instance().serialize ( wr );
+  dmtcp::VirtualPidTable::instance().prepareForExec();
+  dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);

@@ -75,7 +75,7 @@ extern "C" int close ( int fd )
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
        dup2(fd,fd) != -1 ) {
-    conId = dmtcp::KernelDeviceToConnection::Instance().retrieve(fd).id();
+    conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 #endif
 
@@ -90,20 +90,20 @@ extern "C" int close ( int fd )
   // #ifdef DEBUG
   //     if(rv==0)
   //     {
-  //         dmtcp::string closeDevice = dmtcp::KernelDeviceToConnection::Instance().fdToDevice( fd );
+  //         dmtcp::string closeDevice = dmtcp::KernelDeviceToConnection::instance().fdToDevice( fd );
   //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
   //     }
   // #endif
   //     else
   //     {
   // #ifdef DEBUG
-  //         if(dmtcp::SocketTable::Instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
+  //         if(dmtcp::SocketTable::instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
   //         {
-  //             dmtcp::SocketEntry& e = dmtcp::SocketTable::Instance()[fd];
+  //             dmtcp::SocketEntry& e = dmtcp::SocketTable::instance()[fd];
   //             JTRACE("CLOSE()")(fd)(e.remoteId().id)(e.state());
   //         }
   // #endif
-  //         dmtcp::SocketTable::Instance().resetFd(fd);
+  //         dmtcp::SocketTable::instance().resetFd(fd);
   //     }
   return rv;
 }
@@ -124,7 +124,7 @@ extern "C" int fclose(FILE *fp)
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
        dup2(fd,fd) != -1 ) {
-    conId = dmtcp::KernelDeviceToConnection::Instance().retrieve(fd).id();
+    conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 #endif
 
@@ -160,8 +160,8 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   a->onConnect();
   b = new dmtcp::TcpConnection ( *a, a->id() );
 
-  dmtcp::KernelDeviceToConnection::Instance().create ( sv[0] , a );
-  dmtcp::KernelDeviceToConnection::Instance().create ( sv[1] , b );
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
@@ -180,7 +180,7 @@ static int ptsname_r_work ( int fd, char * buf, size_t buflen )
 {
   JTRACE ( "Calling ptsname_r" );
 
-  dmtcp::Connection* c = &dmtcp::KernelDeviceToConnection::Instance().retrieve ( fd );
+  dmtcp::Connection* c = &dmtcp::KernelDeviceToConnection::instance().retrieve ( fd );
   dmtcp::PtyConnection* ptyCon = (dmtcp::PtyConnection*) c;
 
   dmtcp::string uniquePtsName = ptyCon->uniquePtsName();
@@ -255,7 +255,7 @@ static void updateProcPath ( const char *path, char *newpath )
     }
     temp [ tempIndex ] = '\0';
     pid_t originalPid = atoi ( temp );
-    pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
+    pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
     if (currentPid == -1)
       currentPid = originalPid;
 
@@ -335,9 +335,9 @@ static void processDevPtmxConnection (int fd)
   int type = dmtcp::PtyConnection::PTY_MASTER;
   dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
 
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
 
-  dmtcp::UniquePtsNameToPtmxConId::Instance().add ( uniquePtsNameStr, c->id() );
+  dmtcp::UniquePtsNameToPtmxConId::instance().add ( uniquePtsNameStr, c->id() );
 }
 
 static void processDevPtsConnection (int fd, const char* uniquePtsName, const char* ptsName)
@@ -352,7 +352,7 @@ static void processDevPtsConnection (int fd, const char* uniquePtsName, const ch
   int type = dmtcp::PtyConnection::PTY_SLAVE;
   dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
 
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
 }
 
 extern "C" int getpt()
@@ -393,7 +393,7 @@ extern "C" int open (const char *path, ... )
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );
@@ -431,7 +431,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   int fd = -1;
 
   if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );
