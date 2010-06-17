@@ -417,14 +417,14 @@ static void sync_shared_mem(void);
 
 typedef void (*sighandler_t)(int);
 
-static sighandler_t _real_signal(int signum, sighandler_t handler){
+sighandler_t _real_signal(int signum, sighandler_t handler){
   return signal(signum, handler);
 }
-static int _real_sigaction(int signum, const struct sigaction *act,
+int _real_sigaction(int signum, const struct sigaction *act,
 			   struct sigaction *oldact){
   return sigaction(signum, act, oldact);
 }
-static int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return sigprocmask(how, set, oldset);
 }
 
