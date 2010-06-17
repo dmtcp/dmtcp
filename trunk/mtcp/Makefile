@@ -60,7 +60,7 @@ endif
 #Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
 CFLAGS += -O0 -g
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
-# CFLAGS = -DDMTCP_DEBUG=1 -O0 -g -DDEBUG -DTIMING -Wall
+# CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally

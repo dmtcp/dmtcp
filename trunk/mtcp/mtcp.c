@@ -417,13 +417,14 @@ static void sync_shared_mem(void);
 
 typedef void (*sighandler_t)(int);
 
-sighandler_t _real_signal(int signum, sighandler_t handler){
+static sighandler_t _real_signal(int signum, sighandler_t handler){
   return signal(signum, handler);
 }
-int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+static int _real_sigaction(int signum, const struct sigaction *act,
+			   struct sigaction *oldact){
   return sigaction(signum, act, oldact);
 }
-int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+static int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return sigprocmask(how, set, oldset);
 }
 
@@ -2107,22 +2108,22 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 
   if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
     DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] section"
-              " %X at %p\n", area -> size, area -> addr));
+              " %p at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
     DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] section"
-    	      " %X at %p\n", area -> size, area -> addr));
+    	      " %p at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[stack]") &&
 	   orig_stack != area -> addr + area -> size)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
     DPRINTF (("mtcp checkpointeverything*: skipping over [stack] segment"
     	      " %X at %pi (not the orig stack)\n", area -> size, area -> addr));
   else if (!(area -> flags & MAP_ANONYMOUS))
-    DPRINTF (("mtcp checkpointeverything*: save %X at %p from %s + %X\n",
+    DPRINTF (("mtcp checkpointeverything*: save %p at %p from %s + %X\n",
               area -> size, area -> addr, area -> name, area -> offset));
   else if (area -> name[0] == '\0')
-    DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p\n",
+    DPRINTF (("mtcp checkpointeverything*: save anonymous %p at %p\n",
               area -> size, area -> addr));
-  else DPRINTF (("mtcp checkpointeverything*: save anonymous %X at %p"
+  else DPRINTF (("mtcp checkpointeverything*: save anonymous %p at %p"
                  " from %s + %X\n",
 		 area -> size, area -> addr, area -> name, area -> offset));
 

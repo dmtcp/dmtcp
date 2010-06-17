@@ -433,9 +433,9 @@ static void readmemoryareas (void)
       /* Create the memory area */
 
       if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF (("mtcp restoreverything*: restoring anonymous area 0x%X at %p\n", area.size, area.addr));
+        DPRINTF (("mtcp restoreverything*: restoring anonymous area %p at %p\n", area.size, area.addr));
       } else {
-        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area 0x%X at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
+        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area %p at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
       /* POSIX says mmap would unmap old memory.  Munmap never fails if args
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
@@ -443,7 +443,7 @@ static void readmemoryareas (void)
        */
       mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        DPRINTF(("mtcp_restart_nolibc: error %d mapping 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
+        DPRINTF(("mtcp_restart_nolibc: error %d mapping %p bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
 
 	try_skipping_existing_segment = 1;
       }
@@ -525,7 +525,7 @@ static void readmemoryareas (void)
     /* Otherwise, we mmap the original file contents to the area */
 
     else {
-      DPRINTF (("mtcp restoreverything*: restoring mapped area 0x%X at %p to %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
+      DPRINTF (("mtcp restoreverything*: restoring mapped area %p at %p to %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
       // O_WRONLY = 01
@@ -606,9 +606,9 @@ static void readmemoryareas (void)
     }
 
     if (area.name && mystrstr(area.name, "[heap]")
-        && mtcp_sys_brk(NULL) != area.name + area.size)
+        && mtcp_sys_brk(NULL) != area.addr + area.size)
       DPRINTF(("WARNING: break (%p) not equal to end of heap (%p)\n",
-               mtcp_sys_brk(NULL), area.name + area.size));
+               mtcp_sys_brk(NULL), area.addr + area.size));
   }
 }
 
