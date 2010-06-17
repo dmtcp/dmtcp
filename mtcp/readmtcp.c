@@ -86,14 +86,14 @@ int main(int argc, char **argv) {
 
   printf("%p-%p rwxp %p 00:00 0          [libmtcp.so]\n",
 	restore_begin, restore_begin + restore_size, restore_begin);
-  printf("restore_start routine: 0x%p\n", restore_start);
+  printf("restore_start routine: %p\n", restore_start);
 
 
   printf("*** finishrestore\n");
    void (*finishrestore) (void);
    readcs (fd, CS_FINISHRESTORE);
    readfile (fd, &finishrestore, sizeof finishrestore);
-  printf("finishrestore routine: 0x%p\n", finishrestore);
+  printf("finishrestore routine: %p\n", finishrestore);
 
 
   char linkbuf[FILENAMESIZE];

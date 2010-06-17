@@ -250,7 +250,7 @@ int main (int argc, char *argv[], char *envp[])
    */
 
 #ifdef DEBUG
-  mtcp_printf("mtcp_restart.c: main*: restoring anonymous area 0x%X at %p\n",
+  mtcp_printf("mtcp_restart.c: main*: restoring anonymous area %p at %p\n",
               restore_size, restore_begin);
 #endif
   if (munmap(restore_begin, restore_size) < 0) {
@@ -263,7 +263,7 @@ int main (int argc, char *argv[], char *envp[])
     mtcp_printf("mtcp_restart: Does mmap here support MAP_FIXED?\n");
 #endif
     if (mtcp_sys_errno != EBUSY) {
-      mtcp_printf("mtcp_restart: error creating %d byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
+      mtcp_printf("mtcp_restart: error creating %p byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();
     } else {
       mtcp_printf("mtcp_restart: info: restarting due to address conflict...\n");
@@ -273,7 +273,7 @@ int main (int argc, char *argv[], char *envp[])
     }
   }
   if (restore_mmap != restore_begin) {
-    mtcp_printf("mtcp_restart: %d byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
+    mtcp_printf("mtcp_restart: %p byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
     abort ();
   }
   readcs (fd, CS_RESTOREIMAGE);

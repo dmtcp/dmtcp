@@ -51,6 +51,10 @@
 #  define FUTEX_WAKE 1
 #endif
 
+#ifdef DMTCP_DEBUG
+#  define DEBUG
+#endif
+
 #ifdef DEBUG
 #define DPRINTF(x) mtcp_printf x  // debugging printing
 #else
