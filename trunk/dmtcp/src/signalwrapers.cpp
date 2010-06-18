@@ -113,13 +113,13 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler){
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
-  return _real_signal( signum, handler );
+  return mtcp_real_signal( signum, handler );
 }
 EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   if(signum == bannedSignalNumber()){
     act = NULL;
   }
-  return _real_sigaction( signum, act, oldact);
+  return mtcp_real_sigaction( signum, act, oldact);
 }
 EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   if(signum == bannedSignalNumber()){
@@ -165,7 +165,7 @@ EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
     set = &tmp;
   }
 
-  int ret = _real_sigprocmask( how, set, oldset );
+  int ret = mtcp_real_sigprocmask( how, set, oldset );
 
   if (ret != -1) {
     patchPOSIXUserMask(how, set, oldset);

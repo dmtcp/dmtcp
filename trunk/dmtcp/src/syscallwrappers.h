@@ -83,8 +83,8 @@ extern "C"
   typedef void (*sighandler_t)(int);
 
   //set the handler
-  sighandler_t _real_signal(int signum, sighandler_t handler);
-  int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+  sighandler_t mtcp_real_signal(int signum, sighandler_t handler);
+  int mtcp_real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
   int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
   int _real_sigvec(int sig, const struct sigvec *vec, struct sigvec *ovec);
 
@@ -92,7 +92,7 @@ extern "C"
   int _real_sigblock(int mask);
   int _real_sigsetmask(int mask);
   int _real_siggetmask(void);
-  int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+  int mtcp_real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
 
