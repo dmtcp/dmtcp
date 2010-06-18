@@ -229,12 +229,12 @@ void _real_closelog ( void )
 }
 
 //set the handler
-sighandler_t _real_signal(int signum, sighandler_t handler){
+sighandler_t mtcp_real_signal(int signum, sighandler_t handler){
     static signal_funcptr fn = NULL;
     if(fn==NULL) fn = (signal_funcptr)get_libc_symbol("signal");
     return (sighandler_t)(*fn)(signum, handler);
 }
-int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+int mtcp_real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
 }
 int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
@@ -254,7 +254,7 @@ int _real_sigsetmask(int mask){
 int _real_siggetmask(void){
   REAL_FUNC_PASSTHROUGH ( siggetmask )( );
 }
-int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
+int mtcp_real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
 int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){

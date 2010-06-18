@@ -511,7 +511,7 @@ static void readmemoryareas (void)
           readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting 0x%X bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %p bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
       }
