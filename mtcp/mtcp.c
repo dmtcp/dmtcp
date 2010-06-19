@@ -1234,6 +1234,23 @@ again:
   }
 }
 
+/* This is used by ../dmtcp/src/mtcpinterface.cpp */
+void mtcp_kill_ckpthread (void)
+{
+  Thread *thread;
+
+  lock_threads ();
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
+      unlk_threads ();
+      //printf("\n\n\nKill checkpinthread, tid=%d\n\n\n",thread->tid);
+      mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
+      return;
+    }
+  }
+  unlk_threads ();
+}
+
 
 /********************************************************************************************************************************/
 /*																*/
