@@ -36,6 +36,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/time.h>     // For getrlimit(); Remove when have zero-mapped pages
+#include <sys/resource.h> // For getrlimit(); Remove when have zero-mapped pages
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -229,6 +231,31 @@ int main ( int argc, char** argv )
            //"This is free software, and you are welcome to redistribute it\n"
 	   //"under certain conditions; see COPYING file for details.\n"
 	   //"(Use flag \"-q\" to hide this message.)\n\n");
+
+  // This code will go away when zero-mapped pages are implemented in MTCP.
+  struct rlimit rlim;
+  getrlimit(RLIMIT_STACK, &rlim);
+  if (rlim.rlim_cur > 262134 && rlim.rlim_cur != RLIM_INFINITY)
+    JASSERT_STDERR <<
+      "*** WARNING:  RLIMIT_STACK > 1/4 GB.  This causes each thread to"
+      "\n***  receive a 1/4 GB stack segment.  Checkpoint/restart will be slow,"
+      "\n***  and will potentially break if many threads are created."
+      "\n*** Suggest setting (sh/bash):  ulimit -s 10000"
+      "\n***                (csh/tcsh):  limit stacksize 10000"
+      "\n*** prior to using DMTCP.  (This will be fixed in the future, when"
+      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n" ;
+  // Remove this when zero-mapped pages are supported.  For segments with
+  // no file backing:  Start with 4096 (page) offset and keep doubling offset
+  // until finding region of memory segment with many zeroes.
+  // Then mark as CS_ZERO_PAGES in MTCP instead of CS_RESTORE (or mark
+  // entire segment as CS_ZERO_PAGES and then overwrite with CS_RESTORE
+  // region for portion to be read back fom checkpoint image.
+  // For CS_ZERO_PAGES region, mmap // on restart, but don't write in zeroes.
+  // Also, after checkpointing segment, munmap zero pages, and mmap them again.
+  // Don't try to find all pages.  The above strategy may increase
+  // the non-zero-mapped mapped pages to no more than double the actual
+  // non-zero region (assuming that the zero-mapped pages are contiguous).
+  // - Gene
 
 #ifdef __GNUC__
 # if __GNUC__ == 4 && __GNUC_MINOR__ > 1

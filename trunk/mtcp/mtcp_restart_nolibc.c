@@ -313,11 +313,13 @@ static void readfiledescrs (void)
     if (fdnum == mtcp_restore_cpfd) {
       flags = mtcp_sys_dup (mtcp_restore_cpfd);
       if (flags < 0) {
-        mtcp_printf ("mtcp readfiledescrs: error %d duping checkpoint file fd %d\n", mtcp_sys_errno, mtcp_restore_cpfd);
+        mtcp_printf ("mtcp readfiledescrs: error %d duping checkpoint file fd %d\n",
+		     mtcp_sys_errno, mtcp_restore_cpfd);
         mtcp_abort ();
       }
       mtcp_restore_cpfd = flags;
-      DPRINTF (("mtcp readfiledescrs*: cpfd changed to %d\n", mtcp_restore_cpfd));
+      DPRINTF (("mtcp readfiledescrs*: cpfd changed to %d\n",
+	        mtcp_restore_cpfd));
     }
 
     /* Open the file on a temp fd */
@@ -441,14 +443,17 @@ static void readmemoryareas (void)
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
        * mtcp_safemmap here to check for address conflicts.
        */
-      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE, area.flags, imagefd, area.offset);
+      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
+				 area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        DPRINTF(("mtcp_restart_nolibc: error %d mapping %p bytes at %p\n", mtcp_sys_errno, area.size, area.addr));
+        DPRINTF(("mtcp_restart_nolibc: error %d mapping %p bytes at %p\n",
+		 mtcp_sys_errno, area.size, area.addr));
 
 	try_skipping_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_skipping_existing_segment) {
-        mtcp_printf ("mtcp_restart_nolibc: area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_printf ("mtcp_restart_nolibc: area at %p got mmapped to %p\n",
+		     area.addr, mmappedat);
         mtcp_abort ();
       }
 
@@ -511,13 +516,13 @@ static void readmemoryareas (void)
           readfile (area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %p bytes at %p\n", mtcp_sys_errno, area.size, area.addr);
+            mtcp_printf ("mtcp_restart_nolibc: error %d write-protecting %p bytes at %p\n",
+			 mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
       }
 
       /* Close image file (fd only gets in the way) */
-
       if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
     }
 
@@ -538,8 +543,8 @@ static void readmemoryareas (void)
 
       if (area.prot & MAP_SHARED) {
         read_shared_memory_area_from_file(&area, flags);
-      } else {
 
+      } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
         imagefd = mtcp_sys_open (area.name, flags, 0);  // open it
 
         /* CASE NOT MAP_ANONYMOUS, MAP_PRIVATE, backing file doesn't exist:	     */
@@ -562,7 +567,7 @@ static void readmemoryareas (void)
               area.addr, mmappedat);
           mtcp_abort ();
         }
-        mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
+        mtcp_sys_close (imagefd); // don't leave dangling fd
 
         readcs (CS_AREACONTENTS);
 
@@ -595,7 +600,7 @@ static void readmemoryareas (void)
               "behavior.\n",
               area.name, __FILE__, __LINE__);
 
-          // we want to skip the checkpoint file pointer
+          // We want to skip the checkpoint file pointer
           // and move to the end of the shared file data.  We can't
           // use lseek() function as it can fail if we are using a pipe to read
           // the contents of checkpoint file (we might be using gzip to
@@ -616,6 +621,8 @@ static void readmemoryareas (void)
 }
 
 /*
+ * CASE NOT MAP_ANONYMOUS, MAP_SHARED :
+ *
  * If the shared file does NOT exist on the system, the restart process creates
  * the file on the disk and writes the contents from the ckpt image into this
  * recreated file. The file is later mapped into memory with MAP_SHARED and
