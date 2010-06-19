@@ -566,42 +566,45 @@ static void readmemoryareas (void)
 
         readcs (CS_AREACONTENTS);
 
-        // If we have execute permission on file OR write permission on file
-        // and memory area, then we use data in checkpoint image.
+        // If we have write permission on file and memory area (data segment),
+	// then we use data in checkpoint image.
         // In the case of DMTCP, multiple processes may duplicate this work.
-        // NOTE: man 2 access: access  may  not  work  correctly on NFS file
-        //   systems with UID mapping enabled, because UID mapping is done
-        //   on the server and hidden from the client, which checks permissions.
-        // XXX: Why do we care about the Execute permission on file?   -- Kapil
-        if ( ( (imagefd = mtcp_sys_open(area.name, O_WRONLY, 0)) >= 0
-              && ( (flags == O_WRONLY || flags == O_RDWR) ) )
-            || (0 == mtcp_sys_access(area.name, X_OK)) ) {
-
+        if ( (imagefd = mtcp_sys_open(area.name, O_WRONLY, 0)) >= 0
+              && ( (flags == O_WRONLY || flags == O_RDWR) ) ) {
           mtcp_printf ("mtcp_restart_nolibc: mapping %s with data from ckpt image\n",
               area.name);
           readfile (area.addr, area.size);
-          mtcp_sys_close (imagefd); // don't leave dangling fd
         }
         // If we have no write permission on file, then we should use data
         //   from version of file at restart-time (not from checkpoint-time).
         // Because Linux library files have execute permission,
         //   the dynamic libraries from time of checkpoint will be used.
+        // NOTE: man 2 access: access  may  not  work  correctly on NFS file
+        //   systems with UID mapping enabled, because UID mapping is done
+        //   on the server and hidden from the client, which checks permissions.
         else {
-          mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
+	  /* read-exec permission ==> executable library, unlikely to change;
+	   * For example, gconv-modules.cache is shared with read-exec perm.
+	   * If read-only permission, warn user that we're using curr. file.
+	   */
+	  if (-1 == mtcp_sys_access(area.name, X_OK))
+            mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
               "of %s into memory;\n"
               "  _not_ file as it existed at time of checkpoint.\n"
               "  Change %s:%d and re-compile, if you want different "
               "behavior.\n",
               area.name, __FILE__, __LINE__);
 
-        // we want to skip the checkpoint
-        // file pointer and move to the end of the shared file data. We can not
-        // use lseek() function as it can fail if we are using a pipe to read
-        // the contents of checkpoint file (we might be using gzip to
-        // uncompress checkpoint file on the fly). Thus we have to read or
-        // skip contents using skilfile().
+          // we want to skip the checkpoint file pointer
+          // and move to the end of the shared file data.  We can't
+          // use lseek() function as it can fail if we are using a pipe to read
+          // the contents of checkpoint file (we might be using gzip to
+          // uncompress checkpoint file on the fly).  Thus we have to read or
+          // skip contents using skipfile().
           skipfile (area.size);
         }
+        if (imagefd >= 0)
+	  mtcp_sys_close (imagefd); // don't leave dangling fd
       }
     }
 
@@ -629,7 +632,8 @@ static void readmemoryareas (void)
  *    We map the file with correct flags and discard the checkpointed copy of
  *    the file contents.
  *
- * Other than these, if we do can't access the file, we print an error message and quit.
+ * Other than these, if we can't access the file, we print an error message
+ * and quit.
  */
 static void read_shared_memory_area_from_file(Area* area, int flags)
 {
@@ -719,7 +723,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
           mtcp_sys_errno, area->name);
       mtcp_abort ();
     }
-  } else {
+  } else { /* else file exists */
     /* Acquire read lock on the shared file before doing an mmap. See
      * detailed comments above.
      */
@@ -740,8 +744,6 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
                  area->addr, mmappedat);
     mtcp_abort ();
   }
-
-  mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 
   if ( areaContentsAlreadyRead == 0 ){
     readcs (CS_AREACONTENTS);
@@ -765,8 +767,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_sys_close (imagefd); // don't leave dangling fd
     }
 #else
-    // FIXME: Check the PROT_EXEC condition here.
-    if ( (area->prot & PROT_WRITE) || (area->prot & PROT_EXEC) ) {
+    if (area->prot & PROT_WRITE) {
       mtcp_printf ("mtcp_restart_nolibc: mapping %s with data from ckpt image\n",
                    area->name);
       readfile (area->addr, area->size);
@@ -786,8 +787,16 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     // uncompress checkpoint file on the fly). Thus we have to read or
     // skip contents using the following code.
 
+    // NOTE: man 2 access: access  may  not  work  correctly on NFS file
+    //   systems with UID mapping enabled, because UID mapping is done
+    //   on the server and hidden from the client, which checks permissions.
     else {
-      mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
+      /* read-exec permission ==> executable library, unlikely to change;
+       * For example, gconv-modules.cache is shared with read-exec perm.
+       * If read-only permission, warn user that we're using curr. file.
+       */
+      if (imagefd >= 0 && -1 == mtcp_sys_access(area->name, X_OK))
+        mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
           "of %s into memory;\n"
           "  _not_ file as it existed at time of checkpoint.\n"
           "  Change %s:%d and re-compile, if you want different "
@@ -796,6 +805,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       skipfile (area->size);
     }
   }
+  if (imagefd >= 0)
+    mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 }
 
 static void readcs (char cs)
@@ -813,21 +824,25 @@ static void readcs (char cs)
 static void readfile(void *buf, size_t size)
 {
     ssize_t rc;
-    size_t ar;
-    ar = 0;
+    size_t ar = 0;
+    int tries = 0;
 
     while(ar != size)
     {
         rc = mtcp_sys_read(mtcp_restore_cpfd, buf + ar, size - ar);
-        if(rc < 0)
+        if (rc < 0)
         {
             mtcp_printf("mtcp_restart_nolibc readfile: error %d reading checkpoint\n", mtcp_sys_errno);
             mtcp_abort();
         }
-        else if(rc == 0)
+        else if (rc == 0)
         {
             mtcp_printf("mtcp_restart_nolibc readfile: only read %zu bytes instead of %zu from checkpoint file\n", ar, size);
-            mtcp_abort();
+	    if (tries++ >= 10) {
+	        mtcp_printf("mtcp_restart_nolibc readfile:" \
+			    " failed to read after 10 tries in a row.\n");
+                mtcp_abort();
+	    }
         }
 
         ar += rc;

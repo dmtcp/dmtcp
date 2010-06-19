@@ -514,6 +514,6 @@ void dmtcp::shutdownMtcpEngineOnFork()
 void dmtcp::killCkpthread()
 {
   t_mtcp_kill_ckpthread kill_ckpthread = 
-    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "kill_ckpthread" );
+    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
   kill_ckpthread();
 }
