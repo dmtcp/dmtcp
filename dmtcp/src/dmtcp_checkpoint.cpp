@@ -235,7 +235,7 @@ int main ( int argc, char** argv )
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
-  if (rlim.rlim_cur > 262134 && rlim.rlim_cur != RLIM_INFINITY)
+  if (rlim.rlim_cur > 256*1024*1024 && rlim.rlim_cur != RLIM_INFINITY)
     JASSERT_STDERR <<
       "*** WARNING:  RLIMIT_STACK > 1/4 GB.  This causes each thread to"
       "\n***  receive a 1/4 GB stack segment.  Checkpoint/restart will be slow,"
