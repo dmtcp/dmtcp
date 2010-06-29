@@ -223,10 +223,10 @@ static void rwrite (char const *buff, int size)
        * This is useful, so that when DMTCP runs, MTCP debugging is off by
        * default.  Setting DMTCP in mtcp/Makefile and re-compiling changes this.
        */ 
-      rc = mtcp_sys_write (STDERR_FILENO, buff + offs, size - offs);
+      rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
 #else
       /* File descriptor where all the debugging outputs should go. */
-      rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
+      rc = mtcp_sys_write (STDERR_FILENO, buff + offs, size - offs);
 #endif
       if (rc <= 0) break;
     }
