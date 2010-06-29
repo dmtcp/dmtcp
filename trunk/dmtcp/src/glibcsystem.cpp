@@ -16,6 +16,16 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
+/*
+ * This code is a simplified version of do_system() from glibc-2.9.
+ * The function do_system() serves the same purpose as if it were the
+ * the function _real_system().  But the name _real_XXX() is reserved
+ * for kernel syscalls.  Since there is no kernel syscall system(),
+ * we replace _real_system() with the glibc internal definition, do_system().
+ * If glibc had exported do_system(), then we would call it directly or via
+ * dlsym.  Since do_system() isn't exported, we replicate the glibc code here.
+ */
+
 #include <errno.h>
 #include <signal.h>
 #include <stddef.h>
