@@ -296,7 +296,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
 
     //now re-call ssh
-    execvp ( argv[0], argv );
+    _real_execvp ( argv[0], argv );
 
     //should be unreachable
     JASSERT ( false ) ( cmd ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
