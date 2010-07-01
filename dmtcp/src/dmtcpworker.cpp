@@ -378,9 +378,10 @@ void dmtcp::DmtcpWorker::cleanupWorker()
 
 void dmtcp::DmtcpWorker::interruptCkpthread()
 {
-    while( pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY){
-      killCkpthread();
-    }
+  if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
+    killCkpthread();
+    pthread_mutex_lock(&destroyDmtcpWorker);
+  }
 }
 
 //called after user main()
