@@ -190,10 +190,11 @@ static inline int atomic_setif_ptr (void *volatile *loc, void *newval, void *old
 }
 
 // gcc-3.4 issues a warning that noreturn function returns, if declared noreturn
-// static void inline mtcp_abort (void) __attribute__ ((noreturn));
-static void inline mtcp_abort (void)
+static inline void mtcp_abort (void) __attribute__ ((noreturn));
+static inline void mtcp_abort (void)
 {
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
+  for (;;);  /* Without this, gcc emits warning:  `notreturn' fnc does return */
 }
 
 extern char mtcp_shareable_begin[];
