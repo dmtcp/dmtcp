@@ -934,15 +934,9 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
     /* Read a line from /proc/self/maps */
 
     c = mtcp_readhex (mapsfd, &startaddr);
-#ifndef __x86_64__
-DPRINTF(("startaddr: %x\n", startaddr));
-#endif
     if (c == '\0') break;
     if (c != '-') continue; /* skip to next line */
     c = mtcp_readhex (mapsfd, &endaddr);
-#ifndef __x86_64__
-DPRINTF(("endaddr: %x\n", endaddr));
-#endif
     if (c == '\0') break;
     if (c != ' ') continue; /* skip to next line */
 
@@ -984,10 +978,6 @@ DPRINTF(("endaddr: %x\n", endaddr));
       *vsyscall_addr = startaddr;
       highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
     }
-#ifndef __x86_64__
-DPRINTF(("startaddr: %p\n", startaddr));
-DPRINTF(("vdso_addr: %p\n", *vdso_addr));
-#endif
   }
 
   mtcp_sys_close (mapsfd);

@@ -1192,7 +1192,6 @@ again:
 
     default: {
       mtcp_abort ();
-      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -1229,7 +1228,6 @@ again:
 
     default: {
       mtcp_abort ();
-      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -2748,7 +2746,6 @@ static Thread *getcurrenthread (void)
   }
   mtcp_printf ("mtcp getcurrenthread: can't find thread id %d\n", tid);
   mtcp_abort ();
-  return thread; /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -2896,7 +2893,6 @@ skipeol:
   }
   mtcp_printf (">\n");
   mtcp_abort ();
-  return (0);  /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -3162,7 +3158,6 @@ static int restarthread (void *threadv)
             thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
-  return (0); /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
