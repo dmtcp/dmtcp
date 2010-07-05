@@ -18,12 +18,13 @@
 
 /*
  * This code is a simplified version of do_system() from glibc-2.9.
- * The function do_system() serves the same purpose as if it were the
- * the function _real_system().  But the name _real_XXX() is reserved
- * for kernel syscalls.  Since there is no kernel syscall system(),
- * we replace _real_system() with the glibc internal definition, do_system().
- * If glibc had exported do_system(), then we would call it directly or via
- * dlsym.  Since do_system() isn't exported, we replicate the glibc code here.
+ * Its primary use is to be called by the wrapper, execwrappers.cpp:system().
+ * This way, calls to system() go to our do_system(), which inherits our
+ * wrappers around fork/exec.
+ *   Without this, any call to system() would go directly to glibc, where
+ * it would pick up the _unwrapped_ versions of fork/exec already defined
+ * in glibc.  If you really want an unwrapped version of glibc's system(),
+ * then call execwrappers.cpp:_real_system().
  */
 
 #include <errno.h>
