@@ -377,6 +377,8 @@ int main ( int argc, char** argv )
         << "*** Proceeding for now, but this DMTCP will probably fail.\n\n";
     setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   }
+  if (fd != -1)
+    close (fd);
 
   //run the user program
   execvp ( argv[0], argv );

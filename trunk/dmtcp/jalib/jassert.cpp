@@ -38,6 +38,13 @@
 // in sync with that.
 #define LIBC_FILENAME "libc.so.6"
 
+#ifndef DMTCP
+#  define DECORATE_FN(fn) ::fn
+#else
+#  include "syscallwrappers.h"
+#  define DECORATE_FN(fn) ::_real_ ## fn
+#endif
+
 int jassert_quiet = 0;
 
 /*
@@ -46,31 +53,6 @@ int jassert_quiet = 0;
 */
 static const int DUP_STDERR_FD = 825; // PFD(5)
 static const int DUP_LOG_FD    = 826; // PFD(6)
-
-// DMTCP provides a wrapper for open/fopen. We don't want to go to that wrapper
-// and so we call open() directly from libc. This implementation follows the
-// one used in ../src/syscallsreal.c
-static int _real_open ( const char *pathname, int flags, mode_t mode )
-{
-  static void* handle = NULL;
-  if ( handle == NULL && ( handle = dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-  typedef int ( *funcptr ) (const char*, int, mode_t);
-  funcptr openFuncptr = NULL;
-  openFuncptr = (funcptr)dlsym ( handle, "open" );
-  if ( openFuncptr == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return (*openFuncptr)(pathname, flags, mode);
-}
 
 static int jwrite(FILE *stream, const char *str)
 {

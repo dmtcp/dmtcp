@@ -184,7 +184,7 @@ static const char* theRestartScriptCmdlineArgHandler =
   "      echo \"$usage_str\"\n"
   "      exit\n"
   "    else\n"
-  "      echo \"$0: Incorrect usage. See correct usage below\"\n"
+  "      echo \"$0: Incorrect usage.  See correct usage below\"\n"
   "      echo\n"
   "      echo \"$usage_str\"\n"
   "      exit\n"
@@ -215,7 +215,7 @@ static dmtcp::DmtcpCoordinator prog;
  * The fix to this problem is to introduce a global
  * variable "workersRunningAndSuspendMsgSent" which, as the name implies,
  * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
- * is waiting for replies from the workers. If this variable is set, the
+ * is waiting for replies from the workers.  If this variable is set, the
  * coordinator will not process another checkpoint request.
 */
 static bool workersRunningAndSuspendMsgSent = false;
@@ -366,9 +366,9 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   {
     JNOTE ( "Killing all connected Peers ..." );
     broadcastMessage ( DMT_KILL_PEER );
-    /* Call to broadcastMessage only puts the messages into the write queue. We
-     * actually want the messages to be written out to the respective sockets
-     * so that we can then close the sockets and exit gracefully. The following
+    /* Call to broadcastMessage only puts the messages into the write queue.
+     * We actually want the messages to be written out to the respective sockets
+     * so that we can then close the sockets and exit gracefully.  The following
      * loop is taken from the implementation of monitorSocket() implementation
      * in jsocket.cpp.
      *
@@ -635,7 +635,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           }
         }
         JASSERT ( i != workersWithExternalSockets.end() ) ( msg.from )
-          .Text ( "DMT_EXTERNAL_SOCKETS_CLOSED msg received from worker but it never had one" );
+          .Text ( "DMT_EXTERNAL_SOCKETS_CLOSED msg received from worker"
+		  " but it never had one" );
 
         workersWithExternalSockets.erase(i);
         JTRACE ("(Known) External Sockets closed by worker") (msg.from);
@@ -643,14 +644,16 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         client->setState ( msg.state );
 
         if (workersWithExternalSockets.empty() == true) {
-          JTRACE ( "External Sockets on all workers are closed now. Trying to checkpoint." );
+          JTRACE ( "External Sockets on all workers are closed now."
+		   "  Trying to checkpoint." );
           handleUserCommand('c');
         }
       }
       break;
 #endif
       default:
-        JASSERT ( false ) ( msg.from ) ( msg.type ).Text ( "unexpected message from worker" );
+        JASSERT ( false ) ( msg.from ) ( msg.type )
+		.Text ( "unexpected message from worker" );
     }
 
     delete[] extraData;
@@ -689,14 +692,16 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   // If no client is connected to Coordinator, then there can be only zero data
   // sockets OR there can be one data socket and that should be STDIN.
   if ( _dataSockets.size() == 0 ||
-       ( _dataSockets.size() == 1 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) )
+       ( _dataSockets.size() == 1
+	 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) )
   {
       //this is the first connection, do some initializations
       workersRunningAndSuspendMsgSent = false;
 
       setTimeoutInterval( theCheckpointInterval );
 
-      curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
+     // drop current computation group to 0
+      curCompGroup = dmtcp::UniquePid(0,0,0);
       curTimeStamp = 0; // Drop timestamp to 0
       numPeers = -1; // Drop number of peers to unknown
 
@@ -733,7 +738,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     int oldInterval = theCheckpointInterval;
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     setTimeoutInterval ( theCheckpointInterval );
-    JNOTE ( "CheckpointInterval Updated" ) ( oldInterval ) ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval Updated" ) ( oldInterval )
+	  ( theCheckpointInterval );
   }
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
@@ -800,7 +806,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       }*/
 //}
 
-void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jalib::JSocket& remote )
+void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
+						 jalib::JSocket& remote )
 {
   //dmtcp_command doesn't handshake (it is antisocial)
   JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
@@ -813,8 +820,8 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jal
     blockUntilDoneRemote = remote.sockfd();
     blockUntilDoneReply = reply;
     handleUserCommand( hello_remote.params[0], &reply );
-  } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I') &&
-              hello_remote.theCheckpointInterval > 0 ) {
+  } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I')
+               && hello_remote.theCheckpointInterval > 0 ) {
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     handleUserCommand( hello_remote.params[0], &reply );
     remote << reply;
@@ -827,8 +834,8 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jal
   return;
 }
 
-bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_remote,
-                                                          jalib::JSocket& remote )
+bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
+	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
   // this is dmtcp_restart process, connecting to get timestamp and set current
   // compGroup
@@ -845,7 +852,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
     numPeers = hello_remote.params[0];
     curTimeStamp = time(NULL);
     hello_local.params[1] = 1;
-    JNOTE ( "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp" )
+    JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( curCompGroup );
   } else if ( curCompGroup != hello_remote.compGroup ) {
     // Coordinator already serving some other computation group - reject this process.
@@ -880,22 +887,24 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_re
   return true;
 }
 
-bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote,
-                                                      jalib::JSocket& remote )
+bool dmtcp::DmtcpCoordinator::validateWorkerProcess
+	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
 
   if ( hello_remote.state == WorkerState::RESTARTING ) {
     if ( minimumState() != WorkerState::RESTARTING &&
          minimumState() != WorkerState::CHECKPOINTED ) {
-      JNOTE ("Computation not in RESTARTING or CHECKPOINTED state. Reject incoming restarting computation process.")
+      JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
+	     "  Reject incoming restarting computation process.")
         ( curCompGroup ) ( hello_remote.compGroup );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
       return false;
     } else if ( hello_remote.compGroup != curCompGroup) {
-      JNOTE ("Reject incoming restarting computation process since it is not from current computation")
+      JNOTE ("Reject incoming restarting computation process"
+	     " since it is not from current computation")
         ( curCompGroup ) ( hello_remote.compGroup );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
@@ -919,15 +928,16 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
          ( s.minimumState != WorkerState::RUNNING ||
            s.minimumStateUnanimous == false       ||
            workersRunningAndSuspendMsgSent == true) ) {
-      JNOTE  ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
+      JNOTE  ( "Current Computation not in RUNNING state."
+	       "  Refusing to accept new connections.")
         ( curCompGroup ) ( hello_remote.from.pid() );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
       return false;
     } else if ( hello_remote.compGroup != UniquePid() ) {
-      // New Process trying to connect to Coordinator but already has a compGroup
-      JNOTE  ( "New Process, but already has computation group. Rejecting" );
+      // New Process trying to connect to Coordinator but already has compGroup
+      JNOTE  ( "New Process, but already has computation group.  Rejecting" );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
@@ -939,7 +949,8 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote
         curCompGroup = hello_remote.from.pid();
         curTimeStamp = 0;
         numPeers = -1;
-        JTRACE ( "First process connected. Creating new computation group" ) (curCompGroup );
+        JTRACE ( "First process connected.  Creating new computation group" )
+	       (curCompGroup );
       } else {
         JTRACE ( "New Process Connected" ) ( hello_remote.from.pid() );
       }
@@ -963,7 +974,8 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
   CoordinatorStatus s = getStatus();
-  if ( s.minimumState == WorkerState::RUNNING && !workersRunningAndSuspendMsgSent )
+  if ( s.minimumState == WorkerState::RUNNING
+       && !workersRunningAndSuspendMsgSent )
   {
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
@@ -972,14 +984,15 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     broadcastMessage ( DMT_DO_SUSPEND , curCompGroup, getStatus().numPeers );
 
     // Suspend Message has been sent but the workers are still in running
-    // state. If the coordinator receives another checkpoint request from user
+    // state.  If the coordinator receives another checkpoint request from user
     // at this point, it should fail.
     workersRunningAndSuspendMsgSent = true;
     return true;
   }
   else
   {
-    JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )( s.numPeers );
+    JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )
+	   ( s.numPeers );
     return false;
   }
 }
@@ -1015,12 +1028,13 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
 {
-  for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i = _dataSockets.begin()
-          ;i!= _dataSockets.end()
-          ;++i )
+  for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i
+	= _dataSockets.begin() ; i!= _dataSockets.end() ; i++ )
   {
     if ( ( *i )->socket().sockfd() != STDIN_FD )
-      addWrite ( new jalib::JChunkWriter ( ( *i )->socket(), ( char* ) &msg,sizeof ( DmtcpMessage ) ) );
+      addWrite ( new jalib::JChunkWriter ( ( *i )->socket(),
+					   ( char* ) &msg,
+					   sizeof ( DmtcpMessage ) ) );
   }
 }
 
@@ -1044,10 +1058,11 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
     }
   }
 
-  status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
+  status.minimumState = ( m==INITIAL ? WorkerState::UNKNOWN
+			  : (WorkerState::eWorkerState)m );
   if( status.minimumState == WorkerState::CHECKPOINTED && count < numPeers ){
-    JTRACE("minimal state counted as CHECKPOINTED but not all processes are connected yet. So we wait")
-      ( numPeers ) ( count );
+    JTRACE("minimal state counted as CHECKPOINTED but not all processes"
+	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
   }
   status.minimumStateUnanimous = unanimous;
@@ -1081,7 +1096,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   JTRACE ( "writing restart script" ) ( uniqueFilename );
 
   FILE* fp = fopen ( uniqueFilename.c_str(),"w" );
-  JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename ).Text ( "failed to open file" );
+  JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename )
+	  .Text ( "failed to open file" );
 
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
@@ -1100,8 +1116,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   else
     fprintf ( fp, "maybebatch=\n\n" );
 
-  fprintf ( fp, "# Number of hosts in the computation = %d\n", _restartFilenames.size() );
-  fprintf ( fp, "# Number of processes in the computation = %d\n\n", getStatus().numPeers );
+  fprintf ( fp, "# Number of hosts in the computation = %d\n",
+	    _restartFilenames.size() );
+  fprintf ( fp, "# Number of processes in the computation = %d\n\n",
+	    getStatus().numPeers );
 
   if ( isSingleHost ) {
     JTRACE ( "Single HOST");
@@ -1322,10 +1340,12 @@ int main ( int argc, char** argv )
   dmtcp::UniquePid::ThisProcess(true);
 
   dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
+    << dmtcp::UniquePid::ThisProcess();
   JASSERT_INIT(o.str());
 
-  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
+  JTRACE ( "recalculated process UniquePid..." )
+	 ( dmtcp::UniquePid::ThisProcess() );
 #endif
 
   if ( thePort < 0 )
@@ -1346,8 +1366,8 @@ int main ( int argc, char** argv )
     sock = new jalib::JServerSocket ( jalib::JSockAddr::ANY, thePort );
     JASSERT ( sock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
       .Text ( "Failed to create listen socket."
-          "\nIf msg is \"Address already in use\", this may be an old coordinator."
-          "\nKill other coordinators and try again in a minute or so." );
+       "\nIf msg is \"Address already in use\", this may be an old coordinator."
+       "\nKill other coordinators and try again in a minute or so." );
   }
 
   thePort = sock->port();
