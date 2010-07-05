@@ -39,6 +39,8 @@
 #include <sys/time.h>     // For getrlimit(); Remove when have zero-mapped pages
 #include <sys/resource.h> // For getrlimit(); Remove when have zero-mapped pages
 
+extern "C" int _real_system ( const char * cmd );
+
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -337,22 +339,43 @@ int main ( int argc, char** argv )
   //for ( int i=0; i<argc-startArg; ++i )
   //  newArgs[i] = argv[i+startArg];
 
-// Once we know this is safe, delete this comment and exit after
-// JASSER_STDERR, without continuing and trying the execvp anyway.
+  dmtcp::string magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
+  char argv_buf[5];
+  int fd = open(argv[0], O_RDONLY);
+  if (fd == -1 || 5 != read(fd, argv_buf, 5)) {
+    // If can't open or read file, "exec failed" message will handle it.
+    // Once we know this is safe, delete this comment and exit after
+    // JASSERT_STDERR, without continuing and trying the execvp anyway.
+    // Consider also checking these things after call to exec(),
+    //   perhaps in DmtcpWorker constructor.
+    JASSERT_STDERR << 
+      "*** ERROR:  File to checkpoint doesn't appear to be readable.\n\n";
+  } else {
+    bool is32bit = false;
+    is32bit = (0 == memcmp(magic_elf32.c_str(), argv_buf, 5));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
-  {  char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
-     char argv_buf[5];
-     int fd = open(argv[0], O_RDONLY);
-     // Assume can read magic number; else exec failed message will handle it.
-     if (fd != -1 && 5 == read(fd, argv_buf, 5)
-         && 0 == memcmp(magic_elf32, argv_buf, 5))
-       JASSERT_STDERR << 
-         "*** ERROR:  You appear to be checkpointing "
-         << "a 32-bit target under 64-bit Linux.\n"
-         << "***  If this fails, then please try re-configuring DMTCP:\n"
-         << "***  configure --enable-m32 ; make clean ; make\n";
-  }
+    if (is32bit)
+      JASSERT_STDERR << 
+        "*** ERROR:  You appear to be checkpointing "
+        << "a 32-bit target under 64-bit Linux.\n"
+        << "***  If this fails, then please try re-configuring DMTCP:\n"
+        << "***  configure --enable-m32 ; make clean ; make\n\n";
 #endif
+    dmtcp::string cmd = is32bit ? "/lib/ld-linux.so.2 --verify "
+			        : "/lib64/ld-linux-x86-64.so.2 --verify " ;
+    cmd = cmd + argv[0] + " > /dev/null";
+    if ( _real_system(cmd.c_str()) )
+      JASSERT_STDERR << 
+        "*** ERROR:  You appear to be checkpointing "
+        << "a statically linked target.\n"
+        << "***  You can confirm this with the 'file' command.\n"
+        << "***  The standard DMTCP only supports dynamically"
+	<< " linked executables.\n"
+	<< "*** If you cannot recompile dynamically, please talk to the"
+	<< " developers about a\n"
+	<< "*** custom DMTCP version for statically linked executables.\n"
+        << "*** Proceeding for now, but this DMTCP will probably fail.\n\n";
+  }
 
   //run the user program
   execvp ( argv[0], argv );

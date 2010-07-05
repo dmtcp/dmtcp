@@ -24,12 +24,13 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
-	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
+	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp ../jalib/jalloc.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
-dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp 
+# FIXME: dmtcp_checkpoint should not be linked with any wrappers; Reorganize.
+dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp syscallsreal.c
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
 
@@ -40,7 +41,7 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
-	socketwrappers.cpp workerhijack.cpp\
+	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp

@@ -458,6 +458,7 @@ extern "C" int execle(const char *path, const char *arg, ...)
   return ret;
 }
 
+// See comment in glibcsystem.cpp for why this exists and how it works.
 extern int do_system (const char *line);
 
 extern "C" int system (const char *line)
