@@ -39,7 +39,10 @@
 #include <sys/time.h>     // For getrlimit(); Remove when have zero-mapped pages
 #include <sys/resource.h> // For getrlimit(); Remove when have zero-mapped pages
 
+// These can go away when dmtcp_checkpoint no longer linked with
+//   libdmtcpinternal.a, and so contaminated with all these wrappers.
 extern "C" int _real_system ( const char * cmd );
+extern "C" int _real_execvp ( const char *file, char *const argv[] );
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -352,6 +355,7 @@ int main ( int argc, char** argv )
       "*** ERROR:  File to checkpoint doesn't appear to be readable.\n\n";
   } else {
     bool is32bit = false;
+    char * ld_preload = getenv("LD_PRELOAD");
     is32bit = (0 == memcmp(magic_elf32.c_str(), argv_buf, 5));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bit)
@@ -364,6 +368,7 @@ int main ( int argc, char** argv )
     dmtcp::string cmd = is32bit ? "/lib/ld-linux.so.2 --verify "
 			        : "/lib64/ld-linux-x86-64.so.2 --verify " ;
     cmd = cmd + argv[0] + " > /dev/null";
+    unsetenv ( "LD_PRELOAD" );
     if ( _real_system(cmd.c_str()) )
       JASSERT_STDERR << 
         "*** ERROR:  You appear to be checkpointing "
@@ -375,10 +380,11 @@ int main ( int argc, char** argv )
 	<< " developers about a\n"
 	<< "*** custom DMTCP version for statically linked executables.\n"
         << "*** Proceeding for now, but this DMTCP will probably fail.\n\n";
+    setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   }
 
   //run the user program
-  execvp ( argv[0], argv );
+  _real_execvp ( argv[0], argv );
 
   //should be unreachable
   JASSERT_STDERR << 
