@@ -194,7 +194,7 @@ static inline void mtcp_abort (void) __attribute__ ((noreturn));
 static inline void mtcp_abort (void)
 {
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
-  for (;;);  /* Without this, gcc emits warning:  `notreturn' fnc does return */
+  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
 }
 
 extern char mtcp_shareable_begin[];

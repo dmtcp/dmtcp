@@ -451,7 +451,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-// This is a copy of the same function in signalwrapers.cpp
+// This is a copy of the same function in signalwrappers.cpp
 // FEEL FREE TO CHANGE THIS TO USE THE ORIGINAL
 //    signalwrappers.cpp:bannedSignalNumber() (but placed in dmtcp namespace ??)
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL

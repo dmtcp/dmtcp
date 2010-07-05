@@ -201,6 +201,7 @@ int _real_fclose ( FILE *fp )
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
+  for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
 int _real_getpt ( void )
