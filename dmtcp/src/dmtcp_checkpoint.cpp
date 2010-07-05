@@ -39,11 +39,6 @@
 #include <sys/time.h>     // For getrlimit(); Remove when have zero-mapped pages
 #include <sys/resource.h> // For getrlimit(); Remove when have zero-mapped pages
 
-// These can go away when dmtcp_checkpoint no longer linked with
-//   libdmtcpinternal.a, and so contaminated with all these wrappers.
-extern "C" int _real_system ( const char * cmd );
-extern "C" int _real_execvp ( const char *file, char *const argv[] );
-
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -369,7 +364,7 @@ int main ( int argc, char** argv )
 			        : "/lib64/ld-linux-x86-64.so.2 --verify " ;
     cmd = cmd + argv[0] + " > /dev/null";
     unsetenv ( "LD_PRELOAD" );
-    if ( _real_system(cmd.c_str()) )
+    if ( system(cmd.c_str()) )
       JASSERT_STDERR << 
         "*** ERROR:  You appear to be checkpointing "
         << "a statically linked target.\n"
@@ -384,7 +379,7 @@ int main ( int argc, char** argv )
   }
 
   //run the user program
-  _real_execvp ( argv[0], argv );
+  execvp ( argv[0], argv );
 
   //should be unreachable
   JASSERT_STDERR << 

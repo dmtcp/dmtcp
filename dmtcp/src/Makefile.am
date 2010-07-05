@@ -18,6 +18,13 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h ../jalib/jalloc.h
 
+# Note that libdmtcpinternal.a does not include wrappers.
+# dmtcp_checkpoint, dmtcp_restart, dmtcp_command, dmtcp_coordinator, etc.
+#   should not need wrappers.
+# (FIXME:  Move syscallsreal.c from here to dmtcphijack.so
+#          and also add it explicitly to dmtcp_restart_SOURCES.
+#  Possibly also move kernelbufferdrainer.cpp to dmtcphijack.so, and others ?
+#  Eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so )
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
@@ -29,8 +36,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
-# FIXME: dmtcp_checkpoint should not be linked with any wrappers; Reorganize.
-dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp syscallsreal.c
+dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
 

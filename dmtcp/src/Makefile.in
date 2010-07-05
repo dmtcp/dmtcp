@@ -96,8 +96,7 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	virtualpidtable.$(OBJEXT) jalloc.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 PROGRAMS = $(pkglib_PROGRAMS)
-am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT) \
-	syscallsreal.$(OBJEXT)
+am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT)
 dmtcp_checkpoint_OBJECTS = $(am_dmtcp_checkpoint_OBJECTS)
 dmtcp_checkpoint_DEPENDENCIES = libdmtcpinternal.a
 am_dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
@@ -258,6 +257,13 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 
+
+# Note that libdmtcpinternal.a does not include wrappers.
+# dmtcp_checkpoint, dmtcp_restart, dmtcp_command should not need wrappers.
+# (FIXME:  Move syscallsreal.c from here to dmtcphijack.so
+#          and also add it explicitly to dmtcp_restart_SOURCES.
+#  Possibly also move kernelbufferdrainer.cpp to dmtcphijack.so, and others ?
+#  Eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so )
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
@@ -268,9 +274,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp ../jalib/jalloc.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
-
-# FIXME: dmtcp_checkpoint should not be linked with any wrappers; Reorganize.
-dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp syscallsreal.c
+dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
