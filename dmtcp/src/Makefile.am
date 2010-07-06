@@ -60,11 +60,11 @@ dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 dmtcp_nocheckpoint_LDFLAGS = -static
 
 dmtcphijack_so_LDADD    = libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_restart_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_command_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_inspector_LDADD   = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -lpthread
+dmtcp_restart_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -lpthread
+dmtcp_command_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -lpthread
+dmtcp_inspector_LDADD   = libdmtcpinternal.a libnosyscallsreal.a
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
