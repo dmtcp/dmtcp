@@ -347,7 +347,7 @@ int main ( int argc, char** argv )
     // Consider also checking these things after call to exec(),
     //   perhaps in DmtcpWorker constructor.
     JASSERT_STDERR << 
-      "*** ERROR:  File to checkpoint doesn't appear to be readable.\n\n";
+      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
   } else {
     bool is32bit = false;
     char * ld_preload = getenv("LD_PRELOAD");
