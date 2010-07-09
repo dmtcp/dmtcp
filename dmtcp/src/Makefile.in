@@ -114,13 +114,13 @@ am_dmtcp_coordinator_OBJECTS = dmtcp_coordinator.$(OBJEXT)
 dmtcp_coordinator_OBJECTS = $(am_dmtcp_coordinator_OBJECTS)
 dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
 	libnosyscallsreal.a
-am_dmtcp_inspector_OBJECTS = dmtcpinspector.$(OBJEXT)
+am_dmtcp_inspector_OBJECTS = dmtcp_inspector.$(OBJEXT)
 dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
 dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libnosyscallsreal.a
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-dmtcp_nocheckpoint_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+dmtcp_nocheckpoint_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(dmtcp_nocheckpoint_LDFLAGS) $(LDFLAGS) -o $@
 am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
@@ -253,7 +253,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
-#HEADERS 
+#HEADERS
 #set the include path found by configure
 INCLUDES = $(all_includes)
 
@@ -290,7 +290,7 @@ libsyscallsreal_a_SOURCES = syscallsreal.c
 libnosyscallsreal_a_SOURCES = nosyscallsreal.c
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
-dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
+dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
@@ -299,8 +299,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
-dmtcp_inspector_SOURCES = dmtcpinspector.cpp
-dmtcphijack_so_LDFLAGS = -shared -avoid-version -module 
+dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
+dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 dmtcp_nocheckpoint_LDFLAGS = -static
 dmtcphijack_so_LDADD = libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a
@@ -312,9 +312,9 @@ dmtcp_inspector_LDADD = libdmtcpinternal.a libnosyscallsreal.a
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
 pkglib_LIBRARIES = libdmtcpaware.a
-libdmtcpaware_a_SOURCES = dmtcpaware.c 
+libdmtcpaware_a_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_LDFLAGS = -avoid-version -module
-#libdmtcpaware_a_LDFLAGS = -avoid-version 
+#libdmtcpaware_a_LDFLAGS = -avoid-version
 
 #libdmtcpaware_so_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.0
 #libdmtcpaware_so_SOURCES = dmtcpaware.c
@@ -502,12 +502,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_checkpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_inspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpaware.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpawareapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpcoordinatorapi.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpinspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmessagetypes.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
