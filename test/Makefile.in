@@ -47,6 +47,9 @@ dmtcp3: dmtcp3.c
 dmtcp4: dmtcp4.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+dmtcp5: dmtcp5.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
 
