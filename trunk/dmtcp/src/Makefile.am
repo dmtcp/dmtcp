@@ -1,4 +1,4 @@
-#HEADERS 
+#HEADERS
 #set the include path found by configure
 INCLUDES= $(all_includes)
 
@@ -41,7 +41,7 @@ dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
-dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
+dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
@@ -53,9 +53,9 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
-dmtcp_inspector_SOURCES = dmtcpinspector.cpp
+dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
-dmtcphijack_so_LDFLAGS = -shared -avoid-version -module 
+dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
 dmtcp_nocheckpoint_LDFLAGS = -static
 
@@ -69,9 +69,9 @@ dmtcp_inspector_LDADD   = libdmtcpinternal.a libnosyscallsreal.a
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
 pkglib_LIBRARIES = libdmtcpaware.a
-libdmtcpaware_a_SOURCES = dmtcpaware.c 
+libdmtcpaware_a_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_LDFLAGS = -avoid-version -module
-#libdmtcpaware_a_LDFLAGS = -avoid-version 
+#libdmtcpaware_a_LDFLAGS = -avoid-version
 
 #libdmtcpaware_so_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.0
 #libdmtcpaware_so_SOURCES = dmtcpaware.c
