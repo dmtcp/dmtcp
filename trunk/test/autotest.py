@@ -6,6 +6,7 @@ import subprocess
 import socket
 import os
 import sys
+import resource
 
 #get testconfig
 os.system("test -f Makefile || ./configure")
@@ -336,6 +337,19 @@ os.environ['DMTCP_GZIP'] = GZIP
 S=0.3
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
+
+# In 32-bit Ubuntu 9.10, the default small stacksize (8 MB) forces
+# legacy_va_layout, which places vdso in low memory.  This collides with
+# text in low memory (0x110000) in the statically linked mtcp_restart executable.
+oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
+# oldLimit[1] is old hard limit
+if oldLimit[1] == -1L:
+  newSoftLimit = 8388608L 
+else:
+  newSoftLimit = min(8388608L, oldLimit[1])
+resource.setrlimit(resource.RLIMIT_STACK, [newSoftLimit, oldLimit[1]])
+runTest("dmtcp5",        1, ["./test/dmtcp5"])
+resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
 runTest("shared-fd",     2, ["./test/shared-fd"])
 
