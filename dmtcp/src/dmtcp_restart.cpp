@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <vector>
 
 // Some global definitions
 dmtcp::UniquePid compGroup;
@@ -45,13 +46,13 @@ int coordTstamp = 0;
 
 dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
+using namespace dmtcp;
+
 #ifdef PID_VIRTUALIZATION
-static void openPidMapFiles();
+static void openPidMapFiles(vector<UniquePid> &v);
 void unlockPidMapFile();
 #endif
 static void runMtcpRestore ( const char* path, int offset );
-
-using namespace dmtcp;
 
 namespace
 {
@@ -232,7 +233,23 @@ namespace
           return false;
       }
 
-      bool isInitChild(){
+      bool isGroupLeader(){
+        JTRACE("")(_virtualPidTable.sid()) (pid().pid());
+        if( _virtualPidTable.gid() == pid().pid() )
+          return true;
+        else
+          return false;
+      }
+
+      bool isForegroundProcess() {
+        JTRACE("")(_virtualPidTable.sid()) (pid().pid());
+        if( _virtualPidTable.fgid() == pid().pid() )
+          return true;
+        else
+          return false;
+      }
+
+    bool isInitChild(){
         JTRACE("")(_virtualPidTable.ppid());
         if( _virtualPidTable.ppid() == 1 )
           return true;
@@ -254,7 +271,7 @@ namespace
         }
         return 0;
       }
-    
+  
       // Traverce this process subtree and setup 
       // information about sessions and its leaders of all childs
       sidMapping &setupSessions() {
@@ -330,6 +347,15 @@ namespace
         return -1;
       }
 
+      int restoreGroup()
+      {
+        if( isGroupLeader() ){
+          // create new group where this process becomes a leader
+          JTRACE("Create new group");
+          setpgid(0,0);
+        }
+      }
+      
       void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
       {
         dmtcp::ostringstream o;
@@ -347,6 +373,10 @@ namespace
         pid_t psid = vt.sid();
         
         if( !isSessionLeader() ){
+          
+          // Restore group information
+          restoreGroup();
+          
           // If process is not session leader - restore all childs and restore it
           t_iterator it = _childs.begin();
           for(; it != _childs.end(); it++){
@@ -370,7 +400,6 @@ namespace
           }
         }else{
           // Process is session leader
-          
           // there may be not setsid-ed childs
           t_iterator it = _childs.begin();
           for(it; it != _childs.end(); it++){
@@ -396,6 +425,9 @@ namespace
           
           pid_t nsid = setsid();
           JTRACE("change SID")(nsid);
+
+          // Restore group information
+          restoreGroup();
           
           it = _childs.begin();
           for(it; it != _childs.end(); it++) {
@@ -433,12 +465,12 @@ namespace
           }
         }          
 
-        JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid());
-
+        JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid())(isGroupLeader());
         // Save PID mapping information
         pid_t orig = pid().pid();
         pid_t curr = _real_getpid();
         dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig,curr);
+        
         
 
         //Reconnect to dmtcp_coordinator
@@ -571,6 +603,7 @@ typedef struct {
 } RootTarget;
 dmtcp::vector<RootTarget> roots;
 void BuildProcessTree();
+void ProcessGroupInfo(vector<UniquePid> &v);
 void SetupSessions();
 
 #endif
@@ -749,13 +782,17 @@ int main ( int argc, char** argv )
   // Delete not existing childs.
   BuildProcessTree();
 
+  // Process all checkpoints to find one of them who can switch
+  // need group to foreground
+  vector<UniquePid> pids;
+  ProcessGroupInfo(pids);
   // Create session meta-information in each node of the process tree
   // Node contains info about all sessions which exists at lower levels.
   // Also node is aware about session leader existense at lower levels
   SetupSessions();
   
   /* Create the file to hold the pid/tid maps*/
-  openPidMapFiles();
+  openPidMapFiles(pids);
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
@@ -898,13 +935,181 @@ void BuildProcessTree()
   }
 }
 
+/*
+ * Group processing
+ * 1. Divide all processes into sessions
+ * 2. Divide processes in each session into groups
+ * 3. In each group check that stored foreground values are equal. 
+ * If not - somethings wrong - ABORT
+ * 4. In each session choose the process that can bring appropriate group to foreground
+ * 5. Serialize information about choosen UniquePIDs in following format: "COUNT:unique-pid1:unique-pid2:..."
+ * 6. Deserialize information from step 5 in forked and restored processes 
+ * 
+ */
+
+class group {
+public:
+  group(){
+    gid = -2; 
+  }
+  pid_t gid;
+  vector<RestoreTarget*> targets;
+};
+
+class session{
+public: 
+  session(){
+    sid = -2; 
+    fgid = -2; 
+  }
+  pid_t sid;
+  pid_t fgid;
+  map<pid_t,group> groups;
+  typedef map<pid_t,group>::iterator group_it;
+  UniquePid upid;
+};
+
+void ProcessGroupInfo(vector <UniquePid> &pids)
+{
+  map<pid_t,session> smap;
+  map<pid_t,session>::iterator it;
+  int i,j,k;
+  
+  // 1. divide processes into sessions and groups
+  for (j = 0; j < targets.size(); j++) 
+  {
+    VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
+    printf("Process PID=%d, SID=%d, GID=%d, FGID=%d\n",targets[j].pid().pid(),
+    virtualPidTable.sid(), virtualPidTable.gid(),virtualPidTable.fgid());
+
+    pid_t sid = virtualPidTable.sid();
+    pid_t gid = virtualPidTable.gid();
+    pid_t fgid = virtualPidTable.fgid();
+    
+    // if group ID not belongs to known PIDs - indicate that 
+    // fact using -1 value
+    if( !originalPidTable.isConflictingChildPid(gid) ){
+      virtualPidTable.setgid(-1);
+      gid = -1;
+    }
+    // if foreground group ID not belongs to known PIDs -  
+    // indicate that fact using -1 value
+    if( !originalPidTable.isConflictingChildPid(fgid) ){
+      virtualPidTable.setfgid(-1);
+      fgid = -1;
+    }
+    
+    session &s = smap[sid];
+    // if this is first element of this session
+    if( s.sid == -2 ){
+      s.sid = sid;
+    }
+    group &g = smap[sid].groups[gid];
+    // if this is first element of group gid
+    if( g.gid == -2 ){
+        g.gid = gid;
+    }
+    g.targets.push_back(&targets[j]);
+  }
+  
+  // 2. Check if foreground setting is correct
+  it = smap.begin();
+  for(;it != smap.end();it++){
+    session &s = it->second;
+    session::group_it g_it = s.groups.begin();
+    pid_t fgid = -2;
+    for(; g_it!=s.groups.end();g_it++){
+      group &g = g_it->second;
+      for(k=0; k<g.targets.size() ;k++){
+        VirtualPidTable& virtualPidTable = g.targets[k]->getVirtualPidTable();
+        pid_t cfgid = virtualPidTable.fgid();
+        if( fgid == -2 ){
+          fgid = cfgid; 
+        }else if( fgid != cfgid ){
+          printf("Error: process from same session stores different foreground group ID\n");
+          abort();
+        }
+      }
+      printf("\tfgid = %d\n",fgid);
+    }
+    s.fgid = fgid;
+    if( s.groups.find(s.fgid) == s.groups.end() ){
+      // foreground group is missing, don't need to change foreground groop
+      s.fgid = -1;
+    }
+  }
+  
+  // 3. Choose appropriate process who can change foreground group
+  it = smap.begin();
+  for(;it != smap.end();it++){
+    session &s = it->second;
+    // 3.1. If foreground group ID = -1 - we don't need to do anything
+    if( s.fgid == -1 ){
+      UniquePid tmp;
+      s.upid = tmp; // zero unique pid - will be skipped
+      continue;
+    }
+    
+    // 3.2. If we have processes with group ID = -1 this means that it belongs to
+    // bash group and it will be at foreground by default - let him change  
+    // foreground group
+    if( s.groups.find(-1) != s.groups.end() ){
+      s.upid = s.groups[-1].targets[0]->pid(); 
+      continue;
+    }
+    
+    // 3.3. If foreground group has more that one member we can use non-leading
+    // member to move this group to foreground before joining this group 
+    if( s.groups[s.fgid].targets.size() != 1 ){
+      int i = 0;
+      group &g = s.groups[s.fgid];
+      for(i=0;i<g.targets.size();i++){
+        if( g.targets[i]->pid().pid() != s.fgid )
+          break;
+      }
+      s.upid = g.targets[i]->pid();
+    }
+    
+    // 3.4. Foreground group has only one member. At this point we cannot 
+    // restore this situation (but it should appear very rare).
+    // use of middle process may be needed to make this work
+  }  
+
+  // Print out session mapping
+  printf("Session number: %d\n",smap.size());
+  
+  it = smap.begin();
+  for(;it != smap.end();it++){
+    session &s = it->second;
+    printf("Session ID=%d, Foreground group ID=%d, The one UPID = %s\n",s.sid,s.fgid,s.upid.toString().c_str() );
+    session::group_it g_it = s.groups.begin();
+    for(; g_it!=s.groups.end();g_it++){
+      group &g = g_it->second;
+      printf("\tGroup ID: %d. PIDS:",g.gid);
+      for(k=0; k<g.targets.size() ;k++){
+        printf("%d ",g.targets[k]->pid().pid());
+      }
+      printf("\n");
+    }
+  }
+  
+  // save results
+  pids.clear();
+  it = smap.begin();
+  for(;it != smap.end();it++){
+    session &s = it->second;
+    if( s.upid != UniquePid(0,0,0)){
+      pids.push_back(s.upid);
+    }
+  }
+}
 
 void SetupSessions()
 {
   for(int j=0; j < roots.size(); j++){
     roots[j].t->setupSessions();
   }
-  
+ 
   for(int i = 0; i < roots.size(); i++){
     for(int j = 0; j < roots.size(); j++){
       if( i == j )
@@ -938,14 +1143,16 @@ int openSharedFile(dmtcp::string name, int flags)
 }
 
 
-static void openPidMapFiles()
+static void openPidMapFiles(vector <UniquePid> &pids)
 {
-  dmtcp::ostringstream pidMapFile,pidMapCountFile;
+  dmtcp::ostringstream pidMapFile,pidMapCountFile,fgRestoreUPIDs;
   int fd,i;
 
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
   pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
+     << compGroup << "." << std::hex << coordTstamp;
+  fgRestoreUPIDs << dmtcpTmpDir << "/dmtcpFgRestoreUPIDs."
      << compGroup << "." << std::hex << coordTstamp;
 
   // Open & create pidMapFile if not exist
@@ -959,8 +1166,17 @@ static void openPidMapFiles()
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD ) ( pidMapCountFile.str() );
   close(fd);
-  // initialize pidMapCountFile with zero value
+  
+  // Open & create fgRestoreUPIDs if not exist
+  JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
+  fd = openSharedFile(fgRestoreUPIDs.str(), O_RDWR);
+  JASSERT ( dup2 ( fd, PROTECTED_FG_R_UPIDS_FD ) == PROTECTED_FG_R_UPIDS_FD ) ( fgRestoreUPIDs.str() );
+  close(fd);
+  
+  
   dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
+  
+  // initialize pidMapCountFile with zero value
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(), PROTECTED_PIDMAPCNT_FD);
   if( countwr.isempty() ){
     JTRACE("pidMapCountFile is empty - initialize it with count = 0")(pidMapCountFile.str());
@@ -969,6 +1185,19 @@ static void openPidMapFiles()
     fsync(PROTECTED_PIDMAPCNT_FD);
   }else{
     JTRACE("pidMapCountFile is not empty - do nothing");
+  }
+
+  // save information about foreground restorations
+  static jalib::JBinarySerializeWriterRaw fgwr(fgRestoreUPIDs.str(), PROTECTED_FG_R_UPIDS_FD);
+  if( fgwr.isempty() ){
+    size_t numRecs = pids.size();
+    JTRACE("FOREGROUND NUMPIDS:")(numRecs);
+    dmtcp::VirtualPidTable::serializeEntryCount (fgwr,numRecs); 
+    for(i=0;i<pids.size();i++){
+      JTRACE("FOREGROUND SAVE UPID")(pids[i]);
+      fgwr & pids[i];
+    }
+    fsync(PROTECTED_FG_R_UPIDS_FD);
   }
   dmtcp::VirtualPidTable::_unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
