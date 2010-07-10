@@ -36,11 +36,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/time.h>     // For getrlimit(); Remove when have zero-mapped pages
-#include <sys/resource.h> // For getrlimit(); Remove when have zero-mapped pages
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/personality.h>
 
-// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
-// string has atleast one format specifier with corresponding format argument.
+// gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
+// string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
   "USAGE: \n"
@@ -346,7 +347,7 @@ int main ( int argc, char** argv )
     // JASSERT_STDERR, without continuing and trying the execvp anyway.
     // Consider also checking these things after call to exec(),
     //   perhaps in DmtcpWorker constructor.
-    JASSERT_STDERR << 
+    JASSERT_STDERR <<
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
   } else {
     bool is32bit = false;
@@ -354,7 +355,7 @@ int main ( int argc, char** argv )
     is32bit = (0 == memcmp(magic_elf32.c_str(), argv_buf, 5));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bit)
-      JASSERT_STDERR << 
+      JASSERT_STDERR <<
         "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
@@ -365,7 +366,7 @@ int main ( int argc, char** argv )
     cmd = cmd + argv[0] + " > /dev/null";
     unsetenv ( "LD_PRELOAD" );
     if ( system(cmd.c_str()) )
-      JASSERT_STDERR << 
+      JASSERT_STDERR <<
         "*** ERROR:  You appear to be checkpointing "
         << "a statically linked target.\n"
         << "***  You can confirm this with the 'file' command.\n"
@@ -380,11 +381,46 @@ int main ( int argc, char** argv )
   if (fd != -1)
     close (fd);
 
+// FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
+//   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
+//   from DmtcpWorker constructor, to distinguish the two cases.
+#ifdef __i386__
+  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
+  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
+  //   but there's currently a bug on restart in the sequence:
+  //   checkpoint -> restart -> checkpoint -> restart
+# if 0
+  { unsigned long oldPersonality = personality(0xffffffffL);
+    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
+      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
+      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
+      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
+      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
+    }
+  }
+# else
+  { struct rlimit rlim;
+    getrlimit(RLIMIT_STACK, &rlim);
+    if (rlim.rlim_cur != RLIM_INFINITY) {
+      char buf[100];
+      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
+      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
+      setenv("DMTCP_RLIMIT_STACK", buf, 1);
+      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
+      rlim.rlim_cur = rlim.rlim_max;
+      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
+      setrlimit(RLIMIT_STACK, &rlim);
+      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
+    }
+  }
+# endif
+#endif
+
   //run the user program
   execvp ( argv[0], argv );
 
   //should be unreachable
-  JASSERT_STDERR << 
+  JASSERT_STDERR <<
     "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
     << "Perhaps it is not in your $PATH?\n"
     << "See `dmtcp_checkpoint --help` for usage.\n";

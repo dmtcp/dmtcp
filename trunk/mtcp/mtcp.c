@@ -2293,9 +2293,12 @@ static void writefile (int fd, void const *buff, size_t size)
  * The kernel won't do it automatically for us any more, since it thinks
  * the stack is in a different place after restart.
  */
-/* growstackValue is volatile so compiler doesn't optimize away growstack */
+/* growstackValue is volatile so compiler doesn't optimize away growstack
+ * Maybe it's not needed if we use ((optimize(0))) .
+ */
 static volatile unsigned int growstackValue = 0;
-static void growstack(kbStack) {
+__attribute__ ((optimize(0))) static void growstack (int kbStack);
+static void growstack (int kbStack) {
   const int kBincrement = 1024;
   char array[kBincrement * 1024] __attribute__ ((unused));
   volatile int dummy_value __attribute__ ((unused)) = 1; /*Again, try to prevent compiler optimization*/
@@ -2352,7 +2355,7 @@ static void stopthisthread (int signum)
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
         DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes\n",
-		kbStack));
+		 kbStack));
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
         mtcp_printf("WARNING:  Stack within %d bytes of end;\n"
