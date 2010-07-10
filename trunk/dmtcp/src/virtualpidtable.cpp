@@ -152,7 +152,6 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
     // this is leader of current foreground group
     JASSERT( tcsetpgrp(STDIN_FILENO,_fgid) == 0 )("Cannot set foreground group");
   }
-
   
   // 2. Restore group assignment 
   JTRACE("VirtualPidTable::postRestart2 Restore Group Assignment")
@@ -169,6 +168,24 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
     }
   }else{
     JTRACE("VirtualPidTable::postRestart SKIP Group information, GID unknown");
+  }
+  
+  // 3. If we are members of foreground group - sleep untill somebody
+  // brings us to foreground
+  // TODO: this is not good technique and should be changed in future!
+  fgid = tcgetpgrp(STDIN_FILENO);
+  gid = getpgrp();
+  if( shouldRestoreFg && (gid == _fgid) && ( fgid != _fgid) ){
+    int i = 0;
+    do{
+      struct timespec ts = {0,100000};
+      nanosleep(&ts,NULL);
+      fgid = tcgetpgrp(STDIN_FILENO);
+      i++;
+      if( i % 1000 ){
+        JTRACE("Wait while somebody brings me to foreground!");
+      }
+    }while( fgid != _fgid );
   }
 }
 
