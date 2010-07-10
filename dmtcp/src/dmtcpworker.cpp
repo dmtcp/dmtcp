@@ -44,6 +44,9 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/personality.h>
 
 
 /* Read-write lock initializers.  */
@@ -128,6 +131,29 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+
+#ifdef __i386__
+  // Match work begun in dmtcpPrepareForExec()
+# if 0
+  if (getenv("DMTCP_ADDR_COMPAT_LAYOUT")) {
+    _dmtcp_unsetenv("DMTCP_ADDR_COMPAT_LAYOUT");
+    // DMTCP had set ADDR_COMPAT_LAYOUT.  Now unset it.
+    personality( (unsigned long)personality(0xffffffff) ^ ADDR_COMPAT_LAYOUT );
+    JTRACE( "unsetting ADDR_COMPAT_LAYOUT" );
+  }
+# else
+  { char * rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
+    if ( rlim_cur_char != NULL ) {
+      struct rlimit rlim;
+      getrlimit(RLIMIT_STACK, &rlim);
+      rlim.rlim_cur = atol(rlim_cur_char);
+      JTRACE ( "rlim_cur for RLIMIT_STACK being restored." ) ( rlim.rlim_cur );
+      setrlimit(RLIMIT_STACK, &rlim);
+      _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
+    }
+  }
+# endif
+#endif
 
   // We have now successfully used LD_PRELOAD to execute prior to main()
   // Next, hide our value of LD_PRELOAD, in a global variable.

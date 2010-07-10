@@ -344,11 +344,11 @@ runTest("dmtcp4",        1, ["./test/dmtcp4"])
 oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
 # oldLimit[1] is old hard limit
 if oldLimit[1] == -1L:
-  newSoftLimit = 8388608L 
+  newCurrLimit = 8388608L 
 else:
-  newSoftLimit = min(8388608L, oldLimit[1])
-resource.setrlimit(resource.RLIMIT_STACK, [newSoftLimit, oldLimit[1]])
-runTest("dmtcp5",        1, ["./test/dmtcp5"])
+  newCurrLimit = min(8*1024*1024, oldLimit[1])
+resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
+runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
 runTest("shared-fd",     2, ["./test/shared-fd"])

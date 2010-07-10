@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <vector>
 #include <list>
@@ -33,6 +34,9 @@
 #include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/personality.h>
 
 #define INITIAL_ARGV_MAX 32
 
@@ -45,7 +49,7 @@ static pid_t forkChild ( long child_host, time_t child_time )
     if ( child_pid == -1 ) {
       // fork() failed
       return child_pid;
-    } else if ( child_pid == 0 ) { 
+    } else if ( child_pid == 0 ) {
       /* child process */
 
       JALIB_RESET_ON_FORK ();
@@ -62,7 +66,7 @@ static pid_t forkChild ( long child_host, time_t child_time )
       } else {
         return child_pid;
       }
-    } else { 
+    } else {
       /* Parent Process */
       if ( dmtcp::VirtualPidTable::isConflictingPid ( child_pid ) ) {
         JTRACE( "PID Conflict, creating new child" ) (child_pid);
@@ -160,11 +164,14 @@ extern "C" pid_t fork()
 extern "C" pid_t vfork()
 {
   JTRACE ( "vfork wrapper calling fork" );
-  // This might not preserve the full semantics of vfork. 
+  // This might not preserve the full semantics of vfork.
   // Used for checkpointing gdb.
   return fork();
 }
 
+// FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
+//   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
+//   from DmtcpWorker constructor, to distinguish the two cases.
 static void dmtcpPrepareForExec()
 {
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
@@ -176,6 +183,39 @@ static void dmtcpPrepareForExec()
   dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
+
+#ifdef __i386__
+  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
+  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
+  //   but there's currently a bug on restart in the sequence:
+  //   checkpoint -> restart -> checkpoint -> restart
+# if 0
+  { unsigned long oldPersonality = personality(0xffffffffL);
+    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
+      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
+      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
+      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
+      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
+    }
+  }
+# else
+  { struct rlimit rlim;
+    getrlimit(RLIMIT_STACK, &rlim);
+    if (rlim.rlim_cur != RLIM_INFINITY) {
+      char buf[100];
+      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
+      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
+      setenv("DMTCP_RLIMIT_STACK", buf, 1);
+      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
+      rlim.rlim_cur = rlim.rlim_max;
+      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
+      setrlimit(RLIMIT_STACK, &rlim);
+      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
+    }
+  }
+# endif
+#endif
+
   dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
   if (getenv("LD_PRELOAD")) {
     preload = preload + ":" + getenv("LD_PRELOAD");

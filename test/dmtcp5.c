@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -26,6 +27,19 @@ void myHandler(int i){
 }
 
 int main(int argc, char* argv[]){
+  char cmd_file[256];
+  int cmd_len = readlink("/proc/self/exe", cmd_file, 255);
+  if (cmd_len == -1)
+    printf("WARNING:  Couldn't find /proc/self/exe."
+	   "  Trying to continue anyway.\n");
+  else {
+    cmd_file[cmd_len] = '\0';
+    if ( !getenv("IS_CHILD") && 0 != fork() ) { /* if child, do exec */
+      setenv("IS_CHILD", "true", 1);
+      execv(cmd_file, argv);
+    }
+  }
+
   signal(SIGUSR1, &myHandler);
   signal(SIGUSR2, &myHandler); // DMTCP should not enable this.
   while (1){
