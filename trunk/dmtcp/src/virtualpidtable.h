@@ -109,9 +109,13 @@ namespace dmtcp
       pid_t pid() const { return _pid; }
       pid_t ppid() const { return _ppid; }
       pid_t sid() const { return _sid; }
+      pid_t gid() const { return _gid; }
+      pid_t fgid() const { return _fgid; }
 
       void setppid( pid_t ppid ) { _ppid = ppid; }
       void setsid( pid_t sid ) { _sid = sid; }
+      void setgid( pid_t gid ) { _gid = gid; }
+      void setfgid( pid_t fgid ) { _fgid = fgid; }
 
       void updateMapping (pid_t originalPid, pid_t currentPid);
 

@@ -89,6 +89,7 @@ void dmtcp::VirtualPidTable::preCheckpoint()
   // Update Group information before checkpoint
   _gid = getpgid(0);
   _fgid = tcgetpgrp(STDIN_FILENO);
+  
   JTRACE("VirtualPidTable::preCheckpoint()")(_gid)(_fgid);
 }
 
@@ -117,62 +118,57 @@ void dmtcp::VirtualPidTable::postRestart()
 void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 {
   // At this point all PIDs participated in computations are known
-  // including mapping of parent pids. So we can restore group information
+  // including mapping of parent pids. 
+  // Also all group leaders already create their groups
   
-  // 1. Restore group ID
-  JTRACE("VirtualPidTable::postRestart2 Restore Group Information")
+  // 1. resolve the name of service file containing unique Pids of 
+  // processes who should restore foreground state
+  dmtcp::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_FG_R_UPIDS_FD );
+  serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
+  JASSERT ( serialFile.length() > 0 ) ( serialFile );
+  _real_close ( PROTECTED_PIDTBL_FD );
+  JTRACE("FOREGROUND FILE NAME: ")(serialFile);
+  jalib::JBinarySerializeReader fgrd ( serialFile );
+  size_t numRecs = 0;
+  dmtcp::VirtualPidTable::serializeEntryCount (fgrd,numRecs);
+  JTRACE("FOREGROUND NUMBER OF RECORDS: ")(numRecs);
+  vector <UniquePid> pids; pids.clear();
+  bool shouldRestoreFg = false;
+  for(int i=0;i<numRecs;i++){
+    UniquePid p;
+    fgrd & p;
+    JTRACE("FOREGROUND RESTORE UPID: ")(p)(UniquePid::ThisProcess());
+    if( p == UniquePid::ThisProcess() ){
+      JTRACE("FOREGROUND RESTORE UPID. HERE WE ARE! ");
+      shouldRestoreFg = true;
+    }
+  }
+
+  // Restore foreground group - first foreground member can to that!
+  pid_t fgid = tcgetpgrp(STDIN_FILENO);
+  pid_t gid = getpgrp();
+  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid);
+  if( _fgid != fgid && shouldRestoreFg ){ // we need to change current foreground group
+    // this is leader of current foreground group
+    JASSERT( tcsetpgrp(STDIN_FILENO,_fgid) == 0 )("Cannot set foreground group");
+  }
+
+  
+  // 2. Restore group assignment 
+  JTRACE("VirtualPidTable::postRestart2 Restore Group Assignment")
     ( _gid ) ( _fgid ) ( _pid ) ( _ppid ) ( getppid() );
   if( pidExists(_gid) ){
     // Group ID is known inside checkpointed processes
     pid_t cgid = getpgid(0);
-
     JTRACE("VirtualPidTable::postRestart2 restore Group information")(cgid)(_gid);
-    if( _gid != cgid ){
-      if( _pid == _gid )
-        setpgid(0,0);
-      else{
-        int ret = 1, i = 0;
-        struct timespec ts = {0,10000000};
-        
-        // Try to change group number of process. 
-        // There is source of race condition: group member change it's group before leader create this group
-        // Trial Timeout = 2 seconds
-        JTRACE("VirtualPidTable::postRestart2 restore Group information")(_gid);
-        while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
-          ret = setpgid(0,_gid);
-          if( ret ){
-            nanosleep(&ts,NULL);
-          }
-          i++;
-        }
-      }
+    if( _gid != cgid && _pid != _gid ){
+      JTRACE("VirtualPidTable::postRestart2 restore Group information")(_gid);
+      JASSERT( setpgid(0,_gid) == 0 )("Cannot change group information");
+    }else{
+      JTRACE("Group is already assigned")(_gid)(cgid);
     }
   }else{
     JTRACE("VirtualPidTable::postRestart SKIP Group information, GID unknown");
-  }
-  
-
-  // Restore foreground group
-  pid_t fgid = tcgetpgrp(STDIN_FILENO);
-  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid);
-  if( fgid >= 0 && pidExists(_fgid) ){
-    if( _pid == fgid && _fgid != fgid ){
-      // this is leader of foreground group
-      int ret = 1, i = 0;
-      struct timespec ts = {0,10000000};
-        
-      // Try to change foreground group 
-      // There is source of race condition: group member change it's group before leader create this group
-      // Trial Timeout = 2 seconds
-      JTRACE("VirtualPidTable::postRestart2 wait with foreground restore")(_fgid);
-      while( ret && ((float)(i*ts.tv_nsec) / 1E9) < 2.0 ){
-        ret = tcsetpgrp(STDIN_FILENO,_fgid);
-        if( ret ){
-          nanosleep(&ts,NULL);
-        }
-        i++;
-      }
-    }
   }
 }
 
@@ -404,6 +400,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
     //refreshTidVector();
   }
 
+	JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
   o & _isRootOfProcessTree & _sid & _ppid & _gid & _fgid;
 
   if ( _isRootOfProcessTree )

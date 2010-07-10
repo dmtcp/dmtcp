@@ -3068,11 +3068,21 @@ static int restarthread (void *threadv)
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
     /* Do it once only, in motherofall thread. */
-    if (saved_termios_exists)
-      if ( ! isatty(STDIN_FILENO)
-           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
-        DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
-
+    
+    if (saved_termios_exists){
+      // First check if we are in foreground. If not - skip this and print warning.
+      // If we try to do that - we will hangup
+      int fg = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+      DPRINTF(("restore terminal attributes, check foreground ststus first: %d",fg));
+      if ( fg ){
+        if( !isatty(STDIN_FILENO)
+           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 ){
+          DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+        }
+      }else{
+        DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step - we are in BACKGROUND\n"));
+      }
+    }
     /* DMTCP restores signal handlers.  But if we are running standalone,
      * MTCP must do it.
      * Because signal handlers are per-process, we only do this once.
