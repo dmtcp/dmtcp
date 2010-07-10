@@ -979,8 +979,7 @@ void ProcessGroupInfo(vector <UniquePid> &pids)
   for (j = 0; j < targets.size(); j++) 
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
-    printf("Process PID=%d, SID=%d, GID=%d, FGID=%d\n",targets[j].pid().pid(),
-    virtualPidTable.sid(), virtualPidTable.gid(),virtualPidTable.fgid());
+    JTRACE("Process ")(targets[j].pid().pid())(virtualPidTable.sid())(virtualPidTable.gid())(virtualPidTable.fgid());
 
     pid_t sid = virtualPidTable.sid();
     pid_t gid = virtualPidTable.gid();
@@ -1030,7 +1029,7 @@ void ProcessGroupInfo(vector <UniquePid> &pids)
           abort();
         }
       }
-      printf("\tfgid = %d\n",fgid);
+      JTRACE("Checked ")(fgid);
     }
     s.fgid = fgid;
     if( s.groups.find(s.fgid) == s.groups.end() ){
@@ -1076,20 +1075,22 @@ void ProcessGroupInfo(vector <UniquePid> &pids)
   }  
 
   // Print out session mapping
-  printf("Session number: %d\n",smap.size());
+  JTRACE("Session number:")(smap.size());
   
   it = smap.begin();
   for(;it != smap.end();it++){
     session &s = it->second;
-    printf("Session ID=%d, Foreground group ID=%d, The one UPID = %s\n",s.sid,s.fgid,s.upid.toString().c_str() );
+    JTRACE("Session printout:")(s.sid)(s.fgid)(s.upid.toString().c_str());
     session::group_it g_it = s.groups.begin();
     for(; g_it!=s.groups.end();g_it++){
       group &g = g_it->second;
-      printf("\tGroup ID: %d. PIDS:",g.gid);
+      JTRACE("\tGroup ID: ")(g.gid);
+      /*
       for(k=0; k<g.targets.size() ;k++){
         printf("%d ",g.targets[k]->pid().pid());
       }
       printf("\n");
+      */
     }
   }
   
