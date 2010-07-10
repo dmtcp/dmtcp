@@ -147,9 +147,11 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
   // Restore foreground group - first foreground member can to that!
   pid_t fgid = tcgetpgrp(STDIN_FILENO);
   pid_t gid = getpgrp();
-  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid);
+  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid)(gid);
   if( _fgid != fgid && shouldRestoreFg ){ // we need to change current foreground group
     // this is leader of current foreground group
+    JTRACE("RESTORE FOREGROUND PROCESS")(fgid)(UniquePid::ThisProcess());
+    JASSERT( fgid == gid )("FOREGROUND restore: chosen process cannot restore foreground group!");
     JASSERT( tcsetpgrp(STDIN_FILENO,_fgid) == 0 )("Cannot set foreground group");
   }
   
@@ -175,7 +177,7 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
   // TODO: this is not good technique and should be changed in future!
   fgid = tcgetpgrp(STDIN_FILENO);
   gid = getpgrp();
-  if( shouldRestoreFg && (gid == _fgid) && ( fgid != _fgid) ){
+  if( !shouldRestoreFg && (gid == _fgid) && ( fgid != _fgid) ){
     int i = 0;
     do{
       struct timespec ts = {0,100000};
@@ -187,6 +189,7 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
       }
     }while( fgid != _fgid );
   }
+  
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
@@ -418,7 +421,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
   }
 
 	JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
-  o & _isRootOfProcessTree & _sid & _ppid & _gid & _fgid;
+  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
 
   if ( _isRootOfProcessTree )
     JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
