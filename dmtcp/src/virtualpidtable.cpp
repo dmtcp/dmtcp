@@ -87,6 +87,7 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
   // Update Group information before checkpoint
+  _ppid = getppid();
   _gid = getpgid(0);
   _fgid = tcgetpgrp(STDIN_FILENO);
   

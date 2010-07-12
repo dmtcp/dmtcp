@@ -979,7 +979,7 @@ void ProcessGroupInfo(vector <UniquePid> &pids)
   for (j = 0; j < targets.size(); j++) 
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
-    JTRACE("Process ")(targets[j].pid().pid())(virtualPidTable.sid())(virtualPidTable.gid())(virtualPidTable.fgid());
+    JTRACE("Process ")(virtualPidTable.pid())(virtualPidTable.ppid())(virtualPidTable.sid())(virtualPidTable.gid())(virtualPidTable.fgid());
 
     pid_t sid = virtualPidTable.sid();
     pid_t gid = virtualPidTable.gid();
