@@ -87,8 +87,9 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
   // Update Group information before checkpoint
-  _ppid = getppid();
+  _ppid = getppid(); // refresh parent PID
   _gid = getpgid(0);
+  JTRACE("CHECK GROUP PID")(_gid)(_ppid)(pidExists(_gid));
   _fgid = tcgetpgrp(STDIN_FILENO);
   
   JTRACE("VirtualPidTable::preCheckpoint()")(_gid)(_fgid);
@@ -118,45 +119,7 @@ void dmtcp::VirtualPidTable::postRestart()
 
 void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 {
-  // At this point all PIDs participated in computations are known
-  // including mapping of parent pids. 
-  // Also all group leaders already create their groups
-  
-  // 1. resolve the name of service file containing unique Pids of 
-  // processes who should restore foreground state
-  dmtcp::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_FG_R_UPIDS_FD );
-  serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
-  JASSERT ( serialFile.length() > 0 ) ( serialFile );
-  _real_close ( PROTECTED_PIDTBL_FD );
-  JTRACE("FOREGROUND FILE NAME: ")(serialFile);
-  jalib::JBinarySerializeReader fgrd ( serialFile );
-  size_t numRecs = 0;
-  dmtcp::VirtualPidTable::serializeEntryCount (fgrd,numRecs);
-  JTRACE("FOREGROUND NUMBER OF RECORDS: ")(numRecs);
-  vector <UniquePid> pids; pids.clear();
-  bool shouldRestoreFg = false;
-  for(int i=0;i<numRecs;i++){
-    UniquePid p;
-    fgrd & p;
-    JTRACE("FOREGROUND RESTORE UPID: ")(p)(UniquePid::ThisProcess());
-    if( p == UniquePid::ThisProcess() ){
-      JTRACE("FOREGROUND RESTORE UPID. HERE WE ARE! ");
-      shouldRestoreFg = true;
-    }
-  }
-
-  // Restore foreground group - first foreground member can to that!
-  pid_t fgid = tcgetpgrp(STDIN_FILENO);
-  pid_t gid = getpgrp();
-  JTRACE("VirtualPidTable::postRestart2 foreground restore")(_pid)(_fgid)(_gid)(fgid)(gid);
-  if( _fgid != fgid && shouldRestoreFg ){ // we need to change current foreground group
-    // this is leader of current foreground group
-    JTRACE("RESTORE FOREGROUND PROCESS")(fgid)(UniquePid::ThisProcess());
-    JASSERT( fgid == gid )("FOREGROUND restore: chosen process cannot restore foreground group!");
-    JASSERT( tcsetpgrp(STDIN_FILENO,_fgid) == 0 )("Cannot set foreground group");
-  }
-  
-  // 2. Restore group assignment 
+  // Restore group assignment 
   JTRACE("VirtualPidTable::postRestart2 Restore Group Assignment")
     ( _gid ) ( _fgid ) ( _pid ) ( _ppid ) ( getppid() );
   if( pidExists(_gid) ){
@@ -172,25 +135,6 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
   }else{
     JTRACE("VirtualPidTable::postRestart SKIP Group information, GID unknown");
   }
-  
-  // 3. If we are members of foreground group - sleep untill somebody
-  // brings us to foreground
-  // TODO: this is not good technique and should be changed in future!
-  fgid = tcgetpgrp(STDIN_FILENO);
-  gid = getpgrp();
-  if( !shouldRestoreFg && (gid == _fgid) && ( fgid != _fgid) ){
-    int i = 0;
-    do{
-      struct timespec ts = {0,100000};
-      nanosleep(&ts,NULL);
-      fgid = tcgetpgrp(STDIN_FILENO);
-      i++;
-      if( i % 1000 ){
-        JTRACE("Wait while somebody brings me to foreground!");
-      }
-    }while( fgid != _fgid );
-  }
-  
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
@@ -202,6 +146,10 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _tidVector.clear();
   _inferiorVector.clear();
   //_pidMapTable[_pid] = _pid;
+  dmtcp::map<pid_t, pid_t>::iterator it = _pidMapTable.begin();
+  for (; it != _pidMapTable.end(); it++) {
+    JTRACE("current mappings")(it->first)(it->second);
+  }
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
