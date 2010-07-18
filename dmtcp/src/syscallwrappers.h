@@ -111,7 +111,6 @@ extern "C"
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
-  pid_t _real_gettid(void);
 
   pid_t _real_tcgetpgrp(int fd);
   int   _real_tcsetpgrp(int fd, pid_t pgrp);
@@ -127,9 +126,6 @@ extern "C"
 
   int   _real_kill(pid_t pid, int sig);
 
-  int   _real_tkill(int tid, int sig);
-  int   _real_tgkill(int tgid, int tid, int sig);
-
   pid_t _real_wait(__WAIT_STATUS stat_loc);
   pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
@@ -138,6 +134,10 @@ extern "C"
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
 
 #endif /* PID_VIRTUALIZATION */
+
+  pid_t _real_gettid(void);
+  int   _real_tkill(int tid, int sig);
+  int   _real_tgkill(int tgid, int tid, int sig);
 
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE * _real_fopen(const char *path, const char *mode);

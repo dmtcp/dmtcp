@@ -65,7 +65,7 @@
 #undef max
 
 
-int thePort = -1;
+static int thePort = -1;
 static char *argv0;
 
 static const char* theHelpMessage =
@@ -220,17 +220,17 @@ static dmtcp::DmtcpCoordinator prog;
 */
 static bool workersRunningAndSuspendMsgSent = false;
 
-int theCheckpointInterval = 0;
-bool batchMode = false;
+static int theCheckpointInterval = 0;
+static bool batchMode = false;
 
 const int STDIN_FD = fileno ( stdin );
 
 JTIMER ( checkpoint );
 JTIMER ( restart );
 
-dmtcp::UniquePid curCompGroup = dmtcp::UniquePid();
-int numPeers = -1;
-int curTimeStamp = -1;
+static dmtcp::UniquePid curCompGroup = dmtcp::UniquePid();
+static int numPeers = -1;
+static int curTimeStamp = -1;
 
 namespace
 {
@@ -283,7 +283,7 @@ void dmtcp::DmtcpCoordinator::sendUnIdentifiedPeerNotifications()
 {
   _socketPeerLookupMessagesIterator it;
   for ( it = _socketPeerLookupMessages.begin();
-        it != _socketPeerLookupMessages.end(); 
+        it != _socketPeerLookupMessages.end();
         ++it ) {
     DmtcpMessage msg (DMT_UNKNOWN_PEER);
     msg.conId = it->conId;
@@ -607,11 +607,11 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         _socketPeerLookupMessagesIterator i;
         bool foundPeer = false;
         for ( i = _socketPeerLookupMessages.begin();
-              i != _socketPeerLookupMessages.end(); 
+              i != _socketPeerLookupMessages.end();
               ++i ) {
-          if ( ( msg.localAddrlen == i->localAddrlen ) && 
-               ( memcmp ( (void*) &msg.localAddr, 
-                          (void*) &(i->remoteAddr), 
+          if ( ( msg.localAddrlen == i->localAddrlen ) &&
+               ( memcmp ( (void*) &msg.localAddr,
+                          (void*) &(i->remoteAddr),
                           msg.localAddrlen ) == 0 ) ) {
             _socketPeerLookupMessages.erase(i);
             foundPeer = true;
@@ -837,8 +837,8 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
 bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
 	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
-  // this is dmtcp_restart process, connecting to get timestamp and set current
-  // compGroup
+  // This is dmtcp_restart process, connecting to get timestamp
+  // and set current compGroup.
 
   JASSERT ( hello_remote.params[0] > 0 );
 

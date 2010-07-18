@@ -39,7 +39,6 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <errno.h>
 #include <ctype.h>
 
 typedef int ( *funcptr ) ();
@@ -272,7 +271,7 @@ int _real_sigwait(const sigset_t *set, int *sig) {
 int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info) {
   REAL_FUNC_PASSTHROUGH ( sigwaitinfo ) ( set, info);
 }
-int _real_sigtimedwait(const sigset_t *set, siginfo_t *info, 
+int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                        const struct timespec *timeout) {
   REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
 }
@@ -293,11 +292,6 @@ int _dmtcp_unsetenv( const char *name ) {
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) _real_syscall(SYS_getpid);
-//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
-}
-
-pid_t _real_gettid(void){
-  return (pid_t) _real_syscall(SYS_gettid);
 //  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
@@ -342,16 +336,6 @@ int   _real_kill(pid_t pid, int sig) {
   REAL_FUNC_PASSTHROUGH ( kill ) ( pid, sig );
 }
 
-int   _real_tkill(int tid, int sig) {
-  return (int) _real_syscall(SYS_tkill, tid, sig);
-  //REAL_FUNC_PASSTHROUGH ( tkill ) ( tid, sig );
-}
-
-int   _real_tgkill(int tgid, int tid, int sig) {
-  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
-  //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
-}
-
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
   REAL_FUNC_PASSTHROUGH_PID_T ( wait ) ( stat_loc );
 }
@@ -373,6 +357,23 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
 }
 
 #endif
+
+// gettid / tkill / tgkill are not defined in libc.
+// So, this is needed even if there is no PID_VIRTUALIZATION
+pid_t _real_gettid(void){
+  return (pid_t) _real_syscall(SYS_gettid);
+//  REAL_FUNC_PASSTHROUGH_PID_T ( syscall(SYS_gettid) );
+}
+
+int   _real_tkill(int tid, int sig) {
+  return (int) _real_syscall(SYS_tkill, tid, sig);
+  //REAL_FUNC_PASSTHROUGH ( syscall(SYS_tkill) ) ( tid, sig );
+}
+
+int   _real_tgkill(int tgid, int tid, int sig) {
+  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
+  //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
+}
 
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
@@ -398,7 +399,7 @@ long int _real_syscall(long int sys_num, ... ) {
 }
 
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
-{ 
+{
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
 
@@ -425,9 +426,9 @@ void * _real_calloc(size_t nmemb, size_t size) {
 //  return NULL;
 //  static int dlsym_offset = 0;
 //  if (dlsym_offset == 0 && getenv(ENV_VAR_CALLOC_OFFSET))
-//  { 
+//  {
 //    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_CALLOC_OFFSET), NULL, 10 );
-//  } 
+//  }
 //
 //  typedef void* ( *fncptr ) (size_t nmenb, size_t size);
 //  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
@@ -439,9 +440,9 @@ void * _real_malloc(size_t size) {
 //  return NULL;
 //  static int dlsym_offset = 0;
 //  if (dlsym_offset == 0 && getenv(ENV_VAR_MALLOC_OFFSET))
-//  { 
+//  {
 //    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_MALLOC_OFFSET), NULL, 10 );
-//  } 
+//  }
 //
 //  typedef void* ( *fncptr ) (size_t size);
 //  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
@@ -453,9 +454,9 @@ void * _real_realloc(void *ptr, size_t size) {
 //  return NULL;
 //  static int dlsym_offset = 0;
 //  if (dlsym_offset == 0 && getenv(ENV_VAR_REALLOC_OFFSET))
-//  { 
+//  {
 //    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_REALLOC_OFFSET), NULL, 10 );
-//  } 
+//  }
 //
 //  typedef void* ( *fncptr ) (void *ptr, size_t size);
 //  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
@@ -467,10 +468,10 @@ void _real_free(void *ptr) {
 //   return ;
 //   static int dlsym_offset = 0;
 //   if (dlsym_offset == 0 && getenv(ENV_VAR_FREE_OFFSET))
-//   { 
+//   {
 //     dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_FREE_OFFSET), NULL, 10 );
-//   } 
-// 
+//   }
+//
 //   typedef void ( *fncptr ) (void *ptr);
 //   fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
 //   return (*dlsym_addr) (ptr);
@@ -481,4 +482,4 @@ void _real_free(void *ptr) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
 // }
 
-#endif 
+#endif
