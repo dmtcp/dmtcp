@@ -518,7 +518,11 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   if ( compGroup != UniquePid() ) {
     dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
                                 + compGroup.toString() + "-"
+#ifdef PID_VIRTUALIZATION
                                 + jalib::XToString ( _real_getppid() );
+#else
+                                + jalib::XToString ( getppid() );
+#endif
     JTRACE("creating signature file") (signatureFile)(_real_getpid());
     int fd = _real_open ( signatureFile.c_str(), O_CREAT|O_WRONLY, 0600 );
     JASSERT ( fd != -1 ) ( fd ) ( signatureFile )
@@ -668,7 +672,7 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
       if ( msg.type == DMT_KILL_PEER ) {
         JTRACE ( "Received KILL Message from coordinator, exiting" );
         _exit ( 0 );
-      } 
+      }
       JTRACE ( "received message" ) (msg.type );
       if ( msg.type != DMT_UNKNOWN_PEER )
         break;

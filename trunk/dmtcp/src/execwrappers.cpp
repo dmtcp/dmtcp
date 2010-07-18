@@ -61,19 +61,27 @@ static pid_t forkChild ( long child_host, time_t child_time )
       JASSERT_INIT (o.str());
 #endif
 
+#ifdef PID_VIRTUALIZATION
       if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
         _exit(1);
       } else {
         return child_pid;
       }
+#else
+      return child_pid;
+#endif
     } else {
       /* Parent Process */
+#ifdef PID_VIRTUALIZATION
       if ( dmtcp::VirtualPidTable::isConflictingPid ( child_pid ) ) {
         JTRACE( "PID Conflict, creating new child" ) (child_pid);
         _real_waitpid ( child_pid, NULL, 0 );
       } else {
         return child_pid;
       }
+#else
+      return child_pid;
+#endif
     }
   }
   return -1;
@@ -295,9 +303,6 @@ static char** patchUserEnv ( char *const envp[] )
 
 extern "C" int execve ( const char *filename, char *const argv[], char *const envp[] )
 {
-  //TODO: Right now we assume the user hasn't clobbered our setup of envp
-  //(like LD_PRELOAD), we should really go check to make sure it hasn't
-  //been destroyed....
   JTRACE ( "execve() wrapper" ) ( filename );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.

@@ -179,7 +179,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	  fi \
 	fi
 
-LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
+LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
 	mtcp_state.o mtcp_check_vdso.o

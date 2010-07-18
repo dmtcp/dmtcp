@@ -40,9 +40,9 @@
 #include <vector>
 
 // Some global definitions
-dmtcp::UniquePid compGroup;
-int numPeers;
-int coordTstamp = 0;
+static dmtcp::UniquePid compGroup;
+static int numPeers;
+static int coordTstamp = 0;
 
 dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
@@ -65,7 +65,7 @@ namespace
 
       void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
       {
-        dmtcp::vector< pid_t > tmpVector; 
+        dmtcp::vector< pid_t > tmpVector;
 
         _insert(vt.pid());
 
@@ -106,9 +106,8 @@ namespace
   };
 
   OriginalPidTable originalPidTable;
-  
-#endif
 
+#endif
 
 
   class RestoreTarget
@@ -118,25 +117,29 @@ namespace
           : _path ( path )
       {
 
-        JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path ).Text ( "checkpoint file missing" );
+        JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path )
+		.Text ( "checkpoint file missing" );
 #ifdef PID_VIRTUALIZATION
-        _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers, _virtualPidTable);
+        _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers,
+					_virtualPidTable);
         _virtualPidTable.erase(getpid());
         _roots.clear();
-        _childs.clear();
+        _children.clear();
         _smap.clear();
         _used = 0;
 #else
-        _offset = _conToFd.loadFromFile(_path,_compFroup,_numPeers);
+        _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers);
 #endif
-        JTRACE ( "restore target" ) ( _path ) (_numPeers ) (_compGroup) ( _conToFd.size() ) (_offset);
+        JTRACE ( "restore target" ) ( _path ) (_numPeers ) (_compGroup)
+				    ( _conToFd.size() ) (_offset);
       }
 
       void dupAllSockets ( SlidingFdTable& slidingFd )
       {
         int lastfd = -1;
         dmtcp::vector<int> fdlist;
-        for ( ConnectionToFds::const_iterator i = _conToFd.begin(); i!=_conToFd.end(); ++i )
+        for ( ConnectionToFds::const_iterator i = _conToFd.begin();
+	      i!=_conToFd.end(); ++i )
         {
           Connection& con = ConnectionList::instance() [i->first];
           if ( con.conType() == Connection::INVALID ){
@@ -178,7 +181,8 @@ namespace
 
         slidingFd.closeAll();
       }
-      /*      else if(ConnectionList::instance()[i->first].conType() == Connection::PTS)
+      /*      else if(ConnectionList::instance()[i->first].conType()
+		      == Connection::PTS)
             {
               const dmtcp::vector<int>& fds = i->second;
               for(size_t x=0; x<fds.size(); ++x)
@@ -200,13 +204,12 @@ namespace
                 int fd = fds[x];
                 slidingFd.freeUpFd( fd );
                 int oldFd = slidingFd.getFdFor( i->first );
-                JTRACE("restoring fd")(i->first)(oldFd)(fd);
+                JTRACE("Restoring fd.")(i->first)(oldFd)(fd);
 		errno = 0;
                 JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
                 //_real_dup2(oldFd, fd);
               }
             }
-              }
        */
 
       void mtcpRestart()
@@ -221,9 +224,9 @@ namespace
       typedef map<pid_t,bool> sidMapping;
       typedef sidMapping::iterator s_iterator;
       typedef vector<RestoreTarget *>::iterator t_iterator;
-      
+
       VirtualPidTable& getVirtualPidTable() { return _virtualPidTable; }
-      void addChild(RestoreTarget *t){ _childs.push_back(t); }
+      void addChild(RestoreTarget *t){ _children.push_back(t); }
 
       bool isSessionLeader(){
         JTRACE("")(_virtualPidTable.sid()) (pid().pid());
@@ -249,41 +252,40 @@ namespace
           return false;
       }
 
-    bool isInitChild(){
+      bool isInitChild(){
         JTRACE("")(_virtualPidTable.ppid());
         if( _virtualPidTable.ppid() == 1 )
           return true;
         else
           return false;
       }
-      
-      
-      int addRoot(RestoreTarget *t,pid_t sid){ 
+
+      int addRoot(RestoreTarget *t, pid_t sid){
         if( isSessionLeader() && _virtualPidTable.sid() == sid ){
           _roots.push_back(t);
           return 1;
         }else{
-          t_iterator it = _childs.begin();
-          for(; it != _childs.end(); it++){
-            if( (*it)->addRoot(t,sid) )
+          t_iterator it = _children.begin();
+          for(; it != _children.end(); it++){
+            if( (*it)->addRoot(t, sid) )
               return 1;
           }
         }
         return 0;
       }
-  
-      // Traverce this process subtree and setup 
-      // information about sessions and its leaders of all childs
+
+      // Traverse this process subtree and setup information about sessions
+      //   and their leaders for all children.
       sidMapping &setupSessions() {
         pid_t sid = _virtualPidTable.sid();
-        if( !_childs.size() ) {
+        if( !_children.size() ) {
           _smap[sid] = isSessionLeader();
           return _smap;
         }
         // We have at least one child
-        t_iterator it = _childs.begin();
+        t_iterator it = _children.begin();
         _smap = (*it)->setupSessions();
-        for(it++; it != _childs.end();it++) {
+        for(it++; it != _children.end();it++) {
           sidMapping tmp = (*it)->setupSessions();
           s_iterator it1 = tmp.begin();
           for(;it1 != tmp.end(); it1++) {
@@ -291,9 +293,10 @@ namespace
             if( it2 != _smap.end() ) {
               // mapping already exist
               if( it2->second != it1->second ) {
-                // Session was created after child creation so child from 
-                // one thread cannot be slave of child from other thread
-                JASSERT(false). Text("One child contain session leader and other session slave slave!\n");
+                // Session was created after child creation.  So child from one
+                // thread cannot be member of session of child from other thread.
+                JASSERT(false). Text("One child contains session leader"
+				     " and other contains session member!\n");
                 exit(0);
               }
             } else {
@@ -314,10 +317,10 @@ namespace
         _smap[sid] = isSessionLeader();
         return _smap;
       }
- 
+
       void printMapping(){
-          t_iterator it = _childs.begin();
-          for(; it != _childs.end(); it++){
+          t_iterator it = _children.begin();
+          for(; it != _children.end(); it++){
               (*it)->printMapping();
           }
           JTRACE("")(pid());
@@ -326,9 +329,9 @@ namespace
               JTRACE("") (sit->first) (sit->second);
           }
       }
-      
+
       sidMapping &getSmap(){ return _smap; }
-      
+
       pid_t checkDependence(RestoreTarget *t){
         sidMapping smap = t->getSmap();
         s_iterator ext = smap.begin();
@@ -355,69 +358,68 @@ namespace
         if( gid != fgid ){
           if( !(pid = fork()) ){ // fork subversive process
             // This process moves itself to current foreground group
-            // and then changes foreground group to what we need 
-            // so it works as a spy, saboteur or wrecker :) 
+            // and then changes foreground group to what we need
+            // so it works as a spy, saboteur or wrecker :)
             // -- Artem
-            JTRACE("Change current GID to foreground GID\n"); 
-            if( setpgid(0,fgid) ){ 
-              printf("CANNOT Change current GID to foreground GID!!!\n"); 
-              fflush(stdout); 
-              exit(0); 
-            } 
-            if( tcsetpgrp(0,gid) ){ 
-              printf("CANNOT Move parent GID to foreground!!!\n"); 
-              fflush(stdout); 
-              exit(0); 
-            } 
-            JTRACE("Finish foregrounding")(getpid())(getpgid(0))(tcgetpgrp(0));
-            exit(0); 
+            JTRACE("Change current GID to foreground GID.");
+            if( setpgid(0, fgid) ){
+              printf("CANNOT Change current GID to foreground GID!!!\n");
+              fflush(stdout);
+              exit(0);
+            }
+            if( tcsetpgrp(0, gid) ){
+              printf("CANNOT Move parent GID to foreground!!!\n");
+              fflush(stdout);
+              exit(0);
+            }
+            JTRACE("Finish foregrounding.")(getpid())(getpgid(0))(tcgetpgrp(0));
+            exit(0);
           }else{
             int status;
             wait(&status);
           }
         }
       }
-  
+
       int restoreGroup()
       {
         if( isGroupLeader() ){
           // create new group where this process becomes a leader
-          JTRACE("Create new group");
-          setpgid(0,0);
+          JTRACE("Create new group.");
+          setpgid(0, 0);
           if( isForegroundProcess() ){
-            JTRACE("Restore foreground");
+            JTRACE("Restore foreground.");
             bringToForeground();
           }
         }
       }
-      
+
       void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
       {
         dmtcp::ostringstream o;
         o << dmtcpTmpDir << "/jassertlog." << pid();
         JASSERT_INIT(o.str());
-        
 
         //change UniquePid
         UniquePid::resetOnFork(pid());
         VirtualPidTable &vt = _virtualPidTable;
-        
+
         JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
 
-        vt.updateMapping(pid().pid(),_real_getpid());
+        vt.updateMapping(pid().pid(), _real_getpid());
         pid_t psid = vt.sid();
-        
+
         if( !isSessionLeader() ){
-          
+
           // Restore group information
           restoreGroup();
-          
-          // If process is not session leader - restore all childs and restore it
-          t_iterator it = _childs.begin();
-          for(; it != _childs.end(); it++){
-            JTRACE ( "Forking Child Process" ) ( (*it)->pid() ); 
+
+          // If process is not session leader, restore it and all children.
+          t_iterator it = _children.begin();
+          for(; it != _children.end(); it++){
+            JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
             pid_t cid = forkChild();
-            
+
             if ( cid == 0 )
             {
               (*it)->CreateProcess (worker, slidingFd);
@@ -434,14 +436,14 @@ namespace
 
           }
         }else{
-          // Process is session leader
-          // there may be not setsid-ed childs
-          t_iterator it = _childs.begin();
-          for(it; it != _childs.end(); it++){
+          // Process is session leader.
+          // There may be not setsid-ed children.
+          t_iterator it = _children.begin();
+          for(it; it != _children.end(); it++){
               s_iterator sit = (*it)->getSmap().find(psid);
               JTRACE("Restore processes that was created before their parent called setsid()");
               if( sit == (*it)->getSmap().end() ){
-                JTRACE ( "Forking Child Process" ) ( (*it)->pid() ); 
+                JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
                 pid_t cid = forkChild();
                 if ( cid == 0 )
                 {
@@ -457,15 +459,15 @@ namespace
                 }
               }
           }
-          
+
           pid_t nsid = setsid();
           JTRACE("change SID")(nsid);
 
           // Restore group information
           restoreGroup();
-          
-          it = _childs.begin();
-          for(it; it != _childs.end(); it++) {
+
+          it = _children.begin();
+          for(it; it != _children.end(); it++) {
             JTRACE("Restore processes that was created after their parent called setsid()");
             s_iterator sit = (*it)->getSmap().find(psid);
             if( sit != (*it)->getSmap().end() ) {
@@ -483,14 +485,14 @@ namespace
                 }
               }
             }
-          }          
+          }
 
           it = _roots.begin();
           for(it; it != _roots.end(); it++) {
             JTRACE ( "Forking Dependent Root Process" ) ( (*it)->pid() );
             pid_t cid;
             if( (cid = fork()) ){
-                waitpid(cid,NULL,0);
+              waitpid(cid, NULL, 0);
             }else{
               if( fork() )
                 exit(0);
@@ -498,22 +500,20 @@ namespace
               JASSERT (false) . Text( "Unreachable" );
             }
           }
-        }          
+        }
 
         JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid())(isGroupLeader());
         // Save PID mapping information
         pid_t orig = pid().pid();
         pid_t curr = _real_getpid();
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig,curr);
-        
-        
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig, curr);
 
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
         worker.connectToCoordinatorWithoutHandshake();
-        worker.sendCoordinatorHandshake(procname(),_compGroup);
+        worker.sendCoordinatorHandshake(procname(), _compGroup);
         dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
-       
+
         JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
         jalib::JBinarySerializeWriter tblwr ( serialFile );
         _virtualPidTable.serialize ( tblwr );
@@ -522,10 +522,11 @@ namespace
         int stmpfd =  open( serialFile.c_str(), O_RDONLY);
         JASSERT ( stmpfd >= 0 ) ( serialFile ) ( errno );
 
-        JASSERT ( dup2 ( stmpfd, PROTECTED_PIDTBL_FD) == PROTECTED_PIDTBL_FD ) ( serialFile ) ( stmpfd );
+        JASSERT ( dup2 ( stmpfd, PROTECTED_PIDTBL_FD) == PROTECTED_PIDTBL_FD )
+	        ( serialFile ) ( stmpfd );
 
         close (stmpfd);
-       
+
        //restart targets[i]
         dupAllSockets ( slidingFd );
         mtcpRestart();
@@ -541,39 +542,37 @@ namespace
           pid_t childPid = fork();
 
           JASSERT ( childPid != -1 ) .Text ( "fork() failed" );
-          
+
           if ( childPid == 0 ) { /* child process */
             if ( originalPidTable.isConflictingChildPid ( getpid() ) )
               _exit(1);
             else
               return 0;
-          } 
+          }
           else { /* Parent Process */
             if ( originalPidTable.isConflictingChildPid ( childPid ) ) {
               JTRACE( "PID Conflict, creating new child" ) (childPid);
               waitpid ( childPid, NULL, 0 );
             }
-            else 
+            else
               return childPid;
           }
         }
 
         return -1;
       }
-
-      
 #endif
 
-      dmtcp::string     _path;
+      dmtcp::string _path;
       int _offset;
       ConnectionToFds _conToFd;
       UniquePid _compGroup;
       int _numPeers;
 #ifdef PID_VIRTUALIZATION
       VirtualPidTable _virtualPidTable;
-      // Links to childs of this process
-      vector<RestoreTarget *> _childs; 
-      // Links to roots, which depends on this target
+      // Links to children of this process
+      vector<RestoreTarget *> _children;
+      // Links to roots that depend on this target
       // i.e. have SID of this target in its tree.
       vector<RestoreTarget *> _roots;
       sidMapping _smap;
@@ -582,7 +581,7 @@ namespace
   };
 
 
-}//namespace
+} // end namespace
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -692,8 +691,8 @@ int main ( int argc, char** argv )
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    }else if( (s.length()>2 && s.substr(0,2)=="--") ||
-              (s.length()>1 && s.substr(0,1)=="-" ) ) {
+    }else if( (s.length()>2 && s.substr(0, 2)=="--") ||
+              (s.length()>1 && s.substr(0, 1)=="-" ) ) {
       JASSERT_STDERR << "Invalid Argument\n";
       JASSERT_STDERR << theUsage;
       return 1;
@@ -712,7 +711,7 @@ int main ( int argc, char** argv )
 
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
-  
+
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
@@ -762,17 +761,19 @@ int main ( int argc, char** argv )
   // Check that all targets belongs to one computation group
   // If not - abort
   for(int i=0; i<targets.size(); i++){
-    JTRACE ( "Check targets: " ) 
+    JTRACE ( "Check targets: " )
       ( targets[i]._path ) ( targets[i]._compGroup ) ( targets[i]._numPeers );
   }
-  
+
   compGroup = targets[0]._compGroup;
   numPeers = targets[0]._numPeers;
   for(int i=0; i<targets.size(); i++){
     if( compGroup != targets[i]._compGroup){
-      JASSERT(false)(compGroup)(targets[i]._compGroup).Text("ERROR: Restored programs belongs to different computation IDs");
+      JASSERT(false)(compGroup)(targets[i]._compGroup)
+	.Text("ERROR: Restored programs belongs to different computation IDs");
     }else if( numPeers != targets[i]._numPeers ){
-      JASSERT(false)(numPeers)(targets[i]._numPeers).Text("ERROR: Different numpber of processes saved in checkpoint images");
+      JASSERT(false)(numPeers)(targets[i]._numPeers)
+	.Text("ERROR: Different numpber of processes saved in checkpoint images");
     }
   }
 
@@ -780,8 +781,8 @@ int main ( int argc, char** argv )
   DmtcpWorker worker ( false );
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
   ConnectionState ckptCoord ( conToFd );
-  worker.restoreSockets ( ckptCoord,compGroup,numPeers,coordTstamp );
-  
+  worker.restoreSockets ( ckptCoord, compGroup, numPeers, coordTstamp );
+
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
 
@@ -813,8 +814,8 @@ int main ( int argc, char** argv )
 #else
   size_t i = targets.size();
 
-  // Create roots vector, assign childs to their parents
-  // Delete not existing childs.
+  // Create roots vector, assign children to their parents. 
+  // Delete children that don't exist.
   BuildProcessTree();
 
   // Process all checkpoints to find one of them who can switch
@@ -824,29 +825,29 @@ int main ( int argc, char** argv )
   // Node contains info about all sessions which exists at lower levels.
   // Also node is aware about session leader existense at lower levels
   SetupSessions();
-  
-  /* Create the file to hold the pid/tid maps*/
+
+  /* Create the file to hold the pid/tid maps. */
   openPidMapFiles();
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
-  for ( int j = 0 ; j < roots.size(); ++j ) 
+  for ( int j = 0 ; j < roots.size(); ++j )
   {
     if( roots[j].indep == false ){
-      // we will restore this process from one of 
-      // independent roots
+      // We will restore this process from one of the independent roots.
       continue;
     }
     if (pgrp_index == -1 && !roots[j].t->isInitChild() ){
       pgrp_index = j;
       continue;
     }
-    
+
     pid_t cid = fork();
     if ( cid == 0 ){
       JTRACE ( "Root of process tree" ) ( _real_getpid() ) ( _real_getppid() );
       if( roots[j].t->isInitChild() ){
-        JTRACE ( "Create init-child process" ) ( _real_getpid() ) ( _real_getppid() );
+        JTRACE ( "Create init-child process" ) ( _real_getpid() )
+					       ( _real_getppid() );
         if( fork() )
           _exit(0);
       }
@@ -855,7 +856,7 @@ int main ( int argc, char** argv )
     }
     JASSERT ( cid > 0 );
     if( roots[j].t->isInitChild() ){
-      waitpid(cid,NULL,0);
+      waitpid(cid, NULL, 0);
     }
   }
 
@@ -863,7 +864,8 @@ int main ( int argc, char** argv )
   int flat_index = -1;
   int j = 0;
   if( pgrp_index < 0 ){ // No root processes at all
-    // Find first flat process who can replace currently rinning dmtcp_restart context
+    // Find first flat process who can replace currently running
+    //   dmtcp_restart context.
     for (j = 0; j < targets.size(); ++j){
       if( !targets[j]._used ){
             // Save first flat-like process to be restored after all others
@@ -875,7 +877,7 @@ int main ( int argc, char** argv )
   }
   // Use j setted to 0 (if at least one root non-init-child process exist
   // or to some value if no such process found
-  for(; j < targets.size(); ++j) 
+  for(; j < targets.size(); ++j)
   {
     if( !targets[j]._used ){
       if( pgrp_index < 0 ){
@@ -888,7 +890,7 @@ int main ( int argc, char** argv )
       }
     }
   }
-  
+
   if( pgrp_index >=0 ){
     JTRACE("Restore first Root Target")(roots[pgrp_index].t->pid());
     roots[pgrp_index].t->CreateProcess(worker, slidingFd);
@@ -903,7 +905,7 @@ int main ( int argc, char** argv )
 
 void BuildProcessTree()
 {
-  for (int j = 0; j < targets.size(); ++j) 
+  for (int j = 0; j < targets.size(); ++j)
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
     originalPidTable.insertFromVirtualPidTable ( virtualPidTable );
@@ -914,9 +916,9 @@ void BuildProcessTree()
       rt.indep = true;
       roots.push_back(rt);
       targets[j]._used = true;
-    }else if( !targets[j]._used ){ 
+    }else if( !targets[j]._used ){
       // We set used flag if we use target as somebodys child. If it is used - no need to check is it roor
-      // Iterate through all targets and try to find the one who has this process 
+      // Iterate through all targets and try to find the one who has this process
       // as child process
       JTRACE("Process is not root of process tree: try to find if it has parent");
       bool is_root = true;
@@ -939,18 +941,18 @@ void BuildProcessTree()
         rt.t = &targets[j];
         rt.indep = true;
         roots.push_back(rt);
-        targets[j]._used = true;        
+        targets[j]._used = true;
       }
     }
 
-    // Add all childs
+    // Add all children
     VirtualPidTable::iterator it;
     for(it = virtualPidTable.begin(); it != virtualPidTable.end(); it++ ){
       // find target
       bool found = false;
       pid_t childOriginalPid = it->first;
       UniquePid& childUniquePid = it->second;
-      
+
       for ( int i = 0; i < targets.size(); i++ )
       {
         if ( childUniquePid == targets[i].pid() )
@@ -965,7 +967,7 @@ void BuildProcessTree()
         JTRACE("Child not found")(childOriginalPid);
         virtualPidTable.erase( childOriginalPid );
       }
-    }      
+    }
   }
 }
 
@@ -973,28 +975,30 @@ void BuildProcessTree()
  * Group processing
  * 1. Divide all processes into sessions
  * 2. Divide processes in each session into groups
- * 3. In each group check that stored foreground values are equal. 
- * If not - somethings wrong - ABORT
- * 4. In each session choose the process that can bring appropriate group to foreground
- * 5. Serialize information about choosen UniquePIDs in following format: "COUNT:unique-pid1:unique-pid2:..."
- * 6. Deserialize information from step 5 in forked and restored processes 
- * 
+ * 3. In each group check that stored foreground values are equal.
+ *    If not, something's wrong:  ABORT
+ * 4. In each session choose the process that can bring appropriate group
+ *    to foreground
+ * 5. Serialize information about chosen UniquePIDs in following
+ *    format: "COUNT:unique-pid1:unique-pid2:..."
+ * 6. Deserialize information from step 5 in forked and restored processes.
+ *
  */
 
 class group {
 public:
   group(){
-    gid = -2; 
+    gid = -2;
   }
   pid_t gid;
   vector<RestoreTarget*> targets;
 };
 
 class session{
-public: 
+public:
   session(){
-    sid = -2; 
-    fgid = -2; 
+    sid = -2;
+    fgid = -2;
   }
   pid_t sid;
   pid_t fgid;
@@ -1007,37 +1011,38 @@ void ProcessGroupInfo()
 {
   map<pid_t,session> smap;
   map<pid_t,session>::iterator it;
-  int i,j,k;
-  
+  int i, j, k;
+
   // 1. divide processes into sessions and groups
-  for (j = 0; j < targets.size(); j++) 
+  for (j = 0; j < targets.size(); j++)
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
-    JTRACE("Process ")(virtualPidTable.pid())(virtualPidTable.ppid())(virtualPidTable.sid())
-      (virtualPidTable.gid())(virtualPidTable.fgid())(virtualPidTable.isRootOfProcessTree());
+    JTRACE("Process ")
+      (virtualPidTable.pid())(virtualPidTable.ppid())(virtualPidTable.sid())
+      (virtualPidTable.gid())(virtualPidTable.fgid())
+      (virtualPidTable.isRootOfProcessTree());
 
     pid_t sid = virtualPidTable.sid();
     pid_t gid = virtualPidTable.gid();
     pid_t fgid = virtualPidTable.fgid();
 
-/*    
-    // if group ID not belongs to known PIDs - indicate that 
-    // fact using -1 value
+/*
+    // If group ID doesn't belong to known PIDs, indicate that fact
+    //   using -1 value.
     if( !virtualPidTable.pidExists(gid) ){
       JTRACE("DROP gid")(gid);
       virtualPidTable.setgid(-1);
       gid = -1;
     }
-    // if foreground group ID not belongs to known PIDs -  
-    // indicate that fact using -1 value
-
+    // If foreground group ID not belongs to known PIDs,
+    //   indicate that fact using -1 value.
     if( !virtualPidTable.pidExists(fgid) ){
       JTRACE("DROP fgid")(fgid);
       virtualPidTable.setfgid(-1);
       fgid = -1;
     }
 */
-    
+
     session &s = smap[sid];
     // if this is first element of this session
     if( s.sid == -2 ){
@@ -1050,7 +1055,7 @@ void ProcessGroupInfo()
     }
     g.targets.push_back(&targets[j]);
   }
-  
+
   // 2. Check if foreground setting is correct
   it = smap.begin();
   for(;it != smap.end();it++){
@@ -1063,9 +1068,10 @@ void ProcessGroupInfo()
         VirtualPidTable& virtualPidTable = g.targets[k]->getVirtualPidTable();
         pid_t cfgid = virtualPidTable.fgid();
         if( fgid == -2 ){
-          fgid = cfgid; 
+          fgid = cfgid;
         }else if( fgid != cfgid ){
-          printf("Error: process from same session stores different foreground group ID: %d, %d\n",fgid,cfgid);
+          printf("Error: process from same session stores different"
+		 " foreground group ID: %d, %d\n", fgid, cfgid);
           abort();
         }
       }
@@ -1077,12 +1083,11 @@ void ProcessGroupInfo()
       s.fgid = -1;
     }
   }
-  
-  // Print out session mapping
+
+  // Print out session mapping.
   JTRACE("Session number:")(smap.size());
-  
   it = smap.begin();
-  for(;it != smap.end();it++){
+  for( ; it != smap.end(); it++ ){
     session &s = it->second;
     JTRACE("Session printout:")(s.sid)(s.fgid)(s.upid.toString().c_str());
     session::group_it g_it = s.groups.begin();
@@ -1091,10 +1096,10 @@ void ProcessGroupInfo()
       JTRACE("\tGroup ID: ")(g.gid);
 /*
       for(k=0; k<g.targets.size() ;k++){
-        printf("%d ",g.targets[k]->pid().pid());
+        printf("%d ", g.targets[k]->pid().pid());
       }
       printf("\n");
-*/      
+*/
     }
   }
 }
@@ -1104,7 +1109,7 @@ void SetupSessions()
   for(int j=0; j < roots.size(); j++){
     roots[j].t->setupSessions();
   }
- 
+
   for(int i = 0; i < roots.size(); i++){
     for(int j = 0; j < roots.size(); j++){
       if( i == j )
@@ -1113,7 +1118,7 @@ void SetupSessions()
       if( (sid = (roots[i].t)->checkDependence(roots[j].t)) >= 0 ){
         // it2 depends on it1
         JTRACE("Root target j depends on Root target i")(i)(roots[i].t->pid())(j)(roots[j].t->pid());
-        (roots[i].t)->addRoot(roots[j].t,sid);
+        (roots[i].t)->addRoot(roots[j].t, sid);
         roots[j].indep = false;
       }
     }
@@ -1140,34 +1145,36 @@ int openSharedFile(dmtcp::string name, int flags)
 
 static void openPidMapFiles()
 {
-  dmtcp::ostringstream pidMapFile,pidMapCountFile;
-  int fd,i;
+  dmtcp::ostringstream pidMapFile, pidMapCountFile;
+  int fd, i;
 
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
   pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
 
-  // Open & create pidMapFile if not exist
+  // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
-  fd = openSharedFile(pidMapFile.str(),(O_WRONLY|O_APPEND));
+  fd = openSharedFile(pidMapFile.str(), (O_WRONLY|O_APPEND));
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( pidMapFile.str() );
   close (fd);
 
-  // Open & create pidMapCountFile if not exist
+  // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD ) ( pidMapCountFile.str() );
   close(fd);
-  
+
   dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
-  
-  // initialize pidMapCountFile with zero value
-  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(), PROTECTED_PIDMAPCNT_FD);
+
+  // Initialize pidMapCountFile with zero value.
+  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
+						  PROTECTED_PIDMAPCNT_FD);
   if( countwr.isempty() ){
-    JTRACE("pidMapCountFile is empty - initialize it with count = 0")(pidMapCountFile.str());
-    size_t numMaps = 0; 
-    dmtcp::VirtualPidTable::serializeEntryCount (countwr,numMaps); 
+    JTRACE("pidMapCountFile is empty.  Initialize it with count = 0")
+      (pidMapCountFile.str());
+    size_t numMaps = 0;
+    dmtcp::VirtualPidTable::serializeEntryCount (countwr, numMaps);
     fsync(PROTECTED_PIDMAPCNT_FD);
   }else{
     JTRACE("pidMapCountFile is not empty - do nothing");
@@ -1186,15 +1193,15 @@ static void runMtcpRestore ( const char* path, int offset )
   // PROTECTED_STDERR_FD. This way we prevent it from spitting out garbage onto
   // FD_STDERR if it is being used by the user process in a special way.
   char protected_stderr_fd_str[16];
-  sprintf(protected_stderr_fd_str,"%d", PROTECTED_STDERR_FD);
+  sprintf(protected_stderr_fd_str, "%d", PROTECTED_STDERR_FD);
 
 #ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
-  sprintf(buf,"%d", fd);
+  sprintf(buf, "%d", fd);
   char buf2[64];
   // gzip_child_pid set by openMtcpCheckpointFile() above.
-  sprintf(buf2,"%d", dmtcp::ConnectionToFds::gzip_child_pid);
+  sprintf(buf2, "%d", dmtcp::ConnectionToFds::gzip_child_pid);
 
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
@@ -1208,11 +1215,11 @@ static void runMtcpRestore ( const char* path, int offset )
   };
   if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
     newArgs[3] = NULL;
-  
+
   JTRACE ( "launching mtcp_restart --fd" )(fd)(path);
 #else
   char buf[64];
-  sprintf(buf,"%d", offset);
+  sprintf(buf, "%d", offset);
 
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
@@ -1223,11 +1230,12 @@ static void runMtcpRestore ( const char* path, int offset )
     (char*) path,
     NULL
   };
-  
+
   JTRACE ( "launching mtcp_restart --offset" )(path)(offset);
 
 #endif
 
   execvp ( newArgs[0], newArgs );
-  JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
+  JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO )
+          .Text ( "exec() failed" );
 }

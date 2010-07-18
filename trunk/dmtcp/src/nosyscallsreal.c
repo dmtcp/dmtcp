@@ -28,7 +28,8 @@
 
 #include <pthread.h>
 #include "syscallwrappers.h"
-#include <dlfcn.h>
+// We should not need dlopen/dlsym
+// #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +40,6 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <errno.h>
 #include <ctype.h>
 
 
@@ -186,10 +186,6 @@ pid_t _real_getpid(void){
   REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
-pid_t _real_gettid(void){
-  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
-}
-
 pid_t _real_getppid(void){
   REAL_FUNC_PASSTHROUGH_PID_T ( getppid ) ( );
 }
@@ -251,6 +247,32 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
 }
 
 #endif
+
+// Needed for _real_gettid, etc.
+long int _real_syscall(long int sys_num, ... ) {
+  int i;
+  void * arg[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+  for (i = 0; i < 7; i++)
+    arg[i] = va_arg(ap, void *);
+  va_end(ap);
+
+  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
+  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+}
+
+// gettid / tkill / tgkill are not defined in libc.
+// So, this is needed even if there is no PID_VIRTUALIZATION.
+pid_t _real_gettid(void){
+#ifdef PID_VIRTUALIZATION
+// IS THIS LIKE ORIGINAL?
+  REAL_FUNC_PASSTHROUGH_PID_T ( _real_syscall(SYS_gettid) );
+#else
+  REAL_FUNC_PASSTHROUGH_PID_T ( syscall(SYS_gettid) );
+#endif
+}
 
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
