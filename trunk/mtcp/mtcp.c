@@ -1262,7 +1262,7 @@ static void *checkpointhread (void *dummy)
   struct timespec sleeperiod;
   struct timeval started, stopped;
   Thread *ckpthread, *thread;
-  char * dmtcp_checkpoint_filename;
+  char * dmtcp_checkpoint_filename = NULL;
 
   /* This is the start function of the checkpoint thread.
    * We also call getcontext to get a snapshot of this call frame,
@@ -1469,11 +1469,10 @@ again:
 
       DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n",
 	       &callback_pre_ckpt, callback_pre_ckpt));
-      dmtcp_checkpoint_filename = NULL;
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
       if (dmtcp_checkpoint_filename &&
           strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
-        mtcp_sys_strcpy(perm_checkpointfilename,  dmtcp_checkpoint_filename);
+        mtcp_sys_strcpy(perm_checkpointfilename, dmtcp_checkpoint_filename);
         DPRINTF(("mtcp checkpointhread*: Checkpoint filename changed to %s\n",
 		perm_checkpointfilename));
       }
@@ -1499,8 +1498,8 @@ again:
     }
 
     if (callback_post_ckpt != NULL){
-        DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n"
-				,&callback_post_ckpt,callback_post_ckpt));
+        DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n",
+		 &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(0);
     }
     if (showtiming) {
