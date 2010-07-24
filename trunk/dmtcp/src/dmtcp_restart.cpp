@@ -1071,7 +1071,20 @@ void ProcessGroupInfo()
           fgid = cfgid;
         }else if( fgid != cfgid ){
           printf("Error: process from same session stores different"
-		 " foreground group ID: %d, %d\n", fgid, cfgid);
+				 		" foreground group ID: %d, %d\n", fgid, cfgid);
+					// DEBUG PRINTOUT:
+					{
+				    session::group_it g_it1 = s.groups.begin();
+				    for(; g_it1!=s.groups.end();g_it1++){
+				      group &g1 = g_it1->second;
+				      for(int m=0; m<g1.targets.size() ;m++){
+        				VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+								pid_t pid = virtualPidTable.pid();
+								pid_t cfgid = virtualPidTable.fgid();
+								printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+							}
+						}
+					}
           abort();
         }
       }
@@ -1082,6 +1095,19 @@ void ProcessGroupInfo()
       // foreground group is missing, don't need to change foreground groop
       s.fgid = -1;
     }
+		
+		{
+		   session::group_it g_it1 = s.groups.begin();
+		   for(; g_it1!=s.groups.end();g_it1++){
+		     group &g1 = g_it1->second;
+		     for(int m=0; m<g1.targets.size() ;m++){
+    			VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+					pid_t pid = virtualPidTable.pid();
+					pid_t cfgid = virtualPidTable.fgid();
+					printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+				}
+			}
+		}
   }
 
   // Print out session mapping.

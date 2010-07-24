@@ -102,7 +102,6 @@ int main()
 	if( !(p1_cids[2] = fork()) ){
 		pid_t p13_cids[3];
 
-
 		if( !(p13_cids[0] = fork()) ){
 			eq_ppid = 1; // after restart we should find thi same PPID
 			process("p131",NULL,0);
@@ -124,7 +123,7 @@ int main()
 		}
 
 
-		process("p13",p3_cids,3);
+		process("p13",p13_cids,3);
 	}
 	process("p1",p1_cids,1);
 }
