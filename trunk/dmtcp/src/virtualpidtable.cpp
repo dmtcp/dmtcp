@@ -520,6 +520,7 @@ void dmtcp::VirtualPidTable::_unlock_file(int fd)
 
 void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid) 
 { 
+
   dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
   dmtcp::string pidMapCountFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
@@ -536,6 +537,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   // Lock fileset before any operations
   JTRACE("Try to lock file set" );
   _lock_file(PROTECTED_PIDMAP_FD);
+  _do_lock_tbl();
   JTRACE("Try to lock file set - OK" );
   // Read old number of saved pid maps
   countrd.rewind();
@@ -550,6 +552,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   numMaps++;
   serializeEntryCount (countwr,numMaps);
   // unlock fileset
+  _do_unlock_tbl();
   _unlock_file(PROTECTED_PIDMAP_FD);
   JTRACE("Unlock file set");
 } 
