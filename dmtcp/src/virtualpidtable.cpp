@@ -86,12 +86,20 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
+  char s[ L_ctermid ];
   // Update Group information before checkpoint
   _ppid = getppid(); // refresh parent PID
   _gid = getpgid(0);
   JTRACE("CHECK GROUP PID")(_gid)(_ppid)(pidExists(_gid));
-  _fgid = tcgetpgrp(STDIN_FILENO);
-  
+
+  // play around group ID
+  _fgid = -1;
+  if( ctermid(s) ){
+    int tfd = open(s,O_RDONLY);
+    if( tfd >= 0 ){
+      _fgid = tcgetpgrp(tfd);
+    }
+  }
   JTRACE("VirtualPidTable::preCheckpoint()")(_gid)(_fgid);
 }
 
