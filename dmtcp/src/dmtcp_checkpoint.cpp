@@ -98,7 +98,10 @@ static const char* theExecFailedMsg =
 ;
 
 static const char* theMatlabWarning =
-  "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
+  "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
+  "****  older glibc.  Later releases (e.g. release 7.9 have no problem.\n"
+  "****  \n"
+  "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
   "****  with gcc-4.1 and g++-4.1\n"
   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
@@ -106,7 +109,7 @@ static const char* theMatlabWarning =
   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-  "****   (Will try to execute anyway with current compiler version.)\n\n"
+  "****   (Assuming you have done the above, Will now continue executing.)\n\n"
 ;
 static dmtcp::string _stderrProcPath()
 {
@@ -347,8 +350,10 @@ int main ( int argc, char** argv )
     // JASSERT_STDERR, without continuing and trying the execvp anyway.
     // Consider also checking these things after call to exec(),
     //   perhaps in DmtcpWorker constructor.
-    JASSERT_STDERR <<
-      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
+    // FIXME:  This could have been a symbolic link.  Don't issue an error,
+    //         unless we're sure that the executable is not readable.
+    // JASSERT_STDERR <<
+    //   "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
   } else {
     bool is32bit = false;
     char * ld_preload = getenv("LD_PRELOAD");
@@ -368,7 +373,8 @@ int main ( int argc, char** argv )
     if ( system(cmd.c_str()) )
       JASSERT_STDERR <<
         "*** ERROR:  You appear to be checkpointing "
-        << "a statically linked target.\n"
+        << "a statically linked target:\n"
+	<< "***    " << argv[0] << " .\n"
         << "***  You can confirm this with the 'file' command.\n"
         << "***  The standard DMTCP only supports dynamically"
 	<< " linked executables.\n"

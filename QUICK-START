@@ -178,6 +178,7 @@ SHORT NOTES:
        images.  Run it without arguments for a usage message.
     9. dmtcpaware exists for programs that wish to directly talk to the
        dmtcp_coordinator, without the intervention of a human being.
+       See the test subdirectory for several example dmtcpaware programs.
     10. bin/gdb-add-symbol-file may be a useful debugging tool.  It computes
 	the arguments for the add-symbol-file command of gdb, to import
 	symbol information about a dynamic library.  It is most useful in
@@ -192,28 +193,17 @@ SHORT NOTES:
 	re-execute the g++ compilation from the last line output by make,
 	but do not include "-O2".  Alternatively, when configuring, use:
 	  env CXXFLAGS=-O1 ./configure
-    12. matlab has several issues at this time:
-	A.  If you see a message about GLIBCXX-3.4 not found, you can either
+    12. A. Matlab should be invoked without graphics, and to be extra safe,
+	   without the JVM.  The -nodisplay and -nojvm matlab flags suffice:
+		bin/dmtcp_checkpoint matlab -nodisplay -nojvm
+	B.  Older releases of Matlab (e.g. release 7.4) have several issues:
+	    If you see a message about GLIBCXX-3.4 not found, you can either
 	    use root privilege to replace matlab's older libstdc++  by your
 	    system's newer libstdc++ (back up matlab's older libstdc++),
 	    or else just re-configure and re-compile DMTCP as follows:
 		env CC=gcc-4.1 CXX=g++-4.1 ./configure
 		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
                 make clean; make
-        B. Matlab should be invoked without graphics, and to be extra safe,
-	   without the JVM.  The -nodisplay and -nojvm matlab flags suffice.
-	C. Matlab has an unfortunate interaction with the bash shell.
-	   The dash script is a small Linux shell compliant with /bin/sh.
-	   If /bin/sh is aliased to /bin/dash on your system ("ls -l /bin/sh"),
-	   you should see no problem.  You can also type:
-	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
-	   Another option is to directly invoke the matlab binary:
-    	     bin/dmtcp_checkpoint \
-	       /usr/local/matlabr2007a/bin/glnxa64/MATLAB -nodisplay -nojvm
-        D.  Hence, at our site, we are able to successfully
-	   checkpoint and restart matlab with the following invocation:
-	     bin/dmtcp_checkpoint dash `which matlab` -nodisplay -nojvm
-           We are working toward a more general fix.
     13. How to checkpoint OpenMPI with DMTCP
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
@@ -325,3 +315,14 @@ SHORT NOTES:
 	  packages 'patch' and 'linux-libc-dev' are installed.
 	For OpenSuse Linux, ensure that the
 	  packages 'patch' and 'linux-kernel-headers'
+
+    16. By default in DMTCP, successive checkpoints of the same process
+	write to the same checkpoint image filename.  If you prefer that
+	successive checkpoint be written to distinct filenames, then use:
+	  ./configure --enable-unique-checkpoint-filenames
+
+    17. DMTCP continues to use the original pid (process id), tid (thread id),
+	etc., even on restart from a checkpoint image.  In this last
+	case, your program will see the _original pid_, and not the
+	current pid.  At this time, a restarted process will appear
+	within the "ps" command under the program name "mtcp_restart".
