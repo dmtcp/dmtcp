@@ -342,6 +342,8 @@ int main ( int argc, char** argv )
   //  newArgs[i] = argv[i+startArg];
 
   dmtcp::string magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
+  dmtcp::string magic_elf = "\177ELF"; // Magic number for ELF
+  // Magic number for ELF 64-bit is "\177ELF\002"
   char argv_buf[5];
   int fd = open(argv[0], O_RDONLY);
   if (fd == -1 || 5 != read(fd, argv_buf, 5)) {
@@ -355,22 +357,27 @@ int main ( int argc, char** argv )
     // JASSERT_STDERR <<
     //   "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
   } else {
-    bool is32bit = false;
+    bool is32bitElf = false;
+    bool isElf = false;
     char * ld_preload = getenv("LD_PRELOAD");
-    is32bit = (0 == memcmp(magic_elf32.c_str(), argv_buf, 5));
+    is32bitElf = (0 == memcmp(magic_elf32.c_str(),
+		       argv_buf, magic_elf32.length()));
+    isElf = (0 == memcmp(magic_elf.c_str(), argv_buf, magic_elf.length()));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
-    if (is32bit)
+    if (is32bitElf)
       JASSERT_STDERR <<
         "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
         << "***  configure --enable-m32 ; make clean ; make\n\n";
+    dmtcp::string cmd = is32bitelf ? "/lib/ld-linux.so.2 --verify "
+			           : "/lib64/ld-linux-x86-64.so.2 --verify " ;
+#else
+    dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
 #endif
-    dmtcp::string cmd = is32bit ? "/lib/ld-linux.so.2 --verify "
-			        : "/lib64/ld-linux-x86-64.so.2 --verify " ;
     cmd = cmd + argv[0] + " > /dev/null";
     unsetenv ( "LD_PRELOAD" );
-    if ( system(cmd.c_str()) )
+    if ( isElf && system(cmd.c_str()) )
       JASSERT_STDERR <<
         "*** ERROR:  You appear to be checkpointing "
         << "a statically linked target:\n"
