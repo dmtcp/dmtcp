@@ -1134,14 +1134,33 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
     fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
 		  " || DMTCP_RESTART=`dirname %s`/dmtcp_restart\n\n", argv0 );
+    fprintf ( fp, "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+                  "  new_ckpt_names=\"\"\n"
+                  "  names=\"%s\"\n"
+                  "  for tmp in $names; do\n"
+                  "    new_ckpt_names=\"$DMTCP_RESTART_DIR/`basename $tmp` $new_ckpt_names\"\n"
+                  "  done\n"
+    	            "fi\n", o.str().c_str());
+
     fprintf ( fp,
               "if [ ! -z \"$maybebatch\" ]; then\n"
-              "  exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "    %s\n"
+              "  if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+              "    exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "       $new_ckpt_names\n"
+              "  else\n"
+              "    exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "       %s\n"
+              "  fi\n"
               "else\n"
-              "  exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-              "    $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "      %s\n"
+              "  if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+              "    exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "      $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "        $new_ckpt_names\n"
+              "  else\n"
+              "    exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "      $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "        %s\n"	      
+              "  fi\n"
               "fi\n", o.str().c_str(), o.str().c_str() );
   }
   else
