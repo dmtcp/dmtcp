@@ -105,6 +105,15 @@ fi
 #check for gcl
 AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
 
+#check for script
+AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [$PATH:/usr/bin])
+
+#check for screen
+AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [$PATH:/usr/bin])
+
+#check for matlab
+AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])
+
 #check for patch utility
 AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])
 

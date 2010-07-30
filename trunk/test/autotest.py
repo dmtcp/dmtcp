@@ -8,6 +8,11 @@ import os
 import sys
 import resource
 
+if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
+  print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
+  print "Change the beginning of test/autotest.py if you believe you can run."
+  sys.exit(1)
+
 #get testconfig
 os.system("test -f Makefile || ./configure")
 import testconfig
@@ -56,6 +61,46 @@ for i in sys.argv:
 
 stats = [0, 0]
 
+def xor(bool1, bool2):
+  return (bool1 or bool2) and (not bool1 or not bool2)
+
+def replaceChar(string, index, char):
+  return string[0:index] + char + string[index+1:len(string)]
+
+def splitWithQuotes(string):
+  inSingleQuotes = False
+  inDoubleQuotes = False
+  isOuter = False
+  escapeChar = False
+  for i in range(len(string)):
+    if escapeChar:
+      escapeChar = False
+      continue
+    if string[i] == "\\" and string[i+1] != "\\":
+      escapeChar = True
+      # Remove one level of escaping if same quoting char as isOuter
+      if isOuter == string[i+1]:
+        string = replaceChar(string, i, '#')
+      continue
+    if string[i] == "'":
+      inSingleQuotes = not inSingleQuotes
+    if string[i] == '"':
+      inDoubleQuotes = not inDoubleQuotes
+    # Remove outermost quotes: 'bash -c "sleep 30"' => ['bash','-c','sleep 30']
+    if string[i] == "'" or string[i] == '"':
+      # This triggers twice in:  '"..."'  (on first ' and second ")
+      if xor(inSingleQuotes, inDoubleQuotes) and not isOuter: # if beg. of quote
+	isOuter = string[i]
+        string = replaceChar(string, i, '#')
+      elif isOuter == string[i]:  # if end of quote
+	isOuter = False
+        string = replaceChar(string, i, '#')
+    if not inSingleQuotes and not inDoubleQuotes and string[i] == ' ':
+      # FIXME (Is there any destructive way to do this?)
+      string = replaceChar(string, i, '%')
+  string = string.replace('#', '')
+  return string.split('%')
+
 def shouldRunTest(name):
   if len(sys.argv) <= 1:
     return True
@@ -85,7 +130,7 @@ class CheckFailed(Exception):
 def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
-  cmd = cmd.split(" ");
+  cmd = splitWithQuotes(cmd);
   try:
     os.stat(cmd[0])
   except:
@@ -379,14 +424,29 @@ runTest("perl",          1, ["/usr/bin/perl"])
 runTest("python",        1, ["/usr/bin/python"])
 
 os.environ['DMTCP_GZIP'] = "0"
-runTest("bash",          1, ["/bin/bash"])
+runTest("bash",          2, ["/bin/bash -c 'ls; sleep 30'"])
 os.environ['DMTCP_GZIP'] = GZIP
-
-#if testconfig.HAS_GCL == "yes":
-#  runTest("gcl",         1,  ["/usr/bin/gcl"])
 
 if testconfig.HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
+
+# SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
+if testconfig.HAS_GCL == "yes":
+  runTest("gcl",         1,  ["/usr/bin/gcl"])
+
+# SHOULD HAVE script RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
+if testconfig.HAS_SCRIPT == "yes":
+  S=2
+  runTest("script",         4,  ["/usr/bin/script -f" +
+  				 " -c 'bash -c \"ls; sleep 30\"'" +
+  				 " dmtcp-test-typescript.tmp"])
+  S=0.3
+
+# COMMENT THIS IN WHEN screen IS WORKING.
+# SHOULD HAVE script RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
+# BUT screen -s CMD works only when CMD is single word.
+# if testconfig.HAS_SCREEN == "yes":
+#   runTest("screen",         3,  ["/usr/bin/screen"])
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
