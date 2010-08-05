@@ -98,7 +98,9 @@ void dmtcp::VirtualPidTable::preCheckpoint()
     int tfd = open(s,O_RDONLY);
     if( tfd >= 0 ){
       _fgid = tcgetpgrp(tfd);
+      close(tfd);
     }
+
   }
   JTRACE("VirtualPidTable::preCheckpoint()")(_gid)(_fgid);
 }
