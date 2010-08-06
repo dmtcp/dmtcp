@@ -370,7 +370,7 @@ int main ( int argc, char** argv )
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
         << "***  configure --enable-m32 ; make clean ; make\n\n";
-    dmtcp::string cmd = is32bitelf ? "/lib/ld-linux.so.2 --verify "
+    dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
 			           : "/lib64/ld-linux-x86-64.so.2 --verify " ;
 #else
     dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
