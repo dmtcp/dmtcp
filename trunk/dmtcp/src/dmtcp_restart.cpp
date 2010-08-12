@@ -363,12 +363,12 @@ namespace
             // -- Artem
             JTRACE("Change current GID to foreground GID.");
             if( setpgid(0, fgid) ){
-              printf("CANNOT Change current GID to foreground GID!!!\n");
+              printf("CANNOT Change current GID to foreground GID: %s\n",strerror(errno));
               fflush(stdout);
               exit(0);
             }
             if( tcsetpgrp(0, gid) ){
-              printf("CANNOT Move parent GID to foreground!!!\n");
+              printf("CANNOT Move parent GID to foreground: %s\n",strerror(errno));
               fflush(stdout);
               exit(0);
             }
