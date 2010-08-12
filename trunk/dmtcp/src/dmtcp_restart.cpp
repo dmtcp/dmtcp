@@ -364,11 +364,13 @@ namespace
             JTRACE("Change current GID to foreground GID.");
             if( setpgid(0, fgid) ){
               printf("CANNOT Change current GID to foreground GID: %s\n",strerror(errno));
+              printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
               fflush(stdout);
               exit(0);
             }
             if( tcsetpgrp(0, gid) ){
               printf("CANNOT Move parent GID to foreground: %s\n",strerror(errno));
+              printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
               fflush(stdout);
               exit(0);
             }
