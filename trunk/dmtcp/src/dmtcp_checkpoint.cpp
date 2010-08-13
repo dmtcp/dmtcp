@@ -287,6 +287,8 @@ int main ( int argc, char** argv )
 
   // Initialize JASSERT library here
   JASSERT_INIT( dmtcp::UniquePid::getTmpDir() );
+  if (argc > 0)
+    JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
 
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
