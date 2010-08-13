@@ -1362,6 +1362,7 @@ int main ( int argc, char** argv )
   o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
     << dmtcp::UniquePid::ThisProcess();
   JASSERT_INIT(o.str());
+  JTRACE ( "New DMTCP coordinator starting." );
 
   JTRACE ( "recalculated process UniquePid..." )
 	 ( dmtcp::UniquePid::ThisProcess() );
