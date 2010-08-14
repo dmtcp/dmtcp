@@ -50,7 +50,7 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
     for ( ; j != connections.end() ; prevJ = j, j++ ) {
       FileConnection* fileConJ = (FileConnection*) j->second;
       if ( j->second->conType() != Connection::FILE )
-	continue;
+        continue;
       else if ( fileConJ->isDupConnection( *fileConI, _conToFds ) ) {
         JTRACE ("dup()'s file connections found, merging them")
 	       ( i->first ) ( j->first );
@@ -60,7 +60,7 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
         _conToFds.erase( fileConJ->id() );
         // ConnectionList::iterator j = connections.erase ( j );
         connections.erase ( j ); // returns next position after old j pos
-	j = prevJ; // old position of j is now undefined, so back up to prev j
+        j = prevJ; // old position of j is now undefined, so back up to prev j
       }
     }
   }

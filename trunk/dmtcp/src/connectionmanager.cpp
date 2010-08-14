@@ -90,8 +90,10 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 void dmtcp::ConnectionToFds::erase ( const ConnectionIdentifier& conId )
 {
   JTRACE("erasing connection from ConnectionToFds") (conId);
+  // 'it' will be an iterator over 1 element
   iterator it = _table.find(conId);
-  JASSERT(it != _table.end() );
+  JASSERT( it != _table.end() );
+  JASSERT( distance(it, _table.end()) == 1 );
   _table.erase(it);
 }
 
@@ -300,15 +302,17 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   return device;
 }
 
+// TODO: To properly implement STL erase(), it should return the next iterator.
 void dmtcp::ConnectionList::erase ( iterator i )
 {
   Connection * con = i->second;
   JTRACE ( "deleting stale connection..." ) ( con->id() );
-  _connections.erase ( i );
   KernelDeviceToConnection::instance().erase( i->first );
+  _connections.erase ( i );
   delete con;
 }
 
+// TODO: To properly implement STL erase(), it should return the next iterator.
 void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
 {
   for(iterator i = _table.begin(); i!=_table.end(); ++i){

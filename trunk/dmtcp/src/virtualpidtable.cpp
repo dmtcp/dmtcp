@@ -346,11 +346,13 @@ void dmtcp::VirtualPidTable::refresh()
 void dmtcp::VirtualPidTable::refreshTidVector()
 {
   dmtcp::vector< pid_t >::iterator iter;
-  for (iter = _tidVector.begin(); iter != _tidVector.end(); ++iter) {
+  for (iter = _tidVector.begin(); iter != _tidVector.end(); ) {
     int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
     if (retVal == -1 && errno == ESRCH) {
-      _tidVector.erase( iter );
       erase(*iter);
+      iter = _tidVector.erase( iter );
+    } else {
+      iter++;
     }
   }
   return;
