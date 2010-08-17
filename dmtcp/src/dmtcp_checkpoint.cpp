@@ -74,7 +74,7 @@ static const char* theUsage =
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
-  "      Checkpoint open files\n"
+  "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
