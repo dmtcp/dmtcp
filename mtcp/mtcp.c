@@ -328,6 +328,7 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 /* The following two DMTCP Info variables are defined in mtcp_printf.c */
 //int dmtcp_info_stderr_fd = 2;
 //int dmtcp_info_jassertlog_fd = -1;
+int dmtcp_info_restore_working_directory = -1;
 
   /* Static data */
 
@@ -366,6 +367,7 @@ static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
 static struct termios saved_termios;
 static int saved_termios_exists = 0;
+static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -1795,6 +1797,13 @@ again:
     /* Do this once.  It's the same for all threads. */
     saved_termios_exists = ( isatty(STDIN_FILENO)
     			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+
+    if (getcwd(saved_working_directory, MTCP_MAX_PATH) == NULL) {
+      // buffer wasn't large enough
+      perror("getcwd");
+      mtcp_printf ("getcwd failed.");
+      mtcp_abort ();
+    }
 
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p %d\n", mtcp_saved_break, mtcp_sys_kernel_gettid()));
 
@@ -4310,7 +4319,13 @@ static int restarthread (void *threadv)
       mtcp_printf("mtcp finishrestore* %d : tcsetattr\n",getpid());
       if( !i1 || i2 < 0 )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
-     }
+    }
+
+    if (dmtcp_info_restore_working_directory
+	&& chdir(saved_working_directory) == -1) {
+      perror("chdir");
+      mtcp_abort ();
+    }
   }
 
   for (child = thread -> children; child != NULL; child = child -> siblings) {
