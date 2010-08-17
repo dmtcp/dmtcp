@@ -239,6 +239,15 @@ void dmtcp::initializeMtcpEngine()
   *dmtcp_info_jassertlog_fd = PROTECTED_JASSERTLOG_FD;
 #endif 
 
+  int *dmtcp_info_restore_working_directory = 
+    (int*) _get_mtcp_symbol( "dmtcp_info_restore_working_directory" );
+  // DMTCP restores working dir only if --checkpoint-open-files invoked.
+  // Later, we may offer the user a separate command line option for this.
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES))
+    *dmtcp_info_restore_working_directory = 1;
+  else
+    *dmtcp_info_restore_working_directory = 0;
+
   t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
