@@ -90,10 +90,9 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 void dmtcp::ConnectionToFds::erase ( const ConnectionIdentifier& conId )
 {
   JTRACE("erasing connection from ConnectionToFds") (conId);
-  // 'it' will be an iterator over 1 element
+  // Find returns iterator 'it' w/ 0 or more elts, with first elt matching key.
   iterator it = _table.find(conId);
   JASSERT( it != _table.end() );
-  JASSERT( distance(it, _table.end()) == 1 );
   _table.erase(it);
 }
 
