@@ -42,7 +42,7 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
 
   JASSERT ( msg.type==DMT_RESTORE_WAITING ) ( msg.type ).Text ( "unexpected message" );
 
-  // 'i' will be an iterator over 0 or 1 elements only.
+  // Find returns iterator 'i' w/ 0 or more elts, with first elt matching key.
   iterator i = _pendingOutgoing.find ( msg.restorePid );
 
   if ( i == _pendingOutgoing.end() )
@@ -79,10 +79,6 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
       JASSERT ( _real_dup2 ( fd0,fds[n] ) == fds[n] ) ( fd0 ) ( fds[n] ) ( msg.restorePid )
       .Text ( "dup2() failed" );
     }
-
-    // NOTE: under the frisbee test, this JASSERT fails. Can the iterator i
-    // actually have more than one element?
-    //JASSERT ( distance(i, _pendingOutgoing.end()) == 1 );
     _pendingOutgoing.erase ( i );
   }
 
