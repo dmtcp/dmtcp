@@ -116,15 +116,21 @@ fi
 
 #check for gcl
 AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
+if test "$HAS_GCL" != "no"; then
+  AC_PATH_PROG([GCL],  [gcl],        [no], [$PATH:/usr/bin])
+fi
 
 #check for script
-AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [$PATH:/usr/bin])
+AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
 
 #check for screen
-AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [$PATH:/usr/bin])
+AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
 
 #check for matlab
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])
+if test "$HAS_MATLAB" != "no"; then
+  AC_PATH_PROG([MATLAB],  [matlab],        [no], [$PATH:/usr/bin])
+fi
 
 #check for patch utility
 AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])
@@ -142,7 +148,7 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 #Add check for libc.a next.  MTCP uses it in build.
 
 #check for gzip utility
-AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [$PATH:/usr/bin:/bin])
+AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
 #check for mpich2
 AC_ARG_WITH([mpich],
