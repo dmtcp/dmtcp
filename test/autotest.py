@@ -3,10 +3,12 @@ from random import randint
 from time   import sleep
 from os     import listdir
 import subprocess
+import pty
 import socket
 import os
 import sys
 import resource
+import re
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
@@ -14,6 +16,7 @@ if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   sys.exit(1)
 
 #get testconfig
+# This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
 import testconfig
 
@@ -76,11 +79,10 @@ def splitWithQuotes(string):
     if escapeChar:
       escapeChar = False
       continue
-    if string[i] == "\\" and string[i+1] != "\\":
+    if string[i] == "\\":
       escapeChar = True
       # Remove one level of escaping if same quoting char as isOuter
-      if isOuter == string[i+1]:
-        string = replaceChar(string, i, '#')
+      string = replaceChar(string, i, '#')
       continue
     if string[i] == "'":
       inSingleQuotes = not inSingleQuotes
@@ -118,6 +120,7 @@ if os.system("make -s --no-print-directory all tests") != 0:
 
 #pad a string and print/flush it
 def printFixed(str, w=1):
+  # The comma at end of print prevents a "newline", but still adds space.
   print str.ljust(w),
   sys.stdout.flush()
 
@@ -126,11 +129,24 @@ class CheckFailed(Exception):
   def __init__(self, value=""):
     self.value = value
 
+class MySubprocess:
+  "dummy class: same fields as from subprocess module"
+  def __init__(self, pid):
+    self.pid = pid
+    self.stdin = os.open("/dev/null", os.O_RDONLY)
+    self.stdout = os.open("/dev/null", os.O_WRONLY)
+    self.stderr = os.open("/dev/null", os.O_WRONLY)
+
 #launch a child process
 def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
   cmd = splitWithQuotes(cmd);
+  # Example cmd:  dmtcp_checkpoint screen ...
+  ptyMode = False
+  for str in cmd:
+    if re.search("(_|/|^)(screen|script)(_|$)", str):
+      ptyMode = True
   try:
     os.stat(cmd[0])
   except:
@@ -138,8 +154,17 @@ def launch(cmd):
   if VERBOSE:
     pipe=None
   else:
-    pipe=subprocess.PIPE
-  proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
+    pipe = subprocess.PIPE
+  if ptyMode:
+    (pid, fd) = pty.fork()
+    if pid == 0:
+      os.execvp(cmd[0], cmd)
+      # os.system( reduce(lambda x,y:x+y, cmd) )
+      # os.exit(0)
+    else:
+      return MySubprocess(pid)
+  else:
+    proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
 		 stderr=pipe, close_fds=True)
   return proc
@@ -322,27 +347,29 @@ def runTest(name, numProcs, cmds):
 
     WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
 
-    for i in xrange(CYCLES):
+    for i in range(CYCLES):
       if i!=0 and i%2==0:
         print #newline
         printFixed("",15)
       printFixed("ckpt:")
       testCheckpoint()
-      testKill()
       printFixed("PASSED ")
+      testKill()
 
       printFixed("rstr:")
-      for i in xrange(RETRIES):
+      for j in range(RETRIES):
         try:
           testRestart()
-          printFixed("PASSED ")
+          printFixed("PASSED")
           break
         except CheckFailed, e:
-          if i == RETRIES-1:
+          if j == RETRIES-1:
             raise e
           else:
             printFixed("FAILED retry:")
             testKill()
+      if i != CYCLES - 1:
+	printFixed(";")
 
     testKill()
     print #newline
@@ -351,7 +378,7 @@ def runTest(name, numProcs, cmds):
   except CheckFailed, e:
     print "FAILED"
     printFixed("",15)
-    print "root-pids:", map(lambda x: x.pid, procs),"msg:",e.value
+    print "root-pids:", map(lambda x: x.pid, procs), "msg:", e.value
     try:
       testKill()
     except CheckFailed, e:
@@ -413,6 +440,9 @@ runTest("forkexec",      2, ["./test/forkexec"])
 
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
+if testconfig.HAS_READLINE == "yes":
+  runTest("readline",    1,  ["./test/readline"])
+
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = GZIP
@@ -427,26 +457,27 @@ os.environ['DMTCP_GZIP'] = "0"
 runTest("bash",          2, ["/bin/bash -c 'ls; sleep 30'"])
 os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_READLINE == "yes":
-  runTest("readline",    1,  ["./test/readline"])
+if testconfig.HAS_SCRIPT == "yes":
+  S=1
+  runTest("script",      4,  ["/usr/bin/script -f" +
+  			      " -c 'bash -c \"ls; sleep 30\"'" +
+  			      " dmtcp-test-typescript.tmp"])
+  S=0.3
+
+# SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
+# BUT screen -s CMD works only when CMD is single word.
+if testconfig.HAS_SCREEN == "yes":
+  S=1
+  runTest("screen",      3,  ["screen"])
+  S=0.3
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
-  runTest("gcl",         1,  ["/usr/bin/gcl"])
+  runTest("gcl",         1,  [testconfig.GCL])
 
-# SHOULD HAVE script RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
-if testconfig.HAS_SCRIPT == "yes":
-  S=2
-  runTest("script",         4,  ["/usr/bin/script -f" +
-  				 " -c 'bash -c \"ls; sleep 30\"'" +
-  				 " dmtcp-test-typescript.tmp"])
-  S=0.3
-
-# COMMENT THIS IN WHEN screen IS WORKING.
-# SHOULD HAVE script RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
-# BUT screen -s CMD works only when CMD is single word.
-# if testconfig.HAS_SCREEN == "yes":
-#   runTest("screen",         3,  ["/usr/bin/screen"])
+# SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
+if testconfig.HAS_MATLAB == "yes":
+  runTest("matlab",      1,  [testconfig.MATLAB])
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
