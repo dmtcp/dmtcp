@@ -44,8 +44,8 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
     FileConnection* fileConI = (FileConnection*) i->second;
 
     // Search ahead with j, and erase any dup()'s of i of type Connection::FILE
-    ConnectionList::iterator prevJ = i; 
-    ConnectionList::iterator j = prevJ; 
+    ConnectionList::iterator prevJ = i;
+    ConnectionList::iterator j = prevJ;
     j++;
     for ( ; j != connections.end() ; prevJ = j, j++ ) {
       FileConnection* fileConJ = (FileConnection*) j->second;

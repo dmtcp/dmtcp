@@ -312,12 +312,12 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     int pos, actpos = -1;
     for(semipos = 0; (pos = cmd.find(';',semipos+1)) != string::npos;semipos = pos, actpos = pos);
 
-    if( actpos > 0 ){      
+    if( actpos > 0 ){
         cmd = cmd.substr(0,actpos+1) + prefix + cmd.substr(actpos+1);
     } else {
         cmd = prefix + cmd;
     }
-    
+
     //now repack args
     dmtcp::string newCommand = "";
     char** argv = new char*[args.size() +2];

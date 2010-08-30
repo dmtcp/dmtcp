@@ -86,7 +86,7 @@ EXTERNC int dmtcpCheckpoint(){
     /// -- Artem
     //	printf("\n\n\nError requesting checkpoint\n\n\n");
   }
-  
+
   return rv;
 }
 
@@ -96,8 +96,8 @@ EXTERNC int dmtcpRunCommand(char command){
   while (i < 100) {
     _runCoordinatorCmd(command, result);
   // if we got error result - check it
-	// There is posibility that checkpoint thread did not send state=RUNNING yet 
-	// or Coordinator did not receive it
+	// There is posibility that checkpoint thread
+	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
     if (result[0] == dmtcp::DmtcpCoordinator::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
@@ -108,7 +108,7 @@ EXTERNC int dmtcpRunCommand(char command){
     } else {
 //      printf("\nEverything is OK - return\n");
       break;
-    } 
+    }
     i++;
   }
   return result[0]>=0;

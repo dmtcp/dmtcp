@@ -78,8 +78,8 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
   if ( theProcess() == nullProcess() )
   {
-    theProcess() = dmtcp::UniquePid ( theUniqueHostId() , 
-                                      ::_real_getpid(), 
+    theProcess() = dmtcp::UniquePid ( theUniqueHostId() ,
+                                      ::_real_getpid(),
                                       ::time(NULL) );
     if (disableJTrace == false)
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
@@ -206,16 +206,16 @@ const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
   return ptsSymlinkFilename_str.c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::getTmpDir() 
+dmtcp::string dmtcp::UniquePid::getTmpDir()
 {
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/" 
+  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
                            + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
   if ( device.empty() ) {
     JWARNING ( false ) .Text ("Unable to determine DMTCP TMPDIR, retrying.");
     setTmpDir(getenv(ENV_VAR_TMPDIR));
-    device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/" 
+    device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
                + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
-    JASSERT ( !device.empty() ) 
+    JASSERT ( !device.empty() )
       .Text ( "Still unable to determine DMTCP_TMPDIR" );
   }
   return device;
@@ -263,8 +263,8 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
     o << "/tmp/dmtcp-" << userName << "@" << hostname;
   }
 
-  JASSERT(mkdir(o.str().c_str(), S_IRWXU) == 0 || errno == EEXIST) 
-    (JASSERT_ERRNO) (o.str()) 
+  JASSERT(mkdir(o.str().c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (o.str())
     .Text("Error creating tmp directory");
 
   JASSERT(0 == access(o.str().c_str(), X_OK|W_OK)) (o.str())

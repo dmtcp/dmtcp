@@ -39,7 +39,7 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-#ifdef PID_VIRTUALIZATION                                                         
+#ifdef PID_VIRTUALIZATION
 
 static pid_t gettid();
 static int tkill(int tid, int sig);
@@ -48,7 +48,7 @@ static int tgkill(int tgid, int tid, int sig);
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
   pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
-  
+
   if (currentPid == -1)
     currentPid = originalPid;
 
@@ -58,17 +58,17 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
   pid_t originalPid = dmtcp::VirtualPidTable::instance().currentToOriginalPid( currentPid );
-  
+
   if (originalPid == -1)
     originalPid = currentPid;
-  
+
   return originalPid;
 }
 
 static pid_t gettid()
 {
   WRAPPER_EXECUTION_LOCK_LOCK();
-  /* 
+  /*
    * We might want to cache the tid of all threads to avoid redundant calls
    *  to _real_gettid() and currentToOriginalPid().
    * To cache, we must make sure that this function is invoked by each thread
@@ -96,7 +96,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
  * I believe that all Linux system calls have no more than 7 args.
  * clone() is an example of one with 7 arguments.
  * If we discover system calls for which the 7 args strategy doesn't work,
- *  we can special case them. 
+ *  we can special case them.
  *
  * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      any C++ things here.  (--Kapil)
@@ -108,17 +108,17 @@ extern "C" long int syscall(long int sys_num, ... )
   va_list ap;
 
   va_start(ap, sys_num);
-  
+
   switch ( sys_num ) {
     case SYS_gettid:
       va_end(ap);
-      return gettid(); 
+      return gettid();
       break;
     case SYS_tkill:{
       int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
-      return tkill(tid,sig); 
+      return tkill(tid,sig);
       break;
     }
     case SYS_tgkill:{
@@ -126,12 +126,12 @@ extern "C" long int syscall(long int sys_num, ... )
       int tid = va_arg(ap, int);
       int sig = va_arg(ap, int);
       va_end(ap);
-      return tgkill(tgid,tid,sig); 
+      return tgkill(tgid,tid,sig);
       break;
     }
     case SYS_clone:
       typedef int (*fnc) (void*);
-      fnc fn = va_arg(ap, fnc); 
+      fnc fn = va_arg(ap, fnc);
       void* child_stack = va_arg(ap, void*);
       int flags = va_arg(ap, int);
       void* arg = va_arg(ap, void*);
@@ -151,9 +151,9 @@ extern "C" long int syscall(long int sys_num, ... )
 extern "C" pid_t getpid()
 {
   //pid_t pid = _real_getpid();//dmtcp::UniquePid::ThisProcess().pid();
-  
+
   //return currentToOriginalPid ( pid );
-  return dmtcp::VirtualPidTable::instance().pid(); 
+  return dmtcp::VirtualPidTable::instance().pid();
 }
 
 extern "C" pid_t getppid()
@@ -178,7 +178,7 @@ extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPgrp = originalToCurrentPid( pgrp );
-//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
+//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp);
   int retVal = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
@@ -255,13 +255,13 @@ extern "C" pid_t getsid(pid_t pid)
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid;
-  
+
   // If !pid then we ask SID of this process
   if( pid )
     currPid = originalToCurrentPid (pid);
   else
     currPid = _real_getpid();
-  
+
   pid_t res = _real_getsid (currPid);
 
   pid_t origSid = currentToOriginalPid (res);
@@ -289,7 +289,7 @@ extern "C" int   kill(pid_t pid, int sig)
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid = originalToCurrentPid (pid);
-  
+
   int retVal = _real_kill (currPid, sig);
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
@@ -302,7 +302,7 @@ static int   tkill(int tid, int sig)
   WRAPPER_EXECUTION_LOCK_LOCK();
 
   int currentTid = originalToCurrentPid ( tid );
-  
+
   int retVal = _real_tkill ( currentTid, sig );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
@@ -316,7 +316,7 @@ static int   tgkill(int tgid, int tid, int sig)
 
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
-  
+
   int retVal = _real_tgkill ( currentTgid, currentTid, sig );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
@@ -355,7 +355,7 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
-  
+
   if ( stat_loc == NULL )
     stat_loc = &status;
 
@@ -378,7 +378,7 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 
   if ( infop == NULL )
     infop = &status;
-  
+
   pid_t currPd = originalToCurrentPid (id);
 
   int retval = _real_waitid (idtype, currPd, infop, options);
@@ -397,7 +397,7 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   pid_t retval = _real_wait3 (status, options, rusage);
-  
+
   pid_t originalPid = currentToOriginalPid ( retval );
 
   if ( originalPid > 0 )
@@ -412,7 +412,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   if ( status == NULL )
     status = (__WAIT_STATUS) &stat;
-  
+
   pid_t currPid = originalToCurrentPid (pid);
 
   pid_t retval = _real_wait4 ( currPid, status, options, rusage );;
@@ -432,7 +432,7 @@ void updateProcPath ( const char *path, char *newpath )
 {
   char temp [ 10 ];
   int index, oldPid, tempIndex, currentPid;
-  if (  path == "" || path == NULL ) 
+  if (  path == "" || path == NULL )
   {
     newpath = "";
     return;
@@ -455,7 +455,7 @@ void updateProcPath ( const char *path, char *newpath )
     oldPid = atoi ( temp );
     currentPid = originalToCurrentPid ( oldPid );
     sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
-  } 
+  }
   else strcpy ( newpath, path );
   return;
 }
@@ -478,7 +478,7 @@ void updateProcPath ( const char *path, char *newpath )
 // Although highly unlikely, this can cause a problem if the counter resets to
 // zero. In that case we should have some more sophisticated code which checks
 // to see if the value pointed by counter is in use or not.
-static int getNextFreeSlavePtyNum() 
+static int getNextFreeSlavePtyNum()
 {
   static int counter = -1;
   counter++;
@@ -508,7 +508,7 @@ static void processDevPtmxConnection (int fd)
   // glibc allows only 20 char long ptsname
   // Check if there is enough room to insert the string "dmtcp_" before the
   //   terminal number, if not then we ASSERT here.
-  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20) 
+  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20)
     .Text("string /dev/pts/<n> too long, can not be virtualized."
           "Once possible workarong here is to replace the string"
           "\"dmtcp_\" with something short like \"d_\" or even "
@@ -518,12 +518,12 @@ static void processDevPtmxConnection (int fd)
 
   // Generate new Unique ptsName
   uniquePtsNameStr = UNIQUE_PTS_PREFIX_STR;
-  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum()); 
+  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum());
 
   dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + "/dev/ptmx";
 
-//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString() 
-//                            + ":" + jalib::XToString ( _nextPtmxId() ) 
+//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString()
+//                            + ":" + jalib::XToString ( _nextPtmxId() )
 //                            + "]:" + device;
 
   JTRACE ( "creating ptmx connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
@@ -574,7 +574,7 @@ extern "C" int open (const char *path, ... )
   flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
-  
+
   // If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
   // calling this function to open jassert log files. Therefore we shouldn't be
   // playing with locks etc.
@@ -657,7 +657,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 // long sys_getresgid(gid_t __user *rgid, gid_t __user *egid, gid_t __user *sgid);
 // long sys_getpgrp(void);
 // long sys_getgroups(int gidsetsize, gid_t __user *grouplist);
-// 
+//
 // long sys_setregid(gid_t rgid, gid_t egid);
 // long sys_setgid(gid_t gid);
 // long sys_setreuid(uid_t ruid, uid_t euid);
@@ -668,8 +668,8 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 // long sys_setfsgid(gid_t gid);
 // long sys_setsid(void);
 // long sys_setgroups(int gidsetsize, gid_t __user *grouplist);
-// 
-// 
+//
+//
 // long sys_sched_setscheduler(pid_t pid, int policy,
 // 					struct sched_param __user *param);
 // long sys_sched_setparam(pid_t pid,
@@ -683,13 +683,13 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 // 					unsigned long __user *user_mask_ptr);
 // long sys_sched_yield(void);
 // long sys_sched_rr_get_interval(pid_t pid,
-// 
-// 
+//
+//
 // long sys_rt_sigqueueinfo(int pid, int sig, siginfo_t __user *uinfo);
-// 
-// 
-// 
-// 
+//
+//
+//
+//
 // long sys_chown(const char __user *filename,
 // 				uid_t user, gid_t group);
 // long sys_lchown(const char __user *filename,
@@ -719,22 +719,22 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 // long sys_geteuid16(void);
 // long sys_getgid16(void);
 // long sys_getegid16(void);
-// 
-// 
-// 
-// 
+//
+//
+//
+//
 // long sys_add_key(const char __user *_type,
 // 			    const char __user *_description,
 // 			    const void __user *_payload,
 // 			    size_t plen,
 // 			    key_serial_t destringid);
-// 
+//
 // long sys_request_key(const char __user *_type,
 // 				const char __user *_description,
 // 				const char __user *_callout_info,
 // 				key_serial_t destringid);
-// 
-// 
+//
+//
 // long sys_migrate_pages(pid_t pid, unsigned long maxnode,
 // 				const unsigned long __user *from,
 // 				const unsigned long __user *to);
@@ -748,12 +748,12 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 // 				const int __user *nodes,
 // 				int __user *status,
 // 				int flags);
-// 
+//
 // long sys_fchownat(int dfd, const char __user *filename, uid_t user,
 // 			     gid_t group, int flag);
-// 
+//
 // long sys_get_robust_list(int pid,
 // 				    struct robust_list_head __user * __user *head_ptr,
 // 				    size_t __user *len_ptr);
-// 
+//
 
