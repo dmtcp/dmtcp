@@ -816,7 +816,7 @@ int main ( int argc, char** argv )
 #else
   size_t i = targets.size();
 
-  // Create roots vector, assign children to their parents. 
+  // Create roots vector, assign children to their parents.
   // Delete children that don't exist.
   BuildProcessTree();
 

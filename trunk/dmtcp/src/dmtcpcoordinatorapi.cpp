@@ -101,13 +101,13 @@ bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/
 
   if ( ! _coordinatorSocket.isValid() && ! dieOnError ) {
     return false;
-  } 
+  }
 
   JASSERT ( _coordinatorSocket.isValid() )
     ( coordinatorAddr ) ( coordinatorPort )
     .Text ( "Failed to connect to DMTCP coordinator" );
 
-  JTRACE ( "connected to dmtcp coordinator, no handshake" ) 
+  JTRACE ( "connected to dmtcp coordinator, no handshake" )
     ( coordinatorAddr ) ( coordinatorPort );
 
   if ( oldFd.isValid() )
@@ -131,7 +131,7 @@ void dmtcp::DmtcpCoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
 
   if (c == 'i') {
     const char* interval = getenv ( ENV_VAR_CKPT_INTR );
-    if ( interval != NULL ) 
+    if ( interval != NULL )
       msg.theCheckpointInterval = jalib::StringToInt ( interval );
   }
 

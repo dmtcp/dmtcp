@@ -121,7 +121,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
     char *nullDevice = (char *) "/dev/null";
     *ckptFilename = nullDevice;
     delayedCheckpoint = true;
-  } else 
+  } else
 #else
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
 #endif
@@ -151,13 +151,13 @@ static void callbackPostCheckpoint ( int isRestart )
      *      workers) in monitorSockets() is complete.  In this read phase, an
      *      error is recorded on the closed socket and in the next iteration of
      *      verifying the _dataSockets, this socket is closed and the
-     *      corresponding entry in _dataSockets is freed. 
+     *      corresponding entry in _dataSockets is freed.
      *
      *      The problem occurrs when some other worker sends a status messages
      *      which should take the computation to the next barrier, but since
      *      the _to_be_disconnected socket is present, the minimum state is not
      *      reached unanimously and hence the coordinator doesn't raise the
-     *      barrier. 
+     *      barrier.
      *
      *      The bug was observed by Kapil in gettimeofday test program. It can
      *      be seen in 1 out of 3 restart attempts.
@@ -212,7 +212,7 @@ static void callbackRestoreVirtualPidTable ( )
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-} 
+}
 
 void dmtcp::initializeMtcpEngine()
 {
@@ -220,26 +220,26 @@ void dmtcp::initializeMtcpEngine()
     (int*) _get_mtcp_symbol( "dmtcp_exists" );
   *dmtcp_exists_ptr = 1;
 
-  int *dmtcp_info_pid_virtualization_enabled_ptr = 
+  int *dmtcp_info_pid_virtualization_enabled_ptr =
     (int*) _get_mtcp_symbol( "dmtcp_info_pid_virtualization_enabled" );
 
 #ifdef PID_VIRTUALIZATION
   *dmtcp_info_pid_virtualization_enabled_ptr = 1;
 #else
   *dmtcp_info_pid_virtualization_enabled_ptr = 0;
-#endif 
+#endif
 
-  int *dmtcp_info_stderr_fd = 
+  int *dmtcp_info_stderr_fd =
     (int*) _get_mtcp_symbol( "dmtcp_info_stderr_fd" );
   *dmtcp_info_stderr_fd = PROTECTED_STDERR_FD;
 
 #ifdef DEBUG
-  int *dmtcp_info_jassertlog_fd = 
+  int *dmtcp_info_jassertlog_fd =
     (int*) _get_mtcp_symbol( "dmtcp_info_jassertlog_fd" );
   *dmtcp_info_jassertlog_fd = PROTECTED_JASSERTLOG_FD;
-#endif 
+#endif
 
-  int *dmtcp_info_restore_working_directory = 
+  int *dmtcp_info_restore_working_directory =
     (int*) _get_mtcp_symbol( "dmtcp_info_restore_working_directory" );
   // DMTCP restores working dir only if --checkpoint-open-files invoked.
   // Later, we may offer the user a separate command line option for this.
@@ -276,9 +276,9 @@ struct ThreadArg {
 // bool isConflictingTid( pid_t tid )
 // {
 //   /*  If tid is not an original tid (return same tid), then there is no conflict
-//    *  If tid is an original tid with the same current tid, then there 
+//    *  If tid is an original tid with the same current tid, then there
 //    *   is no conflict because that's us.
-//    *  If tid is an original tid with a different current tid, then there 
+//    *  If tid is an original tid with a different current tid, then there
 //    *   is a conflict.
 //    */
 //   if (tid == dmtcp::VirtualPidTable::instance().originalToCurrentPid( tid ))
@@ -304,12 +304,12 @@ int thread_start(void *arg)
   JALLOC_HELPER_FREE(threadArg);
 
   if (original_tid == -1) {
-    /* 
+    /*
      * original tid is not known, which means this thread never existed before
      * checkpoint, so will insert the original_tid into virtualpidtable
      */
     original_tid = syscall(SYS_gettid);
-    JASSERT ( tid == original_tid ) (tid) (original_tid) 
+    JASSERT ( tid == original_tid ) (tid) (original_tid)
       .Text ( "syscall(SYS_gettid) and _real_gettid() returning different values for the newly created thread!" );
     dmtcp::VirtualPidTable::instance().insertTid ( original_tid );
   }
@@ -321,22 +321,22 @@ int thread_start(void *arg)
   /* Thread finished initialization, its now safe for this thread to
    * participate in checkpoint. Decrement the unInitializedThreadCount in
    * DmtcpWorker.
-   */ 
+   */
   dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
 
   JTRACE ( "Thread returned:" ) (original_tid);
-  
-  /* 
+
+  /*
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
    */
 
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
   dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
-   
+
   return result;
 }
 #endif
@@ -344,23 +344,23 @@ int thread_start(void *arg)
 //need to forward user clone
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
-  /* 
-   * struct MtcpRestartThreadArg 
+  /*
+   * struct MtcpRestartThreadArg
    *
    * DMTCP requires the original_tids  of the threads being created during
    *  the RESTARTING phase. We use MtcpRestartThreadArg structure to pass
-   *  the original_tid of the thread being created from MTCP to DMTCP. 
+   *  the original_tid of the thread being created from MTCP to DMTCP.
    *
-   * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+   * actual clone call: clone (fn, child_stack, flags, void *, ... )
    * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
    *
    * DMTCP automatically extracts arg from this structure and passes that
    * to the _real_clone call.
-   * 
+   *
    * IMPORTANT NOTE: While updating, this structure must be kept in sync
-   * with the structure defined with the same name in mtcp.c 
+   * with the structure defined with the same name in mtcp.c
    */
-  struct MtcpRestartThreadArg { 
+  struct MtcpRestartThreadArg {
     void * arg;
     pid_t original_tid;
   } *mtcpRestartThreadArg;
@@ -382,10 +382,10 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   JTRACE ( "forwarding user's clone call to mtcp" );
   return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
-    
+
 #else
 
-  /* Acquire the wrapperExeution lock 
+  /* Acquire the wrapperExeution lock
    * (Make sure to unlock before returning from this function)
    * Also increment the uninitialized thread count.
    */
@@ -410,7 +410,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   threadArg->original_tid = originalTid;
 
   int tid;
-  
+
   while (1) {
 
     JTRACE ( "calling realclone" );
@@ -522,7 +522,7 @@ void dmtcp::shutdownMtcpEngineOnFork()
 
 void dmtcp::killCkpthread()
 {
-  t_mtcp_kill_ckpthread kill_ckpthread = 
+  t_mtcp_kill_ckpthread kill_ckpthread =
     (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
   kill_ckpthread();
 }

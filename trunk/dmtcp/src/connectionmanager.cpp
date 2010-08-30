@@ -194,7 +194,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
       if ( currentTty.compare(device) == 0 ) {
         type = dmtcp::PtyConnection::PTY_CTTY;
-        JTRACE ( "creating TTY connection [on-demand]" ) 
+        JTRACE ( "creating TTY connection [on-demand]" )
           ( deviceName );
 
         Connection * c = new PtyConnection ( device, device, type );
@@ -273,7 +273,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
         ConnectionList::instance().add ( c );
         _table[deviceName] = c->id();
       }
-      
+
       return deviceName;
 
     } else if (S_ISFIFO(buf.st_mode)){
@@ -380,9 +380,9 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
           JASSERT ( device == fdToDevice ( fds[i] ) )
             ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
         } else {
-          dmtcp::string filePath = 
+          dmtcp::string filePath =
             jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[i] ) );
-          JASSERT ( filePath == ((FileConnection *)c)->filePath() ) 
+          JASSERT ( filePath == ((FileConnection *)c)->filePath() )
             ( fds[i] ) ( filePath ) ( fds[0] ) ( ((FileConnection *)c)->filePath() );
         }
       }
@@ -513,7 +513,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else 
+    else
     {
       JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
       TcpConnection* con = new TcpConnection ( 0, 0, 0 );

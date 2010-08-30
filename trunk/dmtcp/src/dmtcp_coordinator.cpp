@@ -1159,7 +1159,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
               "  else\n"
               "    exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
               "      $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "        %s\n"	      
+              "        %s\n"
               "  fi\n"
               "fi\n", o.str().c_str(), o.str().c_str() );
   }

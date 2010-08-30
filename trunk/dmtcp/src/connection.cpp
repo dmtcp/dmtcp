@@ -96,7 +96,7 @@ void dmtcp::Connection::restartDup2(int oldFd, int fd){
 /////////////////////////
 ////// TCP UPDATE COMMANDS
 
-/*onSocket*/ 
+/*onSocket*/
 dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   : Connection ( TCP_CREATED )
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -205,7 +205,7 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 ////////////
 ///// TCP CHECKPOINTING
-  
+
 #ifdef EXTERNAL_SOCKET_HANDLING
 void dmtcp::TcpConnection::preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
                                                      dmtcp::vector<TcpConnectionInfo>& conInfoTable)
@@ -384,23 +384,23 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
        * During restart, some socket options must be restored (using
        * setsockopt) before the socket is used (bind etc.), otherwise we might
        * not be able to restore them at all. One such option is set in the
-       * following way for IPV6 family: 
-       * setsockopt (sd, IPPROTO_IPV6, IPV6_V6ONLY,...) 
+       * following way for IPV6 family:
+       * setsockopt (sd, IPPROTO_IPV6, IPV6_V6ONLY,...)
        * This fix works for now. A better approach would be to restore the
        * socket options in the order in which they are set by the user program.
        * This fix solves a bug that caused OpenMPI to fail to restart under
-       * DMTCP. 
+       * DMTCP.
        *                               --Kapil
        */
 
-      if (_sockDomain == AF_INET6) { 
+      if (_sockDomain == AF_INET6) {
         JTRACE("Restoring some socket options before binding.");
         typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
         typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
         for ( levelIterator lvl = _sockOptions.begin();
 	      lvl!=_sockOptions.end(); ++lvl ) {
-          if (lvl->first == IPPROTO_IPV6) { 
+          if (lvl->first == IPPROTO_IPV6) {
             for ( optionIterator opt = lvl->second.begin();
 		  opt!=lvl->second.end(); ++opt ) {
               if (opt->first == IPV6_V6ONLY) {
@@ -455,7 +455,7 @@ void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
   typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
-  if (_sockDomain != AF_INET6) { 
+  if (_sockDomain != AF_INET6) {
     for ( levelIterator lvl = _sockOptions.begin();
 	  lvl!=_sockOptions.end(); ++lvl ) {
       for ( optionIterator opt = lvl->second.begin();
@@ -537,7 +537,7 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 ////////////
 ///// PTY CHECKPOINTING
 
-static int _openBSDMasterPty ( dmtcp::string device ) 
+static int _openBSDMasterPty ( dmtcp::string device )
 {
 
 }
@@ -568,7 +568,7 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
     case PTY_CTTY:
     {
       dmtcp::string controllingTty = jalib::Filesystem::GetCurrentTty();
-      JASSERT ( controllingTty.length() > 0 ) ( STDIN_FILENO ) 
+      JASSERT ( controllingTty.length() > 0 ) ( STDIN_FILENO )
         . Text ("Unable to restore terminal attached with the process");
 
       tempfd = open ( controllingTty.c_str(), _fcntlFlags );
@@ -612,7 +612,7 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       //dmtcp::string deviceName = "ptmx[" + _ptsName + "]:" + "/dev/ptmx";
 
       //dmtcp::KernelDeviceToConnection::instance().erase ( id() );
-      
+
       //dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
 
       UniquePtsNameToPtmxConId::instance().add ( _uniquePtsName, id() );
@@ -639,7 +639,7 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       //dmtcp::string deviceName = "pts:" + _ptsName;
 
       //dmtcp::KernelDeviceToConnection::instance().erase ( id() );
-      
+
       //dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
       break;
     }
@@ -803,7 +803,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
     if (buf.st_size > _stat.st_size)
     	JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
                 ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
-    else if (buf.st_size < _stat.st_size)  
+    else if (buf.st_size < _stat.st_size)
 	JWARNING ("Size of file smaller than what we expected");
   }
 
@@ -1009,12 +1009,12 @@ bool dmtcp::FileConnection::isDupConnection ( const Connection& _that, dmtcp::Co
 
   JASSERT ( _that.conType() == Connection::FILE );
 
-  const FileConnection& that = (const FileConnection&)_that; 
+  const FileConnection& that = (const FileConnection&)_that;
 
   const dmtcp::vector<int>& thisFds = conToFds[_id];
   const dmtcp::vector<int>& thatFds = conToFds[that._id];
 
-  if ( _path == that._path && 
+  if ( _path == that._path &&
        ( lseek(thisFds[0], 0, SEEK_CUR) == lseek(thatFds[0], 0, SEEK_CUR) ) ) {
     off_t newOffset = lseek (thisFds[0], 1, SEEK_CUR);
     JASSERT (newOffset != -1) (JASSERT_ERRNO) .Text("lseek failed");
@@ -1036,7 +1036,7 @@ void dmtcp::FifoConnection::doLocking ( const dmtcp::vector<int>& fds )
   int i=0,trials = 4;
 
   JTRACE ("doLocking for FIFO");
-  while( i < trials ){ 
+  while( i < trials ){
     JTRACE ("Loop iteration") (i);
     errno = 0;
     int ret = flock(fds[0],LOCK_EX | LOCK_NB);
@@ -1064,7 +1064,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   JTRACE ("Start.") (fds[0]);
 
   stat(_path.c_str(),&_stat);
-  
+
   if( !_has_lock ){
     JTRACE ("No lock => don't checkpoint fifo.") (fds[0]);
     return;
@@ -1072,7 +1072,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   JTRACE ("Checkpoint fifo.") (fds[0]);
 
-  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = open(_path.c_str(),new_flags);
   JASSERT(ckptfd >= 0)(ckptfd)(JASSERT_ERRNO);
 
@@ -1085,7 +1085,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   while(1){ // flush fifo
     size = read(ckptfd,buf,bufsize);
     if( size < 0 ){
-      break; // nothing to flush 
+      break; // nothing to flush
     }
 	for(int i=0;i<size;i++){
 		_in_data.push_back(buf[i]);
@@ -1093,7 +1093,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
   close(ckptfd);
   JTRACE ("Checkpointing fifo:  end.") (fds[0]) (_in_data.size());
-  
+
 }
 
 void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
@@ -1101,7 +1101,7 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
   if( !_has_lock )
     return; // nothing to do now
 
-  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = open(_path.c_str(),new_flags);
   JASSERT (ckptfd >= 0) (ckptfd) (JASSERT_ERRNO);
 
@@ -1125,7 +1125,7 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
   JTRACE ("Buf internals.") ((const char*)buf);
   JASSERT ((ret=write(ckptfd,buf,j)) == j) (JASSERT_ERRNO)(ret)(j) (fds[0]);
 
-  close(ckptfd);  
+  close(ckptfd);
   // unlock fifo
   flock(fds[0],LOCK_UN);
   JTRACE ("End checkpointing fifo.") (fds[0]);
@@ -1163,8 +1163,8 @@ void dmtcp::FifoConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   refreshPath();
   int tempfd = openFile ();
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
-  
-  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK; 
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
 
   for(size_t i=0; i<fds.size(); ++i)
   {
