@@ -181,6 +181,23 @@ namespace
 
         slidingFd.closeAll();
       }
+			
+			int find_stdin( SlidingFdTable& slidingFd )
+			{
+			  for ( ConnectionToFds::const_iterator i = _conToFd.begin();
+			        i!=_conToFd.end(); ++i )
+			  {
+			    const dmtcp::vector<int>& fds = i->second;
+			    for ( size_t x=0; x<fds.size(); ++x )
+			    {
+			      if (fds[x] == 1){
+							printf("Found stdin: x=%d, %d <---> %d\n",x,fds[x], slidingFd.getFdFor ( i->first ));
+			        return slidingFd.getFdFor ( i->first );
+		      	}
+		    	}
+		  	}
+			}
+																																																													
       /*      else if(ConnectionList::instance()[i->first].conType()
 		      == Connection::PTS)
             {
@@ -246,7 +263,7 @@ namespace
 
       bool isForegroundProcess() {
         JTRACE("")(_virtualPidTable.sid()) (pid().pid());
-        if( _virtualPidTable.fgid() == pid().pid() )
+        if( _virtualPidTable.fgid() == _virtualPidTable.gid() )
           return true;
         else
           return false;
@@ -350,11 +367,38 @@ namespace
         return -1;
       }
 
-      void bringToForeground()
+      void bringToForeground(SlidingFdTable& slidingFd)
       {
-        pid_t pid;
+        char s[L_ctermid];
+				pid_t pid;
+
+				int sin = find_stdin(slidingFd);
+
+				if( isSessionLeader() ){
+					char *ptr =  ttyname(sin);
+					printf("ttyname=%s\n",ptr);
+			  	int fd = open(ptr,O_RDWR);
+				  if( ctermid(s) ){
+			 	  	int tfd = open(ptr,O_RDONLY);
+			    	if( tfd >= 0 ){
+							printf("Current terminal is set to %s\n",s);
+			     		close(tfd);
+						}else{
+							printf("Cannot restore terminal\n");
+						}
+					}
+					close(fd);
+				}
+
         pid_t gid = getpgid(0);
-        pid_t fgid = tcgetpgrp(0);
+        pid_t fgid = tcgetpgrp(sin);
+
+				if( !isForegroundProcess() )
+					return;
+				if( !isGroupLeader()  ){
+          return;
+        }
+
         if( gid != fgid ){
           if( !(pid = fork()) ){ // fork subversive process
             // This process moves itself to current foreground group
@@ -364,13 +408,14 @@ namespace
             JTRACE("Change current GID to foreground GID.");
             if( setpgid(0, fgid) ){
               printf("CANNOT Change current GID to foreground GID: %s\n",strerror(errno));
-              printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
+              printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",getpid(),fgid,_virtualPidTable.fgid(), gid);
               fflush(stdout);
               exit(0);
             }
-            if( tcsetpgrp(0, gid) ){
+            if( tcsetpgrp(sin, gid) ){
               printf("CANNOT Move parent GID to foreground: %s\n",strerror(errno));
               printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
+              printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",getpid(),fgid,_virtualPidTable.fgid(), gid);
               fflush(stdout);
               exit(0);
             }
@@ -383,16 +428,13 @@ namespace
         }
       }
 
-      int restoreGroup()
+      int restoreGroup( SlidingFdTable& slidingFd )
       {
         if( isGroupLeader() ){
           // create new group where this process becomes a leader
           JTRACE("Create new group.");
           setpgid(0, 0);
-          if( isForegroundProcess() ){
-            JTRACE("Restore foreground.");
-            bringToForeground();
-          }
+					bringToForeground(slidingFd);
         }
       }
 
@@ -414,7 +456,7 @@ namespace
         if( !isSessionLeader() ){
 
           // Restore group information
-          restoreGroup();
+          restoreGroup(slidingFd);
 
           // If process is not session leader, restore it and all children.
           t_iterator it = _children.begin();
@@ -466,7 +508,7 @@ namespace
           JTRACE("change SID")(nsid);
 
           // Restore group information
-          restoreGroup();
+          restoreGroup(slidingFd);
 
           it = _children.begin();
           for(it; it != _children.end(); it++) {
@@ -531,6 +573,7 @@ namespace
 
        //restart targets[i]
         dupAllSockets ( slidingFd );
+
         mtcpRestart();
 
         JASSERT ( false ).Text ( "unreachable" );
