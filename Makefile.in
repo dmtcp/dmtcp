@@ -36,7 +36,7 @@ check:  all
 	+bash -c "$(LIMIT) && ./test/autotest.py $*"
 
 check-%: all
-	+bash -c "$(LIMIT) && ./test/autotest.py $*"
+	+bash -c "$(LIMIT) && ./test/autotest.py '$*'"
 
 check1: icheck-dmtcp1
 

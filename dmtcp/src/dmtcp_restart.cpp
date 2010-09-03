@@ -761,7 +761,7 @@ int main ( int argc, char** argv )
 
   //make sure JASSERT initializes now, rather than during restart
   dmtcp::ostringstream o;
-  o << dmtcpTmpDir << "/jassertlog." << getpid();
+  o << dmtcpTmpDir << "/jassertlog." << dmtcp::UniquePid(getpid());
   JASSERT_INIT(o.str());
 
   bool doAbort = false;
