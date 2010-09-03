@@ -103,6 +103,13 @@ dmtcp::UniquePid::UniquePid()
   memset ( &_time,0,sizeof ( _time ) );
 }
 
+dmtcp::UniquePid::UniquePid(pid_t pid)
+    :_pid ( pid )
+{
+  _hostid = theUniqueHostId();
+  memset ( &_time,0,sizeof ( _time ) );
+}
+
 
 long  dmtcp::UniquePid::hostid() const
 {

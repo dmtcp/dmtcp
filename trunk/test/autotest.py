@@ -477,7 +477,7 @@ if testconfig.HAS_GCL == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  runTest("matlab",      1,  [testconfig.MATLAB])
+  runTest("matlab -nodisplay",      1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])

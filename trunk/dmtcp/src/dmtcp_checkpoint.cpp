@@ -286,7 +286,10 @@ int main ( int argc, char** argv )
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here
-  JASSERT_INIT( dmtcp::UniquePid::getTmpDir() );
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid(getpid());
+  JASSERT_INIT(o.str());
+
   if (argc > 0)
     JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
 

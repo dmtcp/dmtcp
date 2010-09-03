@@ -40,6 +40,7 @@ namespace dmtcp
     static dmtcp::UniquePid& ParentProcess();
     static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
+    UniquePid(pid_t pid);
     UniquePid ( long host, pid_t pd, time_t tm )
         : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( 0 ) {}
     UniquePid ( long host, pid_t pd, time_t tm, int gen )
