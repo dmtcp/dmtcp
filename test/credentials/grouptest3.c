@@ -1,6 +1,8 @@
 #include <stdio.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <time.h>
 #include <signal.h>
+#include <sys/types.h>
 
 /*
   Test#1 for GROUP restore logic
@@ -11,7 +13,7 @@
   p5 - child of p4. Sits in p4 group.
 */
 
-void inthandler(int sig)
+void inthandler(int __attribute__ ((unused)) sig)
 {
   printf("%d: SIGINT\n",getpid());
 }

@@ -1,8 +1,9 @@
-#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<stdlib.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define PID_MISM	0x01
 #define PPID_MISM	0x02
@@ -11,7 +12,7 @@
 
 int eq_sid = 0, eq_pgrp = 0, eq_ppid = 0;
 
-parse_credentials(int ret, char *name,pid_t pid, pid_t ppid, pid_t pgrp, pid_t sid){
+void parse_credentials(int ret, char *name,pid_t pid, pid_t ppid, pid_t pgrp, pid_t sid){
 	char buf[256];
 	int len = 0;
 	int cnt = 0;
@@ -51,7 +52,7 @@ int check_credentials(pid_t pid, pid_t ppid, pid_t pgrp, pid_t sid)
 	return ret;
 }
 
-process(char *name,pid_t *cids, int cnum){
+void process(char *name,pid_t *cids, int cnum){
 	pid_t pid = getpid();
 	pid_t ppid = getppid();
 	pid_t pgrp = getpgrp();
@@ -76,7 +77,7 @@ process(char *name,pid_t *cids, int cnum){
 			parse_credentials(ret,name,pid,ppid,pgrp,sid);
 		for(i=0;i<cnum;i++){
 			if( kill(cids[i],0) < 0 ){
-				printf("%s: no child #%d\n",i);
+				printf("%s: no child #%d\n",name,i);
 			}
 		}
 		sleep(1);
@@ -123,4 +124,5 @@ int main()
 	waitpid(ret,NULL,0);
 
 	process("p1",p1_cids,1);
+	return 0;
 }

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "../dmtcp/src/dmtcpaware.h"
 

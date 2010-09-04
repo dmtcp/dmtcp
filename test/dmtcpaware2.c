@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "../dmtcp/src/dmtcpaware.h"
 
@@ -9,7 +10,6 @@ int main(int argc, char* argv[])
 {
   int count = 0;
   int r;
-  const char* s;
   const DmtcpLocalStatus * ls;
   while (1)
   {

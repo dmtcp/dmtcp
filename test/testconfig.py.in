@@ -1,10 +1,11 @@
 #testconfig.py is generated using testconfig.py.in by ./configure
 
 HAS_READLINE="@HAS_READLINE@"
-HAS_GCL="@HAS_GCL@"
-GCL="@GCL@"
+HAS_ZSH="@HAS_ZSH@"
 HAS_SCRIPT="@HAS_SCRIPT@"
 HAS_SCREEN="@HAS_SCREEN@"
+HAS_GCL="@HAS_GCL@"
+GCL="@GCL@"
 HAS_MATLAB="@HAS_MATLAB@"
 MATLAB="@MATLAB@"
 
