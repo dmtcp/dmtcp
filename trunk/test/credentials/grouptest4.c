@@ -1,8 +1,10 @@
 #include <stdio.h>
-#include <sys/types.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 
 /*
@@ -13,7 +15,7 @@
   p4 - child of p2. Sits in p2 group.
 */
 
-void inthandler(int sig)
+void inthandler(int __attribute__ ((unused)) sig)
 {
   printf("%d: SIGINT\n",getpid());
 }

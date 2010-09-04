@@ -15,8 +15,10 @@
 // vdso collides with the old libs in mtcp_restart.  So, it gets unmapped.
 
 void myHandler(int i){
+#ifdef ENABLE_BACKTRACE
   int nptrs;
   void * buffer[BT_SIZE];
+#endif
 
   printf("signal %d received.\n", i);
 #ifdef ENABLE_BACKTRACE

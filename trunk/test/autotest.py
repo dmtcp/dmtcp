@@ -457,6 +457,11 @@ os.environ['DMTCP_GZIP'] = "0"
 runTest("bash",          2, ["/bin/bash -c 'ls; sleep 30'"])
 os.environ['DMTCP_GZIP'] = GZIP
 
+if testconfig.HAS_ZSH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("zsh",          2, ["/bin/zsh -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
+
 if testconfig.HAS_SCRIPT == "yes":
   S=1
   runTest("script",      4,  ["/usr/bin/script -f" +
