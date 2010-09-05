@@ -185,8 +185,8 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
   return 3;
 }
 
-//these dummy trampolines support static linking libdmtcpaware.a
-//see dmtcpaware.c
+//These dummy trampolines support static linking of user code to libdmtcpaware.a
+//See dmtcpaware.c .
 EXTERNC int __dyn_dmtcpIsEnabled(){
   return dmtcpIsEnabled();
 }

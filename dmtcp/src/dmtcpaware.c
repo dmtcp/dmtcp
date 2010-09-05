@@ -54,34 +54,48 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
   WARN_NO_DMTCP; \
   return ret;
 
+// __attribute__ ((visibility ("hidden"))) is needed below for following reason:
+//   If user links their executable with -rdynamic or --export-symbols
+//   then dmtcphijack.so will see this dynamic symbol being exported and
+//   dmtcphijack.so will call it in preference to the dmtcpIsEnabled()
+//   defined in dmtcphijack.so, resulting in an infinite loop.
+//   The "hidden" attribute prevents it from being exported.
+__attribute__ ((visibility ("hidden")))
 int dmtcpIsEnabled() {
   DMTCPAWARE_STUB( dmtcpIsEnabled, (), 0 );
 }
 
+__attribute__ ((visibility ("hidden")))
 int dmtcpCheckpoint(){
   DMTCPAWARE_STUB( dmtcpCheckpoint, (), -128 );
 }
 
+__attribute__ ((visibility ("hidden")))
 int dmtcpDelayCheckpointsLock(){
   DMTCPAWARE_STUB( dmtcpDelayCheckpointsLock, (), -128 );
 }
 
+__attribute__ ((visibility ("hidden")))
 int dmtcpDelayCheckpointsUnlock(){
   DMTCPAWARE_STUB( dmtcpDelayCheckpointsUnlock, (), -128 );
 }
 
+__attribute__ ((visibility ("hidden")))
 int dmtcpRunCommand(char command){
   DMTCPAWARE_STUB( dmtcpRunCommand, (command), -128 );
 }
 
+__attribute__ ((visibility ("hidden")))
 const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
   DMTCPAWARE_STUB( dmtcpGetCoordinatorStatus, (), NULL );
 }
 
+__attribute__ ((visibility ("hidden")))
 const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   DMTCPAWARE_STUB( dmtcpGetLocalStatus, (), NULL );
 }
 
+__attribute__ ((visibility ("hidden")))
 int dmtcpInstallHooks( DmtcpFunctionPointer preCp
                      , DmtcpFunctionPointer postCp
                      , DmtcpFunctionPointer postRs){
