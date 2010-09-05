@@ -467,6 +467,7 @@ if testconfig.HAS_SCRIPT == "yes":
   runTest("script",      4,  ["/usr/bin/script -f" +
   			      " -c 'bash -c \"ls; sleep 30\"'" +
   			      " dmtcp-test-typescript.tmp"])
+  os.system("rm -f dmtcp-test-typescript.tmp")
   S=0.3
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
