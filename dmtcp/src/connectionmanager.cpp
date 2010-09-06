@@ -36,6 +36,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+// Returns true if string s1 starts with string s2
+static bool startsWith ( dmtcp::string s1, dmtcp::string s2 )
+{
+  return s1.compare(0, s2.length(), s2) == 0;
+}
 
 static dmtcp::string _procFDPath ( int fd )
 {
@@ -152,14 +157,34 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
   bool isFile  = ( device[0] == '/' );
 
-  bool isPts   = ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 );
-  bool isPtmx  = ( strncmp ( device.c_str(), "/dev/ptmx", strlen( "/dev/ptmx" ) ) ==0 );
+  bool isTty = (device.compare("/dev/tty") == 0);
 
-  bool isBSDMaster  = ( strncmp ( device.c_str(), "/dev/pty", strlen( "/dev/pty" ) ) ==0 );
-  bool isBSDSlave   = ( strncmp ( device.c_str(), "/dev/tty", strlen( "/dev/tty" ) ) ==0 );
+  bool isPtmx  = (device.compare("/dev/ptmx") == 0);
+  bool isPts   = startsWith(device, "/dev/pts/");
 
-  if ( isPtmx )
-  {
+  bool isBSDMaster  = startsWith(device, "/dev/pty") && device.compare("/dev/pty") != 0;
+  bool isBSDSlave   = startsWith(device, "/dev/tty") && device.compare("/dev/tty") != 0;
+
+  if ( isTty ) {
+    dmtcp::string deviceName = "tty:" + device;
+
+    if(noOnDemandConnection)
+      return deviceName;
+
+    iterator i = _table.find ( deviceName );
+
+    if ( i == _table.end() )
+    {
+      JTRACE("Creating /dev/tty connection [on-demand]");
+      int type = PtyConnection::PTY_DEV_TTY;
+
+      Connection * c = new PtyConnection ( device, device, type );
+      createPtyDevice ( fd, deviceName, c );
+    }
+
+    return deviceName;
+
+  } else if ( isPtmx ) {
     char ptsName[21];
     JASSERT(_real_ptsname_r(fd, ptsName, 21) == 0) (JASSERT_ERRNO);
 
@@ -190,7 +215,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       int type;
       dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
 
-      JTRACE( "Controlling Terminal###################" ) (currentTty);
+      JTRACE( "Controlling Terminal") (currentTty);
 
       if ( currentTty.compare(device) == 0 ) {
         type = dmtcp::PtyConnection::PTY_CTTY;
@@ -502,7 +527,18 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
     {
       create(fd, new StdioConnection(fd));
     }
-    else if ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 )
+    else if ( device.compare("/dev/tty") == 0 )
+    {
+      dmtcp::string deviceName = "tty:" + device;
+      JTRACE ( "Found pre-existing /dev/tty" )
+        ( fd ) ( deviceName );
+
+      int type = dmtcp::PtyConnection::PTY_DEV_TTY;
+
+      PtyConnection *con = new PtyConnection ( device, device, type );
+      create ( fd, con );
+    }
+    else if ( startsWith(device, "/dev/pts/")) 
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
       JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )

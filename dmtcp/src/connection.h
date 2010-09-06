@@ -218,11 +218,12 @@ namespace dmtcp
       enum PtyType
       {
         PTY_INVALID   = PTY,
+        PTY_DEV_TTY,
         PTY_CTTY,
         PTY_MASTER,
         PTY_SLAVE,
         PTY_BSD_MASTER,
-        PTY_BSD_SLAVE//,
+        PTY_BSD_SLAVE
 
 //        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
