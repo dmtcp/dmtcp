@@ -280,11 +280,11 @@ static char** patchUserEnv ( dmtcp::list<dmtcp::string> &envList )
   static dmtcp::vector<char*> envVect;
   envVect.clear();
   
-  if (dbg) {
-    dmtcp::list<dmtcp::string>::iterator i;
-    for ( i = envList.begin() ; i != envList.end(); ++i ) {
-      JASSERT ( !isImportantEnv ( *i ) );
-    }
+  dmtcp::list<dmtcp::string>::iterator i;
+  for ( i = envList.begin() ; i != envList.end(); ++i ) {
+    JASSERT ( !isImportantEnv ( *i ) );
+    JASSERT ( !dbg || &(*i)[0] == (*i).c_str());
+    envVect.push_back ( (char*)i->c_str() );
   }
 
   JTRACE ( "patching user envp..." ) ( getenv ( "LD_PRELOAD" ) );
