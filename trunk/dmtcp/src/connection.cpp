@@ -556,7 +556,6 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
   JASSERT ( fds.size() > 0 );
 
   int tempfd;
-  char pts_name[80];
 
   switch ( ptyType() )
   {
@@ -564,6 +563,26 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       //tempfd = open("/dev/null", O_RDWR);
       JTRACE ("Restoring invalid PTY.") (id());
       return;
+
+    case PTY_DEV_TTY:
+    {
+      dmtcp::string tty = "/dev/tty";
+
+      tempfd = open ( tty.c_str(), _fcntlFlags );
+      JASSERT ( tempfd >= 0 ) ( tempfd ) ( tty ) ( JASSERT_ERRNO )
+        .Text ( "Error Opening the terminal device" );
+
+      JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
+        .Text ( "dup2() failed" );
+
+      close(tempfd);
+
+      JTRACE ( "Restoring /dev/tty for the process" ) ( tty ) ( fds[0] );
+
+      _ptsName = _uniquePtsName = tty;
+
+      break;
+    }
 
     case PTY_CTTY:
     {
@@ -589,6 +608,7 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
 
     case PTY_MASTER:
     {
+      char pts_name[80];
       JTRACE ( "Restoring /dev/ptmx" ) ( fds[0] );
 
       tempfd = open ( "/dev/ptmx", O_RDWR );
@@ -704,6 +724,14 @@ void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   {
     case PTY_INVALID:
       return;
+
+    case PTY_DEV_TTY:
+    {
+      dmtcp::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[0] ) );
+      JASSERT(device.compare("/dev/tty") == 0);
+      _ptsName = _uniquePtsName = device;
+      break;
+    }
 
     case PTY_CTTY:
     {
@@ -1294,7 +1322,7 @@ void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::PtyConnection" );
-  o & _ptsName & _uniquePtsName & _type;
+  o & _ptsName & _uniquePtsName & _bsdDeviceName & _type;
 
   if ( o.isReader() )
   {
