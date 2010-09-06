@@ -133,6 +133,9 @@ extern "C"
   pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
 
+  int _real_setgid(gid_t gid);
+  int _real_setuid(uid_t uid);
+
 #endif /* PID_VIRTUALIZATION */
 
   pid_t _real_gettid(void);

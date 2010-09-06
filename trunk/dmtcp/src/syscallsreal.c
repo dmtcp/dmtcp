@@ -356,6 +356,14 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
   REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
+int _real_setgid(gid_t gid) {
+  REAL_FUNC_PASSTHROUGH( setgid ) (gid);
+}
+
+int _real_setuid(uid_t uid) {
+  REAL_FUNC_PASSTHROUGH( setuid ) (uid);
+}
+
 #endif
 
 // gettid / tkill / tgkill are not defined in libc.
