@@ -40,6 +40,12 @@
 
 #define INITIAL_ARGV_MAX 32
 
+#ifdef DEBUG
+  const static bool dbg = true;
+#else
+  const static bool dbg = false;
+#endif
+
 static pid_t forkChild ( long child_host, time_t child_time )
 {
   while ( 1 ) {
@@ -241,59 +247,57 @@ static const char* ourImportantEnvs[] =
 
 static bool isImportantEnv ( dmtcp::string str )
 {
-  for ( size_t i=0; i<str.size(); ++i )
-    if ( str[i] == '=' )
-    {
-      str[i] = '\0';
-      str = str.c_str();
-      break;
-    }
+  str = str.substr(0, str.find("="));
 
-  for ( size_t i=0; i<ourImportantEnvsCnt; ++i )
-  {
+  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
     if ( str == ourImportantEnvs[i] )
       return true;
   }
   return false;
 }
 
-static char** patchUserEnv ( char *const envp[] )
+static dmtcp::list<dmtcp::string>& copyUserEnv ( char *const envp[] )
 {
-  static dmtcp::vector<char*> envVect;
   static dmtcp::list<dmtcp::string> strStorage;
-  envVect.clear();
   strStorage.clear();
 
-#ifdef DEBUG
-  const static bool dbg = true;
-#else
-  const static bool dbg = false;
-#endif
+  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." );
+  for ( ; *envp != NULL; ++envp ) {
+    if ( isImportantEnv ( *envp ) ) {
+      if(dbg) 
+        JASSERT_STDERR << "     skipping: " << *envp << '\n';
+      continue;
+    }
+    strStorage.push_back ( *envp );
+    if(dbg) 
+      JASSERT_STDERR << "     addenv[user]:" << strStorage.back() << '\n';
+  }
+  return strStorage;
+}
+
+static char** patchUserEnv ( dmtcp::list<dmtcp::string> &envList )
+{
+  static dmtcp::vector<char*> envVect;
+  envVect.clear();
+  
+  if (dbg) {
+    dmtcp::list<dmtcp::string>::iterator i;
+    for ( i = envList.begin() ; i != envList.end(); ++i ) {
+      JASSERT ( !isImportantEnv ( *i ) );
+    }
+  }
 
   JTRACE ( "patching user envp..." ) ( getenv ( "LD_PRELOAD" ) );
 
   //pack up our ENV into the new ENV
-  for ( size_t i=0; i<ourImportantEnvsCnt; ++i )
-  {
+  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
     const char* v = getenv ( ourImportantEnvs[i] );
-    if ( v != NULL )
-    {
-      strStorage.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
-      envVect.push_back ( &strStorage.back() [0] );
-      if(dbg) JASSERT_STDERR << "     addenv[dmtcp]:" << strStorage.back() << '\n';
+    if ( v != NULL ) {
+      envList.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
+      envVect.push_back ( &envList.back() [0] );
+      if(dbg) 
+        JASSERT_STDERR << "     addenv[dmtcp]:" << envList.back() << '\n';
     }
-  }
-
-  for ( ;*envp != NULL; ++envp )
-  {
-    if ( isImportantEnv ( *envp ) )
-    {
-      if(dbg) JASSERT_STDERR << "     skipping: " << *envp << '\n';
-      continue;
-    }
-    strStorage.push_back ( *envp );
-    envVect.push_back ( &strStorage.back() [0] );
-    if(dbg) JASSERT_STDERR << "     addenv[user]:" << strStorage.back() << '\n';
   }
 
   envVect.push_back ( NULL );
@@ -304,13 +308,17 @@ static char** patchUserEnv ( char *const envp[] )
 extern "C" int execve ( const char *filename, char *const argv[], char *const envp[] )
 {
   JTRACE ( "execve() wrapper" ) ( filename );
+
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_LOCK_LOCK();
 
+  dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
+
   dmtcpPrepareForExec();
-  int retVal = _real_execve ( filename, argv, patchUserEnv ( envp ) );
+
+  int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
@@ -319,17 +327,17 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
 extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 {
-  //TODO: Right now we assume the user hasn't clobbered our setup of envp
-  //(like LD_PRELOAD), we should really go check to make sure it hasn't
-  //been destroyed....
   JTRACE ( "fexecve() wrapper" ) ( fd );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_LOCK_LOCK();
 
+  dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
+
   dmtcpPrepareForExec();
-  int retVal = _real_fexecve ( fd, argv, patchUserEnv ( envp ) );
+
+  int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
