@@ -862,13 +862,13 @@ static void CreateDirectoryStructure(const dmtcp::string& path)
 {
   size_t index = path.rfind('/');
 
-  if (index == -1)
+  if (index == dmtcp::string::npos)
     return;
 
   dmtcp::string dir = path.substr(0, index);
 
   index = path.find('/');
-  while (index != -1) {
+  while (index != dmtcp::string::npos) {
     if (index > 1) {
       dmtcp::string dirName = path.substr(0, index);
 
@@ -1002,7 +1002,7 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   dmtcp::string fileName;
 
   size_t index = path.rfind('/');
-  if (index != -1)
+  if (index != dmtcp::string::npos)
     fileName =  path.substr(index+1);
   else
     fileName = path;
@@ -1136,16 +1136,16 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
   int bufsize = 256;
   char buf[bufsize];
   int j;
-  int ret;
-  for(int i=0;i<(_in_data.size()/bufsize);i++){ // refill fifo
-    for(j=0;j<bufsize;j++){
+  ssize_t ret;
+  for(size_t i=0;i<(_in_data.size()/bufsize);i++){ // refill fifo
+    for(j=0; j<bufsize; j++){
 		buf[j] = _in_data[j+i*bufsize];
 	}
 	JASSERT ((ret=write(ckptfd,buf,j)) == j)
 		(JASSERT_ERRNO) (ret)(j) (fds[0])(i);
   }
   int start = (_in_data.size()/bufsize)*bufsize;
-  for(j=0;j<_in_data.size()%bufsize;j++){
+  for(j=0; j<_in_data.size()%bufsize; j++){
     buf[j] = _in_data[start+j];
   }
   errno=0;

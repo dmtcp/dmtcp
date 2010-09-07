@@ -121,7 +121,7 @@ void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
 }
 
-const int dmtcp::DmtcpWorker::ld_preload_c_len;
+const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
 
 //called before user main()
@@ -308,9 +308,10 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 
     // process command
-    int semipos;
-    int pos, actpos = -1;
-    for(semipos = 0; (pos = cmd.find(';',semipos+1)) != string::npos;semipos = pos, actpos = pos);
+    unsigned int semipos;
+    unsigned int pos, actpos = -1;
+    for(semipos = 0; (pos = cmd.find(';',semipos+1)) != string::npos;
+	semipos = pos, actpos = pos);
 
     if( actpos > 0 ){
         cmd = cmd.substr(0,actpos+1) + prefix + cmd.substr(actpos+1);

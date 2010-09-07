@@ -300,10 +300,9 @@ void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
 
 void dmtcp::VirtualPidTable::prepareForExec( )
 {
-  int i;
   JTRACE("Preparing for exec. Emptying tidVector");
   _do_lock_tbl();
-  for (i = 0; i < _tidVector.size(); i++) {
+  for (size_t i = 0; i < _tidVector.size(); i++) {
     _pidMapTable.erase( _tidVector[i] );
   }
   _tidVector.clear();
@@ -360,7 +359,6 @@ void dmtcp::VirtualPidTable::refreshTidVector()
 
 void dmtcp::VirtualPidTable::refreshChildTable()
 {
-  int status;
   for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i ) {
     pid_t originalPid = i->first;
     int retVal = kill(originalPid, 0);
@@ -381,7 +379,7 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
     //refreshTidVector();
   }
 
-	JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
+  JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
 
   if ( _isRootOfProcessTree )
