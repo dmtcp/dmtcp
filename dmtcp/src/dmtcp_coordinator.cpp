@@ -375,7 +375,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
      * Once the messages have been written out, the coordinator closes all the
      * connections and calls exit().
      */
-    for ( int i=0; i<_writes.size(); ++i )
+    for ( size_t i=0; i<_writes.size(); ++i )
     {
       int fd = _writes[i]->socket().sockfd();
       if ( fd >= 0 ) {
@@ -1116,7 +1116,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   else
     fprintf ( fp, "maybebatch=\n\n" );
 
-  fprintf ( fp, "# Number of hosts in the computation = %d\n",
+  fprintf ( fp, "# Number of hosts in the computation = %zd\n",
 	    _restartFilenames.size() );
   fprintf ( fp, "# Number of processes in the computation = %d\n\n",
 	    getStatus().numPeers );

@@ -101,7 +101,7 @@ bool jalib::JBinarySerializeReaderRaw::isempty()
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  int ret;
+  size_t ret;
   JASSERT ( (ret = write (_fd, buffer, len)) == len ) ( filename() ) (ret) ( len ).Text ( "write() failed" );
   _bytes+=len;
 }
@@ -109,7 +109,7 @@ void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  int ret;
+  size_t ret;
   JASSERT ( (ret = read (_fd, buffer, len)) == len ) ( filename() )(ret)( len ).Text ( "read() failed" );
   _bytes+=len;
 }

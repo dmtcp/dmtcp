@@ -38,9 +38,12 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <syslog.h>
 
 
 // See syscallsreal.c for original model.  In dmtcphijack.so, system calls
