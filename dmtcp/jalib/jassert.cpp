@@ -104,7 +104,7 @@ static int _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
   int tfd = open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
-  if ( tfd < 0 ) return NULL;
+  if ( tfd < 0 ) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   close ( tfd );
@@ -143,12 +143,6 @@ void jassert_internal::set_log_file ( const jalib::string& path )
 
 static int _initJassertOutputDevices()
 {
-#ifdef DEBUG
-  if (theLogFile == -1)
-    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
-                          + "/jassertlog." + jalib::XToString ( getpid() ) );
-#endif
-
   const char* errpath = getenv ( "JALIB_STDERR_PATH" );
 
   if ( errpath != NULL )
@@ -169,7 +163,11 @@ static int writeall(int fd, const void *buf, size_t count) {
 void jassert_internal::jassert_safe_print ( const char* str )
 {
   static int errconsoleFd = _initJassertOutputDevices();
-
+#ifdef DEBUG
+  if (theLogFile == -1 && getenv("DMTCP_TMPDIR") != NULL)
+    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
+                          + "/jassertlog." + jalib::XToString ( getpid() ) );
+#endif
   writeall ( errconsoleFd, str, strlen(str) );
 
   if ( theLogFile != -1 )
