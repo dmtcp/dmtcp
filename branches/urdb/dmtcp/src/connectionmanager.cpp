@@ -304,11 +304,12 @@ void dmtcp::ConnectionList::erase ( iterator i )
 {
   Connection * con = i->second;
   JTRACE ( "deleting stale connection..." ) ( con->id() );
-  _connections.erase ( i );
   KernelDeviceToConnection::Instance().erase( i->first );
+  _connections.erase ( i );
   delete con;
 }
 
+// TODO: To properly implement STL erase(), it should return the next iterator.
 void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
 {
   for(iterator i = _table.begin(); i!=_table.end(); ++i){

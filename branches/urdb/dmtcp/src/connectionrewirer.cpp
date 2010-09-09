@@ -42,15 +42,18 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
 
   JASSERT ( msg.type==DMT_RESTORE_WAITING ) ( msg.type ).Text ( "unexpected message" );
 
+  // Find returns iterator 'i' w/ 0 or more elts, with first elt matching key.
   iterator i = _pendingOutgoing.find ( msg.restorePid );
 
 
   if ( i == _pendingOutgoing.end() )
   {
+    // 'i' is an iterator over 0 elements.
     JTRACE ( "got RESTORE_WAITING MESSAGE [not used]" ) ( msg.restorePid ) ( _pendingOutgoing.size() ) ( _pendingIncoming.size() );
   }
   else
   {
+    // 'i' is an iterator over 1 element.
     JTRACE ( "got RESTORE_WAITING MESSAGE, reconnecting..." )
     ( msg.restorePid ) ( msg.restorePort ) ( msg.restoreAddrlen ) ( _pendingOutgoing.size() ) ( _pendingIncoming.size() );
     const dmtcp::vector<int>& fds = i->second;
@@ -77,7 +80,6 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
       JASSERT ( _real_dup2 ( fd0,fds[n] ) == fds[n] ) ( fd0 ) ( fds[n] ) ( msg.restorePid )
       .Text ( "dup2() failed" );
     }
-
     _pendingOutgoing.erase ( i );
   }
 
