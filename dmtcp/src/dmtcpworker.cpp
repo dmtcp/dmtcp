@@ -308,12 +308,12 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 
     // process command
-    unsigned int semipos;
-    unsigned int pos, actpos = -1;
+    size_t semipos, pos;
+    size_t actpos = string::npos;
     for(semipos = 0; (pos = cmd.find(';',semipos+1)) != string::npos;
 	semipos = pos, actpos = pos);
 
-    if( actpos > 0 ){
+    if( actpos > 0 && actpos != string::npos ){
         cmd = cmd.substr(0,actpos+1) + prefix + cmd.substr(actpos+1);
     } else {
         cmd = prefix + cmd;
