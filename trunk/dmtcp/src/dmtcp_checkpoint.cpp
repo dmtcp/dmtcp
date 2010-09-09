@@ -99,7 +99,7 @@ static const char* theExecFailedMsg =
 
 static const char* theMatlabWarning =
   "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
-  "****  older glibc.  Later releases (e.g. release 7.9 have no problem.\n"
+  "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
   "****  \n"
   "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
   "****  with gcc-4.1 and g++-4.1\n"
@@ -265,17 +265,6 @@ int main ( int argc, char** argv )
 # if __GNUC__ == 4 && __GNUC_MINOR__ > 1
   if ( strcmp(argv[0], "matlab") == 0 )
     JASSERT_STDERR << theMatlabWarning;
-//    printf(
-//   "\n**** WARNING:  matlab release 7 uses older glibc.  Compile DMTCP/MTCP\n"
-//   "****  with gcc-4.1 and g++-4.1\n"
-//   "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-//   "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-//   "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-//   "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-//   "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-//   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-//   "****   (Will try to execute anyway with current compiler version.)\n\n"
-//   );
 # endif
 #endif
 
