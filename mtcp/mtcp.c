@@ -94,11 +94,11 @@ if (DEBUG_RESTARTING) \
 
 /* Retrieve saved stack pointer saved by getcontext () */
 #ifdef __x86_64__
-#define REG_RSP 15
-#define SAVEDSP uc_mcontext.gregs[REG_RSP]
+#define MYREG_RSP 15
+#define SAVEDSP uc_mcontext.gregs[MYREG_RSP]
 #else
-#define REG_ESP 7
-#define SAVEDSP uc_mcontext.gregs[REG_ESP]
+#define MYREG_ESP 7
+#define SAVEDSP uc_mcontext.gregs[MYREG_ESP]
 #endif
 
 /* TLS segment registers used differently in i386 and x86_64. - Gene */
@@ -117,7 +117,10 @@ if (DEBUG_RESTARTING) \
  *glibc-2.5/nptl/descr.h:
  * struct pthread
  * {
- *  void *__padding[16];
+ *  union {
+ *   tcbheader_t tcbheader;
+ *   void *__padding[16];
+ *  };
  *  list_t list;
  *  pid_t tid;
  *  pid_t pid;
@@ -132,15 +135,109 @@ if (DEBUG_RESTARTING) \
  * } list_t;
  *
  * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
+ *
+ * NOTE: glibc-2.10 further changes the size tcphead_t without updating the
+ *       size of __padding in struct pthread. We need to add an extra 512 bytes
+ *       to accomodate this.                                     -- KAPIL
  */
-#if __GLIBC_PREREQ (2,10)
-# define TLS_PID_OFFSET \
-	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET (26*sizeof(void *))  // offset of tid in pthread struct
+#if __GLIBC_PREREQ (2,12)
+/* WHEN WE HAVE CONFIDENCE IN THIS VERSION, REMOVE ALL OTHER __GLIBC_PREREQ
+ * AND MAKE THIS THE ONLY VERSION.  IT SHOULD BE BACKWARDS COMPATIBLE.
+ */
+/* These function definitions should succeed independently of the glibc version.
+ * They use get_thread_area() to match (tid, pid) and find offset.
+ * In other code, on restart, that offset is used to set (tid,pid) to
+ *   the latest tid and pid of the new thread, instead of the (tid,pid)
+ *   of the original thread.
+ * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
+ */
+static int TLS_TID_OFFSET(void);
+
+/* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
+static char *memsubarray (char *array, char *subarray, int len)
+                                         __attribute__ ((unused));
+static int mtcp_get_tls_segreg(void);
+static void *mtcp_get_tls_base_addr(void);
+
+static int TLS_TID_OFFSET(void) {
+  static int tid_offset = -1;
+  if (tid_offset == -1) {
+    struct {pid_t tid; pid_t pid;} tid_pid;
+    /* struct pthread has adjacent fields, tid and pid, in that order.
+     * Try to find at what offset that bit patttern occurs in struct pthread.
+     */
+    char * tmp;
+    tid_pid.tid = mtcp_sys_kernel_gettid();
+    tid_pid.pid = mtcp_sys_getpid();
+    /* Get entry number of current thread descriptor from its segment register:
+     * Segment register / 8 is the entry_number for the "thread area", which
+     * is of type 'struct user_desc'.   The base_addr field of that struct
+     * points to the struct pthread for the thread with that entry_number.
+     * The tid and pid are contained in the 'struct pthread'.
+     *   So, to access the tid/pid fields, first find the entry number.
+     * Then fill in the entry_number field of an empty 'struct user_desc', and
+     * get_thread_area(struct user_desc *uinfo) will fill in the rest.
+     * Then use the filled in base_address field to get the 'struct pthread'.
+     * The function mtcp_get_tls_base_addr() returns this 'struct pthread' addr.
+     */
+    void * pthread_desc = mtcp_get_tls_base_addr();
+    /* A false hit for tid_offset probably can't happen since a new
+     * 'struct pthread' is zeroed out before adding tid and pid.
+     */
+    tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
+    if (tmp == NULL) {
+      mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n");
+      mtcp_abort();
+    }
+    tid_offset = tmp - (char *)pthread_desc;
+#ifdef __x86_64__
+    if (tid_offset != 512+26*sizeof(void *))
 #else
-# define TLS_PID_OFFSET \
-	  (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET (18*sizeof(void *))  // offset of tid in pthread struct
+    if (tid_offset != 26*sizeof(void *))
+#endif
+      mtcp_printf("MTCP:  Warning:  tid_offset = %d; different from expected.\n"
+                  "  Continuing anyway.  If this fails, please try again.\n",
+                  tid_offset);
+    DPRINTF(("tid_offset: %d\n", tid_offset));
+    if (tid_offset % sizeof(int) != 0) {
+      mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n");
+      mtcp_abort();
+    }
+    /* Should we do a double-check, and spawn a new thread and see
+     *  if its TID matches at this tid_offset?  This would give greater
+     *  confidence, but for the reasons above, it's probably not necessary.
+     */
+  }
+  return tid_offset;
+}
+static int TLS_PID_OFFSET(void) {
+  static int pid_offset = -1;
+  struct {pid_t tid; pid_t pid;} tid_pid;
+  if (pid_offset == -1) {
+    int tid_offset = TLS_TID_OFFSET();
+    pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
+    DPRINTF(("pid_offset: %d\n", pid_offset));
+  }
+  return pid_offset;
+}
+#elif __GLIBC_PREREQ (2,11)
+# ifdef __x86_64__
+#  define TLS_PID_OFFSET() \
+           (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+#  define TLS_TID_OFFSET() (512+26*sizeof(void *))  // offset of tid in pthread struct
+# else
+#  define TLS_PID_OFFSET() \
+           (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+#  define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
+# endif
+#elif __GLIBC_PREREQ (2,10)
+# define TLS_PID_OFFSET() \
+          (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
+#else
+# define TLS_PID_OFFSET() \
+          (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
+# define TLS_TID_OFFSET() (18*sizeof(void *))  // offset of tid in pthread struct
 #endif
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
@@ -223,6 +320,7 @@ int dmtcp_info_pid_virtualization_enabled = -1;
 /* The following two DMTCP Info variables are defined in mtcp_printf.c */
 //int dmtcp_info_stderr_fd = 2;
 //int dmtcp_info_jassertlog_fd = -1;
+int dmtcp_info_restore_working_directory = -1;
 
 	/* Static data */
 static sigset_t sigpending_global;                // pending signals for the process
@@ -257,6 +355,7 @@ static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
 static struct termios saved_termios;
 static int saved_termios_exists = 0;
+static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting) = NULL;
@@ -301,6 +400,7 @@ static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
 static void restore_sig_state (Thread *thisthread);
+static void restore_sig_handlers (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
 static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
@@ -491,12 +591,12 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 				   * used kernel fork() instead of libc fork().
 				   */
 #ifdef __i386__
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET));
+  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET()));
+  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET()));
 #endif
 #ifdef __x86_64__
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET));
+  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET()));
+  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_tid) : "i" (TLS_TID_OFFSET()));
 #endif
   if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
     mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n", motherpid, tls_pid, tls_tid);
@@ -894,7 +994,7 @@ static int threadcloned (void *threadv)
 
   setupthread (thread);
 
-  /* The new TLS should have the process ID in place at TLS_PID_OFFSET */
+  /* The new TLS should have the process ID in place at TLS_PID_OFFSET() */
   /* This is a verification step and is therefore optional as such     */
 
 #ifdef __i386__
@@ -911,13 +1011,14 @@ static int threadcloned (void *threadv)
 #endif
 
 #ifdef __i386__
-  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
+  asm volatile ("movl %%gs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET()));
 #endif
 #ifdef __x86_64__
-  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET));
+  asm volatile ("movl %%fs:%c1,%0" : "=r" (tls_pid) : "i" (TLS_PID_OFFSET()));
 #endif
   if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
-    mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n", motherpid, tls_pid, TLS_PID_OFFSET);
+    mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n",
+                 motherpid, tls_pid, TLS_PID_OFFSET());
     mtcp_printf ("      %X\n", motherpid);
     for (rc = 0; rc < 256; rc += 4) {
       asm volatile ("movl %%gs:(%1),%0" : "=r" (tls_pid) : "r" (rc));
@@ -1591,6 +1692,13 @@ again:
     /* Do this once.  It's the same for all threads. */
     saved_termios_exists = ( isatty(STDIN_FILENO)
     			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+
+    if (getcwd(saved_working_directory, MTCP_MAX_PATH) == NULL) {
+      // buffer wasn't large enough
+      perror("getcwd");
+      mtcp_printf ("getcwd failed.");
+      mtcp_abort ();
+    }
 
     DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
 
@@ -3037,10 +3145,27 @@ static int restarthread (void *threadv)
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
     /* Do it once only, in motherofall thread. */
-    if (saved_termios_exists)
-      if ( ! isatty(STDIN_FILENO)
-           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 )
-        DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+
+    if (saved_termios_exists){
+      // First check if we are in foreground. If not - skip this and print warning.
+      // If we try to do that - we will hangup
+      int fg = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+      DPRINTF(("restore terminal attributes, check foreground ststus first: %d",fg));
+      if ( fg ){
+        if( !isatty(STDIN_FILENO)
+           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 ){
+          DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+        }
+      }else{
+        DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step - we are in BACKGROUND\n"));
+      }
+    }
+
+    if (dmtcp_info_restore_working_directory
+        && chdir(saved_working_directory) == -1) {
+      perror("chdir");
+      mtcp_abort ();
+    }
   }
 
   restore_sig_state (thread);
@@ -3147,12 +3272,12 @@ static void restore_tls_state (Thread *thisthread)
 
   /* The assumption that this points to the pid was checked by that tls_pid crap near the beginning */
 
-  *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_PID_OFFSET) = motherpid;
+  *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_PID_OFFSET()) = motherpid;
 
   /* Likewise, we must jam the new pid into the mother thread's tid slot (checked by tls_tid carpola) */
 
   if (thisthread == motherofall) {
-    *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_TID_OFFSET) = motherpid;
+    *(pid_t *)(*(unsigned long *)&(thisthread -> gdtentrytls[0].base_addr) + TLS_TID_OFFSET()) = motherpid;
   }
 
   /* Restore all three areas */

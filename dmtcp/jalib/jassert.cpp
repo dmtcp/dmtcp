@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "jconvert.h"
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -161,26 +162,26 @@ const char* jassert_internal::jassert_basename ( const char* str )
 // }
 
 
-static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
+static int _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
   int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
-  if ( tfd < 0 ) return NULL;
+  if ( tfd < 0 ) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   close ( tfd );
-  if ( nfd < 0 ) return NULL;
-  //promote it to a stream
-  return fdopen ( nfd,"a" );
+  // Previously used fdopen() to return a newly allocated FILE stream.
+  // Removed use of fdopen() to avoid modifiying the user malloc arena.
+  return nfd;
 }
 
-static FILE* _fopen_log_safe ( const jalib::string& s, int protectedFd )
+static int _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _fopen_log_safe ( s.c_str(), protectedFd );
 }
 
 
-static FILE* theLogFile = NULL;
+static int theLogFile = -1;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
@@ -201,87 +202,83 @@ void jassert_internal::reset_on_fork ( )
 void jassert_internal::set_log_file ( const jalib::string& path )
 {
   theLogFilePath() = path;
-  if ( theLogFile != NULL ) fclose ( theLogFile );
-  theLogFile = NULL;
+  if ( theLogFile != -1 ) close ( theLogFile );
+  theLogFile = -1;
   if ( path.length() > 0 )
   {
     theLogFile = _fopen_log_safe ( path, DUP_LOG_FD );
-    if ( theLogFile == NULL )
+    if ( theLogFile == -1 )
       theLogFile = _fopen_log_safe ( path + "_2",DUP_LOG_FD );
-    if ( theLogFile == NULL )
+    if ( theLogFile == -1 )
       theLogFile = _fopen_log_safe ( path + "_3",DUP_LOG_FD );
-    if ( theLogFile == NULL )
+    if ( theLogFile == -1 )
       theLogFile = _fopen_log_safe ( path + "_4",DUP_LOG_FD );
-    if ( theLogFile == NULL )
+    if ( theLogFile == -1 )
       theLogFile = _fopen_log_safe ( path + "_5",DUP_LOG_FD );
   }
 }
 
-static FILE* _initJassertOutputDevices()
+static int _initJassertOutputDevices()
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
   logLock = newLock;
-
-#ifdef DEBUG
-  if (theLogFile == NULL)
-    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
-                          + "/jassertlog." + jalib::XToString ( getpid() ) );
-#endif
 
   const char* errpath = getenv ( "JALIB_STDERR_PATH" );
 
   if ( errpath != NULL )
     return _fopen_log_safe ( errpath, DUP_STDERR_FD );
   else
-    return fdopen ( dup2 ( fileno ( stderr ),DUP_STDERR_FD ),"w" );;;
+    return dup2 ( fileno ( stderr ), DUP_STDERR_FD );
 }
 
-
+static int writeall(int fd, const void *buf, size_t count) {
+    int rc;
+    do
+      rc = write(fd, buf, count);
+    while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
+    return rc; /* rc >= 0; success */
+}
 
 void jassert_internal::jassert_safe_print ( const char* str )
 {
-  static FILE* errconsole = _initJassertOutputDevices();
-  static bool useErrorconsole = true;
+  static int errconsoleFd = _initJassertOutputDevices();
+#ifdef DEBUG
+  if (theLogFile == -1 && getenv("DMTCP_TMPDIR") != NULL)
+    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
+                          + "/jassertlog." + jalib::XToString ( getpid() ) );
+#endif
+  writeall ( errconsoleFd, str, strlen(str) );
 
-  if( errconsole == NULL && useErrorconsole ) {
-    jwrite ( stderr, "dmtcp: cannot open output channel for error logging\n");
-    useErrorconsole = false;
-  }
+  if ( theLogFile != -1 )
+  {
+    int rv = writeall ( theLogFile, str, strlen(str) );
 
-  if ( useErrorconsole )
-    jwrite ( errconsole, str );
-
-  if ( theLogFile != NULL ) {
-    int rv = jwrite ( theLogFile, str );
-
-    if ( rv < 0 ) {
-      if ( useErrorconsole )
-        jwrite ( errconsole, "JASSERT: write failed, reopening log file.\n" );
+    if ( rv < 0 )
+    {
+      const char temp[] = "JASSERT: write failed, reopening log file.\n";
+      writeall ( errconsoleFd, temp, sizeof(temp) );
       JASSERT_SET_LOGFILE ( theLogFilePath() );
-      if ( theLogFile != NULL ) {
-        jwrite ( theLogFile, "JASSERT: write failed, reopened log file:\n");
-        jwrite ( theLogFile, str );
+      if ( theLogFile != -1 ) {
+        const char temp2[] = "JASSERT: write failed, reopened log file.\n";
+        writeall ( theLogFile, temp2, sizeof(temp2) );
+        writeall ( theLogFile, str, strlen(str) );
       }
     }
-    fflush ( theLogFile );
   }
 
 // #ifdef DEBUG
-//     static pid_t logPd = -1;
-//     static FILE* log = NULL;
+//     static pid_t logPd = -1;//     static int log = -1;
 //
 //     if(logPd != getpid())
 //     {
-//         if(log != NULL) fclose(log);
+//         if(log != -1) close(log);
 //         logPd = getpid();
 //         log = _fopen_log_safe((getenv("DMTCP_TMPDIR") + "/jassertlog." + jalib::XToString(logPd)).c_str());
 //     }
 //
-//     if(log != NULL)
+//     if(log != -1)
 //     {
-//         fprintf(log,"%s",str);
-//         fflush(log);
+//         writeall(log,str,strlen(str));
 //     }
 // #endif
 }
-

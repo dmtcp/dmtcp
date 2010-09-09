@@ -212,11 +212,14 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
   wr & _compGroup;
   wr & _numPeers;
   _conToFds.serialize ( wr );
+  JTRACE ( "after outputDmtcpConnectionTable serialize() call." );
 
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::Instance().refresh( );
+  JTRACE ( "after refresh call in outputDmtcpConnectionTable." );
   dmtcp::VirtualPidTable::Instance().serialize( wr );
 #endif
+  JTRACE ( "returning from outputDmtcpConnectionTable." );
 }
 
 
