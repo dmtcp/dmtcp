@@ -122,6 +122,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     FHU_TRY_DIR ( udir + "/../" + file );
     FHU_TRY_DIR ( udir + "/../../" + file );
     FHU_TRY_DIR ( udir + "/../../../" + file );
+    FHU_TRY_DIR ( udir + "/../lib/dmtcp/" + file );
   }
   FHU_TRY_DIR ( GetProgramDir() + "/" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/mtcp/" + file );
@@ -131,14 +132,19 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
   FHU_TRY_DIR ( GetProgramDir() + "/../" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/../../" + file );
   FHU_TRY_DIR ( GetProgramDir() + "/../../../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../lib/dmtcp/" + file );
   FHU_TRY_DIR ( "./" + file );
   FHU_TRY_DIR ( "../" + file );
   FHU_TRY_DIR ( "../../" + file );
   FHU_TRY_DIR ( "../../../" + file );
-  FHU_TRY_DIR ( "/usr/bin/" + file );
   FHU_TRY_DIR ( "/bin/" + file );
+  FHU_TRY_DIR ( "/usr/bin/" + file );
+  FHU_TRY_DIR ( "/lib/" + file );
+  FHU_TRY_DIR ( "/lib64/" + file );
+  FHU_TRY_DIR ( "/usr/lib/" + file );
+  FHU_TRY_DIR ( "/usr/lib64/" + file );
   JASSERT ( !dieOnError ) ( file ) ( GetProgramDir() ) ( d )
-  .Text ( "failed to find needed file" );
+    .Text ( "failed to find needed file" );
   return file;
 }
 

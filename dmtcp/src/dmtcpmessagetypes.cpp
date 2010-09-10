@@ -43,9 +43,11 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,from ( ConnectionIdentifier::Self() )
     ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
+    ,compGroup ( UniquePid(0,0,0) )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
+    ,theCheckpointInterval ( 0 )
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
@@ -59,9 +61,14 @@ void dmtcp::DmtcpMessage::assertValid() const
 {
   JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )( _magicBits )
 	  .Text ( "read invalid message, _magicBits mismatch."
-		  "  Did DMTCP coordinator die?" );
+		  "  Did DMTCP coordinator die uncleanly?" );
   JASSERT ( _msgSize == sizeof ( DmtcpMessage ) ) ( _msgSize ) ( sizeof ( DmtcpMessage ) )
 	  .Text ( "read invalid message, size mismatch." );
+
+  if ( type == DMT_KILL_PEER ) {
+    JTRACE ( "Received KILL Message from coordinator, exiting" );
+    _exit ( 0 );
+  }
 }
 
 void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }
@@ -82,12 +89,13 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( UNKNOWN )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
-      OSHIFTPRINTF ( LOCKED )
+      OSHIFTPRINTF ( FD_LEADER_ELECTION )
       OSHIFTPRINTF ( DRAINED )
       OSHIFTPRINTF ( RESTARTING )
       OSHIFTPRINTF ( CHECKPOINTED )
       OSHIFTPRINTF ( REFILLED )
     default:
+      JASSERT ( false ) .Text ( "Invalid WorkerState" );
       o << s.value();
   }
   return o;
@@ -98,7 +106,7 @@ const char* dmtcp::WorkerState::toString() const{
   case UNKNOWN:      return "UNKNOWN";
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
-  case LOCKED:       return "LOCKED";
+  case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
   case DRAINED:      return "DRAINED";
   case RESTARTING:   return "RESTARTING";
   case CHECKPOINTED: return "CHECKPOINTED";
@@ -120,6 +128,12 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
 
+      OSHIFTPRINTF ( DMT_USER_CMD )
+      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
+
+      OSHIFTPRINTF ( DMT_RESTART_PROCESS )
+      OSHIFTPRINTF ( DMT_RESTART_PROCESS_REPLY )
+
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
@@ -135,11 +149,11 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_CKPT_FILENAME )
       OSHIFTPRINTF ( DMT_FORCE_RESTART )
       OSHIFTPRINTF ( DMT_KILL_PEER )
-      OSHIFTPRINTF ( DMT_USER_CMD )
-      OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
+      OSHIFTPRINTF ( DMT_REJECT )
 
     default:
-      o << s;
+      JASSERT ( false ) ( s ) .Text ( "Invalid Message Type" );
+      //o << s;
   }
   return o;
 }

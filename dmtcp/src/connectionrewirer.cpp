@@ -45,6 +45,7 @@ void dmtcp::ConnectionRewirer::onData ( jalib::JReaderInterface* sock )
   // Find returns iterator 'i' w/ 0 or more elts, with first elt matching key.
   iterator i = _pendingOutgoing.find ( msg.restorePid );
 
+
   if ( i == _pendingOutgoing.end() )
   {
     // 'i' is an iterator over 0 elements.

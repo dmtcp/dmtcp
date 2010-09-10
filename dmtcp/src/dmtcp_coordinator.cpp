@@ -36,8 +36,8 @@
  *   of 'c' so that the reply to dmtcp_command happens only when clients    *
  *   are back in RUNNING state.                                             *
  * The states for a worker (client) are:                                    *
- * Checkpoint: RUNNING -> SUSPENDED -> LOCKED -> DRAINED -> CHECKPOINTED    *
- *       	 -> REFILLED -> RUNNING					    *
+ * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
+ *       	  -> CHECKPOINTED -> REFILLED -> RUNNING		    *
  * Restart:    RESTARTING -> CHECKPOINTED -> REFILLED -> RUNNING	    *
  * If debugging, set gdb breakpoint on:					    *
  *   dmtcp::DmtcpCoordinator::onConnect					    *
@@ -48,6 +48,7 @@
 
 #include "dmtcp_coordinator.h"
 #include "constants.h"
+#include "protectedfds.h"
 #include  "../jalib/jconvert.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
@@ -88,12 +89,16 @@ static const char* theUsage =
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
-  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
-  "      Time in seconds between automatic checkpoints (default: 0, disabled)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
   "  --background\n"
-  "      Run silently in the background\n"
+  "      Run silently in the background (mutually exclusive with --batch)\n"
+  "  --batch\n"
+  "      Run in batch mode (mutually exclusive with --background)\n"
+  "      The checkpoint interval is set to 3600 seconds (1 hr) by default\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints\n"
+  "      (default: 0, disabled)\n"
   "COMMANDS:\n"
   "  (type '?<return>' at runtime for list)\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -117,7 +122,7 @@ static const char* theRestartScriptHeader =
 
 static const char* theRestartScriptUsage = 
   "usage_str='USAGE:\n"
-  "  dmtcp_restart_script [OPTIONS]\n\n"
+  "  dmtcp_restart_script.sh [OPTIONS]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is running\n"
@@ -127,6 +132,13 @@ static const char* theRestartScriptUsage =
   "      Provide a hostfile (One host per line, \"#\" indicates comments)\n"
   "  --restartdir, -d, (environment variable DMTCP_RESTART_DIR):\n"
   "      Directory to read checkpoint images from\n"
+  "  --batch, -b:\n"
+  "      Enable batch mode for dmtcp_restart\n"
+  "  --disable-batch, -b:\n"
+  "      Disable batch mode for dmtcp_restart (if previously enabled)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints\n"
+  "      (Default: Use pre-checkpoint value)\n"
   "  --help:\n"
   "      Print this message\'\n\n\n"
 ;
@@ -135,7 +147,16 @@ static const char* theRestartScriptCmdlineArgHandler =
   "if [ $# -gt 0 ]; then\n"
   "  while [ $# -gt 0 ]\n"
   "  do\n"
-  "    if [ $# -ge 2 ]; then\n"
+  "    if [ $1 = \"--help\" ]; then\n"
+  "      echo \"$usage_str\"\n"
+  "      exit\n"
+  "    elif [ $1 = \"--batch\" -o $1 = \"-b\" ]; then\n"
+  "      maybebatch='--batch'\n"
+  "      shift\n"
+  "    elif [ $1 = \"--disable-batch\" ]; then\n"
+  "      maybebatch=\n"
+  "      shift\n"
+  "    elif [ $# -ge 2 ]; then\n"
   "      case \"$1\" in \n"
   "        --host|-h)\n"
   "          coord_host=\"$2\";;\n"
@@ -149,6 +170,8 @@ static const char* theRestartScriptCmdlineArgHandler =
   "          fi;;\n"
   "        --restartdir|-d)\n"
   "          DMTCP_RESTART_DIR=$2;;\n"
+  "        --interval|-i)\n"
+  "          checkpoint_interval=$2;;\n"
   "        *)\n"
   "          echo \"$0: unrecognized option \'$1\'. See correct usage below\"\n"
   "          echo \"$usage_str\"\n"
@@ -173,7 +196,27 @@ static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
-int theCheckpointInterval = -1;
+
+static dmtcp::DmtcpCoordinator prog;
+
+/* The coordinator can receive a second checkpoint request while processing the
+ * first one.  If the second request comes at a point where the coordinator has
+ * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
+ * coordinator sends another DMTCP_DO_SUSPEND message.  The workers having
+ * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
+ * threads) are waiting for the next message (DMT_DO_LOCK_FDS or
+ * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
+ * indicating an error.  
+ * The fix to this problem is to introduce a global
+ * variable "workersRunningAndSuspendMsgSent" which, as the name implies,
+ * indicates that the DMT_DO_SUSPEND message has been sent and the coordinator
+ * is waiting for replies from the workers. If this variable is set, the
+ * coordinator will not process another checkpoint request.
+*/
+static bool workersRunningAndSuspendMsgSent = false;
+
+int theCheckpointInterval = 0;
+bool batchMode = false;
 
 const int STDIN_FD = fileno ( stdin );
 
@@ -230,7 +273,8 @@ namespace
   };
 }
 
-void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/){
+void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
+{
   int * replyParams;
   if(reply!=NULL){
     replyParams = reply->params;
@@ -257,6 +301,10 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
       replyParams[1] = ERROR_NOT_RUNNING_STATE;
     }
     break;
+  case 'i': case 'I':
+    setTimeoutInterval ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval Updated" ) ( theCheckpointInterval );
+    break;
   case 'l': case 'L':
   case 't': case 'T':
     JASSERT_STDERR << "Client List:\n";
@@ -280,13 +328,24 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JNOTE ( "forcing restart..." );
     broadcastMessage ( DMT_FORCE_RESTART );
     break;
-  case 'q': case 'Q':
+  case 'q': case 'Q': 
+  {
+    JNOTE ( "Killing all connected Peers ..." );
+    broadcastMessage ( DMT_KILL_PEER );
+    /* Call to broadcastMessage only puts the messages into the write queue. We
+     * actually want the messages to be written out to the respective sockets
+     * so that we can then close the sockets and exit gracefully. The following
+     * loop is taken from the implementation of monitorSocket() implementation
+     * in jsocket.cpp.
+     *
+     * Once the messages have been written out, the coordinator closes all the
+     * connections and calls exit().
+     */
+    for ( int i=0; i<_writes.size(); ++i )
     {
-      CoordinatorStatus s = getStatus();
-      if (s.numPeers > 0) {
-      //Can't send DMTCP_KILL_PEER msg. Delivered by monitorSockets, our caller.
-      JASSERT_STDERR << "DMTCP Coordinator quitting uncleanly:  " << s.numPeers
-		     << " peer(s) still running\n";
+      int fd = _writes[i]->socket().sockfd();
+      if ( fd >= 0 ) {
+        _writes[i]->writeOnce();
       }
     }
     JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
@@ -302,8 +361,10 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     {
       i->close();
     }
+    JTRACE ("Exiting ...");
     exit ( 0 );
     break;
+  }
   case 'k': case 'K':
     JNOTE ( "Killing all connected Peers..." );
     broadcastMessage ( DMT_KILL_PEER );
@@ -371,16 +432,19 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         if ( oldState == WorkerState::RUNNING
                 && newState == WorkerState::SUSPENDED )
         {
+          // All the workers are in SUSPENDED state, now it is safe to reset this flag.
+          workersRunningAndSuspendMsgSent = false;
+
           JNOTE ( "locking all nodes" );
           broadcastMessage ( DMT_DO_LOCK_FDS );
         }
         if ( oldState == WorkerState::SUSPENDED
-                && newState == WorkerState::LOCKED )
+                && newState == WorkerState::FD_LEADER_ELECTION )
         {
           JNOTE ( "draining all nodes" );
           broadcastMessage ( DMT_DO_DRAIN );
         }
-        if ( oldState == WorkerState::LOCKED
+        if ( oldState == WorkerState::FD_LEADER_ELECTION
                 && newState == WorkerState::DRAINED )
         {
           JNOTE ( "checkpointing all nodes" );
@@ -413,6 +477,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_RESUME );
 
           JTIMER_STOP ( checkpoint );
+
+          setTimeoutInterval( theCheckpointInterval );
+
           if (blockUntilDone) {
           JNOTE ( "replying to dmtcp_command:  we're done" );
 	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
@@ -461,6 +528,9 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
             handleUserCommand( 'b', NULL );
           DmtcpMessage reply;
           reply.type = DMT_USER_CMD_RESULT;
+          if (msg.params[0] == 'i' &&  msg.theCheckpointInterval > 0 ) {
+            theCheckpointInterval = msg.theCheckpointInterval;
+          }
           handleUserCommand( msg.params[0], &reply );
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
@@ -500,115 +570,59 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
   }
 }
 
-void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const struct sockaddr* remoteAddr,socklen_t remoteLen )
+void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
+                                          const struct sockaddr* remoteAddr,
+                                          socklen_t remoteLen )
 {
-  bool isFirstConn = false;
-  if ( _dataSockets.size() <= 1 )
+  // If no client is connected to Coordinator, then there can be only zero data
+  // sockets OR there can be one data socket and that should be STDIN.
+  if ( _dataSockets.size() == 0 ||
+       ( _dataSockets.size() == 1 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) )
   {
-    if ( _dataSockets.size() == 0
-            || _dataSockets[0]->socket().sockfd() == STDIN_FD )
-    {
-      //this is the first connection
+      //this is the first connection, do some initializations
+      workersRunningAndSuspendMsgSent = false;
+
+      setTimeoutInterval( theCheckpointInterval );
+
       curCompGroup = dmtcp::UniquePid(0,0,0); // drop current computation group to 0
       curTimeStamp = 0; // Drop timestamp to 0
       numPeers = -1; // Drop number of peers to unknown
       
-      JTRACE("CHECK")(curCompGroup.pid())(curCompGroup.hostid());
       JTRACE ( "resetting _restoreWaitingMessages" )
-      ( _restoreWaitingMessages.size() );
+        ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
 
       JTIMER_START ( restart );
-    }
   }
 
   jalib::JSocket remote ( sock );
-  dmtcp::DmtcpMessage hello_local, hello_remote;
+  dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();
-  hello_local.type = dmtcp::DMT_HELLO_WORKER;
   JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
   hello_remote.assertValid();
 
-  //dmtcp_command doesn't handshake (it is antisocial)
-  if(hello_remote.type == DMT_USER_CMD){
-    JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
-    DmtcpMessage reply;
-    reply.type = DMT_USER_CMD_RESULT;
-    // if previous 'b' blocking prefix command had set blockUntilDone
-    if (blockUntilDone && blockUntilDoneRemote == -1  &&
-      hello_remote.params[0] == 'c') {
-      // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
-      blockUntilDoneRemote = remote.sockfd();
-      blockUntilDoneReply = reply;
-      handleUserCommand( hello_remote.params[0], &reply );
-    } else {
-      handleUserCommand( hello_remote.params[0], &reply );
-      remote << reply;
-      remote.close();
-    }
+  if ( hello_remote.type == DMT_USER_CMD ) {
+    processDmtUserCmd ( hello_remote, remote );
     return;
+  } else if ( hello_remote.type == DMT_RESTART_PROCESS ) {
+    if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
+      return;
+  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR ) {
+    if ( validateWorkerProcess ( hello_remote, remote ) == false )
+      return;
+  } else {
+    JASSERT ( false ) .Text ( "Connect request from Unknown Remote Process Type" );
   }
 
-  JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_COORDINATOR );
-  // if parameter #1 is not -1 - this is dmtcp_restart process, connecting to
-  // get timestamp and set current compGroup
-  if( hello_remote.params[0] > 0 ){
-    if( curCompGroup == dmtcp::UniquePid() ){
-      // Coordinator is free at this moment - setup all the things
-      curCompGroup = hello_remote.compGroup;
-      numPeers = hello_remote.params[0];
-      curTimeStamp = time(NULL);
-      hello_local.params[1] = 1;
-      JTRACE("----------------------------------------\n"
-        "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp")
-          (numPeers)(curTimeStamp)(curCompGroup);
-    }else{
-      // Coordinator already serving some computation. So check if new connection
-      // is from current computation
-      if( (curCompGroup != hello_remote.compGroup) || (numPeers != hello_remote.params[0]) ){
-        // this is connection from other computation group - reject it.
-        JTRACE("Reject incoming dmtcp_restart connection since it is not from current computation");
-        hello_local.type = dmtcp::DMT_REJECT;
-        remote << hello_local;
-        remote.close();
-        return;
-      }
-      hello_local.params[1] = 0;
-    }
-    // Sent generated timestamp in local massage for dmtcp_restart process.
-    hello_local.params[0] = curTimeStamp;
-  }else if( curCompGroup != dmtcp::UniquePid() ){
-    // dmtcp_restart already connected and compGroup created. 
-    // Computation process connection
-    
-    JTRACE("Connection from computation process")(curCompGroup)
-    (hello_remote.compGroup)(minimumState());
-    // Current computation allocated by restarting processes
-    if( curTimeStamp ) {
-      if( ( hello_remote.compGroup == dmtcp::UniquePid() &&
-              minimumState() == WorkerState::RESTARTING ) ||
-          (hello_remote.compGroup != curCompGroup)) {
-        // New process, has no computation group 
-        JTRACE("Reject computation process");
-        hello_local.type = dmtcp::DMT_REJECT;
-        remote << hello_local;
-        remote.close();
-        return;
-      }
-    }
-  }else{
-    // Connection of new computation.
-    curCompGroup = hello_remote.from.pid();
-    curTimeStamp = 0;
-    numPeers = -1;
-    JTRACE("New process who has no compGroup.");
-  }
-    
-  remote << hello_local;
+  JNOTE ( "worker connected" ) ( hello_remote.from );
 
-  JNOTE ( "worker connected" )
-  ( hello_remote.from );
+  if ( hello_remote.theCheckpointInterval > 0 ) {
+    int oldInterval = theCheckpointInterval;
+    theCheckpointInterval = hello_remote.theCheckpointInterval;
+    setTimeoutInterval ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval Updated" ) ( oldInterval ) ( theCheckpointInterval );
+  }
 //     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
   NamedChunkReader * ds = new NamedChunkReader (
@@ -651,6 +665,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
   }
 
   JTRACE("END")(_dataSockets.size())(_dataSockets.size() ? _dataSockets[0]->socket().sockfd() == STDIN_FD : 5);
+}
 
 //     WorkerNode& node = _table[hello_remote.from.pid()];
 //     node.setClientNumer( ds->clientNumber() );
@@ -670,6 +685,157 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,  const str
           msg.restorePort = node.restorePort();
           broadcastMessage( msg );
       }*/
+//}
+
+void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote, jalib::JSocket& remote )
+{
+  //dmtcp_command doesn't handshake (it is antisocial)
+  JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
+  DmtcpMessage reply;
+  reply.type = DMT_USER_CMD_RESULT;
+  // if previous 'b' blocking prefix command had set blockUntilDone
+  if (blockUntilDone && blockUntilDoneRemote == -1  &&
+      hello_remote.params[0] == 'c') {
+    // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
+    blockUntilDoneRemote = remote.sockfd();
+    blockUntilDoneReply = reply;
+    handleUserCommand( hello_remote.params[0], &reply );
+  } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I') &&
+              hello_remote.theCheckpointInterval > 0 ) {
+    theCheckpointInterval = hello_remote.theCheckpointInterval;
+    handleUserCommand( hello_remote.params[0], &reply );
+    remote << reply;
+    remote.close();
+  } else {
+    handleUserCommand( hello_remote.params[0], &reply );
+    remote << reply;
+    remote.close();
+  }
+  return;
+}
+
+bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess ( DmtcpMessage& hello_remote, 
+                                                          jalib::JSocket& remote )
+{
+  // this is dmtcp_restart process, connecting to get timestamp and set current
+  // compGroup
+
+  JASSERT ( hello_remote.params[0] > 0 );
+
+  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_RESTART_PROCESS_REPLY );
+
+  if( curCompGroup == dmtcp::UniquePid() ){
+    JASSERT ( minimumState() == WorkerState::UNKNOWN )
+      .Text ( "Coordinator should be idle at this moment" );
+    // Coordinator is free at this moment - setup all the things
+    curCompGroup = hello_remote.compGroup;
+    numPeers = hello_remote.params[0];
+    curTimeStamp = time(NULL);
+    hello_local.params[1] = 1;
+    JNOTE ( "FIRST dmtcp_restart connection. Set numPeers. Generate timestamp" )
+      ( numPeers ) ( curTimeStamp ) ( curCompGroup );
+  } else if ( curCompGroup != hello_remote.compGroup ) {
+    // Coordinator already serving some other computation group - reject this process.
+    JNOTE ("Reject incoming dmtcp_restart connection"
+           " since it is not from current computation")
+      ( curCompGroup ) ( hello_remote.compGroup );
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+  } else if ( numPeers != hello_remote.params[0] ) {
+    // Sanity check
+    JNOTE  ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
+      ( numPeers ) ( hello_remote.params[0] );
+
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+  } else {
+    // This is a second or higher dmtcp_restart process connecting to the coordinator.
+    // FIXME: Should the following be a JASSERT instead?      -- Kapil
+    JWARNING ( minimumState() == WorkerState::RESTARTING );
+    hello_local.params[1] = 0;
+  }
+
+  // Sent generated timestamp in local massage for dmtcp_restart process.
+  hello_local.params[0] = curTimeStamp;
+
+  remote << hello_local;
+
+  return true;
+}
+
+bool dmtcp::DmtcpCoordinator::validateWorkerProcess ( DmtcpMessage& hello_remote, 
+                                                      jalib::JSocket& remote )
+{
+  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
+
+  if ( hello_remote.state == WorkerState::RESTARTING ) {
+    if ( minimumState() != WorkerState::RESTARTING &&
+         minimumState() != WorkerState::CHECKPOINTED ) {
+      JNOTE ("Computation not in RESTARTING or CHECKPOINTED state. Reject incoming restarting computation process.")
+        ( curCompGroup ) ( hello_remote.compGroup );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else if ( hello_remote.compGroup != curCompGroup) {
+      JNOTE ("Reject incoming restarting computation process since it is not from current computation")
+        ( curCompGroup ) ( hello_remote.compGroup );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } 
+    // dmtcp_restart already connected and compGroup created. 
+    // Computation process connection
+    JASSERT ( curTimeStamp != 0 );
+
+    JTRACE("Connection from (restarting) computation process")
+      ( curCompGroup ) ( hello_remote.compGroup ) ( minimumState() );
+
+    remote << hello_local;
+
+  } else if ( hello_remote.state == WorkerState::RUNNING ) {
+    CoordinatorStatus s = getStatus();
+    // If some of the processes are not in RUNNING state, REJECT.
+    if ( s.numPeers > 0 &&
+         ( s.minimumState != WorkerState::RUNNING ||
+           s.minimumStateUnanimous == false ) ) {
+      JNOTE  ( "Current Computation not in RUNNING state. Refusing to accept new connections.")
+        ( curCompGroup ) ( hello_remote.from.pid() );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else if ( hello_remote.compGroup != UniquePid() ) {
+      // New Process trying to connect to Coordinator but already has a compGroup
+      JNOTE  ( "New Process, but already has computation group. Rejecting" );
+      hello_local.type = dmtcp::DMT_REJECT;
+      remote << hello_local;
+      remote.close();
+      return false;
+    } else {
+      // If first process, create the new computation group
+      if ( curCompGroup == UniquePid() ) {
+        // Connection of new computation.
+        curCompGroup = hello_remote.from.pid();
+        curTimeStamp = 0;
+        numPeers = -1;
+        JTRACE ( "First process connected. Creating new computation group" ) (curCompGroup );
+      } else {
+        JTRACE ( "New Process Connected" ) ( hello_remote.from.pid() );
+      }
+      remote << hello_local;
+    }
+  } else {
+    JASSERT ( false ) .Text ( "Invalid Worker Type" );
+    return false;
+  }
+
+  return true;
 }
 
 void dmtcp::DmtcpCoordinator::onTimeoutInterval()
@@ -682,12 +848,17 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
   CoordinatorStatus s = getStatus();
-  if ( s.minimumState == WorkerState::RUNNING )
+  if ( s.minimumState == WorkerState::RUNNING && !workersRunningAndSuspendMsgSent )
   {
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     broadcastMessage ( DMT_DO_SUSPEND );
+
+    // Suspend Message has been sent but the workers are still in running
+    // state, if the coordinator receives another checkpoint request from user
+    // at this point, it should fail.
+    workersRunningAndSuspendMsgSent = true;
     return true;
   }
   else
@@ -759,7 +930,8 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
 
   status.minimumState = (m==INITIAL ? WorkerState::UNKNOWN : ( WorkerState::eWorkerState ) m);
   if( status.minimumState == WorkerState::CHECKPOINTED && count < numPeers ){
-    JTRACE("minimal statete counted as CHECKPOINTED but not all processes are connected yet. So we wait") (numPeers)(count);
+    JTRACE("minimal state counted as CHECKPOINTED but not all processes are connected yet. So we wait")
+      ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
   }
   status.minimumStateUnanimous = unanimous;
@@ -771,7 +943,16 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
   const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
   if(dir==NULL) dir = ".";
-  dmtcp::string filename = dmtcp::string(dir)+"/"+RESTART_SCRIPT_NAME;
+  dmtcp::ostringstream o1, o2;
+  dmtcp::string filename, uniqueFilename;
+
+  o1 << dmtcp::string(dir) << "/"
+     << RESTART_SCRIPT_BASENAME << RESTART_SCRIPT_EXT;
+  filename = o1.str();
+
+  o2 << dmtcp::string(dir) << "/"
+     << RESTART_SCRIPT_BASENAME << "_" << curCompGroup << RESTART_SCRIPT_EXT;
+  uniqueFilename = o2.str();
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
 
@@ -781,117 +962,179 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   char hostname[80];
   gethostname ( hostname, 80 );
 
-  JTRACE ( "writing restart script" ) ( filename );
+  JTRACE ( "writing restart script" ) ( uniqueFilename );
   
-  FILE* fp = fopen ( filename.c_str(),"w" );
-  JASSERT ( fp!=0 )(JASSERT_ERRNO)( filename ).Text ( "failed to open file" );
+  FILE* fp = fopen ( uniqueFilename.c_str(),"w" );
+  JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename ).Text ( "failed to open file" );
 
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
-  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\nif test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n  coord_host=%s\nfi\n\n", hostname );
-  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\nif test -z \"$" ENV_VAR_NAME_PORT "\"; then\n  coord_port=%d\nfi\n\n", thePort );
+  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\n"
+                "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n"
+                "  coord_host=%s\nfi\n\n", hostname );
+  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\n"
+                "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
+                "  coord_port=%d\nfi\n\n", thePort );
+  fprintf ( fp, "checkpoint_interval=$"ENV_VAR_CKPT_INTR"\n"
+                "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
+                "  checkpoint_interval=%d\nfi\n\n", theCheckpointInterval );
+  if ( batchMode )
+    fprintf ( fp, "maybebatch='--batch'\n\n" );
+  else
+    fprintf ( fp, "maybebatch=\n\n" );
 
   fprintf ( fp, "# Number of hosts in the computation = %d\n", _restartFilenames.size() );
   fprintf ( fp, "# Number of processes in the computation = %d\n\n", getStatus().numPeers );
-
-  fprintf ( fp, "%s", 
-            "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
-            "# SYNTAX:\n"
-            "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
-            "# Host names and filenames must not include \':\'\n"
-            "# At most one fg (foreground) mode allowed; it must be last.\n"
-            "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n"
-            "worker_ckpts=\'" );
-
-  for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
-  {
-    fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
-    for ( file=host->second.begin(); file!=host->second.end(); ++file )
-    {
-      fprintf ( fp," %s", file->c_str() );
-    }
-  }
-
-  fprintf ( fp, "%s", "\n\'\n\n\n" );
-
-
-  fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-
-  fprintf ( fp, "%s", 
-            "worker_hosts=\\\n"
-            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
-            "restart_modes=\\\n"
-            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
-            "ckpt_files_groups=\\\n"
-            "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
-            "\n"
-            "if [ ! -z \"$hostfile\" ]; then\n"
-            "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
-            "fi\n\n" 
-
-            "for worker_host in $worker_hosts\n"
-            "do\n\n"
-            "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-            "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
-            "\n"
-            "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-            "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
-            "  maybexterm=\n"
-            "  maybebg=\n"
-            "  case $mode in\n"
-            "    bg) maybebg=\'bg\';;\n"
-            "    xterm) maybexterm=xterm;;\n"
-            "    fg) ;;\n"
-            "    *) echo \"WARNING: Unknown Mode\";;\n"
-            "  esac\n\n"
-            "  if [ -z \"$ckpt_files_group\" ]; then\n"
-            "    break;\n"
-            "  fi\n\n"
-
-            "  new_ckpt_files_group=\"\"\n"
-            "  for tmp in $ckpt_files_group\n"
-            "  do\n"
-            "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-            "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
-            "      fi\n"
-            "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
-            "  done\n\n" );
   
-  if (isSingleHost && _restartFilenames.begin()->first == hostname){
-    fprintf ( fp, "%s",
-              "# Because this is a single-host computation, there is only one call to dmtcp_restart.\n"
-              "# If this were a multi-host computation the calls would look like this:\n"
-              "#  $maybexterm ssh \"$worker_host\" \\\n"
-              "#    "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "#    --join $new_ckpt_files_group [&]\n\n"
-              "exec "DMTCP_RESTART_CMD" $new_ckpt_files_group\n\n" );
-  } else {
-    fprintf ( fp, "%s",
-              "  if [ -z $maybebg ]; then\n"
-              "    $maybexterm ssh \"$worker_host\" \\\n"
-              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "        --join $new_ckpt_files_group\n"
-              "  else\n"
-              "    $maybexterm ssh \"$worker_host\" \\\n"
-              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" \\\n"
-              "        --join $new_ckpt_files_group &\n"
-              "  fi\n\n" );
-  }
+  if ( isSingleHost ) {
+    JTRACE ( "Single HOST");
 
-  fprintf ( fp, "%s",
-            "done\n\n\n"
-            "#wait for them all to finish\n"
-            "wait\n");
+    host=_restartFilenames.begin();
+    dmtcp::ostringstream o;
+    for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
+      o << " " << *file;
+    }
+
+    fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
+    fprintf ( fp, 
+              "if [ ! -z \"$maybebatch\" ]; then\n"
+              "  exec dmtcp_restart $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "    %s\n"
+              "else\n"
+              "  exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "    $maybejoin --interval \"$checkpoint_interval\"\\\n"
+              "      %s\n"
+              "fi\n", o.str().c_str(), o.str().c_str() );
+  }
+  else
+  {
+    fprintf ( fp, "%s", 
+              "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
+              "# SYNTAX:\n"
+              "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
+              "# Host names and filenames must not include \':\'\n"
+              "# At most one fg (foreground) mode allowed; it must be last.\n"
+              "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n"
+              "worker_ckpts=\'" );
+  
+    for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
+    {
+      fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
+      for ( file=host->second.begin(); file!=host->second.end(); ++file )
+      {
+        fprintf ( fp," %s", file->c_str() );
+      }
+    }
+  
+    fprintf ( fp, "%s", "\n\'\n\n\n" );
+  
+  
+    fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
+  
+    fprintf ( fp, "%s", 
+              "worker_hosts=\\\n"
+              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
+              "restart_modes=\\\n"
+              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
+              "ckpt_files_groups=\\\n"
+              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
+              "\n"
+              "if [ ! -z \"$hostfile\" ]; then\n"
+              "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
+              "fi\n\n" 
+  
+              "localhost_ckpt_files_group=\n\n"
+  
+              "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
+  
+              "maybejoin=\n"
+              "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
+              "  maybejoin='--join'\n"
+              "fi\n\n"
+  
+              "for worker_host in $worker_hosts\n"
+              "do\n\n"
+              "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+              "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
+              "\n"
+              "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+              "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
+              "  maybexterm=\n"
+              "  maybebg=\n"
+              "  case $mode in\n"
+              "    bg) maybebg=\'bg\';;\n"
+              "    xterm) maybexterm=xterm;;\n"
+              "    fg) ;;\n"
+              "    *) echo \"WARNING: Unknown Mode\";;\n"
+              "  esac\n\n"
+              "  if [ -z \"$ckpt_files_group\" ]; then\n"
+              "    break;\n"
+              "  fi\n\n"
+  
+              "  new_ckpt_files_group=\"\"\n"
+              "  for tmp in $ckpt_files_group\n"
+              "  do\n"
+              "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+              "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
+              "      fi\n"
+              "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
+              "  done\n\n"
+    
+              "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+              "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
+              "    continue\n"
+              "  fi\n\n"
+  
+              "  if [ -z $maybebg ]; then\n"
+              "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
+              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\n"
+              "  else\n"
+              "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
+              // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
+              // end of the computation until user presses enter key.
+              "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
+              "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
+              "  fi\n\n"
+              "done\n\n"
+  
+              "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
+              "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+              "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
+              "fi\n\n"
+  
+  
+              "#wait for them all to finish\n"
+              "wait\n");
+  }
 
   fclose ( fp );
   {
     /* Set execute permission for user. */
     struct stat buf;
-    stat ( RESTART_SCRIPT_NAME, &buf );
-    chmod ( RESTART_SCRIPT_NAME, buf.st_mode | S_IXUSR );
+    stat ( uniqueFilename.c_str(), &buf );
+    chmod ( uniqueFilename.c_str(), buf.st_mode | S_IXUSR );
+    // Create a symlink from 
+    //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
+    unlink ( filename.c_str() );
+    symlink ( uniqueFilename.c_str(), filename.c_str() );
   }
   _restartFilenames.clear();
+}
+
+static void SIGINTHandler(int signum)
+{
+  prog.handleUserCommand('q');
+}
+
+static void setupSIGINTHandler()
+{
+  struct sigaction action;
+  action.sa_handler = SIGINTHandler;
+  sigemptyset ( &action.sa_mask );
+  action.sa_flags = 0;
+  sigaction ( SIGINT, &action, NULL );
 }
 
 #define shift argc--; argv++
@@ -907,13 +1150,6 @@ int main ( int argc, char** argv )
 
   bool background = false;
 
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR"))
-    setenv(ENV_VAR_TMPDIR, getenv("TMPDIR"), 0);
-  else
-    setenv(ENV_VAR_TMPDIR, "/tmp", 0);
-
   shift;
   while(argc > 0){
     dmtcp::string s = argv[0];
@@ -926,8 +1162,11 @@ int main ( int argc, char** argv )
     }else if(s=="--background"){
       background = true;
       shift;
+    }else if(s=="--batch"){
+      batchMode = true;
+      shift;
     }else if(argc>1 && (s == "-i" || s == "--interval")){
-      setenv(ENV_VAR_NAME_CKPT_INTR, argv[1], 1);
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       thePort = jalib::StringToInt( argv[1] );
@@ -946,13 +1185,22 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
-    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
 
-  //parse checkpoint interval
-  const char* interval = getenv ( ENV_VAR_NAME_CKPT_INTR );
-  if ( interval != NULL ) theCheckpointInterval = jalib::StringToInt ( interval );
+  JASSERT ( ! (background && batchMode) )
+    .Text ( "--background and --batch can't be specified together");
+
+  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
+
+#ifdef DEBUG
+  /* Disable Jassert Logging */
+  dmtcp::UniquePid::ThisProcess(true);
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
+  JASSERT_INIT(o.str());
+  
+  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
+#endif
 
   if ( thePort < 0 )
   {
@@ -960,13 +1208,31 @@ int main ( int argc, char** argv )
     return 1;
   }
 
-  errno = 0;
-  jalib::JServerSocket sock ( jalib::JSockAddr::ANY, thePort );
-  JASSERT ( sock.isValid() ) ( thePort ) ( JASSERT_ERRNO )
-  .Text ( "Failed to create listen socket."
-     "\nIf msg is \"Address already in use\", this may be an old coordinator."
-     "\nKill other coordinators and try again in a minute or so." );
-  thePort = sock.port();
+  jalib::JServerSocket* sock;
+  /*Test if the listener socket is already open*/
+  if ( fcntl(PROTECTEDFD(1), F_GETFD) != -1 ) {
+    sock = new jalib::JServerSocket ( PROTECTEDFD(1) );
+    JASSERT ( sock->port() != -1 ) .Text ( "Invalid listener socket" );
+    JTRACE ( "Using already created listener socker" ) ( sock->port() );
+  } else {
+
+    errno = 0;
+    sock = new jalib::JServerSocket ( jalib::JSockAddr::ANY, thePort );
+    JASSERT ( sock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
+      .Text ( "Failed to create listen socket."
+          "\nIf msg is \"Address already in use\", this may be an old coordinator."
+          "\nKill other coordinators and try again in a minute or so." );
+  }
+
+  thePort = sock->port();
+
+  if ( batchMode && getenv ( ENV_VAR_CKPT_INTR ) == NULL ) {
+    setenv(ENV_VAR_CKPT_INTR, "3600", 1);
+  }
+  //parse checkpoint interval
+  const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+  if ( interval != NULL ) 
+    theCheckpointInterval = jalib::StringToInt ( interval );
 
 #if 0
   JASSERT_STDERR <<
@@ -998,22 +1264,44 @@ int main ( int argc, char** argv )
     JASSERT(open("/dev/null", O_WRONLY)==1);
     fflush(stderr);
     if (close(2) != 0 || dup2(1,2) != 2)
-      exit(1); /* Can't print to stderr */
+      JASSERT(false) .Text( "Can't print to stderr");
     close(JASSERT_STDERR_FD);
     dup2(2, JASSERT_STDERR_FD);
     if(fork()>0){
+      JTRACE ( "Parent Exiting after fork()" );
       exit(0);
     }
     pid_t sid = setsid();
-  }else{
+  } else if ( batchMode ) {
+    JASSERT_STDERR  << "Going into Batch Mode...\n";
+    close(0);
+    close(1);
+    close(2);
+    close(JASSERT_STDERR_FD);
+
+    JASSERT(open("/dev/null", O_WRONLY)==0);
+
+    JASSERT(dup2(0, 1) == 1);
+    JASSERT(dup2(0, 2) == 2);
+    JASSERT(dup2(0, JASSERT_STDERR_FD) == JASSERT_STDERR_FD);
+
+  } else {
     JASSERT_STDERR  <<
       "Type '?' for help." <<
       "\n\n";
   }
+ 
+  /* We setup the signal handler for SIGINT so that it would send the
+   * DMT_KILL_PEER message to all the connected peers before exiting.
+   */
+  setupSIGINTHandler();
+  prog.addListenSocket ( *sock );
+  if(!background && !batchMode) 
+    prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
 
-  dmtcp::DmtcpCoordinator prog;
-  prog.addListenSocket ( sock );
-  if(!background) prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
-  prog.monitorSockets ( theCheckpointInterval > 0 ? theCheckpointInterval : 3600 );
+  // FIXME: Should we use a default checkpoint interval (1 hour in this case)
+  //        even if the user has not explicitely requested it.
+  if ( theCheckpointInterval <= 0 ) theCheckpointInterval = 3600;
+  prog.monitorSockets ( theCheckpointInterval );
   return 0;
 }

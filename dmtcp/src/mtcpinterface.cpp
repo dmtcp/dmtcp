@@ -21,12 +21,14 @@
 
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jalloc.h"
 
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/syscall.h>
 #include "constants.h"
 #include "sockettable.h"
 #include <unistd.h>
@@ -34,14 +36,18 @@
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
 #include "protectedfds.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
+
+#ifdef PTRACE
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <stdarg.h>
 #include <linux/unistd.h>
 #include <sys/syscall.h>
 #include <fcntl.h>
+#endif
+
 
 namespace
 {
@@ -78,10 +84,8 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
     JTRACE ( "reopening mtcp.so DONE" ) ( theMtcpHandle );
     return 0;
   }
-  
-  dlerror();
+
   void* tmp = dlsym ( theMtcpHandle, name );
-  JTRACE ( "dlsym result" ) ( dlerror() );
   JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find mtcp.so symbol" );
 
   //JTRACE("looking up mtcp.so symbol")(name);
@@ -93,21 +97,35 @@ extern "C"
 {
   typedef int ( *t_mtcp_init ) ( char const *checkpointFilename, int interval, int clonenabledefault );
   typedef void ( *t_mtcp_set_callbacks ) ( void ( *sleep_between_ckpt ) ( int sec ),
-          void ( *pre_ckpt ) (),
+          void ( *pre_ckpt ) ( char ** ckptFilename ),
           void ( *post_ckpt ) ( int is_restarting ),
           int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
           void ( *write_tid_maps) ());
   typedef int ( *t_mtcp_ok ) ( void );
+  typedef void ( *t_mtcp_kill_ckpthread ) ( void );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+  
+  // After acquiring this lock, there shouldn't be any
+  // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
+  // process can deadlock.
+  JALIB_CKPT_LOCK();
 }
 
-static void callbackPreCheckpoint()
+static void callbackPreCheckpoint( char ** ckptFilename )
 {
+  JALIB_CKPT_UNLOCK();
+  
+  // If we don't modify *ckptFilename, then MTCP will continue to use
+  //   its default filename, which was passed to it via our call to mtcp_init()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+  dmtcp::UniquePid::ThisProcess().incrementGeneration();
+  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
+#endif
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
@@ -118,14 +136,6 @@ static void callbackPostCheckpoint ( int isRestart )
 {
   if ( isRestart )
   {
-#ifdef DEBUG
-    //logfile closed, must reopen it
-    dmtcp::ostringstream o;
-    o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-    JASSERT_SET_LOGFILE (o.str());
-    //JASSERT_SET_LOGFILE ( jalib::XToString(getenv(ENV_VAR_TMPDIR))
-			  //+ "/jassertlog." + jalib::XToString ( getpid() ) );
-#endif
     dmtcp::DmtcpWorker::instance().postRestart();
   }
   else
@@ -135,6 +145,13 @@ static void callbackPostCheckpoint ( int isRestart )
   dmtcp::DmtcpWorker::instance().waitForStage3Resume(isRestart);
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(isRestart);
+
+  if ( !isRestart ) {
+    // After this point, the user threads will be unlocked in mtcp.c and will
+    // resume their computation and so it is OK to set the process state to
+    // RUNNING.
+    dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+  }
 }
 
 static int callbackShouldCkptFD ( int /*fd*/ )
@@ -151,22 +168,28 @@ static void callbackWriteCkptPrefix ( int fd )
 static void callbackWriteTidMaps ( )
 {
   dmtcp::DmtcpWorker::instance().writeTidMaps();
+  
+  // After this point, the user threads will be unlocked in mtcp.c and will
+  // resume their computation and so it is OK to set the process state to
+  // RUNNING.
+  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 } 
 
+#ifdef PTRACE
 typedef pid_t ( *get_saved_pid_t) ( );
-get_saved_pid_t get_saved_pid_ptr = NULL; 
+get_saved_pid_t get_saved_pid_ptr = NULL;
 
 typedef int ( *get_saved_status_t) ( );
-get_saved_pid_t get_saved_status_ptr = NULL; 
+get_saved_pid_t get_saved_status_ptr = NULL;
 
 typedef int ( *get_has_status_and_pid_t) ( );
-get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL; 
+get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL;
 
 typedef void ( *reset_pid_status_t) ( );
-reset_pid_status_t reset_pid_status_ptr = NULL; 
+reset_pid_status_t reset_pid_status_ptr = NULL;
 
 typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
-set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL; 
+set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL;
 
 typedef int ( *get_is_waitpid_local_t ) ();
 get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
@@ -182,6 +205,7 @@ unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
 
 sigset_t signals_set;
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
+#endif 
 
 void dmtcp::initializeMtcpEngine()
 {
@@ -204,7 +228,7 @@ void dmtcp::initializeMtcpEngine()
   *dmtcp_info_jassertlog_fd = PROTECTED_JASSERTLOG_FD;
 #endif 
 
-  int *dmtcp_info_restore_working_directory = 
+  int *dmtcp_info_restore_working_directory =
     (int*) _get_mtcp_symbol( "dmtcp_info_restore_working_directory" );
   // DMTCP restores working dir only if --checkpoint-open-files invoked.
   // Later, we may offer the user a separate command line option for this.
@@ -218,26 +242,28 @@ void dmtcp::initializeMtcpEngine()
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
   t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
 
+#ifdef PTRACE
   sigemptyset (&signals_set);
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
   set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
- 
-  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" ); 
 
-  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" ); 	
+  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
 
-  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" ); 
+  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" );
 
-  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" ); 	
+  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" );
 
-  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" ); 
+  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" );
 
-  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" ); 
+  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" );
 
-  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );  
+  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" );
 
-  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" ); 
+  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );
+
+  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" );
+#endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
@@ -259,26 +285,25 @@ struct ThreadArg {
   pid_t original_tid;
 };
 
-bool isConflictingTid( pid_t tid )
-{
-  /*  If tid is not an original tid (return same tid), then there is no conflict
-   *  If tid is an original tid with the same current tid, then there 
-   *   is no conflict because that's us.
-   *  If tid is an original tid with a different current tid, then there 
-   *   is a conflict.
-   */
-  if (tid == dmtcp::VirtualPidTable::Instance().originalToCurrentPid( tid ))
-    return false;
-  return true;
-}
+// bool isConflictingTid( pid_t tid )
+// {
+//   /*  If tid is not an original tid (return same tid), then there is no conflict
+//    *  If tid is an original tid with the same current tid, then there 
+//    *   is no conflict because that's us.
+//    *  If tid is an original tid with a different current tid, then there 
+//    *   is a conflict.
+//    */
+//   if (tid == dmtcp::VirtualPidTable::Instance().originalToCurrentPid( tid ))
+//     return false;
+//   return true;
+// }
 
 int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
 
-  if ( isConflictingTid ( tid ) ) {
-  //return (*(threadArg->fn)) ( threadArg->arg );
+  if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
     return 0;
   }
@@ -287,8 +312,8 @@ int thread_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 
-  // Free the memory
-  free(threadArg);
+  // Free the memory which was previously allocated by calling JALLOC_HELPER_MALLOC
+  JALLOC_HELPER_FREE(threadArg);
 
   if (original_tid == -1) {
     /* 
@@ -303,10 +328,18 @@ int thread_start(void *arg)
 
   dmtcp::VirtualPidTable::Instance().updateMapping ( original_tid, tid );
 
-  JTRACE ( "Calling user function" );
+  JTRACE ( "Calling user function" ) (original_tid);
+
+  /* Thread finished initialization, its now safe for this thread to
+   * participate in checkpoint. Decrement the unInitializedThreadCount in
+   * DmtcpWorker.
+   */ 
+  dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
+
+  JTRACE ( "Thread returned:" ) (original_tid);
   
   /* 
    * This thread has finished its execution, do some cleanup on our part.
@@ -350,6 +383,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   // call _get_mtcp_symbol again on the newly relocated mtcp.so .
   cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
+  //JTRACE ( "forwarding user's clone call to mtcp" );
 
 #ifndef PID_VIRTUALIZATION
   if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING )
@@ -363,11 +397,13 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     
 #else
 
-/* 
- * Undefine the macro DISABLE_TID_CONFLICT_HANDLING to enable tid conflict handling
- * TID conflict handling is fragile right now
- */
-//#define DISABLE_CONFLICT_HANDLING
+  /* Acquire the wrapperExeution lock 
+   * (Make sure to unlock before returning from this function)
+   * Also increment the uninitialized thread count.
+   */
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  dmtcp::DmtcpWorker::incrementUnInitializedThreadCount();
+
 
   pid_t originalTid = -1;
 
@@ -378,7 +414,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  struct ThreadArg *threadArg = (struct ThreadArg *) malloc (sizeof (struct ThreadArg));
+  // We have to use DMTCP specific memory allocator because using glibc:malloc
+  // can interfere with user theads
+  struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
@@ -393,43 +431,49 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ( "forwarding user's clone call to mtcp" );
       tid = ( *realclone ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     } else {
-#ifdef DISABLE_CONFLICT_HANDLING
-      tid = _real_clone ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
-#else
       tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
-#endif
     }
 
-    if (tid == -1)
+    if (tid == -1) {
+      // Free the memory which was previously allocated by calling
+      // JALLOC_HELPER_MALLOC
+      JALLOC_HELPER_FREE ( threadArg );
+
+      /* If clone() failed, decrement the uninitialized thread count, since
+       * there is none
+       */
+      dmtcp::DmtcpWorker::decrementUnInitializedThreadCount();
       break;
+    }
 
-    if ( isConflictingTid ( tid ) ) {
+    if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
+    //if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if required.) */
-#ifdef DISABLE_CONFLICT_HANDLING
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
-#else
-      JASSERT (false) (tid) .Text ( "TID Conflict Detected!" );
-#endif
-
     } else {
-      JTRACE ("New Thread Created") (tid);
       if (originalTid != -1)
       {
+        JTRACE ("New Thread Created") ( originalTid ) ( tid );
         dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile( originalTid, tid );
         tid = originalTid;
       } else {
+        JTRACE ("New Thread Created") ( tid );
         dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );
       }
       break;
     }
   }
 
+  /* Release the wrapperExeution lock */
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
   return tid;
 
 #endif
 }
 
+#ifdef PTRACE
 #ifdef PID_VIRTUALIZATION
 // ptrace cannot work without pid virtualization.  If we're not using
 // pid virtualization, then disable this wrapper around ptrace, and
@@ -444,9 +488,9 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
 {
   va_list ap;
   pid_t pid;
-  void *addr; 
+  void *addr;
   void *data;
-  
+
   pid_t superior;
   pid_t inferior;
 
@@ -459,7 +503,7 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
   static write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
 
   typedef void ( *remove_from_ptrace_pairs_t) ( pid_t superior, pid_t inferior );
-  static remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr = 
+  static remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr =
                            ( remove_from_ptrace_pairs_t ) _get_mtcp_symbol ( "remove_from_ptrace_pairs" );
 
   typedef void ( *handle_command_t ) ( pid_t superior, pid_t inferior, int last_command );
@@ -471,70 +515,70 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
   addr = va_arg( ap, void * );
   data = va_arg( ap, void * );
   va_end( ap );
-
   superior = syscall( SYS_gettid );
-  inferior = pid;		
-  
+  inferior = pid;
+
   switch (request) {
     case PTRACE_ATTACH: {
      if (!get_is_ptrace_local_ptr ()) writeptraceinfo_ptr ( superior, inferior );
-      else unset_is_ptrace_local_ptr ();	
+      else unset_is_ptrace_local_ptr ();
       break;
-    }	
-    case PTRACE_TRACEME: { 
+    }
+    case PTRACE_TRACEME: {
       superior = getppid();
       inferior = syscall( SYS_gettid );
       writeptraceinfo_ptr( superior, inferior );
       break;
-    }	
+    }
     case PTRACE_DETACH: {
      if (!get_is_ptrace_local_ptr ()) remove_from_ptrace_pairs_ptr ( superior, inferior );
-     else unset_is_ptrace_local_ptr ();	
+     else unset_is_ptrace_local_ptr ();
      break;
     }
     case PTRACE_CONT: {
-     if (!get_is_ptrace_local_ptr ()) handle_command_ptr ( superior, inferior, PTRACE_CONTINUE_COMMAND );	
-     else unset_is_ptrace_local_ptr (); 	
+     if (!get_is_ptrace_local_ptr ()) handle_command_ptr ( superior, inferior, PTRACE_CONTINUE_COMMAND );
+     else unset_is_ptrace_local_ptr ();
      break;
     }
-    case PTRACE_SINGLESTEP: {     
+    case PTRACE_SINGLESTEP: {
      pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
-     if (!get_is_ptrace_local_ptr ()) {	
-     	if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-     		perror ("waitpid wrapper");
-       		 exit(-1);
-     	}
-     	handle_command_ptr (superior, inferior, PTRACE_SINGLESTEP_COMMAND);	
-     	ptrace_ret =  _real_ptrace (request, pid, addr, data);
+     if (!get_is_ptrace_local_ptr ()) {
+        if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+                perror ("waitpid wrapper");
+                 exit(-1);
+        }
+        handle_command_ptr (superior, inferior, PTRACE_SINGLESTEP_COMMAND);
+        ptrace_ret =  _real_ptrace (request, pid, addr, data);
         if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-     		perror ("waitpid wrapper");
-        	exit(-1);
-     	}
-     }	
+                perror ("waitpid wrapper");
+                exit(-1);
+        }
+     }
      else {
         ptrace_ret =  _real_ptrace (request, pid, addr, data);
-	unset_is_ptrace_local_ptr ();	
-     }		
+        unset_is_ptrace_local_ptr ();
+     }
      break;
-    }			
+    }
     case PTRACE_SETOPTIONS: {
-     write_info_to_file_ptr (1, superior, inferior);    
+     write_info_to_file_ptr (1, superior, inferior);
      break;
-    }		
+    }
     default: {
       break;
-    }	
-  } 	
+    }
+  }
 
   /* TODO: We might want to check the return value in certain cases */
 
-  if ( request != PTRACE_SINGLESTEP ) {	
-  	pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
-  	ptrace_ret =  _real_ptrace( request, pid, addr, data );
-  }  
+  if ( request != PTRACE_SINGLESTEP ) {
+        pid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( pid );
+        ptrace_ret =  _real_ptrace( request, pid, addr, data );
+  }
 
-  return ptrace_ret;	
+  return ptrace_ret;
 }
+#endif
 #endif
 
 // This is a copy of the same function in signalwrapers.cpp
@@ -597,3 +641,9 @@ void dmtcp::shutdownMtcpEngineOnFork()
   _get_mtcp_symbol ( REOPEN_MTCP );
 }
 
+void dmtcp::killCkpthread()
+{
+  t_mtcp_kill_ckpthread kill_ckpthread =
+    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "kill_ckpthread" );
+  kill_ckpthread();
+}

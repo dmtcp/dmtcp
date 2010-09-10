@@ -37,13 +37,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <pwd.h>
 
 // Some global definitions
 dmtcp::UniquePid compGroup;
 int numPeers;
 int coordTstamp = 0;
 
+dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 
 #ifdef PID_VIRTUALIZATION
 static void openPidMapFiles();
@@ -210,7 +210,6 @@ namespace
 
       void mtcpRestart()
       {
-        DmtcpWorker::maskStdErr();
         runMtcpRestore ( _path.c_str(), _offset );
       }
 
@@ -334,10 +333,9 @@ namespace
       void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
       {
         dmtcp::ostringstream o;
-        o << getenv(ENV_VAR_TMPDIR) << "/jassertlog." << pid();
-        JASSERT_SET_LOGFILE(o.str());
-        JASSERT_INIT();
-        
+        o << dmtcpTmpDir << "/jassertlog." << pid();
+        JASSERT_INIT(o.str()); 
+
 
         //change UniquePid
         UniquePid::resetOnFork(pid());
@@ -445,7 +443,7 @@ namespace
 
         //Reconnect to dmtcp_coordinator
         WorkerState::setCurrentState ( WorkerState::RESTARTING );
-        worker.connectToCoordinator(false);
+        worker.connectToCoordinatorWithoutHandshake();
         worker.sendCoordinatorHandshake(procname(),_compGroup);
         dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
        
@@ -474,6 +472,8 @@ namespace
         while ( 1 ) {
 
           pid_t childPid = fork();
+
+          JASSERT ( childPid != -1 ) .Text ( "fork() failed" );
           
           if ( childPid == 0 ) { /* child process */
             if ( originalPidTable.isConflictingChildPid ( getpid() ) )
@@ -531,9 +531,18 @@ static const char* theUsage =
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
-  "      Join an existing coordinator, do not create one automatically\n"
+  "      Join an existing coordinator, raise error if one already exists\n"
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
+  "  --new-coordinator:\n"
+  "      Create a new coordinator even if one already exists\n"
+  "  --batch, -b:\n"
+  "      Enable batch mode i.e. start the coordinator on the same node on\n"
+  "        a randomly assigned port (if no port is specified by --port)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints.\n"
+  "      Not allowed if --join is specified\n"
+  "      --batch implies -i 3600, unless otherwise specified.\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
@@ -572,20 +581,6 @@ int main ( int argc, char** argv )
   bool isRestart = true;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
-  char hostname[80];
-  gethostname(hostname, 80);
-
-  dmtcp::ostringstream o;
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  } else {
-    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  }
-
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
 
@@ -606,6 +601,15 @@ int main ( int argc, char** argv )
     }else if(s == "-n" || s == "--new"){
       allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
       shift;
+    }else if(s == "--new-coordinator"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
+      shift;
+    }else if(s == "-b" || s == "--batch"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
+      shift;
+    }else if(s == "-i" || s == "--interval"){
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
       shift; shift;
@@ -620,6 +624,11 @@ int main ( int argc, char** argv )
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
+    }else if( (s.length()>2 && s.substr(0,2)=="--") ||
+              (s.length()>1 && s.substr(0,1)=="-" ) ) {
+      JASSERT_STDERR << "Invalid Argument\n";
+      JASSERT_STDERR << theUsage;
+      return 1;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -628,12 +637,8 @@ int main ( int argc, char** argv )
     }
   }
 
-  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
-    .Text("Error creating tmp directory");
-  
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
-    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
+  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir();
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
@@ -643,9 +648,32 @@ int main ( int argc, char** argv )
   if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
-  JASSERT_INIT();
+  dmtcp::ostringstream o;
+  o << dmtcpTmpDir << "/jassertlog." << getpid();
+  JASSERT_INIT(o.str());
 
+  bool doAbort = false;
   for(; argc>0; shift){
+    char *restorename = argv[0];
+    struct stat buf;
+    int rc = stat(restorename, &buf);
+    if (rc == -1) {
+      char error_msg[1024];
+      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename);
+      perror(error_msg);
+      doAbort = true;
+    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+      printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
+             "checkpoint image (%s).\n" \
+	     "This is dangerous.  Aborting for security reasons.\n" \
+           "If you still want to do this (at your own risk),\n" \
+           "  then modify dmtcp/src/%s:%d and re-compile.\n",
+           getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 6);
+      doAbort = true;
+    }
+    if (doAbort)
+      abort();
+
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
@@ -665,6 +693,11 @@ int main ( int argc, char** argv )
 
   // Check that all targets belongs to one computation group
   // If not - abort
+  for(int i=0; i<targets.size(); i++){
+    JTRACE ( "Check targets: " ) 
+      ( targets[i]._path ) ( targets[i]._compGroup ) ( targets[i]._numPeers );
+  }
+  
   compGroup = targets[0]._compGroup;
   numPeers = targets[0]._numPeers;
   for(int i=0; i<targets.size(); i++){
@@ -699,7 +732,7 @@ int main ( int argc, char** argv )
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
-  worker.connectToCoordinator(false);
+  worker.connectToCoordinatorWithoutHandshake();  
   worker.sendCoordinatorHandshake(targ.procname());
 
   //restart targets[i]
@@ -792,7 +825,7 @@ int main ( int argc, char** argv )
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
-    _exit(0);
+    JASSERT(false) .Text("unknown type of target?");
   }
 
 }
@@ -910,9 +943,9 @@ static void openPidMapFiles()
   dmtcp::ostringstream pidMapFile,pidMapCountFile;
   int fd,i;
 
-  pidMapFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMap."
+  pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
-  pidMapCountFile << getenv(ENV_VAR_TMPDIR) << "/dmtcpPidMapCount."
+  pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
 
   // Open & create pidMapFile if not exist

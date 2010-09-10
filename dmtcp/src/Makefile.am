@@ -5,7 +5,7 @@ INCLUDES= $(all_includes)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	dmtcp_restart dmtcp_inspector dmtcphijack.so
+	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -24,30 +24,34 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syscallsreal.c syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp\
-  virtualpidtable.cpp ../jalib/jalloc.cpp
+	virtualpidtable.cpp ../jalib/jalloc.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp 
+
+dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.cpp 
 
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpapi.cpp dmtcpworker.cpp execwrappers.cpp \
-	mtcpinterface.cpp signalwrapers.cpp syscallwrappers.c workerhijack.cpp\
-  pidwrappers.cpp
+	mtcpinterface.cpp signalwrapers.cpp socketwrappers.cpp workerhijack.cpp\
+	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcpinspector.cpp
 
-dmtcphijack_so_LDFLAGS = -shared 
+dmtcphijack_so_LDFLAGS = -shared -avoid-version -module 
+
+dmtcp_nocheckpoint_LDFLAGS = -static
 
 dmtcphijack_so_LDADD    = libdmtcpinternal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a -ldl -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a -ldl -lpthread
-dmtcp_inspector_LDADD = libdmtcpinternal.a -ldl -lpthread
+dmtcp_inspector_LDADD   = libdmtcpinternal.a -ldl -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c

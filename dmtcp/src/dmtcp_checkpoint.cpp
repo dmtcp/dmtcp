@@ -24,6 +24,7 @@
 #include <string>
 #include <stdio.h>
 #include  "../jalib/jassert.h"
+#include <ctype.h>
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
@@ -35,8 +36,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef PTRACE
 #include <dlfcn.h>
-#include <pwd.h>
+#endif
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format 
 // string has atleast one format specifier with corresponding format argument.
@@ -57,9 +59,18 @@ static const char* theUsage =
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
-  "      Join an existing coordinator, do not create one automatically\n"
+  "      Join an existing coordinator, raise error if one already exists\n"
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
+  "  --new-coordinator:\n"
+  "      Create a new coordinator even if one already exists\n"
+  "  --batch, -b:\n"
+  "      Enable batch mode i.e. start the coordinator on the same node on\n"
+  "        a randomly assigned port (if no port is specified by --port)\n"
+  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "      Time in seconds between automatic checkpoints.\n"
+  "      Not allowed if --join is specified\n"
+  "      --batch implies -i 3600, unless otherwise specified.\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
@@ -112,7 +123,23 @@ int main ( int argc, char** argv )
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
-  /*  
+#ifdef ENABLE_MALLOC_WRAPPER
+  long mallocOff, callocOff, freeOff, reallocOff;
+
+  void *baseAddr = (void*)&toupper;
+  mallocOff  = (char*)&malloc  - (char*)baseAddr;
+  callocOff  = (char*)&calloc  - (char*)baseAddr;
+  reallocOff = (char*)&realloc - (char*)baseAddr;
+  freeOff    = (char*)&free    - (char*)baseAddr;
+
+  setenv ( ENV_VAR_MALLOC_OFFSET, jalib::XToString ( mallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_CALLOC_OFFSET, jalib::XToString ( callocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_REALLOC_OFFSET, jalib::XToString ( reallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_FREE_OFFSET, jalib::XToString ( freeOff ).c_str(), 1 );
+#endif
+
+#ifdef PTRACE
+/*  
    * For the sake of dlsym wrapper.  We compute address of _real_dlsym by adding 
    * dlsym_offset to address of dlopen after the exec into the user application.
    */
@@ -132,20 +159,7 @@ int main ( int argc, char** argv )
   sprintf(str,"%d",tmp3);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
   dlclose(handle);
-
-  char hostname[80];
-  gethostname(hostname, 80);
-
-  dmtcp::ostringstream o;
-  if (getenv(ENV_VAR_TMPDIR))
-    {}
-  else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  } else {
-    o << "/tmp/dmtcp-" << getpwuid(getuid())->pw_name << "@" << hostname;
-    setenv(ENV_VAR_TMPDIR, o.str().c_str(), 0);
-  }
+#endif
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -176,6 +190,15 @@ int main ( int argc, char** argv )
     }else if(s == "-n" || s == "--new"){
       allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
       shift;
+    }else if(s == "--new-coordinator"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
+      shift;
+    }else if(s == "-b" || s == "--batch"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
+      shift;
+    }else if(s == "-i" || s == "--interval"){
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
       shift; shift;
@@ -199,6 +222,11 @@ int main ( int argc, char** argv )
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
+    }else if( (s.length()>2 && s.substr(0,2)=="--") ||
+              (s.length()>1 && s.substr(0,1)=="-" ) ) {
+      JASSERT_STDERR << "Invalid Argument\n";
+      JASSERT_STDERR << theUsage;
+      return 1;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -207,12 +235,8 @@ int main ( int argc, char** argv )
     }
   }
 
-  JASSERT(mkdir(getenv(ENV_VAR_TMPDIR), S_IRWXU) == 0 || errno == EEXIST) (JASSERT_ERRNO) (getenv(ENV_VAR_TMPDIR))
-    .Text("Error creating tmp directory");
+  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  JASSERT(0 == access(getenv(ENV_VAR_TMPDIR), X_OK|W_OK))
-    (getenv(ENV_VAR_TMPDIR))
-    .Text("ERROR: Missing execute- or write-access to tmp dir: %s");
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
 #ifdef FORKED_CHECKPOINTING
@@ -258,7 +282,7 @@ int main ( int argc, char** argv )
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here
-  JASSERT_INIT();
+  JASSERT_INIT( dmtcp::UniquePid::getTmpDir() );
 
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
@@ -286,6 +310,10 @@ int main ( int argc, char** argv )
   else// if( isSSHSlave )
     setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
+  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
+  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
+  if (getenv("LD_PRELOAD"))
+    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );

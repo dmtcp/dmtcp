@@ -28,6 +28,7 @@
 #include "stlwrapper.h"
 #include "jconvert.h"
 #include "jassert.h"
+#include "jalloc.h"
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -56,6 +57,11 @@ namespace jalib
   class JTime
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JTime();
       friend double operator- ( const JTime& a, const JTime& b );
       static JTime Now() {return JTime();}
@@ -66,6 +72,11 @@ namespace jalib
   class JTimeRecorder
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JTimeRecorder ( const jalib::string& name );
       void start()
       {
@@ -91,6 +102,11 @@ namespace jalib
   class JScopeTimer
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JScopeTimer ( JTimeRecorder& tm ) :_tm ( tm ) { _tm.start(); }
       ~JScopeTimer() { _tm.stop(); }
     private:

@@ -34,12 +34,15 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/types.h>
 
 #include "mtcp_internal.h"
 
@@ -75,9 +78,10 @@ int main (int argc, char *argv[], char *envp[])
   char ckpt_newname[MAXPATHLEN+1] = "";
 
   if (getuid() == 0 || geteuid() == 0) {
-    mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n"
-	   "If you still want to do this, modify %s:%d and re-compile.\n",
-	   __FILE__, __LINE__);
+    mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
+	   "If you still want to do this (at your own risk)," \
+	   "  then modify mtcp/%s:%d and re-compile.\n",
+	   __FILE__, __LINE__ - 4);
     abort();
   }
 
@@ -141,6 +145,24 @@ int main (int argc, char *argv[], char *envp[])
     return (-1);
   }
 
+  if (restorename) {
+    struct stat buf;
+    int rc = stat(restorename, &buf);
+    if (rc == -1) {
+      char error_msg[MAXPATHLEN+35];
+      sprintf(error_msg, "\nmtcp_restart: ckpt image %s", restorename);
+      perror(error_msg);
+      abort();
+    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+      mtcp_printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
+	          "checkpoint image (%s).\n" \
+		  "This is dangerous.  Aborting for security reasons.\n" \
+	   "If you still want to do this, modify mtcp/%s:%d and re-compile.\n",
+	   getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 5);
+      abort();
+    }
+  }
+
   if (strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
     strncpy(ckpt_newname, restorename, MAXPATHLEN);
   }
@@ -199,6 +221,15 @@ int main (int argc, char *argv[], char *envp[])
     mtcp_printf("mtcp_restart: '%s' is '%s', but this restore is '%s' (fd=%d)\n", restorename, magicbuf, MAGIC, fd);
     return (-1);
   }
+
+  /* Set the resourse limits for stack from saved values */
+  struct rlimit stack_rlimit;
+  readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
+  readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+#ifdef DEBUG
+  mtcp_printf("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+#endif
+  setrlimit(RLIMIT_STACK, &stack_rlimit);
 
   /* Find where the restore image goes */
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */
@@ -377,7 +408,6 @@ static int open_ckpt_to_read(char *filename) {
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-	    unsetenv("LD_PRELOAD");
             execvp(gzip_path, gzip_args);
             /* should not get here */
             fputs("ERROR: Decompression failed!  No restoration will be performed!  Cancel now!\n", stderr);

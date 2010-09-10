@@ -58,6 +58,11 @@ dmtcp::KernelDeviceToConnection& dmtcp::KernelDeviceToConnection::Instance()
   static KernelDeviceToConnection inst; return inst;
 }
 
+dmtcp::UniquePtsNameToPtmxConId& dmtcp::UniquePtsNameToPtmxConId::Instance()
+{
+  static UniquePtsNameToPtmxConId inst; return inst;
+}
+
 dmtcp::ConnectionList::ConnectionList() {}
 
 dmtcp::KernelDeviceToConnection::KernelDeviceToConnection() {}
@@ -80,6 +85,14 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
     Connection* con = &source.retrieve ( fds[i] );
     _table[con->id() ].push_back ( fds[i] );
   }
+}
+
+void dmtcp::ConnectionToFds::erase ( const ConnectionIdentifier& conId )
+{
+  JTRACE("erasing connection from ConnectionToFds") (conId);
+  iterator it = _table.find(conId);
+  JASSERT(it != _table.end() );
+  _table.erase(it);
 }
 
 dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve ( int fd )
@@ -106,8 +119,21 @@ void dmtcp::KernelDeviceToConnection::create ( int fd, Connection* c )
 }
 
 
+void dmtcp::KernelDeviceToConnection::createPtyDevice ( int fd, dmtcp::string device, Connection* c )
+{
+  ConnectionList::Instance().add ( c );
 
-dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandPts )
+  JTRACE ( "device created" ) ( fd ) ( device ) ( c->id() );
+
+  JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
+
+  iterator i = _table.find ( device );
+  JWARNING ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
+
+  _table[device] = c->id();
+}
+
+dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDemandConnection )
 {
   //gather evidence
   errno = 0;
@@ -124,103 +150,154 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   }
 
   bool isFile  = ( device[0] == '/' );
+
   bool isPts   = ( strncmp ( device.c_str(), "/dev/pts/", strlen( "/dev/pts/" ) ) ==0 );
   bool isPtmx  = ( strncmp ( device.c_str(), "/dev/ptmx", strlen( "/dev/ptmx" ) ) ==0 );
 
+  bool isBSDMaster  = ( strncmp ( device.c_str(), "/dev/pty", strlen( "/dev/pty" ) ) ==0 );
+  bool isBSDSlave   = ( strncmp ( device.c_str(), "/dev/tty", strlen( "/dev/tty" ) ) ==0 );
+
   if ( isPtmx )
   {
-    dmtcp::string deviceName = "ptmx["+jalib::XToString ( fd ) +"]:" + device;
+    char ptsName[21];
+    JASSERT(_real_ptsname_r(fd, ptsName, 21) == 0) (JASSERT_ERRNO);
 
-    if(noOnDemandPts)
+    string ptsNameStr = ptsName;
+
+    dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + device;
+
+    if(noOnDemandConnection)
       return deviceName;
 
     iterator i = _table.find ( deviceName );
-    if ( i == _table.end() )
-    {
-      char slaveDevice[1024];
+    JASSERT ( i != _table.end() ) ( fd ) ( device ) ( deviceName ) ( ptsNameStr )
+      .Text ("Device not found in connection list");
 
-      errno = 0;
-      JASSERT ( _real_ptsname_r ( fd, slaveDevice, sizeof ( slaveDevice ) ) == 0 )
-      ( fd ) ( deviceName ) ( JASSERT_ERRNO ).Text( "Unable to find the slave device" );
+    return deviceName;
 
-      dmtcp::string symlinkFilename = dmtcp::UniquePid::ptsSymlinkFilename ( slaveDevice );
+  } else if ( isPts ) {
+    dmtcp::string deviceName = "pts:" + device;
 
-      JTRACE ( "creating ptmx connection [on-demand]" ) ( deviceName ) ( symlinkFilename );
-
-      int type = dmtcp::PtyConnection::PTY_MASTER;
-      Connection * c = new PtyConnection ( device, symlinkFilename, type );
-      ConnectionList::Instance().add ( c );
-      _table[deviceName] = c->id();
-      return deviceName;
-    } else {
-      return deviceName;
-    }
-  }
-  else if ( isPts )
-  {
-    dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
-
-    if(noOnDemandPts)
+    if(noOnDemandConnection)
       return deviceName;
 
     iterator i = _table.find ( deviceName );
+
     if ( i == _table.end() )
     {
+      JWARNING(false) .Text("PTS Device not found");
       int type;
-      dmtcp::string symlinkFilename;
       dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
 
       JTRACE( "Controlling Terminal###################" ) (currentTty);
 
-      if (PtsToSymlink::Instance().exists(device) )
-      {
-        type = dmtcp::PtyConnection::PTY_SLAVE;
-        symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
-        JTRACE ( "creating pts connection [on-demand]" ) 
-          ( deviceName ) ( symlinkFilename );
-      } else if ( currentTty.compare(device) == 0 ) {
-        type = dmtcp::PtyConnection::PTY_TTY;
-        symlinkFilename = "?";
+      if ( currentTty.compare(device) == 0 ) {
+        type = dmtcp::PtyConnection::PTY_CTTY;
         JTRACE ( "creating TTY connection [on-demand]" ) 
-          ( deviceName ) ( symlinkFilename );
-      }
-      else {
-        type = dmtcp::PtyConnection::PTY_SLAVE;
-        symlinkFilename = PtsToSymlink::Instance().getFilename ( device );
-        JTRACE ( "creating pts connection [on-demand]" )
-          ( deviceName ) ( symlinkFilename );
-      }
+          ( deviceName );
 
-      Connection * c = new PtyConnection ( device, symlinkFilename, type );
-      ConnectionList::Instance().add ( c );
-      _table[deviceName] = c->id();
-      return deviceName;
-    } else {
-      return deviceName;
+        Connection * c = new PtyConnection ( device, device, type );
+        createPtyDevice ( fd, deviceName, c );
+      } else {
+        JASSERT ( false ) ( fd ) ( device )
+          .Text ("PTS Device not found in connection list");
+      }
     }
-  }
-  else if ( isFile )
-  {
-    dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+    return deviceName;
+
+  } else if ( isBSDMaster ) {
+    dmtcp::string deviceName = "BSDMasterPty:" + device;
+    dmtcp::string slaveDeviceName = device.replace(0, strlen("/dev/pty"), "/dev/tty");
+
+    if(noOnDemandConnection)
+      return deviceName;
+
     iterator i = _table.find ( deviceName );
     if ( i == _table.end() )
     {
-      JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
-      off_t offset = lseek ( fd, 0, SEEK_CUR );
-      Connection * c = new FileConnection ( device, offset );
+      JTRACE ( "creating BSD Master Pty connection [on-demand]" )
+        ( deviceName ) ( slaveDeviceName );
+
+      int type = dmtcp::PtyConnection::PTY_BSD_MASTER;
+      Connection * c = new dmtcp::PtyConnection ( device, type );
+
       ConnectionList::Instance().add ( c );
       _table[deviceName] = c->id();
-      return deviceName;
     }
-    else
-    {
+
+    return deviceName;
+
+  } else if ( isBSDSlave ) {
+    dmtcp::string deviceName = "BSDSlave:" + device;
+    dmtcp::string masterDeviceName = device.replace(0, strlen("/dev/tty"), "/dev/pty");
+
+
+    if(noOnDemandConnection)
       return deviceName;
+
+    iterator i = _table.find ( deviceName );
+    if ( i == _table.end() )
+    {
+      JTRACE ( "creating BSD Slave Pty connection [on-demand]" )
+        ( deviceName ) ( masterDeviceName );
+
+      int type = dmtcp::PtyConnection::PTY_BSD_SLAVE;
+      Connection * c = new dmtcp::PtyConnection ( device, type );
+
+      ConnectionList::Instance().add ( c );
+      _table[deviceName] = c->id();
+    }
+
+    return deviceName;
+
+  } else if ( isFile ) {
+    // Can be file or FIFO channel
+    struct stat buf;
+    stat(device.c_str(),&buf);
+
+    /* /dev/null is a character special file (non-regular file) */
+    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode)) {
+      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
+      iterator i = _table.find ( deviceName );
+      if ( i == _table.end() )
+      {
+        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
+        off_t offset = lseek ( fd, 0, SEEK_CUR );
+        Connection * c = new FileConnection ( device, offset );
+        ConnectionList::Instance().add ( c );
+        _table[deviceName] = c->id();
+      }
+      
+      return deviceName;
+
+    } else if (S_ISFIFO(buf.st_mode)){
+      dmtcp::string deviceName = "fifo["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
+      iterator i = _table.find ( deviceName );
+      if (i == _table.end())
+      {
+        JTRACE ( "creating fifo connection [on-demand]" ) ( deviceName );
+        Connection * c = new FifoConnection( device );
+        ConnectionList::Instance().add( c );
+        _table[deviceName] = c->id();
+        return deviceName;
+      } else {
+        return deviceName;
+      }
+    } else {
+      JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
-
-
+  //JWARNING(false) (device) .Text("UnImplemented Connection Type.");
   return device;
-
 }
 
 void dmtcp::ConnectionList::erase ( iterator i )
@@ -243,7 +320,7 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
       return;
     }
   }
-  JWARNING(false)(con).Text("failed to find connection in table to erase it");
+  JTRACE("WARNING:: failed to find connection in table to erase it")(con);
 }
 
 //called when a device name changes
@@ -269,7 +346,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
   {
     if ( _isBadFd ( fds[i] ) ) continue;
     if(ProtectedFDs::isProtected( fds[i] )) continue;
-    dmtcp::string device = fdToDevice ( fds[i] );
+    dmtcp::string device = fdToDevice ( fds[i], true );
     bool exists = ( _table.find ( device ) != _table.end() );
     JASSERT_STDERR << fds[i]
                    << " -> "  << device
@@ -295,10 +372,17 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
       _table[device] = con;
 #ifdef DEBUG
       //double check to make sure all fds have same device
-      for ( size_t i=1; i<fds.size(); ++i )
-      {
-        JASSERT ( device == fdToDevice ( fds[i] ) )
-        ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+      Connection *c = &(ConnectionList::Instance()[con]);
+      for ( size_t i=1; i<fds.size(); ++i ) {
+        if ( c->conType() != Connection::FILE ) {
+          JASSERT ( device == fdToDevice ( fds[i] ) )
+            ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
+        } else {
+          dmtcp::string filePath = 
+            jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[i] ) );
+          JASSERT ( filePath == ((FileConnection *)c)->filePath() ) 
+            ( fds[i] ) ( filePath ) ( fds[0] ) ( ((FileConnection *)c)->filePath() );
+        }
       }
 #endif
     }
@@ -355,6 +439,10 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         //             case Connection::PIPE:
         //                 con = new PipeConnection();
         //                 break;
+      case Connection::FIFO:
+        // sleep(15);
+        con = new FifoConnection ( "?" );
+        break;
       case Connection::PTY:
         con = new PtyConnection();
         break;
@@ -418,10 +506,9 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
         ( fd ) ( deviceName );
 
-      dmtcp::string symlinkFilename = "?";
-      int type = dmtcp::PtyConnection::PTY_TTY;
+      int type = dmtcp::PtyConnection::PTY_CTTY;
 
-      PtyConnection *con = new PtyConnection ( device, symlinkFilename, type );
+      PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
     else 
@@ -538,7 +625,6 @@ void dmtcp::ConnectionList::add ( Connection* c )
   _connections[c->id() ] = c;
 }
 
-
 int dmtcp::SlidingFdTable::getFdFor ( const ConnectionIdentifier& con )
 {
   //is our work already done?
@@ -608,6 +694,29 @@ void dmtcp::SlidingFdTable::closeAll()
   _conToFd.clear();
 }
 
+dmtcp::Connection& dmtcp::UniquePtsNameToPtmxConId::retrieve ( dmtcp::string str )
+{
+  iterator i = _table.find ( str );
+  JASSERT ( i != _table.end() ) ( str ) ( _table.size() ).Text ( "failed to find connection for fd" );
+  return ConnectionList::Instance() [i->second];
+}
+
+
+dmtcp::string dmtcp::UniquePtsNameToPtmxConId::retrieveCurrentPtsDeviceName ( dmtcp::string str )
+{
+  iterator i = _table.find ( str );
+  JASSERT ( i != _table.end() ) ( str ) ( _table.size() ).Text ( "failed to find connection for fd" );
+  Connection* c = &(ConnectionList::Instance() [i->second]);
+
+  PtyConnection* ptmxConnection = (PtyConnection *)c;
+
+  JASSERT( ptmxConnection->ptyType() == dmtcp::PtyConnection::PTY_MASTER );
+
+  return ptmxConnection->ptsName();
+}
+
+
+/*
 dmtcp::PtsToSymlink::PtsToSymlink() { }
 
 dmtcp::PtsToSymlink& dmtcp::PtsToSymlink::Instance()
@@ -650,6 +759,7 @@ bool dmtcp::PtsToSymlink::exists( dmtcp::string device )
   }
   return true;
 }
+*/
 
 pid_t dmtcp::ConnectionToFds::gzip_child_pid = -1;
 static void close_ckpt_to_read(const int fd)
@@ -690,6 +800,7 @@ static char first_char(const char *filename)
 
 // Copied from mtcp/mtcp_restart.c.
 // Let's keep this code close to MTCP code to avoid maintenance problems.
+// MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
 // A previous version tried to replace this with popen, causing a regression:
 //   (no call to pclose, and possibility of using a wrong fd).
 // Returns fd; sets dmtcp::gzip_child_pid::ConnectionToFds, if gzip compression.
@@ -733,7 +844,6 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-            _dmtcp_unsetenv("LD_PRELOAD");
             _real_execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */

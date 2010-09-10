@@ -38,7 +38,8 @@ namespace dmtcp
       enum  ErrorCodes {
         NOERROR                 =  0,
         ERROR_INVALID_COMMAND   = -1,
-        ERROR_NOT_RUNNING_STATE = -2
+        ERROR_NOT_RUNNING_STATE = -2,
+        ERROR_COORDINATOR_NOT_FOUND = -3
       };
 
       typedef struct { dmtcp::WorkerState minimumState; bool minimumStateUnanimous; int numPeers; } CoordinatorStatus;
@@ -53,6 +54,12 @@ namespace dmtcp
       bool startCheckpoint();
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
+
+      void processDmtUserCmd ( DmtcpMessage& hello_remote, jalib::JSocket& remote );
+      bool validateDmtRestartProcess ( DmtcpMessage& hello_remote, 
+                                       jalib::JSocket& remote );
+      bool validateWorkerProcess ( DmtcpMessage& hello_remote, 
+                                   jalib::JSocket& remote );
 
       CoordinatorStatus getStatus() const;
       dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }

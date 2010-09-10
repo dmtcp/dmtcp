@@ -34,6 +34,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include "../jalib/jassert.h"
+
+/*
+ * XXX: TODO: Add wrapper protection for socket() family of system calls
+ */
 
 //////////////////////////////////////
 //////// Now we define our wrappers
@@ -56,10 +61,12 @@ static int in_dmtcp_on_helper_fnc = 0;
       else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);\
       in_dmtcp_on_helper_fnc = 0; \
     } \
-    _dmtcp_unlock(); \
-    errno = saved_errno; \
+    _dmtcp_unlock();\
+    errno =saved_errno; \
     return ret;}
 
+extern "C"
+{
 int socket ( int domain, int type, int protocol )
 {
   static int sockfd = -1;
@@ -131,4 +138,6 @@ int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
                  socklen_t optlen )
 {
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
+}
+
 }

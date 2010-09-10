@@ -23,12 +23,13 @@
 #define CONNECTIONMANAGER_H
 
 #include "dmtcpalloc.h"
-#include <connection.h>
+#include "connection.h"
 #include <list>
 #include <map>
 #include <string>
-#include  "../jalib/jserialize.h"
-#include  "../jalib/jfilesystem.h"
+#include "../jalib/jserialize.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jalloc.h"
 #include "virtualpidtable.h"
 #include "constants.h"
 
@@ -44,6 +45,11 @@ namespace dmtcp
   {
       friend class KernelDeviceToConnection;
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
@@ -67,15 +73,19 @@ namespace dmtcp
   class KernelDeviceToConnection
   {
     public:
-
-
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       static KernelDeviceToConnection& Instance();
       Connection& retrieve ( int fd );
       void        create ( int fd, Connection* c );
+      void        createPtyDevice ( int fd, dmtcp::string deviceName, Connection* c );
 
       void erase(const ConnectionIdentifier&);
 
-      dmtcp::string fdToDevice ( int fd , bool noOnDemandPts = false );
+      dmtcp::string fdToDevice ( int fd , bool noOnDemandConnection = false );
 
       void dbgSpamFds();
 
@@ -103,6 +113,11 @@ namespace dmtcp
   class ConnectionToFds
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       ConnectionToFds() {
         _procname = jalib::Filesystem::GetProgramName();
         _hostname = jalib::Filesystem::GetCurrentHostname();
@@ -121,6 +136,7 @@ namespace dmtcp
       const_iterator end() const { return _table.end(); }
 
       size_t size() const { return _table.size(); }
+      void erase ( const ConnectionIdentifier& conId );
 
       void serialize ( jalib::JBinarySerializer& o );
 
@@ -154,6 +170,11 @@ namespace dmtcp
   class SlidingFdTable
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       SlidingFdTable ( int startingFd = 500 )
         : _nextFd ( startingFd )
         , _startFd ( startingFd )
@@ -181,6 +202,41 @@ namespace dmtcp
       int _startFd;
   };
 
+
+  // UniquePtsNameToPtmxConId class holds the UniquePtsName -> Ptmx ConId mapping.
+  // This file should not be serialized. The contents are added to this file
+  // whenever a /dev/ptmx device is open()ed to create a pseudo-terminal
+  // master-slave pair.
+  class UniquePtsNameToPtmxConId
+  {
+    public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
+      UniquePtsNameToPtmxConId() {}
+      static UniquePtsNameToPtmxConId& Instance();
+
+      ConnectionIdentifier& operator[] ( dmtcp::string s ) { return _table[s]; }
+
+      dmtcp::Connection& retrieve ( dmtcp::string str );
+
+      dmtcp::string retrieveCurrentPtsDeviceName ( dmtcp::string str );
+
+      typedef dmtcp::map< dmtcp::string, ConnectionIdentifier >::iterator iterator;
+
+      //void serialize ( jalib::JBinarySerializer& o );
+
+      void add ( dmtcp::string str, ConnectionIdentifier cid ) { _table[str] = cid; }
+
+    private:
+      dmtcp::map< dmtcp::string, ConnectionIdentifier > _table;
+      //dmtcp::map< dmtcp::string, ConnectionIdentifier > _uniquePtsNameToPtmxConIdTable;
+      //dmtcp::map< dmtcp::string, ConnectionIdentifier > _ptsDevNameToPtmxConIdTable;
+  };
+
+  /*
   ///
   /// Mapping from pts device to symlink file in $DMTCP_TMPDIR
   ///
@@ -201,6 +257,7 @@ namespace dmtcp
     private:
       dmtcp::map<dmtcp::string, dmtcp::string> _table;
   };
+  */
 
 }
 

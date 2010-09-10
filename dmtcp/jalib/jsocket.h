@@ -23,6 +23,7 @@
 #define JALIBJSOCKET_H
 
 #include "stlwrapper.h"
+#include "jalloc.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -41,6 +42,11 @@ namespace jalib
   {
       friend class JSocket;
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JSockAddr ( const char* hostname = NULL );
       static const JSockAddr ANY;
       const struct sockaddr_in* addr() const{return &_addr;}
@@ -53,6 +59,11 @@ namespace jalib
   class JSocket
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       ///
       /// Create new socket
   protected: JSocket(); public:
@@ -111,6 +122,12 @@ namespace jalib
   class JServerSocket : public JSocket
   {
     public:
+      JServerSocket ( int sockfd ) 
+        : JSocket ( sockfd )
+      {
+        enablePortReuse();
+      }
+
       JServerSocket ( const JSockAddr& addr, int port, int backlog = 32 )
       {
         enablePortReuse();
@@ -122,6 +139,11 @@ namespace jalib
   class JReaderInterface
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JReaderInterface ( JSocket& sock ) :_sock ( sock ) {}
       virtual ~JReaderInterface() {}
       virtual bool readOnce() = 0;
@@ -140,6 +162,11 @@ namespace jalib
   class JChunkReader : public JReaderInterface
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JChunkReader ( JSocket sock, int chunkSize );
       JChunkReader ( const JChunkReader& that );
       ~JChunkReader();
@@ -161,6 +188,11 @@ namespace jalib
   class JWriterInterface
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JWriterInterface ( JSocket& sock ) :_sock ( sock ) {}
       virtual ~JWriterInterface() {}
       virtual bool writeOnce() = 0;
@@ -175,7 +207,11 @@ namespace jalib
   class JChunkWriter : public JWriterInterface
   {
     public:
-
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       JChunkWriter ( JSocket sock, const char* buf, int len );
       JChunkWriter ( const JChunkWriter& that );
       ~JChunkWriter();
@@ -196,6 +232,11 @@ namespace jalib
   class JMultiSocketProgram
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       virtual ~JMultiSocketProgram() {}
       void addDataSocket ( JReaderInterface* sock );
       void addListenSocket ( const JSocket& sock );
@@ -203,15 +244,19 @@ namespace jalib
       virtual void onData ( JReaderInterface* sock ) = 0;
       virtual void onConnect ( const JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen ) = 0;
       virtual void onDisconnect ( JReaderInterface* sock ) {};
+      void setTimeoutInterval ( double dblTimeout );
       virtual void onTimeoutInterval() {};
       void addWrite ( JWriterInterface* write );
     protected:
       jalib::vector<JReaderInterface*> _dataSockets;
       jalib::vector<JSocket> _listenSockets;
       jalib::vector<JWriterInterface*> _writes;
+    private:
+      bool timeoutEnabled;
+      struct timeval timeoutInterval;
+      struct timeval stoptime;
   };
 
 } //namespace jalib
-
 
 #endif
