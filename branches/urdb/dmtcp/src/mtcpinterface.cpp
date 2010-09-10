@@ -451,13 +451,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       /* Issue a waittid for the newly created thread (if required.) */
       JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
     } else {
-      JTRACE ("New Thread Created") (tid);
       if (originalTid != -1)
       {
+        JTRACE ("New Thread Created") ( originalTid ) ( tid );
         dmtcp::VirtualPidTable::Instance().updateMapping ( originalTid, tid );
-		dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
+        dmtcp::VirtualPidTable::InsertIntoPidMapFile( originalTid, tid );
         tid = originalTid;
       } else {
+        JTRACE ("New Thread Created") ( tid );
         dmtcp::VirtualPidTable::Instance().updateMapping ( tid, tid );
       }
       break;

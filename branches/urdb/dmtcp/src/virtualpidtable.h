@@ -56,6 +56,8 @@ namespace dmtcp
       void postRestart2();
       void preCheckpoint();
 
+      pid_t rawOriginalToCurrentPid( pid_t originalPid );
+      pid_t rawCurrentToOriginalPid( pid_t currentPid );
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
 

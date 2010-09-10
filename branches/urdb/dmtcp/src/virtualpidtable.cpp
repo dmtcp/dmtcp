@@ -190,14 +190,16 @@ void dmtcp::VirtualPidTable::resetOnFork()
   //_pidMapTable[_pid] = _pid;
 }
 
-pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
+pid_t dmtcp::VirtualPidTable::rawOriginalToCurrentPid( pid_t originalPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   _do_lock_tbl();
   pid_iterator i = _pidMapTable.find(originalPid); 
   if ( i == _pidMapTable.end() ) 
   {
     _do_unlock_tbl();
-    JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
     return originalPid;
   }
 
@@ -205,8 +207,11 @@ pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
   return i->second;
 }
 
-pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
+pid_t dmtcp::VirtualPidTable::rawCurrentToOriginalPid( pid_t currentPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   _do_lock_tbl();
   for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i)
   {
@@ -216,10 +221,19 @@ pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
       return i->first;
     }
   }
-  JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
 
   _do_unlock_tbl();
   return currentPid;
+}
+
+pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
+{
+  return rawOriginalToCurrentPid ( originalPid );
+}
+
+pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
+{
+  return rawCurrentToOriginalPid ( currentPid );
 }
 
 void dmtcp::VirtualPidTable::insert ( pid_t originalPid, dmtcp::UniquePid uniquePid )

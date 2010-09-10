@@ -188,7 +188,7 @@ static void updateProcPath ( const char *path, char *newpath )
     }
     temp [ tempIndex ] = '\0';
     pid_t originalPid = atoi ( temp );
-    pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
+    pid_t currentPid = dmtcp::VirtualPidTable::Instance().rawOriginalToCurrentPid( originalPid );
     if (currentPid == -1)
       currentPid = originalPid;
 
