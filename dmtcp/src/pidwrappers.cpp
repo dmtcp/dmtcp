@@ -39,15 +39,17 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-#ifdef PID_VIRTUALIZATION                                                         
-
+#ifdef PID_VIRTUALIZATION
 static pid_t gettid();
 static int tkill(int tid, int sig);
 static int tgkill(int tgid, int tid, int sig);
 
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
-  pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
+  pid_t currentPid = dmtcp::VirtualPidTable::Instance().rawOriginalToCurrentPid( originalPid );
   
   if (currentPid == -1)
     currentPid = originalPid;
@@ -57,7 +59,10 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
-  pid_t originalPid = dmtcp::VirtualPidTable::Instance().currentToOriginalPid( currentPid );
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
+  pid_t originalPid = dmtcp::VirtualPidTable::Instance().rawCurrentToOriginalPid( currentPid );
   
   if (originalPid == -1)
     originalPid = currentPid;
@@ -519,223 +524,6 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 }
 
 #endif
-/*
-void updateProcPath ( const char *path, char *newpath )
-{
-  char temp [ 10 ];
-  int index, oldPid, tempIndex, currentPid;
-  if (  path == "" || path == NULL ) 
-  {
-    newpath = "";
-    return;
-  }
-  if ( strncmp ( path, "/proc/", 6 ) == 0 )
-  {
-    index = 6;
-    tempIndex = 0;
-    while ( path [ index ] != '/' )
-    {
-      if ( path [ index ] >= '0' && path [ index ] <= '9' )
-        temp [ tempIndex++ ] = path [ index++ ];
-      else
-      {
-        strcpy ( newpath, path );
-        return;
-      }
-    }
-    temp [ tempIndex ] = '\0';
-    oldPid = atoi ( temp );
-    currentPid = originalToCurrentPid ( oldPid );
-    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
-  } 
-  else strcpy ( newpath, path );
-  return;
-}
-
-#endif
-
-#ifndef PID_VIRTUALIZATION
-void updateProcPath ( const char *path, char *newpath )
-{
-  if (  path == "" || path == NULL ) {
-    strcpy( newpath, "" );
-    return;
-  }
-  strcpy ( newpath, path );
-  return;
-}
-#endif
-
-// The current implementation simply increments the last count and returns it.
-// Although highly unlikely, this can cause a problem if the counter resets to
-// zero. In that case we should have some more sophisticated code which checks
-// to see if the value pointed by counter is in use or not.
-static int getNextFreeSlavePtyNum() 
-{
-  static int counter = -1;
-  counter++;
-  JASSERT(counter != -1) .Text ("See the comment above");
-  return counter;
-}
-
-#define DMTCP_PTS_PREFIX_STR  "dmtcp_"
-#define UNIQUE_PTS_PREFIX_STR "/dev/pts/dmtcp_"
-//DMTCP_PTS_PREFIX_STR
-
-static int _nextPtmxId()
-{
-  static int id = 0;
-  return id++;
-}
-
-static void processDevPtmxConnection (int fd)
-{
-  char ptsName[21];
-
-  JASSERT(_real_ptsname_r(fd, ptsName, 21) == 0) (JASSERT_ERRNO);
-
-  dmtcp::string ptsNameStr = ptsName;
-  dmtcp::string uniquePtsNameStr;
-
-  // glibc allows only 20 char long ptsname
-  // Check if there is enough room to insert the string "dmtcp_" before the
-  //   terminal number, if not then we ASSERT here.
-  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20) 
-    .Text("string /dev/pts/<n> too long, can not be virtualized."
-          "Once possible workarong here is to replace the string"
-          "\"dmtcp_\" with something short like \"d_\" or even "
-          "\"d\" and recompile DMTCP");
-
-  //char *ptsNumStr = (char *)(ptsName + strlen("/dev/pts/"));
-
-  // Generate new Unique ptsName
-  uniquePtsNameStr = UNIQUE_PTS_PREFIX_STR;
-  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum()); 
-
-  dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + "/dev/ptmx";
-
-//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString() 
-//                            + ":" + jalib::XToString ( _nextPtmxId() ) 
-//                            + "]:" + device;
-
-  JTRACE ( "creating ptmx connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
-
-  int type = dmtcp::PtyConnection::PTY_MASTER;
-  dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
-
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
-
-  dmtcp::UniquePtsNameToPtmxConId::Instance().add ( uniquePtsNameStr, c->id() );
-}
-
-static void processDevPtsConnection (int fd, const char* uniquePtsName, const char* ptsName)
-{
-  dmtcp::string ptsNameStr = ptsName;
-  dmtcp::string uniquePtsNameStr = uniquePtsName;
-
-  dmtcp::string deviceName = "pts:" + ptsNameStr;
-
-  JTRACE ( "creating pts connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
-
-  int type = dmtcp::PtyConnection::PTY_SLAVE;
-  dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
-
-  dmtcp::KernelDeviceToConnection::Instance().createPtyDevice ( fd, deviceName, c );
-}
-
-extern "C" int getpt()
-{
-  int fd = _real_getpt();
-  if ( fd >= 0 ) {
-    processDevPtmxConnection(fd);
-  }
-  return fd;
-}
-
-extern "C" int open (const char *path, ... )
-{
-  va_list ap;
-  int flags;
-  mode_t mode;
-  int rc;
-  char newpath [ 1024 ] = {0} ;
-  int len,i;
-
-  // Handling the variable number of arguments
-  va_start( ap, path );
-  flags = va_arg ( ap, int );
-  mode = va_arg ( ap, mode_t );
-  va_end ( ap );
-  
-  // If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-  // calling this function to open jassert log files. Therefore we shouldn't be
-  // playing with locks etc.
-
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_open ( path, flags, mode );
-  }
-
-  WRAPPER_EXECUTION_LOCK_LOCK();
-
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  int fd = _real_open( newpath, flags, mode );
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-
-  return fd;
-}
-
-extern "C" FILE *fopen (const char* path, const char* mode)
-{
-  // If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-  // calling this function to open jassert log files. Therefore we shouldn't be
-  // playing with locks etc.
-
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen ( path, mode );
-  }
-
-  WRAPPER_EXECUTION_LOCK_LOCK();
-
-  char newpath [ 1024 ] = {0} ;
-  int fd = -1;
-
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::Instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  FILE *file = _real_fopen ( newpath, mode );
-
-  if (file != NULL) {
-    fd = fileno(file);
-  }
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
-
-  return file;
-}
-*/
 
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)
