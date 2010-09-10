@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include "mtcp_internal.h"
 
 #ifdef __x86_64__
@@ -61,9 +62,17 @@ int main(int argc, char **argv) {
 
 
   /* Find where the restore image goes */
-  void *restore_begin, *restore_mmap;
-  int restore_size;
+  VA restore_begin;
+  size_t restore_size;
   void *restore_start; /* will be bound to fnc, mtcp_restore_start */
+
+  /* Set the resourse limits for stack from saved values */
+  struct rlimit stack_rlimit;
+  readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
+  readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+  printf("mtcp_restart: saved stack resource limit:" \
+	 " soft_lim: %lu, hard_lim: %lu\n",
+	 stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
   printf("*** restored mtcp.so\n");
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed mtcp.so image */

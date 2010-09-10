@@ -39,15 +39,17 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-#ifdef PID_VIRTUALIZATION                                                         
-
+#ifdef PID_VIRTUALIZATION
 static pid_t gettid();
 static int tkill(int tid, int sig);
 static int tgkill(int tgid, int tid, int sig);
 
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
-  pid_t currentPid = dmtcp::VirtualPidTable::Instance().originalToCurrentPid( originalPid );
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
+  pid_t currentPid = dmtcp::VirtualPidTable::Instance().rawOriginalToCurrentPid( originalPid );
   
   if (currentPid == -1)
     currentPid = originalPid;
@@ -57,7 +59,10 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
-  pid_t originalPid = dmtcp::VirtualPidTable::Instance().currentToOriginalPid( currentPid );
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
+  pid_t originalPid = dmtcp::VirtualPidTable::Instance().rawCurrentToOriginalPid( currentPid );
   
   if (originalPid == -1)
     originalPid = currentPid;
@@ -67,6 +72,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 
 static pid_t gettid()
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
   /* 
    * We might want to cache the tid of all threads to avoid redundant calls
    *  to _real_gettid() and currentToOriginalPid().
@@ -76,9 +82,15 @@ static pid_t gettid()
    *  value specific to each thread
    */
   pid_t currentTid = _real_gettid();
-  return currentToOriginalPid ( currentTid );
+  pid_t origTid =  currentToOriginalPid ( currentTid );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origTid;
 }
 
+
+extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 /* Comments by Gene:
  * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
@@ -91,12 +103,9 @@ static pid_t gettid()
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them. 
  *
- * XXX: DONOT USE JTRACE/JNOTE/JASSERT in this function, even better, do not
+ * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      any C++ things here.  (--Kapil)
  */
-
-extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-
 extern "C" long int syscall(long int sys_num, ... )
 {
   int i;
@@ -144,7 +153,6 @@ extern "C" long int syscall(long int sys_num, ... )
   return _real_syscall(sys_num, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
 }
 
-
 extern "C" pid_t getpid()
 {
   //pid_t pid = _real_getpid();//dmtcp::UniquePid::ThisProcess().pid();
@@ -155,101 +163,170 @@ extern "C" pid_t getpid()
 
 extern "C" pid_t getppid()
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
   {
     dmtcp::VirtualPidTable::Instance().setppid( 1 );
   }
 
-  return dmtcp::VirtualPidTable::Instance().ppid( );
+  pid_t origPpid = dmtcp::VirtualPidTable::Instance().ppid( );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origPpid;
 }
 
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t currPgrp = originalToCurrentPid( pgrp );
-  int retval = _real_tcsetpgrp(fd, currPgrp);
+//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp); 
+  int retVal = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
-  return retval;
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return retVal;
 }
 
 extern "C" pid_t tcgetpgrp(int fd)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
   //JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
   return retval;
 }
 
 extern "C" pid_t getpgrp(void)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t pgrp = _real_getpgrp();
-  return currentToOriginalPid( pgrp );
+  pid_t origPgrp =  currentToOriginalPid( pgrp );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origPgrp;
 }
 
 extern "C" pid_t setpgrp(void)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t pgrp = _real_setpgrp();
-  return currentToOriginalPid( pgrp );
+  pid_t origPgrp = currentToOriginalPid( pgrp );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origPgrp;
 }
 
 extern "C" pid_t getpgid(pid_t pid)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t currentPid = originalToCurrentPid (pid);
   pid_t res = _real_getpgid (currentPid);
-  return currentToOriginalPid (res);
+  pid_t origPgid = currentToOriginalPid (res);
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origPgid;
 }
 
 extern "C" int   setpgid(pid_t pid, pid_t pgid)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t currPid = originalToCurrentPid (pid);
   pid_t currPgid = originalToCurrentPid (pgid);
 
-  return _real_setpgid (currPid, currPgid);
+  int retVal = _real_setpgid (currPid, currPgid);
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return retVal;
 }
 
 extern "C" pid_t getsid(pid_t pid)
 {
-	pid_t currPid;
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
+  pid_t currPid;
   
   // If !pid then we ask SID of this process
   if( pid )
-  	currPid = originalToCurrentPid (pid);
+    currPid = originalToCurrentPid (pid);
   else
     currPid = _real_getpid();
   
   pid_t res = _real_getsid (currPid);
 
-  return currentToOriginalPid (res);
+  pid_t origSid = currentToOriginalPid (res);
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return origSid;
 }
 
 extern "C" pid_t setsid(void)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
   dmtcp::VirtualPidTable::Instance().setsid(origPid);
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
   return origPid;
 }
 
 extern "C" int   kill(pid_t pid, int sig)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   pid_t currPid = originalToCurrentPid (pid);
   
-  return _real_kill (currPid, sig);
+  int retVal = _real_kill (currPid, sig);
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return retVal;
 }
 
 static int   tkill(int tid, int sig)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   int currentTid = originalToCurrentPid ( tid );
-  return _real_tkill ( currentTid, sig );
+  
+  int retVal = _real_tkill ( currentTid, sig );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return retVal;
 }
 
 static int   tgkill(int tgid, int tid, int sig)
 {
+  WRAPPER_EXECUTION_LOCK_LOCK();
+
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
   
-  return _real_tgkill ( currentTgid, currentTid, sig );
+  int retVal = _real_tgkill ( currentTgid, currentTid, sig );
+
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+
+  return retVal;
 }
 
 
@@ -257,11 +334,37 @@ static int   tgkill(int tgid, int tid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
 
+#ifdef PTRACE
+
 #define TRUE 1
 #define FALSE 0
 
-typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int value );
-extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;      
+extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
+                                               td_thrinfo_t *ti_p)
+{
+  td_err_e td_err;
+
+  td_err = _real_td_thr_get_info ( th_p, ti_p);
+  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
+  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
+  return td_err;
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. It should be safe to comment this out if you don't
+   need to checkpoint gdb.
+*/
+extern "C" void *dlsym ( void *handle, const char *symbol)
+{
+  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
+    return (void *) &_dmtcp_td_thr_get_info;
+  else
+    return _real_dlsym ( handle, symbol );
+}
+
+typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int 
+value );
+extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;
 
 typedef int ( *get_is_waitpid_local_t ) ();
 extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
@@ -282,70 +385,82 @@ typedef void ( *reset_pid_status_t) ( );
 extern "C" reset_pid_status_t reset_pid_status_ptr;
 
 extern "C" sigset_t signals_set;
+#endif
+
+/*
+ * TODO: Add the wrapper protection for wait() family of system calls.
+ *       It wouldn't be a straight forward process, we need to take care of the
+ *         _BLOCKING_ property of these system calls.
+ *                                                      --KAPIL
+ */
 
 extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 //extern "C" pid_t wait(int *stat_loc)
 {
-  pid_t retval = _real_wait (stat_loc);
+  pid_t retVal = _real_wait (stat_loc);
 
-  pid_t pid = currentToOriginalPid (retval);
+  if (retVal > 0) {
+    pid_t pid = currentToOriginalPid (retVal);
 
-  if ( pid > 0 )
-    dmtcp::VirtualPidTable::Instance().erase(pid);
+    if ( pid > 0 )
+      dmtcp::VirtualPidTable::Instance().erase(pid);
 
-  return pid;
+    return pid;
+  }
+  return retVal;
 }
 
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
+#ifdef PTRACE
   pid_t superior;
   pid_t inferior;
   pid_t retval;
   static int i = 0;
-  pid_t originalPid;	
-  
+  pid_t originalPid;
+#endif
+
   if ( stat_loc == NULL )
     stat_loc = &status;
 
   pid_t currPid = originalToCurrentPid (pid);
 
+#ifdef PTRACE
   superior = syscall (SYS_gettid);
 
   inferior = pid;
 
   if (!get_is_waitpid_local_ptr ()) {
-	if (get_has_status_and_pid_ptr ()) {
-		*stat_loc = get_saved_status_ptr ();
-		retval = get_saved_pid_ptr ();
-		reset_pid_status_ptr ();
-	}	 
-	else {
-		if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-			perror ("waitpid wrapper");
-			exit(-1);
-		}		
-
-  		set_singlestep_waited_on_ptr (superior, inferior, TRUE);
-
- 		retval = _real_waitpid (currPid, stat_loc, options);
-
-  		originalPid = currentToOriginalPid (retval);
-  		
-		if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-			perror ("waitpid wrapper");
-			exit(-1);
-  		}
-	}	
+        if (get_has_status_and_pid_ptr ()) {
+                *stat_loc = get_saved_status_ptr ();
+                retval = get_saved_pid_ptr ();
+                reset_pid_status_ptr ();
+        }
+        else {
+                if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+                        perror ("waitpid wrapper");
+                        exit(-1);
+                }
+                set_singlestep_waited_on_ptr (superior, inferior, TRUE);
+                retval = _real_waitpid (currPid, stat_loc, options);
+                originalPid = currentToOriginalPid (retval);
+                if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
+                        perror ("waitpid wrapper");
+                        exit(-1);
+                }
+        }
   }
   else {
-	
- 	retval = _real_waitpid (currPid, stat_loc, options);
+        retval = _real_waitpid (currPid, stat_loc, options);
+        unset_is_waitpid_local_ptr ();
+        originalPid = currentToOriginalPid (retval);
+  }
+#else 
+  pid_t retval = _real_waitpid (currPid, stat_loc, options);
 
-	unset_is_waitpid_local_ptr ();
-
-  	originalPid = currentToOriginalPid (retval);
-  }	
+  pid_t originalPid = currentToOriginalPid ( retval );
+#endif
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
@@ -353,7 +468,6 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   return originalPid;
 }
-
 
 extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
@@ -409,104 +523,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
   return originalPid;
 }
 
-void change_path ( const char *path, char *newpath )
-{
-  char temp [ 10 ];
-  int index, oldPid, tempIndex, currentPid;
-  if (  path == "" || path == NULL )
-  {
-    newpath = "";
-    return;
-  }
-  if ( strncmp ( path, "/proc/", 6 ) == 0 )
-  {
-    index = 6;
-    tempIndex = 0;
-    while ( path [ index ] != '/' )
-    {
-      if ( path [ index ] > 47 && path [ index ] < 58 )
-        temp [ tempIndex++ ] = path [ index++ ];
-      else
-      {
-        strcpy ( newpath, path );
-        return;
-      }
-    }
-    temp [ tempIndex ] = '\0';
-    oldPid = atoi ( temp );
-    currentPid = originalToCurrentPid ( oldPid );
-    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
-  }
-  else strcpy ( newpath, path );
-  return;
-}
-
-extern "C" int open (const char *path, ... )
-{
-  va_list ap;
-  int flags;
-  mode_t mode;
-  int rc;
-  char newpath [ 1024 ] = {0} ;
-  int len,i;
-
-  // Handling the variable number of arguments
-  va_start( ap, path );
-  flags = va_arg ( ap, int );
-  mode = va_arg ( ap, mode_t );
-  va_end ( ap );
-  
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_open ( path, flags, mode );
-  }
-
-  change_path ( path, newpath );
-  return _real_open( newpath, flags, mode );
-}
-
-extern "C" FILE *fopen (const char* path, const char* mode)
-{
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen ( path, mode );
-  }
-
-  char newpath [ 1024 ] = {0} ;
-
-  change_path ( path, newpath );
-  return _real_fopen ( newpath, mode );
-}
-
-extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p, 
-                                               td_thrinfo_t *ti_p) 
-{
-  td_err_e td_err;
-
-  td_err = _real_td_thr_get_info ( th_p, ti_p);
-  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
-  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
-  return td_err;
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. It should be safe to comment this out if you don't
-   need to checkpoint gdb.
-*/ 
-extern "C" void *dlsym ( void *handle, const char *symbol)
-{
-  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
-    return (void *) &_dmtcp_td_thr_get_info;
-  else 
-    return _real_dlsym ( handle, symbol );
-}
-
+#endif
 
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)
@@ -620,7 +637,3 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
 // 				    size_t __user *len_ptr);
 // 
 
-
-
-
-#endif

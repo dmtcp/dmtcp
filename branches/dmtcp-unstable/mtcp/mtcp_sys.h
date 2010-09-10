@@ -301,6 +301,7 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
+#define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
 #define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
@@ -308,10 +309,11 @@ extern int mtcp_sys_errno;
 #define mtcp_sys_getpid(args...)  mtcp_inline_syscall(getpid,0)
 #define mtcp_sys_getppid(args...)  mtcp_inline_syscall(getppid,0)
 #define mtcp_sys_fork(args...)   mtcp_inline_syscall(fork,0)
+#define mtcp_sys_vfork(args...)   mtcp_inline_syscall(vfork,0)
 #define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
-#define mtcp_sys_mmap(args...)  mtcp_inline_syscall(mmap,6,args)
+#define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
 #define mtcp_sys_set_tid_address(args...)  mtcp_inline_syscall(set_tid_address,1,args)
@@ -379,9 +381,12 @@ static unsigned long int myinfo_gs;
  *
  * See glibc:/var/tmp/cooperma/glibc-2.5/sysdeps/unix/sysv/linux/i386/lxstat.c
  *   for other concerns about using stat in a 64-bit environment.
+ * 
+ * NOTE:  MTCP no longer needs the following two mtcp_sys_kernel_stat so
+ * commenting them out.                                            --Kapil
  */
-#define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
-#define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
+//#define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
+//#define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
 
 /* NOTE:  this calls kernel version of futex, not glibc sys_futex ("man futex")
  *   There is no library supporting futex.  Syscall is the only way to call it.

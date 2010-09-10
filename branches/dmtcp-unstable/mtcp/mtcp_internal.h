@@ -104,7 +104,7 @@ typedef unsigned short mtcp_segreg_t;
 typedef unsigned int mtcp_segreg_t;
 #endif
 
-#define PAGE_SIZE 4096
+#define MTCP_PAGE_SIZE 4096
 #define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
@@ -154,6 +154,7 @@ struct Area { void *addr;   // args required for mmap to restore memory area
 //                 uByte fpusave[232];
 //               };
 
+#define CS_STACKRLIMIT 101   // saved stack resource limit of this process
 #define CS_RESTOREBEGIN 1    // beginning address of restore shareable image
 #define CS_RESTORESIZE 2     // size (in bytes) of restore shareable image
 #define CS_RESTORESTART 3    // start address of restore routine
@@ -238,6 +239,7 @@ int mtcp_have_thread_sysinfo_offset();
 void *mtcp_get_thread_sysinfo(void);
 void mtcp_set_thread_sysinfo(void *);
 void mtcp_dump_tls (char const *file, int line);
+int mtcp_is_executable(const char *exec_path);
 char *mtcp_find_executable(char *filename, char exec_path[MTCP_MAX_PATH]);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);

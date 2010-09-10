@@ -32,6 +32,7 @@
 #include  "../jalib/jserialize.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
+#include "../jalib/jalloc.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -45,11 +46,17 @@ namespace dmtcp
   class ConnectionRewirer;
   class TcpConnection;
   class KernelDeviceToConnection;
+  class ConnectionToFds;
 
 
   class Connection
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       enum ConnectionType
       {
         INVALID = 0x0000,
@@ -58,8 +65,8 @@ namespace dmtcp
         PTY     = 0x3000,
         FILE    = 0x4000,
         STDIO   = 0x5000,
-
-        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO
+        FIFO    = 0x6000,
+        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO | FIFO
       };
 
       virtual ~Connection() {}
@@ -72,6 +79,8 @@ namespace dmtcp
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds ) = 0;
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
 
+      virtual bool isDupConnection ( const Connection& _that, 
+                                     dmtcp::ConnectionToFds& conToFds ) {};
       virtual void doLocking ( const dmtcp::vector<int>& fds ) {};
       virtual void saveOptions ( const dmtcp::vector<int>& fds );
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
@@ -183,36 +192,48 @@ namespace dmtcp
       enum PtyType
       {
         PTY_INVALID   = PTY,
-        PTY_TTY,
+        PTY_CTTY,
         PTY_MASTER,
-        PTY_SLAVE//,
+        PTY_SLAVE,
+        PTY_BSD_MASTER,
+        PTY_BSD_SLAVE//,
 
-//        TYPEMASK = PTY_TTY | PTY_Master | PTY_Slave
+//        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
 
-      PtyConnection ( const dmtcp::string& device, const dmtcp::string& filename, int type )
+      PtyConnection ( const dmtcp::string& ptsName, const dmtcp::string& uniquePtsName, int type )
           : Connection ( PTY )
-          , _symlinkFilename ( filename )
-          , _device ( device )
+          , _ptsName ( ptsName )
+          , _uniquePtsName ( uniquePtsName )
       {
         _type = type;
-        JTRACE("Creating PtyConnection")(device)(filename)(id());
-        if ( type != PTY_TTY &&  filename.compare ( "?" ) == 0 )
-        {
-          _type = PTY_INVALID;
-        }
+        JTRACE("Creating PtyConnection")(ptsName)(uniquePtsName)(id());
+        //if ( type != PTY_CTTY &&  filename.compare ( "?" ) == 0 )
+        //{
+        //  _type = PTY_INVALID;
+        //}
+      }
+
+      PtyConnection ( const dmtcp::string& device, int type )
+          : Connection ( PTY )
+          , _bsdDeviceName ( device )
+      {
+        _type = type;
+        JTRACE("Creating BSDPtyConnection")(device)(id());
       }
 
       PtyConnection()
           : Connection ( PTY )
-          , _symlinkFilename ( "?" )
-          , _device ( "?" )
+          , _ptsName ( "?" )
+          , _uniquePtsName ( "?" )
       {
         _type = PTY_INVALID;
-        JTRACE("Creating null PtyConnection")(id());
+        JTRACE("Creating empty PtyConnection")(id());
       }
 
       int  ptyType() { return _type;}// & TYPEMASK ); }
+      dmtcp::string ptsName() { return _ptsName;; }
+      dmtcp::string uniquePtsName() { return _uniquePtsName;; }
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
@@ -225,8 +246,9 @@ namespace dmtcp
       virtual void mergeWith ( const Connection& that );
     private:
       //PtyType   _type;
-      dmtcp::string _symlinkFilename;
-      dmtcp::string _device;
+      dmtcp::string _ptsName;
+      dmtcp::string _uniquePtsName;
+      dmtcp::string _bsdDeviceName;
 
   };
 
@@ -285,7 +307,7 @@ namespace dmtcp
         dmtcp::string curDir = cur_dir;
         int offs = _path.find(curDir);
         if( offs < 0 ){
-        _rel_path = "*";
+          _rel_path = "*";
         }else{
           offs += curDir.size();
           offs = _path.find('/',offs);
@@ -304,6 +326,10 @@ namespace dmtcp
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
+      dmtcp::string filePath() { return _path; }
+
+      bool isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds );
+
     private:
       void saveFile (int fd);
       int  openFile ();
@@ -316,6 +342,55 @@ namespace dmtcp
       dmtcp::string _savedRelativePath;
       off_t       _offset;
       struct stat _stat;
+  };
+
+  class FifoConnection : public Connection
+  {
+    public:
+      //called on restart when _id collides with another connection
+      virtual void mergeWith ( const Connection& that );
+
+      inline FifoConnection ( const dmtcp::string& path )
+          : Connection ( FIFO )
+		  , _path ( path )
+      {
+        const char *cur_dir = get_current_dir_name();
+        dmtcp::string curDir = cur_dir;
+        int offs = _path.find(curDir);
+        if( offs < 0 ){
+	        _rel_path = "*";
+        }else{
+          offs += curDir.size();
+          offs = _path.find('/',offs);
+          offs++;
+          _rel_path = _path.substr(offs);
+        }
+        JTRACE("New Fifo connection created")(_path)(_rel_path);
+		_in_data.clear();
+      }
+
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds
+                                   , KernelBufferDrainer& drain );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual void doLocking ( const dmtcp::vector<int>& fds );
+
+    private:
+      int  openFile();
+      void refreshPath();
+      dmtcp::string getSavedFilePath(const dmtcp::string& path);
+      dmtcp::string _path;
+      dmtcp::string _rel_path;
+      dmtcp::string _savedRelativePath;
+      struct stat _stat;
+	  bool _has_lock;
+	  vector<char> _in_data;
+	  int ckptfd;
   };
 }
 

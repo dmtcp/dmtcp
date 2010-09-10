@@ -29,7 +29,7 @@
 ##																##
 ##################################################################################################################################
 
-MTCP_VERSION = 74
+MTCP_VERSION = 75
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
@@ -44,13 +44,13 @@ endif
 
 ifdef M32
 # HIGHEST_VA is [vdso] (just above [stack])
-CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000
+CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000 
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
 AS = as
 else
-CC = gcc
+CC = gcc 
 UNAME = uname
 LD_RAW = ld
 LDFLAGS =  -shared
@@ -58,8 +58,8 @@ AS = as --32
 endif
 
 #Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
-CFLAGS += -O0 -g 
-#CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
+CFLAGS += -O0 -g -DPTRACE
+# CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
 # CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
@@ -81,13 +81,16 @@ readmtcp: readmtcp.c
 	${CC} -o readmtcp readmtcp.c
 
 build: mtcp.so mtcp_restart
-tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
+tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
 
 # Test programs
 
 testmtcp: testmtcp.o mtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
 	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic mtcp.so
+
+bigtestmtcp: bigtestmtcp.o mtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic mtcp.so
 
 testgettimeofday: testgettimeofday.o mtcp.so
 	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) \
@@ -135,11 +138,11 @@ threadtest: threadtest.c
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o
+	mtcp_check_vdso.o mtcp_ptrace.o 
 	${CC} $(CFLAGS) -static \
     -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
     mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o
+    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_ptrace.o -lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -179,7 +182,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o mtcp_libccancellation.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_ptrace.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -193,11 +196,11 @@ mtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o mtcp.so \
 	  ${LIBRARY_OBJS} -ldl -lpthread
 
-mtcp.o: mtcp.c mtcp.h mtcp_internal.h
+mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
-mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
+mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h mtcp_ptrace.h
 	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
 	  cflags_extra=-fno-stack-protector ; \
 	fi; \
@@ -253,6 +256,9 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
+
+mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
+	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c -lpthread
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

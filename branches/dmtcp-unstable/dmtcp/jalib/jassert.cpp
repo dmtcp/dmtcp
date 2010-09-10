@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "jassert.h"
+#include "jfilesystem.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include "jconvert.h"
@@ -27,11 +28,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 
 #include <fstream>
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
+
+// This macro is also defined in ../src/constants.h and should always be kept
+// in sync with that.
+#define LIBC_FILENAME "libc.so.6"
 
 int jassert_quiet = 0;
 
@@ -39,8 +45,52 @@ int jassert_quiet = 0;
    The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
    PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
 */
-static const int DUP_STDERR_FD = 826; // PFD(5)
-static const int DUP_LOG_FD    = 827; // PFD(6)
+static const int DUP_STDERR_FD = 825; // PFD(5)
+static const int DUP_LOG_FD    = 826; // PFD(6)
+
+// DMTCP provides a wrapper for open/fopen. We don't want to go to that wrapper
+// and so we call open() directly from libc. This implementation follows the
+// one used in ../src/syscallsreal.c
+static int _real_open ( const char *pathname, int flags, mode_t mode )
+{
+  static void* handle = NULL;
+  if ( handle == NULL && ( handle = dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+
+  typedef int ( *funcptr ) (const char*, int, mode_t);
+  funcptr openFuncptr = NULL;
+  openFuncptr = (funcptr)dlsym ( handle, "open" );
+  if ( openFuncptr == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return (*openFuncptr)(pathname, flags, mode);
+}
+
+static int jwrite(FILE *stream, const char *str)
+{
+#ifndef JASSERT_USE_FPRINTF
+  ssize_t offs, rc=-1;
+  ssize_t size = strlen(str);
+  int fd = fileno(stream);
+
+  if (fd != -1) {
+    for (offs = 0; offs < size; offs += rc) {
+      rc = TEMP_FAILURE_RETRY(write (fd, str + offs, size - offs));
+      if (rc <= 0) break;
+    }
+  }
+  return rc;
+#else
+  return fprintf( stream, "%s", str );
+#endif
+}
 
 int jassert_internal::jassert_console_fd()
 {
@@ -57,16 +107,23 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
   return *this;
 }
 
-static pthread_mutex_t logLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t logLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 
-void jassert_internal::lockLog()
+bool jassert_internal::lockLog()
 {
-  pthread_mutex_lock(&logLock);
+  int retVal = pthread_mutex_lock(&logLock);
+  if (retVal != 0) {
+    perror ( "jassert_internal::lockLog: Error acquiring mutex");
+  }
+  return retVal == 0;
 }
 
 void jassert_internal::unlockLog()
 {
-  pthread_mutex_unlock(&logLock);
+  int retVal = pthread_mutex_unlock(&logLock);
+  if (retVal != 0) {
+    perror ( "jassert_internal::unlockLog: Error releasing mutex");
+  }
 }
 
 jassert_internal::JAssert::JAssert ( bool exitWhenDone )
@@ -74,15 +131,20 @@ jassert_internal::JAssert::JAssert ( bool exitWhenDone )
     , JASSERT_CONT_B ( *this )
     , _exitWhenDone ( exitWhenDone )
 {
-  jassert_internal::lockLog();
+  _logLockAcquired = jassert_internal::lockLog();
 }
 
 jassert_internal::JAssert::~JAssert()
 {
-  jassert_internal::unlockLog();
+  if ( _logLockAcquired )
+    jassert_internal::unlockLog();
+
   if ( _exitWhenDone )
   {
-    Print ( "Terminating...\n" );
+    Print ( jalib::Filesystem::GetProgramName() );
+    Print ( " (" );
+    Print ( getpid() );
+    Print ( "): Terminating...\n" );
     _exit ( 1 );
   }
 }
@@ -103,7 +165,7 @@ const char* jassert_internal::jassert_basename ( const char* str )
 static int _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
-  int tfd = open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
+  int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
   if ( tfd < 0 ) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
@@ -112,6 +174,7 @@ static int _fopen_log_safe ( const char* filename, int protectedFd )
   // Removed use of fdopen() to avoid modifiying the user malloc arena.
   return nfd;
 }
+
 static int _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _fopen_log_safe ( s.c_str(), protectedFd );
@@ -121,6 +184,20 @@ static int _fopen_log_safe ( const jalib::string& s, int protectedFd )
 static int theLogFile = -1;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
+
+void jassert_internal::jassert_init ( const jalib::string& f )
+{
+#ifdef DEBUG
+  set_log_file(f);
+#endif
+  jassert_safe_print("");
+}
+
+void jassert_internal::reset_on_fork ( )
+{
+  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
+  logLock = newLock;
+}
 
 void jassert_internal::set_log_file ( const jalib::string& path )
 {
@@ -143,6 +220,9 @@ void jassert_internal::set_log_file ( const jalib::string& path )
 
 static int _initJassertOutputDevices()
 {
+  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
+  logLock = newLock;
+
   const char* errpath = getenv ( "JALIB_STDERR_PATH" );
 
   if ( errpath != NULL )
@@ -158,7 +238,6 @@ static int writeall(int fd, const void *buf, size_t count) {
     while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
     return rc; /* rc >= 0; success */
 }
-
 
 void jassert_internal::jassert_safe_print ( const char* str )
 {
@@ -188,8 +267,7 @@ void jassert_internal::jassert_safe_print ( const char* str )
   }
 
 // #ifdef DEBUG
-//     static pid_t logPd = -1;
-//     static int log = -1;
+//     static pid_t logPd = -1;//     static int log = -1;
 //
 //     if(logPd != getpid())
 //     {
@@ -204,4 +282,3 @@ void jassert_internal::jassert_safe_print ( const char* str )
 //     }
 // #endif
 }
-

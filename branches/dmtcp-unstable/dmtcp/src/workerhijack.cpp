@@ -21,15 +21,44 @@
 
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
+#include "dmtcpmessagetypes.h"
 
+// Initializing variable, theInstance, to an object of type DmtcpWorker,
+//   with DmtcpWorker constructor called with arg, enableCheckpointing = true
+// This gets executed before main().
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-  theInstance.~DmtcpWorker();
+  theInstance.CleanupWorker();
   shutdownMtcpEngineOnFork();
-  new ( &theInstance ) DmtcpWorker ( true );
+
+  /* If parent process had file connections and it fork()'d a child
+   * process, the child process would consider the file connections as
+   * pre-existing and hence wouldn't restore them. This is fixed by making sure
+   * that when a child process is forked, it shouldn't be looking for
+   * pre-existing connections because the parent has already done that.
+   *
+   * So, here while creating the instance, we do not want to execute everything
+   * in the constructor since its not relevant. All we need to call is
+   * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
+   */
+  new ( &theInstance ) DmtcpWorker ( false );
+
+  dmtcp::DmtcpWorker::_exitInProgress = false;
+
+  WorkerState::setCurrentState ( WorkerState::RUNNING );
+  instance().connectToCoordinatorWithHandshake();
+
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  initializeMtcpEngine();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 }
 
+//to allow linking without mtcpinterface
+void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
+{
+  JASSERT(false).Text("should not be called");
+}
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
 

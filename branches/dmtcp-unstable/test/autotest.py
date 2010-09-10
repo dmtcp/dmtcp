@@ -89,10 +89,13 @@ def launch(cmd):
     os.stat(cmd[0])
   except:
     raise CheckFailed(cmd[0] + " not found")
+  if VERBOSE:
+    pipe=None
+  else:
+    pipe=subprocess.PIPE
   proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-		 stderr=subprocess.PIPE if not VERBOSE else None,
-		 close_fds=True)
+		 stderr=pipe, close_fds=True)
   return proc
 
 #randomize port and dir, so multiple processes works

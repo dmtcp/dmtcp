@@ -24,7 +24,8 @@
 
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jalloc.h"
 #include "constants.h"
 #include <string.h>
 #include <sys/types.h>
@@ -37,31 +38,37 @@ namespace dmtcp
   enum DmtcpMessageType
   {
     DMT_NULL,
-    DMT_HELLO_PEER,   //on connect established peer-peer               1
-    DMT_HELLO_COORDINATOR, //on connect established worker-coordinator  2
-    DMT_HELLO_WORKER, //on connect established coordinator-coordinator
+    DMT_HELLO_PEER,          // on connect established peer-peer                1
+    DMT_HELLO_COORDINATOR,   // on connect established worker-coordinator
+    DMT_HELLO_WORKER,        // on connect established coordinator-worker
 
-    DMT_DO_SUSPEND, // when coordinator wants slave to suspend             4
-    DMT_DO_RESUME,// when coordinator wants slave to resume (after checkpoint)
-    DMT_DO_LOCK_FDS, // when coordinator wants lock fds
-    DMT_DO_DRAIN, // when coordinator wants slave to flush
-    DMT_DO_CHECKPOINT,// when coordinator wants slave to checkpoint
-    DMT_DO_REFILL,// when coordinator wants slave to refill buffers
+    DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator 
+    DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command          
 
-    DMT_RESTORE_RECONNECTED, //sent to peer on reconnect
-    DMT_RESTORE_WAITING, //announce the existence of a restoring server on network
-//        DMT_RESTORE_SEARCHING, //slave waiting wanting to know where to connect to
+    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator 
+    DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
 
-    DMT_PEER_ECHO,      //used to get a peer to echo back a buffer at you param[0] is len
-                        //this is used to refill buffers after checkpointing
-    DMT_OK,             //slave telling coordinator it is done (response to DMT_DO_*)
-                        //this means slave reached barrier
-    DMT_CKPT_FILENAME,  //a slave sending it's checkpoint filename to coordinator
-    DMT_FORCE_RESTART,  //force a restart even if not all sockets are reconnected
-    DMT_KILL_PEER,      // send kill message to peer
-    DMT_USER_CMD,       // simulate typing params[0] into coordinator
-    DMT_USER_CMD_RESULT, // return code of user command
-    DMT_REJECT          // coordinator discards incoming connection because it is not from current computation group
+    DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8 
+    DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
+    DMT_DO_LOCK_FDS,         // when coordinator wants lock fds
+    DMT_DO_DRAIN,            // when coordinator wants slave to flush
+    DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
+    DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
+
+    DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
+    DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
+//  DMT_RESTORE_SEARCHING,   // slave waiting wanting to know where to connect to
+
+    DMT_PEER_ECHO,           // used to get a peer to echo back a buffer at you param[0] is len
+                             // this is used to refill buffers after checkpointing
+    DMT_OK,                  // slave telling coordinator it is done (response to DMT_DO_*)
+                             //   this means slave reached barrier
+    DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
+    DMT_FORCE_RESTART,       // force a restart even if not all sockets are reconnected
+
+    DMT_KILL_PEER,           // send kill message to peer
+    DMT_REJECT               // coordinator discards incoming connection because it is not from current computation group
+
 
   };
 
@@ -70,12 +77,17 @@ namespace dmtcp
   class WorkerState
   {
     public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       enum eWorkerState
       {
         UNKNOWN,
         RUNNING,
         SUSPENDED,
-        LOCKED,
+        FD_LEADER_ELECTION,
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
@@ -122,16 +134,18 @@ namespace dmtcp
     WorkerState state;
     UniquePid   compGroup;
 
-
     ConnectionIdentifier    restorePid;
     struct sockaddr_storage restoreAddr;
     socklen_t               restoreAddrlen;
     int                     restorePort;
 
+    int theCheckpointInterval;
+
     //message type specific parameters
     int params[DMTCPMESSAGE_NUM_PARAMS];
 
-    //extraBytes are used for passing checkpoint filename to coordinator it must be zero in all messages except for in DMT_CKPT_FILENAME
+    //extraBytes are used for passing checkpoint filename to coordinator it
+    //must be zero in all messages except for in DMT_CKPT_FILENAME
     int extraBytes;
 
     static void setDefaultCoordinator ( const UniquePid& id );
