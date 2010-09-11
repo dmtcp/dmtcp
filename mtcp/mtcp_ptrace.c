@@ -239,8 +239,7 @@ void ptrace_attach_threads(int isRestart)
         //sleep(5);
       is_ptrace_local = 1;
       if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
-        DPRINTF(("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferio
-r));
+        DPRINTF(("PTRACE_ATTACH failed for parent = %d child = %d\n", (int)superior, (int)inferior));
         perror("ptrace_attach_threads: PTRACE_ATTACH for CKPT failed");
         while(1);
         mtcp_abort();
