@@ -828,11 +828,13 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   refreshPath();
 
   if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-    if (buf.st_size > _stat.st_size)
+    if (buf.st_size > _stat.st_size && 
+        _fcntlFlags & (O_WRONLY|O_RDWR) != 0) {
     	JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
                 ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
-    else if (buf.st_size < _stat.st_size)
+    } else if (buf.st_size < _stat.st_size) {
 	JWARNING ("Size of file smaller than what we expected");
+    }
   }
 
   int tempfd = openFile ();
