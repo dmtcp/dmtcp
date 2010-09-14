@@ -100,6 +100,26 @@ static funcptr get_libc_symbol ( const char* name )
   return ( funcptr ) tmp;
 }
 
+static funcptr get_libpthread_symbol ( const char* name )
+{
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBPTHREAD_FILENAME,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+
+  void* tmp = dlsym ( handle, name );
+  if ( tmp == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return ( funcptr ) tmp;
+}
+
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
@@ -118,6 +138,11 @@ static funcptr get_libc_symbol ( const char* name )
 #define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
     if (fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
+
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
+    static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
+    return (*fn)
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
@@ -200,7 +225,6 @@ int _real_fclose ( FILE *fp )
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
-  for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
 int _real_getpt ( void )
@@ -229,12 +253,12 @@ void _real_closelog ( void )
 }
 
 //set the handler
-sighandler_t mtcp_real_signal(int signum, sighandler_t handler){
+sighandler_t _real_signal(int signum, sighandler_t handler){
     static signal_funcptr fn = NULL;
     if(fn==NULL) fn = (signal_funcptr)get_libc_symbol("signal");
     return (sighandler_t)(*fn)(signum, handler);
 }
-int mtcp_real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
 }
 int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
@@ -254,15 +278,14 @@ int _real_sigsetmask(int mask){
 int _real_siggetmask(void){
   REAL_FUNC_PASSTHROUGH ( siggetmask )( );
 }
-int mtcp_real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
+int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
 int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
 }
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
-  //**** TODO Link with the "real" pthread_sigmask ******
-  REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
 }
 
 int _real_sigwait(const sigset_t *set, int *sig) {

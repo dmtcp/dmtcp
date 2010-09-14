@@ -427,24 +427,16 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 }
 
 /*
- * The following two wrappers (setgid/seguid) are needed to pass over a bug
- * which causes the calling process to hang in glibc:setgid()/setuid()
- * functions. For example 'screen' exhibits this bug where the grandparent and
- * grandchild processes are hung in processing setgid and setuid system calls.
- */
 extern "C" int setgid(gid_t gid)
 {
-  if (gid == getgid())
-    return 0;
   return _real_setgid(gid);
 }
 
 extern "C" int setuid(uid_t uid)
 {
-  if (uid == getuid())
-    return 0;
   return _real_setuid(uid);
 }
+*/
 #endif
 
 // long sys_set_tid_address(int __user *tidptr);

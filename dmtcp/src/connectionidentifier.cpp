@@ -45,7 +45,7 @@ dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null()
 }
 dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Self()
 {
-  return ConnectionIdentifier ( UniquePid::ThisProcess(),-1 );
+  return ConnectionIdentifier ( UniquePid::ThisProcess(true), -1 );
 }
 
 int dmtcp::ConnectionIdentifier::conId() const { return _id; }

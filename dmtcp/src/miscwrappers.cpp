@@ -34,12 +34,11 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
-extern "C" void exit ( int status ) __attribute__ ((noreturn));
-
 extern "C" void exit ( int status )
 {
   dmtcp::DmtcpWorker::setExitInProgress();
   _real_exit ( status );
+  for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
 #ifdef EXTERNAL_SOCKET_HANDLING

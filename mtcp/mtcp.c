@@ -263,7 +263,6 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 
                 sigset_t sigblockmask;              // blocked signals
                 sigset_t sigpending;                // pending signals
-                struct sigaction sigactions[NSIG];  // signal handlers
 
                 ///JA: new code ported from v54b
                 ucontext_t savctx;                  // context saved on suspend
@@ -348,7 +347,9 @@ static pthread_t checkpointhreadid;
 static struct timeval restorestarted;
 static int DEBUG_RESTARTING = 0;
 static Thread *motherofall = NULL;
+static Thread *ckpthread = NULL;
 static Thread *threads = NULL;
+struct sigaction sigactions[NSIG];  // signal handlers
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
@@ -403,6 +404,7 @@ static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
 static void restore_sig_state (Thread *thisthread);
+static void save_sig_handlers (void);
 static void restore_sig_handlers (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
 static void renametempoverperm (void);
@@ -416,23 +418,25 @@ static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
 static void sync_shared_mem(void);
 
-typedef void (*sighandler_t)(int);
-
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
  * The wrappers go to these mtcp_real_XXX versions so that MTCP can call
  * the actual system calls and avoid the wrappers.  But if that is still
  * an issue, then we can create mtcp_sys_signal(), etc., for direct calls.
+ *
+ * Update: 
+ * mtcp_real_XXX versions have been renamed to _real_XXX in DMTCP.
+ * sigprocmask should not be used in multi-threaded process, use
+ * pthread_sigmask instead.
  */
-sighandler_t mtcp_real_signal(int signum, sighandler_t handler){
-  return signal(signum, handler);
-}
-int mtcp_real_sigaction(int signum, const struct sigaction *act,
+int _real_sigaction(int signum, const struct sigaction *act,
 			struct sigaction *oldact){
+  if (dmtcp_exists) {
+    mtcp_printf("mtcp %s: This function mustn't be called when working under DMTCP\n",
+                __FUNCTION__);
+    mtcp_abort();
+  }
   return sigaction(signum, act, oldact);
-}
-int mtcp_real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
-  return sigprocmask(how, set, oldset);
 }
 
 
@@ -595,6 +599,9 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
           STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
       }
   }
+
+  /* Set up signal handler so we can interrupt the thread for checkpointing */
+  setup_sig_handler ();
 
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
   /* All routines needed to perform restore must be within this address range               */
@@ -759,7 +766,7 @@ void mtcp_dump_tls (char const *file, int line)
 
   mutex = 0;
   mtcp_sys_futex (&mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
-  if (mtcp_real_sigprocmask (SIG_SETMASK, &oldsigmask, NULL) < 0) {
+  if (_real_sigprocmask (SIG_SETMASK, &oldsigmask, NULL) < 0) {
     abort ();
   }
 #endif
@@ -1001,10 +1008,6 @@ static void setupthread (Thread *thread)
   }
 
   unlk_threads ();
-
-  /* Set up signal handler so we can interrupt the thread for checkpointing */
-
-  setup_sig_handler ();
 }
 
 /*****************************************************************************/
@@ -1263,7 +1266,7 @@ static void *checkpointhread (void *dummy)
   int needrescan;
   struct timespec sleeperiod;
   struct timeval started, stopped;
-  Thread *ckpthread, *thread;
+  Thread *thread;
   char * dmtcp_checkpoint_filename = NULL;
 
   /* This is the start function of the checkpoint thread.
@@ -1283,7 +1286,8 @@ static void *checkpointhread (void *dummy)
   /* Set up our restart point, ie, we get jumped to here after a restore */
 
   ckpthread = getcurrenthread ();
-  save_sig_state (ckpthread);
+
+  save_sig_state( ckpthread );
   save_tls_state (ckpthread);
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
@@ -1327,9 +1331,6 @@ static void *checkpointhread (void *dummy)
         DPRINTF(("mtcp checkpointhread*: after callback_sleep_between_ckpt(%d)\n",intervalsecs));
     }
 
-    sigpending ( &(ckpthread->sigpending) ); // save pending signals
-
-    setup_sig_handler();
     mtcp_sys_gettimeofday (&started, NULL);
     checkpointsize = 0;
 
@@ -1344,8 +1345,6 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
-      setup_sig_handler(); //keep pounding the signal handler in
-
       if (*(thread -> actual_tidptr) == 0) {
         DPRINTF (("mtcp checkpointhread*: thread %d disappeared\n", thread -> tid));
         unlk_threads ();
@@ -1460,6 +1459,10 @@ again:
      * User must compile his/her code with -Wl,-export-dynamic to make it visible.
      */
     mtcpHookPreCheckpoint();
+
+    if (!dmtcp_exists) {
+      save_sig_handlers();
+    }
 
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
@@ -2328,8 +2331,6 @@ static void stopthisthread (int signum)
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
-  setup_sig_handler ();  // re-establish in case of another STOPSIGNAL so we don't abort by default
-
   thread = getcurrenthread ();                                              // see which thread this is
 
   // If this is checkpoint thread - exit immidiately
@@ -2349,9 +2350,10 @@ static void stopthisthread (int signum)
   }
   if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
     static int is_first_checkpoint = 1;
-    sigpending ( &(thread->sigpending) ); // save pending signals
-    save_sig_state (thread);                                                // save signal state (and block signal delivery)
-    save_tls_state (thread);                                                // save thread local storage state
+
+    save_sig_state (thread);      // save signal state (and block signal delivery)
+    save_tls_state (thread);      // save thread local storage state
+
     /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
      * will mmap it.  On second ckpt and later, we would segfault if we tried
      * to grow the former stack beyond the portion that is already mmap'ed.
@@ -2485,7 +2487,7 @@ static void wait_for_all_restored (void)
      * sent to individual threads.
      */
     int i;
-    for (i = NSIG; -- i >= 0;) {
+    for (i = NSIG; i > 0; --i) {
       if (sigismember(&sigpending_global, i) == 1) {
         kill(getpid(), i);
       }
@@ -2518,57 +2520,49 @@ static void wait_for_all_restored (void)
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Save signal handlers and block signal delivery										*/
+/*  Save signal mask and list of pending signals delivery										*/
 /*																*/
 /********************************************************************************************************************************/
 
 static void save_sig_state (Thread *thisthread)
-
 {
-  int i;
-  sigset_t blockall;
+  /* For checkpoint thread, we want to block delivery of all but some special signals*/
+  if (thisthread == ckpthread) {
+    /* 
+     * For the checkpoint thread, we should not block SIGSETXID which is used
+     * by the setsid family of system calls to change the session leader. Glibc
+     * uses this signal to notify the process threads of the change in session
+     * leader information. This signal is not documented and is used internally
+     * by glibc. It is defined in <glibc-src-root>/nptl/pthreadP.h
+     * screen was getting affected by this since it used setsid to change the
+     * session leaders.
+     */
+#define SIGSETXID (__SIGRTMIN + 1)
+    sigset_t set, *mask = NULL;
 
-  /* Block signal delivery first so signal handlers can't change state of signal handlers on us */
+    sigfillset(&set);
+    sigdelset(&set, SIGSETXID);
 
-  memset (&blockall, -1, sizeof blockall);
-  if (mtcp_real_sigprocmask (SIG_SETMASK, &blockall,
-			     &(thisthread -> sigblockmask)) < 0) {
-    mtcp_abort ();
-  }
-
-  /* Now save all the signal handlers */
-
-  DPRINTF (("mtcp save_sig_state*: saving signal handlers\n"));
-  for (i = NSIG; -- i >= 0;) {
-    if (mtcp_real_sigaction (i, NULL, thisthread -> sigactions + i) < 0) {
-      if (errno == EINVAL)
-	 memset (thisthread -> sigactions + i,
-		 0, sizeof thisthread -> sigactions[i]);
-      else {
-        mtcp_printf ("mtcp save_sig_state: error saving signal %d action: %s\n",
-		     i, strerror(errno));
-        mtcp_abort ();
-      }
+    if (pthread_sigmask(SIG_SETMASK, &set, NULL) < 0) {
+      mtcp_printf("mtcp %s: error getting sigal mask: %s\n",
+          __FUNCTION__, strerror(errno));
+      mtcp_abort ();
     }
-
-#if 0
-    DPRINTF (("mtcp save_sig_state*: saving signal handler for %d -> %p\n",
-              i,
-              ((thisthread -> sigactions + i)->sa_flags & SA_SIGINFO ?
-               (thisthread -> sigactions + i)->sa_sigaction :
-               (thisthread -> sigactions + i)->sa_handler) ));
-#endif
   }
-
-  sigdelset(&blockall,STOPSIGNAL);
-  if (mtcp_real_sigprocmask (SIG_SETMASK, &blockall, &(thisthread -> sigblockmask)) < 0) {
+  // Save signal block mask
+  if (pthread_sigmask (SIG_SETMASK, NULL, &(thisthread -> sigblockmask)) < 0) {
+    mtcp_printf("mtcp %s: error getting sigal mask: %s\n",
+                __FUNCTION__, strerror(errno));
     mtcp_abort ();
   }
+
+  // Save pending signals
+  sigpending ( &(thisthread->sigpending) );
 }
 
 /********************************************************************************************************************************/
 /*																*/
-/*  Restore all pending signals										*/
+/*  Restore signal mask and all pending signals										*/
 /*																*/
 /********************************************************************************************************************************/
 
@@ -2577,17 +2571,57 @@ static void restore_sig_state (Thread *thisthread)
   int i;
   DPRINTF (("mtcp restore_sig_state*: restoring handlers for thread %d\n",
 	    thisthread->original_tid));
-  if (mtcp_real_sigprocmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
+  if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
+    mtcp_printf("mtcp %s: error setting sigal mask: %s\n",
+                __FUNCTION__, strerror(errno));
     mtcp_abort ();
   }
 
   // Raise the signals which were pending for only this thread at the time of checkpoint.
-  for (i = NSIG; -- i >= 0;) {
+  for (i = NSIG; i > 0; --i) {
     if (sigismember(&(thisthread -> sigpending), i)  == 1  &&
         sigismember(&(thisthread -> sigblockmask), i) == 1 &&
         sigismember(&(sigpending_global), i) == 0) {
       raise(i);
     }
+  }
+}
+
+/********************************************************************************************************************************/
+/*																*/
+/*  Save all signal handlers										*/
+/*																*/
+/********************************************************************************************************************************/
+static void save_sig_handlers (void)
+{
+  int i;
+
+  if (dmtcp_exists) {
+    mtcp_printf("mtcp:%s Illegal function call when running under DMTCP*****\n",
+                __FUNCTION__);
+    // Do a simple return instead of killing the process
+    return;
+    mtcp_abort();
+  }
+
+  /* Now save all the signal handlers */
+  DPRINTF (("mtcp save_sig_handlers*: saving signal handlers\n"));
+  for (i = NSIG; i > 0; --i) {
+    if (_real_sigaction (i, NULL, &sigactions[i]) < 0) {
+      if (errno == EINVAL)
+         memset (&sigactions[i], 0, sizeof sigactions[i]);
+      else {
+        mtcp_printf ("mtcp save_sig_handlers: error saving signal %d action: %s\n",
+                     i, strerror(errno));
+        mtcp_abort ();
+      }
+    }
+
+    DPRINTF (("mtcp save_sig_handlers*: saving signal handler for %d -> %p\n",
+              i,
+              (sigactions[i].sa_flags & SA_SIGINFO ?
+                 sigactions[i].sa_sigaction :
+                 sigactions[i].sa_handler) ));
   }
 }
 
@@ -2600,21 +2634,28 @@ static void restore_sig_handlers (Thread *thisthread)
 {
   int i;
 
-#if 1
+  if (dmtcp_exists) {
+    mtcp_printf("mtcp:%s Illegal function when running under DMTCP*****\n",
+                __FUNCTION__);
+    // Do a simple return instead of killing the process
+    return;
+    mtcp_abort();
+  }
+
   DPRINTF (("mtcp restore_sig_handlers*: restoring signal handlers\n"));
-#else
+#if 0
 # define VERBOSE_DEBUG
 #endif
-  for(i = NSIG; --i >= 0;) {
+  for(i = NSIG; i > 0; --i) {
 #ifdef VERBOSE_DEBUG
     DPRINTF (("mtcp restore_sig_handlers*: restore signal handler for %d -> %p\n",
               i,
-              ((thisthread -> sigactions + i)->sa_flags & SA_SIGINFO ?
-               (thisthread -> sigactions + i)->sa_sigaction :
-               (thisthread -> sigactions + i)->sa_handler) ));
+              (sigactions[i].sa_flags & SA_SIGINFO ?
+                 sigactions[i].sa_sigaction :
+                 sigactions[i].sa_handler) ));
 #endif
 
-    if (mtcp_real_sigaction(i, thisthread -> sigactions + i, NULL) < 0) {
+    if (_real_sigaction(i, &sigactions[i], NULL) < 0) {
         if (errno != EINVAL) {
           mtcp_printf ("mtcp restore_sig_handlers:" \
 		       " error restoring signal %d handler: %s\n",
@@ -3054,7 +3095,6 @@ static int restarthread (void *threadv)
 
   restore_tls_state (thread);
 
-  setup_sig_handler ();
 
   if (thread == motherofall) {
 
@@ -3068,6 +3108,8 @@ static int restarthread (void *threadv)
       sigandset ( &sigpending_global, &tmp, &(th->sigpending) );
       tmp = sigpending_global;
     }
+
+    setup_sig_handler ();
 
     set_tid_address (&(thread -> child_tid));
 
@@ -3267,22 +3309,26 @@ static void restore_tls_state (Thread *thisthread)
 /********************************************************************************************************************************/
 
 static void setup_sig_handler (void)
-
 {
-  void (*oldhandler) (int signum);
+  struct sigaction act, old_act;
 
-  oldhandler = mtcp_real_signal (STOPSIGNAL, &stopthisthread);
-  if (oldhandler == SIG_ERR) {
+  act.sa_handler = &stopthisthread;
+  sigfillset(&act.sa_mask);
+  act.sa_flags = SA_RESTART;
+
+  if (_real_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
     mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n",
                  strerror (errno));
     mtcp_abort ();
   }
-  if ((oldhandler != SIG_IGN) && (oldhandler != SIG_DFL) && (oldhandler != stopthisthread)) {
+
+  if ((old_act.sa_handler != SIG_IGN) && (old_act.sa_handler != SIG_DFL) && 
+      (old_act.sa_handler != stopthisthread)) {
     mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).\n"
                  " You may employ a different signal by setting the\n"
                  " environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
 		 " to the number\n of the signal MTCP should "
-                 "use for checkpointing.\n", STOPSIGNAL, oldhandler);
+                 "use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
     mtcp_abort ();
   }
 }

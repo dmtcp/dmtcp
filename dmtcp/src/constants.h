@@ -32,6 +32,7 @@
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
+#define LIBPTHREAD_FILENAME "libpthread.so.0"
 
 #define MTCP_FILENAME "libmtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
