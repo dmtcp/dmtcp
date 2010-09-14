@@ -35,7 +35,8 @@
 
 //gah!!! signals API is redundant
 
-static bool checkpointSignalBlocked = false;
+static bool checkpointSignalBlockedForProcess = false;
+static __thread bool checkpointSignalBlockedForThread = false;
 
 static int _determineMtcpSignal(){
   // this mimics the MTCP logic for determining signal number found in
@@ -66,16 +67,16 @@ static int patchBSDMask(int mask){
 static inline void patchBSDUserMask(int how, const int mask, int *oldmask)
 {
   const int bannedMask = sigmask(bannedSignalNumber());
-  if (checkpointSignalBlocked == true) {
+  if (checkpointSignalBlockedForProcess == true) {
     *oldmask |= bannedMask;
   } else {
     *oldmask &= ~bannedMask;
   }
 
   if (how == SIG_BLOCK && (mask & bannedMask)) {
-    checkpointSignalBlocked = true;
+    checkpointSignalBlockedForProcess = true;
   } else if (how == SIG_SETMASK) {
-    checkpointSignalBlocked = ((mask & bannedMask) != 0);
+    checkpointSignalBlockedForProcess = ((mask & bannedMask) != 0);
   }
 }
 
@@ -87,7 +88,8 @@ static inline sigset_t patchPOSIXMask(const sigset_t* mask){
   return t;
 }
 
-static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *oldset)
+static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set, sigset_t *oldset,
+                                          bool checkpointSignalBlocked)
 {
   if (oldset != NULL) {
     if (checkpointSignalBlocked == true) {
@@ -108,18 +110,30 @@ static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *ol
   }
 }
 
+static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *oldset)
+{
+  patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForProcess);
+}
+
+/* Multi-threaded version of the above function */
+static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *oldset)
+{
+  patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
+}
+
+
 //set the handler
 EXTERNC sighandler_t signal(int signum, sighandler_t handler){
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
-  return mtcp_real_signal( signum, handler );
+  return _real_signal( signum, handler );
 }
 EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   if(signum == bannedSignalNumber()){
     act = NULL;
   }
-  return mtcp_real_sigaction( signum, act, oldact);
+  return _real_sigaction( signum, act, oldact);
 }
 EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   if(signum == bannedSignalNumber()){
@@ -160,68 +174,75 @@ EXTERNC int siggetmask(void){
 }
 
 EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+  const sigset_t *orig = set;
   if (set != NULL) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = mtcp_real_sigprocmask( how, set, oldset );
+  int ret = _real_sigprocmask( how, set, oldset );
 
   if (ret != -1) {
-    patchPOSIXUserMask(how, set, oldset);
+    patchPOSIXUserMask(how, orig, oldset);
   }
   return ret;
 }
 
 EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
-  sigset_t tmp;
+  const sigset_t *orig = set;
   if (set != NULL) {
-    tmp = patchPOSIXMask(set);
+    sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = _real_rt_sigprocmask( how, &tmp, oldset );
+  int ret = _real_rt_sigprocmask( how, set, oldset );
 
   if (ret != -1) {
-    patchPOSIXUserMask(how, set, oldset);
+    patchPOSIXUserMask(how, orig, oldset);
   }
   return ret;
 }
 
+/*
+ * This wrapper should be thread safe so we use the multithreaded version of
+ * patchPOSIXUserMask function. This will declare the static variables with
+ * __thread to make them thread local.
+ */
 EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
-  sigset_t tmp;
+  const sigset_t *orig = set;
   if (set != NULL) {
-    tmp = patchPOSIXMask(set);
+    sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = _real_pthread_sigmask( how, &tmp, oldmask );
+  int ret = _real_pthread_sigmask( how, set, oldmask );
 
-  /* We want a thread local version of the following code using __thread threadCheckpointSignalBlocked
-     the threadPatchPOSIXUserMask function.
-  */
-  /*
   if (ret != -1) {
-    patchPOSIXUserMask(how, set, oldmask);
+    patchPOSIXUserMaskMT(how, orig, oldmask);
   }
-  */
 
   return ret;
 }
 
+/*
+ * TODO: man page says that sigwait is implemented via sigtimedwait, however
+ * sigtimedwait can return EINTR (acc. to man page) whereas sigwait won't.
+ * Should we make the wrappers for sigwait/sigtimedwait homogenious??
+ *                                                          -- Kapil
+ */
 EXTERNC int sigwait(const sigset_t *set, int *sig) {
-  sigset_t tmp;
   if (set != NULL) {
-    tmp = patchPOSIXMask(set);
+    sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = _real_sigwait( &tmp, sig );
+  int ret = _real_sigwait( set, sig );
 
   return ret;
 }
 
-/* In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
+/* 
+ * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
  * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
  * that might have occured while executing the system call. These system call
  * will return -1 with errno set to EINTR.
@@ -233,6 +254,15 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
  * be receiving another MTCP_SIGCKPT until we have called _real_tkill due to
  * obvious reasons so I believe it is safe to call _real_gettid() here.
  *                                                              -- Kapil
+ *
+ * Update: 
+ * Another way to write this wrapper would be to remove the STOPSIGNAL from the
+ * user supplied 'set' and then call sigwaitinfo and then we won't need to
+ * raise the STOPSIGNAL ourselves. However, there is a catch. sigwaitinfo will
+ * return 'EINTR' if the wait was interrupted by a signal handler (STOPSIGNAL
+ * in our case), thus we can either call sigwaitinfo again or return the error
+ * to the user code; I would like to do the former.
+ *                                                              -- Kapil
  */
 EXTERNC int sigwaitinfo(const sigset_t *set, siginfo_t *info)
 {
@@ -242,7 +272,7 @@ EXTERNC int sigwaitinfo(const sigset_t *set, siginfo_t *info)
     if ( ret != bannedSignalNumber() ) {
       break;
     }
-    _real_tkill(_real_gettid(), bannedSignalNumber());
+    raise(bannedSignalNumber());
   }
   return ret;
 }
@@ -256,7 +286,7 @@ EXTERNC int sigtimedwait(const sigset_t *set, siginfo_t *info,
     if ( ret != bannedSignalNumber() ) {
       break;
     }
-    _real_tkill(_real_gettid(), bannedSignalNumber());
+    raise(bannedSignalNumber());
   }
   return ret;
 }
