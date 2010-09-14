@@ -57,7 +57,7 @@ LDFLAGS =  -shared
 AS = as --32
 endif
 
-#Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
+#Currently sometimes can't link mtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
 # CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
