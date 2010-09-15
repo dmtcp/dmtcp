@@ -102,6 +102,6 @@ extern void ptrace_detach_user_threads ();
 extern void ptrace_lock_inferiors();
 extern void ptrace_unlock_inferiors();
 extern void ptrace_wait4(pid_t pid);
-extern int readall(int fd, void *buf, size_t count);
+extern ssize_t readall(int fd, void *buf, size_t count);
 #endif 
 #endif

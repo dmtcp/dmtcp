@@ -231,12 +231,15 @@ static int _initJassertOutputDevices()
     return dup2 ( fileno ( stderr ), DUP_STDERR_FD );
 }
 
-static int writeall(int fd, const void *buf, size_t count) {
-    int rc;
-    do
-      rc = write(fd, buf, count);
-    while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
-    return rc; /* rc >= 0; success */
+static ssize_t writeall(int fd, const void *buf, size_t count) {
+  ssize_t cum_count = 0;
+  while (cum_count < count) {
+    ssize_t rc = write(fd, (char *)buf+cum_count, count-cum_count);
+    if (rc == -1 && errno != EAGAIN && errno != EINTR)
+      break;  /* Give up; bad error */
+    cum_count += rc;
+  }
+  return (cum_count < count ? -1 : cum_count);
 }
 
 void jassert_internal::jassert_safe_print ( const char* str )
