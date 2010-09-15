@@ -19,8 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
-
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
@@ -38,23 +36,9 @@
 static bool checkpointSignalBlockedForProcess = false;
 static __thread bool checkpointSignalBlockedForThread = false;
 
-static int _determineMtcpSignal(){
-  // this mimics the MTCP logic for determining signal number found in
-  // mtcp_init()
-  int sig = MTCP_DEFAULT_SIGNAL;
-  char* endp = 0;
-  const char* tmp = getenv("MTCP_SIGCKPT");
-  if(tmp != NULL){
-      sig = strtol(tmp, &endp, 0);
-      if((errno != 0) || (tmp == endp))
-        sig = MTCP_DEFAULT_SIGNAL;
-      if(sig < 1 || sig > 31)
-        sig = MTCP_DEFAULT_SIGNAL;
-  }
-  return sig;
-}
 
 static int bannedSignalNumber(){
+  int _determineMtcpSignal(); // from signalwrappers.cpp
   const int cache = _determineMtcpSignal();
   return cache;
 }

@@ -124,6 +124,32 @@ void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
 
+#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
+
+// This shold be visible to library only.  DmtcpWorker will call
+//   this to initialize tmp (ckpt signal) at startup time.  This avoids
+//   any later calls to getenv(), at which time the user app may have
+//   a wrapper around getenv, modified environ, or other tricks.
+//   (Matlab needs this or else it segfaults on restart, and bash plays
+//   similar tricks with maintaining its own environmnet.)
+// Used in mtcpinterface.cpp and signalwrappers.cpp.
+__attribute__ ((visibility ("hidden")))
+int _determineMtcpSignal(){
+  // this mimics the MTCP logic for determining signal number found in
+  // mtcp_init()
+  int sig = MTCP_DEFAULT_SIGNAL;
+  char* endp = 0;
+  static const char* tmp = getenv("MTCP_SIGCKPT");
+  if(tmp != NULL){
+      sig = strtol(tmp, &endp, 0);
+      if((errno != 0) || (tmp == endp))
+        sig = MTCP_DEFAULT_SIGNAL;
+      if(sig < 1 || sig > 31)
+        sig = MTCP_DEFAULT_SIGNAL;
+  }
+  return sig;
+}
+
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
@@ -131,6 +157,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+  //This is called for side effect only.  Force this function to call
+  // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
+  _determineMtcpSignal();
 
 #ifdef __i386__
   // Match work begun in dmtcpPrepareForExec()
