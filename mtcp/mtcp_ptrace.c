@@ -108,16 +108,22 @@ static void print_ptrace_pairs ();
 
 static void reset_ptrace_pairs_entry ( int i );
 
-int readall(int fd, void *buf, size_t count) {
-    int rc;
-    do
-      rc = read(fd, buf, count);
-    while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
-    if (rc == -1) { /* if not harmless error */
-      mtcp_printf("readall: Internal error\n");
-      mtcp_abort();
-    }
-    return rc; /* else rc >= 0; success */
+/* FIXME:  BAD FUNCTION NAME:  readall(..., ..., count) would guarantee
+ * to read 'count' characters.  This reads zero or more characters
+ * but does EAGAIN/EINTR processing so that the caller doesn't need to do it.
+ * Maybe a name like:  read_no_error() ?
+ */
+ssize_t readall(int fd, void *buf, size_t count)
+{
+  int rc;
+  do
+    rc = read(fd, buf, count);
+  while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
+  if (rc == -1) { /* if not harmless error */
+    mtcp_printf("readall: Internal error\n");
+    mtcp_abort();
+  }
+  return rc; /* else rc >= 0; success */
 }
 
 void delete_file (int file, int delete_leader, int has_file)
@@ -1011,7 +1017,8 @@ char procfs_state(int tid)
 {
   char name[64];
   char sbuf[256], *S, *tmp;
-  int num_read, fd, state;
+  char state;
+  int num_read, fd;
 
   sprintf(name,"/proc/%d/stat",tid);
   fd = open(name, O_RDONLY, 0);
