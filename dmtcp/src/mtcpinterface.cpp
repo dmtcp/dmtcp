@@ -460,27 +460,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-// This is a copy of the same function in signalwrappers.cpp
-// FEEL FREE TO CHANGE THIS TO USE THE ORIGINAL
-//    signalwrappers.cpp:bannedSignalNumber() (but placed in dmtcp namespace ??)
-#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
-
-static int _determineMtcpSignal(){
-  // this mimics the MTCP logic for determining signal number found in
-  // mtcp_init()
-  int sig = MTCP_DEFAULT_SIGNAL;
-  char* endp = 0;
-  const char* tmp = getenv("MTCP_SIGCKPT");
-  if(tmp != NULL){
-      sig = strtol(tmp, &endp, 0);
-      if((errno != 0) || (tmp == endp))
-        sig = MTCP_DEFAULT_SIGNAL;
-      if(sig < 1 || sig > 31)
-        sig = MTCP_DEFAULT_SIGNAL;
-  }
-  return sig;
-}
-
   // This is called by the child process, only, via DmtcpWorker::resetOnFork().
   // We know that no one can send the SIG_CKPT signal, since if the
   //   the coordinator had requested a checkpoint, then either the
@@ -511,6 +490,7 @@ static int _determineMtcpSignal(){
   //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
+  int _determineMtcpSignal(); // from signalwrappers.cpp
   // Remove our signal handler from our SIG_CKPT
   errno = 0;
   JWARNING (SIG_ERR != _real_signal(_determineMtcpSignal(), SIG_DFL))
