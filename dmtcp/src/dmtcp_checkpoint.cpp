@@ -39,6 +39,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
+#include <string.h>
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -91,6 +92,8 @@ static const char* theBanner =
   "(Use flag \"-q\" to hide this message.)\n\n"
 ;
 
+// FIXME:  The warnings below should be collected into a single function,
+//          and also called after a user exec(), not just in dmtcp_checkpoint.
 static const char* theExecFailedMsg =
   "ERROR: Failed to exec(\"%s\"): %s\n"
   "Perhaps it is not in your $PATH?\n"
@@ -111,6 +114,15 @@ static const char* theMatlabWarning =
   "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
   "****   (Assuming you have done the above, Will now continue executing.)\n\n"
 ;
+
+static const char* theSetuidWarning =
+  "\n**** WARNING:  This process has the setuid bit set.  This is\n"
+  "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
+  "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
+  "***  for the best.  For some programs (like 'screen'), you may wish to\n"
+  "***  compile your own private copy, without using setuid permission.\n\n"
+;
+
 static dmtcp::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
@@ -268,10 +280,42 @@ int main ( int argc, char** argv )
 # endif
 #endif
 
-  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+  // If dmtcphijack.so is in standard search path and also has setgid access,
+  //   then LD_PRELOAD will work.  Otherwise, it will only work if the
+  //   application does not use setuid and setgid access.  So, we test
+  //   if the application does not use setuid/setgid.  (See 'man ld.so')
+  // Compute absolute path for argv[0].  [SHOULD BE SEPARATE FUNCTION]
+  dmtcp::string pathname;
+  char * curPath;
+  if (*(argv[0]) == '/') {
+    curPath = argv[0];
+  } else {
+    char pathCopy[10000];
+    char * pathPtr = pathCopy;
+    char * savePtr;
+    strncpy(pathCopy, getenv("PATH"), sizeof(pathCopy));
+    while ( (curPath = strtok_r(pathPtr, ":", &savePtr)) != NULL ) {
+      pathname = curPath;
+      pathname = (pathname + "/") + argv[0];
+      if (access(pathname.c_str(), X_OK) == 0)
+        break;
+      pathPtr = NULL;
+    }
+  }
+  if ( curPath != NULL ) {
+    struct stat buf;
+    int rc = stat(pathname.c_str(), &buf);
+    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)) {
+      JASSERT_STDERR << theSetuidWarning;
+      sleep(3);
+    }
+  }
 
-  //Detect important paths
-  dmtcp::string dmtcphjk = jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  if(autoStartCoordinator)
+     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+
+  dmtcp::string dmtcphjk =
+    jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // Initialize JASSERT library here

@@ -57,7 +57,7 @@ for i in sys.argv:
   if i=="-v":
     VERBOSE=True
   if i=="--stress":
-    CYCLES=999999999
+    CYCLES=100000
   if i=="-h" or i=="--help":
     print "USAGE "+sys.argv[0]+" [-v] [--stress] [testname] [testname...]  "
     sys.exit(1)
@@ -402,7 +402,7 @@ runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
 # dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
 # Also, it needs some extra time to startup
-S=3
+S=2
 os.environ['DMTCP_GZIP'] = "1" 
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
 os.environ['DMTCP_GZIP'] = GZIP
@@ -483,7 +483,9 @@ if testconfig.HAS_GCL == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  runTest("matlab -nodisplay",      1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  S=3
+  runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  S=0.3
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
