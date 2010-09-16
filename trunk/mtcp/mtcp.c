@@ -484,6 +484,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
     mtcp_abort ();
   }
 
+#ifndef __x86_64__
   /* Nobody else has a right to preload on internal processes generated
    * by mtcp_check_XXX() -- not even DMTCP, if it's currently operating.
    *
@@ -494,7 +495,6 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
    *       vdso check.
    */
 
-#ifndef __x86_64__
   // Shouldn't this removal of LD_PRELOAD be around fork/exec of gzip ?
   // setenv( "MTCP_TMP_LD_PRELOAD", getenv("LD_PRELOAD"), 1);
   // unsetenv("LD_PRELOAD");
@@ -1633,7 +1633,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     //make sure DMTCP doesn't catch gzip
     // Here we need to unset LD_PRELOAD in bash env and in process env. See
     // revision log 342 for more details.
-    // Don't use unsetenv, because later LD_PRELOAD will appear in new
+    // Don't use unsetenv, because later LD_PRELOAD will appear in
     //  new location as last entry of environ.  This could confuse
     //  a user program (or trigger a failure in a Condor test).
     if (old_ldpreload!=NULL) {

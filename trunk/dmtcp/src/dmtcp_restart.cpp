@@ -116,7 +116,6 @@ namespace
     RestoreTarget ( const dmtcp::string& path )
       : _path ( path )
     {
-
       JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path )
 		.Text ( "checkpoint file missing" );
 #ifdef PID_VIRTUALIZATION
@@ -548,7 +547,8 @@ namespace
 	}
       }
 
-      JTRACE("Child & dependent root Processes forked, restoring process")(pid())(getpid())(isGroupLeader());
+      JTRACE("Child and dependent root processes forked, restoring process")
+	    (pid())(getpid())(isGroupLeader());
       // Save PID mapping information
       pid_t orig = pid().pid();
       pid_t curr = _real_getpid();
@@ -765,6 +765,7 @@ int main ( int argc, char** argv )
   dmtcp::ostringstream o;
   o << dmtcpTmpDir << "/jassertlog." << dmtcp::UniquePid(getpid());
   JASSERT_INIT(o.str());
+  JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
   for(; argc>0; shift){
@@ -788,6 +789,7 @@ int main ( int argc, char** argv )
     if (doAbort)
       abort();
 
+    JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
@@ -857,7 +859,6 @@ int main ( int argc, char** argv )
 
   JASSERT ( false ).Text ( "unreachable" );
   return -1;
-}
 #else
   size_t i = targets.size();
 
@@ -865,12 +866,12 @@ int main ( int argc, char** argv )
   // Delete children that don't exist.
   BuildProcessTree();
 
-  // Process all checkpoints to find one of them who can switch
-  // need group to foreground
+  // Process all checkpoints to find one of them that can switch
+  // needed group to foreground.
   ProcessGroupInfo();
-  // Create session meta-information in each node of the process tree
+  // Create session meta-information in each node of the process tree.
   // Node contains info about all sessions which exists at lower levels.
-  // Also node is aware about session leader existense at lower levels
+  // Also node is aware of session leader existence at lower levels.
   SetupSessions();
 
   /* Create the file to hold the pid/tid maps. */
@@ -911,7 +912,7 @@ int main ( int argc, char** argv )
   int flat_index = -1;
   int j = 0;
   if( pgrp_index < 0 ){ // No root processes at all
-    // Find first flat process who can replace currently running
+    // Find first flat process that can replace currently running
     //   dmtcp_restart context.
     for (j = 0; j < targets.size(); ++j){
       if( !targets[j]._used ){
@@ -922,8 +923,8 @@ int main ( int argc, char** argv )
       }
     }
   }
-  // Use j setted to 0 (if at least one root non-init-child process exist
-  // or to some value if no such process found
+  // Use j set to 0 (if at least one root non-init-child process exists),
+  // or else j set to some value if no such process found.
   for(; j < targets.size(); ++j)
   {
     if( !targets[j]._used ){
@@ -947,9 +948,10 @@ int main ( int argc, char** argv )
   }else{
     JASSERT(false) .Text("unknown type of target?");
   }
-
+#endif
 }
 
+#ifdef PID_VIRTUALIZATION
 void BuildProcessTree()
 {
   for (size_t j = 0; j < targets.size(); ++j)
@@ -1214,7 +1216,6 @@ int openSharedFile(dmtcp::string name, int flags)
   return -1;
 }
 
-
 static void openPidMapFiles()
 {
   dmtcp::ostringstream pidMapFile, pidMapCountFile;
@@ -1228,13 +1229,15 @@ static void openPidMapFiles()
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
   fd = openSharedFile(pidMapFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD ) ( pidMapFile.str() );
+  JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD )
+	  ( pidMapFile.str() );
   close (fd);
 
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
-  JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD ) ( pidMapCountFile.str() );
+  JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD )
+	  ( pidMapCountFile.str() );
   close(fd);
 
   dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
@@ -1254,7 +1257,6 @@ static void openPidMapFiles()
 
   dmtcp::VirtualPidTable::_unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
-
 #endif
 
 static void runMtcpRestore ( const char* path, int offset )
