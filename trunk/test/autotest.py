@@ -396,6 +396,9 @@ p1=str(randint(2000,10000))
 p2=str(randint(2000,10000))
 p3=str(randint(2000,10000))
 
+# Use uniform user shell.  Else apps like script have different subprocesses.
+os.environ["SHELL"]="/bin/bash"
+
 runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
