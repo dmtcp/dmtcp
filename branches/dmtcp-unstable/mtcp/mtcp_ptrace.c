@@ -104,6 +104,8 @@ static int is_checkpoint_thread (pid_t tid);
 
 static int ptrace_detach_ckpthread(pid_t tgid, pid_t tid, pid_t supid);
 
+static void sort_ptrace_pairs ();
+
 static void print_ptrace_pairs ();
 
 static void reset_ptrace_pairs_entry ( int i );
@@ -221,9 +223,6 @@ void ptrace_attach_threads(int isRestart)
     inferior = ptrace_pairs[i].inferior;
     last_command = ptrace_pairs[i].last_command;
     singlestep_waited_on = ptrace_pairs[i].singlestep_waited_on;
-
-
-    printf("superior = %d inferior = %d last_command = %d singlestep_waited_on = %d \n", superior, inferior, last_command, singlestep_waited_on);
 
     char inferior_st = ptrace_pairs[i].inferior_st;
 
@@ -521,9 +520,9 @@ void ptrace_detach_user_threads ()
       // TODO: to be removed by waiting for the signal to have been delivered
       // sleep(PTRACE_SLEEP_INTERVAL);
       int tid = ptrace_pairs[i].inferior, tpid;
-      DPRINTF(("start witing on %d\n",tid));
+      DPRINTF(("start waiting on %d\n",tid));
 
-      // Check if status of this thread already readed by debugger
+      // Check if status of this thread already read by debugger
       pstate = procfs_state(tid);
       DPRINTF(("procfs_state(%d) = %c\n",tid,pstate));
       if( pstate == 0){
@@ -634,16 +633,16 @@ void create_file(pid_t pid)
   sprintf(str, "/tmp/%d", pid);
 
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
-    if (fd == -1) {
+  if (fd == -1) {
     mtcp_printf("create_file: Error opening file\n: %s\n",
                 strerror(errno));
     abort();
   }
-    if ( close(fd) != 0 ) {
+  if ( close(fd) != 0 ) {
     mtcp_printf("create_file: Error closing file\n: %s\n",
                 strerror(errno));
     mtcp_abort();
-    }
+  }
 }
 
 static void have_file(pid_t pid)
@@ -789,14 +788,72 @@ void handle_command ( pid_t superior, pid_t inferior, int last_command )
   }
 }
 
+enum {
+  SORT_BY_SUPERIOR = 0,
+  SORT_BY_INFERIOR
+};
+
+static pid_t get_pid_by_key (int key, int index) {
+  if (key == SORT_BY_SUPERIOR)
+    return ptrace_pairs[index].superior;
+  else if (key == SORT_BY_INFERIOR)
+    return ptrace_pairs[index].inferior;
+  return -1;
+}
+
+static void sort_ptrace_pairs_by_key (int key, int start, int end) {
+  int i, j;
+  pid_t upper_pid;
+  pid_t inner_pid;
+  pid_t temp_pid;
+  struct ptrace_tid_pairs temp;
+  for (i = start; i < (end - 1); i++) {
+    upper_pid = get_pid_by_key (key, i);
+    for (j = i + 1; j < end; j++) {
+      inner_pid = get_pid_by_key (key, j);
+      if (upper_pid < inner_pid) {
+        temp = ptrace_pairs[i];
+        ptrace_pairs[i] = ptrace_pairs[j];
+        ptrace_pairs[j] = temp; 
+        temp_pid = upper_pid;
+        upper_pid = inner_pid;
+        inner_pid = temp_pid;
+      }
+    }  
+  }
+}
+
+static void sort_ptrace_pairs ()
+{
+  if (ptrace_pairs_count > 1) {
+    sort_ptrace_pairs_by_key (SORT_BY_SUPERIOR, 0, ptrace_pairs_count);
+    int ref_superior;
+    int superior;
+    int inferior;
+    int start = 0;
+    int i;
+    ref_superior = ptrace_pairs[0].superior;
+    for (i = 1; i < ptrace_pairs_count; i++) {
+      superior = ptrace_pairs[i].superior;
+      if (superior != ref_superior) {
+        sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, i);
+        ref_superior = superior;
+        start = i;
+      }
+    }
+    sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, ptrace_pairs_count);
+  }
+}
+
 static void print_ptrace_pairs ()
 {
   int i;
-
+  DPRINTF(("\n\n"));
   for ( i = 0; i < ptrace_pairs_count; i++ )
      DPRINTF(("tid = %d superior = %d inferior = %d \n",
               GETTID(), (int)ptrace_pairs[i].superior, (int)ptrace_pairs[i].inferior));
   DPRINTF(("tid = %d ptrace_pairs_count = %d \n", GETTID(), ptrace_pairs_count));
+  DPRINTF(("\n\n"));
 }
 
 /* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
@@ -1048,6 +1105,7 @@ char procfs_state(int tid)
 
   return state;
 }
+
 void process_ptrace_info (pid_t *delete_ptrace_leader,
         int *has_ptrace_file,
         pid_t *delete_setoptions_leader, int *has_setoptions_file,
@@ -1164,6 +1222,8 @@ void process_ptrace_info (pid_t *delete_ptrace_leader,
         }
     }
     else mtcp_printf("process_ptrace_info: NO checkpoint file\n");
+
+    sort_ptrace_pairs ();
 
     print_ptrace_pairs ();
 
