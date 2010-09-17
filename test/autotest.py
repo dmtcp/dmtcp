@@ -466,10 +466,11 @@ if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_SCRIPT == "yes":
-  S=1
+  S=2
+  # if python-2.6 or higher
   runTest("script",      4,  ["/usr/bin/script -f" +
-  			      " -c 'bash -c \"ls; sleep 30\"'" +
-  			      " dmtcp-test-typescript.tmp"])
+    			      " -c 'bash -c \"ls; sleep 30\"'" +
+    			      " dmtcp-test-typescript.tmp"])
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=0.3
 

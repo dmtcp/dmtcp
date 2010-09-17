@@ -183,11 +183,32 @@ extern "C" pid_t vfork()
   return fork();
 }
 
+static void execLibProcessAndExit(const char *path)
+{
+  unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
+  const unsigned int bufSize = 100000;
+  char buf[bufSize];
+  FILE *output = popen(path, "r");
+  int numRead = fread(buf, 1, bufSize, output);
+  pclose(output); // /lib/libXXX process is now done; can checkpoint now
+  // FIXME:  code currently allows wrapper to proceed without lock if
+  //   it was busy because of a writer.  The unlock will then fail below.
+  bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
+  printf("%s", buf); // print buf, which is what /lib/libXXX would print
+  exit(0);
+}
+
 // FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-static void dmtcpPrepareForExec()
+static void dmtcpPrepareForExec(const char *path)
 {
+  const char * libPrefix = "/lib/lib";
+  if (path != NULL && 0 == strncmp(path, libPrefix, sizeof(libPrefix)))
+    execLibProcessAndExit(path);
+
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
@@ -316,7 +337,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
-  dmtcpPrepareForExec();
+  dmtcpPrepareForExec(filename);
 
   int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
 
@@ -335,7 +356,9 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
-  dmtcpPrepareForExec();
+  // FIXME:  fexecve() could have fd bound to /lib/libXXX, requiring special
+  //    handling.  Because arg is NULL, we won't check for it.
+  dmtcpPrepareForExec(NULL);
 
   int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
 
@@ -352,7 +375,7 @@ extern "C" int execv ( const char *path, char *const argv[] )
    */
   WRAPPER_EXECUTION_LOCK_LOCK();
 
-  dmtcpPrepareForExec();
+  dmtcpPrepareForExec(path);
   int retVal = _real_execv ( path, argv );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
@@ -368,7 +391,7 @@ extern "C" int execvp ( const char *file, char *const argv[] )
    */
   WRAPPER_EXECUTION_LOCK_LOCK();
 
-  dmtcpPrepareForExec();
+  dmtcpPrepareForExec(file);
   int retVal = _real_execvp ( file, argv );
 
   WRAPPER_EXECUTION_LOCK_UNLOCK();
