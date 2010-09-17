@@ -318,7 +318,30 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       } else {
         return deviceName;
       }
+    } else if ( device.find(DELETED_FILE_SUFFIX) != string::npos ) {
+      int index = device.find(DELETED_FILE_SUFFIX);
+
+      // Make sure _path ends with DELETED_FILE_SUFFIX
+      JASSERT( device.length() == index + strlen(DELETED_FILE_SUFFIX) );
+
+      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
+      iterator i = _table.find ( deviceName );
+      if ( i == _table.end() )
+      {
+        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
+        off_t offset = lseek ( fd, 0, SEEK_CUR );
+        Connection * c = new FileConnection ( device, offset );
+        ConnectionList::instance().add ( c );
+        _table[deviceName] = c->id();
+      }
+
+      return deviceName;
     } else {
+
       JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
