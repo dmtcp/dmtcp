@@ -190,8 +190,8 @@ namespace
 	  for ( size_t x=0; x<fds.size(); ++x )
 	    {
 	      if (fds[x] == 1){
-		printf("Found stdin: x=%zul, %d <---> %d\n",
-		       x, fds[x], slidingFd.getFdFor ( i->first ));
+		JTRACE("Found stdin: x=%zul, %d <---> %d")
+		       (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
 		return slidingFd.getFdFor ( i->first );
 	      }
 	    }
@@ -1152,7 +1152,7 @@ void ProcessGroupInfo()
            VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
 	  pid_t pid = virtualPidTable.pid();
 	  pid_t cfgid = virtualPidTable.fgid();
-	  printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+	  JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
 	}
       }
     }
