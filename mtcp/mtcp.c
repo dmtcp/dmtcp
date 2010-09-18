@@ -1735,7 +1735,7 @@ again:
     unlk_threads ();
     DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
     /* But if we're doing a restore verify, just exit.  The main thread is doing the exec to start the restore. */
-
+    create_file (GETTID());
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
 }
