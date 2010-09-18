@@ -240,6 +240,7 @@ void ptrace_attach_threads(int isRestart)
       }
     sem_post( &__sem);
     if(  is_checkpoint_thread(inferior)) {
+      have_file (inferior);
       DPRINTF(("ptrace_attach_threads: attach to checkpoint thread: %d\n",inferior));
         //sleep(5);
       is_ptrace_local = 1;
@@ -793,6 +794,44 @@ enum {
   SORT_BY_INFERIOR
 };
 
+static int find_slot (int seed) {
+  int i;
+  pid_t inferior;
+  for (i = seed; i >= 0; i--) {
+    inferior = ptrace_pairs[i].inferior;
+    if (!is_checkpoint_thread(inferior))
+      return i;   
+  }
+  return -1;
+}
+
+/* This function moves all checkpoint threads at the end of ptrace_pairs array.
+ * It returns the index in ptrace_pairs array where ckpt threads are located. */
+static int move_ckpt_threads_towards_end () {
+  int i;
+  struct ptrace_tid_pairs temp;
+  pid_t superior;
+  pid_t inferior;
+  int limit = ptrace_pairs_count;
+  int ckpt_threads = 0;
+  
+  int slot = find_slot(ptrace_pairs_count - 1);
+  for (i = 0; i < limit; i++) {
+    inferior = ptrace_pairs[i].inferior;
+    if (is_checkpoint_thread(inferior)) {
+      ckpt_threads++;
+      if (slot > i) {
+        temp = ptrace_pairs[i];
+        ptrace_pairs[i] = ptrace_pairs[slot];
+        ptrace_pairs[slot] = temp;
+        limit = slot;
+        slot = find_slot(slot - 1);
+      }
+    }
+  }
+  return ckpt_threads;
+}
+
 static pid_t get_pid_by_key (int key, int index) {
   if (key == SORT_BY_SUPERIOR)
     return ptrace_pairs[index].superior;
@@ -801,13 +840,13 @@ static pid_t get_pid_by_key (int key, int index) {
   return -1;
 }
 
-static void sort_ptrace_pairs_by_key (int key, int start, int end) {
+static void sort_ptrace_pairs_by_key (int key, int begin, int end) {
   int i, j;
   pid_t upper_pid;
   pid_t inner_pid;
   pid_t temp_pid;
   struct ptrace_tid_pairs temp;
-  for (i = start; i < (end - 1); i++) {
+  for (i = begin; i < (end - 1); i++) {
     upper_pid = get_pid_by_key (key, i);
     for (j = i + 1; j < end; j++) {
       inner_pid = get_pid_by_key (key, j);
@@ -823,26 +862,33 @@ static void sort_ptrace_pairs_by_key (int key, int start, int end) {
   }
 }
 
-static void sort_ptrace_pairs ()
-{
-  if (ptrace_pairs_count > 1) {
-    sort_ptrace_pairs_by_key (SORT_BY_SUPERIOR, 0, ptrace_pairs_count);
-    int ref_superior;
-    int superior;
-    int inferior;
-    int start = 0;
-    int i;
-    ref_superior = ptrace_pairs[0].superior;
-    for (i = 1; i < ptrace_pairs_count; i++) {
-      superior = ptrace_pairs[i].superior;
-      if (superior != ref_superior) {
-        sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, i);
-        ref_superior = superior;
-        start = i;
-      }
+static void sort_ptrace_pairs_within_limit (int begin, int end) {
+  sort_ptrace_pairs_by_key (SORT_BY_SUPERIOR, begin, end);
+  int ref_superior;
+  int superior;
+  int inferior;
+  int start = begin;
+  int i;
+  ref_superior = ptrace_pairs[0].superior;
+  for (i = (start + 1); i < end; i++) {
+    superior = ptrace_pairs[i].superior;
+    if (superior != ref_superior) {
+      sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, i);
+      ref_superior = superior;
+      start = i;
     }
-    sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, ptrace_pairs_count);
   }
+  sort_ptrace_pairs_by_key (SORT_BY_INFERIOR, start, end);
+}
+
+static void sort_ptrace_pairs () {
+  if (ptrace_pairs_count <= 1)
+    return;
+  int limit = ptrace_pairs_count - move_ckpt_threads_towards_end ();
+  /* sort all non-checkpoint threads*/
+  sort_ptrace_pairs_within_limit (0, limit);
+  /* sort all checkpoint threads */
+  sort_ptrace_pairs_within_limit (limit, ptrace_pairs_count);
 }
 
 static void print_ptrace_pairs ()
@@ -1203,7 +1249,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader,
         readall(checkpoint_fd, &tid, sizeof(pid_t));
         DPRINTF(("{%d} checkpoint threads: pid = %d tid = %d\n", GETTID(), pid, tid));
         if (is_alive(pid) && is_alive(tid)) {
-          /* only the pid matters 
+           /* only the pid matters 
             * for the first alive tid & pid, then tid is the ckpt of pid 
             */
           if (!is_in_ckpt_threads(pid)) {
