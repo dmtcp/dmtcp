@@ -1,7 +1,7 @@
-AC_INIT([DMTCP],[1.1.8],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.1.9],[],[dmtcp],[http://dmtcp.sourceforge.net])
 
 AM_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dmtcp], [1.1.8])
+AM_INIT_AUTOMAKE([dmtcp], [1.1.9])
 #AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
