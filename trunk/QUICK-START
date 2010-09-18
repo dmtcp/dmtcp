@@ -204,6 +204,14 @@ SHORT NOTES:
 		env CC=gcc-4.1 CXX=g++-4.1 ./configure
 		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
                 make clean; make
+	C.  On some distributions, we have observed cases where after
+	    checkpointing, 'matlab' will not restart from a small fraction
+	    of the checkpoint images.  If this affects you, consider
+	    directly invoking the matlab binary:  MATLAB.  To do this, type:
+	      bash -x `which matlab` -nodisplay
+	    On our computer, just before the 'matlab' banner, we see the
+	    path of  MATLAB.  Then, we can use it as:
+	      dmtcp_checkpoint /opt/matlab/bin/glnxa64/MATLAB -nodisplay -nojvm
     13. How to checkpoint OpenMPI with DMTCP
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
