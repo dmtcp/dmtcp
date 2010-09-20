@@ -366,10 +366,10 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   } *mtcpRestartThreadArg;
 
   typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
-  // Don't make realclone statically initialized.  After a fork, some
+  // Don't make _mtcp_clone_ptr statically initialized.  After a fork, some
   // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
   // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  cloneptr realclone = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
+  cloneptr _mtcp_clone_ptr = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
 
   //JTRACE ( "forwarding user's clone call to mtcp" );
 
@@ -381,7 +381,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   }
 
   JTRACE ( "forwarding user's clone call to mtcp" );
-  return ( *realclone ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
+  return ( *_mtcp_clone_ptr ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
 
 #else
 
@@ -411,14 +411,19 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   int tid;
 
+  /*
+   * originalTid == -1 indicates that the thread is being created for the first
+   * time in the process i.e. we are not restoring from a checkpoint
+   */
+
   while (1) {
-
-    JTRACE ( "calling realclone" );
-
     if (originalTid == -1) {
+      /* First time thread creation */
       JTRACE ( "forwarding user's clone call to mtcp" );
-      tid = ( *realclone ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
+      tid = ( *_mtcp_clone_ptr ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     } else {
+      /* Recreating thread during restart */
+      JTRACE ( "calling libc:__clone" );
       tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     }
 
@@ -442,10 +447,12 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ("New Thread Created") (tid);
       if (originalTid != -1)
       {
+        /* creating thread while restarting, we need to notify other processes */
         dmtcp::VirtualPidTable::instance().updateMapping ( originalTid, tid );
         dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid );
         tid = originalTid;
       } else {
+        /* Newly created thread, insert mappings */
         dmtcp::VirtualPidTable::instance().updateMapping ( tid, tid );
       }
       break;
