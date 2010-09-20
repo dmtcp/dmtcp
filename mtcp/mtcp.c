@@ -1422,6 +1422,7 @@ static void *checkpointhread (void *dummy)
 
     DPRINTF (("mtcp checkpointhread*: waiting for other threads after restore\n"));
     wait_for_all_restored ();
+    create_file (GETTID());
     DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
   }
 
