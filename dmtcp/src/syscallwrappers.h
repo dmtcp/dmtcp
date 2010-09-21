@@ -35,12 +35,101 @@
 #include <stdio.h>
 #include <thread_db.h>
 #include <sys/procfs.h>
+#include <syslog.h>
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+typedef enum {
+  socket_Off,
+  connect_Off, 
+  bind_Off, 
+  listen_Off, 
+  accept_Off, 
+  setsockopt_Off,
+  socketpair_Off,
 
+  fexecve_Off,
+  execve_Off,
+  execv_Off,
+  execvp_Off,
+  execl_Off,
+  execlp_Off,
+  execle_Off,
+
+  system_Off,
+  fork_Off,
+  __clone_Off,
+
+  close_Off,
+  fclose_Off,
+  exit_Off,
+
+  ptsname_r_Off,
+  getpt_Off,
+
+  openlog_Off,
+  closelog_Off,
+
+  //set the handler
+  signal_Off,
+  sigaction_Off,
+  sigvec_Off,
+
+  //set the mask
+  sigblock_Off,
+  sigsetmask_Off,
+  siggetmask_Off,
+  sigprocmask_Off,
+
+  sigwait_Off,
+  sigwaitinfo_Off,
+  sigtimedwait_Off,
+
+  open_Off,
+  fopen_Off,
+
+  syscall_Off,
+  unsetenv_Off,
+
+#ifdef PID_VIRTUALIZATION
+  getpid_Off,
+  getppid_Off,
+
+  tcgetpgrp_Off,
+  tcsetpgrp_Off,
+
+  getpgrp_Off,
+  setpgrp_Off,
+
+  getpgid_Off,
+  setpgid_Off,
+
+  getsid_Off,
+  setsid_Off,
+
+  kill_Off,
+
+  wait_Off,
+  waitpid_Off,
+  waitid_Off,
+
+  wait3_Off,
+  wait4_Off,
+
+  setgid_Off,
+  setuid_Off,
+#endif /* PID_VIRTUALIZATION */
+
+#ifdef ENABLE_MALLOC_WRAPPER
+  calloc_Off,
+  malloc_Off,
+  free_Off,
+  realloc_Off,
+#endif
+  numLibCWrappers
+} LibCWrapperOffset;
 
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );

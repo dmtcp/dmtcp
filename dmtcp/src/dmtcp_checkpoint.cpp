@@ -30,6 +30,7 @@
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
+#include "syscallwrappers.h"
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -40,6 +41,7 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <string.h>
+#include <dlfcn.h>
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -128,6 +130,134 @@ static dmtcp::string _stderrProcPath()
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
 }
 
+static void *get_libc_symbol ( const char* name )
+{
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+
+  void* tmp = dlsym ( handle, name );
+  if ( tmp == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return tmp;
+}
+
+static void prepareDmtcpWrappers()
+{
+#ifndef ENABLE_DLOPEN
+  //int __libc_start_main(int (*)(int, char **, char **), int, char **, int (*)(int, char **, char **), void (*)(void), 
+  //void (*)(void), void *);
+  int (*init) (int , char **, char **, void *);
+
+  unsigned int wrapperOffsetArray[numLibCWrappers];
+#define _GET_OFFSET(x) wrapperOffsetArray[x ## _Off] = ((char*)get_libc_symbol(#x) - (char*)&GLIBC_BASE_FUNC)
+  _GET_OFFSET(socket);
+  _GET_OFFSET(connect); 
+  _GET_OFFSET(bind); 
+  _GET_OFFSET(listen); 
+  _GET_OFFSET(accept); 
+  _GET_OFFSET(setsockopt);
+  _GET_OFFSET(socketpair);
+
+  _GET_OFFSET(fexecve);
+  _GET_OFFSET(execve);
+  _GET_OFFSET(execv);
+  _GET_OFFSET(execvp);
+  _GET_OFFSET(execl);
+  _GET_OFFSET(execlp);
+  _GET_OFFSET(execle);
+
+  _GET_OFFSET(system);
+  _GET_OFFSET(fork);
+  _GET_OFFSET(__clone);
+
+  _GET_OFFSET(close);
+  _GET_OFFSET(fclose);
+  _GET_OFFSET(exit);
+
+  _GET_OFFSET(ptsname_r);
+  _GET_OFFSET(getpt);
+
+  _GET_OFFSET(openlog);
+  _GET_OFFSET(closelog);
+
+  //set the handler
+  _GET_OFFSET(signal);
+  _GET_OFFSET(sigaction);
+  _GET_OFFSET(sigvec);
+
+  //set the mask
+  _GET_OFFSET(sigblock);
+  _GET_OFFSET(sigsetmask);
+  _GET_OFFSET(siggetmask);
+  _GET_OFFSET(sigprocmask);
+
+  _GET_OFFSET(sigwait);
+  _GET_OFFSET(sigwaitinfo);
+  _GET_OFFSET(sigtimedwait);
+
+  _GET_OFFSET(open);
+  _GET_OFFSET(fopen);
+
+  _GET_OFFSET(syscall);
+  _GET_OFFSET(unsetenv);
+
+#ifdef PID_VIRTUALIZATION
+  _GET_OFFSET(getpid);
+  _GET_OFFSET(getppid);
+
+  _GET_OFFSET(tcgetpgrp);
+  _GET_OFFSET(tcsetpgrp);
+
+  _GET_OFFSET(getpgrp);
+  _GET_OFFSET(setpgrp);
+
+  _GET_OFFSET(getpgid);
+  _GET_OFFSET(setpgid);
+
+  _GET_OFFSET(getsid);
+  _GET_OFFSET(setsid);
+
+  _GET_OFFSET(kill);
+
+  _GET_OFFSET(wait);
+  _GET_OFFSET(waitpid);
+  _GET_OFFSET(waitid);
+
+  _GET_OFFSET(wait3);
+  _GET_OFFSET(wait4);
+
+  _GET_OFFSET(setgid);
+  _GET_OFFSET(setuid);
+
+#endif /* PID_VIRTUALIZATION */
+
+#ifdef ENABLE_MALLOC_WRAPPER
+  _GET_OFFSET(calloc);
+  _GET_OFFSET(malloc);
+  _GET_OFFSET(free);
+  _GET_OFFSET(realloc);
+#endif
+
+  dmtcp::ostringstream os;
+  for (int i = 0; i < numLibCWrappers; i++) {
+    os << std::hex << wrapperOffsetArray[i] << ";";
+  }
+
+  setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 0);
+#endif
+
+}
+
+
 //shift args
 #define shift argc--,argv++
 int main ( int argc, char** argv )
@@ -136,21 +266,6 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
-
-#ifdef ENABLE_MALLOC_WRAPPER
-  long mallocOff, callocOff, freeOff, reallocOff;
-
-  void *baseAddr = (void*)&toupper;
-  mallocOff  = (char*)&malloc  - (char*)baseAddr;
-  callocOff  = (char*)&calloc  - (char*)baseAddr;
-  reallocOff = (char*)&realloc - (char*)baseAddr;
-  freeOff    = (char*)&free    - (char*)baseAddr;
-
-  setenv ( ENV_VAR_MALLOC_OFFSET, jalib::XToString ( mallocOff ).c_str(), 1 );
-  setenv ( ENV_VAR_CALLOC_OFFSET, jalib::XToString ( callocOff ).c_str(), 1 );
-  setenv ( ENV_VAR_REALLOC_OFFSET, jalib::XToString ( reallocOff ).c_str(), 1 );
-  setenv ( ENV_VAR_FREE_OFFSET, jalib::XToString ( freeOff ).c_str(), 1 );
-#endif
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -310,6 +425,8 @@ int main ( int argc, char** argv )
       sleep(3);
     }
   }
+
+  prepareDmtcpWrappers();
 
   if(autoStartCoordinator)
      dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
