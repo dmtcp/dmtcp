@@ -454,6 +454,9 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 }
 
 #ifdef ENABLE_MALLOC_WRAPPER
+# ifdef ENABLE_DLOPEN
+#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
+# endif
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
   WRAPPER_EXECUTION_LOCK_LOCK();
