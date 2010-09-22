@@ -113,24 +113,28 @@ jassert_internal::JAssert::JAssert ( bool exitWhenDone )
 
 jassert_internal::JAssert::~JAssert()
 {
-  if ( _logLockAcquired )
-    jassert_internal::unlockLog();
-
-  if ( _exitWhenDone )
-  {
+  if ( _exitWhenDone ) {
     Print ( jalib::Filesystem::GetProgramName() );
     Print ( " (" );
     Print ( getpid() );
     Print ( "): Terminating...\n" );
+  }
+
+  jassert_safe_print ( ss.str().c_str() );
+  if ( _logLockAcquired )
+    jassert_internal::unlockLog();
+
+  if ( _exitWhenDone ) {
     _exit ( 1 );
   }
 }
 
 const char* jassert_internal::jassert_basename ( const char* str )
 {
-  for ( const char* c = str; c[0] != '\0' && c[1] !='\0' ; ++c )
+  for ( const char* c = str; c[0] != '\0' && c[1] !='\0' ; ++c ) {
     if ( c[0]=='/' )
       str=c+1;
+  }
   return str;
 }
 
