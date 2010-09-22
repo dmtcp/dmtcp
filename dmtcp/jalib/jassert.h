@@ -117,6 +117,7 @@ namespace jassert_internal
       /// if set true (on construction) call exit() on destruction
       bool _exitWhenDone;
       bool _logLockAcquired;
+      dmtcp::ostringstream ss;
   };
 
 
@@ -133,9 +134,9 @@ namespace jassert_internal
 #ifdef JASSERT_FAST
     jassert_output_stream() << t;
 #else
-    dmtcp::ostringstream ss;
+    //dmtcp::ostringstream ss;
     ss << t;
-    jassert_safe_print ( ss.str().c_str() );
+    //jassert_safe_print ( ss.str().c_str() );
 #endif
     return *this;
   }

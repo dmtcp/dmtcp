@@ -171,6 +171,49 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
   return rv;
 }
 
+#ifdef MALLOC_SAFE_LISTOPENFDS
+jalib::IntVector jalib::Filesystem::ListOpenFds()
+{
+  jalib::string dir = "/proc/self/fd";
+  int fd = _real_open (dir, O_RDONLY | O_NDELAY | EXTRA_FLAGS |
+                            O_LARGEFILE | O_DIRECTORY | O_CLOEXEC);
+  JASSERT(fd>=0);
+
+  const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
+                             ? sizeof (struct dirent64) : 4 * BUFSIZ);
+
+  DIR *dp = (DIR *) jalib::JAllocDispatcher::malloc (sizeof (DIR) + allocation);
+  JASSERT(dp != NULL);
+
+  dp->fd = fd;
+  dp->lock = 0;
+  dp->allocation = allocation;
+  dp->size = 0;
+  dp->offset = 0;
+  dp->filepos = 0;
+
+  struct dirent *p;
+  struct dirent d;
+  IntVector fdVec;
+
+  while (readdir_r (dp, &d, &p) == 0 && p != NULL) {
+    char *ch;
+    int fdnum = strtol ( d.d_name, &ch, 10 );
+    if ( *ch == 0 && fdnum >= 0 )
+    {
+      fdVec.push_back ( fdnum );
+    }
+  }
+
+  JASSERT(fdVec.empty() == false);
+
+  jalib::JAllocDispatcher::free (dp);
+  close(fd);
+
+  sort(fdVec.begin(), fdVec.end());
+  return fdVec;
+}
+#else
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
   jalib::string dir = "/proc/self/fd";
@@ -194,7 +237,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
 
   return rv;
 }
-
+#endif
 
 jalib::string jalib::Filesystem::GetCurrentHostname()
 {
