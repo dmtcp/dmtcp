@@ -109,7 +109,8 @@ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   , _bindAddrlen ( 0 )
     , _acceptRemoteId ( ConnectionIdentifier::Null() )
 {
-  JTRACE ("Creating TcpConnection.") ( id() ) ( domain ) ( type ) ( protocol );
+  if (domain != -1)
+    JTRACE ("Creating TcpConnection.") ( id() ) ( domain ) ( type ) ( protocol );
   memset ( &_bindAddr, 0, sizeof _bindAddr );
 }
 void dmtcp::TcpConnection::onBind ( const struct sockaddr* addr, socklen_t len )
