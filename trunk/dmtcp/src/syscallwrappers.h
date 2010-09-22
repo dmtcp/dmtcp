@@ -41,95 +41,104 @@
 extern "C"
 {
 #endif
-typedef enum {
-  socket_Off,
-  connect_Off, 
-  bind_Off, 
-  listen_Off, 
-  accept_Off, 
-  setsockopt_Off,
-  socketpair_Off,
-
-  fexecve_Off,
-  execve_Off,
-  execv_Off,
-  execvp_Off,
-  execl_Off,
-  execlp_Off,
-  execle_Off,
-
-  system_Off,
-  fork_Off,
-  __clone_Off,
-
-  close_Off,
-  fclose_Off,
-  exit_Off,
-
-  ptsname_r_Off,
-  getpt_Off,
-
-  openlog_Off,
-  closelog_Off,
-
-  //set the handler
-  signal_Off,
-  sigaction_Off,
-  sigvec_Off,
-
-  //set the mask
-  sigblock_Off,
-  sigsetmask_Off,
-  siggetmask_Off,
-  sigprocmask_Off,
-
-  sigwait_Off,
-  sigwaitinfo_Off,
-  sigtimedwait_Off,
-
-  open_Off,
-  fopen_Off,
-
-  syscall_Off,
-  unsetenv_Off,
 
 #ifdef PID_VIRTUALIZATION
-  getpid_Off,
-  getppid_Off,
-
-  tcgetpgrp_Off,
-  tcsetpgrp_Off,
-
-  getpgrp_Off,
-  setpgrp_Off,
-
-  getpgid_Off,
-  setpgid_Off,
-
-  getsid_Off,
-  setsid_Off,
-
-  kill_Off,
-
-  wait_Off,
-  waitpid_Off,
-  waitid_Off,
-
-  wait3_Off,
-  wait4_Off,
-
-  setgid_Off,
-  setuid_Off,
+# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)    \
+  MACRO(getpid)                             \
+  MACRO(getppid)                            \
+  MACRO(kill)                               \
+                                            \
+  MACRO(tcgetpgrp)                          \
+  MACRO(tcsetpgrp)                          \
+  MACRO(getpgrp)                            \
+  MACRO(setpgrp)                            \
+                                            \
+  MACRO(getpgid)                            \
+  MACRO(setpgid)                            \
+  MACRO(getsid)                             \
+  MACRO(setsid)                             \
+  MACRO(setgid)                             \
+  MACRO(setuid)                             \
+                                            \
+  MACRO(wait)                               \
+  MACRO(waitpid)                            \
+  MACRO(waitid)                             \
+  MACRO(wait3)                              \
+  MACRO(wait4)
+#else
+# define GLIBC_PID_FUNC_WRAPPERS(MACRO)
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef ENABLE_MALLOC_WRAPPER
-  calloc_Off,
-  malloc_Off,
-  free_Off,
-  realloc_Off,
-#endif
-  numLibCWrappers
-} LibCWrapperOffset;
+# define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
+  MACRO(calloc)                             \
+  MACRO(malloc)                             \
+  MACRO(free)                               \
+  MACRO(realloc)
+#else
+# define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
+#endif 
+
+#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
+  MACRO(socket)                             \
+  MACRO(connect)                            \
+  MACRO(bind)                               \
+  MACRO(listen)                             \
+  MACRO(accept)                             \
+  MACRO(setsockopt)                         \
+  MACRO(socketpair)                         \
+                                            \
+  MACRO(fexecve)                            \
+  MACRO(execve)                             \
+  MACRO(execv)                              \
+  MACRO(execvp)                             \
+  MACRO(execl)                              \
+  MACRO(execlp)                             \
+  MACRO(execle)                             \
+                                            \
+  MACRO(system)                             \
+  MACRO(fork)                               \
+  MACRO(__clone)                            \
+                                            \
+  MACRO(open)                               \
+  MACRO(fopen)                              \
+  MACRO(close)                              \
+  MACRO(fclose)                             \
+                                            \
+  MACRO(exit)                               \
+                                            \
+  MACRO(syscall)                            \
+  MACRO(unsetenv)                           \
+                                            \
+  MACRO(ptsname_r)                          \
+  MACRO(getpt)                              \
+                                            \
+  MACRO(openlog)                            \
+  MACRO(closelog)                           \
+                                            \
+  MACRO(signal)                             \
+  MACRO(sigaction)                          \
+  MACRO(sigvec)                             \
+                                            \
+  MACRO(sigblock)                           \
+  MACRO(sigsetmask)                         \
+  MACRO(siggetmask)                         \
+  MACRO(sigprocmask)                        \
+                                            \
+  MACRO(sigwait)                            \
+  MACRO(sigwaitinfo)                        \
+  MACRO(sigtimedwait)                       \
+                                            \
+  GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
+  GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
+
+
+#define ENUM(x) enum_ ## x
+#define GEN_ENUM(x) ENUM(x),
+  typedef enum {
+    FOREACH_GLIBC_FUNC_WRAPPER(GEN_ENUM)
+    numLibCWrappers
+  } LibCWrapperOffset;
 
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );

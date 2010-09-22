@@ -153,108 +153,23 @@ static void *get_libc_symbol ( const char* name )
 static void prepareDmtcpWrappers()
 {
 #ifndef ENABLE_DLOPEN
-  //int __libc_start_main(int (*)(int, char **, char **), int, char **, int (*)(int, char **, char **), void (*)(void), 
-  //void (*)(void), void *);
-  int (*init) (int , char **, char **, void *);
-
   unsigned int wrapperOffsetArray[numLibCWrappers];
-#define _GET_OFFSET(x) wrapperOffsetArray[x ## _Off] = ((char*)get_libc_symbol(#x) - (char*)&GLIBC_BASE_FUNC)
-  _GET_OFFSET(socket);
-  _GET_OFFSET(connect); 
-  _GET_OFFSET(bind); 
-  _GET_OFFSET(listen); 
-  _GET_OFFSET(accept); 
-  _GET_OFFSET(setsockopt);
-  _GET_OFFSET(socketpair);
+  char *glibc_base_function_addr = (char*)&GLIBC_BASE_FUNC;
 
-  _GET_OFFSET(fexecve);
-  _GET_OFFSET(execve);
-  _GET_OFFSET(execv);
-  _GET_OFFSET(execvp);
-  _GET_OFFSET(execl);
-  _GET_OFFSET(execlp);
-  _GET_OFFSET(execle);
+# define _GET_OFFSET(x) \
+    wrapperOffsetArray[enum_ ## x] = ((char*)get_libc_symbol(#x) - glibc_base_function_addr);
 
-  _GET_OFFSET(system);
-  _GET_OFFSET(fork);
-  _GET_OFFSET(__clone);
-
-  _GET_OFFSET(close);
-  _GET_OFFSET(fclose);
-  _GET_OFFSET(exit);
-
-  _GET_OFFSET(ptsname_r);
-  _GET_OFFSET(getpt);
-
-  _GET_OFFSET(openlog);
-  _GET_OFFSET(closelog);
-
-  //set the handler
-  _GET_OFFSET(signal);
-  _GET_OFFSET(sigaction);
-  _GET_OFFSET(sigvec);
-
-  //set the mask
-  _GET_OFFSET(sigblock);
-  _GET_OFFSET(sigsetmask);
-  _GET_OFFSET(siggetmask);
-  _GET_OFFSET(sigprocmask);
-
-  _GET_OFFSET(sigwait);
-  _GET_OFFSET(sigwaitinfo);
-  _GET_OFFSET(sigtimedwait);
-
-  _GET_OFFSET(open);
-  _GET_OFFSET(fopen);
-
-  _GET_OFFSET(syscall);
-  _GET_OFFSET(unsetenv);
-
-#ifdef PID_VIRTUALIZATION
-  _GET_OFFSET(getpid);
-  _GET_OFFSET(getppid);
-
-  _GET_OFFSET(tcgetpgrp);
-  _GET_OFFSET(tcsetpgrp);
-
-  _GET_OFFSET(getpgrp);
-  _GET_OFFSET(setpgrp);
-
-  _GET_OFFSET(getpgid);
-  _GET_OFFSET(setpgid);
-
-  _GET_OFFSET(getsid);
-  _GET_OFFSET(setsid);
-
-  _GET_OFFSET(kill);
-
-  _GET_OFFSET(wait);
-  _GET_OFFSET(waitpid);
-  _GET_OFFSET(waitid);
-
-  _GET_OFFSET(wait3);
-  _GET_OFFSET(wait4);
-
-  _GET_OFFSET(setgid);
-  _GET_OFFSET(setuid);
-
-#endif /* PID_VIRTUALIZATION */
-
-#ifdef ENABLE_MALLOC_WRAPPER
-  _GET_OFFSET(calloc);
-  _GET_OFFSET(malloc);
-  _GET_OFFSET(free);
-  _GET_OFFSET(realloc);
-#endif
+  FOREACH_GLIBC_FUNC_WRAPPER(_GET_OFFSET);
 
   dmtcp::ostringstream os;
   for (int i = 0; i < numLibCWrappers; i++) {
     os << std::hex << wrapperOffsetArray[i] << ";";
   }
 
-  setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 0);
+  setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
+#else
+  unsetenv(ENV_VAR_LIBC_FUNC_OFFSETS);
 #endif
-
 }
 
 
