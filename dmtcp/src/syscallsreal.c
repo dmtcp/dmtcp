@@ -179,7 +179,7 @@ static int use_dlsym = 0;
       if (use_dlsym) \
         fn = (void*)get_libc_symbol(#name); \
       else \
-        fn = (void*)get_libc_symbol_from_array ( name ## _Off ); \
+        fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
     } \
     return (*fn)
 
@@ -188,7 +188,7 @@ static int use_dlsym = 0;
       if (use_dlsym) \
         fn = get_libc_symbol(#name); \
       else \
-        fn = get_libc_symbol_from_array ( name ## _Off ); \
+        fn = get_libc_symbol_from_array ( ENUM(name) ); \
     } \
     (*fn)
 
@@ -503,7 +503,7 @@ void * _real_realloc(void *ptr, size_t size) {
 }
 
 void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_VOID (void, free) (ptr);
+  REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
 }
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );

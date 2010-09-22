@@ -27,7 +27,6 @@
 #endif
 #include "linux/version.h"
 
-//#define ENABLE_MALLOC_WRAPPER
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
@@ -46,6 +45,7 @@
 #define RESTORE_PORT_STOP 9977
 
 //#define ENABLE_DLOPEN
+//#define ENABLE_MALLOC_WRAPPER
 
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
@@ -72,6 +72,7 @@
 #define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
 #define ENV_VAR_LIBC_FUNC_OFFSETS "DMTCP_LIBC_FUNC_OFFSETS"
+
 #define GLIBC_BASE_FUNC isalnum
 
 //this list should be kept up to date with all "protected" environment vars
