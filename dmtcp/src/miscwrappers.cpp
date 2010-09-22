@@ -175,6 +175,21 @@ extern "C" int pipe ( int fds[2] )
 }
 
 
+extern "C" int pipe2 ( int fds[2], int flags )
+{
+  JTRACE ( "promoting pipe2() to socketpair()" );
+  //just promote pipes to socketpairs
+  int newFlags = 0;
+  if (flags & O_NONBLOCK != 0) newFlags |= SOCK_NONBLOCK;
+  if (flags & O_CLOEXEC != 0)  newFlags |= SOCK_CLOEXEC;
+  int ret = socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
+  if (ret == 0) {
+    JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
+  }
+  return ret;
+}
+
+
 static int ptsname_r_work ( int fd, char * buf, size_t buflen )
 {
   JTRACE ( "Calling ptsname_r" );

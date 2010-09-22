@@ -283,7 +283,8 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     stat(device.c_str(),&buf);
 
     /* /dev/null is a character special file (non-regular file) */
-    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode)) {
+    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
+        S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
 
       if(noOnDemandConnection)
