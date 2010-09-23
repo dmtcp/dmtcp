@@ -25,8 +25,10 @@
 #include <unistd.h>
 #include "jconvert.h"
 #include <dirent.h>
+#include <algorithm>
 #include "errno.h"
 #include <sys/utsname.h>
+#include "syscallwrappers.h"
 
 namespace
 {
@@ -172,21 +174,42 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 }
 
 #ifdef MALLOC_SAFE_LISTOPENFDS
+/* Directory stream type.
+
+   The miscellaneous Unix `readdir' implementations read directory data
+   into a buffer and return `struct dirent *' pointers into it.  */
+
+typedef struct _libc_dirstream
+  {
+    int fd;			/* File descriptor.  */
+
+    pthread_mutex_t lock; /* Mutex lock for this structure.  */
+
+    size_t allocation;		/* Space allocated for the block.  */
+    size_t size;		/* Total valid data in the block.  */
+    size_t offset;		/* Current offset into the block.  */
+
+    off_t filepos;		/* Position of next entry to read.  */
+
+    /* Directory block.  */
+    char data[0] __attribute__ ((aligned (__alignof__ (void*))));
+  } _DIR;
+
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
   jalib::string dir = "/proc/self/fd";
-  int fd = _real_open (dir, O_RDONLY | O_NDELAY | EXTRA_FLAGS |
-                            O_LARGEFILE | O_DIRECTORY | O_CLOEXEC);
+  int fd = _real_open (dir.c_str(), O_RDONLY | O_NDELAY | O_LARGEFILE | 
+                                    O_DIRECTORY | O_CLOEXEC, 0);
   JASSERT(fd>=0);
 
   const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
                              ? sizeof (struct dirent64) : 4 * BUFSIZ);
 
-  DIR *dp = (DIR *) jalib::JAllocDispatcher::malloc (sizeof (DIR) + allocation);
+  _DIR *dp = (_DIR *) jalib::JAllocDispatcher::malloc (sizeof (_DIR) + allocation);
   JASSERT(dp != NULL);
 
   dp->fd = fd;
-  dp->lock = 0;
+  pthread_mutex_init(&dp->lock, NULL);
   dp->allocation = allocation;
   dp->size = 0;
   dp->offset = 0;
@@ -196,7 +219,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   struct dirent d;
   IntVector fdVec;
 
-  while (readdir_r (dp, &d, &p) == 0 && p != NULL) {
+  while (readdir_r ((DIR*)dp, &d, &p) == 0 && p != NULL) {
     char *ch;
     int fdnum = strtol ( d.d_name, &ch, 10 );
     if ( *ch == 0 && fdnum >= 0 )
@@ -205,12 +228,10 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
     }
   }
 
-  JASSERT(fdVec.empty() == false);
-
   jalib::JAllocDispatcher::free (dp);
   close(fd);
 
-  sort(fdVec.begin(), fdVec.end());
+  std::sort(fdVec.begin(), fdVec.end());
   return fdVec;
 }
 #else
