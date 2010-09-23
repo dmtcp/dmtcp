@@ -24,6 +24,7 @@
 #include <vector>
 #include <list>
 #include <string>
+#include <fcntl.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -182,11 +183,7 @@ extern "C" int pipe2 ( int fds[2], int flags )
   int newFlags = 0;
   if (flags & O_NONBLOCK != 0) newFlags |= SOCK_NONBLOCK;
   if (flags & O_CLOEXEC != 0)  newFlags |= SOCK_CLOEXEC;
-  int ret = socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
-  if (ret == 0) {
-    JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
-  }
-  return ret;
+  return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
 }
 
 
@@ -378,18 +375,18 @@ extern "C" int getpt()
   return fd;
 }
 
-extern "C" int open (const char *path, ... )
+extern "C" int open (const char *path, int flags, ... )
 {
   va_list ap;
-  int flags;
+  //int flags;
   mode_t mode;
   int rc;
   char newpath [ 1024 ] = {0} ;
   int len,i;
 
   // Handling the variable number of arguments
-  va_start( ap, path );
-  flags = va_arg ( ap, int );
+  va_start( ap, flags );
+  //flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
 
