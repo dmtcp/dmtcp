@@ -173,8 +173,11 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
   return rv;
 }
 
+#define MALLOC_SAFE_LISTOPENFDS
 #ifdef MALLOC_SAFE_LISTOPENFDS
-/* Directory stream type.
+/*
+ * The Following structure is taken from <glibc-root>/sysdeps/dirstream.h
+ * Directory stream type.
 
    The miscellaneous Unix `readdir' implementations read directory data
    into a buffer and return `struct dirent *' pointers into it.  */
@@ -183,7 +186,7 @@ typedef struct _libc_dirstream
   {
     int fd;			/* File descriptor.  */
 
-    pthread_mutex_t lock; /* Mutex lock for this structure.  */
+    int lock; /* Mutex lock for this structure.  */
 
     size_t allocation;		/* Space allocated for the block.  */
     size_t size;		/* Total valid data in the block.  */
@@ -209,7 +212,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   JASSERT(dp != NULL);
 
   dp->fd = fd;
-  pthread_mutex_init(&dp->lock, NULL);
+  dp->lock = 0;
   dp->allocation = allocation;
   dp->size = 0;
   dp->offset = 0;
@@ -222,14 +225,13 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   while (readdir_r ((DIR*)dp, &d, &p) == 0 && p != NULL) {
     char *ch;
     int fdnum = strtol ( d.d_name, &ch, 10 );
-    if ( *ch == 0 && fdnum >= 0 )
-    {
+    if ( *ch == 0 && fdnum >= 0 ) {
       fdVec.push_back ( fdnum );
     }
   }
 
   jalib::JAllocDispatcher::free (dp);
-  close(fd);
+  _real_close(fd);
 
   std::sort(fdVec.begin(), fdVec.end());
   return fdVec;
