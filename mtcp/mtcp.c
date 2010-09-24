@@ -1422,7 +1422,9 @@ static void *checkpointhread (void *dummy)
 
     DPRINTF (("mtcp checkpointhread*: waiting for other threads after restore\n"));
     wait_for_all_restored ();
+#ifdef PTRACE
     create_file (GETTID());
+#endif
     DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
   }
 
@@ -1577,7 +1579,9 @@ again:
                 goto rescan;
               }
             }
+#ifdef PTRACE
             create_file( thread -> original_tid );
+#endif
           }
 #else
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
@@ -1736,7 +1740,9 @@ again:
     unlk_threads ();
     DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
     /* But if we're doing a restore verify, just exit.  The main thread is doing the exec to start the restore. */
+#ifdef PTRACE
     create_file (GETTID());
+#endif
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
 }
