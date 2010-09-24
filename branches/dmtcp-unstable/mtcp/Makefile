@@ -58,6 +58,7 @@ AS = as --32
 endif
 
 #Currently sometimes can't compile without -O0; -DDMTCP=1 for use with DMTCP
+# CFLAGS += -O0 -g
 CFLAGS += -O0 -g -DPTRACE
 # CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall -DPTRACE
 # CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall -DPTRACE
