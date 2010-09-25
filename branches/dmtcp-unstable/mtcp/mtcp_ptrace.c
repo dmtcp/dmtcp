@@ -53,6 +53,9 @@ static __thread pid_t saved_pid = -1;
 static __thread int saved_status = -1;
 static __thread int has_status_and_pid = 0;
 
+__thread pid_t setoptions_superior = -1;
+__thread int is_ptrace_setoptions = FALSE;
+
 static pthread_mutex_t ptrace_pairs_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct ckpt_thread {
@@ -69,9 +72,6 @@ int init__sem = 0;
 char ptrace_shared_file[MAXPATHLEN];
 char ptrace_setoptions_file[MAXPATHLEN];
 char checkpoint_threads_file[MAXPATHLEN];
-
-__thread pid_t setoptions_superior = -1;
-__thread int is_ptrace_setoptions = FALSE;
 
 int has_ptrace_file = 0;
 pid_t delete_ptrace_leader = -1;
@@ -109,6 +109,19 @@ static void sort_ptrace_pairs ();
 static void print_ptrace_pairs ();
 
 static void reset_ptrace_pairs_entry ( int i );
+
+void init_thread_local()
+{
+  is_waitpid_local = 0; // no crash on pre-access
+  is_ptrace_local = 0; // no crash on pre-access
+  saved_pid = -1; // no crash on pre-access
+  saved_status = -1; // no crash on pre-access
+  has_status_and_pid = 0; // crash
+
+  setoptions_superior = -1;
+  is_ptrace_setoptions = FALSE;
+}
+
 
 /* FIXME:  BAD FUNCTION NAME:  readall(..., ..., count) would guarantee
  * to read 'count' characters.  This reads zero or more characters
