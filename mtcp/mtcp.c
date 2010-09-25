@@ -469,6 +469,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   char dir[MAXPATHLEN];
 #endif
 
+  init_thread_local();
+
   if (sizeof(void *) != sizeof(long)) {
     mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
 	   "       This code assumes they are equal.\n");
@@ -1038,6 +1040,8 @@ static int threadcloned (void *threadv)
 
   if (threadenabledefault) mtcp_ok ();
 
+  init_thread_local();
+
   /* Call the user's function for whatever processing they want done */
 
   DPRINTF (("mtcp threadcloned*: calling %p (%p)\n", thread -> fn, thread -> arg));
@@ -1397,6 +1401,7 @@ static void *checkpointhread (void *dummy)
    */
   static int originalstartup = 1;
 
+  init_thread_local();
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */
 
   static struct timespec const enabletimeout = { 10, 0 };
