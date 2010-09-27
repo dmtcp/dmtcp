@@ -894,6 +894,7 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
       perror ( "ERROR DmtcpWorker::wrapperExecutionLockLock: Failed to acquire lock" );
       _exit(1);
     }
+    // retVal should always be 0 (success) here.
     lockAcquired = retVal == 0 ? true : false;
   }
   errno = saved_errno;

@@ -452,6 +452,8 @@ os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
+# runTest("pty",   2, ["./test/pty"])
+
 runTest("perl",          1, ["/usr/bin/perl"])
 
 runTest("python",        1, ["/usr/bin/python"])
