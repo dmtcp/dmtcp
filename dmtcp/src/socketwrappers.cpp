@@ -57,7 +57,7 @@ static int in_dmtcp_on_helper_fnc = 0;
     _dmtcp_lock();\
     if (in_dmtcp_on_helper_fnc == 0) { \
       in_dmtcp_on_helper_fnc = 1; \
-      if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func); \
+      if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func, saved_errno); \
       else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);\
       in_dmtcp_on_helper_fnc = 0; \
     } \
