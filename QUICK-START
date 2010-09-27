@@ -60,7 +60,7 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   #  Ensure that the restarted process is running, and not suspended.)
   ./bin/dmtcp_restart ckpt_a.out_*.dmtcp &
   # Have gdb attach to a restarted process, and debug
-  # NOTE:  You must specify single-process 'mtcp_restart', not 'dmtcp_restart'
+  # NOTE:  You must specify 'mtcp_restart', not 'dmtcp_restart'
   gdb ./a.out `pgrep -n mtcp_restart`
   # force a.out to exit any low level libraries and return to a known location
   # set a breakpoint on a common function and continue:

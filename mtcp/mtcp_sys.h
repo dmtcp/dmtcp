@@ -218,6 +218,7 @@ static char *mtcp_sys_strchr(const char *s, int c) {
 #  define _MTCP_STRLEN_
 //   The  strlen() function from earlier C library calculates  the  length 
 //     of  the string s, not including the terminating `\0' character.
+__attribute__ ((unused))  /* Not used in every file where included. */
 static size_t mtcp_sys_strlen(const char *s) {
   size_t size = 0;
   for (; *s != (char)'\0'; s++)

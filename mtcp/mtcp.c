@@ -36,7 +36,7 @@
 
 
 // Set _GNU_SOURCE in order to expose glibc-defined sigandset()
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE
 #include <asm/ldt.h>      // for struct user_desc
 //#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
@@ -1491,6 +1491,7 @@ again:
     /* Do this once.  It's the same for all threads. */
     saved_termios_exists = ( isatty(STDIN_FILENO)
     			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+saved_termios_exists = saved_termios_exists || (isatty(5) && tcgetattr(5, &saved_termios) >= 0);
 
     if (getcwd(saved_working_directory, MTCP_MAX_PATH) == NULL) {
       // buffer wasn't large enough
@@ -2538,7 +2539,7 @@ static void save_sig_state (Thread *thisthread)
      * session leaders.
      */
 #define SIGSETXID (__SIGRTMIN + 1)
-    sigset_t set, *mask = NULL;
+    sigset_t set;
 
     sigfillset(&set);
     sigdelset(&set, SIGSETXID);
@@ -2962,8 +2963,14 @@ skipeol:
 /*																*/
 /********************************************************************************************************************************/
 
+#ifdef __x86_64__
+# define UNUSED_IN_64_BIT __attribute__ ((unused))
+#else
+# define UNUSED_IN_64_BIT
+#endif
+
 #define STRINGS_LEN 10000
-static char STRINGS[STRINGS_LEN];
+static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[] )
 
@@ -3123,17 +3130,23 @@ static int restarthread (void *threadv)
     /* Do it once only, in motherofall thread. */
     
     if (saved_termios_exists){
-      // First check if we are in foreground. If not - skip this and print warning.
-      // If we try to do that - we will hangup
+      // First check if we are in foreground. If not - skip this and print
+      //   warning.  If we try to call tcsetattr in background - we will hangup.
       int fg = (tcgetpgrp(STDIN_FILENO) == getpgrp());
-      DPRINTF(("restore terminal attributes, check foreground ststus first: %d",fg));
+      DPRINTF(("restore terminal attributes, check foreground ststus first: %d\n",
+	       fg));
       if ( fg ){
-        if( !isatty(STDIN_FILENO)
-           || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0 ){
+        if( (!isatty(STDIN_FILENO)
+             || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0) &&
+            (!isatty(5) || tcsetattr(5, TCSANOW, &saved_termios) < 0) )
           DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
-        }
-      }else{
-        DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step - we are in BACKGROUND\n"));
+	else
+	{
+          DPRINTF(("mtcp finishrestore*: restored terminal\n"));
+	}
+      } else {
+        DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step\n"
+		 " -- we are in BACKGROUND\n"));
       }
     }
 
