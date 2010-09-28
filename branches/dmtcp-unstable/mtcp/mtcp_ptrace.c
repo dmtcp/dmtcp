@@ -110,6 +110,19 @@ static void print_ptrace_pairs ();
 
 static void reset_ptrace_pairs_entry ( int i );
 
+void check_size_for_ptrace_file (const char *file) {
+  struct stat buf;
+  if (!stat (file, &buf)) {
+    mtcp_printf ("WARNING: %s has %d bytes.\n", file, buf.st_size);
+  } else {
+    if (errno != ENOENT) {
+      mtcp_printf ("WARNING: stat failed for %s with an error different than ENOENT.\n",
+                   ptrace_shared_file);
+    }
+  }
+}
+
+
 void init_thread_local()
 {
   is_waitpid_local = 0; // no crash on pre-access

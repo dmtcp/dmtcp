@@ -85,6 +85,7 @@ extern struct ptrace_tid_pairs ptrace_pairs[MAX_PTRACE_PAIRS_COUNT];
 extern int ptrace_pairs_count;
 extern int init_ptrace_pairs;
 
+extern void check_size_for_ptrace_file (const char *file);
 extern void write_info_to_file (int file, pid_t superior, pid_t inferior);
 extern void writeptraceinfo (pid_t superior, pid_t inferior);
 extern void create_file(pid_t pid);

@@ -1404,6 +1404,9 @@ static void *checkpointhread (void *dummy)
 
 #ifdef PTRACE
   init_thread_local();
+  check_size_for_ptrace_file (ptrace_shared_file);
+  check_size_for_ptrace_file (ptrace_setoptions_file);
+  check_size_for_ptrace_file (checkpoint_threads_file);
 #endif
 
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */
