@@ -31,13 +31,19 @@
 #include "dmtcpworker.h"
 #include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
+#include <sys/select.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <termios.h>
 #include <iostream>
 #include <ios>
 #include <fstream>
+
+static bool ptmxPacketMode(int masterFd);
+static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
+static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
 
 static dmtcp::string _procFDPath ( int fd )
 {
@@ -546,6 +552,16 @@ static int _openBSDMasterPty ( dmtcp::string device )
 void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
+  if (ptyType() == PTY_MASTER) {
+    const int maxCount = 10000;
+    char buf[maxCount];
+    int numRead, numWritten;
+    // fds[0] is master fd
+    numRead = ptmxReadAll(fds[0], buf, maxCount);
+    _ptmxIsPacketMode = ptmxPacketMode(fds[0]);
+    numWritten = ptmxWriteAll(fds[0], buf, _ptmxIsPacketMode);
+    JASSERT(numRead == numWritten)(numRead)(numWritten);
+  }
 
 }
 void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
@@ -637,6 +653,11 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       //dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fds[0], deviceName, (Connection*) this );
 
       UniquePtsNameToPtmxConId::instance().add ( _uniquePtsName, id() );
+
+      if (ptyType() == PTY_MASTER) {
+        int packetMode = _ptmxIsPacketMode;
+        ioctl(fds[0], TIOCPKT, &packetMode); /* Restore old packet mode */
+      }
 
       break;
     }
@@ -1325,7 +1346,7 @@ void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::PtyConnection" );
-  o & _ptsName & _uniquePtsName & _bsdDeviceName & _type;
+  o & _ptsName & _uniquePtsName & _bsdDeviceName & _type & _ptmxIsPacketMode;
 
   if ( o.isReader() )
   {
@@ -1341,6 +1362,137 @@ void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 //
 //     JASSERT(false).Text("Pipes should have been replaced by socketpair() automagically.");
 // }
+
+static bool ptmxPacketMode(int masterFd) {
+  char tmp_buf[100];
+  int slave_fd, ioctlArg, rc;
+  fd_set readfds;
+  struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
+
+  ptsname_r(masterFd, tmp_buf, 100), O_RDWR;
+  slave_fd = open(tmp_buf, O_RDWR);
+
+  /* A. Drain master before testing.
+        Ideally, DMTCP has already drained it and preserved any information
+        about exceptional conditions in command byte, but maybe we accidentally
+        caused a new command byte in packet mode. */
+  /* Note:  if terminal was in packet mode, and the next read would be
+     a non-data command byte, then there's no easy way for now to detect and
+     restore this. ?? */
+  /* Note:  if there was no data to flush, there might be no command byte,
+     even in packet mode. */
+  tcflush(slave_fd, TCIOFLUSH);
+  /* If character already transmitted (usual case for pty), then this flush
+     will tell master to flush it. */
+  tcflush(masterFd, TCIFLUSH);
+
+  /* B. Now verify that readfds has no more characters to read. */
+  ioctlArg = 1;
+  ioctl(masterFd, TIOCINQ, &ioctlArg);
+  if (ioctlArg != 0)
+    printf("ERROR!!!  We did flush and still see chars in input queue.\n");
+  /* Now check if there's a command byte still to read. */
+  FD_ZERO(&readfds);
+  FD_SET(masterFd, &readfds);
+  select(masterFd + 1, &readfds, NULL, NULL, &zeroTimeout);
+  if (FD_ISSET(masterFd, &readfds))
+    printf("command byte to be read from masterFd.\n");
+  else
+    printf("masterFd has nothing to read.\n");
+  FD_ZERO(&readfds);
+  FD_SET(masterFd, &readfds);
+  select(masterFd + 1, &readfds, NULL, NULL, &zeroTimeout);
+  if (FD_ISSET(masterFd, &readfds)) {
+    printf("  but select() sees byte command to be read.\n"
+           "  This proves we're in packet mode.  CAN STOP HERE!!!\n");
+    printf("clean up by removing command byte.  We should restore it for\n"
+	   "end user if we get here.  How could we do this?\n");
+    rc = read(masterFd, tmp_buf, 100);
+    if (rc != 1)
+      printf("ERROR!!! expected single command byte and saw data.");
+  }
+
+  /* C. Now we're ready to do the real test.  If in packet mode, we should
+        see command byte of TIOCPKT_DATA (0) with data. */
+  tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
+  /* Give the masterFd something to read. */
+  if (1 != write(slave_fd, tmp_buf, 1))
+    JTRACE("Potential error in ptmxPacketMode()");
+  /* Read the 'x':  If we also see a command byte, it's packet mode */
+  rc = read(masterFd, tmp_buf, 100);
+
+  /* D. Check if command byte packet exists, and chars rec'd is longer by 1. */
+  return (rc == 2 && tmp_buf[0] == TIOCPKT_DATA && tmp_buf[1] == 'x');
+}
+// Also record the count read on each iteration, in case it's packet mode
+static bool readyToRead(int fd) {
+  fd_set readfds;
+  struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  select(fd + 1, &readfds, NULL, NULL, &zeroTimeout);
+  return FD_ISSET(fd, &readfds);
+}
+static ssize_t readOnePacket(int fd, const void *buf, size_t maxCount) {
+  typedef int hdr;
+  int rc = 0;
+  while (readyToRead(fd) && rc <= 0) {
+    rc = read(fd, (char *)buf+sizeof(hdr), maxCount-sizeof(hdr));
+    *(hdr *)buf = rc; // Record the number read in header
+    if (rc == maxCount-sizeof(hdr)) {
+      rc = -1; errno = E2BIG; // Invoke new errno for buf size not large enough
+    }
+    if (rc == -1 && errno != EAGAIN && errno != EINTR)
+      break;  /* Give up; bad error */
+  }
+  return (rc <= 0 ? rc : rc+sizeof(hdr));
+}
+// rc < 0 => error; rc == sizeof(hdr) => no data to read;
+// rc > 0 => saved w/ count hdr
+static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount) {
+  typedef int hdr;
+  char *buf = (char *)origBuf;
+  int rc;
+  while ((rc = readOnePacket(fd, buf, maxCount)) > 0) {
+    buf += rc;
+  }
+  *(hdr *)buf = 0; /* Header count of zero means we're done */
+  buf += sizeof(hdr);
+  JASSERT(rc < 0 || rc >= sizeof(hdr))(rc);
+  return (rc < 0 ? rc : buf - (char *)origBuf);
+}
+// Also record the count written on each iteration, in case it's packet mode
+static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
+  typedef int hdr;
+  int count = *(hdr *)origBuf;
+  int cum_count = sizeof(hdr);
+  int rc;
+  char *buf = (char *)origBuf + sizeof(hdr);
+  if (count == 0)
+    return cum_count;  // count of zero means we're done, hdr consumed
+  // FIXME:  It would be nice to restore packet mode (flow control, etc.)
+  //         For now, we ignore it.
+  if (count == 1 && isPacketMode)
+    return cum_count + 1;
+  while (cum_count < count) {
+    rc = write(fd, (char *)buf+cum_count, count-cum_count);
+    if (rc == -1 && errno != EAGAIN && errno != EINTR)
+      break;  /* Give up; bad error */
+  }
+  JASSERT(rc != 0 && cum_count == count)(rc)(count)(cum_count);
+  return (rc < 0 ? rc : cum_count);
+}
+static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode) {
+  typedef int hdr;
+  ssize_t cum_count = 0;
+  int rc;
+  while ((rc = writeOnePacket(fd, buf, isPacketMode)) > sizeof(hdr)) {
+    cum_count += rc;
+    buf = (char *)buf + cum_count;
+  }
+  return (rc <= 0 ? rc : cum_count);
+}
+
 
 #define MERGE_MISMATCH_TEXT .Text("Mismatch when merging connections from different restore targets")
 

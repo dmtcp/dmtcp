@@ -435,7 +435,7 @@ int main ( int argc, char** argv )
     isElf = (0 == memcmp(magic_elf.c_str(), argv_buf, magic_elf.length()));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
-      JASSERT_STDERR <<
+       If so, the checkpoint will fail.  Trying, anyway.
         "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
@@ -447,18 +447,20 @@ int main ( int argc, char** argv )
 #endif
     cmd = cmd + argv[0] + " > /dev/null";
     unsetenv ( "LD_PRELOAD" );
+    // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
+    // nonzero status.  Why is this?  It's dynamically linked.
     if ( isElf && system(cmd.c_str()) )
       JASSERT_STDERR <<
-        "*** ERROR:  You appear to be checkpointing "
-        << "a statically linked target:\n"
-	<< "***    " << argv[0] << " .\n"
-        << "***  You can confirm this with the 'file' command.\n"
+        "*** WARNING:  /lib/ld-2.10.1.so --verify " << argv[0] << "returns\n"
+        << "***  nonzero status.  This often means that " << argv[0] << " is\n"
+        << "*** a statically linked target.  If so, you can confirm this with\n"
+        << "*** the 'file' command.\n"
         << "***  The standard DMTCP only supports dynamically"
 	<< " linked executables.\n"
 	<< "*** If you cannot recompile dynamically, please talk to the"
 	<< " developers about a\n"
 	<< "*** custom DMTCP version for statically linked executables.\n"
-        << "*** Proceeding for now, but this DMTCP will probably fail.\n\n";
+        << "*** Proceeding for now, and hoping for the best.\n\n";
     setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   }
   if (fd != -1)

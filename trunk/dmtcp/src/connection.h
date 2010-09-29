@@ -276,6 +276,7 @@ namespace dmtcp
       dmtcp::string _ptsName;
       dmtcp::string _uniquePtsName;
       dmtcp::string _bsdDeviceName;
+      bool          _ptmxIsPacketMode;
 
   };
 

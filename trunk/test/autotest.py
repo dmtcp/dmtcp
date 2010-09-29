@@ -481,7 +481,7 @@ if testconfig.HAS_SCRIPT == "yes":
 # BUT screen -s CMD works only when CMD is single word.
 if testconfig.HAS_SCREEN == "yes":
   S=1
-  if False:  # Not yet ready for primetime
+  if False:  # screen can be checkpointed manually now, but autotest is failing.
     runTest("screen",      3,  ["screen"])
   S=0.3
 
