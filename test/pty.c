@@ -30,8 +30,8 @@ int main() {
   char tmp_buf[100];
 #if 1
   int master_fd = open("/dev/ptmx", O_RDWR /*| O_NOCTTY*/ );
-  int r1 = grantpt(master_fd);
-  r1 = unlockpt(master_fd);
+  int rc = grantpt(master_fd);
+  rc = unlockpt(master_fd);
   char *slave_pty = ptsname(master_fd);
   int slave_fd = open(slave_pty, O_RDWR);
   struct termios term;
@@ -43,7 +43,7 @@ int main() {
 # ifdef PACKET_MODE
   int packetMode = 1;
   ioctl(master_fd, TIOCPKT, &packetMode); /* Place into packet mode */
-  tcflush(master_fd, TCIOFLUSH); /* Flush in case in middle of old packet? */
+  tcflush(master_fd, TCIOFLUSH); /* Flush in case in middle of old packet??? */
 # endif
 #else
   int master_fd;
@@ -58,9 +58,10 @@ int main() {
   tcsetattr(slave_fd, TCSANOW, &term);
 
   // Optionally inherit original window type
-  ioctl(STDIN_FILENO, TIOCGWINSZ, (char *) &wsize;
+  ioctl(STDIN_FILENO, TIOCGWINSZ, (char *) &wsize);
   ioctl(slave_fd, TIOCSWINSZ, &wsize);
 
+  // Verify that master_fd and slave_fd are connected
   int len = write(master_fd, "abc\n", 4);
   len = read(slave_fd, tmp_buf, 50);
   printf("slave read from master:  len=%d, tmp_buf: %s\n", len, tmp_buf);
@@ -80,6 +81,7 @@ int main() {
 #ifdef PACKET_MODE
       do {
 	/* Packet mode should guarantee we get a full packet or nothing. */
+// SHOULD 'select()' AND EXIT IF READ UNAVAILABLE SOON.
 	len = read(master_fd, in_buffer, 100);
 	if (in_buffer[0] == '\000') {
 	  int i;
