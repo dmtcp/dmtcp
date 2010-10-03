@@ -127,7 +127,9 @@ fi
 AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
 
 #check for screen
-AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
+# Try 'screen' in user path first, since primary screen may be 'setuid'/'setgid'
+AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [$PATH:/usr/bin])
+AC_PATH_PROG([SCREEN],  [screen],        [no], [$PATH:/usr/bin])
 
 #check for matlab
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])

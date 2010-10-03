@@ -41,7 +41,7 @@
 #include <ios>
 #include <fstream>
 
-static bool ptmxPacketMode(int masterFd);
+static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
 
@@ -558,7 +558,8 @@ void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     int numRead, numWritten;
     // fds[0] is master fd
     numRead = ptmxReadAll(fds[0], buf, maxCount);
-    _ptmxIsPacketMode = ptmxPacketMode(fds[0]);
+    _ptmxIsPacketMode = ptmxTestPacketMode(fds[0]);
+    JTRACE("fds[0] is master (/dev/ptmx)")(fds[0])(_ptmxIsPacketMode);
     numWritten = ptmxWriteAll(fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten)(numRead)(numWritten);
   }
@@ -1363,7 +1364,7 @@ void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 //     JASSERT(false).Text("Pipes should have been replaced by socketpair() automagically.");
 // }
 
-static bool ptmxPacketMode(int masterFd) {
+static bool ptmxTestPacketMode(int masterFd) {
   char tmp_buf[100];
   int slave_fd, ioctlArg, rc;
   fd_set readfds;
@@ -1389,35 +1390,25 @@ static bool ptmxPacketMode(int masterFd) {
   /* B. Now verify that readfds has no more characters to read. */
   ioctlArg = 1;
   ioctl(masterFd, TIOCINQ, &ioctlArg);
-  if (ioctlArg != 0)
-    printf("ERROR!!!  We did flush and still see chars in input queue.\n");
   /* Now check if there's a command byte still to read. */
   FD_ZERO(&readfds);
   FD_SET(masterFd, &readfds);
   select(masterFd + 1, &readfds, NULL, NULL, &zeroTimeout);
-  if (FD_ISSET(masterFd, &readfds))
-    printf("command byte to be read from masterFd.\n");
-  else
-    printf("masterFd has nothing to read.\n");
   FD_ZERO(&readfds);
   FD_SET(masterFd, &readfds);
   select(masterFd + 1, &readfds, NULL, NULL, &zeroTimeout);
   if (FD_ISSET(masterFd, &readfds)) {
-    printf("  but select() sees byte command to be read.\n"
-           "  This proves we're in packet mode.  CAN STOP HERE!!!\n");
-    printf("clean up by removing command byte.  We should restore it for\n"
-	   "end user if we get here.  How could we do this?\n");
+    // Clean up someone else's command byte from packet mode.
+    // FIXME:  We should restore this on resume/restart.
     rc = read(masterFd, tmp_buf, 100);
-    if (rc != 1)
-      printf("ERROR!!! expected single command byte and saw data.");
+    JASSERT ( rc == 1 ) (rc) (masterFd);
   }
 
   /* C. Now we're ready to do the real test.  If in packet mode, we should
         see command byte of TIOCPKT_DATA (0) with data. */
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
-  if (1 != write(slave_fd, tmp_buf, 1))
-    JTRACE("Potential error in ptmxPacketMode()");
+  JWARNING ((rc = write(slave_fd, tmp_buf, 1)) == 1) (rc) .Text("write failed");
   /* Read the 'x':  If we also see a command byte, it's packet mode */
   rc = read(masterFd, tmp_buf, 100);
 

@@ -8,6 +8,7 @@ import socket
 import os
 import sys
 import resource
+import stat
 import re
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
@@ -156,8 +157,11 @@ def launch(cmd):
   else:
     pipe = subprocess.PIPE
   if ptyMode:
-    (pid, fd) = pty.fork()
+    (pid, fd) = os.forkpty()
     if pid == 0:
+      # replace stdout; child might otherwise block on writing to stdout
+      os.close(1)
+      os.open('/dev/null', os.O_RDWR | os.O_APPEND)
       os.execvp(cmd[0], cmd)
       # os.system( reduce(lambda x,y:x+y, cmd) )
       # os.exit(0)
@@ -452,6 +456,7 @@ os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
+#Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])
 
 runTest("perl",          1, ["/usr/bin/perl"])
@@ -459,18 +464,22 @@ runTest("perl",          1, ["/usr/bin/perl"])
 runTest("python",        1, ["/usr/bin/python"])
 
 os.environ['DMTCP_GZIP'] = "0"
-runTest("bash",          2, ["/bin/bash -c 'ls; sleep 30'"])
+runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+os.environ['DMTCP_GZIP'] = GZIP
+
+os.environ['DMTCP_GZIP'] = "0"
+runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
 os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
-  runTest("zsh",          2, ["/bin/zsh -c 'ls; sleep 30; ls'"])
+  runTest("zsh",          2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_SCRIPT == "yes":
+# *** Works manually, but not yet in autotest ***
+if False and testconfig.HAS_SCRIPT == "yes":
   S=2
-  # if python-2.6 or higher
-  if False:  # Not yet ready for primetime
+  if sys.version_info[0:2] >= (2,6):
     runTest("script",      4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +
     			      " dmtcp-test-typescript.tmp"])
@@ -479,10 +488,11 @@ if testconfig.HAS_SCRIPT == "yes":
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # BUT screen -s CMD works only when CMD is single word.
-if testconfig.HAS_SCREEN == "yes":
+# *** Works manually, but not yet in autotest ***
+if False and testconfig.HAS_SCREEN == "yes" \
+  and not (os.stat(testconfig.SCREEN).st_mode & (stat.S_ISUID | stat.S_ISGID)):
   S=1
-  if False:  # screen can be checkpointed manually now, but autotest is failing.
-    runTest("screen",      3,  ["screen"])
+  runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])
   S=0.3
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.

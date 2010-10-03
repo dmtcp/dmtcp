@@ -218,6 +218,7 @@ static void dmtcpPrepareForExec(const char *path)
   dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
+  JTRACE ( "Preparing for Exec" ) ( path );
 
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
