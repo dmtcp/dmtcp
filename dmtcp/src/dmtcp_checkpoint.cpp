@@ -337,6 +337,11 @@ int main ( int argc, char** argv )
     int rc = stat(pathname.c_str(), &buf);
     if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)) {
       JASSERT_STDERR << theSetuidWarning;
+      if ( strcmp(argv[0], "screen") == 0 ) {
+        JASSERT_STDERR<< "*** If you are trying to checkpoint screen, you can\n"
+          << "*** download and build 'screen' via configure/make from\n"
+          << "=====  http://ftp.gnu.org/gnu/screen/ =====\n";
+      }
       sleep(3);
     }
   }
