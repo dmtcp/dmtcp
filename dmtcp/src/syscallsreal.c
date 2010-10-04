@@ -40,12 +40,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <assert.h>
 
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr ( *signal_funcptr ) ();
 
-static unsigned int libcFuncOffsetArray[numLibCWrappers];
+static unsigned int libcFuncOffsetArray[numLibcWrappers];
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -82,45 +83,82 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_destroy(&attr);
 }
 
-static funcptr get_libc_symbol_from_array ( LibCWrapperOffset off )
+// Any single glibc function could have been re-defined.
+// For example, isalnum is wrapped by /bin/dash.  So, find a function
+//   closest to the average, and it's probably in glibc.
+static char * get_libc_base_func ()
 {
-  static char *glibc_base_function_addr = NULL;
-  if ( glibc_base_function_addr == NULL ) {
-    char* libcFuncOffsetStr = getenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-    char *start;
-    char *next;
-    int count, i;
+  static char * base_addr = NULL;
+  void *base_func_addresses[100];
+  unsigned int average, minDist;
+  int minIndex;
+  int count, index;
+  if (base_addr != NULL)
+    return base_addr;
 
-    glibc_base_function_addr = (char*)&GLIBC_BASE_FUNC;
-    if (libcFuncOffsetStr == NULL) {
-      fprintf ( stderr, "dmtcp: env var %s not set.\n",
-                        ENV_VAR_LIBC_FUNC_OFFSETS);
-      abort();
-    }
+  count = 0;
+# define _COUNT(name) count++;
+  FOREACH_GLIBC_BASE_FUNC(_COUNT)
+  assert(count <= 100);
+  index = 0;
+# define _GET_ADDR(name) base_func_addresses[index++] = &name;
+  FOREACH_GLIBC_BASE_FUNC(_GET_ADDR)
 
-    start = libcFuncOffsetStr;
-    count = 0;
-    while (*start != '\0') {
-      if (*start == ';') count++;
-      start++;
-    }
-    if (count != numLibCWrappers) {
-      fprintf ( stderr, "dmtcp: mismatch in number of glibc wrappers.\n"
-                        "       found: %d, expected: %d\n"
-                        "       env var %s: %s\n",
-                        count, (int) numLibCWrappers,
-                        ENV_VAR_LIBC_FUNC_OFFSETS, libcFuncOffsetStr );
-      abort();
-    }
+# define SHIFT_RIGHT(x) (long int)((unsigned long int)(x) >> 10)
+  // Of all the addresses in base_func_addresses, we choose the one
+  //  closest to the average as the one that really is in glibc.
+  for (average = 0, index = 0; index < count; index++)
+    average += SHIFT_RIGHT(base_func_addresses[index]);
+  average /= count;
 
-    start = libcFuncOffsetStr;
-    for (i = 0; i < numLibCWrappers; i++) {
-      libcFuncOffsetArray[i] = strtoul(start, &next, 16);
-      start = next + 1;
+  minIndex = 0;
+  /* Shift right to guard against overflow */
+  minDist = labs(average - SHIFT_RIGHT(base_func_addresses[0]));
+  for (index = 0; index < count; index++) {
+    unsigned int tmp = labs(average - SHIFT_RIGHT(base_func_addresses[index]));
+    if (tmp < minDist) {
+      minIndex = index;
+      minDist = tmp;
     }
   }
 
-  return (funcptr)((char*)glibc_base_function_addr + libcFuncOffsetArray[off]);
+  base_addr = base_func_addresses[minIndex] - libcFuncOffsetArray[minIndex];
+  assert(base_addr + libcFuncOffsetArray[minIndex]
+         == base_func_addresses[minIndex]);
+  return base_addr;
+}
+
+static unsigned int computeLibcOffsetArray ()
+{
+  char* libcFuncOffsetStr = getenv(ENV_VAR_LIBC_FUNC_OFFSETS);
+  char *start;
+  char *next;
+  int count;
+
+  assert(libcFuncOffsetStr != NULL);
+
+  start = libcFuncOffsetStr;
+  for (count = 0; count < numLibcWrappers; count++) {
+    libcFuncOffsetArray[count] = strtoul(start, &next, 16);
+    if (*next != ';') break;
+    start = next + 1;
+  }
+  if (*start != '\0') count++;
+
+  assert(count == numLibcWrappers);
+}
+
+static funcptr get_libc_symbol_from_array ( LibcWrapperOffset idx )
+{
+  static int libcOffsetArrayComputed = 0;
+  static char *libc_base_func_addr = NULL;
+  if (libcOffsetArrayComputed == 0) {
+    computeLibcOffsetArray();
+    // Important:  call computeLibcOffsetArray() before glibc_base_func()
+    libc_base_func_addr = get_libc_base_func();
+    libcOffsetArrayComputed = 1;
+  }
+  return (funcptr)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
 
 static funcptr get_libc_symbol ( const char* name )

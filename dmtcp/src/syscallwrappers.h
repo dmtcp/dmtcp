@@ -79,7 +79,22 @@ extern "C"
 # define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 #endif 
 
+/* First group below is candidates for glibc_base_func_addr in syscallsreal.c
+ * We can't tell which ones were already re-defined by the user executable.
+ * For example, /bin/dash defines isalnum in Ubuntu 9.10.
+ * Note that a system call can't be a base fnc if we are already wrapping it.
+ */
+#define FOREACH_GLIBC_BASE_FUNC(MACRO)      \
+  MACRO(isalnum)			    \
+  MACRO(clearerr)			    \
+  MACRO(getopt)				    \
+  MACRO(perror)				    \
+  MACRO(fscanf)
+
+/* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
 #define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
+  FOREACH_GLIBC_BASE_FUNC(MACRO)	    \
+                                            \
   MACRO(socket)                             \
   MACRO(connect)                            \
   MACRO(bind)                               \
@@ -133,12 +148,12 @@ extern "C"
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 
 
-#define ENUM(x) enum_ ## x
-#define GEN_ENUM(x) ENUM(x),
+# define ENUM(x) enum_ ## x
+# define GEN_ENUM(x) ENUM(x),
   typedef enum {
     FOREACH_GLIBC_FUNC_WRAPPER(GEN_ENUM)
-    numLibCWrappers
-  } LibCWrapperOffset;
+    numLibcWrappers
+  } LibcWrapperOffset;
 
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
