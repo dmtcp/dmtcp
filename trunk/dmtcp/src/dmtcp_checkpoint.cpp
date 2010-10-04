@@ -153,16 +153,20 @@ static void *get_libc_symbol ( const char* name )
 static void prepareDmtcpWrappers()
 {
 #ifndef ENABLE_DLOPEN
-  unsigned int wrapperOffsetArray[numLibCWrappers];
-  char *glibc_base_function_addr = (char*)&GLIBC_BASE_FUNC;
+  unsigned int wrapperOffsetArray[numLibcWrappers];
+  char *glibc_base_function_addr = NULL;
+
+# define _FIRST_BASE_ADDR(name) if (glibc_base_function_addr == NULL) \
+				  glibc_base_function_addr = (char *)&name;
+  FOREACH_GLIBC_BASE_FUNC(_FIRST_BASE_ADDR);
 
 # define _GET_OFFSET(x) \
-    wrapperOffsetArray[enum_ ## x] = ((char*)get_libc_symbol(#x) - glibc_base_function_addr);
-
+    wrapperOffsetArray[enum_ ## x] = ((char*)get_libc_symbol(#x) \
+				     - glibc_base_function_addr);
   FOREACH_GLIBC_FUNC_WRAPPER(_GET_OFFSET);
 
   dmtcp::ostringstream os;
-  for (int i = 0; i < numLibCWrappers; i++) {
+  for (int i = 0; i < numLibcWrappers; i++) {
     os << std::hex << wrapperOffsetArray[i] << ";";
   }
 

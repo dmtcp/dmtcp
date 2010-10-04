@@ -467,6 +467,11 @@ os.environ['DMTCP_GZIP'] = "0"
 runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
 os.environ['DMTCP_GZIP'] = GZIP
 
+if testconfig.HAS_DASH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("dash",          2, ["/bin/dash -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
+
 os.environ['DMTCP_GZIP'] = "0"
 runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
 os.environ['DMTCP_GZIP'] = GZIP

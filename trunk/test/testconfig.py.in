@@ -1,7 +1,7 @@
 #testconfig.py is generated using testconfig.py.in by ./configure
 
 HAS_READLINE="@HAS_READLINE@"
-HAS_ZSH="@HAS_ZSH@"
+HAS_DASH="@HAS_DASH@"
 HAS_SCRIPT="@HAS_SCRIPT@"
 HAS_SCREEN="@HAS_SCREEN@"
 SCREEN="@SCREEN@"

@@ -114,6 +114,9 @@ if test x"$static_libc" = xno; then
   and must be added via the glibc-static package.])
 fi
 
+#check for dash
+AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
+
 #check for zsh
 AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
 
