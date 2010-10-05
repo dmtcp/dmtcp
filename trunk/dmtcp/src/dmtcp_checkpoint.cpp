@@ -444,8 +444,7 @@ int main ( int argc, char** argv )
     isElf = (0 == memcmp(magic_elf.c_str(), argv_buf, magic_elf.length()));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
-       If so, the checkpoint will fail.  Trying, anyway.
-        "*** ERROR:  You appear to be checkpointing "
+      JASSERT_STDERR << "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
         << "***  configure --enable-m32 ; make clean ; make\n\n";
