@@ -360,6 +360,13 @@ void dmtcp::ConnectionList::erase ( iterator i )
   delete con;
 }
 
+void dmtcp::ConnectionList::erase ( dmtcp::ConnectionIdentifier& key )
+{
+  iterator i = _connections.find(key);
+  JASSERT(i != _connections.end());
+  erase(i);
+}
+
 // TODO: To properly implement STL erase(), it should return the next iterator.
 void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
 {

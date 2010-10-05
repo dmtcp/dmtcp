@@ -55,6 +55,7 @@ namespace dmtcp
       iterator end() { return _connections.end(); }
       static ConnectionList& instance();
       void erase ( iterator i );
+      void erase ( ConnectionIdentifier& key );
       ConnectionList();
       Connection& operator[] ( const ConnectionIdentifier& id );
 
