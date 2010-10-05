@@ -90,7 +90,7 @@ static char * get_libc_base_func ()
 {
   static char * base_addr = NULL;
   void *base_func_addresses[100];
-  unsigned int average, minDist;
+  unsigned long int average, minDist;
   int minIndex;
   int count, index;
   if (base_addr != NULL)
