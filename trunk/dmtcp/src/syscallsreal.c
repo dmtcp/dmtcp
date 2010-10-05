@@ -123,6 +123,7 @@ static char * get_libc_base_func ()
   }
 
   base_addr = base_func_addresses[minIndex] - libcFuncOffsetArray[minIndex];
+  /* FIXME:  Should verify that base_addr is in libc seg of /proc/self/maps */
   assert(base_addr + libcFuncOffsetArray[minIndex]
          == base_func_addresses[minIndex]);
   return base_addr;
