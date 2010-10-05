@@ -25,6 +25,9 @@
 #include <list>
 #include <string>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <linux/version.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -175,14 +178,16 @@ extern "C" int pipe ( int fds[2] )
   return socketpair ( AF_UNIX, SOCK_STREAM, 0, fds );
 }
 
-
+// pipe2 appeared in Linux 2.6.27
 extern "C" int pipe2 ( int fds[2], int flags )
 {
   JTRACE ( "promoting pipe2() to socketpair()" );
   //just promote pipes to socketpairs
   int newFlags = 0;
+# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
   if (flags & O_NONBLOCK != 0) newFlags |= SOCK_NONBLOCK;
   if (flags & O_CLOEXEC != 0)  newFlags |= SOCK_CLOEXEC;
+#endif
   return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
 }
 
