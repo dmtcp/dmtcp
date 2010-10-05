@@ -21,8 +21,10 @@
 
 #include "jfilesystem.h"
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <linux/version.h>
 #include "jconvert.h"
 #include <dirent.h>
 #include <algorithm>
@@ -201,8 +203,13 @@ typedef struct _libc_dirstream
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
   jalib::string dir = "/proc/self/fd";
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
   int fd = _real_open (dir.c_str(), O_RDONLY | O_NDELAY | O_LARGEFILE | 
                                     O_DIRECTORY | O_CLOEXEC, 0);
+#else
+  int fd = _real_open (dir.c_str(), O_RDONLY | O_NDELAY | O_LARGEFILE | 
+                                    O_DIRECTORY, 0);
+#endif
   JASSERT(fd>=0);
 
   const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
