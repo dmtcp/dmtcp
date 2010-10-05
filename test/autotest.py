@@ -482,8 +482,8 @@ if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = GZIP
 
 # *** Works manually, but not yet in autotest ***
-if False and testconfig.HAS_SCRIPT == "yes":
-  S=2
+if testconfig.HAS_SCRIPT == "yes":
+  S=1
   if sys.version_info[0:2] >= (2,6):
     runTest("script",      4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +
@@ -494,7 +494,7 @@ if False and testconfig.HAS_SCRIPT == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # BUT screen -s CMD works only when CMD is single word.
 # *** Works manually, but not yet in autotest ***
-if False and testconfig.HAS_SCREEN == "yes" \
+if testconfig.HAS_SCREEN == "yes" \
   and not (os.stat(testconfig.SCREEN).st_mode & (stat.S_ISUID | stat.S_ISGID)):
   S=1
   runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])

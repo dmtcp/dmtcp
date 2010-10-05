@@ -1370,8 +1370,9 @@ static bool ptmxTestPacketMode(int masterFd) {
   fd_set readfds;
   struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
 
-  ptsname_r(masterFd, tmp_buf, 100), O_RDWR;
-  slave_fd = open(tmp_buf, O_RDWR);
+  _real_ptsname_r(masterFd, tmp_buf, 100);
+  /* permissions not used, but _real_open requires third arg */
+  slave_fd = _real_open(tmp_buf, O_RDWR, 0666);
 
   /* A. Drain master before testing.
         Ideally, DMTCP has already drained it and preserved any information
@@ -1411,6 +1412,7 @@ static bool ptmxTestPacketMode(int masterFd) {
   JWARNING ((rc = write(slave_fd, tmp_buf, 1)) == 1) (rc) .Text("write failed");
   /* Read the 'x':  If we also see a command byte, it's packet mode */
   rc = read(masterFd, tmp_buf, 100);
+  _real_close(slave_fd);
 
   /* D. Check if command byte packet exists, and chars rec'd is longer by 1. */
   return (rc == 2 && tmp_buf[0] == TIOCPKT_DATA && tmp_buf[1] == 'x');
