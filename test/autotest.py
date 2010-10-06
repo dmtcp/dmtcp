@@ -161,7 +161,9 @@ def launch(cmd):
     if pid == 0:
       # replace stdout; child might otherwise block on writing to stdout
       os.close(1)
-      os.open('/dev/null', os.O_RDWR | os.O_APPEND)
+      os.open('/dev/null', os.O_WRONLY | os.O_APPEND)
+      os.close(2)
+      os.open('/dev/null', os.O_WRONLY | os.O_APPEND)
       os.execvp(cmd[0], cmd)
       # os.system( reduce(lambda x,y:x+y, cmd) )
       # os.exit(0)
@@ -302,8 +304,10 @@ def runTest(name, numProcs, cmds):
     for x in procs:
       #cleanup proc
       try:
-	x.stdin.close()
-        x.stdout.close()
+        if x.stdin:
+	  x.stdin.close()
+        if x.stdout:
+          x.stdout.close()
         if x.stderr:
           x.stderr.close()
         os.waitpid(x.pid, os.WNOHANG)

@@ -1387,7 +1387,9 @@ int main ( int argc, char** argv )
     JASSERT ( sock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
       .Text ( "Failed to create listen socket."
        "\nIf msg is \"Address already in use\", this may be an old coordinator."
-       "\nKill other coordinators and try again in a minute or so." );
+       "\nKill default coordinator and try again:  dmtcp_command -q"
+       "\nIf that fails, \"pkill -9 dmtcp_coord\","
+	" and try again in a minute or so." );
   }
 
   thePort = sock->port();

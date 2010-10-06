@@ -459,7 +459,7 @@ int main ( int argc, char** argv )
     // nonzero status.  Why is this?  It's dynamically linked.
     if ( isElf && system(cmd.c_str()) )
       JASSERT_STDERR <<
-        "*** WARNING:  /lib/ld-2.10.1.so --verify " << argv[0] << "returns\n"
+        "*** WARNING:  /lib/ld-2.10.1.so --verify " << argv[0] << " returns\n"
         << "***  nonzero status.  This often means that " << argv[0] << " is\n"
         << "*** a statically linked target.  If so, you can confirm this with\n"
         << "*** the 'file' command.\n"
