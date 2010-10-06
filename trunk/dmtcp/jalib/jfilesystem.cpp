@@ -41,6 +41,23 @@ namespace
     return exeRes;
   }
 
+  // Set buf, and return length read (including all null characters)
+  int _GetProgramCmdline(char *buf, int size)
+  {
+    int fd = open("/proc/self/cmdline", O_RDONLY);
+    int rc;
+    int count = 0;
+    JASSERT(fd >= 0);
+    // rc == 0 means EOF, or else it means buf is full (size chars read)
+    while ((rc = read(fd, buf+count, size-count)) != 0) {
+      if (rc == -1 && errno != EINTR && errno != EAGAIN)
+	break;  // Give up, bad error
+      if (rc > 0)
+	count += rc;
+    }
+    return (rc < 0 ? -1 : count);
+  }
+
   jalib::string _FileBaseName ( const jalib::string& str )
   {
     int lastSlash = 0;
@@ -68,7 +85,17 @@ jalib::string jalib::Filesystem::GetProgramDir()
 
 jalib::string jalib::Filesystem::GetProgramName()
 {
-  static jalib::string value = _FileBaseName ( GetProgramPath() );
+  static jalib::string value = "";
+  if (value == "") {
+    int len;
+    static char cmdline[1024];
+    value = _FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
+    if (len > 0 && value == ResolveSymlink("/lib/ld-linux.so.2")
+	&& (len = _GetProgramCmdline(cmdline, 1024)) > 0
+	&& value == ResolveSymlink(cmdline)
+	&& len > strlen(cmdline) + 1)
+      value = _FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
+  }
   return value;
 }
 
