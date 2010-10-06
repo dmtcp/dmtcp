@@ -21,15 +21,14 @@
 
 #include "jfilesystem.h"
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <linux/version.h>
 #include "jconvert.h"
 #include <dirent.h>
 #include <algorithm>
 #include "errno.h"
 #include <sys/utsname.h>
+#include <sys/syscall.h>
 #include "syscallwrappers.h"
 
 namespace
@@ -177,67 +176,37 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
 #define MALLOC_SAFE_LISTOPENFDS
 #ifdef MALLOC_SAFE_LISTOPENFDS
-/*
- * The Following structure is taken from <glibc-root>/sysdeps/dirstream.h
- * Directory stream type.
-
-   The miscellaneous Unix `readdir' implementations read directory data
-   into a buffer and return `struct dirent *' pointers into it.  */
-
-typedef struct _libc_dirstream
-  {
-    int fd;			/* File descriptor.  */
-
-    int lock; /* Mutex lock for this structure.  */
-
-    size_t allocation;		/* Space allocated for the block.  */
-    size_t size;		/* Total valid data in the block.  */
-    size_t offset;		/* Current offset into the block.  */
-
-    off_t filepos;		/* Position of next entry to read.  */
-
-    /* Directory block.  */
-    char data[0] __attribute__ ((aligned (__alignof__ (void*))));
-  } _DIR;
-
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
-  jalib::string dir = "/proc/self/fd";
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-  int fd = _real_open (dir.c_str(), O_RDONLY | O_NDELAY | O_LARGEFILE | 
-                                    O_DIRECTORY | O_CLOEXEC, 0);
-#else
-  int fd = _real_open (dir.c_str(), O_RDONLY | O_NDELAY | O_LARGEFILE | 
-                                    O_DIRECTORY, 0);
-#endif
+  int fd = _real_open ("/proc/self/fd", O_RDONLY | O_NDELAY |
+                                        O_LARGEFILE | O_DIRECTORY, 0);
   JASSERT(fd>=0);
 
   const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
                              ? sizeof (struct dirent64) : 4 * BUFSIZ);
+  char buf[allocation];
 
-  _DIR *dp = (_DIR *) jalib::JAllocDispatcher::malloc (sizeof (_DIR) + allocation);
-  JASSERT(dp != NULL);
-
-  dp->fd = fd;
-  dp->lock = 0;
-  dp->allocation = allocation;
-  dp->size = 0;
-  dp->offset = 0;
-  dp->filepos = 0;
-
-  struct dirent *p;
-  struct dirent d;
   IntVector fdVec;
 
-  while (readdir_r ((DIR*)dp, &d, &p) == 0 && p != NULL) {
-    char *ch;
-    int fdnum = strtol ( d.d_name, &ch, 10 );
-    if ( *ch == 0 && fdnum >= 0 ) {
-      fdVec.push_back ( fdnum );
+  while (true) {
+    int nread = _real_syscall(SYS_getdents, fd, buf, allocation);
+    if (nread == 0) {
+      break;
+    }
+    JASSERT(nread > 0);
+    for (int pos = 0; pos < nread;) {
+      struct linux_dirent *d = (struct linux_dirent *) (&buf[pos]);
+      if (d->d_ino > 0) {
+        char *ch;
+        int fdnum = strtol ( d->d_name, &ch, 10 );
+        if ( *ch == 0 && fdnum >= 0 ) {
+          fdVec.push_back ( fdnum );
+        }
+      }
+      pos += d->d_reclen;
     }
   }
 
-  jalib::JAllocDispatcher::free (dp);
   _real_close(fd);
 
   std::sort(fdVec.begin(), fdVec.end());
