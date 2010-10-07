@@ -43,6 +43,8 @@
 #include <string.h>
 #include <dlfcn.h>
 
+int testScreen(char **argvPtr[]);
+
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -510,7 +512,11 @@ int main ( int argc, char** argv )
 #endif
 
   //run the user program
-  execvp ( argv[0], argv );
+  char **newArgv = argv;
+  if (0 == testScreen(&newArgv))
+    execvp ( newArgv[0], newArgv );
+  else
+    execvp ( argv[0], argv );
 
   //should be unreachable
   JASSERT_STDERR <<
@@ -522,3 +528,81 @@ int main ( int argc, char** argv )
   return -1;
 }
 
+int expandPathname(const char *inpath, char *outpath, size_t size) {
+  bool success = false;
+  if (*inpath == '/') {
+    strncpy(outpath, inpath, size);
+    success = true;
+  } else if (*inpath == '~' && *inpath == '/') {
+    strncpy(outpath, getenv("HOME"), size);
+    strncpy(outpath + strlen(outpath), inpath + 2, size-2);
+    success = true;
+  } else {
+    char *pathVar = getenv("PATH");
+    while (*pathVar != '\0') {
+      char *nextPtr;
+      nextPtr = strstr(pathVar, ":");
+      if (nextPtr == NULL)
+        nextPtr = pathVar + strlen(pathVar); 
+      memcpy(outpath, pathVar, nextPtr - pathVar);
+      *(outpath + (nextPtr - pathVar)) = '/';
+      strcpy(outpath + (nextPtr - pathVar) + 1, inpath);
+      JASSERT (strlen(outpath) < size) (strlen(outpath)) (size)
+	      (outpath) .Text("Pathname too long; Use larger buffer.");
+      if (*nextPtr  == '\0')
+        pathVar = nextPtr;
+      else // else *nextPtr == ':'
+        pathVar = nextPtr + 1; // prepare for next iteration
+      if (access(outpath, X_OK) == 0) {
+	success = true;
+	break;
+      }
+    }
+  }
+  return (success ? 0 : -1);
+}
+
+// Doesn't malloc.  Returns pointer to within pathname.
+char *dmtcp_basename(char *pathname) {
+  char *ptr = pathname;
+  while (*ptr++ != '\0')
+    if (*ptr == '/')
+      pathname = ptr+1;
+  return pathname;
+}
+
+// Test for 'screen' program, argvPtr is an in- and out- parameter
+int testScreen(char **argvPtr[]) {
+  struct stat st;
+  // If screen has setuid or segid bits set, ...
+  char *pathname_base = dmtcp_basename((*argvPtr)[0]);
+  char pathname[128];
+  if ((*argvPtr)[0] == NULL)
+    return -1;
+  if (expandPathname((*argvPtr)[0], pathname, sizeof(pathname)) != 0)
+    return -1;
+  if ( strcmp(pathname_base, "screen") == 0
+       && stat(pathname, &st) == 0
+       && (st.st_mode | S_ISUID || st.st_mode | S_ISGID) ) {
+    dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
+    if (!access(tmpdir.c_str(), F_OK))
+      mkdir(tmpdir.c_str(), 0700);
+    JASSERT (chmod(tmpdir.c_str(), 0700) == 0) (tmpdir) (JASSERT_ERRNO);
+    setenv("SCREENDIR", tmpdir.c_str(), 1);
+
+    static char cmdBuf[1024];
+    char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
+    *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
+    expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
+    // Switch argvPtr from ptr to input to ptr to output now.
+    *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
+    (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
+    (*argvPtr)[1] = cmdBuf;
+    for (int i = 1; oldArgv[i] != NULL; i++)
+      *argvPtr[i+1] = oldArgv[i];
+    JASSERT ((char *)cmdBuf[sizeof(cmdBuf)-sizeof(char *)] == NULL)
+      (sizeof(cmdBuf)) .Text("Expanded command longer than sizeof(cmdBuf");
+    return 0;
+  } else
+    return -1;
+}
