@@ -821,7 +821,7 @@ void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 void dmtcp::FileConnection::refreshPath()
 {
   char cur_dir[PATH_MAX];
-  getcwd(cur_dir, PATH_MAX);
+  JASSERT(getcwd(cur_dir, PATH_MAX) != NULL) (string(cur_dir));
   dmtcp::string curDir = cur_dir;
   if( _rel_path != "*" ){ // file path is relative to executable current dir
     string oldPath = _path;

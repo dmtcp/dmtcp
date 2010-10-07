@@ -91,7 +91,7 @@ jalib::string jalib::Filesystem::GetProgramName()
     static char cmdline[1024];
     value = _FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
     if (len > 0 && value == ResolveSymlink("/lib/ld-linux.so.2")
-	&& (len = _GetProgramCmdline(cmdline, 1024)) > 0
+	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& value == ResolveSymlink(cmdline)
 	&& len > strlen(cmdline) + 1)
       value = _FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
