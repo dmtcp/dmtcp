@@ -38,6 +38,7 @@
 #include <iostream>
 #include <ios>
 #include <fstream>
+#include <linux/limits.h>
 
 static dmtcp::string _procFDPath ( int fd )
 {
@@ -704,7 +705,8 @@ void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 
 void dmtcp::FileConnection::refreshPath()
 {
-  const char* cur_dir = get_current_dir_name();
+  char cur_dir[PATH_MAX];
+  getcwd(cur_dir, PATH_MAX);
   dmtcp::string curDir = cur_dir;
   if( _rel_path != "*" ){ // file path is relative to executable current dir
     string oldPath = _path;
