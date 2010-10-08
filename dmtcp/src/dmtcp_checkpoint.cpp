@@ -44,7 +44,9 @@
 #include <dlfcn.h>
 
 int testScreen(char **argvPtr[]);
-void elfType(const char *pathname, bool *isElf, bool *is32bitElf);
+int testStaticallyLinked(const char *pathname);
+void adjust_rlimit_stack();
+int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 int safe_system(const char *command);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -415,93 +417,30 @@ int main ( int argc, char** argv )
   setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
 #endif
 
-  //copy args into new structure
-  //char** newArgs = new char* [argc];
-  //memset ( newArgs, 0, sizeof ( char* ) *argc );
-  //for ( int i=0; i<argc-startArg; ++i )
-  //  newArgs[i] = argv[i+startArg];
-
-  // Magic number for ELF 64-bit is "\177ELF\002"
-  char argv_buf[5];
-  int fd = open(argv[0], O_RDONLY);
-  if (fd == -1 || 5 != read(fd, argv_buf, 5)) {
-    // If can't open or read file, "exec failed" message will handle it.
-    // Once we know this is safe, delete this comment and exit after
-    // JASSERT_STDERR, without continuing and trying the execvp anyway.
-    // Consider also checking these things after call to exec(),
-    //   perhaps in DmtcpWorker constructor.
+  bool isElf, is32bitElf;
+  if  (elfType(argv[0], &isElf, &is32bitElf) == -1) {
+    // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
-    // JASSERT_STDERR <<
-    //   "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
+    JASSERT_STDERR <<
+      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
+    exit(1);
   } else {
-    bool is32bitElf = false;
-    bool isElf = false;
-    elfType(argv_buf, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
       JASSERT_STDERR << "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
         << "***  configure --enable-m32 ; make clean ; make\n\n";
-    dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
-			           : "/lib64/ld-linux-x86-64.so.2 --verify " ;
-#else
-    dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
 #endif
-    cmd = cmd + argv[0] + " > /dev/null";
-    // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
-    // nonzero status.  Why is this?  It's dynamically linked.
-    if ( isElf && safe_system(cmd.c_str()) )
-      JASSERT_STDERR <<
-        "*** WARNING:  /lib/ld-2.10.1.so --verify " << argv[0] << " returns\n"
-        << "***  nonzero status.  This often means that " << argv[0] << " is\n"
-        << "*** a statically linked target.  If so, you can confirm this with\n"
-        << "*** the 'file' command.\n"
-        << "***  The standard DMTCP only supports dynamically"
-	<< " linked executables.\n"
-	<< "*** If you cannot recompile dynamically, please talk to the"
-	<< " developers about a\n"
-	<< "*** custom DMTCP version for statically linked executables.\n"
-        << "*** Proceeding for now, and hoping for the best.\n\n";
+
+    testStaticallyLinked(argv[0]);
   }
-  if (fd != -1)
-    close (fd);
 
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-#ifdef __i386__
-  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
-  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
-  //   but there's currently a bug on restart in the sequence:
-  //   checkpoint -> restart -> checkpoint -> restart
-# if 0
-  { unsigned long oldPersonality = personality(0xffffffffL);
-    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
-      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
-      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
-      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
-    }
-  }
-# else
-  { struct rlimit rlim;
-    getrlimit(RLIMIT_STACK, &rlim);
-    if (rlim.rlim_cur != RLIM_INFINITY) {
-      char buf[100];
-      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
-      setenv("DMTCP_RLIMIT_STACK", buf, 1);
-      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
-      rlim.rlim_cur = rlim.rlim_max;
-      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
-      setrlimit(RLIMIT_STACK, &rlim);
-      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
-    }
-  }
-# endif
-#endif
+  adjust_rlimit_stack();
 
   //run the user program
   char **newArgv = argv;
@@ -520,7 +459,7 @@ int main ( int argc, char** argv )
   return -1;
 }
 
-int expandPathname(const char *inpath, char *outpath, size_t size) {
+int expandPathname(const char *inpath, char * const outpath, size_t size) {
   bool success = false;
   if (*inpath == '/') {
     strncpy(outpath, inpath, size);
@@ -554,11 +493,22 @@ int expandPathname(const char *inpath, char *outpath, size_t size) {
   return (success ? 0 : -1);
 }
 
-void elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
-    const char *magic_elf = "\177ELF"; // Magic number for ELF
-    const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
-    *isElf = (0 == memcmp(magic_elf, pathname, strlen(magic_elf)));
-    *is32bitElf = (0 == memcmp(magic_elf32, pathname, strlen(magic_elf32)));
+int elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
+  const char *magic_elf = "\177ELF"; // Magic number for ELF
+  const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
+  // Magic number for ELF 64-bit is "\177ELF\002"
+  const int len = strlen(magic_elf32);
+  char argv_buf[len];
+  char full_path[1024];
+  expandPathname(pathname, full_path, sizeof(full_path));
+  int fd = open(full_path, O_RDONLY);
+  if (fd == -1 || 5 != read(fd, argv_buf, 5))
+    return -1;
+  else
+    close (fd);
+  *isElf = (memcmp(magic_elf, argv_buf, strlen(magic_elf)) == 0);
+  *is32bitElf = (memcmp(magic_elf32, argv_buf, strlen(magic_elf32)) == 0);
+  return 0;
 }
 
 // Doesn't malloc.  Returns pointer to within pathname.
@@ -598,6 +548,66 @@ int safe_system(const char *command) {
   return rc;
 }
 
+int testStaticallyLinked(const char *pathname) {
+  bool isElf, is32bitElf;
+  elfType(pathname, &isElf, &is32bitElf);
+#if defined(__x86_64__) && !defined(CONFIG_M32)
+  dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
+			         : "/lib64/ld-linux-x86-64.so.2 --verify " ;
+#else
+  dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
+#endif
+  cmd = cmd + pathname + " > /dev/null";
+  // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
+  // nonzero status.  Why is this?  It's dynamically linked.
+  if ( isElf && safe_system(cmd.c_str()) )
+    JASSERT_STDERR <<
+      "*** WARNING:  /lib/ld-2.10.1.so --verify " << pathname << " returns\n"
+      << "***  nonzero status.  This often means that " << pathname << " is\n"
+      << "*** a statically linked target.  If so, you can confirm this with\n"
+      << "*** the 'file' command.\n"
+      << "***  The standard DMTCP only supports dynamically"
+      << " linked executables.\n"
+      << "*** If you cannot recompile dynamically, please talk to the"
+      << " developers about a\n"
+      << "*** custom DMTCP version for statically linked executables.\n"
+      << "*** Proceeding for now, and hoping for the best.\n\n";
+}
+
+void adjust_rlimit_stack() {
+#ifdef __i386__
+  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
+  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
+  //   but there's currently a bug on restart in the sequence:
+  //   checkpoint -> restart -> checkpoint -> restart
+# if 0
+  { unsigned long oldPersonality = personality(0xffffffffL);
+    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
+      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
+      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
+      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
+      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
+    }
+  }
+# else
+  { struct rlimit rlim;
+    getrlimit(RLIMIT_STACK, &rlim);
+    if (rlim.rlim_cur != RLIM_INFINITY) {
+      char buf[100];
+      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
+      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
+      setenv("DMTCP_RLIMIT_STACK", buf, 1);
+      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
+      rlim.rlim_cur = rlim.rlim_max;
+      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
+      setrlimit(RLIMIT_STACK, &rlim);
+      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
+    }
+  }
+# endif
+#endif
+}
+
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 int testScreen(char **argvPtr[]) {
   struct stat st;
@@ -624,11 +634,12 @@ int testScreen(char **argvPtr[]) {
 #ifdef COPY_SCREEN
     // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
     char *newArgv0 = cmdBuf + strlen(cmdBuf) + 1;
-    sprintf(newArgv0, "%s/%s",
+    snprintf(newArgv0, sizeof(cmdBuf)-(newArgv0-cmdBuf), "%s/%s",
 	    dmtcp::UniquePid::getTmpDir().c_str(), pathname_base);
     unlink(newArgv0);  // Remove any stale copy, just in case it's not right.
     char *cpCmd = newArgv0 + strlen(newArgv0) + 1;
-    sprintf(cpCmd, "cp %s %s", pathname, newArgv0);
+    snprintf(cpCmd, sizeof(cmdBuf)-(cpCmd-cmdBuf), "cp %s %s",
+	     pathname, newArgv0);
     safe_system(cpCmd);
     JASSERT (access(newArgv0, X_OK) == 0) (newArgv0) (JASSERT_ERRNO);
     (*argvPtr)[0] = newArgv0;
