@@ -44,6 +44,7 @@
 #include <dlfcn.h>
 
 int testScreen(char **argvPtr[]);
+void elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -422,8 +423,6 @@ int main ( int argc, char** argv )
   //for ( int i=0; i<argc-startArg; ++i )
   //  newArgs[i] = argv[i+startArg];
 
-  dmtcp::string magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
-  dmtcp::string magic_elf = "\177ELF"; // Magic number for ELF
   // Magic number for ELF 64-bit is "\177ELF\002"
   char argv_buf[5];
   int fd = open(argv[0], O_RDONLY);
@@ -441,9 +440,7 @@ int main ( int argc, char** argv )
     bool is32bitElf = false;
     bool isElf = false;
     char * ld_preload = getenv("LD_PRELOAD");
-    is32bitElf = (0 == memcmp(magic_elf32.c_str(),
-		       argv_buf, magic_elf32.length()));
-    isElf = (0 == memcmp(magic_elf.c_str(), argv_buf, magic_elf.length()));
+    elfType(argv_buf, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
       JASSERT_STDERR << "*** ERROR:  You appear to be checkpointing "
@@ -562,6 +559,13 @@ int expandPathname(const char *inpath, char *outpath, size_t size) {
   return (success ? 0 : -1);
 }
 
+void elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
+    const char *magic_elf = "\177ELF"; // Magic number for ELF
+    const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
+    *isElf = (0 == memcmp(magic_elf, pathname, strlen(magic_elf)));
+    *is32bitElf = (0 == memcmp(magic_elf32, pathname, strlen(magic_elf32)));
+}
+
 // Doesn't malloc.  Returns pointer to within pathname.
 char *dmtcp_basename(char *pathname) {
   char *ptr = pathname;
@@ -569,6 +573,28 @@ char *dmtcp_basename(char *pathname) {
     if (*ptr == '/')
       pathname = ptr+1;
   return pathname;
+}
+
+// 'screen' requires directory with permissions 0700
+int isdir_0700(const char *pathname) {
+  struct stat st;
+  stat(pathname, &st);
+  return (S_ISDIR(st.st_mode) == 1
+          && st.st_mode & 0777 == 0700
+          && st.st_uid == getuid()
+          && access(pathname, R_OK | W_OK | X_OK) == 0
+         );
+}
+int safe_mkdir(const char *pathname, mode_t mode) {
+  // If it exists and we can give it the right permissions, do it.
+  chmod(pathname, 0700);
+  if (isdir_0700(pathname))
+    return 0;
+  // else start over
+  unlink(pathname);
+  rmdir(pathname); // Maybe it was an empty directory
+  mkdir(pathname, 0700);
+  return isdir_0700(pathname);
 }
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
@@ -583,20 +609,28 @@ int testScreen(char **argvPtr[]) {
     return -1;
   if ( strcmp(pathname_base, "screen") == 0
        && stat(pathname, &st) == 0
-       && (st.st_mode | S_ISUID || st.st_mode | S_ISGID) ) {
+       && (st.st_mode & S_ISUID || st.st_mode & S_ISGID) ) {
     dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
-    if (!access(tmpdir.c_str(), F_OK))
-      mkdir(tmpdir.c_str(), 0700);
-    JASSERT (chmod(tmpdir.c_str(), 0700) == 0) (tmpdir) (JASSERT_ERRNO);
+    safe_mkdir(tmpdir.c_str(), 0700);
     setenv("SCREENDIR", tmpdir.c_str(), 1);
 
     static char cmdBuf[1024];
+    bool isElf, is32bitElf;
     char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
     *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
     expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
     // Switch argvPtr from ptr to input to ptr to output now.
     *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
+    // Use /lib64 if 64-bit O/S and not 32-bit app:
+#if defined(__x86_64__) && !defined(CONFIG_M32)
+    elfType(cmdBuf, &isElf, &is32bitElf);
+    if (is32bitElf)
+      (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
+    else
+      (*argvPtr)[0] = (char *)"/lib64/ld-linux-x86-64.so.2";
+#else
     (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
+#endif
     (*argvPtr)[1] = cmdBuf;
     for (int i = 1; oldArgv[i] != NULL; i++)
       *argvPtr[i+1] = oldArgv[i];
