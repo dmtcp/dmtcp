@@ -45,6 +45,7 @@
 
 int testScreen(char **argvPtr[]);
 void elfType(const char *pathname, bool *isElf, bool *is32bitElf);
+int safe_system(const char *command);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -121,10 +122,10 @@ static const char* theMatlabWarning =
 ;
 
 static const char* theSetuidWarning =
-  "\n**** WARNING:  This process has the setuid bit set.  This is\n"
+  "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
   "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
   "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
-  "***  for the best.  For some programs (like 'screen'), you may wish to\n"
+  "***  for the best.  For some programs, you may wish to\n"
   "***  compile your own private copy, without using setuid permission.\n\n"
 ;
 
@@ -342,13 +343,10 @@ int main ( int argc, char** argv )
   if ( curPath != NULL ) {
     struct stat buf;
     int rc = stat(pathname.c_str(), &buf);
-    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)) {
+    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
+        && (strcmp(argv[0], "screen") != 0
+            || strstr(argv[0], "/screen") != NULL))) {
       JASSERT_STDERR << theSetuidWarning;
-      if ( strcmp(argv[0], "screen") == 0 ) {
-        JASSERT_STDERR<< "*** If you are trying to checkpoint screen, you can\n"
-          << "*** download and build 'screen' via configure/make from\n"
-          << "=====  http://ftp.gnu.org/gnu/screen/ =====\n";
-      }
       sleep(3);
     }
   }
@@ -439,7 +437,6 @@ int main ( int argc, char** argv )
   } else {
     bool is32bitElf = false;
     bool isElf = false;
-    char * ld_preload = getenv("LD_PRELOAD");
     elfType(argv_buf, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
@@ -453,10 +450,9 @@ int main ( int argc, char** argv )
     dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
 #endif
     cmd = cmd + argv[0] + " > /dev/null";
-    unsetenv ( "LD_PRELOAD" );
     // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
     // nonzero status.  Why is this?  It's dynamically linked.
-    if ( isElf && system(cmd.c_str()) )
+    if ( isElf && safe_system(cmd.c_str()) )
       JASSERT_STDERR <<
         "*** WARNING:  /lib/ld-2.10.1.so --verify " << argv[0] << " returns\n"
         << "***  nonzero status.  This often means that " << argv[0] << " is\n"
@@ -468,7 +464,6 @@ int main ( int argc, char** argv )
 	<< " developers about a\n"
 	<< "*** custom DMTCP version for statically linked executables.\n"
         << "*** Proceeding for now, and hoping for the best.\n\n";
-    setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   }
   if (fd != -1)
     close (fd);
@@ -596,6 +591,12 @@ int safe_mkdir(const char *pathname, mode_t mode) {
   mkdir(pathname, 0700);
   return isdir_0700(pathname);
 }
+int safe_system(const char *command) {
+  dmtcp::string dmtcphjk = getenv("LD_PRELOAD");
+  int rc = system(command);
+  setenv( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+  return rc;
+}
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 int testScreen(char **argvPtr[]) {
@@ -619,24 +620,42 @@ int testScreen(char **argvPtr[]) {
     char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
     *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
     expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
+#define COPY_SCREEN
+#ifdef COPY_SCREEN
+    // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
+    char *newArgv0 = cmdBuf + strlen(cmdBuf) + 1;
+    sprintf(newArgv0, "%s/%s",
+	    dmtcp::UniquePid::getTmpDir().c_str(), pathname_base);
+    unlink(newArgv0);  // Remove any stale copy, just in case it's not right.
+    char *cpCmd = newArgv0 + strlen(newArgv0) + 1;
+    sprintf(cpCmd, "cp %s %s", pathname, newArgv0);
+    safe_system(cpCmd);
+    JASSERT (access(newArgv0, X_OK) == 0) (newArgv0) (JASSERT_ERRNO);
+    (*argvPtr)[0] = newArgv0;
+    return 0;
+#else
+    // Translate: screen   to: /lib/ld-linux.so /usr/bin/screen
+    // This version is more general, but has a bug on restart:
+    //    memory layout is altered on restart, and so brk() doesn't match.
     // Switch argvPtr from ptr to input to ptr to output now.
     *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
     // Use /lib64 if 64-bit O/S and not 32-bit app:
-#if defined(__x86_64__) && !defined(CONFIG_M32)
+# if defined(__x86_64__) && !defined(CONFIG_M32)
     elfType(cmdBuf, &isElf, &is32bitElf);
     if (is32bitElf)
       (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
     else
       (*argvPtr)[0] = (char *)"/lib64/ld-linux-x86-64.so.2";
-#else
+# else
     (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
-#endif
+# endif
     (*argvPtr)[1] = cmdBuf;
     for (int i = 1; oldArgv[i] != NULL; i++)
       *argvPtr[i+1] = oldArgv[i];
     JASSERT ((char *)cmdBuf[sizeof(cmdBuf)-sizeof(char *)] == NULL)
       (sizeof(cmdBuf)) .Text("Expanded command longer than sizeof(cmdBuf");
     return 0;
+#endif
   } else
     return -1;
 }
