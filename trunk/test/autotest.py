@@ -499,7 +499,6 @@ if testconfig.HAS_SCRIPT == "yes":
 # BUT screen -s CMD works only when CMD is single word.
 # *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCREEN == "yes":
-  #and not (os.stat(testconfig.SCREEN).st_mode & (stat.S_ISUID | stat.S_ISGID)):
   S=1
   runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])
   S=0.3
