@@ -408,13 +408,24 @@ namespace
 	  // -- Artem
 	  JTRACE("Change current GID to foreground GID.");
 
-	  JASSERT(setpgid(0, fgid) == 0) ( JASSERT_ERRNO )
-            ( getpid() ) ( fgid ) ( _virtualPidTable.fgid() ) ( gid )
-            .Text ( "CANNOT Change current GID to foreground GID" );
+	if( setpgid(0, fgid) ){
+ 	  printf("CANNOT Change current GID to foreground GID: %s\n",
+ 	  strerror(errno));
+ 	  printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
+ 	  getpid(),fgid,_virtualPidTable.fgid(), gid);
+ 	  fflush(stdout);
+ 	  exit(0);
+	}
 
-	  JASSERT(tcsetpgrp(sin, gid) == 0) ( JASSERT_ERRNO )
-            ( getpid() ) ( fgid ) ( _virtualPidTable.fgid() ) ( gid )
-	    .Text ( "CANNOT Move parent GID to foreground: %s\n" );
+      if( tcsetpgrp(sin, gid) ){
+	  printf("CANNOT Move parent GID to foreground: %s\n",
+		 strerror(errno));
+ 	  printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
+ 	  printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
+		 getpid(),fgid,_virtualPidTable.fgid(), gid);
+ 	  fflush(stdout);
+ 	  exit(0);
+ 	  }
 
 	  JTRACE("Finish foregrounding.")(getpid())(getpgid(0))(tcgetpgrp(0));
 	  exit(0);
