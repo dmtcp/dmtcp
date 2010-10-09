@@ -40,7 +40,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
    * pre-existing connections because the parent has already done that.
    *
    * So, here while creating the instance, we do not want to execute everything
-   * in the constructor since its not relevant. All we need to call is
+   * in the constructor since it's not relevant. All we need to call is
    * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
   new ( &theInstance ) DmtcpWorker ( false );
