@@ -509,7 +509,7 @@ if testconfig.HAS_GCL == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  S=3
+  S=2
   runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=0.3
 
@@ -535,5 +535,3 @@ except CheckFailed, e:
   print "Error in SHUTDOWN():", e.value
 except:
   print "Error in SHUTDOWN()"
-
-

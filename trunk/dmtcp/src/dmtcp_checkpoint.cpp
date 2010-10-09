@@ -43,8 +43,10 @@
 #include <string.h>
 #include <dlfcn.h>
 
+int testMatlab(const char *filename);
+int testSetuid(const char *filename);
+int testStaticallyLinked(const char *filename);
 int testScreen(char **argvPtr[]);
-int testStaticallyLinked(const char *pathname);
 void adjust_rlimit_stack();
 int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 int safe_system(const char *command);
@@ -106,29 +108,6 @@ static const char* theExecFailedMsg =
   "ERROR: Failed to exec(\"%s\"): %s\n"
   "Perhaps it is not in your $PATH?\n"
   "See `dmtcp_checkpoint --help` for usage.\n"
-;
-
-static const char* theMatlabWarning =
-  "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
-  "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
-  "****  \n"
-  "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
-  "****  with gcc-4.1 and g++-4.1\n"
-  "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-  "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-  "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-  "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-  "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-  "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-  "****   (Assuming you have done the above, Will now continue executing.)\n\n"
-;
-
-static const char* theSetuidWarning =
-  "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
-  "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
-  "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
-  "***  for the best.  For some programs, you may wish to\n"
-  "***  compile your own private copy, without using setuid permission.\n\n"
 ;
 
 static dmtcp::string _stderrProcPath()
@@ -313,45 +292,13 @@ int main ( int argc, char** argv )
   // non-zero region (assuming that the zero-mapped pages are contiguous).
   // - Gene
 
-#ifdef __GNUC__
-# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
-  if ( strcmp(argv[0], "matlab") == 0 )
-    JASSERT_STDERR << theMatlabWarning;
-# endif
-#endif
+  testMatlab(argv[0]);
 
   // If dmtcphijack.so is in standard search path and also has setgid access,
   //   then LD_PRELOAD will work.  Otherwise, it will only work if the
   //   application does not use setuid and setgid access.  So, we test
   //   if the application does not use setuid/setgid.  (See 'man ld.so')
-  // Compute absolute path for argv[0].  [SHOULD BE SEPARATE FUNCTION]
-  dmtcp::string pathname;
-  char * curPath;
-  if (*(argv[0]) == '/') {
-    curPath = argv[0];
-  } else {
-    char pathCopy[10000];
-    char * pathPtr = pathCopy;
-    char * savePtr;
-    strncpy(pathCopy, getenv("PATH"), sizeof(pathCopy));
-    while ( (curPath = strtok_r(pathPtr, ":", &savePtr)) != NULL ) {
-      pathname = curPath;
-      pathname = (pathname + "/") + argv[0];
-      if (access(pathname.c_str(), X_OK) == 0)
-        break;
-      pathPtr = NULL;
-    }
-  }
-  if ( curPath != NULL ) {
-    struct stat buf;
-    int rc = stat(pathname.c_str(), &buf);
-    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
-        && (strcmp(argv[0], "screen") != 0
-            || strstr(argv[0], "/screen") != NULL))) {
-      JASSERT_STDERR << theSetuidWarning;
-      sleep(3);
-    }
-  }
+  testSetuid(argv[0]);
 
   prepareDmtcpWrappers();
 
@@ -461,10 +408,10 @@ int main ( int argc, char** argv )
 
 int expandPathname(const char *inpath, char * const outpath, size_t size) {
   bool success = false;
-  if (*inpath == '/') {
+  if (*inpath == '/' || strstr(inpath, "/") != NULL) {
     strncpy(outpath, inpath, size);
     success = true;
-  } else if (*inpath == '~' && *inpath == '/') {
+  } else if (inpath[0] == '~' && inpath[1] == '/') {
     strncpy(outpath, getenv("HOME"), size);
     strncpy(outpath + strlen(outpath), inpath + 2, size-2);
     success = true;
@@ -542,14 +489,70 @@ int safe_mkdir(const char *pathname, mode_t mode) {
   return isdir_0700(pathname);
 }
 int safe_system(const char *command) {
-  dmtcp::string dmtcphjk = getenv("LD_PRELOAD");
+  char *str = getenv("LD_PRELOAD");
+  dmtcp::string dmtcphjk;
+  if (str != NULL)
+    dmtcphjk = str;
+  unsetenv("LD_PRELOAD");
   int rc = system(command);
-  setenv( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+  if (str != NULL)
+    setenv( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   return rc;
 }
 
-int testStaticallyLinked(const char *pathname) {
+int testMatlab(const char *filename) {
+#ifdef __GNUC__
+# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+  static const char* theMatlabWarning =
+    "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
+    "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
+    "****  \n"
+    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
+    "****  with gcc-4.1 and g++-4.1\n"
+    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+    "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+    "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+    "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+    "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+    "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+    "****   (Assuming you have done the above, Will now continue"
+	    " executing.)\n\n" ;
+
+  // FIXME:  should expand filename and "matlab" before checking
+  if ( strcmp(filename, "matlab") == 0 ) {
+    JASSERT_STDERR << theMatlabWarning;
+    return -1;
+  }
+# endif
+#endif
+  return 0;
+}
+
+int testSetuid(const char *filename) {
+  static const char* theSetuidWarning =
+    "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
+    "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
+    "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
+    "***  for the best.  For some programs, you may wish to\n"
+    "***  compile your own private copy, without using setuid permission.\n\n" ;
+  char pathname[1024];
+  if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
+    struct stat buf;
+    int rc = stat(pathname, &buf);
+    // screen tested separately.  Exclude it here.
+    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
+        && (strcmp(pathname, "screen") != 0
+            || strstr(pathname, "/screen") != NULL))) {
+      JASSERT_STDERR << theSetuidWarning;
+      sleep(3);
+    }
+  }
+}
+
+int testStaticallyLinked(const char *filename) {
   bool isElf, is32bitElf;
+  char pathname[1024];
+  expandPathname(filename, pathname, sizeof(pathname));
   elfType(pathname, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
   dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
@@ -560,7 +563,7 @@ int testStaticallyLinked(const char *pathname) {
   cmd = cmd + pathname + " > /dev/null";
   // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
   // nonzero status.  Why is this?  It's dynamically linked.
-  if ( isElf && safe_system(cmd.c_str()) )
+  if ( isElf && safe_system(cmd.c_str()) ) {
     JASSERT_STDERR <<
       "*** WARNING:  /lib/ld-2.10.1.so --verify " << pathname << " returns\n"
       << "***  nonzero status.  This often means that " << pathname << " is\n"
@@ -572,6 +575,9 @@ int testStaticallyLinked(const char *pathname) {
       << " developers about a\n"
       << "*** custom DMTCP version for statically linked executables.\n"
       << "*** Proceeding for now, and hoping for the best.\n\n";
+    return -1;
+  } else
+    return 0;
 }
 
 void adjust_rlimit_stack() {
@@ -613,7 +619,7 @@ int testScreen(char **argvPtr[]) {
   struct stat st;
   // If screen has setuid or segid bits set, ...
   char *pathname_base = dmtcp_basename((*argvPtr)[0]);
-  char pathname[128];
+  char pathname[1024];
   if ((*argvPtr)[0] == NULL)
     return -1;
   if (expandPathname((*argvPtr)[0], pathname, sizeof(pathname)) != 0)
