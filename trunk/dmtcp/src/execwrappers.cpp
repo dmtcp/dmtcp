@@ -206,7 +206,10 @@ static void execLibProcessAndExit(const char *path)
 static void dmtcpPrepareForExec(const char *path)
 {
   const char * libPrefix = "/lib/lib";
+  const char * lib64Prefix = "/lib64/lib";
   if (path != NULL && 0 == strncmp(path, libPrefix, sizeof(libPrefix)))
+    execLibProcessAndExit(path);
+  if (path != NULL && 0 == strncmp(path, lib64Prefix, sizeof(lib64Prefix)))
     execLibProcessAndExit(path);
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();

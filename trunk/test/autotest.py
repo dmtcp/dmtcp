@@ -473,6 +473,7 @@ os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
+  del os.environ['ENV']  # Delete reference to dash initialization file
   runTest("dash",          2, ["/bin/dash -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
