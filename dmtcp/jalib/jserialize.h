@@ -92,6 +92,46 @@ namespace jalib
         JSERIALIZE_ASSERT_POINT ( "endvector" );
       }
 
+      template < typename K, typename V >
+      void serializePair ( K& key, V& val ) {
+        JBinarySerializer& o = *this;
+        JSERIALIZE_ASSERT_POINT ( "[" );
+        serialize ( key );
+        JSERIALIZE_ASSERT_POINT ( "," );
+        serialize ( val );
+        JSERIALIZE_ASSERT_POINT ( "]" );
+      }
+
+      template < typename K, typename V >
+      void serializeMap ( dmtcp::map<K, V>& t )
+      {
+        JBinarySerializer& o = *this;
+
+        JSERIALIZE_ASSERT_POINT ( "dmtcp::map:" );
+
+        //establish the size
+        size_t len = t.size();
+        serialize ( len );
+
+        //now serialize all the elements
+        if (isReader()) {
+          K key; V val;
+          for (int i = 0; i < len; i++) {
+            serializePair(key, val);
+            t[key] = val;
+          }
+        } else {
+          for ( typename dmtcp::map<K, V>::iterator i = t.begin(); 
+                i != t.end();
+                ++i ) {
+            K key = i->first;
+            V val = i->second;
+            serializePair(key, val);
+          }
+        }
+        JSERIALIZE_ASSERT_POINT ( "endmap" );
+      }
+
       const jalib::string& filename() const {return _filename;}
       size_t bytes() const { return _bytes; }
     private:
@@ -142,6 +182,7 @@ namespace jalib
       bool isReader();
       void rewind();
       bool isempty();
+      bool isEOF();
     protected:
       int _fd;
   };
@@ -152,6 +193,7 @@ namespace jalib
       JBinarySerializeReader ( const jalib::string& path );
       ~JBinarySerializeReader();
   };
+
 
 
 }

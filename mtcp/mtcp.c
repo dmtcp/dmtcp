@@ -327,6 +327,7 @@ static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
 static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat (Linux 2.6.9)
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
+static char const *sys_v_shmem_file = "/SYSV";
 //static char const *perm_checkpointfilename = NULL;
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[MAXPATHLEN];
@@ -1934,6 +1935,12 @@ static void checkpointeverything (void)
       area.name[0] = '\0';
     }
 
+    if (strncmp (area.name, sys_v_shmem_file, strlen(sys_v_shmem_file)) == 0) {
+      DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n",
+	       area.name));
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      area.name[0] = '\0';
+    }
 
     /* Special Case Handling: nscd is enabled*/
     if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
@@ -2897,9 +2904,12 @@ static int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if ( strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
+  if (strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
       || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
-      || strncmp(area -> name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0  ) { /* if nscd active*/
+      || strncmp(area -> name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0  ) {
+    /* if nscd is active */
+  } else if ( strncmp(area -> name, sys_v_shmem_file, strlen(sys_v_shmem_file)) == 0 ) {
+    /* System V Shared-Memory segments are handled by DMTCP. */
   }
   else if (area -> name[0] == '/'                 /* if an absolute pathname */
 	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */

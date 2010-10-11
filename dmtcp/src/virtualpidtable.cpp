@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include "constants.h"
+#include "helper.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 #include  "../jalib/jconvert.h"
@@ -487,39 +488,6 @@ void dmtcp::VirtualPidTable::serializeEntryCount (
   JSERIALIZE_ASSERT_POINT ( "]" );
 }
 
-
-void dmtcp::VirtualPidTable::_lock_file(int fd)
-{
-  struct flock fl;
-
-  fl.l_type   = F_WRLCK;  // F_RDLCK, F_WRLCK, F_UNLCK
-  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
-  //fl.l_pid    = _real_getpid(); // our PID
-
-  int result = -1;
-  errno = 0;
-  while (result == -1 || errno == EINTR )
-    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
-
-  JASSERT ( result != -1 ) (strerror(errno)) (errno) . Text ( "Unable to lock the PID MAP file" );
-}
-
-void dmtcp::VirtualPidTable::_unlock_file(int fd)
-{
-  struct flock fl;
-  int result;
-  fl.l_type   = F_UNLCK;  // tell it to unlock the region
-  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
-
-  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
-
-  JASSERT (result != -1 || errno == ENOLCK) (strerror(errno))(errno) .Text ( "Unlock Failed" ) ;
-}
-
 void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid)
 {
 
@@ -538,7 +506,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
 
   // Lock fileset before any operations
   JTRACE("Try to lock file set" );
-  _lock_file(PROTECTED_PIDMAP_FD);
+  Helper::lock_file(PROTECTED_PIDMAP_FD);
   _do_lock_tbl();
   JTRACE("Try to lock file set - OK" );
   // Read old number of saved pid maps
@@ -555,42 +523,45 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   serializeEntryCount (countwr,numMaps);
   // unlock fileset
   _do_unlock_tbl();
-  _unlock_file(PROTECTED_PIDMAP_FD);
+  Helper::unlock_file(PROTECTED_PIDMAP_FD);
   JTRACE("Unlock file set");
 }
 
 void dmtcp::VirtualPidTable::readPidMapsFromFile()
 {
-  dmtcp::string pidMapFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAP_FD );
+  dmtcp::string pidMapFile = "/proc/self/fd/" 
+                             + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-  dmtcp::string pidMapCountFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
+  dmtcp::string pidMapCountFile = "/proc/self/fd/"
+                                  + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
   pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
-  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 ) ( pidMapFile )( pidMapCountFile );
+  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 )
+    ( pidMapFile )( pidMapCountFile );
 
   JTRACE ( "Read PidMaps from file" ) ( pidMapCountFile ) ( pidMapFile );
 
   JASSERT("Close PidMap related files");
-   _real_close( PROTECTED_PIDMAP_FD );
-   _real_close( PROTECTED_PIDMAPCNT_FD );
+  _real_close( PROTECTED_PIDMAP_FD );
+  _real_close( PROTECTED_PIDMAPCNT_FD );
 
-   JTRACE("Open PidMap related files" ) ( pidMapFile )( pidMapFile );
-   jalib::JBinarySerializeReader maprd( pidMapFile);
-   jalib::JBinarySerializeReader countrd(pidMapCountFile);
-   JTRACE("Open PidMap related files - SUCCESS" ) ( pidMapFile )( pidMapFile );
+  JTRACE("Open PidMap related files" ) ( pidMapFile )( pidMapFile );
+  jalib::JBinarySerializeReader maprd( pidMapFile);
+  jalib::JBinarySerializeReader countrd(pidMapCountFile);
+  JTRACE("Open PidMap related files - SUCCESS" ) ( pidMapFile )( pidMapFile );
 
-   // Read nember of PID mappings
-   size_t numMaps;
-   serializeEntryCount (countrd,numMaps);
-   JTRACE ("Read number of PID mappings - OK")(numMaps);
+  // Read nember of PID mappings
+  size_t numMaps;
+  serializeEntryCount (countrd,numMaps);
+  JTRACE ("Read number of PID mappings - OK")(numMaps);
 
-   // Read pidMapping content
-   pid_t originalPid;
-   pid_t currentPid;
-   while ( numMaps-- > 0 ){
-     serializePidMapEntry ( maprd, originalPid, currentPid );
-     _pidMapTable[originalPid] = currentPid;
-     JTRACE("PidMaps: ") (originalPid) (currentPid);
-   }
+  // Read pidMapping content
+  pid_t originalPid;
+  pid_t currentPid;
+  while ( numMaps-- > 0 ){
+    serializePidMapEntry ( maprd, originalPid, currentPid );
+    _pidMapTable[originalPid] = currentPid;
+    JTRACE("PidMaps: ") (originalPid) (currentPid);
+  }
 }
 
 #endif

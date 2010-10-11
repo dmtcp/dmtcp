@@ -38,6 +38,7 @@
 #include "connectionmanager.h"
 #include "connectionstate.h"
 #include "dmtcp_coordinator.h"
+#include "sysvipc.h"
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -386,6 +387,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 #ifdef PID_VIRTUALIZATION
     VirtualPidTable::instance().serialize ( rd );
 #endif
+    SysVIPC::instance().serialize ( rd );
 
 #ifdef DEBUG
     JTRACE ( "initial socket table:" );
@@ -645,6 +647,12 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
 
+  /*
+   * Save first 2 * sizeof(pid_t) bytes of each shared memory area and fill it
+   * with all zeros.
+   */
+  SysVIPC::instance().prepareForLeaderElection();
+
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -658,6 +666,15 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "draining..." );
   theCheckpointState->preCheckpointDrain();
   JTRACE ( "drained" );
+
+  /*
+   * write pid at offset 0. Also write pid at offset sizeof(pid_t) if this
+   * process is the creator of this memory area. After the leader election
+   * barrier, the leader of the shared-memory object is the creater of the
+   * object. If the creater process is missing, then the leader process is the
+   * process whose pid is stored at offset 0
+   */
+  SysVIPC::instance().leaderElection();
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
@@ -677,6 +694,9 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().preCheckpoint();
 #endif
+
+  SysVIPC::instance().preCheckpoint();
+
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
 #endif
@@ -793,28 +813,6 @@ void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
   _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
 }
 
-void dmtcp::DmtcpWorker::waitForStage3Refill()
-{
-  JTRACE ( "checkpointed" );
-
-  WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
-
-  waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
-
-  JASSERT ( theCheckpointState != 0 );
-  theCheckpointState->postCheckpoint();
-  delete theCheckpointState;
-  theCheckpointState = 0;
-}
-
-void dmtcp::DmtcpWorker::waitForStage4Resume()
-{
-  JTRACE ( "refilled" );
-  WorkerState::setCurrentState ( WorkerState::REFILLED );
-  waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
-  JTRACE ( "got resume signal" );
-}
-
 void dmtcp::DmtcpWorker::postRestart()
 {
   JTRACE("begin postRestart()");
@@ -828,6 +826,33 @@ void dmtcp::DmtcpWorker::postRestart()
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().postRestart();
 #endif
+  SysVIPC::instance().postRestart();
+}
+
+void dmtcp::DmtcpWorker::waitForStage3Refill()
+{
+  JTRACE ( "checkpointed" );
+
+  WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
+
+  waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
+
+  JASSERT ( theCheckpointState != 0 );
+  theCheckpointState->postCheckpoint();
+  delete theCheckpointState;
+  theCheckpointState = 0;
+
+  SysVIPC::instance().postCheckpoint();
+}
+
+void dmtcp::DmtcpWorker::waitForStage4Resume()
+{
+  JTRACE ( "refilled" );
+  WorkerState::setCurrentState ( WorkerState::REFILLED );
+  waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
+  JTRACE ( "got resume signal" );
+
+  SysVIPC::instance().preResume();
 }
 
 void dmtcp::DmtcpWorker::restoreVirtualPidTable()

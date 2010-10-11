@@ -524,6 +524,22 @@ int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
 
+int _real_shmget (key_t key, size_t size, int shmflg) {
+  REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
+}
+
+void* _real_shmat (int shmid, const void *shmaddr, int shmflg) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( void*, shmat ) (shmid, shmaddr, shmflg);
+}
+
+int _real_shmdt (const void *shmaddr) {
+  REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
+}
+
+int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
+  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
+}
+
 #ifdef ENABLE_MALLOC_WRAPPER
 # ifdef ENABLE_DLOPEN
 #  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"

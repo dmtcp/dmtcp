@@ -25,6 +25,8 @@
 #include <list>
 #include <string>
 #include <fcntl.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/version.h>
@@ -35,6 +37,7 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
+#include "sysvipc.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -90,24 +93,6 @@ extern "C" int close ( int fd )
   }
 #endif
 
-  // #ifdef DEBUG
-  //     if(rv==0)
-  //     {
-  //         dmtcp::string closeDevice = dmtcp::KernelDeviceToConnection::instance().fdToDevice( fd );
-  //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
-  //     }
-  // #endif
-  //     else
-  //     {
-  // #ifdef DEBUG
-  //         if(dmtcp::SocketTable::instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
-  //         {
-  //             dmtcp::SocketEntry& e = dmtcp::SocketTable::instance()[fd];
-  //             JTRACE("CLOSE()")(fd)(e.remoteId().id)(e.state());
-  //         }
-  // #endif
-  //         dmtcp::SocketTable::instance().resetFd(fd);
-  //     }
   return rv;
 }
 
@@ -579,3 +564,69 @@ extern "C" int vsprintf(char *str, const char *format, va_list ap);
 extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 */
 
+#ifndef DISABLE_SYS_V_IPC
+extern "C"
+int shmget(key_t key, size_t size, int shmflg)
+{
+  int ret;
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  while (true) {
+    ret = _real_shmget(key, size, shmflg);
+    if (ret != -1 && 
+        dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
+      dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
+      break;
+    }
+    JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
+  };
+  JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  return ret;
+}
+
+extern "C"
+void *shmat(int shmid, const void *shmaddr, int shmflg)
+{
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
+  JASSERT(currentShmid != -1);
+  void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
+  if (ret != (void *) -1) {
+    dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
+    JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
+  }
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  return ret;
+}
+
+extern "C"
+int shmdt(const void *shmaddr)
+{
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  int ret = _real_shmdt(shmaddr);
+  if (ret != -1) {
+    dmtcp::SysVIPC::instance().on_shmdt(shmaddr);
+    JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
+  }
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  return ret;
+}
+
+extern "C"
+int shmctl(int shmid, int cmd, struct shmid_ds *buf)
+{
+  WRAPPER_EXECUTION_LOCK_LOCK();
+  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
+  JASSERT(currentShmid != -1);
+  int ret = _real_shmctl(currentShmid, cmd, buf);
+  // Change the creater-pid of the shm object to the original so that if
+  // calling thread wants to use it, pid-virtualization layer can take care of
+  // the original to current conversion.
+  // TODO: Need to update uid/gid fields to support uid/gid virtualization.
+  if (buf != NULL) {
+    buf->shm_cpid = dmtcp::VirtualPidTable::instance().currentToOriginalPid(buf->shm_cpid);
+  }
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  return ret;
+}
+#endif

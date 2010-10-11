@@ -36,6 +36,8 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 #include <syslog.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -43,7 +45,7 @@ extern "C"
 #endif
 
 #ifdef PID_VIRTUALIZATION
-# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)    \
+# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)   \
   MACRO(getpid)                             \
   MACRO(getppid)                            \
   MACRO(kill)                               \
@@ -91,18 +93,16 @@ extern "C"
   MACRO(perror)				    \
   MACRO(fscanf)
 
-/* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
-#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
-  FOREACH_GLIBC_BASE_FUNC(MACRO)	    \
-                                            \
+#define GLIBC_SOCKET_WRAPPERS(MACRO)        \
   MACRO(socket)                             \
   MACRO(connect)                            \
   MACRO(bind)                               \
   MACRO(listen)                             \
   MACRO(accept)                             \
   MACRO(setsockopt)                         \
-  MACRO(socketpair)                         \
-                                            \
+  MACRO(socketpair)
+
+#define GLIBC_EXEC_WRAPPERS(MACRO)          \
   MACRO(fexecve)                            \
   MACRO(execve)                             \
   MACRO(execv)                              \
@@ -110,27 +110,9 @@ extern "C"
   MACRO(execl)                              \
   MACRO(execlp)                             \
   MACRO(execle)                             \
-                                            \
-  MACRO(system)                             \
-  MACRO(fork)                               \
-  MACRO(__clone)                            \
-                                            \
-  MACRO(open)                               \
-  MACRO(fopen)                              \
-  MACRO(close)                              \
-  MACRO(fclose)                             \
-                                            \
-  MACRO(exit)                               \
-                                            \
-  MACRO(syscall)                            \
-  MACRO(unsetenv)                           \
-                                            \
-  MACRO(ptsname_r)                          \
-  MACRO(getpt)                              \
-                                            \
-  MACRO(openlog)                            \
-  MACRO(closelog)                           \
-                                            \
+  MACRO(system)
+
+#define GLIBC_SIGNAL_WRAPPERS(MACRO)        \
   MACRO(signal)                             \
   MACRO(sigaction)                          \
   MACRO(sigvec)                             \
@@ -142,7 +124,38 @@ extern "C"
                                             \
   MACRO(sigwait)                            \
   MACRO(sigwaitinfo)                        \
-  MACRO(sigtimedwait)                       \
+  MACRO(sigtimedwait)
+
+#define GLIBC_MISC_WRAPPERS(MACRO)          \
+  MACRO(fork)                               \
+  MACRO(__clone)                            \
+  MACRO(open)                               \
+  MACRO(fopen)                              \
+  MACRO(close)                              \
+  MACRO(fclose)                             \
+  MACRO(exit)                               \
+  MACRO(syscall)                            \
+  MACRO(unsetenv)                           \
+  MACRO(ptsname_r)                          \
+  MACRO(getpt)                              \
+  MACRO(openlog)                            \
+  MACRO(closelog)
+
+#define GLIBC_SYS_V_IPC_WRAPPERS(MACRO)     \
+  MACRO(shmget)                             \
+  MACRO(shmat)                              \
+  MACRO(shmdt)                              \
+  MACRO(shmctl)
+
+/* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
+#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
+  FOREACH_GLIBC_BASE_FUNC(MACRO)	    \
+                                            \
+  GLIBC_SOCKET_WRAPPERS(MACRO)              \
+  GLIBC_EXEC_WRAPPERS(MACRO)                \
+  GLIBC_SIGNAL_WRAPPERS(MACRO)              \
+  GLIBC_MISC_WRAPPERS(MACRO)                \
+  GLIBC_SYS_V_IPC_WRAPPERS(MACRO)           \
                                             \
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
@@ -261,6 +274,11 @@ extern "C"
   long int _real_syscall(long int sys_num, ... );
 
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
+  int _real_shmget(key_t key, size_t size, int shmflg);
+  void* _real_shmat(int shmid, const void *shmaddr, int shmflg);
+  int _real_shmdt(const void *shmaddr);
+  int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
 #ifdef ENABLE_MALLOC_WRAPPER
   void *_real_calloc(size_t nmemb, size_t size);

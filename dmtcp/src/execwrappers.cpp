@@ -30,6 +30,7 @@
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
+#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
@@ -220,6 +221,8 @@ static void dmtcpPrepareForExec(const char *path)
   dmtcp::VirtualPidTable::instance().prepareForExec();
   dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
+  dmtcp::SysVIPC::instance().serialize ( wr );
+
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Preparing for Exec" ) ( path );
 
