@@ -503,7 +503,8 @@ if testconfig.HAS_SCRIPT == "yes":
 # *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCREEN == "yes":
   S=1
-  runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])
+  if sys.version_info[0:2] >= (2,6):
+    runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])
   S=0.3
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
