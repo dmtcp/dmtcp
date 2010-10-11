@@ -21,6 +21,7 @@
 
 #include "jfilesystem.h"
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include "jconvert.h"
@@ -90,10 +91,13 @@ jalib::string jalib::Filesystem::GetProgramName()
     int len;
     static char cmdline[1024];
     value = _FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
-    if (len > 0 && value == ResolveSymlink("/lib/ld-linux.so.2")
+    // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
+    if (len > 0
+        && ( value == ResolveSymlink("/lib/ld-linux.so.2")
+            || value == ResolveSymlink("/lib64/ld-linux-x86-64.so.2") )
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
-	&& value == ResolveSymlink(cmdline)
-	&& len > strlen(cmdline) + 1)
+	&& len > strlen(cmdline) + 1 // more than one word in cmdline
+	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag
       value = _FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
   }
   return value;
@@ -108,7 +112,11 @@ jalib::string jalib::Filesystem::GetProgramPath()
 
 jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
-  char buf [1024];
+  static char buf [1024]; // This could be passed on via call to readlink()
+  // If path is not a symbolic link, just return it.
+  if (lstat(path.c_str(), (struct stat *)buf) == 0
+      && ! S_ISLNK(((struct stat *)buf)->st_mode))
+    return path;
   memset ( buf,0,sizeof ( buf ) );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
   if ( len <= 0 )
