@@ -47,3 +47,4 @@ PID-VIRTUALIZATION:
 2. update dmtcp_restart.cpp to check and restore orphaned child processes at restart.
 3. better error handling for missing processes.
 
+REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of shared-memory files.

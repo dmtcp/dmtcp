@@ -19,50 +19,49 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPPROTECTEDFDS_H
-#define DMTCPPROTECTEDFDS_H
-
-
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <sstream>
+#include <fcntl.h>
+#include <sys/syscall.h>
 #include "constants.h"
-#include "../jalib/jalloc.h"
+#include "syscallwrappers.h"
+#include "protectedfds.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
+#include  "helper.h"
 
-#define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
-#define PFD(i) (PROTECTED_FD_START + (i))
-#define PROTECTEDFD(i) PFD(i)
-/*
-   The values of PFD(5) and PFD(6) correspond to the values of DUP_STDERR_FD
-   and DUP_LOG_FD in jassert.cpp. They should always be kept in sync.
-*/
-// DUP_STDERR_FD
-#define PROTECTED_STDERR_FD PFD(5)
-// DUP_LOG_FD
-#define PROTECTED_JASSERTLOG_FD PFD(6)
-#define PROTECTED_PIDTBL_FD     PFD(8)
-#define PROTECTED_PIDMAP_FD     PFD(9)
-#define PROTECTED_PIDMAPCNT_FD  PFD(10)
-#define PROTECTED_TMPDIR_FD     PFD(11)
-#define PROTECTED_SHMIDLIST_FD  PFD(12)
-#define PROTECTED_SHMIDMAP_FD   PFD(13)
-
-namespace dmtcp
+void dmtcp::Helper::lock_file(int fd)
 {
+  struct flock fl;
 
-  class ProtectedFDs
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      static ProtectedFDs& instance();
-      static bool isProtected ( int fd );
-    protected:
-      ProtectedFDs();
-    private:
-//     bool _usageTable[PROTECTED_FD_COUNT];
-  };
+  fl.l_type   = F_WRLCK;  // F_RDLCK, F_WRLCK, F_UNLCK
+  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
+  fl.l_start  = 0;        // Offset from l_whence
+  fl.l_len    = 0;        // length, 0 = to EOF
+  //fl.l_pid    = _real_getpid(); // our PID
 
+  int result = -1;
+  errno = 0;
+  while (result == -1 || errno == EINTR)
+    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+
+  JASSERT (result != -1) (JASSERT_ERRNO)
+    .Text("Unable to lock the PID MAP file");
 }
 
-#endif
+void dmtcp::Helper::unlock_file(int fd)
+{
+  struct flock fl;
+  int result;
+  fl.l_type   = F_UNLCK;  // tell it to unlock the region
+  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
+  fl.l_start  = 0;        // Offset from l_whence
+  fl.l_len    = 0;        // length, 0 = to EOF
+
+  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
+
+  JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
+    .Text("Unlock Failed");
+}

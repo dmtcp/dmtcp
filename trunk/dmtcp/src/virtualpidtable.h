@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifndef VIRTUAL_PID_TABLE_H
+#define VIRTUAL_PID_TABLE_H
+
 #include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
@@ -30,9 +33,6 @@
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
-
-#ifndef VIRTUAL_PID_TABLE_H
-#define VIRTUAL_PID_TABLE_H
 
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
@@ -76,8 +76,6 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
-      static void _lock_file(int fd);
-      static void _unlock_file(int fd);
       static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
                                              pid_t& originalPid,
                                              dmtcp::UniquePid& uniquePid );

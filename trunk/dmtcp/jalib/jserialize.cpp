@@ -76,26 +76,27 @@ void jalib::JBinarySerializeReaderRaw::rewind()
 
 bool jalib::JBinarySerializeWriterRaw::isempty()
 {
-  bool ret = false;
-  off_t cur = lseek(_fd,0,SEEK_CUR);
-  off_t end = lseek(_fd,0,SEEK_END);
-  if( end == 0 )
-    ret = true;
-  JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
-  JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
-  return ret;
+  struct stat buf;
+  JASSERT(fstat(_fd, &buf) == 0);
+  return buf.st_size == 0;
 }
 
 bool jalib::JBinarySerializeReaderRaw::isempty()
 {
-  bool ret = false;
-    off_t cur = lseek(_fd,0,SEEK_CUR);
-    off_t end = lseek(_fd,0,SEEK_END);
-    if( end == 0 )
-      ret = true;
-    JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
-    JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
-    return ret;
+  struct stat buf;
+  JASSERT(fstat(_fd, &buf) == 0);
+  return buf.st_size == 0;
+}
+
+bool jalib::JBinarySerializeReaderRaw::isEOF()
+{
+  struct stat buf;
+  JASSERT(fstat(_fd, &buf) == 0);
+
+  off_t cur = lseek(_fd,0,SEEK_CUR);
+  JASSERT(cur != -1);
+
+  return cur == buf.st_size;
 }
 
 

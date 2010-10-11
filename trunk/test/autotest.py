@@ -445,6 +445,8 @@ os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
+runTest("sysv-shm",      2, ["./test/sysv-shm"])
+
 #runTest("stale-fd",      2, ["./test/stale-fd"])
 
 runTest("forkexec",      2, ["./test/forkexec"])

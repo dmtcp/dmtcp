@@ -33,6 +33,7 @@
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
+#include "helper.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -49,7 +50,7 @@ dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 using namespace dmtcp;
 
 #ifdef PID_VIRTUALIZATION
-static void openPidMapFiles();
+static void openOriginalToCurrentMappingFiles();
 void unlockPidMapFile();
 #endif
 static void runMtcpRestore ( const char* path, int offset );
@@ -879,7 +880,7 @@ int main ( int argc, char** argv )
   SetupSessions();
 
   /* Create the file to hold the pid/tid maps. */
-  openPidMapFiles();
+  openOriginalToCurrentMappingFiles();
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
@@ -1220,15 +1221,35 @@ int openSharedFile(dmtcp::string name, int flags)
   return -1;
 }
 
-static void openPidMapFiles()
+static void openOriginalToCurrentMappingFiles()
 {
   dmtcp::ostringstream pidMapFile, pidMapCountFile;
+  dmtcp::ostringstream shmidListFile, shmidMapFile;
   int fd;
+
+  shmidMapFile << dmtcpTmpDir << "/dmtcpShmidMap."
+     << compGroup << "." << std::hex << coordTstamp;
+  shmidListFile << dmtcpTmpDir << "/dmtcpShmidList."
+     << compGroup << "." << std::hex << coordTstamp;
 
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
   pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
+
+  // Open and create shmidListFile if it doesn't exist.
+  JTRACE("Open dmtcpShmidMapFile")(shmidListFile.str());
+  fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT ( dup2 ( fd, PROTECTED_SHMIDLIST_FD ) == PROTECTED_SHMIDLIST_FD )
+	  ( shmidListFile.str() );
+  close (fd);
+
+  // Open and create shmidMapFile if it doesn't exist.
+  JTRACE("Open dmtcpShmidMapFile")(shmidMapFile.str());
+  fd = openSharedFile(shmidMapFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT ( dup2 ( fd, PROTECTED_SHMIDMAP_FD ) == PROTECTED_SHMIDMAP_FD )
+	  ( shmidMapFile.str() );
+  close (fd);
 
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
@@ -1237,14 +1258,14 @@ static void openPidMapFiles()
 	  ( pidMapFile.str() );
   close (fd);
 
-  // Open and create pidMapFile if it doesn't exist.
+  // Open and create pidMapCountFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD )
 	  ( pidMapCountFile.str() );
   close(fd);
 
-  dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Helper::lock_file(PROTECTED_PIDMAPCNT_FD);
 
   // Initialize pidMapCountFile with zero value.
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
@@ -1259,7 +1280,7 @@ static void openPidMapFiles()
     JTRACE("pidMapCountFile is not empty - do nothing");
   }
 
-  dmtcp::VirtualPidTable::_unlock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Helper::unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 

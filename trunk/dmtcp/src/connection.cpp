@@ -1547,7 +1547,7 @@ void dmtcp::FifoConnection::mergeWith ( const Connection& that ){
 ///// STDIO CHECKPOINTING
 
 void dmtcp::StdioConnection::preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& drain ){
-  JTRACE ("Checkpointing stdio") (fds[0]) (id());
+  //JTRACE ("Checkpointing stdio") (fds[0]) (id());
 }
 void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds ){
   //nothing
