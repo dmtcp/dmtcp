@@ -799,6 +799,10 @@ void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 ////////////
 ///// FILE CHECKPOINTING
 
+// Upper limit on filesize for files that are automatically chosen for ckpt.
+// Default 100MB
+#define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
+
 void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
@@ -809,10 +813,24 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   stat(_path.c_str(),&_stat);
 
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || !jalib::Filesystem::FileExists(_path)) {
+  string progName = jalib::Filesystem::GetProgramName();
+
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || 
+      !jalib::Filesystem::FileExists(_path)) {
+    saveFile(fds[0]);
+  } else if ((_fcntlFlags & (O_WRONLY|O_RDWR)) != 0 &&
+             _offset < _stat.st_size &&
+             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+             _stat.st_uid == getuid()) {
+    saveFile(fds[0]);
+  } else if ((progName == "vi" || progName == "vim" || progName == "vim-normal") &&
+             _path.compare(_path.length() - 4, 4, ".swp") == 0) {
+    saveFile(fds[0]);
+  } else if (progName == "emacs" || progName.compare(0, 5, "emacs") == 0) {
     saveFile(fds[0]);
   }
 }
+
 void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
 
