@@ -478,7 +478,6 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
   mtcp_segreg_t TLSSEGREG;
 #ifdef PTRACE 
-  char dir[MAXPATHLEN];
   init_thread_local();
 #endif
 
@@ -530,35 +529,6 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
                                                  //     we will leave the previous good one intact
 
 #ifdef PTRACE
-  /* auxiliary files used by ptrace */
-  /* "/tmp/dmtcp" owned by only one user.  No one else can use this.
-     Better programming would be to create "/tmp/FILE", open it with
-     a file descriptor, and then immediately unlink them.  Then the
-     next program can create "/tmp/FILE" with no name conflict,
-        (or sleep for 1 second if we're so unlucky that the other
-        user hasn't unlinked yet.
-     Can't we just use local variables instead of files and
-     avoid this whole issue?
-                                                        - Gene */
-
-  if (mkdir("/tmp/dmtcp", 0777) < 0) { /* Others need to write into this. */
-        if (errno != EEXIST) {
-                perror("/tmp/dmtcp");
-                mtcp_abort();
-        }
-  }  memset(dir, '\0', MAXPATHLEN);
-  sprintf(dir, "/tmp/dmtcp/%s", getenv("USER"));
-  if (! getenv("USER"))
-    sprintf(dir, "/tmp/dmtcp/unknown");
-
-  if (mkdir(dir, 0755) < 0) {
-        if (errno != EEXIST) {
-                perror("mtcp_init: mkdir");
-                printf("mtcp_init: mkdir: dir: %s\n", dir);
-                mtcp_abort();
-        }
-  }
-
   /* TODO:  USE flock WHEN WRITING TO THESE THREE FILES (NOT YET DONE FOR ptrace_setoptions_file? */
   memset(ptrace_shared_file, '\0', MAXPATHLEN);
   sprintf(ptrace_shared_file, "%s/ptrace_shared_file.txt", dir);

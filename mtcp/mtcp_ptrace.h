@@ -38,6 +38,8 @@ extern int init_ptrace_read_pairs_sem;
 extern sem_t __sem;
 extern int init__sem;
 
+#define SYNCHRONIZATIONPATHLEN (MAXPATHLEN + 128)
+char dir[MAXPATHLEN];
 extern char ptrace_shared_file[MAXPATHLEN];
 extern char ptrace_setoptions_file[MAXPATHLEN];
 extern char checkpoint_threads_file[MAXPATHLEN];

@@ -209,6 +209,11 @@ sigset_t signals_set;
 
 void dmtcp::initializeMtcpEngine()
 {
+  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  char *dir =
+     (char*) _get_mtcp_symbol( "dir" );  
+  sprintf(dir, "%s",  tmpdir.c_str());
+
   int *dmtcp_exists_ptr =
     (int*) _get_mtcp_symbol( "dmtcp_exists" );
   *dmtcp_exists_ptr = 1;
