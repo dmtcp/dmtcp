@@ -84,12 +84,6 @@ struct ptrace_tid_pairs ptrace_pairs[MAX_PTRACE_PAIRS_COUNT];
 int ptrace_pairs_count = 0;
 int init_ptrace_pairs = 0;
 
-#ifdef PTRACE
-extern char ptrace_shared_file[MAXPATHLEN];
-extern char ptrace_setoptions_file[MAXPATHLEN];
-extern char checkpoint_threads_file[MAXPATHLEN];
-#endif
-
 /***************************************************************************/
 /* THIS CODE MUST BE CHANGED TO CHECK TO SEE IF THE USER CREATES EVEN MORE */
 /* THREADS.                                                                */
@@ -653,16 +647,16 @@ is_waitpid_local = 1;
 
 void ptrace_lock_inferiors()
 {
-    char file[256];
-    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",GETTID());
+    char file[SYNCHRONIZATIONPATHLEN];
+    snprintf(file,SYNCHRONIZATIONPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
     unlink(file);
 }
 
 void ptrace_unlock_inferiors()
 {
-    char file[256];
+    char file[SYNCHRONIZATIONPATHLEN];
     int fd;
-    snprintf(file, 256, "/tmp/dmtcp_ptrace_unlocked.%d", GETTID());
+    snprintf(file, SYNCHRONIZATIONPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
     fd = creat(file,0644);
     if( fd < 0 ){
         mtcp_printf("init_lock: Error while creating lock file: %s\n",
@@ -674,11 +668,11 @@ void ptrace_unlock_inferiors()
 
 void create_file(pid_t pid)
 {
-  char str[15];
+  char str[SYNCHRONIZATIONPATHLEN];
   int fd;
 
-  memset(str, 0, 15);
-  sprintf(str, "/tmp/%d", pid);
+  memset(str, 0, SYNCHRONIZATIONPATHLEN);
+  sprintf(str, "%s/%d", dir, pid);
 
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
@@ -695,11 +689,11 @@ void create_file(pid_t pid)
 
 static void have_file(pid_t pid)
 {
-  char str[15];
+  char str[SYNCHRONIZATIONPATHLEN];
   int fd;
 
-  memset(str, 0, 15);
-  sprintf(str, "/tmp/%d", pid);
+  memset(str, 0, SYNCHRONIZATIONPATHLEN);
+  sprintf(str, "%s/%d", dir, pid);
   while(1) {
     fd = open(str, O_RDONLY);
     if (fd != -1) {
@@ -720,9 +714,9 @@ static void have_file(pid_t pid)
 }
 
 void ptrace_wait4(pid_t pid)
-{    char file[256];
+{    char file[SYNCHRONIZATIONPATHLEN];
     struct stat buf;
-    snprintf(file,256,"/tmp/dmtcp_ptrace_unlocked.%d",pid);
+    snprintf(file,SYNCHRONIZATIONPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,pid);
 
     DPRINTF(("%d: Start waiting for superior\n",GETTID()));
     while( stat(file,&buf) < 0 ){
