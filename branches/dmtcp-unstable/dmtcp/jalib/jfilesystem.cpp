@@ -61,20 +61,35 @@ namespace
 
 jalib::string jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = _DirBaseName ( GetProgramPath() );
-  return value;
+  static char *buf = NULL;
+  if (buf == NULL) {
+    jalib::string value = _DirBaseName ( GetProgramPath() );
+    buf = (char*) JAllocDispatcher::malloc(value.length() + 1);
+    strncpy(buf, value.c_str(), value.length() + 1);
+  }
+  return buf;
 }
 
 jalib::string jalib::Filesystem::GetProgramName()
 {
-  static jalib::string value = _FileBaseName ( GetProgramPath() );
-  return value;
+  static char *buf = NULL;
+  if (buf == NULL) {
+    jalib::string value = _FileBaseName ( GetProgramPath() );
+    buf = (char*) JAllocDispatcher::malloc(value.length() + 1);
+    strncpy(buf, value.c_str(), value.length() + 1);
+  }
+  return buf;
 }
 
 jalib::string jalib::Filesystem::GetProgramPath()
 {
-  static jalib::string value = _GetProgramExe();
-  return value;
+  static char *buf = NULL;
+  if (buf == NULL) {
+    jalib::string value = _GetProgramExe();
+    buf = (char*) JAllocDispatcher::malloc(value.length() + 1);
+    strncpy(buf, value.c_str(), value.length() + 1);
+  }
+  return buf;
 }
 
 
