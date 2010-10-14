@@ -113,13 +113,14 @@ namespace dmtcp
       ShmSegment(int shmid);
       ShmSegment(key_t key, int size, int shmflg, int shmid);
 
+      bool isStale();
+
       int originalShmid() { return _originalShmid; }
       int currentShmid()  { return _currentShmid; }
 
       void updateCurrentShmid(int shmid) { _currentShmid = shmid; }
 
       bool isValidShmaddr(const void* shmaddr);
-      bool isStale();
       bool isOwner() { return getpid() == _ownerInfo.pid; };
 
       void prepareForLeaderElection();
@@ -150,6 +151,9 @@ namespace dmtcp
       int     _size;
       int     _creatorPid;
       int     _dmtcpMappedAddr;
+      shmatt_t _nattch;
+      unsigned short _mode;
+      struct shmid_ds _shminfo;
       struct  shmMetaInfo _originalInfo;
       struct  shmMetaInfo _ownerInfo;
       typedef dmtcp::map<void*, int> ShmaddrToFlag;

@@ -2502,9 +2502,11 @@ static void wait_for_all_restored (void)
     }
 
     if (callback_restore_virtual_pid_table != NULL) {
-      DPRINTF(("Before callback_restore_virtual_pid_table\n"));
+      DPRINTF(("Before callback_restore_virtual_pid_table: Thread:%d \n", 
+               mtcp_sys_kernel_gettid()));
       (*callback_restore_virtual_pid_table)();
-      DPRINTF(("After callback_restore_virtual_pid_table\n"));
+      DPRINTF(("After callback_restore_virtual_pid_table: Thread:%d \n",
+               mtcp_sys_kernel_gettid()));
     }
 
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);  // if this was last of all, wake everyone up

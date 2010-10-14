@@ -78,20 +78,22 @@
  *  3. BARRIER -- CHECKPOINTED
  *  4. Read all original-shmids from the file
  *  5. Re-create shared-memory segments which were checkpointed by this process.
- *  6. Write original->current mappings for all shmids which we got from
+ *  6. Remap the shm-segment to a temp addr and copy the checkpointed contents
+ *     to this address. Now unmap the area where the checkpointed contents were
+ *     stored and map the shm-segment on that address. Unmap the temp addr now.
+ *  7. Write original->current mappings for all shmids which we got from
  *     shmget() in previous step.
- *  7. BARRIER -- REFILLED
- *  8. Re-map the memory-segment into each process's memory as it existed prior
+ *  8. BARRIER -- REFILLED
+ *  9. Re-map the memory-segment into each process's memory as it existed prior
  *     to checkpoint.
- *  9. Unmap the memory that was mapped in step 2a.
- * 10. BARRIER -- RESUME
- *
+ * 10. Unmap the memory that was mapped in step 2a.
+ * 11. BARRIER -- RESUME
  */
 
 /*
  * TODO:
  * 1. Preserve Shmids across exec()     -- DONE
- * 2. 
+ * 2. Handle the case when the segment is marked for removal at ckpt time.
  */
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
@@ -233,6 +235,7 @@ void dmtcp::SysVIPC::preResume()
   if (isRestarting) {
     _originalToCurrentShmids.clear();
     readShmidMapsFromFile(PROTECTED_SHMIDMAP_FD);
+    _real_close(PROTECTED_SHMIDMAP_FD);
   }
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
@@ -242,9 +245,9 @@ void dmtcp::SysVIPC::preResume()
       (i->first) (_originalToCurrentShmids.size());
     
     shmObj.updateCurrentShmid(_originalToCurrentShmids[i->first]);
-    if (isRestarting) {
-      shmObj.remapFirstAddrForOwnerOnRestart();
-    }
+//    if (isRestarting) {
+//      shmObj.remapFirstAddrForOwnerOnRestart();
+//    }
     shmObj.remapAll();
   }
 }
@@ -257,6 +260,7 @@ void dmtcp::SysVIPC::postCheckpoint()
 
   _originalToCurrentShmids.clear();
   readShmidMapsFromFile(PROTECTED_SHMIDLIST_FD);
+  _real_close(PROTECTED_SHMIDLIST_FD);
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
@@ -397,15 +401,13 @@ bool dmtcp::ShmSegment::isStale()
     JASSERT(_shmaddrToFlag.empty());
     return true;
   }
+  _nattch = shminfo.shm_nattch;
+  _mode = shminfo.shm_perm.mode;
   return false;
 }
 
 void dmtcp::ShmSegment::prepareForLeaderElection()
 {
-  struct shmid_ds shminfo;
-
-  JASSERT(_real_shmctl(_currentShmid, IPC_STAT, &shminfo) != -1);
-
   /* If the creator process hasn't mapped this object, map it now so that it
    * can be checkpointed. In the post restart routine, we will be unmapping
    * this address.
@@ -414,8 +416,8 @@ void dmtcp::ShmSegment::prepareForLeaderElection()
    * loose it if the unmapping happens before it is re-mapped by the other
    * processes.
    */
-  if (shminfo.shm_nattch == 0 ||
-      (_creatorPid == getpid() && _shmaddrToFlag.empty())) {
+  if (_nattch == 0 || (_creatorPid == getpid() && _shmaddrToFlag.empty())) {
+
     void *mapaddr = _real_shmat(_originalShmid, NULL, 0);
     JASSERT(mapaddr != (void*) -1);
     _shmaddrToFlag[mapaddr] = 0;
@@ -513,21 +515,21 @@ void dmtcp::ShmSegment::recreateShmSegment()
       }
       JASSERT(_real_shmctl(shmid, IPC_RMID, NULL) != -1);
     }
+    remapFirstAddrForOwnerOnRestart();
   }
 }
 
 void dmtcp::ShmSegment::remapFirstAddrForOwnerOnRestart()
 {
-  if (_ownerInfo.pid == getpid()) {
-    ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-    void *tmpaddr = _real_shmat(_currentShmid, NULL, 0);
-    JASSERT(tmpaddr != (void*) -1) (_currentShmid)(JASSERT_ERRNO);
-    memcpy(tmpaddr, i->first, _size);
-    munmap(i->first, _size);
-    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
-    JASSERT(_real_shmdt(tmpaddr) == 0);
-    JTRACE("Remapping shared memory segment")(_currentShmid);
-  }
+  JASSERT(_ownerInfo.pid == getpid());
+  ShmaddrToFlagIter i = _shmaddrToFlag.begin();
+  void *tmpaddr = _real_shmat(_currentShmid, NULL, 0);
+  JASSERT(tmpaddr != (void*) -1) (_currentShmid)(JASSERT_ERRNO);
+  memcpy(tmpaddr, i->first, _size);
+  munmap(i->first, _size);
+  JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
+  JASSERT(_real_shmdt(tmpaddr) == 0);
+  JTRACE("Remapping shared memory segment")(_currentShmid);
 }
 
 void dmtcp::ShmSegment::remapAll()
@@ -538,6 +540,7 @@ void dmtcp::ShmSegment::remapAll()
     pid_t *addr = (pid_t *) i->first;
     *addr = _originalInfo.pid;
     *(int*)(addr+1) = _originalInfo.creatorSignature;
+    JTRACE("Owner process, restoring first 8 bytes of shared area");
   }
 
   for (i = _shmaddrToFlag.begin() ; i != _shmaddrToFlag.end(); ++i) {
