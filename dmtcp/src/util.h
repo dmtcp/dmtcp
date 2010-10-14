@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifndef UTIL_H
+#define UTIL_H
+
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -30,38 +33,15 @@
 #include "protectedfds.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
-#include  "helper.h"
 
-void dmtcp::Helper::lock_file(int fd)
+namespace dmtcp
 {
-  struct flock fl;
-
-  fl.l_type   = F_WRLCK;  // F_RDLCK, F_WRLCK, F_UNLCK
-  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
-  //fl.l_pid    = _real_getpid(); // our PID
-
-  int result = -1;
-  errno = 0;
-  while (result == -1 || errno == EINTR)
-    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
-
-  JASSERT (result != -1) (JASSERT_ERRNO)
-    .Text("Unable to lock the PID MAP file");
+  class Util {
+    public:
+      Util(){};
+      static void lock_file(int fd);
+      static void unlock_file(int fd);
+  };
 }
 
-void dmtcp::Helper::unlock_file(int fd)
-{
-  struct flock fl;
-  int result;
-  fl.l_type   = F_UNLCK;  // tell it to unlock the region
-  fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
-
-  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
-
-  JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
-    .Text("Unlock Failed");
-}
+#endif

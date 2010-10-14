@@ -28,7 +28,7 @@
 #include "dmtcpworker.h"
 #include "protectedfds.h"
 #include "virtualpidtable.h"
-#include "helper.h"
+#include "util.h"
 #include "sysvipc.h"
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -340,9 +340,9 @@ void dmtcp::SysVIPC::writeShmidMapsToFile(int fd)
 
   jalib::JBinarySerializeWriterRaw wr (file, fd);
 
-  Helper::lock_file(fd);
+  Util::lock_file(fd);
   wr.serializeMap(_originalToCurrentShmids);
-  Helper::unlock_file(fd);
+  Util::unlock_file(fd);
 }
 
 void dmtcp::SysVIPC::readShmidMapsFromFile(int fd)

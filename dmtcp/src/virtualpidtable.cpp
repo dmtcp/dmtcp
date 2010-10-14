@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include "constants.h"
-#include "helper.h"
+#include "util.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 #include  "../jalib/jconvert.h"
@@ -506,7 +506,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
 
   // Lock fileset before any operations
   JTRACE("Try to lock file set" );
-  Helper::lock_file(PROTECTED_PIDMAP_FD);
+  Util::lock_file(PROTECTED_PIDMAP_FD);
   _do_lock_tbl();
   JTRACE("Try to lock file set - OK" );
   // Read old number of saved pid maps
@@ -523,7 +523,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   serializeEntryCount (countwr,numMaps);
   // unlock fileset
   _do_unlock_tbl();
-  Helper::unlock_file(PROTECTED_PIDMAP_FD);
+  Util::unlock_file(PROTECTED_PIDMAP_FD);
   JTRACE("Unlock file set");
 }
 
