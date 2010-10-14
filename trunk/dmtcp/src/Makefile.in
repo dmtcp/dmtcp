@@ -93,7 +93,7 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	sockettable.$(OBJEXT) syslogcheckpointer.$(OBJEXT) \
 	uniquepid.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	sysvipc.$(OBJEXT) helper.$(OBJEXT) jalloc.$(OBJEXT)
+	sysvipc.$(OBJEXT) util.$(OBJEXT) jalloc.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libnosyscallsreal_a_AR = $(AR) $(ARFLAGS)
 libnosyscallsreal_a_LIBADD =
@@ -284,7 +284,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
-	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp helper.cpp ../jalib/jalloc.cpp
+	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp ../jalib/jalloc.cpp
 
 libsyscallsreal_a_SOURCES = syscallsreal.c
 libnosyscallsreal_a_SOURCES = nosyscallsreal.c
@@ -512,7 +512,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/helper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jassert.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jbuffer.Po@am__quote@
@@ -535,6 +534,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogcheckpointer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/virtualpidtable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 
@@ -890,7 +890,7 @@ uninstall-am: uninstall-pkglibHEADERS uninstall-pkglibLIBRARIES \
 
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
-	uniquepid.h virtualpidtable.h helper.h sysvipc.h ../jalib/jalloc.h
+	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

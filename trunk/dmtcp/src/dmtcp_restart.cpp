@@ -33,7 +33,7 @@
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-#include "helper.h"
+#include "util.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -1265,7 +1265,7 @@ static void openOriginalToCurrentMappingFiles()
 	  ( pidMapCountFile.str() );
   close(fd);
 
-  dmtcp::Helper::lock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Util::lock_file(PROTECTED_PIDMAPCNT_FD);
 
   // Initialize pidMapCountFile with zero value.
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
@@ -1280,7 +1280,7 @@ static void openOriginalToCurrentMappingFiles()
     JTRACE("pidMapCountFile is not empty - do nothing");
   }
 
-  dmtcp::Helper::unlock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Util::unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 
