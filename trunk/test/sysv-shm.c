@@ -17,8 +17,9 @@ void parent(int shmid)
 
   int *ptr = (int*) addr;
   int i;
-  for (i = 1; i< 100; i++) {
+  for (i = 1; i< 100000; i++) {
     printf("Server: %d\n", i);
+    fflush(stdout);
     *ptr = i;
     while(*ptr != -i) 
       sleep(1);
@@ -37,15 +38,19 @@ void child(int shmid)
 
   int *ptr = (int*) addr;
   sleep(2);
-  while(*ptr != 0) {
+  int val;
+  while((val = *ptr) != 0) {
     int i = *ptr;
     if (i>0) {
       printf("Client: %d\n", i);
+      fflush(stdout);
       *ptr = -i;
     } else {
       sleep(1);
     }
   }
+  int a;
+  while(!a);
   exit(0);
 }
 
