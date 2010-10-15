@@ -103,15 +103,37 @@ bool jalib::JBinarySerializeReaderRaw::isEOF()
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
   size_t ret;
-  JASSERT ( (ret = write (_fd, buffer, len)) == len ) ( filename() ) (ret) ( len ).Text ( "write() failed" );
-  _bytes+=len;
+  int count = 0;
+  while ( 1 ) {
+    ret = write (_fd, (char *)buffer + count, len - count);
+    if (ret > 0)
+      count += ret;
+    if (ret == len - count)
+      break; // We're done.
+    JASSERT (ret != 0)(count)(len).Text( "write() failed: nothing to write" );
+    if (ret == -1)
+      JASSERT ( errno != EAGAIN && errno != EINTR )
+	     ( filename() )(count)(len)(JASSERT_ERRNO).Text( "write() failed" );
+  }
+  _bytes += count;
 }
 
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
   size_t ret;
-  JASSERT ( (ret = read (_fd, buffer, len)) == len ) ( filename() )(ret)( len ).Text ( "read() failed" );
-  _bytes+=len;
+  int count = 0;
+  while ( 1 ) {
+    ret = read (_fd, (char *)buffer + count, len - count);
+    if (ret > 0)
+      count += ret;
+    if (ret == len - count)
+      break; // We're done.
+    JASSERT (ret != 0)(count)(len).Text( "read() failed: end of file" );
+    if (ret == -1)
+      JASSERT ( errno != EAGAIN && errno != EINTR )
+	      ( filename() )(count)(len)(JASSERT_ERRNO).Text( "read() failed" );
+  }
+  _bytes += count;
 }
 
