@@ -50,6 +50,7 @@ namespace dmtcp
 #ifdef EXTERNAL_SOCKET_HANDLING
       void preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable );
 #endif
+      void preLockSaveOptions();
       void preCheckpointLock();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
