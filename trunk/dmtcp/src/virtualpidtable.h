@@ -35,6 +35,16 @@
 #include "constants.h"
 
 #ifdef PID_VIRTUALIZATION
+# define CURRENT_TO_ORIGINAL_PID(pid) \
+  dmtcp::VirtualPidTable::instance().currentToOriginalPid(pid)
+# define ORIGINAL_TO_CURRENT_PID(pid) \
+  dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid)
+#else
+# define CURRENT_TO_ORIGINAL_PID(pid) (pid)
+# define ORIGINAL_TO_CURRENT_PID(pid) (pid)
+#endif 
+
+#ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
   /* Shall we create seperate classes for holding original to current pid map

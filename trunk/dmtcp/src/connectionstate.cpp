@@ -94,7 +94,7 @@ void dmtcp::ConnectionState::deleteStaleConnections()
   }
 }
 
-void dmtcp::ConnectionState::preCheckpointLock()
+void dmtcp::ConnectionState::preLockSaveOptions()
 {
   SignalManager::saveSignals();
   SyslogCheckpointer::stopService();
@@ -102,7 +102,9 @@ void dmtcp::ConnectionState::preCheckpointLock()
   // build fd table with stale connections included
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
-  //lock each fd
+  // Save Options for each Fd (We need to do it here instead of
+  // preCheckpointLock because we want to restore the correct owner in
+  // postcheckpoint).
   ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
@@ -110,6 +112,17 @@ void dmtcp::ConnectionState::preCheckpointLock()
     if ( _conToFds[i->first].size() == 0 ) continue;
 
     ( i->second )->saveOptions ( _conToFds[i->first] );
+  }
+}
+
+void dmtcp::ConnectionState::preCheckpointLock()
+{
+  ConnectionList& connections = ConnectionList::instance();
+  for ( ConnectionList::iterator i = connections.begin()
+      ; i!= connections.end()
+      ; ++i ) {
+    if ( _conToFds[i->first].size() == 0 ) continue;
+
     ( i->second )->doLocking ( _conToFds[i->first] );
   }
 }

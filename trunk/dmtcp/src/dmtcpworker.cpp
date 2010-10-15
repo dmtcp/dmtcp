@@ -640,6 +640,8 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
+  theCheckpointState->preLockSaveOptions();
+
   waitForCoordinatorMsg ( "LOCK", DMT_DO_LOCK_FDS );
 
   JTRACE ( "locking..." );
