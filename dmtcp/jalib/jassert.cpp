@@ -30,6 +30,11 @@
 #include <dlfcn.h>
 
 #include <fstream>
+#include <execinfo.h>  /* For backtrace() */
+
+// Needed for dmtcp::UniquePid::getTmpDir()
+// Is there a cleaner way to get information from rest of DMTCP?
+#include "../src/uniquepid.h"
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
@@ -167,6 +172,77 @@ void jassert_internal::jassert_init ( const jalib::string& f )
   JASSERT_SET_LOGFILE(f);
 #endif
   jassert_safe_print("");
+}
+
+const jalib::string writeJbacktraceMsg() {
+  jalib::string msg = jalib::string("")
+    + "   *** Stack trace is available ***\n" \
+    "   Execute:  .../utils/dmtcp_backtrace.py\n" \
+    "   For usage:  .../utils/dmtcp_backtrace.py --help\n" \
+    "   Files saved: ";
+  msg += dmtcp::UniquePid::getTmpDir()
+                          + "/backtrace." + jalib::XToString ( getpid() );
+  msg += ", ";
+  msg += dmtcp::UniquePid::getTmpDir()
+                          + "/proc-maps." + jalib::XToString ( getpid() );
+  msg += "\n";
+  return msg;
+}
+
+void writeBacktrace() {
+  void *buffer[BT_SIZE];
+  int nptrs = backtrace(buffer, BT_SIZE);
+  jalib::string backtrace = dmtcp::UniquePid::getTmpDir()
+                          + "/backtrace." + jalib::XToString ( getpid() );
+  int fd = open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+  if (fd != -1) {
+    backtrace_symbols_fd( buffer, nptrs, fd );
+    close(fd);
+    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/backtrace";
+    unlink(lnk.c_str());  // just in case it had previously been created.
+    symlink(backtrace.c_str(), lnk.c_str());
+  }
+}
+
+// DOES:  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
+// But it could be dangerous to spawn a process in fragile state of JASSERT.
+void writeProcMaps() {
+  char mapsBuf[50000];
+  int rc, count, total;
+  int fd = open("/proc/self/maps", O_RDONLY);
+  while ((rc = read(fd, mapsBuf+count, sizeof(mapsBuf)-count)) != 0) {
+    if (rc == -1 && errno != EAGAIN && errno != EINTR)
+      break;
+    else
+      count += rc;
+  }
+  close(fd);
+  jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
+                          + "/proc-maps." + jalib::XToString ( getpid() );
+  fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
+  if (fd != -1) {
+    total = count;
+    count = 0;
+    while (total>count && (rc = write(fd, mapsBuf+count, total-count)) != 0) {
+      if (rc == -1 && errno != EAGAIN && errno != EINTR)
+        break;
+      else
+        count += rc;
+    }
+    close(fd);
+    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
+    unlink(lnk.c_str());  // just in case it had previously been created.
+    symlink(procMaps.c_str(), lnk.c_str());
+  }
+}
+
+jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
+{
+  writeBacktrace();
+  writeProcMaps();
+  // This goes to stdout.  Could also print to DUP_LOG_FD
+  Print( writeJbacktraceMsg() );
+  return *this;  // Needed as part of JASSERT macro
 }
 
 void jassert_internal::reset_on_fork ( )
