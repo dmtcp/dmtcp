@@ -541,8 +541,8 @@ int testSetuid(const char *filename) {
     int rc = stat(pathname, &buf);
     // screen tested separately.  Exclude it here.
     if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
-        && (strcmp(pathname, "screen") != 0
-            || strstr(pathname, "/screen") != NULL))) {
+        && strcmp(pathname, "screen") != 0
+        && strstr(pathname, "/screen") == NULL)) {
       JASSERT_STDERR << theSetuidWarning;
       sleep(3);
     }
