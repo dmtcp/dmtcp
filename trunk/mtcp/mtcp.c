@@ -1878,6 +1878,25 @@ static void checkpointeverything (void)
   while (readmapsline (mapsfd, &area)) {
     if (0 == strcmp(area.name, "[vsyscall]"))
       vsyscall_exists = 1;
+    if (strcmp(area.name, "[stack]") == 0) {
+      /*
+       * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
+       * page of stack (the page with highest address) which contains the
+       * environment strings and the argv[] was not shown in /proc/self/maps.
+       * This happens on some odd combination of environment passed on to
+       * Matlab process. As a result, the page was not checkpointed and hence
+       * the process segfaulted on restart. The fix is to try to mprotect this
+       * page with RWX permission to make the page visible again. This call
+       * will fail if no stack page was invisible to begin with.
+       */
+      int ret = mprotect(area.addr + area.size, 0x1000, 
+                         PROT_READ | PROT_WRITE | PROT_EXEC);
+      if (ret == 0) {
+        mtcp_printf("mtcp checkpointeverything: bottom-most page of stack\n"
+                 "(page with highest address) was invisible in /proc/self/maps.\n"
+                 "It is made visible again now.\n");
+      }
+    }
   }
   close(mapsfd);
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
