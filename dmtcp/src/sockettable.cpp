@@ -62,7 +62,7 @@ extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *s
 //     entry.setState(dmtcp::SocketEntry::T_CONNECT);
 
   dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd ).asTcp();
-  con.onConnect();
+  con.onConnect(sockfd, serv_addr, addrlen);
 
 #if HANDSHAKE_ON_CONNECT == 1
   JTRACE ( "connected, sending 1-way handshake" ) ( sockfd ) ( con.id() );
