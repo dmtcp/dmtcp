@@ -123,6 +123,7 @@ jassert_internal::JAssert::~JAssert()
     Print ( " (" );
     Print ( getpid() );
     Print ( "): Terminating...\n" );
+    jbacktrace();
   }
 
   jassert_safe_print ( ss.str().c_str() );

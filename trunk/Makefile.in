@@ -72,8 +72,8 @@ icheck-%: tests
 	@ bin/dmtcp_coordinator
 
 tidy:
-	rm -f ckpt_* dmtcp_restart_script* dmtcp-shared-memory.* core*
-	rm -rf dmtcp-autotest-* ckpt_files_*
+	rm -rf ckpt_* dmtcp_restart_script* dmtcp-shared-memory.* core*
+	rm -rf dmtcp-autotest-* 
 
 clean: tidy
 	-(cd mtcp  && $(MAKE) clean)
