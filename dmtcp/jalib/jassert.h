@@ -207,8 +207,7 @@ namespace jassert_internal
 # define JASSERT(term) \
     if ((term)) {} else \
       jassert_internal::JAssert(true) \
-        .JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed") \
-        .jassert_internal::JAssert::jbacktrace() .JASSERT_CONT_A
+        .JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
 #endif
 
 #define JALIB_CKPT_LOCK() do{\
