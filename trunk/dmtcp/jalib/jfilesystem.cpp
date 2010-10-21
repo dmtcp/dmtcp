@@ -68,19 +68,19 @@ namespace
     return str.substr ( lastSlash+1 );
   }
 
-  jalib::string _DirBaseName ( const jalib::string& str )
-  {
-    int lastSlash = 0;
-    for ( size_t i = 0; i<str.length(); ++i )
-      if ( str[i] == '/' )
-        lastSlash = i;
-    return str.substr ( 0,lastSlash );
-  }
+}
+jalib::string jalib::Filesystem::DirBaseName ( const jalib::string& str )
+{
+  int lastSlash = 0;
+  for ( size_t i = 0; i<str.length(); ++i )
+    if ( str[i] == '/' )
+      lastSlash = i;
+  return str.substr ( 0,lastSlash );
 }
 
 jalib::string jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = _DirBaseName ( GetProgramPath() );
+  static jalib::string value = DirBaseName ( GetProgramPath() );
   return value;
 }
 
@@ -89,7 +89,7 @@ jalib::string jalib::Filesystem::GetProgramName()
   static jalib::string value = "";
   if (value == "") {
     int len;
-    static char cmdline[1024];
+    char cmdline[1024];
     value = _FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (len > 0
@@ -112,7 +112,7 @@ jalib::string jalib::Filesystem::GetProgramPath()
 
 jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
-  static char buf [1024]; // This could be passed on via call to readlink()
+  char buf [1024]; // This could be passed on via call to readlink()
   // If path is not a symbolic link, just return it.
   if (lstat(path.c_str(), (struct stat *)buf) == 0
       && ! S_ISLNK(((struct stat *)buf)->st_mode))

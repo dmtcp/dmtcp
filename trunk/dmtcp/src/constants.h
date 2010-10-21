@@ -35,7 +35,8 @@
 
 #define MTCP_FILENAME "libmtcp.so"
 #define CHECKPOINT_FILE_PREFIX "ckpt_"
-#define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_files_"
+#define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_"
+#define CHECKPOINT_FILES_SUBDIR_SUFFIX "_files"
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 #define DEFAULT_HOST "127.0.0.1"

@@ -42,6 +42,7 @@
 #include <ios>
 #include <fstream>
 #include <linux/limits.h>
+#include <arpa/inet.h>
 
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
@@ -74,6 +75,52 @@ static int _makeDeadSocket()
   _real_close ( sp[1] );
   JTRACE ( "Created dead socket." ) ( sp[0] );
   return sp[0];
+}
+
+static bool _isVimApp ( )
+{
+  static int isVimApp = -1;
+
+  if (isVimApp == -1) {
+    dmtcp::string progName = jalib::Filesystem::GetProgramName();
+
+    if (progName == "vi" || progName == "vim" || progName == "vim-normal" || 
+        progName == "vim.basic"  || progName == "vim.tiny" ||
+        progName == "vim.gtk" || progName == "vim.gnome" ) {
+      isVimApp = 1;
+    } else {
+      isVimApp = 0;
+    }
+  }
+  return isVimApp;
+}
+
+static bool _isBlacklisted ( int sockfd, const sockaddr* saddr, socklen_t len )
+{
+  JASSERT( saddr != NULL );
+
+  if ( saddr->sa_family == AF_FILE ) {
+    const char* un_path = ( ( sockaddr_un* ) saddr )->sun_path;
+    dmtcp::string path = jalib::Filesystem::DirBaseName( un_path );
+
+    if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix" ||
+        path == "/var/run/nscd") { 
+      JTRACE("connect() to external process (X-server). Will not be drained")
+        (sockfd) (path);
+      return true;
+    }
+  } else if ( saddr->sa_family == AF_INET ) {
+    struct sockaddr_in* addr = ( sockaddr_in* ) saddr;
+    int port = ntohs(addr->sin_port);
+    char inet_addr[32];
+    inet_ntop(AF_INET, &(addr->sin_addr), inet_addr, sizeof(inet_addr));
+    if (strcmp(inet_addr, "127.0.0.1") == 0 && port == 6014) {
+      JTRACE("connect() to external process. Will not be drained") 
+        (sockfd) (inet_addr) (port);
+      return true;
+    }
+  }
+  return false;
 }
 
 dmtcp::Connection::Connection ( int t )
@@ -144,7 +191,7 @@ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   , _sockProtocol ( protocol )
   , _listenBacklog ( -1 )
   , _bindAddrlen ( 0 )
-    , _acceptRemoteId ( ConnectionIdentifier::Null() )
+  , _acceptRemoteId ( ConnectionIdentifier::Null() )
 {
   if (domain != -1)
     JTRACE ("Creating TcpConnection.") ( id() ) ( domain ) ( type ) ( protocol );
@@ -181,15 +228,24 @@ void dmtcp::TcpConnection::onListen ( int backlog )
   _type = TCP_LISTEN;
   _listenBacklog = backlog;
 }
-void dmtcp::TcpConnection::onConnect()
+void dmtcp::TcpConnection::onConnect( int sockfd, 
+                                      const  struct sockaddr *addr, 
+                                      socklen_t len )
 {
   JTRACE ( "Connecting." ) ( id() );
 
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Connecting with an in-use socket????" );
 
-  _type = TCP_CONNECT;
+  if (addr != NULL && _isBlacklisted(sockfd, addr, len) ) {
+    _type = TCP_EXTERNAL_CONNECT;
+    _connectAddrlen = len;
+    memcpy ( &_connectAddr, addr, len );
+  } else {
+    _type = TCP_CONNECT;
+  }
 }
+
 /*onAccept*/
 dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
   : Connection ( TCP_ACCEPT )
@@ -201,7 +257,7 @@ dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const Connect
   , _sockProtocol ( parent._sockProtocol )
   , _listenBacklog ( -1 )
   , _bindAddrlen ( 0 )
-    , _acceptRemoteId ( remote )
+  , _acceptRemoteId ( remote )
 {
   JTRACE ( "Accepting." ) ( id() ) ( parent.id() ) ( remote );
 
@@ -279,8 +335,8 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
       if ( hasLock ( fds ) )
       {
         const ConnectionIdentifier& toDrainId = id();
-        JTRACE ( "Will drain socket" ) ( fds[0] ) ( toDrainId )
-	       ( _acceptRemoteId );
+        JNOTE ( "Will drain socket" ) ( fds[0] ) ( toDrainId )
+          ( _acceptRemoteId );
         drain.beginDrainOf ( fds[0], toDrainId );
       }
       else
@@ -296,6 +352,9 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
         .Text ( "If there are pending connections on this socket,\n"
 		" they won't be checkpointed because"
 		" it is not yet in a listen state." );
+      break;
+    case TCP_EXTERNAL_CONNECT:
+      JTRACE ( "Socket to External Process, won't be drained" ) ( fds[0] );
       break;
   }
 }
@@ -317,6 +376,9 @@ void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, cons
 		(id()) (fds[0]);
         }
         break;
+      case TCP_EXTERNAL_CONNECT:
+        JTRACE ( "Socket to External Process, skipping handshake send" ) ( fds[0] );
+        break;
     }
   }
   void dmtcp::TcpConnection::doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
@@ -337,6 +399,9 @@ void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, cons
 		(id()) (fds[0]);
         }
         break;
+      case TCP_EXTERNAL_CONNECT:
+        JTRACE ( "Socket to External Process, skipping handshake recv" ) ( fds[0] );
+        break;
     }
   }
 
@@ -356,6 +421,7 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
     case TCP_PREEXISTING:
     case TCP_ERROR: //not a valid socket
     case TCP_INVALID:
+    case TCP_EXTERNAL_CONNECT:
     {
       JTRACE("Creating dead socket.") (fds[0]) (fds.size());
       jalib::JSocket deadSock ( _makeDeadSocket() );
@@ -395,7 +461,7 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       if ( _sockDomain == AF_UNIX )
       {
         const char* un_path = ( ( sockaddr_un* ) &_bindAddr )->sun_path;
-        JTRACE ( "~nlinking stale unix domain socket." ) ( un_path );
+        JTRACE ( "Unlinking stale unix domain socket." ) ( un_path );
         JWARNING ( unlink ( un_path ) == 0 ) ( un_path );
       }
       /*
@@ -463,6 +529,13 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
       JTRACE ( "registerIncoming" ) ( id() ) ( _acceptRemoteId ) ( fds[0] );
       rewirer.registerIncoming ( id(), fds );
       break;
+//    case TCP_EXTERNAL_CONNECT:
+//      int sockFd = _real_socket ( _sockDomain, _sockType, _sockProtocol );
+//      JASSERT ( sockFd >= 0);
+//      JASSERT ( _real_dup2 ( sockFd, fds[0] ) == fds[0] );
+//      JWARNING(0 == _real_connect(sockFd, (sockaddr*) &_connectAddr, _connectAddrlen))
+//        (fds[0]) (JASSERT_ERRNO) .Text("Unable to connect to external process");
+//      break;
   }
 }
 
@@ -528,28 +601,10 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 }
 
 ////////////
-///// PIPE CHECKPOINTING
-
-
-// void dmtcp::PipeConnection::preCheckpoint(const dmtcp::vector<int>& fds
-//                         , KernelBufferDrainer& drain)
-// {
-// }
-// void dmtcp::PipeConnection::postCheckpoint(const dmtcp::vector<int>& fds)
-// {
-//
-// }
-// void dmtcp::PipeConnection::restore(const dmtcp::vector<int>&, ConnectionRewirer&)
-// {
-//
-// }
-
-////////////
 ///// PTY CHECKPOINTING
 
 static int _openBSDMasterPty ( dmtcp::string device )
 {
-
 }
 
 void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
@@ -822,7 +877,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
   string progName = jalib::Filesystem::GetProgramName();
 
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL || 
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL ||
       !jalib::Filesystem::FileExists(_path)) {
     saveFile(fds[0]);
   } else if ((_fcntlFlags & (O_WRONLY|O_RDWR)) != 0 &&
@@ -830,7 +885,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
              _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
              _stat.st_uid == getuid()) {
     saveFile(fds[0]);
-  } else if ((progName == "vi" || progName == "vim" || progName == "vim-normal") &&
+  } else if (_isVimApp() &&
              _path.compare(_path.length() - 4, 4, ".swp") == 0) {
     saveFile(fds[0]);
   } else if (progName == "emacs" || progName.compare(0, 5, "emacs") == 0) {
@@ -883,7 +938,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
     	JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
                 ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
     } else if (buf.st_size < _stat.st_size) {
-	JWARNING ("Size of file smaller than what we expected");
+	JWARNING (false) .Text("Size of file smaller than what we expected");
     }
   }
 
@@ -904,8 +959,8 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
 	      ( _path ) ( _offset ) ( JASSERT_ERRNO );
       JTRACE ("lseek ( fds[0], _offset, SEEK_SET )") (fds[0]) (_offset);
     } else if (_offset > buf.st_size || _offset > _stat.st_size) {
-      JWARNING("No lseek done:  offset is larger than min of old and new size.")
-	      ( _path ) (_offset ) ( _stat.st_size ) ( buf.st_size );
+      JWARNING(false) ( _path ) (_offset ) ( _stat.st_size ) ( buf.st_size )
+        .Text("No lseek done:  offset is larger than min of old and new size.");
     }
   }
 }
@@ -1068,6 +1123,7 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
     relPath << CHECKPOINT_FILES_SUBDIR_PREFIX
             << jalib::Filesystem::GetProgramName()
             << "_" << _id.pid()
+            << CHECKPOINT_FILES_SUBDIR_SUFFIX
             << "/" << fileName << "_" << _id.conId();
     _savedRelativePath = relPath.str();
   }

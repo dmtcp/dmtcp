@@ -124,7 +124,8 @@ namespace dmtcp
         TCP_LISTEN,
         TCP_ACCEPT,
         TCP_CONNECT,
-        TCP_PREEXISTING
+        TCP_PREEXISTING,
+        TCP_EXTERNAL_CONNECT
       };
 
       int tcpType() const { return _type; }
@@ -155,7 +156,8 @@ namespace dmtcp
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
       void onBind ( const struct sockaddr* addr, socklen_t len );
       void onListen ( int backlog );
-      void onConnect(); // connect side does not know remote host
+      void onConnect( int sockfd = -1, const  struct sockaddr *serv_addr = NULL,
+                      socklen_t addrlen = 0 );
       /*onAccept*/ TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
       void onError();
       void onDisconnect(const dmtcp::vector<int>& fds);
@@ -194,23 +196,18 @@ namespace dmtcp
 #ifdef EXTERNAL_SOCKET_HANDLING
       enum PeerType           _peerType;
 #endif
-      socklen_t               _bindAddrlen;
-      struct sockaddr_storage _bindAddr;
+      union {
+        socklen_t               _bindAddrlen;
+        socklen_t               _connectAddrlen;
+      };
+      union {
+        struct sockaddr_storage _bindAddr;
+        struct sockaddr_storage _connectAddr;
+      };
       ConnectionIdentifier    _acceptRemoteId;
       dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
   };
 
-// class PipeConnection : public Connection
-// {
-// public:
-//     virtual void preCheckpoint(const dmtcp::vector<int>& fds
-//                             , KernelBufferDrainer& drain);
-//     virtual void postCheckpoint(const dmtcp::vector<int>& fds);
-//     virtual void restore(const dmtcp::vector<int>&, ConnectionRewirer&);
-//
-//     virtual void serializeSubClass(jalib::JBinarySerializer& o);
-//
-// };
 
   class PtyConnection : public Connection
   {
