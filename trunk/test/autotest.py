@@ -504,7 +504,7 @@ if testconfig.HAS_SCRIPT == "yes":
 if testconfig.HAS_SCREEN == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    runTest("screen",      3,  [testconfig.SCREEN, "-c", "/dev/null"])
+    runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
   S=0.3
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
