@@ -101,6 +101,10 @@ static bool _isBlacklisted ( int sockfd, const sockaddr* saddr, socklen_t len )
 
   if ( saddr->sa_family == AF_FILE ) {
     const char* un_path = ( ( sockaddr_un* ) saddr )->sun_path;
+    if (un_path[0] == '\0') {
+      /* The first byte is null, which indicates abstract socket name */
+      un_path++;
+    }
     dmtcp::string path = jalib::Filesystem::DirBaseName( un_path );
 
     if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix" ||
@@ -886,7 +890,8 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
              _stat.st_uid == getuid()) {
     saveFile(fds[0]);
   } else if (_isVimApp() &&
-             _path.compare(_path.length() - 4, 4, ".swp") == 0) {
+             (_path.compare(_path.length() - 4, 4, ".swp") == 0 ||
+              _path.compare(_path.length() - 4, 4, ".swo") == 0)) {
     saveFile(fds[0]);
   } else if (progName == "emacs" || progName.compare(0, 5, "emacs") == 0) {
     saveFile(fds[0]);
