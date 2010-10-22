@@ -125,6 +125,42 @@ void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
 
+bool _checkpointThreadInitialized = false;
+void restoreUserLDPRELOAD()
+{
+  // We have now successfully used LD_PRELOAD to execute prior to main()
+  // Next, hide our value of LD_PRELOAD, in a global variable.
+  // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
+  // We will need it in only one place:
+  //  when the user application makes an exec call:
+  //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
+  //   If they directly call _real_execve to get libc symbol, they will
+  //   not be part of DMTCP computation.
+  // This has the advantage that our value of LD_PRELOAD will always come
+  //   before any paths set by user application.
+  // Also, bash likes to keep its own envp, but we will interact with bash only
+  //   within the exec wrapper.
+  // NOTE:  If the user called exec("ssh ..."), we currently catch this in
+  //   DmtcpWorker() due to LD_PRELOAD, unset LD_PRELOAD, and edit this into
+  //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
+  //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
+  char * preload =  getenv("LD_PRELOAD");
+  char * preload_rest = strstr(preload, ":");
+  if (preload_rest) {
+    *preload_rest = '\0'; // Now preload is just our preload string
+    preload_rest++;
+  }
+  JASSERT(strlen(preload) < dmtcp::DmtcpWorker::ld_preload_c_len)
+	 (preload) (dmtcp::DmtcpWorker::ld_preload_c_len)
+	 .Text("preload string is longer than ld_preload_c_len");
+  strcpy(dmtcp::DmtcpWorker::ld_preload_c, preload);  // Don't malloc
+  if (preload_rest) {
+    setenv("LD_PRELOAD", preload_rest, 1);
+  } else {
+    _dmtcp_unsetenv("LD_PRELOAD");
+  }
+}
+
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
 // This shold be visible to library only.  DmtcpWorker will call
@@ -158,6 +194,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+
   //This is called for side effect only.  Force this function to call
   // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
   _determineMtcpSignal();
@@ -184,38 +221,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   }
 # endif
 #endif
-
-  // We have now successfully used LD_PRELOAD to execute prior to main()
-  // Next, hide our value of LD_PRELOAD, in a global variable.
-  // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
-  // We will need it in only one place:
-  //  when the user application makes an exec call:
-  //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
-  //   If they directly call _real_execve to get libc symbol, they will
-  //   not be part of DMTCP computation.
-  // This has the advantage that our value of LD_PRELOAD will always come
-  //   before any paths set by user application.
-  // Also, bash likes to keep its own envp, but we will interact with bash only
-  //   within the exec wrapper.
-  // NOTE:  If the user called exec("ssh ..."), we currently catch this in
-  //   DmtcpWorker() due to LD_PRELOAD, unset LD_PRELOAD, and edit this into
-  //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
-  //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
-  char * preload =  getenv("LD_PRELOAD");
-  char * preload_rest = strstr(preload, ":");
-  if (preload_rest) {
-    *preload_rest = '\0'; // Now preload is just our preload string
-    preload_rest++;
-  }
-  JASSERT(strlen(preload) < dmtcp::DmtcpWorker::ld_preload_c_len)
-	 (preload) (dmtcp::DmtcpWorker::ld_preload_c_len)
-	 .Text("preload string is longer than ld_preload_c_len");
-  strcpy(dmtcp::DmtcpWorker::ld_preload_c, preload);  // Don't malloc
-  if (preload_rest) {
-    setenv("LD_PRELOAD", preload_rest, 1);
-  } else {
-    _dmtcp_unsetenv("LD_PRELOAD");
-  }
 
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
 
@@ -421,6 +426,15 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   initializeMtcpEngine();
   WRAPPER_EXECUTION_LOCK_UNLOCK();
 
+  /* 
+   * Now wait for Checkpoint Thread to finish initialization 
+   * XXX: This should be the last thing in this constructor
+   */
+  while (!_checkpointThreadInitialized) {
+    struct timespec sleepTime = {0, 10*1000*1000};
+    nanosleep(&sleepTime, NULL);
+  }
+
 // #ifdef DEBUG
 //     JTRACE("listing fds");
 //     KernelDeviceToConnection::instance().dbgSpamFds();
@@ -556,6 +570,23 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE ( "running" );
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
+
+  /*
+   * Its only use is to inform the user thread (waiting in DmtcpWorker
+   * constructor) that the checkpoint thread has finished initialization. This
+   * is to serialize DmtcpWorker-Constructor(), mtcp_init(), checkpoint-thread
+   * initialization and user main(). As obvious, this is only effective when
+   * the process is being initialized.
+   */
+  if (!_checkpointThreadInitialized) {
+    /*
+     * We should not call this function any higher in the logic because it
+     * calls setenv() and if it is running under bash, then it getenv() will
+     * not work between the call to setenv() and bash main().
+     */
+    restoreUserLDPRELOAD();
+    _checkpointThreadInitialized = true;
+  }
 
   if ( compGroup != UniquePid() ) {
     dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
