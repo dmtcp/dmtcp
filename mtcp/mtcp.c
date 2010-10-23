@@ -354,6 +354,7 @@ struct sigaction sigactions[NSIG];  // signal handlers
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
+void *mtcp_saved_heap_start = NULL;
 static struct termios saved_termios;
 static int saved_termios_exists = 0;
 static char saved_working_directory[MTCP_MAX_PATH];
@@ -401,6 +402,7 @@ static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
 static void writecs (int fd, char cs);
 static void writefile (int fd, void const *buff, size_t size);
+static void preprocess_special_segments(int *vsyscall_exists);
 static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
 static void save_sig_state (Thread *thisthread);
@@ -413,6 +415,7 @@ static Thread *getcurrenthread (void);
 static void lock_threads (void);
 static void unlk_threads (void);
 static int readmapsline (int mapsfd, Area *area);
+static void restore_heap(void);
 static void finishrestore (void);
 static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
@@ -1809,6 +1812,9 @@ static void checkpointeverything (void)
     close(tmpDMTCPHeaderFd);
   }
 
+  // Preprocess special segments like vsyscall, stack, heap etc.
+  preprocess_special_segments(&vsyscall_exists);
+
   writefile (fd, MAGIC, MAGIC_LEN);
 
   DPRINTF (("mtcp checkpointeverything*: restore_begin %X at %p from [libmtcp.so]\n",
@@ -1850,55 +1856,6 @@ static void checkpointeverything (void)
   /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
-  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error opening"
-        " /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
-    mtcp_abort ();
-  }
-
-  /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
-   * [vdso] will be saved and restored.
-   * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
-   * We must restore old [vdso] and also keep [vdso] in that case.
-   * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
-   * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
-   *   and at least for gcl, [stack], libmtcp.so, [vsyscall] seen.
-   * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
-   * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
-   * Need to restore old [vdso] into mtcp_restart, to restart.
-   * With randomize_va_space turned off, libraries start at high address
-   *     0xb8000000 and are loaded progressively at lower addresses.
-   * mtcp_restart loads vdso (which looks like a shared library) first.
-   * But libpthread/libdl/libc libraries are loaded above vdso in user image.
-   * So, we must use the opposite of the user's setting (no randomization if
-   *     user turned it on, and vice versa).  We must also keep the
-   *     new vdso segment, provided by mtcp_restart.
-   */
-  while (readmapsline (mapsfd, &area)) {
-    if (0 == strcmp(area.name, "[vsyscall]"))
-      vsyscall_exists = 1;
-    if (strcmp(area.name, "[stack]") == 0) {
-      /*
-       * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
-       * page of stack (the page with highest address) which contains the
-       * environment strings and the argv[] was not shown in /proc/self/maps.
-       * This happens on some odd combination of environment passed on to
-       * Matlab process. As a result, the page was not checkpointed and hence
-       * the process segfaulted on restart. The fix is to try to mprotect this
-       * page with RWX permission to make the page visible again. This call
-       * will fail if no stack page was invisible to begin with.
-       */
-      int ret = mprotect(area.addr + area.size, 0x1000, 
-                         PROT_READ | PROT_WRITE | PROT_EXEC);
-      if (ret == 0) {
-        mtcp_printf("mtcp checkpointeverything: bottom-most page of stack\n"
-                 "(page with highest address) was invisible in /proc/self/maps.\n"
-                 "It is made visible again now.\n");
-      }
-    }
-  }
-  close(mapsfd);
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (readmapsline (mapsfd, &area)) {
@@ -2319,6 +2276,63 @@ static void writefile (int fd, void const *buff, size_t size)
     sz -= rc;
     bf += rc;
   }
+}
+
+static void preprocess_special_segments(int *vsyscall_exists)
+{
+  Area area;
+  int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    mtcp_printf ("mtcp checkpointeverything: error opening"
+        " /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
+    mtcp_abort ();
+  }
+
+  while (readmapsline (mapsfd, &area)) {
+    if (0 == strcmp(area.name, "[vsyscall]")) {
+      /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
+       * [vdso] will be saved and restored.
+       * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
+       * We must restore old [vdso] and also keep [vdso] in that case.
+       * On Linux 2.6.25, 32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
+       * On Linux 2.6.25, 64-bit Linux has:  [stack], [vdso], [vsyscall].
+       *   and at least for gcl, [stack], libmtcp.so, [vsyscall] seen.
+       * If 32-bit process in 64-bit Linux:  [stack] (0xffffd000), [vdso] (0xffffe0000)
+       * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
+       * Need to restore old [vdso] into mtcp_restart, to restart.
+       * With randomize_va_space turned off, libraries start at high address
+       *     0xb8000000 and are loaded progressively at lower addresses.
+       * mtcp_restart loads vdso (which looks like a shared library) first.
+       * But libpthread/libdl/libc libraries are loaded above vdso in user image.
+       * So, we must use the opposite of the user's setting (no randomization if
+       *     user turned it on, and vice versa).  We must also keep the
+       *     new vdso segment, provided by mtcp_restart.
+       */
+      *vsyscall_exists = 1;
+    } else if (!mtcp_saved_heap_start && strcmp(area.name, "[heap]") == 0) {
+      // Record start of heap which will later be used in finishrestore()
+      mtcp_saved_heap_start = area.addr;
+    } else if (strcmp(area.name, "[stack]") == 0) {
+      /*
+       * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
+       * page of stack (the page with highest address) which contains the
+       * environment strings and the argv[] was not shown in /proc/self/maps.
+       * This happens on some odd combination of environment passed on to
+       * Matlab process. As a result, the page was not checkpointed and hence
+       * the process segfaulted on restart. The fix is to try to mprotect this
+       * page with RWX permission to make the page visible again. This call
+       * will fail if no stack page was invisible to begin with.
+       */
+      int ret = mprotect(area.addr + area.size, 0x1000, 
+                         PROT_READ | PROT_WRITE | PROT_EXEC);
+      if (ret == 0) {
+        mtcp_printf("mtcp checkpointeverything: bottom-most page of stack\n"
+                 "(page with highest address) was invisible in /proc/self/maps.\n"
+                 "It is made visible again now.\n");
+      }
+    }
+  }
+  close(mapsfd);
 }
 
 /********************************************************************************************************************************/
@@ -3082,6 +3096,38 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
   asm volatile ("hlt");
 }
 
+
+/********************************************************************************************************************************/
+/*																*/
+/*  Restore proper heap														*/
+/*																*/
+/********************************************************************************************************************************/
+static void restore_heap()
+{
+  /*
+   * If the original start of heap is lower than the current end of heap, we
+   * want to mmap the area between mtcp_saved_break and current break. This
+   * happens when the size of checkpointed program is smaller then the size of
+   * mtcp_restart program.
+   */
+  void* current_break = mtcp_sys_brk (NULL);
+  if (current_break > mtcp_saved_break) {
+    DPRINTF(("mtcp finishrestore: Area between mtcp_saved_break:%p and "
+             "Current_break:%p not mapped, mapping it now\n", 
+             mtcp_saved_break, current_break));
+    size_t oldsize = mtcp_saved_break - mtcp_saved_heap_start;
+    size_t newsize = current_break - mtcp_saved_heap_start;
+
+    void* addr = mremap (mtcp_saved_heap_start, oldsize, newsize, 0);
+    if (addr == NULL) {
+      mtcp_printf("mtcp finishrestore: mremap failed to map area between "
+                  "mtcp_saved_break (%p) and current_break (%p)\n",
+                  mtcp_saved_break, current_break);
+      mtcp_abort();
+    }
+  }
+}
+
 /********************************************************************************************************************************/
 /*																*/
 /*  The original program's memory and files have been restored									*/
@@ -3089,12 +3135,13 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 /********************************************************************************************************************************/
 
 static void finishrestore (void)
-
 {
   struct timeval stopped;
   int nnamelen;
 
   DPRINTF (("mtcp finishrestore*: mtcp_printf works; libc should work\n"));
+
+  restore_heap();
 
   if ( (nnamelen = strlen(mtcp_ckpt_newname))
        && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
