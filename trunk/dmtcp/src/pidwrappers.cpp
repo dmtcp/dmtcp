@@ -41,10 +41,6 @@
 
 #ifdef PID_VIRTUALIZATION
 
-static pid_t gettid();
-static int tkill(int tid, int sig);
-static int tgkill(int tgid, int tid, int sig);
-
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
   pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
@@ -65,7 +61,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
   return originalPid;
 }
 
-static pid_t gettid()
+pid_t gettid()
 {
   WRAPPER_EXECUTION_LOCK_LOCK();
   /*
@@ -85,68 +81,6 @@ static pid_t gettid()
 }
 
 
-extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-
-/* Comments by Gene:
- * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
- * We would add a special case for SYS_gettid, while all others default as below
- * It depends on the idea that arguments are stored in registers, whose
- *  natural size is:  sizeof(void*)
- * So, we pass six arguments to syscall, and it will ignore any extra arguments
- * I believe that all Linux system calls have no more than 7 args.
- * clone() is an example of one with 7 arguments.
- * If we discover system calls for which the 7 args strategy doesn't work,
- *  we can special case them.
- *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
- *      any C++ things here.  (--Kapil)
- */
-extern "C" long int syscall(long int sys_num, ... )
-{
-  int i;
-  void * args[7];
-  va_list ap;
-
-  va_start(ap, sys_num);
-
-  switch ( sys_num ) {
-    case SYS_gettid:
-      va_end(ap);
-      return gettid();
-      break;
-    case SYS_tkill:{
-      int tid = va_arg(ap, int);
-      int sig = va_arg(ap, int);
-      va_end(ap);
-      return tkill(tid,sig);
-      break;
-    }
-    case SYS_tgkill:{
-      int tgid = va_arg(ap, int);
-      int tid = va_arg(ap, int);
-      int sig = va_arg(ap, int);
-      va_end(ap);
-      return tgkill(tgid,tid,sig);
-      break;
-    }
-    case SYS_clone:
-      typedef int (*fnc) (void*);
-      fnc fn = va_arg(ap, fnc);
-      void* child_stack = va_arg(ap, void*);
-      int flags = va_arg(ap, int);
-      void* arg = va_arg(ap, void*);
-      pid_t* pid = va_arg(ap, pid_t*);
-      struct user_desc* tls = va_arg(ap, struct user_desc*);
-      pid_t* ctid = va_arg(ap, pid_t*);
-      va_end(ap);
-      return __clone(fn, child_stack, flags, arg, pid, tls, ctid);
-      break;
-  }
-  for (i = 0; i < 7; i++)
-    args[i] = va_arg(ap, void *);
-  va_end(ap);
-  return _real_syscall(sys_num, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
-}
 
 extern "C" pid_t getpid()
 {
@@ -297,7 +231,7 @@ extern "C" int   kill(pid_t pid, int sig)
   return retVal;
 }
 
-static int   tkill(int tid, int sig)
+int   tkill(int tid, int sig)
 {
   WRAPPER_EXECUTION_LOCK_LOCK();
 
@@ -310,7 +244,7 @@ static int   tkill(int tid, int sig)
   return retVal;
 }
 
-static int   tgkill(int tgid, int tid, int sig)
+int   tgkill(int tgid, int tid, int sig)
 {
   WRAPPER_EXECUTION_LOCK_LOCK();
 
