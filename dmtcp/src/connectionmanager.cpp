@@ -150,7 +150,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   {
     JTRACE ( "bad fd (we expect one of these lines)" ) ( fd );
     JASSERT ( device == "" ) ( fd ) ( _procFDPath ( fd ) ) ( device ) ( JASSERT_ERRNO )
-    .Text ( "expected badFd not to have a proc entry..." );
+      .Text ( "expected badFd not to have a proc entry..." );
 
     return "";
   }
