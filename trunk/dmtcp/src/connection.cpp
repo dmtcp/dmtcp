@@ -962,7 +962,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
     if (_offset <= buf.st_size && _offset <= _stat.st_size) {
       JASSERT ( lseek ( fds[0], _offset, SEEK_SET ) == _offset )
 	      ( _path ) ( _offset ) ( JASSERT_ERRNO );
-      JTRACE ("lseek ( fds[0], _offset, SEEK_SET )") (fds[0]) (_offset);
+      //JTRACE ("lseek ( fds[0], _offset, SEEK_SET )") (fds[0]) (_offset);
     } else if (_offset > buf.st_size || _offset > _stat.st_size) {
       JWARNING(false) ( _path ) (_offset ) ( _stat.st_size ) ( buf.st_size )
         .Text("No lseek done:  offset is larger than min of old and new size.");

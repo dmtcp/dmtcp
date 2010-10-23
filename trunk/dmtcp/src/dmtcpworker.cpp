@@ -248,8 +248,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
 
-  JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
-  JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
+  JTRACE ( "dmtcphijack.so:  Running " ) 
+    ( jalib::Filesystem::GetProgramName() ) ( getppid() ) ( getenv ( "LD_PRELOAD" ) );
 
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
 
@@ -915,7 +915,7 @@ void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
     }
     JASSERT ( restoreSocket.isValid() ) ( RESTORE_PORT_START ).Text ( "failed to open listen socket" );
     restoreSocket.changeFd ( _restoreSocket.sockfd() );
-    JTRACE ( "openning listen sockets" ) ( _restoreSocket.sockfd() ) ( restoreSocket.sockfd() );
+    JTRACE ( "opening listen sockets" ) ( _restoreSocket.sockfd() ) ( restoreSocket.sockfd() );
     _restoreSocket = restoreSocket;
   }
 
@@ -978,7 +978,6 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
 
 void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
 {
-  JTRACE(":") (unInitializedThreadCount);
   while (unInitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
     nanosleep(&sleepTime, NULL);
@@ -991,7 +990,7 @@ void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
     unInitializedThreadCount++;
-    JTRACE(":") (unInitializedThreadCount);
+    //JTRACE(":") (unInitializedThreadCount);
     JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
   }
   errno = saved_errno;
@@ -1004,7 +1003,7 @@ void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
     JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
     JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
     unInitializedThreadCount--;
-    JTRACE(":") (unInitializedThreadCount);
+    //JTRACE(":") (unInitializedThreadCount);
     JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
   }
   errno = saved_errno;

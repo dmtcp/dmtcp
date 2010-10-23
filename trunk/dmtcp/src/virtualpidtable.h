@@ -69,6 +69,8 @@ namespace dmtcp
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
 
+      void printPidMaps();
+
       void  insert(pid_t originalPid,  dmtcp::UniquePid uniquePid);
       void  insertTid(pid_t tid);
       void  insertInferior(pid_t tid);
