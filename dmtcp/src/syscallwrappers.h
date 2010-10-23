@@ -168,6 +168,13 @@ extern "C"
     numLibcWrappers
   } LibcWrapperOffset;
 
+  void _dmtcp_lock();
+  void _dmtcp_unlock();
+
+  void _dmtcp_remutex_on_fork();
+
+  int _dmtcp_unsetenv(const char *name);
+
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
@@ -226,13 +233,6 @@ extern "C"
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
   int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                          const struct timespec *timeout);
-
-  void _dmtcp_lock();
-  void _dmtcp_unlock();
-
-  void _dmtcp_remutex_on_fork();
-
-  int _dmtcp_unsetenv(const char *name);
 
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
