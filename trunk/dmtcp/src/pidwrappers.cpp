@@ -63,7 +63,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 
 pid_t gettid()
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   /*
    * We might want to cache the tid of all threads to avoid redundant calls
    *  to _real_gettid() and currentToOriginalPid().
@@ -75,7 +75,7 @@ pid_t gettid()
   pid_t currentTid = _real_gettid();
   pid_t origTid =  currentToOriginalPid ( currentTid );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origTid;
 }
@@ -92,7 +92,7 @@ extern "C" pid_t getpid()
 
 extern "C" pid_t getppid()
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
@@ -102,91 +102,91 @@ extern "C" pid_t getppid()
 
   pid_t origPpid = dmtcp::VirtualPidTable::instance().ppid( );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origPpid;
 }
 
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currPgrp = originalToCurrentPid( pgrp );
 //  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp);
   int retVal = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 extern "C" pid_t tcgetpgrp(int fd)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
   //JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retval;
 }
 
 extern "C" pid_t getpgrp(void)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t pgrp = _real_getpgrp();
   pid_t origPgrp =  currentToOriginalPid( pgrp );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origPgrp;
 }
 
 extern "C" pid_t setpgrp(void)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t pgrp = _real_setpgrp();
   pid_t origPgrp = currentToOriginalPid( pgrp );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origPgrp;
 }
 
 extern "C" pid_t getpgid(pid_t pid)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currentPid = originalToCurrentPid (pid);
   pid_t res = _real_getpgid (currentPid);
   pid_t origPgid = currentToOriginalPid (res);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origPgid;
 }
 
 extern "C" int   setpgid(pid_t pid, pid_t pgid)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currPid = originalToCurrentPid (pid);
   pid_t currPgid = originalToCurrentPid (pgid);
 
   int retVal = _real_setpgid (currPid, currPgid);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currPid;
 
@@ -200,60 +200,60 @@ extern "C" pid_t getsid(pid_t pid)
 
   pid_t origSid = currentToOriginalPid (res);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origSid;
 }
 
 extern "C" pid_t setsid(void)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
   dmtcp::VirtualPidTable::instance().setsid(origPid);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return origPid;
 }
 
 extern "C" int   kill(pid_t pid, int sig)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currPid = originalToCurrentPid (pid);
 
   int retVal = _real_kill (currPid, sig);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 int   tkill(int tid, int sig)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tkill ( currentTid, sig );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 int   tgkill(int tgid, int tid, int sig)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tgkill ( currentTgid, currentTid, sig );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }

@@ -50,9 +50,9 @@ void dmtcp::DmtcpWorker::resetOnFork()
   WorkerState::setCurrentState ( WorkerState::RUNNING );
   instance().connectToCoordinatorWithHandshake();
 
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 }
 
 //to allow linking without mtcpinterface

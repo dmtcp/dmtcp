@@ -138,7 +138,7 @@ extern "C" int epoll_create(int size)
 
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   JASSERT ( sv != NULL );
   int rv = _real_socketpair ( d,type,protocol,sv );
@@ -153,7 +153,7 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
   dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return rv;
 }
@@ -219,11 +219,11 @@ extern "C" char *ptsname ( int fd )
 
 extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
@@ -393,7 +393,7 @@ extern "C" int open (const char *path, int flags, ... )
     return _real_open ( path, flags, mode );
   }
 
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
@@ -410,7 +410,7 @@ extern "C" int open (const char *path, int flags, ... )
     processDevPtsConnection(fd, path, newpath);
   }
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return fd;
 }
@@ -428,7 +428,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
     return _real_fopen ( path, mode );
   }
 
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   char newpath [ 1024 ] = {0} ;
   int fd = -1;
@@ -452,7 +452,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
     processDevPtsConnection(fd, path, newpath);
   }
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return file;
 }
@@ -463,29 +463,29 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 # endif
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retVal = _real_calloc ( nmemb, size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retVal;
 }
 extern "C" void *malloc(size_t size)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retVal = _real_malloc ( size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retVal;
 }
 extern "C" void free(void *ptr)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   _real_free ( ptr );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 }
 extern "C" void *realloc(void *ptr, size_t size)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retVal = _real_realloc ( ptr, size );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retVal;
 }
 #endif
@@ -527,9 +527,9 @@ vprintf (const char *format, __gnuc_va_list arg)
 extern "C" int
 vfprintf (FILE *s, const char *format, va_list ap)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int retVal = _real_vfprintf ( s, format, ap );
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retVal;
 }
 
@@ -571,7 +571,7 @@ extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
   int ret;
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   while (true) {
     ret = _real_shmget(key, size, shmflg);
     if (ret != -1 && 
@@ -582,14 +582,14 @@ int shmget(key_t key, size_t size, int shmflg)
     JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
   };
   JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
 
 extern "C"
 void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
   JASSERT(currentShmid != -1);
   void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
@@ -597,27 +597,27 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
     JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
   }
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
 
 extern "C"
 int shmdt(const void *shmaddr)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     dmtcp::SysVIPC::instance().on_shmdt(shmaddr);
     JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
   }
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
 
 extern "C"
 int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
   JASSERT(currentShmid != -1);
   int ret = _real_shmctl(currentShmid, cmd, buf);
@@ -628,7 +628,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   if (buf != NULL) {
     buf->shm_cpid = dmtcp::VirtualPidTable::instance().currentToOriginalPid(buf->shm_cpid);
   }
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
 #endif

@@ -124,21 +124,21 @@ dmtcp::SysVIPC& dmtcp::SysVIPC::instance()
 
 int dmtcp::SysVIPC::originalToCurrentShmid(int shmid)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int currentShmid = shmid;
   _do_lock_tbl();
   if (_originalToCurrentShmids.find(shmid) != _originalToCurrentShmids.end()) {
     currentShmid = _originalToCurrentShmids[shmid];
   }
   _do_unlock_tbl();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   JTRACE("Original to current shmid") (shmid) (currentShmid);
   return currentShmid;
 }
 
 int dmtcp::SysVIPC::currentToOriginalShmid(int shmid)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int originalShmid = -1;
   _do_lock_tbl();
   for (ShmidMapIter i = _originalToCurrentShmids.begin(); 
@@ -150,7 +150,7 @@ int dmtcp::SysVIPC::currentToOriginalShmid(int shmid)
     }
   }
   _do_unlock_tbl();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   JTRACE("current to original shmid") (shmid) (originalShmid);
   return originalShmid;
 }
@@ -163,7 +163,7 @@ bool dmtcp::SysVIPC::isConflictingShmid(int shmid)
 
 int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
 {
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int shmid = -1;
   _do_lock_tbl();
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
@@ -174,7 +174,7 @@ int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
     }
   }
   _do_unlock_tbl();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return shmid;
 }
 

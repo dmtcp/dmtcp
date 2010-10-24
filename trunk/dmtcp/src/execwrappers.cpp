@@ -164,12 +164,12 @@ extern "C" pid_t fork()
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int retVal = fork_work();
 
   if (retVal != 0) {
-    WRAPPER_EXECUTION_LOCK_UNLOCK();
+    WRAPPER_EXECUTION_ENABLE_CKPT();
   }
 
   return retVal;
@@ -195,7 +195,7 @@ static void execLibProcessAndExit(const char *path)
   // FIXME:  code currently allows wrapper to proceed without lock if
   //   it was busy because of a writer.  The unlock will then fail below.
   bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
   printf("%s", buf); // print buf, which is what /lib/libXXX would print
   exit(0);
@@ -340,7 +340,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
@@ -348,7 +348,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
   int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
@@ -359,7 +359,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
@@ -369,7 +369,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 
   int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
@@ -380,12 +380,12 @@ extern "C" int execv ( const char *path, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcpPrepareForExec(path);
   int retVal = _real_execv ( path, argv );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
@@ -396,12 +396,12 @@ extern "C" int execvp ( const char *file, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcpPrepareForExec(file);
   int retVal = _real_execvp ( file, argv );
 
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }

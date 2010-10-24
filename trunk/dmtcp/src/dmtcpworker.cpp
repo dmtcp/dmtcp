@@ -150,6 +150,7 @@ void restoreUserLDPRELOAD()
     *preload_rest = '\0'; // Now preload is just our preload string
     preload_rest++;
   }
+  JTRACE("LD_PRELOAD")(preload);
   JASSERT(strlen(preload) < dmtcp::DmtcpWorker::ld_preload_c_len)
 	 (preload) (dmtcp::DmtcpWorker::ld_preload_c_len)
 	 .Text("preload string is longer than ld_preload_c_len");
@@ -195,6 +196,21 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 {
   if ( !enableCheckpointing ) return;
 
+  WorkerState::setCurrentState( WorkerState::UNKNOWN);
+
+  /* DO NOT PUT ANYTHING BEFORE THE FOLLOWING BLOCK OF CODE (#ifdef .... #endif) */
+#ifdef DEBUG
+  /* Disable Jassert Logging */
+  dmtcp::UniquePid::ThisProcess(true);
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess()
+    << "_" << jalib::Filesystem::GetProgramName();
+  JASSERT_INIT (o.str());
+
+  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
+#endif
+
   //This is called for side effect only.  Force this function to call
   // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
   _determineMtcpSignal();
@@ -222,19 +238,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 # endif
 #endif
 
-  WorkerState::setCurrentState( WorkerState::UNKNOWN);
-
-#ifdef DEBUG
-  /* Disable Jassert Logging */
-  dmtcp::UniquePid::ThisProcess(true);
-
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess();
-  JASSERT_INIT (o.str());
-
-  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
-#endif
-
   if ( getenv(ENV_VAR_UTILITY_DIR) == NULL ) {
     JNOTE ( "\n **** Not checkpointing this process,"
             " due to missing environment var ****" )
@@ -246,7 +249,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     setenv(ENV_VAR_QUIET, "0", 0);
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
-  const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
 
   JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() )                                         ( getenv ( "LD_PRELOAD" ) );
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
@@ -376,6 +378,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
+  const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
   if ( serialFile != NULL )
   {
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
@@ -422,9 +425,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   /* 
    * Now wait for Checkpoint Thread to finish initialization 
