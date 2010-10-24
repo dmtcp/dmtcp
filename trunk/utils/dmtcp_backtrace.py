@@ -34,6 +34,11 @@ if dmtcphijack.find('/') == -1:
       pathname = segment.split()[-1]
 else:
   pathname = dmtcphijack
+if pathname.find("CAN'T FIND FILE") != -1:
+  print pathname
+  print "Please check " + tmpProcMaps + " to see if the process that crashed"
+  print "  was really using:  " + dmtcphijack
+  sys.exit(1)
 print "Examing stack for call frames from:\n  " + pathname + "\n" \
       + "FORMAT:  FNC: ..., followed by source code line number.\n"
 
@@ -73,7 +78,7 @@ for callFrame in backtrace:
     else: # This subprocess prints to stdout
       # print callFrame
       # print addr2line + hexOffset
-      print " FNC: ",
+      print "** FNC: ",
       sys.stdout.flush()
       subprocess.call(addr2line + hexOffset, shell=True)
   else:

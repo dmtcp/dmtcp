@@ -248,8 +248,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
 
-  JTRACE ( "dmtcphijack.so:  Running " ) 
-    ( jalib::Filesystem::GetProgramName() ) ( getppid() ) ( getenv ( "LD_PRELOAD" ) );
+  JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() )                                         ( getenv ( "LD_PRELOAD" ) );
+  JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
 
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
 

@@ -1259,11 +1259,60 @@ void mtcp_kill_ckpthread (void)
 }
 
 
-/********************************************************************************************************************************/
-/*																*/
-/*  This executes as a thread.  It sleeps for the checkpoint interval seconds, then wakes to write the checkpoint file.		*/
-/*																*/
-/********************************************************************************************************************************/
+/*************************************************************************/
+/*						                         */
+/*  Save and restore terminal settings.		                         */
+/*						                         */
+/*************************************************************************/
+
+static void save_term_settings() {
+  saved_termios_exists = ( isatty(STDIN_FILENO)
+  		           && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+}
+int safe_tcsetattr(int fd, int optional_actions,
+		   const struct termios *termios_p) {
+  struct termios old_termios, new_termios;
+  /* We will compare old and new, and we don't want unitialized data */
+  memset(&old_termios, sizeof(new_termios), 0);
+  memset(&new_termios, sizeof(new_termios), 0);
+  /* tcgetattr returns success as long as at least one of requested
+   * changes was executed.  So, repeat until no more changes.
+   */ 
+  do {
+    if (tcgetattr(fd, &old_termios) == -1) return -1;
+    if (tcsetattr(fd, TCSANOW, termios_p) == -1) return -1;
+    if (tcgetattr(fd, &new_termios) == -1) return -1;
+  } while (memcmp(&new_termios, &old_termios, sizeof(new_termios)) != 0);
+  return 0;
+}
+static void restore_term_settings() {
+  if (saved_termios_exists){
+    /* First check if we are in foreground. If not, skip this and print
+     *   warning.  If we try to call tcsetattr in background, we will hang.
+     */
+    int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+    DPRINTF(("restore terminal attributes, check foreground status first: %d\n",
+             foreground));
+    if (foreground) {
+      if ( ( ! isatty(STDIN_FILENO)
+             || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0) )
+        DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
+      else
+        DPRINTF(("mtcp finishrestore*: restored terminal\n"));
+    } else {
+      DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step\n"
+	       " -- we are in BACKGROUND\n"));
+    }
+  }
+}
+
+
+/*************************************************************************/
+/*						                         */
+/*  This executes as a thread.  It sleeps for the checkpoint interval    */
+/*    seconds, then wakes to write the checkpoint file.			 */
+/*						                         */
+/*************************************************************************/
 
 static void *checkpointhread (void *dummy)
 {
@@ -1281,7 +1330,9 @@ static void *checkpointhread (void *dummy)
    */
   static int originalstartup = 1;
 
-  /* We put a timeout in case the thread being waited for exits whilst we are waiting */
+  /* We put a timeout in case the thread being waited for exits whilst
+   *   we are waiting
+   */
 
   static struct timespec const enabletimeout = { 10, 0 };
 
@@ -1493,9 +1544,7 @@ again:
     if (mtcp_have_thread_sysinfo_offset())
       saved_sysinfo = mtcp_get_thread_sysinfo();
     /* Do this once.  It's the same for all threads. */
-    saved_termios_exists = ( isatty(STDIN_FILENO)
-    			     && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
-saved_termios_exists = saved_termios_exists || (isatty(5) && tcgetattr(5, &saved_termios) >= 0);
+    save_term_settings();
 
     if (getcwd(saved_working_directory, MTCP_MAX_PATH) == NULL) {
       // buffer wasn't large enough
@@ -3206,27 +3255,8 @@ static int restarthread (void *threadv)
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
     /* Do it once only, in motherofall thread. */
-    
-    if (saved_termios_exists){
-      // First check if we are in foreground. If not - skip this and print
-      //   warning.  If we try to call tcsetattr in background - we will hangup.
-      int fg = (tcgetpgrp(STDIN_FILENO) == getpgrp());
-      DPRINTF(("restore terminal attributes, check foreground ststus first: %d\n",
-	       fg));
-      if ( fg ){
-        if( (!isatty(STDIN_FILENO)
-             || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0) &&
-            (!isatty(5) || tcsetattr(5, TCSANOW, &saved_termios) < 0) )
-          DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
-	else
-	{
-          DPRINTF(("mtcp finishrestore*: restored terminal\n"));
-	}
-      } else {
-        DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step\n"
-		 " -- we are in BACKGROUND\n"));
-      }
-    }
+
+    restore_term_settings();
 
     if (dmtcp_info_restore_working_directory
         && chdir(saved_working_directory) == -1) {
