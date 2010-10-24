@@ -29,6 +29,7 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
 #include "uniquepid.h"
@@ -724,6 +725,8 @@ extern "C" long int syscall(long int sys_num, ... )
       break;
     }
 
+#ifdef __x86_64__
+// These SYS_xxx are only defined for 64-bit Linux
     case SYS_socket:
     {
       SYSCALL_GET_ARGS_3(int,domain,int,type,int,protocol);
@@ -767,6 +770,7 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = socketpair(d,type,protocol,sv);
       break;
     }
+#endif
 
     case SYS_execve:
     {
@@ -899,6 +903,8 @@ extern "C" long int syscall(long int sys_num, ... )
 #endif /* PID_VIRTUALIZATION */
 
 #ifndef DISABLE_SYS_V_IPC
+# ifdef __x86_64__
+// These SYS_xxx are only defined for 64-bit Linux
     case SYS_shmget:
     {
       SYSCALL_GET_ARGS_3(key_t,key,size_t,size,int,shmflg);
@@ -923,6 +929,7 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = shmctl(shmid, cmd, buf);
       break;
     }
+# endif
 #endif
 
     default:

@@ -201,7 +201,8 @@ void writeBacktrace() {
     close(fd);
     jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/backtrace";
     unlink(lnk.c_str());  // just in case it had previously been created.
-    symlink(backtrace.c_str(), lnk.c_str());
+    if (symlink(backtrace.c_str(), lnk.c_str()) == -1)
+      {}  // Too late to issue a user warning here.
   }
 }
 
@@ -233,7 +234,8 @@ void writeProcMaps() {
     close(fd);
     jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
     unlink(lnk.c_str());  // just in case it had previously been created.
-    symlink(procMaps.c_str(), lnk.c_str());
+    if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
+      {}  // Too late to issue a user warning here.
   }
 }
 

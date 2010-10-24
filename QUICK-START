@@ -204,14 +204,17 @@ SHORT NOTES:
 		env CC=gcc-4.1 CXX=g++-4.1 ./configure
 		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
                 make clean; make
-	C.  On some distributions, we have observed cases where after
-	    checkpointing, 'matlab' will not restart from a small fraction
-	    of the checkpoint images.  If this affects you, consider
-	    directly invoking the matlab binary:  MATLAB.  To do this, type:
+	C.  While we believe that with the DMTCP-1.10 release, directly
+	    checkpointing the standard matlab script should now be reliable,
+	    we are continuing to do stress testing.  If you encounter any
+	    unreliability please notify the developers.  As a workaround, you
+	    can always revert to the older method of directly running
+	    the MATLAB binary.  To run the MATLAB binary, do:
 	      bash -x `which matlab` -nodisplay
 	    On our computer, just before the 'matlab' banner, we see the
-	    path of  MATLAB.  Then, we can use it as:
+	    path of  MATLAB.  Then, we can invokd it as:
 	      dmtcp_checkpoint /opt/matlab/bin/glnxa64/MATLAB -nodisplay -nojvm
+
     13. How to checkpoint OpenMPI with DMTCP
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
@@ -334,3 +337,9 @@ SHORT NOTES:
 	case, your program will see the _original pid_, and not the
 	current pid.  At this time, a restarted process will appear
 	within the "ps" command under the program name "mtcp_restart".
+
+    18. Certain applications, such as some shells, vim, etc., try to
+	recognize mouse events from the X11 windows system.  While DMTCP
+	successfully restarts these applications, it does not currently
+	restore the connection to X11.  Mouse events are no longer recognized
+	after restart.
