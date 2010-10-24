@@ -30,14 +30,14 @@
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 
-#define WRAPPER_EXECUTION_LOCK_LOCK() \
+#define WRAPPER_EXECUTION_DISABLE_CKPT() \
   /*JTRACE("Acquiring wrapperExecutionLock");*/ \
   bool __wrapperExecutionLockAcquired = dmtcp::DmtcpWorker::wrapperExecutionLockLock(); \
   if ( __wrapperExecutionLockAcquired ) { \
     /*JTRACE("Acquired wrapperExecutionLock");*/ \
   }
 
-#define WRAPPER_EXECUTION_LOCK_UNLOCK() \
+#define WRAPPER_EXECUTION_ENABLE_CKPT() \
   if ( __wrapperExecutionLockAcquired ) { \
     /*JTRACE("Releasing wrapperExecutionLock");*/ \
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \

@@ -989,12 +989,12 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     workersRunningAndSuspendMsgSent = true;
     return true;
   }
-  else
-  {
+
+  if (s.numPeers > 0) {
     JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )
 	   ( s.numPeers );
-    return false;
   }
+  return false;
 }
 
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()

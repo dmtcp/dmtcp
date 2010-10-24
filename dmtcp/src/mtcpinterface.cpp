@@ -389,7 +389,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * (Make sure to unlock before returning from this function)
    * Also increment the uninitialized thread count.
    */
-  WRAPPER_EXECUTION_LOCK_LOCK();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
 
 
@@ -460,7 +460,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   }
 
   /* Release the wrapperExeution lock */
-  WRAPPER_EXECUTION_LOCK_UNLOCK();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return tid;
 
