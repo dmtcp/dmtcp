@@ -802,13 +802,33 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
        * For example, gconv-modules.cache is shared with read-exec perm.
        * If read-only permission, warn user that we're using curr. file.
        */
-      if (imagefd >= 0 && -1 == mtcp_sys_access(area->name, X_OK))
-        mtcp_printf ("MTCP: mtcp_restart_nolibc: mapping current version "
-          "of %s into memory;\n"
-          "  _not_ file as it existed at time of checkpoint.\n"
-          "  Change %s:%d and re-compile, if you want different "
-          "behavior.\n",
-          area->name, __FILE__, __LINE__);
+      if (imagefd >= 0 && -1 == mtcp_sys_access(area->name, X_OK)) {
+        /* emulate strcmp */
+        int i, j;
+        char usr_str[] = "/usr/";
+        char var_str[] = "/var/";
+        for (i = 0; i < sizeof(usr_str) - 1; i++)
+          if (area->name[i] != usr_str[i])
+            break;
+        for (j = 0; j < sizeof(var_str) - 1; j++)
+          if (area->name[j] != var_str[j])
+            break;
+        if (i != sizeof(usr_str) - 1 && j != sizeof(var_str) - 1 ) {
+          mtcp_printf("MTCP: mtcp_restart_nolibc: mapping current version "
+            "of %s into memory;\n"
+            "  _not_ file as it existed at time of checkpoint.\n"
+            "  Change %s:%d and re-compile, if you want different "
+            "behavior. %d: %d\n",
+            area->name, __FILE__, __LINE__, i, j);
+        } else {
+          DPRINTF(("MTCP: mtcp_restart_nolibc: mapping current version "
+            "of %s into memory;\n"
+            "  _not_ file as it existed at time of checkpoint.\n"
+            "  Change %s:%d and re-compile, if you want different "
+            "behavior.\n",
+            area->name, __FILE__, __LINE__));
+        }
+      }
       skipfile (area->size);
     }
   }
