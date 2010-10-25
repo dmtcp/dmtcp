@@ -134,6 +134,21 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
     PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
 }
 
+/*
+int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
+{
+  if ( addr == NULL || addrlen == NULL )
+  {
+    struct sockaddr_storage tmp_addr;
+    socklen_t tmp_len = 0;
+    memset ( &tmp_addr,0,sizeof ( tmp_addr ) );
+    PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, ( ( struct sockaddr * ) &tmp_addr ) , ( &tmp_len ), flags );
+  }
+  else
+    PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen, len );
+}
+*/
+
 int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
                  socklen_t optlen )
 {
