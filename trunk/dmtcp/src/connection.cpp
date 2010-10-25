@@ -1609,20 +1609,24 @@ void dmtcp::TcpConnection::mergeWith ( const Connection& _that ){
 
 void dmtcp::PtyConnection::mergeWith ( const Connection& _that ){
   Connection::mergeWith(_that);
-  const PtyConnection& that = (const PtyConnection&)_that; //Connection::_type match is checked in Connection::mergeWith
-  JWARNING(_type          == that._type)          MERGE_MISMATCH_TEXT;
+  const PtyConnection& that = (const PtyConnection&)_that;
   JWARNING(_ptsName       == that._ptsName)       MERGE_MISMATCH_TEXT;
   JWARNING(_uniquePtsName == that._uniquePtsName) MERGE_MISMATCH_TEXT;
 }
 
-void dmtcp::FileConnection::mergeWith ( const Connection& that ){
-  Connection::mergeWith(that);
-  JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
+void dmtcp::FileConnection::mergeWith ( const Connection& _that ){
+  Connection::mergeWith(_that);
+  const FileConnection& that = (const FileConnection&)_that;
+  JWARNING(_path   == that._path)   MERGE_MISMATCH_TEXT;
+  JWARNING(_offset == that._offset) MERGE_MISMATCH_TEXT;
+  //JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
 }
 
-void dmtcp::FifoConnection::mergeWith ( const Connection& that ){
-  Connection::mergeWith(that);
-  JWARNING(false)(id()).Text("We shouldn't be merging fifo connections, should we?");
+void dmtcp::FifoConnection::mergeWith ( const Connection& _that ){
+  Connection::mergeWith(_that);
+  const FifoConnection& that = (const FifoConnection&)_that;
+  JWARNING(_path   == that._path)   MERGE_MISMATCH_TEXT;
+  //JWARNING(false)(id()).Text("We shouldn't be merging fifo connections, should we?");
 }
 
 ////////////
@@ -1671,7 +1675,7 @@ void dmtcp::StdioConnection::serializeSubClass ( jalib::JBinarySerializer& o ){
 }
 
 void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
-  Connection::mergeWith(that);
+  //Connection::mergeWith(that);
 }
 
 void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
