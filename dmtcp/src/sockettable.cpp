@@ -162,6 +162,13 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 }
 
 ///
+///called automatically after a sucessful user function call
+extern "C" int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
+{
+  return dmtcp_on_accept(ret, sockfd, addr, addrlen);
+}
+
+///
 ///called automatically when a socket error is returned by user function
 extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
 {
