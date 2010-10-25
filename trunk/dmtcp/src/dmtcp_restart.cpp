@@ -190,9 +190,9 @@ namespace
 	  const dmtcp::vector<int>& fds = i->second;
 	  for ( size_t x=0; x<fds.size(); ++x )
 	    {
-	      if (fds[x] == 1){
-		JTRACE("Found stdin: x=%zul, %d <---> %d")
-		       (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
+	      if (fds[x] == STDIN_FILENO){
+		JTRACE("Found stdin: fds[x] <---> slidingFd.getFdFor()")
+                      (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
 		return slidingFd.getFdFor ( i->first );
 	      }
 	    }
@@ -371,22 +371,25 @@ namespace
 
     void bringToForeground(SlidingFdTable& slidingFd)
     {
-      char s[L_ctermid];
+      char controllingTerm[L_ctermid];
       pid_t pid;
 
       int sin = find_stdin(slidingFd);
 
       if( isSessionLeader() ){
+        // XXX: Where is the controlling terminal being set?
 	char *ptr =  ttyname(sin);
-	printf("ttyname=%s\n",ptr);
 	int fd = open(ptr,O_RDWR);
-	if( ctermid(s) ){
+	if( ctermid(controllingTerm) ){
 	  int tfd = open(ptr,O_RDONLY);
 	  if( tfd >= 0 ){
-	    printf("Current terminal is set to %s\n",s);
+	    JTRACE("Setting current controlling terminal") (controllingTerm);
 	    close(tfd);
-	  }else{
-	    printf("Cannot restore terminal\n");
+	  }else if (ptr == NULL){
+            JTRACE("Cannot restore controlling terminal") (ttyname(sin));
+          } else {
+	    JWARNING(false) (ttyname(sin)) 
+                    .Text("Cannot restore controlling terminal");
 	  }
 	}
 	close(fd);
@@ -410,15 +413,19 @@ namespace
 	  JTRACE("Change current GID to foreground GID.");
 
 	if( setpgid(0, fgid) ){
- 	  printf("CANNOT Change current GID to foreground GID: %s\n",
- 	  strerror(errno));
- 	  printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
- 	  getpid(),fgid,_virtualPidTable.fgid(), gid);
+          if (fgid == -1) {
+            JTRACE("CANNOT Change current GID to foreground GID")
+                  (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO);
+          } else {
+            JWARNING(false) 
+                     (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO)
+                    .Text("CANNOT Change current GID to foreground GID");
+          }
  	  fflush(stdout);
  	  exit(0);
 	}
 
-      if( tcsetpgrp(sin, gid) ){
+        if( tcsetpgrp(sin, gid) ){
 	  printf("CANNOT Move parent GID to foreground: %s\n",
 		 strerror(errno));
  	  printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
