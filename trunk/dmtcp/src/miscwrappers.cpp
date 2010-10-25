@@ -725,6 +725,53 @@ extern "C" long int syscall(long int sys_num, ... )
       break;
     }
 
+#ifdef __x86_64__
+// These SYS_xxx are only defined for 64-bit Linux
+    case SYS_socket:
+    {
+      SYSCALL_GET_ARGS_3(int,domain,int,type,int,protocol);
+      ret = socket(domain,type,protocol);
+      break;
+    }
+    case SYS_connect:
+    {
+      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
+      ret = connect(sockfd, addr, addrlen);
+      break;
+    }
+    case SYS_bind:
+    {
+      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
+      ret = bind(sockfd,addr,addrlen);
+      break;
+    }
+    case SYS_listen:
+    {
+      SYSCALL_GET_ARGS_2(int,sockfd,int,backlog);
+      ret = listen(sockfd,backlog);
+      break;
+    }
+    case SYS_accept:
+    {
+      SYSCALL_GET_ARGS_3(int,sockfd,struct sockaddr*,addr,socklen_t*,addrlen);
+      ret = accept(sockfd, addr, addrlen);
+      break;
+    }
+    case SYS_setsockopt:
+    {
+      SYSCALL_GET_ARGS_5(int,s,int,level,int,optname,const void*,optval,socklen_t,optlen);
+      ret = setsockopt(s, level, optname, optval, optlen);
+      break;
+    }
+
+    case SYS_socketpair:
+    {
+      SYSCALL_GET_ARGS_4(int,d,int,type,int,protocol,int*,sv);
+      ret = socketpair(d,type,protocol,sv);
+      break;
+    }
+#endif
+
     case SYS_execve:
     {
       SYSCALL_GET_ARGS_3(const char*,filename,char* const *,argv,char* const *,envp);
@@ -775,75 +822,6 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = sigtimedwait(set, info, timeout);
       break;
     }
-
-#ifdef __i386__
-    case SYS_sigaction:
-    {
-      SYSCALL_GET_ARGS_3(int,signum,const struct sigaction*,act,struct sigaction*,oldact);
-      ret = sigaction(signum, act, oldact);
-      break;
-    }
-    case SYS_signal:
-    {
-      typedef void (*sighandler_t)(int);
-      SYSCALL_GET_ARGS_2(int,signum,sighandler_t,handler);
-      ret = signal(signum, handler);
-      break;
-    }
-    case SYS_sigprocmask:
-    {
-      SYSCALL_GET_ARGS_3(int,how,const sigset_t*,set,sigset_t*,oldset);
-      ret = sigprocmask(how, set, oldset);
-      break;
-    }
-#endif
-
-#ifdef __x86_64__
-// These SYS_xxx are only defined for 64-bit Linux
-    case SYS_socket:
-    {
-      SYSCALL_GET_ARGS_3(int,domain,int,type,int,protocol);
-      ret = socket(domain,type,protocol);
-      break;
-    }
-    case SYS_connect:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
-      ret = connect(sockfd, addr, addrlen);
-      break;
-    }
-    case SYS_bind:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
-      ret = bind(sockfd,addr,addrlen);
-      break;
-    }
-    case SYS_listen:
-    {
-      SYSCALL_GET_ARGS_2(int,sockfd,int,backlog);
-      ret = listen(sockfd,backlog);
-      break;
-    }
-    case SYS_accept:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,struct sockaddr*,addr,socklen_t*,addrlen);
-      ret = accept(sockfd, addr, addrlen);
-      break;
-    }
-    case SYS_setsockopt:
-    {
-      SYSCALL_GET_ARGS_5(int,s,int,level,int,optname,const void*,optval,socklen_t,optlen);
-      ret = setsockopt(s, level, optname, optval, optlen);
-      break;
-    }
-
-    case SYS_socketpair:
-    {
-      SYSCALL_GET_ARGS_4(int,d,int,type,int,protocol,int*,sv);
-      ret = socketpair(d,type,protocol,sv);
-      break;
-    }
-#endif
 
 #ifdef PID_VIRTUALIZATION
     case SYS_getpid:
@@ -909,14 +887,6 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = wait4(pid, status, options, rusage);
       break;
     }
-#ifdef __i386__
-    case SYS_waitpid:
-    {
-      SYSCALL_GET_ARGS_3(pid_t,pid,int*,status,int,options);
-      ret = waitpid(pid, status, options);
-      break;
-    }
-#endif
 
     case SYS_setgid:
     {
