@@ -99,6 +99,7 @@ extern "C"
   MACRO(bind)                               \
   MACRO(listen)                             \
   MACRO(accept)                             \
+  MACRO(accept4)                             \
   MACRO(setsockopt)                         \
   MACRO(socketpair)
 
@@ -180,6 +181,7 @@ extern "C"
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+  int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
   int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                          socklen_t optlen );
 

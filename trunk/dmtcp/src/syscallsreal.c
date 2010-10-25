@@ -267,6 +267,12 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 }
 
 /// call the libc version of this function via dlopen/dlsym
+int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
+{
+  REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
+}
+
+/// call the libc version of this function via dlopen/dlsym
 int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                        socklen_t optlen )
 {
