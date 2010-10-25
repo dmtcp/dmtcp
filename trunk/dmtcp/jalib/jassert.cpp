@@ -123,7 +123,9 @@ jassert_internal::JAssert::~JAssert()
     Print ( " (" );
     Print ( getpid() );
     Print ( "): Terminating...\n" );
+#ifdef DEBUG
     jbacktrace();
+#endif
   }
 
   jassert_safe_print ( ss.str().c_str() );
@@ -177,13 +179,13 @@ void jassert_internal::jassert_init ( const jalib::string& f )
 
 const jalib::string writeJbacktraceMsg() {
   jalib::string msg = jalib::string("")
-    + "   *** Stack trace is available ***\n" \
-    "   Execute:  .../utils/dmtcp_backtrace.py\n" \
-    "   For usage:  .../utils/dmtcp_backtrace.py --help\n" \
+    + "\n   *** Stack trace is available ***\n" \
+    "   Execute:  utils/dmtcp_backtrace.py  [found in DMTCP_ROOT]\n" \
+    "   For usage:  utils/dmtcp_backtrace.py --help\n" \
     "   Files saved: ";
   msg += dmtcp::UniquePid::getTmpDir()
                           + "/backtrace." + jalib::XToString ( getpid() );
-  msg += ", ";
+  msg += "\n                ";
   msg += dmtcp::UniquePid::getTmpDir()
                           + "/proc-maps." + jalib::XToString ( getpid() );
   msg += "\n";

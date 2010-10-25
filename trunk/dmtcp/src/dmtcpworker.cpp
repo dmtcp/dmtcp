@@ -39,11 +39,11 @@
 #include "connectionstate.h"
 #include "dmtcp_coordinator.h"
 #include "sysvipc.h"
+#include <signal.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -105,8 +105,8 @@ static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 static dmtcp::UniquePid compGroup;
 
-// static dmtcp::KernelBufferDrainer* theDrainer = 0;
-static dmtcp::ConnectionState* theCheckpointState = 0;
+// static dmtcp::KernelBufferDrainer* theDrainer = NULL;
+static dmtcp::ConnectionState* theCheckpointState = NULL;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static dmtcp::vector <dmtcp::TcpConnectionInfo> theTcpConnections;
@@ -176,7 +176,7 @@ int _determineMtcpSignal(){
   // this mimics the MTCP logic for determining signal number found in
   // mtcp_init()
   int sig = MTCP_DEFAULT_SIGNAL;
-  char* endp = 0;
+  char* endp = NULL;
   static const char* tmp = getenv("MTCP_SIGCKPT");
   if(tmp != NULL){
       sig = strtol(tmp, &endp, 0);
@@ -512,7 +512,8 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string signalStr,
 {
   if ( type == DMT_DO_SUSPEND ) {
     if ( pthread_mutex_trylock(&destroyDmtcpWorker) != 0 ) {
-      JTRACE ( "User thread is performing exit(). ckpt thread exit()ing as well" );
+      JTRACE ( "User thread is performing exit()."
+               " ckpt thread exit()ing as well" );
       pthread_exit(NULL);
     }
     if ( exitInProgress() ) {
@@ -561,7 +562,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string signalStr,
   // message. Extracting that.
   if ( type == DMT_DO_SUSPEND ) {
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
-    JASSERT ( theCheckpointState != 0 );
+    JASSERT ( theCheckpointState != NULL );
     theCheckpointState->numPeers(msg.params[0]);
     theCheckpointState->compGroup(msg.compGroup);
     compGroup = msg.compGroup;
@@ -611,18 +612,20 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     _real_close(fd);
   }
 
-  if ( theCheckpointState != 0 ) {
+  if ( theCheckpointState != NULL ) {
     delete theCheckpointState;
-    theCheckpointState = 0;
+    theCheckpointState = NULL;
   }
 
   theCheckpointState = new ConnectionState();
 
 #ifdef EXTERNAL_SOCKET_HANDLING
-  JASSERT ( _waitingForExternalSocketsToClose == true || externalTcpConnections.empty() == true );
+  JASSERT ( _waitingForExternalSocketsToClose == true ||
+             externalTcpConnections.empty() == true );
 
   while ( externalTcpConnections.empty() == false ) {
-    JTRACE("Waiting for externalSockets toClose") (_waitingForExternalSocketsToClose);
+    JTRACE("Waiting for externalSockets toClose")
+          (_waitingForExternalSocketsToClose);
     sleep ( 1 );
   }
   if ( _waitingForExternalSocketsToClose == true ) {
@@ -635,7 +638,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
 
-  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock(): to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
+  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock():"
+	   " to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
   _dmtcp_lock();
   // TODO: may be it is better to move unlock to more appropriate place.
   // For example after suspending all threads
@@ -645,9 +649,12 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  JTRACE ( "got SUSPEND signal, waiting for other threads to exit DMTCP-Wrappers" );
+  JTRACE ( "got SUSPEND signal,"
+           " waiting for other threads to exit DMTCP-Wrappers" );
   JASSERT(pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JTRACE ( "got SUSPEND signal, waiting for newly created threads to finish initialization" )(unInitializedThreadCount);
+  JTRACE ( "got SUSPEND signal,"
+           " waiting for newly created threads to finish initialization" )
+         (unInitializedThreadCount);
   waitForThreadsToFinishInitialization();
 
   JTRACE ( "Starting checkpoint, suspending..." );
@@ -679,7 +686,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   waitForCoordinatorMsg ( "LOCK", DMT_DO_LOCK_FDS );
 
   JTRACE ( "locking..." );
-  JASSERT ( theCheckpointState != 0 );
+  JASSERT ( theCheckpointState != NULL );
   theCheckpointState->preCheckpointLock();
   JTRACE ( "locked" );
 
@@ -775,14 +782,16 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
 
       JTRACE ("received DMT_UNKNOWN_PEER message") (msg.conId);
 
-      TcpConnection* con = (TcpConnection*) &( ConnectionList::instance() [msg.conId] );
+      TcpConnection* con =
+        (TcpConnection*) &( ConnectionList::instance() [msg.conId] );
       con->markExternal();
       externalTcpConnections.push_back(msg.conId);
       _waitingForExternalSocketsToClose = true;
 
     } while ( msg.type == DMT_UNKNOWN_PEER );
 
-    JASSERT ( msg.type == DMT_DO_DRAIN || msg.type == DMT_DO_RESUME ) ( msg.type );
+    JASSERT ( msg.type == DMT_DO_DRAIN || msg.type == DMT_DO_RESUME )
+            ( msg.type );
 
     ConnectionList& connections = ConnectionList::instance();
 
@@ -794,7 +803,8 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
       Connection* con =  i->second;
       if ( con->conType() == Connection::TCP ) {
         TcpConnection* tcpCon = (TcpConnection *) con;
-        if ( (tcpCon->tcpType() == TcpConnection::TCP_ACCEPT || tcpCon->tcpType() == TcpConnection::TCP_CONNECT) &&
+        if ( (tcpCon->tcpType() == TcpConnection::TCP_ACCEPT ||
+             tcpCon->tcpType() == TcpConnection::TCP_CONNECT) &&
              tcpCon->peerType() == TcpConnection::PEER_UNKNOWN )
           tcpCon->markInternal();
       }
@@ -859,6 +869,17 @@ void dmtcp::DmtcpWorker::postRestart()
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
+#if 0
+  // NOT WORKING YET.
+  // With hardstatus (bottom status line), screen process has diff. size window
+  // Must send SIGWINCH to adjust it.
+  // tcgetpgrp succeeds only if stdin is a controlling terminal
+  int pid = tcgetpgrp(STDIN_FILENO);
+  if ( false && pid > 0 && jalib::Filesystem::GetProgramName() == "screen" )
+    if ( kill(pid, SIGWINCH) == -1 )
+      JTRACE("raise(SIGWINCH) failed")(JASSERT_ERRNO);
+#endif
+
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().postRestart();
 #endif
@@ -873,10 +894,10 @@ void dmtcp::DmtcpWorker::waitForStage3Refill()
 
   waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
 
-  JASSERT ( theCheckpointState != 0 );
+  JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postCheckpoint();
   delete theCheckpointState;
-  theCheckpointState = 0;
+  theCheckpointState = NULL;
 
   SysVIPC::instance().postCheckpoint();
 }
@@ -924,7 +945,8 @@ void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
 
   //reconnect to our coordinator
   connectToCoordinatorWithoutHandshake();
-  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),compGroup,numPeers, DMT_RESTART_PROCESS);
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),
+			   compGroup, numPeers, DMT_RESTART_PROCESS);
   recvCoordinatorHandshake(&coordTstamp);
   JTRACE("Connected to coordinator")(coordTstamp);
 

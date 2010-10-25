@@ -56,9 +56,9 @@
 #include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
-#include <termios.h>
+#include <sys/ioctl.h>
+#include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <unistd.h>
-#include <termios.h>       // for tcdrain
 #include <ucontext.h>
 #include <sys/types.h>     // for gettid, tkill, waitpid
 #include <sys/wait.h>	   // for waitpid
@@ -355,8 +355,6 @@ static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
 void *mtcp_saved_heap_start = NULL;
-static struct termios saved_termios;
-static int saved_termios_exists = 0;
 static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
@@ -1265,9 +1263,15 @@ void mtcp_kill_ckpthread (void)
 /*						                         */
 /*************************************************************************/
 
+static int saved_termios_exists = 0;
+static struct termios saved_termios;
+static struct winsize win;
+
 static void save_term_settings() {
   saved_termios_exists = ( isatty(STDIN_FILENO)
   		           && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+  if (saved_termios_exists)
+    ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &win);
 }
 int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
@@ -1297,8 +1301,10 @@ static void restore_term_settings() {
       if ( ( ! isatty(STDIN_FILENO)
              || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0) )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
-      else
+      else {
         DPRINTF(("mtcp finishrestore*: restored terminal\n"));
+        ioctl (STDIN_FILENO, TIOCSWINSZ, (char *) &win);
+      }
     } else {
       DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step\n"
 	       " -- we are in BACKGROUND\n"));
