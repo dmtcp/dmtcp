@@ -1292,14 +1292,14 @@ int safe_tcsetattr(int fd, int optional_actions,
 static void restore_term_settings() {
   if (saved_termios_exists){
     /* First check if we are in foreground. If not, skip this and print
-     *   warning.  If we try to call tcsetattr in background, we will hang.
+     *   warning.  If we try to call tcsetattr in background, we will hang up.
      */
     int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
     DPRINTF(("restore terminal attributes, check foreground status first: %d\n",
              foreground));
     if (foreground) {
       if ( ( ! isatty(STDIN_FILENO)
-             || tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) < 0) )
+             || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
       else {
         DPRINTF(("mtcp finishrestore*: restored terminal\n"));
