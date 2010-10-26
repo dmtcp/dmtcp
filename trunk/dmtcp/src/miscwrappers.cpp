@@ -788,7 +788,8 @@ extern "C" long int syscall(long int sys_num, ... )
     {
       typedef void (*sighandler_t)(int);
       SYSCALL_GET_ARGS_2(int,signum,sighandler_t,handler);
-      ret = signal(signum, handler);
+      // Cast needed:  signal returns sighandler_t
+      ret = (long int)signal(signum, handler);
       break;
     }
     case SYS_sigprocmask:
