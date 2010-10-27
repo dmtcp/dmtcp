@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -366,8 +366,6 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 extern "C" {
 int send_sigwinch = 0;
 }
-#if 0
-// STILL TESTING THIS WRAPPER.
 extern "C" int ioctl(int d,  unsigned long int request, ...)
 { va_list ap;
   int rc;
@@ -394,7 +392,6 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
 
   return rc;
 }
-#endif
 
 /*
 extern "C" int setgid(gid_t gid)

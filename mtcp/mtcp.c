@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2010 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -1277,13 +1277,12 @@ int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
   struct termios old_termios, new_termios;
   /* We will compare old and new, and we don't want unitialized data */
-  memset(&old_termios, sizeof(new_termios), 0);
   memset(&new_termios, sizeof(new_termios), 0);
   /* tcgetattr returns success as long as at least one of requested
    * changes was executed.  So, repeat until no more changes.
    */ 
   do {
-    if (tcgetattr(fd, &old_termios) == -1) return -1;
+    memcpy(&old_termios, &new_termios, sizeof(new_termios));
     if (tcsetattr(fd, TCSANOW, termios_p) == -1) return -1;
     if (tcgetattr(fd, &new_termios) == -1) return -1;
   } while (memcmp(&new_termios, &old_termios, sizeof(new_termios)) != 0);
@@ -2726,8 +2725,8 @@ static void save_sig_handlers (void)
     DPRINTF (("mtcp save_sig_handlers*: saving signal handler for %d -> %p\n",
               i,
               (sigactions[i].sa_flags & SA_SIGINFO ?
-                 sigactions[i].sa_sigaction :
-                 sigactions[i].sa_handler) ));
+                 (void *)(sigactions[i].sa_sigaction) :
+                 (void *)(sigactions[i].sa_handler)) ));
   }
 }
 
