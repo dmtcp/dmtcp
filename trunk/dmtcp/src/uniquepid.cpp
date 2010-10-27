@@ -26,6 +26,7 @@
 #include <pwd.h>
 #include <sstream>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include "constants.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
