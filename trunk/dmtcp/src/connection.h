@@ -284,7 +284,7 @@ namespace dmtcp
     public:
       enum StdioType
       {
-        STDIO_IN  = STDIO,
+        STDIO_IN = STDIO,
         STDIO_OUT,
         STDIO_ERR,
         STDIO_INVALID
@@ -325,7 +325,6 @@ namespace dmtcp
 
       inline FileConnection ( const dmtcp::string& path, off_t offset=-1 )
           : Connection ( FILE )
-          , _fileType (FILE_REGULAR)
           , _path ( path )
           , _offset ( offset )
       {
@@ -340,6 +339,7 @@ namespace dmtcp
           offs++;
           _rel_path = _path.substr(offs);
         }
+        _type = FILE_REGULAR;
         JTRACE("New File connection created")(_path)(_rel_path);
       }
 
@@ -356,16 +356,18 @@ namespace dmtcp
 
       bool isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds );
 
+      bool fileType() { return _type; }
+
     private:
       void saveFile (int fd);
       int  openFile ();
       void refreshPath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
 
-      int         _fileType;
       dmtcp::string _path;
       dmtcp::string _rel_path;
       dmtcp::string _savedRelativePath;
+      bool        _checkpointed;
       off_t       _offset;
       struct stat _stat;
   };

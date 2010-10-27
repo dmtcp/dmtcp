@@ -937,6 +937,11 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   errno = 0;
   refreshPath();
 
+  if (_checkpointed && jalib::Filesystem::FileExists(_path)) {
+    JASSERT(false) (_path)
+      .Text("File aready exists! Checkpointed copy can't be restored. Delete the existing file and try again!");
+  }
+
   if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
     if (buf.st_size > _stat.st_size && 
         _fcntlFlags & (O_WRONLY|O_RDWR) != 0) {
@@ -1025,7 +1030,7 @@ int dmtcp::FileConnection::openFile()
     //      Deleting files is scary... maybe we want to make a stricter test.
     //
     // // Unlink the File if the File was unlinked at the time of checkpoint
-    // if (_fileType == FILE_DELETED) {
+    // if (_type == FILE_DELETED) {
     //   JASSERT( unlink(_path.c_str()) != -1 )
     //     .Text("Unlinking of pre-checkpoint-deleted file failed");
     // }
@@ -1042,6 +1047,7 @@ int dmtcp::FileConnection::openFile()
 
 void dmtcp::FileConnection::saveFile(int fd)
 {
+  _checkpointed = true;
   if (jalib::Filesystem::FileExists(_path)) {
     dmtcp::string savedFilePath = getSavedFilePath(_path);
 
@@ -1052,13 +1058,14 @@ void dmtcp::FileConnection::saveFile(int fd)
     CopyFile(_path, savedFilePath);
     return;
   }
+
   /* File not present in File System
    *
    * The name for deleted files in /proc file system is listed as:
    *   "<original_file_name> (deleted)"
    */
 
-  if (_fileType != FILE_DELETED) {
+  if (_type != FILE_DELETED) {
     int index = _path.find(DELETED_FILE_SUFFIX);
 
     // extract <original_file_name> from _path
@@ -1068,7 +1075,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     JASSERT( _path.length() == index + strlen(DELETED_FILE_SUFFIX) );
 
     _path = name;
-    _fileType = FILE_DELETED;
+    _type = FILE_DELETED;
   }
 
   dmtcp::string savedFilePath = getSavedFilePath(_path);
@@ -1081,7 +1088,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     char buf[1024];
 
     int destFd = open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                                            S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                                             S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     JASSERT(destFd != -1) (_path) (savedFilePath)
       .Text("Unable to create chekpointed copy of file");
 
@@ -1420,7 +1427,7 @@ void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
   JTRACE("Serializing")(_path)(_fcntlFlags);
-  o & _path & _rel_path & _savedRelativePath & _offset & _fileType & _stat;
+  o & _path & _rel_path & _savedRelativePath & _offset & _stat & _checkpointed;
 }
 
 void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
