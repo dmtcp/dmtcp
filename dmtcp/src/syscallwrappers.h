@@ -66,7 +66,8 @@ extern "C"
   MACRO(waitpid)                            \
   MACRO(waitid)                             \
   MACRO(wait3)                              \
-  MACRO(wait4)
+  MACRO(wait4)				    \
+  MACRO(ioctl)
 #else
 # define GLIBC_PID_FUNC_WRAPPERS(MACRO)
 #endif /* PID_VIRTUALIZATION */
@@ -260,6 +261,8 @@ extern "C"
 
   pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
+  extern int send_sigwinch;
+  int _real_ioctl(int d,  unsigned long int request, ...) __THROW;
 
   int _real_setgid(gid_t gid);
   int _real_setuid(uid_t uid);

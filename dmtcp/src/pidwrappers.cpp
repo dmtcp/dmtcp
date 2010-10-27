@@ -35,6 +35,7 @@
 #include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
+#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <thread_db.h>
 #include <sys/procfs.h>
@@ -349,7 +350,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   pid_t currPid = originalToCurrentPid (pid);
 
-  pid_t retval = _real_wait4 ( currPid, status, options, rusage );;
+  pid_t retval = _real_wait4 ( currPid, status, options, rusage );
 
   pid_t originalPid = currentToOriginalPid ( retval );
 
@@ -359,6 +360,41 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   return originalPid;
 }
+
+// TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
+// These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
+extern "C" {
+int send_sigwinch = 0;
+}
+#if 0
+// STILL TESTING THIS WRAPPER.
+extern "C" int ioctl(int d,  unsigned long int request, ...)
+{ va_list ap;
+  int rc;
+
+  if (send_sigwinch && request == TIOCGWINSZ) {
+    send_sigwinch = 0;
+    va_list local_ap;
+    va_copy(local_ap, ap);
+    va_start(local_ap, request);
+    struct winsize * win = va_arg(local_ap, struct winsize *);
+    va_end(local_ap);
+    rc = _real_ioctl(d, request, win);  // This fills in win
+    win->ws_col--; // Lie to application, and force it to resize window,
+		   //  reset any scroll regions, etc.
+    kill(getpid(), SIGWINCH); // Tell application to look up true winsize
+			      // and resize again.
+  } else {
+    void * arg;
+    va_start(ap, request);
+    arg = va_arg(ap, void *);
+    va_end(ap);
+    rc = _real_ioctl(d, request, arg);
+  }
+
+  return rc;
+}
+#endif
 
 /*
 extern "C" int setgid(gid_t gid)

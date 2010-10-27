@@ -869,16 +869,17 @@ void dmtcp::DmtcpWorker::postRestart()
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
-#if 0
-  // NOT WORKING YET.
+  if ( jalib::Filesystem::GetProgramName() == "screen" )
+    send_sigwinch = 1;
   // With hardstatus (bottom status line), screen process has diff. size window
   // Must send SIGWINCH to adjust it.
-  // tcgetpgrp succeeds only if stdin is a controlling terminal
-  int pid = tcgetpgrp(STDIN_FILENO);
-  if ( false && pid > 0 && jalib::Filesystem::GetProgramName() == "screen" )
-    if ( kill(pid, SIGWINCH) == -1 )
-      JTRACE("raise(SIGWINCH) failed")(JASSERT_ERRNO);
-#endif
+  // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
+  // to execute ioctl wrapper.  The wrapper will report a changed winsize,
+  // so that 'screen' must re-initialize the screen (scrolling resions, etc.).
+  // The wrapper will also send a second SIGWINCH.  Then 'screen' will
+  // call ioctl and get the correct window size and resize again.
+  // We can't just send two SIGWINCH's now, since window size has not
+  // changed yet, and 'screen' will assume that there's nothing to do. 
 
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().postRestart();

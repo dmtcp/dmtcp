@@ -1302,14 +1302,22 @@ static void restore_term_settings() {
              || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) )
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
       else {
+        struct winsize cur_win;
         DPRINTF(("mtcp finishrestore*: restored terminal\n"));
-        ioctl (STDIN_FILENO, TIOCSWINSZ, (char *) &win);
+        ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &cur_win);
+	/* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
+	 * it back to last known row/col prior to checkpoint, and then send a
+	 * SIGWINCH (see below) to notify process that window might have changed
+	 */
+        if (cur_win.ws_row == 0 && cur_win.ws_col == 0)
+          ioctl (STDIN_FILENO, TIOCSWINSZ, (char *) &win);
       }
     } else {
       DPRINTF(("WARNING: mtcp finishrestore*: skip restore terminal step\n"
 	       " -- we are in BACKGROUND\n"));
     }
   }
+  if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
 }
 
 

@@ -475,6 +475,21 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait4 ) ( pid, status, options, rusage );
 }
 
+int _real_ioctl(int d, unsigned long int request, ...) {
+  int i;
+  void * arg;
+  va_list ap;
+
+  // Most calls to ioctl take 'void *', 'int' or no extra argument
+  // A few specialized ones take more args, but we don't need to handle those.
+  va_start(ap, request);
+  arg = va_arg(ap, void *);
+  va_end(ap);
+
+  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, ioctl ) ( d, request, arg );
+}
+
 int _real_setgid(gid_t gid) {
   REAL_FUNC_PASSTHROUGH( setgid ) (gid);
 }

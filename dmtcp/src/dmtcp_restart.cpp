@@ -781,7 +781,6 @@ int main ( int argc, char** argv )
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
-  bool isScreen = false;
   for(; argc>0; shift){
     char *restorename = argv[0];
     struct stat buf;
@@ -800,23 +799,11 @@ int main ( int argc, char** argv )
            getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 6);
       doAbort = true;
     }
-    if (strstr(argv[0], "ckpt_screen") == argv[0])
-      isScreen = true;
     if (doAbort)
       abort();
 
     JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
     targets.push_back ( RestoreTarget ( argv[0] ) );
-  }
-
-  if (isScreen) {
-    JASSERT_STDERR << "\nThis restarted process appears to be 'screen'.\n"
-	"If it uses status line at bottom, you may have to change size of\n"
-        "xterm/terminal window to something else and back, or switching"
-	" screen windows,\n to display screen properly."
-        "  This will be fixed in a future DMTCP release.\n";
-    // For debugging: kill -s WINCH <PID>, temporarily works for <PID>=shellpid
-    sleep(3);
   }
 
   JASSERT(targets.size()>0);
