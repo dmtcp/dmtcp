@@ -35,6 +35,8 @@
 // Needed for dmtcp::UniquePid::getTmpDir()
 // Is there a cleaner way to get information from rest of DMTCP?
 #include "../src/uniquepid.h"
+#include "../src/util.h"
+#include "../src/protectedfds.h"
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
@@ -52,15 +54,13 @@
 
 int jassert_quiet = 0;
 
-/*
-   The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
-   PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
-*/
-static const int DUP_STDERR_FD = 825; // PFD(5)
-static const int DUP_LOG_FD    = 826; // PFD(6)
+#define DUP_STDERR_FD PROTECTED_STDERR_FD
+#define DUP_LOG_FD    PROTECTED_JASSERTLOG_FD
 
 static int jwrite(int fd, const char *str)
 {
+  return dmtcp::Util::writeAll(fd, str, strlen(str));
+#if 0
   ssize_t offs, rc;
   ssize_t size = strlen(str);
 
@@ -72,6 +72,7 @@ static int jwrite(int fd, const char *str)
       offs += rc;
   }
   return size;
+#endif
 }
 
 int jassert_internal::jassert_console_fd()
