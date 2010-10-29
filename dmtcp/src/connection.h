@@ -73,6 +73,7 @@ namespace dmtcp
       virtual ~Connection() {}
 
       int conType() const { return _type & TYPEMASK; }
+      bool restoreInSecondIteration() { return _restoreInSecondIteration; }
 
       const ConnectionIdentifier& id() const { return _id; }
 
@@ -110,6 +111,7 @@ namespace dmtcp
       int                  _fcntlFlags;
       int                  _fcntlOwner;
       int                  _fcntlSignal;
+      bool                 _restoreInSecondIteration;
   };
 
   class TcpConnection : public Connection
@@ -323,24 +325,14 @@ namespace dmtcp
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
-      inline FileConnection ( const dmtcp::string& path, off_t offset=-1 )
+      inline FileConnection ( const dmtcp::string& path, off_t offset=-1, 
+                              int type = FILE_REGULAR )
           : Connection ( FILE )
           , _path ( path )
           , _offset ( offset )
       {
-        const char *cur_dir = get_current_dir_name();
-        dmtcp::string curDir = cur_dir;
-        int offs = _path.find(curDir);
-        if( offs < 0 ){
-          _rel_path = "*";
-        }else{
-          offs += curDir.size();
-          offs = _path.find('/',offs);
-          offs++;
-          _rel_path = _path.substr(offs);
-        }
-        _type = FILE_REGULAR;
-        JTRACE("New File connection created")(_path)(_rel_path);
+        _type = type;
+        JTRACE("New File connection created")(_path);
       }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
@@ -362,11 +354,13 @@ namespace dmtcp
       void saveFile (int fd);
       int  openFile ();
       void refreshPath();
+      void handleUnlinkedFile();
+      void calculateRelativePath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
 
       dmtcp::string _path;
       dmtcp::string _rel_path;
-      dmtcp::string _savedRelativePath;
+      dmtcp::string _ckptFilesDir;
       bool        _checkpointed;
       off_t       _offset;
       struct stat _stat;
@@ -416,9 +410,9 @@ namespace dmtcp
       dmtcp::string _rel_path;
       dmtcp::string _savedRelativePath;
       struct stat _stat;
-	  bool _has_lock;
-	  vector<char> _in_data;
-	  int ckptfd;
+      bool _has_lock;
+      vector<char> _in_data;
+      int ckptfd;
   };
 }
 

@@ -59,16 +59,27 @@ namespace
     return (rc < 0 ? -1 : count);
   }
 
-  jalib::string _FileBaseName ( const jalib::string& str )
-  {
-    int lastSlash = 0;
-    for ( size_t i = 0; i<str.length(); ++i )
-      if ( str[i] == '/' )
-        lastSlash = i;
-    return str.substr ( lastSlash+1 );
-  }
-
 }
+
+jalib::string jalib::Filesystem::GetCWD()
+{
+  jalib::string cwd;
+  char buf[PATH_MAX];
+  JASSERT(getcwd(buf, PATH_MAX) == buf)
+    .Text("Pathname too long");
+  cwd = buf;
+  return cwd;
+}
+
+jalib::string jalib::Filesystem::FileBaseName ( const jalib::string& str )
+{
+  int lastSlash = 0;
+  for ( size_t i = 0; i<str.length(); ++i )
+    if ( str[i] == '/' )
+      lastSlash = i;
+  return str.substr ( lastSlash+1 );
+}
+
 jalib::string jalib::Filesystem::DirBaseName ( const jalib::string& str )
 {
   int lastSlash = 0;
@@ -90,7 +101,7 @@ jalib::string jalib::Filesystem::GetProgramName()
   if (value == "") {
     int len;
     char cmdline[1024];
-    value = _FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
+    value = FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (len > 0
         && ( value == ResolveSymlink("/lib/ld-linux.so.2")
@@ -98,7 +109,7 @@ jalib::string jalib::Filesystem::GetProgramName()
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& len > strlen(cmdline) + 1 // more than one word in cmdline
 	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag
-      value = _FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
+      value = FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
   }
   return value;
 }

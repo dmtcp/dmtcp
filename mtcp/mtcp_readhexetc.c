@@ -86,3 +86,42 @@ char mtcp_readchar (int fd)
   if (rc <= 0) return (0);
   return (c);
 }
+
+size_t mtcp_strlen(const char *s)
+{
+  size_t len = 0;
+  while (*s++ != '\0') {
+    len++;
+  }
+  return len;
+}
+
+int mtcp_strncmp (const char *s1, const char *s2, size_t n)
+{
+  unsigned char c1 = '\0';
+  unsigned char c2 = '\0';
+
+  while (n > 0) {
+    c1 = (unsigned char) *s1++;
+    c2 = (unsigned char) *s2++;
+    if (c1 == '\0' || c1 != c2)
+      return c1 - c2;
+    n--;
+  }
+  return c1 - c2;
+}
+
+int mtcp_strendswith (const char *s1, const char *s2)
+{
+  unsigned char c1 = '\0';
+  unsigned char c2 = '\0';
+  size_t len1 = mtcp_strlen(s1);
+  size_t len2 = mtcp_strlen(s2);
+
+  if (len1 < len2)
+    return 0;
+
+  s1 += (len1 - len2);
+
+  return mtcp_strncmp(s1, s2, len2) == 0;
+}
