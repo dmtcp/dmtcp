@@ -33,6 +33,7 @@
 #include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogcheckpointer.h"
+#include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include <sys/time.h>
@@ -224,7 +225,6 @@ static void dmtcpPrepareForExec(const char *path)
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::instance().prepareForExec();
   dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
   dmtcp::SysVIPC::instance().serialize ( wr );
@@ -270,6 +270,19 @@ static void dmtcpPrepareForExec(const char *path)
   }
   setenv("LD_PRELOAD", preload.c_str(), 1);
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
+}
+
+static void dmtcpProcessFailedExec(const char *path)
+{
+  const char* str = getenv("LD_PRELOAD");
+  JASSERT(str != NULL );
+  dmtcp::string preload = getenv("LD_PRELOAD");
+  JASSERT(dmtcp::Util::str_starts_with(preload, dmtcp::DmtcpWorker::ld_preload_c));
+
+  preload.erase(0, strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1);
+
+  setenv("LD_PRELOAD", preload.c_str(), 1);
+  JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
 }
 
 static const char* ourImportantEnvs[] =
@@ -354,6 +367,8 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
   int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
 
+  dmtcpProcessFailedExec(filename);
+
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
@@ -375,6 +390,8 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 
   int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
 
+  dmtcpProcessFailedExec(argv[0]);
+
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
@@ -389,7 +406,10 @@ extern "C" int execv ( const char *path, char *const argv[] )
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcpPrepareForExec(path);
+
   int retVal = _real_execv ( path, argv );
+
+  dmtcpProcessFailedExec(path);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -405,7 +425,10 @@ extern "C" int execvp ( const char *file, char *const argv[] )
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   dmtcpPrepareForExec(file);
+
   int retVal = _real_execvp ( file, argv );
+
+  dmtcpProcessFailedExec(file);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
