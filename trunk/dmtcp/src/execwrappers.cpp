@@ -277,7 +277,7 @@ static void dmtcpProcessFailedExec(const char *path)
   const char* str = getenv("LD_PRELOAD");
   JASSERT(str != NULL );
   dmtcp::string preload = getenv("LD_PRELOAD");
-  JASSERT(dmtcp::Util::str_starts_with(preload, dmtcp::DmtcpWorker::ld_preload_c));
+  JASSERT(dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c));
 
   preload.erase(0, strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1);
 

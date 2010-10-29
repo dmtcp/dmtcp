@@ -1273,7 +1273,7 @@ static void openOriginalToCurrentMappingFiles()
 	  ( pidMapCountFile.str() );
   close(fd);
 
-  dmtcp::Util::lock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Util::lockFile(PROTECTED_PIDMAPCNT_FD);
 
   // Initialize pidMapCountFile with zero value.
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
@@ -1288,7 +1288,7 @@ static void openOriginalToCurrentMappingFiles()
     JTRACE("pidMapCountFile is not empty - do nothing");
   }
 
-  dmtcp::Util::unlock_file(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::Util::unlockFile(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 

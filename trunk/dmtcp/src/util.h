@@ -36,11 +36,11 @@ namespace dmtcp
   class Util {
     public:
       Util(){};
-      static void lock_file(int fd);
-      static void unlock_file(int fd);
-      static bool str_starts_with(const dmtcp::string& str, const char *pattern);
-      static bool str_ends_with(const dmtcp::string& str, const char *pattern);
-      static ssize_t write_all(int fd, const void *buf, size_t count);
+      static void lockFile(int fd);
+      static void unlockFile(int fd);
+      static bool strStartsWith(const dmtcp::string& str, const char *pattern);
+      static bool strEndsWith(const dmtcp::string& str, const char *pattern);
+      static ssize_t writeAll(int fd, const void *buf, size_t count);
 
   };
 }

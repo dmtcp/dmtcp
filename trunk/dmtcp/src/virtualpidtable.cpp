@@ -527,7 +527,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   jalib::JBinarySerializeReaderRaw countrd(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
 
   // Lock fileset before any operations
-  Util::lock_file(PROTECTED_PIDMAP_FD);
+  Util::lockFile(PROTECTED_PIDMAP_FD);
   _do_lock_tbl();
 
   // Read old number of saved pid maps
@@ -543,7 +543,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
   serializeEntryCount (countwr,numMaps);
 
   _do_unlock_tbl();
-  Util::unlock_file(PROTECTED_PIDMAP_FD);
+  Util::unlockFile(PROTECTED_PIDMAP_FD);
 }
 
 void dmtcp::VirtualPidTable::readPidMapsFromFile()

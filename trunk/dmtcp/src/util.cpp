@@ -30,7 +30,7 @@
 #include  "util.h"
 #include  "../jalib/jassert.h"
 
-void dmtcp::Util::lock_file(int fd)
+void dmtcp::Util::lockFile(int fd)
 {
   struct flock fl;
 
@@ -49,7 +49,7 @@ void dmtcp::Util::lock_file(int fd)
     .Text("Unable to lock the PID MAP file");
 }
 
-void dmtcp::Util::unlock_file(int fd)
+void dmtcp::Util::unlockFile(int fd)
 {
   struct flock fl;
   int result;
@@ -64,7 +64,7 @@ void dmtcp::Util::unlock_file(int fd)
     .Text("Unlock Failed");
 }
 
-bool dmtcp::Util::str_starts_with(const dmtcp::string& str, const char *pattern)
+bool dmtcp::Util::strStartsWith(const dmtcp::string& str, const char *pattern)
 {
   if (str.length() >= strlen(pattern)) {
     return str.compare(0, strlen(pattern), pattern) == 0;
@@ -72,7 +72,7 @@ bool dmtcp::Util::str_starts_with(const dmtcp::string& str, const char *pattern)
   return false;
 }
 
-bool dmtcp::Util::str_ends_with(const dmtcp::string& str, const char *pattern)
+bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 {
   size_t idx = str.length() - strlen(pattern);
   if (idx >= 0) {
@@ -81,7 +81,7 @@ bool dmtcp::Util::str_ends_with(const dmtcp::string& str, const char *pattern)
   return false;
 }
 
-ssize_t dmtcp::Util::write_all(int fd, const void *buf, size_t count)
+ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
   ssize_t offs, rc;

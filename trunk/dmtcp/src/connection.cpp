@@ -98,8 +98,8 @@ static bool _isVimApp ( )
 
 static bool _isBlacklistedFile ( dmtcp::string& path )
 {
-  if ((dmtcp::Util::str_starts_with(path, "/dev/") &&
-       !dmtcp::Util::str_starts_with(path, "/dev/shm/"))) {
+  if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
+       !dmtcp::Util::strStartsWith(path, "/dev/shm/"))) {
     return true;
   }
   return false;
@@ -908,7 +908,7 @@ void dmtcp::FileConnection::handleUnlinkedFile()
    */
   JASSERT (!jalib::Filesystem::FileExists(_path));
 
-  if (Util::str_ends_with(_path, DELETED_FILE_SUFFIX)) {
+  if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
     _path.erase( _path.length() - strlen(DELETED_FILE_SUFFIX) );
     _type = FILE_DELETED;
   } else {
@@ -961,10 +961,10 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
                _stat.st_uid == getuid()) {
       saveFile(fds[0]);
     } else if (_isVimApp() &&
-               (Util::str_ends_with(_path, ".swp") == 0 ||
-                Util::str_ends_with(_path, ".swo") == 0)) {
+               (Util::strEndsWith(_path, ".swp") == 0 ||
+                Util::strEndsWith(_path, ".swo") == 0)) {
       saveFile(fds[0]);
-    } else if (Util::str_starts_with(jalib::Filesystem::GetProgramName(), "emacs")) {
+    } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(), "emacs")) {
       saveFile(fds[0]);
     }
   } else {
@@ -1189,7 +1189,7 @@ void dmtcp::FileConnection::saveFile(int fd)
         }
       }
 
-      JASSERT(Util::write_all(destFd, buf, readBytes) != -1) 
+      JASSERT(Util::writeAll(destFd, buf, readBytes) != -1) 
         (savedFilePath) (JASSERT_ERRNO) .Text("Write failed.");
     }
 
