@@ -167,7 +167,7 @@ const char* dmtcp::UniquePid::checkpointFilename()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
   // Include 5-digit generation number in filename, which changes
   //   after each checkpoint, during same process
-  JASSERT( Util::str_ends_with(checkpointFilename_str, CKPT_FILE_SUFFIX) )
+  JASSERT( Util::strEndsWith(checkpointFilename_str, CKPT_FILE_SUFFIX) )
 	 ( checkpointFilename_str )
 	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
   sprintf((char *)checkpointFilename_str.c_str()

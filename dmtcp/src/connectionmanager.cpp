@@ -286,7 +286,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     if (!jalib::Filesystem::FileExists(device)) {
 
       // Make sure _path ends with DELETED_FILE_SUFFIX
-      JASSERT(Util::str_ends_with(device, DELETED_FILE_SUFFIX));
+      JASSERT(Util::strEndsWith(device, DELETED_FILE_SUFFIX));
 
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
 

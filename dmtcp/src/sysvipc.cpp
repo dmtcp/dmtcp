@@ -340,9 +340,9 @@ void dmtcp::SysVIPC::writeShmidMapsToFile(int fd)
 
   jalib::JBinarySerializeWriterRaw wr (file, fd);
 
-  Util::lock_file(fd);
+  Util::lockFile(fd);
   wr.serializeMap(_originalToCurrentShmids);
-  Util::unlock_file(fd);
+  Util::unlockFile(fd);
 }
 
 void dmtcp::SysVIPC::readShmidMapsFromFile(int fd)
