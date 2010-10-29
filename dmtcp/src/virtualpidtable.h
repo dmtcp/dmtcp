@@ -80,7 +80,7 @@ namespace dmtcp
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
 
-      void  prepareForExec();
+      void  postExec();
 
       void refresh();
       void refreshChildTable();

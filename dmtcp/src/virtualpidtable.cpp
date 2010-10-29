@@ -307,9 +307,9 @@ void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
   return;
 }
 
-void dmtcp::VirtualPidTable::prepareForExec( )
+void dmtcp::VirtualPidTable::postExec( )
 {
-  JTRACE("Preparing for exec. Emptying tidVector");
+  JTRACE("Post-Exec. Emptying tidVector");
   _do_lock_tbl();
   for (size_t i = 0; i < _tidVector.size(); i++) {
     _pidMapTable.erase( _tidVector[i] );
