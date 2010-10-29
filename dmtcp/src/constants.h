@@ -40,6 +40,8 @@
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 #define DELETED_FILE_SUFFIX " (deleted)"
 
+#define X11_LISTENER_PORT_START 6000
+
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
 
