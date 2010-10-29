@@ -249,6 +249,9 @@ char *mtcp_find_executable(char *filename, char exec_path[MTCP_MAX_PATH]);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
+size_t mtcp_strlen (const char *s1);
+int mtcp_strncmp (const char *s1, const char *s2, size_t n);
+int mtcp_strendswith (const char *s1, const char *s2);
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[]);
 __attribute__ ((visibility ("hidden")))

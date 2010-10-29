@@ -24,13 +24,11 @@
 #include <string>
 #include <sstream>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/syscall.h>
 #include "constants.h"
-#include "syscallwrappers.h"
-#include "protectedfds.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
 #include  "util.h"
+#include  "../jalib/jassert.h"
 
 void dmtcp::Util::lock_file(int fd)
 {
@@ -64,4 +62,36 @@ void dmtcp::Util::unlock_file(int fd)
 
   JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
     .Text("Unlock Failed");
+}
+
+bool dmtcp::Util::str_starts_with(const dmtcp::string& str, const char *pattern)
+{
+  if (str.length() >= strlen(pattern)) {
+    return str.compare(0, strlen(pattern), pattern) == 0;
+  }
+  return false;
+}
+
+bool dmtcp::Util::str_ends_with(const dmtcp::string& str, const char *pattern)
+{
+  size_t idx = str.length() - strlen(pattern);
+  if (idx >= 0) {
+    return str.compare(idx, strlen(pattern), pattern) == 0;
+  }
+  return false;
+}
+
+ssize_t dmtcp::Util::write_all(int fd, const void *buf, size_t count)
+{
+  const char *ptr = (const char *) buf;
+  ssize_t offs, rc;
+
+  for (offs = 0; offs < count;) {
+    rc = write (fd, ptr + offs, count - offs);
+    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
+      return rc;
+    else if (rc > 0)
+      offs += rc;
+  }
+  return count;
 }

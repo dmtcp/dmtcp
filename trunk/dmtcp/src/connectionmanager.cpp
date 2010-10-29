@@ -26,6 +26,7 @@
 #include  "../jalib/jassert.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
+#include "util.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -282,9 +283,30 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     struct stat buf;
     stat(device.c_str(),&buf);
 
-    /* /dev/null is a character special file (non-regular file) */
-    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
-        S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
+    if (!jalib::Filesystem::FileExists(device)) {
+
+      // Make sure _path ends with DELETED_FILE_SUFFIX
+      JASSERT(Util::str_ends_with(device, DELETED_FILE_SUFFIX));
+
+      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
+      iterator i = _table.find ( deviceName );
+      if ( i == _table.end() )
+      {
+        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
+        off_t offset = lseek ( fd, 0, SEEK_CUR );
+        Connection * c = new FileConnection ( device, offset, FileConnection::FILE_DELETED );
+        ConnectionList::instance().add ( c );
+        _table[deviceName] = c->id();
+      }
+
+      return deviceName;
+    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
+               S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
+      /* /dev/null is a character special file (non-regular file) */
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
 
       if(noOnDemandConnection)
@@ -319,30 +341,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       } else {
         return deviceName;
       }
-    } else if ( device.find(DELETED_FILE_SUFFIX) != string::npos ) {
-      int index = device.find(DELETED_FILE_SUFFIX);
-
-      // Make sure _path ends with DELETED_FILE_SUFFIX
-      JASSERT( device.length() == index + strlen(DELETED_FILE_SUFFIX) );
-
-      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
-
-      if(noOnDemandConnection)
-        return deviceName;
-
-      iterator i = _table.find ( deviceName );
-      if ( i == _table.end() )
-      {
-        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
-        off_t offset = lseek ( fd, 0, SEEK_CUR );
-        Connection * c = new FileConnection ( device, offset );
-        ConnectionList::instance().add ( c );
-        _table[deviceName] = c->id();
-      }
-
-      return deviceName;
     } else {
-
       JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
@@ -590,6 +589,17 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
   }
 }
 
+void dmtcp::KernelDeviceToConnection::prepareForFork ( )
+{
+  dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
+  JTRACE("Scanning /proc/self/fd for new connections. New connections will be created");
+  for ( size_t i=0; i<fds.size(); ++i )
+  {
+    if ( _isBadFd ( fds[i] ) ) continue;
+    if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
+    dmtcp::string device = fdToDevice ( fds[i] );
+  }
+}
 
 void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 {

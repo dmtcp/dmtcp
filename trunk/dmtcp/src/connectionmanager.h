@@ -99,6 +99,7 @@ namespace dmtcp
       KernelDeviceToConnection();
 
       void handlePreExistingFd ( int fd );
+      void prepareForFork ( );
 
       //called when a device name changes
       void redirect( int fd, const ConnectionIdentifier& id );

@@ -51,13 +51,14 @@ namespace jalib
     //search for a given utility in many different places
     jalib::string FindHelperUtility ( const jalib::string& name, bool dieOnError = true );
 
-
+    jalib::string GetCWD();
     jalib::string GetProgramDir();
     jalib::string GetProgramName();
     jalib::string GetProgramPath();
 
     jalib::string ResolveSymlink ( const jalib::string& file );
     jalib::string DirBaseName ( const jalib::string& str );
+    jalib::string FileBaseName ( const jalib::string& str );
 
     StringVector GetProgramArgs();
 

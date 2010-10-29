@@ -159,6 +159,11 @@ static pid_t fork_work()
   }
 }
 
+static void prepareForFork()
+{
+  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
+}
+
 extern "C" pid_t fork()
 {
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
@@ -166,6 +171,7 @@ extern "C" pid_t fork()
    */
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
+  prepareForFork();
   int retVal = fork_work();
 
   if (retVal != 0) {

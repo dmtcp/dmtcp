@@ -149,7 +149,7 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 void dmtcp::VirtualPidTable::printPidMaps()
 {
 #ifdef DEBUG
-  JASSERT_STDERR << "\t" << "originalPid" << "\t->\t" << "currentPid" << "\n";
+  JASSERT_STDERR << "     originalPid" << "  ->  " << "currentPid" << "\n";
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
     pid_t originalPid = i->first;
     pid_t currentPid  = i->second;

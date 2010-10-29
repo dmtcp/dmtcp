@@ -29,10 +29,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include "constants.h"
-#include "syscallwrappers.h"
-#include "protectedfds.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {
@@ -41,6 +38,10 @@ namespace dmtcp
       Util(){};
       static void lock_file(int fd);
       static void unlock_file(int fd);
+      static bool str_starts_with(const dmtcp::string& str, const char *pattern);
+      static bool str_ends_with(const dmtcp::string& str, const char *pattern);
+      static ssize_t write_all(int fd, const void *buf, size_t count);
+
   };
 }
 

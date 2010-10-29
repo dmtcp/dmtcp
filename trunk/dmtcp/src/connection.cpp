@@ -30,6 +30,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
+#include "util.h"
 #include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -95,7 +96,16 @@ static bool _isVimApp ( )
   return isVimApp;
 }
 
-static bool _isBlacklisted ( int sockfd, const sockaddr* saddr, socklen_t len )
+static bool _isBlacklistedFile ( dmtcp::string& path )
+{
+  if ((dmtcp::Util::str_starts_with(path, "/dev/") &&
+       !dmtcp::Util::str_starts_with(path, "/dev/shm/"))) {
+    return true;
+  }
+  return false;
+}
+
+static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len )
 {
   JASSERT( saddr != NULL );
 
@@ -133,6 +143,7 @@ dmtcp::Connection::Connection ( int t )
   , _fcntlFlags ( -1 )
   , _fcntlOwner ( -1 )
   , _fcntlSignal ( -1 )
+  , _restoreInSecondIteration ( false )
 {}
 
 dmtcp::TcpConnection& dmtcp::Connection::asTcp()
@@ -241,7 +252,7 @@ void dmtcp::TcpConnection::onConnect( int sockfd,
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Connecting with an in-use socket????" );
 
-  if (addr != NULL && _isBlacklisted(sockfd, addr, len) ) {
+  if (addr != NULL && _isBlacklistedTcp(sockfd, addr, len) ) {
     _type = TCP_EXTERNAL_CONNECT;
     _connectAddrlen = len;
     memcpy ( &_connectAddr, addr, len );
@@ -626,11 +637,16 @@ void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     JASSERT(numRead == numWritten)(numRead)(numWritten);
   }
 
+  if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
+    _restoreInSecondIteration = true;
+  }
 }
+
 void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
   restoreOptions ( fds );
 }
+
 void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
@@ -865,56 +881,105 @@ void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 // Default 100MB
 #define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
 
+void dmtcp::FileConnection::handleUnlinkedFile()
+{
+  /* File not present in Filesystem.
+   * /proc/self/fd lists filename of unlink()ed files as:
+   *   "<original_file_name> (deleted)"
+   */
+  JASSERT (!jalib::Filesystem::FileExists(_path));
+
+  if (Util::str_ends_with(_path, DELETED_FILE_SUFFIX)) {
+    _path.erase( _path.length() - strlen(DELETED_FILE_SUFFIX) );
+    _type = FILE_DELETED;
+  } else {
+    JASSERT(_type == FILE_DELETED) (_path)
+      .Text ("File not found on disk and yet the filename doesn't "
+             "contain the suffix '(deleted)'");
+  }
+}
+
+void dmtcp::FileConnection::calculateRelativePath ()
+{
+  dmtcp::string cwd = jalib::Filesystem::GetCWD();
+  if (_path.compare(0, cwd.length(), cwd) == 0) {
+    /* CWD = "/A/B", FileName = "/A/B/C/D" ==> relPath = "C/D" */
+    _rel_path = _path.substr(cwd.length() + 1);
+  } else {
+    _rel_path = "*";
+  }
+}
+
 void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
   JASSERT ( fds.size() > 0 );
 
-  if (!hasLock(fds)) {
-    return;
+  if (!jalib::Filesystem::FileExists(_path)) {
+    handleUnlinkedFile();
   }
+
+  calculateRelativePath();
+
+  _ckptFilesDir = UniquePid::checkpointFilesDirName();
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);
   stat(_path.c_str(),&_stat);
+  _checkpointed = false;
 
-  // Checkpoint Files, if User has requested then OR if File is not present in Filesystem
-  string progName = jalib::Filesystem::GetProgramName();
-
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL ||
-      !jalib::Filesystem::FileExists(_path)) {
-    saveFile(fds[0]);
-  } else if ((_fcntlFlags & (O_WRONLY|O_RDWR)) != 0 &&
-             _offset < _stat.st_size &&
-             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
-             _stat.st_uid == getuid()) {
-    saveFile(fds[0]);
-  } else if (_isVimApp() &&
-             (_path.compare(_path.length() - 4, 4, ".swp") == 0 ||
-              _path.compare(_path.length() - 4, 4, ".swo") == 0)) {
-    saveFile(fds[0]);
-  } else if (progName == "emacs" || progName.compare(0, 5, "emacs") == 0) {
-    saveFile(fds[0]);
+  if (_isBlacklistedFile(_path)) {
+    return;
+  }
+  if (hasLock(fds)) {
+    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL) {
+      saveFile(fds[0]);
+    } else if (!jalib::Filesystem::FileExists(_path)) {
+      saveFile(fds[0]);
+    } else if ((_fcntlFlags & (O_WRONLY|O_RDWR)) != 0 &&
+               _offset < _stat.st_size &&
+               _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+               _stat.st_uid == getuid()) {
+      saveFile(fds[0]);
+    } else if (_isVimApp() &&
+               (Util::str_ends_with(_path, ".swp") == 0 ||
+                Util::str_ends_with(_path, ".swo") == 0)) {
+      saveFile(fds[0]);
+    } else if (Util::str_starts_with(jalib::Filesystem::GetProgramName(), "emacs")) {
+      saveFile(fds[0]);
+    }
+  } else {
+    _restoreInSecondIteration = true;
   }
 }
 
 void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 {
   restoreOptions ( fds );
+  if (_type == FILE_DELETED && _checkpointed) {
+    /* Here we want to unlink the file. We want to do it only at the time of
+     * restart, but there is no way of finding out if we are restarting or not.
+     * That is why we look for the file on disk and if it is present (it was
+     * deleted at ckpt time), then we assume that we are restarting and hence
+     * we unlink the file.
+     */
+     if (jalib::Filesystem::FileExists(_path)) {
+      JWARNING( unlink(_path.c_str()) != -1 ) (_path)
+        .Text("The file was unlinked at the time of checkpoint. "
+              "Unlinking it after restart failed");
+     }
+  }
 }
 
 void dmtcp::FileConnection::refreshPath()
 {
-  char cur_dir[PATH_MAX];
-  JASSERT(getcwd(cur_dir, PATH_MAX) != NULL) (string(cur_dir));
-  dmtcp::string curDir = cur_dir;
+  dmtcp::string cwd = jalib::Filesystem::GetCWD();
   if( _rel_path != "*" ){ // file path is relative to executable current dir
     string oldPath = _path;
-    ostringstream fullPath;
-    fullPath << curDir << "/" << _rel_path;
-    if( jalib::Filesystem::FileExists(fullPath.str()) ){
-      _path = fullPath.str();
-	  JTRACE("Change _path based on relative path")(oldPath)(_path);
+    dmtcp::string fullPath = cwd + "/" + _rel_path;
+    if( jalib::Filesystem::FileExists(fullPath) ){
+      _path = fullPath;
+      JTRACE("Change _path based on relative path") (oldPath) (_path) (_rel_path);
     }
   }
 }
@@ -927,28 +992,30 @@ void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 }
 
 
-void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, 
+                                      ConnectionRewirer& rewirer )
 {
   struct stat buf;
 
   JASSERT ( fds.size() > 0 );
 
   JTRACE("Restoring File Connection") (id()) (_path);
-  errno = 0;
   refreshPath();
 
   if (_checkpointed && jalib::Filesystem::FileExists(_path)) {
     JASSERT(false) (_path)
-      .Text("File aready exists! Checkpointed copy can't be restored. Delete the existing file and try again!");
+      .Text("File aready exists! Checkpointed copy can't be restored. "
+            "Delete the existing file and try again!");
   }
 
   if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
     if (buf.st_size > _stat.st_size && 
         _fcntlFlags & (O_WRONLY|O_RDWR) != 0) {
-    	JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
-                ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+      errno = 0;
+      JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+              ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
     } else if (buf.st_size < _stat.st_size) {
-	JWARNING (false) .Text("Size of file smaller than what we expected");
+      JWARNING (false) .Text("Size of file smaller than what we expected");
     }
   }
 
@@ -961,6 +1028,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
     JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
       .Text ( "dup2() failed" );
   }
+  _real_close(tempfd);
 
   errno = 0;
   if (S_ISREG(buf.st_mode)) {
@@ -1010,10 +1078,30 @@ static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
 int dmtcp::FileConnection::openFile()
 {
   int fd;
+  JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
 
-  if (!jalib::Filesystem::FileExists(_path)) {
+  /* 
+   * This file was not checkpointed by this process so it won't be restored by
+   * this process. Thus, we wait while some other process restores this file
+   */
+  int count = 1;
+  while (!_checkpointed && !jalib::Filesystem::FileExists(_path)) {
+    struct timespec sleepTime = {0, 10*1000*1000};
+    nanosleep(&sleepTime, NULL);
+    count++;
+    if (count % 100 == 0) {
+      // Print this message every second
+      JTRACE("Waiting for the file to be created/restored by some other process") (_path);
+    }
+    if (count%1000 == 0) {
+      JWARNING(false) (_path)
+        .Text ("Still waiting for the file to be created/restored by some other process");
+    }
+  }
 
-    JTRACE("File not present, copying from saved checkpointed file") (_path);
+  if (_checkpointed && !jalib::Filesystem::FileExists(_path)) {
+
+    JNOTE("File not present, copying from saved checkpointed file") (_path);
 
     dmtcp::string savedFilePath = getSavedFilePath(_path);
 
@@ -1041,74 +1129,53 @@ int dmtcp::FileConnection::openFile()
   JTRACE ("open(_path.c_str(), _fcntlFlags)")
 	 (fd) (_path.c_str() )(_fcntlFlags);
 
-  JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
+  JASSERT(fd != -1) (_path) (JASSERT_ERRNO)
+    .Text ("open() failed");
   return fd;
 }
 
 void dmtcp::FileConnection::saveFile(int fd)
 {
   _checkpointed = true;
-  if (jalib::Filesystem::FileExists(_path)) {
-    dmtcp::string savedFilePath = getSavedFilePath(_path);
+  dmtcp::string savedFilePath = getSavedFilePath(_path);
+  CreateDirectoryStructure(savedFilePath);
+  JNOTE("Saving checkpointed copy of the file") (_path) (savedFilePath);
 
-    CreateDirectoryStructure(savedFilePath);
-
-    JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-
+  if (_type == FILE_REGULAR ||
+    jalib::Filesystem::FileExists(_path)) {
     CopyFile(_path, savedFilePath);
     return;
-  }
-
-  /* File not present in File System
-   *
-   * The name for deleted files in /proc file system is listed as:
-   *   "<original_file_name> (deleted)"
-   */
-
-  if (_type != FILE_DELETED) {
-    int index = _path.find(DELETED_FILE_SUFFIX);
-
-    // extract <original_file_name> from _path
-    dmtcp::string name = _path.substr(0, index);
-
-    // Make sure _path ends with DELETED_FILE_SUFFIX
-    JASSERT( _path.length() == index + strlen(DELETED_FILE_SUFFIX) );
-
-    _path = name;
-    _type = FILE_DELETED;
-  }
-
-  dmtcp::string savedFilePath = getSavedFilePath(_path);
-
-  CreateDirectoryStructure(savedFilePath);
-
-  JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-
-  {
-    char buf[1024];
+  } else if (_type == FileConnection::FILE_DELETED) {
+    const size_t bufSize = 2 * PAGE_SIZE;
+    char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
 
     int destFd = open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                                              S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    JASSERT(destFd != -1) (_path) (savedFilePath)
-      .Text("Unable to create chekpointed copy of file");
+    JASSERT(destFd != -1) (_path) (savedFilePath) .Text("Read Failed");
 
     lseek(fd, 0, SEEK_SET);
 
     int readBytes, writtenBytes;
-    while (readBytes = read(fd, buf, 1024)) {
-      JASSERT ( readBytes != -1 ) ( _path ) .Text( "Read Failed." );
-
-      writtenBytes = write(destFd, buf, readBytes);
-      JASSERT ( writtenBytes != -1 ) ( savedFilePath ) .Text("Write failed.");
-
-      while (writtenBytes != readBytes) {
-        writtenBytes += write(destFd, buf + writtenBytes,
-			      readBytes - writtenBytes);
-        JASSERT ( writtenBytes != -1 ) ( savedFilePath ) .Text("Write Failed.");
+    while (1) {
+      readBytes = read(fd, buf, bufSize);
+      if (readBytes == 0) {
+        break;
       }
+      if (readBytes == -1) {
+        if (errno == EINTR || errno == EAGAIN) {
+          continue;
+        } else {
+          JASSERT(false) (_path) (JASSERT_ERRNO)
+            .Text ("Error read()ing file");
+        }
+      }
+
+      JASSERT(Util::write_all(destFd, buf, readBytes) != -1) 
+        (savedFilePath) (JASSERT_ERRNO) .Text("Write failed.");
     }
 
     close(destFd);
+    JALLOC_HELPER_FREE(buf);
   }
 
   JASSERT( lseek(fd, _offset, SEEK_SET) != -1 ) (_path);
@@ -1116,31 +1183,20 @@ void dmtcp::FileConnection::saveFile(int fd)
 
 dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
 {
+  const char *cwd_env = getenv( ENV_VAR_CHECKPOINT_DIR );
+  dmtcp::string cwd;
+  if ( cwd_env == NULL ) {
+    cwd = jalib::Filesystem::GetCWD();
+  } else {
+    cwd = cwd_env;
+  }
+
+  JASSERT (!_ckptFilesDir.empty());
+
   dmtcp::ostringstream os;
-  dmtcp::ostringstream relPath;
-  dmtcp::string fileName;
-
-  size_t index = path.rfind('/');
-  if (index != dmtcp::string::npos)
-    fileName =  path.substr(index+1);
-  else
-    fileName = path;
-
-  const char* curDir = getenv( ENV_VAR_CHECKPOINT_DIR );
-  if ( curDir == NULL ) {
-    curDir = get_current_dir_name();
-  }
-
-  if (_savedRelativePath.empty()) {
-    relPath << CHECKPOINT_FILES_SUBDIR_PREFIX
-            << jalib::Filesystem::GetProgramName()
-            << "_" << _id.pid()
-            << CHECKPOINT_FILES_SUBDIR_SUFFIX
-            << "/" << fileName << "_" << _id.conId();
-    _savedRelativePath = relPath.str();
-  }
-
-  os << curDir << "/" << _savedRelativePath;
+  os << cwd 
+     << "/" << _ckptFilesDir
+     << "/" << jalib::Filesystem::FileBaseName(_path) << "_" << _id.conId();
 
   return os.str();
 }
@@ -1209,13 +1265,14 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 {
   JASSERT ( fds.size() > 0 );
 
-  stat(_path.c_str(),&_stat);
-
   if (!hasLock(fds)) {
     return;
   }
 
   _has_lock = true;
+
+  stat(_path.c_str(),&_stat);
+
 
   JTRACE ("Checkpoint fifo.") (fds[0]);
 
@@ -1281,12 +1338,11 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
 
 void dmtcp::FifoConnection::refreshPath()
 {
-  const char* cur_dir = get_current_dir_name();
-  dmtcp::string curDir = cur_dir;
+  dmtcp::string cwd = jalib::Filesystem::GetCWD();
   if( _rel_path != "*" ){ // file path is relative to executable current dir
     string oldPath = _path;
     ostringstream fullPath;
-    fullPath << curDir << "/" << _rel_path;
+    fullPath << cwd << "/" << _rel_path;
     if( jalib::Filesystem::FileExists(fullPath.str()) ){
       _path = fullPath.str();
 	  JTRACE("Change _path based on relative path")(oldPath)(_path);
@@ -1343,7 +1399,7 @@ int dmtcp::FifoConnection::openFile()
 void dmtcp::Connection::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::Connection" );
-  o & _id & _type & _fcntlFlags;
+  o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal & _restoreInSecondIteration;
   serializeSubClass ( o );
 }
 
@@ -1426,8 +1482,10 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FileConnection" );
-  JTRACE("Serializing")(_path)(_fcntlFlags);
-  o & _path & _rel_path & _savedRelativePath & _offset & _stat & _checkpointed;
+  o & _path & _rel_path & _ckptFilesDir;
+  o & _offset & _stat & _checkpointed;
+  JTRACE("Serializing") (_path) (_rel_path) (_ckptFilesDir)
+    (_checkpointed) (_fcntlFlags);
 }
 
 void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
@@ -1622,10 +1680,17 @@ void dmtcp::PtyConnection::mergeWith ( const Connection& _that ){
 }
 
 void dmtcp::FileConnection::mergeWith ( const Connection& _that ){
-  Connection::mergeWith(_that);
   const FileConnection& that = (const FileConnection&)_that;
+  JTRACE("Merging file connections") (_path) (_type) (that._path) (that._type);
+  Connection::mergeWith(_that);
   JWARNING(_path   == that._path)   MERGE_MISMATCH_TEXT;
   JWARNING(_offset == that._offset) MERGE_MISMATCH_TEXT;
+  if (!_checkpointed) {
+    _checkpointed = that._checkpointed;
+    _rel_path     = that._rel_path;
+    _ckptFilesDir = that._ckptFilesDir;
+  }
+
   //JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
 }
 

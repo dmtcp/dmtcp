@@ -653,6 +653,13 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     mtcp_abort();
   }
 
+  /* Check to see if the filename ends with " (deleted)" */
+  const char* deleted_file_suffix = " (deleted)";
+  if (mtcp_strendswith(area->name, deleted_file_suffix)) {
+    size_t len = mtcp_strlen(area->name);
+    area->name [ mtcp_strlen(area->name) - mtcp_strlen(deleted_file_suffix) ] = '\0';
+  }
+
   imagefd = mtcp_sys_open (area->name, flags, 0);  // open it
 
   if (imagefd < 0 && mtcp_sys_errno != ENOENT) {

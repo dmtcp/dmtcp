@@ -316,31 +316,37 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   // make sure that by the time we are trying to restore a PTY_SLAVE
   // connection, its corresponding PTY_MASTER connection has already been
   // restored.
-  // Part 1: Restore all but Pseudo-terminal slaves
+  // UPDATE: We also restore the files for which the we didn't have the lock in
+  //         second iteration along with PTY_SLAVEs
+  // Part 1: Restore all but Pseudo-terminal slaves and file connection which
+  //         were not checkpointed
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
-    if ( ( i->second )->conType() == Connection::PTY &&
-         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
-    else {
+    if ( (i->second)->restoreInSecondIteration() == false ){
+//    if ( ( i->second )->conType() == Connection::PTY &&
+//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
+//    else {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
 
-  // Part 2: Restore all Pseudo-terminal slaves
+  // Part 2: Restore all Pseudo-terminal slaves and file connections that were
+  //         not checkpointed.
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
-    if ( ( i->second )->conType() == Connection::PTY &&
-         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
+    if ( ( i->second )->restoreInSecondIteration() == true ) {
+//    if ( ( i->second )->conType() == Connection::PTY &&
+//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
