@@ -214,7 +214,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     {
       JWARNING(false) .Text("PTS Device not found");
       int type;
-      dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
+      dmtcp::string currentTty = jalib::Filesystem::GetControllingTerm();
 
       JTRACE( "Controlling Terminal") (currentTty);
 

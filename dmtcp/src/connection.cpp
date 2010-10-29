@@ -701,7 +701,7 @@ void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
 
     case PTY_CTTY:
     {
-      dmtcp::string controllingTty = jalib::Filesystem::GetCurrentTty();
+      dmtcp::string controllingTty = jalib::Filesystem::GetControllingTerm();
       JASSERT ( controllingTty.length() > 0 ) ( STDIN_FILENO )
         . Text ("Unable to restore terminal attached with the process");
 

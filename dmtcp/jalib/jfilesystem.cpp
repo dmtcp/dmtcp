@@ -299,7 +299,7 @@ jalib::string jalib::Filesystem::GetCurrentHostname()
   return name;
 }
 
-jalib::string jalib::Filesystem::GetCurrentTty()
+jalib::string jalib::Filesystem::GetControllingTerm()
 {
   char sbuf[1024];
   jalib::ostringstream ttyName;

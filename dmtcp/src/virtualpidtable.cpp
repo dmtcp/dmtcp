@@ -87,11 +87,22 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
-  char s[ L_ctermid ];
   // Update Group information before checkpoint
   _ppid = getppid(); // refresh parent PID
   _gid = getpgid(0);
 
+  _fgid = -1;
+  dmtcp::string controllingTerm = jalib::Filesystem::GetControllingTerm();
+  if (!controllingTerm.empty()) {
+    int tfd = _real_open(controllingTerm.c_str(), O_RDONLY, 0);
+    if (tfd >= 0) {
+      _fgid = tcgetpgrp(tfd);
+      _real_close(tfd);
+    }
+  }
+
+  /*
+  char s[ L_ctermid ];
   // play around group ID
   _fgid = -1;
   if( ctermid(s) ){
@@ -101,6 +112,7 @@ void dmtcp::VirtualPidTable::preCheckpoint()
       close(tfd);
     }
   }
+  */
 
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(pidExists(_gid));
 }

@@ -64,7 +64,7 @@ namespace jalib
 
     IntVector ListOpenFds();
 
-    jalib::string GetCurrentTty();
+    jalib::string GetControllingTerm();
 
     jalib::string GetCurrentHostname();
 
