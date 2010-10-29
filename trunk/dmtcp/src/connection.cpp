@@ -104,6 +104,25 @@ static bool _isBlacklistedFile ( dmtcp::string& path )
   }
   return false;
 }
+/*
+ * Calculate X11 listener port using the env var "DISPLAY". It is computed in
+ * the following manner:
+ *   hostname:D.S means screen S on display D of host hostname; 
+ *     the X server for this display is listening at TCP port 6000+D.
+ */
+static short int _X11ListenerPort() {
+  static short int port = -1;
+  if (port == -1) {
+    const char *str = getenv("DISPLAY");
+    dmtcp::string display = str;
+    int idx = display.find_last_of(':');
+    char *dummy;
+    port = X11_LISTENER_PORT_START 
+           + strtol(display.c_str() + idx + 1, &dummy, 10);
+    JTRACE("X11 Listener Port found") (port);
+  }
+  return port;
+}
 
 static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len )
 {
@@ -128,7 +147,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
     int port = ntohs(addr->sin_port);
     char inet_addr[32];
     inet_ntop(AF_INET, &(addr->sin_addr), inet_addr, sizeof(inet_addr));
-    if (strcmp(inet_addr, "127.0.0.1") == 0 && port == 6014) {
+    if (strcmp(inet_addr, "127.0.0.1") == 0 && port == _X11ListenerPort()) {
       JTRACE("connect() to external process. Will not be drained") 
         (sockfd) (inet_addr) (port);
       return true;
@@ -561,7 +580,7 @@ void dmtcp::TcpConnection::restoreOptions ( const dmtcp::vector<int>& fds )
   typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
   typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
-  if (_sockDomain != AF_INET6) {
+  if (_sockDomain != AF_INET6 && tcpType() != TCP_EXTERNAL_CONNECT ) {
     for ( levelIterator lvl = _sockOptions.begin();
 	  lvl!=_sockOptions.end(); ++lvl ) {
       for ( optionIterator opt = lvl->second.begin();
