@@ -185,12 +185,13 @@ void dmtcp::VirtualPidTable::resetOnFork()
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   _do_lock_tbl();
   pid_iterator i = _pidMapTable.find(originalPid);
-  if ( i == _pidMapTable.end() )
-  {
+  if ( i == _pidMapTable.end() ) {
     _do_unlock_tbl();
-    //JTRACE ( "No currentPid found for the given originalPid (new or unknown pid/tid?), returning the originalPid") ( originalPid );
     return originalPid;
   }
 
@@ -200,16 +201,17 @@ pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
 
 pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   _do_lock_tbl();
   for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i)
   {
     if ( currentPid == i->second ) {
       _do_unlock_tbl();
-
       return i->first;
     }
   }
-  //JTRACE ( "No originalPid found for the given currentPid (new or unknown pid/tid?), returning the currentPid") ( currentPid );
 
   _do_unlock_tbl();
   return currentPid;
@@ -287,7 +289,6 @@ dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getInferiorVector( )
 void dmtcp::VirtualPidTable::insertTid( pid_t tid )
 {
   eraseTid( tid );
-  //JTRACE ( "Inserting TID into tidVector" ) ( tid );
   _do_lock_tbl();
   _tidVector.push_back ( tid );
   _do_unlock_tbl();

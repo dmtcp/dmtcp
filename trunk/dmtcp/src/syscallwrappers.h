@@ -237,6 +237,10 @@ extern "C"
   int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                          const struct timespec *timeout);
 
+  pid_t _real_gettid(void);
+  int   _real_tkill(int tid, int sig);
+  int   _real_tgkill(int tgid, int tid, int sig);
+  
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);

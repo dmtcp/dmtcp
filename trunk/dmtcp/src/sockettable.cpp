@@ -170,14 +170,14 @@ extern "C" int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, so
 
 ///
 ///called automatically when a socket error is returned by user function
-extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
+extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno )
 {
   //Ignore EAGAIN errors
-  if ( errno == EAGAIN ) return ret;
-  if ( errno = EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
+  if ( savedErrno == EAGAIN ) return ret;
+  if ( savedErrno = EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
     return ret;
 
-  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
+  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( strerror(savedErrno) );
 
   dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd );
 

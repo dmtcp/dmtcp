@@ -37,12 +37,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-// Returns true if string s1 starts with string s2
-static bool startsWith ( dmtcp::string s1, dmtcp::string s2 )
-{
-  return s1.compare(0, s2.length(), s2) == 0;
-}
-
 static dmtcp::string _procFDPath ( int fd )
 {
   return "/proc/self/fd/" + jalib::XToString ( fd );
@@ -161,10 +155,12 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   bool isTty = (device.compare("/dev/tty") == 0);
 
   bool isPtmx  = (device.compare("/dev/ptmx") == 0);
-  bool isPts   = startsWith(device, "/dev/pts/");
+  bool isPts   = Util::strStartsWith(device, "/dev/pts/");
 
-  bool isBSDMaster  = startsWith(device, "/dev/pty") && device.compare("/dev/pty") != 0;
-  bool isBSDSlave   = startsWith(device, "/dev/tty") && device.compare("/dev/tty") != 0;
+  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") && 
+                       device.compare("/dev/pty") != 0);
+  bool isBSDSlave   = (Util::strStartsWith(device, "/dev/tty") &&
+                       device.compare("/dev/tty")) != 0;
 
   if ( isTty ) {
     dmtcp::string deviceName = "tty:" + device;
@@ -568,7 +564,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else if ( startsWith(device, "/dev/pts/")) 
+    else if ( Util::strStartsWith(device, "/dev/pts/")) 
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
       JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )

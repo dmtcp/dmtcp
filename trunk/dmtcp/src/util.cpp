@@ -84,14 +84,33 @@ bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
-  ssize_t offs, rc;
+  ssize_t offs = 0;
 
-  for (offs = 0; offs < count;) {
-    rc = write (fd, ptr + offs, count - offs);
+  do {
+    ssize_t rc = write (fd, ptr + offs, count - offs);
     if (rc == -1 && errno != EINTR && errno != EAGAIN) 
       return rc;
+    else if (rc == 0)
+      break;
     else if (rc > 0)
       offs += rc;
-  }
+  } while (offs < count);
   return count;
+}
+
+ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
+{
+  size_t rc;
+  char *ptr = (char *) buf;
+  int num_read = 0;
+  for (num_read = 0; num_read < count;) {
+    rc = read (fd, ptr + num_read, count - num_read);
+    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
+      return rc;
+    else if (rc == 0)
+      break;
+    else
+      num_read += rc;
+  }
+  return num_read;
 }

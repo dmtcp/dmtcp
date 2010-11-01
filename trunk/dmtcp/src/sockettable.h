@@ -39,7 +39,7 @@ EXTERNC int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_ad
 EXTERNC int dmtcp_on_listen ( int ret, int sockfd, int backlog );
 EXTERNC int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen );
 EXTERNC int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname );
+EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno );
 EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen );
 
 
