@@ -868,10 +868,10 @@ static char first_char(const char *filename)
     char c;
 
     fd = open(filename, O_RDONLY);
-    JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open file %s");
+    JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open filename");
 
     rc = read(fd, &c, 1);
-    JASSERT(rc == 1)(filename).Text("ERROR: Error reading from file %s");
+    JASSERT(rc == 1)(filename).Text("ERROR: Error reading from filename");
 
     close(fd);
     return c;

@@ -364,7 +364,8 @@ int main ( int argc, char** argv )
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
     JASSERT_STDERR <<
-      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
+      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n"
+      << argv[0];
     exit(1);
   } else {
 #if defined(__x86_64__) && !defined(CONFIG_M32)

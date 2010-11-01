@@ -370,8 +370,6 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            int *parent_tidptr,
                            struct user_desc *newtls,
                            int *child_tidptr);
-static int (*putenv_entry) (const char *name);
-static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
  *   libmtcp.so address range for anything;
@@ -1655,15 +1653,11 @@ static int test_use_compression(void)
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 {
   pid_t cpid;
-  char *empty_ld_preload = "LD_PRELOAD=";
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
-  char *old_ldpreload = getenv("LD_PRELOAD");
-  if (old_ldpreload!=NULL)
-    old_ldpreload=strdup(old_ldpreload);
 
   gzip_args[0] = gzip_path;
 
-  cpid = mtcp_sys_vfork();
+  cpid = mtcp_sys_fork();
   if (cpid == -1) {
     mtcp_printf("WARNING: error forking child process `%s`.  Compression will "
                 "not be used [%s].\n", gzip_path, strerror(mtcp_sys_errno));
@@ -1671,6 +1665,8 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     close(pipe_fds[1]);
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
+    //Before running gzip in child process, we must not use LD_PRELOAD.
+    // See revision log 342 for details concerning bash.
     mtcp_ckpt_gzip_child_pid = cpid;
     if (close(pipe_fds[0]) == -1)
       mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n",
@@ -1680,47 +1676,27 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 		  strerror(errno));
     fd=pipe_fds[1];//change return value
   } else { /* child process */
-    /* Since we are creating the child using the vfork() system call, we should
-     * make sure that we don't end up overwriting any of the parents memory
-     * area. Thus the variables pipe_fds and fd should never be written to. The
-     * workaround is to create two local variables fd_in, and fd_out to do the
-     * work of pipe_fds[0] and fd.
-     */
-    int fd_in, fd_out;
+    static int (*libc_unsetenv) (const char *name);
+    static int (*libc_execvp) (const char *path, char *const argv[]);
+
     close(pipe_fds[1]);
-    fd_in = dup(dup(dup(pipe_fds[0])));
-    fd_out = dup(fd);
-    dup2(fd_in, STDIN_FILENO);
-    close(fd_in);
+    dup2(pipe_fds[0], STDIN_FILENO);
     close(pipe_fds[0]);
-    dup2(fd_out, STDOUT_FILENO);
-    close(fd_out);
+    dup2(fd, STDOUT_FILENO);
     close(fd);
 
-    //make sure DMTCP doesn't catch gzip
-    // Here we need to unset LD_PRELOAD in bash env and in process env. See
-    // revision log 342 for more details.
-    // Don't use unsetenv, because later LD_PRELOAD will appear in
-    //  new location as last entry of environ.  This could confuse
-    //  a user program (or trigger a failure in a Condor test).
-    if (old_ldpreload!=NULL) {
-      putenv(empty_ld_preload); // If in bash, this is bash env. var. version
-      putenv_entry = mtcp_get_libc_symbol("putenv");
-      (*putenv_entry)(empty_ld_preload);
-    }
+    // Don't load dmtcphijack.so, etc. in exec.
+    unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
+    libc_unsetenv = mtcp_get_libc_symbol("unsetenv");
+    (*libc_unsetenv)("LD_PRELOAD");
 
-    execvp_entry = mtcp_get_libc_symbol("execvp");
-    (*execvp_entry)(gzip_path, gzip_args);
-    /* should not get here */
+    libc_execvp = mtcp_get_libc_symbol("execvp");
+    (*libc_execvp)(gzip_path, gzip_args);
+
+    /* should not arrive here */
     mtcp_printf("ERROR: compression failed!  No checkpointing will be"
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
-  }
-
-  if (old_ldpreload!=NULL) {
-    //need to restore LD_PRELOAD as vforked child may have modified it
-    setenv("LD_PRELOAD", old_ldpreload, 1);
-    free(old_ldpreload);
   }
 
   return fd;
