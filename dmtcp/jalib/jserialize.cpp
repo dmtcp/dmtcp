@@ -21,7 +21,8 @@
 
 #include "jserialize.h"
 #include "jassert.h"
-#include "stdio.h"
+#include "../src/util.h"
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -102,6 +103,11 @@ bool jalib::JBinarySerializeReaderRaw::isEOF()
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
+  size_t ret = dmtcp::Util::writeAll(_fd, buffer, len);
+  JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO) 
+    .Text( "write() failed" );
+  _bytes += len;
+  /*
   size_t ret;
   int count = 0;
   while ( 1 ) {
@@ -116,12 +122,17 @@ void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 	     ( filename() )(count)(len)(JASSERT_ERRNO).Text( "write() failed" );
   }
   _bytes += count;
+  */
 }
 
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret;
+  size_t ret = dmtcp::Util::readAll(_fd, buffer, len);
+  JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
+    .Text("read() failed");
+  _bytes += len;
+  /*
   int count = 0;
   while ( 1 ) {
     ret = read (_fd, (char *)buffer + count, len - count);
@@ -135,5 +146,5 @@ void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 	      ( filename() )(count)(len)(JASSERT_ERRNO).Text( "read() failed" );
   }
   _bytes += count;
+  */
 }
-

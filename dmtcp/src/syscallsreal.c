@@ -413,6 +413,7 @@ int _dmtcp_unsetenv( const char *name ) {
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   return (pid_t) _real_syscall(SYS_getpid);
+//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 pid_t _real_getppid(void){

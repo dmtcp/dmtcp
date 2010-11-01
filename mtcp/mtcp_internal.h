@@ -251,6 +251,7 @@ char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
 size_t mtcp_strlen (const char *s1);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
+int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[]);

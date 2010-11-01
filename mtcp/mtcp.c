@@ -1939,17 +1939,15 @@ static void checkpointeverything (void)
     //
     // The above explanation also applies to "/dev/null (deleted)"
 
-    if ( strncmp (area.name, dev_zero_deleted_str, strlen(dev_zero_deleted_str))
-	 == 0
-        || strncmp (area.name, dev_null_deleted_str, strlen(dev_null_deleted_str))
-	   == 0 ) {
+    if ( mtcp_strstartswith(area.name, dev_zero_deleted_str) ||
+         mtcp_strstartswith(area.name, dev_null_deleted_str) ) {
       DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n",
 	       area.name));
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     }
 
-    if (strncmp (area.name, sys_v_shmem_file, strlen(sys_v_shmem_file)) == 0) {
+    if (mtcp_strstartswith(area.name, sys_v_shmem_file)) {
       DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n",
 	       area.name));
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
@@ -1957,9 +1955,9 @@ static void checkpointeverything (void)
     }
 
     /* Special Case Handling: nscd is enabled*/
-    if ( strncmp (area.name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
-        || strncmp (area.name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
-        || strncmp (area.name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0 ) {
+    if ( mtcp_strstartswith(area.name, nscd_mmap_str) ||
+         mtcp_strstartswith(area.name, nscd_mmap_str2) ||
+         mtcp_strstartswith(area.name, nscd_mmap_str3) ) {
       DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
             "                           this area in read/write mode and then will fill it with zeros so that\n" \
             "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
@@ -2977,11 +2975,11 @@ static int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if (strncmp(area -> name, nscd_mmap_str, strlen(nscd_mmap_str)) == 0
-      || strncmp(area -> name, nscd_mmap_str2, strlen(nscd_mmap_str2)) == 0
-      || strncmp(area -> name, nscd_mmap_str3, strlen(nscd_mmap_str3)) == 0  ) {
+  if (mtcp_strstartswith(area -> name, nscd_mmap_str)  ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
     /* if nscd is active */
-  } else if ( strncmp(area -> name, sys_v_shmem_file, strlen(sys_v_shmem_file)) == 0 ) {
+  } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
     /* System V Shared-Memory segments are handled by DMTCP. */
   }
   else if (area -> name[0] == '/'                 /* if an absolute pathname */

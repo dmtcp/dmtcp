@@ -111,6 +111,14 @@ int mtcp_strncmp (const char *s1, const char *s2, size_t n)
   return c1 - c2;
 }
 
+int mtcp_strstartswith (const char *s1, const char *s2)
+{
+  if (mtcp_strlen(s1) >= mtcp_strlen(s2)) {
+    return mtcp_strncmp(s1, s2, mtcp_strlen(s2)) == 0;
+  }
+  return 0;
+}
+
 int mtcp_strendswith (const char *s1, const char *s2)
 {
   unsigned char c1 = '\0';
