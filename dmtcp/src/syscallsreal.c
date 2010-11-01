@@ -266,11 +266,16 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
+# if __GLIBC_PREREQ(2,10)
 /// call the libc version of this function via dlopen/dlsym
 int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {
   REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
 }
+# endif
+#endif
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,

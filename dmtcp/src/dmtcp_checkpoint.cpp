@@ -128,8 +128,8 @@ static void *get_libc_symbol ( const char* name )
   void* tmp = dlsym ( handle, name );
   if ( tmp == NULL )
   {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
+    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR finding symbol %s using dlsym: %s \n",
+              name, dlerror() );
     abort();
   }
   return tmp;
