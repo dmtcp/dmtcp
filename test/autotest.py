@@ -513,7 +513,7 @@ if testconfig.HAS_GCL == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  S=2
+  S=5
   runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=0.3
 

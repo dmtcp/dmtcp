@@ -354,7 +354,7 @@ struct sigaction sigactions[NSIG];  // signal handlers
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
-void *mtcp_saved_heap_start = NULL;
+static void *saved_heap_start = NULL;
 static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
@@ -2347,9 +2347,9 @@ static void preprocess_special_segments(int *vsyscall_exists)
        *     new vdso segment, provided by mtcp_restart.
        */
       *vsyscall_exists = 1;
-    } else if (!mtcp_saved_heap_start && strcmp(area.name, "[heap]") == 0) {
+    } else if (!saved_heap_start && strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used in finishrestore()
-      mtcp_saved_heap_start = area.addr;
+      saved_heap_start = area.addr;
     } else if (strcmp(area.name, "[stack]") == 0) {
       /*
        * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
@@ -3153,10 +3153,10 @@ static void restore_heap()
     DPRINTF(("mtcp finishrestore: Area between mtcp_saved_break:%p and "
              "Current_break:%p not mapped, mapping it now\n", 
              mtcp_saved_break, current_break));
-    size_t oldsize = mtcp_saved_break - mtcp_saved_heap_start;
-    size_t newsize = current_break - mtcp_saved_heap_start;
+    size_t oldsize = mtcp_saved_break - saved_heap_start;
+    size_t newsize = current_break - saved_heap_start;
 
-    void* addr = mremap (mtcp_saved_heap_start, oldsize, newsize, 0);
+    void* addr = mremap (saved_heap_start, oldsize, newsize, 0);
     if (addr == NULL) {
       mtcp_printf("mtcp finishrestore: mremap failed to map area between "
                   "mtcp_saved_break (%p) and current_break (%p)\n",
