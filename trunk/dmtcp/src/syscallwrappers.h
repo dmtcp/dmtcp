@@ -100,9 +100,17 @@ extern "C"
   MACRO(bind)                               \
   MACRO(listen)                             \
   MACRO(accept)                             \
-  MACRO(accept4)                             \
   MACRO(setsockopt)                         \
   MACRO(socketpair)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
+# if __GLIBC_PREREQ(2,10)
+#  define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
+    MACRO(accept4)
+# endif
+#else
+#  define GLIBC_ACCEPT4_WRAPPER(MACRO)
+#endif
 
 #define GLIBC_EXEC_WRAPPERS(MACRO)          \
   MACRO(fexecve)                            \
@@ -159,6 +167,7 @@ extern "C"
   GLIBC_MISC_WRAPPERS(MACRO)                \
   GLIBC_SYS_V_IPC_WRAPPERS(MACRO)           \
                                             \
+  GLIBC_ACCEPT4_WRAPPER(MACRO)              \
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 
