@@ -54,14 +54,14 @@
 #include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
-#include <termios.h>
+#include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <unistd.h>
-#include <termios.h>       // for tcdrain
 #include <ucontext.h>
 #include <sys/types.h>     // for gettid, tkill, waitpid
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tkill
 #include <gnu/libc-version.h>
+
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
 #include "mtcp_internal.h"
@@ -279,23 +279,23 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
 #endif
               };
 
-/* 
- * struct MtcpRestartThreadArg 
+/*
+ * struct MtcpRestartThreadArg
  *
  * DMTCP requires the original_tids  of the threads being created during
  *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
- *  the original_tid of the thread being created from MTCP to DMTCP. 
+ *  the original_tid of the thread being created from MTCP to DMTCP.
  *
- * actual clone call: clone (fn, child_stack, flags, void *, ... ) 
+ * actual clone call: clone (fn, child_stack, flags, void *, ... )
  * new clone call   : clone (fn, child_stack, flags, (struct MtcpRestartThreadArg *), ...)
  *
  * DMTCP automatically extracts arg from this structure and passes that
  * to the _real_clone call.
- * 
+ *
  * IMPORTANT NOTE: While updating, this structure must be kept in sync
- * with the structure defined with the same name in mtcpinterface.cpp 
+ * with the structure defined with the same name in mtcpinterface.cpp
  */
-struct MtcpRestartThreadArg { 
+struct MtcpRestartThreadArg {
   void *arg;
   pid_t original_tid;
 };
@@ -372,8 +372,6 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            int *parent_tidptr,
                            struct user_desc *newtls,
                            int *child_tidptr);
-static int (*putenv_entry) (const char *name);
-static int (*execvp_entry) (const char *path, char *const argv[]);
 
 /* temp stack used internally by restore so we don't go outside the
  *   mtcp.so address range for anything;
@@ -1774,14 +1772,13 @@ static int test_use_compression(void)
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 {
   pid_t cpid;
-  char *empty_ld_preload = "LD_PRELOAD=";
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
   char *old_ldpreload = getenv("LD_PRELOAD");
   if(old_ldpreload!=NULL) old_ldpreload=strdup(old_ldpreload);
 
   gzip_args[0] = gzip_path;
 
-  cpid = mtcp_sys_vfork();
+  cpid = mtcp_sys_fork();
   if (cpid == -1) {
     mtcp_printf("WARNING: error forking child process `%s`.  Compression will "
                 "not be used [%s].\n", gzip_path, strerror(mtcp_sys_errno));
@@ -1789,54 +1786,38 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     close(pipe_fds[1]);
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
+    //Before running gzip in child process, we must not use LD_PRELOAD.
+    // See revision log 342 for details concerning bash.
     mtcp_ckpt_gzip_child_pid = cpid;
-    if (close(pipe_fds[0]) == -1) 
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
+    if (close(pipe_fds[0]) == -1)
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n",
+		  strerror(errno));
     if (close(fd) == -1)
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n", strerror(errno));
+      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n",
+		  strerror(errno));
     fd=pipe_fds[1];//change return value
   } else { /* child process */
-    /* Since we are creating the child using the vfork() system call, we should
-     * make sure that we don't end up overwriting any of the parents memory
-     * area. Thus the variables pipe_fds and fd should never be written to. The
-     * workaround is to create two local variables fd_in, and fd_out to do the
-     * work of pipe_fds[0] and fd.
-     */
-    int fd_in, fd_out;
+    static int (*libc_unsetenv) (const char *name);
+    static int (*libc_execvp) (const char *path, char *const argv[]);
+
     close(pipe_fds[1]);
-    fd_in = dup(dup(dup(pipe_fds[0])));
-    fd_out = dup(fd);
-    dup2(fd_in, STDIN_FILENO);
-    close(fd_in);
+    dup2(pipe_fds[0], STDIN_FILENO);
     close(pipe_fds[0]);
-    dup2(fd_out, STDOUT_FILENO);
-    close(fd_out);
+    dup2(fd, STDOUT_FILENO);
     close(fd);
 
-    //make sure DMTCP doesn't catch gzip
-    // Here we need to unset LD_PRELOAD in bash env and in process env. See
-    // revision log 342 for more details.
-    // Don't use unsetenv, because later LD_PRELOAD will appear in new
-    //  new location as last entry of environ.  This could confuse
-    //  a user program (or trigger a failure in a Condor test).
-    if (old_ldpreload!=NULL) {
-      putenv(empty_ld_preload); // If in bash, this is bash env. var. version
-      putenv_entry = mtcp_get_libc_symbol("putenv");
-      (*putenv_entry)(empty_ld_preload);
-    }
+    // Don't load dmtcphijack.so, etc. in exec.
+    unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
+    libc_unsetenv = mtcp_get_libc_symbol("unsetenv");
+    (*libc_unsetenv)("LD_PRELOAD");
 
-    execvp_entry = mtcp_get_libc_symbol("execvp");
-    (*execvp_entry)(gzip_path, gzip_args);
-    /* should not get here */
+    libc_execvp = mtcp_get_libc_symbol("execvp");
+    (*libc_execvp)(gzip_path, gzip_args);
+
+    /* should not arrive here */
     mtcp_printf("ERROR: compression failed!  No checkpointing will be"
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
-  }
-
-  if(old_ldpreload!=NULL){
-    //need to restore LD_PRELOAD as vforked child may have modified it
-    setenv("LD_PRELOAD", old_ldpreload, 1);
-    free(old_ldpreload);
   }
 
   return fd;
@@ -1877,7 +1858,7 @@ static void checkpointeverything (void)
   forked_checkpointing = 1;
 #endif
 
-  if(callback_write_dmtcp_header != 0) {
+  if (callback_write_dmtcp_header != 0) {
     /* Temp file for DMTCP header; will be written into the checkpoint file. */
     tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpDMTCPHeaderFd < 0) {
@@ -1886,7 +1867,8 @@ static void checkpointeverything (void)
     }
 
     if (unlink(tmpDMTCPHeaderFileName) == -1) {
-      mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno, strerror(errno));
+      mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno,
+		  strerror(errno));
     }
 
     /* Better to do this in parent, not child, for most accurate header info */
@@ -1896,20 +1878,21 @@ static void checkpointeverything (void)
   if (forked_checkpointing) {
     forked_cpid = mtcp_sys_fork();
     if (forked_cpid == -1) {
-      mtcp_printf("WARNING: Failed to do forked checkpointing, trying normal checkpoint\n");
+      mtcp_printf("WARNING: Failed to do forked checkpointing,"
+		  " trying normal checkpoint\n");
     } else if (forked_cpid > 0) {
       /* Parent process*/
       if (tmpDMTCPHeaderFd == -1)
         close(tmpDMTCPHeaderFd);
       // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
-      if( waitpid(forked_cpid, NULL, 0) == -1 )
+      if ( waitpid(forked_cpid, NULL, 0) == -1 )
         DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d",
               mtcp_sys_errno));
       DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
       return;
     } else {
       pid_t grandchild_pid = mtcp_sys_fork();
-      if(grandchild_pid == -1) {
+      if (grandchild_pid == -1) {
         mtcp_printf("WARNING: Forked checkpoint failed, no checkpoint available\n");
       } else if (grandchild_pid > 0) {
         mtcp_sys_exit(0); /* child exits */
