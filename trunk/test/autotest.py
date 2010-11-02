@@ -514,7 +514,8 @@ if testconfig.HAS_GCL == "yes":
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
   S=5
-  runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  if sys.version_info[0:2] >= (2,6):
+    runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=0.3
 
 if testconfig.HAS_MPICH == "yes":

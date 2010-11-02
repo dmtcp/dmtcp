@@ -1603,6 +1603,7 @@ static bool readyToRead(int fd) {
 static ssize_t readOnePacket(int fd, const void *buf, size_t maxCount) {
   typedef int hdr;
   int rc = 0;
+  // Read single packet:  rc > 0 will be true for at most one iteration.
   while (readyToRead(fd) && rc <= 0) {
     rc = read(fd, (char *)buf+sizeof(hdr), maxCount-sizeof(hdr));
     *(hdr *)buf = rc; // Record the number read in header
@@ -1625,12 +1626,13 @@ static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount) {
   }
   *(hdr *)buf = 0; /* Header count of zero means we're done */
   buf += sizeof(hdr);
-  JASSERT(rc < 0 || buf - (char *)origBuf)(rc)(origBuf)((void *)buf);
+  JASSERT(rc < 0 || buf - (char *)origBuf > 0)(rc)(origBuf)((void *)buf);
   return (rc < 0 ? rc : buf - (char *)origBuf);
 }
-// Also record the count written on each iteration, in case it's packet mode
-// Return size of origBuf written:  includes repeated packets:  [hdr, data]
+// The hdr contains the size of the full buffer ( [hdr, data] ).
+// Return size of origBuf written:  includes packets of form:  [hdr, data]
 //   with hdr holding size of data.  Last hdr has value zero.
+// Also record the count written on each iteration, in case it's packet mode.
 static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
   typedef int hdr;
   int count = *(hdr *)origBuf;
@@ -1655,10 +1657,11 @@ static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode) {
   typedef int hdr;
   ssize_t cum_count = 0;
   int rc;
-  while ((rc = writeOnePacket(fd, buf, isPacketMode)) > sizeof(hdr)) {
+  while ((rc = writeOnePacket(fd, (char *)buf+cum_count, isPacketMode))
+	 > sizeof(hdr)) {
     cum_count += rc;
-    buf = (char *)buf + cum_count;
   }
+  JASSERT (rc < 0 || rc == sizeof(hdr)) (rc) (cum_count);
   cum_count += sizeof(hdr);  /* Account for last packet: 'done' hdr w/ 0 data */
   return (rc <= 0 ? rc : cum_count);
 }
