@@ -128,8 +128,9 @@ void dmtcp::KernelDeviceToConnection::createPtyDevice ( int fd, dmtcp::string de
 
   JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
 
-  iterator i = _table.find ( device );
-  JWARNING ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
+  /* FIXME: The following JWARNING should be re-enabled */
+  //iterator i = _table.find ( device );
+  //JWARNING ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
 
   _table[device] = c->id();
 }

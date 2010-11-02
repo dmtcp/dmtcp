@@ -64,6 +64,27 @@ void dmtcp::Util::unlockFile(int fd)
     .Text("Unlock Failed");
 }
 
+bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
+{
+  int len1 = strlen(str);
+  int len2 = strlen(pattern);
+  if (len1 >= len2) {
+    return strncmp(str, pattern, len2) == 0;
+  }
+  return false;
+}
+
+bool dmtcp::Util::strEndsWith(const char *str, const char *pattern)
+{
+  int len1 = strlen(str);
+  int len2 = strlen(pattern);
+  if (len1 >= len2) {
+    size_t idx = len1 - len2;
+    return strncmp(str+idx, pattern, len2) == 0;
+  }
+  return false;
+}
+
 bool dmtcp::Util::strStartsWith(const dmtcp::string& str, const char *pattern)
 {
   if (str.length() >= strlen(pattern)) {
@@ -74,8 +95,8 @@ bool dmtcp::Util::strStartsWith(const dmtcp::string& str, const char *pattern)
 
 bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 {
-  size_t idx = str.length() - strlen(pattern);
   if (str.length() >= strlen(pattern)) {
+    size_t idx = str.length() - strlen(pattern);
     return str.compare(idx, strlen(pattern), pattern) == 0;
   }
   return false;

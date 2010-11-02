@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
+#include <limits.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -41,6 +42,7 @@
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
 #include "sysvipc.h"
+#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -208,7 +210,7 @@ extern "C" char *ptsname ( int fd )
 {
   /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
   JTRACE ( "ptsname() promoted to ptsname_r()" );
-  static char tmpbuf[1024];
+  static char tmpbuf[PATH_MAX];
 
   if ( ptsname_r ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
   {
@@ -243,7 +245,7 @@ static void updateProcPath ( const char *path, char *newpath )
     return;
   }
 
-  if ( strncmp ( path, "/proc/", 6 ) == 0 )
+  if ( dmtcp::Util::strStartsWith ( path, "/proc/" ) )
   {
     index = 6;
     tempIndex = 0;
@@ -371,15 +373,12 @@ extern "C" int getpt()
 extern "C" int open (const char *path, int flags, ... )
 {
   va_list ap;
-  //int flags;
   mode_t mode;
   int rc;
-  char newpath [ 1024 ] = {0} ;
-  int len,i;
+  char newpath [ PATH_MAX ] = {0} ;
 
   // Handling the variable number of arguments
   va_start( ap, flags );
-  //flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
 
@@ -396,7 +395,7 @@ extern "C" int open (const char *path, int flags, ... )
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -407,7 +406,7 @@ extern "C" int open (const char *path, int flags, ... )
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -431,10 +430,10 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  char newpath [ 1024 ] = {0} ;
+  char newpath [ PATH_MAX ] = {0} ;
   int fd = -1;
 
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -449,7 +448,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -457,6 +456,64 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 
   return file;
 }
+
+static void updateStatPath(const char *path, char *newpath)
+{
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+    strncpy(newpath, path, PATH_MAX);
+  } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    strcpy(newpath, currPtsDevName.c_str());
+  } else {
+    updateProcPath ( path, newpath );
+  }
+}
+
+extern "C" 
+int __xstat(int vers, const char *path, struct stat *buf)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  updateStatPath(path, newpath);
+  int rc = _real_xstat( vers, newpath, buf );
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return rc;
+}
+
+extern "C" 
+int __xstat64(int vers, const char *path, struct stat64 *buf)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  updateStatPath(path, newpath);
+  int rc = _real_xstat64( vers, newpath, buf );
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return rc;
+}
+
+extern "C" 
+int __lxstat(int vers, const char *path, struct stat *buf)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  updateStatPath(path, newpath);
+  int rc = _real_lxstat( vers, newpath, buf );
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return rc;
+}
+
+extern "C" 
+int __lxstat64(int vers, const char *path, struct stat64 *buf)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  updateStatPath(path, newpath);
+  int rc = _real_lxstat64( vers, newpath, buf );
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return rc;
+}
+
+//       int fstat(int fd, struct stat *buf);
 
 #ifdef ENABLE_MALLOC_WRAPPER
 # ifdef ENABLE_DLOPEN

@@ -36,6 +36,8 @@ namespace dmtcp
   namespace Util {
     void lockFile(int fd);
     void unlockFile(int fd);
+    bool strStartsWith(const char *str, const char *pattern);
+    bool strEndsWith(const char *str, const char *pattern);
     bool strStartsWith(const dmtcp::string& str, const char *pattern);
     bool strEndsWith(const dmtcp::string& str, const char *pattern);
     ssize_t writeAll(int fd, const void *buf, size_t count);
