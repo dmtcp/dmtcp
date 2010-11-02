@@ -546,6 +546,22 @@ long int _real_syscall(long int sys_num, ... ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
+int _real_xstat(int vers, const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
+}
+
+int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
+}
+
+int _real_lxstat(int vers, const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
+}
+
+int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
+}
+
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );

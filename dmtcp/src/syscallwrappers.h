@@ -22,6 +22,10 @@
 #ifndef SYSCALLWRAPPERS_H
 #define SYSCALLWRAPPERS_H
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -38,6 +42,7 @@
 #include <syslog.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -143,6 +148,10 @@ extern "C"
   MACRO(fopen)                              \
   MACRO(close)                              \
   MACRO(fclose)                             \
+  MACRO(__xstat)                            \
+  MACRO(__xstat64)                          \
+  MACRO(__lxstat)                           \
+  MACRO(__lxstat64)                         \
   MACRO(exit)                               \
   MACRO(syscall)                            \
   MACRO(unsetenv)                           \
@@ -288,6 +297,10 @@ extern "C"
 
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE * _real_fopen(const char *path, const char *mode);
+  int _real_xstat(int vers, const char *path, struct stat *buf);
+  int _real_xstat64(int vers, const char *path, struct stat64 *buf);
+  int _real_lxstat(int vers, const char *path, struct stat *buf);
+  int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
 
   long int _real_syscall(long int sys_num, ... );
 
