@@ -75,7 +75,7 @@ bool dmtcp::Util::strStartsWith(const dmtcp::string& str, const char *pattern)
 bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 {
   size_t idx = str.length() - strlen(pattern);
-  if (idx >= 0) {
+  if (str.length() >= strlen(pattern)) {
     return str.compare(idx, strlen(pattern), pattern) == 0;
   }
   return false;
