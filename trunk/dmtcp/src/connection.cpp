@@ -439,7 +439,7 @@ void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, cons
     }
   }
 
-void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
+void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
 {
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
@@ -661,7 +661,7 @@ void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
 }
 
-void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
+void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
 {
   restoreOptions ( fds );
 }
@@ -902,19 +902,26 @@ void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 
 void dmtcp::FileConnection::handleUnlinkedFile()
 {
-  /* File not present in Filesystem.
-   * /proc/self/fd lists filename of unlink()ed files as:
-   *   "<original_file_name> (deleted)"
-   */
-  JASSERT (!jalib::Filesystem::FileExists(_path));
+  if (!jalib::Filesystem::FileExists(_path)) {
+    /* File not present in Filesystem.
+     * /proc/self/fd lists filename of unlink()ed files as:
+     *   "<original_file_name> (deleted)"
+     */
 
-  if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
-    _path.erase( _path.length() - strlen(DELETED_FILE_SUFFIX) );
+    if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
+      _path.erase( _path.length() - strlen(DELETED_FILE_SUFFIX) );
+      _type = FILE_DELETED;
+    } else {
+      JASSERT(_type == FILE_DELETED) (_path)
+        .Text ("File not found on disk and yet the filename doesn't "
+               "contain the suffix '(deleted)'");
+    }
+  } else if (Util::strStartsWith(jalib::Filesystem::FileBaseName(_path),
+                                 ".nfs")) {
+    JWARNING(access(_path.c_str(), W_OK) == 0) (JASSERT_ERRNO);
+    JTRACE(".nfsXXXX: files that are unlink()'d but still in use by some process(es)")
+      (_path);
     _type = FILE_DELETED;
-  } else {
-    JASSERT(_type == FILE_DELETED) (_path)
-      .Text ("File not found on disk and yet the filename doesn't "
-             "contain the suffix '(deleted)'");
   }
 }
 
@@ -934,9 +941,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 {
   JASSERT ( fds.size() > 0 );
 
-  if (!jalib::Filesystem::FileExists(_path)) {
-    handleUnlinkedFile();
-  }
+  handleUnlinkedFile();
 
   calculateRelativePath();
 
@@ -953,7 +958,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   if (hasLock(fds)) {
     if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL) {
       saveFile(fds[0]);
-    } else if (!jalib::Filesystem::FileExists(_path)) {
+    } else if (_type == FILE_DELETED) {
       saveFile(fds[0]);
     } else if ((_fcntlFlags & (O_WRONLY|O_RDWR)) != 0 &&
                _offset < _stat.st_size &&
@@ -972,10 +977,10 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
 }
 
-void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
+void dmtcp::FileConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
 {
   restoreOptions ( fds );
-  if (_type == FILE_DELETED && _checkpointed) {
+  if (_checkpointed && isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
      * restart, but there is no way of finding out if we are restarting or not.
      * That is why we look for the file on disk and if it is present (it was
@@ -1108,7 +1113,7 @@ int dmtcp::FileConnection::openFile()
     struct timespec sleepTime = {0, 10*1000*1000};
     nanosleep(&sleepTime, NULL);
     count++;
-    if (count % 100 == 0) {
+    if (count % 200 == 0) {
       // Print this message every second
       JTRACE("Waiting for the file to be created/restored by some other process") (_path);
     }
@@ -1158,7 +1163,7 @@ void dmtcp::FileConnection::saveFile(int fd)
   _checkpointed = true;
   dmtcp::string savedFilePath = getSavedFilePath(_path);
   CreateDirectoryStructure(savedFilePath);
-  JNOTE("Saving checkpointed copy of the file") (_path) (savedFilePath);
+  JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
 
   if (_type == FILE_REGULAR ||
     jalib::Filesystem::FileExists(_path)) {
@@ -1319,7 +1324,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
 }
 
-void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds )
+void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
 {
   if( !_has_lock )
     return; // nothing to do now
@@ -1726,7 +1731,7 @@ void dmtcp::FifoConnection::mergeWith ( const Connection& _that ){
 void dmtcp::StdioConnection::preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& drain ){
   //JTRACE ("Checkpointing stdio") (fds[0]) (id());
 }
-void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds ){
+void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds , bool isRestart ) {
   //nothing
 }
 void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& ){

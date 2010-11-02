@@ -54,7 +54,7 @@ namespace dmtcp
       void preCheckpointLock();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
-      void postCheckpoint();
+      void postCheckpoint(bool isRestart);
       void outputDmtcpConnectionTable(int fd);
 
       void postRestart();

@@ -236,7 +236,7 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
 }
 
 
-void dmtcp::ConnectionState::postCheckpoint()
+void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
 {
   _drain.refillAllSockets();
 
@@ -250,7 +250,7 @@ void dmtcp::ConnectionState::postCheckpoint()
 
     if ( _conToFds[i->first].size() == 0 ) continue;
 
-    ( i->second )->postCheckpoint ( _conToFds[i->first] );
+    ( i->second )->postCheckpoint ( _conToFds[i->first], isRestart );
   }
 
   SyslogCheckpointer::restoreService();
