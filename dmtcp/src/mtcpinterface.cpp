@@ -166,7 +166,7 @@ static void callbackPostCheckpoint ( int isRestart )
      *      before sending a proper request.
      */
     dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+    dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
   }
   else
   {
@@ -175,7 +175,7 @@ static void callbackPostCheckpoint ( int isRestart )
 #endif
     {
       dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-      dmtcp::DmtcpWorker::instance().waitForStage3Refill();
+      dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
       dmtcp::DmtcpWorker::instance().waitForStage4Resume();
     }
 

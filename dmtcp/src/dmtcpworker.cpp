@@ -901,7 +901,7 @@ void dmtcp::DmtcpWorker::postRestart()
   SysVIPC::instance().postRestart();
 }
 
-void dmtcp::DmtcpWorker::waitForStage3Refill()
+void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 {
   JTRACE ( "checkpointed" );
 
@@ -910,7 +910,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill()
   waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
 
   JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->postCheckpoint();
+  theCheckpointState->postCheckpoint(isRestart);
   delete theCheckpointState;
   theCheckpointState = NULL;
 

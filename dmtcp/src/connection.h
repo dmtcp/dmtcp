@@ -78,7 +78,8 @@ namespace dmtcp
       const ConnectionIdentifier& id() const { return _id; }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& ) = 0;
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds ) = 0;
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false) = 0;
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
 
       virtual bool isDupConnection ( const Connection& _that, 
@@ -170,7 +171,8 @@ namespace dmtcp
       //basic checkpointing commands
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
 
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
@@ -264,7 +266,8 @@ namespace dmtcp
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
@@ -302,7 +305,8 @@ namespace dmtcp
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
@@ -337,7 +341,8 @@ namespace dmtcp
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
 
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
@@ -393,7 +398,8 @@ namespace dmtcp
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
-      virtual void postCheckpoint ( const dmtcp::vector<int>& fds );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
 
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );

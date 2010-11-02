@@ -98,7 +98,7 @@ namespace dmtcp
 #else
       void waitForStage2Checkpoint();
 #endif
-      void waitForStage3Refill();
+      void waitForStage3Refill(bool isRestart);
       void waitForStage4Resume();
       void restoreVirtualPidTable();
       void restoreSockets(ConnectionState& coordinator,
