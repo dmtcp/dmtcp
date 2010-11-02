@@ -782,12 +782,20 @@ int main ( int argc, char** argv )
 
   bool doAbort = false;
   for(; argc>0; shift){
-    char *restorename = argv[0];
+    dmtcp::string restorename(argv[0]);
     struct stat buf;
-    int rc = stat(restorename, &buf);
-    if (rc == -1) {
+    int rc = stat(restorename.c_str(), &buf);
+    if (dmtcp::Util::strStartsWith(restorename, "ckpt_") &&
+        dmtcp::Util::strEndsWith(restorename, "_files")) {
+      continue;
+    } else if (!dmtcp::Util::strEndsWith(restorename, ".dmtcp")) {
+      JNOTE("File doesn't have .dmtcp extension. Check Usage.")
+        (restorename);
+      JASSERT_STDERR << theUsage;
+      doAbort = true;
+    } else if (rc == -1) {
       char error_msg[1024];
-      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename);
+      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
       perror(error_msg);
       doAbort = true;
     } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
@@ -796,17 +804,22 @@ int main ( int argc, char** argv )
 	     "This is dangerous.  Aborting for security reasons.\n" \
            "If you still want to do this (at your own risk),\n" \
            "  then modify dmtcp/src/%s:%d and re-compile.\n",
-           getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 6);
+           getuid(), buf.st_uid, restorename.c_str(), __FILE__, __LINE__ - 6);
       doAbort = true;
     }
-    if (doAbort)
-      abort();
+    if (doAbort) {
+      exit(1);
+    }
 
     JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
-  JASSERT(targets.size()>0);
+  if (targets.size() <= 0) {
+    JNOTE("ERROR: No DMTCP checkpoint image(s) found. Check Usage.");
+    JASSERT_STDERR << theUsage;
+    exit(1);
+  }
 
   SlidingFdTable slidingFd;
   ConnectionToFds conToFd;
