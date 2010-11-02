@@ -972,7 +972,7 @@ int main ( int argc, char** argv )
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
-    JASSERT(false) .Text("unknown type of target?");
+   JNOTE ("unknown type of target?") (targets[flat_index]._path);
   }
 #endif
 }
@@ -1100,22 +1100,22 @@ void ProcessGroupInfo()
     pid_t gid = virtualPidTable.gid();
     pid_t fgid = virtualPidTable.fgid();
 
-/*
+    /*
     // If group ID doesn't belong to known PIDs, indicate that fact
     //   using -1 value.
     if( !virtualPidTable.pidExists(gid) ){
-      JTRACE("DROP gid")(gid);
-      virtualPidTable.setgid(-1);
-      gid = -1;
+    JTRACE("DROP gid")(gid);
+    virtualPidTable.setgid(-1);
+    gid = -1;
     }
     // If foreground group ID not belongs to known PIDs,
     //   indicate that fact using -1 value.
     if( !virtualPidTable.pidExists(fgid) ){
-      JTRACE("DROP fgid")(fgid);
-      virtualPidTable.setfgid(-1);
-      fgid = -1;
+    JTRACE("DROP fgid")(fgid);
+    virtualPidTable.setfgid(-1);
+    fgid = -1;
     }
-*/
+    */
 
     session &s = smap[sid];
     // if this is first element of this session
@@ -1125,7 +1125,7 @@ void ProcessGroupInfo()
     group &g = smap[sid].groups[gid];
     // if this is first element of group gid
     if( g.gid == -2 ){
-        g.gid = gid;
+      g.gid = gid;
     }
     g.targets.push_back(&targets[j]);
   }
@@ -1143,22 +1143,22 @@ void ProcessGroupInfo()
         pid_t cfgid = virtualPidTable.fgid();
         if( fgid == -2 ){
           fgid = cfgid;
-        }else if( fgid != cfgid ){
+        }else if( fgid != -1 && cfgid != -1 && fgid != cfgid ){
           printf("Error: process from same session stores different"
-				 		" foreground group ID: %d, %d\n", fgid, cfgid);
-	  // DEBUG PRINTOUT:
-	  {
-	    session::group_it g_it1 = s.groups.begin();
-	    for(; g_it1!=s.groups.end();g_it1++){
-	      group &g1 = g_it1->second;
-	      for(size_t m=0; m<g1.targets.size() ;m++){
-        	VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-		pid_t pid = virtualPidTable.pid();
-		pid_t cfgid = virtualPidTable.fgid();
-		printf("PID=%d <--> FGID = %d\n",pid,cfgid);
-	      }
-	    }
-	  }
+              " foreground group ID: %d, %d\n", fgid, cfgid);
+          // DEBUG PRINTOUT:
+          {
+            session::group_it g_it1 = s.groups.begin();
+            for(; g_it1!=s.groups.end();g_it1++){
+              group &g1 = g_it1->second;
+              for(size_t m=0; m<g1.targets.size() ;m++){
+                VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+                pid_t pid = virtualPidTable.pid();
+                pid_t cfgid = virtualPidTable.fgid();
+                printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+              }
+            }
+          }
           abort();
         }
       }
@@ -1169,17 +1169,17 @@ void ProcessGroupInfo()
       // foreground group is missing, don't need to change foreground groop
       s.fgid = -1;
     }
-		
+
     {
-       session::group_it g_it1 = s.groups.begin();
-       for(; g_it1!=s.groups.end();g_it1++){
-         group &g1 = g_it1->second;
-         for(size_t m=0; m<g1.targets.size(); m++){
-           VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-	  pid_t pid = virtualPidTable.pid();
-	  pid_t cfgid = virtualPidTable.fgid();
-	  JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
-	}
+      session::group_it g_it1 = s.groups.begin();
+      for(; g_it1!=s.groups.end();g_it1++){
+        group &g1 = g_it1->second;
+        for(size_t m=0; m<g1.targets.size(); m++){
+          VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+          pid_t pid = virtualPidTable.pid();
+          pid_t cfgid = virtualPidTable.fgid();
+          JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
+        }
       }
     }
   }
@@ -1194,12 +1194,12 @@ void ProcessGroupInfo()
     for(; g_it!=s.groups.end();g_it++){
       group &g = g_it->second;
       JTRACE("\tGroup ID: ")(g.gid);
-/*
-      for(k=0; k<g.targets.size() ;k++){
-        printf("%d ", g.targets[k]->pid().pid());
-      }
-      printf("\n");
-*/
+      /*
+         for(k=0; k<g.targets.size() ;k++){
+         printf("%d ", g.targets[k]->pid().pid());
+         }
+         printf("\n");
+         */
     }
   }
 }
