@@ -114,12 +114,14 @@ static short int _X11ListenerPort() {
   static short int port = -1;
   if (port == -1) {
     const char *str = getenv("DISPLAY");
-    dmtcp::string display = str;
-    int idx = display.find_last_of(':');
-    char *dummy;
-    port = X11_LISTENER_PORT_START 
+    if (str != NULL) {
+      dmtcp::string display = str;
+      int idx = display.find_last_of(':');
+      char *dummy;
+      port = X11_LISTENER_PORT_START 
            + strtol(display.c_str() + idx + 1, &dummy, 10);
-    JTRACE("X11 Listener Port found") (port);
+      JTRACE("X11 Listener Port found") (port);
+    }
   }
   return port;
 }
@@ -1649,6 +1651,7 @@ static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
     rc = write(fd, (char *)buf+cum_count, count-cum_count);
     if (rc == -1 && errno != EAGAIN && errno != EINTR)
       break;  /* Give up; bad error */
+    cum_count += rc;
   }
   JASSERT(rc != 0 && cum_count == count)(rc)(count)(cum_count);
   return (rc < 0 ? rc : cum_count);
