@@ -972,7 +972,8 @@ int main ( int argc, char** argv )
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
-   JNOTE ("unknown type of target?") (targets[flat_index]._path);
+    // FIXME: Under what conditions will this path be exercised?
+    JNOTE ("unknown type of target?") (targets[flat_index]._path);
   }
 #endif
 }
