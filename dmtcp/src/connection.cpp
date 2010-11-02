@@ -371,7 +371,7 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
       if ( hasLock ( fds ) )
       {
         const ConnectionIdentifier& toDrainId = id();
-        JNOTE ( "Will drain socket" ) ( fds[0] ) ( toDrainId )
+        JTRACE ( "Will drain socket" ) ( fds[0] ) ( toDrainId )
           ( _acceptRemoteId );
         drain.beginDrainOf ( fds[0], toDrainId );
       }
