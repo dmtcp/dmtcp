@@ -1638,23 +1638,23 @@ static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount) {
 static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
   typedef int hdr;
   int count = *(hdr *)origBuf;
-  int cum_count = sizeof(hdr);
+  int cum_count = 0;
   int rc;
-  char *buf = (char *)origBuf + sizeof(hdr);
   if (count == 0)
-    return cum_count;  // count of zero means we're done, hdr consumed
+    return sizeof(hdr);  // count of zero means we're done, hdr consumed
   // FIXME:  It would be nice to restore packet mode (flow control, etc.)
   //         For now, we ignore it.
   if (count == 1 && isPacketMode)
-    return cum_count + 1;
+    return sizeof(hdr) + 1;
   while (cum_count < count) {
-    rc = write(fd, (char *)buf+cum_count, count-cum_count);
+    rc = write(fd, (char *)origBuf+sizeof(hdr)+cum_count, count-cum_count);
     if (rc == -1 && errno != EAGAIN && errno != EINTR)
       break;  /* Give up; bad error */
-    cum_count += rc;
+    if (rc >= 0)
+      cum_count += rc;
   }
-  JASSERT(rc != 0 && cum_count == count)(rc)(count)(cum_count);
-  return (rc < 0 ? rc : cum_count);
+  JASSERT(rc != 0 && cum_count == count)(JASSERT_ERRNO)(rc)(count)(cum_count);
+  return (rc < 0 ? rc : cum_count+sizeof(hdr));
 }
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode) {
   typedef int hdr;
