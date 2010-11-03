@@ -34,7 +34,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <bits/libc-lock.h>
 
 #define  SHELL_PATH  "/bin/sh"  /* Path of the shell.  */
 #define  SHELL_NAME  "sh"    /* Name to give it.  */
