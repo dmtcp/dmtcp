@@ -102,6 +102,7 @@ bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
   return false;
 }
 
+// Fails or does entire write (returns count)
 ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
@@ -109,16 +110,22 @@ ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 
   do {
     ssize_t rc = write (fd, ptr + offs, count - offs);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
-      return rc;
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN) 
+	continue;
+      else
+        return rc;
+    }
     else if (rc == 0)
       break;
-    else if (rc > 0)
+    else // else rc > 0
       offs += rc;
   } while (offs < count);
+  JASSERT (offs == count) (offs) (count);
   return count;
 }
 
+// Fails, succeeds, or partial read due to EOF (returns num read)
 ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
 {
   size_t rc;
@@ -126,11 +133,15 @@ ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
   int num_read = 0;
   for (num_read = 0; num_read < count;) {
     rc = read (fd, ptr + num_read, count - num_read);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
-      return rc;
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN)
+	continue;
+      else
+        return rc;
+    }
     else if (rc == 0)
       break;
-    else
+    else // else rc > 0
       num_read += rc;
   }
   return num_read;
