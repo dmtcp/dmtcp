@@ -551,7 +551,7 @@ int _real_xstat(int vers, const char *path, struct stat *buf) {
 }
 
 int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
+  REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
 }
 
 int _real_lxstat(int vers, const char *path, struct stat *buf) {
@@ -559,7 +559,7 @@ int _real_lxstat(int vers, const char *path, struct stat *buf) {
 }
 
 int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
+  REAL_FUNC_PASSTHROUGH ( __lxstat64 ) ( vers, path, buf );
 }
 
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
