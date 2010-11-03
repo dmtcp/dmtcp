@@ -168,6 +168,7 @@ extern "C" int pipe ( int fds[2] )
   return socketpair ( AF_UNIX, SOCK_STREAM, 0, fds );
 }
 
+# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 // pipe2 appeared in Linux 2.6.27
 extern "C" int pipe2 ( int fds[2], int flags )
 {
@@ -180,6 +181,7 @@ extern "C" int pipe2 ( int fds[2], int flags )
 #endif
   return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
 }
+#endif
 
 
 static int ptsname_r_work ( int fd, char * buf, size_t buflen )
