@@ -111,17 +111,15 @@ static bool _isBlacklistedFile ( dmtcp::string& path )
  *     the X server for this display is listening at TCP port 6000+D.
  */
 static short int _X11ListenerPort() {
-  static short int port = -1;
-  if (port == -1) {
-    const char *str = getenv("DISPLAY");
-    if (str != NULL) {
-      dmtcp::string display = str;
-      int idx = display.find_last_of(':');
-      char *dummy;
-      port = X11_LISTENER_PORT_START 
-           + strtol(display.c_str() + idx + 1, &dummy, 10);
-      JTRACE("X11 Listener Port found") (port);
-    }
+  short int port = -1;
+  const char *str = getenv("DISPLAY");
+  if (str != NULL) {
+    dmtcp::string display = str;
+    int idx = display.find_last_of(':');
+    char *dummy;
+    port = X11_LISTENER_PORT_START 
+         + strtol(display.c_str() + idx + 1, &dummy, 10);
+    JTRACE("X11 Listener Port found") (port);
   }
   return port;
 }
