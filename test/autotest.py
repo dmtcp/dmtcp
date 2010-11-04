@@ -479,9 +479,10 @@ if testconfig.HAS_DASH == "yes":
   runTest("dash",          2, ["/bin/dash -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-os.environ['DMTCP_GZIP'] = "0"
-runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
-os.environ['DMTCP_GZIP'] = GZIP
+if testconfig.HAS_TCSH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
@@ -509,7 +510,9 @@ if testconfig.HAS_SCREEN == "yes":
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
+  S=1
   runTest("gcl",         1,  [testconfig.GCL])
+  S=0.3
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":

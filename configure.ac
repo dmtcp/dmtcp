@@ -117,6 +117,9 @@ fi
 #check for dash
 AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
 
+#check for tcsh
+AC_CHECK_PROG(HAS_TCSH, [tcsh], [yes], [no], [/bin])
+
 #check for zsh
 AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
 
