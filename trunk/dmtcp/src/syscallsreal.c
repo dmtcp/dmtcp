@@ -172,7 +172,12 @@ static funcptr get_libc_symbol ( const char* name )
     abort();
   }
 
+#ifdef PTRACE
+  void* tmp = _real_dlsym ( handle, name );
+#else
   void* tmp = dlsym ( handle, name );
+#endif
+
   if ( tmp == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
@@ -606,4 +611,71 @@ void _real_free(void *ptr) {
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
 // }
+#endif
+
+#ifdef PTRACE
+// gdb calls dlsym on td_thr_get_info.  Need wrapper for tid virtualization.
+// The fnc td_thr_get_info is in libthread_db, and not in libc.
+static funcptr get_libthread_db_symbol ( const char* name )
+{
+  void* tmp = NULL;
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB ,RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+  tmp = _real_dlsym ( handle, name );
+  if ( tmp == NULL )
+  {
+    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return ( funcptr ) tmp;
+}
+// Adding the macro for calls to get_libthread_db_symbol
+#define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libthread_db_symbol(#name); \
+    return (*fn)
+
+void *_real_dlsym ( void *handle, const char *symbol ) {
+  /* In the future dlsym_offset should be global variable defined in 
+     dmtcpworker.cpp. For some unclear reason doing that causes a link
+     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp 
+     and  dmtcpworker.cpp. Commenting out the extra definition in 
+     dmtcp_coordinator.cpp sometimes caused an seg fault on 
+       dmtcp_checkpoint gdb a.out 
+     when user types run in gdb.
+  */
+  static int dlsym_offset = 0;
+  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
+  {
+    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
+    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
+        fails to start.
+    */
+    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
+  }
+  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol); 
+  if ( dlsym_offset == 0)
+    return dlsym ( handle, symbol );
+  else
+  {
+    typedef void* ( *fncptr ) (void *handle, const char *symbol);
+    fncptr dlsym_addr = (fncptr)((char *)&dlopen + dlsym_offset);
+    return (*dlsym_addr) ( handle, symbol );
+  }
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. */
+td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
+  REAL_FUNC_PASSTHROUGH_TD_THR ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
+}
+
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
+}
 #endif

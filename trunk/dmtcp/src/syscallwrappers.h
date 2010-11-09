@@ -87,6 +87,13 @@ extern "C"
 # define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 #endif 
 
+#ifdef PTRACE
+# define GLIBC_PTRACE_WRAPPERS(MACRO)       \
+  MACRO(ptrace)
+#else
+# define GLIBC_PTRACE_WRAPPERS(MACRO)
+#endif 
+
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
  * We can't tell which ones were already re-defined by the user executable.
  * For example, /bin/dash defines isalnum in Ubuntu 9.10.
@@ -178,7 +185,8 @@ extern "C"
                                             \
   GLIBC_ACCEPT4_WRAPPER(MACRO)              \
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
-  GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
+  GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)       \
+  GLIBC_PTRACE_WRAPPERS(MACRO)
 
 
 # define ENUM(x) enum_ ## x
@@ -214,6 +222,11 @@ extern "C"
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
   int _real_system ( const char * cmd );
 
+  pid_t _real_fork();
+  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
+  int _real_open(const char *pathname, int flags, mode_t mode);
+  FILE* _real_fopen(const char *path, const char *mode);
   int _real_close ( int fd );
   int _real_fclose ( FILE *fp );
   void _real_exit ( int status );
@@ -232,7 +245,6 @@ extern "C"
   void _real_openlog ( const char *ident, int option, int facility );
   void _real_closelog ( void );
 
-  pid_t _real_fork();
 
   typedef void (*sighandler_t)(int);
 
@@ -258,7 +270,15 @@ extern "C"
   pid_t _real_gettid(void);
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
-  
+
+  long int _real_syscall(long int sys_num, ... );
+
+  /* System V shared memory */
+  int _real_shmget(key_t key, size_t size, int shmflg);
+  void* _real_shmat(int shmid, const void *shmaddr, int shmflg);
+  int _real_shmdt(const void *shmaddr);
+  int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
+
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
@@ -291,25 +311,16 @@ extern "C"
 
 #endif /* PID_VIRTUALIZATION */
 
-  pid_t _real_gettid(void);
-  int   _real_tkill(int tid, int sig);
-  int   _real_tgkill(int tgid, int tid, int sig);
+#ifdef PTRACE
+  void * _real_dlsym ( void *handle, const char *symbol );
+  long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+  td_err_e   _real_td_thr_get_info ( const td_thrhandle_t  *th_p, td_thrinfo_t *ti_p);
+#endif
 
-  int _real_open(const char *pathname, int flags, mode_t mode);
-  FILE * _real_fopen(const char *path, const char *mode);
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-
-  long int _real_syscall(long int sys_num, ... );
-
-  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-
-  int _real_shmget(key_t key, size_t size, int shmflg);
-  void* _real_shmat(int shmid, const void *shmaddr, int shmflg);
-  int _real_shmdt(const void *shmaddr);
-  int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
 #ifdef ENABLE_MALLOC_WRAPPER
   void *_real_calloc(size_t nmemb, size_t size);

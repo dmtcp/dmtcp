@@ -39,6 +39,16 @@
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
 
+#ifdef PTRACE
+#include <sys/types.h>
+#include <sys/ptrace.h>
+#include <stdarg.h>
+#include <linux/unistd.h>
+#include <sys/syscall.h>
+#include <fcntl.h>
+#endif
+
+
 namespace
 {
   static const char* REOPEN_MTCP = ( char* ) 0x1;
@@ -212,10 +222,49 @@ static void callbackRestoreVirtualPidTable ( )
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-}
+} 
+
+#ifdef PTRACE
+typedef pid_t ( *get_saved_pid_t) ( );
+get_saved_pid_t get_saved_pid_ptr = NULL;
+
+typedef int ( *get_saved_status_t) ( );
+get_saved_pid_t get_saved_status_ptr = NULL;
+
+typedef int ( *get_has_status_and_pid_t) ( );
+get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL;
+
+typedef void ( *reset_pid_status_t) ( );
+reset_pid_status_t reset_pid_status_ptr = NULL;
+
+typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
+set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL;
+
+typedef int ( *get_is_waitpid_local_t ) ();
+get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
+
+typedef int ( *get_is_ptrace_local_t ) ();
+get_is_ptrace_local_t get_is_ptrace_local_ptr = NULL;
+
+typedef void ( *unset_is_waitpid_local_t ) ();
+unset_is_waitpid_local_t unset_is_waitpid_local_ptr = NULL;
+
+typedef void ( *unset_is_ptrace_local_t ) ();
+unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
+
+sigset_t signals_set;
+#define MTCP_DEFAULT_SIGNAL SIGUSR2
+#endif 
 
 void dmtcp::initializeMtcpEngine()
 {
+#ifdef PTRACE
+  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  char *dir =
+     (char*) _get_mtcp_symbol( "dir" );  
+  sprintf(dir, "%s",  tmpdir.c_str());
+#endif
+
   int *dmtcp_exists_ptr =
     (int*) _get_mtcp_symbol( "dmtcp_exists" );
   *dmtcp_exists_ptr = 1;
@@ -252,6 +301,29 @@ void dmtcp::initializeMtcpEngine()
 
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
   t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
+
+#ifdef PTRACE
+  sigemptyset (&signals_set);
+  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
+
+  set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
+
+  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
+
+  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" );
+
+  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" );
+
+  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" );
+
+  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" );
+
+  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" );
+
+  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );
+
+  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" );
+#endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
@@ -319,7 +391,7 @@ int thread_start(void *arg)
   JTRACE ( "Calling user function" ) (original_tid);
 
   /* Thread finished initialization, its now safe for this thread to
-   * participate in checkpoint. Decrement the unInitializedThreadCount in
+   * participate in checkpoint. Decrement the uninitializedThreadCount in
    * DmtcpWorker.
    */
   dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
@@ -466,6 +538,115 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
 #endif
 }
+
+#ifdef PTRACE
+#ifndef PID_VIRTUALIZATION
+#error "PTRACE can not be used without enabling PID-Virtualization"
+#endif
+// ptrace cannot work without pid virtualization.  If we're not using
+// pid virtualization, then disable this wrapper around ptrace, and
+// let the application call ptrace from libc.
+
+// These constants must agree with the constants in mtcp/mtcp.c
+#define PTRACE_UNSPECIFIED_COMMAND 0
+#define PTRACE_SINGLESTEP_COMMAND 1
+#define PTRACE_CONTINUE_COMMAND 2
+
+extern "C" long ptrace ( enum __ptrace_request request, ... )
+{
+  va_list ap;
+  pid_t pid;
+  void *addr;
+  void *data;
+
+  pid_t superior;
+  pid_t inferior;
+
+  long ptrace_ret;
+
+  typedef void ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
+  static writeptraceinfo_t writeptraceinfo_ptr = ( writeptraceinfo_t ) _get_mtcp_symbol ( "writeptraceinfo" );
+
+  typedef void ( *write_info_to_file_t ) ( int file, pid_t superior, pid_t inferior );
+  static write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
+
+  typedef void ( *remove_from_ptrace_pairs_t) ( pid_t superior, pid_t inferior );
+  static remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr =
+                           ( remove_from_ptrace_pairs_t ) _get_mtcp_symbol ( "remove_from_ptrace_pairs" );
+
+  typedef void ( *handle_command_t ) ( pid_t superior, pid_t inferior, int last_command );
+  static handle_command_t handle_command_ptr = ( handle_command_t ) _get_mtcp_symbol ( "handle_command" );
+
+
+  va_start( ap, request );
+  pid = va_arg( ap, pid_t );
+  addr = va_arg( ap, void * );
+  data = va_arg( ap, void * );
+  va_end( ap );
+  superior = syscall( SYS_gettid );
+  inferior = pid;
+
+  switch (request) {
+    case PTRACE_ATTACH: {
+     if (!get_is_ptrace_local_ptr ()) writeptraceinfo_ptr ( superior, inferior );
+      else unset_is_ptrace_local_ptr ();
+      break;
+    }
+    case PTRACE_TRACEME: {
+      superior = getppid();
+      inferior = syscall( SYS_gettid );
+      writeptraceinfo_ptr( superior, inferior );
+      break;
+    }
+    case PTRACE_DETACH: {
+     if (!get_is_ptrace_local_ptr ()) remove_from_ptrace_pairs_ptr ( superior, inferior );
+     else unset_is_ptrace_local_ptr ();
+     break;
+    }
+    case PTRACE_CONT: {
+     if (!get_is_ptrace_local_ptr ()) handle_command_ptr ( superior, inferior, PTRACE_CONTINUE_COMMAND );
+     else unset_is_ptrace_local_ptr ();
+     break;
+    }
+    case PTRACE_SINGLESTEP: {
+     pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( pid );
+     if (!get_is_ptrace_local_ptr ()) {
+        if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+                perror ("waitpid wrapper");
+                 exit(-1);
+        }
+        handle_command_ptr (superior, inferior, PTRACE_SINGLESTEP_COMMAND);
+        ptrace_ret =  _real_ptrace (request, pid, addr, data);
+        if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
+                perror ("waitpid wrapper");
+                exit(-1);
+        }
+     }
+     else {
+        ptrace_ret =  _real_ptrace (request, pid, addr, data);
+        unset_is_ptrace_local_ptr ();
+     }
+     break;
+    }
+    case PTRACE_SETOPTIONS: {
+     write_info_to_file_ptr (1, superior, inferior);
+     break;
+    }
+    default: {
+      break;
+    }
+  }
+
+  /* TODO: We might want to check the return value in certain cases */
+
+  if ( request != PTRACE_SINGLESTEP ) {
+        pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( pid );
+        ptrace_ret =  _real_ptrace( request, pid, addr, data );
+  }
+
+  return ptrace_ret;
+}
+#endif
 
   // This is called by the child process, only, via DmtcpWorker::resetOnFork().
   // We know that no one can send the SIG_CKPT signal, since if the
