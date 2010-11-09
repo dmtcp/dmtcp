@@ -65,6 +65,9 @@ CFLAGS += -O0 -g
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of libmtcp.so for others to use.
+# Uncomment the following line to enable PTRACE support.
+#CFLAGS += -DPTRACE
+
 LD = ${CC}
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
@@ -138,11 +141,11 @@ threadtest: threadtest.c
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o
+	mtcp_check_vdso.o mtcp_ptrace.o
 	${CC} $(CFLAGS) -static \
     -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
     mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o
+    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_ptrace.o -lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -182,7 +185,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_ptrace.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -196,11 +199,11 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o libmtcp.so \
 	  ${LIBRARY_OBJS} -ldl -lpthread
 
-mtcp.o: mtcp.c mtcp.h mtcp_internal.h
+mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
-mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
+mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h mtcp_ptrace.h
 	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
 	  cflags_extra=-fno-stack-protector ; \
 	fi; \
@@ -256,6 +259,9 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
+
+mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
+	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c -lpthread
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

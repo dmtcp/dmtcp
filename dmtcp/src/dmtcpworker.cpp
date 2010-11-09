@@ -984,6 +984,9 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
+#ifdef PTRACE 
+  return false;
+#endif
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {

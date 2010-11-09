@@ -626,7 +626,6 @@ extern "C" int vsprintf(char *str, const char *format, va_list ap);
 extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 */
 
-#ifndef DISABLE_SYS_V_IPC
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
@@ -691,7 +690,6 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
-#endif
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 pid_t gettid();

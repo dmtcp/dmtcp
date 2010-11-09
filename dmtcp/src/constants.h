@@ -27,6 +27,20 @@
 #endif
 #include "linux/version.h"
 
+//#define ENABLE_MALLOC_WRAPPER
+
+/* TODO: we want to be able to switch this on and off - 
+   for the time being: not a concern
+   when this works, then kleptocracy
+*/
+//#define PTRACE 1
+
+#ifdef PTRACE
+#define LIBTHREAD_DB "libthread_db.so.1"
+#define LIBPTHREAD_FILENAME "libpthread.so.0"
+#else
+
+#endif
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
@@ -79,6 +93,15 @@
 
 #define GLIBC_BASE_FUNC isalnum
 
+#ifdef PTRACE
+#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
+
+#define ENV_PTRACE \
+    , ENV_VAR_DLSYM_OFFSET 
+#else
+#define ENV_PTRACE 
+#endif
+
 //this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
     ENV_VAR_NAME_ADDR,\
@@ -96,7 +119,8 @@
     ENV_VAR_COMPRESSION,\
     ENV_VAR_SIGCKPT,\
     ENV_VAR_ROOT_PROCESS,\
-    ENV_VAR_LIBC_FUNC_OFFSETS
+    ENV_VAR_LIBC_FUNC_OFFSETS \
+    ENV_PTRACE
 
 
 #define DRAINER_CHECK_FREQ 0.1

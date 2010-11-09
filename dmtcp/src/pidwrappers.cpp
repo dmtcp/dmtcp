@@ -44,8 +44,11 @@
 
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
-
+  
   if (currentPid == -1)
     currentPid = originalPid;
 
@@ -54,8 +57,11 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
+  /* This code is called from MTCP while the checkpoint thread is holding
+     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
+     this function. */
   pid_t originalPid = dmtcp::VirtualPidTable::instance().currentToOriginalPid( currentPid );
-
+  
   if (originalPid == -1)
     originalPid = currentPid;
 
@@ -264,6 +270,59 @@ int   tgkill(int tgid, int tid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
 
+#ifdef PTRACE
+
+#define TRUE 1
+#define FALSE 0
+
+extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
+                                               td_thrinfo_t *ti_p)
+{
+  td_err_e td_err;
+
+  td_err = _real_td_thr_get_info ( th_p, ti_p);
+  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
+  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
+  return td_err;
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. It should be safe to comment this out if you don't
+   need to checkpoint gdb.
+*/
+extern "C" void *dlsym ( void *handle, const char *symbol)
+{
+  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
+    return (void *) &_dmtcp_td_thr_get_info;
+  else
+    return _real_dlsym ( handle, symbol );
+}
+
+typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int 
+value );
+extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;
+
+typedef int ( *get_is_waitpid_local_t ) ();
+extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
+
+typedef void ( *unset_is_waitpid_local_t ) ();
+extern "C" unset_is_waitpid_local_t unset_is_waitpid_local_ptr;
+
+typedef pid_t ( *get_saved_pid_t) ( );
+extern "C" get_saved_pid_t get_saved_pid_ptr;
+
+typedef int ( *get_saved_status_t) ( );
+extern "C" get_saved_status_t get_saved_status_ptr;
+
+typedef int ( *get_has_status_and_pid_t) ( );
+extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
+
+typedef void ( *reset_pid_status_t) ( );
+extern "C" reset_pid_status_t reset_pid_status_ptr;
+
+extern "C" sigset_t signals_set;
+#endif
+
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
  *       It wouldn't be a straight forward process, we need to take care of the
@@ -290,15 +349,54 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
+#ifdef PTRACE
+  pid_t superior;
+  pid_t inferior;
+  pid_t retval;
+  static int i = 0;
+  pid_t originalPid;
+#endif
 
   if ( stat_loc == NULL )
     stat_loc = &status;
 
   pid_t currPid = originalToCurrentPid (pid);
 
+#ifdef PTRACE
+  superior = syscall (SYS_gettid);
+
+  inferior = pid;
+
+  if (!get_is_waitpid_local_ptr ()) {
+        if (get_has_status_and_pid_ptr ()) {
+                *stat_loc = get_saved_status_ptr ();
+                retval = get_saved_pid_ptr ();
+                reset_pid_status_ptr ();
+        }
+        else {
+                if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
+                        perror ("waitpid wrapper");
+                        exit(-1);
+                }
+                set_singlestep_waited_on_ptr (superior, inferior, TRUE);
+                retval = _real_waitpid (currPid, stat_loc, options);
+                originalPid = currentToOriginalPid (retval);
+                if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
+                        perror ("waitpid wrapper");
+                        exit(-1);
+                }
+        }
+  }
+  else {
+        retval = _real_waitpid (currPid, stat_loc, options);
+        unset_is_waitpid_local_ptr ();
+        originalPid = currentToOriginalPid (retval);
+  }
+#else 
   pid_t retval = _real_waitpid (currPid, stat_loc, options);
 
   pid_t originalPid = currentToOriginalPid ( retval );
+#endif
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
