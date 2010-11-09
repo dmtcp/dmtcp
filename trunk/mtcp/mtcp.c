@@ -627,8 +627,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
   /* All routines needed to perform restore must be within this address range               */
 
-  restore_begin = (((VA)mtcp_shareable_begin) & -PAGE_SIZE);
-  restore_size  = ((VA)mtcp_shareable_end - restore_begin + PAGE_SIZE - 1) & -PAGE_SIZE;
+  restore_begin = (((VA)mtcp_shareable_begin) & -MTCP_PAGE_SIZE);
+  restore_size  = ((VA)mtcp_shareable_end - restore_begin + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
 
@@ -2458,8 +2458,7 @@ static void writecs (int fd, char cs)
 
 /* Write something to checkpoint file */
 
-static char const zeroes[PAGE_SIZE] = { 0 };
-
+static char zeroes[MTCP_PAGE_SIZE] = { 0 };
 static void writefile (int fd, void const *buff, size_t size)
 
 {

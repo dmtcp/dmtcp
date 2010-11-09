@@ -171,7 +171,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
    */
 
   holebase  = (VA)mtcp_shareable_begin;
-  holebase &= -PAGE_SIZE;
+  holebase &= -MTCP_PAGE_SIZE;
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
 				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
@@ -192,10 +192,10 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   if (vdso_addr != (VA)NULL && vdso_addr < holebase) {
     DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
-	      NULL, vdso_addr-1, vdso_addr+PAGE_SIZE, holebase - 1));
+	      NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1));
     rc = mtcp_sys_munmap ((void *)NULL, (size_t)vdso_addr);
-    rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
-			   (size_t)holebase - vdso_addr - PAGE_SIZE);
+    rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
+			   (size_t)holebase - vdso_addr - MTCP_PAGE_SIZE);
   } else {
     DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
     rc = mtcp_sys_munmap (NULL, holebase);
@@ -209,14 +209,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
   holebase  = (VA)mtcp_shareable_end;
-  holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
-  if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE <= (VA)highest_va) {
+  holebase  = (holebase + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
+  if (vdso_addr != (VA)NULL && vdso_addr + MTCP_PAGE_SIZE <= (VA)highest_va) {
     if (vdso_addr > holebase) {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
 	        holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
       rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
-      rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
-			   highest_va - vdso_addr - PAGE_SIZE);
+      rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
+			   highest_va - vdso_addr - MTCP_PAGE_SIZE);
     } else {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
 	        holebase, highest_va - 1));
