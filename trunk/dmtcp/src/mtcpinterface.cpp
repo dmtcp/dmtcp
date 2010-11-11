@@ -363,6 +363,11 @@ int thread_start(void *arg)
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
 
+  typedef void ( *fill_in_pthread_t ) ( pid_t tid, pthread_t pth );
+  static fill_in_pthread_t fill_in_pthread_ptr = ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );
+
+  fill_in_pthread_ptr (tid, pthread_self()); 
+  
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
     return 0;
@@ -537,6 +542,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return tid;
 
 #endif
+}
+
+extern "C" int pthread_join (pthread_t thread, void **value_ptr) {
+  typedef void ( *delete_thread_on_pthread_join_t) ( pthread_t pth );
+  static delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr = ( delete_thread_on_pthread_join_t ) _get_mtcp_symbol ( "delete_thread_on_pthread_join" );
+  int retval = _real_pthread_join (thread, value_ptr);
+  delete_thread_on_pthread_join_ptr (thread);
+  return retval;
 }
 
 #ifdef PTRACE

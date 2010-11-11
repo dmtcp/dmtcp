@@ -320,6 +320,12 @@ extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
 typedef void ( *reset_pid_status_t) ( );
 extern "C" reset_pid_status_t reset_pid_status_ptr;
 
+typedef int ( *fill_in_pthread_t) ();
+extern "C" fill_in_pthread_t fill_in_pthread_ptr;
+
+typedef int ( *delete_thread_on_pthread_join_t) ();
+extern "C" delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr;
+
 extern "C" sigset_t signals_set;
 #endif
 

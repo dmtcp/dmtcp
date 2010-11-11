@@ -275,6 +275,7 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
                 ucontext_t savctx;                  // context saved on suspend
 
                 mtcp_segreg_t fs, gs;               // thread local storage pointers
+                pthread_t pth;                      // added for pthread_join
 #if MTCP__SAVE_MANY_GDT_ENTRIES
                 struct user_desc gdtentrytls[GDT_ENTRY_TLS_ENTRIES];
 #else
@@ -951,6 +952,26 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 #endif
 
   return (rc);
+}
+
+void fill_in_pthread (pid_t tid, pthread_t pth) {
+  struct Thread *thread;
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if (thread -> tid == tid) {
+      thread -> pth = pth;
+      break;
+    }
+  }
+}
+
+void delete_thread_on_pthread_join (pthread_t pth) {
+  struct Thread *thread;
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if (thread -> pth == pth) {
+      threadisdead (thread);
+      break;
+    }
+  }
 }
 
 asm (".global clone ; .type clone,@function ; clone = __clone");
