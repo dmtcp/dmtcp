@@ -679,3 +679,9 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *da
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
 }
 #endif
+
+int _real_pthread_join(pthread_t thread, void **value_ptr)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
+    ( thread, value_ptr );
+}

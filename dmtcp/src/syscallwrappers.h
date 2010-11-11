@@ -316,6 +316,7 @@ extern "C"
   long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
   td_err_e   _real_td_thr_get_info ( const td_thrhandle_t  *th_p, td_thrinfo_t *ti_p);
 #endif
+  int _real_pthread_join(pthread_t thread, void **value_ptr);
 
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
