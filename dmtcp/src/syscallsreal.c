@@ -132,6 +132,11 @@ static funcptr get_libc_symbol ( const char* name )
     if (fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
 
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
+    static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
+    return (*fn)
+
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
 {
@@ -468,6 +473,12 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *da
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
 }
 #endif
+
+int _real_pthread_join(pthread_t thread, void **value_ptr)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
+    ( thread, value_ptr );
+}
 
 /* See comments for syscall wrapper */
 long int _real_syscall(long int sys_num, ... ) {
