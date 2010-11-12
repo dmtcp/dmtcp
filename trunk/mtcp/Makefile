@@ -66,7 +66,7 @@ CFLAGS += -O0 -g
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of libmtcp.so for others to use.
 # Uncomment the following line to enable PTRACE support.
-#CFLAGS += -DPTRACE
+CFLAGS += -DPTRACE
 
 LD = ${CC}
 ASFLAGS =
