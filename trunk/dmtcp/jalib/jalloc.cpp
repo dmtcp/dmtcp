@@ -53,6 +53,7 @@ void jalib::JAllocDispatcher::unlock()
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/user.h>
 
 
 namespace jalib
@@ -62,7 +63,24 @@ inline void* _alloc_raw(size_t n) {
 #ifdef JALIB_USE_MALLOC
   return malloc(n);
 #else
+
+//#define USE_DMTCP_ALLOC_ARENA
+# ifdef USE_DMTCP_ALLOC_ARENA
+#ifndef __x86_64__
+#error "USE_DMTCP_ALLOC_ARENA can't be used with 32-bit binaries"
+#endif
+  static void *mmapHintAddr = (void*) 0x1f000000000;
+  if (n % PAGE_SIZE != 0) {
+    n = (n + PAGE_SIZE) - (n % PAGE_SIZE);
+  }
+  void* p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE, 
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  if (p!= MAP_FAILED)
+    mmapHintAddr = p + n;
+# else
   void* p = mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+# endif
+
   if(p==MAP_FAILED)
     perror("_alloc_raw: ");
   return p;
@@ -172,9 +190,9 @@ private:
   }
 };
 
-typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*8 > > lvl1;
-typedef JGlobalAlloc< JFixedAllocStack<256,  1024*8 > > lvl2;
-typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*8 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
+typedef JGlobalAlloc< JFixedAllocStack<256,  1024*16 > > lvl2;
+typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*16 > > lvl3;
 
 void* JAllocDispatcher::allocate(size_t n) {
   lock();
