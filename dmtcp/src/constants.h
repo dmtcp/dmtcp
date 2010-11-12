@@ -33,8 +33,8 @@
    for the time being: not a concern
    when this works, then kleptocracy
 */
-#define PTRACE
-#define URDB
+//#define PTRACE
+//#define URDB
 
 #ifdef PTRACE
 #define LIBTHREAD_DB "libthread_db.so.1"
