@@ -213,7 +213,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   if (vdso_addr != (VA)NULL && vdso_addr + MTCP_PAGE_SIZE <= (VA)highest_va) {
     if (vdso_addr > holebase) {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
-	        holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
+	        holebase, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, highest_va - 1));
       rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
       rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
 			   highest_va - vdso_addr - MTCP_PAGE_SIZE);
