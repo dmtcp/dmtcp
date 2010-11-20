@@ -33,14 +33,11 @@
    for the time being: not a concern
    when this works, then kleptocracy
 */
-//#define PTRACE
 //#define URDB
 
 #ifdef PTRACE
-#define LIBTHREAD_DB "libthread_db.so.1"
-#define LIBPTHREAD_FILENAME "libpthread.so.0"
-#else
-
+# define LIBTHREAD_DB "libthread_db.so.1"
+# define LIBPTHREAD_FILENAME "libpthread.so.0"
 #endif
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should

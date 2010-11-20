@@ -3,13 +3,19 @@ LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
+PTRACE_SUPPORT=@PTRACE_SUPPORT@
 prefix=@prefix@
+datarootdir = @datarootdir@
 mandir=@mandir@
 
 ifeq ($(M32),1)
   MTCP_MAKE_FLAGS=M32=1
 else
   MTCP_MAKE_FLAGS=CC=$(CC)
+endif
+
+ifeq ($(PTRACE_SUPPORT@),1)
+  MTCP_MAKE_FLAGS+=-DPTRACE
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:

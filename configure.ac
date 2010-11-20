@@ -54,6 +54,17 @@ AC_ARG_ENABLE([pid_virtualization],
 			    reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
+AC_ARG_ENABLE([ptrace_support],
+            [AS_HELP_STRING([--enable-ptrace-support],
+                            [enable ptrace support for gdb, valgrind, etc.
+			    (EXPERIMENTAL)])],
+            [use_ptrace_support=$enableval],
+            [use_ptrace_support=no])
+if test "$use_ptrace_support" = "yes"; then
+  AC_SUBST([PTRACE_SUPPORT], [yes])
+else
+  AC_SUBST([PTRACE_SUPPORT], [no])
+fi
 AC_ARG_ENABLE([condor_support],
             [AS_HELP_STRING([--enable-condor-support],
                             [set configure options to support Condor.])],
