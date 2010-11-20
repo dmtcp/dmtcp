@@ -42,8 +42,11 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Use virtual pids for pid-related system calls */
+/* Use virtual pids for pid-related system calls. */
 #undef PID_VIRTUALIZATION
+
+/* Use support for ptrace system call. */
+#undef PTRACE
 
 /* No output, not even NOTE and WARNING */
 #undef QUIET

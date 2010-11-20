@@ -521,6 +521,12 @@ if testconfig.HAS_MATLAB == "yes":
     runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=0.3
 
+if testconfig.PTRACE_SUPPORT == "yes":
+  S=2
+  if sys.version_info[0:2] >= (2,6):
+    runTest("gdb", 2,  ["gdb dmtcp1"])
+  S=0.3
+
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
 
