@@ -65,9 +65,12 @@ CFLAGS += -O0 -g
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of libmtcp.so for others to use.
-# Uncomment the following line to enable PTRACE support.
-# If calling make from parent dmtcp dir, PTRACE enabled if it was configured.
-#CFLAGS += -DPTRACE
+
+# If ./configure --enable-ptrace-support defined, DMTCP 'make' will set this.
+# If calling 'make' from mtcp subdir, you may want to unconditionally set this.
+ifdef PTRACE_SUPPORT
+  CFLAGS += -DPTRACE
+endif
 
 LD = ${CC}
 ASFLAGS =
