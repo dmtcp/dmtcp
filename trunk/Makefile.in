@@ -14,8 +14,8 @@ else
   MTCP_MAKE_FLAGS=CC=$(CC)
 endif
 
-ifeq ($(PTRACE_SUPPORT@),1)
-  MTCP_MAKE_FLAGS+=-DPTRACE
+ifeq ($(PTRACE_SUPPORT),yes)
+  MTCP_MAKE_FLAGS+=CFLAGS=-DPTRACE
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
