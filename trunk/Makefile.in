@@ -5,17 +5,17 @@ CC=@CC@
 M32=@M32@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
 prefix=@prefix@
-datarootdir = @datarootdir@
+datarootdir=@datarootdir@
 mandir=@mandir@
 
 ifeq ($(M32),1)
-  MTCP_MAKE_FLAGS=M32=1
+  MTCP_MAKE_FLAGS = M32=1
 else
-  MTCP_MAKE_FLAGS=CC=$(CC)
+  MTCP_MAKE_FLAGS = CC=$(CC)
 endif
 
 ifeq ($(PTRACE_SUPPORT),yes)
-  MTCP_MAKE_FLAGS+=CFLAGS=-DPTRACE
+  MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
@@ -131,4 +131,3 @@ uninstall:
 	rm -Rf "$(prefix)/include/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
-

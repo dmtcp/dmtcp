@@ -65,6 +65,7 @@ for i in sys.argv:
 
 stats = [0, 0]
 
+# NOTE:  This might be replaced by shell=True in call to subprocess.Popen
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
 
@@ -134,11 +135,12 @@ class MySubprocess:
   "dummy class: same fields as from subprocess module"
   def __init__(self, pid):
     self.pid = pid
-    self.stdin = os.open("/dev/null", os.O_RDONLY)
-    self.stdout = os.open("/dev/null", os.O_WRONLY)
-    self.stderr = os.open("/dev/null", os.O_WRONLY)
+    self.stdin = os.open(os.devnull, os.O_RDONLY)
+    self.stdout = os.open(os.devnull, os.O_WRONLY)
+    self.stderr = os.open(os.devnull, os.O_WRONLY)
 
 #launch a child process
+# NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
 def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
@@ -152,27 +154,31 @@ def launch(cmd):
     os.stat(cmd[0])
   except:
     raise CheckFailed(cmd[0] + " not found")
-  if VERBOSE:
-    pipe=None
-  else:
-    pipe = subprocess.PIPE
   if ptyMode:
     (pid, fd) = os.forkpty()
     if pid == 0:
       # replace stdout; child might otherwise block on writing to stdout
       os.close(1)
-      os.open('/dev/null', os.O_WRONLY | os.O_APPEND)
+      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
       os.close(2)
-      os.open('/dev/null', os.O_WRONLY | os.O_APPEND)
+      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
       os.execvp(cmd[0], cmd)
       # os.system( reduce(lambda x,y:x+y, cmd) )
       # os.exit(0)
     else:
       return MySubprocess(pid)
   else:
+    childStderr = subprocess.STDOUT # Mix stderr into stdout file object
+    if cmd[0] == BIN+"dmtcp_coordinator":
+      childStdout = subprocess.PIPE
+      childStderr = subprocess.PIPE  # Don't mix stderr in; need to read stdout
+    elif VERBOSE:
+      childStdout=None  # Inherit child stdout from parent
+    else:
+      childStdout = os.open(os.devnull, os.O_WRONLY)
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
-		 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-		 stderr=pipe, close_fds=True)
+		 stdin=subprocess.PIPE, stdout=childStdout,
+		 stderr=childStderr, close_fds=True)
   return proc
 
 #randomize port and dir, so multiple processes works
@@ -187,7 +193,7 @@ os.unsetenv('MTCP_SIGCKPT')
 #No gzip by default.  (Isolate gzip failures from other test failures.)
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
 if not VERBOSE:
-  os.environ['JALIB_STDERR_PATH'] = "/dev/null"
+  os.environ['JALIB_STDERR_PATH'] = os.devnull
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
@@ -522,10 +528,12 @@ if testconfig.HAS_MATLAB == "yes":
   S=0.3
 
 if testconfig.PTRACE_SUPPORT == "yes":
+  os.system("echo 'run' > dmtcp-gdbinit.tmp")
   S=2
   if sys.version_info[0:2] >= (2,6):
-    runTest("gdb", 2,  ["gdb dmtcp1"])
+    runTest("gdb", 2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
   S=0.3
+  os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
