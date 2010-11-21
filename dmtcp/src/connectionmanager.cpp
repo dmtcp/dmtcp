@@ -916,9 +916,10 @@ static int open_ckpt_to_read(const char *filename)
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
-            dup2(fd, STDIN_FILENO);
+            JASSERT(fd != -1);
+            JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
             close(fd);
-            dup2(fds[1], STDOUT_FILENO);
+            JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
             close(fds[1]);
             _real_execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
@@ -929,6 +930,8 @@ static int open_ckpt_to_read(const char *filename)
     }
     else /* invalid magic number */
         JASSERT(false).Text("ERROR: Invalid magic number in this checkpoint file!");
+    // NOT_REACHED
+    return -1;
 }
 
 // See comments above for open_ckpt_to_read()
@@ -987,6 +990,7 @@ int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path, UniquePid &c
 int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,UniquePid &compGroup,  int &numPeers){
 #endif
   int fd = openDmtcpCheckpointFile(path);
+  JASSERT(fd != -1);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   rdr & compGroup;
   rdr & numPeers;

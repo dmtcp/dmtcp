@@ -289,6 +289,7 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
     .Text("ERROR: Missing execute- or write-access to tmp dir");
 
   int tmpFd = open ( o.str().c_str(), O_RDONLY  );
+  JASSERT(tmpFd != -1);
   JASSERT(dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
   close ( tmpFd );
 }

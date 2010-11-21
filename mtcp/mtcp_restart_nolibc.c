@@ -933,10 +933,11 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
   const char *stackstring = "[stack]";
   const char *vdsostring = "[vdso]";
   const char *vsyscallstring = "[vsyscall]";
-  const int bufsize = sizeof "[vsyscall]"; /* largest of last 3 strings */
+  const int bufsize = 1 + sizeof "[vsyscall]"; /* largest of last 3 strings */
   char buf[bufsize];
 
   buf[0] = '\0';
+  buf[bufsize - 1] = '\0';
 
   /* Scan through the mappings of this process */
 
@@ -969,30 +970,18 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
         c = mtcp_readchar (mapsfd);
       }
     }
-    /* i < bufsize - 1 */
-    buf[i] = '\0';
 
-    /* emulate strcmp */
-    for (i = 0; i < sizeof "[stack]"; i++)
-      if (buf[i] != stackstring[i])
-        break;
-    if (i == sizeof "[stack]") {
+    if (0 == mtcp_strncmp(buf, stackstring, mtcp_strlen(stackstring))) {
       *stack_end_addr = endaddr;
       highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
     }
 
-    for (i = 0; i < sizeof "[vdso]"; i++)
-      if (buf[i] != vdsostring[i])
-        break;
-    if (i == sizeof "[vdso]") {
+    if (0 == mtcp_strncmp(buf, vdsostring, mtcp_strlen(vdsostring))) {
       *vdso_addr = startaddr;
       highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
     }
 
-    for (i = 0; i < sizeof "[vsyscall]"; i++)
-      if (buf[i] != vsyscallstring[i])
-        break;
-    if (i == sizeof "[vsyscall]") {
+    if (0 == mtcp_strncmp(buf, vsyscallstring, mtcp_strlen(vsyscallstring))) {
       *vsyscall_addr = startaddr;
       highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
     }
@@ -1060,6 +1049,10 @@ static void lock_file(int fd, char* name, short l_type)
   while (result == -1 || mtcp_sys_errno == EINTR )
     result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
 
+  /* Coverity static analyser stated the following code as DEAD. It is not
+   * DEADCODE because it is possible that mtcp_sys_fcntl3() fails with some
+   * error other than EINTR
+   */
   if ( result == -1 ) {
     mtcp_printf("mtcp_restart_nolibc lock_file: error %d locking shared file: %s\n",
         mtcp_sys_errno, name);

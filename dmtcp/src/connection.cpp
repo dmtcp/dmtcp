@@ -637,10 +637,6 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote, const dmtcp::Un
 ////////////
 ///// PTY CHECKPOINTING
 
-static int _openBSDMasterPty ( dmtcp::string device )
-{
-}
-
 void dmtcp::PtyConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     , KernelBufferDrainer& drain )
 {
@@ -1180,21 +1176,13 @@ void dmtcp::FileConnection::saveFile(int fd)
     lseek(fd, 0, SEEK_SET);
 
     int readBytes, writtenBytes;
-    while (1) {
-      readBytes = read(fd, buf, bufSize);
-      if (readBytes == 0) {
-        break;
-      }
-      if (readBytes == -1) {
-        if (errno == EINTR || errno == EAGAIN) {
-          continue;
-        } else {
-          JASSERT(false) (_path) (JASSERT_ERRNO)
-            .Text ("Error read()ing file");
-        }
-      }
-
-      JASSERT(Util::writeAll(destFd, buf, readBytes) != -1) 
+    while(1) {
+      readBytes = Util::readAll(fd, buf, bufSize);
+      JASSERT(readBytes != -1) 
+        (_path) (JASSERT_ERRNO) .Text("Read Failed");
+      if (readBytes == 0) break;
+      writtenBytes = Util::writeAll(destFd, buf, readBytes);
+      JASSERT(writtenBytes != -1) 
         (savedFilePath) (JASSERT_ERRNO) .Text("Write failed.");
     }
 
@@ -1339,10 +1327,10 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool
   ssize_t ret;
   for(size_t i=0;i<(_in_data.size()/bufsize);i++){ // refill fifo
     for(j=0; j<bufsize; j++){
-		buf[j] = _in_data[j+i*bufsize];
-	}
-	JASSERT ((ret=write(ckptfd,buf,j)) == j)
-		(JASSERT_ERRNO) (ret)(j) (fds[0])(i);
+      buf[j] = _in_data[j+i*bufsize];
+    }
+    ret=write(ckptfd,buf,j);
+    JASSERT (ret == j) (JASSERT_ERRNO) (ret)(j) (fds[0])(i);
   }
   int start = (_in_data.size()/bufsize)*bufsize;
   for(j=0; j<_in_data.size()%bufsize; j++){
@@ -1351,7 +1339,8 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool
   errno=0;
   buf[j] ='\0';
   JTRACE ("Buf internals.") ((const char*)buf);
-  JASSERT ((ret=write(ckptfd,buf,j)) == j) (JASSERT_ERRNO)(ret)(j) (fds[0]);
+  ret = Util::writeAll(ckptfd,buf,j);
+  JASSERT (ret == j) (JASSERT_ERRNO)(ret)(j) (fds[0]);
 
   close(ckptfd);
   // unlock fifo

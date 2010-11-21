@@ -349,7 +349,7 @@ void dmtcp::DmtcpWorker::interruptCkpthread()
 {
   if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
     killCkpthread();
-    pthread_mutex_lock(&destroyDmtcpWorker);
+    JASSERT(pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
   }
 }
 
@@ -1302,8 +1302,8 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
     // Now dup the sockfd to
     coordinatorListenerSocket.changeFd(PROTECTEDFD(1));
 
-    coordinatorPortStr = jalib::XToString(coordinatorListenerSocket.port()).c_str();
-    setenv ( ENV_VAR_NAME_PORT, coordinatorPortStr, 1 );
+    dmtcp::string coordPort= jalib::XToString(coordinatorListenerSocket.port());
+    setenv ( ENV_VAR_NAME_PORT, coordPort.c_str(), 1 );
   }
 
   JTRACE("Starting a new coordinator automatically.") (coordinatorPortStr);

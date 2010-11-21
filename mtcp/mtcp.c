@@ -530,6 +530,11 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
   intervalsecs = interval;
 
+  if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
+    mtcp_printf("mtcp mtcp_init: new ckpt file name (%s) too long (>=512 bytes)\n",
+                mtcp_ckpt_newname);
+    mtcp_abort();
+  }
   strncpy(perm_checkpointfilename,checkpointfilename,MAXPATHLEN);  // this is what user wants the checkpoint file called
   len = strlen (perm_checkpointfilename);        // make up another name, same as that, with ".temp" on the end
   memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
@@ -1139,6 +1144,11 @@ static void setup_clone_entry (void)
 
   tmp = getenv ("MTCP_WRAPPER_LIBC_SO");
   if (tmp != NULL) {
+    if (strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
+      mtcp_printf("mtcp setup_clone_entry: libc area name (%s) too long (>=1024 chars)\n",
+                  tmp);
+      mtcp_abort();
+    }
     strncpy (mtcp_libc_area.name, tmp, sizeof mtcp_libc_area.name);
   } else {
     mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
@@ -1385,7 +1395,7 @@ int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
   struct termios old_termios, new_termios;
   /* We will compare old and new, and we don't want unitialized data */
-  memset(&new_termios, sizeof(new_termios), 0);
+  memset(&new_termios, 0, sizeof(new_termios));
   /* tcgetattr returns success as long as at least one of requested
    * changes was executed.  So, repeat until no more changes.
    */ 
@@ -1972,7 +1982,7 @@ static void checkpointeverything (void)
 		  " trying normal checkpoint\n");
     } else if (forked_cpid > 0) {
       /* Parent process*/
-      if (tmpDMTCPHeaderFd == -1)
+      if (tmpDMTCPHeaderFd != -1)
         close(tmpDMTCPHeaderFd);
       // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
       if ( waitpid(forked_cpid, NULL, 0) == -1 )
@@ -2910,7 +2920,7 @@ static void save_sig_handlers (void)
                 __FUNCTION__);
     // Do a simple return instead of killing the process
     return;
-    mtcp_abort();
+    //mtcp_abort();
   }
 
   /* Now save all the signal handlers */
@@ -2948,7 +2958,7 @@ static void restore_sig_handlers (Thread *thisthread)
                 __FUNCTION__);
     // Do a simple return instead of killing the process
     return;
-    mtcp_abort();
+    //mtcp_abort();
   }
 
   DPRINTF (("mtcp restore_sig_handlers*: restoring signal handlers\n"));
@@ -3129,6 +3139,7 @@ static void unlk_threads (void)
 
 {
   WMB; // flush data written before unlocking
+  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever fail?
   mtcp_state_set(&threadslocked , 0, 1);
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
@@ -3212,9 +3223,9 @@ static int readmapsline (int mapsfd, Area *area)
     /* if nscd is active */
   } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
     /* System V Shared-Memory segments are handled by DMTCP. */
-  }
-  else if (area -> name[0] == '/'                 /* if an absolute pathname */
-	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
+  } else if ( mtcp_strendswith(area -> name, " (deleted)") ) {
+    /* Deleted File */
+  } else if (area -> name[0] == '/') {                 /* if an absolute pathname */
     rc = stat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
@@ -3229,12 +3240,10 @@ static int readmapsline (int mapsfd, Area *area)
 		   devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
+  } else {
+    /* Special area like [heap] or anonymous area. */
   }
-  else if (c == '[') {
-    while ((c != '\n') && (c != '\0')) {
-      c = mtcp_readchar (mapsfd);
-    }
-  }
+
   if (c != '\n') goto skipeol;
 
   area -> addr = (void *)startaddr;
@@ -3301,6 +3310,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 
   /* Not used until we do longjmps, but get it out of the way now */
 
+  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever fail?
   mtcp_state_set(&restoreinprog ,1, 0);
 
   mtcp_sys_gettimeofday (&restorestarted, NULL);
@@ -3415,6 +3425,11 @@ static void finishrestore (void)
        && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
+    if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
+      mtcp_printf("mtcp finishrestore: new ckpt file name (%s) too long (>=512 bytes)\n",
+                  mtcp_ckpt_newname);
+      mtcp_abort();
+    }
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
     memcpy(temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);
     strncpy(temp_checkpointfilename + nnamelen, ".temp",MAXPATHLEN - nnamelen);
