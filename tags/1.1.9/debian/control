@@ -1,0 +1,17 @@
+Source: dmtcp
+Section: utils
+Priority: extra
+Maintainer: Jason Ansel <jansel0+dmtcp@gmail.com>
+Build-Depends: debhelper (>= 6), autotools-dev
+Standards-Version: 3.7.3
+Homepage: http://dmtcp.sourceforge.net/
+
+Package: dmtcp
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: Distributed MultiThreaded Checkpointing
+ DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
+ checkpointing the state of an arbitrary group of programs spread across
+ many machines and connected by sockets. It does not modify the user's
+ program nor the operating system.
+ For more information see: http://dmtcp.sourceforge.net/
