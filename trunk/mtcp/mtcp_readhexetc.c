@@ -133,3 +133,25 @@ int mtcp_strendswith (const char *s1, const char *s2)
 
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
+
+// Fails, succeeds, or partial read due to EOF (returns num read)
+ssize_t mtcp_read_all(int fd, void *buf, size_t count)
+{
+  size_t rc;
+  char *ptr = (char *) buf;
+  int num_read = 0;
+  for (num_read = 0; num_read < count;) {
+    rc = read (fd, ptr + num_read, count - num_read);
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN)
+        continue;
+      else
+        return -1;
+    }
+    else if (rc == 0)
+      break;
+    else // else rc > 0
+      num_read += rc;
+  }
+  return num_read;
+}

@@ -129,7 +129,7 @@ static char * get_libc_base_func ()
   return base_addr;
 }
 
-static unsigned int computeLibcOffsetArray ()
+static void computeLibcOffsetArray ()
 {
   char* libcFuncOffsetStr = getenv(ENV_VAR_LIBC_FUNC_OFFSETS);
   char *start;

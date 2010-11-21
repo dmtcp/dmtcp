@@ -64,7 +64,7 @@ namespace
     public:
       OriginalPidTable(){}
 
-      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
+      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable& vt )
       {
         dmtcp::vector< pid_t > tmpVector;
 
@@ -185,50 +185,20 @@ namespace
     int find_stdin( SlidingFdTable& slidingFd )
     {
       for ( ConnectionToFds::const_iterator i = _conToFd.begin();
-	    i!=_conToFd.end(); ++i )
-	{
-	  const dmtcp::vector<int>& fds = i->second;
-	  for ( size_t x=0; x<fds.size(); ++x )
-	    {
-	      if (fds[x] == STDIN_FILENO){
-		JTRACE("Found stdin: fds[x] <---> slidingFd.getFdFor()")
-                      (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
-		return slidingFd.getFdFor ( i->first );
-	      }
-	    }
-	}
+          i!=_conToFd.end(); ++i )
+      {
+        const dmtcp::vector<int>& fds = i->second;
+        for ( size_t x=0; x<fds.size(); ++x )
+        {
+          if (fds[x] == STDIN_FILENO){
+            JTRACE("Found stdin: fds[x] <---> slidingFd.getFdFor()")
+              (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
+            return slidingFd.getFdFor ( i->first );
+          }
+        }
+      }
+      return -1;
     }
-
-    /*      else if(ConnectionList::instance()[i->first].conType()
-	    == Connection::PTS)
-            {
-              const dmtcp::vector<int>& fds = i->second;
-              for(size_t x=0; x<fds.size(); ++x)
-              {
-                int fd = fds[x];
-                slidingFd.freeUpFd( fd );
-                int oldFd = slidingFd.getFdFor( i->first );
-                JTRACE("restoring fd")(i->first)(oldFd)(fd);
-		errno = 0;
-                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
-                //_real_dup2(oldFd, fd);
-              }
-            }
-            else if(ConnectionList::instance()[i->first].conType() == Connection::FILE)
-            {
-              const dmtcp::vector<int>& fds = i->second;
-              for(size_t x=0; x<fds.size(); ++x)
-              {
-                int fd = fds[x];
-                slidingFd.freeUpFd( fd );
-                int oldFd = slidingFd.getFdFor( i->first );
-                JTRACE("Restoring fd.")(i->first)(oldFd)(fd);
-		errno = 0;
-                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
-                //_real_dup2(oldFd, fd);
-              }
-            }
-       */
 
     void mtcpRestart()
     {
@@ -392,7 +362,7 @@ namespace
                     .Text("Cannot restore controlling terminal");
 	  }
 	}
-	close(fd);
+	if (fd >= 0) close(fd);
       }
 
       pid_t gid = getpgid(0);
@@ -444,7 +414,7 @@ namespace
       }
     }
 
-    int restoreGroup( SlidingFdTable& slidingFd )
+    void restoreGroup( SlidingFdTable& slidingFd )
     {
       if( isGroupLeader() ){
 	// create new group where this process becomes a leader
@@ -1264,6 +1234,7 @@ static void openOriginalToCurrentMappingFiles()
   // Open and create shmidListFile if it doesn't exist.
   JTRACE("Open dmtcpShmidMapFile")(shmidListFile.str());
   fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_SHMIDLIST_FD ) == PROTECTED_SHMIDLIST_FD )
 	  ( shmidListFile.str() );
   close (fd);
@@ -1271,6 +1242,7 @@ static void openOriginalToCurrentMappingFiles()
   // Open and create shmidMapFile if it doesn't exist.
   JTRACE("Open dmtcpShmidMapFile")(shmidMapFile.str());
   fd = openSharedFile(shmidMapFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_SHMIDMAP_FD ) == PROTECTED_SHMIDMAP_FD )
 	  ( shmidMapFile.str() );
   close (fd);
@@ -1278,6 +1250,7 @@ static void openOriginalToCurrentMappingFiles()
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
   fd = openSharedFile(pidMapFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD )
 	  ( pidMapFile.str() );
   close (fd);
@@ -1285,6 +1258,7 @@ static void openOriginalToCurrentMappingFiles()
   // Open and create pidMapCountFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
+  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD )
 	  ( pidMapCountFile.str() );
   close(fd);

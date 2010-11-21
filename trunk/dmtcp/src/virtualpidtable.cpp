@@ -312,6 +312,7 @@ void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
     if ( *iter == tid ) {
       _tidVector.erase( iter );
       _pidMapTable.erase(tid);
+      break;
     }
     else
       ++iter;
@@ -336,8 +337,10 @@ void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
   _do_lock_tbl();
   dmtcp::vector< pid_t >::iterator iter = _inferiorVector.begin();
   while ( iter != _inferiorVector.end() ) {
-    if ( *iter == tid )
+    if ( *iter == tid ) {
       _inferiorVector.erase( iter );
+      break;
+    }
     else
       ++iter;
   }

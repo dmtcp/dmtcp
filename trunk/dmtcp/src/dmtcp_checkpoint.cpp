@@ -44,7 +44,7 @@
 #include <dlfcn.h>
 
 int testMatlab(const char *filename);
-int testSetuid(const char *filename);
+void testSetuid(const char *filename);
 int testStaticallyLinked(const char *filename);
 int testScreen(char **argvPtr[]);
 void adjust_rlimit_stack();
@@ -546,7 +546,7 @@ int testMatlab(const char *filename) {
   return 0;
 }
 
-int testSetuid(const char *filename) {
+void testSetuid(const char *filename) {
   static const char* theSetuidWarning =
     "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
     "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"

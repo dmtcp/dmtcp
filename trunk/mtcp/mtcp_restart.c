@@ -411,9 +411,16 @@ static int open_ckpt_to_read(char *filename) {
         }
         else /* child process */ {
             fd = dup(dup(dup(fd)));
+            if (fd == -1) {
+            fputs("ERROR: dup() failed!  No restoration will be performed!  Cancel now!\n", stderr);
+              mtcp_abort();
+            }
             fds[1] = dup(fds[1]);
             close(fds[0]);
-            dup2(fd, STDIN_FILENO);
+            if (dup2(fd, STDIN_FILENO) != STDIN_FILENO) {
+            fputs("ERROR: dup2() failed!  No restoration will be performed!  Cancel now!\n", stderr);
+              mtcp_abort();
+            }
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);

@@ -152,6 +152,7 @@ static int _open_log_safe ( const char* filename, int protectedFd )
   //open file
   int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
                                    S_IRUSR | S_IWUSR );
+  if (tfd == -1) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   close ( tfd );
@@ -212,34 +213,23 @@ void writeBacktrace() {
 // DOES:  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
 // But it could be dangerous to spawn a process in fragile state of JASSERT.
 void writeProcMaps() {
-  char mapsBuf[50000];
+  char *mapsBuf = (char*) JALLOC_HELPER_MALLOC(50000);
   int rc, count, total;
   int fd = open("/proc/self/maps", O_RDONLY);
-  while ((rc = read(fd, mapsBuf+count, sizeof(mapsBuf)-count)) != 0) {
-    if (rc == -1 && errno != EAGAIN && errno != EINTR)
-      break;
-    else
-      count += rc;
-  }
+  if (fd == -1) return;
+  count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
   jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
                           + "/proc-maps." + jalib::XToString ( getpid() );
   fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
-  if (fd != -1) {
-    total = count;
-    count = 0;
-    while (total>count && (rc = write(fd, mapsBuf+count, total-count)) != 0) {
-      if (rc == -1 && errno != EAGAIN && errno != EINTR)
-        break;
-      else
-        count += rc;
-    }
-    close(fd);
-    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
-    unlink(lnk.c_str());  // just in case it had previously been created.
-    if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
-      {}  // Too late to issue a user warning here.
-  }
+  if (fd == -1) return;
+  count = dmtcp::Util::writeAll(fd, mapsBuf, count);
+  close(fd);
+  jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
+  unlink(lnk.c_str());  // just in case it had previously been created.
+  if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
+  {}  // Too late to issue a user warning here.
+  JALLOC_HELPER_FREE(mapsBuf);
 }
 
 jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
