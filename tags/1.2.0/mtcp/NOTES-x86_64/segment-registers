@@ -1,0 +1,29 @@
+http://lkml.org/lkml/2006/8/27/38
+
+This uses the x86 segmentation stuff in a way similar to NPTL's way of
+implementing Thread-Local Storage.  It relies on the fact that each CPU
+has its own Global Descriptor Table (GDT), which is basically an array
+of base-length pairs (with some extra stuff).  When a segment register
+is loaded with a descriptor (approximately, an index in the GDT), and
+you use that segment register for memory access, the address has the
+base added to it, and the resulting address is used.
+
+In other words, if you imagine the GDT containing an entry:
+	Index	Offset
+	123:	0xc0211000 (allocated PDA)
+and you load %gs with this selector:
+	mov $123, %gs
+and then use GS later on:
+	mov %gs:4, %eax
+This has the effect of
+	mov 0xc0211004, %eax
+and because the GDT is per-CPU, the offset (= 0xc0211000 = memory
+allocated for this CPU's PDA) can be a CPU-specific value while leaving
+everything else constant.
+
+This means that something like "current" or "smp_processor_id()" can
+collapse to a single instruction:
+	mov %gs:PDA_current, %reg
+
+
+

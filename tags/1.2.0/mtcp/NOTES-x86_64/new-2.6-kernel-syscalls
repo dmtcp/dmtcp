@@ -1,0 +1,7 @@
+About 2003, man pages for these system calls were introduced:
+
+alloc_hugepages, free_hugepages - removed in favor of hugetlbfs
+futex
+tkill
+gettid
+arch_prctl (related to prctl, modify_ldt, set_thread_area) - does it exist?
