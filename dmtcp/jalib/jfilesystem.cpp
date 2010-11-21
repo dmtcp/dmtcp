@@ -19,19 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "jfilesystem.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "jconvert.h"
 #include <dirent.h>
 #include <algorithm>
-#include <errno.h>
+#include "errno.h"
 #include <sys/utsname.h>
 #include <sys/syscall.h>
-#include "jfilesystem.h"
-#include "jconvert.h"
 #include "syscallwrappers.h"
-#include "util.h"
 
 namespace
 {
@@ -51,8 +50,13 @@ namespace
     int count = 0;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
-    rc = dmtcp::Util::readAll(fd, buf, size);
-    return rc;
+    while ((rc = read(fd, buf+count, size-count)) != 0) {
+      if (rc == -1 && errno != EINTR && errno != EAGAIN)
+	break;  // Give up, bad error
+      if (rc > 0)
+	count += rc;
+    }
+    return (rc < 0 ? -1 : count);
   }
 
 }
@@ -99,7 +103,7 @@ jalib::string jalib::Filesystem::GetProgramName()
     char cmdline[1024];
     value = FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
-    if (!value.empty()
+    if (len > 0
         && ( value == ResolveSymlink("/lib/ld-linux.so.2")
             || value == ResolveSymlink("/lib64/ld-linux-x86-64.so.2") )
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
@@ -226,7 +230,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
 
   const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
                              ? sizeof (struct dirent64) : 4 * BUFSIZ);
-  char *buf = (char*) JALLOC_HELPER_MALLOC(allocation);
+  char buf[allocation];
 
   IntVector fdVec;
 
@@ -252,7 +256,6 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   _real_close(fd);
 
   std::sort(fdVec.begin(), fdVec.end());
-  JALLOC_HELPER_FREE(buf);
   return fdVec;
 }
 #else
@@ -285,9 +288,9 @@ jalib::string jalib::Filesystem::GetCurrentHostname()
 {
   struct utsname tmp;
   memset ( &tmp,0,sizeof ( tmp ) );
-  JASSERT(uname ( &tmp ) != -1) (JASSERT_ERRNO);
+  uname ( &tmp );
   jalib::string name = "unknown";
-  if ( strlen(tmp.nodename) != 0 )
+  if ( tmp.nodename != 0 )
     name = tmp.nodename;
 //   #ifdef _GNU_SOURCE
 //   if(tmp.domainname != 0)

@@ -69,13 +69,6 @@
 #define MTCP_SYS_STRLEN
 #include "mtcp_internal.h"
 
-/* required for ptrace sake */
-#include <sys/user.h>
-#include "mtcp_ptrace.h" 
-
-static int WAIT=1;
-// static int WAIT=0;
-
 #if 0
 // Force thread to stop, without use of a system call.
 static int WAIT=1;
@@ -275,7 +268,6 @@ struct Thread { Thread *next;                       // next thread in 'threads' 
                 ucontext_t savctx;                  // context saved on suspend
 
                 mtcp_segreg_t fs, gs;               // thread local storage pointers
-                pthread_t pth;                      // added for pthread_join
 #if MTCP__SAVE_MANY_GDT_ENTRIES
                 struct user_desc gdtentrytls[GDT_ENTRY_TLS_ENTRIES];
 #else
@@ -485,10 +477,6 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   char *p, *tmp, *endp;
   int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
-  mtcp_segreg_t TLSSEGREG;
-#ifdef PTRACE 
-  init_thread_local();
-#endif
 
   if (sizeof(void *) != sizeof(long)) {
     mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
@@ -530,27 +518,12 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
   intervalsecs = interval;
 
-  if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
-    mtcp_printf("mtcp mtcp_init: new ckpt file name (%s) too long (>=512 bytes)\n",
-                mtcp_ckpt_newname);
-    mtcp_abort();
-  }
   strncpy(perm_checkpointfilename,checkpointfilename,MAXPATHLEN);  // this is what user wants the checkpoint file called
   len = strlen (perm_checkpointfilename);        // make up another name, same as that, with ".temp" on the end
   memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
   strncpy(temp_checkpointfilename + len, ".temp",MAXPATHLEN-len);
                                                  // ... we use it to write to in case we crash while writing
                                                  //     we will leave the previous good one intact
-
-#ifdef PTRACE
-  /* TODO:  USE flock WHEN WRITING TO THESE THREE FILES (NOT YET DONE FOR ptrace_setoptions_file? */
-  memset(ptrace_shared_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared_file.txt", dir);
-  memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions_file.txt", dir);
-  memset(checkpoint_threads_file, '\0', MAXPATHLEN);
-  sprintf(checkpoint_threads_file, "%s/checkpoint_threads_file.txt", dir);
-#endif
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
@@ -633,8 +606,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
   /* All routines needed to perform restore must be within this address range               */
 
-  restore_begin = (((VA)mtcp_shareable_begin) & -MTCP_PAGE_SIZE);
-  restore_size  = ((VA)mtcp_shareable_end - restore_begin + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
+  restore_begin = (((VA)mtcp_shareable_begin) & -PAGE_SIZE);
+  restore_size  = ((VA)mtcp_shareable_end - restore_begin + PAGE_SIZE - 1) & -PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
 
@@ -827,9 +800,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 {
   int rc;
   Thread *thread;
-#ifdef PTRACE
-  int i;
-#endif
 
   /* Maybe they decided not to call mtcp_init */
   if (motherofall != NULL) {
@@ -897,86 +867,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     DPRINTF (("mtcp wrapper clone*: clone rc=%d\n", rc));
   }
 
-#ifdef PTRACE
- /*************************************************************************/
-  /*  Code added to keep record of new tasks and processes in a file       */
-  /*************************************************************************/
-
-  // initialize the ptrace_tid_pairs array  
-  if (!init_ptrace_pairs) {
-    for (i = 0; i < MAX_PTRACE_PAIRS_COUNT; i++) {
-      ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
-      ptrace_pairs[i].singlestep_waited_on = FALSE;
-      ptrace_pairs[i].free = TRUE;
-      ptrace_pairs[i].inferior_st = 'u'; // undefined
-    }
-    init_ptrace_pairs = 1;
-  }
-
-  // initialize the semaphore used when motherofall reads the ptrace shared file  
-  if (!init_ptrace_read_pairs_sem) {
-    sem_init(&ptrace_read_pairs_sem, 0, 0);
-    init_ptrace_read_pairs_sem = 1;
-  }
-
-  if (!init__sem) {
-    sem_init(&__sem, 0, 1);
-    init__sem = 1;
-  }
-
-  if (is_ptrace_setoptions == TRUE) writeptraceinfo (setoptions_superior, rc);
-  else {
-    // read from file
-    int setoptions_fd = -1;
-    pid_t inferior;
-    pid_t superior;
-
-    setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
-
-    if (setoptions_fd != -1) {
-      while (readall(setoptions_fd, &superior, sizeof(pid_t)) > 0) {
-        readall(setoptions_fd, &inferior, sizeof(pid_t));
-  if (inferior == GETTID()) {
-    setoptions_superior = superior;
-    is_ptrace_setoptions = TRUE;
-    writeptraceinfo (setoptions_superior, rc);
-  }
-      }
-      if ( close(setoptions_fd) != 0 ) {
-        mtcp_printf("__clone: Error closing file: %s\n",
-                    strerror(errno));
-  mtcp_abort();
-      }
-    }
-  }
-  /* the structure of checkpoint_threads_file is pairs of pid and tid */
-  write_info_to_file (2, getpid(), rc);
-  /*************************************************************************/
-  /*  Done recording new tasks and processes.                              */
-  /*************************************************************************/
-#endif
-
   return (rc);
-}
-
-void fill_in_pthread (pid_t tid, pthread_t pth) {
-  struct Thread *thread;
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (thread -> tid == tid) {
-      thread -> pth = pth;
-      break;
-    }
-  }
-}
-
-void delete_thread_on_pthread_join (pthread_t pth) {
-  struct Thread *thread;
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (thread -> pth == pth) {
-      threadisdead (thread);
-      break;
-    }
-  }
 }
 
 asm (".global clone ; .type clone,@function ; clone = __clone");
@@ -1027,10 +918,6 @@ static int threadcloned (void *threadv)
   /* Maybe enable checkpointing by default */
 
   if (threadenabledefault) mtcp_ok ();
-
-#ifdef PTRACE
-  init_thread_local();
-#endif
 
   /* Call the user's function for whatever processing they want done */
 
@@ -1144,11 +1031,6 @@ static void setup_clone_entry (void)
 
   tmp = getenv ("MTCP_WRAPPER_LIBC_SO");
   if (tmp != NULL) {
-    if (strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
-      mtcp_printf("mtcp setup_clone_entry: libc area name (%s) too long (>=1024 chars)\n",
-                  tmp);
-      mtcp_abort();
-    }
     strncpy (mtcp_libc_area.name, tmp, sizeof mtcp_libc_area.name);
   } else {
     mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
@@ -1315,7 +1197,6 @@ again:
 
     default: {
       mtcp_abort ();
-      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -1352,7 +1233,6 @@ again:
 
     default: {
       mtcp_abort ();
-      return (0); /* NOTREACHED : stop compiler warning */
     }
   }
 }
@@ -1395,7 +1275,7 @@ int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
   struct termios old_termios, new_termios;
   /* We will compare old and new, and we don't want unitialized data */
-  memset(&new_termios, 0, sizeof(new_termios));
+  memset(&new_termios, sizeof(new_termios), 0);
   /* tcgetattr returns success as long as at least one of requested
    * changes was executed.  So, repeat until no more changes.
    */ 
@@ -1461,14 +1341,9 @@ static void *checkpointhread (void *dummy)
    */
   static int originalstartup = 1;
 
-#ifdef PTRACE
-  init_thread_local();
-  check_size_for_ptrace_file (ptrace_shared_file);
-  check_size_for_ptrace_file (ptrace_setoptions_file);
-  check_size_for_ptrace_file (checkpoint_threads_file);
-#endif
-
-  /* We put a timeout in case the thread being waited for exits whilst we are waiting */
+  /* We put a timeout in case the thread being waited for exits whilst
+   *   we are waiting
+   */
 
   static struct timespec const enabletimeout = { 10, 0 };
 
@@ -1494,9 +1369,6 @@ static void *checkpointhread (void *dummy)
 
     DPRINTF (("mtcp checkpointhread*: waiting for other threads after restore\n"));
     wait_for_all_restored ();
-#ifdef PTRACE
-    create_file (GETTID());
-#endif
     DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
   }
 
@@ -1509,9 +1381,6 @@ static void *checkpointhread (void *dummy)
 	    mtcp_sys_kernel_gettid ()));
 
   while (1) {
-#ifdef PTRACE
-    int ptraced_by = 0;
-#endif
 
     /* Wait a while between writing checkpoint files */
 
@@ -1530,41 +1399,6 @@ static void *checkpointhread (void *dummy)
 
     mtcp_sys_gettimeofday (&started, NULL);
     checkpointsize = 0;
-
-#ifdef PTRACE
-    // Refresh ptrace information
-    has_ptrace_file = 0;
-    delete_ptrace_leader = -1;
-    has_setoptions_file = 0;
-    delete_setoptions_leader = -1;
-    has_checkpoint_file = 0;
-    delete_checkpoint_leader = -1;
-    process_ptrace_info( &delete_ptrace_leader, &has_ptrace_file,
-                         &delete_setoptions_leader, &has_setoptions_file,
-                         &delete_checkpoint_leader, &has_checkpoint_file);
-
-    for (thread = threads; thread != NULL; thread = thread -> next) {
-      int i;
-      for (i = 0; i < ptrace_pairs_count; i++) {
-        DPRINTF(("COMPARE: intf=%d, tid=%d\n",
-                 ptrace_pairs[i].inferior, thread->original_tid));
-        if( ptrace_pairs[i].inferior == thread->original_tid ){
-          ptraced_by = ptrace_pairs[i].superior;
-          break;
-        }
-      }
-      if( ptraced_by )
-        break;
-    }
-
-    DPRINTF(("\n\n%d ptraced by %d\n\n",(thread) ? thread->tid : 0,ptraced_by));
-    if( ptraced_by ){
-      DPRINTF(("\n\n%d Wait for superior %d\n\n",thread->tid,ptraced_by));
-      ptrace_wait4(ptraced_by);
-      //sleep(1);
-      DPRINTF(("\n\n%d Wait for superior %d - SUCCESS\n\n",thread->tid,ptraced_by));
-    }
-#endif 
 
     /* Halt all other threads - force them to call stopthisthread                    */
     /* If any have blocked checkpointing, wait for them to unblock before signalling */
@@ -1604,51 +1438,6 @@ again:
 
         case ST_RUNENABLED: {
           if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
-#ifdef PTRACE
-          ptrace_save_threads_state ();
-          int index;  
-          char inferior_st = 'N';
-          char inf_st;
-          for (index = 0; index < ptrace_pairs_count; index++) {
-            inf_st = procfs_state(ptrace_pairs[index].inferior);
-            DPRINTF(("tid = %d now=%c stored=%c superior = %d inferior = %d\n",
-                     GETTID(), inf_st, ptrace_pairs[index].inferior_st,
-                     ptrace_pairs[index].superior, ptrace_pairs[index].inferior));
-            if (ptrace_pairs[index].inferior == thread -> original_tid) {
-              inferior_st = ptrace_pairs[index].inferior_st;
-              break;
-            }
-          }
-          DPRINTF(("%d %c\n", GETTID(), inferior_st));
-          if (inferior_st == 'N') {
-            // superior 
-            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-              if (mtcp_sys_errno != ESRCH) {
-                mtcp_printf("mtcp checkpointhread: error signalling thread %d: %s\n",
-                            thread -> tid, strerror (mtcp_sys_errno));
-              }
-              unlk_threads ();
-              threadisdead (thread);
-              goto rescan;
-            }
-          }
-          else {
-            // inferior 
-            DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid));
-            if (inferior_st != 'T') {
-            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-                if (mtcp_sys_errno != ESRCH) {
-                  mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
-                               thread -> tid, strerror (mtcp_sys_errno));
-                }
-                unlk_threads ();
-                threadisdead (thread);
-                goto rescan;
-              }
-            }
-            create_file( thread -> original_tid );
-          }
-#else
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
             if (mtcp_sys_errno != ESRCH) {
               mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
@@ -1658,7 +1447,6 @@ again:
             threadisdead (thread);
             goto rescan;
           }
-#endif
           needrescan = 1;
           break;
         }
@@ -1761,18 +1549,8 @@ again:
       }
     }
 
-#ifdef PTRACE
-    /* If old stale files of these names exist, we append, with big problems
-     * It's okay if files don't exist and unlink fails.
-     * Pre_ckpt is a barrier from coordinator.  So, all processes finished
-     *  reading ptrace pairs from files prior to this barrier.
-     */
-    unlink(ptrace_shared_file);
-    unlink(ptrace_setoptions_file);
-    unlink(checkpoint_threads_file);
-#endif
-
-    mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
+   /* kernel returns mm->brk when passed zero. */
+    mtcp_saved_break = (void*) mtcp_sys_brk(NULL);
     /* Do this once, same for all threads.  But restore for each thread. */
     if (mtcp_have_thread_sysinfo_offset())
       saved_sysinfo = mtcp_get_thread_sysinfo();
@@ -1831,11 +1609,12 @@ again:
     }
     unlk_threads ();
     DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
-    /* But if we're doing a restore verify, just exit.  The main thread is doing the exec to start the restore. */
-#ifdef PTRACE
-    create_file (GETTID());
-#endif
-    if ((verify_total != 0) && (verify_count == 0)) return (NULL);
+    /* But if we're doing a restore verify, just exit.
+     * The main thread is doing the exec to start the restore.
+     */
+
+    if ((verify_total != 0) && (verify_count == 0))
+      return (NULL);
   }
 }
 
@@ -1982,7 +1761,7 @@ static void checkpointeverything (void)
 		  " trying normal checkpoint\n");
     } else if (forked_cpid > 0) {
       /* Parent process*/
-      if (tmpDMTCPHeaderFd != -1)
+      if (tmpDMTCPHeaderFd == -1)
         close(tmpDMTCPHeaderFd);
       // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
       if ( waitpid(forked_cpid, NULL, 0) == -1 )
@@ -2489,7 +2268,8 @@ static void writecs (int fd, char cs)
 
 /* Write something to checkpoint file */
 
-static char zeroes[MTCP_PAGE_SIZE] = { 0 };
+static char const zeroes[PAGE_SIZE] = { 0 };
+
 static void writefile (int fd, void const *buff, size_t size)
 
 {
@@ -2625,13 +2405,6 @@ static void stopthisthread (int signum)
 #define STDERR_FD 826
 #define LOG_FD 826
 
-#ifdef PTRACE
-  ptrace_unlock_inferiors();
-  ptrace_remove_notexisted();
-  ptrace_detach_checkpoint_threads ();
-  ptrace_detach_user_threads ();
-#endif
-
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
@@ -2707,16 +2480,10 @@ static void stopthisthread (int signum)
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
 
-#ifdef PTRACE
-      DPRINTF (("mtcp stopthisthread*: thread %d after suspending before deleting files\n", thread -> tid));
-      delete_file(0, delete_ptrace_leader, has_ptrace_file);
-      delete_file(1, delete_setoptions_leader, has_setoptions_file);
-      delete_file(2, delete_checkpoint_leader, has_checkpoint_file);
-      ptrace_attach_threads(0);
-#endif
-
-      /* Maybe there is to be a checkpoint verification.  If so, and we're the main    */
-      /* thread, exec the restore program.  If so and we're not the main thread, exit. */
+      /* Maybe there is to be a checkpoint verification.  If so, and we're the
+       * main thread, exec the restore program.  If so and we're not the
+       * main thread, exit.
+       */
 
       if ((verify_total != 0) && (verify_count == 0)) {
 
@@ -2760,17 +2527,10 @@ static void stopthisthread (int signum)
 
         if (mtcp_restore_verify) renametempoverperm ();
       }
-
-#ifdef PTRACE
-      ptrace_attach_threads(1);
-#endif 
     }
   }
   DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
 	    mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
-#ifdef PTRACE
-  ptrace_lock_inferiors();
-#endif
 }
 
 /********************************************************************************************************************************/
@@ -2920,7 +2680,7 @@ static void save_sig_handlers (void)
                 __FUNCTION__);
     // Do a simple return instead of killing the process
     return;
-    //mtcp_abort();
+    mtcp_abort();
   }
 
   /* Now save all the signal handlers */
@@ -2958,7 +2718,7 @@ static void restore_sig_handlers (Thread *thisthread)
                 __FUNCTION__);
     // Do a simple return instead of killing the process
     return;
-    //mtcp_abort();
+    mtcp_abort();
   }
 
   DPRINTF (("mtcp restore_sig_handlers*: restoring signal handlers\n"));
@@ -3117,7 +2877,6 @@ static Thread *getcurrenthread (void)
   }
   mtcp_printf ("mtcp getcurrenthread: can't find thread id %d\n", tid);
   mtcp_abort ();
-  return thread; /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -3139,7 +2898,6 @@ static void unlk_threads (void)
 
 {
   WMB; // flush data written before unlocking
-  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever fail?
   mtcp_state_set(&threadslocked , 0, 1);
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
@@ -3223,9 +2981,9 @@ static int readmapsline (int mapsfd, Area *area)
     /* if nscd is active */
   } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
     /* System V Shared-Memory segments are handled by DMTCP. */
-  } else if ( mtcp_strendswith(area -> name, " (deleted)") ) {
-    /* Deleted File */
-  } else if (area -> name[0] == '/') {                 /* if an absolute pathname */
+  }
+  else if (area -> name[0] == '/'                 /* if an absolute pathname */
+	   && ! strstr(area -> name, " (deleted)")) { /* and it's not deleted */
     rc = stat (area -> name, &statbuf);
     if (rc < 0) {
       mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
@@ -3240,10 +2998,12 @@ static int readmapsline (int mapsfd, Area *area)
 		   devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
-  } else {
-    /* Special area like [heap] or anonymous area. */
   }
-
+  else if (c == '[') {
+    while ((c != '\n') && (c != '\0')) {
+      c = mtcp_readchar (mapsfd);
+    }
+  }
   if (c != '\n') goto skipeol;
 
   area -> addr = (void *)startaddr;
@@ -3267,7 +3027,6 @@ skipeol:
   }
   mtcp_printf (">\n");
   mtcp_abort ();
-  return (0);  /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/
@@ -3310,7 +3069,6 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 
   /* Not used until we do longjmps, but get it out of the way now */
 
-  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever fail?
   mtcp_state_set(&restoreinprog ,1, 0);
 
   mtcp_sys_gettimeofday (&restorestarted, NULL);
@@ -3425,11 +3183,6 @@ static void finishrestore (void)
        && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
     DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
-    if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
-      mtcp_printf("mtcp finishrestore: new ckpt file name (%s) too long (>=512 bytes)\n",
-                  mtcp_ckpt_newname);
-      mtcp_abort();
-    }
     strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
     memcpy(temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);
     strncpy(temp_checkpointfilename + nnamelen, ".temp",MAXPATHLEN - nnamelen);
@@ -3465,6 +3218,7 @@ static int restarthread (void *threadv)
 
 
   if (thread == motherofall) {
+
     // Compute the set of signals which was pending for all the threads at the
     // time of checkpoint. This is a heuristic to compute the set of signals
     // which were pending for the entire process at the time of checkpoint.
@@ -3582,7 +3336,6 @@ static int restarthread (void *threadv)
             thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
-  return (0); /* NOTREACHED : stop compiler warning */
 }
 
 /********************************************************************************************************************************/

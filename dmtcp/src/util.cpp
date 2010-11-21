@@ -126,9 +126,6 @@ ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 }
 
 // Fails, succeeds, or partial read due to EOF (returns num read)
-// return value:
-//    -1: unrecoverable error
-//   <n>: number of bytes read
 ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
 {
   size_t rc;
@@ -140,7 +137,7 @@ ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
       if (errno == EINTR || errno == EAGAIN)
 	continue;
       else
-        return -1;
+        return rc;
     }
     else if (rc == 0)
       break;

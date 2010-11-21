@@ -171,7 +171,7 @@ void mtcp_set_thread_sysinfo(void *sysinfo) {
 
 #define MAX_ARGS 500
 static int write_args(char **vector, char *filename) {
-  ssize_t i;
+  int num_read = 0, i;
   int retval, fd;
   char strings[10001];
   char *str = strings;
@@ -180,11 +180,17 @@ static int write_args(char **vector, char *filename) {
     perror("open");
     exit(1);
   }
-  strings[10001] = '\0';
-  ssize_t num_read = mtcp_read_all(fd, strings, 10000);
+  while ( 0 != (retval = read(fd, strings + num_read, 10000)) ) {
+    if (retval > 0)
+      num_read += retval;
+    if (retval == 0)
+      break; /* end-of-file; done reading */
+    if (retval == -1 && errno != EAGAIN && errno != EINTR)
+        break; /* unrecoverable error: exit */
+    /* else recoverable error */
+  }
   close(fd);
-
-  if (num_read == -1)
+  if (retval == -1)
     return -1;
   
   for (i = 0; str - strings < num_read && i < MAX_ARGS; i++) {
@@ -299,8 +305,8 @@ void mtcp_check_vdso_enabled() {
 	setenv_oldpers(oldpers);
         execve(runtime, argv, environ);
       }
-      if (-1 == personality(oldpers)) /* reset if we couldn't exec */
-        perror("personality");
+      if (-1 == personality(oldpers)); /* reset if we couldn't exec */
+	perror("personality");
     }
   }
 #endif

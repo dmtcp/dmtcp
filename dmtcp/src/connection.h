@@ -29,12 +29,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <map>
-#include "../jalib/jbuffer.h"
-#include "../jalib/jserialize.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jconvert.h"
+#include  "../jalib/jbuffer.h"
+#include  "../jalib/jserialize.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jconvert.h"
 #include "../jalib/jalloc.h"
-#include "../jalib/jfilesystem.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -382,7 +381,8 @@ namespace dmtcp
           : Connection ( FIFO )
 		  , _path ( path )
       {
-        dmtcp::string curDir = jalib::Filesystem::GetCWD();
+        const char *cur_dir = get_current_dir_name();
+        dmtcp::string curDir = cur_dir;
         int offs = _path.find(curDir);
         if( offs < 0 ){
 	        _rel_path = "*";

@@ -195,8 +195,7 @@ static void execLibProcessAndExit(const char *path)
 {
   unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
-  char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
-  memset(buf, 0, bufSize);
+  char buf[bufSize];
   FILE *output = popen(path, "r");
   int numRead = fread(buf, 1, bufSize, output);
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
@@ -206,7 +205,6 @@ static void execLibProcessAndExit(const char *path)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
   printf("%s", buf); // print buf, which is what /lib/libXXX would print
-  JALLOC_HELPER_FREE(buf);
   exit(0);
 }
 
@@ -217,9 +215,9 @@ static void dmtcpPrepareForExec(const char *path)
 {
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && dmtcp::Util::strStartsWith(path, libPrefix))
+  if (path != NULL && 0 == strncmp(path, libPrefix, sizeof(libPrefix)))
     execLibProcessAndExit(path);
-  if (path != NULL && dmtcp::Util::strStartsWith(path, lib64Prefix))
+  if (path != NULL && 0 == strncmp(path, lib64Prefix, sizeof(lib64Prefix)))
     execLibProcessAndExit(path);
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();

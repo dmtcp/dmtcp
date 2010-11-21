@@ -349,7 +349,7 @@ void dmtcp::DmtcpWorker::interruptCkpthread()
 {
   if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
     killCkpthread();
-    JASSERT(pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
+    pthread_mutex_lock(&destroyDmtcpWorker);
   }
 }
 
@@ -984,9 +984,6 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
-#ifdef PTRACE 
-  return false;
-#endif
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
@@ -1302,8 +1299,8 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
     // Now dup the sockfd to
     coordinatorListenerSocket.changeFd(PROTECTEDFD(1));
 
-    dmtcp::string coordPort= jalib::XToString(coordinatorListenerSocket.port());
-    setenv ( ENV_VAR_NAME_PORT, coordPort.c_str(), 1 );
+    coordinatorPortStr = jalib::XToString(coordinatorListenerSocket.port()).c_str();
+    setenv ( ENV_VAR_NAME_PORT, coordinatorPortStr, 1 );
   }
 
   JTRACE("Starting a new coordinator automatically.") (coordinatorPortStr);

@@ -171,7 +171,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
    */
 
   holebase  = (VA)mtcp_shareable_begin;
-  holebase &= -MTCP_PAGE_SIZE;
+  holebase &= -PAGE_SIZE;
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
 				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
@@ -192,10 +192,10 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   if (vdso_addr != (VA)NULL && vdso_addr < holebase) {
     DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
-	      NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1));
+	      NULL, vdso_addr-1, vdso_addr+PAGE_SIZE, holebase - 1));
     rc = mtcp_sys_munmap ((void *)NULL, (size_t)vdso_addr);
-    rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
-			   (size_t)holebase - vdso_addr - MTCP_PAGE_SIZE);
+    rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
+			   (size_t)holebase - vdso_addr - PAGE_SIZE);
   } else {
     DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
     rc = mtcp_sys_munmap (NULL, holebase);
@@ -209,14 +209,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
   holebase  = (VA)mtcp_shareable_end;
-  holebase  = (holebase + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
-  if (vdso_addr != (VA)NULL && vdso_addr + MTCP_PAGE_SIZE <= (VA)highest_va) {
+  holebase  = (holebase + PAGE_SIZE - 1) & -PAGE_SIZE;
+  if (vdso_addr != (VA)NULL && vdso_addr + PAGE_SIZE <= (VA)highest_va) {
     if (vdso_addr > holebase) {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
-	        holebase, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, highest_va - 1));
+	        holebase, vdso_addr-1, vdso_addr+PAGE_SIZE, highest_va - 1));
       rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
-      rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
-			   highest_va - vdso_addr - MTCP_PAGE_SIZE);
+      rc |= mtcp_sys_munmap ((void *)vdso_addr + PAGE_SIZE,
+			   highest_va - vdso_addr - PAGE_SIZE);
     } else {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
 	        holebase, highest_va - 1));
@@ -933,11 +933,10 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
   const char *stackstring = "[stack]";
   const char *vdsostring = "[vdso]";
   const char *vsyscallstring = "[vsyscall]";
-  const int bufsize = 1 + sizeof "[vsyscall]"; /* largest of last 3 strings */
+  const int bufsize = sizeof "[vsyscall]"; /* largest of last 3 strings */
   char buf[bufsize];
 
   buf[0] = '\0';
-  buf[bufsize - 1] = '\0';
 
   /* Scan through the mappings of this process */
 
@@ -970,18 +969,30 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
         c = mtcp_readchar (mapsfd);
       }
     }
+    /* i < bufsize - 1 */
+    buf[i] = '\0';
 
-    if (0 == mtcp_strncmp(buf, stackstring, mtcp_strlen(stackstring))) {
+    /* emulate strcmp */
+    for (i = 0; i < sizeof "[stack]"; i++)
+      if (buf[i] != stackstring[i])
+        break;
+    if (i == sizeof "[stack]") {
       *stack_end_addr = endaddr;
       highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
     }
 
-    if (0 == mtcp_strncmp(buf, vdsostring, mtcp_strlen(vdsostring))) {
+    for (i = 0; i < sizeof "[vdso]"; i++)
+      if (buf[i] != vdsostring[i])
+        break;
+    if (i == sizeof "[vdso]") {
       *vdso_addr = startaddr;
       highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
     }
 
-    if (0 == mtcp_strncmp(buf, vsyscallstring, mtcp_strlen(vsyscallstring))) {
+    for (i = 0; i < sizeof "[vsyscall]"; i++)
+      if (buf[i] != vsyscallstring[i])
+        break;
+    if (i == sizeof "[vsyscall]") {
       *vsyscall_addr = startaddr;
       highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
     }
@@ -1049,10 +1060,6 @@ static void lock_file(int fd, char* name, short l_type)
   while (result == -1 || mtcp_sys_errno == EINTR )
     result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
 
-  /* Coverity static analyser stated the following code as DEAD. It is not
-   * DEADCODE because it is possible that mtcp_sys_fcntl3() fails with some
-   * error other than EINTR
-   */
   if ( result == -1 ) {
     mtcp_printf("mtcp_restart_nolibc lock_file: error %d locking shared file: %s\n",
         mtcp_sys_errno, name);

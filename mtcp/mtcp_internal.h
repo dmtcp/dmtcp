@@ -108,7 +108,7 @@ typedef unsigned short mtcp_segreg_t;
 typedef unsigned int mtcp_segreg_t;
 #endif
 
-#define MTCP_PAGE_SIZE 4096
+#define PAGE_SIZE 4096
 #define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
 
