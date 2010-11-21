@@ -30,8 +30,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <execinfo.h> /* For backtrace() */
-#define BT_SIZE 50 /* Maximum size backtrace of stack */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -100,9 +98,6 @@ namespace jassert_internal
       /// print out a string in format "Message: msg"
       JAssert& Text ( const char* msg );
       ///
-      /// prints stack backtrace and always returns true
-      JAssert& jbacktrace ();
-      ///
       /// constructor: sets members
       JAssert ( bool exitWhenDone );
       ///
@@ -122,7 +117,6 @@ namespace jassert_internal
       /// if set true (on construction) call exit() on destruction
       bool _exitWhenDone;
       bool _logLockAcquired;
-      dmtcp::ostringstream ss;
   };
 
 
@@ -139,9 +133,9 @@ namespace jassert_internal
 #ifdef JASSERT_FAST
     jassert_output_stream() << t;
 #else
-    //dmtcp::ostringstream ss;
+    dmtcp::ostringstream ss;
     ss << t;
-    //jassert_safe_print ( ss.str().c_str() );
+    jassert_safe_print ( ss.str().c_str() );
 #endif
     return *this;
   }
@@ -199,16 +193,8 @@ namespace jassert_internal
     jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
 #endif
 
-#ifndef DEBUG
-# define JASSERT(term)  if((term)){}else \
-    jassert_internal::JAssert(true) \
-	.JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
-#else
-# define JASSERT(term) \
-    if ((term)) {} else \
-      jassert_internal::JAssert(true) \
-        .JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
-#endif
+#define JASSERT(term)  if((term)){}else \
+    jassert_internal::JAssert(true).JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
 
 #define JALIB_CKPT_LOCK() do{\
   JASSERT_CKPT_LOCK();\

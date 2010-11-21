@@ -23,7 +23,6 @@ int main() {
   int fd;
 
   fd = mkstemp(filename);
-  unlink(filename);
   //if (-1 == unlink(filename)) {
   //  perror("unlink");
   //  exit(1);

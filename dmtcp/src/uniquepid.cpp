@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -26,16 +26,12 @@
 #include <pwd.h>
 #include <sstream>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include "constants.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-
-static dmtcp::string checkpointFilename_str;
-static dmtcp::string ckptFilesDirName_str;
 
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
@@ -142,10 +138,13 @@ void  dmtcp::UniquePid::incrementGeneration()
 }
 
 
+static bool checkpointFilename_initialized = false;
 const char* dmtcp::UniquePid::checkpointFilename()
 {
-  if ( checkpointFilename_str.empty() )
+  static dmtcp::string checkpointFilename_str = "";
+  if ( !checkpointFilename_initialized )
   {
+    checkpointFilename_initialized = true;
     dmtcp::ostringstream os;
 
     const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
@@ -153,39 +152,29 @@ const char* dmtcp::UniquePid::checkpointFilename()
       os << dir << '/';
     }
 
-    os << CKPT_FILE_PREFIX
+    os << CHECKPOINT_FILE_PREFIX
        << jalib::Filesystem::GetProgramName()
        << '_' << ThisProcess()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-       << "_XXXXX"
+        << "_XXXXX.dmtcp";
+#else
+       << ".dmtcp";
 #endif
-       << CKPT_FILE_SUFFIX;
 
     checkpointFilename_str = os.str();
   }
-
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
   // Include 5-digit generation number in filename, which changes
   //   after each checkpoint, during same process
-  JASSERT( Util::strEndsWith(checkpointFilename_str, CKPT_FILE_SUFFIX) )
+  JASSERT( dmtcp::string(".dmtcp") == checkpointFilename_str.c_str()
+                        + checkpointFilename_str.length() - strlen(".dmtcp") )
 	 ( checkpointFilename_str )
 	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
   sprintf((char *)checkpointFilename_str.c_str()
-	  + checkpointFilename_str.length() - strlen("XXXXX" CKPT_FILE_SUFFIX),
-	  "%5.5d%s", ThisProcess().generation(), CKPT_FILE_SUFFIX);
+	  + checkpointFilename_str.length() - strlen("XXXXX.dmtcp"),
+	  "%5.5d.dmtcp", ThisProcess().generation());
 #endif
   return checkpointFilename_str.c_str();
-}
-
-dmtcp::string dmtcp::UniquePid::checkpointFilesDirName()
-{
-  if ( ckptFilesDirName_str.empty() ) {
-    ckptFilesDirName_str = jalib::Filesystem::FileBaseName(checkpointFilename());
-    ckptFilesDirName_str.erase(ckptFilesDirName_str.length() - 
-                                   strlen(CKPT_FILE_SUFFIX));
-    ckptFilesDirName_str += CKPT_FILES_SUBDIR_SUFFIX;
-  }
-  return ckptFilesDirName_str;
 }
 
 dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
@@ -289,7 +278,6 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
     .Text("ERROR: Missing execute- or write-access to tmp dir");
 
   int tmpFd = open ( o.str().c_str(), O_RDONLY  );
-  JASSERT(tmpFd != -1);
   JASSERT(dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
   close ( tmpFd );
 }
@@ -332,8 +320,7 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  checkpointFilename_str.clear();
-  ckptFilesDirName_str.clear();
+  checkpointFilename_initialized = false;
 }
 
 bool dmtcp::UniquePid::isNull() const

@@ -30,14 +30,14 @@
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 
-#define WRAPPER_EXECUTION_DISABLE_CKPT() \
+#define WRAPPER_EXECUTION_LOCK_LOCK() \
   /*JTRACE("Acquiring wrapperExecutionLock");*/ \
   bool __wrapperExecutionLockAcquired = dmtcp::DmtcpWorker::wrapperExecutionLockLock(); \
   if ( __wrapperExecutionLockAcquired ) { \
     /*JTRACE("Acquired wrapperExecutionLock");*/ \
   }
 
-#define WRAPPER_EXECUTION_ENABLE_CKPT() \
+#define WRAPPER_EXECUTION_LOCK_UNLOCK() \
   if ( __wrapperExecutionLockAcquired ) { \
     /*JTRACE("Releasing wrapperExecutionLock");*/ \
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
@@ -98,7 +98,7 @@ namespace dmtcp
 #else
       void waitForStage2Checkpoint();
 #endif
-      void waitForStage3Refill(bool isRestart);
+      void waitForStage3Refill();
       void waitForStage4Resume();
       void restoreVirtualPidTable();
       void restoreSockets(ConnectionState& coordinator,

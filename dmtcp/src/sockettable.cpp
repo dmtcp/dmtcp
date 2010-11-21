@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -62,7 +62,7 @@ extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *s
 //     entry.setState(dmtcp::SocketEntry::T_CONNECT);
 
   dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd ).asTcp();
-  con.onConnect(sockfd, serv_addr, addrlen);
+  con.onConnect();
 
 #if HANDSHAKE_ON_CONNECT == 1
   JTRACE ( "connected, sending 1-way handshake" ) ( sockfd ) ( con.id() );
@@ -162,22 +162,15 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 }
 
 ///
-///called automatically after a sucessful user function call
-extern "C" int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
-{
-  return dmtcp_on_accept(ret, sockfd, addr, addrlen);
-}
-
-///
 ///called automatically when a socket error is returned by user function
-extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno )
+extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname )
 {
   //Ignore EAGAIN errors
-  if ( savedErrno == EAGAIN ) return ret;
-  if ( savedErrno = EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
+  if ( errno == EAGAIN ) return ret;
+  if ( errno = EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
     return ret;
 
-  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( strerror(savedErrno) );
+  JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( JASSERT_ERRNO );
 
   dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd );
 

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -249,22 +249,6 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
   REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
-int send_sigwinch; /* not used.  Only version in pidwrappers.cpp is used */
-int _real_ioctl(int d, unsigned long int request, ...) {
-  int i;
-  void * arg;
-  va_list ap;
-
-  // Most calls to ioctl take 'void *', 'int' or no extra argument
-  // A few specialized ones take more args, but we don't need to handle those.
-  va_start(ap, request);
-  arg = va_arg(ap, void *);
-  va_end(ap);
-
-  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, ioctl ) ( d, request, arg );
-}
-
 #endif
 
 // Needed for _real_gettid, etc.
@@ -296,21 +280,3 @@ pid_t _real_gettid(void){
 int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
-
-int _real_shmget (key_t key, size_t size, int shmflg) {
-  REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
-}
-
-void* _real_shmat (int shmid, const void *shmaddr, int shmflg) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( void*, shmat ) (shmid, shmaddr, shmflg);
-}
-
-int _real_shmdt (const void *shmaddr) {
-  REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
-}
-
-int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
-  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
-}
-
-

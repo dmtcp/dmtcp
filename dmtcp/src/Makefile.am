@@ -16,7 +16,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
-	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h
+	uniquepid.h virtualpidtable.h ../jalib/jalloc.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_restart, dmtcp_command, dmtcp_coordinator, etc.
@@ -33,7 +33,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp signalmanager.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
-	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp ../jalib/jalloc.cpp
+	dmtcpcoordinatorapi.cpp virtualpidtable.cpp ../jalib/jalloc.cpp
 libsyscallsreal_a_SOURCES = syscallsreal.c
 libnosyscallsreal_a_SOURCES = nosyscallsreal.c
 
@@ -51,7 +51,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
-	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp
+	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
@@ -61,7 +61,7 @@ dmtcp_nocheckpoint_LDFLAGS = -static
 
 dmtcphijack_so_LDADD    = libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -lpthread
 dmtcp_inspector_LDADD   = libdmtcpinternal.a libnosyscallsreal.a

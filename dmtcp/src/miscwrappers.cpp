@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -24,16 +24,6 @@
 #include <vector>
 #include <list>
 #include <string>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <linux/version.h>
-#include <limits.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -41,8 +31,6 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
-#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -98,6 +86,24 @@ extern "C" int close ( int fd )
   }
 #endif
 
+  // #ifdef DEBUG
+  //     if(rv==0)
+  //     {
+  //         dmtcp::string closeDevice = dmtcp::KernelDeviceToConnection::instance().fdToDevice( fd );
+  //         if(closeDevice != "") JTRACE("close()")(fd)(closeDevice);
+  //     }
+  // #endif
+  //     else
+  //     {
+  // #ifdef DEBUG
+  //         if(dmtcp::SocketTable::instance()[fd].state() != dmtcp::SocketEntry::T_INVALID)
+  //         {
+  //             dmtcp::SocketEntry& e = dmtcp::SocketTable::instance()[fd];
+  //             JTRACE("CLOSE()")(fd)(e.remoteId().id)(e.state());
+  //         }
+  // #endif
+  //         dmtcp::SocketTable::instance().resetFd(fd);
+  //     }
   return rv;
 }
 
@@ -141,7 +147,7 @@ extern "C" int epoll_create(int size)
 
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   JASSERT ( sv != NULL );
   int rv = _real_socketpair ( d,type,protocol,sv );
@@ -156,7 +162,7 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
   dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return rv;
 }
@@ -167,21 +173,6 @@ extern "C" int pipe ( int fds[2] )
   //just promote pipes to socketpairs
   return socketpair ( AF_UNIX, SOCK_STREAM, 0, fds );
 }
-
-# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-// pipe2 appeared in Linux 2.6.27
-extern "C" int pipe2 ( int fds[2], int flags )
-{
-  JTRACE ( "promoting pipe2() to socketpair()" );
-  //just promote pipes to socketpairs
-  int newFlags = 0;
-# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-  if (flags & O_NONBLOCK != 0) newFlags |= SOCK_NONBLOCK;
-  if (flags & O_CLOEXEC != 0)  newFlags |= SOCK_CLOEXEC;
-#endif
-  return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
-}
-#endif
 
 
 static int ptsname_r_work ( int fd, char * buf, size_t buflen )
@@ -212,7 +203,7 @@ extern "C" char *ptsname ( int fd )
 {
   /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
   JTRACE ( "ptsname() promoted to ptsname_r()" );
-  static char tmpbuf[PATH_MAX];
+  static char tmpbuf[1024];
 
   if ( ptsname_r ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
   {
@@ -224,11 +215,11 @@ extern "C" char *ptsname ( int fd )
 
 extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -247,7 +238,7 @@ static void updateProcPath ( const char *path, char *newpath )
     return;
   }
 
-  if ( dmtcp::Util::strStartsWith ( path, "/proc/" ) )
+  if ( strncmp ( path, "/proc/", 6 ) == 0 )
   {
     index = 6;
     tempIndex = 0;
@@ -372,15 +363,18 @@ extern "C" int getpt()
   return fd;
 }
 
-extern "C" int open (const char *path, int flags, ... )
+extern "C" int open (const char *path, ... )
 {
   va_list ap;
+  int flags;
   mode_t mode;
   int rc;
-  char newpath [ PATH_MAX ] = {0} ;
+  char newpath [ 1024 ] = {0} ;
+  int len,i;
 
   // Handling the variable number of arguments
-  va_start( ap, flags );
+  va_start( ap, path );
+  flags = va_arg ( ap, int );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
 
@@ -395,9 +389,9 @@ extern "C" int open (const char *path, int flags, ... )
     return _real_open ( path, flags, mode );
   }
 
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -408,11 +402,11 @@ extern "C" int open (const char *path, int flags, ... )
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return fd;
 }
@@ -430,12 +424,12 @@ extern "C" FILE *fopen (const char* path, const char* mode)
     return _real_fopen ( path, mode );
   }
 
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
-  char newpath [ PATH_MAX ] = {0} ;
+  char newpath [ 1024 ] = {0} ;
   int fd = -1;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -450,102 +444,41 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return file;
 }
 
-static void updateStatPath(const char *path, char *newpath)
-{
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    strncpy(newpath, path, PATH_MAX);
-  } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-}
-
-extern "C" 
-int __xstat(int vers, const char *path, struct stat *buf)
-{
-  char newpath [ PATH_MAX ] = {0} ;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateStatPath(path, newpath);
-  int rc = _real_xstat( vers, newpath, buf );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return rc;
-}
-
-extern "C" 
-int __xstat64(int vers, const char *path, struct stat64 *buf)
-{
-  char newpath [ PATH_MAX ] = {0} ;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateStatPath(path, newpath);
-  int rc = _real_xstat64( vers, newpath, buf );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return rc;
-}
-
-extern "C" 
-int __lxstat(int vers, const char *path, struct stat *buf)
-{
-  char newpath [ PATH_MAX ] = {0} ;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateStatPath(path, newpath);
-  int rc = _real_lxstat( vers, newpath, buf );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return rc;
-}
-
-extern "C" 
-int __lxstat64(int vers, const char *path, struct stat64 *buf)
-{
-  char newpath [ PATH_MAX ] = {0} ;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateStatPath(path, newpath);
-  int rc = _real_lxstat64( vers, newpath, buf );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return rc;
-}
-
-//       int fstat(int fd, struct stat *buf);
-
 #ifdef ENABLE_MALLOC_WRAPPER
-# ifdef ENABLE_DLOPEN
-#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
-# endif
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   void *retVal = _real_calloc ( nmemb, size );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
   return retVal;
 }
 extern "C" void *malloc(size_t size)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   void *retVal = _real_malloc ( size );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
   return retVal;
 }
 extern "C" void free(void *ptr)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   _real_free ( ptr );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 }
 extern "C" void *realloc(void *ptr, size_t size)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   void *retVal = _real_realloc ( ptr, size );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
   return retVal;
 }
 #endif
@@ -587,9 +520,9 @@ vprintf (const char *format, __gnuc_va_list arg)
 extern "C" int
 vfprintf (FILE *s, const char *format, va_list ap)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   int retVal = _real_vfprintf ( s, format, ap );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
   return retVal;
 }
 
@@ -626,436 +559,3 @@ extern "C" int vsprintf(char *str, const char *format, va_list ap);
 extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 */
 
-extern "C"
-int shmget(key_t key, size_t size, int shmflg)
-{
-  int ret;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  while (true) {
-    ret = _real_shmget(key, size, shmflg);
-    if (ret != -1 && 
-        dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
-      dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
-      break;
-    }
-    JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
-  };
-  JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-void *shmat(int shmid, const void *shmaddr, int shmflg)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
-  if (ret != (void *) -1) {
-    dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
-  }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int shmdt(const void *shmaddr)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int ret = _real_shmdt(shmaddr);
-  if (ret != -1) {
-    dmtcp::SysVIPC::instance().on_shmdt(shmaddr);
-    JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
-  }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int shmctl(int shmid, int cmd, struct shmid_ds *buf)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  int ret = _real_shmctl(currentShmid, cmd, buf);
-  // Change the creater-pid of the shm object to the original so that if
-  // calling thread wants to use it, pid-virtualization layer can take care of
-  // the original to current conversion.
-  // TODO: Need to update uid/gid fields to support uid/gid virtualization.
-  if (buf != NULL) {
-    buf->shm_cpid = dmtcp::VirtualPidTable::instance().currentToOriginalPid(buf->shm_cpid);
-  }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-pid_t gettid();
-int tkill(int tid, int sig);
-int tgkill(int tgid, int tid, int sig);
-
-#define SYSCALL_VA_START()                                              \
-  va_list ap;                                                           \
-  va_start(ap, sys_num)
-
-#define SYSCALL_VA_END()                                                \
-  va_end(ap)
-
-#define SYSCALL_GET_ARG(type,arg) type arg = va_arg(ap, type)
-
-#define SYSCALL_GET_ARGS_2(type1,arg1,type2,arg2)                       \
-  SYSCALL_GET_ARG(type1,arg1);                                          \
-  SYSCALL_GET_ARG(type2,arg2)
-
-#define SYSCALL_GET_ARGS_3(type1,arg1,type2,arg2,type3,arg3)            \
-  SYSCALL_GET_ARGS_2(type1,arg1,type2,arg2);                            \
-  SYSCALL_GET_ARG(type3,arg3)
-
-#define SYSCALL_GET_ARGS_4(type1,arg1,type2,arg2,type3,arg3,type4,arg4) \
-  SYSCALL_GET_ARGS_3(type1,arg1,type2,arg2,type3,arg3);                 \
-  SYSCALL_GET_ARG(type4,arg4)
-
-#define SYSCALL_GET_ARGS_5(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5)                                  \
-  SYSCALL_GET_ARGS_4(type1,arg1,type2,arg2,type3,arg3,type4,arg4);      \
-  SYSCALL_GET_ARG(type5,arg5)
-
-#define SYSCALL_GET_ARGS_6(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5,type6,arg6)                        \
-  SYSCALL_GET_ARGS_5(type1,arg1,type2,arg2,type3,arg3,type4,arg4,       \
-                     type5,arg5);                                       \
-  SYSCALL_GET_ARG(type6,arg6)
-
-#define SYSCALL_GET_ARGS_7(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5,type6,arg6,type7,arg7)             \
-  SYSCALL_GET_ARGS_6(type1,arg1,type2,arg2,type3,arg3,type4,arg4,       \
-                     type5,arg5,type6,arg6);                             \
-  SYSCALL_GET_ARG(type7,arg7)
-
-/* Comments by Gene:
- * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
- * We would add a special case for SYS_gettid, while all others default as below
- * It depends on the idea that arguments are stored in registers, whose
- *  natural size is:  sizeof(void*)
- * So, we pass six arguments to syscall, and it will ignore any extra arguments
- * I believe that all Linux system calls have no more than 7 args.
- * clone() is an example of one with 7 arguments.
- * If we discover system calls for which the 7 args strategy doesn't work,
- *  we can special case them.
- *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
- *      use any STL here.  (--Kapil)
- */
-extern "C" long int syscall(long int sys_num, ... )
-{
-  long int ret;
-  va_list ap;
-
-  va_start(ap, sys_num);
-
-  switch ( sys_num ) {
-    case SYS_gettid:
-    {
-      ret = gettid();
-      break;
-    }
-    case SYS_tkill:
-    {
-      SYSCALL_GET_ARGS_2(int, tid, int, sig);
-      ret = tkill(tid, sig);
-      break;
-    }
-    case SYS_tgkill:
-    {
-      SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
-      ret = tgkill(tgid, tid, sig);
-      break;
-    }
-
-    case SYS_clone:
-    {
-      typedef int (*fnc) (void*);
-      SYSCALL_GET_ARGS_7(fnc, fn, void*, child_stack, int, flags, void*, arg,
-                         pid_t*, pid, struct user_desc*, tls, pid_t*, ctid);
-      ret = __clone(fn, child_stack, flags, arg, pid, tls, ctid);
-      break;
-    }
-
-    case SYS_execve:
-    {
-      SYSCALL_GET_ARGS_3(const char*,filename,char* const *,argv,char* const *,envp);
-      ret = execve(filename,argv,envp);
-      break;
-    }
-
-    case SYS_fork:
-    {
-      ret = fork();
-      break;
-    }
-    case SYS_exit:
-    {
-      SYSCALL_GET_ARG(int,status);
-      exit(status);
-      break;
-    }
-    case SYS_open:
-    {
-      SYSCALL_GET_ARGS_3(const char*,pathname,int,flags,mode_t,mode);
-      ret = open(pathname, flags, mode);
-      break;
-    }
-    case SYS_close:
-    {
-      SYSCALL_GET_ARG(int,fd);
-      ret = close(fd);
-      break;
-    }
-
-    case SYS_rt_sigaction:
-    {
-      SYSCALL_GET_ARGS_3(int,signum,const struct sigaction*,act,struct sigaction*,oldact);
-      ret = sigaction(signum, act, oldact);
-      break;
-    }
-    case SYS_rt_sigprocmask:
-    {
-      SYSCALL_GET_ARGS_3(int,how,const sigset_t*,set,sigset_t*,oldset);
-      ret = sigprocmask(how, set, oldset);
-      break;
-    }
-    case SYS_rt_sigtimedwait:
-    {
-      SYSCALL_GET_ARGS_3(const sigset_t*,set,siginfo_t*,info,
-                        const struct timespec*, timeout);
-      ret = sigtimedwait(set, info, timeout);
-      break;
-    }
-
-#ifdef __i386__
-    case SYS_sigaction:
-    {
-      SYSCALL_GET_ARGS_3(int,signum,const struct sigaction*,act,struct sigaction*,oldact);
-      ret = sigaction(signum, act, oldact);
-      break;
-    }
-    case SYS_signal:
-    {
-      typedef void (*sighandler_t)(int);
-      SYSCALL_GET_ARGS_2(int,signum,sighandler_t,handler);
-      // Cast needed:  signal returns sighandler_t
-      ret = (long int)signal(signum, handler);
-      break;
-    }
-    case SYS_sigprocmask:
-    {
-      SYSCALL_GET_ARGS_3(int,how,const sigset_t*,set,sigset_t*,oldset);
-      ret = sigprocmask(how, set, oldset);
-      break;
-    }
-#endif
-
-#ifdef __x86_64__
-// These SYS_xxx are only defined for 64-bit Linux
-    case SYS_socket:
-    {
-      SYSCALL_GET_ARGS_3(int,domain,int,type,int,protocol);
-      ret = socket(domain,type,protocol);
-      break;
-    }
-    case SYS_connect:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
-      ret = connect(sockfd, addr, addrlen);
-      break;
-    }
-    case SYS_bind:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,const struct sockaddr*,addr,socklen_t,addrlen);
-      ret = bind(sockfd,addr,addrlen);
-      break;
-    }
-    case SYS_listen:
-    {
-      SYSCALL_GET_ARGS_2(int,sockfd,int,backlog);
-      ret = listen(sockfd,backlog);
-      break;
-    }
-    case SYS_accept:
-    {
-      SYSCALL_GET_ARGS_3(int,sockfd,struct sockaddr*,addr,socklen_t*,addrlen);
-      ret = accept(sockfd, addr, addrlen);
-      break;
-    }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-# if __GLIBC_PREREQ(2,10)
-    case SYS_accept4:
-    {
-      SYSCALL_GET_ARGS_4(int,sockfd,struct sockaddr*,addr,socklen_t*,addrlen,int,flags);
-      ret = accept4(sockfd, addr, addrlen, flags);
-      break;
-    }
-# endif
-#endif
-    case SYS_setsockopt:
-    {
-      SYSCALL_GET_ARGS_5(int,s,int,level,int,optname,const void*,optval,socklen_t,optlen);
-      ret = setsockopt(s, level, optname, optval, optlen);
-      break;
-    }
-
-    case SYS_socketpair:
-    {
-      SYSCALL_GET_ARGS_4(int,d,int,type,int,protocol,int*,sv);
-      ret = socketpair(d,type,protocol,sv);
-      break;
-    }
-#endif
-
-    case SYS_pipe:
-    {
-      SYSCALL_GET_ARG(int*,fds);
-      ret = pipe(fds);
-      break;
-    }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-# if __GLIBC_PREREQ(2,9)
-    case SYS_pipe2:
-    {
-      SYSCALL_GET_ARGS_2(int*,fds,int,flags);
-      ret = pipe2(fds, flags);
-      break;
-    }
-# endif
-#endif
-
-#ifdef PID_VIRTUALIZATION
-    case SYS_getpid:
-    {
-      ret = getpid();
-      break;
-    }
-    case SYS_getppid:
-    {
-      ret = getppid();
-      break;
-    }
-
-    case SYS_getpgrp:
-    {
-      ret = getpgrp();
-      break;
-    }
-
-    case SYS_getpgid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
-      ret = getpgid(pid);
-      break;
-    }
-    case SYS_setpgid:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,pid_t,pgid);
-      ret = setpgid(pid, pgid);
-      break;
-    }
-
-    case SYS_getsid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
-      ret = getsid(pid);
-      break;
-    }
-    case SYS_setsid:
-    {
-      ret = setsid();
-      break;
-    }
-
-    case SYS_kill:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,int,sig);
-      ret = kill(pid, sig);
-      break;
-    }
-
-    case SYS_waitid:
-    {
-      //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
-      SYSCALL_GET_ARGS_4(int,idtype,id_t,id,siginfo_t*,infop,int,options);
-      ret = waitid((idtype_t)idtype, id, infop, options);
-      break;
-    }
-    case SYS_wait4:
-    {
-      SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,
-                         struct rusage*,rusage);
-      ret = wait4(pid, status, options, rusage);
-      break;
-    }
-#ifdef __i386__
-    case SYS_waitpid:
-    {
-      SYSCALL_GET_ARGS_3(pid_t,pid,int*,status,int,options);
-      ret = waitpid(pid, status, options);
-      break;
-    }
-#endif
-
-    case SYS_setgid:
-    {
-      SYSCALL_GET_ARG(gid_t,gid);
-      ret = setgid(gid);
-      break;
-    }
-    case SYS_setuid:
-    {
-      SYSCALL_GET_ARG(uid_t,uid);
-      ret = setuid(uid);
-      break;
-    }
-#endif /* PID_VIRTUALIZATION */
-
-#ifndef DISABLE_SYS_V_IPC
-# ifdef __x86_64__
-// These SYS_xxx are only defined for 64-bit Linux
-    case SYS_shmget:
-    {
-      SYSCALL_GET_ARGS_3(key_t,key,size_t,size,int,shmflg);
-      ret = shmget(key, size, shmflg);
-      break;
-    }
-    case SYS_shmat:
-    {
-      SYSCALL_GET_ARGS_3(int,shmid,const void*,shmaddr,int,shmflg);
-      ret = (unsigned long) shmat(shmid, shmaddr, shmflg);
-      break;
-    }
-    case SYS_shmdt:
-    {
-      SYSCALL_GET_ARG(const void*,shmaddr);
-      ret = shmdt(shmaddr);
-      break;
-    }
-    case SYS_shmctl:
-    {
-      SYSCALL_GET_ARGS_3(int,shmid,int,cmd,struct shmid_ds*,buf);
-      ret = shmctl(shmid, cmd, buf);
-      break;
-    }
-# endif
-#endif
-
-    default:
-    {
-      SYSCALL_GET_ARGS_7(void*, arg1, void*, arg2, void*, arg3, void*, arg4,
-                         void*, arg5, void*, arg6, void*, arg7);
-      ret = _real_syscall(sys_num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-      break;
-    }
-  }
-  va_end(ap);
-  return ret;
-}

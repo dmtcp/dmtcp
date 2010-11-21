@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -26,7 +26,6 @@
 #include  "../jalib/jassert.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
-#include "util.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,6 +35,12 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+// Returns true if string s1 starts with string s2
+static bool startsWith ( dmtcp::string s1, dmtcp::string s2 )
+{
+  return s1.compare(0, s2.length(), s2) == 0;
+}
 
 static dmtcp::string _procFDPath ( int fd )
 {
@@ -128,9 +133,8 @@ void dmtcp::KernelDeviceToConnection::createPtyDevice ( int fd, dmtcp::string de
 
   JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
 
-  /* FIXME: The following JWARNING should be re-enabled */
-  //iterator i = _table.find ( device );
-  //JWARNING ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
+  iterator i = _table.find ( device );
+  JWARNING ( i == _table.end() ) ( fd ) ( device ).Text ( "connection already exists" );
 
   _table[device] = c->id();
 }
@@ -146,7 +150,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   {
     JTRACE ( "bad fd (we expect one of these lines)" ) ( fd );
     JASSERT ( device == "" ) ( fd ) ( _procFDPath ( fd ) ) ( device ) ( JASSERT_ERRNO )
-      .Text ( "expected badFd not to have a proc entry..." );
+    .Text ( "expected badFd not to have a proc entry..." );
 
     return "";
   }
@@ -156,12 +160,10 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   bool isTty = (device.compare("/dev/tty") == 0);
 
   bool isPtmx  = (device.compare("/dev/ptmx") == 0);
-  bool isPts   = Util::strStartsWith(device, "/dev/pts/");
+  bool isPts   = startsWith(device, "/dev/pts/");
 
-  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") && 
-                       device.compare("/dev/pty") != 0);
-  bool isBSDSlave   = (Util::strStartsWith(device, "/dev/tty") &&
-                       device.compare("/dev/tty")) != 0;
+  bool isBSDMaster  = startsWith(device, "/dev/pty") && device.compare("/dev/pty") != 0;
+  bool isBSDSlave   = startsWith(device, "/dev/tty") && device.compare("/dev/tty") != 0;
 
   if ( isTty ) {
     dmtcp::string deviceName = "tty:" + device;
@@ -211,7 +213,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     {
       JWARNING(false) .Text("PTS Device not found");
       int type;
-      dmtcp::string currentTty = jalib::Filesystem::GetControllingTerm();
+      dmtcp::string currentTty = jalib::Filesystem::GetCurrentTty();
 
       JTRACE( "Controlling Terminal") (currentTty);
 
@@ -280,30 +282,8 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     struct stat buf;
     stat(device.c_str(),&buf);
 
-    if (!jalib::Filesystem::FileExists(device)) {
-
-      // Make sure _path ends with DELETED_FILE_SUFFIX
-      JASSERT(Util::strEndsWith(device, DELETED_FILE_SUFFIX));
-
-      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
-
-      if(noOnDemandConnection)
-        return deviceName;
-
-      iterator i = _table.find ( deviceName );
-      if ( i == _table.end() )
-      {
-        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
-        off_t offset = lseek ( fd, 0, SEEK_CUR );
-        Connection * c = new FileConnection ( device, offset, FileConnection::FILE_DELETED );
-        ConnectionList::instance().add ( c );
-        _table[deviceName] = c->id();
-      }
-
-      return deviceName;
-    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
-               S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
-      /* /dev/null is a character special file (non-regular file) */
+    /* /dev/null is a character special file (non-regular file) */
+    if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode)) {
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
 
       if(noOnDemandConnection)
@@ -338,7 +318,30 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       } else {
         return deviceName;
       }
+    } else if ( device.find(DELETED_FILE_SUFFIX) != string::npos ) {
+      int index = device.find(DELETED_FILE_SUFFIX);
+
+      // Make sure _path ends with DELETED_FILE_SUFFIX
+      JASSERT( device.length() == index + strlen(DELETED_FILE_SUFFIX) );
+
+      dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
+
+      if(noOnDemandConnection)
+        return deviceName;
+
+      iterator i = _table.find ( deviceName );
+      if ( i == _table.end() )
+      {
+        JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
+        off_t offset = lseek ( fd, 0, SEEK_CUR );
+        Connection * c = new FileConnection ( device, offset );
+        ConnectionList::instance().add ( c );
+        _table[deviceName] = c->id();
+      }
+
+      return deviceName;
     } else {
+
       JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
@@ -354,13 +357,6 @@ void dmtcp::ConnectionList::erase ( iterator i )
   KernelDeviceToConnection::instance().erase( i->first );
   _connections.erase ( i );
   delete con;
-}
-
-void dmtcp::ConnectionList::erase ( dmtcp::ConnectionIdentifier& key )
-{
-  iterator i = _connections.find(key);
-  JASSERT(i != _connections.end());
-  erase(i);
 }
 
 // TODO: To properly implement STL erase(), it should return the next iterator.
@@ -565,7 +561,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else if ( Util::strStartsWith(device, "/dev/pts/")) 
+    else if ( startsWith(device, "/dev/pts/")) 
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
       JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
@@ -586,17 +582,6 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
   }
 }
 
-void dmtcp::KernelDeviceToConnection::prepareForFork ( )
-{
-  dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
-  JTRACE("Scanning /proc/self/fd for new connections. New connections will be created");
-  for ( size_t i=0; i<fds.size(); ++i )
-  {
-    if ( _isBadFd ( fds[i] ) ) continue;
-    if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
-    dmtcp::string device = fdToDevice ( fds[i] );
-  }
-}
 
 void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 {
@@ -865,10 +850,10 @@ static char first_char(const char *filename)
     char c;
 
     fd = open(filename, O_RDONLY);
-    JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open filename");
+    JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open file %s");
 
     rc = read(fd, &c, 1);
-    JASSERT(rc == 1)(filename).Text("ERROR: Error reading from filename");
+    JASSERT(rc == 1)(filename).Text("ERROR: Error reading from file %s");
 
     close(fd);
     return c;
@@ -916,10 +901,9 @@ static int open_ckpt_to_read(const char *filename)
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
-            JASSERT(fd != -1);
-            JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+            dup2(fd, STDIN_FILENO);
             close(fd);
-            JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
+            dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
             _real_execvp(gzip_path, (char **)gzip_args);
             JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
@@ -930,8 +914,6 @@ static int open_ckpt_to_read(const char *filename)
     }
     else /* invalid magic number */
         JASSERT(false).Text("ERROR: Invalid magic number in this checkpoint file!");
-    // NOT_REACHED
-    return -1;
 }
 
 // See comments above for open_ckpt_to_read()
@@ -990,7 +972,6 @@ int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path, UniquePid &c
 int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,UniquePid &compGroup,  int &numPeers){
 #endif
   int fd = openDmtcpCheckpointFile(path);
-  JASSERT(fd != -1);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   rdr & compGroup;
   rdr & numPeers;

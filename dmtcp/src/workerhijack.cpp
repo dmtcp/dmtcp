@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -40,7 +40,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
    * pre-existing connections because the parent has already done that.
    *
    * So, here while creating the instance, we do not want to execute everything
-   * in the constructor since it's not relevant. All we need to call is
+   * in the constructor since its not relevant. All we need to call is
    * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
   new ( &theInstance ) DmtcpWorker ( false );
@@ -50,9 +50,9 @@ void dmtcp::DmtcpWorker::resetOnFork()
   WorkerState::setCurrentState ( WorkerState::RUNNING );
   instance().connectToCoordinatorWithHandshake();
 
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 }
 
 //to allow linking without mtcpinterface

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -30,7 +30,6 @@
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
-#include "syscallwrappers.h"
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -41,15 +40,6 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <string.h>
-#include <dlfcn.h>
-
-int testMatlab(const char *filename);
-void testSetuid(const char *filename);
-int testStaticallyLinked(const char *filename);
-int testScreen(char **argvPtr[]);
-void adjust_rlimit_stack();
-int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
-int safe_system(const char *command);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -94,7 +84,7 @@ static const char* theUsage =
 ;
 
 static const char* theBanner =
-  "DMTCP/MTCP  Copyright (C) 2006-2010  Jason Ansel, Michael Rieker,\n"
+  "DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
   "                                       Kapil Arya, and Gene Cooperman\n"
   "This program comes with ABSOLUTELY NO WARRANTY.\n"
   "This is free software, and you are welcome to redistribute it\n"
@@ -110,80 +100,33 @@ static const char* theExecFailedMsg =
   "See `dmtcp_checkpoint --help` for usage.\n"
 ;
 
+static const char* theMatlabWarning =
+  "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
+  "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
+  "****  \n"
+  "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
+  "****  with gcc-4.1 and g++-4.1\n"
+  "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+  "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+  "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+  "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+  "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+  "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+  "****   (Assuming you have done the above, Will now continue executing.)\n\n"
+;
+
+static const char* theSetuidWarning =
+  "\n**** WARNING:  This process has the setuid bit set.  This is\n"
+  "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
+  "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
+  "***  for the best.  For some programs (like 'screen'), you may wish to\n"
+  "***  compile your own private copy, without using setuid permission.\n\n"
+;
+
 static dmtcp::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
 }
-
-static void *get_libc_symbol ( const char* name )
-{
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-  void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR finding symbol %s using dlsym: %s \n",
-              name, dlerror() );
-    abort();
-  }
-  return tmp;
-}
-
-static void prepareDmtcpWrappers()
-{
-#ifndef ENABLE_DLOPEN
-  unsigned int wrapperOffsetArray[numLibcWrappers];
-  char *glibc_base_function_addr = NULL;
-
-# define _FIRST_BASE_ADDR(name) if (glibc_base_function_addr == NULL) \
-				  glibc_base_function_addr = (char *)&name;
-  FOREACH_GLIBC_BASE_FUNC(_FIRST_BASE_ADDR);
-
-# define _GET_OFFSET(x) \
-    wrapperOffsetArray[enum_ ## x] = ((char*)get_libc_symbol(#x) \
-				     - glibc_base_function_addr);
-  FOREACH_GLIBC_FUNC_WRAPPER(_GET_OFFSET);
-
-  dmtcp::ostringstream os;
-  for (int i = 0; i < numLibcWrappers; i++) {
-    os << std::hex << wrapperOffsetArray[i] << ";";
-  }
-
-  setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
-#else
-  unsetenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-#endif
-
-#ifdef PTRACE
-/*  
-   * For the sake of dlsym wrapper.  We compute address of _real_dlsym by adding 
-   * dlsym_offset to address of dlopen after the exec into the user application.
-   */
-  void* tmp1 = NULL;
-  void* tmp2 = NULL;
-  int tmp3;
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( "libdl.so",RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr,"dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",dlerror() );
-    abort();
-  }
-  tmp1 = (void *) &dlopen;
-  tmp2 = (void *) &dlsym;
-  tmp3 = (char *)tmp2 - (char *) tmp1;
-  char str[21] = {0} ;
-  sprintf(str,"%d",tmp3);
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
-  dlclose(handle);
-#endif
-}
-
 
 //shift args
 #define shift argc--,argv++
@@ -193,6 +136,21 @@ int main ( int argc, char** argv )
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
   int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
+
+#ifdef ENABLE_MALLOC_WRAPPER
+  long mallocOff, callocOff, freeOff, reallocOff;
+
+  void *baseAddr = (void*)&toupper;
+  mallocOff  = (char*)&malloc  - (char*)baseAddr;
+  callocOff  = (char*)&calloc  - (char*)baseAddr;
+  reallocOff = (char*)&realloc - (char*)baseAddr;
+  freeOff    = (char*)&free    - (char*)baseAddr;
+
+  setenv ( ENV_VAR_MALLOC_OFFSET, jalib::XToString ( mallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_CALLOC_OFFSET, jalib::XToString ( callocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_REALLOC_OFFSET, jalib::XToString ( reallocOff ).c_str(), 1 );
+  setenv ( ENV_VAR_FREE_OFFSET, jalib::XToString ( freeOff ).c_str(), 1 );
+#endif
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -283,6 +241,12 @@ int main ( int argc, char** argv )
 
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
+    //printf("DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
+           //"                                       Kapil Arya, and Gene Cooperman\n"
+           //"This program comes with ABSOLUTELY NO WARRANTY.\n"
+           //"This is free software, and you are welcome to redistribute it\n"
+	   //"under certain conditions; see COPYING file for details.\n"
+	   //"(Use flag \"-q\" to hide this message.)\n\n");
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
@@ -309,15 +273,43 @@ int main ( int argc, char** argv )
   // non-zero region (assuming that the zero-mapped pages are contiguous).
   // - Gene
 
-  testMatlab(argv[0]);
+#ifdef __GNUC__
+# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+  if ( strcmp(argv[0], "matlab") == 0 )
+    JASSERT_STDERR << theMatlabWarning;
+# endif
+#endif
 
   // If dmtcphijack.so is in standard search path and also has setgid access,
   //   then LD_PRELOAD will work.  Otherwise, it will only work if the
   //   application does not use setuid and setgid access.  So, we test
   //   if the application does not use setuid/setgid.  (See 'man ld.so')
-  testSetuid(argv[0]);
-
-  prepareDmtcpWrappers();
+  // Compute absolute path for argv[0].  [SHOULD BE SEPARATE FUNCTION]
+  dmtcp::string pathname;
+  char * curPath;
+  if (*(argv[0]) == '/') {
+    curPath = argv[0];
+  } else {
+    char pathCopy[10000];
+    char * pathPtr = pathCopy;
+    char * savePtr;
+    strncpy(pathCopy, getenv("PATH"), sizeof(pathCopy));
+    while ( (curPath = strtok_r(pathPtr, ":", &savePtr)) != NULL ) {
+      pathname = curPath;
+      pathname = (pathname + "/") + argv[0];
+      if (access(pathname.c_str(), X_OK) == 0)
+        break;
+      pathPtr = NULL;
+    }
+  }
+  if ( curPath != NULL ) {
+    struct stat buf;
+    int rc = stat(pathname.c_str(), &buf);
+    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)) {
+      JASSERT_STDERR << theSetuidWarning;
+      sleep(3);
+    }
+  }
 
   if(autoStartCoordinator)
      dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
@@ -381,224 +373,68 @@ int main ( int argc, char** argv )
   setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
 #endif
 
-  bool isElf, is32bitElf;
-  if  (elfType(argv[0], &isElf, &is32bitElf) == -1) {
-    // Couldn't read argv_buf
+  //copy args into new structure
+  //char** newArgs = new char* [argc];
+  //memset ( newArgs, 0, sizeof ( char* ) *argc );
+  //for ( int i=0; i<argc-startArg; ++i )
+  //  newArgs[i] = argv[i+startArg];
+
+  dmtcp::string magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
+  dmtcp::string magic_elf = "\177ELF"; // Magic number for ELF
+  // Magic number for ELF 64-bit is "\177ELF\002"
+  char argv_buf[5];
+  int fd = open(argv[0], O_RDONLY);
+  if (fd == -1 || 5 != read(fd, argv_buf, 5)) {
+    // If can't open or read file, "exec failed" message will handle it.
+    // Once we know this is safe, delete this comment and exit after
+    // JASSERT_STDERR, without continuing and trying the execvp anyway.
+    // Consider also checking these things after call to exec(),
+    //   perhaps in DmtcpWorker constructor.
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
-    JASSERT_STDERR <<
-      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n"
-      << argv[0];
-    exit(1);
+    // JASSERT_STDERR <<
+    //   "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n";
   } else {
+    bool is32bitElf = false;
+    bool isElf = false;
+    char * ld_preload = getenv("LD_PRELOAD");
+    is32bitElf = (0 == memcmp(magic_elf32.c_str(),
+		       argv_buf, magic_elf32.length()));
+    isElf = (0 == memcmp(magic_elf.c_str(), argv_buf, magic_elf.length()));
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)
-      JASSERT_STDERR << "*** ERROR:  You appear to be checkpointing "
+      JASSERT_STDERR <<
+        "*** ERROR:  You appear to be checkpointing "
         << "a 32-bit target under 64-bit Linux.\n"
         << "***  If this fails, then please try re-configuring DMTCP:\n"
         << "***  configure --enable-m32 ; make clean ; make\n\n";
+    dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
+			           : "/lib64/ld-linux-x86-64.so.2 --verify " ;
+#else
+    dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
 #endif
-
-    testStaticallyLinked(argv[0]);
+    cmd = cmd + argv[0] + " > /dev/null";
+    unsetenv ( "LD_PRELOAD" );
+    if ( isElf && system(cmd.c_str()) )
+      JASSERT_STDERR <<
+        "*** ERROR:  You appear to be checkpointing "
+        << "a statically linked target:\n"
+	<< "***    " << argv[0] << " .\n"
+        << "***  You can confirm this with the 'file' command.\n"
+        << "***  The standard DMTCP only supports dynamically"
+	<< " linked executables.\n"
+	<< "*** If you cannot recompile dynamically, please talk to the"
+	<< " developers about a\n"
+	<< "*** custom DMTCP version for statically linked executables.\n"
+        << "*** Proceeding for now, but this DMTCP will probably fail.\n\n";
+    setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
   }
+  if (fd != -1)
+    close (fd);
 
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-  adjust_rlimit_stack();
-
-  //run the user program
-  char **newArgv = argv;
-  if (0 == testScreen(&newArgv))
-    execvp ( newArgv[0], newArgv );
-  else
-    execvp ( argv[0], argv );
-
-  //should be unreachable
-  JASSERT_STDERR <<
-    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-    << "Perhaps it is not in your $PATH?\n"
-    << "See `dmtcp_checkpoint --help` for usage.\n";
-  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
-
-  return -1;
-}
-
-int expandPathname(const char *inpath, char * const outpath, size_t size) {
-  bool success = false;
-  if (*inpath == '/' || strstr(inpath, "/") != NULL) {
-    strncpy(outpath, inpath, size);
-    success = true;
-  } else if (inpath[0] == '~' && inpath[1] == '/') {
-    strncpy(outpath, getenv("HOME"), size);
-    strncpy(outpath + strlen(outpath), inpath + 2, size-2);
-    success = true;
-  } else {
-    char *pathVar = getenv("PATH");
-    while (*pathVar != '\0') {
-      char *nextPtr;
-      nextPtr = strstr(pathVar, ":");
-      if (nextPtr == NULL)
-        nextPtr = pathVar + strlen(pathVar); 
-      memcpy(outpath, pathVar, nextPtr - pathVar);
-      *(outpath + (nextPtr - pathVar)) = '/';
-      strcpy(outpath + (nextPtr - pathVar) + 1, inpath);
-      JASSERT (strlen(outpath) < size) (strlen(outpath)) (size)
-	      (outpath) .Text("Pathname too long; Use larger buffer.");
-      if (*nextPtr  == '\0')
-        pathVar = nextPtr;
-      else // else *nextPtr == ':'
-        pathVar = nextPtr + 1; // prepare for next iteration
-      if (access(outpath, X_OK) == 0) {
-	success = true;
-	break;
-      }
-    }
-  }
-  return (success ? 0 : -1);
-}
-
-int elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
-  const char *magic_elf = "\177ELF"; // Magic number for ELF
-  const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
-  // Magic number for ELF 64-bit is "\177ELF\002"
-  const int len = strlen(magic_elf32);
-  char argv_buf[len];
-  char full_path[1024];
-  expandPathname(pathname, full_path, sizeof(full_path));
-  int fd = open(full_path, O_RDONLY);
-  if (fd == -1 || 5 != read(fd, argv_buf, 5))
-    return -1;
-  else
-    close (fd);
-  *isElf = (memcmp(magic_elf, argv_buf, strlen(magic_elf)) == 0);
-  *is32bitElf = (memcmp(magic_elf32, argv_buf, strlen(magic_elf32)) == 0);
-  return 0;
-}
-
-// Doesn't malloc.  Returns pointer to within pathname.
-char *dmtcp_basename(char *pathname) {
-  char *ptr = pathname;
-  while (*ptr++ != '\0')
-    if (*ptr == '/')
-      pathname = ptr+1;
-  return pathname;
-}
-
-// 'screen' requires directory with permissions 0700
-int isdir_0700(const char *pathname) {
-  struct stat st;
-  stat(pathname, &st);
-  return (S_ISDIR(st.st_mode) == 1
-          && st.st_mode & 0777 == 0700
-          && st.st_uid == getuid()
-          && access(pathname, R_OK | W_OK | X_OK) == 0
-         );
-}
-int safe_mkdir(const char *pathname, mode_t mode) {
-  // If it exists and we can give it the right permissions, do it.
-  chmod(pathname, 0700);
-  if (isdir_0700(pathname))
-    return 0;
-  // else start over
-  unlink(pathname);
-  rmdir(pathname); // Maybe it was an empty directory
-  mkdir(pathname, 0700);
-  return isdir_0700(pathname);
-}
-int safe_system(const char *command) {
-  char *str = getenv("LD_PRELOAD");
-  dmtcp::string dmtcphjk;
-  if (str != NULL)
-    dmtcphjk = str;
-  unsetenv("LD_PRELOAD");
-  int rc = system(command);
-  if (str != NULL)
-    setenv( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
-  return rc;
-}
-
-int testMatlab(const char *filename) {
-#ifdef __GNUC__
-# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
-  static const char* theMatlabWarning =
-    "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
-    "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
-    "****  \n"
-    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
-    "****  with gcc-4.1 and g++-4.1\n"
-    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-    "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-    "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-    "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-    "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-    "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-    "****   (Assuming you have done the above, Will now continue"
-	    " executing.)\n\n" ;
-
-  // FIXME:  should expand filename and "matlab" before checking
-  if ( strcmp(filename, "matlab") == 0 ) {
-    JASSERT_STDERR << theMatlabWarning;
-    return -1;
-  }
-# endif
-#endif
-  return 0;
-}
-
-void testSetuid(const char *filename) {
-  static const char* theSetuidWarning =
-    "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
-    "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
-    "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
-    "***  for the best.  For some programs, you may wish to\n"
-    "***  compile your own private copy, without using setuid permission.\n\n" ;
-  char pathname[1024];
-  if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
-    struct stat buf;
-    int rc = stat(pathname, &buf);
-    // screen tested separately.  Exclude it here.
-    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
-        && strcmp(pathname, "screen") != 0
-        && strstr(pathname, "/screen") == NULL)) {
-      JASSERT_STDERR << theSetuidWarning;
-      sleep(3);
-    }
-  }
-}
-
-int testStaticallyLinked(const char *filename) {
-  bool isElf, is32bitElf;
-  char pathname[1024];
-  expandPathname(filename, pathname, sizeof(pathname));
-  elfType(pathname, &isElf, &is32bitElf);
-#if defined(__x86_64__) && !defined(CONFIG_M32)
-  dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
-			         : "/lib64/ld-linux-x86-64.so.2 --verify " ;
-#else
-  dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
-#endif
-  cmd = cmd + pathname + " > /dev/null";
-  // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
-  // nonzero status.  Why is this?  It's dynamically linked.
-  if ( isElf && safe_system(cmd.c_str()) ) {
-    JASSERT_STDERR <<
-      "*** WARNING:  /lib/ld-2.10.1.so --verify " << pathname << " returns\n"
-      << "***  nonzero status.  This often means that " << pathname << " is\n"
-      << "*** a statically linked target.  If so, you can confirm this with\n"
-      << "*** the 'file' command.\n"
-      << "***  The standard DMTCP only supports dynamically"
-      << " linked executables.\n"
-      << "*** If you cannot recompile dynamically, please talk to the"
-      << " developers about a\n"
-      << "*** custom DMTCP version for statically linked executables.\n"
-      << "*** Proceeding for now, and hoping for the best.\n\n";
-    return -1;
-  } else
-    return 0;
-}
-
-void adjust_rlimit_stack() {
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
   // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
@@ -630,67 +466,17 @@ void adjust_rlimit_stack() {
   }
 # endif
 #endif
+
+  //run the user program
+  execvp ( argv[0], argv );
+
+  //should be unreachable
+  JASSERT_STDERR <<
+    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
+    << "Perhaps it is not in your $PATH?\n"
+    << "See `dmtcp_checkpoint --help` for usage.\n";
+  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+
+  return -1;
 }
 
-// Test for 'screen' program, argvPtr is an in- and out- parameter
-int testScreen(char **argvPtr[]) {
-  struct stat st;
-  // If screen has setuid or segid bits set, ...
-  char *pathname_base = dmtcp_basename((*argvPtr)[0]);
-  char pathname[1024];
-  if ((*argvPtr)[0] == NULL)
-    return -1;
-  if (expandPathname((*argvPtr)[0], pathname, sizeof(pathname)) != 0)
-    return -1;
-  if ( strcmp(pathname_base, "screen") == 0
-       && stat(pathname, &st) == 0
-       && (st.st_mode & S_ISUID || st.st_mode & S_ISGID) ) {
-    dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
-    safe_mkdir(tmpdir.c_str(), 0700);
-    setenv("SCREENDIR", tmpdir.c_str(), 1);
-
-    static char cmdBuf[1024];
-    bool isElf, is32bitElf;
-    char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
-    *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
-    expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
-#define COPY_SCREEN
-#ifdef COPY_SCREEN
-    // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
-    char *newArgv0 = cmdBuf + strlen(cmdBuf) + 1;
-    snprintf(newArgv0, sizeof(cmdBuf)-(newArgv0-cmdBuf), "%s/%s",
-	    dmtcp::UniquePid::getTmpDir().c_str(), pathname_base);
-    unlink(newArgv0);  // Remove any stale copy, just in case it's not right.
-    char *cpCmd = newArgv0 + strlen(newArgv0) + 1;
-    snprintf(cpCmd, sizeof(cmdBuf)-(cpCmd-cmdBuf), "cp %s %s",
-	     pathname, newArgv0);
-    safe_system(cpCmd);
-    JASSERT (access(newArgv0, X_OK) == 0) (newArgv0) (JASSERT_ERRNO);
-    (*argvPtr)[0] = newArgv0;
-    return 0;
-#else
-    // Translate: screen   to: /lib/ld-linux.so /usr/bin/screen
-    // This version is more general, but has a bug on restart:
-    //    memory layout is altered on restart, and so brk() doesn't match.
-    // Switch argvPtr from ptr to input to ptr to output now.
-    *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
-    // Use /lib64 if 64-bit O/S and not 32-bit app:
-# if defined(__x86_64__) && !defined(CONFIG_M32)
-    elfType(cmdBuf, &isElf, &is32bitElf);
-    if (is32bitElf)
-      (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
-    else
-      (*argvPtr)[0] = (char *)"/lib64/ld-linux-x86-64.so.2";
-# else
-    (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
-# endif
-    (*argvPtr)[1] = cmdBuf;
-    for (int i = 1; oldArgv[i] != NULL; i++)
-      *argvPtr[i+1] = oldArgv[i];
-    JASSERT ((char *)cmdBuf[sizeof(cmdBuf)-sizeof(char *)] == NULL)
-      (sizeof(cmdBuf)) .Text("Expanded command longer than sizeof(cmdBuf");
-    return 0;
-#endif
-  } else
-    return -1;
-}

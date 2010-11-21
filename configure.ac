@@ -1,4 +1,4 @@
-AC_INIT([DMTCP],[1.2.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.1.9],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
@@ -54,17 +54,6 @@ AC_ARG_ENABLE([pid_virtualization],
 			    reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
-AC_ARG_ENABLE([ptrace_support],
-            [AS_HELP_STRING([--enable-ptrace-support],
-                            [enable ptrace support for gdb, valgrind, etc.
-			    (EXPERIMENTAL)])],
-            [use_ptrace_support=$enableval],
-            [use_ptrace_support=no])
-if test "$use_ptrace_support" = "yes"; then
-  AC_SUBST([PTRACE_SUPPORT], [yes])
-else
-  AC_SUBST([PTRACE_SUPPORT], [no])
-fi
 AC_ARG_ENABLE([condor_support],
             [AS_HELP_STRING([--enable-condor-support],
                             [set configure options to support Condor.])],
@@ -125,12 +114,6 @@ if test x"$static_libc" = xno; then
   and must be added via the glibc-static package.])
 fi
 
-#check for dash
-AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
-
-#check for tcsh
-AC_CHECK_PROG(HAS_TCSH, [tcsh], [yes], [no], [/bin])
-
 #check for zsh
 AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
 
@@ -145,7 +128,6 @@ AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
 
 #check for screen
 AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
-AC_PATH_PROG([SCREEN],  [screen],        [no], [/usr/bin])
 
 #check for matlab
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])

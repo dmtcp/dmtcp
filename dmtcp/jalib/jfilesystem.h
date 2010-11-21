@@ -28,19 +28,6 @@
 
 namespace jalib
 {
-  struct linux_dirent {
-    unsigned long  d_ino;     /* Inode number */
-    unsigned long  d_off;     /* Offset to next linux_dirent */
-    unsigned short d_reclen;  /* Length of this linux_dirent */
-    char           d_name[];  /* Filename (null-terminated) */
-                        /* length is actually (d_reclen - 2 -
-                           offsetof(struct linux_dirent, d_name) */
-    /*
-       char           pad;       // Zero padding byte
-       char           d_type;    // File type (only since Linux 2.6.4;
-                                 // offset is (d_reclen - 1))
-    */
-  };
 
   namespace Filesystem
   {
@@ -51,20 +38,17 @@ namespace jalib
     //search for a given utility in many different places
     jalib::string FindHelperUtility ( const jalib::string& name, bool dieOnError = true );
 
-    jalib::string GetCWD();
     jalib::string GetProgramDir();
     jalib::string GetProgramName();
     jalib::string GetProgramPath();
 
     jalib::string ResolveSymlink ( const jalib::string& file );
-    jalib::string DirBaseName ( const jalib::string& str );
-    jalib::string FileBaseName ( const jalib::string& str );
 
     StringVector GetProgramArgs();
 
     IntVector ListOpenFds();
 
-    jalib::string GetControllingTerm();
+    jalib::string GetCurrentTty();
 
     jalib::string GetCurrentHostname();
 

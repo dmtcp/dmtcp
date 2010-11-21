@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -120,11 +120,10 @@ EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction 
   return _real_sigaction( signum, act, oldact);
 }
 EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-  return sigaction (signum, act, oldact);
-  //if(signum == bannedSignalNumber()){
-  //  act = NULL;
-  //}
-  //return _real_rt_sigaction( signum, act, oldact);
+  if(signum == bannedSignalNumber()){
+    act = NULL;
+  }
+  return _real_rt_sigaction( signum, act, oldact);
 }
 EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
   if(signum == bannedSignalNumber()){
@@ -174,19 +173,18 @@ EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 }
 
 EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
-  return sigprocmask(how, set, oldset);
-//  const sigset_t *orig = set;
-//  if (set != NULL) {
-//    sigset_t tmp = patchPOSIXMask(set);
-//    set = &tmp;
-//  }
-//
-//  int ret = _real_rt_sigprocmask( how, set, oldset );
-//
-//  if (ret != -1) {
-//    patchPOSIXUserMask(how, orig, oldset);
-//  }
-//  return ret;
+  const sigset_t *orig = set;
+  if (set != NULL) {
+    sigset_t tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+
+  int ret = _real_rt_sigprocmask( how, set, oldset );
+
+  if (ret != -1) {
+    patchPOSIXUserMask(how, orig, oldset);
+  }
+  return ret;
 }
 
 /*

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -35,20 +35,20 @@
 #include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
-#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <thread_db.h>
 #include <sys/procfs.h>
 
 #ifdef PID_VIRTUALIZATION
 
+static pid_t gettid();
+static int tkill(int tid, int sig);
+static int tgkill(int tgid, int tid, int sig);
+
 static pid_t originalToCurrentPid( pid_t originalPid )
 {
-  /* This code is called from MTCP while the checkpoint thread is holding
-     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-     this function. */
   pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
-  
+
   if (currentPid == -1)
     currentPid = originalPid;
 
@@ -57,20 +57,17 @@ static pid_t originalToCurrentPid( pid_t originalPid )
 
 static pid_t currentToOriginalPid( pid_t currentPid )
 {
-  /* This code is called from MTCP while the checkpoint thread is holding
-     the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-     this function. */
   pid_t originalPid = dmtcp::VirtualPidTable::instance().currentToOriginalPid( currentPid );
-  
+
   if (originalPid == -1)
     originalPid = currentPid;
 
   return originalPid;
 }
 
-pid_t gettid()
+static pid_t gettid()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
   /*
    * We might want to cache the tid of all threads to avoid redundant calls
    *  to _real_gettid() and currentToOriginalPid().
@@ -82,12 +79,74 @@ pid_t gettid()
   pid_t currentTid = _real_gettid();
   pid_t origTid =  currentToOriginalPid ( currentTid );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origTid;
 }
 
 
+extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+
+/* Comments by Gene:
+ * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
+ * We would add a special case for SYS_gettid, while all others default as below
+ * It depends on the idea that arguments are stored in registers, whose
+ *  natural size is:  sizeof(void*)
+ * So, we pass six arguments to syscall, and it will ignore any extra arguments
+ * I believe that all Linux system calls have no more than 7 args.
+ * clone() is an example of one with 7 arguments.
+ * If we discover system calls for which the 7 args strategy doesn't work,
+ *  we can special case them.
+ *
+ * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
+ *      any C++ things here.  (--Kapil)
+ */
+extern "C" long int syscall(long int sys_num, ... )
+{
+  int i;
+  void * args[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+
+  switch ( sys_num ) {
+    case SYS_gettid:
+      va_end(ap);
+      return gettid();
+      break;
+    case SYS_tkill:{
+      int tid = va_arg(ap, int);
+      int sig = va_arg(ap, int);
+      va_end(ap);
+      return tkill(tid,sig);
+      break;
+    }
+    case SYS_tgkill:{
+      int tgid = va_arg(ap, int);
+      int tid = va_arg(ap, int);
+      int sig = va_arg(ap, int);
+      va_end(ap);
+      return tgkill(tgid,tid,sig);
+      break;
+    }
+    case SYS_clone:
+      typedef int (*fnc) (void*);
+      fnc fn = va_arg(ap, fnc);
+      void* child_stack = va_arg(ap, void*);
+      int flags = va_arg(ap, int);
+      void* arg = va_arg(ap, void*);
+      pid_t* pid = va_arg(ap, pid_t*);
+      struct user_desc* tls = va_arg(ap, struct user_desc*);
+      pid_t* ctid = va_arg(ap, pid_t*);
+      va_end(ap);
+      return __clone(fn, child_stack, flags, arg, pid, tls, ctid);
+      break;
+  }
+  for (i = 0; i < 7; i++)
+    args[i] = va_arg(ap, void *);
+  va_end(ap);
+  return _real_syscall(sys_num, args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+}
 
 extern "C" pid_t getpid()
 {
@@ -99,7 +158,7 @@ extern "C" pid_t getpid()
 
 extern "C" pid_t getppid()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
@@ -109,91 +168,91 @@ extern "C" pid_t getppid()
 
   pid_t origPpid = dmtcp::VirtualPidTable::instance().ppid( );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPpid;
 }
 
 extern "C" int   tcsetpgrp(int fd, pid_t pgrp)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPgrp = originalToCurrentPid( pgrp );
 //  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp);
   int retVal = _real_tcsetpgrp(fd, currPgrp);
 
   //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 extern "C" pid_t tcgetpgrp(int fd)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t retval = currentToOriginalPid( _real_tcgetpgrp(fd) );
 
   //JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retval;
 }
 
 extern "C" pid_t getpgrp(void)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pgrp = _real_getpgrp();
   pid_t origPgrp =  currentToOriginalPid( pgrp );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgrp;
 }
 
 extern "C" pid_t setpgrp(void)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pgrp = _real_setpgrp();
   pid_t origPgrp = currentToOriginalPid( pgrp );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgrp;
 }
 
 extern "C" pid_t getpgid(pid_t pid)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currentPid = originalToCurrentPid (pid);
   pid_t res = _real_getpgid (currentPid);
   pid_t origPgid = currentToOriginalPid (res);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPgid;
 }
 
 extern "C" int   setpgid(pid_t pid, pid_t pgid)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid = originalToCurrentPid (pid);
   pid_t currPgid = originalToCurrentPid (pgid);
 
   int retVal = _real_setpgid (currPid, currPgid);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
 extern "C" pid_t getsid(pid_t pid)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid;
 
@@ -207,60 +266,60 @@ extern "C" pid_t getsid(pid_t pid)
 
   pid_t origSid = currentToOriginalPid (res);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origSid;
 }
 
 extern "C" pid_t setsid(void)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
   dmtcp::VirtualPidTable::instance().setsid(origPid);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return origPid;
 }
 
 extern "C" int   kill(pid_t pid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   pid_t currPid = originalToCurrentPid (pid);
 
   int retVal = _real_kill (currPid, sig);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
-int   tkill(int tid, int sig)
+static int   tkill(int tid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tkill ( currentTid, sig );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
 
-int   tgkill(int tgid, int tid, int sig)
+static int   tgkill(int tgid, int tid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tgkill ( currentTgid, currentTid, sig );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -269,65 +328,6 @@ int   tgkill(int tgid, int tid, int sig)
 //long sys_tgkill (int tgid, int pid, int sig)
 
 // long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
-
-#ifdef PTRACE
-
-#define TRUE 1
-#define FALSE 0
-
-extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
-                                               td_thrinfo_t *ti_p)
-{
-  td_err_e td_err;
-
-  td_err = _real_td_thr_get_info ( th_p, ti_p);
-  ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
-  ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
-  return td_err;
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. It should be safe to comment this out if you don't
-   need to checkpoint gdb.
-*/
-extern "C" void *dlsym ( void *handle, const char *symbol)
-{
-  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
-    return (void *) &_dmtcp_td_thr_get_info;
-  else
-    return _real_dlsym ( handle, symbol );
-}
-
-typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int 
-value );
-extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;
-
-typedef int ( *get_is_waitpid_local_t ) ();
-extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
-
-typedef void ( *unset_is_waitpid_local_t ) ();
-extern "C" unset_is_waitpid_local_t unset_is_waitpid_local_ptr;
-
-typedef pid_t ( *get_saved_pid_t) ( );
-extern "C" get_saved_pid_t get_saved_pid_ptr;
-
-typedef int ( *get_saved_status_t) ( );
-extern "C" get_saved_status_t get_saved_status_ptr;
-
-typedef int ( *get_has_status_and_pid_t) ( );
-extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
-
-typedef void ( *reset_pid_status_t) ( );
-extern "C" reset_pid_status_t reset_pid_status_ptr;
-
-typedef int ( *fill_in_pthread_t) ();
-extern "C" fill_in_pthread_t fill_in_pthread_ptr;
-
-typedef int ( *delete_thread_on_pthread_join_t) ();
-extern "C" delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr;
-
-extern "C" sigset_t signals_set;
-#endif
 
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
@@ -355,54 +355,15 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
-#ifdef PTRACE
-  pid_t superior;
-  pid_t inferior;
-  pid_t retval;
-  static int i = 0;
-  pid_t originalPid;
-#endif
 
   if ( stat_loc == NULL )
     stat_loc = &status;
 
   pid_t currPid = originalToCurrentPid (pid);
 
-#ifdef PTRACE
-  superior = syscall (SYS_gettid);
-
-  inferior = pid;
-
-  if (!get_is_waitpid_local_ptr ()) {
-        if (get_has_status_and_pid_ptr ()) {
-                *stat_loc = get_saved_status_ptr ();
-                retval = get_saved_pid_ptr ();
-                reset_pid_status_ptr ();
-        }
-        else {
-                if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-                        perror ("waitpid wrapper");
-                        exit(-1);
-                }
-                set_singlestep_waited_on_ptr (superior, inferior, TRUE);
-                retval = _real_waitpid (currPid, stat_loc, options);
-                originalPid = currentToOriginalPid (retval);
-                if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-                        perror ("waitpid wrapper");
-                        exit(-1);
-                }
-        }
-  }
-  else {
-        retval = _real_waitpid (currPid, stat_loc, options);
-        unset_is_waitpid_local_ptr ();
-        originalPid = currentToOriginalPid (retval);
-  }
-#else 
   pid_t retval = _real_waitpid (currPid, stat_loc, options);
 
   pid_t originalPid = currentToOriginalPid ( retval );
-#endif
 
   if ( retval > 0
        && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
@@ -454,7 +415,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 
   pid_t currPid = originalToCurrentPid (pid);
 
-  pid_t retval = _real_wait4 ( currPid, status, options, rusage );
+  pid_t retval = _real_wait4 ( currPid, status, options, rusage );;
 
   pid_t originalPid = currentToOriginalPid ( retval );
 
@@ -463,38 +424,6 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
     dmtcp::VirtualPidTable::instance().erase ( originalPid );
 
   return originalPid;
-}
-
-// TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
-// These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
-extern "C" {
-int send_sigwinch = 0;
-}
-extern "C" int ioctl(int d,  unsigned long int request, ...)
-{ va_list ap;
-  int rc;
-
-  if (send_sigwinch && request == TIOCGWINSZ) {
-    send_sigwinch = 0;
-    va_list local_ap;
-    va_copy(local_ap, ap);
-    va_start(local_ap, request);
-    struct winsize * win = va_arg(local_ap, struct winsize *);
-    va_end(local_ap);
-    rc = _real_ioctl(d, request, win);  // This fills in win
-    win->ws_col--; // Lie to application, and force it to resize window,
-		   //  reset any scroll regions, etc.
-    kill(getpid(), SIGWINCH); // Tell application to look up true winsize
-			      // and resize again.
-  } else {
-    void * arg;
-    va_start(ap, request);
-    arg = va_arg(ap, void *);
-    va_end(ap);
-    rc = _real_ioctl(d, request, arg);
-  }
-
-  return rc;
 }
 
 /*

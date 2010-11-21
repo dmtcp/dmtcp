@@ -21,8 +21,7 @@
 
 #include "jserialize.h"
 #include "jassert.h"
-#include "../src/util.h"
-#include <stdio.h>
+#include "stdio.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -77,41 +76,41 @@ void jalib::JBinarySerializeReaderRaw::rewind()
 
 bool jalib::JBinarySerializeWriterRaw::isempty()
 {
-  struct stat buf;
-  JASSERT(fstat(_fd, &buf) == 0);
-  return buf.st_size == 0;
+  bool ret = false;
+  off_t cur = lseek(_fd,0,SEEK_CUR);
+  off_t end = lseek(_fd,0,SEEK_END);
+  if( end == 0 )
+    ret = true;
+  JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
+  JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
+  return ret;
 }
 
 bool jalib::JBinarySerializeReaderRaw::isempty()
 {
-  struct stat buf;
-  JASSERT(fstat(_fd, &buf) == 0);
-  return buf.st_size == 0;
+  bool ret = false;
+    off_t cur = lseek(_fd,0,SEEK_CUR);
+    off_t end = lseek(_fd,0,SEEK_END);
+    if( end == 0 )
+      ret = true;
+    JASSERT( lseek(_fd,cur,SEEK_SET) == cur )(strerror(errno)).Text("Cannot set current position");
+    JTRACE("\n\n\nIsEmpty:")(cur)(end)(ret)("\n\n\n");
+    return ret;
 }
 
-bool jalib::JBinarySerializeReaderRaw::isEOF()
-{
-  struct stat buf;
-  JASSERT(fstat(_fd, &buf) == 0);
-
-  off_t cur = lseek(_fd,0,SEEK_CUR);
-  JASSERT(cur != -1);
-
-  return cur == buf.st_size;
-}
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = dmtcp::Util::writeAll(_fd, buffer, len);
-  JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO)
-    .Text( "write() failed" );
-  _bytes += len;
+  size_t ret;
+  JASSERT ( (ret = write (_fd, buffer, len)) == len ) ( filename() ) (ret) ( len ).Text ( "write() failed" );
+  _bytes+=len;
 }
+
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = dmtcp::Util::readAll(_fd, buffer, len);
-  JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
-    .Text("read() failed");
-  _bytes += len;
+  size_t ret;
+  JASSERT ( (ret = read (_fd, buffer, len)) == len ) ( filename() )(ret)( len ).Text ( "read() failed" );
+  _bytes+=len;
 }
+

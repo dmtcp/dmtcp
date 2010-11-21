@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -30,10 +30,8 @@
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
-#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogcheckpointer.h"
-#include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include <sys/time.h>
@@ -160,23 +158,17 @@ static pid_t fork_work()
   }
 }
 
-static void prepareForFork()
-{
-  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
-}
-
 extern "C" pid_t fork()
 {
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
-  prepareForFork();
   int retVal = fork_work();
 
   if (retVal != 0) {
-    WRAPPER_EXECUTION_ENABLE_CKPT();
+    WRAPPER_EXECUTION_LOCK_UNLOCK();
   }
 
   return retVal;
@@ -195,18 +187,16 @@ static void execLibProcessAndExit(const char *path)
 {
   unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
-  char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
-  memset(buf, 0, bufSize);
+  char buf[bufSize];
   FILE *output = popen(path, "r");
   int numRead = fread(buf, 1, bufSize, output);
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
   // FIXME:  code currently allows wrapper to proceed without lock if
   //   it was busy because of a writer.  The unlock will then fail below.
   bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
   // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
   printf("%s", buf); // print buf, which is what /lib/libXXX would print
-  JALLOC_HELPER_FREE(buf);
   exit(0);
 }
 
@@ -216,10 +206,7 @@ static void execLibProcessAndExit(const char *path)
 static void dmtcpPrepareForExec(const char *path)
 {
   const char * libPrefix = "/lib/lib";
-  const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && dmtcp::Util::strStartsWith(path, libPrefix))
-    execLibProcessAndExit(path);
-  if (path != NULL && dmtcp::Util::strStartsWith(path, lib64Prefix))
+  if (path != NULL && 0 == strncmp(path, libPrefix, sizeof(libPrefix)))
     execLibProcessAndExit(path);
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
@@ -227,12 +214,10 @@ static void dmtcpPrepareForExec(const char *path)
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::instance().prepareForExec();
   dmtcp::VirtualPidTable::instance().serialize ( wr );
 #endif
-  dmtcp::SysVIPC::instance().serialize ( wr );
-
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
-  JTRACE ( "Preparing for Exec" ) ( path );
 
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
@@ -272,19 +257,6 @@ static void dmtcpPrepareForExec(const char *path)
   }
   setenv("LD_PRELOAD", preload.c_str(), 1);
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
-}
-
-static void dmtcpProcessFailedExec(const char *path)
-{
-  const char* str = getenv("LD_PRELOAD");
-  JASSERT(str != NULL );
-  dmtcp::string preload = getenv("LD_PRELOAD");
-  JASSERT(dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c));
-
-  preload.erase(0, strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1);
-
-  setenv("LD_PRELOAD", preload.c_str(), 1);
-  JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
 }
 
 static const char* ourImportantEnvs[] =
@@ -361,7 +333,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
@@ -369,9 +341,7 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
   int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
 
-  dmtcpProcessFailedExec(filename);
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -382,7 +352,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
@@ -392,9 +362,7 @@ extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 
   int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
 
-  dmtcpProcessFailedExec(argv[0]);
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -405,15 +373,12 @@ extern "C" int execv ( const char *path, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec(path);
-
   int retVal = _real_execv ( path, argv );
 
-  dmtcpProcessFailedExec(path);
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }
@@ -424,15 +389,12 @@ extern "C" int execvp ( const char *file, char *const argv[] )
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_LOCK();
 
   dmtcpPrepareForExec(file);
-
   int retVal = _real_execvp ( file, argv );
 
-  dmtcpProcessFailedExec(file);
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_LOCK_UNLOCK();
 
   return retVal;
 }

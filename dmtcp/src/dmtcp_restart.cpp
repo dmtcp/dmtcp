@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -33,7 +33,6 @@
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-#include "util.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -50,7 +49,7 @@ dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
 using namespace dmtcp;
 
 #ifdef PID_VIRTUALIZATION
-static void openOriginalToCurrentMappingFiles();
+static void openPidMapFiles();
 void unlockPidMapFile();
 #endif
 static void runMtcpRestore ( const char* path, int offset );
@@ -64,7 +63,7 @@ namespace
     public:
       OriginalPidTable(){}
 
-      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable& vt )
+      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable vt )
       {
         dmtcp::vector< pid_t > tmpVector;
 
@@ -185,20 +184,50 @@ namespace
     int find_stdin( SlidingFdTable& slidingFd )
     {
       for ( ConnectionToFds::const_iterator i = _conToFd.begin();
-          i!=_conToFd.end(); ++i )
-      {
-        const dmtcp::vector<int>& fds = i->second;
-        for ( size_t x=0; x<fds.size(); ++x )
-        {
-          if (fds[x] == STDIN_FILENO){
-            JTRACE("Found stdin: fds[x] <---> slidingFd.getFdFor()")
-              (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
-            return slidingFd.getFdFor ( i->first );
-          }
-        }
-      }
-      return -1;
+	    i!=_conToFd.end(); ++i )
+	{
+	  const dmtcp::vector<int>& fds = i->second;
+	  for ( size_t x=0; x<fds.size(); ++x )
+	    {
+	      if (fds[x] == 1){
+		JTRACE("Found stdin: x=%zul, %d <---> %d")
+		       (x) (fds[x]) (slidingFd.getFdFor ( i->first ));
+		return slidingFd.getFdFor ( i->first );
+	      }
+	    }
+	}
     }
+
+    /*      else if(ConnectionList::instance()[i->first].conType()
+	    == Connection::PTS)
+            {
+              const dmtcp::vector<int>& fds = i->second;
+              for(size_t x=0; x<fds.size(); ++x)
+              {
+                int fd = fds[x];
+                slidingFd.freeUpFd( fd );
+                int oldFd = slidingFd.getFdFor( i->first );
+                JTRACE("restoring fd")(i->first)(oldFd)(fd);
+		errno = 0;
+                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+                //_real_dup2(oldFd, fd);
+              }
+            }
+            else if(ConnectionList::instance()[i->first].conType() == Connection::FILE)
+            {
+              const dmtcp::vector<int>& fds = i->second;
+              for(size_t x=0; x<fds.size(); ++x)
+              {
+                int fd = fds[x];
+                slidingFd.freeUpFd( fd );
+                int oldFd = slidingFd.getFdFor( i->first );
+                JTRACE("Restoring fd.")(i->first)(oldFd)(fd);
+		errno = 0;
+                JWARNING(_real_dup2(oldFd, fd) == fd)(oldFd)(fd)(JASSERT_ERRNO);
+                //_real_dup2(oldFd, fd);
+              }
+            }
+       */
 
     void mtcpRestart()
     {
@@ -341,28 +370,25 @@ namespace
 
     void bringToForeground(SlidingFdTable& slidingFd)
     {
-      char controllingTerm[L_ctermid];
+      char s[L_ctermid];
       pid_t pid;
 
       int sin = find_stdin(slidingFd);
 
       if( isSessionLeader() ){
-        // XXX: Where is the controlling terminal being set?
 	char *ptr =  ttyname(sin);
+	printf("ttyname=%s\n",ptr);
 	int fd = open(ptr,O_RDWR);
-	if( ctermid(controllingTerm) ){
+	if( ctermid(s) ){
 	  int tfd = open(ptr,O_RDONLY);
 	  if( tfd >= 0 ){
-	    JTRACE("Setting current controlling terminal") (controllingTerm);
+	    printf("Current terminal is set to %s\n",s);
 	    close(tfd);
-	  }else if (ptr == NULL){
-            JTRACE("Cannot restore controlling terminal") (ttyname(sin));
-          } else {
-	    JWARNING(false) (ttyname(sin)) 
-                    .Text("Cannot restore controlling terminal");
+	  }else{
+	    printf("Cannot restore terminal\n");
 	  }
 	}
-	if (fd >= 0) close(fd);
+	close(fd);
       }
 
       pid_t gid = getpgid(0);
@@ -381,30 +407,22 @@ namespace
 	  // so it works as a spy, saboteur or wrecker :)
 	  // -- Artem
 	  JTRACE("Change current GID to foreground GID.");
-
-	if( setpgid(0, fgid) ){
-          if (fgid == -1) {
-            JTRACE("CANNOT Change current GID to foreground GID")
-                  (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO);
-          } else {
-            JWARNING(false) 
-                     (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO)
-                    .Text("CANNOT Change current GID to foreground GID");
-          }
- 	  fflush(stdout);
- 	  exit(0);
-	}
-
-        if( tcsetpgrp(sin, gid) ){
-	  printf("CANNOT Move parent GID to foreground: %s\n",
-		 strerror(errno));
- 	  printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
- 	  printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
-		 getpid(),fgid,_virtualPidTable.fgid(), gid);
- 	  fflush(stdout);
- 	  exit(0);
- 	  }
-
+	  if( setpgid(0, fgid) ){
+	    printf("CANNOT Change current GID to foreground GID: %s\n",
+		   strerror(errno));
+	    printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
+		   getpid(),fgid,_virtualPidTable.fgid(), gid);
+	    fflush(stdout);
+	    exit(0);
+	  }
+	  if( tcsetpgrp(sin, gid) ){
+	    printf("CANNOT Move parent GID to foreground: %s\n",strerror(errno));
+	    printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
+	    printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
+		   getpid(),fgid,_virtualPidTable.fgid(), gid);
+	    fflush(stdout);
+	    exit(0);
+	  }
 	  JTRACE("Finish foregrounding.")(getpid())(getpgid(0))(tcgetpgrp(0));
 	  exit(0);
 	}else{
@@ -414,7 +432,7 @@ namespace
       }
     }
 
-    void restoreGroup( SlidingFdTable& slidingFd )
+    int restoreGroup( SlidingFdTable& slidingFd )
     {
       if( isGroupLeader() ){
 	// create new group where this process becomes a leader
@@ -646,7 +664,7 @@ static const char* theUsage =
 ;
 
 static const char* theBanner =
-  "DMTCP/MTCP  Copyright (C) 2006-2010  Jason Ansel, Michael Rieker,\n"
+  "DMTCP/MTCP  Copyright (C) 2006-2008  Jason Ansel, Michael Rieker,\n"
   "                                       Kapil Arya, and Gene Cooperman\n"
   "This program comes with ABSOLUTELY NO WARRANTY.\n"
   "This is free software, and you are welcome to redistribute it\n"
@@ -741,8 +759,7 @@ int main ( int argc, char** argv )
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
 
-  if (autoStartCoordinator)
-    dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
+  if(autoStartCoordinator) dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
   dmtcp::ostringstream o;
@@ -752,22 +769,12 @@ int main ( int argc, char** argv )
 
   bool doAbort = false;
   for(; argc>0; shift){
-    dmtcp::string restorename(argv[0]);
+    char *restorename = argv[0];
     struct stat buf;
-    int rc = stat(restorename.c_str(), &buf);
-    if (dmtcp::Util::strStartsWith(restorename, "ckpt_") &&
-        dmtcp::Util::strEndsWith(restorename, "_files")) {
-      continue;
-#ifndef URDB
-    } else if (!dmtcp::Util::strEndsWith(restorename, ".dmtcp")) {
-      JNOTE("File doesn't have .dmtcp extension. Check Usage.")
-        (restorename);
-      JASSERT_STDERR << theUsage;
-      doAbort = true;
-#endif
-    } else if (rc == -1) {
+    int rc = stat(restorename, &buf);
+    if (rc == -1) {
       char error_msg[1024];
-      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
+      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename);
       perror(error_msg);
       doAbort = true;
     } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
@@ -776,22 +783,17 @@ int main ( int argc, char** argv )
 	     "This is dangerous.  Aborting for security reasons.\n" \
            "If you still want to do this (at your own risk),\n" \
            "  then modify dmtcp/src/%s:%d and re-compile.\n",
-           getuid(), buf.st_uid, restorename.c_str(), __FILE__, __LINE__ - 6);
+           getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 6);
       doAbort = true;
     }
-    if (doAbort) {
-      exit(1);
-    }
+    if (doAbort)
+      abort();
 
     JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
     targets.push_back ( RestoreTarget ( argv[0] ) );
   }
 
-  if (targets.size() <= 0) {
-    JNOTE("ERROR: No DMTCP checkpoint image(s) found. Check Usage.");
-    JASSERT_STDERR << theUsage;
-    exit(1);
-  }
+  JASSERT(targets.size()>0);
 
   SlidingFdTable slidingFd;
   ConnectionToFds conToFd;
@@ -873,7 +875,7 @@ int main ( int argc, char** argv )
   SetupSessions();
 
   /* Create the file to hold the pid/tid maps. */
-  openOriginalToCurrentMappingFiles();
+  openPidMapFiles();
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
@@ -944,8 +946,7 @@ int main ( int argc, char** argv )
     JTRACE("Restore first Flat Target")(targets[flat_index].pid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
-    // FIXME: Under what conditions will this path be exercised?
-    JNOTE ("unknown type of target?") (targets[flat_index]._path);
+    JASSERT(false) .Text("unknown type of target?");
   }
 #endif
 }
@@ -1073,22 +1074,22 @@ void ProcessGroupInfo()
     pid_t gid = virtualPidTable.gid();
     pid_t fgid = virtualPidTable.fgid();
 
-    /*
+/*
     // If group ID doesn't belong to known PIDs, indicate that fact
     //   using -1 value.
     if( !virtualPidTable.pidExists(gid) ){
-    JTRACE("DROP gid")(gid);
-    virtualPidTable.setgid(-1);
-    gid = -1;
+      JTRACE("DROP gid")(gid);
+      virtualPidTable.setgid(-1);
+      gid = -1;
     }
     // If foreground group ID not belongs to known PIDs,
     //   indicate that fact using -1 value.
     if( !virtualPidTable.pidExists(fgid) ){
-    JTRACE("DROP fgid")(fgid);
-    virtualPidTable.setfgid(-1);
-    fgid = -1;
+      JTRACE("DROP fgid")(fgid);
+      virtualPidTable.setfgid(-1);
+      fgid = -1;
     }
-    */
+*/
 
     session &s = smap[sid];
     // if this is first element of this session
@@ -1098,7 +1099,7 @@ void ProcessGroupInfo()
     group &g = smap[sid].groups[gid];
     // if this is first element of group gid
     if( g.gid == -2 ){
-      g.gid = gid;
+        g.gid = gid;
     }
     g.targets.push_back(&targets[j]);
   }
@@ -1116,22 +1117,22 @@ void ProcessGroupInfo()
         pid_t cfgid = virtualPidTable.fgid();
         if( fgid == -2 ){
           fgid = cfgid;
-        }else if( fgid != -1 && cfgid != -1 && fgid != cfgid ){
+        }else if( fgid != cfgid ){
           printf("Error: process from same session stores different"
-              " foreground group ID: %d, %d\n", fgid, cfgid);
-          // DEBUG PRINTOUT:
-          {
-            session::group_it g_it1 = s.groups.begin();
-            for(; g_it1!=s.groups.end();g_it1++){
-              group &g1 = g_it1->second;
-              for(size_t m=0; m<g1.targets.size() ;m++){
-                VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-                pid_t pid = virtualPidTable.pid();
-                pid_t cfgid = virtualPidTable.fgid();
-                printf("PID=%d <--> FGID = %d\n",pid,cfgid);
-              }
-            }
-          }
+				 		" foreground group ID: %d, %d\n", fgid, cfgid);
+	  // DEBUG PRINTOUT:
+	  {
+	    session::group_it g_it1 = s.groups.begin();
+	    for(; g_it1!=s.groups.end();g_it1++){
+	      group &g1 = g_it1->second;
+	      for(size_t m=0; m<g1.targets.size() ;m++){
+        	VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+		pid_t pid = virtualPidTable.pid();
+		pid_t cfgid = virtualPidTable.fgid();
+		printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+	      }
+	    }
+	  }
           abort();
         }
       }
@@ -1142,17 +1143,17 @@ void ProcessGroupInfo()
       // foreground group is missing, don't need to change foreground groop
       s.fgid = -1;
     }
-
+		
     {
-      session::group_it g_it1 = s.groups.begin();
-      for(; g_it1!=s.groups.end();g_it1++){
-        group &g1 = g_it1->second;
-        for(size_t m=0; m<g1.targets.size(); m++){
-          VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-          pid_t pid = virtualPidTable.pid();
-          pid_t cfgid = virtualPidTable.fgid();
-          JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
-        }
+       session::group_it g_it1 = s.groups.begin();
+       for(; g_it1!=s.groups.end();g_it1++){
+         group &g1 = g_it1->second;
+         for(size_t m=0; m<g1.targets.size(); m++){
+           VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
+	  pid_t pid = virtualPidTable.pid();
+	  pid_t cfgid = virtualPidTable.fgid();
+	  JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
+	}
       }
     }
   }
@@ -1167,12 +1168,12 @@ void ProcessGroupInfo()
     for(; g_it!=s.groups.end();g_it++){
       group &g = g_it->second;
       JTRACE("\tGroup ID: ")(g.gid);
-      /*
-         for(k=0; k<g.targets.size() ;k++){
-         printf("%d ", g.targets[k]->pid().pid());
-         }
-         printf("\n");
-         */
+/*
+      for(k=0; k<g.targets.size() ;k++){
+        printf("%d ", g.targets[k]->pid().pid());
+      }
+      printf("\n");
+*/
     }
   }
 }
@@ -1215,55 +1216,31 @@ int openSharedFile(dmtcp::string name, int flags)
   return -1;
 }
 
-static void openOriginalToCurrentMappingFiles()
+static void openPidMapFiles()
 {
   dmtcp::ostringstream pidMapFile, pidMapCountFile;
-  dmtcp::ostringstream shmidListFile, shmidMapFile;
   int fd;
-
-  shmidMapFile << dmtcpTmpDir << "/dmtcpShmidMap."
-     << compGroup << "." << std::hex << coordTstamp;
-  shmidListFile << dmtcpTmpDir << "/dmtcpShmidList."
-     << compGroup << "." << std::hex << coordTstamp;
 
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
      << compGroup << "." << std::hex << coordTstamp;
   pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
      << compGroup << "." << std::hex << coordTstamp;
 
-  // Open and create shmidListFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidMapFile")(shmidListFile.str());
-  fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT ( fd != -1 );
-  JASSERT ( dup2 ( fd, PROTECTED_SHMIDLIST_FD ) == PROTECTED_SHMIDLIST_FD )
-	  ( shmidListFile.str() );
-  close (fd);
-
-  // Open and create shmidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidMapFile")(shmidMapFile.str());
-  fd = openSharedFile(shmidMapFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT ( fd != -1 );
-  JASSERT ( dup2 ( fd, PROTECTED_SHMIDMAP_FD ) == PROTECTED_SHMIDMAP_FD )
-	  ( shmidMapFile.str() );
-  close (fd);
-
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
   fd = openSharedFile(pidMapFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAP_FD ) == PROTECTED_PIDMAP_FD )
 	  ( pidMapFile.str() );
   close (fd);
 
-  // Open and create pidMapCountFile if it doesn't exist.
+  // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
   fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
-  JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_PIDMAPCNT_FD ) == PROTECTED_PIDMAPCNT_FD )
 	  ( pidMapCountFile.str() );
   close(fd);
 
-  dmtcp::Util::lockFile(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::VirtualPidTable::_lock_file(PROTECTED_PIDMAPCNT_FD);
 
   // Initialize pidMapCountFile with zero value.
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
@@ -1278,7 +1255,7 @@ static void openOriginalToCurrentMappingFiles()
     JTRACE("pidMapCountFile is not empty - do nothing");
   }
 
-  dmtcp::Util::unlockFile(PROTECTED_PIDMAPCNT_FD);
+  dmtcp::VirtualPidTable::_unlock_file(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 

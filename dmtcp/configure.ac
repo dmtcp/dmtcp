@@ -1,7 +1,7 @@
-AC_INIT([DMTCP],[1.2.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.1.9],[],[dmtcp],[http://dmtcp.sourceforge.net])
 
 AM_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dmtcp], [1.2.0])
+AM_INIT_AUTOMAKE([dmtcp], [1.1.9])
 #AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
@@ -112,18 +112,9 @@ AC_ARG_ENABLE([pid_virtualization],
                             reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
-AC_ARG_ENABLE([ptrace_support],
-            [AS_HELP_STRING([--enable-ptrace-support],
-                            [enable ptrace support for gdb, valgrind, etc.
-			    (EXPERIMENTAL)])],
-            [use_ptrace_support=$enableval],
-            [use_ptrace_support=no])
 
 if test "$use_pid_virt" = "yes"; then
-  AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls.])
-fi
-if test "$use_ptrace_support" = "yes"; then
-  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+  AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls])
 fi
 
 AC_ARG_ENABLE([allocator],

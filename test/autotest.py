@@ -8,7 +8,6 @@ import socket
 import os
 import sys
 import resource
-import stat
 import re
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
@@ -65,7 +64,6 @@ for i in sys.argv:
 
 stats = [0, 0]
 
-# NOTE:  This might be replaced by shell=True in call to subprocess.Popen
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
 
@@ -135,12 +133,11 @@ class MySubprocess:
   "dummy class: same fields as from subprocess module"
   def __init__(self, pid):
     self.pid = pid
-    self.stdin = os.open(os.devnull, os.O_RDONLY)
-    self.stdout = os.open(os.devnull, os.O_WRONLY)
-    self.stderr = os.open(os.devnull, os.O_WRONLY)
+    self.stdin = os.open("/dev/null", os.O_RDONLY)
+    self.stdout = os.open("/dev/null", os.O_WRONLY)
+    self.stderr = os.open("/dev/null", os.O_WRONLY)
 
 #launch a child process
-# NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
 def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
@@ -154,31 +151,22 @@ def launch(cmd):
     os.stat(cmd[0])
   except:
     raise CheckFailed(cmd[0] + " not found")
+  if VERBOSE:
+    pipe=None
+  else:
+    pipe = subprocess.PIPE
   if ptyMode:
-    (pid, fd) = os.forkpty()
+    (pid, fd) = pty.fork()
     if pid == 0:
-      # replace stdout; child might otherwise block on writing to stdout
-      os.close(1)
-      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
-      os.close(2)
-      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
       os.execvp(cmd[0], cmd)
       # os.system( reduce(lambda x,y:x+y, cmd) )
       # os.exit(0)
     else:
       return MySubprocess(pid)
   else:
-    childStderr = subprocess.STDOUT # Mix stderr into stdout file object
-    if cmd[0] == BIN+"dmtcp_coordinator":
-      childStdout = subprocess.PIPE
-      childStderr = subprocess.PIPE  # Don't mix stderr in; need to read stdout
-    elif VERBOSE:
-      childStdout=None  # Inherit child stdout from parent
-    else:
-      childStdout = os.open(os.devnull, os.O_WRONLY)
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
-		 stdin=subprocess.PIPE, stdout=childStdout,
-		 stderr=childStderr, close_fds=True)
+		 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+		 stderr=pipe, close_fds=True)
   return proc
 
 #randomize port and dir, so multiple processes works
@@ -193,7 +181,7 @@ os.unsetenv('MTCP_SIGCKPT')
 #No gzip by default.  (Isolate gzip failures from other test failures.)
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
 if not VERBOSE:
-  os.environ['JALIB_STDERR_PATH'] = os.devnull
+  os.environ['JALIB_STDERR_PATH'] = "/dev/null"
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
@@ -310,10 +298,8 @@ def runTest(name, numProcs, cmds):
     for x in procs:
       #cleanup proc
       try:
-        if x.stdin:
-	  x.stdin.close()
-        if x.stdout:
-          x.stdout.close()
+	x.stdin.close()
+        x.stdout.close()
         if x.stderr:
           x.stderr.close()
         os.waitpid(x.pid, os.WNOHANG)
@@ -451,8 +437,6 @@ os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
-runTest("sysv-shm",      2, ["./test/sysv-shm"])
-
 #runTest("stale-fd",      2, ["./test/stale-fd"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
@@ -468,37 +452,23 @@ os.environ['DMTCP_GZIP'] = GZIP
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
-#Invoke this test when we drain/restore data in pty at checkpoint time.
-# runTest("pty",   2, ["./test/pty"])
-
 runTest("perl",          1, ["/usr/bin/perl"])
 
 runTest("python",        1, ["/usr/bin/python"])
 
 os.environ['DMTCP_GZIP'] = "0"
-runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+runTest("bash",          2, ["/bin/bash -c 'ls; sleep 30'"])
 os.environ['DMTCP_GZIP'] = GZIP
-
-if testconfig.HAS_DASH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  os.unsetenv('ENV')  # Delete reference to dash initialization file
-  runTest("dash",          2, ["/bin/dash -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
-
-if testconfig.HAS_TCSH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
-  runTest("zsh",          2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
+  runTest("zsh",          2, ["/bin/zsh -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-# *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCRIPT == "yes":
-  S=1
-  if sys.version_info[0:2] >= (2,6):
+  S=2
+  # if python-2.6 or higher
+  if False:  # Not yet ready for primetime
     runTest("script",      4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +
     			      " dmtcp-test-typescript.tmp"])
@@ -507,33 +477,21 @@ if testconfig.HAS_SCRIPT == "yes":
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # BUT screen -s CMD works only when CMD is single word.
-# *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCREEN == "yes":
   S=1
-  if sys.version_info[0:2] >= (2,6):
-    runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
+  if False:  # Not yet ready for primetime
+    runTest("screen",      3,  ["screen"])
   S=0.3
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
-  S=1
   runTest("gcl",         1,  [testconfig.GCL])
-  S=0.3
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  S=5
-  if sys.version_info[0:2] >= (2,6):
-    runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  S=3
+  runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=0.3
-
-if testconfig.PTRACE_SUPPORT == "yes":
-  os.system("echo 'run' > dmtcp-gdbinit.tmp")
-  S=2
-  if sys.version_info[0:2] >= (2,6):
-    runTest("gdb", 2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  S=0.3
-  os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
@@ -557,3 +515,5 @@ except CheckFailed, e:
   print "Error in SHUTDOWN():", e.value
 except:
   print "Error in SHUTDOWN()"
+
+

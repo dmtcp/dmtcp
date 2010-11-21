@@ -29,39 +29,21 @@
 
 //#define ENABLE_MALLOC_WRAPPER
 
-/* TODO: we want to be able to switch this on and off - 
-   for the time being: not a concern
-   when this works, then kleptocracy
-*/
-//#define URDB
-
-#ifdef PTRACE
-# define LIBTHREAD_DB "libthread_db.so.1"
-# define LIBPTHREAD_FILENAME "libpthread.so.0"
-#endif
-
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
 #define LIBPTHREAD_FILENAME "libpthread.so.0"
 
 #define MTCP_FILENAME "libmtcp.so"
-#define CKPT_FILE_PREFIX "ckpt_"
-#define CKPT_FILE_SUFFIX ".dmtcp"
-#define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
-#define CKPT_FILES_SUBDIR_SUFFIX "_files"
+#define CHECKPOINT_FILE_PREFIX "ckpt_"
+#define CHECKPOINT_FILES_SUBDIR_PREFIX "ckpt_files_"
 #define DELETED_FILE_SUFFIX " (deleted)"
-
-#define X11_LISTENER_PORT_START 6000
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
 
 #define RESTORE_PORT_START 9777
 #define RESTORE_PORT_STOP 9977
-
-//#define ENABLE_DLOPEN
-//#define ENABLE_MALLOC_WRAPPER
 
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
@@ -87,17 +69,22 @@
 #define ENV_VAR_COMPRESSION "DMTCP_GZIP"
 #define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
-#define ENV_VAR_LIBC_FUNC_OFFSETS "DMTCP_LIBC_FUNC_OFFSETS"
 
-#define GLIBC_BASE_FUNC isalnum
+#ifdef ENABLE_MALLOC_WRAPPER
+// Malloc/Free Offsets from toupper
+#define GLIBC_BASE_FUNC "setlocale"
+#define ENV_VAR_MALLOC_OFFSET "DMTCP_MALLOC_OFFSET"
+#define ENV_VAR_CALLOC_OFFSET "DMTCP_CALLOC_OFFSET"
+#define ENV_VAR_REALLOC_OFFSET "DMTCP_REALLOC_OFFSET"
+#define ENV_VAR_FREE_OFFSET "DMTCP_FREE_OFFSET"
 
-#ifdef PTRACE
-#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
-
-#define ENV_PTRACE \
-    , ENV_VAR_DLSYM_OFFSET 
+#define ENV_VARS_MALLOC_FAMILY \
+    , ENV_VAR_MALLOC_OFFSET\
+    , ENV_VAR_CALLOC_OFFSET\
+    , ENV_VAR_REALLOC_OFFSET\
+    , ENV_VAR_FREE_OFFSET
 #else
-#define ENV_PTRACE 
+#define ENV_VARS_MALLOC_FAMILY
 #endif
 
 //this list should be kept up to date with all "protected" environment vars
@@ -116,9 +103,8 @@
     ENV_VAR_STDERR_PATH,\
     ENV_VAR_COMPRESSION,\
     ENV_VAR_SIGCKPT,\
-    ENV_VAR_ROOT_PROCESS,\
-    ENV_VAR_LIBC_FUNC_OFFSETS \
-    ENV_PTRACE
+    ENV_VAR_ROOT_PROCESS \
+    ENV_VARS_MALLOC_FAMILY
 
 
 #define DRAINER_CHECK_FREQ 0.1
@@ -137,7 +123,7 @@
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
 
 #define PROTECTED_FD_START 820
-#define PROTECTED_FD_COUNT 14
+#define PROTECTED_FD_COUNT 12
 
 #define CONNECTION_ID_START 99000
 

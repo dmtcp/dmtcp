@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -77,24 +77,24 @@ void dmtcp::ConnectionState::deleteStaleConnections()
   ConnectionList& connections = ConnectionList::instance();
 
   //build list of stale connections
-  dmtcp::vector<ConnectionIdentifier> staleConnections;
+  dmtcp::vector<ConnectionList::iterator> staleConnections;
   for ( ConnectionList::iterator i = connections.begin()
         ; i!= connections.end()
         ; ++i )
   {
     if ( _conToFds[i->first].size() == 0 )
-      staleConnections.push_back ( i->first );
+      staleConnections.push_back ( i );
   }
 
   //delete all the stale connections
   for ( size_t i=0; i<staleConnections.size(); ++i )
   {
-    JTRACE ( "deleting stale connection" ) ( staleConnections[i] );
+    JTRACE ( "deleting stale connection" ) ( staleConnections[i]->first );
     connections.erase ( staleConnections[i] );
   }
 }
 
-void dmtcp::ConnectionState::preLockSaveOptions()
+void dmtcp::ConnectionState::preCheckpointLock()
 {
   SignalManager::saveSignals();
   SyslogCheckpointer::stopService();
@@ -102,9 +102,7 @@ void dmtcp::ConnectionState::preLockSaveOptions()
   // build fd table with stale connections included
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
-  // Save Options for each Fd (We need to do it here instead of
-  // preCheckpointLock because we want to restore the correct owner in
-  // postcheckpoint).
+  //lock each fd
   ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
@@ -112,17 +110,6 @@ void dmtcp::ConnectionState::preLockSaveOptions()
     if ( _conToFds[i->first].size() == 0 ) continue;
 
     ( i->second )->saveOptions ( _conToFds[i->first] );
-  }
-}
-
-void dmtcp::ConnectionState::preCheckpointLock()
-{
-  ConnectionList& connections = ConnectionList::instance();
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i ) {
-    if ( _conToFds[i->first].size() == 0 ) continue;
-
     ( i->second )->doLocking ( _conToFds[i->first] );
   }
 }
@@ -236,7 +223,7 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
 }
 
 
-void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
+void dmtcp::ConnectionState::postCheckpoint()
 {
   _drain.refillAllSockets();
 
@@ -250,7 +237,7 @@ void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
 
     if ( _conToFds[i->first].size() == 0 ) continue;
 
-    ( i->second )->postCheckpoint ( _conToFds[i->first], isRestart );
+    ( i->second )->postCheckpoint ( _conToFds[i->first] );
   }
 
   SyslogCheckpointer::restoreService();
@@ -316,37 +303,31 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   // make sure that by the time we are trying to restore a PTY_SLAVE
   // connection, its corresponding PTY_MASTER connection has already been
   // restored.
-  // UPDATE: We also restore the files for which the we didn't have the lock in
-  //         second iteration along with PTY_SLAVEs
-  // Part 1: Restore all but Pseudo-terminal slaves and file connection which
-  //         were not checkpointed
+  // Part 1: Restore all but Pseudo-terminal slaves
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
-    if ( (i->second)->restoreInSecondIteration() == false ){
-//    if ( ( i->second )->conType() == Connection::PTY &&
-//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
-//    else {
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
+    else {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
 
-  // Part 2: Restore all Pseudo-terminal slaves and file connections that were
-  //         not checkpointed.
+  // Part 2: Restore all Pseudo-terminal slaves
   for ( ConnectionList::iterator i= connections.begin()
       ; i!= connections.end()
       ; ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
-    if ( ( i->second )->restoreInSecondIteration() == true ) {
-//    if ( ( i->second )->conType() == Connection::PTY &&
-//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
+    if ( ( i->second )->conType() == Connection::PTY &&
+         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
+           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }

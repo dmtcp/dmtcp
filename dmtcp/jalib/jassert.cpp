@@ -30,13 +30,6 @@
 #include <dlfcn.h>
 
 #include <fstream>
-#include <execinfo.h>  /* For backtrace() */
-
-// Needed for dmtcp::UniquePid::getTmpDir()
-// Is there a cleaner way to get information from rest of DMTCP?
-#include "../src/uniquepid.h"
-#include "../src/util.h"
-#include "../src/protectedfds.h"
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
@@ -54,24 +47,30 @@
 
 int jassert_quiet = 0;
 
-#define DUP_STDERR_FD PROTECTED_STDERR_FD
-#define DUP_LOG_FD    PROTECTED_JASSERTLOG_FD
+/*
+   The values of DUP_STDERR_FD and DUP_LOG_FD correspond to the values of
+   PFD(5) and PFD(6) in protectedfds.h. They should always be kept in sync.
+*/
+static const int DUP_STDERR_FD = 825; // PFD(5)
+static const int DUP_LOG_FD    = 826; // PFD(6)
 
-static int jwrite(int fd, const char *str)
+static int jwrite(FILE *stream, const char *str)
 {
-  return dmtcp::Util::writeAll(fd, str, strlen(str));
-#if 0
-  ssize_t offs, rc;
+#ifndef JASSERT_USE_FPRINTF
+  ssize_t offs, rc=-1;
   ssize_t size = strlen(str);
+  int fd = fileno(stream);
 
-  for (offs = 0; offs < size;) {
-    rc = write (fd, str + offs, size - offs);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
-      return rc;
-    else if (rc > 0)
-      offs += rc;
+  if (fd != -1) {
+    if (size == 0) rc = 0;
+    for (offs = 0; offs < size; offs += rc) {
+      rc = TEMP_FAILURE_RETRY(write (fd, str + offs, size - offs));
+      if (rc <= 0) break;
+    }
   }
-  return size;
+  return rc;
+#else
+  return fprintf( stream, "%s", str );
 #endif
 }
 
@@ -119,126 +118,61 @@ jassert_internal::JAssert::JAssert ( bool exitWhenDone )
 
 jassert_internal::JAssert::~JAssert()
 {
-  if ( _exitWhenDone ) {
+  if ( _logLockAcquired )
+    jassert_internal::unlockLog();
+
+  if ( _exitWhenDone )
+  {
     Print ( jalib::Filesystem::GetProgramName() );
     Print ( " (" );
     Print ( getpid() );
     Print ( "): Terminating...\n" );
-#ifdef DEBUG
-    jbacktrace();
-#endif
-  }
-
-  jassert_safe_print ( ss.str().c_str() );
-  if ( _logLockAcquired )
-    jassert_internal::unlockLog();
-
-  if ( _exitWhenDone ) {
     _exit ( 1 );
   }
 }
 
 const char* jassert_internal::jassert_basename ( const char* str )
 {
-  for ( const char* c = str; c[0] != '\0' && c[1] !='\0' ; ++c ) {
+  for ( const char* c = str; c[0] != '\0' && c[1] !='\0' ; ++c )
     if ( c[0]=='/' )
       str=c+1;
-  }
   return str;
 }
 
-static int _open_log_safe ( const char* filename, int protectedFd )
+// std::ostream& jassert_internal::jassert_output_stream(){
+//     return std::cerr;
+// }
+
+
+static FILE* _fopen_log_safe ( const char* filename, int protectedFd )
 {
   //open file
-  int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
-                                   S_IRUSR | S_IWUSR );
-  if (tfd == -1) return -1;
+  int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/, S_IRUSR | S_IWUSR );
+  if ( tfd < 0 ) return NULL;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   close ( tfd );
-
-  return nfd;
+  if ( nfd < 0 ) return NULL;
+  //promote it to a stream
+  return fdopen ( nfd,"a" );
 }
 
-static int _open_log_safe ( const jalib::string& s, int protectedFd )
+static FILE* _fopen_log_safe ( const jalib::string& s, int protectedFd )
 {
-  return _open_log_safe ( s.c_str(), protectedFd );
+  return _fopen_log_safe ( s.c_str(), protectedFd );
 }
 
 
-static int theLogFileFd = -1;
-static int errConsoleFd = -1;
+static FILE* theLogFile = NULL;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
 void jassert_internal::jassert_init ( const jalib::string& f )
 {
 #ifdef DEBUG
-  JASSERT_SET_LOGFILE(f);
+  set_log_file(f);
 #endif
   jassert_safe_print("");
-}
-
-const jalib::string writeJbacktraceMsg() {
-  jalib::string msg = jalib::string("")
-    + "\n   *** Stack trace is available ***\n" \
-    "   Execute:  utils/dmtcp_backtrace.py  [found in DMTCP_ROOT]\n" \
-    "   For usage:  utils/dmtcp_backtrace.py --help\n" \
-    "   Files saved: ";
-  msg += dmtcp::UniquePid::getTmpDir()
-                          + "/backtrace." + jalib::XToString ( getpid() );
-  msg += "\n                ";
-  msg += dmtcp::UniquePid::getTmpDir()
-                          + "/proc-maps." + jalib::XToString ( getpid() );
-  msg += "\n";
-  return msg;
-}
-
-void writeBacktrace() {
-  void *buffer[BT_SIZE];
-  int nptrs = backtrace(buffer, BT_SIZE);
-  jalib::string backtrace = dmtcp::UniquePid::getTmpDir()
-                          + "/backtrace." + jalib::XToString ( getpid() );
-  int fd = open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
-  if (fd != -1) {
-    backtrace_symbols_fd( buffer, nptrs, fd );
-    close(fd);
-    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/backtrace";
-    unlink(lnk.c_str());  // just in case it had previously been created.
-    if (symlink(backtrace.c_str(), lnk.c_str()) == -1)
-      {}  // Too late to issue a user warning here.
-  }
-}
-
-// DOES:  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
-// But it could be dangerous to spawn a process in fragile state of JASSERT.
-void writeProcMaps() {
-  char *mapsBuf = (char*) JALLOC_HELPER_MALLOC(50000);
-  int rc, count, total;
-  int fd = open("/proc/self/maps", O_RDONLY);
-  if (fd == -1) return;
-  count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
-  close(fd);
-  jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
-                          + "/proc-maps." + jalib::XToString ( getpid() );
-  fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
-  if (fd == -1) return;
-  count = dmtcp::Util::writeAll(fd, mapsBuf, count);
-  close(fd);
-  jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
-  unlink(lnk.c_str());  // just in case it had previously been created.
-  if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
-  {}  // Too late to issue a user warning here.
-  JALLOC_HELPER_FREE(mapsBuf);
-}
-
-jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
-{
-  writeBacktrace();
-  writeProcMaps();
-  // This goes to stdout.  Could also print to DUP_LOG_FD
-  Print( writeJbacktraceMsg() );
-  return *this;  // Needed as part of JASSERT macro
 }
 
 void jassert_internal::reset_on_fork ( )
@@ -250,67 +184,87 @@ void jassert_internal::reset_on_fork ( )
 void jassert_internal::set_log_file ( const jalib::string& path )
 {
   theLogFilePath() = path;
-  if ( theLogFileFd != -1 ) close ( theLogFileFd );
-  theLogFileFd = -1;
+  if ( theLogFile != NULL ) fclose ( theLogFile );
+  theLogFile = NULL;
   if ( path.length() > 0 )
   {
-    theLogFileFd = _open_log_safe ( path, DUP_LOG_FD );
-    if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_2", DUP_LOG_FD );
-    if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_3", DUP_LOG_FD );
-    if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_4", DUP_LOG_FD );
-    if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_5", DUP_LOG_FD );
+    theLogFile = _fopen_log_safe ( path, DUP_LOG_FD );
+    if ( theLogFile == NULL )
+      theLogFile = _fopen_log_safe ( path + "_2",DUP_LOG_FD );
+    if ( theLogFile == NULL )
+      theLogFile = _fopen_log_safe ( path + "_3",DUP_LOG_FD );
+    if ( theLogFile == NULL )
+      theLogFile = _fopen_log_safe ( path + "_4",DUP_LOG_FD );
+    if ( theLogFile == NULL )
+      theLogFile = _fopen_log_safe ( path + "_5",DUP_LOG_FD );
   }
 }
 
-static int _initJassertOutputDevices()
+static FILE* _initJassertOutputDevices()
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
   logLock = newLock;
 
-  const char* errpath = getenv ( "JALIB_STDERR_PATH" );
-
 #ifdef DEBUG
-  if ( errpath != NULL && theLogFileFd == -1 ) {
+  if (theLogFile == NULL)
     JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
                           + "/jassertlog." + jalib::XToString ( getpid() ) );
-  }
 #endif
 
-  if ( errpath != NULL )
-    errConsoleFd = _open_log_safe ( errpath, DUP_STDERR_FD );
-  else
-    errConsoleFd = dup2 ( fileno ( stderr ), DUP_STDERR_FD );
+  const char* errpath = getenv ( "JALIB_STDERR_PATH" );
 
-  if( errConsoleFd == -1 ) {
-    jwrite ( fileno (stderr ), "dmtcp: cannot open output channel for error logging\n");
-    return false;
-  }
-  return true;
+  if ( errpath != NULL )
+    return _fopen_log_safe ( errpath, DUP_STDERR_FD );
+  else
+    return fdopen ( dup2 ( fileno ( stderr ),DUP_STDERR_FD ),"w" );;;
 }
+
+
 
 void jassert_internal::jassert_safe_print ( const char* str )
 {
-  static bool useErrorConsole = _initJassertOutputDevices();
+  static FILE* errconsole = _initJassertOutputDevices();
+  static bool useErrorconsole = true;
 
-  if ( useErrorConsole )
-    jwrite ( errConsoleFd, str );
+  if( errconsole == NULL && useErrorconsole ) {
+    jwrite ( stderr, "dmtcp: cannot open output channel for error logging\n");
+    useErrorconsole = false;
+  }
 
-  if ( theLogFileFd != -1 ) {
-    int rv = jwrite ( theLogFileFd, str );
+  if ( useErrorconsole )
+    jwrite ( errconsole, str );
+
+  if ( theLogFile != NULL ) {
+    int rv = jwrite ( theLogFile, str );
 
     if ( rv < 0 ) {
-      if ( useErrorConsole ) {
-        jwrite ( errConsoleFd, "JASSERT: write failed, reopening log file.\n" );
-      }
+      if ( useErrorconsole )
+        jwrite ( errconsole, "JASSERT: write failed, reopening log file.\n" );
       JASSERT_SET_LOGFILE ( theLogFilePath() );
-      if ( theLogFileFd != -1 ) {
-        jwrite ( theLogFileFd, "JASSERT: write failed, reopened log file:\n");
-        jwrite ( theLogFileFd, str );
+      if ( theLogFile != NULL ) {
+        jwrite ( theLogFile, "JASSERT: write failed, reopened log file:\n");
+        jwrite ( theLogFile, str );
       }
     }
+    fflush ( theLogFile );
   }
+
+// #ifdef DEBUG
+//     static pid_t logPd = -1;
+//     static FILE* log = NULL;
+//
+//     if(logPd != getpid())
+//     {
+//         if(log != NULL) fclose(log);
+//         logPd = getpid();
+//         log = _fopen_log_safe((getenv("DMTCP_TMPDIR") + "/jassertlog." + jalib::XToString(logPd)).c_str());
+//     }
+//
+//     if(log != NULL)
+//     {
+//         fprintf(log,"%s",str);
+//         fflush(log);
+//     }
+// #endif
 }
+

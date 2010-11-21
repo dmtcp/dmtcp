@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -989,12 +989,12 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     workersRunningAndSuspendMsgSent = true;
     return true;
   }
-
-  if (s.numPeers > 0) {
+  else
+  {
     JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )
 	   ( s.numPeers );
+    return false;
   }
-  return false;
 }
 
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
@@ -1387,9 +1387,7 @@ int main ( int argc, char** argv )
     JASSERT ( sock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
       .Text ( "Failed to create listen socket."
        "\nIf msg is \"Address already in use\", this may be an old coordinator."
-       "\nKill default coordinator and try again:  dmtcp_command -q"
-       "\nIf that fails, \"pkill -9 dmtcp_coord\","
-	" and try again in a minute or so." );
+       "\nKill other coordinators and try again in a minute or so." );
   }
 
   thePort = sock->port();

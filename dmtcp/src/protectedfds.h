@@ -29,14 +29,18 @@
 #define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
 #define PFD(i) (PROTECTED_FD_START + (i))
 #define PROTECTEDFD(i) PFD(i)
-#define PROTECTED_STDERR_FD     PFD(5)
+/*
+   The values of PFD(5) and PFD(6) correspond to the values of DUP_STDERR_FD
+   and DUP_LOG_FD in jassert.cpp. They should always be kept in sync.
+*/
+// DUP_STDERR_FD
+#define PROTECTED_STDERR_FD PFD(5)
+// DUP_LOG_FD
 #define PROTECTED_JASSERTLOG_FD PFD(6)
-#define PROTECTED_PIDTBL_FD     PFD(8)
-#define PROTECTED_PIDMAP_FD     PFD(9)
-#define PROTECTED_PIDMAPCNT_FD  PFD(10)
-#define PROTECTED_TMPDIR_FD     PFD(11)
-#define PROTECTED_SHMIDLIST_FD  PFD(12)
-#define PROTECTED_SHMIDMAP_FD   PFD(13)
+#define PROTECTED_PIDTBL_FD PFD(8)
+#define PROTECTED_PIDMAP_FD PFD(9)
+#define PROTECTED_PIDMAPCNT_FD PFD(10)
+#define PROTECTED_TMPDIR_FD PFD(11)
 
 namespace dmtcp
 {

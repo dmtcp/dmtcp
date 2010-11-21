@@ -19,9 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef VIRTUAL_PID_TABLE_H
-#define VIRTUAL_PID_TABLE_H
-
 #include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
@@ -34,15 +31,8 @@
 #include "uniquepid.h"
 #include "constants.h"
 
-#ifdef PID_VIRTUALIZATION
-# define CURRENT_TO_ORIGINAL_PID(pid) \
-  dmtcp::VirtualPidTable::instance().currentToOriginalPid(pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) \
-  dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid)
-#else
-# define CURRENT_TO_ORIGINAL_PID(pid) (pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) (pid)
-#endif 
+#ifndef VIRTUAL_PID_TABLE_H
+#define VIRTUAL_PID_TABLE_H
 
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
@@ -69,8 +59,6 @@ namespace dmtcp
       pid_t originalToCurrentPid( pid_t originalPid );
       pid_t currentToOriginalPid( pid_t currentPid );
 
-      void printPidMaps();
-
       void  insert(pid_t originalPid,  dmtcp::UniquePid uniquePid);
       void  insertTid(pid_t tid);
       void  insertInferior(pid_t tid);
@@ -80,7 +68,7 @@ namespace dmtcp
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
 
-      void  postExec();
+      void  prepareForExec();
 
       void refresh();
       void refreshChildTable();
@@ -88,6 +76,8 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable ( jalib::JBinarySerializer& o );
+      static void _lock_file(int fd);
+      static void _unlock_file(int fd);
       static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
                                              pid_t& originalPid,
                                              dmtcp::UniquePid& uniquePid );

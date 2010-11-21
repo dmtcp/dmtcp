@@ -3,19 +3,13 @@ LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
-PTRACE_SUPPORT=@PTRACE_SUPPORT@
 prefix=@prefix@
-datarootdir=@datarootdir@
 mandir=@mandir@
 
 ifeq ($(M32),1)
-  MTCP_MAKE_FLAGS = M32=1
+  MTCP_MAKE_FLAGS=M32=1
 else
-  MTCP_MAKE_FLAGS = CC=$(CC)
-endif
-
-ifeq ($(PTRACE_SUPPORT),yes)
-  MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
+  MTCP_MAKE_FLAGS=CC=$(CC)
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
@@ -78,8 +72,8 @@ icheck-%: tests
 	@ bin/dmtcp_coordinator
 
 tidy:
-	rm -rf dmtcp-autotest-* ckpt_*_files
-	rm -f ckpt_* dmtcp_restart_script* dmtcp-shared-memory.* core*
+	rm -f ckpt_* dmtcp_restart_script* dmtcp-shared-memory.*
+	rm -rf dmtcp-autotest-*
 
 clean: tidy
 	-(cd mtcp  && $(MAKE) clean)
@@ -131,3 +125,4 @@ uninstall:
 	rm -Rf "$(prefix)/include/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
+

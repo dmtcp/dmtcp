@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -40,13 +40,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <ctype.h>
-#include <assert.h>
 
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr ( *signal_funcptr ) ();
-
-static unsigned int libcFuncOffsetArray[numLibcWrappers];
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -83,85 +80,6 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_destroy(&attr);
 }
 
-// Any single glibc function could have been re-defined.
-// For example, isalnum is wrapped by /bin/dash.  So, find a function
-//   closest to the average, and it's probably in glibc.
-static char * get_libc_base_func ()
-{
-  static char * base_addr = NULL;
-  void *base_func_addresses[100];
-  unsigned long int average, minDist;
-  int minIndex;
-  int count, index;
-  if (base_addr != NULL)
-    return base_addr;
-
-  count = 0;
-# define _COUNT(name) count++;
-  FOREACH_GLIBC_BASE_FUNC(_COUNT)
-  assert(count <= 100);
-  index = 0;
-# define _GET_ADDR(name) base_func_addresses[index++] = &name;
-  FOREACH_GLIBC_BASE_FUNC(_GET_ADDR)
-
-# define SHIFT_RIGHT(x) (long int)((unsigned long int)(x) >> 10)
-  // Of all the addresses in base_func_addresses, we choose the one
-  //  closest to the average as the one that really is in glibc.
-  for (average = 0, index = 0; index < count; index++)
-    average += SHIFT_RIGHT(base_func_addresses[index]);
-  average /= count;
-
-  minIndex = 0;
-  /* Shift right to guard against overflow */
-  minDist = labs(average - SHIFT_RIGHT(base_func_addresses[0]));
-  for (index = 0; index < count; index++) {
-    unsigned int tmp = labs(average - SHIFT_RIGHT(base_func_addresses[index]));
-    if (tmp < minDist) {
-      minIndex = index;
-      minDist = tmp;
-    }
-  }
-
-  base_addr = base_func_addresses[minIndex] - libcFuncOffsetArray[minIndex];
-  /* FIXME:  Should verify that base_addr is in libc seg of /proc/self/maps */
-  assert(base_addr + libcFuncOffsetArray[minIndex]
-         == base_func_addresses[minIndex]);
-  return base_addr;
-}
-
-static void computeLibcOffsetArray ()
-{
-  char* libcFuncOffsetStr = getenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-  char *start;
-  char *next;
-  int count;
-
-  assert(libcFuncOffsetStr != NULL);
-
-  start = libcFuncOffsetStr;
-  for (count = 0; count < numLibcWrappers; count++) {
-    libcFuncOffsetArray[count] = strtoul(start, &next, 16);
-    if (*next != ';') break;
-    start = next + 1;
-  }
-  if (*start != '\0') count++;
-
-  assert(count == numLibcWrappers);
-}
-
-static funcptr get_libc_symbol_from_array ( LibcWrapperOffset idx )
-{
-  static int libcOffsetArrayComputed = 0;
-  static char *libc_base_func_addr = NULL;
-  if (libcOffsetArrayComputed == 0) {
-    computeLibcOffsetArray();
-    // Important:  call computeLibcOffsetArray() before glibc_base_func()
-    libc_base_func_addr = get_libc_base_func();
-    libcOffsetArrayComputed = 1;
-  }
-  return (funcptr)(libc_base_func_addr + libcFuncOffsetArray[idx]);
-}
-
 static funcptr get_libc_symbol ( const char* name )
 {
   static void* handle = NULL;
@@ -172,12 +90,7 @@ static funcptr get_libc_symbol ( const char* name )
     abort();
   }
 
-#ifdef PTRACE
-  void* tmp = _real_dlsym ( handle, name );
-#else
   void* tmp = dlsym ( handle, name );
-#endif
-
   if ( tmp == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
@@ -210,30 +123,20 @@ static funcptr get_libpthread_symbol ( const char* name )
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
-#ifdef ENABLE_DLOPEN
-static int use_dlsym = 1;
-#else
-static int use_dlsym = 0;
-#endif
-
-#define REAL_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
+#define REAL_FUNC_PASSTHROUGH(name) static funcptr fn = NULL; \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
+    return (*fn)
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = (void*)get_libc_symbol(#name); \
-      else \
-        fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
-    } \
+    if (fn==NULL) fn = (void *)get_libc_symbol(#name); \
+    return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_PID_T(name) static funcptr_pid_t fn = NULL; \
+    if (fn==NULL) fn = (funcptr_pid_t)get_libc_symbol(#name); \
     return (*fn)
 
 #define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = get_libc_symbol(#name); \
-      else \
-        fn = get_libc_symbol_from_array ( ENUM(name) ); \
-    } \
+    if (fn==NULL) fn = get_libc_symbol(#name); \
     (*fn)
 
 #define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
@@ -271,17 +174,6 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-# if __GLIBC_PREREQ(2,10)
-/// call the libc version of this function via dlopen/dlsym
-int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
-{
-  REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
-}
-# endif
-#endif
-
 /// call the libc version of this function via dlopen/dlsym
 int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                        socklen_t optlen )
@@ -317,7 +209,7 @@ int _real_system ( const char *cmd )
 
 pid_t _real_fork( void )
 {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, fork ) ();
+  REAL_FUNC_PASSTHROUGH_PID_T ( fork ) ();
 }
 
 int _real_close ( int fd )
@@ -369,9 +261,9 @@ sighandler_t _real_signal(int signum, sighandler_t handler){
 int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
 }
-//int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-//  REAL_FUNC_PASSTHROUGH ( rt_sigaction ) ( signum, act, oldact );
-//}
+int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  REAL_FUNC_PASSTHROUGH ( rt_sigaction ) ( signum, act, oldact );
+}
 int _real_sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
   REAL_FUNC_PASSTHROUGH ( sigvec ) ( signum, vec, ovec );
 }
@@ -389,9 +281,9 @@ int _real_siggetmask(void){
 int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
-//int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
-//  REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
-//}
+int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
+  REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
+}
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
 }
@@ -428,6 +320,7 @@ pid_t _real_getpid(void){
 
 pid_t _real_getppid(void){
   return (pid_t) _real_syscall(SYS_getppid);
+  //REAL_FUNC_PASSTHROUGH_PID_T ( getppid ) ( );
 }
 
 int _real_tcsetpgrp(int fd, pid_t pgrp){
@@ -439,15 +332,15 @@ int _real_tcgetpgrp(int fd) {
 }
 
 pid_t _real_getpgrp(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgrp ) ( );
 }
 
 pid_t _real_setpgrp(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setpgrp ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setpgrp ) ( );
 }
 
 pid_t _real_getpgid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getpgid ) ( pid );
 }
 
 int   _real_setpgid(pid_t pid, pid_t pgid) {
@@ -455,11 +348,11 @@ int   _real_setpgid(pid_t pid, pid_t pgid) {
 }
 
 pid_t _real_getsid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getsid ) ( pid );
+  REAL_FUNC_PASSTHROUGH_PID_T ( getsid ) ( pid );
 }
 
 pid_t _real_setsid(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setsid ) ( );
+  REAL_FUNC_PASSTHROUGH_PID_T ( setsid ) ( );
 }
 
 int   _real_kill(pid_t pid, int sig) {
@@ -467,11 +360,11 @@ int   _real_kill(pid_t pid, int sig) {
 }
 
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait ) ( stat_loc );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait ) ( stat_loc );
 }
 
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, waitpid ) ( pid, stat_loc, options );
+  REAL_FUNC_PASSTHROUGH_PID_T ( waitpid ) ( pid, stat_loc, options );
 }
 
 int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
@@ -479,26 +372,11 @@ int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
 }
 
 pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait3 ) ( status, options, rusage );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait3 ) ( status, options, rusage );
 }
 
 pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait4 ) ( pid, status, options, rusage );
-}
-
-int _real_ioctl(int d, unsigned long int request, ...) {
-  int i;
-  void * arg;
-  va_list ap;
-
-  // Most calls to ioctl take 'void *', 'int' or no extra argument
-  // A few specialized ones take more args, but we don't need to handle those.
-  va_start(ap, request);
-  arg = va_arg(ap, void *);
-  va_end(ap);
-
-  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, ioctl ) ( d, request, arg );
+  REAL_FUNC_PASSTHROUGH_PID_T ( wait4 ) ( pid, status, options, rusage );
 }
 
 int _real_setgid(gid_t gid) {
@@ -515,7 +393,7 @@ int _real_setuid(uid_t uid) {
 // So, this is needed even if there is no PID_VIRTUALIZATION
 pid_t _real_gettid(void){
   return (pid_t) _real_syscall(SYS_gettid);
-//  REAL_FUNC_PASSTHROUGH ( pid_t, syscall(SYS_gettid) );
+//  REAL_FUNC_PASSTHROUGH_PID_T ( syscall(SYS_gettid) );
 }
 
 int   _real_tkill(int tid, int sig) {
@@ -551,137 +429,88 @@ long int _real_syscall(long int sys_num, ... ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
-int _real_xstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
-}
-
-int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
-}
-
-int _real_lxstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
-}
-
-int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __lxstat64 ) ( vers, path, buf );
-}
-
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
 }
 
-int _real_shmget (key_t key, size_t size, int shmflg) {
-  REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
-}
-
-void* _real_shmat (int shmid, const void *shmaddr, int shmflg) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( void*, shmat ) (shmid, shmaddr, shmflg);
-}
-
-int _real_shmdt (const void *shmaddr) {
-  REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
-}
-
-int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
-  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
-}
-
 #ifdef ENABLE_MALLOC_WRAPPER
-# ifdef ENABLE_DLOPEN
-#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
-# endif
+
+#define REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
+    if (fn==NULL) {\
+      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
+      if (offset == 0) abort();                                                   \
+      fn = (void*) ((char*)&toupper + offset);                                    \
+    }                                                                             \
+    (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET(type,name) static type (*fn) () = NULL;\
+    if (fn==NULL) {\
+      int offset = (int) strtol ( getenv ( ENV_VAR_##name##_OFFSET ), NULL, 10 ); \
+      if (offset == 0) abort();                                                   \
+      fn = (void*) ((char*)&toupper + offset);                                    \
+    }                                                                             \
+    return (*fn)
 
 void * _real_calloc(size_t nmemb, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, CALLOC) (nmemb, size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_CALLOC_OFFSET))
+//  {
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_CALLOC_OFFSET), NULL, 10 );
+//  }
+//
+//  typedef void* ( *fncptr ) (size_t nmenb, size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (nmemb, size );
 }
 
 void * _real_malloc(size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, MALLOC) (size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_MALLOC_OFFSET))
+//  {
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_MALLOC_OFFSET), NULL, 10 );
+//  }
+//
+//  typedef void* ( *fncptr ) (size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (size );
 }
 
 void * _real_realloc(void *ptr, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
+  REAL_FUNC_PASSTHROUGH_TYPED_WITH_OFFSET (void*, REALLOC) (ptr, size);
+//  return NULL;
+//  static int dlsym_offset = 0;
+//  if (dlsym_offset == 0 && getenv(ENV_VAR_REALLOC_OFFSET))
+//  {
+//    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_REALLOC_OFFSET), NULL, 10 );
+//  }
+//
+//  typedef void* ( *fncptr ) (void *ptr, size_t size);
+//  fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//  return (*dlsym_addr) (ptr, size );
 }
 
 void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
+  REAL_FUNC_PASSTHROUGH_VOID_WITH_OFFSET (void, FREE) (ptr);
+//   return ;
+//   static int dlsym_offset = 0;
+//   if (dlsym_offset == 0 && getenv(ENV_VAR_FREE_OFFSET))
+//   {
+//     dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_FREE_OFFSET), NULL, 10 );
+//   }
+//
+//   typedef void ( *fncptr ) (void *ptr);
+//   fncptr dlsym_addr = (fncptr)((char *)&toupper + dlsym_offset);
+//   return (*dlsym_addr) (ptr);
 }
+
+
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
 // }
+
 #endif
-
-#ifdef PTRACE
-// gdb calls dlsym on td_thr_get_info.  Need wrapper for tid virtualization.
-// The fnc td_thr_get_info is in libthread_db, and not in libc.
-static funcptr get_libthread_db_symbol ( const char* name )
-{
-  void* tmp = NULL;
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB ,RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-  tmp = _real_dlsym ( handle, name );
-  if ( tmp == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return ( funcptr ) tmp;
-}
-// Adding the macro for calls to get_libthread_db_symbol
-#define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
-    if (fn==NULL) fn = (void *)get_libthread_db_symbol(#name); \
-    return (*fn)
-
-void *_real_dlsym ( void *handle, const char *symbol ) {
-  /* In the future dlsym_offset should be global variable defined in 
-     dmtcpworker.cpp. For some unclear reason doing that causes a link
-     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp 
-     and  dmtcpworker.cpp. Commenting out the extra definition in 
-     dmtcp_coordinator.cpp sometimes caused an seg fault on 
-       dmtcp_checkpoint gdb a.out 
-     when user types run in gdb.
-  */
-  static int dlsym_offset = 0;
-  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
-  {
-    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
-    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
-        fails to start.
-    */
-    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
-  }
-  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol); 
-  if ( dlsym_offset == 0)
-    return dlsym ( handle, symbol );
-  else
-  {
-    typedef void* ( *fncptr ) (void *handle, const char *symbol);
-    fncptr dlsym_addr = (fncptr)((char *)&dlopen + dlsym_offset);
-    return (*dlsym_addr) ( handle, symbol );
-  }
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. */
-td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  REAL_FUNC_PASSTHROUGH_TD_THR ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
-}
-
-long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
-}
-#endif
-
-int _real_pthread_join(pthread_t thread, void **value_ptr)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
-    ( thread, value_ptr );
-}
