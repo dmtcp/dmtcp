@@ -47,7 +47,13 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 #endif
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "synchronizationlogging.h"
+#endif
 
+//#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+//static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
+//#endif
 
 namespace
 {
@@ -226,36 +232,38 @@ static void callbackRestoreVirtualPidTable ( )
 } 
 
 #ifdef PTRACE
-// See comment above about initializeMtcpPtrace and how to remove all
-//   these typedef statements.  - Gene
-typedef pid_t (*get_saved_pid_t) ();
+typedef pid_t ( *get_saved_pid_t) ( );
 get_saved_pid_t get_saved_pid_ptr = NULL;
 
-typedef int (*get_saved_status_t) ();
-get_saved_status_t get_saved_status_ptr = NULL;
+typedef int ( *get_saved_status_t) ( );
+get_saved_pid_t get_saved_status_ptr = NULL;
 
-typedef int (*get_has_status_and_pid_t) ();
+typedef int ( *get_has_status_and_pid_t) ( );
 get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL;
 
-typedef void (*reset_pid_status_t) ();
+typedef void ( *reset_pid_status_t) ( );
 reset_pid_status_t reset_pid_status_ptr = NULL;
 
-typedef void (*set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
+typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
 set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL;
 
-typedef int (*get_is_waitpid_local_t) ();
+typedef int ( *get_is_waitpid_local_t ) ();
 get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
 
-typedef int (*get_is_ptrace_local_t) ();
+typedef int ( *get_is_ptrace_local_t ) ();
 get_is_ptrace_local_t get_is_ptrace_local_ptr = NULL;
 
-typedef void (*unset_is_waitpid_local_t) ();
+typedef void ( *unset_is_waitpid_local_t ) ();
 unset_is_waitpid_local_t unset_is_waitpid_local_ptr = NULL;
 
-typedef void (*unset_is_ptrace_local_t) ();
+typedef void ( *unset_is_ptrace_local_t ) ();
 unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
 
 sigset_t signals_set;
+
+typedef void ( *t_mtcp_init_thread_local ) ();
+t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
+
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
 #endif 
 
@@ -300,46 +308,35 @@ void dmtcp::initializeMtcpEngine()
   else
     *dmtcp_info_restore_working_directory = 0;
 
-  t_mtcp_set_callbacks setCallbks =
-    (t_mtcp_set_callbacks)_get_mtcp_symbol ( "mtcp_set_callbacks" );
+  t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
-  t_mtcp_init init = (t_mtcp_init)_get_mtcp_symbol ( "mtcp_init" );
-  t_mtcp_ok okFn = (t_mtcp_ok)_get_mtcp_symbol ( "mtcp_ok" );
+  t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
+  t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
 
 #ifdef PTRACE
-  // This ptrace code should be in a separate function,
-  //   extern "C" void initializeMtcpPtrace() { ... }
-  // Then you also get the benefit of implicit casts from "void *" to
-  //   other pointer, and you can then get rid of all these types XXX_t.
-  // - Gene
   sigemptyset (&signals_set);
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  set_singlestep_waited_on_ptr =
-    (set_singlestep_waited_on_t)_get_mtcp_symbol ( "set_singlestep_waited_on" );
+  set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
 
-  get_is_waitpid_local_ptr =
-    (get_is_waitpid_local_t)_get_mtcp_symbol ( "get_is_waitpid_local" );
+  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
 
-  get_is_ptrace_local_ptr =
-    (get_is_ptrace_local_t)_get_mtcp_symbol ( "get_is_ptrace_local" );
+  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" );
 
-  unset_is_waitpid_local_ptr =
-    (unset_is_waitpid_local_t)_get_mtcp_symbol ( "unset_is_waitpid_local" );
+  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" );
 
-  unset_is_ptrace_local_ptr =
-    (unset_is_ptrace_local_t)_get_mtcp_symbol ( "unset_is_ptrace_local" );
+  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" );
 
-  get_saved_pid_ptr = (get_saved_pid_t)_get_mtcp_symbol ( "get_saved_pid" );
+  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" );
 
-  get_saved_status_ptr =
-    (get_saved_status_t)_get_mtcp_symbol ( "get_saved_status" );
+  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" );
 
-  get_has_status_and_pid_ptr =
-    (get_has_status_and_pid_t)_get_mtcp_symbol ( "get_has_status_and_pid" );
+  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );
 
-  reset_pid_status_ptr =
-    (reset_pid_status_t)_get_mtcp_symbol ( "reset_pid_status" );
+  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" );
+
+  // Opting for the original format, not the one directly above.
+  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) _get_mtcp_symbol ( "init_thread_local" );
 #endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
@@ -360,6 +357,9 @@ struct ThreadArg {
   int ( *fn ) ( void *arg );
   void *arg;
   pid_t original_tid;
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  long long int clone_id;
+#endif
 };
 
 // bool isConflictingTid( pid_t tid )
@@ -393,6 +393,17 @@ int thread_start(void *arg)
   pid_t original_tid = threadArg -> original_tid;
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
+    my_clone_id = threadArg->clone_id;
+    clone_id_to_tid_table[my_clone_id] = pthread_self();
+  } else {
+    JASSERT ( my_clone_id != 0 );
+  }
+#endif
+#ifdef PTRACE
+  mtcp_init_thread_local();
+#endif
 
   // Free the memory which was previously allocated by calling JALLOC_HELPER_MALLOC
   JALLOC_HELPER_FREE(threadArg);
@@ -427,7 +438,9 @@ int thread_start(void *arg)
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
    */
-
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  reapThisThread();
+#endif
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
   dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
 
@@ -502,6 +515,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+    memfence();
+    JTRACE ( "global_clone_counter" ) ( global_clone_counter );
+    threadArg->clone_id = global_clone_counter;
+    global_clone_counter++;
+  }
+#endif
 
   int tid;
 
@@ -561,12 +582,98 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-extern "C" int pthread_join (pthread_t thread, void **value_ptr) {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
+{
+  /* Wrap the call to _real_pthread_join() to make sure we call
+     delete_thread_on_pthread_join(). */
+  typedef void ( *delete_thread_fnc_t ) ( pthread_t );
+  static delete_thread_fnc_t delete_thread_fnc =
+    (delete_thread_fnc_t) _get_mtcp_symbol("delete_thread_on_pthread_join");
+  int retval = _real_pthread_join (thread, value_ptr);
+  delete_thread_fnc (thread);
+  return retval;
+}
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+
+extern "C" int pthread_join (pthread_t thread, void **value_ptr)
+{
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  /* We change things up a bit here. Since we don't allow the user's
+     pthread_join() to have an effect, we don't call the mtcp
+     "delete_thread_on_pthread_join()" function here unless we decide not to
+     synchronize this call to pthread_join().
+
+     We DO need to call it from the thread reaper reapThread(), however, which
+     is in pthreadwrappers.cpp. */
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _almost_real_pthread_join(thread, value_ptr);
+    return retval;
+  }
+
+  int retval = 0;
+  size_t stack_size;
+  void *stack_addr;
+  pthread_attr_t attr;
+  log_entry_t my_entry = create_pthread_join_entry(my_clone_id,
+      pthread_join_event, (unsigned long int)thread,
+      (unsigned long int)value_ptr);
+  log_entry_t my_return_entry = create_pthread_join_entry(my_clone_id,
+      pthread_join_event_return, (unsigned long int)thread,
+      (unsigned long int)value_ptr);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &pthread_join_turn_check);
+    getNextLogEntry();
+    while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
+      usleep(100);
+    }
+    if (pthread_join_retvals.find(thread) != pthread_join_retvals.end()) {
+      // We joined it as part of the thread reaping.
+      if (value_ptr != NULL) {
+        // If the user cares about the return value.
+        retval = pthread_join_retvals[thread].retval;
+        *value_ptr = pthread_join_retvals[thread].value_ptr;
+        if (retval == -1) {
+          errno = pthread_join_retvals[thread].my_errno;
+        }
+      }
+      pthread_join_retvals.erase(thread);
+    } else {
+      JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
+    }
+    waitForTurn(my_return_entry, &pthread_join_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
+      usleep(100);
+    }
+    if (pthread_join_retvals.find(thread) != pthread_join_retvals.end()) {
+      // We joined it as part of the thread reaping.
+      if (value_ptr != NULL) {
+        // If the user cares about the return value.
+        retval = pthread_join_retvals[thread].retval;
+        *value_ptr = pthread_join_retvals[thread].value_ptr;
+        if (retval == -1) {
+          errno = pthread_join_retvals[thread].my_errno;
+        }
+      }
+      pthread_join_retvals.erase(thread);
+    } else {
+      JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+#else
   typedef void ( *delete_thread_on_pthread_join_t) ( pthread_t pth );
   static delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr = ( delete_thread_on_pthread_join_t ) _get_mtcp_symbol ( "delete_thread_on_pthread_join" );
   int retval = _real_pthread_join (thread, value_ptr);
   delete_thread_on_pthread_join_ptr (thread);
   return retval;
+#endif
 }
 
 #ifdef PTRACE

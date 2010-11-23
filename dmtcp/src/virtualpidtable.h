@@ -75,7 +75,11 @@ namespace dmtcp
       void  insertTid(pid_t tid);
       void  insertInferior(pid_t tid);
       //void  insertTid(pid_t tid) { _tids.pushback(tid); }
-
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+      void insertDetachedTid( pid_t tid );
+      void eraseDetachedTid( pid_t tid );
+      int isDetachedTid( pid_t tid );
+#endif
       void  erase(pid_t originalPid);
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
@@ -140,7 +144,9 @@ namespace dmtcp
 
       typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
       dmtcp::map< pid_t , pid_t > _pidMapTable;
-
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+      dmtcp::vector< pid_t > _detachedVector;
+#endif
       //dmtcp::vector< pid_t > _tids;
       //typedef dmtcp::vector< pid_t >::iterator tid_iterator;
 

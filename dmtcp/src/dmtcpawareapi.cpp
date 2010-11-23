@@ -30,6 +30,13 @@
 #include <unistd.h>
 #include <time.h>
 //#include <pthread.h>
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include  "../jalib/jfilesystem.h"
+#include "synchronizationlogging.h"
+#endif
 
 #ifndef EXTERNC
 # define EXTERNC extern "C"
@@ -164,17 +171,61 @@ EXTERNC int dmtcpDelayCheckpointsUnlock(){
 }
 
 void dmtcp::userHookTrampoline_preCkpt() {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  // Write the logs to disk, if any are in memory.
+  JTRACE ( "preCkpt, about to writeLogsToDisk." );
+  setenv(ENV_VAR_LOG_REPLAY, "0", 1);
+  writeLogsToDisk();
+  close(synchronization_log_fd);
+#endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
 }
 
 void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   //this function runs before other threads are resumed
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+    recordDataStackLocations();
+#endif
   if(isRestart){
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+    writeLogsToDisk(); // Write to disk any log entries that were recorded
+                       // before we re-open and seek to the beginning.
+    while ((synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, 
+                                          O_RDONLY)) == -1
+        && errno == EINTR) ;
+    // Keep it open so the wrappers may read from it without opening.
+    if (synchronization_log_fd >= 0) {
+      lseek(synchronization_log_fd, 0, SEEK_SET);
+      char *x = getenv(ENV_VAR_LOG_REPLAY);
+      // Don't call setenv() here to avoid malloc()
+      x[0] = '2';
+      x[1] = '\0';
+      SET_SYNC_REPLAY();
+    } else {
+      JTRACE ( "problem opening synchronization log file on restart" ) 
+        ( SYNCHRONIZATION_LOG_PATH ) ( errno );
+      JASSERT ( false );
+    }
+    tylerShouldLog = 1;
+#endif
     numRestarts++;
     if(userHookPostRestart != NULL)
       (*userHookPostRestart)();
   }else{
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+    while ( (synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, 
+                O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1 
+        && errno == EINTR ) ;
+    JASSERT ( synchronization_log_fd >= 0 ) ( synchronization_log_fd )
+      ( SYNCHRONIZATION_LOG_PATH ).Text("problem opening sync log on resume");
+    char *x = getenv(ENV_VAR_LOG_REPLAY);
+    // Don't call setenv() here to avoid malloc()
+    x[0] = '1';
+    x[1] = '\0';
+    tylerShouldLog = 1;
+    SET_SYNC_LOG();
+#endif
     numCheckpoints++;
     if(userHookPostCheckpoint != NULL)
       (*userHookPostCheckpoint)();

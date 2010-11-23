@@ -135,6 +135,28 @@ static void *get_libc_symbol ( const char* name )
   return tmp;
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static void *get_libpthread_symbol ( const char* name )
+{
+  static void* handle = NULL;
+  if ( handle==NULL && ( handle=dlopen ( LIBPTHREAD_FILENAME, RTLD_NOW ) ) == NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",
+              dlerror() );
+    abort();
+  }
+
+  void* tmp = dlsym ( handle, name );
+  if ( tmp==NULL )
+  {
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
+              dlerror() );
+    abort();
+  }
+  return tmp;
+}
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+
 static void prepareDmtcpWrappers()
 {
 #ifndef ENABLE_DLOPEN
@@ -156,8 +178,27 @@ static void prepareDmtcpWrappers()
   }
 
   setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  unsigned int wrapperOffsetArrayPthread[numLibPthreadWrappers];
+  char *libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
+
+# define _GET_OFFSET_LIBPTHREAD(x) \
+    wrapperOffsetArrayPthread[enum_ ## x] = ((char*)get_libpthread_symbol(#x) - libpthread_base_function_addr);
+
+  FOREACH_PTHREAD_FUNC_WRAPPER(_GET_OFFSET_LIBPTHREAD);
+
+  dmtcp::ostringstream os_pthread;
+  for (int i = 0; i < numLibPthreadWrappers; i++) {
+    os_pthread << std::hex << wrapperOffsetArrayPthread[i] << ";";
+  }
+
+  setenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, os_pthread.str().c_str(), 1);
+#endif //SYNCHRONIZATION_LOG_AND_REPLAY
 #else
   unsetenv(ENV_VAR_LIBC_FUNC_OFFSETS);
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  unsetenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
+#endif
 #endif
 
 #ifdef PTRACE

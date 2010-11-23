@@ -38,6 +38,11 @@
 #include <errno.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <fcntl.h>
+#include "dmtcpworker.h"
+#include "synchronizationlogging.h"
+#endif
 
 /*
  * XXX: TODO: Add wrapper protection for socket() family of system calls
@@ -68,12 +73,74 @@ static int in_dmtcp_on_helper_fnc = 0;
     errno =saved_errno; \
     return ret;}
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static int _almost_real_socket(int domain, int type, int protocol)
+{
+  static int sockfd = -1;
+  PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
+}
+
+static int _almost_real_connect(int sockfd, const struct sockaddr *serv_addr,
+    socklen_t addrlen)
+{
+  int ret = _real_connect ( sockfd,serv_addr,addrlen );
+  int saved_errno = errno;
+
+  //no blocking connect... need to hang around until it is writable
+  if ( ret < 0 && errno == EINPROGRESS )
+  {
+    fd_set wfds;
+    struct timeval tv;
+    int retval;
+
+    FD_ZERO ( &wfds );
+    FD_SET ( sockfd, &wfds );
+
+    tv.tv_sec = 15;
+    tv.tv_usec = 0;
+
+    retval = select ( sockfd+1, NULL, &wfds, NULL, &tv );
+    /* Don't rely on the value of tv now! */
+
+    if ( retval == -1 )
+      perror ( "select()" );
+    else if ( FD_ISSET ( sockfd, &wfds ) )
+    {
+      int val = -1;
+      socklen_t sz = sizeof ( val );
+      getsockopt ( sockfd,SOL_SOCKET,SO_ERROR,&val,&sz );
+      if ( val==0 ) ret = 0;
+    }
+    else
+      JTRACE ( "No data within five seconds." );
+  }
+
+  saved_errno = errno;
+  PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
+}
+
+static int _almost_real_bind (int sockfd, const struct sockaddr *my_addr,
+    socklen_t addrlen)
+{
+  PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
+}
+
+static int _almost_real_listen ( int sockfd, int backlog )
+{
+  PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
+}
+#endif
+
 extern "C"
 {
 int socket ( int domain, int type, int protocol )
 {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  BASIC_SYNC_WRAPPER(int, socket, _almost_real_socket, domain, type, protocol);
+#else
   static int sockfd = -1;
   PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
+#endif
 }
 
 static short int _X11ListenerPort() {
@@ -127,6 +194,9 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
     errno = ECONNREFUSED;
     return -1;
   }
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  BASIC_SYNC_WRAPPER(int, connect, _almost_real_connect, sockfd, serv_addr, addrlen);
+#else
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
   int saved_errno = errno;
 
@@ -161,19 +231,30 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
 
   saved_errno = errno;
   PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
+#endif
 }
 
 int bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  BASIC_SYNC_WRAPPER(int, bind, _almost_real_bind, sockfd, my_addr, addrlen);
+#else
   PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
+#endif
 }
 
 int listen ( int sockfd, int backlog )
 {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  BASIC_SYNC_WRAPPER(int, listen, _almost_real_listen, sockfd, backlog);
+#else
   PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
+#endif
 }
 
-int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static int _almost_real_accept(int sockfd, struct sockaddr *addr,
+    socklen_t *addrlen)
 {
   if ( addr == NULL || addrlen == NULL )
   {
@@ -184,6 +265,80 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   }
   else
     PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
+}
+
+static int _almost_real_setsockopt(int sockfd, int level, int optname,
+    const void *optval, socklen_t optlen)
+{
+  PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
+}
+#endif
+
+int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+{
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    _real_pthread_mutex_lock(&fd_change_mutex);
+    int retval = _almost_real_accept(sockfd, addr, addrlen);
+    _real_pthread_mutex_unlock(&fd_change_mutex);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    _real_pthread_mutex_lock(&fd_change_mutex);
+    int retval = _almost_real_accept(sockfd, addr, addrlen);
+    _real_pthread_mutex_unlock(&fd_change_mutex);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_accept_entry(my_clone_id, accept_event, sockfd,
+      (unsigned long int)addr, (unsigned long int)addrlen);
+  log_entry_t my_return_entry = create_accept_entry(my_clone_id, 
+      accept_event_return, sockfd, (unsigned long int)addr,
+      (unsigned long int)addrlen);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &accept_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &accept_turn_check);
+    // Don't call _real_accept(). Lie to the user.
+    // However, we create a dummy file descriptor to keep the file descriptor
+    // numbering the way it was on record.
+    // Will be closed in close() wrapper.
+    retval = addDummyFd();
+    // Set the errno to what was logged (e.g. EAGAIN).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      // Get rid of the dummy file we just created:
+      /*removeDummyFd(retval);
+        atomic_decrement(&num_dummies);*/
+      errno = GET_COMMON(currentLogEntry, my_errno);
+      retval = GET_COMMON(currentLogEntry, retval);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _almost_real_accept(sockfd, addr, addrlen);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1)
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+#else
+  if ( addr == NULL || addrlen == NULL )
+  {
+    struct sockaddr_storage tmp_addr;
+    socklen_t tmp_len = 0;
+    memset ( &tmp_addr,0,sizeof ( tmp_addr ) );
+    PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, ( ( struct sockaddr * ) &tmp_addr ) , ( &tmp_len ) );
+  }
+  else
+    PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
+#endif
 }
 
 int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
@@ -199,10 +354,150 @@ int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
     PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, addr, addrlen, flags );
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int getsockname ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+{
+  // TODO: This wrapper is incomplete. We don't actually restore the contents
+  // of 'addr'. This is ok as long as MySQL is not using the contents of 'addr'
+  // after this call. All I've seen so far is it using this as an error check.
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_getsockname(sockfd, addr, addrlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    int retval = _real_getsockname(sockfd, addr, addrlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_getsockname_entry(my_clone_id, getsockname_event,
+      sockfd, (unsigned long int)addr, (unsigned long int)addrlen);
+  log_entry_t my_return_entry = create_getsockname_entry(my_clone_id,
+      getsockname_event_return,
+      sockfd, (unsigned long int)addr, (unsigned long int)addrlen);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &getsockname_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &getsockname_turn_check);
+    // Don't call _real_ function. Lie to the user.
+    // Set the errno to what was logged (e.g. EAGAIN).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_getsockname(sockfd, addr, addrlen);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1)
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+
+int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+{
+  // TODO: This wrapper is incomplete. We don't actually restore the contents
+  // of 'addr'. This is ok as long as MySQL is not using the contents of 'addr'
+  // after this call. All I've seen so far is it using this as an error check.
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_getpeername(sockfd, addr, addrlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    int retval = _real_getpeername(sockfd, addr, addrlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_getpeername_entry(my_clone_id, getpeername_event,
+      sockfd, *addr, (unsigned long int)addrlen);
+  log_entry_t my_return_entry = create_getpeername_entry(my_clone_id,
+      getpeername_event_return,
+      sockfd, *addr, (unsigned long int)addrlen);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &getpeername_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &getpeername_turn_check);
+    // Don't call _real_ function. Lie to the user.
+    // Set the errno to what was logged (e.g. EAGAIN).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    *addr = GET_FIELD(currentLogEntry, getpeername, sockaddr);
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_getpeername(sockfd, addr, addrlen);
+    SET_COMMON(my_return_entry, retval);
+    SET_FIELD2(my_return_entry, getpeername, sockaddr, *addr);
+    if (retval == -1)
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+#endif
+
 int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
                  socklen_t optlen )
 {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    int retval = _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_setsockopt_entry(my_clone_id, setsockopt_event, sockfd, 
+      level, optname, (unsigned long int)optval, optlen);
+  log_entry_t my_return_entry = create_setsockopt_entry(my_clone_id, 
+      setsockopt_event_return, sockfd, level, optname, (unsigned long int)optval,
+      optlen);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &setsockopt_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &setsockopt_turn_check);
+    // Set the errno to what was logged (e.g. EAGAIN).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1)
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+#else
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
+#endif
 }
 
 }

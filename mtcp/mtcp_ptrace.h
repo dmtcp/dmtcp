@@ -82,7 +82,7 @@ struct ptrace_tid_pairs {
   int eligible_for_deletion;
 };
 
-#define MAX_PTRACE_PAIRS_COUNT 100
+#define MAX_PTRACE_PAIRS_COUNT 1000
 extern struct ptrace_tid_pairs ptrace_pairs[MAX_PTRACE_PAIRS_COUNT];
 extern int ptrace_pairs_count;
 extern int init_ptrace_pairs;

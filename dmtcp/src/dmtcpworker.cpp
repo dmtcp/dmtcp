@@ -48,6 +48,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "synchronizationlogging.h"
+#endif
+
+//#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+//static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
+//#endif
 
 
 /* Read-write lock initializers.  */
@@ -311,6 +318,41 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  // This is called only on exec(). We reset the global clone counter for
+  // this process, assign the first thread (this one) clone_id 1, and increment
+  // the counter.
+  JTRACE ( "resetting global clone counter." );
+  global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
+  my_clone_id = global_clone_counter;
+  clone_id_to_tid_table[my_clone_id] = pthread_self();
+  global_clone_counter++;
+
+  // Perform other initialization for sync log/replay specific to this process.
+  initializeLog();
+  if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
+    // unset => set to 0 (meaning no logging, no replay)
+    setenv(ENV_VAR_LOG_REPLAY, "0", 1);
+  } 
+  sync_logging_branch = atoi(getenv(ENV_VAR_LOG_REPLAY));
+  JTRACE ( "TYLER:" ) ( sync_logging_branch );
+  // Synchronize this constructor:
+  log_entry_t my_entry = create_exec_barrier_entry();
+  if (SYNC_IS_REPLAY) {
+    memfence();
+    if (log_loaded == 0) {
+      primeLog();
+    }
+    JTRACE ( "Waiting until my turn." ) ( my_clone_id )
+      ( GET_COMMON(currentLogEntry,clone_id) ) ( log_entry_index );
+    waitForExecBarrier();
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not replay; log.
+    addNextLogEntry(my_entry);
+  }
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
@@ -340,6 +382,10 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   destroyDmtcpWorker = newDestroyDmtcpWorker;
 
   unInitializedThreadCount = 0;
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  JTRACE ( "writing synchronization logs to disk." );
+  writeLogsToDisk();
+#endif
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
@@ -377,6 +423,12 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+    if (SYNC_IS_LOG) {
+      JTRACE ( "writing synchronization logs to disk." );
+      writeLogsToDisk();
+    }
+#endif
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
     interruptCkpthread();

@@ -41,12 +41,21 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
-
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <dirent.h>
+#include <time.h>
+#define open _libc_open
+#include <fcntl.h>
+#undef open
+#endif
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr ( *signal_funcptr ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static int libpthreadFuncOffsetArray[numLibPthreadWrappers];
+#endif
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -62,9 +71,18 @@ static print_mutex(pthread_mutex_t *m,char *func)
 }
 */
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+// Need these prototypes for _dmtcp_lock/unlock().
+int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
+int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
+void _dmtcp_lock() { _real_pthread_mutex_lock ( &theMutex ); }
+void _dmtcp_unlock() { _real_pthread_mutex_unlock ( &theMutex ); }
+#else
 void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
 
 void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
+#endif
+
 /*
   if( ret == EPERM ){
     pthread_mutexattr_t attr;
@@ -207,6 +225,49 @@ static funcptr get_libpthread_symbol ( const char* name )
   return ( funcptr ) tmp;
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static funcptr get_libpthread_symbol_from_array ( LibPthreadWrapperOffset off )
+{
+  static char *libpthread_base_function_addr = NULL;
+  if ( libpthread_base_function_addr == NULL ) {
+    char* libpthreadFuncOffsetStr = getenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
+    char *start;
+    char *next;
+    int count, i;
+
+    libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
+    if (libpthreadFuncOffsetStr == NULL) {
+      fprintf ( stderr, "dmtcp: env var %s not set.\n",
+                        ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
+      abort();
+    }
+
+    start = libpthreadFuncOffsetStr;
+    count = 0;
+    while (*start != '\0') {
+      if (*start == ';') count++;
+      start++;
+    }
+    if (count != numLibPthreadWrappers) {
+      fprintf ( stderr, "dmtcp: mismatch in number of libpthread wrappers.\n"
+                        "       found: %d, expected: %d\n"
+                        "       env var %s: %s\n",
+                        count, (int) numLibPthreadWrappers,
+                        ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, libpthreadFuncOffsetStr );
+      abort();
+    }
+
+    start = libpthreadFuncOffsetStr;
+    for (i = 0; i < numLibPthreadWrappers; i++) {
+      libpthreadFuncOffsetArray[i] = strtol(start, &next, 16);
+      start = next + 1;
+    }
+  }
+
+  return (funcptr)((char*)libpthread_base_function_addr + libpthreadFuncOffsetArray[off]);
+}
+#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
@@ -241,6 +302,32 @@ static int use_dlsym = 0;
     if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
     return (*fn)
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#undef LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
+    if (fn==NULL) { \
+      if (use_dlsym) \
+        fn = (void*)get_libpthread_symbol(#name); \
+      else \
+        fn = (void*)get_libpthread_symbol_from_array ( ENUM(name) ); \
+    } \
+    return (*fn)
+
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
+    if (fn==NULL) { \
+      if (use_dlsym) \
+        fn = (void*)get_libpthread_symbol(#name); \
+      else \
+        fn = (void*)get_libpthread_symbol_from_array ( ENUM(name) ); \
+    } \
+    (*fn)
+#else
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
+    static type (*fn) () = NULL; \
+    if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
+    return (*fn)
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
 {
@@ -271,7 +358,6 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
 # if __GLIBC_PREREQ(2,10)
 /// call the libc version of this function via dlopen/dlsym
@@ -280,6 +366,18 @@ int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int f
   REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
 }
 # endif
+#endif
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_getsockname( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+{
+  REAL_FUNC_PASSTHROUGH ( getsockname ) ( sockfd,addr,addrlen );
+}
+
+int _real_getpeername( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
+{
+  REAL_FUNC_PASSTHROUGH ( getpeername ) ( sockfd,addr,addrlen );
+}
 #endif
 
 /// call the libc version of this function via dlopen/dlsym
@@ -532,11 +630,129 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
-/* See comments for syscall wrapper */
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_mkdir(const char *pathname, mode_t mode) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, mkdir ) ( pathname, mode );
+}
+
+int _real_mkstemp(char *temp) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, mkstemp ) ( temp );
+}
+
+FILE * _real_fdopen(int fd, const char *mode) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fdopen ) ( fd, mode );
+}
+
+char * _real_fgets(char *s, int size, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( char *, fgets ) ( s, size, stream );
+}
+
+int _real_fdatasync(int fd) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fdatasync ) ( fd );
+}
+
+int _real_fsync(int fd) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fsync ) ( fd );
+}
+
+int _real_getc(FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, getc ) ( stream );
+}
+
+ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, getline ) ( lineptr, n, stream );
+}
+
+int _real_link(const char *oldpath, const char *newpath) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, link ) ( oldpath, newpath );
+}
+
+int _real_rename(const char *oldpath, const char *newpath) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, rename ) ( oldpath, newpath );
+}
+
+void _real_rewind(FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_VOID ( rewind ) ( stream );
+}
+
+int _real_rmdir(const char *pathname) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, rmdir ) ( pathname );
+}
+
+long _real_ftell(FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ftell ) ( stream );
+}
+#endif
+
 FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_fputs(const char *s, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
+}
+
+int _real_putc(int c, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, putc ) ( c, stream );
+}
+
+size_t _real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( size_t, fwrite) ( ptr, size, nmemb, stream );
+}
+
+int _real_fcntl(int fd, int cmd, ...) {
+  va_list ap;
+  // Handling the variable number of arguments
+  long arg_3_l = -1;
+  struct flock *arg_3_f = NULL;
+  va_start( ap, cmd );
+  switch (cmd) {
+  case F_DUPFD:
+  //case F_DUP_FD_CLOEXEC:
+  case F_SETFD:
+  case F_SETFL:
+  case F_SETOWN:
+  case F_SETSIG:
+  case F_SETLEASE:
+  case F_NOTIFY:
+    arg_3_l = va_arg ( ap, long );
+    va_end ( ap );
+    break;
+  case F_GETFD:
+  case F_GETFL:
+  case F_GETOWN:
+  case F_GETSIG:
+  case F_GETLEASE:
+    va_end ( ap );
+    break;
+  case F_SETLK:
+  case F_SETLKW:
+  case F_GETLK:
+    arg_3_f = va_arg ( ap, struct flock *);
+    va_end ( ap );
+    break;
+  default:
+    break;
+  }
+  if (arg_3_l == -1 && arg_3_f == NULL) {
+    REAL_FUNC_PASSTHROUGH_TYPED ( int, fcntl ) ( fd, cmd );
+  } else if (arg_3_l == -1) {
+    REAL_FUNC_PASSTHROUGH_TYPED ( int, fcntl ) ( fd, cmd, arg_3_f);
+  } else {
+    REAL_FUNC_PASSTHROUGH_TYPED ( int, fcntl ) ( fd, cmd, arg_3_l);
+  }
+}
+#endif
+
+
+int _real_pthread_join(pthread_t thread, void **value_ptr)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
+    ( thread, value_ptr );
+}
+
+/* See comments for syscall wrapper */
 long int _real_syscall(long int sys_num, ... ) {
   int i;
   void * arg[7];
@@ -558,6 +774,16 @@ int _real_xstat(int vers, const char *path, struct stat *buf) {
 int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
   REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
 }
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_fxstat(int vers, int fd, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __fxstat ) ( vers, fd, buf );
+}
+
+int _real_fxstat64(int vers, int fd, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __fxstat64 ) ( vers, fd, buf );
+}
+#endif
 
 int _real_lxstat(int vers, const char *path, struct stat *buf) {
   REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
@@ -603,6 +829,10 @@ void * _real_malloc(size_t size) {
 
 void * _real_realloc(void *ptr, size_t size) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
+}
+
+void * _real_libc_memalign(size_t boundary, size_t size) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
 }
 
 void _real_free(void *ptr) {
@@ -680,8 +910,133 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *da
 }
 #endif
 
-int _real_pthread_join(pthread_t thread, void **value_ptr)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
-    ( thread, value_ptr );
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }
+
+int _real_pthread_mutex_trylock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_trylock ) ( mutex );
+}
+
+int _real_pthread_mutex_unlock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_unlock ) ( mutex );
+}
+
+int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_unlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_rdlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+int _real_pthread_cond_signal(pthread_cond_t *cond) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_signal ) ( cond );
+}
+
+int _real_pthread_cond_broadcast(pthread_cond_t *cond) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_broadcast ) ( cond );
+}
+
+int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_wait ) ( cond,mutex );
+}
+
+int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+    const struct timespec *abstime) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_timedwait ) ( cond,mutex,abstime );
+}
+
+int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+    void *(*start_routine)(void*), void *arg) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
+    (thread,attr,start_routine,arg);
+}
+
+void _real_pthread_exit(void *value_ptr) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) ( value_ptr );
+}
+
+int _real_pthread_detach(pthread_t thread)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_detach ) ( thread );
+}
+
+int _real_pthread_kill(pthread_t thread, int sig)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_kill )
+    ( thread, sig );
+}
+
+int _real_access(const char *pathname, int mode)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,access ) ( pathname,mode );
+}
+
+int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
+    fd_set *exceptfds, struct timeval *timeout) {
+  REAL_FUNC_PASSTHROUGH ( select ) ( nfds,readfds,writefds,exceptfds,timeout );
+}
+
+int _real_read(int fd, void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH ( read ) ( fd,buf,count );
+}
+
+struct dirent *_real_readdir(DIR *dirp) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( struct dirent *, readdir ) ( dirp );
+}
+
+int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, readdir_r ) ( dirp, entry, result );
+}
+
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, readlink ) ( path, buf, bufsiz );
+}
+
+ssize_t _real_write(int fd, const void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,write ) ( fd,buf,count );
+}
+
+int _real_rand(void) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,rand ) ( );
+}
+
+void _real_srand(unsigned int seed) {
+  REAL_FUNC_PASSTHROUGH_VOID ( srand ) ( seed );
+}
+
+time_t _real_time(time_t *tloc) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( time_t,time ) ( tloc );
+}
+
+int _real_dup(int oldfd) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,dup ) ( oldfd );
+}
+
+off_t _real_lseek(int fd, off_t offset, int whence) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd,offset,whence );
+}
+
+int _real_unlink(const char *pathname) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,unlink ) ( pathname );
+}
+
+ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd,buf,count,offset );
+}
+
+ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
+}
+
+
+sighandler_t _real_sigset(int sig, sighandler_t disp) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t,sigset) ( sig, disp );
+}
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
