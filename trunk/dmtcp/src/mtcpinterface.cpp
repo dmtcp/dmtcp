@@ -226,31 +226,33 @@ static void callbackRestoreVirtualPidTable ( )
 } 
 
 #ifdef PTRACE
-typedef pid_t ( *get_saved_pid_t) ( );
+// See comment above about initializeMtcpPtrace and how to remove all
+//   these typedef statements.  - Gene
+typedef pid_t (*get_saved_pid_t) ();
 get_saved_pid_t get_saved_pid_ptr = NULL;
 
-typedef int ( *get_saved_status_t) ( );
-get_saved_pid_t get_saved_status_ptr = NULL;
+typedef int (*get_saved_status_t) ();
+get_saved_status_t get_saved_status_ptr = NULL;
 
-typedef int ( *get_has_status_and_pid_t) ( );
+typedef int (*get_has_status_and_pid_t) ();
 get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL;
 
-typedef void ( *reset_pid_status_t) ( );
+typedef void (*reset_pid_status_t) ();
 reset_pid_status_t reset_pid_status_ptr = NULL;
 
-typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
+typedef void (*set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
 set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL;
 
-typedef int ( *get_is_waitpid_local_t ) ();
+typedef int (*get_is_waitpid_local_t) ();
 get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
 
-typedef int ( *get_is_ptrace_local_t ) ();
+typedef int (*get_is_ptrace_local_t) ();
 get_is_ptrace_local_t get_is_ptrace_local_ptr = NULL;
 
-typedef void ( *unset_is_waitpid_local_t ) ();
+typedef void (*unset_is_waitpid_local_t) ();
 unset_is_waitpid_local_t unset_is_waitpid_local_ptr = NULL;
 
-typedef void ( *unset_is_ptrace_local_t ) ();
+typedef void (*unset_is_ptrace_local_t) ();
 unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
 
 sigset_t signals_set;
@@ -298,32 +300,46 @@ void dmtcp::initializeMtcpEngine()
   else
     *dmtcp_info_restore_working_directory = 0;
 
-  t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+  t_mtcp_set_callbacks setCallbks =
+    (t_mtcp_set_callbacks)_get_mtcp_symbol ( "mtcp_set_callbacks" );
 
-  t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
-  t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
+  t_mtcp_init init = (t_mtcp_init)_get_mtcp_symbol ( "mtcp_init" );
+  t_mtcp_ok okFn = (t_mtcp_ok)_get_mtcp_symbol ( "mtcp_ok" );
 
 #ifdef PTRACE
+  // This ptrace code should be in a separate function,
+  //   extern "C" void initializeMtcpPtrace() { ... }
+  // Then you also get the benefit of implicit casts from "void *" to
+  //   other pointer, and you can then get rid of all these types XXX_t.
+  // - Gene
   sigemptyset (&signals_set);
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
+  set_singlestep_waited_on_ptr =
+    (set_singlestep_waited_on_t)_get_mtcp_symbol ( "set_singlestep_waited_on" );
 
-  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
+  get_is_waitpid_local_ptr =
+    (get_is_waitpid_local_t)_get_mtcp_symbol ( "get_is_waitpid_local" );
 
-  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" );
+  get_is_ptrace_local_ptr =
+    (get_is_ptrace_local_t)_get_mtcp_symbol ( "get_is_ptrace_local" );
 
-  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" );
+  unset_is_waitpid_local_ptr =
+    (unset_is_waitpid_local_t)_get_mtcp_symbol ( "unset_is_waitpid_local" );
 
-  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" );
+  unset_is_ptrace_local_ptr =
+    (unset_is_ptrace_local_t)_get_mtcp_symbol ( "unset_is_ptrace_local" );
 
-  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" );
+  get_saved_pid_ptr = (get_saved_pid_t)_get_mtcp_symbol ( "get_saved_pid" );
 
-  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" );
+  get_saved_status_ptr =
+    (get_saved_status_t)_get_mtcp_symbol ( "get_saved_status" );
 
-  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );
+  get_has_status_and_pid_ptr =
+    (get_has_status_and_pid_t)_get_mtcp_symbol ( "get_has_status_and_pid" );
 
-  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" );
+  reset_pid_status_ptr =
+    (reset_pid_status_t)_get_mtcp_symbol ( "reset_pid_status" );
 #endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
