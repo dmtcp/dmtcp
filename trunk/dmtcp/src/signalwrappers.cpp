@@ -26,9 +26,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "synchronizationlogging.h"
+#include "../jalib/jfilesystem.h"
+#endif
 
 #ifndef EXTERNC
 #define EXTERNC extern "C"
+#endif
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static dmtcp::map<int, sighandler_t> user_sig_handlers;
 #endif
 
 //gah!!! signals API is redundant
@@ -105,19 +113,117 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
   patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static void sig_handler_wrapper(int sig)
+{
+  /*void *return_addr = GET_RETURN_ADDRESS();
+if (!shouldSynchronize(return_addr)) {
+    kill(getpid(), SIGSEGV);
+    return (*user_sig_handlers[sig]) (sig);
+    }*/
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    JASSERT ( false ) .Text("don't want this");
+    return (*user_sig_handlers[sig]) (sig);
+  }
+  log_entry_t my_entry = create_signal_handler_entry(my_clone_id, signal_handler_event, sig);
+  log_entry_t my_return_entry = create_signal_handler_entry(my_clone_id, signal_handler_event_return, sig);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &signal_handler_turn_check);
+    getNextLogEntry();
+    // Call user's signal handler:
+    (*user_sig_handlers[sig]) (sig);
+    waitForTurn(my_return_entry, &signal_handler_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    // Call user's signal handler:
+    (*user_sig_handlers[sig]) (sig);
+    addNextLogEntry(my_return_entry);
+  }
+}
+#endif
 
 //set the handler
 EXTERNC sighandler_t signal(int signum, sighandler_t handler){
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if(signum == bannedSignalNumber()){
+    return SIG_IGN;
+  }
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || jalib::Filesystem::GetProgramName() == "gdb") {
+    // Don't use our wrapper for non-user signal() calls:
+    return _real_signal (signum, handler);
+  } else {
+    // We don't need to log and replay this call, we just need to note the user's
+    // signal handler so that our signal handler wrapper can call that function.
+    user_sig_handlers[signum] = handler;
+    return _real_signal( signum, sig_handler_wrapper );
+  }
+#else
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
   return _real_signal( signum, handler );
+#endif
 }
+
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+EXTERNC sighandler_t sigset(int sig, sighandler_t disp) {
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) ||
+      jalib::Filesystem::GetProgramName() == "gdb") {
+    // Don't use our wrapper for non-user signal() calls:
+    return _real_sigset (sig, disp);
+  } else {
+    // We don't need to log and replay this call, we just need to note the user's
+    // signal handler so that our signal handler wrapper can call that function.
+    user_sig_handlers[sig] = disp;
+    return _real_sigset( sig, sig_handler_wrapper );
+  }
+}
+#endif
+
 EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if(signum == bannedSignalNumber()){
+    act = NULL;
+  }
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (act != NULL && shouldSynchronize(return_addr) && 
+      jalib::Filesystem::GetProgramName() != "gdb") {
+    struct sigaction newact;
+    memset(&newact, 0, sizeof(struct sigaction));
+    if (act->sa_handler == SIG_DFL || act->sa_handler == SIG_IGN) {
+      // Remove it from our map.
+      user_sig_handlers.erase(signum);
+    } else {
+      // Save user's signal handler
+      if (act->sa_flags & SA_SIGINFO) {
+        JASSERT ( false ).Text("Unimplemented.");
+        //user_sig_handlers[signum] = act->sa_sigaction;
+        //newact.sa_sigaction = act->sa_sigaction;
+      } else {
+        user_sig_handlers[signum] = act->sa_handler;
+        newact.sa_handler = &sig_handler_wrapper;
+      }
+      // Create our own action with our own signal handler, but copy user's
+      // other fields.
+      newact.sa_mask = act->sa_mask;
+      newact.sa_flags = act->sa_flags;
+      newact.sa_restorer = act->sa_restorer;
+    }
+    return _real_sigaction( signum, &newact, oldact);
+  } else {
+    return _real_sigaction( signum, act, oldact);
+  }
+#else
   if(signum == bannedSignalNumber()){
     act = NULL;
   }
   return _real_sigaction( signum, act, oldact);
+#endif
 }
 EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   return sigaction (signum, act, oldact);
@@ -217,6 +323,44 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
  *                                                          -- Kapil
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig) {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if (set != NULL) {
+    sigset_t tmp = patchPOSIXMask(set);
+    set = &tmp;
+  }
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_sigwait(set, sig);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_sigwait(set, sig);
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_sigwait_entry(my_clone_id, sigwait_event,
+      (unsigned long int)set, (unsigned long int)sig);
+  log_entry_t my_return_entry = create_sigwait_entry(my_clone_id, sigwait_event_return,
+      (unsigned long int)set, (unsigned long int)sig);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &sigwait_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &sigwait_turn_check);
+    // Report what signal woke the sigwait up on record:
+    *sig = GET_FIELD(currentLogEntry, sigwait, sig);
+    retval = GET_COMMON(currentLogEntry,retval);
+    if (retval != 0) errno = GET_COMMON(currentLogEntry,my_errno);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_sigwait(set, sig);
+    // Record which signal woke this call up:
+    SET_FIELD2(my_return_entry, sigwait, sig, *sig);
+    SET_COMMON(my_return_entry, retval);
+    if (retval != 0) SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+#else
   if (set != NULL) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
@@ -225,6 +369,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
   int ret = _real_sigwait( set, sig );
 
   return ret;
+#endif
 }
 
 /* 

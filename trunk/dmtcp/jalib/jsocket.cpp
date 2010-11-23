@@ -44,6 +44,9 @@
 #  define DECORATE_FN(fn) ::_real_ ## fn
 #endif
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#define select _real_select
+#endif
 
 const jalib::JSockAddr jalib::JSockAddr::ANY ( NULL );
 

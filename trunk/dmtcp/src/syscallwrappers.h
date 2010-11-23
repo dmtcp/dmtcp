@@ -43,6 +43,10 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
 #ifdef __cplusplus
 extern "C"
@@ -82,6 +86,7 @@ extern "C"
   MACRO(calloc)                             \
   MACRO(malloc)                             \
   MACRO(free)                               \
+  MACRO(__libc_memalign)                    \
   MACRO(realloc)
 #else
 # define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
@@ -92,6 +97,69 @@ extern "C"
   MACRO(ptrace)
 #else
 # define GLIBC_PTRACE_WRAPPERS(MACRO)
+#endif
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+# define GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)\
+  MACRO(access)                               \
+  MACRO(select)                               \
+  MACRO(read)                                 \
+  MACRO(readdir)                              \
+  MACRO(readdir_r)                            \
+  MACRO(readlink)                             \
+  MACRO(write)                                \
+  MACRO(rand)                                 \
+  MACRO(srand)                                \
+  MACRO(time)                                 \
+  MACRO(mmap)                                 \
+  MACRO(getsockname)                          \
+  MACRO(getpeername)                          \
+  MACRO(fcntl)                                \
+  MACRO(dup)                                  \
+  MACRO(lseek)                                \
+  MACRO(__fxstat)                             \
+  MACRO(__fxstat64)                           \
+  MACRO(unlink)                               \
+  MACRO(pread)                                \
+  MACRO(pwrite)                               \
+  MACRO(sigset)                               \
+  MACRO(fdopen)                               \
+  MACRO(fgets)                                \
+  MACRO(putc)                                 \
+  MACRO(fputs)                                \
+  MACRO(fdatasync)                            \
+  MACRO(fsync)                                \
+  MACRO(link)                                 \
+  MACRO(getc)                                 \
+  MACRO(getline)                              \
+  MACRO(rename)                               \
+  MACRO(rewind)                               \
+  MACRO(rmdir)                                \
+  MACRO(ftell)                                \
+  MACRO(fwrite)                               \
+  MACRO(mkdir)                                \
+  MACRO(mkstemp)
+
+#define FOREACH_PTHREAD_FUNC_WRAPPER(MACRO)     \
+  MACRO(pthread_cond_wait)			\
+  MACRO(pthread_cond_timedwait)			\
+  MACRO(pthread_cond_signal)			\
+  MACRO(pthread_cond_broadcast)			\
+  MACRO(pthread_create)                         \
+  MACRO(pthread_detach)                         \
+  MACRO(pthread_exit)                           \
+  MACRO(pthread_join)                           \
+  MACRO(pthread_kill)                           \
+  MACRO(pthread_sigmask)                        \
+  MACRO(pthread_mutex_lock)			\
+  MACRO(pthread_mutex_trylock)			\
+  MACRO(pthread_mutex_unlock)			\
+  MACRO(pthread_rwlock_unlock)                  \
+  MACRO(pthread_rwlock_rdlock)                  \
+  MACRO(pthread_rwlock_wrlock)
+#else
+# define GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)
+# define PTHREAD_SYNCHRONIZATION_WRAPPERS(MACRO)
 #endif 
 
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
@@ -186,7 +254,8 @@ extern "C"
   GLIBC_ACCEPT4_WRAPPER(MACRO)              \
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)       \
-  GLIBC_PTRACE_WRAPPERS(MACRO)
+  GLIBC_PTRACE_WRAPPERS(MACRO)              \
+  GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)
 
 
 # define ENUM(x) enum_ ## x
@@ -203,12 +272,22 @@ extern "C"
 
   int _dmtcp_unsetenv(const char *name);
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  typedef enum {
+    FOREACH_PTHREAD_FUNC_WRAPPER(GEN_ENUM)
+    numLibPthreadWrappers
+  } LibPthreadWrapperOffset;
+#endif
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
   int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+  int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+#endif
   int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                          socklen_t optlen );
 
@@ -232,7 +311,7 @@ extern "C"
   void _real_exit ( int status );
 
 //we no longer wrap dup
-#define _real_dup  dup
+//#define _real_dup  dup
 #define _real_dup2 dup2
 //int _real_dup(int oldfd);
 //int _real_dup2(int oldfd, int newfd);
@@ -311,6 +390,35 @@ extern "C"
 
 #endif /* PID_VIRTUALIZATION */
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  int _real_mkdir(const char *pathname, mode_t mode);
+  int _real_mkstemp(char *temp);
+  FILE * _real_fdopen(int fd, const char *mode);
+  char * _real_fgets(char *s, int size, FILE *stream);
+  ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream);
+  int _real_getc(FILE *stream);
+  int _real_putc(int c, FILE *stream);
+  int _real_fclose(FILE *fp);
+  int _real_fcntl(int fd, int cmd, ...);
+  int _real_fdatasync(int fd);
+  int _real_fsync(int fd);
+  int _real_fputs(const char *s, FILE *stream);
+//int _real_fcntl(int fd, int cmd, long arg_3);
+//int _real_fcntl(int fd, int cmd, struct flock *arg_3);
+  int _real_fxstat(int vers, int fd, struct stat *buf);
+  int _real_fxstat64(int vers, int fd, struct stat64 *buf);
+  int _real_link(const char *oldpath, const char *newpath);
+  int _real_rename(const char *oldpath, const char *newpath);
+  void _real_rewind(FILE *stream);
+  int _real_rmdir(const char *pathname);
+  long _real_ftell(FILE *stream);
+  size_t _real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+#endif
+  int _real_xstat(int vers, const char *path, struct stat *buf);
+  int _real_xstat64(int vers, const char *path, struct stat64 *buf);
+  int _real_lxstat(int vers, const char *path, struct stat *buf);
+  int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
+
 #ifdef PTRACE
   void * _real_dlsym ( void *handle, const char *symbol );
   long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
@@ -328,8 +436,46 @@ extern "C"
   void *_real_malloc(size_t size);
   void  _real_free(void *ptr);
   void *_real_realloc(void *ptr, size_t size);
+  void *_real_libc_memalign(size_t boundary, size_t size);
 
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
+#endif
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY  
+  int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
+  int _real_pthread_mutex_trylock(pthread_mutex_t *mutex);
+  int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
+  int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_cond_signal(pthread_cond_t *cond);
+  int _real_pthread_cond_broadcast(pthread_cond_t *cond);
+  int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+  int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+      const struct timespec *abstime);
+  int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+      void *(*start_routine)(void*), void *arg);
+  void _real_pthread_exit(void *value_ptr);
+  int _real_pthread_detach(pthread_t thread);
+  int _real_pthread_join(pthread_t thread, void **value_ptr);
+  int _real_pthread_kill(pthread_t thread, int sig);
+  int _real_access(const char *pathname, int mode);
+  int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
+      fd_set *exceptfds, struct timeval *timeout);
+  int _real_read(int fd, void *buf, size_t count);
+  struct dirent *_real_readdir(DIR *dirp);
+  int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result);
+  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+  ssize_t        _real_write(int fd, const void *buf, size_t count);
+  int _real_rand(void);
+  void _real_srand(unsigned int seed);
+  time_t _real_time(time_t *tloc);
+  int _real_dup(int oldfd);
+  off_t _real_lseek(int fd, off_t offset, int whence);
+  int _real_unlink(const char *pathname);
+  ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset);
+  ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset);
+  sighandler_t _real_sigset(int sig, sighandler_t disp);
 #endif
 
 #ifdef __cplusplus

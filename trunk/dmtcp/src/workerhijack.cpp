@@ -22,6 +22,10 @@
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "dmtcpmessagetypes.h"
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "synchronizationlogging.h"
+#include "syscallwrappers.h"
+#endif
 
 // Initializing variable, theInstance, to an object of type DmtcpWorker,
 //   with DmtcpWorker constructor called with arg, enableCheckpointing = true
@@ -30,6 +34,22 @@ dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  // This is called only on fork() by the new child process. We reset the
+  // global clone counter for this process, assign the first thread (this one)
+  // clone_id 1, and increment the counter.
+  _real_pthread_mutex_lock(&global_clone_counter_mutex);
+  JTRACE ( "resetting global counter in new process." );
+  global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
+  my_clone_id = global_clone_counter;
+  global_clone_counter++;
+  _real_pthread_mutex_unlock(&global_clone_counter_mutex);
+
+  // Perform other initialization for sync log/replay specific to this process.
+  recordDataStackLocations();
+  initializeLog();
+#endif
+
   theInstance.cleanupWorker();
   shutdownMtcpEngineOnFork();
 

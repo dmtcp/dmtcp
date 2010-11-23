@@ -37,6 +37,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#define read _real_read
+#endif
+
 static dmtcp::string _procFDPath ( int fd )
 {
   return "/proc/self/fd/" + jalib::XToString ( fd );

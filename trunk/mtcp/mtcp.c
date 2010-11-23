@@ -1028,9 +1028,9 @@ static int threadcloned (void *threadv)
 
   if (threadenabledefault) mtcp_ok ();
 
-#ifdef PTRACE
-  init_thread_local();
-#endif
+//#ifdef PTRACE
+//  init_thread_local();
+//#endif
 
   /* Call the user's function for whatever processing they want done */
 

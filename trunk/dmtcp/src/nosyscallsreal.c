@@ -74,10 +74,6 @@
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
-
-void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
-
 #define REAL_FUNC_PASSTHROUGH(name) return name
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) REAL_FUNC_PASSTHROUGH(name)
@@ -86,6 +82,17 @@ void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
 
 // No return statement for functions returning void:
 #define REAL_FUNC_PASSTHROUGH_VOID(name) name
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) return name
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) name
+void _dmtcp_lock() { REAL_FUNC_PASSTHROUGH_VOID ( pthread_mutex_lock ) ( &theMutex ); }
+void _dmtcp_unlock() { REAL_FUNC_PASSTHROUGH_VOID ( pthread_mutex_unlock ) ( &theMutex ); }
+#else
+void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
+void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
+#endif
+
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
@@ -313,4 +320,94 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
   REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
+}
 
+int _real_pthread_mutex_trylock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_trylock ) ( mutex );
+}
+
+int _real_pthread_mutex_unlock(pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_unlock ) ( mutex );
+}
+
+int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_unlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_rdlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+int _real_pthread_cond_signal(pthread_cond_t *cond) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_signal ) ( cond );
+}
+
+int _real_pthread_cond_broadcast(pthread_cond_t *cond) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_broadcast ) ( cond );
+}
+
+int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_wait ) ( cond,mutex );
+}
+
+int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+    void *(*start_routine)(void*), void *arg) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
+    (thread,attr,start_routine,arg);
+}
+
+void _real_pthread_exit(void *value_ptr) {
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) ( value_ptr );
+}
+
+int _real_pthread_detach(pthread_t thread)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_detach ) ( thread );
+}
+
+int _real_pthread_join(pthread_t thread, void **value_ptr)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_join )
+    ( thread, value_ptr );
+}
+
+int _real_pthread_kill(pthread_t thread, int sig)
+{
+  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_kill )
+    ( thread, sig );
+}
+
+int _real_access(const char *pathname, int mode)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,access ) ( pathname,mode );
+}
+
+int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
+    fd_set *exceptfds, struct timeval *timeout) {
+  REAL_FUNC_PASSTHROUGH ( select ) ( nfds,readfds,writefds,exceptfds,timeout );
+}
+
+int _real_read(int fd, void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH ( read ) ( fd,buf,count );
+}
+
+ssize_t _real_write(int fd, const void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH ( write ) ( fd,buf,count );
+}
+
+ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd,buf,count,offset );
+}
+
+ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
+}
+
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
