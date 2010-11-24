@@ -31,9 +31,11 @@
    for the time being: not a concern
    when this works, then kleptocracy
 */
-//#define SYNCHRONIZATION_LOG_AND_REPLAY
-//#define URDB
-//#define ENABLE_MALLOC_WRAPPER
+#if 0
+#define SYNCHRONIZATION_LOG_AND_REPLAY
+#define URDB
+#define ENABLE_MALLOC_WRAPPER
+#endif
 
 #ifdef PTRACE
 # define LIBTHREAD_DB "libthread_db.so.1"
@@ -90,8 +92,15 @@
 #define ENV_VAR_LIBC_FUNC_OFFSETS "DMTCP_LIBC_FUNC_OFFSETS"
 
 #define GLIBC_BASE_FUNC isalnum
+
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-#define LIBPTHREAD_BASE_FUNC pthread_barrier_destroy
+# define ENV_VAR_LIBPTHREAD_FUNC_OFFSETS "DMTCP_LIBPTHREAD_FUNC_OFFSETS"
+# define LIBPTHREAD_BASE_FUNC pthread_barrier_destroy
+# define ENV_VAR_LOG_REPLAY "DMTCP_LOG_REPLAY"
+# define ENV_SYNC_LOG \
+    , ENV_VAR_LOG_REPLAY
+#else
+# define ENV_SYNC_LOG
 #endif
 
 #ifdef PTRACE
@@ -121,6 +130,7 @@
     ENV_VAR_SIGCKPT,\
     ENV_VAR_ROOT_PROCESS,\
     ENV_VAR_LIBC_FUNC_OFFSETS \
+    ENV_SYNC_LOG \
     ENV_PTRACE
 
 

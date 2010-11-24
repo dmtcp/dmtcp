@@ -54,7 +54,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	synchronizationlogging.cpp pthreadwrappers.cpp
+	synchronizationlogging.cpp pthreadwrappers.cpp filewrappers.cpp \
+	mallocwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
