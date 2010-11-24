@@ -51,9 +51,9 @@
 #include "synchronizationlogging.h"
 #endif
 
-//#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-//static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-//#endif
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
+#endif
 
 namespace
 {
