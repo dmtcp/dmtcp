@@ -1341,8 +1341,15 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
     }else if(argc == 1){ //last arg can be port
-      thePort = jalib::StringToInt( argv[0] );
-      shift;
+      char *endptr;
+      long x = strtol(argv[0], &endptr, 10);
+      if (strlen(argv[0]) != endptr - argv[0]) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      } else {
+        thePort = jalib::StringToInt( argv[0] );
+        shift;
+      }
     }else{
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;
