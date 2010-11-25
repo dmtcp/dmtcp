@@ -3396,7 +3396,7 @@ static void restore_heap()
     size_t oldsize = mtcp_saved_break - saved_heap_start;
     size_t newsize = current_break - saved_heap_start;
 
-    void* addr = mremap (saved_heap_start, oldsize, newsize, 0);
+    void* addr = mtcp_sys_mremap (saved_heap_start, oldsize, newsize, 0);
     if (addr == NULL) {
       mtcp_printf("mtcp finishrestore: mremap failed to map area between "
                   "mtcp_saved_break (%p) and current_break (%p)\n",
