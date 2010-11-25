@@ -216,6 +216,31 @@ void ptrace_remove_notexisted()
   DPRINTF((">>>>>>>>>>> done ptrace_remove_notexisted %d\n", GETTID()));
 }
 
+void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
+{
+  if (getsid(inferior) == getsid(superior)) {
+    char tty_name[80];
+    if (mtcp_get_controlling_term(tty_name, 80) == -1) {
+      mtcp_printf("ptrace_set_controlling_term: unable to find controlling term\n");
+      mtcp_abort();
+    }
+
+    int fd = open(tty_name, O_RDONLY);
+    if (fd < 0) {
+      mtcp_printf("ptrace_set_controlling_term: error %s opening controlling term: %s\n",
+                  strerror(errno), tty_name);
+      mtcp_abort();
+    }
+
+    if (tcsetpgrp(fd, inferior) == -1) {
+      mtcp_printf("ptrace_set_controlling_term: tcsetpgrp failed, tty:%s %s\n\n\n\n\n\n",
+                  tty_name, strerror(errno));
+      mtcp_abort();
+    }
+    close(fd);
+  }
+}
+
 void ptrace_attach_threads(int isRestart)
 {
   pid_t superior;
@@ -360,17 +385,12 @@ void ptrace_attach_threads(int isRestart)
               }
             }
             else if (inferior_st != 'T' ) {
-/*
-TODO: remove in future as GROUP restore becames stable
-- Artem              
-              if (getsid(inferior) == getsid(superior)) {
-                if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-                {
-                         perror("ptrace_attach_threads: tcsetpgrp failed");
-                         mtcp_abort();
-                }
-              }
-*/
+              /* 
+               * TODO: remove in future as GROUP restore becames stable
+               *                                                    - Artem              
+               */
+              //ptrace_set_controlling_term(superior, inferior);
+
               is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -380,13 +400,7 @@ TODO: remove in future as GROUP restore becames stable
           } else {
             if (inferior_st != 'T')
             {
-              if (getsid(inferior) == getsid(superior)) {
-                if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-                {
-                         perror("ptrace_attach_threads: tcsetpgrp failed");
-                         mtcp_abort();
-                }
-              }
+              ptrace_set_controlling_term(superior, inferior);
               is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -447,13 +461,7 @@ TODO: remove in future as GROUP restore becames stable
                 mtcp_abort();
               }
             } else if (inferior_st != 'T') {
-              if (getsid(inferior) == getsid(superior)) {
-                if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-                {
-                         perror("ptrace_attach_threads: tcsetpgrp failed");
-                         mtcp_abort();
-                }
-              }
+              ptrace_set_controlling_term(superior, inferior);
               is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -462,13 +470,7 @@ TODO: remove in future as GROUP restore becames stable
             }
           } else {
             if (inferior_st != 'T') {
-              if (getsid(inferior) == getsid(superior)) {
-                 if ( tcsetpgrp(STDIN_FILENO, inferior) == -1)
-                 {
-                         perror("ptrace_attach_threads: tcsetpgrp failed");
-                         mtcp_abort();
-                 }
-              }
+              ptrace_set_controlling_term(superior, inferior);
               is_ptrace_local = 1;
               if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 perror("ptrace_attach_threads: PTRACE_CONT failed");

@@ -155,3 +155,49 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
   }
   return num_read;
 }
+
+// Return Value
+// 0 : Succeeded
+// -1: Failed
+int mtcp_get_controlling_term(char* ttyName, int len)
+{
+  char sbuf[1024];
+  char *tmp;
+  char *S;
+  char state;
+  int ppid, pgrp, session, tty, tpgid;
+
+  int fd, num_read;
+
+  if (len < strlen("/dev/pts/123456780"))
+    return -1;
+  ttyName[0] = '\0';
+
+  fd = open("/proc/self/stat", O_RDONLY, 0);
+  if (fd == -1) return -1;
+
+  num_read = read(fd, sbuf, sizeof sbuf - 1);
+  close(fd);
+  if(num_read<=0) return -1;
+  sbuf[num_read] = '\0';
+
+  S = strchr(sbuf, '(') + 1;
+  tmp = strrchr(S, ')');
+  S = tmp + 2;                 // skip ") "
+
+  sscanf(S,
+      "%c "
+      "%d %d %d %d %d ",
+      &state,
+      &ppid, &pgrp, &session, &tty, &tpgid
+      );
+
+  int maj =  ((unsigned)(tty)>>8u) & 0xfffu;
+  int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
+
+  /* /dev/pts/ * has major numbers in the range 136 - 143 */
+  if ( maj >= 136 && maj <= 143) 
+    sprintf(ttyName, "/dev/pts/%d", min+(maj-136)*256);
+
+  return 0;
+}
