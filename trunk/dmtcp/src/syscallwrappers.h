@@ -275,7 +275,7 @@ extern "C"
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   typedef enum {
     FOREACH_PTHREAD_FUNC_WRAPPER(GEN_ENUM)
-    numLibPthreadWrappers
+    numLibpthreadWrappers
   } LibPthreadWrapperOffset;
 #endif
   int _real_socket ( int domain, int type, int protocol );

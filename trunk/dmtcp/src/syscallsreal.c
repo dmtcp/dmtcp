@@ -54,7 +54,7 @@ typedef funcptr ( *signal_funcptr ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-static int libpthreadFuncOffsetArray[numLibPthreadWrappers];
+static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
 #endif
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -226,44 +226,35 @@ static funcptr get_libpthread_symbol ( const char* name )
 }
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static void computeLibpthreadOffsetArray ()
+{
+  char *libpthreadFuncOffsetStr = getenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
+  char *start;
+  char *next;
+  int count;
+  
+  assert(libpthreadFuncOffsetStr != NULL);
+
+  start = libpthreadFuncOffsetStr;
+  for (count = 0; count < numLibpthreadWrappers; count++) {
+    libpthreadFuncOffsetArray[count] = strtol(start, &next, 10);
+    if (*next != ';') break;
+    start = next + 1;
+  }
+  if (*start != '\0') count++;
+  
+  assert(count == numLibpthreadWrappers);
+}
+
 static funcptr get_libpthread_symbol_from_array ( LibPthreadWrapperOffset off )
 {
+  static int libpthreadOffsetArrayComputed = 0;
   static char *libpthread_base_function_addr = NULL;
-  if ( libpthread_base_function_addr == NULL ) {
-    char* libpthreadFuncOffsetStr = getenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
-    char *start;
-    char *next;
-    int count, i;
-
-    libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
-    if (libpthreadFuncOffsetStr == NULL) {
-      fprintf ( stderr, "dmtcp: env var %s not set.\n",
-                        ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
-      abort();
-    }
-
-    start = libpthreadFuncOffsetStr;
-    count = 0;
-    while (*start != '\0') {
-      if (*start == ';') count++;
-      start++;
-    }
-    if (count != numLibPthreadWrappers) {
-      fprintf ( stderr, "dmtcp: mismatch in number of libpthread wrappers.\n"
-                        "       found: %d, expected: %d\n"
-                        "       env var %s: %s\n",
-                        count, (int) numLibPthreadWrappers,
-                        ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, libpthreadFuncOffsetStr );
-      abort();
-    }
-
-    start = libpthreadFuncOffsetStr;
-    for (i = 0; i < numLibPthreadWrappers; i++) {
-      libpthreadFuncOffsetArray[i] = strtol(start, &next, 16);
-      start = next + 1;
-    }
+  if (libpthreadOffsetArrayComputed == 0) {
+    computeLibpthreadOffsetArray();
+    libpthread_base_function_addr = (char *)&LIBPTHREAD_BASE_FUNC;
+    libpthreadOffsetArrayComputed = 1;
   }
-
   return (funcptr)((char*)libpthread_base_function_addr + libpthreadFuncOffsetArray[off]);
 }
 #endif //SYNCHRONIZATION_LOG_AND_REPLAY

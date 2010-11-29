@@ -179,7 +179,7 @@ static void prepareDmtcpWrappers()
 
   setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  unsigned int wrapperOffsetArrayPthread[numLibPthreadWrappers];
+  long wrapperOffsetArrayPthread[numLibpthreadWrappers];
   char *libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
 
 # define _GET_OFFSET_LIBPTHREAD(x) \
@@ -188,8 +188,8 @@ static void prepareDmtcpWrappers()
   FOREACH_PTHREAD_FUNC_WRAPPER(_GET_OFFSET_LIBPTHREAD);
 
   dmtcp::ostringstream os_pthread;
-  for (int i = 0; i < numLibPthreadWrappers; i++) {
-    os_pthread << std::hex << wrapperOffsetArrayPthread[i] << ";";
+  for (int i = 0; i < numLibpthreadWrappers; i++) {
+    os_pthread << wrapperOffsetArrayPthread[i] << ";";
   }
 
   setenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, os_pthread.str().c_str(), 1);
