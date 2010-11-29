@@ -60,9 +60,6 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _inferiorVector.clear();
   _pidMapTable.clear();
   _pidMapTable[_pid] = _pid;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  _detachedVector.clear();
-#endif
   _do_unlock_tbl();
 }
 
@@ -184,9 +181,6 @@ void dmtcp::VirtualPidTable::resetOnFork()
   //_pidMapTable[_pid] = _pid;
   JTRACE("current original to current mappings:") (_pidMapTable.size());
   printPidMaps();
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  _detachedVector.clear();
-#endif
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
@@ -265,46 +259,6 @@ void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid 
   _pidMapTable[originalPid] = currentPid;
   _do_unlock_tbl();
 }
-
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-void dmtcp::VirtualPidTable::insertDetachedTid( pid_t tid )
-{
-  _do_lock_tbl();
-  _detachedVector.push_back ( tid );
-  _do_unlock_tbl();
-}
-
-void dmtcp::VirtualPidTable::eraseDetachedTid( pid_t tid )
-{
-  _do_lock_tbl();
-  dmtcp::vector< pid_t >::iterator iter = _detachedVector.begin();
-  while ( iter != _detachedVector.end() ) {
-    if ( *iter == tid ) {
-      _detachedVector.erase( iter );
-    }
-    else
-      ++iter;
-  }
-  _do_unlock_tbl();
-  return;
-}
-
-int dmtcp::VirtualPidTable::isDetachedTid( pid_t tid )
-{
-  _do_lock_tbl();
-  dmtcp::vector< pid_t >::iterator iter = _detachedVector.begin();
-  while ( iter != _detachedVector.end() ) {
-    if ( *iter == tid ) {
-      _do_unlock_tbl();
-      return 1;
-    }
-    else
-      ++iter;
-  }
-  _do_unlock_tbl();
-  return 0;
-}
-#endif
 
 dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
 {

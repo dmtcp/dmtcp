@@ -211,8 +211,8 @@ static void teardownThreadStack(void *stack_addr, size_t stack_size)
    attributes. Returns the modified attributes. */
 static void disableDetachState(pthread_attr_t *attr)
 {
-  // The opposite and only alternative to pthread_CREATE_DETACHED is
-  // pthread_CREATE_JOINABLE.
+  // The opposite and only alternative to PTHREAD_CREATE_DETACHED is
+  // PTHREAD_CREATE_JOINABLE.
   pthread_attr_setdetachstate(attr, PTHREAD_CREATE_JOINABLE);
 }
 
@@ -662,7 +662,6 @@ static void reapThread()
   join_retval.value_ptr = value_ptr;
   pthread_join_retvals[thread_to_reap] = join_retval;
   teardownThreadStack(stack_addr, stack_size);
-  dmtcp::VirtualPidTable::instance().eraseDetachedTid(thread_to_reap);
   delete_thread_fnc ( thread_to_reap );
   RELEASE_THREAD_CREATE_DESTROY_LOCK(); // End of thread destruction.
 }
@@ -775,14 +774,12 @@ extern "C" int pthread_detach(pthread_t thread)
     waitForTurn(my_entry, &pthread_detach_turn_check);
     getNextLogEntry();
     retval = 0;
-    dmtcp::VirtualPidTable::instance().insertDetachedTid(thread);
     waitForTurn(my_return_entry, &pthread_detach_turn_check);
     getNextLogEntry();
   } else  if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = 0;
-    dmtcp::VirtualPidTable::instance().insertDetachedTid(thread);
     addNextLogEntry(my_return_entry);
   }
   return retval;
