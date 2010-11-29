@@ -758,13 +758,11 @@ int main ( int argc, char** argv )
     if (dmtcp::Util::strStartsWith(restorename, "ckpt_") &&
         dmtcp::Util::strEndsWith(restorename, "_files")) {
       continue;
-#ifndef URDB
     } else if (!dmtcp::Util::strEndsWith(restorename, ".dmtcp")) {
       JNOTE("File doesn't have .dmtcp extension. Check Usage.")
         (restorename);
       JASSERT_STDERR << theUsage;
       doAbort = true;
-#endif
     } else if (rc == -1) {
       char error_msg[1024];
       sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());

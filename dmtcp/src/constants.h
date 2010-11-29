@@ -33,7 +33,6 @@
 */
 #if 0
 #define SYNCHRONIZATION_LOG_AND_REPLAY
-#define URDB
 #define ENABLE_MALLOC_WRAPPER
 #endif
 
