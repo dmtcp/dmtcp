@@ -1023,11 +1023,11 @@ log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
 }
 
 log_entry_t create_access_entry(int clone_id, int event,
-   unsigned long int pathname, int mode)
+   const char *pathname, int mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, access, pathname);
+  SET_FIELD2(e, access, pathname, (unsigned long int)pathname);
   SET_FIELD(e, access, mode);
   return e;
 }
@@ -1213,24 +1213,24 @@ log_entry_t create_fsync_entry(int clone_id, int event, int fd)
 }
 
 log_entry_t create_fxstat_entry(int clone_id, int event, int vers, int fd,
-     struct stat buf)
+     struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, fxstat, vers);
   SET_FIELD(e, fxstat, fd);
-  SET_FIELD(e, fxstat, buf);
+  memset(&GET_FIELD(e, fxstat, buf), '\0', sizeof(struct stat));
   return e;
 }
 
 log_entry_t create_fxstat64_entry(int clone_id, int event, int vers, int fd,
-     struct stat64 buf)
+     struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, fxstat64, vers);
   SET_FIELD(e, fxstat64, fd);
-  SET_FIELD(e, fxstat64, buf);
+  memset(&GET_FIELD(e, fxstat64, buf), '\0', sizeof(struct stat64));
   return e;
 }
 
@@ -1316,24 +1316,24 @@ log_entry_t create_listen_entry(int clone_id, int event, int sockfd, int backlog
 }
 
 log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat buf)
+    const char *path, struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, lxstat, vers);
-  SET_FIELD(e, lxstat, path);
-  SET_FIELD(e, lxstat, buf);
+  SET_FIELD2(e, lxstat, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, lxstat, buf), '\0', sizeof(struct stat));
   return e;
 }
 
 log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat64 buf)
+    const char *path, struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, lxstat64, vers);
-  SET_FIELD(e, lxstat64, path);
-  SET_FIELD(e, lxstat64, buf);
+  SET_FIELD2(e, lxstat64, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, lxstat64, buf), '\0', sizeof(struct stat64));
   return e;
 }
 
@@ -1363,12 +1363,12 @@ log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp)
   return e;
 }
 
-log_entry_t create_open_entry(int clone_id, int event, unsigned long int path,
+log_entry_t create_open_entry(int clone_id, int event, const char *path,
    int flags, mode_t open_mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, open, path);
+  SET_FIELD2(e, open, path, (unsigned long int)path);
   SET_FIELD(e, open, flags);
   SET_FIELD(e, open, open_mode);
   return e;
@@ -1633,23 +1633,18 @@ log_entry_t create_rmdir_entry(int clone_id, int event, const char *pathname)
 }
 
 log_entry_t create_select_entry(int clone_id, int event, int nfds,
-    fd_set *readfds, fd_set *writefds,
-    unsigned long int exceptfds, unsigned long int timeout)
+    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+    struct timeval *timeout)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, select, nfds);
   // We have to do something special for 'readfds' and 'writefds' since we
   // do a deep copy.
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-  copyFdSet(readfds, &e.readfds);
-  copyFdSet(writefds, &e.writefds);
-#else
-  copyFdSet(readfds, &e.log_event_t.log_event_select.readfds);
-  copyFdSet(writefds, &e.log_event_t.log_event_select.writefds);
-#endif
-  SET_FIELD(e, select, exceptfds);
-  SET_FIELD(e, select, timeout);
+  copyFdSet(readfds, &GET_FIELD(e, select, readfds));
+  copyFdSet(writefds, &GET_FIELD(e, select, writefds));
+  SET_FIELD2(e, select, exceptfds, (unsigned long int)exceptfds);
+  SET_FIELD2(e, select, timeout, (unsigned long int)timeout);
   return e;
 }
 
@@ -1703,24 +1698,24 @@ log_entry_t create_socket_entry(int clone_id, int event, int domain, int type,
 }
 
 log_entry_t create_xstat_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat buf)
+    const char *path, struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, xstat, vers);
-  SET_FIELD(e, xstat, path);
-  //SET_FIELD(e, xstat, buf);
+  SET_FIELD2(e, xstat, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, xstat, buf), '\0', sizeof(struct stat));
   return e;
 }
 
 log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat64 buf)
+    const char *path, struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, xstat64, vers);
-  SET_FIELD(e, xstat64, path);
-  SET_FIELD(e, xstat64, buf);
+  SET_FIELD2(e, xstat64, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, xstat64, buf), '\0', sizeof(struct stat64));
   return e;
 }
 

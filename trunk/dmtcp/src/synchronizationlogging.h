@@ -1165,7 +1165,6 @@ LIB_PRIVATE extern char            log[MAX_LOG_LENGTH];
 #define LOG_ENTRY_SIZE sizeof(char)
 #endif
 LIB_PRIVATE extern pthread_cond_t  reap_cv;
-LIB_PRIVATE extern pthread_mutex_t fd_change_mutex;
 LIB_PRIVATE extern pthread_mutex_t global_clone_counter_mutex;
 LIB_PRIVATE extern pthread_mutex_t log_index_mutex;
 LIB_PRIVATE extern pthread_mutex_t reap_mutex;
@@ -1211,7 +1210,7 @@ LIB_PRIVATE void   writeLogsToDisk();
 LIB_PRIVATE log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
     unsigned long int sockaddr, unsigned long int addrlen);
 LIB_PRIVATE log_entry_t create_access_entry(int clone_id, int event,
-    unsigned long int pathname, int mode);
+    const char *pathname, int mode);
 LIB_PRIVATE log_entry_t create_bind_entry(int clone_id, int event,
     int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
 LIB_PRIVATE log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
@@ -1246,9 +1245,9 @@ LIB_PRIVATE log_entry_t create_ftell_entry(int clone_id, int event,
 LIB_PRIVATE log_entry_t create_fwrite_entry(int clone_id, int event,
     const void *ptr, size_t size, size_t nmemb, FILE *stream);
 LIB_PRIVATE log_entry_t create_fxstat_entry(int clone_id, int event, int vers,
-    int fd, struct stat buf);
+    int fd, struct stat *buf);
 LIB_PRIVATE log_entry_t create_fxstat64_entry(int clone_id, int event, int vers,
-    int fd, struct stat64 buf);
+    int fd, struct stat64 *buf);
 LIB_PRIVATE log_entry_t create_getc_entry(int clone_id, int event, FILE *stream);
 LIB_PRIVATE log_entry_t create_getline_entry(int clone_id, int event,
     char **lineptr, size_t *n, FILE *stream);
@@ -1265,15 +1264,15 @@ LIB_PRIVATE log_entry_t create_listen_entry(int clone_id, int event,
 LIB_PRIVATE log_entry_t create_lseek_entry(int clone_id, int event, int fd,
     off_t offset, int whence);
 LIB_PRIVATE log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat buf);
+    const char *path, struct stat *buf);
 LIB_PRIVATE log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat64 buf);
+    const char *path, struct stat64 *buf);
 LIB_PRIVATE log_entry_t create_malloc_entry(int clone_id, int event, size_t size);
 LIB_PRIVATE log_entry_t create_mkdir_entry(int clone_id, int event,
     const char *pathname, mode_t mode);
 LIB_PRIVATE log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp);
-LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event, unsigned long int path,
-  int flags, mode_t mode);
+LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event,
+    const char *path, int flags, mode_t mode);
 LIB_PRIVATE log_entry_t create_pread_entry(int clone_id, int event, int fd,
     unsigned long int buf, size_t count, off_t offset);
 LIB_PRIVATE log_entry_t create_putc_entry(int clone_id, int event, int c,
@@ -1329,8 +1328,8 @@ LIB_PRIVATE log_entry_t create_rewind_entry(int clone_id, int event,
 LIB_PRIVATE log_entry_t create_rmdir_entry(int clone_id, int event,
     const char *pathname);
 LIB_PRIVATE log_entry_t create_select_entry(int clone_id, int event, int nfds,
-    fd_set *readfds, fd_set *writefds, unsigned long int exceptfds,
-    unsigned long int timeout);
+    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+    struct timeval *timeout);
 LIB_PRIVATE log_entry_t create_setsockopt_entry(int clone_id, int event,
     int sockfd, int level, int optname, unsigned long int optval,
     socklen_t optlen);
@@ -1343,9 +1342,9 @@ LIB_PRIVATE log_entry_t create_srand_entry(int clone_id, int event,
 LIB_PRIVATE log_entry_t create_socket_entry(int clone_id, int event,
     int domain, int type, int protocol);
 LIB_PRIVATE log_entry_t create_xstat_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat buf);
+    const char *path, struct stat *buf);
 LIB_PRIVATE log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
-    unsigned long int path, struct stat64 buf);
+    const char *path, struct stat64 *buf);
 LIB_PRIVATE log_entry_t create_time_entry(int clone_id, int event,
     unsigned long int tloc);
 LIB_PRIVATE log_entry_t create_unlink_entry(int clone_id, int event,

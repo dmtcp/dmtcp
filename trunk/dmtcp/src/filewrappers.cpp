@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+// TODO: Better way to do this. I think it was only a problem on dekaksi.
+// Remove this, and see the compile error.
+#define read _libc_read
 #include <stdarg.h>
 #include <stdlib.h>
 #include <vector>
@@ -50,7 +53,6 @@
 #include "synchronizationlogging.h"
 #include <sys/mman.h>
 #include <sys/syscall.h>
-#include <execinfo.h>
 // TODO: hack to be able to compile this (fcntl wrapper).
 #define open _libc_open
 #define open64 _libc_open64
@@ -58,6 +60,7 @@
 #undef open
 #undef open64
 
+#undef read
 #endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -82,43 +85,11 @@ static void processClose(dmtcp::ConnectionIdentifier conId)
 extern "C" int close ( int fd )
 {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) || dmtcp::ProtectedFDs::isProtected(fd)) {
-    _real_pthread_mutex_lock(&fd_change_mutex);
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
     int retval = _real_close(fd);
-    _real_pthread_mutex_unlock(&fd_change_mutex);
     return retval;
   }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    _real_pthread_mutex_lock(&fd_change_mutex);
-    int retval = _real_close(fd);
-    _real_pthread_mutex_unlock(&fd_change_mutex);
-    return retval;
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_close_entry(my_clone_id, close_event, fd);
-  log_entry_t my_return_entry = create_close_entry(my_clone_id, close_event_return, fd);
-
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &close_turn_check);
-    getNextLogEntry();
-    waitForTurn(my_return_entry, &close_turn_check);
-    retval = GET_COMMON(currentLogEntry, retval);
-    if (retval == -1) {
-      errno = GET_COMMON(currentLogEntry, my_errno);
-    }
-    getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
-    // Not restart; we should be logging.
-    addNextLogEntry(my_entry);
-    retval = _real_close(fd);
-    SET_COMMON(my_return_entry, retval);
-    if (retval == -1) {
-      SET_COMMON2(my_return_entry, my_errno, errno);
-    }
-    addNextLogEntry(my_return_entry);
-  }
-  return retval;
+  BASIC_SYNC_WRAPPER(int, close, _real_close, fd);
 #else
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
   {
@@ -415,7 +386,7 @@ extern "C" int getpt()
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
-static int real_open_helper(const char *path, int flags, mode_t mode)
+static int _almost_real_open(const char *path, int flags, mode_t mode)
 {
   char newpath [ 1024 ] = {0} ;
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
@@ -464,46 +435,7 @@ extern "C" int open (const char *path, int flags, ... )
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return real_open_helper(path, flags, mode);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return real_open_helper(path, flags, mode);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_open_entry(my_clone_id, open_event,
-      (unsigned long int)path, flags, mode);
-  log_entry_t my_return_entry = create_open_entry(my_clone_id, open_event_return,
-  (unsigned long int)path, flags, mode);
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &open_turn_check);
-    getNextLogEntry();
-    waitForTurn(my_return_entry, &open_turn_check);
-    retval = GET_COMMON(currentLogEntry, retval);
-    if (retval == -1) {
-      if ( retval != GET_COMMON(currentLogEntry, retval) ) {
-        JTRACE ( "tyler" )
-          (retval) (GET_COMMON(currentLogEntry, retval)) (errno) (GET_COMMON(currentLogEntry, my_errno));
-        kill(getpid(), SIGSEGV);
-      }
-      errno = GET_COMMON(currentLogEntry, my_errno);
-      //JASSERT ( errno == GET_COMMON(currentLogEntry, my_errno) );
-    }
-    getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
-    // Not restart; we should be logging.
-    _real_pthread_mutex_lock(&read_data_mutex);
-    addNextLogEntry(my_entry);
-    retval = real_open_helper(path, flags, mode);
-    SET_COMMON(my_return_entry, retval);
-    if (retval == -1) {
-      SET_COMMON2(my_return_entry, my_errno, errno);
-    }
-    addNextLogEntry(my_return_entry);
-    _real_pthread_mutex_unlock(&read_data_mutex);
-  }
-  return retval;
+  BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
 #else
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
    * calling this function to open jassert log files. Therefore we shouldn't be
@@ -767,10 +699,10 @@ static void read_data_from_log_into_va_list (va_list arg, const char *format)
     /* Get next argument in the list. */
     long int *val = va_arg(arg, long int *);
     if (it->find("lf") != dmtcp::string::npos) {
-      read(read_data_fd, (void *)val, sizeof(double));
+      _real_read(read_data_fd, (void *)val, sizeof(double));
     }
     else if (it->find("d") != dmtcp::string::npos) {
-      read(read_data_fd, (void *)val, sizeof(int));
+      _real_read(read_data_fd, (void *)val, sizeof(int));
     }
     else {
       JASSERT (false).Text("format not added.");
@@ -1213,25 +1145,11 @@ extern "C"
 int __xstat(int vers, const char *path, struct stat *buf)
 {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_xstat(vers, path, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_xstat(vers, path, buf);
-  }
-  int retval = 0;
-  // my_entry will have garbage for 'buf'
-  log_entry_t my_entry = create_xstat_entry(my_clone_id, xstat_event, vers,
-      (unsigned long int)path, *buf);
-  log_entry_t my_return_entry = create_xstat_entry(my_clone_id,
-      xstat_event_return, vers, (unsigned long int)path, *buf);
-
+  WRAPPER_HEADER(int, xstat, _real_xstat, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &xstat_turn_check);
-    //retval = _real_xstat(vers, path, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, xstat, buf);
     if (retval != 0) {
@@ -1264,24 +1182,11 @@ extern "C"
 int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_xstat64(vers, path, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_xstat64(vers, path, buf);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_xstat64_entry(my_clone_id, xstat64_event, vers,
-      (unsigned long int)path, *buf);
-  log_entry_t my_return_entry = create_xstat64_entry(my_clone_id,
-      xstat64_event_return, vers, (unsigned long int)path, *buf);
-
+  WRAPPER_HEADER(int, xstat64, _real_xstat64, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat64_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &xstat64_turn_check);
-    //retval = _real_xstat64(vers, path, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, xstat64, buf);
     if (retval != 0) {
@@ -1314,24 +1219,11 @@ int __xstat64(int vers, const char *path, struct stat64 *buf)
 extern "C" 
 int __fxstat(int vers, int fd, struct stat *buf)
 {
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_fxstat(vers, fd, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_fxstat(vers, fd, buf);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_fxstat_entry(my_clone_id, fxstat_event, vers,
-      fd, *buf);
-  log_entry_t my_return_entry = create_fxstat_entry(my_clone_id,
-      fxstat_event_return, vers, fd, *buf);
-
+  WRAPPER_HEADER(int, fxstat, _real_fxstat, vers, fd, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fxstat_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &fxstat_turn_check);
-    //retval = _real_fxstat(vers, fd, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, fxstat, buf);
     if (retval != 0) {
@@ -1355,24 +1247,11 @@ int __fxstat(int vers, int fd, struct stat *buf)
 extern "C" 
 int __fxstat64(int vers, int fd, struct stat64 *buf)
 {
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_fxstat64(vers, fd, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_fxstat64(vers, fd, buf);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_fxstat64_entry(my_clone_id, fxstat64_event, vers,
-      fd, *buf);
-  log_entry_t my_return_entry = create_fxstat64_entry(my_clone_id,
-      fxstat64_event_return, vers, fd, *buf);
-
+  WRAPPER_HEADER(int, fxstat64, _real_fxstat64, vers, fd, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fxstat64_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &fxstat64_turn_check);
-    //retval = _real_fxstat64(vers, fd, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, fxstat64, buf);
     if (retval != 0) {
@@ -1398,25 +1277,11 @@ extern "C"
 int __lxstat(int vers, const char *path, struct stat *buf)
 {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_lxstat(vers, path, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_lxstat(vers, path, buf);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_lxstat_entry(my_clone_id, lxstat_event, vers,
-      (unsigned long int)path, *buf);
-  log_entry_t my_return_entry = create_lxstat_entry(my_clone_id,
-      lxstat_event_return, vers,
-      (unsigned long int)path, *buf);
-
+  WRAPPER_HEADER(int, lxstat, _real_lxstat, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &lxstat_turn_check);
-    retval = _real_lxstat(vers, path, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, lxstat, buf);
     if (retval != 0) {
@@ -1449,25 +1314,11 @@ extern "C"
 int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_lxstat64(vers, path, buf);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_lxstat64(vers, path, buf);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_lxstat64_entry(my_clone_id, lxstat64_event, vers,
-      (unsigned long int)path, *buf);
-  log_entry_t my_return_entry = create_lxstat64_entry(my_clone_id,
-      lxstat64_event_return, vers,
-      (unsigned long int)path, *buf);
-
+  WRAPPER_HEADER(int, lxstat64, _real_lxstat64, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat64_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &lxstat64_turn_check);
-    //retval = _real_lxstat64(vers, path, buf);
     retval = GET_COMMON(currentLogEntry, retval);
     *buf = GET_FIELD(currentLogEntry, lxstat64, buf);
     if (retval != 0) {
@@ -1497,3 +1348,467 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
 }
 
 //       int fstat(int fd, struct stat *buf);
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds, 
+    fd_set *exceptfds, struct timeval *timeout)
+{
+  WRAPPER_HEADER(int, select, _real_select, nfds, readfds, writefds, exceptfds, timeout);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &select_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &select_turn_check);
+    copyFdSet(&GET_FIELD(currentLogEntry, select, readfds), readfds);
+    copyFdSet(&GET_FIELD(currentLogEntry, select, writefds), writefds);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (retval == -1) {
+      // Set retval and errno as they were, and return to user.
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_select(nfds, readfds, writefds, exceptfds, timeout);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    // Note that we're logging the *changed* fd set, so on replay we can
+    // just read that from the log, load it into user's location and return.
+    copyFdSet(readfds, &GET_FIELD(my_return_entry, select, readfds));
+    copyFdSet(writefds, &GET_FIELD(my_return_entry, select, writefds));
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" int read(int fd, void *buf, size_t count)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || dmtcp::ProtectedFDs::isProtected(fd)) {
+    int retval = _real_read(fd, buf, count);
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    // Don't log gdb's read calls (e.g. user commands)
+    int retval = _real_read(fd, buf, count);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_read_entry(my_clone_id, read_event, fd, 
+      (unsigned long int)buf, count);
+  log_entry_t my_data_entry = create_read_entry(my_clone_id, read_event_return, fd, 
+      (unsigned long int)buf, count);
+
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &read_turn_check);
+    getNextLogEntry();
+    // NOTE: We never actually call the user's _real_read. We don't
+    // need to. We wait for the next event in the log that is the
+    // READ_data_event, read from the read data log, and return the
+    // corresponding value.
+    waitForTurn(my_data_entry, &read_turn_check);
+    if (__builtin_expect(read_data_fd == -1, 0)) {
+      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+    }
+    JASSERT ( read_data_fd != -1 );
+    lseek(read_data_fd, GET_FIELD(currentLogEntry,read,data_offset), SEEK_SET);
+    // Only read however much was logged as the return value.
+    if (GET_COMMON(currentLogEntry, retval) != -1) {
+      readAll(read_data_fd, (char *)buf, GET_COMMON(currentLogEntry, retval));
+    }
+    // Set the errno to what was logged (e.g. EINTR).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    // Note we don't call readAll here. It should be the responsibility of
+    // the user code to handle EINTR if needed.
+    retval = _real_read(fd, buf, count);
+    SET_COMMON(my_data_entry, retval);
+    _real_pthread_mutex_lock(&read_data_mutex);
+    if (retval == -1) {
+      SET_COMMON2(my_data_entry, my_errno, errno);
+    } else {
+      SET_FIELD2(my_data_entry, read, data_offset, read_log_pos);
+      logReadData(buf, retval);
+    }
+    _real_pthread_mutex_unlock(&read_data_mutex);
+    addNextLogEntry(my_data_entry);
+    // Be sure to not cover up the error with any intermediate calls
+    // (like logReadData)
+    if (retval == -1) errno = GET_COMMON(my_data_entry,my_errno);
+  }
+  return retval;
+}
+
+extern "C" ssize_t write(int fd, const void *buf, size_t count)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || dmtcp::ProtectedFDs::isProtected(fd)) {
+    return _real_write(fd, buf, count);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_write(fd, buf, count);
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_write_entry(my_clone_id, write_event, fd, 
+      (unsigned long int)buf, count);
+  log_entry_t my_return_entry = create_write_entry(my_clone_id, write_event_return, fd, 
+      (unsigned long int)buf, count);
+
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &write_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &write_turn_check);
+#if 0
+    if (GET_COMMON(currentLogEntry, retval) != -1) {
+      // Write only # that was logged as return val.
+      ssize_t cur_retval = writeAll(fd, buf, GET_COMMON(currentLogEntry, retval));
+      if (cur_retval == -1) {
+        if (errno == EBADF) {
+          // If we weren't able to write, but on record we were, assume this is
+          // a file descriptor that no longer exists on replay (e.g. an external
+          // request from a socket in MySQL).
+          // In that case, we just set the return val and errno to what they were
+          // on record, and return to the user anyway.
+          // (fall through to outside if block)
+        } else {
+          // We failed on replay with a different error.
+          JASSERT ( false ) ( strerror(errno) )
+            .Text("Unable to replay user's write() request.");
+        }
+      }
+    }
+#endif
+    // Set the errno to what was logged (e.g. EINTR).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    // Note we don't call writeAll here. It should be the responsibility of
+    // the user code to handle EINTR if needed.
+    retval = _real_write(fd, buf, count);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || dmtcp::ProtectedFDs::isProtected(fd)) {
+    int retval = _real_pread(fd, buf, count, offset);
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    // Don't log gdb's pread calls (e.g. user commands)
+    int retval = _real_pread(fd, buf, count, offset);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pread_entry(my_clone_id, pread_event, fd, 
+      (unsigned long int)buf, count, offset);
+  log_entry_t my_return_entry = create_pread_entry(my_clone_id,
+      pread_event_return, fd, (unsigned long int)buf, count, offset);
+
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &pread_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pread_turn_check);
+    if (__builtin_expect(read_data_fd == -1, 0)) {
+      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+    }
+    JASSERT ( read_data_fd != -1 );
+    lseek(read_data_fd, GET_FIELD(currentLogEntry, pread, data_offset), SEEK_SET);
+    // Only pread however much was logged as the return value.
+    if (GET_COMMON(currentLogEntry, retval) != -1) {
+      readAll(read_data_fd, (char *)buf, GET_COMMON(currentLogEntry, retval));
+    }
+    // Set the errno to what was logged (e.g. EINTR).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pread(fd, buf, count, offset);
+    SET_COMMON(my_return_entry, retval);
+    _real_pthread_mutex_lock(&read_data_mutex);
+    if (retval == -1) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    } else {
+      SET_FIELD2(my_return_entry, pread, data_offset, read_log_pos);
+      logReadData(buf, retval);
+    }
+    _real_pthread_mutex_unlock(&read_data_mutex);
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || dmtcp::ProtectedFDs::isProtected(fd)) {
+    return _real_pwrite(fd, buf, count, offset);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_pwrite(fd, buf, count, offset);
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pwrite_entry(my_clone_id, pwrite_event, fd, 
+      (unsigned long int)buf, count, offset);
+  log_entry_t my_return_entry = create_pwrite_entry(my_clone_id,
+      pwrite_event_return, fd, (unsigned long int)buf, count, offset);
+
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &pwrite_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pwrite_turn_check);
+#if 0
+    if (GET_COMMON(currentLogEntry, retval) != -1) {
+      // write only # that was logged as return val.
+      ssize_t cur_retval = pwriteAll(fd, buf, GET_COMMON(currentLogEntry, retval), offset);
+      if (cur_retval == -1) {
+        if (errno == EBADF) {
+          // If we weren't able to pwrite, but on record we were, assume this is
+          // a file descriptor that no longer exists on replay (e.g. an external
+          // request from a socket in MySQL).
+          // In that case, we just set the return val and errno to what they were
+          // on record, and return to the user anyway.
+          // (fall through to outside if block)
+        } else {
+          // We failed on replay with a different error.
+          JASSERT ( false ) ( strerror(errno) )
+            .Text("Unable to replay user's pwrite() request.");
+        }
+      }
+    }
+#endif
+    // Set the errno to what was logged (e.g. EINTR).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    // Note we don't call pwriteAll here. It should be the responsibility of
+    // the user code to handle EINTR if needed.
+    retval = _real_pwrite(fd, buf, count, offset);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" int access(const char *pathname, int mode)
+{
+  WRAPPER_HEADER(int, access, _real_access, pathname, mode);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &access_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &access_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (retval != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_access(pathname, mode);
+    SET_COMMON(my_return_entry, retval);
+    if (retval != 0) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+/*extern "C" int dup2(int oldfd, int newfd)
+{
+// TODO
+}*/
+
+extern "C" int dup(int oldfd)
+{
+  WRAPPER_HEADER(int, dup, _real_dup, oldfd);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &dup_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &dup_turn_check);
+    //retval = _real_dup(oldfd);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (retval != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_dup(oldfd);
+    SET_COMMON(my_return_entry, retval);
+    if (retval != 0) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" off_t lseek(int fd, off_t offset, int whence)
+{
+  BASIC_SYNC_WRAPPER(off_t, lseek, _real_lseek, fd, offset, whence);
+}
+
+extern "C" int unlink(const char *pathname)
+{
+  BASIC_SYNC_WRAPPER(int, unlink, _real_unlink, pathname);
+}
+
+extern "C" int fdatasync(int fd)
+{
+  BASIC_SYNC_WRAPPER(int, fdatasync, _real_fdatasync, fd);
+}
+
+extern "C" int fsync(int fd)
+{
+  BASIC_SYNC_WRAPPER(int, fsync, _real_fsync, fd);
+}
+
+extern "C" int link(const char *oldpath, const char *newpath)
+{
+  BASIC_SYNC_WRAPPER(int, link, _real_link, oldpath, newpath);
+}
+
+extern "C" int rename(const char *oldpath, const char *newpath)
+{
+  BASIC_SYNC_WRAPPER(int, rename, _real_rename, oldpath, newpath);
+}
+
+extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
+{
+  WRAPPER_HEADER(ssize_t, readlink, _real_readlink, path, buf, bufsiz);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &readlink_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &readlink_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    } else {
+      // Don't try to copy if error returned.
+      strncpy(buf, GET_FIELD(my_return_entry, readlink, buf), retval);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    retval = _real_readlink(path, buf, bufsiz);
+    JASSERT ( retval < READLINK_MAX_LENGTH );
+    SET_COMMON(my_return_entry, retval);
+    if (errno != 0) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    } else {
+      // Don't try to copy if error returned.
+      strncpy(GET_FIELD(my_return_entry, readlink, buf), buf, retval);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;  
+}
+
+extern "C" int rmdir(const char *pathname)
+{
+  BASIC_SYNC_WRAPPER(int, rmdir, _real_rmdir, pathname);
+}
+
+extern "C" int mkdir(const char *pathname, mode_t mode)
+{
+  BASIC_SYNC_WRAPPER(int, mkdir, _real_mkdir, pathname, mode);
+}
+
+extern "C" struct dirent *readdir(DIR *dirp)
+{
+  /* TODO: We should allocate space for retval on the heap so that we return
+     a pointer to that area, instead of an area in the log. */
+  WRAPPER_HEADER(struct dirent *, readdir, _real_readdir, dirp);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &readdir_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &readdir_turn_check);
+    retval = &GET_FIELD(currentLogEntry, readdir, retval);
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    retval = _real_readdir(dirp);
+    SET_FIELD2(my_return_entry, readdir, retval, *retval);
+    if (errno != 0) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" int readdir_r(DIR *dirp, struct dirent *entry,
+    struct dirent **result)
+{
+  WRAPPER_HEADER(int, readdir_r, _real_readdir_r, dirp, entry, result);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &readdir_r_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &readdir_r_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    *entry = GET_FIELD(currentLogEntry, readdir_r, entry);
+    if (GET_FIELD(currentLogEntry, readdir_r, result) == 0) {
+      *result = NULL;
+    } else {
+      *result = entry;
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    retval = _real_readdir_r(dirp, entry, result);
+    SET_COMMON(my_return_entry, retval);
+    SET_FIELD2(my_return_entry, readdir_r, entry, *entry);
+    if (*result == NULL) {
+      SET_FIELD2(my_return_entry, readdir_r, result, 0);
+    } else {
+      SET_FIELD2(my_return_entry, readdir_r, result, 1);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" int mkstemp(char *temp)
+{
+  BASIC_SYNC_WRAPPER(int, mkstemp, _real_mkstemp, temp);
+}
+
+#endif //SYNCHRONIZATION_LOG_AND_REPLAY
