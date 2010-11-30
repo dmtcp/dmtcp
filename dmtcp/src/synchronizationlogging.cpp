@@ -39,13 +39,7 @@
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-LIB_PRIVATE log_entry_t     log[MAX_LOG_LENGTH] = { EMPTY_LOG_ENTRY };
-#else
 LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
-#endif
-
-#ifndef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
 
 /* IMPOTANT: if new fields are added to log_entry_t in the common area,
  * update the following. */
@@ -266,7 +260,6 @@ static void buffer_to_log_entry(char *buffer, log_entry_t *entry)
   memcpy(&GET_COMMON_PTR(entry, retval), buffer, sizeof(GET_COMMON_PTR(entry, retval)));
   buffer += sizeof(GET_COMMON_PTR(entry, retval));
 }
-#endif
 
 /* Prototypes */
 static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
@@ -325,9 +318,6 @@ static volatile int           log_offset = 0;
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
 int readEntryFromDisk(int fd, log_entry_t *entry) {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-  return _real_read(fd, entry, sizeof(log_entry_t));
-#else
   if (_real_read(fd, &GET_COMMON_PTR(entry,event), sizeof(GET_COMMON_PTR(entry,event))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,log_id), sizeof(GET_COMMON_PTR(entry,log_id))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,tid), sizeof(GET_COMMON_PTR(entry,tid))) == 0) return 0;
@@ -335,13 +325,9 @@ int readEntryFromDisk(int fd, log_entry_t *entry) {
   if (_real_read(fd, &GET_COMMON_PTR(entry,my_errno), sizeof(GET_COMMON_PTR(entry,my_errno))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,retval), sizeof(GET_COMMON_PTR(entry,retval))) == 0) return 0;
   READ_ENTRY_FROM_DISK(fd, entry);
-#endif
 }
 
 int writeEntryToDisk(int fd, log_entry_t entry) {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-  return write(fd, &entry, sizeof(log_entry_t));
-#else
   int ret_event_size = write(fd, &GET_COMMON(entry,event), sizeof(GET_COMMON(entry,event)));
   int ret_log_id_size = write(fd, &GET_COMMON(entry,log_id), sizeof(GET_COMMON(entry,log_id)));
   int ret_tid_size = write(fd, &GET_COMMON(entry,tid), sizeof(GET_COMMON(entry,tid)));
@@ -352,7 +338,6 @@ int writeEntryToDisk(int fd, log_entry_t entry) {
   WRITE_ENTRY_TO_DISK(fd, entry, ret_log_event);
   return ret_log_event + ret_event_size + ret_log_id_size + ret_tid_size +
     ret_clone_id_size + ret_my_errno_size + ret_retval_size;
-#endif
 }
 
 void atomic_increment(volatile int *ptr)
@@ -523,11 +508,7 @@ static void resetLog()
   JTRACE ( "resetting all log entries and log_index to 0." );
   int i = 0;
   for (i = 0; i < MAX_LOG_LENGTH; i++) {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    log[i] = EMPTY_LOG_ENTRY;
-#else
     log[i] = 0;
-#endif
   }
   atomic_set(&log_index, 0);
 }
@@ -830,15 +811,10 @@ static void annotateLog()
           GET_FIELD(entry, pthread_create, start_routine),
           GET_FIELD(entry, pthread_create, attr),
           GET_FIELD(entry, pthread_create, arg));
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-      entry.stack_size = create_return.stack_size;
-      entry.stack_addr = create_return.stack_addr;
-#else
       entry.log_event_t.log_event_pthread_create.stack_size = 
         create_return.log_event_t.log_event_pthread_create.stack_size;
       entry.log_event_t.log_event_pthread_create.stack_addr =
         create_return.log_event_t.log_event_pthread_create.stack_addr;
-#endif
     } else if (GET_COMMON(entry,event) == getline_event) {
       nextGetline(&getline_return,
           GET_FIELD(entry, getline, lineptr),
@@ -1755,17 +1731,6 @@ void addNextLogEntry(log_entry_t e)
   }
   _real_pthread_mutex_lock(&log_index_mutex);
   SET_COMMON2(e, log_id, current_log_id++);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-  log[log_index] = e;
-  //JTRACE ( "logged event." ) ( e.clone_id ) ( e.event ) ( log_index );
-  atomic_increment(&log_index);
-  if (__builtin_expect(log_index >= MAX_LOG_LENGTH, 0)) {
-    _real_pthread_mutex_lock(&log_file_mutex);
-    JTRACE ( "Log overflowed bounds. Writing to disk." );
-    writeLogsToDisk();
-    _real_pthread_mutex_unlock(&log_file_mutex);
-  }
-#else
   int event_size;
   GET_EVENT_SIZE(GET_COMMON(e,event), event_size);
   if ((log_index + log_event_common_size + event_size) > MAX_LOG_LENGTH) {
@@ -1781,7 +1746,6 @@ void addNextLogEntry(log_entry_t e)
   // Copy event-specific data to log[] buffer:
   COPY_TO_MEMORY_LOG(e);
   log_index += event_size;
-#endif
   // Keep this up to date for debugging purposes:
   log_entry_index++;
   _real_pthread_mutex_unlock(&log_index_mutex);  
@@ -1789,15 +1753,6 @@ void addNextLogEntry(log_entry_t e)
 
 void getNextLogEntry() {
   _real_pthread_mutex_lock(&log_index_mutex);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-  currentLogEntry = log[log_index];
-  log_index++;
-  if (log_index >= MAX_LOG_LENGTH) {
-    JTRACE ( "Ran out of log entries. Reading next from disk." ) 
-           ( log_entry_index ) ( MAX_LOG_LENGTH );
-    readLogFromDisk();
-  }
-#else
   int event_size;
   // Make sure to cast the event type byte to the correct type:
   GET_EVENT_SIZE((unsigned char)log[log_index], event_size);
@@ -1834,7 +1789,6 @@ void getNextLogEntry() {
     // Update new log_index:
     log_index = newEntrySize - size;
   }
-#endif
   log_entry_index++;
   _real_pthread_mutex_unlock(&log_index_mutex);
 }
