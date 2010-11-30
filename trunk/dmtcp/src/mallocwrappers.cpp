@@ -331,18 +331,12 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     getNextLogEntry();
     waitForTurn(my_return_entry, &calloc_turn_check);
     _real_pthread_mutex_lock(&allocation_lock);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    retval = internal_calloc(nmemb, size, (void *)currentLogEntry.return_ptr);
-    JASSERT ( (unsigned long int)retval == currentLogEntry.return_ptr ) ( retval )
-            ( (void*)currentLogEntry.return_ptr );
-#else
     retval = internal_calloc(nmemb, size, 
                (void *)currentLogEntry.log_event_t.log_event_calloc.return_ptr);
     JASSERT ( (unsigned long int)retval ==
               currentLogEntry.log_event_t.log_event_calloc.return_ptr ) 
               ( retval )
               ( (void*)currentLogEntry.log_event_t.log_event_calloc.return_ptr );
-#endif
     _real_pthread_mutex_unlock(&allocation_lock);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
@@ -350,12 +344,8 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
     retval = internal_calloc(nmemb, size, NULL);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    my_return_entry.return_ptr = (unsigned long int)retval;
-#else
     my_return_entry.log_event_t.log_event_calloc.return_ptr =
       (unsigned long int)retval;
-#endif
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -408,13 +398,6 @@ extern "C" void *malloc(size_t size)
     waitForTurn(my_return_entry, &malloc_turn_check);
     // Force allocation at same location as record:
     _real_pthread_mutex_lock(&allocation_lock);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    retval = internal_malloc(size, (void *)currentLogEntry.return_ptr);
-    if ((unsigned long int)retval != currentLogEntry.return_ptr) {
-      JTRACE ( "tyler" ) ( retval ) 
-             ( (void*) currentLogEntry.return_ptr )
-	     ( log_entry_index );
-#else
     retval = internal_malloc(size, 
                (void *)currentLogEntry.log_event_t.log_event_malloc.return_ptr);
     if ((unsigned long int)retval !=
@@ -422,7 +405,6 @@ extern "C" void *malloc(size_t size)
       JTRACE ( "tyler" ) ( retval ) 
              ( (void*) currentLogEntry.log_event_t.log_event_malloc.return_ptr )
 	     ( log_entry_index );
-#endif
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -432,12 +414,8 @@ extern "C" void *malloc(size_t size)
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
     retval = internal_malloc(size, NULL);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    my_return_entry.return_ptr = (unsigned long int)retval;
-#else
     my_return_entry.log_event_t.log_event_malloc.return_ptr =
       (unsigned long int)retval;
-#endif
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -488,13 +466,6 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
     waitForTurn(my_return_entry, &libc_memalign_turn_check);
     // Force allocation at same location as record:
     _real_pthread_mutex_lock(&allocation_lock);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    retval = internal_libc_memalign(boundary, size, (void *)currentLogEntry.return_ptr);
-    if ((unsigned long int)retval != currentLogEntry.return_ptr) {
-      JTRACE ( "tyler" ) ( retval ) 
-             ( (void*) currentLogEntry.return_ptr )
-	     ( log_entry_index );
-#else
     retval = internal_libc_memalign(boundary, size,
                (void *)currentLogEntry.log_event_t.log_event_libc_memalign.return_ptr);
     if ((unsigned long int)retval !=
@@ -502,7 +473,6 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
       JTRACE ( "tyler" ) ( retval ) 
              ( (void*) currentLogEntry.log_event_t.log_event_libc_memalign.return_ptr )
 	     ( log_entry_index );
-#endif
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -512,12 +482,8 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
     retval = internal_libc_memalign(boundary, size, NULL);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    my_return_entry.return_ptr = (unsigned long int)retval;
-#else
     my_return_entry.log_event_t.log_event_libc_memalign.return_ptr =
       (unsigned long int)retval;
-#endif
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -624,19 +590,12 @@ extern "C" void *realloc(void *ptr, size_t size)
     getNextLogEntry();
     waitForTurn(my_return_entry, &realloc_turn_check);
     _real_pthread_mutex_lock(&allocation_lock);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    retval = internal_realloc(ptr, size, (void *)currentLogEntry.return_ptr);
-    JASSERT ( (unsigned long int)retval == currentLogEntry.return_ptr ) 
-              ( (unsigned long int)retval )
-              ( currentLogEntry.return_ptr );
-#else
     retval = internal_realloc(ptr, size,
                (void *)currentLogEntry.log_event_t.log_event_realloc.return_ptr);
     JASSERT ( (unsigned long int)retval ==
               currentLogEntry.log_event_t.log_event_realloc.return_ptr ) 
               ( (unsigned long int)retval )
               ( currentLogEntry.log_event_t.log_event_realloc.return_ptr );
-#endif
     _real_pthread_mutex_unlock(&allocation_lock);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
@@ -644,12 +603,8 @@ extern "C" void *realloc(void *ptr, size_t size)
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
     retval = internal_realloc(ptr, size, NULL);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-    my_return_entry.return_ptr = (unsigned long int)retval;
-#else
     my_return_entry.log_event_t.log_event_realloc.return_ptr =
       (unsigned long int)retval;
-#endif
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }

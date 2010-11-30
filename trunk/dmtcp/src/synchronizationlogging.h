@@ -32,13 +32,8 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-#define MAX_LOG_LENGTH 4096
-#define MAX_PATCH_LIST_LENGTH 4096
-#else
 #define MAX_LOG_LENGTH 16777216 // = 4096*4096. For what reason?
 #define MAX_PATCH_LIST_LENGTH 16777216
-#endif
 #define READLINK_MAX_LENGTH 256
 #define WAKE_ALL_THREADS -1
 #define LOG_IS_PATCHED_VALUE 1
@@ -306,89 +301,6 @@ typedef enum {
 } event_code_t;
 /* end event codes */
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-typedef struct {
-  // Shared among all events:
-  long long int log_id;
-  int tid;
-  long long int clone_id;
-  int event;
-  // For mutex/cond vars:
-  unsigned long int mutex;
-  unsigned long int cond_var;
-  int signal_target;
-  // For select():
-  int nfds;
-  fd_set readfds;
-  fd_set writefds;
-  unsigned long int exceptfds; // just save address for now
-  unsigned long int timeout;
-  // For read()/write():
-  int readfd;
-  int writefd;
-  unsigned long int buf_addr;
-  size_t count;
-  off_t data_offset; // offset into read saved data file
-  // For accept()/getsockname():
-  int sockfd;
-  unsigned long int sockaddr;
-  unsigned long int addrlen;
-  // For setsockopt():
-  int level;
-  int optname;
-  unsigned long int optval;
-  socklen_t optlen;
-  // For a few different functions (should probably be in general section)
-  int my_errno;
-  int retval;
-  // For pthread_create():
-  unsigned long int thread; // also used by pthread_join/detach/kill
-  unsigned long int attr;
-  unsigned long int start_routine;
-  unsigned long int arg;
-  unsigned long int stack_addr;
-  size_t stack_size;
-  // For pthread_exit()/pthread_join():
-  unsigned long int value_ptr;
-  // For pthread_kill()/signal handlers:
-  int sig;
-  // For *alloc() family and free():
-  size_t size;
-  size_t nmemb;
-  unsigned long int ptr;
-  unsigned long int return_ptr;
-  // For __libc_memalign():
-  size_t boundary;
-  // For fcntl():
-  int fd; // also used by close()
-  int cmd;
-  long arg_3_l;
-  unsigned long int arg_3_f;
-  // For time():
-  time_t time_retval;
-  unsigned long int tloc;
-  // For srand():
-  unsigned int seed;
-  // For sigwait():
-  unsigned long int set;
-  unsigned long int sigwait_sig;
-  // For access():
-  unsigned long int pathname;
-  int mode;
-  // For open():
-  unsigned long int path;
-  int flags;
-  mode_t open_mode;
-  // For pthread_rwlock*():
-  unsigned long int rwlock;
-} log_entry_t;
-
-#define GET_FIELD(event, name, field) event.field
-#define GET_FIELD_PTR(event, name, field) event->field
-#define SET_FIELD(event, name, field) event.field = field
-#define SET_FIELD2(event, name, field, field2) event.field = field2
-
-#else
 typedef struct {
   // For pthread_mutex_lock():
   unsigned long int mutex;
@@ -1121,7 +1033,6 @@ typedef struct {
 #define SET_COMMON(event, field) event.field = field
 #define SET_COMMON_PTR(event, field) event->field = field
 #define SET_COMMON2(event, field, field2) event.field = field2
-#endif
 
 /* Typedefs */
 // Type for predicate to check for a turn in the log.
@@ -1135,11 +1046,7 @@ typedef struct {
 /* Static constants: */
 // Clone id to indicate anyone may do this event (used for exec):
 static const int         CLONE_ID_ANYONE = -2;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-static const log_entry_t EMPTY_LOG_ENTRY = {0, 0, 0, 0, 0, 0, 0, 0 };
-#else
 static const log_entry_t EMPTY_LOG_ENTRY = {0, 0, 0, 0, 0, 0};
-#endif
 // Number to start clone_ids at:
 static const int         GLOBAL_CLONE_COUNTER_INIT = 1;
 static const int         SYNCHRONIZATION_LOG_PATH_MAX = 256;
@@ -1156,14 +1063,9 @@ LIB_PRIVATE extern int             read_data_fd;
 LIB_PRIVATE extern int             sync_logging_branch;
 LIB_PRIVATE extern int             tylerShouldLog; //debugging variable
 LIB_PRIVATE extern unsigned long   default_stack_size;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY_DEBUG
-LIB_PRIVATE extern log_entry_t     log[MAX_LOG_LENGTH];
-#define LOG_ENTRY_SIZE sizeof(log_entry_t)
-#else
 LIB_PRIVATE extern char            log[MAX_LOG_LENGTH];
 // TODO: rename this, since a log entry is not a char. maybe log_event_TYPE_SIZE?
 #define LOG_ENTRY_SIZE sizeof(char)
-#endif
 LIB_PRIVATE extern pthread_cond_t  reap_cv;
 LIB_PRIVATE extern pthread_mutex_t global_clone_counter_mutex;
 LIB_PRIVATE extern pthread_mutex_t log_index_mutex;
