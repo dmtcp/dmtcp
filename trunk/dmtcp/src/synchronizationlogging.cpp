@@ -277,10 +277,9 @@ LIB_PRIVATE char SYNCHRONIZATION_READ_DATA_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX
 LIB_PRIVATE int             synchronization_log_fd = -1;
 LIB_PRIVATE int             read_data_fd = -1;
 LIB_PRIVATE int             sync_logging_branch = 0;
-// Debugging variable -- setting this will log/replay *ALL* malloc family
-// functions (i.e. including ones from DMTCP, std C++ lib, etc.).
-// We should eventually remove this.
-LIB_PRIVATE int             tylerShouldLog = 0;
+/* Setting this will log/replay *ALL* malloc family
+   functions (i.e. including ones from DMTCP, std C++ lib, etc.). */
+LIB_PRIVATE int             log_all_allocs = 0;
 LIB_PRIVATE unsigned long   default_stack_size = 0;
 LIB_PRIVATE pthread_cond_t  reap_cv = PTHREAD_COND_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t fd_change_mutex = PTHREAD_MUTEX_INITIALIZER;

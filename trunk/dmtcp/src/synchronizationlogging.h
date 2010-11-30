@@ -1061,7 +1061,7 @@ LIB_PRIVATE extern char SYNCHRONIZATION_READ_DATA_LOG_PATH[SYNCHRONIZATION_LOG_P
 LIB_PRIVATE extern int             synchronization_log_fd;
 LIB_PRIVATE extern int             read_data_fd;
 LIB_PRIVATE extern int             sync_logging_branch;
-LIB_PRIVATE extern int             tylerShouldLog; //debugging variable
+LIB_PRIVATE extern int             log_all_allocs;
 LIB_PRIVATE extern unsigned long   default_stack_size;
 LIB_PRIVATE extern char            log[MAX_LOG_LENGTH];
 // TODO: rename this, since a log entry is not a char. maybe log_event_TYPE_SIZE?

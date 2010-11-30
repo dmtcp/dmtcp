@@ -67,26 +67,28 @@
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 // Limit at which we promote malloc() -> mmap() (in bytes):
 #define SYNCHRONIZATION_MALLOC_LIMIT 1024
-static int initHook = 0;
-#ifdef x86_64
+/* Signature used to identify regions of memory we allocated.  TODO: The fact
+   that this is unique is purely probabilistic. It's possible that we could get
+   very unlucky, and this pattern happened to be in memory in front of the
+   target region. */
+#define ALLOC_SIGNATURE 123456789
 struct alloc_header {
   unsigned int is_mmap : 1;
+# ifdef x86_64
   unsigned int chunk_size : 63;
-  int signature;
-};
-#else
-struct alloc_header {
-  unsigned int is_mmap : 1;
+# else
   unsigned int chunk_size : 31;
+# endif
   int signature;
 };
-#endif
 #define ALLOC_HEADER_SIZE sizeof(struct alloc_header)
 #define REAL_ADDR(addr) ((char *)(addr) - ALLOC_HEADER_SIZE)
 #define REAL_SIZE(size) ((size) + ALLOC_HEADER_SIZE)
 #define USER_ADDR(addr) ((char *)(addr) + ALLOC_HEADER_SIZE)
 #define USER_SIZE(size) ((size) - ALLOC_HEADER_SIZE)
+static dmtcp::map<void *, struct alloc_header> memaligned_regions;
 
+static int initHook = 0;
 static void my_init_hooks (void);
 static void *my_malloc_hook (size_t, const void *);
 static void my_free_hook (void*, const void *);
@@ -136,7 +138,7 @@ vs. mmap().
 
 static void insertAllocHeader(struct alloc_header *header, void *dest)
 {
-  header->signature = 123456789;
+  header->signature = ALLOC_SIGNATURE;
   memcpy(dest, header, ALLOC_HEADER_SIZE);
 }
 
@@ -171,26 +173,39 @@ static void *internal_malloc(size_t size, void *dest)
   return USER_ADDR(retval);
 }
 
+/* TODO: Need a better way to handle aligned memory. The current strategy is to
+keep an extra list of memory regions allocated with memalign so that we know
+they don't have the header when we go to free() them.
+
+We can't simply insert the header at the beginning, because then the region
+returned to the user would not be aligned with their boundary.
+
+A proper implementation here might perform its own alignment, and not rely on
+the alignment in _real_libc_memalign.
+
+If a program is heavy on memalign+free, the list strategy could create a lot of
+performance penalties. */
 static void *internal_libc_memalign(size_t boundary, size_t size, void *dest)
 {
   void *retval;
   struct alloc_header header;
-  void *mmap_addr = (dest == NULL) ? NULL : REAL_ADDR(dest);
+  void *mmap_addr = dest;
   int mmap_flags = (dest == NULL) ? (MAP_PRIVATE | MAP_ANONYMOUS)
                                   : (MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED);
   if (size >= SYNCHRONIZATION_MALLOC_LIMIT) {
     header.is_mmap = 1;
-    retval = mmap ( mmap_addr, REAL_SIZE(size), 
+    retval = mmap ( mmap_addr, size, 
         PROT_READ | PROT_WRITE, mmap_flags, -1, 0 );
     JASSERT ( retval != (void *)-1 ) ( retval ) ( errno );
   } else {
     header.is_mmap = 0;
-    retval = _real_libc_memalign ( boundary, REAL_SIZE(size) );
+    retval = _real_libc_memalign ( boundary, size );
   }
   header.chunk_size = size;
-  // Insert our header in the beginning:
-  insertAllocHeader(&header, retval);
-  return USER_ADDR(retval);
+  /* Instead of inserting the header in the memory region, keep track of it
+     using a separate list. */
+  memaligned_regions[retval] = header;
+  return retval;
 }
 
 /* NOTE: Always consumes/returns USER addresses. Given a size and destination,
@@ -209,8 +224,21 @@ static void *internal_calloc(size_t nmemb, size_t size, void *dest)
 static void internal_free(void *ptr)
 {
   struct alloc_header header;
+  if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
+    /* It was a memaligned region -- no header at the front, so handle it
+       specially. */
+    header = memaligned_regions[ptr];
+    if (header.is_mmap) {
+      int retval = munmap(ptr, header.chunk_size);
+      JASSERT ( retval != -1 );
+    } else {
+      _real_free(ptr);
+    }
+    memaligned_regions.erase(ptr);
+    return;
+  }
   getAllocHeader(&header, ptr);
-  if (header.signature != 123456789) {
+  if (header.signature != ALLOC_SIGNATURE) {
     JASSERT ( false ).Text("This should be handled by free() wrapper.");
     _real_free(ptr);
     return;
@@ -264,8 +292,8 @@ static void *my_malloc_hook (size_t size, const void *caller)
   /*static int tyler_pid = _real_getpid();
   void *buffer[10];
   int nptrs;
-  // NB: In order to use backtrace, you must disable tylerShouldLog.
-  // AND remove the locks around !tylerShouldLog real_malloc in malloc wrapper
+  // NB: In order to use backtrace, you must disable log_all_allocs.
+  // AND remove the locks around !log_all_allocs real_malloc in malloc wrapper
   nptrs = backtrace (buffer, 10);
   backtrace_symbols_fd ( buffer, nptrs, 1);
   printf ("<%d> malloc (%u) returns %p\n", tyler_pid, (unsigned int) size, result);*/
@@ -301,7 +329,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) && !tylerShouldLog) {
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&allocation_lock);
     void *retVal = _real_calloc ( nmemb, size );
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -363,7 +391,7 @@ extern "C" void *malloc(size_t size)
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) && !tylerShouldLog) {
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&allocation_lock);
     void *retVal = _real_malloc ( size );
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -434,7 +462,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) && !tylerShouldLog) {
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&allocation_lock);
     void *retVal = _real_libc_memalign ( boundary, size );
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -504,7 +532,7 @@ extern "C" void free(void *ptr)
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) && !tylerShouldLog) {
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&allocation_lock);
     _real_free ( ptr );
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -525,10 +553,18 @@ extern "C" void free(void *ptr)
   } else {
     struct alloc_header header;
     getAllocHeader(&header, ptr);
-    if (header.signature != 123456789) {
-      // Don't record or replay this.
-      _real_free(ptr);
-      return;
+    if (header.signature != ALLOC_SIGNATURE) {
+      if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
+        /* It was a memaligned region -- no header at the front, so let
+           internal_free below handle it specially. We still want to log/replay
+           this.*/
+      } else {
+        /* No proper signature, and it wasn't memaligned. This means somebody
+           allocated memory outside of our wrappers. We ignore this, and don't
+           log/replay it. */
+        _real_free(ptr);
+        return;
+      }
     }
 
     log_entry_t my_entry = create_free_entry(my_clone_id, free_event, (unsigned long int)ptr);
@@ -563,7 +599,7 @@ extern "C" void *realloc(void *ptr, size_t size)
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) && !tylerShouldLog) {
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&allocation_lock);
     void *retVal = _real_realloc ( ptr, size );
     _real_pthread_mutex_unlock(&allocation_lock);
