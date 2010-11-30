@@ -207,7 +207,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
         ( SYNCHRONIZATION_LOG_PATH ) ( errno );
       JASSERT ( false );
     }
-    tylerShouldLog = 1;
+    log_all_allocs = 1;
 #endif
     numRestarts++;
     if(userHookPostRestart != NULL)
@@ -223,7 +223,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     // Don't call setenv() here to avoid malloc()
     x[0] = '1';
     x[1] = '\0';
-    tylerShouldLog = 1;
+    log_all_allocs = 1;
     SET_SYNC_LOG();
 #endif
     numCheckpoints++;
