@@ -280,16 +280,12 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr)) {
-    _real_pthread_mutex_lock(&fd_change_mutex);
     int retval = _almost_real_accept(sockfd, addr, addrlen);
-    _real_pthread_mutex_unlock(&fd_change_mutex);
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
   if (jalib::Filesystem::GetProgramName() == "gdb") {
-    _real_pthread_mutex_lock(&fd_change_mutex);
     int retval = _almost_real_accept(sockfd, addr, addrlen);
-    _real_pthread_mutex_unlock(&fd_change_mutex);
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
