@@ -118,6 +118,7 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     MACRO(fgets, __VA_ARGS__);                                                 \
     MACRO(fopen, __VA_ARGS__);                                                 \
     MACRO(fprintf, __VA_ARGS__);                                               \
+    MACRO(fscanf, __VA_ARGS__);                                                \
     MACRO(fputs, __VA_ARGS__);                                                 \
     MACRO(free, __VA_ARGS__);                                                  \
     MACRO(fsync, __VA_ARGS__);                                                 \
@@ -580,6 +581,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == fsync_event_return || GET_COMMON(e,event) == readlink_event_return ||
     GET_COMMON(e,event) == rmdir_event_return || GET_COMMON(e,event) == mkdir_event_return ||
     GET_COMMON(e,event) == fprintf_event_return || GET_COMMON(e,event) == fputs_event_return ||
+    GET_COMMON(e,event) == fscanf_event_return ||
     GET_COMMON(e,event) == fwrite_event_return || GET_COMMON(e,event) == putc_event_return;
 }
 
@@ -1151,6 +1153,16 @@ log_entry_t create_fprintf_entry(int clone_id, int event,
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, fprintf, stream, (unsigned long int)stream);
   SET_FIELD2(e, fprintf, format, (unsigned long int)format);
+  return e;
+}
+
+log_entry_t create_fscanf_entry(int clone_id, int event,
+    FILE *stream, const char *format)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fscanf, stream, (unsigned long int)stream);
+  SET_FIELD2(e, fscanf, format, (unsigned long int)format);
   return e;
 }
 
@@ -2322,6 +2334,15 @@ TURN_CHECK_P(fprintf_turn_check)
       GET_FIELD_PTR(e2, fprintf, stream) &&
     GET_FIELD_PTR(e1, fprintf, format) ==
       GET_FIELD_PTR(e2, fprintf, format);
+}
+
+TURN_CHECK_P(fscanf_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fscanf, stream) ==
+      GET_FIELD_PTR(e2, fscanf, stream) &&
+    GET_FIELD_PTR(e1, fscanf, format) ==
+      GET_FIELD_PTR(e2, fscanf, format);
 }
 
 TURN_CHECK_P(fputs_turn_check)

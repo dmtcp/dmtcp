@@ -179,6 +179,8 @@ typedef enum {
   fopen_event_return,
   fprintf_event,
   fprintf_event_return,
+  fscanf_event,
+  fscanf_event_return,
   fputs_event,
   fputs_event_return,
   free_event,
@@ -739,6 +741,17 @@ typedef struct {
 static const int log_event_fprintf_size = sizeof(log_event_fprintf_t);
 
 typedef struct {
+  // For fscanf():
+  unsigned long int stream;
+  unsigned long int format;
+  int bytes;
+  ssize_t retval;
+  off_t data_offset;
+} log_event_fscanf_t;
+
+static const int log_event_fscanf_size = sizeof(log_event_fscanf_t);
+
+typedef struct {
   // For fputs():
   unsigned long int s;
   unsigned long int stream;
@@ -1056,6 +1069,7 @@ typedef struct {
     log_event_fgets_t                            log_event_fgets;
     log_event_fopen_t                            log_event_fopen;
     log_event_fprintf_t                          log_event_fprintf;
+    log_event_fscanf_t                           log_event_fscanf;
     log_event_fputs_t                            log_event_fputs;
     log_event_getc_t                             log_event_getc;
     log_event_getline_t                          log_event_getline;
@@ -1129,6 +1143,7 @@ static const log_entry_t EMPTY_LOG_ENTRY = {0, 0, 0, 0, 0, 0};
 // Number to start clone_ids at:
 static const int         GLOBAL_CLONE_COUNTER_INIT = 1;
 static const int         SYNCHRONIZATION_LOG_PATH_MAX = 256;
+static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Library private: */
 LIB_PRIVATE extern dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
@@ -1218,6 +1233,8 @@ LIB_PRIVATE log_entry_t create_fgets_entry(int clone_id, int event, char *s,
 LIB_PRIVATE log_entry_t create_fopen_entry(int clone_id, int event,
     const char *name, const char *mode);
 LIB_PRIVATE log_entry_t create_fprintf_entry(int clone_id, int event,
+    FILE *stream, const char *format);
+LIB_PRIVATE log_entry_t create_fscanf_entry(int clone_id, int event,
     FILE *stream, const char *format);
 LIB_PRIVATE log_entry_t create_fputs_entry(int clone_id, int event,
     const char *s, FILE *stream);
@@ -1354,6 +1371,7 @@ LIB_PRIVATE TURN_CHECK_P(fdopen_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fgets_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fopen_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fprintf_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fscanf_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fputs_turn_check);
 LIB_PRIVATE TURN_CHECK_P(free_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fsync_turn_check);
