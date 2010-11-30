@@ -19,11 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifdef ENABLE_MALLOC_WRAPPER
-# ifdef ENABLE_DLOPEN
-#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
-# endif
-
 #include <stdarg.h>
 #include <stdlib.h>
 #include <vector>
@@ -62,7 +57,14 @@
 #include <fcntl.h>
 #undef open
 #undef open64
+#endif
 
+#ifdef ENABLE_MALLOC_WRAPPER
+# ifdef ENABLE_DLOPEN
+#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
+# endif
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 // Limit at which we promote malloc() -> mmap() (in bytes):
 #define SYNCHRONIZATION_MALLOC_LIMIT 1024
 static int initHook = 0;
@@ -97,7 +99,7 @@ static void  (*old_free_hook) (void*, const void *);
 
 static pthread_mutex_t hook_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
-#endif
+#endif //SYNCHRONIZATION_LOG_AND_REPLAY
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 /* 
