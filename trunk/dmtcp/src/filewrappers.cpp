@@ -58,10 +58,6 @@
 #undef open
 #undef open64
 
-static pthread_mutex_t getline_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t fgets_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t getc_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t open_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -497,7 +493,7 @@ extern "C" int open (const char *path, int flags, ... )
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
-    _real_pthread_mutex_lock(&open_lock);
+    _real_pthread_mutex_lock(&read_data_mutex);
     addNextLogEntry(my_entry);
     retval = real_open_helper(path, flags, mode);
     SET_COMMON(my_return_entry, retval);
@@ -505,7 +501,7 @@ extern "C" int open (const char *path, int flags, ... )
       SET_COMMON2(my_return_entry, my_errno, errno);
     }
     addNextLogEntry(my_return_entry);
-    _real_pthread_mutex_unlock(&open_lock);
+    _real_pthread_mutex_unlock(&read_data_mutex);
   }
   return retval;
 #else
@@ -648,14 +644,14 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
     SET_FIELD2(my_return_entry, getline, n, *n);
     SET_FIELD(my_return_entry, getline, retval);
     SET_FIELD(my_return_entry, getline, is_realloc);
-    _real_pthread_mutex_lock(&getline_mutex);
+    _real_pthread_mutex_lock(&read_data_mutex);
     if (retval == -1) {
       SET_COMMON2(my_return_entry, my_errno, errno);
     } else {
       SET_FIELD2(my_return_entry, getline, data_offset, read_log_pos);
       logReadData(*lineptr, *n);
     }
-    _real_pthread_mutex_unlock(&getline_mutex);
+    _real_pthread_mutex_unlock(&read_data_mutex);
     addNextLogEntry(my_return_entry);
     // Be sure to not cover up the error with any intermediate calls
     // (like logReadData)
@@ -663,6 +659,194 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
   }
   return retval;
 }
+
+/* The list of strings: each string is a format, like for example %d or %lf.
+ * This function deals with the following possible formats:
+ * with or without whitespace delimited, eg: "%d%d" or "%d   %d".  */
+static void parse_format (const char *format, dmtcp::list<dmtcp::string> *formats)
+{
+  int start = 0;
+  int i;
+  /* An argument format is delimited by expecting_start and expecting_end.
+   * When expecting_start is true, that means we are about to begin a new
+   * argument format. When expecting_end is true, we are expecting the
+   * end of the argument format. expecting_start and expecting_end have
+   * always opposite values. */
+  bool expecting_start = true;
+  bool expecting_end = false;
+  char tmp[128];
+
+  for ( i = 0; i < strlen(format); i++) {
+    if (format[i] == '%') {
+      if (expecting_end) {
+        memset(tmp, 0, 128);
+        memcpy(tmp, &format[start], i - start);
+        formats->push_back(dmtcp::string(tmp));
+        start = i;
+      } else {
+        start = i;
+        expecting_end = true;
+        expecting_start = false;
+      }
+      continue;
+    }
+    /* For formats like "%.2lf". */
+    if (isdigit(format[i]) || format[i] == '.') continue;
+    if (format[i] == ' ' || format[i] == '\t') {
+      if (expecting_end) {
+        expecting_end = false;
+        expecting_start = true;
+        memset(tmp, 0, 128);
+        memcpy(tmp, &format[start], i - start);
+        formats->push_back(dmtcp::string(tmp));
+      }
+      continue;
+    }
+  }
+  /* This is for the last argument format in the list */
+  if (!expecting_start && expecting_end) {
+    memset(tmp, 0, 128);
+    memcpy(tmp, &format[start], i - start);
+    formats->push_back(dmtcp::string(tmp));
+  }
+}
+
+/* TODO: not all formats are mapped. 
+ * This function parses the given argument list and logs the values of the 
+ * arguments in the list to read_data_fd. Returns the number of bytes written. */
+static int parse_va_list_and_log (va_list arg, const char *format)
+{
+  dmtcp::list<dmtcp::string> formats;
+  parse_format (format, &formats);
+
+  dmtcp::list<dmtcp::string>::iterator it;
+  int bytes = 0;
+  //int bytes_to_write;
+  //char tmp[1024] = { '\0' };
+
+  /* The list arg is made up of pointers to variables because the list arg
+   * resulted as a call to fscanf. Thus we need to extract the address for
+   * each argument and cast it to the corresponding type. */
+  for (it = formats.begin(); it != formats.end(); it++) {
+    /* Get next argument in the list. */
+    long int *val = va_arg(arg, long int *);
+    //memset (tmp, 0, 1024);
+    if (it->find("lf") != dmtcp::string::npos) {
+      //bytes_to_write = sprintf (tmp, it->c_str(), *(double *)val);
+      logReadData ((double *)val, sizeof(double));
+      bytes += sizeof(double);
+    }
+    else if (it->find("d") != dmtcp::string::npos) {
+      //bytes_to_write = sprintf (tmp, it->c_str(), *(int *)val);
+      logReadData ((int *)val, sizeof(int));
+      bytes += sizeof(int);
+    }
+    else {
+      JASSERT (false).Text("format not added.");
+    }
+    //logReadData (tmp, bytes_to_write);
+    //bytes += bytes_to_write;
+  }
+  return bytes;
+}
+
+/* Parses the format string and reads into the given va_list of arguments. 
+  */
+static void read_data_from_log_into_va_list (va_list arg, const char *format)
+{
+  dmtcp::list<dmtcp::string>::iterator it;
+  dmtcp::list<dmtcp::string> formats;
+  char tmp[1024] = { '\0' };
+
+  parse_format (format, &formats);
+  readAll(read_data_fd, tmp, GET_FIELD(currentLogEntry, fscanf, bytes));
+  /* The list arg is made up of pointers to variables because the list arg
+   * resulted as a call to fscanf. Thus we need to extract the address for
+   * each argument and cast it to the corresponding type. */
+  for (it = formats.begin(); it != formats.end(); it++) {
+    /* Get next argument in the list. */
+    long int *val = va_arg(arg, long int *);
+    if (it->find("lf") != dmtcp::string::npos) {
+      read(read_data_fd, (void *)val, sizeof(double));
+    }
+    else if (it->find("d") != dmtcp::string::npos) {
+      read(read_data_fd, (void *)val, sizeof(int));
+    }
+    else {
+      JASSERT (false).Text("format not added.");
+    }
+  }
+}
+
+/* fscanf seems to be #define'ed into this. */
+extern "C" int __isoc99_fscanf (FILE *stream, const char *format, ...)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    va_list arg;
+    va_start (arg, format);
+    int retval = vfscanf(stream, format, arg);
+    va_end (arg);
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    va_list arg;
+    va_start (arg, format);
+    int retval = vfscanf(stream, format, arg);
+    va_end (arg);
+    return retval;
+  }
+  int retval;
+  log_entry_t my_entry = create_fscanf_entry(my_clone_id,
+      fscanf_event, stream, format);
+  log_entry_t my_return_entry = create_fscanf_entry(my_clone_id,
+      fscanf_event_return, stream, format);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &fscanf_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &fscanf_turn_check);
+    if (__builtin_expect(read_data_fd == -1, 0)) {
+      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+    }
+    JASSERT ( read_data_fd != -1 );
+    lseek(read_data_fd, GET_FIELD(currentLogEntry,fscanf,data_offset), SEEK_SET);
+    if ((GET_FIELD(currentLogEntry, fscanf, retval) != EOF) ||
+        (GET_COMMON(currentLogEntry, my_errno) == 0)) {
+      va_list arg;
+      va_start (arg, format);
+      read_data_from_log_into_va_list (arg, format);
+      va_end(arg);
+      retval = GET_FIELD(currentLogEntry, fscanf, retval);
+    } else {
+      retval = EOF;
+    }
+    // Set the errno to what was logged (e.g. EINTR).
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    va_list arg;
+    va_start (arg, format);
+    retval = vfscanf(stream, format, arg);
+    va_end (arg);
+    SET_FIELD(my_return_entry, fscanf, retval);
+    if (retval == EOF) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    } else {
+      SET_FIELD2(my_return_entry, fscanf, data_offset, read_log_pos);
+      va_start (arg, format);
+      int bytes = parse_va_list_and_log(arg, format);
+      va_end (arg);
+      SET_FIELD(my_return_entry, fscanf, bytes);
+    }
+    addNextLogEntry(my_return_entry);
+    if (retval == EOF) errno = GET_COMMON(my_return_entry, my_errno);
+  }
+  return retval;
+}
+
 
 /* Here we borrow the data file used to store data returned from read() calls
    to store/replay the data for fgets() calls. */
@@ -694,14 +878,14 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
     addNextLogEntry(my_entry);
     retval = _real_fgets(s, size, stream);
     SET_FIELD(my_return_entry, fgets, retval);
-    _real_pthread_mutex_lock(&fgets_mutex);
+    _real_pthread_mutex_lock(&read_data_mutex);
     if (retval == NULL) {
       SET_COMMON2(my_return_entry, my_errno, errno);
     } else {
       SET_FIELD2(my_return_entry, fgets, data_offset, read_log_pos);
       logReadData(s, size);
     }
-    _real_pthread_mutex_unlock(&fgets_mutex);
+    _real_pthread_mutex_unlock(&read_data_mutex);
     addNextLogEntry(my_return_entry);
     // Be sure to not cover up the error with any intermediate calls
     // (like logReadData)

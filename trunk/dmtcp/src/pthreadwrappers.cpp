@@ -932,14 +932,14 @@ extern "C" int read(int fd, void *buf, size_t count)
     // the user code to handle EINTR if needed.
     retval = _real_read(fd, buf, count);
     SET_COMMON(my_data_entry, retval);
-    _real_pthread_mutex_lock(&read_mutex);
+    _real_pthread_mutex_lock(&read_data_mutex);
     if (retval == -1) {
       SET_COMMON2(my_data_entry, my_errno, errno);
     } else {
       SET_FIELD2(my_data_entry, read, data_offset, read_log_pos);
       logReadData(buf, retval);
     }
-    _real_pthread_mutex_unlock(&read_mutex);
+    _real_pthread_mutex_unlock(&read_data_mutex);
     addNextLogEntry(my_data_entry);
     // Be sure to not cover up the error with any intermediate calls
     // (like logReadData)
@@ -1241,14 +1241,14 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     addNextLogEntry(my_entry);
     retval = _real_pread(fd, buf, count, offset);
     SET_COMMON(my_return_entry, retval);
-    _real_pthread_mutex_lock(&read_mutex);
+    _real_pthread_mutex_lock(&read_data_mutex);
     if (retval == -1) {
       SET_COMMON2(my_return_entry, my_errno, errno);
     } else {
       SET_FIELD2(my_return_entry, pread, data_offset, read_log_pos);
       logReadData(buf, retval);
     }
-    _real_pthread_mutex_unlock(&read_mutex);
+    _real_pthread_mutex_unlock(&read_data_mutex);
     addNextLogEntry(my_return_entry);
   }
   return retval;
