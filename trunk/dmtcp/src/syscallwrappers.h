@@ -131,6 +131,7 @@ extern "C"
   MACRO(fsync)                                \
   MACRO(link)                                 \
   MACRO(getc)                                 \
+  MACRO(ungetc)                                 \
   MACRO(getline)                              \
   MACRO(rename)                               \
   MACRO(rewind)                               \
@@ -397,6 +398,7 @@ extern "C"
   char * _real_fgets(char *s, int size, FILE *stream);
   ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream);
   int _real_getc(FILE *stream);
+  int _real_ungetc(int c, FILE *stream);
   int _real_putc(int c, FILE *stream);
   int _real_fclose(FILE *fp);
   int _real_fcntl(int fd, int cmd, ...);

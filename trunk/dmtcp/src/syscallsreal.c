@@ -650,6 +650,10 @@ int _real_getc(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, getc ) ( stream );
 }
 
+int _real_ungetc(int c, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, ungetc ) ( c, stream );
+}
+
 ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, getline ) ( lineptr, n, stream );
 }

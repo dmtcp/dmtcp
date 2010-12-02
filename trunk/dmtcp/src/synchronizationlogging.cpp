@@ -121,6 +121,7 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     MACRO(fxstat, __VA_ARGS__);                                                \
     MACRO(fxstat64, __VA_ARGS__);                                              \
     MACRO(getc, __VA_ARGS__);                                                  \
+    MACRO(ungetc, __VA_ARGS__);                                                \
     MACRO(getline, __VA_ARGS__);                                               \
     MACRO(getpeername, __VA_ARGS__);                                           \
     MACRO(getsockname, __VA_ARGS__);                                           \
@@ -549,6 +550,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == pthread_cond_timedwait_event ||
     GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
     GET_COMMON(e,event) == getc_event_return ||
+    GET_COMMON(e,event) == ungetc_event_return ||
     GET_COMMON(e,event) == getline_event_return ||
     GET_COMMON(e,event) == getpeername_event_return || GET_COMMON(e,event) == fdopen_event_return ||
     GET_COMMON(e,event) == fdatasync_event_return || GET_COMMON(e,event) == link_event_return ||
@@ -1214,6 +1216,15 @@ log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, getc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_ungetc_entry(int clone_id, int event, int c, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, ungetc, stream, (unsigned long int)stream);
+  SET_FIELD2(e, ungetc, c, (unsigned char)c);
   return e;
 }
 
@@ -2253,6 +2264,15 @@ TURN_CHECK_P(getc_turn_check)
   return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, getc, stream) ==
       GET_FIELD_PTR(e2, getc, stream);
+}
+
+TURN_CHECK_P(ungetc_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, ungetc, stream) ==
+      GET_FIELD_PTR(e2, ungetc, stream) &&
+    GET_FIELD_PTR(e1, ungetc, c) ==
+      GET_FIELD_PTR(e2, ungetc, c);
 }
 
 TURN_CHECK_P(getline_turn_check)
