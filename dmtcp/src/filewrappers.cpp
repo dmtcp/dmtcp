@@ -653,8 +653,6 @@ static int parse_va_list_and_log (va_list arg, const char *format)
 
   dmtcp::list<dmtcp::string>::iterator it;
   int bytes = 0;
-  //int bytes_to_write;
-  //char tmp[1024] = { '\0' };
 
   /* The list arg is made up of pointers to variables because the list arg
    * resulted as a call to fscanf. Thus we need to extract the address for
@@ -662,22 +660,26 @@ static int parse_va_list_and_log (va_list arg, const char *format)
   for (it = formats.begin(); it != formats.end(); it++) {
     /* Get next argument in the list. */
     long int *val = va_arg(arg, long int *);
-    //memset (tmp, 0, 1024);
     if (it->find("lf") != dmtcp::string::npos) {
-      //bytes_to_write = sprintf (tmp, it->c_str(), *(double *)val);
       logReadData ((double *)val, sizeof(double));
       bytes += sizeof(double);
     }
     else if (it->find("d") != dmtcp::string::npos) {
-      //bytes_to_write = sprintf (tmp, it->c_str(), *(int *)val);
       logReadData ((int *)val, sizeof(int));
       bytes += sizeof(int);
     }
+    else if (it->find("c") != dmtcp::string::npos) {
+      logReadData ((char *)val, sizeof(char));
+      bytes += sizeof(char);
+    }
+    else if (it->find("s") != dmtcp::string::npos) {
+      logReadData ((char *)val, strlen((char *)val)+ 1);
+      bytes += strlen((char *)val) + 1;
+    }
     else {
+      JTRACE ("Format to add: ") (it->c_str());
       JASSERT (false).Text("format not added.");
     }
-    //logReadData (tmp, bytes_to_write);
-    //bytes += bytes_to_write;
   }
   return bytes;
 }
@@ -688,10 +690,8 @@ static void read_data_from_log_into_va_list (va_list arg, const char *format)
 {
   dmtcp::list<dmtcp::string>::iterator it;
   dmtcp::list<dmtcp::string> formats;
-  char tmp[1024] = { '\0' };
 
   parse_format (format, &formats);
-  readAll(read_data_fd, tmp, GET_FIELD(currentLogEntry, fscanf, bytes));
   /* The list arg is made up of pointers to variables because the list arg
    * resulted as a call to fscanf. Thus we need to extract the address for
    * each argument and cast it to the corresponding type. */
@@ -703,6 +703,31 @@ static void read_data_from_log_into_va_list (va_list arg, const char *format)
     }
     else if (it->find("d") != dmtcp::string::npos) {
       _real_read(read_data_fd, (void *)val, sizeof(int));
+    }
+    else if (it->find("c") != dmtcp::string::npos) {
+      _real_read(read_data_fd, (void *)val, sizeof(char));
+    }
+    else if (it->find("s") != dmtcp::string::npos) {
+      bool terminate = false;
+      int offset = 0;
+      int i;
+      char tmp[1024] = {'\0'};
+      while (!terminate) {
+        _real_read(read_data_fd, &tmp[offset], 128);
+        for (i = 0; i < 128; i++) {
+          if (tmp[i] == '\0') {
+            terminate = true;
+            break;
+          }
+        }
+        if (!terminate) {
+          offset += 128;
+        }
+      }
+      /* We want to copy \0 at the end. */
+      memcpy((void *)val, tmp, offset + i + 1);
+      /* We want to be located one position to the right of \0. */
+      _real_lseek(read_data_fd, i - 128 - 1, SEEK_CUR); 
     }
     else {
       JASSERT (false).Text("format not added.");
@@ -870,9 +895,14 @@ extern "C" int __fprintf_chk (FILE *stream, int flag, const char *format, ...)
   return retval;
 }
 
-extern "C" int getc(FILE *stream)
+extern "C" int _IO_getc(FILE *stream)
 {
   BASIC_SYNC_WRAPPER(int, getc, _real_getc, stream);
+}
+
+extern "C" int ungetc(int c, FILE *stream)
+{
+  BASIC_SYNC_WRAPPER(int, ungetc, _real_ungetc, c, stream);
 }
 
 extern "C" int fputs(const char *s, FILE *stream)
@@ -883,6 +913,11 @@ extern "C" int fputs(const char *s, FILE *stream)
 extern "C" int _IO_putc(int c, FILE *stream)
 {
   BASIC_SYNC_WRAPPER(int, putc, _real_putc, c, stream);
+}
+
+extern "C" int putchar(int c)
+{
+  return _IO_putc(c, stdout);
 }
 
 extern "C" size_t fwrite(const void *ptr, size_t size, size_t nmemb,
