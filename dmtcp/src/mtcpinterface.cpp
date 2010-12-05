@@ -689,6 +689,15 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 #define PTRACE_SINGLESTEP_COMMAND 1
 #define PTRACE_CONTINUE_COMMAND 2
 
+// FIXME
+// This is a wrapper for ptrace.  mtcpinterface.cpp is a file for DMTCP
+//    to start mtcp.so (and call mtcp_init), and to stop mtcp.so
+// This wrapper function should be placed with other wrappers
+//    on in a new file called mtcpwrapper.cpp or ptracewrapper.cpp
+//    or mtcpwrapper.c .
+// Probably most of the functions from __clone to ptrace and to
+//    the special __libc_memalign redirection could be moved
+//    to a new file.  - Gene
 extern "C" long ptrace ( enum __ptrace_request request, ... )
 {
   va_list ap;
@@ -784,6 +793,39 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
   return ptrace_ret;
 }
 #endif
+
+#ifdef PTRACE
+# ifndef SYNCHRONIZATION_LOG_AND_REPLAY
+   // SYNCHRONIZATION_LOG_AND_REPLAY defines its own __libc_memalign
+   //   wrapper.  So, we won't interfere with it here.
+#  include <malloc.h>
+// This is needed to fix what is arguably a bug in libdl-2.10.so
+//   (and probably extending from versions 2.4 at least through 2.11).
+// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
+//    but dl-tls.c:dl_update_slotinfo just calls free .
+// So, TLS is allocated by libc malloc and can be freed by a malloc library
+//    defined by user.  This is a bug.
+// This happens only in a multi-threaded programs for which TLS is allocated.
+// So, we intercept __libc_memalign and point it to memalign to have a match.
+// We do the same for __libc_free.  libdl.so doesn't currently define
+//    __libc_free, but the code must be prepared to accept this.
+// An alternative to defining __libc_memalign would have been using
+//    the glibc __memalign_hook() function.
+extern "C"
+void *__libc_memalign(size_t boundary, size_t size) {
+  return memalign(boundary, size);
+}
+// libdl.so doesn't define __libc_free, but in case it does in the future ...
+extern "C"
+void __libc_free(void * ptr) {
+  free(ptr);
+}
+# endif
+#endif
+
+
+// FIXME
+// Starting here, we can continue with files for mtcpinterface.cpp - Gene
 
   // This is called by the child process, only, via DmtcpWorker::resetOnFork().
   // We know that no one can send the SIG_CKPT signal, since if the
