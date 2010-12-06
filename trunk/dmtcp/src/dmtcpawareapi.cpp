@@ -174,7 +174,10 @@ void dmtcp::userHookTrampoline_preCkpt() {
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
   // Write the logs to disk, if any are in memory.
   JTRACE ( "preCkpt, about to writeLogsToDisk." );
-  setenv(ENV_VAR_LOG_REPLAY, "0", 1);
+  char *x = getenv(ENV_VAR_LOG_REPLAY);
+  // Don't call setenv() here to avoid malloc()
+  x[0] = '0';
+  x[1] = '\0';
   writeLogsToDisk();
   close(synchronization_log_fd);
 #endif
