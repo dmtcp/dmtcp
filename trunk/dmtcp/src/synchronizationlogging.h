@@ -44,6 +44,9 @@
 #define SET_SYNC_REPLAY() (sync_logging_branch = 2)
 #define SET_SYNC_LOG()    (sync_logging_branch = 1)
 #define GET_RETURN_ADDRESS() __builtin_return_address(0)
+#define SET_IN_MMAP_WRAPPER() (in_mmap_wrapper = 1)
+#define UNSET_IN_MMAP_WRAPPER() (in_mmap_wrapper = 0)
+#define IN_MMAP_WRAPPER (in_mmap_wrapper == 1)
 
 #define TURN_CHECK_P(name) int name(log_entry_t *e1, log_entry_t *e2)
 
@@ -87,7 +90,6 @@
     }                                                               \
     getNextLogEntry();                                              \
   } while (0)
-
 
 #define WRAPPER_REPLAY_VOID(name)                                   \
   do {                                                              \
@@ -218,6 +220,14 @@ typedef enum {
   mkdir_event_return,
   mkstemp_event,
   mkstemp_event_return,
+  mmap_event,
+  mmap_event_return,
+  mmap64_event,
+  mmap64_event_return,
+  mremap_event,
+  mremap_event_return,
+  munmap_event,
+  munmap_event_return,
   open_event,
   open_event_return,
   pread_event,
@@ -767,6 +777,51 @@ typedef struct {
 static const int log_event_mkstemp_size = sizeof(log_event_mkstemp_t);
 
 typedef struct {
+  // For mmap():
+  unsigned long int addr;
+  size_t length;
+  int prot;
+  int flags;
+  int fd;
+  off_t offset;
+  unsigned long int retval;
+} log_event_mmap_t;
+
+static const int log_event_mmap_size = sizeof(log_event_mmap_t);
+
+typedef struct {
+  // For mmap64():
+  unsigned long int addr;
+  size_t length;
+  int prot;
+  int flags;
+  int fd;
+  off64_t offset;
+  unsigned long int retval;
+} log_event_mmap64_t;
+
+static const int log_event_mmap64_size = sizeof(log_event_mmap64_t);
+
+typedef struct {
+  // For mremap():
+  unsigned long int old_address;
+  size_t old_size;
+  size_t new_size;
+  int flags;
+  unsigned long int retval;
+} log_event_mremap_t;
+
+static const int log_event_mremap_size = sizeof(log_event_mremap_t);
+
+typedef struct {
+  // For munmap():
+  unsigned long int addr;
+  size_t length;
+} log_event_munmap_t;
+
+static const int log_event_munmap_size = sizeof(log_event_munmap_t);
+
+typedef struct {
   // For open():
   unsigned long int path;
   int flags;
@@ -1012,6 +1067,10 @@ typedef struct {
     log_event_malloc_t                           log_event_malloc;
     log_event_mkdir_t                            log_event_mkdir;
     log_event_mkstemp_t                          log_event_mkstemp;
+    log_event_mmap_t                             log_event_mmap;
+    log_event_mmap64_t                           log_event_mmap64;
+    log_event_mremap_t                           log_event_mremap;
+    log_event_munmap_t                           log_event_munmap;
     log_event_calloc_t                           log_event_calloc;
     log_event_realloc_t                          log_event_realloc;
     log_event_free_t                             log_event_free;
@@ -1086,6 +1145,7 @@ LIB_PRIVATE extern pthread_mutex_t wake_target_mutex;
 LIB_PRIVATE extern pthread_t       thread_to_reap;
 /* Thread locals: */
 LIB_PRIVATE extern __thread long long int my_clone_id;
+LIB_PRIVATE extern __thread int in_mmap_wrapper;
 /* Volatiles: */
 LIB_PRIVATE extern volatile int           log_entry_index;
 LIB_PRIVATE extern volatile int           log_index;
@@ -1186,6 +1246,14 @@ LIB_PRIVATE log_entry_t create_malloc_entry(int clone_id, int event, size_t size
 LIB_PRIVATE log_entry_t create_mkdir_entry(int clone_id, int event,
     const char *pathname, mode_t mode);
 LIB_PRIVATE log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp);
+LIB_PRIVATE log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off_t offset);
+LIB_PRIVATE log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off64_t offset);
+LIB_PRIVATE log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
+    size_t length);
+LIB_PRIVATE log_entry_t create_mremap_entry(int clone_id, int event,
+    void *old_address, size_t old_size, size_t new_size, int flags);
 LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event,
     const char *path, int flags, mode_t mode);
 LIB_PRIVATE log_entry_t create_pread_entry(int clone_id, int event, int fd,
@@ -1307,6 +1375,10 @@ LIB_PRIVATE TURN_CHECK_P(lxstat64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(malloc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(mkdir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(mkstemp_turn_check);
+LIB_PRIVATE TURN_CHECK_P(mmap_turn_check);
+LIB_PRIVATE TURN_CHECK_P(mmap64_turn_check);
+LIB_PRIVATE TURN_CHECK_P(mremap_turn_check);
+LIB_PRIVATE TURN_CHECK_P(munmap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pread_turn_check);
 LIB_PRIVATE TURN_CHECK_P(putc_turn_check);

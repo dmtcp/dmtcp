@@ -27,6 +27,13 @@
 # include "config.h"
 #endif
 
+#include "constants.h"
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "syscallwrappers.h"
+#define mmap   _real_mmap
+#define munmap _real_munmap
+#endif
+
 static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
 
 void jalib::JAllocDispatcher::reset_on_fork()

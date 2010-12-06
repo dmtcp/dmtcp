@@ -49,12 +49,37 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <dlfcn.h>
+#include <sys/mman.h>
 #include "synchronizationlogging.h"
 #endif
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+# ifdef __x86_64__
+static char mmap_trampoline_jump[] =
+  {
+    // mov    $0x1234567812345678,%rax
+    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12, 
+    // jmpq   *%rax
+    0xff, 0xe0
+  };
+# else
+static char mmap_trampoline_jump[] =
+  {
+    0xb8, 0x78, 0x56, 0x34, 0x12, // mov    $0x12345678,%eax
+    0xff, 0xe0                   // jmp    *%eax
+  };
+# endif
+#define INJECTED_LEN sizeof(mmap_trampoline_jump)
+#define PATCH_MMAP() \
+  memcpy(mmap_addr, mmap_trampoline_jump, INJECTED_LEN)
+#define UNPATCH_MMAP() \
+  memcpy(mmap_addr, mmap_displaced_instructions, INJECTED_LEN)
+
+static char mmap_displaced_instructions[INJECTED_LEN] = {0};
+static void *mmap_addr = NULL;
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-#endif
+#endif // SYNCHRONIZATION_LOG_AND_REPLAY
 
 
 /* Read-write lock initializers.  */
@@ -198,6 +223,113 @@ int _determineMtcpSignal(){
   return sig;
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+/* This could either be a normal dmtcp wrapper, or a hook function which calls
+   a normal dmtcp wrapper. In this case, this is just a hook function which
+   calls the real mmap wrapper (in mallocwrappers.cpp). I did it this way so
+   that the real mmap wrapper could be relatively unchanged. Also, this way the
+   default is to go through the regular mmap wrapper, and only if a call to
+   mmap misses the wrapper does it go through the trampoline maze. */
+static void *mmap_mini_trampoline(void *addr, size_t length, int prot,
+    int flags, int fd, off_t offset)
+{
+  void *retval;
+  if (IN_MMAP_WRAPPER) {
+    retval = _real_mmap(addr,length,prot,flags,fd,offset);
+  } else {
+    retval = mmap(addr,length,prot,flags,fd,offset);
+  }
+  return retval;
+}
+
+/* Trampoline to be installed in libc's mmap(). 
+
+ It would be best to leave this function alone whenever possible. If anything
+ is added, it is likely the stack frame size will change from what is
+ hard-coded in here (0x34 on 32-bit).
+
+ If you do make modifications which change the stack frame, disassemble this
+ function and see what the compiler has said for the stack frame adjustment
+ (e.g. "sub 0x34,%esp"). Then adjust the "add" instruction at the end to be the
+ same size. */
+static void mmap_trampoline(void *addr, size_t length, int prot,
+    int flags, int fd, off_t offset)
+{
+  /* Interesting note: we get the arguments set up for free, since mmap is
+     patched to jump directly to this function. */
+  /* Save registers we will clobber (why doesn't the compiler do this?) */
+#ifdef __x86_64__
+  asm("pushq %rcx\n"
+      "pushq %rdx");
+#else
+  asm("push %ecx\n"
+      "push %edx");
+#endif
+  /* Unpatch mmap. */
+  UNPATCH_MMAP();
+  /* Call mmap mini trampoline, which will eventually call _real_mmap. */
+  void *retval = mmap_mini_trampoline(addr,length,prot,flags,fd,offset);
+  /* Repatch mmap. */
+  PATCH_MMAP();
+#ifdef __x86_64__
+  asm("mov %0,%%rax\n"    /* Set return value */
+      "pop %%rdx\n"       /* Restore clobbered registers. */
+      "pop %%rcx\n"
+      "add $0x48,%%rsp\n" /* Reset stack pointer */
+      "pop %%rbx\n"
+      "pop %%rbp\n"
+      "ret":: "r"(retval)); /* Return to caller. */
+#else
+  asm("mov %0,%%eax\n"    /* Set return value */
+      "pop %%edx\n"       /* Restore clobbered registers. */
+      "pop %%ecx\n"
+      "add $0x34,%%esp\n" /* Reset stack pointer */
+      "pop %%ebx\n"
+      "pop %%ebp\n"
+      "ret":: "r"(retval)); /* Return to caller. */
+#endif
+  // Should never reach this line.
+}
+
+/* Set up hook functions for libc internal __mmap. */
+static void setup_mmap_hook()
+{
+  long pagesize = sysconf(_SC_PAGESIZE);
+  long page_base;
+
+  /************ Find libc mmap() and set up permissions. **********/
+  /* We assume that no one is wrapping mmap yet. */
+  void *handle = dlopen(LIBC_FILENAME, RTLD_NOW);
+  mmap_addr = dlsym(handle, "mmap");
+  /* Base address of page where mmap resides. */
+  page_base = (long)mmap_addr - ((long)mmap_addr % pagesize);
+  /* Give that whole page RWX permissions. */
+  int retval = mprotect((void *)page_base, pagesize,
+      PROT_READ | PROT_WRITE | PROT_EXEC);
+  JASSERT ( retval != -1 ) ( errno );
+
+  /************ Set up trampoline injection code. ***********/
+  /* Trick to get "free" conversion of a long value to the character-array
+     representation of that value. Different sizes of long and endian-ness are
+     handled automatically. */
+  union u {
+    long val;
+    char bytes[sizeof(long)];
+  } data;
+  data.val = (long)&mmap_trampoline;
+  /* Insert real trampoline address into injection code. */
+#ifdef __x86_64__
+  memcpy(mmap_trampoline_jump+2, data.bytes, sizeof(long));
+#else
+  memcpy(mmap_trampoline_jump+1, data.bytes, sizeof(long));
+#endif
+  /* Save displaced instructions for later restoration. */  
+  memcpy(mmap_displaced_instructions, mmap_addr, INJECTED_LEN);
+  /* Inject trampoline. */
+  PATCH_MMAP();
+}
+#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
@@ -319,36 +451,34 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  // This is called only on exec(). We reset the global clone counter for
-  // this process, assign the first thread (this one) clone_id 1, and increment
-  // the counter.
+  /* This is called only on exec(). We reset the global clone counter for this
+     process, assign the first thread (this one) clone_id 1, and increment the
+     counter. */
   JTRACE ( "resetting global clone counter." );
   global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
   my_clone_id = global_clone_counter;
   clone_id_to_tid_table[my_clone_id] = pthread_self();
   global_clone_counter++;
 
-  // Perform other initialization for sync log/replay specific to this process.
+  /* Other initialization for sync log/replay specific to this process. */
+  setup_mmap_hook();
   initializeLog();
   if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
-    // unset => set to 0 (meaning no logging, no replay)
+    /* If it is NULL, this is the very first exec. We unset => set to 0
+       (meaning no logging, no replay) */
     setenv(ENV_VAR_LOG_REPLAY, "0", 1);
   } 
   sync_logging_branch = atoi(getenv(ENV_VAR_LOG_REPLAY));
-  JTRACE ( "TYLER:" ) ( sync_logging_branch );
-  // Synchronize this constructor:
+  /* Synchronize this constructor, if this is not the very first exec. */
   log_entry_t my_entry = create_exec_barrier_entry();
   if (SYNC_IS_REPLAY) {
     memfence();
     if (log_loaded == 0) {
       primeLog();
     }
-    JTRACE ( "Waiting until my turn." ) ( my_clone_id )
-      ( GET_COMMON(currentLogEntry,clone_id) ) ( log_entry_index );
     waitForExecBarrier();
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
-    // Not replay; log.
     addNextLogEntry(my_entry);
   }
 #endif // SYNCHRONIZATION_LOG_AND_REPLAY

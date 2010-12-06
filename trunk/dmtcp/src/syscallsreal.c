@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <assert.h>
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <sys/mman.h>
 #include <dirent.h>
 #include <time.h>
 #define open _libc_open
@@ -833,6 +834,28 @@ void * _real_libc_memalign(size_t boundary, size_t size) {
 void _real_free(void *ptr) {
   REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
 }
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+void *_real_mmap(void *addr, size_t length, int prot, int flags,
+    int fd, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
+}
+
+void *_real_mmap64(void *addr, size_t length, int prot, int flags,
+    int fd, off64_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*,mmap64) (addr,length,prot,flags,fd,offset);
+}
+
+void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+    int flags, void *new_address) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
+    (old_address, old_size, new_size, flags, new_address);
+}
+
+int _real_munmap(void *addr, size_t length) {
+  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
+}
+#endif
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
 // }
