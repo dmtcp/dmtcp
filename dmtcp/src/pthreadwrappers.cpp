@@ -159,11 +159,10 @@ static void *start_wrapper(void *arg)
    Parameters:
    attr_out - (output) The final attributes caller should use.
    user_attr - User provided attributes; defer to these.
-   dest - If non-NULL, force new stack to this location.
    size - If non-0, force new stack to this size.
 */
 static void setupThreadStack(pthread_attr_t *attr_out, 
-    const pthread_attr_t *user_attr, void *dest, size_t size)
+    const pthread_attr_t *user_attr, size_t size)
 {
   size_t stack_size;
   void *stack_addr;
@@ -177,18 +176,17 @@ static void setupThreadStack(pthread_attr_t *attr_out,
     // Copy the user's attributes:
     *attr_out = *user_attr;
   }
-  void *mmap_addr = dest == NULL ? NULL : dest;
-  int mmap_flags  = dest == NULL ? MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK
-    : MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK | MAP_FIXED;
+  int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK;
   size_t mmap_size;
-  if (userStack)
+  if (userStack) {
     mmap_size = stack_size;
-  else
+  } else {
     mmap_size = size == 0 ? default_stack_size : size;
-  void *s = mmap(mmap_addr, mmap_size, PROT_READ | PROT_WRITE,
-      mmap_flags, -1, 0);
+  }
+  // mmap() wrapper handles forcing it to the same place on replay.
+  void *s = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
   if (s == MAP_FAILED)  {
-    JTRACE ( "Failed to map thread stack." ) ( mmap_addr ) ( mmap_size )
+    JTRACE ( "Failed to map thread stack." ) ( mmap_size )
       ( strerror(errno) ) ( log_entry_index );
     JASSERT ( false );
   }
@@ -340,7 +338,7 @@ static int internal_pthread_create(pthread_t *thread,
     ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
     // Set up thread stacks to how they were at record time.
     pthread_attr_init(&the_attr);
-    setupThreadStack(&the_attr, attr, stack_addr, stack_size);
+    setupThreadStack(&the_attr, attr, stack_size);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
     retval = _real_pthread_create(thread, &the_attr, 
@@ -369,7 +367,7 @@ static int internal_pthread_create(pthread_t *thread,
     pthread_attr_init(&the_attr);
     // start_wrapper() will unlock the mutex when it is done setup:
     // Possibly create a thread stack if the user has not provided one:
-    setupThreadStack(&the_attr, attr, NULL, 0);
+    setupThreadStack(&the_attr, attr, 0);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
     retval = _real_pthread_create(thread, &the_attr,

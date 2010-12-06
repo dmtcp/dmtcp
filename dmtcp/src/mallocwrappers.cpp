@@ -101,6 +101,7 @@ static void  (*old_free_hook) (void*, const void *);
 
 static pthread_mutex_t hook_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif //SYNCHRONIZATION_LOG_AND_REPLAY
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
@@ -147,22 +148,19 @@ static void getAllocHeader(struct alloc_header *header, void *p)
   memcpy(header, REAL_ADDR(p), ALLOC_HEADER_SIZE);
 }
 
-/* NOTE: Always consumes/returns USER addresses. Given a size and destination,
-   will allocate the space and insert our own header at the beginning. Non-null
-   destination forces allocation at that address. */
-static void *internal_malloc(size_t size, void *dest)
+/* NOTE: Always consumes/returns USER addresses. Given a size, will allocate
+   the space and insert our own header at the beginning. */
+static void *internal_malloc(size_t size)
 {
   JASSERT ( size != 0 ).Text("0 should be not be passed to internal_malloc()");
   void *retval;
   struct alloc_header header;
-  void *mmap_addr = (dest == NULL) ? NULL : REAL_ADDR(dest);
-  int mmap_flags = (dest == NULL) ? (MAP_PRIVATE | MAP_ANONYMOUS)
-                                  : (MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED);
   if (size >= SYNCHRONIZATION_MALLOC_LIMIT) {
     header.is_mmap = 1;
-    retval = mmap ( mmap_addr, REAL_SIZE(size), 
-        PROT_READ | PROT_WRITE, mmap_flags, -1, 0 );
-    JASSERT ( retval != (void *)-1 ) ( retval ) ( errno );
+    /* mmap wrapper will take care of putting it in the right place if replay. */
+    retval = mmap ( NULL, REAL_SIZE(size), 
+        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
+    JASSERT ( retval != MAP_FAILED ) ( retval ) ( errno );
   } else {
     header.is_mmap = 0;
     retval = _real_malloc ( REAL_SIZE(size) );
@@ -185,18 +183,15 @@ the alignment in _real_libc_memalign.
 
 If a program is heavy on memalign+free, the list strategy could create a lot of
 performance penalties. */
-static void *internal_libc_memalign(size_t boundary, size_t size, void *dest)
+static void *internal_libc_memalign(size_t boundary, size_t size)
 {
   void *retval;
   struct alloc_header header;
-  void *mmap_addr = dest;
-  int mmap_flags = (dest == NULL) ? (MAP_PRIVATE | MAP_ANONYMOUS)
-                                  : (MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED);
   if (size >= SYNCHRONIZATION_MALLOC_LIMIT) {
     header.is_mmap = 1;
-    retval = mmap ( mmap_addr, size, 
-        PROT_READ | PROT_WRITE, mmap_flags, -1, 0 );
-    JASSERT ( retval != (void *)-1 ) ( retval ) ( errno );
+    retval = mmap ( NULL, size, 
+        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
+    JASSERT ( retval != MAP_FAILED ) ( retval ) ( errno );
   } else {
     header.is_mmap = 0;
     retval = _real_libc_memalign ( boundary, size );
@@ -208,13 +203,12 @@ static void *internal_libc_memalign(size_t boundary, size_t size, void *dest)
   return retval;
 }
 
-/* NOTE: Always consumes/returns USER addresses. Given a size and destination,
-   will allocate the space and insert our own header at the beginning. Non-null
-   destination forces allocation at that address. */
-static void *internal_calloc(size_t nmemb, size_t size, void *dest)
+/* NOTE: Always consumes/returns USER addresses. Given a size, will allocate
+   the space and insert our own header at the beginning. */
+static void *internal_calloc(size_t nmemb, size_t size)
 {
   // internal_malloc() returns USER address.
-  void *retval = internal_malloc(nmemb*size, dest);
+  void *retval = internal_malloc(nmemb*size);
   memset(retval, 0, nmemb*size);
   return retval;
 }
@@ -251,15 +245,14 @@ static void internal_free(void *ptr)
   }
 }
 
-/* NOTE: Always consumes/returns USER addresses. Given a pointer, size and
-   destination, will reallocate the space (copying old data in process) and
-   insert our own header at the beginning. Non-null destination forces
-   allocation at that address. */
-static void *internal_realloc(void *ptr, size_t size, void *dest)
+/* NOTE: Always consumes/returns USER addresses. Given a pointer, and size,
+   will reallocate the space (copying old data in process) and insert our own
+   header at the beginning. */
+static void *internal_realloc(void *ptr, size_t size)
 {
   struct alloc_header header;
   getAllocHeader(&header, ptr);
-  void *retval = internal_malloc(size, dest);
+  void *retval = internal_malloc(size);
   if (size < header.chunk_size) {
     memcpy(retval, ptr, size);
   } else {
@@ -272,10 +265,15 @@ static void *internal_realloc(void *ptr, size_t size, void *dest)
 static void my_init_hooks(void)
 {
   /* Save old hook functions (from libc) and set them to our own hooks. */
-  old_malloc_hook = __malloc_hook;
-  old_free_hook = __free_hook;
-  __malloc_hook = my_malloc_hook;
-  __free_hook = my_free_hook;
+  _real_pthread_mutex_lock(&hook_lock);
+  if (!initHook) {
+    old_malloc_hook = __malloc_hook;
+    old_free_hook = __free_hook;
+    __malloc_hook = my_malloc_hook;
+    __free_hook = my_free_hook;
+    initHook = 1;
+  }
+  _real_pthread_mutex_unlock(&hook_lock);
 }
 
 static void *my_malloc_hook (size_t size, const void *caller)
@@ -289,6 +287,10 @@ static void *my_malloc_hook (size_t size, const void *caller)
   /* Save underlying hooks */
   old_malloc_hook = __malloc_hook;
   old_free_hook = __free_hook;
+  if (log_all_allocs) {
+    static int tyler_pid = _real_getpid();
+    printf ("<%d> malloc (%u) returns %p\n", tyler_pid, (unsigned int) size, result);
+  }
   /*static int tyler_pid = _real_getpid();
   void *buffer[10];
   int nptrs;
@@ -315,8 +317,10 @@ static void my_free_hook (void *ptr, const void *caller)
   old_malloc_hook = __malloc_hook;
   old_free_hook = __free_hook;
   /* printf might call free, so protect it too. */
-  /*static int tyler_pid = _real_getpid();
-  printf ("<%d> freed pointer %p\n", tyler_pid, ptr);*/
+  if (log_all_allocs) {
+    static int tyler_pid = _real_getpid();
+    printf ("<%d> freed pointer %p\n", tyler_pid, ptr);
+  }
   /* Restore our own hooks */
   __malloc_hook = my_malloc_hook;
   __free_hook = my_free_hook;
@@ -357,23 +361,20 @@ extern "C" void *calloc(size_t nmemb, size_t size)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &calloc_turn_check);
     getNextLogEntry();
-    waitForTurn(my_return_entry, &calloc_turn_check);
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_calloc(nmemb, size, 
-               (void *)currentLogEntry.log_event_t.log_event_calloc.return_ptr);
-    JASSERT ( (unsigned long int)retval ==
-              currentLogEntry.log_event_t.log_event_calloc.return_ptr ) 
-              ( retval )
-              ( (void*)currentLogEntry.log_event_t.log_event_calloc.return_ptr );
+    retval = internal_calloc(nmemb, size);
+    waitForTurn(my_return_entry, &calloc_turn_check);
+    JASSERT ( (unsigned long int)retval == GET_FIELD(currentLogEntry, calloc, return_ptr) )
+      ( retval )
+      ( (void*)currentLogEntry.log_event_t.log_event_calloc.return_ptr );
     _real_pthread_mutex_unlock(&allocation_lock);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_calloc(nmemb, size, NULL);
-    my_return_entry.log_event_t.log_event_calloc.return_ptr =
-      (unsigned long int)retval;
+    retval = internal_calloc(nmemb, size);
+    SET_FIELD2(my_return_entry, calloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -423,16 +424,14 @@ extern "C" void *malloc(size_t size)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &malloc_turn_check);
     getNextLogEntry();
-    waitForTurn(my_return_entry, &malloc_turn_check);
-    // Force allocation at same location as record:
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_malloc(size, 
-               (void *)currentLogEntry.log_event_t.log_event_malloc.return_ptr);
+    retval = internal_malloc(size);
+    waitForTurn(my_return_entry, &malloc_turn_check);
     if ((unsigned long int)retval !=
-        currentLogEntry.log_event_t.log_event_malloc.return_ptr) {
-      JTRACE ( "tyler" ) ( retval ) 
-             ( (void*) currentLogEntry.log_event_t.log_event_malloc.return_ptr )
-	     ( log_entry_index );
+        GET_FIELD(currentLogEntry, malloc, return_ptr)) {
+      JTRACE ( "malloc wrong address" ) ( retval ) 
+        ( (void*) GET_FIELD(currentLogEntry, malloc, return_ptr) )
+        ( log_entry_index );
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -441,9 +440,8 @@ extern "C" void *malloc(size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_malloc(size, NULL);
-    my_return_entry.log_event_t.log_event_malloc.return_ptr =
-      (unsigned long int)retval;
+    retval = internal_malloc(size);
+    SET_FIELD2(my_return_entry, malloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -491,15 +489,13 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &libc_memalign_turn_check);
     getNextLogEntry();
-    waitForTurn(my_return_entry, &libc_memalign_turn_check);
-    // Force allocation at same location as record:
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_libc_memalign(boundary, size,
-               (void *)currentLogEntry.log_event_t.log_event_libc_memalign.return_ptr);
+    retval = internal_libc_memalign(boundary, size);
+    waitForTurn(my_return_entry, &libc_memalign_turn_check);
     if ((unsigned long int)retval !=
-        currentLogEntry.log_event_t.log_event_libc_memalign.return_ptr) {
+        GET_FIELD(currentLogEntry, libc_memalign, return_ptr)) {
       JTRACE ( "tyler" ) ( retval ) 
-             ( (void*) currentLogEntry.log_event_t.log_event_libc_memalign.return_ptr )
+        ( (void*) GET_FIELD(currentLogEntry, libc_memalign, return_ptr) )
 	     ( log_entry_index );
       kill(getpid(), SIGSEGV);
     }
@@ -509,9 +505,8 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_libc_memalign(boundary, size, NULL);
-    my_return_entry.log_event_t.log_event_libc_memalign.return_ptr =
-      (unsigned long int)retval;
+    retval = internal_libc_memalign(boundary, size);
+    SET_FIELD2(my_return_entry, libc_memalign, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -551,14 +546,14 @@ extern "C" void free(void *ptr)
     _real_pthread_mutex_unlock(&allocation_lock);
     WRAPPER_EXECUTION_ENABLE_CKPT();
   } else {
-    struct alloc_header header;
-    getAllocHeader(&header, ptr);
-    if (header.signature != ALLOC_SIGNATURE) {
-      if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
-        /* It was a memaligned region -- no header at the front, so let
-           internal_free below handle it specially. We still want to log/replay
-           this.*/
-      } else {
+    if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
+      /* It was a memaligned region -- no header at the front, so let
+         internal_free below handle it specially. We still want to log/replay
+         this.*/
+    } else {
+      struct alloc_header header;
+      getAllocHeader(&header, ptr);
+      if (header.signature != ALLOC_SIGNATURE) {
         /* No proper signature, and it wasn't memaligned. This means somebody
            allocated memory outside of our wrappers. We ignore this, and don't
            log/replay it. */
@@ -572,10 +567,10 @@ extern "C" void free(void *ptr)
     if (SYNC_IS_REPLAY) {
       waitForTurn(my_entry, &free_turn_check);
       getNextLogEntry();
-      waitForTurn(my_return_entry, &free_turn_check);
       _real_pthread_mutex_lock(&allocation_lock);
       internal_free(ptr);
       _real_pthread_mutex_unlock(&allocation_lock);
+      waitForTurn(my_return_entry, &free_turn_check);
       getNextLogEntry();
     } else if (SYNC_IS_LOG) {
       // Not restart; we should be logging.
@@ -624,23 +619,21 @@ extern "C" void *realloc(void *ptr, size_t size)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &realloc_turn_check);
     getNextLogEntry();
-    waitForTurn(my_return_entry, &realloc_turn_check);
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_realloc(ptr, size,
-               (void *)currentLogEntry.log_event_t.log_event_realloc.return_ptr);
+    retval = internal_realloc(ptr, size);
+    waitForTurn(my_return_entry, &realloc_turn_check);
     JASSERT ( (unsigned long int)retval ==
-              currentLogEntry.log_event_t.log_event_realloc.return_ptr ) 
-              ( (unsigned long int)retval )
-              ( currentLogEntry.log_event_t.log_event_realloc.return_ptr );
+        GET_FIELD(currentLogEntry, realloc, return_ptr) ) 
+      ( (unsigned long int)retval )
+      ( GET_FIELD(currentLogEntry, realloc, return_ptr) );
     _real_pthread_mutex_unlock(&allocation_lock);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_realloc(ptr, size, NULL);
-    my_return_entry.log_event_t.log_event_realloc.return_ptr =
-      (unsigned long int)retval;
+    retval = internal_realloc(ptr, size);
+    SET_FIELD2(my_return_entry, realloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
@@ -653,4 +646,223 @@ extern "C" void *realloc(void *ptr, size_t size)
   return retVal;
 #endif
 }
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
+    int fd, off_t offset)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  SET_IN_MMAP_WRAPPER();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mmap (addr, length, prot, flags, fd, offset);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mmap (addr, length, prot, flags, fd, offset);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  void *retval;
+  log_entry_t my_entry = create_mmap_entry(my_clone_id, mmap_event,
+      addr, length, prot, flags, fd, offset);
+  log_entry_t my_return_entry = create_mmap_entry(my_clone_id, mmap_event_return, 
+      addr, length, prot, flags, fd, offset);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &mmap_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &mmap_turn_check);
+    _real_pthread_mutex_lock(&mmap_lock);
+    JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
+    addr = (void *)GET_FIELD(currentLogEntry, mmap, retval);
+    flags |= MAP_FIXED;
+    retval = _real_mmap (addr, length, prot, flags, fd, offset);
+    JASSERT ( retval == (void *)GET_FIELD(currentLogEntry, mmap, retval) );
+    _real_pthread_mutex_unlock(&mmap_lock);
+    if (retval == MAP_FAILED) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    addNextLogEntry(my_entry);
+    retval = _real_mmap (addr, length, prot, flags, fd, offset);
+    SET_FIELD2(my_return_entry, mmap, retval, (unsigned long int)retval);
+    addNextLogEntry(my_return_entry);
+    _real_pthread_mutex_unlock(&mmap_lock);
+  }
+  UNSET_IN_MMAP_WRAPPER();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
+    int fd, off64_t offset)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  void *retval;
+  log_entry_t my_entry = create_mmap64_entry(my_clone_id, mmap64_event,
+      addr, length, prot, flags, fd, offset);
+  log_entry_t my_return_entry = create_mmap64_entry(my_clone_id, mmap64_event_return, 
+      addr, length, prot, flags, fd, offset);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &mmap64_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &mmap64_turn_check);
+    _real_pthread_mutex_lock(&mmap_lock);
+    JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
+    addr = (void *)GET_FIELD(currentLogEntry, mmap64, retval);
+    flags |= MAP_FIXED;
+    retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    JASSERT ( retval == (void *)GET_FIELD(currentLogEntry, mmap64, retval) );
+    _real_pthread_mutex_unlock(&mmap_lock);
+    if (retval == MAP_FAILED) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    addNextLogEntry(my_entry);
+    retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    SET_FIELD2(my_return_entry, mmap64, retval, (unsigned long int)retval);
+    addNextLogEntry(my_return_entry);
+    _real_pthread_mutex_unlock(&mmap_lock);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" int munmap(void *addr, size_t length)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    int retval = _real_munmap (addr, length);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    _real_pthread_mutex_lock(&mmap_lock);
+    int retval = _real_munmap (addr, length);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  int retval;
+  log_entry_t my_entry = create_munmap_entry(my_clone_id, munmap_event,
+      addr, length);
+  log_entry_t my_return_entry = create_munmap_entry(my_clone_id, munmap_event_return, 
+      addr, length);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &munmap_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &munmap_turn_check);
+    _real_pthread_mutex_lock(&mmap_lock);
+    retval = _real_munmap (addr, length);
+    JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
+    _real_pthread_mutex_unlock(&mmap_lock);
+    if (retval == -1) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    addNextLogEntry(my_entry);
+    retval = _real_munmap (addr, length);
+    SET_COMMON(my_return_entry, retval);
+    addNextLogEntry(my_return_entry);
+    _real_pthread_mutex_unlock(&mmap_lock);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" void *mremap(void *old_address, size_t old_size,
+    size_t new_size, int flags, ...)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  va_list ap;
+  va_start( ap, flags );
+  void *new_address = va_arg ( ap, void * );
+  va_end ( ap );
+
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) && !log_all_allocs) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mremap (old_address, old_size, new_size, flags,
+                                 new_address);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *retval = _real_mremap (old_address, old_size, new_size, flags,
+                                 new_address);
+    _real_pthread_mutex_unlock(&mmap_lock);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return retval;
+  }
+  void *retval;
+  log_entry_t my_entry = create_mremap_entry(my_clone_id, mremap_event,
+      old_address, old_size, new_size, flags);
+  log_entry_t my_return_entry = create_mremap_entry(my_clone_id,
+      mremap_event_return, old_address, old_size, new_size, flags);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &mremap_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &mremap_turn_check);
+    _real_pthread_mutex_lock(&mmap_lock);
+    void *addr = (void *)GET_FIELD(currentLogEntry, mremap, retval);
+    flags |= (MREMAP_MAYMOVE | MREMAP_FIXED);
+    retval = _real_mremap (old_address, old_size, new_size, flags, addr);
+    JASSERT ( retval == (void *)GET_FIELD(currentLogEntry, mremap, retval) );
+    _real_pthread_mutex_unlock(&mmap_lock);
+    if (retval == MAP_FAILED) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    addNextLogEntry(my_entry);
+    retval = _real_mremap (old_address, old_size, new_size, flags, new_address);
+    SET_FIELD2(my_return_entry, mremap, retval, (unsigned long int)retval);
+    addNextLogEntry(my_return_entry);
+    _real_pthread_mutex_unlock(&mmap_lock);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+
+/*
+extern "C" void *mmap2(void *addr, size_t length, int prot,
+    int flags, int fd, off_t pgoffset)
+{
+
+}
+*/
+#endif
+
 #endif // ENABLE_MALLOC_WRAPPER

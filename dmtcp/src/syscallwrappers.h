@@ -44,6 +44,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
 #endif
@@ -111,7 +112,6 @@ extern "C"
   MACRO(rand)                                 \
   MACRO(srand)                                \
   MACRO(time)                                 \
-  MACRO(mmap)                                 \
   MACRO(getsockname)                          \
   MACRO(getpeername)                          \
   MACRO(fcntl)                                \
@@ -139,7 +139,11 @@ extern "C"
   MACRO(ftell)                                \
   MACRO(fwrite)                               \
   MACRO(mkdir)                                \
-  MACRO(mkstemp)
+  MACRO(mkstemp)                              \
+  MACRO(mmap)                                 \
+  MACRO(mmap64)                               \
+  MACRO(mremap)                               \
+  MACRO(munmap)
 
 #define FOREACH_PTHREAD_FUNC_WRAPPER(MACRO)     \
   MACRO(pthread_cond_wait)			\
@@ -439,7 +443,15 @@ extern "C"
   void  _real_free(void *ptr);
   void *_real_realloc(void *ptr, size_t size);
   void *_real_libc_memalign(size_t boundary, size_t size);
-
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  void *_real_mmap(void *addr, size_t length, int prot, int flags,
+      int fd, off_t offset);
+  void *_real_mmap64(void *addr, size_t length, int prot, int flags,
+      int fd, off64_t offset);
+  void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+      int flags, void *new_address);
+  int _real_munmap(void *addr, size_t length);
+#endif
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
 #endif
 

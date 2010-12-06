@@ -134,6 +134,10 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     MACRO(malloc, __VA_ARGS__);                                                \
     MACRO(mkdir, __VA_ARGS__);                                                 \
     MACRO(mkstemp, __VA_ARGS__);                                               \
+    MACRO(mmap, __VA_ARGS__);                                                  \
+    MACRO(mmap64, __VA_ARGS__);                                                \
+    MACRO(mremap, __VA_ARGS__);                                                \
+    MACRO(munmap, __VA_ARGS__);                                                \
     MACRO(open, __VA_ARGS__);                                                  \
     MACRO(pread, __VA_ARGS__);                                                 \
     MACRO(putc, __VA_ARGS__);                                                  \
@@ -291,6 +295,7 @@ LIB_PRIVATE pthread_mutex_t thread_transition_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_t       thread_to_reap;
 /* Thread locals: */
 LIB_PRIVATE __thread long long int my_clone_id = 0;
+LIB_PRIVATE __thread int in_mmap_wrapper = 0;
 /* Volatiles: */
 LIB_PRIVATE volatile int           log_entry_index = 0;
 LIB_PRIVATE volatile int           log_index = 0;
@@ -564,7 +569,9 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == rmdir_event_return || GET_COMMON(e,event) == mkdir_event_return ||
     GET_COMMON(e,event) == fprintf_event_return || GET_COMMON(e,event) == fputs_event_return ||
     GET_COMMON(e,event) == fscanf_event_return ||
-    GET_COMMON(e,event) == fwrite_event_return || GET_COMMON(e,event) == putc_event_return;
+    GET_COMMON(e,event) == fwrite_event_return || GET_COMMON(e,event) == putc_event_return ||
+    GET_COMMON(e,event) == mmap_event_return || GET_COMMON(e,event) == mmap64_event_return ||
+    GET_COMMON(e,event) == munmap_event_return || GET_COMMON(e,event) == mremap_event_return;
 }
 
 void copyFdSet(fd_set *src, fd_set *dest)
@@ -1349,6 +1356,55 @@ log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp)
   return e;
 }
 
+log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mmap, addr, (unsigned long int)addr);
+  SET_FIELD(e, mmap, length);
+  SET_FIELD(e, mmap, prot);
+  SET_FIELD(e, mmap, flags);
+  SET_FIELD(e, mmap, fd);
+  SET_FIELD(e, mmap, offset);
+  return e;
+}
+
+log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off64_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mmap64, addr, (unsigned long int)addr);
+  SET_FIELD(e, mmap64, length);
+  SET_FIELD(e, mmap64, prot);
+  SET_FIELD(e, mmap64, flags);
+  SET_FIELD(e, mmap64, fd);
+  SET_FIELD(e, mmap64, offset);
+  return e;
+}
+
+log_entry_t create_mremap_entry(int clone_id, int event, void *old_address,
+    size_t old_size, size_t new_size, int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mremap, old_address, (unsigned long int)old_address);
+  SET_FIELD(e, mremap, old_size);
+  SET_FIELD(e, mremap, new_size);
+  SET_FIELD(e, mremap, flags);
+  return e;
+}
+
+log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
+    size_t length)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, munmap, addr, (unsigned long int)addr);
+  SET_FIELD(e, munmap, length);
+  return e;
+}
 log_entry_t create_open_entry(int clone_id, int event, const char *path,
    int flags, mode_t open_mode)
 {
@@ -2403,6 +2459,62 @@ TURN_CHECK_P(mkstemp_turn_check)
   return base_turn_check(e1, e2) &&
     GET_FIELD_PTR(e1, mkstemp, temp) ==
       GET_FIELD_PTR(e2, mkstemp, temp);
+}
+
+TURN_CHECK_P(mmap_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, mmap, addr) ==
+      GET_FIELD_PTR(e2, mmap, addr) &&
+    GET_FIELD_PTR(e1, mmap, length) ==
+      GET_FIELD_PTR(e2, mmap, length) &&
+    GET_FIELD_PTR(e1, mmap, prot) ==
+      GET_FIELD_PTR(e2, mmap, prot) &&
+    GET_FIELD_PTR(e1, mmap, flags) ==
+      GET_FIELD_PTR(e2, mmap, flags) &&
+    GET_FIELD_PTR(e1, mmap, fd) ==
+      GET_FIELD_PTR(e2, mmap, fd) &&
+    GET_FIELD_PTR(e1, mmap, offset) ==
+      GET_FIELD_PTR(e2, mmap, offset);
+}
+
+TURN_CHECK_P(mmap64_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, mmap64, addr) ==
+      GET_FIELD_PTR(e2, mmap64, addr) &&
+    GET_FIELD_PTR(e1, mmap64, length) ==
+      GET_FIELD_PTR(e2, mmap64, length) &&
+    GET_FIELD_PTR(e1, mmap64, prot) ==
+      GET_FIELD_PTR(e2, mmap64, prot) &&
+    GET_FIELD_PTR(e1, mmap64, flags) ==
+      GET_FIELD_PTR(e2, mmap64, flags) &&
+    GET_FIELD_PTR(e1, mmap64, fd) ==
+      GET_FIELD_PTR(e2, mmap64, fd) &&
+    GET_FIELD_PTR(e1, mmap64, offset) ==
+      GET_FIELD_PTR(e2, mmap64, offset);
+}
+
+TURN_CHECK_P(mremap_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, mremap, old_address) ==
+      GET_FIELD_PTR(e2, mremap, old_address) &&
+    GET_FIELD_PTR(e1, mremap, old_size) ==
+      GET_FIELD_PTR(e2, mremap, old_size) &&
+    GET_FIELD_PTR(e1, mremap, new_size) ==
+      GET_FIELD_PTR(e2, mremap, new_size) &&
+    GET_FIELD_PTR(e1, mremap, flags) ==
+      GET_FIELD_PTR(e2, mremap, flags);
+}
+
+TURN_CHECK_P(munmap_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, munmap, addr) ==
+      GET_FIELD_PTR(e2, munmap, addr) &&
+    GET_FIELD_PTR(e1, munmap, length) ==
+      GET_FIELD_PTR(e2, munmap, length);
 }
 
 TURN_CHECK_P(open_turn_check)
