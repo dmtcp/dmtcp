@@ -222,7 +222,9 @@ extern "C" int fclose(FILE *fp)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fclose_turn_check);
     getNextLogEntry();
-    free(fp);
+/* Calling the real function. The main reason is because we can't wrap
+ * fprintf. fopen opens a dummy file on replay. */
+    retval = _real_fclose(fp);
     streams_accessed.erase((void *)fp);
     waitForTurn(my_return_entry, &fclose_turn_check);
     getNextLogEntry();
@@ -1057,43 +1059,20 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fopen_turn_check);
     getNextLogEntry();
-    void *p = NULL;
-    size_t size = 0;
-    while (1) {
-      // Must wait until we're pointing at the malloc (to get the size)
-      if (GET_COMMON(currentLogEntry,event) == malloc_event &&
-          GET_COMMON(currentLogEntry,clone_id) == my_clone_id) {
-        size = GET_FIELD(currentLogEntry, malloc, size);
-        p = malloc(size);
-        break;
-      }
+/* Calling the real function. The main reason: we can't wrap fprintf.
+ * On replay, we actually open a dummy file. This needs to work for 
+ * both read and write permissions. You can't read from /dev/null. */
+    char newpath [ PATH_MAX ] = {0} ;
+    char newmode [ PATH_MAX ] = {0} ;
+    dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+    sprintf (newpath, "%s/%s", tmpdir.c_str(), path);
+    if (!strchr(mode, 'w')) {
+      sprintf(newmode, "w%s", mode);
+    } else {
+      sprintf(newmode, "%s", mode);
     }
+    retval =  _almost_real_fopen (newpath, newmode);
     waitForTurn(my_return_entry, &fopen_turn_check);
-    /* An astute observer might note that the size we malloc()ed above is NOT
-       the same as sizeof(FILE). Thus, the decision to use the above malloced
-       area for the actual FILE structure needs some explanation.
-
-       Internally, fopen() will malloc space for the new file stream. That
-       malloc is replicated by the malloc above. However, the internal
-       structure used in fopen() is slightly different -- it contains
-       additional information, and the actual FILE object is just a field in
-       that internal structure.
-
-       Why, then, is it ok to simply copy the FILE struct to the beginning of
-       that malloced area?
-
-       Further investigation into the implementation of fopen() reveals that it
-       returns the pointer to the actual FILE object within the internal
-       structure. Furthermore, fclose() simple calls free() on that address.
-
-       It follows, then, that the FILE object must be placed at the beginning
-       of the internal structure, and we can simply replicate that here. */
-    FILE f = GET_FIELD(currentLogEntry, fopen, fopen_retval);
-    memcpy(p, (void *)&f, sizeof(f));
-    retval = (FILE *)p;
-    if (retval == NULL) {
-      errno = GET_COMMON(currentLogEntry, my_errno);
-    }
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
