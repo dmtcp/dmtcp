@@ -523,27 +523,43 @@ static int isUnlock(log_entry_t e)
   return GET_COMMON(e,event) == pthread_mutex_unlock_event ||
     GET_COMMON(e,event) == select_event_return ||
     GET_COMMON(e,event) == read_event_return ||
-    GET_COMMON(e,event) == pthread_create_event_return || GET_COMMON(e,event) == pthread_exit_event ||
-    GET_COMMON(e,event) == malloc_event_return || GET_COMMON(e,event) == calloc_event_return ||
-    GET_COMMON(e,event) == realloc_event_return || GET_COMMON(e,event) == free_event_return ||
-    GET_COMMON(e,event) == accept_event_return || GET_COMMON(e,event) == getsockname_event_return ||
-    GET_COMMON(e,event) == fcntl_event_return || GET_COMMON(e,event) == libc_memalign_event_return ||
-    GET_COMMON(e,event) == setsockopt_event_return || GET_COMMON(e,event) == write_event_return ||
-    GET_COMMON(e,event) == rand_event_return || GET_COMMON(e,event) == srand_event_return ||
-    GET_COMMON(e,event) == time_event_return || GET_COMMON(e,event) == pthread_detach_event_return ||
-    GET_COMMON(e,event) == pthread_join_event_return || GET_COMMON(e,event) == close_event_return ||
-    GET_COMMON(e,event) == signal_handler_event_return || GET_COMMON(e,event) == sigwait_event_return||
-    GET_COMMON(e,event) == access_event_return || GET_COMMON(e,event) == open_event_return ||
+    GET_COMMON(e,event) == pthread_create_event_return ||
+    GET_COMMON(e,event) == pthread_exit_event ||
+    GET_COMMON(e,event) == malloc_event_return ||
+    GET_COMMON(e,event) == calloc_event_return ||
+    GET_COMMON(e,event) == realloc_event_return ||
+    GET_COMMON(e,event) == free_event_return ||
+    GET_COMMON(e,event) == accept_event_return ||
+    GET_COMMON(e,event) == getsockname_event_return ||
+    GET_COMMON(e,event) == fcntl_event_return ||
+    GET_COMMON(e,event) == libc_memalign_event_return ||
+    GET_COMMON(e,event) == setsockopt_event_return ||
+    GET_COMMON(e,event) == write_event_return ||
+    GET_COMMON(e,event) == rand_event_return ||
+    GET_COMMON(e,event) == srand_event_return ||
+    GET_COMMON(e,event) == time_event_return ||
+    GET_COMMON(e,event) == pthread_detach_event_return ||
+    GET_COMMON(e,event) == pthread_join_event_return ||
+    GET_COMMON(e,event) == close_event_return ||
+    GET_COMMON(e,event) == signal_handler_event_return ||
+    GET_COMMON(e,event) == sigwait_event_return||
+    GET_COMMON(e,event) == access_event_return ||
+    GET_COMMON(e,event) == open_event_return ||
     GET_COMMON(e,event) == pthread_rwlock_unlock_event ||
     GET_COMMON(e,event) == pthread_rwlock_rdlock_event_return ||
     GET_COMMON(e,event) == pthread_rwlock_wrlock_event_return ||
     GET_COMMON(e,event) == pthread_mutex_trylock_event_return ||
     GET_COMMON(e,event) == dup_event_return ||
-    GET_COMMON(e,event) == xstat_event_return || GET_COMMON(e,event) == xstat64_event_return ||
-    GET_COMMON(e,event) == fxstat_event_return || GET_COMMON(e,event) == fxstat64_event_return ||
-    GET_COMMON(e,event) == lxstat_event_return || GET_COMMON(e,event) == lxstat64_event_return ||
-    GET_COMMON(e,event) == lseek_event_return || GET_COMMON(e,event) == unlink_event_return ||
-    GET_COMMON(e,event) == pread_event_return || GET_COMMON(e,event) == pwrite_event_return ||
+    GET_COMMON(e,event) == xstat_event_return ||
+    GET_COMMON(e,event) == xstat64_event_return ||
+    GET_COMMON(e,event) == fxstat_event_return ||
+    GET_COMMON(e,event) == fxstat64_event_return ||
+    GET_COMMON(e,event) == lxstat_event_return ||
+    GET_COMMON(e,event) == lxstat64_event_return ||
+    GET_COMMON(e,event) == lseek_event_return ||
+    GET_COMMON(e,event) == unlink_event_return ||
+    GET_COMMON(e,event) == pread_event_return ||
+    GET_COMMON(e,event) == pwrite_event_return ||
     GET_COMMON(e,event) == pthread_cond_signal_event_return ||
     GET_COMMON(e,event) == pthread_cond_broadcast_event_return ||
     /* We only use cond_*wait_return to store return value information. Thus,
@@ -557,21 +573,36 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == getc_event_return ||
     GET_COMMON(e,event) == ungetc_event_return ||
     GET_COMMON(e,event) == getline_event_return ||
-    GET_COMMON(e,event) == getpeername_event_return || GET_COMMON(e,event) == fdopen_event_return ||
-    GET_COMMON(e,event) == fdatasync_event_return || GET_COMMON(e,event) == link_event_return ||
-    GET_COMMON(e,event) == rename_event_return || GET_COMMON(e,event) == bind_event_return ||
-    GET_COMMON(e,event) == listen_event_return || GET_COMMON(e,event) == socket_event_return ||
-    GET_COMMON(e,event) == connect_event_return || GET_COMMON(e,event) == readdir_event_return || GET_COMMON(e,event) == readdir_r_event_return ||
-    GET_COMMON(e,event) == fclose_event_return || GET_COMMON(e,event) == fopen_event_return ||
-    GET_COMMON(e,event) == fgets_event_return || GET_COMMON(e,event) == mkstemp_event_return ||
-    GET_COMMON(e,event) == rewind_event_return || GET_COMMON(e,event) == ftell_event_return ||
-    GET_COMMON(e,event) == fsync_event_return || GET_COMMON(e,event) == readlink_event_return ||
-    GET_COMMON(e,event) == rmdir_event_return || GET_COMMON(e,event) == mkdir_event_return ||
-    GET_COMMON(e,event) == fprintf_event_return || GET_COMMON(e,event) == fputs_event_return ||
+    GET_COMMON(e,event) == getpeername_event_return ||
+    GET_COMMON(e,event) == fdopen_event_return ||
+    GET_COMMON(e,event) == fdatasync_event_return ||
+    GET_COMMON(e,event) == link_event_return ||
+    GET_COMMON(e,event) == rename_event_return ||
+    GET_COMMON(e,event) == bind_event_return ||
+    GET_COMMON(e,event) == listen_event_return ||
+    GET_COMMON(e,event) == socket_event_return ||
+    GET_COMMON(e,event) == connect_event_return ||
+    GET_COMMON(e,event) == readdir_event_return ||
+    GET_COMMON(e,event) == readdir_r_event_return ||
+    GET_COMMON(e,event) == fclose_event_return ||
+    GET_COMMON(e,event) == fopen_event_return ||
+    GET_COMMON(e,event) == fgets_event_return ||
+    GET_COMMON(e,event) == mkstemp_event_return ||
+    GET_COMMON(e,event) == rewind_event_return ||
+    GET_COMMON(e,event) == ftell_event_return ||
+    GET_COMMON(e,event) == fsync_event_return ||
+    GET_COMMON(e,event) == readlink_event_return ||
+    GET_COMMON(e,event) == rmdir_event_return ||
+    GET_COMMON(e,event) == mkdir_event_return ||
+    GET_COMMON(e,event) == fprintf_event_return ||
+    GET_COMMON(e,event) == fputs_event_return ||
     GET_COMMON(e,event) == fscanf_event_return ||
-    GET_COMMON(e,event) == fwrite_event_return || GET_COMMON(e,event) == putc_event_return ||
-    GET_COMMON(e,event) == mmap_event_return || GET_COMMON(e,event) == mmap64_event_return ||
-    GET_COMMON(e,event) == munmap_event_return || GET_COMMON(e,event) == mremap_event_return;
+    GET_COMMON(e,event) == fwrite_event_return ||
+    GET_COMMON(e,event) == putc_event_return ||
+    GET_COMMON(e,event) == mmap_event_return ||
+    GET_COMMON(e,event) == mmap64_event_return ||
+    GET_COMMON(e,event) == munmap_event_return ||
+    GET_COMMON(e,event) == mremap_event_return;
 }
 
 void copyFdSet(fd_set *src, fd_set *dest)
