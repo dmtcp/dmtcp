@@ -78,6 +78,7 @@ static char mmap_trampoline_jump[] =
 
 static char mmap_displaced_instructions[INJECTED_LEN] = {0};
 static void *mmap_addr = NULL;
+__attribute__ ((visibility ("hidden"))) __thread int mmap_no_sync = 0;
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif // SYNCHRONIZATION_LOG_AND_REPLAY
 
@@ -234,7 +235,7 @@ static void *mmap_mini_trampoline(void *addr, size_t length, int prot,
     int flags, int fd, off_t offset)
 {
   void *retval;
-  if (IN_MMAP_WRAPPER) {
+  if (IN_MMAP_WRAPPER || MMAP_NO_SYNC) {
     retval = _real_mmap(addr,length,prot,flags,fd,offset);
   } else {
     retval = mmap(addr,length,prot,flags,fd,offset);
