@@ -145,7 +145,8 @@
   }
 
 /* Event codes: */
-typedef enum { 
+typedef enum {
+  unknown_event = -1,
   accept_event = 1,
   accept_event_return,
   access_event,

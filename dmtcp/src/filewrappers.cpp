@@ -63,70 +63,6 @@
 #undef read
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-
-/* Slight modification to BASIC_SYNC_WRAPPER to call maybe_mmap_stream() on the
- * replay branch. This should only be needed by wrappers which interact with
- * FILE * structures. */
-#define BASIC_SYNC_WRAPPER_STREAM(ret_type, name, real_func, ...)   \
-  WRAPPER_HEADER(ret_type, name, real_func, __VA_ARGS__);           \
-  if (SYNC_IS_REPLAY) {                                             \
-    waitForTurn(my_entry, &name##_turn_check);                      \
-    getNextLogEntry();                                              \
-    maybe_mmap_stream((void *)stream);                              \
-    waitForTurn(my_return_entry, &name##_turn_check);               \
-    retval = GET_COMMON(currentLogEntry, retval);                   \
-    if (GET_COMMON(currentLogEntry, my_errno) != 0) {               \
-      errno = GET_COMMON(currentLogEntry, my_errno);                \
-    }                                                               \
-    getNextLogEntry();                                              \
-  } else if (SYNC_IS_LOG) {                                         \
-    WRAPPER_LOG(real_func, __VA_ARGS__);                            \
-  }                                                                 \
-  return retval;
-
-/* Table which indicates which streams (FILE *) have been accessed for the
- * first time. When a stream is opened via fopen(), space for it is allocated
- * on a lazy basis, meaning we have to know in the wrappers if space has been
- * allocated yet or not (in order to replay it.) We use a map for more
- * efficient accessing of elements, since each stream will be uniquely
- * identified by its address. */
-static dmtcp::map<void *, int>streams_accessed;
-
-/* Function to allocate space for a FILE stream. This function
- * waits for an mmap() event from the calling thread, and calls mmap() for that
- * logged size and location. The mmap wrapper takes care of forcing it to the
- * same location.*/
-static void allocate_stream()
-{
-  while (1) {
-    // Must wait until we're pointing at the mmap (to get the parameters)
-    if (GET_COMMON(currentLogEntry,event) == mmap_event &&
-        GET_COMMON(currentLogEntry,clone_id) == my_clone_id) {
-      size_t length = GET_FIELD(currentLogEntry, mmap, length);
-      int prot = GET_FIELD(currentLogEntry, mmap, prot);
-      int flags = GET_FIELD(currentLogEntry, mmap, flags);
-      int fd = GET_FIELD(currentLogEntry, mmap, fd);
-      off_t offset = GET_FIELD(currentLogEntry, mmap, offset);
-      mmap(NULL, length, prot, flags, fd, offset);
-      break;
-    }
-  }
-}
-
-/* If the given pointer to a FILE stream has never been accessed before, calls
- * allocate_stream to mmap the correct page, then marks it as accessed. This
- * function should ONLY be called on replay. */
-static void maybe_mmap_stream(void *stream)
-{
-  if (streams_accessed.find(stream) == streams_accessed.end()) {
-    streams_accessed[stream] = 1;
-    allocate_stream();
-  }
-}
-#endif
-
-
 #ifdef EXTERNAL_SOCKET_HANDLING
 extern dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
 static void processClose(dmtcp::ConnectionIdentifier conId)
@@ -225,7 +161,6 @@ extern "C" int fclose(FILE *fp)
 /* Calling the real function. The main reason is because we can't wrap
  * fprintf. fopen opens a dummy file on replay. */
     retval = _real_fclose(fp);
-    streams_accessed.erase((void *)fp);
     waitForTurn(my_return_entry, &fclose_turn_check);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
@@ -556,10 +491,6 @@ extern "C" FILE *fdopen(int fd, const char *mode)
         break;
       }
     }
-    /* fdopen(), unlike fopen(), seems to immediately allocate space for the
-       FILE stream, instead of waiting on the user to access it. Thus, we do
-       the mmap here. */
-    allocate_stream();
     waitForTurn(my_return_entry, &fdopen_turn_check);
     // Copy the FILE struct we stored in the log to the area we just malloced.
     // This is to keep the addresses of streams consistent with record.
@@ -832,7 +763,6 @@ extern "C" int __isoc99_fscanf (FILE *stream, const char *format, ...)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fscanf_turn_check);
     getNextLogEntry();
-    maybe_mmap_stream((void *)stream);
     waitForTurn(my_return_entry, &fscanf_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
       read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
@@ -885,7 +815,6 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fgets_turn_check);
     getNextLogEntry();
-    maybe_mmap_stream((void *)stream);
     waitForTurn(my_return_entry, &fgets_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
       read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
@@ -970,7 +899,7 @@ extern "C" int __fprintf_chk (FILE *stream, int flag, const char *format, ...)
 
 extern "C" int _IO_getc(FILE *stream)
 {
-  BASIC_SYNC_WRAPPER_STREAM(int, getc, _real_getc, stream);
+  BASIC_SYNC_WRAPPER(int, getc, _real_getc, stream);
 }
 
 extern "C" int ungetc(int c, FILE *stream)
