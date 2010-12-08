@@ -56,6 +56,7 @@ typedef funcptr ( *signal_funcptr ) ();
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
+
 #endif
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -854,6 +855,24 @@ void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
 
 int _real_munmap(void *addr, size_t length) {
   REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
+}
+
+/* A way to call mmap to ensure it is not logged/replayed. This is primarily
+   used by jalloc.cpp to skip log/replay for its mmap calls. */
+void *_mmap_no_sync(void *addr, size_t length, int prot, int flags,
+    int fd, off_t offset)
+{
+  SET_MMAP_NO_SYNC(); // Needed to bypass trampoline
+  void *retval = _real_mmap(addr, length, prot, flags, fd, offset);
+  UNSET_MMAP_NO_SYNC();
+  return retval;
+}
+
+/* This is currently just calls _real_munmap, since we don't have an munmap
+   trampoline to worry about. */
+int _munmap_no_sync(void *addr, size_t length)
+{
+  return _real_munmap(addr, length);
 }
 #endif
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {

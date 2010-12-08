@@ -30,8 +30,9 @@
 #include "constants.h"
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 #include "syscallwrappers.h"
-#define mmap   _real_mmap
-#define munmap _real_munmap
+// Make sure we don't log/replay mmaps made by the allocator.
+#define mmap   _mmap_no_sync
+#define munmap _munmap_no_sync
 #endif
 
 static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;

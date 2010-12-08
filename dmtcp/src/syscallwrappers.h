@@ -49,6 +49,14 @@
 #include <unistd.h>
 #endif
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#define SET_MMAP_NO_SYNC()   (mmap_no_sync = 1)
+#define UNSET_MMAP_NO_SYNC() (mmap_no_sync = 0)
+#define MMAP_NO_SYNC         (mmap_no_sync == 1)
+// Defined in dmtcpworker.cpp:
+__attribute__ ((visibility ("hidden"))) extern __thread int mmap_no_sync;
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -451,6 +459,10 @@ extern "C"
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
       int flags, void *new_address);
   int _real_munmap(void *addr, size_t length);
+  void * _mmap_no_sync(void *addr, size_t length, int prot, int flags,
+      int fd, off_t offset);
+  int _munmap_no_sync(void *addr, size_t length);
+
 #endif
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
 #endif

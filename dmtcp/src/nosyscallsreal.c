@@ -330,6 +330,17 @@ int _real_munmap(void *addr, size_t length) {
   REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
 }
 
+void *_mmap_no_sync(void *addr, size_t length, int prot, int flags,
+    int fd, off_t offset)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
+}
+
+int _munmap_no_sync(void *addr, size_t length)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
+}
+
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
   LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }

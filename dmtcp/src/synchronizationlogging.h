@@ -44,9 +44,9 @@
 #define SET_SYNC_REPLAY() (sync_logging_branch = 2)
 #define SET_SYNC_LOG()    (sync_logging_branch = 1)
 #define GET_RETURN_ADDRESS() __builtin_return_address(0)
-#define SET_IN_MMAP_WRAPPER() (in_mmap_wrapper = 1)
+#define SET_IN_MMAP_WRAPPER()   (in_mmap_wrapper = 1)
 #define UNSET_IN_MMAP_WRAPPER() (in_mmap_wrapper = 0)
-#define IN_MMAP_WRAPPER (in_mmap_wrapper == 1)
+#define IN_MMAP_WRAPPER         (in_mmap_wrapper == 1)
 
 #define TURN_CHECK_P(name) int name(log_entry_t *e1, log_entry_t *e2)
 
