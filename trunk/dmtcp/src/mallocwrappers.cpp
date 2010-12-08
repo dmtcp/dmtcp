@@ -65,29 +65,6 @@
 # endif
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-// Limit at which we promote malloc() -> mmap() (in bytes):
-#define SYNCHRONIZATION_MALLOC_LIMIT 1024
-/* Signature used to identify regions of memory we allocated.  TODO: The fact
-   that this is unique is purely probabilistic. It's possible that we could get
-   very unlucky, and this pattern happened to be in memory in front of the
-   target region. */
-#define ALLOC_SIGNATURE 123456789
-struct alloc_header {
-  unsigned int is_mmap : 1;
-# ifdef x86_64
-  unsigned int chunk_size : 63;
-# else
-  unsigned int chunk_size : 31;
-# endif
-  int signature;
-};
-#define ALLOC_HEADER_SIZE sizeof(struct alloc_header)
-#define REAL_ADDR(addr) ((char *)(addr) - ALLOC_HEADER_SIZE)
-#define REAL_SIZE(size) ((size) + ALLOC_HEADER_SIZE)
-#define USER_ADDR(addr) ((char *)(addr) + ALLOC_HEADER_SIZE)
-#define USER_SIZE(size) ((size) - ALLOC_HEADER_SIZE)
-static dmtcp::map<void *, struct alloc_header> memaligned_regions;
-
 static int initHook = 0;
 static void my_init_hooks (void);
 static void *my_malloc_hook (size_t, const void *);
@@ -105,163 +82,6 @@ static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif //SYNCHRONIZATION_LOG_AND_REPLAY
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-/* 
-We define several distinct layers of operation for the *alloc() family
-wrappers.
-
-Since large malloc()s are internally promoted to mmap() calls by libc, we want
-to do our own promotion to mmap() so that we can control the addresses on
-replay. The promotion threshold is SYNCHRONIZATION_MALLOC_LIMIT.
-
-Since we do our own promotion, we need to remember which pointers we called
-mmap() for, and which we called _real_malloc(). For example, user code calls
-malloc(2000). This is above the limit, and so instead of calling
-_real_malloc(2000), we mmap(). But, all the user knows is that they called
-malloc(). This means that the user will eventually pass the pointer returned by
-our mmap() to his own free() call. So, internally at that point we will need to
-call munmap() instead of free().
-
-We insert a header (struct alloc_header) at the beginning of each memory area
-we allocate for the user that contains the size, and also if it was mmapped.
-
-WRAPPER LEVEL
--------------
-These are called directly from user's code, and as such only worry about user
-addresses.
-
-INTERNAL_ level
----------------
-These are called from wrapper code. Externally they always deal in USER terms.
-They consume and return USER addresses but know how to access and manipulate
-the internal header ("REAL" addresses), and also make the choice of malloc()
-vs. mmap().
-*/
-
-static void insertAllocHeader(struct alloc_header *header, void *dest)
-{
-  header->signature = ALLOC_SIGNATURE;
-  memcpy(dest, header, ALLOC_HEADER_SIZE);
-}
-
-static void getAllocHeader(struct alloc_header *header, void *p)
-{
-  memcpy(header, REAL_ADDR(p), ALLOC_HEADER_SIZE);
-}
-
-/* NOTE: Always consumes/returns USER addresses. Given a size, will allocate
-   the space and insert our own header at the beginning. */
-static void *internal_malloc(size_t size)
-{
-  JASSERT ( size != 0 ).Text("0 should be not be passed to internal_malloc()");
-  void *retval;
-  struct alloc_header header;
-  if (size >= SYNCHRONIZATION_MALLOC_LIMIT) {
-    header.is_mmap = 1;
-    /* mmap wrapper will take care of putting it in the right place if replay. */
-    retval = mmap ( NULL, REAL_SIZE(size), 
-        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
-    JASSERT ( retval != MAP_FAILED ) ( retval ) ( errno );
-  } else {
-    header.is_mmap = 0;
-    retval = _real_malloc ( REAL_SIZE(size) );
-  }
-  header.chunk_size = size;
-  // Insert our header in the beginning:
-  insertAllocHeader(&header, retval);
-  return USER_ADDR(retval);
-}
-
-/* TODO: Need a better way to handle aligned memory. The current strategy is to
-keep an extra list of memory regions allocated with memalign so that we know
-they don't have the header when we go to free() them.
-
-We can't simply insert the header at the beginning, because then the region
-returned to the user would not be aligned with their boundary.
-
-A proper implementation here might perform its own alignment, and not rely on
-the alignment in _real_libc_memalign.
-
-If a program is heavy on memalign+free, the list strategy could create a lot of
-performance penalties. */
-static void *internal_libc_memalign(size_t boundary, size_t size)
-{
-  void *retval;
-  struct alloc_header header;
-  if (size >= SYNCHRONIZATION_MALLOC_LIMIT) {
-    header.is_mmap = 1;
-    retval = mmap ( NULL, size, 
-        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
-    JASSERT ( retval != MAP_FAILED ) ( retval ) ( errno );
-  } else {
-    header.is_mmap = 0;
-    retval = _real_libc_memalign ( boundary, size );
-  }
-  header.chunk_size = size;
-  /* Instead of inserting the header in the memory region, keep track of it
-     using a separate list. */
-  memaligned_regions[retval] = header;
-  return retval;
-}
-
-/* NOTE: Always consumes/returns USER addresses. Given a size, will allocate
-   the space and insert our own header at the beginning. */
-static void *internal_calloc(size_t nmemb, size_t size)
-{
-  // internal_malloc() returns USER address.
-  void *retval = internal_malloc(nmemb*size);
-  memset(retval, 0, nmemb*size);
-  return retval;
-}
-
-/* NOTE: Always consumes USER addresses. Frees the memory at the given address,
-   calling munmap() or _real_free() as needed. */
-static void internal_free(void *ptr)
-{
-  struct alloc_header header;
-  if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
-    /* It was a memaligned region -- no header at the front, so handle it
-       specially. */
-    header = memaligned_regions[ptr];
-    if (header.is_mmap) {
-      int retval = munmap(ptr, header.chunk_size);
-      JASSERT ( retval != -1 );
-    } else {
-      _real_free(ptr);
-    }
-    memaligned_regions.erase(ptr);
-    return;
-  }
-  getAllocHeader(&header, ptr);
-  if (header.signature != ALLOC_SIGNATURE) {
-    JASSERT ( false ).Text("This should be handled by free() wrapper.");
-    _real_free(ptr);
-    return;
-  }
-  if (header.is_mmap) {
-    int retval = munmap(REAL_ADDR(ptr), REAL_SIZE(header.chunk_size));
-    JASSERT ( retval != -1 );
-  } else {
-    _real_free ( REAL_ADDR(ptr) );
-  }
-}
-
-/* NOTE: Always consumes/returns USER addresses. Given a pointer, and size,
-   will reallocate the space (copying old data in process) and insert our own
-   header at the beginning. */
-static void *internal_realloc(void *ptr, size_t size)
-{
-  struct alloc_header header;
-  getAllocHeader(&header, ptr);
-  void *retval = internal_malloc(size);
-  if (size < header.chunk_size) {
-    memcpy(retval, ptr, size);
-  } else {
-    memcpy(retval, ptr, header.chunk_size);
-  }
-  internal_free(ptr);
-  return retval;
-}
-
 static void my_init_hooks(void)
 {
   /* Save old hook functions (from libc) and set them to our own hooks. */
@@ -362,7 +182,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     waitForTurn(my_entry, &calloc_turn_check);
     getNextLogEntry();
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_calloc(nmemb, size);
+    retval = _real_calloc(nmemb, size);
     waitForTurn(my_return_entry, &calloc_turn_check);
     JASSERT ( (unsigned long int)retval == GET_FIELD(currentLogEntry, calloc, return_ptr) )
       ( retval )
@@ -373,7 +193,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_calloc(nmemb, size);
+    retval = _real_calloc(nmemb, size);
     SET_FIELD2(my_return_entry, calloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -425,7 +245,7 @@ extern "C" void *malloc(size_t size)
     waitForTurn(my_entry, &malloc_turn_check);
     getNextLogEntry();
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_malloc(size);
+    retval = _real_malloc(size);
     waitForTurn(my_return_entry, &malloc_turn_check);
     if ((unsigned long int)retval !=
         GET_FIELD(currentLogEntry, malloc, return_ptr)) {
@@ -440,7 +260,7 @@ extern "C" void *malloc(size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_malloc(size);
+    retval = _real_malloc(size);
     SET_FIELD2(my_return_entry, malloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -490,7 +310,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
     waitForTurn(my_entry, &libc_memalign_turn_check);
     getNextLogEntry();
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_libc_memalign(boundary, size);
+    retval = _real_libc_memalign(boundary, size);
     waitForTurn(my_return_entry, &libc_memalign_turn_check);
     if ((unsigned long int)retval !=
         GET_FIELD(currentLogEntry, libc_memalign, return_ptr)) {
@@ -505,7 +325,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_libc_memalign(boundary, size);
+    retval = _real_libc_memalign(boundary, size);
     SET_FIELD2(my_return_entry, libc_memalign, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -546,29 +366,13 @@ extern "C" void free(void *ptr)
     _real_pthread_mutex_unlock(&allocation_lock);
     WRAPPER_EXECUTION_ENABLE_CKPT();
   } else {
-    if (memaligned_regions.find(ptr) != memaligned_regions.end()) {
-      /* It was a memaligned region -- no header at the front, so let
-         internal_free below handle it specially. We still want to log/replay
-         this.*/
-    } else {
-      struct alloc_header header;
-      getAllocHeader(&header, ptr);
-      if (header.signature != ALLOC_SIGNATURE) {
-        /* No proper signature, and it wasn't memaligned. This means somebody
-           allocated memory outside of our wrappers. We ignore this, and don't
-           log/replay it. */
-        _real_free(ptr);
-        return;
-      }
-    }
-
     log_entry_t my_entry = create_free_entry(my_clone_id, free_event, (unsigned long int)ptr);
     log_entry_t my_return_entry = create_free_entry(my_clone_id, free_event_return, (unsigned long int)ptr);
     if (SYNC_IS_REPLAY) {
       waitForTurn(my_entry, &free_turn_check);
       getNextLogEntry();
       _real_pthread_mutex_lock(&allocation_lock);
-      internal_free(ptr);
+      _real_free(ptr);
       _real_pthread_mutex_unlock(&allocation_lock);
       waitForTurn(my_return_entry, &free_turn_check);
       getNextLogEntry();
@@ -576,7 +380,7 @@ extern "C" void free(void *ptr)
       // Not restart; we should be logging.
       _real_pthread_mutex_lock(&allocation_lock);
       addNextLogEntry(my_entry);
-      internal_free(ptr);
+      _real_free(ptr);
       addNextLogEntry(my_return_entry);
       _real_pthread_mutex_unlock(&allocation_lock);
     }
@@ -620,7 +424,7 @@ extern "C" void *realloc(void *ptr, size_t size)
     waitForTurn(my_entry, &realloc_turn_check);
     getNextLogEntry();
     _real_pthread_mutex_lock(&allocation_lock);
-    retval = internal_realloc(ptr, size);
+    retval = _real_realloc(ptr, size);
     waitForTurn(my_return_entry, &realloc_turn_check);
     JASSERT ( (unsigned long int)retval ==
         GET_FIELD(currentLogEntry, realloc, return_ptr) ) 
@@ -632,7 +436,7 @@ extern "C" void *realloc(void *ptr, size_t size)
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     addNextLogEntry(my_entry);
-    retval = internal_realloc(ptr, size);
+    retval = _real_realloc(ptr, size);
     SET_FIELD2(my_return_entry, realloc, return_ptr, (unsigned long int)retval);
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -658,6 +462,7 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
     _real_pthread_mutex_lock(&mmap_lock);
     void *retval = _real_mmap (addr, length, prot, flags, fd, offset);
     _real_pthread_mutex_unlock(&mmap_lock);
+    UNSET_IN_MMAP_WRAPPER();
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
@@ -665,6 +470,7 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
     _real_pthread_mutex_lock(&mmap_lock);
     void *retval = _real_mmap (addr, length, prot, flags, fd, offset);
     _real_pthread_mutex_unlock(&mmap_lock);
+    UNSET_IN_MMAP_WRAPPER();
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
@@ -705,11 +511,13 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
     int fd, off64_t offset)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
+  SET_IN_MMAP_WRAPPER();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) && !log_all_allocs) {
     _real_pthread_mutex_lock(&mmap_lock);
     void *retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
     _real_pthread_mutex_unlock(&mmap_lock);
+    UNSET_IN_MMAP_WRAPPER();
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
@@ -717,6 +525,7 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
     _real_pthread_mutex_lock(&mmap_lock);
     void *retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
     _real_pthread_mutex_unlock(&mmap_lock);
+    UNSET_IN_MMAP_WRAPPER();
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return retval;
   }
@@ -748,6 +557,7 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
     addNextLogEntry(my_return_entry);
     _real_pthread_mutex_unlock(&mmap_lock);
   }
+  UNSET_IN_MMAP_WRAPPER();
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
