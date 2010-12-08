@@ -2702,77 +2702,83 @@ TURN_CHECK_P(select_turn_check)
       GET_FIELD_PTR(e2, select, timeout);
 }
 
-const char *eventToString(int e) {
-  switch (e) {
-  case pthread_mutex_lock_event:
-    return "lock";
-  case pthread_mutex_unlock_event:
-    return "unlock";
-  case pthread_cond_signal_event:
-    return "cond_signal";
-  case pthread_cond_broadcast_event:
-    return "cond_broadcast";
-  case pthread_cond_signal_anomalous_event:
-    return "anomalous_signal";
-  case pthread_cond_broadcast_anomalous_event:
-    return "anomalous_broadcast";
-  case pthread_cond_wait_event:
-    return "cond_wait";
-  case pthread_cond_wait_event_return:
-    return "cond_wakeup";
-  case select_event:
-    return "select";
-  case read_event:
-    return "read";
-  case read_event_return:
-    return "read_data";
-  case pthread_create_event:
-    return "pthread_create";
-  case pthread_create_event_return:
-    return "pthread_create_return";
-  case exec_barrier_event:
-    return "exec_barrier";
-  case malloc_event:
-    return "malloc";
-  case malloc_event_return:
-    return "malloc_return";
-  case calloc_event:
-    return "calloc";
-  case calloc_event_return:
-    return "calloc_return";
-  case realloc_event:
-    return "realloc";
-  case realloc_event_return:
-    return "realloc_return";
-  case free_event:
-    return "free";
-  case free_event_return:
-    return "free_return";
-  default:
-    return "unknown";
-  };
+/* If the given log event has an associated optional event, returns the event
+   code. Returns -1 if no optional event is associated. */
+static event_code_t get_optional_event(log_entry_t *e)
+{
+  event_code_t event_num = (event_code_t) GET_COMMON_PTR(e, event);
+  /* These should ONLY be return events in the current implementation. For
+     example, fscanf. The mmap happens between fscanf_event and
+     fscanf_event_return, so we should only be looking for the mmap if we're
+     looking for the fscanf return event. */
+  if (event_num == fscanf_event_return || event_num == fgets_event_return ||
+      event_num == getc_event_return || fdopen_event_return) {
+    return mmap_event;
+  }
+  return unknown_event;
+}
+
+/* Given the event number of an optional event, executes the action to fulfill
+   that event. */
+static void execute_optional_event(int opt_event_num)
+{
+  if (opt_event_num == mmap_event) {
+    size_t length = GET_FIELD(currentLogEntry, mmap, length);
+    int prot      = GET_FIELD(currentLogEntry, mmap, prot);
+    int flags     = GET_FIELD(currentLogEntry, mmap, flags);
+    int fd        = GET_FIELD(currentLogEntry, mmap, fd);
+    off_t offset  = GET_FIELD(currentLogEntry, mmap, offset);
+    mmap(NULL, length, prot, flags, fd, offset);
+  } else {
+    JASSERT (false)(opt_event_num).Text("No action known for optional event.");
+  }
+}
+
+/* Like waitForTurn(), but also handles events with "optional" events. For
+   example, fscanf() can call mmap() sometimes. This method will execute that
+   optional event if it occurs before the regular fscanf_event. If it never
+   occurs, this function will also return when the regular fscanf_event is
+   encountered.
+   
+   This function is useful for fscanf and others since they are NOT called on
+   replay. If we don't call _real_fscanf, for example, libc is never able to
+   call mmap. So we must do it manually. */
+static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred,
+    int opt_event_num)
+{
+  while (1) {
+    if ((*pred)(&currentLogEntry, my_entry))
+      break;
+    /* For the optional event, we can only check the clone_id and the event
+       number, since we don't know any more information. */
+    if (GET_COMMON(currentLogEntry, clone_id) == my_clone_id &&
+        GET_COMMON(currentLogEntry, event) == opt_event_num) {
+      execute_optional_event(opt_event_num);
+    }
+    memfence();
+    usleep(15);
+  }
 }
 
 void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
+  int opt;
   memfence();
   if (__builtin_expect(log_loaded == 0, 0)) {
     // If log_loaded == 0, then this is the first time.
     // Perform any initialization things here.
     primeLog();
   }
-  while (1) {
-    /*
-    printf ("%d %d %d %d %d %d\n", currentLogEntry.event, currentLogEntry.clone_id,
-                                   currentLogEntry.log_id,
-                                   my_entry.event, my_entry.clone_id, my_entry.log_id);
-    */
-    // TODO: can we use __builtin_expect here?
-    if ((*pred)(&currentLogEntry, &my_entry))
-      break;
-
-    memfence();
-    usleep(15);
+  if ((opt = get_optional_event(&my_entry)) != unknown_event) {
+    waitForTurnWithOptional(&my_entry, pred, opt);
+  } else {
+    while (1) {
+      if ((*pred)(&currentLogEntry, &my_entry))
+        break;
+      
+      memfence();
+      usleep(15);
+    }
   }
 }
 
