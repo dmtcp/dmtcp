@@ -68,8 +68,12 @@
 static int initHook = 0;
 static void my_init_hooks (void);
 static void *my_malloc_hook (size_t, const void *);
+static void *my_realloc_hook (void *, size_t, const void *);
+static void *my_memalign_hook (size_t, size_t, const void *);
 static void my_free_hook (void*, const void *);
 static void *(*old_malloc_hook) (size_t, const void *);
+static void *(*old_realloc_hook) (void *, size_t, const void *);
+static void *(*old_memalign_hook) (size_t, size_t, const void *);
 static void  (*old_free_hook) (void*, const void *);
 //static void *_wrapped_malloc(size_t size);
 //static void _wrapped_free(void *ptr);
@@ -79,17 +83,24 @@ static void  (*old_free_hook) (void*, const void *);
 static pthread_mutex_t hook_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
+
+char progname[200] = {0};
 #endif //SYNCHRONIZATION_LOG_AND_REPLAY
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 static void my_init_hooks(void)
 {
+  strncpy(progname, jalib::Filesystem::GetProgramName().c_str(), 200);
   /* Save old hook functions (from libc) and set them to our own hooks. */
   _real_pthread_mutex_lock(&hook_lock);
   if (!initHook) {
     old_malloc_hook = __malloc_hook;
+    old_realloc_hook = __realloc_hook;
+    old_memalign_hook = __memalign_hook;
     old_free_hook = __free_hook;
     __malloc_hook = my_malloc_hook;
+    __realloc_hook = my_realloc_hook;
+    __memalign_hook = my_memalign_hook;
     __free_hook = my_free_hook;
     initHook = 1;
   }
@@ -102,12 +113,14 @@ static void *my_malloc_hook (size_t size, const void *caller)
   void *result;
   /* Restore all old hooks */
   __malloc_hook = old_malloc_hook;
+  __realloc_hook = old_realloc_hook;
+  __memalign_hook = old_memalign_hook;
   __free_hook = old_free_hook;
   result = _real_malloc (size);
   /* Save underlying hooks */
   old_malloc_hook = __malloc_hook;
   old_free_hook = __free_hook;
-  if (log_all_allocs) {
+  if (log_all_allocs && strcmp(progname, "gdb") != 0) {
     static int tyler_pid = _real_getpid();
     printf ("<%d> malloc (%u) returns %p\n", tyler_pid, (unsigned int) size, result);
   }
@@ -121,9 +134,64 @@ static void *my_malloc_hook (size_t size, const void *caller)
   printf ("<%d> malloc (%u) returns %p\n", tyler_pid, (unsigned int) size, result);*/
   /* Restore our own hooks */
   __malloc_hook = my_malloc_hook;
+  __realloc_hook = my_realloc_hook;
+  __memalign_hook = my_memalign_hook;
   __free_hook = my_free_hook;
   _real_pthread_mutex_unlock(&hook_lock);
   return result;
+}
+
+static void *my_realloc_hook (void *ptr, size_t size, const void *caller)
+{
+  _real_pthread_mutex_lock(&hook_lock);
+  void *result;
+  /* Restore all old hooks */
+  __malloc_hook = old_malloc_hook;
+  __realloc_hook = old_realloc_hook;
+  __memalign_hook = old_memalign_hook;
+  __free_hook = old_free_hook;
+  result = _real_realloc (ptr, size);
+  /* Save underlying hooks */
+  old_malloc_hook = __malloc_hook;
+  old_free_hook = __free_hook;
+  if (log_all_allocs && strcmp(progname, "gdb") != 0) {
+    static int tyler_pid = _real_getpid();
+    printf ("<%d> realloc (%p,%u) returns %p\n", tyler_pid, ptr, (unsigned int) size, result);
+  }
+  __malloc_hook = my_malloc_hook;
+  __realloc_hook = my_realloc_hook;
+  __memalign_hook = my_memalign_hook;
+  __free_hook = my_free_hook;
+  _real_pthread_mutex_unlock(&hook_lock);
+  return result;
+
+}
+
+static void *my_memalign_hook (size_t boundary, size_t size, const void *caller)
+{
+  _real_pthread_mutex_lock(&hook_lock);
+  void *result;
+  /* Restore all old hooks */
+  __malloc_hook = old_malloc_hook;
+  __realloc_hook = old_realloc_hook;
+  __memalign_hook = old_memalign_hook;
+  __free_hook = old_free_hook;
+  result = _real_libc_memalign (boundary, size);
+  /* Save underlying hooks */
+  old_malloc_hook = __malloc_hook;
+  old_free_hook = __free_hook;
+  if (log_all_allocs && strcmp(progname, "gdb") != 0) {
+    static int tyler_pid = _real_getpid();
+    printf ("<%d> memalign (%u,%u) returns %p\n", tyler_pid,
+        (unsigned int)boundary, (unsigned int) size, result);
+  }
+  __malloc_hook = my_malloc_hook;
+  __realloc_hook = my_realloc_hook;
+  __memalign_hook = my_memalign_hook;
+  __free_hook = my_free_hook;
+  _real_pthread_mutex_unlock(&hook_lock);
+  return result;
+
 }
 
 static void my_free_hook (void *ptr, const void *caller)
@@ -131,6 +199,8 @@ static void my_free_hook (void *ptr, const void *caller)
   _real_pthread_mutex_lock(&hook_lock);
   /* Restore all old hooks */
   __malloc_hook = old_malloc_hook;
+  __realloc_hook = old_realloc_hook;
+  __memalign_hook = old_memalign_hook;
   __free_hook = old_free_hook;
   _real_free (ptr);
   /* Save underlying hooks */
@@ -143,6 +213,8 @@ static void my_free_hook (void *ptr, const void *caller)
   }
   /* Restore our own hooks */
   __malloc_hook = my_malloc_hook;
+  __realloc_hook = my_realloc_hook;
+  __memalign_hook = my_memalign_hook;
   __free_hook = my_free_hook;
   _real_pthread_mutex_unlock(&hook_lock);
 }
@@ -334,12 +406,10 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
   return retval;
 }
 
-/* TODO: fix me */
 extern "C" void *valloc(size_t size) 
 {
   return __libc_memalign(sysconf(_SC_PAGESIZE), size);
 }
-
 #endif
 
 extern "C" void free(void *ptr)
