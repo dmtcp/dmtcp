@@ -775,7 +775,7 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 }
 
 
-void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string signalStr,
+void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
                                                DmtcpMessageType type )
 {
   if ( type == DMT_DO_SUSPEND ) {
@@ -796,7 +796,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string signalStr,
   msg.state = WorkerState::currentState();
   _coordinatorSocket << msg;
 
-  JTRACE ( "waiting for " + signalStr + " Signal" );
+  JTRACE ( "waiting for " + msgStr + " message" );
 
   do {
     msg.poison();
@@ -906,7 +906,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
 
-  JTRACE ( "got SUSPEND signal, waiting for dmtcp_lock():"
+  JTRACE ( "got SUSPEND message, waiting for dmtcp_lock():"
 	   " to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
   _dmtcp_lock();
   // TODO: may be it is better to move unlock to more appropriate place.
@@ -914,13 +914,13 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   _dmtcp_unlock();
 
 
-  JTRACE ( "got SUSPEND signal, waiting for lock(&theCkptCanStart)" );
+  JTRACE ( "got SUSPEND message, waiting for lock(&theCkptCanStart)" );
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  JTRACE ( "got SUSPEND signal,"
+  JTRACE ( "got SUSPEND message,"
            " waiting for other threads to exit DMTCP-Wrappers" );
   JASSERT(pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JTRACE ( "got SUSPEND signal,"
+  JTRACE ( "got SUSPEND message,"
            " waiting for newly created threads to finish initialization" )
          (unInitializedThreadCount);
   waitForThreadsToFinishInitialization();
@@ -951,11 +951,11 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   theCheckpointState->preLockSaveOptions();
 
-  waitForCoordinatorMsg ( "LOCK", DMT_DO_LOCK_FDS );
+  waitForCoordinatorMsg ( "FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION );
 
   JTRACE ( "locking..." );
   JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->preCheckpointLock();
+  theCheckpointState->preCheckpointFdLeaderElection();
   JTRACE ( "locked" );
 
   /*
@@ -990,7 +990,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
   waitForCoordinatorMsg ( "CHECKPOINT", DMT_DO_CHECKPOINT );
-  JTRACE ( "got checkpoint signal" );
+  JTRACE ( "got checkpoint message" );
 
 #if HANDSHAKE_ON_CHECKPOINT == 1
   //handshake is done after one barrier after drain
@@ -1033,7 +1033,7 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
     msg.state = WorkerState::currentState();
     _coordinatorSocket << msg;
 
-    JTRACE ( "waiting for DRAIN/RESUME Signal" );
+    JTRACE ( "waiting for DRAIN/RESUME message" );
 
     do {
       msg.poison();
@@ -1176,7 +1176,7 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
   JTRACE ( "refilled" );
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
-  JTRACE ( "got resume signal" );
+  JTRACE ( "got resume message" );
 
   SysVIPC::instance().preResume();
 }
