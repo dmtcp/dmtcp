@@ -50,7 +50,7 @@ namespace dmtcp
 
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8 
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
-    DMT_DO_LOCK_FDS,         // when coordinator wants lock fds
+    DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
 #ifdef EXTERNAL_SOCKET_HANDLING
     DMT_DO_PEER_LOOKUP,      // when coordinator wants, lookup peer for all sockets
 #endif

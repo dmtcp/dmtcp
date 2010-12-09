@@ -209,7 +209,7 @@ static dmtcp::DmtcpCoordinator prog;
  * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
  * coordinator sends another DMTCP_DO_SUSPEND message.  The workers having
  * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
- * threads) are waiting for the next message (DMT_DO_LOCK_FDS or
+ * threads) are waiting for the next message (DMT_DO_FD_LEADER_ELECTION or
  * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
  * indicating an error.
  * The fix to this problem is to introduce a global
@@ -472,7 +472,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           workersRunningAndSuspendMsgSent = false;
 
           JNOTE ( "locking all nodes" );
-          broadcastMessage ( DMT_DO_LOCK_FDS );
+          broadcastMessage ( DMT_DO_FD_LEADER_ELECTION );
         }
 #ifdef EXTERNAL_SOCKET_HANDLING
         if ( oldState == WorkerState::SUSPENDED

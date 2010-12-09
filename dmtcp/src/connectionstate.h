@@ -51,7 +51,7 @@ namespace dmtcp
       void preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable );
 #endif
       void preLockSaveOptions();
-      void preCheckpointLock();
+      void preCheckpointFdLeaderElection();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
       void postCheckpoint(bool isRestart);

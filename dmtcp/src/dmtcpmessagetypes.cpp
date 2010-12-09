@@ -137,7 +137,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
 
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
-      OSHIFTPRINTF ( DMT_DO_LOCK_FDS )
+      OSHIFTPRINTF ( DMT_DO_FD_LEADER_ELECTION )
 #ifdef EXTERNAL_SOCKET_HANDLING
       OSHIFTPRINTF ( DMT_DO_PEER_LOOKUP )
 #endif

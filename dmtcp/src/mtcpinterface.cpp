@@ -308,7 +308,8 @@ void dmtcp::initializeMtcpEngine()
   else
     *dmtcp_info_restore_working_directory = 0;
 
-  t_mtcp_set_callbacks setCallbks = ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+  t_mtcp_set_callbacks setCallbks =
+    ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
   t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
   t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
@@ -317,7 +318,8 @@ void dmtcp::initializeMtcpEngine()
   sigemptyset (&signals_set);
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  set_singlestep_waited_on_ptr = ( set_singlestep_waited_on_t ) _get_mtcp_symbol ( "set_singlestep_waited_on" );
+  set_singlestep_waited_on_ptr =
+   (set_singlestep_waited_on_t) _get_mtcp_symbol ( "set_singlestep_waited_on" );
 
   get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
 
@@ -379,6 +381,7 @@ int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
+  JTRACE ("In thread_start");
 
   typedef void ( *fill_in_pthread_t ) ( pid_t tid, pthread_t pth );
   static fill_in_pthread_t fill_in_pthread_ptr = ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );

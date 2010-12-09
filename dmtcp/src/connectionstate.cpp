@@ -103,8 +103,8 @@ void dmtcp::ConnectionState::preLockSaveOptions()
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
   // Save Options for each Fd (We need to do it here instead of
-  // preCheckpointLock because we want to restore the correct owner in
-  // postcheckpoint).
+  // preCheckpointFdLeaderElection because we want to restore the correct owner
+  // in postcheckpoint).
   ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
@@ -115,7 +115,7 @@ void dmtcp::ConnectionState::preLockSaveOptions()
   }
 }
 
-void dmtcp::ConnectionState::preCheckpointLock()
+void dmtcp::ConnectionState::preCheckpointFdLeaderElection()
 {
   ConnectionList& connections = ConnectionList::instance();
   for ( ConnectionList::iterator i = connections.begin()

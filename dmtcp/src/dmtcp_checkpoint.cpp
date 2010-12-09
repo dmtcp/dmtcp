@@ -406,6 +406,7 @@ int main ( int argc, char** argv )
   if (getenv("LD_PRELOAD"))
     dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
   setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
   setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
   if ( getenv(ENV_VAR_SIGCKPT) != NULL )
