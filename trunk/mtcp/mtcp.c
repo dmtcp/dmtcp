@@ -489,6 +489,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 #ifdef PTRACE 
   init_thread_local();
 #endif
+  /* Initialize the static curbrk variable in sbrk wrapper. */
+  sbrk(0);
 
   if (sizeof(void *) != sizeof(long)) {
     mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
@@ -1436,7 +1438,6 @@ static void restore_term_settings() {
   }
   if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
 }
-
 
 /*************************************************************************/
 /*						                         */
