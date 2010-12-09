@@ -2712,7 +2712,7 @@ static event_code_t get_optional_event(log_entry_t *e)
      fscanf_event_return, so we should only be looking for the mmap if we're
      looking for the fscanf return event. */
   if (event_num == fscanf_event_return || event_num == fgets_event_return ||
-      event_num == getc_event_return || fdopen_event_return) {
+      event_num == getc_event_return || event_num == fdopen_event_return) {
     return mmap_event;
   }
   return unknown_event;
