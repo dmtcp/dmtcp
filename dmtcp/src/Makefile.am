@@ -54,10 +54,9 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	synchronizationlogging.cpp
-# This must be a superset of the files actually chosen by EXTRA_dmtcphijack_so
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp filewrappers.cpp \
-	mallocwrappers.cpp
+  filewrappers.cpp mallocwrappers.cpp
+# This should be a superset of all optional files.
+EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
@@ -65,12 +64,10 @@ dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
 dmtcp_nocheckpoint_LDFLAGS = -static
 
-# To compile these EXTRA files conditionally, replace right hand side
+# To compile the EXTRA files conditionally, replace right hand side
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
-EXTRA_dmtcphijack_so = pthreadwrappers.cpp filewrappers.cpp \
-	mallocwrappers.cpp
-
-dmtcphijack_so_LDADD    = libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
+dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o \
+                          libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread

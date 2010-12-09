@@ -91,10 +91,12 @@ distclean: clean
 	-(cd dmtcp && $(MAKE) distclean)  
 	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/*
 
-dist: distclean
-	dir=`pwd`; cd ..; tar czvf dmtcp.tgz --exclude='.*/.svn/*' \
-	                                     --exclude='*/.svn'    \
-					     --exclude='*/.deps' ./`basename $$dir`
+dist: distclean dist_exclude.txt
+	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
+	  --exclude-from=$$dir/dist_exclude.txt \
+	  --exclude $$dir/dist_exclude.txt \
+	  --exclude='.*/.svn/*' --exclude='*/.svn' --exclude='*/.deps' \
+	  ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
 bin/% : dmtcp/src/%
