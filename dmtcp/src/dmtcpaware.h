@@ -54,7 +54,13 @@ typedef struct _DmtcpLocalStatus {
 
 } DmtcpLocalStatus;
 
-
+#if 0
+  /**
+   * If synchronization log and replay is enabled, adds a generic "user" event
+   * to the log. Returns 1 on success, 0 on error.
+   */
+int dmtcp_userSynchronizedEvent();
+#endif
 /**
  * Returns 1 if executing under dmtcp_checkpoint, 0 otherwise
  */

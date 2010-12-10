@@ -144,6 +144,91 @@
     WRAPPER_LOG_VOID(real_func, __VA_ARGS__);                       \
   }
 
+#define FOREACH_NAME(MACRO, ...)                                               \
+  do {                                                                         \
+    MACRO(accept, __VA_ARGS__);                                                \
+    MACRO(access, __VA_ARGS__);                                                \
+    MACRO(bind, __VA_ARGS__);                                                  \
+    MACRO(calloc, __VA_ARGS__);                                                \
+    MACRO(close, __VA_ARGS__);                                                 \
+    MACRO(connect, __VA_ARGS__);                                               \
+    MACRO(dup, __VA_ARGS__);                                                   \
+    MACRO(exec_barrier, __VA_ARGS__);                                          \
+    MACRO(fclose, __VA_ARGS__);                                                \
+    MACRO(fcntl, __VA_ARGS__);                                                 \
+    MACRO(fdatasync, __VA_ARGS__);                                             \
+    MACRO(fdopen, __VA_ARGS__);                                                \
+    MACRO(fgets, __VA_ARGS__);                                                 \
+    MACRO(fopen, __VA_ARGS__);                                                 \
+    MACRO(fprintf, __VA_ARGS__);                                               \
+    MACRO(fscanf, __VA_ARGS__);                                                \
+    MACRO(fputs, __VA_ARGS__);                                                 \
+    MACRO(free, __VA_ARGS__);                                                  \
+    MACRO(fsync, __VA_ARGS__);                                                 \
+    MACRO(ftell, __VA_ARGS__);                                                 \
+    MACRO(fwrite, __VA_ARGS__);                                                \
+    MACRO(fxstat, __VA_ARGS__);                                                \
+    MACRO(fxstat64, __VA_ARGS__);                                              \
+    MACRO(getc, __VA_ARGS__);                                                  \
+    MACRO(ungetc, __VA_ARGS__);                                                \
+    MACRO(getline, __VA_ARGS__);                                               \
+    MACRO(getpeername, __VA_ARGS__);                                           \
+    MACRO(getsockname, __VA_ARGS__);                                           \
+    MACRO(libc_memalign, __VA_ARGS__);                                         \
+    MACRO(lseek, __VA_ARGS__);                                                 \
+    MACRO(link, __VA_ARGS__);                                                  \
+    MACRO(listen, __VA_ARGS__);                                                \
+    MACRO(lxstat, __VA_ARGS__);                                                \
+    MACRO(lxstat64, __VA_ARGS__);                                              \
+    MACRO(malloc, __VA_ARGS__);                                                \
+    MACRO(mkdir, __VA_ARGS__);                                                 \
+    MACRO(mkstemp, __VA_ARGS__);                                               \
+    MACRO(mmap, __VA_ARGS__);                                                  \
+    MACRO(mmap64, __VA_ARGS__);                                                \
+    MACRO(mremap, __VA_ARGS__);                                                \
+    MACRO(munmap, __VA_ARGS__);                                                \
+    MACRO(open, __VA_ARGS__);                                                  \
+    MACRO(pread, __VA_ARGS__);                                                 \
+    MACRO(putc, __VA_ARGS__);                                                  \
+    MACRO(pwrite, __VA_ARGS__);                                                \
+    MACRO(pthread_detach, __VA_ARGS__);                                        \
+    MACRO(pthread_create, __VA_ARGS__);                                        \
+    MACRO(pthread_cond_broadcast, __VA_ARGS__);                                \
+    MACRO(pthread_cond_signal, __VA_ARGS__);                                   \
+    MACRO(pthread_mutex_lock, __VA_ARGS__);                                    \
+    MACRO(pthread_mutex_trylock, __VA_ARGS__);                                 \
+    MACRO(pthread_mutex_unlock, __VA_ARGS__);                                  \
+    MACRO(pthread_cond_wait, __VA_ARGS__);                                     \
+    MACRO(pthread_cond_timedwait, __VA_ARGS__);                                \
+    MACRO(pthread_exit, __VA_ARGS__);                                          \
+    MACRO(pthread_join, __VA_ARGS__);                                          \
+    MACRO(pthread_kill, __VA_ARGS__);                                          \
+    MACRO(pthread_rwlock_unlock, __VA_ARGS__);                                 \
+    MACRO(pthread_rwlock_rdlock, __VA_ARGS__);                                 \
+    MACRO(pthread_rwlock_wrlock, __VA_ARGS__);                                 \
+    MACRO(rand, __VA_ARGS__);                                                  \
+    MACRO(read, __VA_ARGS__);                                                  \
+    MACRO(readdir, __VA_ARGS__);                                               \
+    MACRO(readdir_r, __VA_ARGS__);                                             \
+    MACRO(readlink, __VA_ARGS__);                                              \
+    MACRO(realloc, __VA_ARGS__);                                               \
+    MACRO(rename, __VA_ARGS__);                                                \
+    MACRO(rewind, __VA_ARGS__);                                                \
+    MACRO(rmdir, __VA_ARGS__);                                                 \
+    MACRO(select, __VA_ARGS__);                                                \
+    MACRO(signal_handler, __VA_ARGS__);                                        \
+    MACRO(sigwait, __VA_ARGS__);                                               \
+    MACRO(setsockopt, __VA_ARGS__);                                            \
+    MACRO(srand, __VA_ARGS__);                                                 \
+    MACRO(socket, __VA_ARGS__);                                                \
+    MACRO(time, __VA_ARGS__);                                                  \
+    MACRO(unlink, __VA_ARGS__);                                                \
+    MACRO(write, __VA_ARGS__);                                                 \
+    MACRO(xstat, __VA_ARGS__);                                                 \
+    MACRO(xstat64, __VA_ARGS__);                                               \
+    MACRO(user, __VA_ARGS__);                                                  \
+  } while(0)
+
 /* Event codes: */
 typedef enum {
   unknown_event = -1,
@@ -305,6 +390,8 @@ typedef enum {
   time_event_return,
   unlink_event,
   unlink_event_return,
+  user_event,
+  user_event_return,
   write_event,
   write_event_return,
   xstat_event,
@@ -509,6 +596,13 @@ typedef struct {
 } log_event_unlink_t;
 
 static const int log_event_unlink_size = sizeof(log_event_unlink_t);
+
+typedef struct {
+  // For user event:
+  int x; // unused, but prevents optimizing away this struct.
+} log_event_user_t;
+
+static const int log_event_user_size = sizeof(log_event_user_t);
 
 typedef struct {
   // For write():
@@ -1082,6 +1176,7 @@ typedef struct {
     log_event_fxstat64_t                         log_event_fxstat64;
     log_event_time_t                             log_event_time;
     log_event_unlink_t                           log_event_unlink;
+    log_event_user_t                             log_event_user;
     log_event_srand_t                            log_event_srand;
     log_event_socket_t                           log_event_socket;
     log_event_rand_t                             log_event_rand;
@@ -1177,6 +1272,7 @@ LIB_PRIVATE int    shouldSynchronize(void *return_addr);
 LIB_PRIVATE int    signalThread(int target, pthread_cond_t *cv);
 LIB_PRIVATE int    threadsToWakeContains(int clone_id);
 LIB_PRIVATE int    threadsToWakeEmpty();
+LIB_PRIVATE void   userSynchronizedEvent();
 LIB_PRIVATE int    validAddress(unsigned long int addr);
 LIB_PRIVATE ssize_t writeAll(int fd, const void *buf, size_t count);
 LIB_PRIVATE void   writeLogsToDisk();
@@ -1333,6 +1429,7 @@ LIB_PRIVATE log_entry_t create_time_entry(int clone_id, int event,
     unsigned long int tloc);
 LIB_PRIVATE log_entry_t create_unlink_entry(int clone_id, int event,
     const char *pathname);
+LIB_PRIVATE log_entry_t create_user_entry(int clone_id, int event);
 LIB_PRIVATE log_entry_t create_write_entry(int clone_id, int event,
     int writefd, unsigned long int buf_addr, size_t count);
 
@@ -1416,6 +1513,7 @@ LIB_PRIVATE TURN_CHECK_P(srand_turn_check);
 LIB_PRIVATE TURN_CHECK_P(socket_turn_check);
 LIB_PRIVATE TURN_CHECK_P(time_turn_check);
 LIB_PRIVATE TURN_CHECK_P(unlink_turn_check);
+LIB_PRIVATE TURN_CHECK_P(user_turn_check);
 LIB_PRIVATE TURN_CHECK_P(write_turn_check);
 LIB_PRIVATE TURN_CHECK_P(xstat_turn_check);
 LIB_PRIVATE TURN_CHECK_P(xstat64_turn_check);
