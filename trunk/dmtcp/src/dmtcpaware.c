@@ -6,7 +6,7 @@
  * -  Jason Ansel, Kapil Arya, and Gene Cooperman                        *
  *      jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu        *
  *************************************************************************/
-
+#include "constants.h"
 #include "dmtcpaware.h"
 
 #include <stdio.h>
@@ -37,6 +37,9 @@
 // static linked,  dmtcp     -- this stub called, dispatches DMTCP (through __dyn_XXX)
 // dynamic linked, dmtcp     -- DMTCP called directly
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+extern int   __dyn_dmtcp_userSynchronizedEvent() WEAK;
+#endif
 extern int   __dyn_dmtcpIsEnabled() WEAK;
 extern int   __dyn_dmtcpCheckpoint() WEAK;
 extern int   __dyn_dmtcpRunCommand(char command) WEAK;
@@ -60,6 +63,18 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
 //   dmtcphijack.so will call it in preference to the dmtcpIsEnabled()
 //   defined in dmtcphijack.so, resulting in an infinite loop.
 //   The "hidden" attribute prevents it from being exported.
+
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+__attribute__ ((visibility ("hidden")))
+int dmtcp_userSynchronizedEvent() {
+  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
+     there's no DMTCP, we just want a no-op. */
+  if (__dyn_dmtcp_userSynchronizedEvent)
+    return __dyn_dmtcp_userSynchronizedEvent();
+  return 0;
+}
+#endif
+
 __attribute__ ((visibility ("hidden")))
 int dmtcpIsEnabled() {
   DMTCPAWARE_STUB( dmtcpIsEnabled, (), 0 );

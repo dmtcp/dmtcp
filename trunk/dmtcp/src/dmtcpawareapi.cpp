@@ -69,6 +69,14 @@ static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_unlock();
 }
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+EXTERNC int dmtcp_userSynchronizedEvent()
+{
+  userSynchronizedEvent();
+  return 1;
+}
+#endif
+
 EXTERNC int dmtcpIsEnabled() { return 1; }
 
 EXTERNC int dmtcpCheckpoint(){
@@ -241,6 +249,12 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
 
 //These dummy trampolines support static linking of user code to libdmtcpaware.a
 //See dmtcpaware.c .
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+EXTERNC int __dyn_dmtcp_userSynchronizedEvent()
+{
+  return dmtcp_userSynchronizedEvent();
+}
+#endif
 EXTERNC int __dyn_dmtcpIsEnabled(){
   return dmtcpIsEnabled();
 }
