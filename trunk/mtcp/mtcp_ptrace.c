@@ -21,6 +21,8 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+#define _GNU_SOURCE /* Needed for syscall declaration */
+#define _XOPEN_SOURCE 500 /* _XOPEN_SOURCE >= 500 needed for getsid */
 #include "mtcp_ptrace.h"
 #include <pthread.h>
 #include <semaphore.h>
@@ -532,7 +534,7 @@ void ptrace_detach_checkpoint_threads ()
     if ((sup == GETTID()) && tgid ) {
       DPRINTF(("ptrace_detach_checkpoint_threads: ptrace_detach_ckpthread(%d,%d,%d)\n",
             tgid,tid,sup));
-      if( ret = ptrace_detach_ckpthread(tgid,tid,sup) ){
+      if( (ret = ptrace_detach_ckpthread(tgid,tid,sup)) != 0 ){
         if( ret == -ENOENT ){
           DPRINTF(("%s: process not exist %d\n",__FUNCTION__,tid));
         }
@@ -853,7 +855,6 @@ static int find_slot (int seed) {
 static int move_ckpt_threads_towards_end () {
   int i;
   struct ptrace_tid_pairs temp;
-  pid_t superior;
   pid_t inferior;
   int limit = ptrace_pairs_count;
   int ckpt_threads = 0;
@@ -909,7 +910,6 @@ static void sort_ptrace_pairs_within_limit (int begin, int end) {
   sort_ptrace_pairs_by_key (SORT_BY_SUPERIOR, begin, end);
   int ref_superior;
   int superior;
-  int inferior;
   int start = begin;
   int i;
   ref_superior = ptrace_pairs[0].superior;
@@ -1201,7 +1201,6 @@ void process_ptrace_info (pid_t *delete_ptrace_leader,
         pid_t *delete_checkpoint_leader, int *has_checkpoint_file)
 {
   int ptrace_fd = -1;
-  siginfo_t infoop;
   int i;
   pid_t superior;
   pid_t inferior;

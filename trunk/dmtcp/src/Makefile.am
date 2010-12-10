@@ -54,7 +54,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-  filewrappers.cpp mallocwrappers.cpp
+	filewrappers.cpp mallocwrappers.cpp
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
 

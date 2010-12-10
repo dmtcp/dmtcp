@@ -30,7 +30,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/utsname.h> /* uname */
 #include <sys/time.h>
 #include <sys/resource.h> /* getrlimit, setrlimit */
 #include <sys/personality.h>
@@ -172,7 +171,7 @@ void mtcp_set_thread_sysinfo(void *sysinfo) {
 #define MAX_ARGS 500
 static int write_args(char **vector, char *filename) {
   ssize_t i;
-  int retval, fd;
+  int fd;
   char strings[10001];
   char *str = strings;
 
@@ -222,7 +221,6 @@ static int setenv_oldpers(int oldpers) {
 /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
 void mtcp_check_vdso_enabled() {
   char buf[1];
-  struct utsname utsname;
 #ifdef RESET_THREAD_SYSINFO
   get_at_sysinfo(); /* Initialize pointer to environ for later calls */
 #endif

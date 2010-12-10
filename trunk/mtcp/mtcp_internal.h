@@ -100,7 +100,7 @@ struct user_desc
 typedef unsigned int uLong;
 typedef unsigned short uWord;
 typedef unsigned char uByte;
-typedef unsigned long VA; /* VA = virtual address */
+typedef char * VA; /* VA = virtual address */
 #ifdef __i386__
 typedef unsigned short mtcp_segreg_t;
 #endif
@@ -119,11 +119,11 @@ typedef unsigned int mtcp_segreg_t;
  /* There's a segment, 7fbfffb000-7fc0000000 rw-p 7fbfffb000 00:00 0;
   * What is it?  It's busy (EBUSY) when we try to unmap it.
   */
-// #  define HIGHEST_VA 0xFFFFFF8000000000
-// #  define HIGHEST_VA 0x8000000000
-#  define HIGHEST_VA 0x7f00000000
+// #  define HIGHEST_VA ((VA)0xFFFFFF8000000000)
+// #  define HIGHEST_VA ((VA)0x8000000000)
+#  define HIGHEST_VA ((VA)0x7f00000000)
 # else
-#  define HIGHEST_VA 0xC0000000
+#  define HIGHEST_VA ((VA)0xC0000000)
 # endif
 #endif
 #define FILENAMESIZE 1024
@@ -212,8 +212,7 @@ extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[];
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[];
 
-extern __attribute__ ((visibility ("hidden")))
-  void *mtcp_saved_break;
+extern __attribute__ ((visibility ("hidden"))) VA mtcp_saved_break;
 extern void *mtcp_libc_dl_handle;
 extern void *mtcp_old_dl_sysinfo_0;
 
@@ -249,11 +248,12 @@ char *mtcp_find_executable(char *filename, char exec_path[MTCP_MAX_PATH]);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
+ssize_t mtcp_read_all(int fd, void *buf, size_t count);
 size_t mtcp_strlen (const char *s1);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
-int mtcp_get_controlling_term(char* ttyName, int len);
+int mtcp_get_controlling_term(char* ttyName, size_t len);
 
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
 			 char *cmd_file, char *argv[], char *envp[]);
