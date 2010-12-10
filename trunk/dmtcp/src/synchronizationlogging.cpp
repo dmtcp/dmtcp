@@ -2640,8 +2640,11 @@ static event_code_t get_optional_event(log_entry_t *e)
      example, fscanf. The mmap happens between fscanf_event and
      fscanf_event_return, so we should only be looking for the mmap if we're
      looking for the fscanf return event. */
-  if (event_num == fscanf_event_return || event_num == fgets_event_return ||
-      event_num == getc_event_return || event_num == fdopen_event_return) {
+  if (event_num == fscanf_event_return ||
+      event_num == fgets_event_return ||
+      event_num == getc_event_return ||
+      event_num == fprintf_event_return ||
+      event_num == fdopen_event_return) {
     return mmap_event;
   }
   return unknown_event;
