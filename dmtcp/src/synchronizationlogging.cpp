@@ -220,21 +220,16 @@ LIB_PRIVATE volatile long long int global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
 /* File private: */
-static dmtcp::map<int, dmtcp::string> dummy_fds;
 static dmtcp::vector<log_entry_t>     patch_list;
-static dmtcp::string DUMMY_BASE_PATH = dmtcp::UniquePid::getTmpDir();
 static char SYNCHRONIZATION_PATCHED_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX];
 static int               synchronization_patched_log_fd = -1;
 static unsigned long int code_lower = 0, data_break = 0,
                          stack_lower = 0, stack_upper = 0;
-static off_t             previous_wakeup_offset = 0;
 static pthread_mutex_t   log_file_mutex       = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t   pthread_create_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t   atomic_set_mutex     = PTHREAD_MUTEX_INITIALIZER;
 /* File private volatiles: */
 static volatile long long int current_log_id = 0;
-static volatile int           queued_threads = 0;
-static volatile int           log_offset = 0;
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
@@ -287,28 +282,6 @@ void atomic_set(volatile int *ptr, int val)
   if (val == 1)
     atomic_increment(ptr);
   _real_pthread_mutex_unlock(&atomic_set_mutex);
-}
-
-int addDummyFd()
-{
-  dmtcp::ostringstream new_path;
-  new_path << DUMMY_BASE_PATH << "/dummy-" << (int)dummy_fds.size();
-  int fd = open(new_path.str().c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  dummy_fds[fd] = new_path.str();
-  return fd;
-}
-
-int isDummyFd(int fd)
-{
-  int retval = dummy_fds.find(fd) != dummy_fds.end();
-  return retval;
-}
-
-void removeDummyFd(int fd)
-{
-  unlink(dummy_fds[fd].c_str());
-  _real_close(fd);
-  dummy_fds.erase(fd);
 }
 
 int shouldSynchronize(void *return_addr)
@@ -880,7 +853,6 @@ void readLogFromDisk()
   }
   JTRACE ( "read entries from disk. " ) ( total_read );
   atomic_increment(&log_loaded);
-  atomic_increment(&log_offset);
 }
 
 int readAll(int fd, char *buf, int count)
@@ -1887,7 +1859,6 @@ void writeLogsToDisk() {
 
   close(synchronization_log_fd);
   JTRACE ( "Synchronization log successfully written to disk." ) ( num_to_write ) ( numwritten );
-  atomic_increment(&log_offset);
   resetLog();
 }
 

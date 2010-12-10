@@ -299,16 +299,8 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
     waitForTurn(my_entry, &accept_turn_check);
     getNextLogEntry();
     waitForTurn(my_return_entry, &accept_turn_check);
-    // Don't call _real_accept(). Lie to the user.
-    // However, we create a dummy file descriptor to keep the file descriptor
-    // numbering the way it was on record.
-    // Will be closed in close() wrapper.
-    retval = addDummyFd();
     // Set the errno to what was logged (e.g. EAGAIN).
     if (GET_COMMON(currentLogEntry, my_errno) != 0) {
-      // Get rid of the dummy file we just created:
-      /*removeDummyFd(retval);
-        atomic_decrement(&num_dummies);*/
       errno = GET_COMMON(currentLogEntry, my_errno);
       retval = GET_COMMON(currentLogEntry, retval);
     }
