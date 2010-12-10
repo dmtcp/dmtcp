@@ -39,7 +39,7 @@ char mtcp_readdec (int fd, VA *value)
 
 {
   char c;
-  VA v;
+  unsigned long int v;
 
   v = 0;
   while (1) {
@@ -48,7 +48,7 @@ char mtcp_readdec (int fd, VA *value)
     else break;
     v = v * 10 + c;
   }
-  *value = v;
+  *value = (VA)v;
   return (c);
 }
 
@@ -58,7 +58,7 @@ char mtcp_readhex (int fd, VA *value)
 
 {
   char c;
-  VA v;
+  unsigned long int v;
 
   v = 0;
   while (1) {
@@ -69,7 +69,7 @@ char mtcp_readhex (int fd, VA *value)
     else break;
     v = v * 16 + c;
   }
-  *value = v;
+  *value = (VA)v;
   return (c);
 }
 
@@ -122,8 +122,6 @@ int mtcp_strstartswith (const char *s1, const char *s2)
 
 int mtcp_strendswith (const char *s1, const char *s2)
 {
-  unsigned char c1 = '\0';
-  unsigned char c2 = '\0';
   size_t len1 = mtcp_strlen(s1);
   size_t len2 = mtcp_strlen(s2);
 
@@ -138,9 +136,9 @@ int mtcp_strendswith (const char *s1, const char *s2)
 // Fails, succeeds, or partial read due to EOF (returns num read)
 ssize_t mtcp_read_all(int fd, void *buf, size_t count)
 {
-  size_t rc;
+  int rc;
   char *ptr = (char *) buf;
-  int num_read = 0;
+  size_t num_read = 0;
   for (num_read = 0; num_read < count;) {
     rc = read (fd, ptr + num_read, count - num_read);
     if (rc == -1) {
@@ -160,7 +158,7 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
 // Return Value
 // 0 : Succeeded
 // -1: Failed
-int mtcp_get_controlling_term(char* ttyName, int len)
+int mtcp_get_controlling_term(char* ttyName, size_t len)
 {
   char sbuf[1024];
   char *tmp;

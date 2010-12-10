@@ -83,6 +83,7 @@ struct ptrace_tid_pairs {
 };
 
 #define MAX_PTRACE_PAIRS_COUNT 1000
+extern void init_thread_local(void);
 extern struct ptrace_tid_pairs ptrace_pairs[MAX_PTRACE_PAIRS_COUNT];
 extern int ptrace_pairs_count;
 extern int init_ptrace_pairs;
@@ -96,14 +97,14 @@ extern void process_ptrace_info (pid_t *delete_ptrace_leader,
         pid_t *delete_setoptions_leader, int *has_setoptions_file,
         pid_t *delete_checkpoint_leader, int *has_checkpoint_file);
 extern char procfs_state(int tid);
-extern void ptrace_save_threads_state ();
+extern void ptrace_save_threads_state (void);
 extern void delete_file (int file, int delete_leader, int has_file);
 extern void ptrace_remove_notexisted();
 extern void ptrace_attach_threads(int isRestart);
-extern void ptrace_detach_checkpoint_threads ();
-extern void ptrace_detach_user_threads ();
-extern void ptrace_lock_inferiors();
-extern void ptrace_unlock_inferiors();
+extern void ptrace_detach_checkpoint_threads (void);
+extern void ptrace_detach_user_threads (void);
+extern void ptrace_lock_inferiors(void);
+extern void ptrace_unlock_inferiors(void);
 extern void ptrace_wait4(pid_t pid);
 extern ssize_t readall(int fd, void *buf, size_t count);
 #endif 

@@ -60,7 +60,7 @@ __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden")))
-  void *mtcp_saved_break = NULL;  // saved brk (0) value
+  VA mtcp_saved_break = NULL;  // saved brk (0) value
 
 	/* These two are used by the linker script to define the beginning and end of the image.         */
 	/* The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid to relocate a zero. */
@@ -109,10 +109,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 {
   int rc;
   VA holebase, highest_va;
-  VA vdso_addr = (VA)NULL, vsyscall_addr = (VA)NULL,
-	stack_end_addr = (VA)NULL; /* VA = virtual address */
-  void *current_brk;
-  void *new_brk;
+  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
+  VA current_brk;
+  VA new_brk;
   void (*finishrestore) (void);
 
   DPRINTF(("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n"));
@@ -127,14 +126,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   /* or munmaps something because we're going to wipe it all out anyway.                                                        */
 
   current_brk = mtcp_sys_brk (NULL);
-  if (((VA)current_brk > (VA)mtcp_shareable_begin) && ((VA)mtcp_saved_break < (VA)mtcp_shareable_end)) {
+  if ((current_brk > mtcp_shareable_begin) && (mtcp_saved_break < mtcp_shareable_end)) {
     mtcp_printf ("mtcp_restoreverything: current_brk %p, mtcp_saved_break %p, mtcp_shareable_begin %p, mtcp_shareable_end %p\n", 
                   current_brk, mtcp_saved_break, mtcp_shareable_begin, mtcp_shareable_end);
     mtcp_abort ();
   }
 
   new_brk = mtcp_sys_brk (mtcp_saved_break);
-  if (new_brk == (void *)-1) {
+  if (new_brk == (VA)-1) {
     mtcp_printf( "mtcp_restoreverything: sbrk(%p): errno:  %d (bad heap)\n",
 		 mtcp_saved_break, mtcp_sys_errno );
     mtcp_abort();
@@ -146,7 +145,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
         new_brk, mtcp_saved_break));
     else {
       mtcp_printf ("mtcp_restoreverything: error: new break (%p) != saved break"
-                   "  (%p)\n", (VA)current_brk, mtcp_saved_break);
+                   "  (%p)\n", current_brk, mtcp_saved_break);
       mtcp_abort ();
     }
   }
@@ -170,8 +169,8 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
    *   and just make it beginning of [vsyscall] where that exists.
    */
 
-  holebase  = (VA)mtcp_shareable_begin;
-  holebase &= -MTCP_PAGE_SIZE;
+  holebase  = mtcp_shareable_begin;
+  holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
 				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
   // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
@@ -190,12 +189,12 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 	   new_brk, holebase, stack_end_addr,
 	   vdso_addr, highest_va, vsyscall_addr));
 
-  if (vdso_addr != (VA)NULL && vdso_addr < holebase) {
+  if (vdso_addr != NULL && vdso_addr < holebase) {
     DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
 	      NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1));
-    rc = mtcp_sys_munmap ((void *)NULL, (size_t)vdso_addr);
-    rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
-			   (size_t)holebase - vdso_addr - MTCP_PAGE_SIZE);
+    rc = mtcp_sys_munmap (NULL, (size_t)vdso_addr);
+    rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
+			   holebase - vdso_addr - MTCP_PAGE_SIZE);
   } else {
     DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
     rc = mtcp_sys_munmap (NULL, holebase);
@@ -208,14 +207,15 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
-  holebase  = (VA)mtcp_shareable_end;
-  holebase  = (holebase + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
-  if (vdso_addr != (VA)NULL && vdso_addr + MTCP_PAGE_SIZE <= (VA)highest_va) {
+  holebase  = mtcp_shareable_end;
+  holebase  = (VA)((unsigned long int)(holebase + MTCP_PAGE_SIZE - 1)
+		   & -MTCP_PAGE_SIZE);
+  if (vdso_addr != NULL && vdso_addr + MTCP_PAGE_SIZE <= highest_va) {
     if (vdso_addr > holebase) {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
 	        holebase, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, highest_va - 1));
-      rc = mtcp_sys_munmap ((void *)holebase, vdso_addr - holebase);
-      rc |= mtcp_sys_munmap ((void *)vdso_addr + MTCP_PAGE_SIZE,
+      rc = mtcp_sys_munmap (holebase, vdso_addr - holebase);
+      rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
 			   highest_va - vdso_addr - MTCP_PAGE_SIZE);
     } else {
       DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
@@ -226,7 +226,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 		     highest_va, holebase);
         mtcp_abort ();
       }
-      rc = mtcp_sys_munmap ((void *)holebase, highest_va - holebase);
+      rc = mtcp_sys_munmap (holebase, highest_va - holebase);
     }
   }
   if (rc == -1) {
@@ -489,8 +489,8 @@ static void readmemoryareas (void)
       //   [vdso] in the /proc filesystem, and it's safe to skipfile() there.
       // This code is based on what's in mtcp_check_vdso.c .
       { if (area.name[0] == '/' /* If not null string, not [stack] or [vdso] */
-            && global_vdso_addr >= (VA)area.addr
-            && global_vdso_addr < (VA)area.addr + area.size
+            && global_vdso_addr >= area.addr
+            && global_vdso_addr < area.addr + area.size
            ) {
           DPRINTF(("randomized vdso conflict; retrying\n"));
           mtcp_sys_close (mtcp_restore_cpfd);
@@ -656,7 +656,6 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   /* Check to see if the filename ends with " (deleted)" */
   const char* deleted_file_suffix = " (deleted)";
   if (mtcp_strendswith(area->name, deleted_file_suffix)) {
-    size_t len = mtcp_strlen(area->name);
     area->name [ mtcp_strlen(area->name) - mtcp_strlen(deleted_file_suffix) ] = '\0';
   }
 
@@ -947,7 +946,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
     mtcp_abort();
   }
 
-  *vdso_addr = (VA)NULL;
+  *vdso_addr = NULL;
   while (1) {
 
     /* Read a line from /proc/self/maps */
@@ -989,7 +988,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
 
   mtcp_sys_close (mapsfd);
 
-  return (VA)highaddr;
+  return highaddr;
 }
 
 #else
@@ -1014,7 +1013,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
     /* Gcc expands strstr() inline, but it's safer to use our own function. */
     p = mystrstr (area.name, "[stack]");
     if (p != NULL)
-      area_end = (VA)area.addr + area.size;
+      area_end = area.addr + area.size;
     p = mystrstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;

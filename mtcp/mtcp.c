@@ -362,7 +362,7 @@ struct sigaction sigactions[NSIG];  // signal handlers
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
-static void *saved_heap_start = NULL;
+static VA saved_heap_start = NULL;
 static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
@@ -635,8 +635,10 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   /* Get size and address of the shareable - used to separate it from the rest of the stuff */
   /* All routines needed to perform restore must be within this address range               */
 
-  restore_begin = (((VA)mtcp_shareable_begin) & -MTCP_PAGE_SIZE);
-  restore_size  = ((VA)mtcp_shareable_end - restore_begin + MTCP_PAGE_SIZE - 1) & -MTCP_PAGE_SIZE;
+  restore_begin = (VA)((unsigned long int)mtcp_shareable_begin
+		       & -MTCP_PAGE_SIZE);
+  restore_size  = ((mtcp_shareable_end - restore_begin) + MTCP_PAGE_SIZE - 1)
+		   & -MTCP_PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
 
@@ -2099,7 +2101,7 @@ static void checkpointeverything (void)
   writecs (fd, CS_RESTORESTART);
   writefile (fd, &restore_start, sizeof restore_start);
   writecs (fd, CS_RESTOREIMAGE);
-  writefile (fd, (void *)restore_begin, restore_size);
+  writefile (fd, restore_begin, restore_size);
   writecs (fd, CS_FINISHRESTORE);
   writefile (fd, &frpointer, sizeof frpointer);
 
@@ -2119,7 +2121,7 @@ static void checkpointeverything (void)
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (readmapsline (mapsfd, &area)) {
-    area_begin = (VA)area.addr;
+    area_begin = area.addr;
     area_end   = area_begin + area.size;
 
     /* Original comment:  Skip anything in kernel address space ---
@@ -2134,12 +2136,14 @@ static void checkpointeverything (void)
      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
      * implies we're in 32-bit mode.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == 0xffffe000) continue;
+    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffe000)
+      continue;
 #ifdef __x86_64__
     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
      * use 0xffffffffff600000 for VDSO.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == 0xffffffffff600000) continue;
+    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffffffff600000)
+      continue;
 #endif
 
     /* Skip anything that has no read or execute permission.  This occurs
@@ -2242,14 +2246,14 @@ static void checkpointeverything (void)
         writememoryarea (fd, &area, 0, vsyscall_exists);
         area.offset += restore_end - area_begin;   // ... and we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
-        area.addr = (void *)restore_end;
+        area.addr = restore_end;
         writememoryarea (fd, &area, 0, vsyscall_exists);
       }
     } else if (area_begin < restore_end) {
       if (area_end > restore_end) {
         area.offset += restore_end - area_begin;   // we have to write stuff that comes after restore image
         area.size = area_end - restore_end;
-        area.addr = (void *)restore_end;
+        area.addr = restore_end;
         writememoryarea (fd, &area, 0, vsyscall_exists);
       }
     } else {
@@ -3175,7 +3179,8 @@ static int readmapsline (int mapsfd, Area *area)
   char c, rflag, sflag, wflag, xflag;
   int i, rc;
   struct stat statbuf;
-  VA devmajor, devminor, devnum, endaddr, inodenum, startaddr;
+  unsigned int long devmajor, devminor, devnum, inodenum;
+  VA startaddr, endaddr;
 
   c = mtcp_readhex (mapsfd, &startaddr);
   if (c != '-') {
@@ -3198,15 +3203,15 @@ static int readmapsline (int mapsfd, Area *area)
   c = mtcp_readchar (mapsfd);
   if (c != ' ') goto skipeol;
 
-  c = mtcp_readhex (mapsfd, &devmajor);
+  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
   if (c != ' ') goto skipeol;
-  area -> offset = devmajor;
+  area -> offset = (off_t)devmajor;
 
-  c = mtcp_readhex (mapsfd, &devmajor);
+  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
   if (c != ':') goto skipeol;
-  c = mtcp_readhex (mapsfd, &devminor);
+  c = mtcp_readhex (mapsfd, (VA *)&devminor);
   if (c != ' ') goto skipeol;
-  c = mtcp_readdec (mapsfd, &inodenum);
+  c = mtcp_readdec (mapsfd, (VA *)&inodenum);
   area -> name[0] = '\0';
   while (c == ' ') c = mtcp_readchar (mapsfd);
   if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
@@ -3247,7 +3252,7 @@ static int readmapsline (int mapsfd, Area *area)
 
   if (c != '\n') goto skipeol;
 
-  area -> addr = (void *)startaddr;
+  area -> addr = startaddr;
   area -> size = endaddr - startaddr;
   area -> prot = 0;
   if (rflag == 'r') area -> prot |= PROT_READ;
@@ -3389,7 +3394,7 @@ static void restore_heap()
    * happens when the size of checkpointed program is smaller then the size of
    * mtcp_restart program.
    */
-  void* current_break = mtcp_sys_brk (NULL);
+  VA current_break = mtcp_sys_brk (NULL);
   if (current_break > mtcp_saved_break) {
     DPRINTF(("mtcp finishrestore: Area between mtcp_saved_break:%p and "
              "Current_break:%p not mapped, mapping it now\n", 
@@ -3521,7 +3526,7 @@ static int restarthread (void *threadv)
     ///JA: v54b port
     errno = -1;
 
-    void *clone_arg = (void *)child;
+    void *clone_arg = child;
 
     /*
      * DMTCP needs to know original_tid of the thread being created by the
@@ -3534,9 +3539,9 @@ static int restarthread (void *threadv)
      *  clone call.
      *                                                           (--Kapil)
      */
-    mtcpRestartThreadArg.arg = (void *)child;
+    mtcpRestartThreadArg.arg = child;
     mtcpRestartThreadArg.original_tid = child -> original_tid;
-    clone_arg = (void *) &mtcpRestartThreadArg;
+    clone_arg = &mtcpRestartThreadArg;
 
    /*
     * syscall is wrapped by DMTCP when configured with PID-Virtualization.

@@ -450,13 +450,12 @@ static void readcs (int fd, char cs)
 
 static void readfile(int fd, void *buf, size_t size)
 {
-    int rc, ar;
-
-    ar = 0;
+    int rc;
+    unsigned int ar = 0;
 
     while(ar != size)
     {
-        rc = read(fd, buf + ar, size - ar);
+        rc = read(fd, (char *)buf + ar, size - ar);
         if(rc < 0)
         {
             mtcp_printf("mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));

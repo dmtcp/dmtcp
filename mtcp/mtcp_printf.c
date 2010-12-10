@@ -132,10 +132,10 @@ gofish:
       case 'p': {
         char buff[16];
         int i;
-        VA n;
+        unsigned long int n;
 
         i = sizeof buff;
-        n = (VA) va_arg (ap, void *);
+        n = (unsigned long int) va_arg (ap, void *);
         do {
           buff[--i] = hexdigits[n%16];
           n /= 16;
@@ -211,7 +211,8 @@ gofish:
 static void rwrite (char const *buff, int size)
 
 {
-  int offs, rc;
+  int offs;
+  unsigned int rc;
 
   if (dmtcp_info_stderr_fd != -1) {
     for (offs = 0; offs < size; offs += rc) {

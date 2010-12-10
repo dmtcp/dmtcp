@@ -161,6 +161,14 @@ if test "$HAS_PATCH" != "yes"; then
     [Executable, patch, not found:  consider adding pkg:  'patch'])
 fi
 
+#check for g++
+AC_CHECK_PROG(HAS_CPP, [g++], [yes], [no], [$PATH:/usr/bin:/bin])
+
+if test "$HAS_CPP" != "yes"; then
+   AC_MSG_ERROR(
+    [Executable, g++, not found:  consider adding pkg:  'g++'])
+fi
+
 #if /usr/include/linux/version.h is missing, give up on configuring.
 AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
      [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
