@@ -295,7 +295,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 //   (no command line flags) to segfault.
 // To see bug, do:  gdb --args bin/dmtcp_checkpoint ls
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  setup_trampolines();
+  _dmtcp_setup_trampolines();
 #endif
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
