@@ -263,8 +263,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 #ifdef PID_VIRTUALIZATION
     VirtualPidTable::instance().serialize ( rd );
     VirtualPidTable::instance().postExec();
-#endif
     SysVIPC::instance().serialize ( rd );
+#endif
 
 #ifdef DEBUG
     JTRACE ( "initial socket table:" );
@@ -733,11 +733,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState->preCheckpointFdLeaderElection();
   JTRACE ( "locked" );
 
+#ifdef PID_VIRTUALIZATION
   /*
    * Save first 2 * sizeof(pid_t) bytes of each shared memory area and fill it
    * with all zeros.
    */
   SysVIPC::instance().prepareForLeaderElection();
+#endif
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
@@ -753,6 +755,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState->preCheckpointDrain();
   JTRACE ( "drained" );
 
+#ifdef PID_VIRTUALIZATION
   /*
    * write pid at offset 0. Also write pid at offset sizeof(pid_t) if this
    * process is the creator of this memory area. After the leader election
@@ -761,6 +764,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
    * process whose pid is stored at offset 0
    */
   SysVIPC::instance().leaderElection();
+#endif
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
@@ -779,9 +783,8 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().preCheckpoint();
-#endif
-
   SysVIPC::instance().preCheckpoint();
+#endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
@@ -912,6 +915,7 @@ void dmtcp::DmtcpWorker::postRestart()
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
+#ifdef PID_VIRTUALIZATION
   if ( jalib::Filesystem::GetProgramName() == "screen" )
     send_sigwinch = 1;
   // With hardstatus (bottom status line), screen process has diff. size window
@@ -924,10 +928,9 @@ void dmtcp::DmtcpWorker::postRestart()
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do. 
 
-#ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().postRestart();
-#endif
   SysVIPC::instance().postRestart();
+#endif
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -943,7 +946,9 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
   delete theCheckpointState;
   theCheckpointState = NULL;
 
+#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().postCheckpoint();
+#endif
 }
 
 void dmtcp::DmtcpWorker::waitForStage4Resume()
@@ -953,7 +958,9 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
   waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
   JTRACE ( "got resume message" );
 
+#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().preResume();
+#endif
 }
 
 void dmtcp::DmtcpWorker::restoreVirtualPidTable()

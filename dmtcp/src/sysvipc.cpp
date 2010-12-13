@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifdef PID_VIRTUALIZATION
+/* This code depends on PID-Virtualization */
+
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -564,3 +567,4 @@ void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
   // TODO: If num-attached == 0; and marked for deletion, remove this segment
 }
 
+#endif // PID_VIRTUALIZATION

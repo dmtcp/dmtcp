@@ -89,7 +89,7 @@ extern "C"
   MACRO(wait4)				    \
   MACRO(ioctl)
 #else
-# define GLIBC_PID_FUNC_WRAPPERS(MACRO)
+# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef ENABLE_MALLOC_WRAPPER
