@@ -1255,8 +1255,7 @@ void process_ptrace_info (pid_t *delete_ptrace_leader,
 
       /* none of the eligible for deletion entries can be deleted anymore */
       for (i = 0; i < ptrace_pairs_count; i++) {
-        /* SHOULDN'T "=" BE REPLACED BY "==" IN IF CONDITION?  - Gene */
-        if (ptrace_pairs[i].eligible_for_deletion = TRUE)
+        if (ptrace_pairs[i].eligible_for_deletion == TRUE)
           ptrace_pairs[i].eligible_for_deletion = FALSE;
       }
     }
