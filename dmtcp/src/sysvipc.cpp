@@ -19,8 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifdef PID_VIRTUALIZATION
-/* This code depends on PID-Virtualization */
 
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
@@ -41,6 +39,9 @@
 #include <iostream>
 #include <ios>
 #include <fstream>
+
+/* This code depends on PID-Virtualization */
+#ifdef PID_VIRTUALIZATION
 
 /*
  * Shmid virtualization closely follows PID-Virtualization model.
