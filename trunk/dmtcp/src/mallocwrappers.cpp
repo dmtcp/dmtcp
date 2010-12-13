@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#define _GNU_SOURCE /* for sake of mremap */
 #include <stdarg.h>
 #include <stdlib.h>
 #include <vector>

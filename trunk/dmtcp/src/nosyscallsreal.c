@@ -431,3 +431,6 @@ ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
 }
 
 #endif // SYNCHRONIZATION_LOG_AND_REPLAY
+
+// Used for wrappers for mmap, sbrk
+void _dmtcp_setup_trampolines() {}
