@@ -103,6 +103,7 @@ extern "C" int pipe2 ( int fds[2], int flags )
 }
 #endif
 
+#ifdef PID_VIRTUALIZATION
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
@@ -167,6 +168,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
+#endif // PID_VIRTUALIZATION
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 pid_t gettid();
@@ -233,6 +235,7 @@ extern "C" long int syscall(long int sys_num, ... )
   va_start(ap, sys_num);
 
   switch ( sys_num ) {
+#ifdef PID_VIRTUALIZATION
     case SYS_gettid:
     {
       ret = gettid();
@@ -250,6 +253,7 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = tgkill(tgid, tid, sig);
       break;
     }
+#endif
 
     case SYS_clone:
     {
