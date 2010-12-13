@@ -549,7 +549,7 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
     getNextLogEntry();
     waitForTurn(my_return_entry, &getline_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,getline,data_offset), SEEK_SET);
@@ -763,7 +763,7 @@ extern "C" int __isoc99_fscanf (FILE *stream, const char *format, ...)
     getNextLogEntry();
     waitForTurn(my_return_entry, &fscanf_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,fscanf,data_offset), SEEK_SET);
@@ -1485,7 +1485,7 @@ extern "C" int read(int fd, void *buf, size_t count)
     // corresponding value.
     waitForTurn(my_data_entry, &read_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,read,data_offset), SEEK_SET);
@@ -1605,7 +1605,7 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     getNextLogEntry();
     waitForTurn(my_return_entry, &pread_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY);
+      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry, pread, data_offset), SEEK_SET);

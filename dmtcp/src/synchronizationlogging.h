@@ -24,6 +24,8 @@
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 
+// Needed for getpeername() etc.
+#include <sys/socket.h>
 // Needed for *xstat() to store 'struct stat' fields.
 #include <sys/stat.h>
 // Needed for readdir:

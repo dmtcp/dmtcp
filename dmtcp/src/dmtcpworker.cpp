@@ -48,7 +48,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#include "synchronizationlogging.h"
+#endif
 
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
+#endif
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
