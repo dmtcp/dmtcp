@@ -57,6 +57,8 @@
 __attribute__ ((visibility ("hidden"))) extern __thread int mmap_no_sync;
 #endif
 
+void _dmtcp_setup_trampolines();
+
 #ifdef __cplusplus
 extern "C"
 {

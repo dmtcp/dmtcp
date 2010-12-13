@@ -3,7 +3,7 @@
 INCLUDES= $(all_includes)
 
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnosyscallsreal.a
+noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint
 
@@ -20,7 +20,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	synchronizationlogging.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
-# dmtcp_checkpoint, dmtcp_restart, dmtcp_command, dmtcp_coordinator, etc.
+# dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 # FIXME:  Move syscallsreal.c from here to dmtcphijack.so
 #          and also add it explicitly to dmtcp_restart_SOURCES.
@@ -36,8 +36,10 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp
-libsyscallsreal_a_SOURCES = syscallsreal.c
-libnosyscallsreal_a_SOURCES = nosyscallsreal.c
+# FIXME:  Rename libsyscallsreal.a to libhijack.a
+# An executable should use either libsyscallsreal.a or libnohijack.a -- not both
+libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
+libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
 
@@ -64,15 +66,18 @@ dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
 dmtcp_nocheckpoint_LDFLAGS = -static
 
-# To compile the EXTRA files conditionally, replace right hand side
+# pthreadwrappers.cpp and synchronizationlogging.cpp are EXTRA files.
+# To compile the EXTRA files conditionally, replace them
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
+# Note that an ELF object uses libsyscallsreal.a or libnohijack.a
+#  but not both.  libnohijack.a has stub definitions for same symbols.
 dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o \
                           libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnosyscallsreal.a -lpthread
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_restart_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_command_LDADD     = libdmtcpinternal.a libnosyscallsreal.a -ldl -lpthread
-dmtcp_inspector_LDADD   = libdmtcpinternal.a libnosyscallsreal.a -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 
 # dmtcpaware
 pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
