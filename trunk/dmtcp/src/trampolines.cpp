@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <dlfcn.h>
 #include <../jalib/jassert.h>
+#include "constants.h"
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
 #include "synchronizationlogging.h"
 #endif
@@ -76,7 +77,6 @@ static char mmap_displaced_instructions[ASM_JUMP_LEN];
 static void *mmap_addr = NULL;
 /* Used by _mmap_no_sync(). */
 __attribute__ ((visibility ("hidden"))) __thread int mmap_no_sync = 0;
-static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif // SYNCHRONIZATION_LOG_AND_REPLAY
 
 
