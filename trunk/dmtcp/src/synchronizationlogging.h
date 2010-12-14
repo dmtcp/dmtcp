@@ -52,6 +52,25 @@
 
 #define TURN_CHECK_P(name) int name(log_entry_t *e1, log_entry_t *e2)
 
+#define SYNC_TIMINGS
+
+#ifdef SYNC_TIMINGS
+#define SYNC_TIMER_START(name)                  \
+  struct timeval name##_start;                  \
+  gettimeofday(&name##_start, NULL);
+
+#define SYNC_TIMER_STOP(name)                                           \
+  struct timeval name##_end;                                            \
+  gettimeofday(&name##_end, NULL);                                      \
+  double name##_sec = name##_start.tv_sec - name##_end.tv_sec;          \
+  name##_sec += (name##_start.tv_usec - name##_end.tv_usec)/1000000.0;  \
+  if (name##_sec < 0) name##_sec *= -1;                                 \
+  JNOTE ( "Timer " #name ) ( name##_sec );
+#else
+#define SYNC_TIMER_START(name)
+#define SYNC_TIMER_STOP(name)
+#endif
+
 #define WRAPPER_HEADER(ret_type, name, real_func, ...)                \
   void *return_addr = GET_RETURN_ADDRESS();                           \
   if (!shouldSynchronize(return_addr)) {                              \
