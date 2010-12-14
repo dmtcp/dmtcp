@@ -51,28 +51,28 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
       sizeof(GET_COMMON(currentLogEntry,my_errno)) +                    \
       sizeof(GET_COMMON(currentLogEntry,retval)))
 
-#define IFNAME_GET_EVENT_SIZE(name, event, event_size)                         \
-  do {                                                                         \
-    if (event == name##_event || event == name##_event_return)                 \
-      event_size = log_event_##name##_size;                                    \
+#define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
+  do {                                                                  \
+    if (event == name##_event || event == name##_event_return)          \
+      event_size = log_event_##name##_size;                             \
   } while(0)
 
-#define IFNAME_COPY_TO_MEMORY_LOG(name, e)                              \
+#define IFNAME_COPY_TO_MEMORY_LOG(name, e, dest)                        \
   do {                                                                  \
-    if (GET_COMMON(e,event) == name##_event ||                          \
-        GET_COMMON(e,event) == name##_event_return) {                   \
-      memcpy(&log[log_index],                                           \
-          &e.log_event_t.log_event_##name, log_event_##name##_size);    \
+    if (GET_COMMON((e),event) == name##_event ||                        \
+        GET_COMMON((e),event) == name##_event_return) {                 \
+      memcpy((dest),                                                    \
+          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
       memcpy(&currentLogEntry.log_event_t.log_event_##name,             \
-          &e.log_event_t.log_event_##name, log_event_##name##_size);    \
+          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
     }                                                                   \
   } while(0)
 
-#define IFNAME_COPY_FROM_MEMORY_SOURCE(name, source)                    \
+#define IFNAME_COPY_FROM_MEMORY_SOURCE(name, source, dest)              \
   do {                                                                  \
-    if (GET_COMMON(currentLogEntry,event) == name##_event ||             \
-        GET_COMMON(currentLogEntry,event) == name##_event_return) {     \
-      memcpy(&currentLogEntry.log_event_t.log_event_##name,             \
+    if (GET_COMMON(dest,event) == name##_event ||                       \
+        GET_COMMON(dest,event) == name##_event_return) {                \
+      memcpy(&dest.log_event_t.log_event_##name,                        \
           &source, log_event_##name##_size);                            \
     }                                                                   \
   } while(0)
@@ -95,25 +95,25 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     }                                                                   \
   } while(0)
 
-#define GET_EVENT_SIZE(event, event_size)                                      \
-  do {                                                                         \
-    if (event == pthread_cond_signal_anomalous_event ||                        \
-        event == pthread_cond_signal_anomalous_event_return)                   \
-      event_size = log_event_pthread_cond_signal_size;                         \
-    if (event == pthread_cond_broadcast_anomalous_event ||                     \
-        event == pthread_cond_broadcast_anomalous_event_return)                \
-      event_size = log_event_pthread_cond_broadcast_size;                      \
-    FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);                    \
+#define GET_EVENT_SIZE(event, event_size)                               \
+  do {                                                                  \
+    if (event == pthread_cond_signal_anomalous_event ||                 \
+        event == pthread_cond_signal_anomalous_event_return)            \
+      event_size = log_event_pthread_cond_signal_size;                  \
+    if (event == pthread_cond_broadcast_anomalous_event ||              \
+        event == pthread_cond_broadcast_anomalous_event_return)         \
+      event_size = log_event_pthread_cond_broadcast_size;               \
+    FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);             \
   } while(0)
 
-#define COPY_TO_MEMORY_LOG(entry)                                              \
-  do {                                                                         \
-    FOREACH_NAME(IFNAME_COPY_TO_MEMORY_LOG, entry);                            \
+#define COPY_TO_MEMORY_LOG(entry, dest)                                 \
+  do {                                                                  \
+    FOREACH_NAME(IFNAME_COPY_TO_MEMORY_LOG, (entry), (dest));           \
   } while(0)
 
-#define COPY_FROM_MEMORY_SOURCE(source)                                        \
-  do {                                                                         \
-    FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source);                      \
+#define COPY_FROM_MEMORY_SOURCE(source, dest)                           \
+  do {                                                                  \
+    FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source, dest);         \
   } while(0)
 
 #define READ_ENTRY_FROM_DISK(fd, entry)                                        \
@@ -220,7 +220,8 @@ LIB_PRIVATE volatile long long int global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
 /* File private: */
-static dmtcp::vector<log_entry_t>     patch_list;
+static char patch_list[MAX_LOG_LENGTH] = {0};
+static int patch_list_index = 0;
 static char SYNCHRONIZATION_PATCHED_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX];
 static int               synchronization_patched_log_fd = -1;
 static unsigned long int code_lower = 0, data_break = 0,
@@ -379,11 +380,17 @@ LIB_PRIVATE void recordDataStackLocations()
 #endif
   // Returns the next address after the end of the heap.
   data_break = (unsigned long int)sbrk(0);
-  // Also save the current RLIMIT_STACK value -- this is the default stack
-  // size for NPTL.
+  // Also figure out the default stack size for NPTL threads using the
+  // architecture-specific limits defined in nptl/sysdeps/ARCH/pthreaddef.h
   struct rlimit rl;
-  getrlimit(RLIMIT_STACK, &rl);
-  default_stack_size = rl.rlim_cur;
+  int retval = getrlimit(RLIMIT_STACK, &rl);
+#ifdef __x86_64__
+  unsigned long arch_default_stack_size = 32*1024*1024;
+#else
+  unsigned long arch_default_stack_size = 2*1024*1024;
+#endif
+  default_stack_size =
+    (rl.rlim_cur == RLIM_INFINITY) ? arch_default_stack_size : rl.rlim_cur;
 }
 
 int validAddress(unsigned long int addr)
@@ -548,25 +555,73 @@ int fdSetDiff(fd_set *one, fd_set *two)
   return 0;
 }
 
-// TODO: Think of a better name than 'pop' since it does more than simply pop.
-// Specifically, given a clone_id, this returns the entry in patch_list with the 
-// lowest index and same clone_id.
-// If none found, returns EMPTY_LOG_ENTRY.
-static log_entry_t pop(int clone_id)
+/* Given a clone_id, this returns the entry in patch_list with the lowest index
+   and same clone_id.  If clone_id is 0, return the oldest entry, regardless of
+   clone_id. If clone_id != 0 and no entry found, returns EMPTY_LOG_ENTRY. */
+static log_entry_t get_oldest_patch_entry(int clone_id)
 {
-  int i = 0;
+  int i = 0, old_i = 0, event_size = 0, found = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
-  for (i = 0; i < patch_list.size(); i++) {
-    if (GET_COMMON(patch_list[i],clone_id) == 0) {
-      break;
+  //JTRACE ( "tyler:" ) ( *((long *)&e) );
+  //memset(&e, 0, sizeof(e));
+  /* Loop through patch_list. We don't need to worry about reading from disk or
+     anything, since the only way things get added to patch_list is via the
+     add_to_patch_list function. */
+  while (i < patch_list_index) {
+    // Get entry size
+    GET_EVENT_SIZE((unsigned char)patch_list[i], event_size);
+    if (event_size == 0) break;
+    // Load common data into e
+    buffer_to_log_entry(&patch_list[i], &e);
+    old_i = i;
+    i += log_event_common_size;
+    // if clone id != given and we're not ignoring clone_ids: continue to next
+    if (GET_COMMON(e, clone_id) != clone_id && clone_id != 0) {
+      i += event_size;
+      continue;
     }
-    if (GET_COMMON(patch_list[i],clone_id) == clone_id) {
-      e = patch_list[i];
-      patch_list.erase(patch_list.begin() + i);
-      break;
-    }
+    // Load specific data into e
+    COPY_FROM_MEMORY_SOURCE(patch_list[i], e);
+    i += event_size;
+    // Remove it from patch_list by shifting everything left.
+    memmove(&patch_list[old_i], &patch_list[i], patch_list_index-i);
+    // Adjust patch_list_index for that removal.
+    JASSERT ( patch_list_index > old_i );
+    patch_list_index -= (log_event_common_size + event_size);
+    // Overwrite stale data at the end:
+    memset(&patch_list[patch_list_index], 0, log_event_common_size+event_size);
+    found = 1;
+    break;
   }
-  return e;
+  if (found == 1) {
+    return e;
+  } else {
+    return EMPTY_LOG_ENTRY;
+  }
+}
+
+/* Append the given log entry to the end of patch_list. */
+static void add_to_patch_list(log_entry_t *e)
+{
+  //SYNC_TIMER_START(add_to_patch_list);
+  int event_size = 0;
+  GET_EVENT_SIZE(GET_COMMON_PTR(e, event), event_size);
+  JASSERT(patch_list_index + log_event_common_size + event_size 
+          < MAX_LOG_LENGTH);
+  // Copy common data to patch_list:
+  log_entry_to_buffer(e, &patch_list[patch_list_index]);
+  patch_list_index += log_event_common_size;
+  // Copy event-specific data to patch_list:
+  COPY_TO_MEMORY_LOG(*e, &patch_list[patch_list_index]);
+  patch_list_index += event_size;
+  //SYNC_TIMER_STOP(add_to_patch_list);
+}
+
+/* Empties patch_list. */
+static void clear_patch_list()
+{
+  memset(patch_list, 0, patch_list_index);
+  patch_list_index = 0;
 }
 
 static int isLogPatched()
@@ -586,7 +641,7 @@ static void markLogAsPatched()
 
 static void patchLog()
 {
-  JTRACE ( "begin log patching." );
+  JTRACE ( "Begin log patching." );
   synchronization_patched_log_fd = open(SYNCHRONIZATION_PATCHED_LOG_PATH,
       O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   log_entry_t entry = EMPTY_LOG_ENTRY, temp = EMPTY_LOG_ENTRY;
@@ -599,10 +654,12 @@ static void patchLog()
     if (GET_COMMON(entry,event) == exec_barrier_event) {
       // Nothing may move past an exec barrier. Dump everything in patch_list
       // into the new log before the exec barrier.
-      for (i = 0; i < patch_list.size(); i++) {
-        write_ret = writeEntryToDisk(synchronization_patched_log_fd, patch_list[i]);
+      while (1) {
+        temp = get_oldest_patch_entry(0);
+        if (GET_COMMON(temp, clone_id) == 0) break;
+        write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
       }
-      patch_list.clear();
+      clear_patch_list();
       write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
       continue;
     }
@@ -615,29 +672,33 @@ static void patchLog()
       JASSERT ( false ) .Text("Encountered a clone_id of 0 in log.");
     }
     if (isUnlock(entry)) {
-      temp = pop(GET_COMMON(entry,clone_id));
+      temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       while (GET_COMMON(temp,clone_id) != 0) {
         write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
-        temp = pop(GET_COMMON(entry,clone_id));
+        temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       }
       write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
     } else {
-      patch_list.push_back(entry);
+      add_to_patch_list(&entry);
     }
+    log_entry_index++;
   }
   // If the patch_list is not empty (patch_list_idx != 0), then there were
   // some leftover log entries that were not balanced. So we tack them on to
   // the very end of the log.
-  if (patch_list.size() != 0) {
-    JTRACE ( "Extra log entries. Tacking them onto end of log." ) ( patch_list.size() );
-    for (i = 0; i < patch_list.size(); i++) {
-      write_ret = writeEntryToDisk(synchronization_patched_log_fd, patch_list[i]);
+  if (patch_list_index != 0) {
+    JTRACE ( "Extra log entries. Tacking them onto end of log." )
+      ( patch_list_index );
+    while (1) {
+      temp = get_oldest_patch_entry(0);
+      if (GET_COMMON(temp, clone_id) == 0) break;
+      write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
     }
-    patch_list.clear();
+    clear_patch_list();
   }
   // NOW it should be empty.
   // TODO: Why does this sometimes trigger?
-  //JASSERT ( patch_list_idx == 0 ) ( patch_list_idx );
+  JASSERT ( patch_list_index == 0 ) ( patch_list_index );
   
   // Now copy the contents of the patched log over the original log.
   // TODO: Why can't we just use 'rename()' to move the patched log over the
@@ -658,6 +719,7 @@ static void patchLog()
   JTRACE ( "log patching finished." ) 
     ( SYNCHRONIZATION_LOG_PATH );
   lseek(synchronization_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+  log_entry_index = 0;
 } 
 
 static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
@@ -1737,7 +1799,7 @@ void addNextLogEntry(log_entry_t e)
   log_entry_to_buffer(&e, &log[log_index]);
   log_index += log_event_common_size;
   // Copy event-specific data to log[] buffer:
-  COPY_TO_MEMORY_LOG(e);
+  COPY_TO_MEMORY_LOG(e, &log[log_index]);
   log_index += event_size;
   // Keep this up to date for debugging purposes:
   log_entry_index++;
@@ -1757,7 +1819,7 @@ void getNextLogEntry() {
     buffer_to_log_entry(&log[log_index], &currentLogEntry);
     log_index += log_event_common_size;
     // Copy event-specific data to currentLogEntry:
-    COPY_FROM_MEMORY_SOURCE(log[log_index]);
+    COPY_FROM_MEMORY_SOURCE(log[log_index], currentLogEntry);
     log_index += event_size;
     if (__builtin_expect((log_index) == MAX_LOG_LENGTH, 0)) {
       JTRACE ( "Ran out of log entries. Reading next from disk." ) 
@@ -1778,7 +1840,7 @@ void getNextLogEntry() {
     // Copy common data to currentLogEntry:
     buffer_to_log_entry(&tmp[0], &currentLogEntry);
     // Copy event-specific data to currentLogEntry:
-    COPY_FROM_MEMORY_SOURCE(tmp[log_event_common_size]);
+    COPY_FROM_MEMORY_SOURCE(tmp[log_event_common_size], currentLogEntry);
     // Update new log_index:
     log_index = newEntrySize - size;
   }

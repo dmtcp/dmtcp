@@ -27,14 +27,6 @@
 # include "config.h"
 #endif
 
-#include "constants.h"
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-#include "syscallwrappers.h"
-// Make sure we don't log/replay mmaps made by the allocator.
-#define mmap   _mmap_no_sync
-#define munmap _munmap_no_sync
-#endif
-
 static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
 
 void jalib::JAllocDispatcher::reset_on_fork()
