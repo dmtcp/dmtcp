@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "util.h"
 #include "uniquepid.h"
 #include <stdlib.h>
 #include <string.h>
