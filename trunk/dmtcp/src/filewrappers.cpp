@@ -939,6 +939,14 @@ extern "C" int fprintf (FILE *stream, const char *format, ...)
     waitForTurn(my_return_entry, &fprintf_turn_check);
     retval = GET_COMMON(currentLogEntry, retval);
     getNextLogEntry();
+/* If we're writing to stdout, we want to see the data to screen.
+ * Thus execute the real system call. */
+    if (stream == stdout) {
+      va_list arg;
+      va_start (arg, format);
+      retval = vfprintf(stream, format, arg);
+      va_end (arg);
+    }
   } else if (SYNC_IS_LOG) {
     addNextLogEntry(my_entry);
     va_list arg;
