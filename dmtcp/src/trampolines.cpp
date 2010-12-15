@@ -79,27 +79,6 @@ static void *mmap_addr = NULL;
 __attribute__ ((visibility ("hidden"))) __thread int mmap_no_sync = 0;
 #endif // SYNCHRONIZATION_LOG_AND_REPLAY
 
-
-/* Read-write lock initializers.  */
-#ifdef __USE_GNU
-# if __WORDSIZE == 64
-#  define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
- { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,					      \
-       PTHREAD_RWLOCK_PREFER_WRITER_NP } }
-# else
-#  if __BYTE_ORDER == __LITTLE_ENDIAN
-#   define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
- { { 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NP, \
-     0, 0, 0, 0 } }
-#  else
-#   define PTHREAD_RWLOCK_PREFER_WRITER_RECURSIVE_INITIALIZER_NP \
- { { 0, 0, 0, 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NP,\
-     0 } }
-#  endif
-# endif
-#endif
-
-
 /* All calls by glibc to extend or shrink the heap go through __sbrk(). On
  * restart, the kernel may extend the end of data beyond where we want it. So
  * sbrk will present an abstraction corresponding to the original end of heap
@@ -124,38 +103,14 @@ static void *sbrk_wrapper(intptr_t increment)
 }
 
 /* Calls to sbrk will land here. */
-static void sbrk_trampoline(intptr_t increment)
+static void *sbrk_trampoline(intptr_t increment)
 {
-  /* Save registers we will clobber (why doesn't the compiler do this?) */
-#ifdef __x86_64__
-  asm("pushq %rcx\n"
-      "pushq %rdx");
-#else
-  asm("push %ecx\n"
-      "push %edx");
-#endif
   /* Unpatch sbrk. */
   UNINSTALL_TRAMPOLINE(sbrk);
   void *retval = sbrk_wrapper(increment);
   /* Repatch sbrk. */
   INSTALL_TRAMPOLINE(sbrk);
-#ifdef __x86_64__
-  asm("mov %0,%%rax\n"    /* Set return value */
-      "pop %%rdx\n"       /* Restore clobbered registers. */
-      "pop %%rcx\n"
-      "add $0x20,%%rsp\n" /* Reset stack pointer */
-      "pop %%rbp\n"
-      "ret":: "r"(retval)); /* Return to caller. */
-#else
-  asm("mov %0,%%eax\n"    /* Set return value */
-      "pop %%edx\n"       /* Restore clobbered registers. */
-      "pop %%ecx\n"
-      "add $0x24,%%esp\n" /* Reset stack pointer */
-      "pop %%ebx\n"
-      "pop %%ebp\n"
-      "ret":: "r"(retval)); /* Return to caller. */
-#endif
-  // Should never reach this line.
+  return retval;
 }
 
 #ifdef SYNCHRONIZATION_LOG_AND_REPLAY
@@ -177,53 +132,19 @@ static void *mmap_wrapper(void *addr, size_t length, int prot,
   return retval;
 }
 
-/* Trampoline to be installed in libc's mmap(). 
-
- It would be best to leave this function alone whenever possible. If anything
- is added, it is likely the stack frame size will change from what is
- hard-coded in here (0x34 on 32-bit).
-
- If you do make modifications which change the stack frame, disassemble this
- function and see what the compiler has said for the stack frame adjustment
- (e.g. "sub 0x34,%esp"). Then adjust the "add" instruction at the end to be the
- same size. */
-static void mmap_trampoline(void *addr, size_t length, int prot,
+/* Calls to mmap will land here. */
+static void *mmap_trampoline(void *addr, size_t length, int prot,
     int flags, int fd, off_t offset)
 {
   /* Interesting note: we get the arguments set up for free, since mmap is
      patched to jump directly to this function. */
-  /* Save registers we will clobber (why doesn't the compiler do this?) */
-#ifdef __x86_64__
-  asm("pushq %rcx\n"
-      "pushq %rdx");
-#else
-  asm("push %ecx\n"
-      "push %edx");
-#endif
   /* Unpatch mmap. */
   UNINSTALL_TRAMPOLINE(mmap);
   /* Call mmap mini trampoline, which will eventually call _real_mmap. */
   void *retval = mmap_wrapper(addr,length,prot,flags,fd,offset);
   /* Repatch mmap. */
   INSTALL_TRAMPOLINE(mmap);
-#ifdef __x86_64__
-  asm("mov %0,%%rax\n"    /* Set return value */
-      "pop %%rdx\n"       /* Restore clobbered registers. */
-      "pop %%rcx\n"
-      "add $0x48,%%rsp\n" /* Reset stack pointer */
-      "pop %%rbx\n"
-      "pop %%rbp\n"
-      "ret":: "r"(retval)); /* Return to caller. */
-#else
-  asm("mov %0,%%eax\n"    /* Set return value */
-      "pop %%edx\n"       /* Restore clobbered registers. */
-      "pop %%ecx\n"
-      "add $0x34,%%esp\n" /* Reset stack pointer */
-      "pop %%ebx\n"
-      "pop %%ebp\n"
-      "ret":: "r"(retval)); /* Return to caller. */
-#endif
-  // Should never reach this line.
+  return retval;
 }
 #endif //SYNCHRONIZATION_LOG_AND_REPLAY
 
