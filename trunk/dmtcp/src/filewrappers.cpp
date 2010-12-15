@@ -643,6 +643,19 @@ static void parse_format (const char *format, dmtcp::list<dmtcp::string> *format
   }
 }
 
+/* For fscanf, for %5c like formats.
+ * This function returns the number of characters read. */
+static int get_how_many_characters (const char *str)
+{
+  /* The format has no integer conversion specifier, if the size of str is 2. */
+  if (strlen(str) == 2) return 1;
+  char tmp[512] = {'\0'};
+  int i;
+  for (i = 1; i < strlen(str) - 1; i++)
+    tmp[i-1] = str[i];
+  return atoi(tmp);
+}
+
 /* TODO: not all formats are mapped. 
  * This function parses the given argument list and logs the values of the 
  * arguments in the list to read_data_fd. Returns the number of bytes written. */
@@ -669,8 +682,9 @@ static int parse_va_list_and_log (va_list arg, const char *format)
       bytes += sizeof(int);
     }
     else if (it->find("c") != dmtcp::string::npos) {
-      logReadData ((char *)val, sizeof(char));
-      bytes += sizeof(char);
+      int nr_chars = get_how_many_characters(it->c_str());
+      logReadData ((char *)val, nr_chars * sizeof(char));
+      bytes += nr_chars * sizeof(char);
     }
     else if (it->find("s") != dmtcp::string::npos) {
       logReadData ((char *)val, strlen((char *)val)+ 1);
@@ -705,7 +719,8 @@ static void read_data_from_log_into_va_list (va_list arg, const char *format)
       _real_read(read_data_fd, (void *)val, sizeof(int));
     }
     else if (it->find("c") != dmtcp::string::npos) {
-      _real_read(read_data_fd, (void *)val, sizeof(char));
+      int nr_chars = get_how_many_characters(it->c_str());
+      _real_read(read_data_fd, (void *)val, nr_chars * sizeof(char));
     }
     else if (it->find("s") != dmtcp::string::npos) {
       bool terminate = false;
@@ -938,6 +953,11 @@ extern "C" int fprintf (FILE *stream, const char *format, ...)
 extern "C" int _IO_getc(FILE *stream)
 {
   BASIC_SYNC_WRAPPER(int, getc, _real_getc, stream);
+}
+
+extern "C" int fgetc(FILE *stream)
+{
+  BASIC_SYNC_WRAPPER(int, fgetc, _real_fgetc, stream);
 }
 
 extern "C" int ungetc(int c, FILE *stream)

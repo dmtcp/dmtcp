@@ -191,6 +191,7 @@
     MACRO(fxstat, __VA_ARGS__);                                                \
     MACRO(fxstat64, __VA_ARGS__);                                              \
     MACRO(getc, __VA_ARGS__);                                                  \
+    MACRO(fgetc, __VA_ARGS__);                                                 \
     MACRO(ungetc, __VA_ARGS__);                                                \
     MACRO(getline, __VA_ARGS__);                                               \
     MACRO(getpeername, __VA_ARGS__);                                           \
@@ -301,6 +302,8 @@ typedef enum {
   fxstat64_event_return,
   getc_event,
   getc_event_return,
+  fgetc_event,
+  fgetc_event_return,
   ungetc_event,
   ungetc_event_return,
   getline_event,
@@ -807,6 +810,13 @@ typedef struct {
 static const int log_event_getc_size = sizeof(log_event_getc_t);
 
 typedef struct {
+  // For fgetc():
+  unsigned long int stream;
+} log_event_fgetc_t;
+
+static const int log_event_fgetc_size = sizeof(log_event_fgetc_t);
+
+typedef struct {
   // For ungetc():
   int c;
   unsigned long int stream;
@@ -1165,6 +1175,7 @@ typedef struct {
     log_event_fscanf_t                           log_event_fscanf;
     log_event_fputs_t                            log_event_fputs;
     log_event_getc_t                             log_event_getc;
+    log_event_fgetc_t                            log_event_fgetc;
     log_event_ungetc_t                           log_event_ungetc;
     log_event_getline_t                          log_event_getline;
     log_event_open_t                             log_event_open;
@@ -1337,6 +1348,7 @@ LIB_PRIVATE log_entry_t create_fxstat_entry(int clone_id, int event, int vers,
 LIB_PRIVATE log_entry_t create_fxstat64_entry(int clone_id, int event, int vers,
     int fd, struct stat64 *buf);
 LIB_PRIVATE log_entry_t create_getc_entry(int clone_id, int event, FILE *stream);
+LIB_PRIVATE log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream);
 LIB_PRIVATE log_entry_t create_ungetc_entry(int clone_id, int event, int c,
     FILE *stream);
 LIB_PRIVATE log_entry_t create_getline_entry(int clone_id, int event,
@@ -1478,6 +1490,7 @@ LIB_PRIVATE TURN_CHECK_P(fwrite_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fxstat_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fxstat64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getc_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fgetc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(ungetc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getline_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getpeername_turn_check);
