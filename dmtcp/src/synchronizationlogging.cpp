@@ -467,6 +467,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == pthread_cond_timedwait_event ||
     GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
     GET_COMMON(e,event) == getc_event_return ||
+    GET_COMMON(e,event) == fgetc_event_return ||
     GET_COMMON(e,event) == ungetc_event_return ||
     GET_COMMON(e,event) == getline_event_return ||
     GET_COMMON(e,event) == getpeername_event_return ||
@@ -1205,6 +1206,14 @@ log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, getc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fgetc, stream, (unsigned long int)stream);
   return e;
 }
 
@@ -2315,6 +2324,13 @@ TURN_CHECK_P(getc_turn_check)
       GET_FIELD_PTR(e2, getc, stream);
 }
 
+TURN_CHECK_P(fgetc_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fgetc, stream) ==
+      GET_FIELD_PTR(e2, fgetc, stream);
+}
+
 TURN_CHECK_P(ungetc_turn_check)
 {
   return base_turn_check(e1,e2) &&
@@ -2676,6 +2692,7 @@ static event_code_t get_optional_event(log_entry_t *e)
   if (event_num == fscanf_event_return ||
       event_num == fgets_event_return ||
       event_num == getc_event_return ||
+      //event_num == fgetc_event_return ||
       event_num == fprintf_event_return ||
       event_num == fdopen_event_return) {
     return mmap_event;
