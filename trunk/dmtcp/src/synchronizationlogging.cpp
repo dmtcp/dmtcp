@@ -150,6 +150,9 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_DISK, fd, entry, ret);                  \
   } while(0)
 
+/* #defined constants */
+#define MAX_OPTIONAL_EVENTS 5
+
 static void log_entry_to_buffer(log_entry_t *entry, char *buffer)
 {
   memcpy(buffer, &GET_COMMON_PTR(entry, event), sizeof(GET_COMMON_PTR(entry, event)));
@@ -2680,9 +2683,9 @@ TURN_CHECK_P(select_turn_check)
       GET_FIELD_PTR(e2, select, timeout);
 }
 
-/* If the given log event has an associated optional event, returns the event
-   code. Returns -1 if no optional event is associated. */
-static event_code_t get_optional_event(log_entry_t *e)
+/* Populates the given array with any optional events associated with
+   the given event. */
+static void get_optional_events(log_entry_t *e, int *opt_events)
 {
   event_code_t event_num = (event_code_t) GET_COMMON_PTR(e, event);
   /* These should ONLY be return events in the current implementation. For
@@ -2695,9 +2698,21 @@ static event_code_t get_optional_event(log_entry_t *e)
       //event_num == fgetc_event_return ||
       event_num == fprintf_event_return ||
       event_num == fdopen_event_return) {
-    return mmap_event;
+    opt_events[0] = mmap_event;
+  } else if (event_num == setsockopt_event_return) {
+    opt_events[0] = malloc_event;
+    opt_events[1] = free_event;
   }
-  return unknown_event;
+  // TODO: Some error checking that we do not accidently assign above
+  // the index MAX_OPTIONAL_EVENTS
+}
+
+/* Returns 1 if the given event has at least one optional event, 0 otherwise. */
+static int has_optional_event(log_entry_t *e)
+{
+  int opt_evts[MAX_OPTIONAL_EVENTS] = {0};
+  get_optional_events(e, opt_evts);
+  return opt_evts[0] != 0;
 }
 
 /* Given the event number of an optional event, executes the action to fulfill
@@ -2711,9 +2726,27 @@ static void execute_optional_event(int opt_event_num)
     int fd        = GET_FIELD(currentLogEntry, mmap, fd);
     off_t offset  = GET_FIELD(currentLogEntry, mmap, offset);
     mmap(NULL, length, prot, flags, fd, offset);
+  } else if (opt_event_num == malloc_event) {
+    size_t size = GET_FIELD(currentLogEntry, malloc, size);
+    malloc(size);
+  } else if (opt_event_num == free_event) {
+    /* The fact that this works depends on memory-accurate replay. */
+    void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
+    free(ptr);
   } else {
     JASSERT (false)(opt_event_num).Text("No action known for optional event.");
   }
+}
+
+/* Returns 1 if the given array of ints contains the given int, 0 otherwise. */
+static int opt_events_contains(const int opt_events[MAX_OPTIONAL_EVENTS],
+    int evt)
+{
+  int i = 0;
+  for (i = 0; i < MAX_OPTIONAL_EVENTS; i++) {
+    if (opt_events[i] == evt) return 1;
+  }
+  return 0;
 }
 
 /* Like waitForTurn(), but also handles events with "optional" events. For
@@ -2725,17 +2758,18 @@ static void execute_optional_event(int opt_event_num)
    This function is useful for fscanf and others since they are NOT called on
    replay. If we don't call _real_fscanf, for example, libc is never able to
    call mmap. So we must do it manually. */
-static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred,
-    int opt_event_num)
+static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
 {
+  int opt_events[MAX_OPTIONAL_EVENTS] = {0};
+  get_optional_events(my_entry, opt_events);
   while (1) {
     if ((*pred)(&currentLogEntry, my_entry))
       break;
     /* For the optional event, we can only check the clone_id and the event
        number, since we don't know any more information. */
     if (GET_COMMON(currentLogEntry, clone_id) == my_clone_id &&
-        GET_COMMON(currentLogEntry, event) == opt_event_num) {
-      execute_optional_event(opt_event_num);
+        opt_events_contains(opt_events, GET_COMMON(currentLogEntry, event))) {
+      execute_optional_event(GET_COMMON(currentLogEntry, event));
     }
     memfence();
     usleep(15);
@@ -2751,8 +2785,8 @@ void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
     // Perform any initialization things here.
     primeLog();
   }
-  if ((opt = get_optional_event(&my_entry)) != unknown_event) {
-    waitForTurnWithOptional(&my_entry, pred, opt);
+  if (has_optional_event(&my_entry)) {
+    waitForTurnWithOptional(&my_entry, pred);
   } else {
     while (1) {
       if ((*pred)(&currentLogEntry, &my_entry))
