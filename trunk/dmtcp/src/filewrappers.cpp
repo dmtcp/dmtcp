@@ -158,7 +158,8 @@ extern "C" int fclose(FILE *fp)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fclose_turn_check);
     getNextLogEntry();
-    free(fp);
+/* If fp is not any of stdin, stdout or stderr, then free should be called.
+ * The optional event deals with this situation. */
     waitForTurn(my_return_entry, &fclose_turn_check);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {

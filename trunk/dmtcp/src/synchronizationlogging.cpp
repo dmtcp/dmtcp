@@ -2702,6 +2702,8 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
   } else if (event_num == setsockopt_event_return) {
     opt_events[0] = malloc_event;
     opt_events[1] = free_event;
+  } else if (event_num == fclose_event_return) {
+    opt_events[0] = free_event;
   }
   // TODO: Some error checking that we do not accidently assign above
   // the index MAX_OPTIONAL_EVENTS
