@@ -73,6 +73,9 @@ namespace
 static bool delayedCheckpoint = false;
 #endif
 
+// Note that mtcp.so is closed and re-opened (maybe in a different
+//   location) at the time of fork.  Do not statically save the
+//   return value of _get_mtcp_symbol across a fork.
 extern "C" void* _get_mtcp_symbol ( const char* name )
 {
   static void* theMtcpHandle = find_and_open_mtcp_so();
@@ -384,7 +387,11 @@ int thread_start(void *arg)
   JTRACE ("In thread_start");
 
   typedef void ( *fill_in_pthread_t ) ( pid_t tid, pthread_t pth );
-  static fill_in_pthread_t fill_in_pthread_ptr = ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );
+  // Don't make fill_in_pthread_ptr statically initialized.  After a fork, some
+  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  fill_in_pthread_t fill_in_pthread_ptr =
+    ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );
 
   fill_in_pthread_ptr (tid, pthread_self()); 
   
@@ -591,7 +598,10 @@ static int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
   /* Wrap the call to _real_pthread_join() to make sure we call
      delete_thread_on_pthread_join(). */
   typedef void ( *delete_thread_fnc_t ) ( pthread_t );
-  static delete_thread_fnc_t delete_thread_fnc =
+  // Don't make delete_thread_fnc statically initialized.  After a fork, some
+  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  delete_thread_fnc_t delete_thread_fnc =
     (delete_thread_fnc_t) _get_mtcp_symbol("delete_thread_on_pthread_join");
   int retval = _real_pthread_join (thread, value_ptr);
   delete_thread_fnc (thread);
@@ -672,7 +682,12 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   return retval;
 #else
   typedef void ( *delete_thread_on_pthread_join_t) ( pthread_t pth );
-  static delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr = ( delete_thread_on_pthread_join_t ) _get_mtcp_symbol ( "delete_thread_on_pthread_join" );
+  // Don't make delete_thread_on_pthread_join_ptr statically initialized.
+  // After a fork, some
+  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr =
+    ( delete_thread_on_pthread_join_t ) _get_mtcp_symbol ( "delete_thread_on_pthread_join" );
   int retval = _real_pthread_join (thread, value_ptr);
   delete_thread_on_pthread_join_ptr (thread);
   return retval;
@@ -714,17 +729,30 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
   long ptrace_ret;
 
   typedef void ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
-  static writeptraceinfo_t writeptraceinfo_ptr = ( writeptraceinfo_t ) _get_mtcp_symbol ( "writeptraceinfo" );
+  // Don't make writeptraceinfo_ptr statically initialized.  After a fork, some
+  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  writeptraceinfo_t writeptraceinfo_ptr = ( writeptraceinfo_t ) _get_mtcp_symbol ( "writeptraceinfo" );
 
   typedef void ( *write_info_to_file_t ) ( int file, pid_t superior, pid_t inferior );
-  static write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
+  // Don't make write_info_to_file_ptr statically initialized.  After a fork,
+  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
 
   typedef void ( *remove_from_ptrace_pairs_t) ( pid_t superior, pid_t inferior );
-  static remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr =
+  // Don't make remove_from_ptrace_pairs_ptr statically initialized.  After a
+  // fork,
+  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr =
                            ( remove_from_ptrace_pairs_t ) _get_mtcp_symbol ( "remove_from_ptrace_pairs" );
 
   typedef void ( *handle_command_t ) ( pid_t superior, pid_t inferior, int last_command );
-  static handle_command_t handle_command_ptr = ( handle_command_t ) _get_mtcp_symbol ( "handle_command" );
+  // Don't make handle_command_ptr statically initialized.  After a fork,
+  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
+  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
+  handle_command_t handle_command_ptr = ( handle_command_t ) _get_mtcp_symbol ( "handle_command" );
 
 
   va_start( ap, request );
