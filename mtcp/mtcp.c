@@ -1163,7 +1163,9 @@ static void setup_clone_entry (void)
     p = NULL;
     while (readmapsline (mapsfd, &mtcp_libc_area)) {
       p = strstr (mtcp_libc_area.name, "/libc");
-      if ((p != NULL) && ((p[5] == '-') || (p[5] == '.'))) break;
+      /* We can't do a dlopen on the debug version of libc. */
+      if (((p != NULL) && ((p[5] == '-') || (p[5] == '.'))) &&
+          !strstr(mtcp_libc_area.name, "debug")) break;
     }
     close (mapsfd);
     if (p == NULL) {

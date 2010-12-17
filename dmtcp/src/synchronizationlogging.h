@@ -55,16 +55,21 @@
 #define SYNC_TIMINGS
 
 #ifdef SYNC_TIMINGS
+/* To be used when the timer is started and finished in the same function. */
 #define SYNC_TIMER_START(name)                  \
   struct timeval name##_start;                  \
+  gettimeofday(&name##_start, NULL);
+
+/* To be used when the timer is started in one function and finished
+ * in another. The struct timeval should be declared in this file. */
+#define SYNC_TIMER_START_GLOBAL(name)           \
   gettimeofday(&name##_start, NULL);
 
 #define SYNC_TIMER_STOP(name)                                           \
   struct timeval name##_end;                                            \
   gettimeofday(&name##_end, NULL);                                      \
-  double name##_sec = name##_start.tv_sec - name##_end.tv_sec;          \
-  name##_sec += (name##_start.tv_usec - name##_end.tv_usec)/1000000.0;  \
-  if (name##_sec < 0) name##_sec *= -1;                                 \
+  double name##_sec = name##_end.tv_sec - name##_start.tv_sec;          \
+  name##_sec += (name##_end.tv_usec - name##_start.tv_usec)/1000000.0;  \
   JNOTE ( "Timer " #name ) ( name##_sec );
 #else
 #define SYNC_TIMER_START(name)

@@ -383,6 +383,14 @@ struct ThreadArg {
 int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
+#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
+    my_clone_id = threadArg->clone_id;
+    clone_id_to_tid_table[my_clone_id] = pthread_self();
+  } else {
+    JASSERT ( my_clone_id != 0 );
+  }
+#endif
   pid_t tid = _real_gettid();
   JTRACE ("In thread_start");
 
@@ -403,14 +411,6 @@ int thread_start(void *arg)
   pid_t original_tid = threadArg -> original_tid;
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    my_clone_id = threadArg->clone_id;
-    clone_id_to_tid_table[my_clone_id] = pthread_self();
-  } else {
-    JASSERT ( my_clone_id != 0 );
-  }
-#endif
 #ifdef PTRACE
   mtcp_init_thread_local();
 #endif
