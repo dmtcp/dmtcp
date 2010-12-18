@@ -37,7 +37,7 @@
 #include "synchronizationlogging.h"
 #include <sys/resource.h>
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 
 LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
 
@@ -196,9 +196,9 @@ static off_t nextSelect (log_entry_t *select, int clone_id, int nfds,
 LIB_PRIVATE dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
-LIB_PRIVATE char SYNCHRONIZATION_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX];
-LIB_PRIVATE char SYNCHRONIZATION_READ_DATA_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX];
-LIB_PRIVATE int             synchronization_log_fd = -1;
+LIB_PRIVATE char RECORD_LOG_PATH[RECORD_LOG_PATH_MAX];
+LIB_PRIVATE char RECORD_READ_DATA_LOG_PATH[RECORD_LOG_PATH_MAX];
+LIB_PRIVATE int             record_log_fd = -1;
 LIB_PRIVATE int             read_data_fd = -1;
 LIB_PRIVATE int             sync_logging_branch = 0;
 /* Setting this will log/replay *ALL* malloc family
@@ -225,8 +225,8 @@ LIB_PRIVATE volatile off_t         read_log_pos = 0;
 /* File private: */
 static char patch_list[MAX_LOG_LENGTH] = {0};
 static int patch_list_index = 0;
-static char SYNCHRONIZATION_PATCHED_LOG_PATH[SYNCHRONIZATION_LOG_PATH_MAX];
-static int               synchronization_patched_log_fd = -1;
+static char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
+static int               record_patched_log_fd = -1;
 static unsigned long int code_lower = 0, data_break = 0,
                          stack_lower = 0, stack_upper = 0;
 static pthread_mutex_t   log_file_mutex       = PTHREAD_MUTEX_INITIALIZER;
@@ -631,45 +631,45 @@ static void clear_patch_list()
 static int isLogPatched()
 {
   char is_patched = 0;
-  _real_read(synchronization_log_fd, &is_patched, sizeof(char));
+  _real_read(record_log_fd, &is_patched, sizeof(char));
   return is_patched == LOG_IS_PATCHED_VALUE;
 }
 
 static void markLogAsPatched()
 {
-  lseek(synchronization_log_fd, 0, SEEK_SET);
+  lseek(record_log_fd, 0, SEEK_SET);
   LOG_IS_PATCHED_TYPE c = LOG_IS_PATCHED_VALUE;
-  _real_write(synchronization_log_fd, (void *)&c, LOG_IS_PATCHED_SIZE);
+  _real_write(record_log_fd, (void *)&c, LOG_IS_PATCHED_SIZE);
   // Don't seek back to zero.
 }
 
 static void patchLog()
 {
   JTRACE ( "Begin log patching." );
-  synchronization_patched_log_fd = open(SYNCHRONIZATION_PATCHED_LOG_PATH,
+  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
       O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   log_entry_t entry = EMPTY_LOG_ENTRY, temp = EMPTY_LOG_ENTRY;
   log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
   int i = 0;
   ssize_t write_ret = 0;
   // Read one log entry at a time from the file on disk, and write the patched
-  // version out to synchronization_patched_log_fd.
-  while (readEntryFromDisk(synchronization_log_fd, &entry) != 0) {
+  // version out to record_patched_log_fd.
+  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
     if (GET_COMMON(entry,event) == exec_barrier_event) {
       // Nothing may move past an exec barrier. Dump everything in patch_list
       // into the new log before the exec barrier.
       while (1) {
         temp = get_oldest_patch_entry(0);
         if (GET_COMMON(temp, clone_id) == 0) break;
-        write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
+        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
       }
       clear_patch_list();
-      write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
       continue;
     }
     if (GET_COMMON(entry,event) == pthread_kill_event) {
       JTRACE ( "Found a pthread_kill in log. Not moving it." );
-      write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
       continue;
     }
     if (GET_COMMON(entry,clone_id) == 0) {
@@ -678,10 +678,10 @@ static void patchLog()
     if (isUnlock(entry)) {
       temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       while (GET_COMMON(temp,clone_id) != 0) {
-        write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
+        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
         temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       }
-      write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
     } else {
       add_to_patch_list(&entry);
     }
@@ -696,7 +696,7 @@ static void patchLog()
     while (1) {
       temp = get_oldest_patch_entry(0);
       if (GET_COMMON(temp, clone_id) == 0) break;
-      write_ret = writeEntryToDisk(synchronization_patched_log_fd, temp);
+      write_ret = writeEntryToDisk(record_patched_log_fd, temp);
     }
     clear_patch_list();
   }
@@ -709,20 +709,20 @@ static void patchLog()
   // original location?
 
   // Rewind so we can write out over the original log.
-  lseek(synchronization_patched_log_fd, 0, SEEK_SET);
+  lseek(record_patched_log_fd, 0, SEEK_SET);
   // Close so we can re-open with O_TRUNC
-  close(synchronization_log_fd);
-  synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, O_RDWR | O_TRUNC);
+  close(record_log_fd);
+  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
   markLogAsPatched();
   // Copy over to original log filename
-  while (readEntryFromDisk(synchronization_patched_log_fd, &entry) != 0) {
-    write_ret = writeEntryToDisk(synchronization_log_fd, entry);
+  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
+    write_ret = writeEntryToDisk(record_log_fd, entry);
   }
-  close(synchronization_patched_log_fd);
-  unlink(SYNCHRONIZATION_PATCHED_LOG_PATH);
+  close(record_patched_log_fd);
+  unlink(RECORD_PATCHED_LOG_PATH);
   JTRACE ( "log patching finished." ) 
-    ( SYNCHRONIZATION_LOG_PATH );
-  lseek(synchronization_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+    ( RECORD_LOG_PATH );
+  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
   log_entry_index = 0;
 } 
 
@@ -732,11 +732,11 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   /* Finds the next pthread_create return event with the same thread,
      start_routine, attr, and arg as given.
      Returns the offset into the log file that the wakeup was found. */
-  off_t old_pos = lseek(synchronization_log_fd, 0, SEEK_CUR);
+  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
   off_t pos = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromDisk(synchronization_log_fd, &e) == 0) {
+    if (readEntryFromDisk(record_log_fd, &e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -750,8 +750,8 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   }
   if (create != NULL)
     *create = e;
-  pos = lseek(synchronization_log_fd, 0, SEEK_CUR);
-  lseek(synchronization_log_fd, old_pos, SEEK_SET);
+  pos = lseek(record_log_fd, 0, SEEK_CUR);
+  lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -760,11 +760,11 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
   /* Finds the next getline return event with the same lineptr,
      n and stream as given.
      Returns the offset into the log file that the wakeup was found. */
-  off_t old_pos = lseek(synchronization_log_fd, 0, SEEK_CUR);
+  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
   off_t pos = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromDisk(synchronization_log_fd, &e) == 0) {
+    if (readEntryFromDisk(record_log_fd, &e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -776,8 +776,8 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
   }
   if (getline_entry != NULL)
     *getline_entry = e;
-  pos = lseek(synchronization_log_fd, 0, SEEK_CUR);
-  lseek(synchronization_log_fd, old_pos, SEEK_SET);
+  pos = lseek(record_log_fd, 0, SEEK_CUR);
+  lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -790,7 +790,7 @@ static void annotateLog()
         respective return events.
   
      This function should be called *before* log patching happens.*/
-  synchronization_patched_log_fd = open(SYNCHRONIZATION_PATCHED_LOG_PATH,
+  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
       O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   JTRACE ( "Annotating log." );
   log_entry_t entry = EMPTY_LOG_ENTRY;
@@ -798,7 +798,7 @@ static void annotateLog()
   log_entry_t getline_return = EMPTY_LOG_ENTRY;
   ssize_t write_ret = 0;
   int entryNum = 0;
-  while (readEntryFromDisk(synchronization_log_fd, &entry) != 0) {
+  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
     entryNum++;
     if (GET_COMMON(entry,event) == pthread_create_event) {
       nextPthreadCreate(&create_return,
@@ -817,24 +817,24 @@ static void annotateLog()
       SET_FIELD2(entry, getline, is_realloc,
         GET_FIELD(getline_return, getline, is_realloc));
     }
-    write_ret = writeEntryToDisk(synchronization_patched_log_fd, entry);
+    write_ret = writeEntryToDisk(record_patched_log_fd, entry);
   }
 
   // Rewind so we can write out over the original log.
-  lseek(synchronization_patched_log_fd, 0, SEEK_SET);
+  lseek(record_patched_log_fd, 0, SEEK_SET);
   // Close so we can re-open in O_TRUNC mode
-  close(synchronization_log_fd);
-  synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, O_RDWR | O_TRUNC);
+  close(record_log_fd);
+  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
   markLogAsPatched();
   // Copy over to original log filename
-  while (readEntryFromDisk(synchronization_patched_log_fd, &entry) != 0) {
-    write_ret = writeEntryToDisk(synchronization_log_fd, entry);
+  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
+    write_ret = writeEntryToDisk(record_log_fd, entry);
   }
-  close(synchronization_patched_log_fd);
-  unlink(SYNCHRONIZATION_PATCHED_LOG_PATH);
+  close(record_patched_log_fd);
+  unlink(RECORD_PATCHED_LOG_PATH);
   JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
-    ( SYNCHRONIZATION_LOG_PATH );
-  lseek(synchronization_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+    ( RECORD_LOG_PATH );
+  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
 }
 
 /* Initializes log pathnames. One log per process. */
@@ -842,14 +842,14 @@ void initializeLog()
 {
   pid_t pid = getpid();
   dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  snprintf(SYNCHRONIZATION_LOG_PATH, SYNCHRONIZATION_LOG_PATH_MAX, 
+  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
       "%s/synchronization-log-%d", tmpdir.c_str(), pid);
-  snprintf(SYNCHRONIZATION_PATCHED_LOG_PATH, SYNCHRONIZATION_LOG_PATH_MAX, 
+  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
       "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
-  snprintf(SYNCHRONIZATION_READ_DATA_LOG_PATH, SYNCHRONIZATION_LOG_PATH_MAX, 
+  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
       "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
   // Create the file:
-  int fd = open(SYNCHRONIZATION_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND, 
+  int fd = open(RECORD_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND, 
       S_IRUSR | S_IWUSR);
   // Write the patched bit if the file is empty.
   struct stat st;
@@ -859,7 +859,7 @@ void initializeLog()
     _real_write(fd, (void *)&c, 1);
   }
   close(fd);
-  JTRACE ( "Initialized synchronization log path to" ) ( SYNCHRONIZATION_LOG_PATH );
+  JTRACE ( "Initialized synchronization log path to" ) ( RECORD_LOG_PATH );
 }
 
 /* Patches the log, and reads in MAX_LOG_LENGTH entries (debug mode) /
@@ -871,7 +871,7 @@ void primeLog()
   if (_real_pthread_mutex_trylock(&log_index_mutex) != EBUSY) {
     JTRACE ( "Priming log." );
     int num_read = 0, total_read = 0;
-    if (lseek(synchronization_log_fd, 0, SEEK_SET) == -1) {
+    if (lseek(record_log_fd, 0, SEEK_SET) == -1) {
       perror("lseek");
     }
     /******************* LOG PATCHING STUFF *******************/
@@ -885,11 +885,11 @@ void primeLog()
     // at a bad time?)
     //fixSpontaneousWakeups();
     /******************* END LOG PATCHING STUFF *******************/
-    num_read = _real_read(synchronization_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
     total_read += num_read;
     // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
     while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
-      num_read = _real_read(synchronization_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+      num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
       total_read += num_read;
     }
     JTRACE ( "read this many bytes." ) ( total_read );
@@ -909,12 +909,12 @@ void readLogFromDisk()
 {
   resetLog();
   int num_read = 0, total_read = 0;
-  JTRACE ( "current position" ) ( lseek(synchronization_log_fd, 0, SEEK_CUR) );
-  num_read = _real_read(synchronization_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+  JTRACE ( "current position" ) ( lseek(record_log_fd, 0, SEEK_CUR) );
+  num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
   total_read += num_read;
   // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
   while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
-    num_read = _real_read(synchronization_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
     total_read += num_read;
   }
   JTRACE ( "read entries from disk. " ) ( total_read );
@@ -1867,7 +1867,7 @@ void logReadData(void *buf, int count)
         "This is probably not intended.");
   }
   if (read_data_fd == -1) {
-    read_data_fd = open(SYNCHRONIZATION_READ_DATA_LOG_PATH,
+    read_data_fd = open(RECORD_READ_DATA_LOG_PATH,
         O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   }
   int written = write(read_data_fd, buf, count);
@@ -1880,8 +1880,8 @@ void writeLogsToDisk() {
     JTRACE ( "calling writeLogsToDisk() while in replay. This is probably an error. Not writing." );
     return;
   }
-  if (strlen(SYNCHRONIZATION_LOG_PATH) == 0) {
-    JTRACE ( "SYNCHRONIZATION_LOG_PATH empty. Not writing." );
+  if (strlen(RECORD_LOG_PATH) == 0) {
+    JTRACE ( "RECORD_LOG_PATH empty. Not writing." );
     return;
   }
   int numwritten = 0;
@@ -1922,17 +1922,17 @@ void writeLogsToDisk() {
     // NECESSARILY' comment.
     num_to_write = LOG_ENTRY_SIZE*log_index;
   }
-  //JTRACE ( "writing to log path" ) ( SYNCHRONIZATION_LOG_PATH );
-  while ((synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, 
+  //JTRACE ( "writing to log path" ) ( RECORD_LOG_PATH );
+  while ((record_log_fd = open(RECORD_LOG_PATH, 
               O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
       && errno == EINTR) ;
-  JASSERT ( synchronization_log_fd != -1 ) ( strerror(errno) );
-  numwritten = write(synchronization_log_fd, log, num_to_write);
+  JASSERT ( record_log_fd != -1 ) ( strerror(errno) );
+  numwritten = write(record_log_fd, log, num_to_write);
   JASSERT ( numwritten != -1) ( strerror(errno) );
-  JASSERT ( fsync(synchronization_log_fd) == 0 ) ( strerror(errno) );
+  JASSERT ( fsync(record_log_fd) == 0 ) ( strerror(errno) );
 
-  close(synchronization_log_fd);
-  JTRACE ( "Synchronization log successfully written to disk." ) ( num_to_write ) ( numwritten );
+  close(record_log_fd);
+  JTRACE ( "Record log successfully written to disk." ) ( num_to_write ) ( numwritten );
   resetLog();
 }
 

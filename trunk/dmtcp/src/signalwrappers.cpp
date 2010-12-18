@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #include "../jalib/jfilesystem.h"
 #endif
@@ -35,7 +35,7 @@
 #define EXTERNC extern "C"
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static dmtcp::map<int, sighandler_t> user_sig_handlers;
 #endif
 
@@ -113,7 +113,7 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
   patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static void sig_handler_wrapper(int sig)
 {
   /*void *return_addr = GET_RETURN_ADDRESS();
@@ -146,7 +146,7 @@ if (!shouldSynchronize(return_addr)) {
 
 //set the handler
 EXTERNC sighandler_t signal(int signum, sighandler_t handler){
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
@@ -169,7 +169,7 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler){
 }
 
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 EXTERNC sighandler_t sigset(int sig, sighandler_t disp) {
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) ||
@@ -186,7 +186,7 @@ EXTERNC sighandler_t sigset(int sig, sighandler_t disp) {
 #endif
 
 EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if(signum == bannedSignalNumber()){
     act = NULL;
   }
@@ -323,7 +323,7 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
  *                                                          -- Kapil
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig) {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if (set != NULL) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;

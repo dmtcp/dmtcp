@@ -36,7 +36,9 @@
 
 
 // Set _GNU_SOURCE in order to expose glibc-defined sigandset()
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <asm/ldt.h>      // for struct user_desc
 //#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
@@ -2461,7 +2463,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 		 area -> size, area -> addr, area -> name, area -> offset));
 
   if ((area -> name[0]) == '\0') {
-    void *brk = mtcp_sys_brk(NULL);
+    char *brk = mtcp_sys_brk(NULL);
     if (brk > area -> addr && brk <= area -> addr + area -> size)
       mtcp_sys_strcpy(area -> name, "[heap]");
   }
@@ -2612,7 +2614,8 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * Maybe it's not needed if we use ((optimize(0))) .
  */
 static volatile unsigned int growstackValue = 0;
-__attribute__ ((optimize(0))) static void growstack (int kbStack);
+static void growstack (int kbStack);
+__attribute__ ((optimize(0)))
 static void growstack (int kbStack) {
   const int kBincrement = 1024;
   char array[kBincrement * 1024] __attribute__ ((unused));

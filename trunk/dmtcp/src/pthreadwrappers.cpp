@@ -42,7 +42,7 @@
 #include "syscallwrappers.h"
 #include "virtualpidtable.h"
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static void *thread_reaper(void *arg);
 static pthread_t reaperThread;
 static int reaper_thread_alive = 0;

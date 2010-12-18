@@ -43,13 +43,13 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #define SET_MMAP_NO_SYNC()   (mmap_no_sync = 1)
 #define UNSET_MMAP_NO_SYNC() (mmap_no_sync = 0)
 #define MMAP_NO_SYNC         (mmap_no_sync == 1)
@@ -110,8 +110,8 @@ extern "C"
 # define GLIBC_PTRACE_WRAPPERS(MACRO)
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-# define GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)\
+#ifdef RECORD_REPLAY
+# define GLIBC_RECORD_WRAPPERS(MACRO)\
   MACRO(access)                               \
   MACRO(select)                               \
   MACRO(read)                                 \
@@ -174,8 +174,8 @@ extern "C"
   MACRO(pthread_rwlock_rdlock)                  \
   MACRO(pthread_rwlock_wrlock)
 #else
-# define GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)
-# define PTHREAD_SYNCHRONIZATION_WRAPPERS(MACRO)
+# define GLIBC_RECORD_WRAPPERS(MACRO)
+# define PTHREAD_RECORD_WRAPPERS(MACRO)
 #endif 
 
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
@@ -271,7 +271,7 @@ extern "C"
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)       \
   GLIBC_PTRACE_WRAPPERS(MACRO)              \
-  GLIBC_SYNCHRONIZATION_WRAPPERS(MACRO)
+  GLIBC_RECORD_WRAPPERS(MACRO)
 
 
 # define ENUM(x) enum_ ## x
@@ -288,7 +288,7 @@ extern "C"
 
   int _dmtcp_unsetenv(const char *name);
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   typedef enum {
     FOREACH_PTHREAD_FUNC_WRAPPER(GEN_ENUM)
     numLibpthreadWrappers
@@ -300,7 +300,7 @@ extern "C"
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
   int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 #endif
@@ -406,7 +406,7 @@ extern "C"
 
 #endif /* PID_VIRTUALIZATION */
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   int _real_mkdir(const char *pathname, mode_t mode);
   int _real_mkstemp(char *temp);
   FILE * _real_fdopen(int fd, const char *mode);
@@ -455,7 +455,7 @@ extern "C"
   void  _real_free(void *ptr);
   void *_real_realloc(void *ptr, size_t size);
   void *_real_libc_memalign(size_t boundary, size_t size);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   void *_real_mmap(void *addr, size_t length, int prot, int flags,
       int fd, off_t offset);
   void *_real_mmap64(void *addr, size_t length, int prot, int flags,
@@ -471,7 +471,7 @@ extern "C"
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY  
+#ifdef RECORD_REPLAY  
   int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
   int _real_pthread_mutex_trylock(pthread_mutex_t *mutex);
   int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);

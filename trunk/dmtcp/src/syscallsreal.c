@@ -41,7 +41,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include <sys/mman.h>
 #include <dirent.h>
 #include <time.h>
@@ -54,7 +54,7 @@ typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr ( *signal_funcptr ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
 
 #endif
@@ -73,7 +73,7 @@ static print_mutex(pthread_mutex_t *m,char *func)
 }
 */
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 // Need these prototypes for _dmtcp_lock/unlock().
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
 int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
@@ -227,7 +227,7 @@ static funcptr get_libpthread_symbol ( const char* name )
   return ( funcptr ) tmp;
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static void computeLibpthreadOffsetArray ()
 {
   char *libpthreadFuncOffsetStr = getenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
@@ -259,7 +259,7 @@ static funcptr get_libpthread_symbol_from_array ( LibPthreadWrapperOffset off )
   }
   return (funcptr)((char*)libpthread_base_function_addr + libpthreadFuncOffsetArray[off]);
 }
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
 
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
@@ -295,7 +295,7 @@ static int use_dlsym = 0;
     if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
     return (*fn)
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #undef LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED
 #define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
     if (fn==NULL) { \
@@ -319,7 +319,7 @@ static int use_dlsym = 0;
     static type (*fn) () = NULL; \
     if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
     return (*fn)
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
@@ -361,7 +361,7 @@ int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int f
 # endif
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int _real_getsockname( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( getsockname ) ( sockfd,addr,addrlen );
@@ -623,7 +623,7 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int _real_mkdir(const char *pathname, mode_t mode) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, mkdir ) ( pathname, mode );
 }
@@ -689,7 +689,7 @@ FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int _real_fputs(const char *s, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
 }
@@ -776,7 +776,7 @@ int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
   REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int _real_fxstat(int vers, int fd, struct stat *buf) {
   REAL_FUNC_PASSTHROUGH ( __fxstat ) ( vers, fd, buf );
 }
@@ -840,7 +840,7 @@ void _real_free(void *ptr) {
   REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
@@ -951,7 +951,7 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *da
 }
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
   LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }
@@ -1080,4 +1080,4 @@ ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
 sighandler_t _real_sigset(int sig, sighandler_t disp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t,sigset) ( sig, disp );
 }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY

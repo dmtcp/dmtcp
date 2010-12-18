@@ -598,6 +598,7 @@ MPICH_MPDCLEANUP
 MPICH_MPDALLEXIT
 MPICH_MPDBOOT
 MPICH_MPD
+RECORD_REPLAY
 HAS_GZIP
 EGREP
 GREP
@@ -682,6 +683,7 @@ enable_external_socket_handling
 enable_stale_socket_handling
 enable_forked_checkpointing
 enable_allocator
+with_record_replay
 with_mpich
 enable_m32
 '
@@ -1344,6 +1346,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --experts-only-flag     for experts only
   --with-mpich=path       Compile mpich2 tests in `make check`
 
 Some influential environment variables:
@@ -3441,8 +3444,8 @@ fi
 
 if test x"$static_libc" = xno; then
   as_fn_error "'gcc -static hello.c' failed.  No static libc.a found?
-  On some distros (e.g. Fedora 11), libc.a is not present in default system,
-  and must be added via the glibc-static package." "$LINENO" 5
+  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
+    in default system, and must be added via the glibc-static package." "$LINENO" 5
 fi
 
 #check for dash
@@ -4403,6 +4406,36 @@ $as_echo "no" >&6; }
 fi
 
 
+
+#check for record-replay capability
+# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
+#            [AS_HELP_STRING([--with-record-replay],
+#                            [support record replay (experimental)])],
+
+# Check whether --with-record-replay was given.
+if test "${with_record_replay+set}" = set; then :
+  withval=$with_record_replay; record_replay=$withval
+else
+  record_replay=no
+fi
+
+
+if test "$record_replay" != "no"; then
+
+$as_echo "#define RECORD_REPLAY /**/" >>confdefs.h
+
+
+$as_echo "#define PTRACE /**/" >>confdefs.h
+
+  PTRACE_SUPPORT=yes
+
+
+$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
+
+else
+  RECORD_REPLAY=no
+
+fi
 
 #check for mpich2
 

@@ -137,6 +137,23 @@ if test "$use_allocator" = "yes"; then
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 fi
 
+#check for record-replay capability
+# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
+#            [AS_HELP_STRING([--with-record-replay],
+#                            [support record replay (experimental)])],
+AC_ARG_WITH([record-replay],
+            [AS_HELP_STRING([--experts-only-flag], [for experts only])],
+            [record_replay=$withval],
+            [record_replay=no])
+
+if test "$record_replay" != "no"; then
+  AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
+  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+else
+  AC_SUBST([RECORD_REPLAY], [no])
+fi
+
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
                             [Compile in 32 bit mode on 64 bit linux.])],

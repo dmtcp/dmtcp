@@ -22,7 +22,7 @@
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "dmtcpmessagetypes.h"
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #include "syscallwrappers.h"
 #endif
@@ -34,7 +34,7 @@ dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   // This is called only on fork() by the new child process. We reset the
   // global clone counter for this process, assign the first thread (this one)
   // clone_id 1, and increment the counter.

@@ -38,7 +38,9 @@ extern int init_ptrace_read_pairs_sem;
 extern sem_t __sem;
 extern int init__sem;
 
-#define SYNCHRONIZATIONPATHLEN (MAXPATHLEN + 128)
+#define RECORDPATHLEN (MAXPATHLEN + 128)
+// This defines an array in a .h file.
+//  .h files should only declare types; _NOT_ allocate storage.    - Gene
 char dir[MAXPATHLEN];
 extern char ptrace_shared_file[MAXPATHLEN];
 extern char ptrace_setoptions_file[MAXPATHLEN];

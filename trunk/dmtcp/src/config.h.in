@@ -51,6 +51,9 @@
 /* No output, not even NOTE and WARNING */
 #undef QUIET
 
+/* Record to log and then replay. */
+#undef RECORD_REPLAY
+
 /* Socket with no peer is stale (no peer exists); ignore socket */
 #undef STALE_SOCKET_HANDLING
 

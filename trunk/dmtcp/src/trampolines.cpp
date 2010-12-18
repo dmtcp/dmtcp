@@ -4,7 +4,7 @@
 #include <dlfcn.h>
 #include <../jalib/jassert.h>
 #include "constants.h"
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
 #include "syscallwrappers.h"
@@ -71,13 +71,13 @@ static char sbrk_trampoline_jump[ASM_JUMP_LEN];
 static char sbrk_displaced_instructions[ASM_JUMP_LEN];
 static void *sbrk_addr = NULL;
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static char mmap_trampoline_jump[ASM_JUMP_LEN];
 static char mmap_displaced_instructions[ASM_JUMP_LEN];
 static void *mmap_addr = NULL;
 /* Used by _mmap_no_sync(). */
 __attribute__ ((visibility ("hidden"))) __thread int mmap_no_sync = 0;
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 /* All calls by glibc to extend or shrink the heap go through __sbrk(). On
  * restart, the kernel may extend the end of data beyond where we want it. So
@@ -113,7 +113,7 @@ static void *sbrk_trampoline(intptr_t increment)
   return retval;
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 /* This could either be a normal dmtcp wrapper, or a hook function which calls
    a normal dmtcp wrapper. In this case, this is just a hook function which
    calls the real mmap wrapper (in mallocwrappers.cpp). I did it this way so
@@ -146,14 +146,14 @@ static void *mmap_trampoline(void *addr, size_t length, int prot,
   INSTALL_TRAMPOLINE(mmap);
   return retval;
 }
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
 
 /* Any trampolines which should be installed are done so via this function.
    Called from DmtcpWorker constructor. */
 void _dmtcp_setup_trampolines()
 {
   SETUP_TRAMPOLINE(sbrk);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   SETUP_TRAMPOLINE(mmap);
 #endif
 }

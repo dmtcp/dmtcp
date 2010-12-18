@@ -38,7 +38,7 @@
 #include <errno.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include <fcntl.h>
 #include "dmtcpworker.h"
 #include "synchronizationlogging.h"
@@ -73,7 +73,7 @@ static int in_dmtcp_on_helper_fnc = 0;
     errno =saved_errno; \
     return ret;}
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static int _almost_real_socket(int domain, int type, int protocol)
 {
   static int sockfd = -1;
@@ -135,7 +135,7 @@ extern "C"
 {
 int socket ( int domain, int type, int protocol )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, socket, _almost_real_socket, domain, type, protocol);
 #else
   static int sockfd = -1;
@@ -194,7 +194,7 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
     errno = ECONNREFUSED;
     return -1;
   }
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, connect, _almost_real_connect, sockfd, serv_addr, addrlen);
 #else
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
@@ -236,7 +236,7 @@ int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen 
 
 int bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, bind, _almost_real_bind, sockfd, my_addr, addrlen);
 #else
   PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
@@ -245,14 +245,14 @@ int bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 
 int listen ( int sockfd, int backlog )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, listen, _almost_real_listen, sockfd, backlog);
 #else
   PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static int _almost_real_accept(int sockfd, struct sockaddr *addr,
     socklen_t *addrlen)
 {
@@ -276,7 +276,7 @@ static int _almost_real_setsockopt(int sockfd, int level, int optname,
 
 int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr)) {
@@ -342,7 +342,7 @@ int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
     PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, addr, addrlen, flags );
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 int getsockname ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
   // TODO: This wrapper is incomplete. We don't actually restore the contents
@@ -443,7 +443,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
                  socklen_t optlen )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr)) {

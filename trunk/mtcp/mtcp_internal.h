@@ -145,7 +145,7 @@ int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpo
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
 
-struct Area { void *addr;   // args required for mmap to restore memory area
+struct Area { char *addr;   // args required for mmap to restore memory area
               size_t size;
               int prot;
               int flags;

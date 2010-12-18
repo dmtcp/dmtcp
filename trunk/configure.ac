@@ -121,8 +121,8 @@ $CC -static -o conftest$ac_exeext conftest.$ac_ext
 AC_CHECK_FILE([conftest$ac_exeext], [], [static_libc=no])
 if test x"$static_libc" = xno; then
   AC_MSG_ERROR(['gcc -static hello.c' failed.  No static libc.a found?
-  On some distros (e.g. Fedora 11), libc.a is not present in default system,
-  and must be added via the glibc-static package.])
+  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
+    in default system, and must be added via the glibc-static package.])
 fi
 
 #check for dash
@@ -178,6 +178,24 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
+
+#check for record-replay capability
+# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
+#            [AS_HELP_STRING([--with-record-replay],
+#                            [support record replay (experimental)])],
+AC_ARG_WITH([record-replay],
+            [AS_HELP_STRING([--experts-only-flag], [for experts only])],
+            [record_replay=$withval],
+            [record_replay=no])
+
+if test "$record_replay" != "no"; then
+  AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
+  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+  AC_SUBST([PTRACE_SUPPORT], [yes])
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+else
+  AC_SUBST([RECORD_REPLAY], [no])
+fi
 
 #check for mpich2
 AC_ARG_WITH([mpich],
