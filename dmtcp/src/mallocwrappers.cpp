@@ -19,7 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#define _GNU_SOURCE /* for sake of mremap */
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE /* for sake of mremap */
+#endif
 #include <stdarg.h>
 #include <stdlib.h>
 #include <vector>
@@ -46,7 +48,7 @@
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -65,7 +67,7 @@
 #  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
 # endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static int initHook = 0;
 static void my_init_hooks (void);
 static void *my_malloc_hook (size_t, const void *);
@@ -86,9 +88,9 @@ static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
 
 char progname[200] = {0};
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static void my_init_hooks(void)
 {
   strncpy(progname, jalib::Filesystem::GetProgramName().c_str(), 200);
@@ -219,11 +221,11 @@ static void my_free_hook (void *ptr, const void *caller)
   __free_hook = my_free_hook;
   _real_pthread_mutex_unlock(&hook_lock);
 }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) && !log_all_allocs) {
@@ -282,7 +284,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 }
 extern "C" void *malloc(size_t size)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) && !log_all_allocs) {
@@ -348,7 +350,7 @@ extern "C" void *malloc(size_t size)
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern "C" void *__libc_memalign(size_t boundary, size_t size)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -415,7 +417,7 @@ extern "C" void *valloc(size_t size)
 
 extern "C" void free(void *ptr)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) && !log_all_allocs) {
@@ -466,7 +468,7 @@ extern "C" void free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr) && !log_all_allocs) {
@@ -522,7 +524,7 @@ extern "C" void *realloc(void *ptr, size_t size)
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {

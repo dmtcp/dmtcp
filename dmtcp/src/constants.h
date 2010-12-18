@@ -27,15 +27,6 @@
 #endif
 #include "linux/version.h"
 
-/* TODO: we want to be able to switch this on and off - 
-   for the time being: not a concern
-   when this works, then kleptocracy
-*/
-#if 0
-#define SYNCHRONIZATION_LOG_AND_REPLAY
-#define ENABLE_MALLOC_WRAPPER
-#endif
-
 #ifdef PTRACE
 # define LIBTHREAD_DB "libthread_db.so.1"
 # define LIBPTHREAD_FILENAME "libpthread.so.0"
@@ -92,7 +83,8 @@
 
 #define GLIBC_BASE_FUNC isalnum
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
+# define ENABLE_MALLOC_WRAPPER
 # define ENV_VAR_LIBPTHREAD_FUNC_OFFSETS "DMTCP_LIBPTHREAD_FUNC_OFFSETS"
 # define LIBPTHREAD_BASE_FUNC pthread_barrier_destroy
 # define ENV_VAR_LOG_REPLAY "DMTCP_LOG_REPLAY"

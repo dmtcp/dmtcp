@@ -26,9 +26,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-#include "syscallwrappers.h"
-#define read _real_read
+#ifdef DMTCP
+#  ifdef RECORD_REPLAY
+#    include "syscallwrappers.h"
+#    define read _real_read
+#  endif
 #endif
 
 jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::string& path, int fd )

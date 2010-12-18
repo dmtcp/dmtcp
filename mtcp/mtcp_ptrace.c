@@ -21,7 +21,9 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-#define _GNU_SOURCE /* Needed for syscall declaration */
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE /* Needed for syscall declaration */
+#endif
 #define _XOPEN_SOURCE 500 /* _XOPEN_SOURCE >= 500 needed for getsid */
 #include "mtcp_ptrace.h"
 #include <pthread.h>
@@ -651,16 +653,16 @@ is_waitpid_local = 1;
 
 void ptrace_lock_inferiors()
 {
-    char file[SYNCHRONIZATIONPATHLEN];
-    snprintf(file,SYNCHRONIZATIONPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
+    char file[RECORDPATHLEN];
+    snprintf(file,RECORDPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
     unlink(file);
 }
 
 void ptrace_unlock_inferiors()
 {
-    char file[SYNCHRONIZATIONPATHLEN];
+    char file[RECORDPATHLEN];
     int fd;
-    snprintf(file, SYNCHRONIZATIONPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
+    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
     fd = creat(file,0644);
     if( fd < 0 ){
         mtcp_printf("init_lock: Error while creating lock file: %s\n",
@@ -672,10 +674,10 @@ void ptrace_unlock_inferiors()
 
 void create_file(pid_t pid)
 {
-  char str[SYNCHRONIZATIONPATHLEN];
+  char str[RECORDPATHLEN];
   int fd;
 
-  memset(str, 0, SYNCHRONIZATIONPATHLEN);
+  memset(str, 0, RECORDPATHLEN);
   sprintf(str, "%s/%d", dir, pid);
 
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
@@ -693,10 +695,10 @@ void create_file(pid_t pid)
 
 static void have_file(pid_t pid)
 {
-  char str[SYNCHRONIZATIONPATHLEN];
+  char str[RECORDPATHLEN];
   int fd;
 
-  memset(str, 0, SYNCHRONIZATIONPATHLEN);
+  memset(str, 0, RECORDPATHLEN);
   sprintf(str, "%s/%d", dir, pid);
   while(1) {
     fd = open(str, O_RDONLY);
@@ -718,9 +720,9 @@ static void have_file(pid_t pid)
 }
 
 void ptrace_wait4(pid_t pid)
-{    char file[SYNCHRONIZATIONPATHLEN];
+{    char file[RECORDPATHLEN];
     struct stat buf;
-    snprintf(file,SYNCHRONIZATIONPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,pid);
+    snprintf(file,RECORDPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,pid);
 
     DPRINTF(("%d: Start waiting for superior\n",GETTID()));
     while( stat(file,&buf) < 0 ){

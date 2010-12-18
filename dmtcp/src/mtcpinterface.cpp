@@ -47,11 +47,11 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 #endif
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif
 
@@ -362,7 +362,7 @@ struct ThreadArg {
   int ( *fn ) ( void *arg );
   void *arg;
   pid_t original_tid;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   long long int clone_id;
 #endif
 };
@@ -383,7 +383,7 @@ struct ThreadArg {
 int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
     my_clone_id = threadArg->clone_id;
     clone_id_to_tid_table[my_clone_id] = pthread_self();
@@ -448,7 +448,7 @@ int thread_start(void *arg)
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
    */
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   reapThisThread();
 #endif
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
@@ -525,7 +525,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     memfence();
     JTRACE ( "global_clone_counter" ) ( global_clone_counter );
@@ -592,7 +592,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
 {
   /* Wrap the call to _real_pthread_join() to make sure we call
@@ -607,11 +607,11 @@ static int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
   delete_thread_fnc (thread);
   return retval;
 }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   /* We change things up a bit here. Since we don't allow the user's
      pthread_join() to have an effect, we don't call the mtcp
      "delete_thread_on_pthread_join()" function here unless we decide not to
@@ -826,8 +826,8 @@ extern "C" long ptrace ( enum __ptrace_request request, ... )
 #endif
 
 #ifdef PTRACE
-# ifndef SYNCHRONIZATION_LOG_AND_REPLAY
-   // SYNCHRONIZATION_LOG_AND_REPLAY defines its own __libc_memalign
+# ifndef RECORD_REPLAY
+   // RECORD_REPLAY defines its own __libc_memalign
    //   wrapper.  So, we won't interfere with it here.
 #  include <malloc.h>
 // This is needed to fix what is arguably a bug in libdl-2.10.so

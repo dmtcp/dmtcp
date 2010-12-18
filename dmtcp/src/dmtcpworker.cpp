@@ -48,11 +48,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif
 
@@ -300,11 +300,11 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 // As of rev. 816, this line caused DMTCP with standard ./configure
 //   (no command line flags) to segfault.
 // To see bug, do:  gdb --args bin/dmtcp_checkpoint ls
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   _dmtcp_setup_trampolines();
 #endif
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   /* This is called only on exec(). We reset the global clone counter for this
      process, assign the first thread (this one) clone_id 1, and increment the
      counter. */
@@ -334,7 +334,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   } else if (SYNC_IS_LOG) {
     addNextLogEntry(my_entry);
   }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
@@ -365,7 +365,7 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   destroyDmtcpWorker = newDestroyDmtcpWorker;
 
   unInitializedThreadCount = 0;
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   JTRACE ( "writing synchronization logs to disk." );
   writeLogsToDisk();
 #endif
@@ -406,7 +406,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
     if (SYNC_IS_LOG) {
       JTRACE ( "writing synchronization logs to disk." );
       writeLogsToDisk();

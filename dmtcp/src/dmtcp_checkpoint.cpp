@@ -135,7 +135,7 @@ static void *get_libc_symbol ( const char* name )
   return tmp;
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static void *get_libpthread_symbol ( const char* name )
 {
   static void* handle = NULL;
@@ -155,7 +155,7 @@ static void *get_libpthread_symbol ( const char* name )
   }
   return tmp;
 }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 static void prepareDmtcpWrappers()
 {
@@ -178,7 +178,7 @@ static void prepareDmtcpWrappers()
   }
 
   setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   long wrapperOffsetArrayPthread[numLibpthreadWrappers];
   char *libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
 
@@ -193,10 +193,10 @@ static void prepareDmtcpWrappers()
   }
 
   setenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, os_pthread.str().c_str(), 1);
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
 #else
   unsetenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   unsetenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
 #endif
 #endif

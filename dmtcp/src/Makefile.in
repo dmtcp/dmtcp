@@ -210,6 +210,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
+RECORD_REPLAY = @RECORD_REPLAY@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -314,8 +315,11 @@ dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 dmtcp_nocheckpoint_LDFLAGS = -static
 
-# To compile the EXTRA files conditionally, replace right hand side
+# pthreadwrappers.cpp and synchronizationlogging.cpp are EXTRA files.
+# To compile the EXTRA files conditionally, replace them
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
+# Note that an ELF object uses libsyscallsreal.a or libnohijack.a
+#  but not both.  libnohijack.a has stub definitions for same symbols.
 dmtcphijack_so_LDADD = pthreadwrappers.o synchronizationlogging.o \
                           libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 
@@ -356,9 +360,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/Makefile
+	  $(AUTOMAKE) --foreign src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

@@ -30,7 +30,7 @@
 #include <unistd.h>
 #include <time.h>
 //#include <pthread.h>
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -69,7 +69,7 @@ static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_unlock();
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 EXTERNC int dmtcp_userSynchronizedEvent()
 {
   userSynchronizedEvent();
@@ -179,7 +179,7 @@ EXTERNC int dmtcpDelayCheckpointsUnlock(){
 }
 
 void dmtcp::userHookTrampoline_preCkpt() {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   // Write the logs to disk, if any are in memory.
   JTRACE ( "preCkpt, about to writeLogsToDisk." );
   char *x = getenv(ENV_VAR_LOG_REPLAY);
@@ -187,7 +187,7 @@ void dmtcp::userHookTrampoline_preCkpt() {
   x[0] = '0';
   x[1] = '\0';
   writeLogsToDisk();
-  close(synchronization_log_fd);
+  close(record_log_fd);
 #endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
@@ -195,19 +195,19 @@ void dmtcp::userHookTrampoline_preCkpt() {
 
 void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   //this function runs before other threads are resumed
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
     recordDataStackLocations();
 #endif
   if(isRestart){
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
     writeLogsToDisk(); // Write to disk any log entries that were recorded
                        // before we re-open and seek to the beginning.
-    while ((synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, 
+    while ((record_log_fd = open(RECORD_LOG_PATH, 
                                           O_RDONLY)) == -1
         && errno == EINTR) ;
     // Keep it open so the wrappers may read from it without opening.
-    if (synchronization_log_fd >= 0) {
-      lseek(synchronization_log_fd, 0, SEEK_SET);
+    if (record_log_fd >= 0) {
+      lseek(record_log_fd, 0, SEEK_SET);
       char *x = getenv(ENV_VAR_LOG_REPLAY);
       // Don't call setenv() here to avoid malloc()
       x[0] = '2';
@@ -215,7 +215,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       SET_SYNC_REPLAY();
     } else {
       JTRACE ( "problem opening synchronization log file on restart" ) 
-        ( SYNCHRONIZATION_LOG_PATH ) ( errno );
+        ( RECORD_LOG_PATH ) ( errno );
       JASSERT ( false );
     }
     log_all_allocs = 1;
@@ -224,12 +224,12 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     if(userHookPostRestart != NULL)
       (*userHookPostRestart)();
   }else{
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
-    while ( (synchronization_log_fd = open(SYNCHRONIZATION_LOG_PATH, 
+#ifdef RECORD_REPLAY
+    while ( (record_log_fd = open(RECORD_LOG_PATH, 
                 O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1 
         && errno == EINTR ) ;
-    JASSERT ( synchronization_log_fd >= 0 ) ( synchronization_log_fd )
-      ( SYNCHRONIZATION_LOG_PATH ).Text("problem opening sync log on resume");
+    JASSERT ( record_log_fd >= 0 ) ( record_log_fd )
+      ( RECORD_LOG_PATH ).Text("problem opening sync log on resume");
     char *x = getenv(ENV_VAR_LOG_REPLAY);
     // Don't call setenv() here to avoid malloc()
     x[0] = '1';
@@ -249,7 +249,7 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
 
 //These dummy trampolines support static linking of user code to libdmtcpaware.a
 //See dmtcpaware.c .
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 EXTERNC int __dyn_dmtcp_userSynchronizedEvent()
 {
   return dmtcp_userSynchronizedEvent();

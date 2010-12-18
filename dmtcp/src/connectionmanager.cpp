@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #define read _real_read
 #endif
 

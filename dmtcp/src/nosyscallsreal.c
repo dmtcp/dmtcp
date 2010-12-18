@@ -83,7 +83,7 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 // No return statement for functions returning void:
 #define REAL_FUNC_PASSTHROUGH_VOID(name) name
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) return name
 #define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) name
 void _dmtcp_lock() { REAL_FUNC_PASSTHROUGH_VOID ( pthread_mutex_lock ) ( &theMutex ); }
@@ -320,7 +320,7 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
   REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
@@ -430,7 +430,7 @@ ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
 }
 
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 // Used for wrappers for mmap, sbrk
 void _dmtcp_setup_trampolines() {}

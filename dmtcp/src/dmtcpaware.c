@@ -37,7 +37,7 @@
 // static linked,  dmtcp     -- this stub called, dispatches DMTCP (through __dyn_XXX)
 // dynamic linked, dmtcp     -- DMTCP called directly
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern int   __dyn_dmtcp_userSynchronizedEvent() WEAK;
 #endif
 extern int   __dyn_dmtcpIsEnabled() WEAK;
@@ -64,7 +64,7 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
 //   defined in dmtcphijack.so, resulting in an infinite loop.
 //   The "hidden" attribute prevents it from being exported.
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 __attribute__ ((visibility ("hidden")))
 int dmtcp_userSynchronizedEvent() {
   /* Don't use DMTCPAWARE_STUB because we don't want to warn if

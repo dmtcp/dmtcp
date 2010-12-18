@@ -49,7 +49,7 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -84,7 +84,7 @@ static void processClose(dmtcp::ConnectionIdentifier conId)
 
 extern "C" int close ( int fd )
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   if (dmtcp::ProtectedFDs::isProtected(fd)) {
     int retval = _real_close(fd);
     return retval;
@@ -116,10 +116,10 @@ extern "C" int close ( int fd )
 #endif
 
   return rv;
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 static int _almost_real_fclose(FILE *fp)
 {
   int fd = fileno(fp);
@@ -153,7 +153,7 @@ static int _almost_real_fclose(FILE *fp)
 
 extern "C" int fclose(FILE *fp)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, fclose, _almost_real_fclose, fp);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fclose_turn_check);
@@ -384,7 +384,7 @@ extern "C" int getpt()
   return fd;
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
 static int _almost_real_open(const char *path, int flags, mode_t mode)
@@ -435,7 +435,7 @@ extern "C" int open (const char *path, int flags, ... )
   va_start( ap, flags );
   mode = va_arg ( ap, mode_t );
   va_end ( ap );
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
 #else
   /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
@@ -472,7 +472,7 @@ extern "C" int open (const char *path, int flags, ... )
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern "C" FILE *fdopen(int fd, const char *mode)
 {
   WRAPPER_HEADER(FILE *, fdopen, _real_fdopen, fd, mode);
@@ -550,7 +550,7 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
     getNextLogEntry();
     waitForTurn(my_return_entry, &getline_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
+      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,getline,data_offset), SEEK_SET);
@@ -779,7 +779,7 @@ extern "C" int __isoc99_fscanf (FILE *stream, const char *format, ...)
     getNextLogEntry();
     waitForTurn(my_return_entry, &fscanf_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
+      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,fscanf,data_offset), SEEK_SET);
@@ -831,7 +831,7 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
     getNextLogEntry();
     waitForTurn(my_return_entry, &fgets_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
+      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,fgets,data_offset), SEEK_SET);
@@ -1050,7 +1050,7 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(FILE *, fopen, _almost_real_fopen, path, mode);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &fopen_turn_check);
@@ -1146,7 +1146,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 #define CALL_CORRECT_FCNTL() \
   if (arg_3_l == -1 && arg_3_f == NULL) { \
     retval =  _real_fcntl(fd, cmd); \
@@ -1248,7 +1248,7 @@ static void updateStatPath(const char *path, char *newpath)
 extern "C" 
 int __xstat(int vers, const char *path, struct stat *buf)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, xstat, _real_xstat, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat_turn_check);
@@ -1285,7 +1285,7 @@ int __xstat(int vers, const char *path, struct stat *buf)
 extern "C" 
 int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, xstat64, _real_xstat64, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat64_turn_check);
@@ -1319,7 +1319,7 @@ int __xstat64(int vers, const char *path, struct stat64 *buf)
 #endif
 }
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern "C" 
 int __fxstat(int vers, int fd, struct stat *buf)
 {
@@ -1375,12 +1375,12 @@ int __fxstat64(int vers, int fd, struct stat64 *buf)
   }
   return retval;
 }
-#endif // SYNCHRONIZATION_LOG_AND_REPLAY
+#endif // RECORD_REPLAY
 
 extern "C" 
 int __lxstat(int vers, const char *path, struct stat *buf)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, lxstat, _real_lxstat, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat_turn_check);
@@ -1417,7 +1417,7 @@ int __lxstat(int vers, const char *path, struct stat *buf)
 extern "C" 
 int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, lxstat64, _real_lxstat64, vers, path, buf);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat64_turn_check);
@@ -1453,7 +1453,7 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
 
 //       int fstat(int fd, struct stat *buf);
 
-#ifdef SYNCHRONIZATION_LOG_AND_REPLAY
+#ifdef RECORD_REPLAY
 extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds, 
     fd_set *exceptfds, struct timeval *timeout)
 {
@@ -1514,7 +1514,7 @@ extern "C" int read(int fd, void *buf, size_t count)
     // corresponding value.
     waitForTurn(my_data_entry, &read_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
+      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,read,data_offset), SEEK_SET);
@@ -1634,7 +1634,7 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     getNextLogEntry();
     waitForTurn(my_return_entry, &pread_turn_check);
     if (__builtin_expect(read_data_fd == -1, 0)) {
-      read_data_fd = _real_open(SYNCHRONIZATION_READ_DATA_LOG_PATH, O_RDONLY, 0);
+      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry, pread, data_offset), SEEK_SET);
@@ -1915,4 +1915,4 @@ extern "C" int mkstemp(char *temp)
   BASIC_SYNC_WRAPPER(int, mkstemp, _real_mkstemp, temp);
 }
 
-#endif //SYNCHRONIZATION_LOG_AND_REPLAY
+#endif //RECORD_REPLAY
