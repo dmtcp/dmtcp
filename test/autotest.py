@@ -457,6 +457,9 @@ runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+if testconfig.PID_VIRTUALIZATION == "yes":
+  runTest("waitpid",      2, ["./test/waitpid"])
+
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
 if testconfig.HAS_READLINE == "yes":

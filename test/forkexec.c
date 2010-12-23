@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
 
 static const int WELL_KNOWN_FD = 10;
@@ -50,7 +49,7 @@ int main ( int argc, char** argv )
       }
 
       execve ( argv[0], t, env );
-      perror ( "exec()" );
+      perror ( "execve" );
       die ( "exec failed" );
 
     }

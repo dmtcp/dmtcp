@@ -617,6 +617,7 @@ HAS_TCSH
 HAS_DASH
 HAS_READLINE
 PTRACE_SUPPORT
+PID_VIRTUALIZATION
 subdirs
 ac_ct_CXX
 CXXFLAGS
@@ -3291,6 +3292,15 @@ if test "${enable_pid_virtualization+set}" = set; then :
   enableval=$enable_pid_virtualization; use_pid_virt=$enableval
 else
   use_pid_virt=yes
+fi
+
+
+if test "$use_pid_virt" = "yes"; then
+  PID_VIRTUALIZATION=yes
+
+else
+  PID_VIRTUALIZATION=no
+
 fi
 
 # Check whether --enable-ptrace_support was given.
