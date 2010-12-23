@@ -54,6 +54,13 @@ AC_ARG_ENABLE([pid_virtualization],
 			    reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
+
+if test "$use_pid_virt" = "yes"; then
+  AC_SUBST([PID_VIRTUALIZATION], [yes])
+else
+  AC_SUBST([PID_VIRTUALIZATION], [no])
+fi
+
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],
                             [enable ptrace support for gdb, valgrind, etc.
