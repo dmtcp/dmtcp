@@ -101,7 +101,7 @@ extern void process_ptrace_info (pid_t *delete_ptrace_leader,
 extern char procfs_state(int tid);
 extern void ptrace_save_threads_state (void);
 extern void delete_file (int file, int delete_leader, int has_file);
-extern void ptrace_remove_notexisted();
+extern void ptrace_remove_notexisted(void);
 extern void ptrace_attach_threads(int isRestart);
 extern void ptrace_detach_checkpoint_threads (void);
 extern void ptrace_detach_user_threads (void);
