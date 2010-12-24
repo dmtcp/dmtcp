@@ -151,6 +151,8 @@ void restoreUserLDPRELOAD()
   }
 }
 
+// FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
+//         See:  pidwrappers.cpp:get_sigckpt()
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
 // This shold be visible to library only.  DmtcpWorker will call
@@ -603,7 +605,8 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     }
 
   } while ( type == DMT_DO_REFILL &&
-            ( msg.type == DMT_RESTORE_WAITING || msg.type == DMT_FORCE_RESTART ) );
+            ( msg.type == DMT_RESTORE_WAITING ||
+              msg.type == DMT_FORCE_RESTART ) );
 
   JASSERT ( msg.type == type ) ( msg.type );
 

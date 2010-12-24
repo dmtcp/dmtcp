@@ -51,8 +51,35 @@ const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
 
 static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
 
-static __thread int is_waitpid_local = 0;
-static __thread int is_ptrace_local = 0;
+/*  A cleaner way to write this code is to define in this file:
+ *  static pid_t dmtcp_waitpid(pid_t pid, int *status, int options) {
+ *    int rc;
+ *    is_waitpid_local = 1;
+ *    rc = waitpid(pid, status, options);
+ *    is_waitpid_local = 0;
+ *    return rc;
+ *  }
+ *  Then, in pidwrappers.cpp:
+ *  extern "C"
+ *  static mtcp_is_waitpid_local_ptr = dmtcp_get_mtcp_symbol("is_waitpid_local");
+ *    and then use   *mtcp_is_waitpid_local  directly in the waitpid wrapper.
+ *
+ *  Then remove get_is_waitpid_local and unset_is_waitpid_local _everywhere_,
+ *   including removing it from mtcpinterface.cpp and from this file.
+ *  Also then remove all other occurences of is_waitpid_local in this file.
+ *  One can also do the same for is_ptrace_local.  All of this will
+ *  simplify the current code a lot.
+ *
+ *  If you agree, please do it.  Otherwise, let's discuss it.  Thanks, - Gene
+ */
+/* All of these variables are for the benefit of pidwrappers.cpp.  Please
+ * Consider making them fields of a struct, and using dmtcp_get_mtcp_symbol()
+ * on a single pointer to the struct to be added here, instead of
+ * repeatedly calling dmtcp_get_mtcp_symbol() on a huge number of functions
+ * that access these variables.  - Gene.
+ */
+static __thread int is_waitpid_local = 0; /* true if waitpid called by DMTCP */
+static __thread int is_ptrace_local = 0; /* true if ptrace called by DMTCP */
 static __thread pid_t saved_pid = -1;
 static __thread int saved_status = -1;
 static __thread int has_status_and_pid = 0;
@@ -951,8 +978,6 @@ static void print_ptrace_pairs ()
  * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
  * WE'RE A GUEST IN HIS PROCESS.    - Gene
  */
-
-
 void write_info_to_file (int file, pid_t superior, pid_t inferior)
 {
   int fd;
@@ -1041,14 +1066,14 @@ void writeptraceinfo (pid_t superior, pid_t inferior)
  * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
  * WE'RE A GUEST IN THE USER'S PROCESS.    - Gene
  ***********************************************************************/
-void set_singlestep_waited_on ( pid_t superior, pid_t inferior,
-                                       int value )
+void set_singlestep_waited_on ( pid_t superior, pid_t inferior, int value )
 {
   int index = is_in_ptrace_pairs ( superior, inferior );
-  if (( index >= 0 ) && ( ptrace_pairs[index].last_command == PTRACE_SINGLESTEP_COMMAND ))
+  if ((index >= 0)
+      && (ptrace_pairs[index].last_command == PTRACE_SINGLESTEP_COMMAND))
     ptrace_pairs[index].singlestep_waited_on = value;
   if (index >= 0)
-        ptrace_pairs[index].last_command = PTRACE_UNSPECIFIED_COMMAND;
+    ptrace_pairs[index].last_command = PTRACE_UNSPECIFIED_COMMAND;
 }
 
 /* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_

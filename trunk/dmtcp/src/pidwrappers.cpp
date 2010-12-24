@@ -40,6 +40,9 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
+// FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
+#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
+
 #ifdef PID_VIRTUALIZATION
 
 static pid_t originalToCurrentPid( pid_t originalPid )
@@ -352,63 +355,89 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
   return retVal;
 }
 
+extern "C" {
+static int get_sigckpt() {
+  static char *nptr = getenv(ENV_VAR_SIGCKPT);
+  static int sigckpt = -1;
+  if (sigckpt == -1) {
+    char *endptr;
+    if (nptr == NULL)
+      sigckpt = MTCP_DEFAULT_SIGNAL;
+    else {
+      sigckpt = strtol(nptr, &endptr, 0);
+      if (endptr != '\0')
+        sigckpt = MTCP_DEFAULT_SIGNAL;
+    }
+  }
+  return sigckpt;
+}
+}
+
+extern "C" {
+static pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
+  pid_t retval;
+  do {
+    pid_t currPid = originalToCurrentPid (pid);
+    retval = _real_waitpid(currPid, stat_loc, options);
+  } while( WIFSIGNALED(*stat_loc) && WTERMSIG(stat_loc) == get_sigckpt() );
+  return retval;
+}
+}
+
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
-#ifdef PTRACE
-  pid_t superior;
-  pid_t inferior;
-  pid_t retval;
-  static int i = 0;
   pid_t originalPid;
-#endif
+  pid_t retval;
 
   if ( stat_loc == NULL )
     stat_loc = &status;
 
-  pid_t currPid = originalToCurrentPid (pid);
-
 #ifdef PTRACE
-  superior = syscall (SYS_gettid);
+  pid_t superior = syscall(SYS_gettid);
+  pid_t inferior = pid;
 
-  inferior = pid;
-
-  if (!get_is_waitpid_local_ptr ()) {
-        if (get_has_status_and_pid_ptr ()) {
-                *stat_loc = get_saved_status_ptr ();
-                retval = get_saved_pid_ptr ();
-                reset_pid_status_ptr ();
-        }
-        else {
-                if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-                        perror ("waitpid wrapper");
-                        exit(-1);
-                }
-                set_singlestep_waited_on_ptr (superior, inferior, TRUE);
-                retval = _real_waitpid (currPid, stat_loc, options);
-                originalPid = currentToOriginalPid (retval);
-                if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-                        perror ("waitpid wrapper");
-                        exit(-1);
-                }
-        }
-  }
-  else {
-        retval = _real_waitpid (currPid, stat_loc, options);
-        unset_is_waitpid_local_ptr ();
-        originalPid = currentToOriginalPid (retval);
+  if (get_is_waitpid_local_ptr()) {
+    retval = safe_real_waitpid (pid, stat_loc, options);
+    unset_is_waitpid_local_ptr();
+  } else {
+    /* Where was status and pid saved?  Can we remove this code?  - Gene */
+    if (get_has_status_and_pid_ptr()) {
+      *stat_loc = get_saved_status_ptr();
+      retval = get_saved_pid_ptr();
+      reset_pid_status_ptr();
+    } else {
+// Please remove this comment and all code related to BLOCK_CKPT_ON_WAIT
+//  when satisfied waitpid wrapper work.  - Gene
+#undef BLOCK_CKPT_ON_WAIT
+#if BLOCK_CKPT_ON_WAIT
+      if (_real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL) != 0) {
+        perror ("waitpid wrapper");
+        exit(-1);
+      }
+#endif
+      set_singlestep_waited_on_ptr(superior, inferior, TRUE);
+      retval = safe_real_waitpid(pid, stat_loc, options);
+#if BLOCK_CKPT_ON_WAIT
+      if (_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) != 0) {
+        perror("waitpid wrapper");
+        exit(-1);
+      }
+#endif
+    }
   }
 #else 
-  pid_t retval = _real_waitpid (currPid, stat_loc, options);
-
-  pid_t originalPid = currentToOriginalPid ( retval );
+  retval = safe_real_waitpid(pid, stat_loc, options);
 #endif
 
-  if ( retval > 0
-       && ( WIFEXITED ( *stat_loc )  || WIFSIGNALED ( *stat_loc ) ) )
-    dmtcp::VirtualPidTable::instance().erase(originalPid);
-
-  return originalPid;
+  if (retval > 0) {
+    originalPid = currentToOriginalPid(retval);
+    if ( WIFEXITED(*stat_loc)  || WIFSIGNALED(*stat_loc) )
+      dmtcp::VirtualPidTable::instance().erase(originalPid);
+    return originalPid;
+  } else {
+    return retval;
+  }
 }
 
 extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)

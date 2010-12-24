@@ -319,6 +319,7 @@ void dmtcp::initializeMtcpEngine()
 
 #ifdef PTRACE
   sigemptyset (&signals_set);
+  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
   set_singlestep_waited_on_ptr =
