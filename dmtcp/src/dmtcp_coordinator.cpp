@@ -411,7 +411,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   case 's': case 'S':
     {
       CoordinatorStatus s = getStatus();
-      bool running= s.minimumStateUnanimous && s.minimumState==WorkerState::RUNNING;
+      bool running = s.minimumStateUnanimous &&
+		     s.minimumState==WorkerState::RUNNING;
       if(reply==NULL){
         printf("Status...\n");
         printf("NUM_PEERS=%d\n", s.numPeers);
@@ -988,13 +989,13 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     // at this point, it should fail.
     workersRunningAndSuspendMsgSent = true;
     return true;
+  } else {
+    if (s.numPeers > 0) {
+      JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )
+	     ( s.numPeers );
+    }
+    return false;
   }
-
-  if (s.numPeers > 0) {
-    JTRACE ( "delaying checkpoint, workers not ready" ) ( s.minimumState )
-	   ( s.numPeers );
-  }
-  return false;
 }
 
 dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()

@@ -375,12 +375,33 @@ static int get_sigckpt() {
 
 extern "C" {
 static pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
-  pid_t retval;
-  do {
-    pid_t currPid = originalToCurrentPid (pid);
-    retval = _real_waitpid(currPid, stat_loc, options);
-  } while( WIFSIGNALED(*stat_loc) && WTERMSIG(stat_loc) == get_sigckpt() );
-  return retval;
+  // Note that if the action for SIGCHLD is set to SIG_IGN, then waitpid fails
+  //  with errno set to ECHLD (as if the child process was not really our child)
+  //  We currently do not specially handle this case.
+  int verify = 1;
+  while (1) {
+    pid_t currPid;
+    pid_t retval;
+    do {
+      currPid = originalToCurrentPid(pid);
+      retval = _real_waitpid(currPid, stat_loc, options);
+    } while( WIFSIGNALED(*stat_loc) && WTERMSIG(*stat_loc) == get_sigckpt() );
+
+    // Verify there was no checkpoint/restart between currpid and _real_waitpid.
+    // Note:  A checkpoint/restart after _real_waitpid does not need a verify. 
+    if ( verify &&
+         retval == -1 && errno == ECHILD && ! WIFSIGNALED(*stat_loc) &&
+         currPid != originalToCurrentPid(pid) ) {
+      struct sigaction oldact;
+      if ( sigaction(SIGCHLD, NULL, &oldact) == 0 &&
+           oldact.sa_handler != SIG_IGN ) {
+        verify = 0;
+        continue; // Continue to verify, but only this once
+      }
+    }
+    // No need to verify.  Just return.
+    return retval;
+  }
 }
 }
 
