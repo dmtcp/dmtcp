@@ -486,6 +486,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == readdir_r_event_return ||
     GET_COMMON(e,event) == fclose_event_return ||
     GET_COMMON(e,event) == fopen_event_return ||
+    GET_COMMON(e,event) == fopen64_event_return ||
     GET_COMMON(e,event) == fgets_event_return ||
     GET_COMMON(e,event) == mkstemp_event_return ||
     GET_COMMON(e,event) == rewind_event_return ||
@@ -1113,6 +1114,16 @@ log_entry_t create_fopen_entry(int clone_id, int event,
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, fopen, name, (unsigned long int)name);
   SET_FIELD2(e, fopen, mode, (unsigned long int)mode);
+  return e;
+}
+
+log_entry_t create_fopen64_entry(int clone_id, int event,
+    const char *name, const char *mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fopen64, name, (unsigned long int)name);
+  SET_FIELD2(e, fopen64, mode, (unsigned long int)mode);
   return e;
 }
 
@@ -1802,10 +1813,8 @@ void addNextLogEntry(log_entry_t e)
   GET_EVENT_SIZE(GET_COMMON(e,event), event_size);
   if ((log_index + log_event_common_size + event_size) > MAX_LOG_LENGTH) {
     // The new entry doesn't fit in the current log. Write the log to disk.
-    _real_pthread_mutex_lock(&log_file_mutex);
     JTRACE ( "Log overflowed bounds. Writing to disk." );
     writeLogsToDisk();
-    _real_pthread_mutex_unlock(&log_file_mutex);
   }
   // Copy common data to log[] buffer:
   log_entry_to_buffer(&e, &log[log_index]);
@@ -1912,10 +1921,12 @@ void writeLogsToDisk() {
         left with the index pointing at the next element, which is never
         recorded or needed since this was the last wrapper execution.
   */
+  _real_pthread_mutex_lock(&log_file_mutex);
   if (log_index == MAX_LOG_LENGTH) {
     num_to_write = LOG_ENTRY_SIZE*MAX_LOG_LENGTH;
   } else if (log_index == 0) {
     JTRACE ( "log size 0, so nothing written to disk." );
+    _real_pthread_mutex_unlock(&log_file_mutex);
     return;
   } else {
     // SEE #2 above for comment on this branch. For now I'm going with the 'NOT
@@ -1934,6 +1945,7 @@ void writeLogsToDisk() {
   close(record_log_fd);
   JTRACE ( "Record log successfully written to disk." ) ( num_to_write ) ( numwritten );
   resetLog();
+  _real_pthread_mutex_unlock(&log_file_mutex);
 }
 
 static TURN_CHECK_P(base_turn_check)
@@ -2361,6 +2373,15 @@ TURN_CHECK_P(fopen_turn_check)
       GET_FIELD_PTR(e2, fopen, name) &&
     GET_FIELD_PTR(e1, fopen, mode) ==
       GET_FIELD_PTR(e2, fopen, mode);
+}
+
+TURN_CHECK_P(fopen64_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fopen64, name) ==
+      GET_FIELD_PTR(e2, fopen64, name) &&
+    GET_FIELD_PTR(e1, fopen64, mode) ==
+      GET_FIELD_PTR(e2, fopen64, mode);
 }
 
 TURN_CHECK_P(fprintf_turn_check)

@@ -117,7 +117,6 @@ extern "C"
   MACRO(read)                                 \
   MACRO(readdir)                              \
   MACRO(readdir_r)                            \
-  MACRO(readlink)                             \
   MACRO(write)                                \
   MACRO(rand)                                 \
   MACRO(srand)                                \
@@ -237,12 +236,14 @@ extern "C"
   MACRO(__clone)                            \
   MACRO(open)                               \
   MACRO(fopen)                              \
+  MACRO(fopen64)                            \
   MACRO(close)                              \
   MACRO(fclose)                             \
   MACRO(__xstat)                            \
   MACRO(__xstat64)                          \
   MACRO(__lxstat)                           \
   MACRO(__lxstat64)                         \
+  MACRO(readlink)                           \
   MACRO(exit)                               \
   MACRO(syscall)                            \
   MACRO(unsetenv)                           \
@@ -322,6 +323,7 @@ extern "C"
 
   int _real_open(const char *pathname, int flags, mode_t mode);
   FILE* _real_fopen(const char *path, const char *mode);
+  FILE* _real_fopen64(const char *path, const char *mode);
   int _real_close ( int fd );
   int _real_fclose ( FILE *fp );
   void _real_exit ( int status );
@@ -436,6 +438,7 @@ extern "C"
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
+  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
 
 #ifdef PTRACE
   void * _real_dlsym ( void *handle, const char *symbol );
@@ -466,7 +469,6 @@ extern "C"
   void * _mmap_no_sync(void *addr, size_t length, int prot, int flags,
       int fd, off_t offset);
   int _munmap_no_sync(void *addr, size_t length);
-
 #endif
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
 #endif
@@ -495,7 +497,6 @@ extern "C"
   int _real_read(int fd, void *buf, size_t count);
   struct dirent *_real_readdir(DIR *dirp);
   int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result);
-  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
   ssize_t        _real_write(int fd, const void *buf, size_t count);
   int _real_rand(void);
   void _real_srand(unsigned int seed);

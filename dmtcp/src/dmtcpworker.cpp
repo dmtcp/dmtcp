@@ -594,6 +594,10 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
     if ( msg.type == DMT_KILL_PEER ) {
       JTRACE ( "Received KILL Message from coordinator, exiting" );
+#ifdef RECORD_REPLAY
+      JTRACE ( "TYLER NEW MESSAGE" );
+      writeLogsToDisk();
+#endif
       _exit ( 0 );
     }
 

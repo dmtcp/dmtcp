@@ -689,6 +689,10 @@ FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
+FILE * _real_fopen64( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen64 ) ( path, mode );
+}
+
 #ifdef RECORD_REPLAY
 int _real_fputs(const char *s, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
@@ -794,6 +798,10 @@ int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
   REAL_FUNC_PASSTHROUGH ( __lxstat64 ) ( vers, path, buf );
 }
 
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, readlink ) ( path, buf, bufsiz );
+}
+
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
   REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
@@ -878,6 +886,7 @@ int _munmap_no_sync(void *addr, size_t length)
 {
   return _real_munmap(addr, length);
 }
+
 #endif
 // int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
 //   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
@@ -1034,10 +1043,6 @@ struct dirent *_real_readdir(DIR *dirp) {
 
 int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, readdir_r ) ( dirp, entry, result );
-}
-
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, readlink ) ( path, buf, bufsiz );
 }
 
 ssize_t _real_write(int fd, const void *buf, size_t count) {
