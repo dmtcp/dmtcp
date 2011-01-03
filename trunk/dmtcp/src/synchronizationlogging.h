@@ -186,6 +186,7 @@
     MACRO(fdopen, __VA_ARGS__);                                                \
     MACRO(fgets, __VA_ARGS__);                                                 \
     MACRO(fopen, __VA_ARGS__);                                                 \
+    MACRO(fopen64, __VA_ARGS__);                                               \
     MACRO(fprintf, __VA_ARGS__);                                               \
     MACRO(fscanf, __VA_ARGS__);                                                \
     MACRO(fputs, __VA_ARGS__);                                                 \
@@ -287,6 +288,8 @@ typedef enum {
   fgets_event_return,
   fopen_event,
   fopen_event_return,
+  fopen64_event,
+  fopen64_event_return,
   fprintf_event,
   fprintf_event_return,
   fscanf_event,
@@ -781,6 +784,16 @@ typedef struct {
 static const int log_event_fopen_size = sizeof(log_event_fopen_t);
 
 typedef struct {
+  // For fopen64():
+  unsigned long int name;
+  unsigned long int mode;
+  // Size is approximately 216 bytes:
+  FILE fopen64_retval;
+} log_event_fopen64_t;
+
+static const int log_event_fopen64_size = sizeof(log_event_fopen64_t);
+
+typedef struct {
   // For fprintf():
   unsigned long int stream;
   unsigned long int format;
@@ -1176,6 +1189,7 @@ typedef struct {
     log_event_fdopen_t                           log_event_fdopen;
     log_event_fgets_t                            log_event_fgets;
     log_event_fopen_t                            log_event_fopen;
+    log_event_fopen64_t                          log_event_fopen64;
     log_event_fprintf_t                          log_event_fprintf;
     log_event_fscanf_t                           log_event_fscanf;
     log_event_fputs_t                            log_event_fputs;
@@ -1335,6 +1349,8 @@ LIB_PRIVATE log_entry_t create_fgets_entry(int clone_id, int event, char *s,
     int size, FILE *stream);
 LIB_PRIVATE log_entry_t create_fopen_entry(int clone_id, int event,
     const char *name, const char *mode);
+LIB_PRIVATE log_entry_t create_fopen64_entry(int clone_id, int event,
+    const char *name, const char *mode);
 LIB_PRIVATE log_entry_t create_fprintf_entry(int clone_id, int event,
     FILE *stream, const char *format);
 LIB_PRIVATE log_entry_t create_fscanf_entry(int clone_id, int event,
@@ -1485,6 +1501,7 @@ LIB_PRIVATE TURN_CHECK_P(fdatasync_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdopen_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fgets_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fopen_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fopen64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fprintf_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fscanf_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fputs_turn_check);

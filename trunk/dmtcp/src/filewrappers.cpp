@@ -263,7 +263,7 @@ static void updateProcPath ( const char *path, char *newpath )
   {
     index = 6;
     tempIndex = 0;
-    while ( path [ index ] != '/' )
+    while ( path [ index ] != '/' && path [ index ] != '\0')
     {
       if ( path [ index ] >= '0' && path [ index ] <= '9' )
         temp [ tempIndex++ ] = path [ index++ ];
@@ -1046,6 +1046,48 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
 
   return file;
 }
+
+static FILE *_almost_real_fopen64(const char *path, const char *mode)
+{
+  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
+   * calling this function to open jassert log files. Therefore we shouldn't be
+   * playing with locks etc.
+   *
+   * FIXME: The following check is not required anymore. JASSERT_INIT calls
+   *        libc:open directly.
+   */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+    return _real_fopen64 ( path, mode );
+  }
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  char newpath [ PATH_MAX ] = {0} ;
+  int fd = -1;
+
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    strcpy(newpath, currPtsDevName.c_str());
+  } else {
+    updateProcPath ( path, newpath );
+  }
+
+  FILE *file = _real_fopen64 ( newpath, mode );
+
+  if (file != NULL) {
+    fd = fileno(file);
+  }
+
+  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
+    processDevPtmxConnection(fd);
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    processDevPtsConnection(fd, path, newpath);
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return file;
+}
 #endif
 
 extern "C" FILE *fopen (const char* path, const char* mode)
@@ -1146,7 +1188,86 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 #endif
 }
 
+extern "C" FILE *fopen64 (const char* path, const char* mode)
+{
 #ifdef RECORD_REPLAY
+  WRAPPER_HEADER(FILE *, fopen64, _almost_real_fopen64, path, mode);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &fopen64_turn_check);
+    getNextLogEntry();
+    void *p = NULL;
+    size_t size = 0;
+    while (1) {
+      // Must wait until we're pointing at the malloc (to get the size)
+      if (GET_COMMON(currentLogEntry,event) == malloc_event &&
+          GET_COMMON(currentLogEntry,clone_id) == my_clone_id) {
+        size = GET_FIELD(currentLogEntry, malloc, size);
+        p = malloc(size);
+        break;
+      }
+    }
+    waitForTurn(my_return_entry, &fopen64_turn_check);
+    FILE f = GET_FIELD(currentLogEntry, fopen64, fopen64_retval);
+    memcpy(p, (void *)&f, sizeof(f));
+    retval = (FILE *)p;
+    if (retval == NULL) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _almost_real_fopen64(path, mode);
+    SET_FIELD2(my_return_entry, fopen64, fopen64_retval, *retval);
+    if (retval == NULL) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+#else
+  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
+   * calling this function to open jassert log files. Therefore we shouldn't be
+   * playing with locks etc.
+   *
+   * FIXME: The following check is not required anymore. JASSERT_INIT calls
+   *        libc:open directly.
+   */
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+    return _real_fopen64 ( path, mode );
+  }
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  char newpath [ PATH_MAX ] = {0} ;
+  int fd = -1;
+
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    strcpy(newpath, currPtsDevName.c_str());
+  } else {
+    updateProcPath ( path, newpath );
+  }
+
+  FILE *file = _real_fopen64 ( newpath, mode );
+
+  if (file != NULL) {
+    fd = fileno(file);
+  }
+
+  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
+    processDevPtmxConnection(fd);
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    processDevPtsConnection(fd, path, newpath);
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return file;
+#endif
+}
+
+#ifdef RECORD_REPLAY 
 #define CALL_CORRECT_FCNTL() \
   if (arg_3_l == -1 && arg_3_f == NULL) { \
     retval =  _real_fcntl(fd, cmd); \
@@ -1249,7 +1370,21 @@ extern "C"
 int __xstat(int vers, const char *path, struct stat *buf)
 {
 #ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, xstat, _real_xstat, vers, path, buf);
+  char newpath [ PATH_MAX ] = {0} ;
+  updateStatPath(path, newpath);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_xstat(vers, newpath, buf);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_xstat(vers, newpath, buf);
+  }
+  int retval;
+  log_entry_t my_entry = create_xstat_entry(my_clone_id,
+      xstat_event, vers, path, buf);
+  log_entry_t my_return_entry = create_xstat_entry(my_clone_id,
+      xstat_event_return, vers, path, buf);
+
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat_turn_check);
     getNextLogEntry();
@@ -1263,7 +1398,7 @@ int __xstat(int vers, const char *path, struct stat *buf)
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
-    retval = _real_xstat(vers, path, buf);
+    retval = _real_xstat(vers, newpath, buf);
     SET_COMMON(my_return_entry, retval);
     SET_FIELD2(my_return_entry, xstat, buf, *buf);
     if (retval != 0) {
@@ -1286,7 +1421,21 @@ extern "C"
 int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
 #ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, xstat64, _real_xstat64, vers, path, buf);
+  char newpath [ PATH_MAX ] = {0} ;
+  updateStatPath(path, newpath);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_xstat64(vers, newpath, buf);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_xstat64(vers, newpath, buf);
+  }
+  int retval;
+  log_entry_t my_entry = create_xstat64_entry(my_clone_id,
+      xstat64_event, vers, path, buf);
+  log_entry_t my_return_entry = create_xstat64_entry(my_clone_id,
+      xstat64_event_return, vers, path, buf);
+
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &xstat64_turn_check);
     getNextLogEntry();
@@ -1300,7 +1449,8 @@ int __xstat64(int vers, const char *path, struct stat64 *buf)
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
-    retval = _real_xstat64(vers, path, buf);
+    updateStatPath(path, newpath);
+    retval = _real_xstat64(vers, newpath, buf);
     SET_COMMON(my_return_entry, retval);
     SET_FIELD2(my_return_entry, xstat64, buf, *buf);
     if (retval != 0) {
@@ -1381,7 +1531,21 @@ extern "C"
 int __lxstat(int vers, const char *path, struct stat *buf)
 {
 #ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, lxstat, _real_lxstat, vers, path, buf);
+  char newpath [ PATH_MAX ] = {0} ;
+  updateStatPath(path, newpath);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_lxstat(vers, newpath, buf);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_lxstat(vers, newpath, buf);
+  }
+  int retval;
+  log_entry_t my_entry = create_lxstat_entry(my_clone_id,
+      lxstat_event, vers, path, buf);
+  log_entry_t my_return_entry = create_lxstat_entry(my_clone_id,
+      lxstat_event_return, vers, path, buf);
+
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat_turn_check);
     getNextLogEntry();
@@ -1395,7 +1559,8 @@ int __lxstat(int vers, const char *path, struct stat *buf)
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
-    retval = _real_lxstat(vers, path, buf);
+    updateStatPath(path, newpath);
+    retval = _real_lxstat(vers, newpath, buf);
     SET_COMMON(my_return_entry, retval);
     SET_FIELD2(my_return_entry, lxstat, buf, *buf);
     if (retval != 0) {
@@ -1418,7 +1583,21 @@ extern "C"
 int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
 #ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, lxstat64, _real_lxstat64, vers, path, buf);
+  char newpath [ PATH_MAX ] = {0} ;
+  updateStatPath(path, newpath);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_lxstat64(vers, newpath, buf);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_lxstat64(vers, newpath, buf);
+  }
+  int retval;
+  log_entry_t my_entry = create_lxstat64_entry(my_clone_id,
+      lxstat64_event, vers, path, buf);
+  log_entry_t my_return_entry = create_lxstat64_entry(my_clone_id,
+      lxstat64_event_return, vers, path, buf);
+
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &lxstat64_turn_check);
     getNextLogEntry();
@@ -1432,7 +1611,8 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
-    retval = _real_lxstat64(vers, path, buf);
+    updateStatPath(path, newpath);
+    retval = _real_lxstat64(vers, newpath, buf);
     SET_COMMON(my_return_entry, retval);
     SET_FIELD2(my_return_entry, lxstat64, buf, *buf);
     if (retval != 0) {
@@ -1446,6 +1626,59 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateStatPath(path, newpath);
   int rc = _real_lxstat64( vers, newpath, buf );
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return rc;
+#endif
+}
+
+extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
+{
+#ifdef RECORD_REPLAY
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_readlink(newpath, buf, bufsiz);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_readlink(newpath, buf, bufsiz);
+  }
+  ssize_t retval;
+  log_entry_t my_entry = create_readlink_entry(my_clone_id,
+      readlink_event, path, buf, bufsiz);
+  log_entry_t my_return_entry = create_readlink_entry(my_clone_id,
+      readlink_event_return, path, buf, bufsiz);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &readlink_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &readlink_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    } else {
+      // Don't try to copy if error returned.
+      strncpy(buf, GET_FIELD(my_return_entry, readlink, buf), retval);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    retval = _real_readlink(newpath, buf, bufsiz);
+    JASSERT ( retval < READLINK_MAX_LENGTH );
+    SET_COMMON(my_return_entry, retval);
+    if (errno != 0) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    } else {
+      // Don't try to copy if error returned.
+      strncpy(GET_FIELD(my_return_entry, readlink, buf), buf, retval);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+#else
+  char newpath [ PATH_MAX ] = {0} ;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  updateProcPath(path, newpath);
+  ssize_t rc = _real_readlink(newpath, buf, bufsiz);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return rc;
 #endif
@@ -1810,37 +2043,6 @@ extern "C" int link(const char *oldpath, const char *newpath)
 extern "C" int rename(const char *oldpath, const char *newpath)
 {
   BASIC_SYNC_WRAPPER(int, rename, _real_rename, oldpath, newpath);
-}
-
-extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
-{
-  WRAPPER_HEADER(ssize_t, readlink, _real_readlink, path, buf, bufsiz);
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &readlink_turn_check);
-    getNextLogEntry();
-    waitForTurn(my_return_entry, &readlink_turn_check);
-    retval = GET_COMMON(currentLogEntry, retval);
-    if (GET_COMMON(currentLogEntry, my_errno) != 0) {
-      errno = GET_COMMON(currentLogEntry, my_errno);
-    } else {
-      // Don't try to copy if error returned.
-      strncpy(buf, GET_FIELD(my_return_entry, readlink, buf), retval);
-    }
-    getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
-    addNextLogEntry(my_entry);
-    retval = _real_readlink(path, buf, bufsiz);
-    JASSERT ( retval < READLINK_MAX_LENGTH );
-    SET_COMMON(my_return_entry, retval);
-    if (errno != 0) {
-      SET_COMMON2(my_return_entry, my_errno, errno);
-    } else {
-      // Don't try to copy if error returned.
-      strncpy(GET_FIELD(my_return_entry, readlink, buf), buf, retval);
-    }
-    addNextLogEntry(my_return_entry);
-  }
-  return retval;  
 }
 
 extern "C" int rmdir(const char *pathname)
