@@ -1937,7 +1937,14 @@ void writeLogsToDisk() {
   while ((record_log_fd = open(RECORD_LOG_PATH, 
               O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
       && errno == EINTR) ;
-  JASSERT ( record_log_fd != -1 ) ( strerror(errno) );
+  if (record_log_fd == -1) {
+    // Create the log (with patched bit) and try to open again.
+    initializeLog();
+  }
+  while ((record_log_fd = open(RECORD_LOG_PATH, 
+              O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
+      && errno == EINTR) ;
+  JASSERT ( record_log_fd != -1 ) ( RECORD_LOG_PATH ) ( strerror(errno) );
   numwritten = write(record_log_fd, log, num_to_write);
   JASSERT ( numwritten != -1) ( strerror(errno) );
   JASSERT ( fsync(record_log_fd) == 0 ) ( strerror(errno) );
@@ -2751,7 +2758,7 @@ static void execute_optional_event(int opt_event_num)
     mmap(NULL, length, prot, flags, fd, offset);
   } else if (opt_event_num == malloc_event) {
     size_t size = GET_FIELD(currentLogEntry, malloc, size);
-    malloc(size);
+    void *p = malloc(size);
   } else if (opt_event_num == free_event) {
     /* The fact that this works depends on memory-accurate replay. */
     void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
