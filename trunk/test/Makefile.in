@@ -18,11 +18,11 @@ PWD=$(shell pwd)
 TESTS=$(basename $(wildcard *.c *.cpp))
 
 tests: $(TESTS)
-		make -C credentials all
+		${MAKE} -C credentials all
 
 clean distclean:
 	rm -f $(TESTS) *.pyc
-	make -C credentials clean
+	${MAKE} -C credentials clean
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)

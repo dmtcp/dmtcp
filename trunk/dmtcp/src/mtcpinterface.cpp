@@ -100,7 +100,8 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
   void* tmp = dlsym ( theMtcpHandle, name );
   JASSERT ( tmp != NULL ) ( name )
-    .Text ( "failed to find libmtcp.so symbol for 'name'" );
+    .Text ( "failed to find libmtcp.so symbol for 'name'\n"
+            "Maybe try re-compiling MTCP:   (cd mtcp; make clean); make" );
 
   //JTRACE("looking up libmtcp.so symbol")(name);
 
