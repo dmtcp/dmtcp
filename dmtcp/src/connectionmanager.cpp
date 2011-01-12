@@ -702,7 +702,7 @@ void dmtcp::ConnectionList::add ( Connection* c )
 {
   JWARNING ( _connections.find ( c->id() ) == _connections.end() ) ( c->id() )
   .Text ( "duplicate connection" );
-  _connections[c->id() ] = c;
+  _connections[c->id()] = c;
 }
 
 int dmtcp::SlidingFdTable::getFdFor ( const ConnectionIdentifier& con )

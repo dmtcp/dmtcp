@@ -489,6 +489,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
   mtcp_segreg_t TLSSEGREG;
 #ifdef PTRACE 
+  DPRINTF (("mtcp mtcp_init*: begin init_thread_local\n"));
   init_thread_local();
 #endif
   /* Initialize the static curbrk variable in sbrk wrapper. */
@@ -1469,6 +1470,7 @@ static void *checkpointhread (void *dummy)
   static int originalstartup = 1;
 
 #ifdef PTRACE
+  DPRINTF (("mtcp checkpointhread*: begin init_thread_local\n"));
   init_thread_local();
   check_size_for_ptrace_file (ptrace_shared_file);
   check_size_for_ptrace_file (ptrace_setoptions_file);

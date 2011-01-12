@@ -91,10 +91,6 @@ int main (int argc, char *argv[], char *envp[])
   /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
   mtcp_check_vdso_enabled();
 
-/* DELETE THE "#else" CASE AND MAKE THIS PERMANENT, ONCE IT'S BEEN USED A LOT.
- * IT WAS ADDED IN rev. 458.
- */
-#if 1
   fd = gzip_child_pid = -1;
   verify = 0;
 
@@ -170,47 +166,6 @@ int main (int argc, char *argv[], char *envp[])
   if (strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
     strncpy(ckpt_newname, restorename, MAXPATHLEN);
   }
-
-#else
-
-  if (argc == 2) {
-    verify = 0;
-    restorename = argv[1];
-  } else if ((argc == 3) && (strcasecmp (argv[1], "--verify") == 0)) {
-    verify = 1;
-    restorename = argv[2];
-  } else if ((argc == 4) && (strcasecmp (argv[1], "--offset") == 0)) {
-    verify = 0;
-    offset = atoi(argv[2]);
-    restorename = argv[3];
-	strncpy(ckpt_newname,restorename,MAXPATHLEN);
-  } else if ((argc == 3) && (strcasecmp (argv[1], "--fd") == 0)) {
-    /* This case used only when dmtcp_restart exec's to mtcp_restart. */
-    verify = 0;
-    restorename = NULL;
-    fd = atoi(argv[2]);
-  } else if ((argc == 5) && (strcasecmp (argv[1], "--fd") == 0)
-	     && (strcasecmp (argv[3], "--gzip-child-pid") == 0)) {
-    /* This case used only when dmtcp_restart exec's to mtcp_restart. */
-    verify = 0;
-    restorename = NULL;
-    fd = atoi(argv[2]);
-    gzip_child_pid = atoi(argv[4]);
-  } else if ((argc == 7) && (strcasecmp (argv[1], "--fd") == 0)
-	     && (strcasecmp (argv[3], "--gzip-child-pid") == 0)
-		 && (strcasecmp (argv[5], "--rename-ckpt") == 0)) {
-    /* This case used only when dmtcp_restart exec's to mtcp_restart. & wants to rename checkpoint filename */
-    verify = 0;
-    restorename = NULL;
-    fd = atoi(argv[2]);
-    gzip_child_pid = atoi(argv[4]);
-	strncpy(ckpt_newname,argv[6],MAXPATHLEN);
-  } else {
-    mtcp_printf("%s", theUsage);
-    return (-1);
-  }
-
-#endif
 
   if(restorename!=NULL) fd = open_ckpt_to_read(restorename);
   if(offset>0){
