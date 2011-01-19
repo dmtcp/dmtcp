@@ -28,7 +28,8 @@ CYCLES=2
 RETRIES=2
 
 #Sleep after each program startup (sec)
-S=0.3
+DEFAULT_S=0.3
+S=DEFAULT_S
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=15
@@ -423,7 +424,7 @@ S=2
 os.environ['DMTCP_GZIP'] = "1" 
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
 os.environ['DMTCP_GZIP'] = GZIP
-S=0.3
+S=DEFAULT_S
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
@@ -506,7 +507,7 @@ if testconfig.HAS_SCRIPT == "yes":
     			      " -c 'bash -c \"ls; sleep 30\"'" +
     			      " dmtcp-test-typescript.tmp"])
   os.system("rm -f dmtcp-test-typescript.tmp")
-  S=0.3
+  S=DEFAULT_S
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # BUT screen -s CMD works only when CMD is single word.
@@ -515,27 +516,27 @@ if testconfig.HAS_SCREEN == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
-  S=0.3
+  S=DEFAULT_S
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
   S=1
   runTest("gcl",         1,  [testconfig.GCL])
-  S=0.3
+  S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
   S=5
   if sys.version_info[0:2] >= (2,6):
     runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
-  S=0.3
+  S=DEFAULT_S
 
 if testconfig.PTRACE_SUPPORT == "yes":
   os.system("echo 'run' > dmtcp-gdbinit.tmp")
   S=2
   if sys.version_info[0:2] >= (2,6):
     runTest("gdb", 2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  S=0.3
+  S=DEFAULT_S
   os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_MPICH == "yes":
