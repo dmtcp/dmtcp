@@ -142,7 +142,9 @@ class MySubprocess:
 
 #launch a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
+childStdoutDevNull = False
 def launch(cmd):
+  global childStdoutDevNull
   if VERBOSE:
     print "Launching... ", cmd
   cmd = splitWithQuotes(cmd);
@@ -176,7 +178,10 @@ def launch(cmd):
     elif VERBOSE:
       childStdout=None  # Inherit child stdout from parent
     else:
+      if childStdoutDevNull:
+        os.close(childStdoutDevNull)
       childStdout = os.open(os.devnull, os.O_WRONLY)
+      childStdoutDevNull = childStdout
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=childStdout,
 		 stderr=childStderr, close_fds=True)
@@ -501,7 +506,7 @@ if testconfig.HAS_ZSH == "yes":
 
 # *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCRIPT == "yes":
-  S=1
+  S=2
   if sys.version_info[0:2] >= (2,6):
     runTest("script",      4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +

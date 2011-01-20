@@ -27,6 +27,8 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <stdio.h>
+#include <stdlib.h>
 #define MTCP_SYS_MEMCPY
 #include "mtcp_sys.h"
 
@@ -53,14 +55,41 @@ extern void restore_rt (void) asm ("__restore_rt")
 extern void restore (void) asm ("__restore")
   __attribute__ ((visibility ("hidden")));
 
+static int is_vdso_enabled() {
+  char buf;
+  FILE * stream = fopen("/proc/sys/vm/vdso_enabled", "r");
+  if (stream == NULL)
+    return 0; /* In older kernels, if it doesn't exist, it can't be enabled. */
+  clearerr(stream);
+  if (fread(&buf, sizeof(buf), 1, stream) < 1) {
+    if (ferror(stream)) {
+      perror("mtcp_sigaction.c:is_vdso_enabled:fread");
+      exit(1);
+    }
+  }
+  if (-1 == fclose(stream)) {
+    perror("mtcp_sigaction.c:is_vdso_enabled:fclose");
+    exit(1);
+  }
+  return (buf == '1');
+}
+
 
 /* If ACT is not NULL, change the action for SIG to *ACT.
    If OACT is not NULL, put the old action for SIG in *OACT.  */
 int __attribute__ ((visibility ("hidden")))
-mtcp_real_sigaction (int sig, const struct sigaction *act,
+mtcp_sigaction (int sig, const struct sigaction *act,
 			      struct sigaction *oact)
 {
   int result;
+  /* TODO:  What if we checkpoint on machine with vdso and restart
+   *        on machine without vdso?  Should have flag indicating
+   *        cumulative number of restarts, and whenever it increments,
+   *        we recompute is_vdso_enabled().
+   */
+  static int vdso_enabled = -1;
+  if (vdso_enabled == -1)
+    vdso_enabled = is_vdso_enabled();
 
   /* First try the RT signals.  */
     {
@@ -71,7 +100,7 @@ mtcp_real_sigaction (int sig, const struct sigaction *act,
 	  kact.sa_flags = act->sa_flags;
 	  mtcp_sys_memcpy (&kact.sa_mask, &act->sa_mask, sizeof (sigset_t));
 
-	  if (GLRO(dl_sysinfo_dso) == NULL)
+	  if ( vdso_enabled /*GLRO(dl_sysinfo_dso) == NULL*/ )
 	    {
 	      kact.sa_flags |= SA_RESTORER;
 
@@ -98,6 +127,7 @@ mtcp_real_sigaction (int sig, const struct sigaction *act,
 	  return result;
 	}
     }
+}
 
 /* NOTE: Please think twice before making any changes to the bits of
    code below.  GDB needs some intimate knowledge about it to
