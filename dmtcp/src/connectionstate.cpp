@@ -96,7 +96,6 @@ void dmtcp::ConnectionState::deleteStaleConnections()
 
 void dmtcp::ConnectionState::preLockSaveOptions()
 {
-  SignalManager::saveSignals();
   SyslogCheckpointer::stopService();
 
   // build fd table with stale connections included
@@ -254,7 +253,6 @@ void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
   }
 
   SyslogCheckpointer::restoreService();
-  SignalManager::restoreSignals();
 }
 
 void dmtcp::ConnectionState::postRestart()

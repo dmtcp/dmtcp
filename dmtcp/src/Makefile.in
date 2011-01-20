@@ -89,12 +89,11 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	jbuffer.$(OBJEXT) jfilesystem.$(OBJEXT) jserialize.$(OBJEXT) \
 	jsocket.$(OBJEXT) jtimer.$(OBJEXT) \
 	kernelbufferdrainer.$(OBJEXT) nodetable.$(OBJEXT) \
-	protectedfds.$(OBJEXT) signalmanager.$(OBJEXT) \
-	sockettable.$(OBJEXT) syslogcheckpointer.$(OBJEXT) \
-	uniquepid.$(OBJEXT) dmtcpworker.$(OBJEXT) \
-	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	sysvipc.$(OBJEXT) util.$(OBJEXT) jalloc.$(OBJEXT) \
-	synchronizationlogging.$(OBJEXT)
+	protectedfds.$(OBJEXT) sockettable.$(OBJEXT) \
+	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
+	dmtcpworker.$(OBJEXT) dmtcpcoordinatorapi.$(OBJEXT) \
+	virtualpidtable.$(OBJEXT) sysvipc.$(OBJEXT) util.$(OBJEXT) \
+	jalloc.$(OBJEXT) synchronizationlogging.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
@@ -288,7 +287,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
-	protectedfds.cpp signalmanager.cpp sockettable.cpp \
+	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp
@@ -360,9 +359,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign src/Makefile
+	  $(AUTOMAKE) --gnu src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -550,7 +549,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pthreadwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalmanager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
@@ -915,7 +913,7 @@ uninstall-am: uninstall-pkglibHEADERS uninstall-pkglibLIBRARIES \
 	uninstall-pkglibPROGRAMS
 
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
-	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
+	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
 	synchronizationlogging.h
 

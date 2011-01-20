@@ -429,14 +429,14 @@ S=DEFAULT_S
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
 # In 32-bit Ubuntu 9.10, the default small stacksize (8 MB) forces
-# legacy_va_layout, which places vdso in low memory.  This collides with
-# text in low memory (0x110000) in the statically linked mtcp_restart executable.
+# legacy_va_layout, which places vdso in low memory.  This collides with text
+# in low memory (0x110000) in the statically linked mtcp_restart executable.
 oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
 # oldLimit[1] is old hard limit
 if oldLimit[1] == -1L:
-  newCurrLimit = 8388608L 
+  newCurrLimit = 8L*1024*1024
 else:
-  newCurrLimit = min(8*1024*1024, oldLimit[1])
+  newCurrLimit = min(8L*1024*1024, oldLimit[1])
 resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)

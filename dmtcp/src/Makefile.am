@@ -15,7 +15,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
-	signalmanager.h sockettable.h syscallwrappers.h syslogcheckpointer.h \
+	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
 	synchronizationlogging.h
 
@@ -32,7 +32,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
-	protectedfds.cpp signalmanager.cpp sockettable.cpp \
+	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp

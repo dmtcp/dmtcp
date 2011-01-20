@@ -277,7 +277,7 @@ extern int mtcp_sys_errno;
 #  define ASMFMT_6(arg1, arg2, arg3, arg4, arg5, arg6) \
     ASMFMT_5(arg1, arg2, arg3, arg4, arg5), "0" (arg6)
 # else
-   not_implemented: "Nothing implemented for ! defined __PIC__"
+#   error "not_implemented: 'Nothing implemented for ! defined __PIC__'"
 # endif
 #endif /* end __i386__ */
 
@@ -331,6 +331,7 @@ struct linux_dirent {
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
 #define mtcp_sys_set_tid_address(args...)  mtcp_inline_syscall(set_tid_address,1,args)
 #define mtcp_sys_brk(args...)  (void *)(mtcp_inline_syscall(brk,1,args))
+#define mtcp_sys_rt_sigaction(args...) (mtcp_inline_syscall(rt_sigaction,4,args))
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
    /* Note that getdents() does not fill the buf with 'struct dirent's, but

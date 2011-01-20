@@ -431,23 +431,14 @@ static void sync_shared_mem(void);
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
  * The wrappers go to these mtcp_real_XXX versions so that MTCP can call
- * the actual system calls and avoid the wrappers.  But if that is still
- * an issue, then we can create mtcp_sys_signal(), etc., for direct calls.
+ * the actual system calls and avoid the wrappers.
  *
  * Update: 
- * mtcp_real_XXX versions have been renamed to _real_XXX in DMTCP.
+ * mtcp_sigaction below is implemented as a direct kernel call avoiding glibc.
+ *   This allows us to manipulate SIGSETXID and SIGCANCEL/SIGTIMER
  * sigprocmask should not be used in multi-threaded process, use
- * pthread_sigmask instead.
+ *   pthread_sigmask instead.
  */
-int _real_sigaction(int signum, const struct sigaction *act,
-			struct sigaction *oldact){
-  if (dmtcp_exists) {
-    mtcp_printf("mtcp %s: This function mustn't be called when working under DMTCP\n",
-                __FUNCTION__);
-    mtcp_abort();
-  }
-  return sigaction(signum, act, oldact);
-}
 
 
 /********************************************************************************************************************************/
@@ -1491,6 +1482,7 @@ static void *checkpointhread (void *dummy)
   save_tls_state (ckpthread);
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
+  /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
 
   DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
@@ -1747,9 +1739,7 @@ again:
      */
     mtcpHookPreCheckpoint();
 
-    if (!dmtcp_exists) {
-      save_sig_handlers();
-    }
+    save_sig_handlers();
 
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
@@ -2616,12 +2606,11 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * Maybe it's not needed if we use ((optimize(0))) .
  */
 static volatile unsigned int growstackValue = 0;
-static void growstack (int kbStack);
-__attribute__ ((optimize(0)))
-static void growstack (int kbStack) {
+static void __attribute__ ((optimize(0))) growstack (int kbStack) {
   const int kBincrement = 1024;
   char array[kBincrement * 1024] __attribute__ ((unused));
-  volatile int dummy_value __attribute__ ((unused)) = 1; /*Again, try to prevent compiler optimization*/
+  /* Again, try to prevent compiler optimization */
+  volatile int dummy_value __attribute__ ((unused)) = 1;
   if (kbStack > 0)
     growstack(kbStack - kBincrement);
   else
@@ -2647,7 +2636,7 @@ static void stopthisthread (int signum)
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
-  thread = getcurrenthread ();                                              // see which thread this is
+  thread = getcurrenthread (); // see which thread this is
 
   // If this is checkpoint thread - exit immidiately
   if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
@@ -2664,11 +2653,12 @@ static void stopthisthread (int signum)
     backtrace_symbols_fd ( buffer, nptrs, STDERR_FD );
     backtrace_symbols_fd ( buffer, nptrs, LOG_FD );
   }
-  if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {  // make sure we don't get called twice for same thread
+  if (mtcp_state_set (&(thread -> state), ST_SUSPINPROG, ST_SIGENABLED)) {
+    // make sure we don't get called twice for same thread
     static int is_first_checkpoint = 1;
 
-    save_sig_state (thread);      // save signal state (and block signal delivery)
-    save_tls_state (thread);      // save thread local storage state
+    save_sig_state (thread);   // save signal state (and block signal delivery)
+    save_tls_state (thread);   // save thread local storage state
 
     /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
      * will mmap it.  On second ckpt and later, we would segfault if we tried
@@ -2867,12 +2857,15 @@ static void save_sig_state (Thread *thisthread)
      * by glibc. It is defined in <glibc-src-root>/nptl/pthreadP.h
      * screen was getting affected by this since it used setsid to change the
      * session leaders.
+     * Similarly, SIGCANCEL/SIGTIMER is undocumented, but used by glibc.
      */
 #define SIGSETXID (__SIGRTMIN + 1)
+#define SIGCANCEL (__SIGRTMIN) /* aka SIGTIMER */
     sigset_t set;
 
     sigfillset(&set);
     sigdelset(&set, SIGSETXID);
+    sigdelset(&set, SIGCANCEL);
 
     if (pthread_sigmask(SIG_SETMASK, &set, NULL) < 0) {
       mtcp_printf("mtcp %s: error getting sigal mask: %s\n",
@@ -2926,20 +2919,11 @@ static void restore_sig_state (Thread *thisthread)
 static void save_sig_handlers (void)
 {
   int i;
-
-  if (dmtcp_exists) {
-    mtcp_printf("mtcp:%s Illegal function call when running under DMTCP*****\n",
-                __FUNCTION__);
-    // Do a simple return instead of killing the process
-    return;
-    //mtcp_abort();
-  }
-
   /* Now save all the signal handlers */
   DPRINTF (("mtcp save_sig_handlers*: saving signal handlers\n"));
   for (i = NSIG; i > 0; --i) {
-    if (_real_sigaction (i, NULL, &sigactions[i]) < 0) {
-      if (errno == EINVAL)
+    if (mtcp_sigaction (i, NULL, &sigactions[i]) < 0) {
+      if (mtcp_sys_errno == EINVAL)
          memset (&sigactions[i], 0, sizeof sigactions[i]);
       else {
         mtcp_printf ("mtcp save_sig_handlers: error saving signal %d action: %s\n",
@@ -2964,15 +2948,6 @@ static void save_sig_handlers (void)
 static void restore_sig_handlers (Thread *thisthread)
 {
   int i;
-
-  if (dmtcp_exists) {
-    mtcp_printf("mtcp:%s Illegal function when running under DMTCP*****\n",
-                __FUNCTION__);
-    // Do a simple return instead of killing the process
-    return;
-    //mtcp_abort();
-  }
-
   DPRINTF (("mtcp restore_sig_handlers*: restoring signal handlers\n"));
 #if 0
 # define VERBOSE_DEBUG
@@ -2986,7 +2961,7 @@ static void restore_sig_handlers (Thread *thisthread)
                  sigactions[i].sa_handler) ));
 #endif
 
-    if (_real_sigaction(i, &sigactions[i], NULL) < 0) {
+    if (mtcp_sigaction(i, &sigactions[i], NULL) < 0) {
         if (errno != EINVAL) {
           mtcp_printf ("mtcp restore_sig_handlers:" \
 		       " error restoring signal %d handler: %s\n",
@@ -3510,12 +3485,7 @@ static int restarthread (void *threadv)
       mtcp_abort ();
     }
 
-    /* DMTCP restores signal handlers.  But if we are running standalone,
-     * MTCP must do it.
-     * Because signal handlers are per-process, we only do this once.
-     */
-    if (!dmtcp_exists)
-        restore_sig_handlers(thread);
+    restore_sig_handlers(thread);
   }
 
   restore_sig_state (thread);
@@ -3684,7 +3654,7 @@ static void setup_sig_handler (void)
   sigfillset(&act.sa_mask);
   act.sa_flags = SA_RESTART;
 
-  if (_real_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
+  if (mtcp_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
     mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n",
                  strerror (errno));
     mtcp_abort ();
