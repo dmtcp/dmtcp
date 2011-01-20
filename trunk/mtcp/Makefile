@@ -264,10 +264,14 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
 
+ifeq (${shell uname -m},x86_64)
 ucontext_i_sym.h: ucontext_i_sym.c
 	gcc -o ucontext_i_sym ucontext_i_sym.c
 	./ucontext_i_sym > ucontext_i_sym.h
 	rm ucontext_i_sym
+else
+ucontext_i_sym.h:
+endif
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sigaction_x86_64.ic \
 		mtcp_sigaction_i386.ic ucontext_i_sym.h

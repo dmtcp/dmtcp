@@ -23,7 +23,6 @@
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 #include "syslogcheckpointer.h"
-#include "signalmanager.h"
 #include "dmtcpworker.h"
 #include "connectionrewirer.h"
 

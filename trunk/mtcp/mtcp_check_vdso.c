@@ -151,7 +151,7 @@ int mtcp_have_thread_sysinfo_offset() {
 }
 
 // AT_SYSINFO is what kernel calls sysenter address in vdso segment.
-// Kernel saves it for each thread in %gs:SYSINFO_OFFSEt ??
+// Kernel saves it for each thread in %gs:SYSINFO_OFFSET ??
 //  as part of kernel TCB (thread control block) at beginning of TLS ??
 void *mtcp_get_thread_sysinfo() {
   void *sysinfo;
