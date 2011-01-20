@@ -453,9 +453,7 @@ void _real_closelog ( void )
 
 //set the handler
 sighandler_t _real_signal(int signum, sighandler_t handler){
-    static signal_funcptr fn = NULL;
-    if(fn==NULL) fn = (signal_funcptr)get_libc_symbol("signal");
-    return (sighandler_t)(*fn)(signum, handler);
+  REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t, signal ) (signum, handler);
 }
 int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );

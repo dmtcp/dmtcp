@@ -36,14 +36,14 @@ int main(int argc, char* argv[]){
 	   "  Trying to continue anyway.\n");
   else {
     cmd_file[cmd_len] = '\0';
+    signal(SIGUSR1, &myHandler);
+    signal(SIGUSR2, &myHandler); // DMTCP should not enable this.
     if ( !getenv("IS_CHILD") && 0 != fork() ) { /* if child, do exec */
       setenv("IS_CHILD", "true", 1);
       execv(cmd_file, argv);
     }
   }
 
-  signal(SIGUSR1, &myHandler);
-  signal(SIGUSR2, &myHandler); // DMTCP should not enable this.
   while (1){
     sleep(1);
     raise(SIGUSR1);

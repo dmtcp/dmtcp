@@ -189,7 +189,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_ptrace.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_ptrace.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -264,8 +264,17 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
 
+ucontext_i_sym.h: ucontext_i_sym.c
+	gcc -o ucontext_i_sym ucontext_i_sym.c
+	./ucontext_i_sym > ucontext_i_sym.h
+	rm ucontext_i_sym
+
+mtcp_sigaction.o: mtcp_sigaction.c mtcp_sigaction_x86_64.ic \
+		mtcp_sigaction_i386.ic ucontext_i_sym.h
+	${CC} $(CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
+
 mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
-	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c -lpthread
+	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}
@@ -304,6 +313,7 @@ distclean: clean
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
-	      testmtcp.mtcp libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
+	      ucontext_i_sym.h libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
+	      testmtcp.mtcp \
 	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest

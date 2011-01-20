@@ -37,6 +37,7 @@
 #endif
 
 #include <pthread.h>
+#include <signal.h>
 #include <linux/version.h>
 
 #if USE_FUTEX
@@ -199,6 +200,10 @@ static inline void mtcp_abort (void)
 
 extern char mtcp_shareable_begin[];
 extern char mtcp_shareable_end[];
+
+extern __attribute__ ((visibility ("hidden")))
+int mtcp_sigactionmtcp_sigaction (int sig, const struct sigaction *act,
+					   struct sigaction *oact);
 
 #ifndef MAXPATHLEN
 # define MAXPATHLEN 512
