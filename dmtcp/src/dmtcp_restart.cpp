@@ -1230,7 +1230,7 @@ static void openOriginalToCurrentMappingFiles()
      << compGroup << "." << std::hex << coordTstamp;
 
   // Open and create shmidListFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidMapFile")(shmidListFile.str());
+  JTRACE("Open dmtcpShmidListFile")(shmidListFile.str());
   fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
   JASSERT ( fd != -1 );
   JASSERT ( dup2 ( fd, PROTECTED_SHMIDLIST_FD ) == PROTECTED_SHMIDLIST_FD )
