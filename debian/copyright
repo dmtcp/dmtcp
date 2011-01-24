@@ -1,27 +1,60 @@
-This package was debianized by Jason Ansel <jansel0+dmtcp@gmail.com> on
-Mon, 16 Jun 2008 15:47:53 -0400.
+This package was debianized by Kapil Arya <kapil@ccs.neu.edu> on
+Fri, 14 Jan 2011 15:55:52 -0500.
 
-It was downloaded from http://dmtcp.sourceforge.net/
+It was downloaded from http://dmtcp.sourceforge.net
 
-Copyright: 
-  DMTCP is Copyright (C) 2006-2008 Jason Ansel, Kapil Arya, and Gene Cooperman
-  MTCP is Copyright (C) 2006-2008 Mike Rieker, Kapil Arya, Jason Ansel, and
+Upstream Author:
+
+    Kapil Arya <kapil@ccs.neu.edu>
+
+Copyright:
+
+    DMTCP is Copyright (C) 2006-2011 Jason Ansel, Kapil Arya, and Gene Cooperman
+    MTCP is Copyright (C) 2006-2011 Mike Rieker, Kapil Arya, Jason Ansel, and
   							Gene Cooperman
 
 License:
-  This package is free software; you can redistribute it and/or modify
-  it under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 3 of the License, or
-  (at your option) any later version.
 
-  This package is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU Lesser General Public License for more details.
+    This package is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 3 of the License, or (at your option) any later version.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with this package; if not, <http://www.gnu.org/licenses/>.
+    This package is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  On Debian systems, the complete text of the GNU General
-  Public License can be found in `/usr/share/common-licenses/LGPL'.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this package; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
+On Debian systems, the complete text of the GNU Lesser General
+Public License can be found in `/usr/share/common-licenses/LGPL-3'.
+
+The Debian packaging is:
+
+    Copyright (C) 2011 Kapil Arya <kapil@ccs.neu.edu>
+
+and is licensed under the GPL version 3, 
+see `/usr/share/common-licenses/GPL-3'.
+
+As a special exception, the copyright holders contribute the two files                                        
+dmtcp/src/dmtcpaware.c and dmtcp/src/dmtcpaware.h to the public domain and
+grant permission for these two files to be redistributed or changed under
+any license.
+
+Files found in the directory dmtcp/src are Copyright (C) 2006-2010 by Jason
+Ansel, Kapil Arya, and Gene Cooperman.
+
+Files found in the directory dmtcp/jalib are Copyright (C) 2005-2008 by
+Jason Ansel.
+
+Files found in the directory mtcp are Copyright (C) 2006-2010 by Michael
+Rieker, Jason Ansel, Kapil Arya, and Gene Cooperman.
+
+The contents of file dmtcp/src/glibcsystem.cpp are taken from glibc and is
+Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+
+Any remaining files (for building/testing) are Copyright (C) 2006-2010 Jason
+Ansel, Kapil Arya, and Gene Cooperman.

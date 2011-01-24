@@ -39,7 +39,7 @@ pkglib_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_inspector$(EXEEXT) dmtcphijack.so$(EXEEXT) \
 	dmtcp_nocheckpoint$(EXEEXT)
 subdir = src
-DIST_COMMON = $(nobase_noinst_HEADERS) $(pkglib_HEADERS) \
+DIST_COMMON = $(include_HEADERS) $(nobase_noinst_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in COPYING COPYING.LESSER
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -71,9 +71,9 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(pkglibdir)" \
-	"$(DESTDIR)$(pkglibdir)"
-LIBRARIES = $(noinst_LIBRARIES) $(pkglib_LIBRARIES)
+am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(pkglibdir)" \
+	"$(DESTDIR)$(includedir)"
+LIBRARIES = $(lib_LIBRARIES) $(noinst_LIBRARIES)
 AR = ar
 ARFLAGS = cru
 libdmtcpaware_a_AR = $(AR) $(ARFLAGS)
@@ -121,8 +121,6 @@ dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-dmtcp_nocheckpoint_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(dmtcp_nocheckpoint_LDFLAGS) $(LDFLAGS) -o $@
 am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
@@ -164,7 +162,7 @@ DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
 	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
 	$(EXTRA_dmtcphijack_so_SOURCES)
-HEADERS = $(nobase_noinst_HEADERS) $(pkglib_HEADERS)
+HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -264,6 +262,8 @@ INCLUDES = $(all_includes)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
+include_HEADERS = dmtcpaware.h
+lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -312,7 +312,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
-dmtcp_nocheckpoint_LDFLAGS = -static
+
+#dmtcp_nocheckpoint_LDFLAGS = -static
 
 # pthreadwrappers.cpp and synchronizationlogging.cpp are EXTRA files.
 # To compile the EXTRA files conditionally, replace them
@@ -329,8 +330,8 @@ dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 
 # dmtcpaware
-pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
-pkglib_LIBRARIES = libdmtcpaware.a
+#pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
+#pkglib_LIBRARIES = libdmtcpaware.a
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_LDFLAGS = -avoid-version -module
 #libdmtcpaware_a_LDFLAGS = -avoid-version
@@ -397,41 +398,41 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-
-clean-noinstLIBRARIES:
-	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
-install-pkglibLIBRARIES: $(pkglib_LIBRARIES)
+install-libLIBRARIES: $(lib_LIBRARIES)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkglibdir)" || $(MKDIR_P) "$(DESTDIR)$(pkglibdir)"
-	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
+	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
+	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
 	list2=; for p in $$list; do \
 	  if test -f $$p; then \
 	    list2="$$list2 $$p"; \
 	  else :; fi; \
 	done; \
 	test -z "$$list2" || { \
-	  echo " $(INSTALL_DATA) $$list2 '$(DESTDIR)$(pkglibdir)'"; \
-	  $(INSTALL_DATA) $$list2 "$(DESTDIR)$(pkglibdir)" || exit $$?; }
+	  echo " $(INSTALL_DATA) $$list2 '$(DESTDIR)$(libdir)'"; \
+	  $(INSTALL_DATA) $$list2 "$(DESTDIR)$(libdir)" || exit $$?; }
 	@$(POST_INSTALL)
-	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
+	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
 	for p in $$list; do \
 	  if test -f $$p; then \
 	    $(am__strip_dir) \
-	    echo " ( cd '$(DESTDIR)$(pkglibdir)' && $(RANLIB) $$f )"; \
-	    ( cd "$(DESTDIR)$(pkglibdir)" && $(RANLIB) $$f ) || exit $$?; \
+	    echo " ( cd '$(DESTDIR)$(libdir)' && $(RANLIB) $$f )"; \
+	    ( cd "$(DESTDIR)$(libdir)" && $(RANLIB) $$f ) || exit $$?; \
 	  else :; fi; \
 	done
 
-uninstall-pkglibLIBRARIES:
+uninstall-libLIBRARIES:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
+	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f "$$files" )"; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $$files
+	echo " ( cd '$(DESTDIR)$(libdir)' && rm -f "$$files" )"; \
+	cd "$(DESTDIR)$(libdir)" && rm -f $$files
 
-clean-pkglibLIBRARIES:
-	-test -z "$(pkglib_LIBRARIES)" || rm -f $(pkglib_LIBRARIES)
+clean-libLIBRARIES:
+	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
 libdmtcpaware.a: $(libdmtcpaware_a_OBJECTS) $(libdmtcpaware_a_DEPENDENCIES) 
 	-rm -f libdmtcpaware.a
 	$(libdmtcpaware_a_AR) libdmtcpaware.a $(libdmtcpaware_a_OBJECTS) $(libdmtcpaware_a_LIBADD)
@@ -499,7 +500,7 @@ dmtcp_inspector$(EXEEXT): $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_DEPENDENC
 	$(CXXLINK) $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_LDADD) $(LIBS)
 dmtcp_nocheckpoint$(EXEEXT): $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_DEPENDENCIES) 
 	@rm -f dmtcp_nocheckpoint$(EXEEXT)
-	$(dmtcp_nocheckpoint_LINK) $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_LDADD) $(LIBS)
+	$(LINK) $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_LDADD) $(LIBS)
 dmtcp_restart$(EXEEXT): $(dmtcp_restart_OBJECTS) $(dmtcp_restart_DEPENDENCIES) 
 	@rm -f dmtcp_restart$(EXEEXT)
 	$(CXXLINK) $(dmtcp_restart_OBJECTS) $(dmtcp_restart_LDADD) $(LIBS)
@@ -687,26 +688,26 @@ jalloc.obj: ../jalib/jalloc.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='../jalib/jalloc.cpp' object='jalloc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.obj `if test -f '../jalib/jalloc.cpp'; then $(CYGPATH_W) '../jalib/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalloc.cpp'; fi`
-install-pkglibHEADERS: $(pkglib_HEADERS)
+install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkglibdir)" || $(MKDIR_P) "$(DESTDIR)$(pkglibdir)"
-	@list='$(pkglib_HEADERS)'; test -n "$(pkglibdir)" || list=; \
+	test -z "$(includedir)" || $(MKDIR_P) "$(DESTDIR)$(includedir)"
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(pkglibdir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(pkglibdir)" || exit $$?; \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
 	done
 
-uninstall-pkglibHEADERS:
+uninstall-includeHEADERS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkglib_HEADERS)'; test -n "$(pkglibdir)" || list=; \
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $$files
+	echo " ( cd '$(DESTDIR)$(includedir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(includedir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -794,7 +795,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(pkglibdir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -824,7 +825,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-noinstLIBRARIES clean-pkglibLIBRARIES \
+clean-am: clean-generic clean-libLIBRARIES clean-noinstLIBRARIES \
 	clean-pkglibPROGRAMS mostlyclean-am
 
 distclean: distclean-am
@@ -845,14 +846,13 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-includeHEADERS
 
 install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-pkglibHEADERS install-pkglibLIBRARIES \
-	install-pkglibPROGRAMS
+install-exec-am: install-libLIBRARIES install-pkglibPROGRAMS
 
 install-html: install-html-am
 
@@ -891,26 +891,25 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkglibHEADERS uninstall-pkglibLIBRARIES \
+uninstall-am: uninstall-includeHEADERS uninstall-libLIBRARIES \
 	uninstall-pkglibPROGRAMS
 
 .MAKE: all install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-noinstLIBRARIES clean-pkglibLIBRARIES \
-	clean-pkglibPROGRAMS ctags distclean distclean-compile \
-	distclean-generic distclean-hdr distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-pkglibHEADERS install-pkglibLIBRARIES \
-	install-pkglibPROGRAMS install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
-	uninstall-am uninstall-pkglibHEADERS uninstall-pkglibLIBRARIES \
-	uninstall-pkglibPROGRAMS
+	clean-libLIBRARIES clean-noinstLIBRARIES clean-pkglibPROGRAMS \
+	ctags distclean distclean-compile distclean-generic \
+	distclean-hdr distclean-tags distdir dvi dvi-am html html-am \
+	info info-am install install-am install-data install-data-am \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-includeHEADERS \
+	install-info install-info-am install-libLIBRARIES install-man \
+	install-pdf install-pdf-am install-pkglibPROGRAMS install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
+	ps ps-am tags uninstall uninstall-am uninstall-includeHEADERS \
+	uninstall-libLIBRARIES uninstall-pkglibPROGRAMS
 
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogcheckpointer.h \

@@ -112,24 +112,25 @@ install: all
 		echo ERROR: prefix must be defined; \
 		exit 1; \
 	fi
-	(cd dmtcp && make prefix=$(prefix) install)
-	cp mtcp/libmtcp.so $(prefix)/lib/dmtcp
-	cp mtcp/mtcp_restart $(prefix)/lib/dmtcp
-	$(MKDIR_P) $(prefix)/bin
-	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
-	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
-	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_nocheckpoint)
-	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
-	(cd $(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
+	(cd dmtcp && make install)
+	cp mtcp/libmtcp.so $(DESTDIR)/$(prefix)/lib/dmtcp
+	cp mtcp/mtcp_restart $(DESTDIR)/$(prefix)/lib/dmtcp
+	$(MKDIR_P) $(DESTDIR)/$(prefix)/bin
+	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
+	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
+	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_nocheckpoint)
+	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
+	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
 
 uninstall:
-	rm -f "$(prefix)/bin/dmtcp_coordinator"
-	rm -f "$(prefix)/bin/dmtcp_checkpoint"
-	rm -f "$(prefix)/bin/dmtcp_nocheckpoint"
-	rm -f "$(prefix)/bin/dmtcp_restart"
-	rm -f "$(prefix)/bin/dmtcp_command"
-	rm -f "$(prefix)/lib/libdmtcpaware.so"
-	rm -Rf "$(prefix)/lib/dmtcp"
-	rm -Rf "$(prefix)/include/dmtcp"
+	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_coordinator"
+	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_checkpoint"
+	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_nocheckpoint"
+	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_restart"
+	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_command"
+	rm -f "$(DESTDIR)/$(prefix)/lib/libdmtcpaware.so"
+	rm -f "$(DESTDIR)/$(prefix)/include/dmtcpaware.h"
+	rm -Rf "$(DESTDIR)/$(prefix)/lib/dmtcp"
+	rm -Rf "$(DESTDIR)/$(prefix)/include/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples

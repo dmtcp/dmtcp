@@ -1,17 +1,26 @@
 Source: dmtcp
 Section: utils
-Priority: extra
-Maintainer: Jason Ansel <jansel0+dmtcp@gmail.com>
-Build-Depends: debhelper (>= 6), autotools-dev
-Standards-Version: 3.7.3
-Homepage: http://dmtcp.sourceforge.net/
+Priority: optional
+Maintainer: Kapil Arya <kapil@ccs.neu.edu>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.3
+Vcs-svn: https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
+Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
+Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
 Architecture: any
-Depends: ${shlibs:Depends}
-Description: Distributed MultiThreaded Checkpointing
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Distributed MultiThreaded CheckPointing
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
- checkpointing the state of an arbitrary group of programs spread across
- many machines and connected by sockets. It does not modify the user's
- program nor the operating system.
- For more information see: http://dmtcp.sourceforge.net/
+ checkpointing the state of an arbitrary group of programs spread across many
+ machines and connected by sockets. It runs directly on the user binary
+ executable, without needing to modify either the user binary or the operating
+ system.
+ .
+ Among the applications supported by DMTCP are OpenMPI, MATLAB, Python,
+ Perl, and many programming languages and shell scripting languages.
+ Starting with release 1.2.0, DMTCP also supports GNU screen sessions,
+ including vim/cscope and emacs. With the use of TightVNC, it can also
+ checkpoint and restart X-Windows applications, as long as they do not
+ use extensions (e.g.: no OpenGL, no video).
