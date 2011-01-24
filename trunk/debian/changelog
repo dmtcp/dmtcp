@@ -1,5 +1,5 @@
-dmtcp (1.2.0) unstable; urgency=low
+dmtcp (1.2.0-1) unstable; urgency=low
 
-  * New upstream release
+  * Initial release (Closes: #610653)
 
- -- Jason Ansel <jansel0+dmtcp@gmail.com>  Tue, 23 Jul 2009 15:47:53 -0400
+ -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 14 Jan 2011 15:55:52 -0500

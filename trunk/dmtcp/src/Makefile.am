@@ -6,6 +6,8 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint
+include_HEADERS = dmtcpaware.h
+lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -64,7 +66,7 @@ dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
-dmtcp_nocheckpoint_LDFLAGS = -static
+#dmtcp_nocheckpoint_LDFLAGS = -static
 
 # pthreadwrappers.cpp and synchronizationlogging.cpp are EXTRA files.
 # To compile the EXTRA files conditionally, replace them
@@ -80,8 +82,8 @@ dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 
 # dmtcpaware
-pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
-pkglib_LIBRARIES = libdmtcpaware.a
+#pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
+#pkglib_LIBRARIES = libdmtcpaware.a
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_LDFLAGS = -avoid-version -module
 #libdmtcpaware_a_LDFLAGS = -avoid-version
