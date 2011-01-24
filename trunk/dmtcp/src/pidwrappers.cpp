@@ -400,7 +400,7 @@ pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
      *       becomes equal to curPid, this will cause the if condition to go
      *       false, which is wrong.
      */
-    if ( retval == -1 && errno == ECHILD && ! WIFSIGNALED(*stat_loc) &&
+    if ( retval == -1 && errno == ECHILD &&
          currPid != originalToCurrentPid(pid) ) {
       struct sigaction oldact;
       if ( sigaction(SIGCHLD, NULL, &oldact) == 0 &&

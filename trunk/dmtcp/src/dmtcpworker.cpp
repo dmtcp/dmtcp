@@ -432,6 +432,21 @@ void processDmtcpCommands(dmtcp::string programName)
   //make sure coordinator connection is closed
   _real_close ( PROTECTEDFD ( 1 ) );
 
+  /*
+   * When running gdb or any shell which does a waitpid() on the child
+   * processes, executing dmtcp_command from within gdb session / shell results
+   * in process getting hung up because:
+   *   gdb shell dmtcp_command -c => hangs because gdb forks off a new process
+   *   and it does a waitpid  (in which we block signals) ...
+   */
+  if (programName == "dmtcp_command") {
+    pid_t cpid = _real_fork();
+    JASSERT (cpid != -1);
+    if (cpid != 0) {
+      _real_exit(0);
+    }
+  }
+
   //get program args
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
 
