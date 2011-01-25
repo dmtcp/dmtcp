@@ -9,7 +9,7 @@ Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
 Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
-Architecture: i386, amd64
+Architecture: i386 amd64
 Section: utils
 Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}
