@@ -9,7 +9,9 @@ Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
 Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
-Architecture: any
+Architecture: i386, amd64
+Section: utils
+Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Distributed MultiThreaded CheckPointing
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -24,3 +26,4 @@ Description: Distributed MultiThreaded CheckPointing
  including vim/cscope and emacs. With the use of TightVNC, it can also
  checkpoint and restart X-Windows applications, as long as they do not
  use extensions (e.g.: no OpenGL, no video).
+Homepage: http://dmtcp.sourceforge.net
