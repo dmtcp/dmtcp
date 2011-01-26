@@ -1,4 +1,6 @@
 /*************************************************************************
+ * TODO: Replace this header with appropriate header showing MIT OR BSD  *
+ *       License                                                         *
  * This file, dmtcpaware.c, is placed in the public domain.              *
  * The motivation for this is to allow anybody to freely use this file   *
  * without restriction to statically link this file with any software.   *
