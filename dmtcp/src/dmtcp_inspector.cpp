@@ -460,7 +460,7 @@ int main ( int argc, char** argv )
         std::cout << "Turn off parent-child relation\n";
         parent_child = false;
       } else if( tmp == "sock-off" ){
-        std::cout << "Turn off socket connnections\n";
+        std::cout << "Turn off socket connections\n";
         sockets = false;
       } else if ( tmp == "sock-all" ){
         std::cout << "Show all connections\n";
