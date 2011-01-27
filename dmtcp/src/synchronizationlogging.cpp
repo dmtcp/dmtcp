@@ -887,6 +887,7 @@ void primeLog()
     //fixSpontaneousWakeups();
     /******************* END LOG PATCHING STUFF *******************/
     num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+    JASSERT ( num_read != -1 ) ( strerror(errno) );
     total_read += num_read;
     // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
     while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
@@ -2725,11 +2726,13 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
       event_num == getc_event_return ||
       //event_num == fgetc_event_return ||
       event_num == fprintf_event_return ||
+      event_num == accept_event_return ||
       event_num == fdopen_event_return) {
     opt_events[0] = mmap_event;
   } else if (event_num == setsockopt_event_return) {
     opt_events[0] = malloc_event;
     opt_events[1] = free_event;
+    opt_events[2] = mmap_event;
   } else if (event_num == fclose_event_return) {
     opt_events[0] = free_event;
   }
