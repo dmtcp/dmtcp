@@ -33,7 +33,18 @@ License: MIT or BSD
 Files: dmtcp/src/glibcsystem.cpp
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
-Comment: The contents of file dmtcp/src/glibcsystem.cpp are taken from glibc
+
+Files: mtcp/mtcp_sigaction_*
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: mtcp/sysdep-*
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: mtcp/NOTES-x86_64/*.[hS]
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
 
 License: LGPL-3
  This package is free software; you can redistribute it and/or

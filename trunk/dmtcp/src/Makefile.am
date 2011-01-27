@@ -5,7 +5,8 @@ INCLUDES= $(all_includes)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint
+	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint \
+	dmtcpaware.c
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
