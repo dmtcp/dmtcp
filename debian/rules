@@ -21,12 +21,13 @@ CROSS= --build $(DEB_BUILD_GNU_TYPE)
 endif
 
 
+BUILDDIR = debian/tmp
+DESTDIR = $(CURDIR)/$(BUILDDIR)
 
 
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
-	# Add here commands to configure the package.
 	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info CFLAGS="$(CFLAGS)" LDFLAGS="-Wl,-z,defs"
 
 	touch configure-stamp
@@ -37,7 +38,6 @@ build: build-stamp
 build-stamp: configure-stamp  
 	dh_testdir
 
-	# Add here commands to compile the package.
 	$(MAKE)
 	#docbook-to-man debian/dmtcp.sgml > dmtcp.1
 
@@ -47,7 +47,6 @@ clean:
 	dh_testdir
 	rm -f build-stamp configure-stamp
 
-	# Add here commands to clean up after the build process.
 	[ ! -f Makefile ] || $(MAKE) distclean
 	rm -f config.sub config.guess
 
@@ -61,7 +60,9 @@ install: build
 	dh_lintian
 
 	# Add here commands to install the package into debian/dmtcp.
-	$(MAKE) DESTDIR=$(CURDIR)/debian/dmtcp install
+	$(MAKE) DESTDIR=$(DESTDIR) install
+
+	dh_install --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.
@@ -72,17 +73,13 @@ binary-indep: install
 binary-arch: install
 	dh_testdir
 	dh_testroot
-	dh_installchangelogs 
+	dh_installchangelogs
 	dh_installdocs
+	dh_installexamples -plibdmtcpaware-dev debian/tmp/usr/lib/dmtcp/dmtcpaware.c
 	dh_installexamples
-	dh_installman manpages/*
-	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_coordinator.1.gz)
-	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_checkpoint.1.gz)
-	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_nocheckpoint.1.gz)
-	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_restart.1.gz)
-	(cd $(CURDIR)/debian/dmtcp/usr/share/man/man1 && ln -s dmtcp.1.gz dmtcp_command.1.gz)
+	dh_installman
 	dh_link
-	dh_strip
+	dh_strip --dbg-package=dmtcp-dbg
 	dh_compress
 	dh_fixperms
 	dh_installdeb
