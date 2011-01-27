@@ -217,6 +217,8 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       JTRACE ( "problem opening synchronization log file on restart" ) 
         ( RECORD_LOG_PATH ) ( errno );
     }
+    /* Eager log patching. */
+    //primeLog();
     log_all_allocs = 1;
 #endif
     numRestarts++;

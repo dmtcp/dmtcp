@@ -190,9 +190,17 @@ private:
   }
 };
 
+#ifdef RECORD_REPLAY
+/* We need a greater arena size to eliminate mmap() calls that could happen
+   at different times for record vs. replay. */
+typedef JGlobalAlloc< JFixedAllocStack<1024*64 ,  1024*1024*32 > > lvl1;
+typedef JGlobalAlloc< JFixedAllocStack<1024*256,  1024*1024*32 > > lvl2;
+typedef JGlobalAlloc< JFixedAllocStack<1024*1024, 1024*1024*32 > > lvl3;
+#else
 typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*16 > > lvl2;
 typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*16 > > lvl3;
+#endif
 
 void* JAllocDispatcher::allocate(size_t n) {
   lock();
@@ -233,6 +241,7 @@ void jalib::JAllocDispatcher::deallocate(void* ptr, size_t){
 
 #endif
 
+#ifndef RECORD_REPLAY
 #ifdef OVERRIDE_GLOBAL_ALLOCATOR
 #  ifndef JALIB_ALLOCATOR
 #    error "JALIB_ALLOCATOR must be #defined in dmtcp/jalib/jalloc.h for --enable-allocator to work"
@@ -250,3 +259,4 @@ void operator delete(void* _p){
   jalib::JAllocDispatcher::deallocate(p, *p+sizeof(size_t));
 }
 #endif
+#endif //RECORD_REPLAY
