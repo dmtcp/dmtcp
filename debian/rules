@@ -75,8 +75,8 @@ binary-arch: install
 	dh_testroot
 	dh_installchangelogs
 	dh_installdocs
-	dh_installexamples -plibdmtcpaware-dev $(BUILDDIR)/usr/lib/dmtcp/examples
-	dh_installexamples -plibdmtcpaware1.0  $(BUILDDIR)/usr/lib/dmtcp/examples
+	dh_installexamples -plibdmtcpaware-dev $(BUILDDIR)/usr/lib/dmtcp/examples/*
+	dh_installexamples -plibdmtcpaware1.0  $(BUILDDIR)/usr/lib/dmtcp/examples/*
 	dh_installexamples
 	dh_installman
 	dh_link
