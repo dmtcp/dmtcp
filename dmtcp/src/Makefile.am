@@ -21,7 +21,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h
+	synchronizationlogging.h ptracewrapper.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -60,7 +60,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp
+	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
 

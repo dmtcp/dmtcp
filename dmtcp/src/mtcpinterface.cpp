@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "constants.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "../jalib/jassert.h"
@@ -29,7 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include "constants.h"
 #include "sockettable.h"
 #include <unistd.h>
 #include "uniquepid.h"
@@ -39,17 +39,12 @@
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
 
-#ifdef PTRACE
-#include <sys/types.h>
-#include <sys/ptrace.h>
-#include <stdarg.h>
-#include <linux/unistd.h>
-#include <sys/syscall.h>
-#include <fcntl.h>
-#endif
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
+
+#include "ptracewrapper.h"
+#include <stdarg.h>
 
 #ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
@@ -68,6 +63,40 @@ namespace
   }
 
 }
+
+#ifdef PTRACE
+__attribute__ ((visibility ("hidden"))) get_saved_pid_t
+  get_saved_pid_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) get_saved_status_t
+  get_saved_status_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) get_has_status_and_pid_t 
+  get_has_status_and_pid_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) reset_pid_status_t
+  reset_pid_status_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) set_singlestep_waited_on_t 
+  set_singlestep_waited_on_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) get_is_waitpid_local_t 
+  get_is_waitpid_local_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) get_is_ptrace_local_t 
+  get_is_ptrace_local_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) unset_is_waitpid_local_t 
+  unset_is_waitpid_local_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) unset_is_ptrace_local_t
+  unset_is_ptrace_local_ptr = NULL;
+
+__attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
+  mtcp_init_thread_local;
+
+__attribute__ ((visibility ("hidden"))) sigset_t signals_set;
+#endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
@@ -111,12 +140,18 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 extern "C"
 {
   typedef int ( *t_mtcp_init ) ( char const *checkpointFilename, int interval, int clonenabledefault );
-  typedef void ( *t_mtcp_set_callbacks ) ( void ( *sleep_between_ckpt ) ( int sec ),
+  typedef void ( *t_mtcp_set_callbacks ) (
+          void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) ( char ** ckptFilename ),
           void ( *post_ckpt ) ( int is_restarting ),
           int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
-          void ( *restore_virtual_pid_table) ());
+          void ( *restore_virtual_pid_table) ()
+#ifdef PTRACE
+        , struct ptrace_info (*get_next_ptrace_info)(int index),
+          void (*ptrace_info_list_command)(struct cmd_info cmd)
+#endif
+  );
   typedef int ( *t_mtcp_ok ) ( void );
   typedef void ( *t_mtcp_kill_ckpthread ) ( void );
 }
@@ -130,6 +165,18 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   // process can deadlock.
   JALIB_CKPT_LOCK();
 }
+
+#ifdef PTRACE
+static struct ptrace_info callbackGetNextPtraceInfo (int index)
+{
+  return get_next_ptrace_info(index);
+}
+
+static void callbackPtraceInfoListCommand (struct cmd_info cmd)
+{
+  ptrace_info_list_command(cmd);
+}
+#endif
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
@@ -235,42 +282,6 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 } 
 
-#ifdef PTRACE
-typedef pid_t ( *get_saved_pid_t) ( );
-get_saved_pid_t get_saved_pid_ptr = NULL;
-
-typedef int ( *get_saved_status_t) ( );
-get_saved_pid_t get_saved_status_ptr = NULL;
-
-typedef int ( *get_has_status_and_pid_t) ( );
-get_has_status_and_pid_t get_has_status_and_pid_ptr = NULL;
-
-typedef void ( *reset_pid_status_t) ( );
-reset_pid_status_t reset_pid_status_ptr = NULL;
-
-typedef void ( *set_singlestep_waited_on_t) ( pid_t superior, pid_t inferior, int value );
-set_singlestep_waited_on_t set_singlestep_waited_on_ptr = NULL;
-
-typedef int ( *get_is_waitpid_local_t ) ();
-get_is_waitpid_local_t get_is_waitpid_local_ptr = NULL;
-
-typedef int ( *get_is_ptrace_local_t ) ();
-get_is_ptrace_local_t get_is_ptrace_local_ptr = NULL;
-
-typedef void ( *unset_is_waitpid_local_t ) ();
-unset_is_waitpid_local_t unset_is_waitpid_local_ptr = NULL;
-
-typedef void ( *unset_is_ptrace_local_t ) ();
-unset_is_ptrace_local_t unset_is_ptrace_local_ptr = NULL;
-
-sigset_t signals_set;
-
-typedef void ( *t_mtcp_init_thread_local ) ();
-t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
-
-#define MTCP_DEFAULT_SIGNAL SIGUSR2
-#endif 
-
 void dmtcp::initializeMtcpEngine()
 {
 #ifdef PTRACE
@@ -351,7 +362,12 @@ void dmtcp::initializeMtcpEngine()
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
                  , &callbackWriteCkptPrefix
-                 , &callbackRestoreVirtualPidTable);
+                 , &callbackRestoreVirtualPidTable
+#ifdef PTRACE
+                 , &callbackGetNextPtraceInfo
+                 , &callbackPtraceInfoListCommand
+#endif
+                 );
   JTRACE ("Calling mtcp_init");
   ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
   ( *okFn ) ();
@@ -695,167 +711,6 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   return retval;
 #endif
 }
-
-#ifdef PTRACE
-#ifndef PID_VIRTUALIZATION
-#error "PTRACE can not be used without enabling PID-Virtualization"
-#endif
-// ptrace cannot work without pid virtualization.  If we're not using
-// pid virtualization, then disable this wrapper around ptrace, and
-// let the application call ptrace from libc.
-
-// These constants must agree with the constants in mtcp/mtcp.c
-#define PTRACE_UNSPECIFIED_COMMAND 0
-#define PTRACE_SINGLESTEP_COMMAND 1
-#define PTRACE_CONTINUE_COMMAND 2
-
-// FIXME
-// This is a wrapper for ptrace.  mtcpinterface.cpp is a file for DMTCP
-//    to start mtcp.so (and call mtcp_init), and to stop mtcp.so
-// This wrapper function should be placed with other wrappers
-//    on in a new file called mtcpwrapper.cpp or ptracewrapper.cpp
-//    or mtcpwrapper.c .
-// Probably most of the functions from __clone to ptrace and to
-//    the special __libc_memalign redirection could be moved
-//    to a new file.  - Gene
-extern "C" long ptrace ( enum __ptrace_request request, ... )
-{
-  va_list ap;
-  pid_t pid;
-  void *addr;
-  void *data;
-
-  pid_t superior;
-  pid_t inferior;
-
-  long ptrace_ret;
-
-  typedef void ( *writeptraceinfo_t ) ( pid_t superior, pid_t inferior );
-  // Don't make writeptraceinfo_ptr statically initialized.  After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  writeptraceinfo_t writeptraceinfo_ptr = ( writeptraceinfo_t ) _get_mtcp_symbol ( "writeptraceinfo" );
-
-  typedef void ( *write_info_to_file_t ) ( int file, pid_t superior, pid_t inferior );
-  // Don't make write_info_to_file_ptr statically initialized.  After a fork,
-  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  write_info_to_file_t write_info_to_file_ptr = ( write_info_to_file_t ) _get_mtcp_symbol ( "write_info_to_file" );
-
-  typedef void ( *remove_from_ptrace_pairs_t) ( pid_t superior, pid_t inferior );
-  // Don't make remove_from_ptrace_pairs_ptr statically initialized.  After a
-  // fork,
-  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  remove_from_ptrace_pairs_t remove_from_ptrace_pairs_ptr =
-                           ( remove_from_ptrace_pairs_t ) _get_mtcp_symbol ( "remove_from_ptrace_pairs" );
-
-  typedef void ( *handle_command_t ) ( pid_t superior, pid_t inferior, int last_command );
-  // Don't make handle_command_ptr statically initialized.  After a fork,
-  // some loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  handle_command_t handle_command_ptr = ( handle_command_t ) _get_mtcp_symbol ( "handle_command" );
-
-
-  va_start( ap, request );
-  pid = va_arg( ap, pid_t );
-  addr = va_arg( ap, void * );
-  data = va_arg( ap, void * );
-  va_end( ap );
-  superior = syscall( SYS_gettid );
-  inferior = pid;
-
-  switch (request) {
-    case PTRACE_ATTACH: {
-     if (!get_is_ptrace_local_ptr ()) writeptraceinfo_ptr ( superior, inferior );
-      else unset_is_ptrace_local_ptr ();
-      break;
-    }
-    case PTRACE_TRACEME: {
-      superior = getppid();
-      inferior = syscall( SYS_gettid );
-      writeptraceinfo_ptr( superior, inferior );
-      break;
-    }
-    case PTRACE_DETACH: {
-     if (!get_is_ptrace_local_ptr ()) remove_from_ptrace_pairs_ptr ( superior, inferior );
-     else unset_is_ptrace_local_ptr ();
-     break;
-    }
-    case PTRACE_CONT: {
-     if (!get_is_ptrace_local_ptr ()) handle_command_ptr ( superior, inferior, PTRACE_CONTINUE_COMMAND );
-     else unset_is_ptrace_local_ptr ();
-     break;
-    }
-    case PTRACE_SINGLESTEP: {
-     pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( pid );
-     if (!get_is_ptrace_local_ptr ()) {
-        if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-                perror ("waitpid wrapper");
-                 exit(-1);
-        }
-        handle_command_ptr (superior, inferior, PTRACE_SINGLESTEP_COMMAND);
-        ptrace_ret =  _real_ptrace (request, pid, addr, data);
-        if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-                perror ("waitpid wrapper");
-                exit(-1);
-        }
-     }
-     else {
-        ptrace_ret =  _real_ptrace (request, pid, addr, data);
-        unset_is_ptrace_local_ptr ();
-     }
-     break;
-    }
-    case PTRACE_SETOPTIONS: {
-     write_info_to_file_ptr (1, superior, inferior);
-     break;
-    }
-    default: {
-      break;
-    }
-  }
-
-  /* TODO: We might want to check the return value in certain cases */
-
-  if ( request != PTRACE_SINGLESTEP ) {
-        pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( pid );
-        ptrace_ret =  _real_ptrace( request, pid, addr, data );
-  }
-
-  return ptrace_ret;
-}
-#endif
-
-#ifdef PTRACE
-# ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign
-   //   wrapper.  So, we won't interfere with it here.
-#  include <malloc.h>
-// This is needed to fix what is arguably a bug in libdl-2.10.so
-//   (and probably extending from versions 2.4 at least through 2.11).
-// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
-//    but dl-tls.c:dl_update_slotinfo just calls free .
-// So, TLS is allocated by libc malloc and can be freed by a malloc library
-//    defined by user.  This is a bug.
-// This happens only in a multi-threaded programs for which TLS is allocated.
-// So, we intercept __libc_memalign and point it to memalign to have a match.
-// We do the same for __libc_free.  libdl.so doesn't currently define
-//    __libc_free, but the code must be prepared to accept this.
-// An alternative to defining __libc_memalign would have been using
-//    the glibc __memalign_hook() function.
-extern "C"
-void *__libc_memalign(size_t boundary, size_t size) {
-  return memalign(boundary, size);
-}
-// libdl.so doesn't define __libc_free, but in case it does in the future ...
-extern "C"
-void __libc_free(void * ptr) {
-  free(ptr);
-}
-# endif
-#endif
-
 
 // FIXME
 // Starting here, we can continue with files for mtcpinterface.cpp - Gene

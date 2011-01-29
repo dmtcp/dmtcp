@@ -39,12 +39,39 @@ int mtcp_no (void);
 
 __attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
 
+#ifdef PTRACE
+/* This needs to match the structure declaration in dmtcp/src/ptracewapper.h. */
+struct ptrace_info {
+  pid_t superior;
+  pid_t inferior;
+  char inferior_st;
+  int inferior_is_ckpthread;
+  int last_command;
+  int singlestep_waited_on;
+};
+
+struct cmd_info {
+  int option; 
+  pid_t superior;
+  pid_t inferior;
+  int last_command;
+  int singlestep_waited_on;
+  char inferior_st;
+  int file_option;
+};
+#endif
+
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
                         void (*write_ckpt_prefix)(int fd),
-                        void (*write_tid_maps)());
+                        void (*write_tid_maps)()
+#ifdef PTRACE
+                      , struct ptrace_info (*get_next_ptrace_info)(int index),
+                        void (*ptrace_info_list_command)(struct cmd_info cmd)
+#endif
+);
 
 #ifdef __cplusplus
 }
