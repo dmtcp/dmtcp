@@ -62,7 +62,7 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
-	dh_install --fail-missing --sourcedir=$(BUILDDIR)
+	dh_install -Xexamples --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.
@@ -75,7 +75,8 @@ binary-arch: install
 	dh_testroot
 	dh_installchangelogs
 	dh_installdocs
-	dh_installexamples -plibdmtcpaware-dev debian/tmp/usr/lib/dmtcp/dmtcpaware.c
+	dh_installexamples -plibdmtcpaware-dev $(BUILDDIR)/usr/lib/dmtcp/examples
+	dh_installexamples -plibdmtcpaware1.0  $(BUILDDIR)/usr/lib/dmtcp/examples
 	dh_installexamples
 	dh_installman
 	dh_link

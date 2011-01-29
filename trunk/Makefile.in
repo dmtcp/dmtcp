@@ -116,11 +116,16 @@ install: all
 	cp mtcp/libmtcp.so $(DESTDIR)/$(prefix)/lib/dmtcp
 	cp mtcp/mtcp_restart $(DESTDIR)/$(prefix)/lib/dmtcp
 	$(MKDIR_P) $(DESTDIR)/$(prefix)/bin
+	(mv $(DESTDIR)/$(prefix)/lib/dmtcp/libdmtcpaware.so $(DESTDIR)/$(prefix)/lib/dmtcp/libdmtcpaware.so.1.0)
 	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
 	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
 	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_nocheckpoint)
 	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
 	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
+	(cd $(DESTDIR)/$(prefix)/lib && $(LN_S) ../lib/dmtcp/libdmtcpaware.so.1.0)
+	(cd $(DESTDIR)/$(prefix)/lib && $(LN_S) libdmtcpaware.so.1.0 libdmtcpaware.so)
+	$(MKDIR_P) $(DESTDIR)/$(prefix)/lib/dmtcp/examples
+	cp test/dmtcpaware*.c $(DESTDIR)/$(prefix)/lib/dmtcp/examples
 
 uninstall:
 	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_coordinator"

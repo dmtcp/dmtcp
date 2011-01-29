@@ -1,2 +1,2 @@
-usr/lib/libdmtcpaware*.so
-usr/include/dmtcpaware.h
+usr/lib/libdmtcpaware*.so*
+usr/lib/dmtcp/libdmtcpaware*.so*

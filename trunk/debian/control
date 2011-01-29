@@ -48,11 +48,11 @@ Description: Debug package for dmtcp
  .
  This package contains debugging symbols for DMTCP.
 
-Package: libdmtcpaware-dev
+Package: libdmtcpaware1.0
 Architecture: i386 amd64
-Section: libdevel
+Section: libs
 Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
-Description: DMTCP programming interface developer package
+Description: DMTCP programming interface
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
  checkpointing the state of an arbitrary group of programs spread across many
  machines and connected by sockets. It runs directly on the user binary
@@ -69,7 +69,33 @@ Description: DMTCP programming interface developer package
  This package provides a programming interface to allow checkpointed
  applications to interact with dmtcp.
  .
- The user application should link with libdmtcpaware.so (-ldmtcpaware) and use
- the header file dmtcp/dmtcpaware.h.
+ The user application should link with libdmtcpaware.so (-ldmtcpaware) to use
+ the dmtcp API for checkpoint/restart.
+ .
+ For more information see: http://dmtcp.sourceforge.net/
+
+Package: libdmtcpaware-dev
+Architecture: i386 amd64
+Section: libdevel
+Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
+Description: DMTCP programming interface -- developer package
+ DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
+ checkpointing the state of an arbitrary group of programs spread across many
+ machines and connected by sockets. It runs directly on the user binary
+ executable, without needing to modify either the user binary or the operating
+ system.
+ .
+ Among the applications supported by DMTCP are OpenMPI, MATLAB, Python,
+ Perl, and many programming languages and shell scripting languages.
+ DMTCP also supports GNU screen sessions, including vim/cscope and emacs. With
+ the use of TightVNC, it can also checkpoint and restart X-Windows
+ applications, as long as they do not use extensions (e.g.: no OpenGL, no
+ video).
+ .
+ This package provides a programming interface to allow checkpointed
+ applications to interact with dmtcp.
+ .
+ The user application should link with libdmtcpaware.so (-ldmtcpaware) or
+ libdmtcpaware.a and use the header file dmtcp/dmtcpaware.h.
  .
  For more information see: http://dmtcp.sourceforge.net/

@@ -33,8 +33,12 @@ e cd $STAGING
 e svn co https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp_staging
 
 REV=`getRev dmtcp_staging`
-NAME=dmtcp_$VERSION
-#NAME=dmtcp_$VERSION-r$REV
+
+if test -z "$DMTCP_USE_SVN_REV"; then
+  NAME=dmtcp_$VERSION
+else
+  NAME=dmtcp_$VERSION+svn$REV
+fi
 
 e mv dmtcp_staging $NAME
 e rm -rf $NAME/{makeRelease.sh}
@@ -45,11 +49,12 @@ sed -e "s%Architecture: any%Architecture: $archName%" $NAME/debian/control \
 	> debianControl
 e rm $NAME/debian/control
 e mv debianControl $NAME/debian/control
+
 e fakeroot tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
 e rm -rf $NAME
 e mv $NAME.tar.gz $OLDDIR
 e cd $OLDDIR
-e rm -rf $STAGING
+#e rm -rf $STAGING
 e ls -al $NAME.tar.gz
 
