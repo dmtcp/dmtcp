@@ -6,9 +6,10 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint \
-	dmtcpaware.c
+	libdmtcpaware.so
 include_HEADERS = dmtcpaware.h
-lib_LIBRARIES = libdmtcpaware.a
+lib_LIBRARIES = libdmtcpaware.a # libdmtcpaware.so
+#lib_LTLIBRARIES = libdmtcpaware.la
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -82,10 +83,14 @@ dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 
+libdmtcpaware_a_SOURCES = dmtcpaware.c
+
+libdmtcpaware_so_SOURCES = dmtcpaware.c
+libdmtcpaware_so_LDFLAGS = -shared -version-info,1:0:0 -module
+
 # dmtcpaware
 #pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
 #pkglib_LIBRARIES = libdmtcpaware.a
-libdmtcpaware_a_SOURCES = dmtcpaware.c
 #libdmtcpaware_a_LDFLAGS = -avoid-version -module
 #libdmtcpaware_a_LDFLAGS = -avoid-version
 
