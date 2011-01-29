@@ -372,6 +372,17 @@ static void (*callback_post_ckpt)(int is_restarting) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_dmtcp_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
+#ifdef PTRACE
+__attribute__ ((visibility ("hidden"))) struct ptrace_info
+  (*callback_get_next_ptrace_info)(int index) = NULL;
+__attribute__ ((visibility ("hidden"))) void
+  (*callback_ptrace_info_list_command)(struct cmd_info cmd) = NULL;
+int nthreads = -1;
+pthread_mutex_t nthreads_lock = PTHREAD_MUTEX_INITIALIZER;
+int motherofall_done_reading = 0;
+pthread_mutex_t motherofall_done_reading_lock = PTHREAD_MUTEX_INITIALIZER;
+int has_new_ptrace_shared_file = 0;
+#endif
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -539,13 +550,16 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
                                                  //     we will leave the previous good one intact
 
 #ifdef PTRACE
-  /* TODO:  USE flock WHEN WRITING TO THESE THREE FILES (NOT YET DONE FOR ptrace_setoptions_file? */
   memset(ptrace_shared_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared_file.txt", dir);
+  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dir);
   memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions_file.txt", dir);
+  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dir);
   memset(checkpoint_threads_file, '\0', MAXPATHLEN);
-  sprintf(checkpoint_threads_file, "%s/checkpoint_threads_file.txt", dir);
+  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dir);
+  memset(new_ptrace_shared_file, '\0', MAXPATHLEN);
+  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dir);
+  memset(ckpt_leader_file, '\0', MAXPATHLEN);
+  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dir);
 #endif
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
@@ -698,7 +712,12 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*post_ckpt)(int is_restarting),
                         int  (*ckpt_fd)(int fd),
                         void (*write_dmtcp_header)(int fd),
-                        void (*restore_virtual_pid_table)())
+                        void (*restore_virtual_pid_table)()
+#ifdef PTRACE
+                      , struct ptrace_info (*get_next_ptrace_info)(),
+                        void (*ptrace_info_list_command)(struct cmd_info cmd)
+#endif 
+                       )
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
@@ -706,6 +725,10 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_ckpt_fd = ckpt_fd;
     callback_write_dmtcp_header = write_dmtcp_header;
     callback_restore_virtual_pid_table = restore_virtual_pid_table;
+#ifdef PTRACE
+    callback_get_next_ptrace_info = get_next_ptrace_info;
+    callback_ptrace_info_list_command = ptrace_info_list_command;
+#endif
 }
 
 /*************************************************************************/
@@ -899,30 +922,16 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
  /*************************************************************************/
   /*  Code added to keep record of new tasks and processes in a file       */
   /*************************************************************************/
-
-  // initialize the ptrace_tid_pairs array  
-  if (!init_ptrace_pairs) {
-    for (i = 0; i < MAX_PTRACE_PAIRS_COUNT; i++) {
-      ptrace_pairs[i].last_command = PTRACE_UNSPECIFIED_COMMAND;
-      ptrace_pairs[i].singlestep_waited_on = FALSE;
-      ptrace_pairs[i].free = TRUE;
-      ptrace_pairs[i].inferior_st = 'u'; // undefined
-    }
-    init_ptrace_pairs = 1;
-  }
-
-  // initialize the semaphore used when motherofall reads the ptrace shared file  
-  if (!init_ptrace_read_pairs_sem) {
-    sem_init(&ptrace_read_pairs_sem, 0, 0);
-    init_ptrace_read_pairs_sem = 1;
-  }
-
   if (!init__sem) {
     sem_init(&__sem, 0, 1);
     init__sem = 1;
   }
 
-  if (is_ptrace_setoptions == TRUE) writeptraceinfo (setoptions_superior, rc);
+  if (is_ptrace_setoptions == TRUE) {
+    mtcp_ptrace_info_list_insert(setoptions_superior, rc,
+                                 PTRACE_UNSPECIFIED_COMMAND,
+                                 FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
+  }
   else {
     // read from file
     int setoptions_fd = -1;
@@ -930,25 +939,26 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
     pid_t superior;
 
     setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
-
     if (setoptions_fd != -1) {
       while (readall(setoptions_fd, &superior, sizeof(pid_t)) > 0) {
         readall(setoptions_fd, &inferior, sizeof(pid_t));
-  if (inferior == GETTID()) {
-    setoptions_superior = superior;
-    is_ptrace_setoptions = TRUE;
-    writeptraceinfo (setoptions_superior, rc);
-  }
+        if (inferior == GETTID()) {
+          setoptions_superior = superior;
+          is_ptrace_setoptions = TRUE;
+          mtcp_ptrace_info_list_insert(setoptions_superior, rc,
+                                       PTRACE_UNSPECIFIED_COMMAND,
+                                       FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
+        }
       }
       if ( close(setoptions_fd) != 0 ) {
-        mtcp_printf("__clone: Error closing file: %s\n",
-                    strerror(errno));
-  mtcp_abort();
+        mtcp_printf("__clone: Error closing file: %s\n", strerror(errno));
+        mtcp_abort();
       }
     }
   }
   /* the structure of checkpoint_threads_file is pairs of pid and tid */
-  write_info_to_file (2, getpid(), rc);
+  mtcp_ptrace_info_list_insert(getpid(), rc, PTRACE_UNSPECIFIED_COMMAND, FALSE,
+                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
   /*************************************************************************/
   /*  Done recording new tasks and processes.                              */
   /*************************************************************************/
@@ -1025,10 +1035,6 @@ static int threadcloned (void *threadv)
   /* Maybe enable checkpointing by default */
 
   if (threadenabledefault) mtcp_ok ();
-
-//#ifdef PTRACE
-//  init_thread_local();
-//#endif
 
   /* Call the user's function for whatever processing they want done */
 
@@ -1364,7 +1370,9 @@ void mtcp_kill_ckpthread (void)
 
   lock_threads ();
   for (thread = threads; thread != NULL; thread = thread -> next) {
+    mtcp_printf ("%d\n", thread->original_tid);
     if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
+      mtcp_printf ("I %d\n", thread->original_tid);
       unlk_threads ();
       DPRINTF(("mtcp_kill_ckpthread: Kill checkpinthread, tid=%d\n",thread->tid));
       mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
@@ -1463,9 +1471,6 @@ static void *checkpointhread (void *dummy)
 #ifdef PTRACE
   DPRINTF (("mtcp checkpointhread*: begin init_thread_local\n"));
   init_thread_local();
-  check_size_for_ptrace_file (ptrace_shared_file);
-  check_size_for_ptrace_file (ptrace_setoptions_file);
-  check_size_for_ptrace_file (checkpoint_threads_file);
 #endif
 
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */
@@ -1510,10 +1515,6 @@ static void *checkpointhread (void *dummy)
 	    mtcp_sys_kernel_gettid ()));
 
   while (1) {
-#ifdef PTRACE
-    int ptraced_by = 0;
-#endif
-
     /* Wait a while between writing checkpoint files */
 
     if (callback_sleep_between_ckpt == NULL)
@@ -1533,37 +1534,49 @@ static void *checkpointhread (void *dummy)
     checkpointsize = 0;
 
 #ifdef PTRACE
-    // Refresh ptrace information
-    has_ptrace_file = 0;
-    delete_ptrace_leader = -1;
-    has_setoptions_file = 0;
-    delete_setoptions_leader = -1;
-    has_checkpoint_file = 0;
-    delete_checkpoint_leader = -1;
-    process_ptrace_info( &delete_ptrace_leader, &has_ptrace_file,
-                         &delete_setoptions_leader, &has_setoptions_file,
-                         &delete_checkpoint_leader, &has_checkpoint_file);
-
+    /* One of the threads is the ckpt thread. Don't count that in. */
+    nthreads = -1;
     for (thread = threads; thread != NULL; thread = thread -> next) {
-      int i;
-      for (i = 0; i < ptrace_pairs_count; i++) {
-        DPRINTF(("COMPARE: intf=%d, tid=%d\n",
-                 ptrace_pairs[i].inferior, thread->original_tid));
-        if( ptrace_pairs[i].inferior == thread->original_tid ){
-          ptraced_by = ptrace_pairs[i].superior;
+      nthreads++;
+    }
+    read_ptrace_setoptions_file();
+
+    pid_t ckpt_leader = 0;
+    int ckpt_leader_fd = open(ckpt_leader_file,
+                              O_CREAT|O_EXCL|O_WRONLY, 0644);
+    if (ckpt_leader_fd != -1) {
+      ckpt_leader = 1;    
+      close(ckpt_leader_fd);
+    }
+ 
+    /* Is the checkpoint thread being traced? If yes, wait for the superior
+     * to arrive at stopthisthread. */
+    if (callback_get_next_ptrace_info) {
+      int ckpt_ptraced_by = 0;
+      int index = 0;
+      struct ptrace_info pt_info;
+      while (empty_ptrace_info(
+               pt_info = (*callback_get_next_ptrace_info)(index++))) {
+        if (pt_info.inferior == GETTID()) {
+          ckpt_ptraced_by = pt_info.superior;
           break;
         }
       }
-      if( ptraced_by )
-        break;
-    }
-
-    DPRINTF(("\n\n%d ptraced by %d\n\n",(thread) ? thread->tid : 0,ptraced_by));
-    if( ptraced_by ){
-      DPRINTF(("\n\n%d Wait for superior %d\n\n",thread->tid,ptraced_by));
-      ptrace_wait4(ptraced_by);
-      //sleep(1);
-      DPRINTF(("\n\n%d Wait for superior %d - SUCCESS\n\n",thread->tid,ptraced_by));
+      /* The checkpoint thread might not be in the list of threads yet.
+       * However, we have one more chance of finding it, by reading
+       * ptrace_shared_file. */
+      if (!ckpt_ptraced_by) {
+        ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());  
+      }
+      if (ckpt_ptraced_by) {
+        DPRINTF(("checkpointhread: ckpt %d is being traced by %d.\n",
+                 GETTID(), ckpt_ptraced_by));
+        ptrace_wait4(ckpt_ptraced_by);
+        DPRINTF(("checkpointhread: ckpt %d is done waiting for its "
+                 "superior %d: superior is in stopthisthread.\n",
+                 GETTID(), ckpt_ptraced_by));
+      } else DPRINTF(("checkpointhread: ckpt %d not being traced.\n",
+                      GETTID()));
     }
 #endif 
 
@@ -1606,53 +1619,92 @@ again:
         case ST_RUNENABLED: {
           if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
 #ifdef PTRACE
-          ptrace_save_threads_state ();
-          int index;  
-          char inferior_st = 'N';
-          char inf_st;
-          for (index = 0; index < ptrace_pairs_count; index++) {
-            inf_st = procfs_state(ptrace_pairs[index].inferior);
-            DPRINTF(("tid = %d now=%c stored=%c superior = %d inferior = %d\n",
-                     GETTID(), inf_st, ptrace_pairs[index].inferior_st,
-                     ptrace_pairs[index].superior, ptrace_pairs[index].inferior));
-            if (ptrace_pairs[index].inferior == thread -> original_tid) {
-              inferior_st = ptrace_pairs[index].inferior_st;
-              break;
+          has_new_ptrace_shared_file = 0;
+
+          char inferior_st;
+          int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
+          if (ptrace_fd == -1) {
+            /* There is no ptrace_shared_file. All ptrace pairs are in memory.
+             * Thus we only need to update the ptrace pairs. */
+            mtcp_ptrace_info_list_save_threads_state();
+            inferior_st = retrieve_inferior_state(thread -> original_tid);
+          } else {
+            has_new_ptrace_shared_file = 1;
+            int new_ptrace_fd = -1;
+
+            if (ckpt_leader)
+              new_ptrace_fd = open(new_ptrace_shared_file,
+                                   O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
+            pid_t superior, inferior;
+            char inf_st;
+            while (readall(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
+              readall(ptrace_fd, &inferior, sizeof(pid_t));
+              inf_st = procfs_state(inferior);
+              if (inferior == thread -> original_tid) inferior_st = inf_st;
+              if (ckpt_leader && new_ptrace_fd != -1) {
+                if (write(new_ptrace_fd, &superior, sizeof(pid_t)) == -1) {
+                  mtcp_printf("checkpointhread: Error writing to file: %s\n",
+                               strerror(errno));
+                  mtcp_abort();
+                }
+                if (write(new_ptrace_fd, &inferior, sizeof(pid_t)) == -1) {
+                  mtcp_printf("checkpointhread: Error writing to file: %s\n",
+                               strerror(errno));
+                  mtcp_abort();
+                }
+                if (write(new_ptrace_fd, &inf_st, sizeof(char)) == -1) {
+                  mtcp_printf("checkpointhread: Error writing to file: %s\n",
+                               strerror(errno));
+                  mtcp_abort();
+                }
+              }
+            }
+            if (ckpt_leader && new_ptrace_fd != -1) {
+              if (close(new_ptrace_fd) != 0) {
+                mtcp_printf("checkpointhread: error while closing file, %s.\n",
+                             strerror(errno));
+                mtcp_abort();
+              }
+            }
+            if (close(ptrace_fd) != 0) {
+              mtcp_printf("checkpointhread: error while closing file, %s.\n",
+                           strerror(errno));
+              mtcp_abort();
             }
           }
           DPRINTF(("%d %c\n", GETTID(), inferior_st));
           if (inferior_st == 'N') {
-            // superior 
-            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+            /* If the state is unknown, send a stop signal to inferior. */
+            if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
               if (mtcp_sys_errno != ESRCH) {
-                mtcp_printf("mtcp checkpointhread: error signalling thread %d: %s\n",
+                mtcp_printf("ckpt thread: error signalling thread %d: %s\n",
                             thread -> tid, strerror (mtcp_sys_errno));
               }
-              unlk_threads ();
-              threadisdead (thread);
+              unlk_threads();
+              threadisdead(thread);
               goto rescan;
             }
-          }
-          else {
-            // inferior 
-            DPRINTF(("++++++++++++++++++++++++++++++++%c %d\n", inferior_st, thread -> original_tid));
+          } else {
+            DPRINTF(("%c %d\n", inferior_st, thread -> original_tid));
+            /* If the state is not stopped, then send a stop signal to
+             * the inferior. */
             if (inferior_st != 'T') {
-            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
+              if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
-                  mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
-                               thread -> tid, strerror (mtcp_sys_errno));
+                  mtcp_printf("ckpt thread: error signalling thread %d: %s\n",
+                               thread -> tid, strerror(mtcp_sys_errno));
                 }
-                unlk_threads ();
-                threadisdead (thread);
+                unlk_threads();
+                threadisdead(thread);
                 goto rescan;
               }
             }
-            create_file( thread -> original_tid );
+            create_file(thread -> original_tid);
           }
 #else
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
             if (mtcp_sys_errno != ESRCH) {
-              mtcp_printf ("mtcp checkpointhread: error signalling thread %d: %s\n",
+              mtcp_printf ("checkpointhread: error signalling thread %d: %s\n",
                            thread -> tid, strerror (mtcp_sys_errno));
             }
             unlk_threads ();
@@ -1760,17 +1812,6 @@ again:
       }
     }
 
-#ifdef PTRACE
-    /* If old stale files of these names exist, we append, with big problems
-     * It's okay if files don't exist and unlink fails.
-     * Pre_ckpt is a barrier from coordinator.  So, all processes finished
-     *  reading ptrace pairs from files prior to this barrier.
-     */
-    unlink(ptrace_shared_file);
-    unlink(ptrace_setoptions_file);
-    unlink(checkpoint_threads_file);
-#endif
-
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);  // kernel returns mm->brk when passed zero
     /* Do this once, same for all threads.  But restore for each thread. */
     if (mtcp_have_thread_sysinfo_offset())
@@ -1832,7 +1873,7 @@ again:
     DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
     /* But if we're doing a restore verify, just exit.  The main thread is doing the exec to start the restore. */
 #ifdef PTRACE
-    create_file (GETTID());
+    create_file(GETTID());
 #endif
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
@@ -2626,13 +2667,6 @@ static void stopthisthread (int signum)
 #define STDERR_FD 826
 #define LOG_FD 826
 
-#ifdef PTRACE
-  ptrace_unlock_inferiors();
-  ptrace_remove_notexisted();
-  ptrace_detach_checkpoint_threads ();
-  ptrace_detach_user_threads ();
-#endif
-
   DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
@@ -2642,6 +2676,71 @@ static void stopthisthread (int signum)
   if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
     return ;
   }
+
+#ifdef PTRACE
+  pthread_mutex_lock(&nthreads_lock);
+  nthreads--;
+  pthread_mutex_unlock(&nthreads_lock);
+
+  /* Wait for all threads from this process to have reached stopthisthread. */
+  int cont = 1;
+  while (cont) {
+    pthread_mutex_lock(&nthreads_lock);
+    if (nthreads == 0) cont = 0;
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100000000;
+    nanosleep(&ts, NULL);
+    pthread_mutex_unlock(&nthreads_lock);
+  }
+
+  /* Wait for new_ptrace_shared_file to have been written, if there is one. */
+  if (has_new_ptrace_shared_file) {
+    struct stat buf;
+    while (stat(new_ptrace_shared_file, &buf)) {
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 100000000;
+      if (errno != ENOENT) {
+        mtcp_printf("stopthisthread: Unexpected error in stat: %d\n",errno);
+        mtcp_abort();
+      }
+      nanosleep(&ts,NULL);
+    }
+  }
+
+  motherofall_done_reading = 0;
+
+  /* Motherofall reads in new_ptrace_shared_file and checkpoint_threads_file. */
+  if (getpid() == GETTID()) {
+    /* We piggyback JALIB_CKPT_UNLOCK with the next call. */
+    mtcp_ptrace_info_list_remove_pairs_with_dead_tids();
+    read_new_ptrace_shared_file();
+    read_checkpoint_threads_file();
+    mtcp_ptrace_info_list_remove_pairs_with_dead_tids();
+    mtcp_ptrace_info_list_sort();
+    pthread_mutex_lock(&motherofall_done_reading_lock);
+    motherofall_done_reading = 1;
+    pthread_mutex_unlock(&motherofall_done_reading_lock);
+  }
+
+  /* Wait for motherofall to have read in the ptrace related files. */
+  cont = 1;
+  while (cont) {
+    pthread_mutex_lock(&motherofall_done_reading_lock);
+    if (motherofall_done_reading) cont = 0;
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100000000;
+    nanosleep(&ts, NULL);
+    pthread_mutex_unlock(&motherofall_done_reading_lock);
+  }
+
+  /* Now we can proceed - we have all the information in memory. */
+  ptrace_unlock_inferiors();
+  ptrace_detach_checkpoint_threads();
+  ptrace_detach_user_threads();
+#endif
 
   if (0 && thread == motherofall) {
 #include <execinfo.h>
@@ -2710,10 +2809,15 @@ static void stopthisthread (int signum)
       }
 
 #ifdef PTRACE
-      DPRINTF (("mtcp stopthisthread*: thread %d after suspending before deleting files\n", thread -> tid));
-      delete_file(0, delete_ptrace_leader, has_ptrace_file);
-      delete_file(1, delete_setoptions_leader, has_setoptions_file);
-      delete_file(2, delete_checkpoint_leader, has_checkpoint_file);
+      /* All user threads will try to delete these files. It doesn't matter if
+       * unlink fails. The sole purpose of these unlinks is to prevent these
+       * files to become too big. Big files imply an increased processing time
+       * of the ptrace pairs. */
+      unlink(ptrace_shared_file);
+      unlink(ptrace_setoptions_file);
+      unlink(checkpoint_threads_file);
+      unlink(new_ptrace_shared_file);
+      unlink(ckpt_leader_file);
       ptrace_attach_threads(0);
 #endif
 

@@ -3,7 +3,6 @@
 
 int main(int argc, char* argv[])
 {
-  char buf [1024 * 1024];
   int count = 1;
 
   while (1)
