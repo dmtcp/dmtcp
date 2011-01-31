@@ -329,6 +329,7 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 #endif
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {
   if ( addr == NULL || addrlen == NULL )
@@ -341,6 +342,7 @@ int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
   else
     PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, addr, addrlen, flags );
 }
+#endif
 
 #ifdef RECORD_REPLAY
 int getsockname ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
