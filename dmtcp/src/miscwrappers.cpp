@@ -370,15 +370,13 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = accept(sockfd, addr, addrlen);
       break;
     }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-# if __GLIBC_PREREQ(2,10)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
     case SYS_accept4:
     {
       SYSCALL_GET_ARGS_4(int,sockfd,struct sockaddr*,addr,socklen_t*,addrlen,int,flags);
       ret = accept4(sockfd, addr, addrlen, flags);
       break;
     }
-# endif
 #endif
     case SYS_setsockopt:
     {
@@ -401,15 +399,13 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = pipe(fds);
       break;
     }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-# if __GLIBC_PREREQ(2,9)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
     case SYS_pipe2:
     {
       SYSCALL_GET_ARGS_2(int*,fds,int,flags);
       ret = pipe2(fds, flags);
       break;
     }
-# endif
 #endif
 
 #ifdef PID_VIRTUALIZATION

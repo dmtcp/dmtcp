@@ -198,13 +198,11 @@ extern "C"
   MACRO(setsockopt)                         \
   MACRO(socketpair)
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-# if __GLIBC_PREREQ(2,10)
-#  define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
-    MACRO(accept4)
-# endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
+   MACRO(accept4)
 #else
-#  define GLIBC_ACCEPT4_WRAPPER(MACRO)
+# define GLIBC_ACCEPT4_WRAPPER(MACRO)
 #endif
 
 #define GLIBC_EXEC_WRAPPERS(MACRO)          \
@@ -300,7 +298,9 @@ extern "C"
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
   int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
+#endif
 #ifdef RECORD_REPLAY
   int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
