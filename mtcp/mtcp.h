@@ -40,7 +40,8 @@ int mtcp_no (void);
 __attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
 
 #ifdef PTRACE
-/* This needs to match the structure declaration in dmtcp/src/ptracewapper.h. */
+
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
 struct ptrace_info {
   pid_t superior;
   pid_t inferior;
@@ -50,6 +51,7 @@ struct ptrace_info {
   int singlestep_waited_on;
 };
 
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
 struct cmd_info {
   int option; 
   pid_t superior;
@@ -58,6 +60,16 @@ struct cmd_info {
   int singlestep_waited_on;
   char inferior_st;
   int file_option;
+};
+
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
+/* Default values: 0, 0, -1, -1, 0. */
+struct ptrace_waitpid_info {
+  int is_waitpid_local; /* 1 = waitpid called by DMTCP */
+  int is_ptrace_local;  /* 1 = ptrace called by DMTCP */
+  pid_t saved_pid;
+  int saved_status;
+  int has_status_and_pid;
 };
 #endif
 

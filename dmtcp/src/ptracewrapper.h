@@ -26,18 +26,14 @@
 #include <unistd.h>
 #include <signal.h>
 
-enum {
-  FALSE = 0,
-  TRUE
-};
-
-// These constants must agree with the constants in mtcp/mtcp.c
+/* Must match the enum from mtcp/mtcp_ptrace.h. */
 enum {
   PTRACE_UNSPECIFIED_COMMAND = 0,
   PTRACE_SINGLESTEP_COMMAND,
   PTRACE_CONTINUE_COMMAND
 };
 
+/* Must match the enum from mtcp/mtcp_ptrace.h. */
 enum {
   PTRACE_NO_FILE_OPTION = 0,
   PTRACE_SHARED_FILE_OPTION,
@@ -46,17 +42,26 @@ enum {
   PTRACE_NEW_SHARED_FILE_OPTION
 };
 
+/* Must match the enum from mtcp/mtcp_ptrace.h. */
 enum {
   PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD = 1,
   PTRACE_INFO_LIST_SORT,
   PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS,
   PTRACE_INFO_LIST_SAVE_THREADS_STATE,
   PTRACE_INFO_LIST_PRINT,
-  PTRACE_INFO_LIST_INSERT,
-  PTRACE_INFO_LIST_UPDATE_INFO
+  PTRACE_INFO_LIST_INSERT
 };
 
-/* This needs to match the structure declaration in mtcp/mtcp_ptrace.h. */
+/* Must match the enum from mtcp/mtcp_ptrace.h. */
+enum {
+  FALSE = 0,
+  TRUE
+};
+
+#define MTCP_DEFAULT_SIGNAL SIGUSR2
+
+/* Must match the structure declaration in mtcp/mtcp.h, without the operator
+ * overloading feature. */
 struct ptrace_info {
   pid_t superior;
   pid_t inferior;
@@ -74,8 +79,7 @@ struct ptrace_info {
   } 
 };
 
-static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
-
+/* Must match the structure declaration in mtcp/mtcp.h. */
 struct cmd_info {
   int option;
   pid_t superior;
@@ -86,46 +90,25 @@ struct cmd_info {
   int file_option;
 };
 
+/* Must match the structure declaration in mtcp/mtcp.h. */
+/* Default values: 0, 0, -1, -1, 0. */
+struct ptrace_waitpid_info {
+  int is_waitpid_local; /* 1 = waitpid called by DMTCP */
+  int is_ptrace_local;  /* 1 = ptrace called by DMTCP */
+  pid_t saved_pid;
+  int saved_status;
+  int has_status_and_pid;
+};
+
+static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
+
 static const struct cmd_info EMPTY_CMD_INFO = {0, 0, 0, 0, 0, 0, 0};
 
 extern dmtcp::list<struct ptrace_info> ptrace_info_list;
 
-typedef pid_t ( *get_saved_pid_t) ( );
-__attribute__ ((visibility ("hidden"))) extern get_saved_pid_t
-  get_saved_pid_ptr;
-
-typedef int ( *get_saved_status_t) ( );
-__attribute__ ((visibility ("hidden"))) extern get_saved_status_t
-  get_saved_status_ptr;
-
-typedef int ( *get_has_status_and_pid_t) ( );
-__attribute__ ((visibility ("hidden"))) extern get_has_status_and_pid_t
-  get_has_status_and_pid_ptr;
-
-typedef void ( *reset_pid_status_t) ( );
-__attribute__ ((visibility ("hidden"))) extern reset_pid_status_t
-  reset_pid_status_ptr;
-
-typedef void ( *set_singlestep_waited_on_t) ( pid_t superior,
-  pid_t inferior, int value );
-__attribute__ ((visibility ("hidden"))) extern set_singlestep_waited_on_t
-  set_singlestep_waited_on_ptr;
-
-typedef int ( *get_is_waitpid_local_t ) ();
-__attribute__ ((visibility ("hidden"))) extern get_is_waitpid_local_t
-  get_is_waitpid_local_ptr;
-
-typedef int ( *get_is_ptrace_local_t ) ();
-__attribute__ ((visibility ("hidden"))) extern get_is_ptrace_local_t
-  get_is_ptrace_local_ptr;
-
-typedef void ( *unset_is_waitpid_local_t ) ();
-__attribute__ ((visibility ("hidden"))) extern unset_is_waitpid_local_t
-  unset_is_waitpid_local_ptr;
-
-typedef void ( *unset_is_ptrace_local_t ) ();
-__attribute__ ((visibility ("hidden"))) extern unset_is_ptrace_local_t
-  unset_is_ptrace_local_ptr;
+typedef struct ptrace_waitpid_info ( *t_mtcp_get_ptrace_waitpid_info ) ();
+__attribute__ ((visibility ("hidden"))) extern t_mtcp_get_ptrace_waitpid_info 
+  mtcp_get_ptrace_waitpid_info;
 
 typedef void ( *t_mtcp_init_thread_local ) ();
 __attribute__ ((visibility ("hidden"))) extern t_mtcp_init_thread_local
@@ -134,8 +117,7 @@ __attribute__ ((visibility ("hidden"))) extern t_mtcp_init_thread_local
 __attribute__ ((visibility ("hidden"))) extern sigset_t signals_set;
 
 void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
-                              int singlestep_waited_on, char inferior_st,
-                              int file_option);
+  int singlestep_waited_on, char inferior_st, int file_option);
 
 char procfs_state(int tid);
 
@@ -143,6 +125,8 @@ extern "C" struct ptrace_info get_next_ptrace_info(int index);
 
 extern "C" void ptrace_info_list_command(struct cmd_info cmd);
 
-#define MTCP_DEFAULT_SIGNAL SIGUSR2
+extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
+  int singlestep_waited_on); 
+
 #endif
 #endif

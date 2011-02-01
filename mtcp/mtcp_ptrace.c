@@ -44,58 +44,48 @@
 
 #define GETTID() (int)syscall(SYS_gettid)
 
-int only_once = 0;
-
 const unsigned char DMTCP_SYS_sigreturn =  0x77;
 const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
 
 static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
 
-/*  A cleaner way to write this code is to define in this file:
- *  static pid_t dmtcp_waitpid(pid_t pid, int *status, int options) {
- *    int rc;
- *    is_waitpid_local = 1;
- *    rc = waitpid(pid, status, options);
- *    is_waitpid_local = 0;
- *    return rc;
- *  }
- *  Then, in pidwrappers.cpp:
- *  extern "C"
- *  static mtcp_is_waitpid_local_ptr = dmtcp_get_mtcp_symbol("is_waitpid_local");
- *    and then use   *mtcp_is_waitpid_local  directly in the waitpid wrapper.
- *
- *  Then remove get_is_waitpid_local and unset_is_waitpid_local _everywhere_,
- *   including removing it from mtcpinterface.cpp and from this file.
- *  Also then remove all other occurences of is_waitpid_local in this file.
- *  One can also do the same for is_ptrace_local.  All of this will
- *  simplify the current code a lot.
- *
- *  If you agree, please do it.  Otherwise, let's discuss it.  Thanks, - Gene
- */
-/* All of these variables are for the benefit of pidwrappers.cpp.  Please
- * Consider making them fields of a struct, and using dmtcp_get_mtcp_symbol()
- * on a single pointer to the struct to be added here, instead of
- * repeatedly calling dmtcp_get_mtcp_symbol() on a huge number of functions
- * that access these variables.  - Gene.
- */
-static __thread int is_waitpid_local = 0; /* true if waitpid called by DMTCP */
-static __thread int is_ptrace_local = 0; /* true if ptrace called by DMTCP */
-static __thread pid_t saved_pid = -1;
-static __thread int saved_status = -1;
-static __thread int has_status_and_pid = 0;
+__thread struct ptrace_waitpid_info __ptrace_waitpid;
 
 __thread pid_t setoptions_superior = -1;
 __thread int is_ptrace_setoptions = FALSE;
 
-sem_t __sem;
-int init__sem = 0;
+sem_t __does_inferior_exist_sem;
+int __init_does_inferior_exist_sem = 0;
+int __check_once_does_inferior_exist = 0;
 
-char dir[MAXPATHLEN];
+char dmtcp_tmp_dir[MAXPATHLEN];
 char new_ptrace_shared_file[MAXPATHLEN];
 char ptrace_shared_file[MAXPATHLEN];
 char ptrace_setoptions_file[MAXPATHLEN];
 char checkpoint_threads_file[MAXPATHLEN];
 char ckpt_leader_file[MAXPATHLEN];
+
+static pid_t mtcp_waitpid(pid_t pid, int *status, int options) {
+  int rc;
+  __ptrace_waitpid.is_waitpid_local = 1;
+  rc = waitpid(pid, status, options);
+  __ptrace_waitpid.is_waitpid_local = 0;
+  if (__ptrace_waitpid.has_status_and_pid) {
+    __ptrace_waitpid.saved_pid = -1;
+    __ptrace_waitpid.saved_status = -1;
+    __ptrace_waitpid.has_status_and_pid = 0;
+  }
+  return rc;
+}
+
+static long mtcp_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
+                         void *data) {
+  long rc;
+  __ptrace_waitpid.is_ptrace_local = 1;
+  rc = ptrace(request, pid, addr, data);
+  __ptrace_waitpid.is_ptrace_local = 0;
+  return rc;
+}
 
 int empty_ptrace_info(struct ptrace_info pt_info) {
   return pt_info.superior && pt_info.inferior;
@@ -103,11 +93,11 @@ int empty_ptrace_info(struct ptrace_info pt_info) {
 
 void init_thread_local()
 {
-  is_waitpid_local = 0; // no crash on pre-access
-  is_ptrace_local = 0; // no crash on pre-access
-  saved_pid = -1; // no crash on pre-access
-  saved_status = -1; // no crash on pre-access
-  has_status_and_pid = 0; // crash
+  __ptrace_waitpid.is_waitpid_local = 0;    // no crash on pre-access
+  __ptrace_waitpid.is_ptrace_local = 0;     // no crash on pre-access
+  __ptrace_waitpid.saved_pid = -1;          // no crash on pre-access
+  __ptrace_waitpid.saved_status = -1;       // no crash on pre-access
+  __ptrace_waitpid.has_status_and_pid = 0;  // crash
 
   setoptions_superior = -1;
   is_ptrace_setoptions = FALSE;
@@ -155,8 +145,6 @@ void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
   }
 }
 
-/* In this function the superiors attach to their inferiors, at resume time
- * or after restart. */
 void ptrace_attach_threads(int isRestart)
 {
   if (!callback_get_next_ptrace_info) return;
@@ -189,29 +177,27 @@ void ptrace_attach_threads(int isRestart)
     inferior_is_ckpthread = pt_info.inferior_is_ckpthread;
 
     if (superior == GETTID()) {
-      DPRINTF (("pthread_attach_threads: GETTID = %d superior = %d "
+      DPRINTF (("ptrace_attach_threads: GETTID = %d superior = %d "
                 "inferior = %d\n", GETTID(), superior, inferior));
 
       /* We must make sure the inferior process was created. */
-      sem_wait( &__sem);
-      if (only_once == 0) {
+      sem_wait(&__does_inferior_exist_sem);
+      if (__check_once_does_inferior_exist == 0) {
         have_file (superior);
-        only_once = 1;
+        __check_once_does_inferior_exist = 1;
       }
-      sem_post( &__sem);
+      sem_post(&__does_inferior_exist_sem);
 
       /* If the inferior is the checkpoint thread, attach. */
       if (inferior_is_ckpthread) {
         have_file (inferior);
         DPRINTF(("ptrace_attach_threads: %d attaching to ckptthread: %d\n",
                 superior, inferior));
-        is_ptrace_local = 1;
-        if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
+        if (mtcp_ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
           perror("ptrace_attach_threads: PTRACE_ATTACH for ckpthread failed.");
           mtcp_abort();
         }
-        is_waitpid_local = 1;
-        if (waitpid(inferior, &status, __WCLONE) == -1) {
+        if (mtcp_waitpid(inferior, &status, __WCLONE) == -1) {
           perror("ptrace_attach_threads: waitpid for ckpt failed\n");
           mtcp_abort();
         }
@@ -225,8 +211,7 @@ void ptrace_attach_threads(int isRestart)
         DPRINTF(("ptrace_attach_threads: preCheckpoint state = %c\n",
                 inferior_st));
         if (inferior_st != 'T') {
-          is_ptrace_local = 1;
-          if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+          if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
             perror("ptrace_attach_threads: PTRACE_CONT failed");
             mtcp_abort();
           }
@@ -235,8 +220,7 @@ void ptrace_attach_threads(int isRestart)
       }
 
       /* Attach to the user threads. */
-      is_ptrace_local = 1;
-      if (ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
+      if (mtcp_ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
         mtcp_printf("ptrace_attach_threads: %d failed to attach to %d\n",
                     superior, inferior);
         perror("ptrace_attach_threads: PTRACE_ATTACH failed");
@@ -247,10 +231,8 @@ void ptrace_attach_threads(int isRestart)
       /* After attach, the superior needs to singlestep the inferior out of
        * stopthisthread, aka the signal handler. */
       while(1) {
-        is_waitpid_local = 1;
-        if (waitpid(inferior, &status, 0) == -1) {
-          is_waitpid_local = 1;
-          if (waitpid(inferior, &status, __WCLONE) == -1) {
+        if (mtcp_waitpid(inferior, &status, 0) == -1) {
+          if (mtcp_waitpid(inferior, &status, __WCLONE) == -1) {
             mtcp_printf("ptrace_attach_threads: %d failed waitpid on %d\n",
                         superior, inferior);
             perror("ptrace_attach_threads: waitpid failed\n");
@@ -313,8 +295,7 @@ void ptrace_attach_threads(int isRestart)
             else if (inferior_st != 'T' ) {
               /* TODO: remove in future as GROUP restore becames stable
                *                                                    - Artem */
-              is_ptrace_local = 1;
-              if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_CONT on %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -324,8 +305,7 @@ void ptrace_attach_threads(int isRestart)
           } else { /* Resume time. */
             if (inferior_st != 'T') {
               ptrace_set_controlling_term(superior, inferior);
-              is_ptrace_local = 1;
-              if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_CONT on %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -337,17 +317,14 @@ void ptrace_attach_threads(int isRestart)
           /* In case we have checkpointed at a breakpoint, we don't want to
            * hit the same breakpoint twice. Thus this code. */
           if (inferior_st == 'T') {
-            is_ptrace_local = 1;
-            if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+            if (mtcp_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
               mtcp_printf("ptrace_attach_threads: %d failed while calling "
                           "PTRACE_SINGLESTEP on %d\n", superior, inferior);
               perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
               mtcp_abort();
             }
-            is_waitpid_local = 1;
-            if (waitpid(inferior, &status, 0 ) == -1) {
-              is_waitpid_local = 1;
-              if (waitpid(inferior, &status, __WCLONE) == -1) {
+            if (mtcp_waitpid(inferior, &status, 0 ) == -1) {
+              if (mtcp_waitpid(inferior, &status, __WCLONE) == -1) {
                 mtcp_printf("ptrace_attach_threads: %d failed waitpid on %d\n",
                             superior, inferior);
                 perror("ptrace_attach_threads: waitpid failed\n");
@@ -390,8 +367,7 @@ void ptrace_attach_threads(int isRestart)
               }
             } else if (inferior_st != 'T') {
               ptrace_set_controlling_term(superior, inferior);
-              is_ptrace_local = 1;
-              if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_CONT on %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -401,8 +377,7 @@ void ptrace_attach_threads(int isRestart)
           } else { /* Resume time. */
             if (inferior_st != 'T') {
               ptrace_set_controlling_term(superior, inferior);
-              is_ptrace_local = 1;
-              if (ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
+              if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_CONT on %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -414,17 +389,14 @@ void ptrace_attach_threads(int isRestart)
           /* In case we have checkpointed at a breakpoint, we don't want to
            * hit the same breakpoint twice. Thus this code. */
           if (inferior_st == 'T') {
-            is_ptrace_local = 1;
-            if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+            if (mtcp_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
               mtcp_printf("ptrace_attach_threads: %d failed while calling "
                           "PTRACE_SINGLESTEP on %d\n", superior, inferior);
               perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
               mtcp_abort();
             }
-            is_waitpid_local = 1;
-            if (waitpid(inferior, &status, 0 ) == -1) {
-              is_waitpid_local = 1;
-              if (waitpid(inferior, &status, __WCLONE ) == -1) {
+            if (mtcp_waitpid(inferior, &status, 0) == -1) {
+              if (mtcp_waitpid(inferior, &status, __WCLONE) == -1) {
                 mtcp_printf("ptrace_attach_threads: %d failed waitpid on %d\n",
                             superior, inferior);
                 perror("ptrace_attach_threads: waitpid failed\n");
@@ -435,8 +407,7 @@ void ptrace_attach_threads(int isRestart)
           break;
         }
         #endif
-        is_ptrace_local = 1;
-        if (ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
+        if (mtcp_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
           mtcp_printf("ptrace_attach_threads: %d failed while calling "
                       "PTRACE_SINGLESTEP on %d\n", superior, inferior);
           perror("ptrace_attach_threads: PTRACE_SINGLESTEP failed");
@@ -452,9 +423,9 @@ void ptrace_attach_threads(int isRestart)
   DPRINTF(("ptrace_attach_threads: %d done.\n", GETTID()));
 }
 
-/* This function detaches only the checkpoint threads.
- * The checkpoint threads need to be unattached so that they can process the
- * checkpoint message from the coordinator. */
+/* Detach only the checkpoint threads.
+ * The checkpoint threads need to be detached before user threads, so that they
+ * can process the checkpoint message from the coordinator. */
 void ptrace_detach_checkpoint_threads ()
 {
   if (!callback_get_next_ptrace_info) return;
@@ -470,10 +441,8 @@ void ptrace_detach_checkpoint_threads ()
                "superior = %d\n", pt_info.inferior, pt_info.superior));
       if ((ret = ptrace_detach_ckpthread(pt_info.inferior,
                                          pt_info.superior)) != 0) {
-        if (ret == -ENOENT) {
-          DPRINTF(("%s: process does not exist %d\n", __FUNCTION__,
-                  pt_info.inferior));
-        }
+        if (ret == -ENOENT) mtcp_printf("%s: process does not exist %d\n",
+                                        __FUNCTION__, pt_info.inferior);
         mtcp_abort();
       }
     }
@@ -518,14 +487,12 @@ void ptrace_detach_user_threads ()
          * thread before us. Consequently we will block. Thus we need to read
          * without hanging. */
         DPRINTF(("Thread %d is already stopped.\n", pt_info.inferior));
-        is_waitpid_local = 1;
-        tpid = waitpid (pt_info.inferior, &status, WNOHANG);
+        tpid = mtcp_waitpid(pt_info.inferior, &status, WNOHANG);
         if (tpid == -1 && errno == ECHILD) {
           DPRINTF(("Check cloned process\n"));
           // Try again with __WCLONE to check cloned processes.
-          is_waitpid_local = 1;
-          if ((tpid = waitpid(pt_info.inferior, &status,
-                              __WCLONE | WNOHANG)) == -1) {
+          if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
+                                    __WCLONE | WNOHANG)) == -1) {
             DPRINTF(("ptrace_detach_user_threads: waitpid(..,__WCLONE), %s\n",
                     strerror(errno)));
           }
@@ -539,12 +506,11 @@ void ptrace_detach_user_threads ()
          * by the delivery of MTCP_DEFAULT_SIGNAL.
          * It is safe to call blocking waitpid. */
         DPRINTF(("Thread %d is not stopped yet.\n", pt_info.inferior));
-        is_waitpid_local = 1;
-        tpid = waitpid(pt_info.inferior, &status, 0);
+        tpid = mtcp_waitpid(pt_info.inferior, &status, 0);
         if (tpid == -1 && errno == ECHILD) {
           DPRINTF(("Check cloned process\n"));
-          is_waitpid_local = 1;
-          if ((tpid = waitpid(pt_info.inferior, &status, __WCLONE)) == -1) {
+          if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
+                                    __WCLONE)) == -1) {
             mtcp_printf("ptrace_detach_user_threads: waitpid(..,__WCLONE) %s\n",
                         strerror(errno));
           }
@@ -565,9 +531,8 @@ void ptrace_detach_user_threads ()
 
       if (pt_info.last_command == PTRACE_SINGLESTEP_COMMAND &&
           pt_info.singlestep_waited_on == FALSE) {
-        //is_waitpid_local = 1;
-        has_status_and_pid = 1;
-        saved_status = status;
+        __ptrace_waitpid.has_status_and_pid = 1;
+        __ptrace_waitpid.saved_status = status;
         DPRINTF(("ptrace_detach_user_threads: AFTER WAITPID %d\n", status));
         pt_info.singlestep_waited_on = TRUE;
         pt_info.last_command = PTRACE_UNSPECIFIED_COMMAND;
@@ -576,8 +541,7 @@ void ptrace_detach_user_threads ()
       DPRINTF(("GETTID = %d detaching superior = %d from inferior = %d\n",
                GETTID(), (int)pt_info.superior, (int)pt_info.inferior));
       have_file (pt_info.inferior);
-      is_ptrace_local = 1;
-      if (ptrace(PTRACE_DETACH, pt_info.inferior, 0,
+      if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
                  MTCP_DEFAULT_SIGNAL) == -1) {
         DPRINTF(("ptrace_detach_user_threads: parent = %d child = %d\n",
                 (int)pt_info.superior, (int)pt_info.inferior));
@@ -592,7 +556,8 @@ void ptrace_detach_user_threads ()
 void ptrace_lock_inferiors()
 {
     char file[RECORDPATHLEN];
-    snprintf(file,RECORDPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
+    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
+             dmtcp_tmp_dir, GETTID());
     unlink(file);
 }
 
@@ -600,7 +565,8 @@ void ptrace_unlock_inferiors()
 {
     char file[RECORDPATHLEN];
     int fd;
-    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",dir,GETTID());
+    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_tmp_dir,
+             GETTID());
     fd = creat(file, 0644);
     if (fd < 0) {
         mtcp_printf("ptrace_unlock_inferiors: Error creating lock file: %s\n",
@@ -616,7 +582,7 @@ void create_file(pid_t pid)
   int fd;
 
   memset(str, 0, RECORDPATHLEN);
-  sprintf(str, "%s/%d", dir, pid);
+  sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
 
   fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
@@ -637,7 +603,7 @@ void have_file(pid_t pid)
   int fd;
 
   memset(str, 0, RECORDPATHLEN);
-  sprintf(str, "%s/%d", dir, pid);
+  sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
   while(1) {
     fd = open(str, O_RDONLY);
     if (fd != -1) {
@@ -660,7 +626,8 @@ void have_file(pid_t pid)
 void ptrace_wait4(pid_t pid)
 {   char file[RECORDPATHLEN];
     struct stat buf;
-    snprintf(file,RECORDPATHLEN,"%s/dmtcp_ptrace_unlocked.%d",dir,pid);
+    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
+             dmtcp_tmp_dir, pid);
 
     DPRINTF(("%d: Start waiting for superior\n",GETTID()));
     while( stat(file,&buf) < 0 ){
@@ -677,95 +644,9 @@ void ptrace_wait4(pid_t pid)
     DPRINTF(("%d: Superior unlocked us\n",GETTID()));
 }
 
-/*************************************************************************/
-/* Utilities for ptrace code                                             */
-/* IF ALL THESE FUNCTIONS MUST EXIST INSIDE mtcp.c AND NOT IN SEAPARATE  */
-/* FILE, THEN WE MUST RENAME THEM ALL WITH SOME PREFIX LIKE pt_          */
-/* (DIFFERENT NAMESPACE FROM REST OF FILE).  IF WE CAN MOVE THEM TO      */
-/* A DIFFERENT FILE, THAT WOULD BE EVEN BETTER.   - Gene                 */
-/*************************************************************************/
-/***********************************************************************
- * This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN THE USER'S PROCESS.    - Gene
- ***********************************************************************/
-void set_singlestep_waited_on ( pid_t superior, pid_t inferior, int value )
+struct ptrace_waitpid_info get_ptrace_waitpid_info ()
 {
-  mtcp_ptrace_info_list_update_info(superior, inferior, value);
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-int get_is_waitpid_local ()
-{
-  return is_waitpid_local;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-int get_is_ptrace_local ()
-{
-  return is_ptrace_local;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-void unset_is_waitpid_local ()
-{
-  is_waitpid_local = 0;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-void unset_is_ptrace_local ()
-{
-  is_ptrace_local = 0;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-pid_t get_saved_pid ()
-{
-  return saved_pid;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-int get_saved_status ()
-{
-  return saved_status;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-int get_has_status_and_pid ()
-{
-  return has_status_and_pid;
-}
-
-/* This is called by DMTCP.  BUT IT MUST THEN HAVE A PREFIX LIKE mtcp_
- * IN FRONT OF IT.  WE DON'T WANT TO POLLUTE THE USER'S NAMESPACE.
- * WE'RE A GUEST IN HIS PROCESS.    - Gene
- */
-void reset_pid_status ()
-{
-  saved_pid = -1;
-  saved_status = -1;
-  has_status_and_pid = 0;
+  return __ptrace_waitpid;
 }
 
 static int is_alive (pid_t pid)
@@ -909,15 +790,13 @@ void read_checkpoint_threads_file () {
   }
 }
 
-/* In this function a given superior detaches from a given inferior, which is
- * a checkpoint thread. */
+/* Superior detaches from an inferior, which is a ckpt thread. */
 int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
 {
   int status;
   char pstate;
   pid_t tpid;
 
-  DPRINTF(("ptrace_detach_ckpthread: inferior = %d\n", inferior));
   pstate = procfs_state(inferior);
   DPRINTF(("ptrace_detach_ckpthread: ckpt_thread procfs_state(%d) = %c\n",
           inferior, pstate));
@@ -932,12 +811,10 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
      * without hanging. */
     DPRINTF(("ptrace_detach_ckpthread: ckpt_thread already stopped.\n"));
 
-    is_waitpid_local = 1;
-    tpid = waitpid(inferior, &status, WNOHANG);
+    tpid = mtcp_waitpid(inferior, &status, WNOHANG);
     if (tpid == -1 && errno == ECHILD) {
       DPRINTF(("ptrace_detach_ckpthread: check for cloned process.\n"));
-      is_waitpid_local = 1;
-      if ((tpid = waitpid(inferior, &status, __WCLONE | WNOHANG)) == -1) {
+      if ((tpid = mtcp_waitpid(inferior, &status, __WCLONE | WNOHANG)) == -1) {
         DPRINTF(("ptrace_detach_ckpthread: waitpid(..,__WCLONE): %s\n",
                 strerror(errno)));
       }
@@ -951,14 +828,12 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
                   "error = %s\n", inferior, strerror(errno));
       return -EAGAIN;
     }
-    is_waitpid_local = 1;
-    tpid = waitpid(inferior, &status, 0);
+    tpid = mtcp_waitpid(inferior, &status, 0);
     DPRINTF(("ptrace_detach_ckpthread: tpid = %d, errno = %d, ECHILD = %d\n",
             tpid, errno, ECHILD));
     if (tpid == -1 && errno == ECHILD) {
       DPRINTF(("ptrace_detach_ckpthread: check for cloned process.\n"));
-      is_waitpid_local = 1;
-      if ((tpid = waitpid(inferior, &status, __WCLONE)) == -1) {
+      if ((tpid = mtcp_waitpid(inferior, &status, __WCLONE)) == -1) {
         mtcp_printf("ptrace_detach_ckpthread: waitpid(..,__WCLONE): %s\n",
                     strerror(errno));
         return -EAGAIN;
@@ -980,15 +855,16 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
     DPRINTF(("ptrace_detach_ckpthread: ckpthread %d NOT stopped by a signal\n",
               inferior));
 
-  is_ptrace_local = 1;
-  if (ptrace(PTRACE_DETACH, inferior, 0, SIGCONT) == -1) {
+  if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, SIGCONT) == -1) {
     DPRINTF(("ptrace_detach_ckpthread: parent = %d child = %d failed: %s\n",
              superior, inferior, strerror(errno)));
     return -EAGAIN;
   }
-  DPRINTF(("ptrace_detach_ckpthread: inferior =%d\n", inferior));
+  DPRINTF(("ptrace_detach_ckpthread: inferior =%d done.\n", inferior));
 
-  only_once = 0; /* No need for semaphore here - the UT execute this code. */
+  /* No need for semaphore here - the UT execute this code. */
+  __check_once_does_inferior_exist = 0;
+
   return 0;
 }
 
@@ -1061,19 +937,6 @@ void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
   cmd.singlestep_waited_on = singlestep_waited_on;
   cmd.inferior_st = inf_st;
   cmd.file_option = file_option;
-  (*callback_ptrace_info_list_command)(cmd);
-}
-
-void mtcp_ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-  int singlestep_waited_on) {
-  if (!callback_ptrace_info_list_command) return;
-
-  struct cmd_info cmd;
-  init_empty_cmd_info(&cmd);
-  cmd.option = PTRACE_INFO_LIST_UPDATE_INFO;
-  cmd.superior = superior;
-  cmd.inferior = inferior;
-  cmd.singlestep_waited_on = singlestep_waited_on;
   (*callback_ptrace_info_list_command)(cmd);
 }
 

@@ -35,14 +35,15 @@
 #include <list>
 
 #ifdef PTRACE
+/* ptrace cannot work without pid virtualization.  If we're not using
+ * pid virtualization, then disable this wrapper around ptrace, and
+ * let the application call ptrace from libc. */
 #ifndef PID_VIRTUALIZATION
 #error "PTRACE can not be used without enabling PID-Virtualization"
 #endif
-// ptrace cannot work without pid virtualization.  If we're not using
-// pid virtualization, then disable this wrapper around ptrace, and
-// let the application call ptrace from libc.
 
 static pthread_mutex_t ptrace_info_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 dmtcp::list<struct ptrace_info> ptrace_info_list;
 
 #define GETTID() (int)syscall(SYS_gettid)
@@ -174,9 +175,6 @@ void ptrace_info_update_last_command (pid_t superior, pid_t inferior,
   }
 }
 
-// Probably most of the functions from __clone to ptrace and to
-//    the special __libc_memalign redirection could be moved
-//    to a new file.  - Gene
 extern "C" long ptrace (enum __ptrace_request request, ...)
 {
   va_list ap;
@@ -197,16 +195,16 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
   superior = syscall(SYS_gettid);
   inferior = pid;
+  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
 
   switch (request) {
     case PTRACE_ATTACH: {
-      if (!get_is_ptrace_local_ptr()) {
+      if (!pwi.is_ptrace_local) {
         struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
                                PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
                                PTRACE_SHARED_FILE_OPTION};
         ptrace_info_list_command(cmd);
       }
-      else unset_is_ptrace_local_ptr();
       break;
     }
     case PTRACE_TRACEME: {
@@ -219,13 +217,12 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
       break;
     }
     case PTRACE_DETACH: {
-     if (!get_is_ptrace_local_ptr ())
+     if (!pwi.is_ptrace_local)
        ptrace_info_list_remove_pair(superior, inferior);
-     else unset_is_ptrace_local_ptr();
      break;
     }
     case PTRACE_CONT: {
-     if (!get_is_ptrace_local_ptr ()) {
+     if (!pwi.is_ptrace_local) {
        ptrace_info_update_last_command(superior, inferior,
                                        PTRACE_CONTINUE_COMMAND);
        /* The ptrace_info pair was already recorded. The superior is just
@@ -235,12 +232,11 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
                               PTRACE_NO_FILE_OPTION};
        ptrace_info_list_command(cmd);
      }
-     else unset_is_ptrace_local_ptr ();
      break;
     }
     case PTRACE_SINGLESTEP: {
      pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
-     if (!get_is_ptrace_local_ptr ()) {
+     if (!pwi.is_ptrace_local) {
        if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
          perror ("waitpid wrapper");
          exit(-1);
@@ -259,10 +255,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
          exit(-1);
        }
      }
-     else {
-       ptrace_ret = _real_ptrace(request, pid, addr, data);
-       unset_is_ptrace_local_ptr();
-     }
+     else ptrace_ret = _real_ptrace(request, pid, addr, data);
      break;
     }
     case PTRACE_SETOPTIONS: {
@@ -332,7 +325,6 @@ void ptrace_info_list_sort () {
   }
 }
 
-/* Remove all pairs that have a dead tid. */
 void ptrace_info_list_remove_pairs_with_dead_tids () {
   JALIB_CKPT_UNLOCK();
   dmtcp::list<ptrace_info>::iterator it;
@@ -344,7 +336,6 @@ void ptrace_info_list_remove_pairs_with_dead_tids () {
   }
 }
 
-/* This function saves the states for all the inferior threads. */
 void ptrace_info_list_save_threads_state () {
   dmtcp::list<struct ptrace_info>::iterator it;
   for(it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
@@ -355,8 +346,10 @@ void ptrace_info_list_save_threads_state () {
 void ptrace_info_list_print () {
   dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
-    fprintf(stdout, "GETTID = %d superior = %d inferior = %d state =  %c\n",
-            GETTID(), it->superior, it->inferior, it->inferior_st);
+    fprintf(stdout, "GETTID = %d superior = %d inferior = %d state =  %c "
+            "inferior_is_ckpthread = %d\n",
+            GETTID(), it->superior, it->inferior, it->inferior_st,
+            it->inferior_is_ckpthread);
   }
 }
 
@@ -389,7 +382,7 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
   pthread_mutex_unlock(&ptrace_info_list_mutex);
 }
 
-void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
+extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
                                   int singlestep_waited_on) {
   dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
@@ -423,10 +416,6 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
       ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command, 
                               cmd.singlestep_waited_on, cmd.inferior_st,
                               cmd.file_option);
-      break;
-    case PTRACE_INFO_LIST_UPDATE_INFO:
-      ptrace_info_list_update_info(cmd.superior, cmd.inferior,
-                                   cmd.singlestep_waited_on);
       break;
     default:
       printf ("ptrace_info_list_command: unknown option %d\n", cmd.option);
@@ -467,32 +456,5 @@ char procfs_state(int tid) {
 
   return state;
 }
-
-# ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign
-   //   wrapper.  So, we won't interfere with it here.
-#  include <malloc.h>
-// This is needed to fix what is arguably a bug in libdl-2.10.so
-//   (and probably extending from versions 2.4 at least through 2.11).
-// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
-//    but dl-tls.c:dl_update_slotinfo just calls free .
-// So, TLS is allocated by libc malloc and can be freed by a malloc library
-//    defined by user.  This is a bug.
-// This happens only in a multi-threaded programs for which TLS is allocated.
-// So, we intercept __libc_memalign and point it to memalign to have a match.
-// We do the same for __libc_free.  libdl.so doesn't currently define
-//    __libc_free, but the code must be prepared to accept this.
-// An alternative to defining __libc_memalign would have been using
-//    the glibc __memalign_hook() function.
-extern "C"
-void *__libc_memalign(size_t boundary, size_t size) {
-  return memalign(boundary, size);
-}
-// libdl.so doesn't define __libc_free, but in case it does in the future ...
-extern "C"
-void __libc_free(void * ptr) {
-  free(ptr);
-}
-#endif
 
 #endif
