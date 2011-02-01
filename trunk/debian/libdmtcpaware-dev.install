@@ -1,2 +1,3 @@
 usr/lib/libdmtcpaware.a
 usr/include/dmtcpaware.h
+usr/lib/libdmtcpaware.so

@@ -2,6 +2,7 @@ Source: dmtcp
 Section: utils
 Priority: optional
 Maintainer: Kapil Arya <kapil@ccs.neu.edu>
+Uploaders: Yaroslav Halchenko <debian@onerussian.com>
 Build-Depends: debhelper (>= 7)
 Standards-Version: 3.9.1
 Vcs-svn: https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
@@ -48,7 +49,7 @@ Description: Debug package for dmtcp
  .
  This package contains debugging symbols for DMTCP.
 
-Package: libdmtcpaware1.0
+Package: libdmtcpaware1
 Architecture: i386 amd64
 Section: libs
 Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
@@ -68,16 +69,11 @@ Description: DMTCP programming interface
  .
  This package provides a programming interface to allow checkpointed
  applications to interact with dmtcp.
- .
- The user application should link with libdmtcpaware.so (-ldmtcpaware) to use
- the dmtcp API for checkpoint/restart.
- .
- For more information see: http://dmtcp.sourceforge.net/
 
 Package: libdmtcpaware-dev
 Architecture: i386 amd64
 Section: libdevel
-Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
+Depends: libdmtcpaware1, ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP programming interface -- developer package
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
  checkpointing the state of an arbitrary group of programs spread across many
@@ -92,10 +88,5 @@ Description: DMTCP programming interface -- developer package
  applications, as long as they do not use extensions (e.g.: no OpenGL, no
  video).
  .
- This package provides a programming interface to allow checkpointed
- applications to interact with dmtcp.
- .
- The user application should link with libdmtcpaware.so (-ldmtcpaware) or
- libdmtcpaware.a and use the header file dmtcp/dmtcpaware.h.
- .
- For more information see: http://dmtcp.sourceforge.net/
+ This package provides libraries for developing applications that need
+ to interact with dmtcp.
