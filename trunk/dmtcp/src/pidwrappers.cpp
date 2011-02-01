@@ -271,8 +271,6 @@ int   tgkill(int tgid, int tid, int sig)
 
 //long sys_tgkill (int tgid, int pid, int sig)
 
-// long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
-
 #ifdef PTRACE
 
 #define TRUE 1
@@ -301,27 +299,11 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
     return _real_dlsym ( handle, symbol );
 }
 
-typedef void ( *set_singlestep_waited_on_t ) ( pid_t superior, pid_t inferior, int 
-value );
-extern "C" set_singlestep_waited_on_t set_singlestep_waited_on_ptr;
+extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
+                                             int singlestep_waited_on);
 
-typedef int ( *get_is_waitpid_local_t ) ();
-extern "C" get_is_waitpid_local_t get_is_waitpid_local_ptr;
-
-typedef void ( *unset_is_waitpid_local_t ) ();
-extern "C" unset_is_waitpid_local_t unset_is_waitpid_local_ptr;
-
-typedef pid_t ( *get_saved_pid_t) ( );
-extern "C" get_saved_pid_t get_saved_pid_ptr;
-
-typedef int ( *get_saved_status_t) ( );
-extern "C" get_saved_status_t get_saved_status_ptr;
-
-typedef int ( *get_has_status_and_pid_t) ( );
-extern "C" get_has_status_and_pid_t get_has_status_and_pid_ptr;
-
-typedef void ( *reset_pid_status_t) ( );
-extern "C" reset_pid_status_t reset_pid_status_ptr;
+typedef struct ptrace_waitpid_info ( *t_mtcp_get_ptrace_waitpid_info) ( );
+extern "C" t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info;
 
 typedef int ( *fill_in_pthread_t) ();
 extern "C" fill_in_pthread_t fill_in_pthread_ptr;
@@ -427,16 +409,15 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 #ifdef PTRACE
   pid_t superior = syscall(SYS_gettid);
   pid_t inferior = pid;
+  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
 
-  if (get_is_waitpid_local_ptr()) {
+  if (pwi.is_waitpid_local) {
     retval = safe_real_waitpid (pid, stat_loc, options);
-    unset_is_waitpid_local_ptr();
   } else {
     /* Where was status and pid saved?  Can we remove this code?  - Gene */
-    if (get_has_status_and_pid_ptr()) {
-      *stat_loc = get_saved_status_ptr();
-      retval = get_saved_pid_ptr();
-      reset_pid_status_ptr();
+    if (pwi.has_status_and_pid) {
+      *stat_loc = pwi.saved_status;
+      retval = pwi.saved_pid;
     } else {
 // Please remove this comment and all code related to BLOCK_CKPT_ON_WAIT
 //  when satisfied waitpid wrapper work.  - Gene
@@ -447,7 +428,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
         exit(-1);
       }
 #endif
-      set_singlestep_waited_on_ptr(superior, inferior, TRUE);
+      ptrace_info_list_update_info(superior, inferior, TRUE);
       retval = safe_real_waitpid(pid, stat_loc, options);
 #if BLOCK_CKPT_ON_WAIT
       if (_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) != 0) {

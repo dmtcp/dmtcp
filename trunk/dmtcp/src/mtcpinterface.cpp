@@ -65,32 +65,8 @@ namespace
 }
 
 #ifdef PTRACE
-__attribute__ ((visibility ("hidden"))) get_saved_pid_t
-  get_saved_pid_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) get_saved_status_t
-  get_saved_status_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) get_has_status_and_pid_t 
-  get_has_status_and_pid_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) reset_pid_status_t
-  reset_pid_status_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) set_singlestep_waited_on_t 
-  set_singlestep_waited_on_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) get_is_waitpid_local_t 
-  get_is_waitpid_local_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) get_is_ptrace_local_t 
-  get_is_ptrace_local_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) unset_is_waitpid_local_t 
-  unset_is_waitpid_local_ptr = NULL;
-
-__attribute__ ((visibility ("hidden"))) unset_is_ptrace_local_t
-  unset_is_ptrace_local_ptr = NULL;
+__attribute__ ((visibility ("hidden"))) t_mtcp_get_ptrace_waitpid_info
+  mtcp_get_ptrace_waitpid_info = NULL;
 
 __attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
   mtcp_init_thread_local;
@@ -286,9 +262,9 @@ void dmtcp::initializeMtcpEngine()
 {
 #ifdef PTRACE
   dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  char *dir =
-     (char*) _get_mtcp_symbol( "dir" );  
-  sprintf(dir, "%s",  tmpdir.c_str());
+  char *dmtcp_tmp_dir =
+     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );  
+  sprintf(dmtcp_tmp_dir, "%s",  tmpdir.c_str());
 #endif
 
   int *dmtcp_exists_ptr =
@@ -334,27 +310,11 @@ void dmtcp::initializeMtcpEngine()
   // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  set_singlestep_waited_on_ptr =
-   (set_singlestep_waited_on_t) _get_mtcp_symbol ( "set_singlestep_waited_on" );
+  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
+    _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
 
-  get_is_waitpid_local_ptr = ( get_is_waitpid_local_t ) _get_mtcp_symbol ( "get_is_waitpid_local" );
-
-  get_is_ptrace_local_ptr = ( get_is_ptrace_local_t ) _get_mtcp_symbol ( "get_is_ptrace_local" );
-
-  unset_is_waitpid_local_ptr = ( unset_is_waitpid_local_t ) _get_mtcp_symbol ( "unset_is_waitpid_local" );
-
-  unset_is_ptrace_local_ptr = ( unset_is_ptrace_local_t ) _get_mtcp_symbol ( "unset_is_ptrace_local" );
-
-  get_saved_pid_ptr = ( get_saved_pid_t ) _get_mtcp_symbol ( "get_saved_pid" );
-
-  get_saved_status_ptr = ( get_saved_status_t ) _get_mtcp_symbol ( "get_saved_status" );
-
-  get_has_status_and_pid_ptr = ( get_has_status_and_pid_t ) _get_mtcp_symbol ( "get_has_status_and_pid" );
-
-  reset_pid_status_ptr = ( reset_pid_status_t ) _get_mtcp_symbol ( "reset_pid_status" );
-
-  // Opting for the original format, not the one directly above.
-  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) _get_mtcp_symbol ( "init_thread_local" );
+  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) 
+    _get_mtcp_symbol ( "init_thread_local" );
 #endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint

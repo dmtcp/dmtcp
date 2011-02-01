@@ -551,15 +551,15 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
 #ifdef PTRACE
   memset(ptrace_shared_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dir);
+  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
   memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dir);
+  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dmtcp_tmp_dir);
   memset(checkpoint_threads_file, '\0', MAXPATHLEN);
-  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dir);
+  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dmtcp_tmp_dir);
   memset(new_ptrace_shared_file, '\0', MAXPATHLEN);
-  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dir);
+  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dmtcp_tmp_dir);
   memset(ckpt_leader_file, '\0', MAXPATHLEN);
-  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dir);
+  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
 #endif
 
   DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
@@ -922,9 +922,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
  /*************************************************************************/
   /*  Code added to keep record of new tasks and processes in a file       */
   /*************************************************************************/
-  if (!init__sem) {
-    sem_init(&__sem, 0, 1);
-    init__sem = 1;
+  if (!__init_does_inferior_exist_sem) {
+    sem_init(&__does_inferior_exist_sem, 0, 1);
+    __init_does_inferior_exist_sem = 1;
   }
 
   if (is_ptrace_setoptions == TRUE) {
