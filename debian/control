@@ -73,7 +73,7 @@ Description: DMTCP programming interface
 Package: libdmtcpaware-dev
 Architecture: i386 amd64
 Section: libdevel
-Depends: libdmtcpaware1, ${shlibs:Depends}, ${misc:Depends}
+Depends: libdmtcpaware1 (= ${binary:Version}) , ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP programming interface -- developer package
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
  checkpointing the state of an arbitrary group of programs spread across many
