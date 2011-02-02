@@ -579,69 +579,54 @@ void ptrace_unlock_inferiors()
 void create_file(pid_t pid)
 {
   char str[RECORDPATHLEN];
-  int fd;
-
   memset(str, 0, RECORDPATHLEN);
   sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
 
-  fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
+  int fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
     mtcp_printf("create_file: Error opening file %s\n: %s\n",
                 str, strerror(errno));
     mtcp_abort();
   }
-  if ( close(fd) != 0 ) {
-    mtcp_printf("create_file: Error closing file\n: %s\n",
-                strerror(errno));
+  if (close(fd) != 0) {
+    mtcp_printf("create_file: Error closing file\n: %s\n", strerror(errno));
     mtcp_abort();
+  }
+}
+
+void wait_for_file(char *file)
+{
+  struct stat buf;
+  while (stat(file, &buf)) {
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100000000;
+    if (errno != ENOENT) {
+      mtcp_printf("wait_for_file: Unexpected error in stat: %d\n", errno);
+      mtcp_abort();
+    }
+    nanosleep(&ts,NULL);
   }
 }
 
 void have_file(pid_t pid)
 {
-  char str[RECORDPATHLEN];
-  int fd;
-
-  memset(str, 0, RECORDPATHLEN);
-  sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
-  while(1) {
-    fd = open(str, O_RDONLY);
-    if (fd != -1) {
-        if (close(fd) != 0) {
-        mtcp_printf("have_file: Error closing file: %s\n",
-                    strerror(errno));
-        mtcp_abort();
-        }
-      if (unlink(str) == -1) {
-        mtcp_printf("have_file: unlink failed: %s\n",
-                    strerror(errno));
-        mtcp_abort();
-      }
-      break;
-    }
-    usleep(100);
+  char file[RECORDPATHLEN];
+  snprintf(file, RECORDPATHLEN, "%s/%d", dmtcp_tmp_dir, pid);
+  
+  wait_for_file(file);
+  if (unlink(file) == -1) {
+    mtcp_printf("have_file: unlink failed: %s\n", strerror(errno));
+    mtcp_abort();
   }
 }
 
 void ptrace_wait4(pid_t pid)
-{   char file[RECORDPATHLEN];
-    struct stat buf;
-    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
-             dmtcp_tmp_dir, pid);
-
-    DPRINTF(("%d: Start waiting for superior\n",GETTID()));
-    while( stat(file,&buf) < 0 ){
-      struct timespec ts;
-      DPRINTF(("%d: Superior is not ready\n",GETTID()));
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100000000;
-      if( errno != ENOENT ){
-        mtcp_printf("prtrace_wait4: Unexpected error in stat: %d\n",errno);
-        mtcp_abort();
-      }
-      nanosleep(&ts,NULL);
-    }
-    DPRINTF(("%d: Superior unlocked us\n",GETTID()));
+{
+  char file[RECORDPATHLEN];
+  snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
+           dmtcp_tmp_dir, pid);
+  wait_for_file(file);
 }
 
 struct ptrace_waitpid_info get_ptrace_waitpid_info ()
@@ -726,7 +711,10 @@ pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
   return ckpt_ptraced_by;
 }
 
-void read_ptrace_setoptions_file () {
+/* rc is the tid returned by __clone. We record to file only when
+ * record_to_file is true. In this case, the tid of the superior is 
+ * determined from ptrace_setoptions_file. */
+void read_ptrace_setoptions_file (int record_to_file, int rc) {
   int fd = open(ptrace_setoptions_file, O_RDONLY);
   if (fd == -1) {
     DPRINTF(("read_ptrace_setoptions_file: NO setoptions file\n"));
@@ -739,6 +727,11 @@ void read_ptrace_setoptions_file () {
     if (inferior == GETTID()) {
       setoptions_superior = superior;
       is_ptrace_setoptions = TRUE;
+      if (record_to_file) {
+        mtcp_ptrace_info_list_insert(setoptions_superior, rc,
+                                     PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
+                                     PTRACE_SHARED_FILE_OPTION);
+      }
     }
   }
   if (close(fd) != 0) {

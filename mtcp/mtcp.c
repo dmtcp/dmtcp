@@ -848,9 +848,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 {
   int rc;
   Thread *thread;
-#ifdef PTRACE
-  int i;
-#endif
 
   /* Maybe they decided not to call mtcp_init */
   if (motherofall != NULL) {
@@ -919,49 +916,22 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   }
 
 #ifdef PTRACE
- /*************************************************************************/
-  /*  Code added to keep record of new tasks and processes in a file       */
-  /*************************************************************************/
+  /* Initialize the following semaphore needed by superior to wait for inferior
+   * to be created on restart. */
   if (!__init_does_inferior_exist_sem) {
     sem_init(&__does_inferior_exist_sem, 0, 1);
     __init_does_inferior_exist_sem = 1;
   }
-
+  /* Record new pairs to files: newly traced threads to ptrace_shared_file;
+   * also, write the checkpoint thread to checkpoint_threads_file. */
   if (is_ptrace_setoptions == TRUE) {
     mtcp_ptrace_info_list_insert(setoptions_superior, rc,
                                  PTRACE_UNSPECIFIED_COMMAND,
                                  FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
   }
-  else {
-    // read from file
-    int setoptions_fd = -1;
-    pid_t inferior;
-    pid_t superior;
-
-    setoptions_fd = open(ptrace_setoptions_file, O_RDONLY);
-    if (setoptions_fd != -1) {
-      while (readall(setoptions_fd, &superior, sizeof(pid_t)) > 0) {
-        readall(setoptions_fd, &inferior, sizeof(pid_t));
-        if (inferior == GETTID()) {
-          setoptions_superior = superior;
-          is_ptrace_setoptions = TRUE;
-          mtcp_ptrace_info_list_insert(setoptions_superior, rc,
-                                       PTRACE_UNSPECIFIED_COMMAND,
-                                       FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
-        }
-      }
-      if ( close(setoptions_fd) != 0 ) {
-        mtcp_printf("__clone: Error closing file: %s\n", strerror(errno));
-        mtcp_abort();
-      }
-    }
-  }
-  /* the structure of checkpoint_threads_file is pairs of pid and tid */
+  else read_ptrace_setoptions_file(TRUE, rc);
   mtcp_ptrace_info_list_insert(getpid(), rc, PTRACE_UNSPECIFIED_COMMAND, FALSE,
                                'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
-  /*************************************************************************/
-  /*  Done recording new tasks and processes.                              */
-  /*************************************************************************/
 #endif
 
   return (rc);
@@ -1539,7 +1509,7 @@ static void *checkpointhread (void *dummy)
     for (thread = threads; thread != NULL; thread = thread -> next) {
       nthreads++;
     }
-    read_ptrace_setoptions_file();
+    read_ptrace_setoptions_file(FALSE, 0);
 
     pid_t ckpt_leader = 0;
     int ckpt_leader_fd = open(ckpt_leader_file,
