@@ -43,18 +43,17 @@ fi
 e mv dmtcp_staging $NAME
 e rm -rf $NAME/{makeRelease.sh}
 e removeSvnDirs
-archName=`dpkg-architecture | grep DEB_HOST_ARCH_CPU | \
-          sed -e's%DEB_HOST_ARCH_CPU=%%'`
-sed -e "s%Architecture: any%Architecture: $archName%" $NAME/debian/control \
-	> debianControl
-e rm $NAME/debian/control
-e mv debianControl $NAME/debian/control
+
+# FIXME: Not sure if we need it anymore, removing it for now. Re-insert if feel
+#        the need.              -- Kapil
+#archName=`dpkg-architecture | grep DEB_HOST_ARCH_CPU | \
+#          sed -e's%DEB_HOST_ARCH_CPU=%%'`
+#sed -i -e "s%Architecture: any%Architecture: $archName%" $NAME/debian/control
 
 e fakeroot tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
 e rm -rf $NAME
 e mv $NAME.tar.gz $OLDDIR
 e cd $OLDDIR
-#e rm -rf $STAGING
+e rm -rf $STAGING
 e ls -al $NAME.tar.gz
-
