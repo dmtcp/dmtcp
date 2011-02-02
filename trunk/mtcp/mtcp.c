@@ -1512,8 +1512,7 @@ static void *checkpointhread (void *dummy)
     read_ptrace_setoptions_file(FALSE, 0);
 
     pid_t ckpt_leader = 0;
-    int ckpt_leader_fd = open(ckpt_leader_file,
-                              O_CREAT|O_EXCL|O_WRONLY, 0644);
+    int ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY, 0644);
     if (ckpt_leader_fd != -1) {
       ckpt_leader = 1;    
       close(ckpt_leader_fd);
@@ -1607,8 +1606,8 @@ again:
                                    O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
             pid_t superior, inferior;
             char inf_st;
-            while (readall(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
-              readall(ptrace_fd, &inferior, sizeof(pid_t));
+            while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
+              read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
               inf_st = procfs_state(inferior);
               if (inferior == thread -> original_tid) inferior_st = inf_st;
               if (ckpt_leader && new_ptrace_fd != -1) {
