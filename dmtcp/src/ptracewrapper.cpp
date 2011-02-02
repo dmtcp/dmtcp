@@ -424,37 +424,40 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
 
 char procfs_state(int tid) {
   char name[64];
-  char sbuf[256], *S, *tmp;
-  char state;
-  int num_read, fd;
-
-  sprintf(name,"/proc/%d/stat",tid);
-  fd = open(name, O_RDONLY, 0);
-  if( fd < 0 ){
+  sprintf(name, "/proc/%d/stat", tid);
+  int fd = open(name, O_RDONLY, 0);
+  if (fd < 0) {
     JNOTE("procfs_state: cannot open")(name);
     return 0;
   }
-  /* THIS CODE CAN'T WORK RELIABLY.  SUPPOSE read() RETURNS 0,
-   * OR -1 WITH EAGAIN OR EINTR?  LOOK FOR EXAMPLES IN
-   *  mtcp_restart_nolibc.c:readfile() OR ELSEWHERE.   - Gene
-   */
-  num_read = read(fd, sbuf, sizeof sbuf - 1);
-  close(fd);
-  if(num_read<=0) {
-    return 0;
+
+  /* The format of /proc/pid/stat is: tid (name_of_executable) state.
+   * We need to retrieve the state of tid. 255 is enough in this case. */
+  char sbuf[256];
+  size_t num_read = 0;
+  ssize_t rc;
+  /* Read at most 255 characters or until the end of the file. */
+  while (num_read != 255) {
+    rc = read(fd, sbuf + num_read, 255 - num_read);
+    if (rc < 0) break;
+    else if (rc == 0) break;
+    num_read += rc;
   }
+  if (close(fd) != 0) {
+    JWARNING("procfs_state: error closing file")(strerror(errno));
+    JASSERT(0);
+  }
+  if (num_read <= 0) return 0;
+
   sbuf[num_read] = '\0';
+  char *state, *tmp;
+  state = strchr(sbuf, '(') + 1;
+  if (!state) return 'u';
+  tmp = strrchr(state, ')');
+  if (!tmp || (tmp + 2 - sbuf) > 255) return 'u';
+  state = tmp + 2;
 
-  S = strchr(sbuf, '(') + 1;
-  tmp = strrchr(S, ')');
-  S = tmp + 2;                 // skip ") "
-
-  /* YOU SEEM TO WANT S[0] HERE.  WHY sscanf?  ALSO WHY ARE WE USING
-   * CAPS ("S") FOR VAR NAME?  - Gene
-   */
-  sscanf(S, "%c", &state);
-
-  return state;
+  return state[0];
 }
 
 #endif
