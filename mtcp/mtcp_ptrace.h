@@ -131,7 +131,7 @@ extern void ptrace_unlock_inferiors(void);
 
 extern void ptrace_wait4(pid_t pid);
 
-extern ssize_t readall(int fd, void *buf, size_t count);
+extern ssize_t read_no_error(int fd, void *buf, size_t count);
 
 extern void read_new_ptrace_shared_file ();
 

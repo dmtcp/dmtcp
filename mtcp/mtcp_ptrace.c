@@ -103,19 +103,14 @@ void init_thread_local()
   is_ptrace_setoptions = FALSE;
 }
 
-/* FIXME:  BAD FUNCTION NAME:  readall(..., ..., count) would guarantee
- * to read 'count' characters.  This reads zero or more characters
- * but does EAGAIN/EINTR processing so that the caller doesn't need to do it.
- * Maybe a name like:  read_no_error() ?
- */
-ssize_t readall(int fd, void *buf, size_t count)
+ssize_t read_no_error(int fd, void *buf, size_t count)
 {
   int rc;
   do
     rc = read(fd, buf, count);
   while (rc == -1 && (errno == EAGAIN  || errno == EINTR));
   if (rc == -1) { /* if not harmless error */
-    mtcp_printf("readall: Internal error\n");
+    mtcp_printf("read_no_error: Internal error\n");
     mtcp_abort();
   }
   return rc; /* else rc >= 0; success */
@@ -177,13 +172,11 @@ void ptrace_attach_threads(int isRestart)
     inferior_is_ckpthread = pt_info.inferior_is_ckpthread;
 
     if (superior == GETTID()) {
-      DPRINTF (("ptrace_attach_threads: GETTID = %d superior = %d "
-                "inferior = %d\n", GETTID(), superior, inferior));
-
-      /* We must make sure the inferior process was created. */
+      /* We must make sure the inferior process was created and is inside
+       * ptrace_attach_threads. */
       sem_wait(&__does_inferior_exist_sem);
       if (__check_once_does_inferior_exist == 0) {
-        have_file (superior);
+        have_file (superior); /* Inferior is inside ptrace_attach_threads. */
         __check_once_does_inferior_exist = 1;
       }
       sem_post(&__does_inferior_exist_sem);
@@ -191,8 +184,6 @@ void ptrace_attach_threads(int isRestart)
       /* If the inferior is the checkpoint thread, attach. */
       if (inferior_is_ckpthread) {
         have_file (inferior);
-        DPRINTF(("ptrace_attach_threads: %d attaching to ckptthread: %d\n",
-                superior, inferior));
         if (mtcp_ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
           perror("ptrace_attach_threads: PTRACE_ATTACH for ckpthread failed.");
           mtcp_abort();
@@ -208,8 +199,6 @@ void ptrace_attach_threads(int isRestart)
           mtcp_printf("ptrace_attach_threads: ckpthread is dead because of "
                       "signal %d\n",WTERMSIG(status));
         }
-        DPRINTF(("ptrace_attach_threads: preCheckpoint state = %c\n",
-                inferior_st));
         if (inferior_st != 'T') {
           if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
             perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -416,7 +405,9 @@ void ptrace_attach_threads(int isRestart)
       } //while(1)
     }
     else if (inferior == GETTID()) {
+      /* Inferior is in ptrace_attach_threads. */
       create_file (superior);
+      /* Wait for the superior to attach. */
       have_file (inferior);
     }
   }
@@ -437,8 +428,6 @@ void ptrace_detach_checkpoint_threads ()
   while (empty_ptrace_info(
            pt_info = (*callback_get_next_ptrace_info)(index++))) {
     if ((pt_info.superior == GETTID()) && pt_info.inferior_is_ckpthread) {
-      DPRINTF(("ptrace_detach_checkpoint_threads: inferior = %d, "
-               "superior = %d\n", pt_info.inferior, pt_info.superior));
       if ((ret = ptrace_detach_ckpthread(pt_info.inferior,
                                          pt_info.superior)) != 0) {
         if (ret == -ENOENT) mtcp_printf("%s: process does not exist %d\n",
@@ -456,68 +445,47 @@ void ptrace_detach_user_threads ()
   if (!callback_get_next_ptrace_info) return;
 
   int status = 0;
-  struct ptrace_info pt_info;
   int index = 0;
   int tpid;
   char pstate;
+  struct ptrace_info pt_info;
 
   while (empty_ptrace_info(
            pt_info = (*callback_get_next_ptrace_info)(index++))) {
-    if (pt_info.inferior_is_ckpthread) {
-      DPRINTF(("ptrace_detach_user_threads: skip checkpoint thread %d\n",
-              pt_info.inferior));
-      continue;
-    }
+    if (pt_info.inferior_is_ckpthread) continue;
 
     if (pt_info.superior == GETTID()) {
-      /* All UTs(user threads) must receive a MTCP_DEFAULT_SIGNAL from their
-       * CT (checkpoint threads).
-      DPRINTF(("start waiting on %d\n", pt_info.inferior));
-      /* Was the status of this thread already read by the debugger? */
+      /* All UTs must receive a MTCP_DEFAULT_SIGNAL from their CT.
+       * Was the status of this thread already read by the debugger? */
       pstate = procfs_state(pt_info.inferior);
-      DPRINTF(("procfs_state(%d) = %c\n", pt_info.inferior, pstate));
-      if (pstate == 0) {
-        /* The thread does not exist. */
+      if (pstate == 0) { /* The thread does not exist. */
         mtcp_printf("%s: process not exist %d\n", __FUNCTION__,
                     pt_info.inferior);
         mtcp_abort();
       } else if (pstate == 'T') {
-        /* This is a stopped process/thread.
-         * It might happen that gdb or another process reads the status of this
-         * thread before us. Consequently we will block. Thus we need to read
-         * without hanging. */
-        DPRINTF(("Thread %d is already stopped.\n", pt_info.inferior));
+        /* This is a stopped thread. It is possible for gdb or another thread
+         * to read the status of this thread before us. Consequently we will
+         * block. Thus we need to read without hanging. */
         tpid = mtcp_waitpid(pt_info.inferior, &status, WNOHANG);
         if (tpid == -1 && errno == ECHILD) {
-          DPRINTF(("Check cloned process\n"));
-          // Try again with __WCLONE to check cloned processes.
           if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
                                     __WCLONE | WNOHANG)) == -1) {
-            DPRINTF(("ptrace_detach_user_threads: waitpid(..,__WCLONE), %s\n",
-                    strerror(errno)));
+            mtcp_printf("ptrace_detach_user_threads: waitpid(..,__WCLONE) %s\n",
+                        strerror(errno));
           }
         }
-        DPRINTF(("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
-                pt_info.inferior, tpid, WIFSTOPPED(status),
-                WSTOPSIG(status) == SIGSTOP, WSTOPSIG(status)));
       } else {
-        /* The thread is not in a stopped state.
-         * The thread will be stopped by the CT of the process it belongs to,
-         * by the delivery of MTCP_DEFAULT_SIGNAL.
-         * It is safe to call blocking waitpid. */
-        DPRINTF(("Thread %d is not stopped yet.\n", pt_info.inferior));
+        /* The thread is not in a stopped state. The thread will be stopped by
+         * the CT of the process it belongs to, by the delivery of
+         * MTCP_DEFAULT_SIGNAL. It is safe to call blocking waitpid. */
         tpid = mtcp_waitpid(pt_info.inferior, &status, 0);
         if (tpid == -1 && errno == ECHILD) {
-          DPRINTF(("Check cloned process\n"));
           if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
                                     __WCLONE)) == -1) {
             mtcp_printf("ptrace_detach_user_threads: waitpid(..,__WCLONE) %s\n",
                         strerror(errno));
           }
         }
-        DPRINTF(("tgid = %d, tpid=%d,stopped=%d is_sigstop=%d,signal=%d\n",
-                pt_info.inferior, tpid, WIFSTOPPED(status),
-                WSTOPSIG(status) == SIGSTOP, WSTOPSIG(status)));
         if (WIFSTOPPED(status)) {
           if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
             DPRINTF(("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
@@ -533,20 +501,16 @@ void ptrace_detach_user_threads ()
           pt_info.singlestep_waited_on == FALSE) {
         __ptrace_waitpid.has_status_and_pid = 1;
         __ptrace_waitpid.saved_status = status;
-        DPRINTF(("ptrace_detach_user_threads: AFTER WAITPID %d\n", status));
         pt_info.singlestep_waited_on = TRUE;
         pt_info.last_command = PTRACE_UNSPECIFIED_COMMAND;
       }
 
-      DPRINTF(("GETTID = %d detaching superior = %d from inferior = %d\n",
-               GETTID(), (int)pt_info.superior, (int)pt_info.inferior));
       have_file (pt_info.inferior);
       if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
                  MTCP_DEFAULT_SIGNAL) == -1) {
-        DPRINTF(("ptrace_detach_user_threads: parent = %d child = %d\n",
-                (int)pt_info.superior, (int)pt_info.inferior));
-        DPRINTF(("ptrace_detach_user_threads: PTRACE_DETACH failed, error=%d",
-                errno));
+        mtcp_printf("ptrace_detach_user_threads: parent = %d child = %d "
+                    "PTRACE_DETACH failed, error = %d\n",
+                    (int)pt_info.superior, (int)pt_info.inferior, errno);
       }
     }
   }
@@ -653,9 +617,7 @@ static int is_alive (pid_t pid)
   return 0;
 }
 
-/* TODO: give me a facelift. */
-char procfs_state(int tid)
-{
+char procfs_state(int tid) {
   char name[64];
   char sbuf[256], *S, *tmp;
   char state;
@@ -664,7 +626,6 @@ char procfs_state(int tid)
   sprintf(name,"/proc/%d/stat",tid);
   fd = open(name, O_RDONLY, 0);
   if( fd < 0 ){
-    DPRINTF(("procfs_state: cannot open %s\n",name));
     return 0;
   }
   /* THIS CODE CAN'T WORK RELIABLY.  SUPPOSE read() RETURNS 0,
@@ -696,8 +657,8 @@ pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
 
   pid_t superior, inferior;
   pid_t ckpt_ptraced_by = 0;
-  while (readall(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
-    readall(ptrace_fd, &inferior, sizeof(pid_t));
+  while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
+    read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
     if (inferior == ckpt) {
       ckpt_ptraced_by = superior;
       break;
@@ -722,8 +683,8 @@ void read_ptrace_setoptions_file (int record_to_file, int rc) {
   }
 
   pid_t superior, inferior;
-  while (readall(fd, &superior, sizeof(pid_t)) > 0) {
-    readall(fd, &inferior, sizeof(pid_t));
+  while (read_no_error(fd, &superior, sizeof(pid_t)) > 0) {
+    read_no_error(fd, &inferior, sizeof(pid_t));
     if (inferior == GETTID()) {
       setoptions_superior = superior;
       is_ptrace_setoptions = TRUE;
@@ -750,9 +711,9 @@ void read_new_ptrace_shared_file () {
 
   pid_t superior, inferior;
   char inferior_st;
-  while (readall(fd, &superior, sizeof(pid_t)) > 0) {
-    readall(fd, &inferior, sizeof(pid_t));
-    readall(fd, &inferior_st, sizeof(char));
+  while (read_no_error(fd, &superior, sizeof(pid_t)) > 0) {
+    read_no_error(fd, &inferior, sizeof(pid_t));
+    read_no_error(fd, &inferior_st, sizeof(char));
     mtcp_ptrace_info_list_insert(superior, inferior,
       PTRACE_UNSPECIFIED_COMMAND, FALSE, inferior_st, PTRACE_NO_FILE_OPTION);
   }
@@ -771,8 +732,8 @@ void read_checkpoint_threads_file () {
   }
 
   pid_t pid, tid;
-  while (readall(fd, &pid, sizeof(pid_t)) >  0) {
-    readall(fd, &tid, sizeof(pid_t));
+  while (read_no_error(fd, &pid, sizeof(pid_t)) >  0) {
+    read_no_error(fd, &tid, sizeof(pid_t));
     if (is_alive(pid) && is_alive(tid))
       mtcp_ptrace_info_list_update_is_inferior_ckpthread(pid, tid);
   }
@@ -787,34 +748,22 @@ void read_checkpoint_threads_file () {
 int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
 {
   int status;
-  char pstate;
   pid_t tpid;
 
-  pstate = procfs_state(inferior);
-  DPRINTF(("ptrace_detach_ckpthread: ckpt_thread procfs_state(%d) = %c\n",
-          inferior, pstate));
-
-  if (pstate == 0) {
-    /* This process does not exist. */
+  char pstate = procfs_state(inferior);
+  if (pstate == 0) { /* This process does not exist. */
     return -ENOENT;
   } else if (pstate == 'T') {
-    /* This is a stopped process/thread.
-     * It might happen that gdb or another process reads the status of this
-     * thread before us. Consequently we will block. Thus we need to read
-     * without hanging. */
-    DPRINTF(("ptrace_detach_ckpthread: ckpt_thread already stopped.\n"));
-
+    /* This is a stopped thread. It might happen that gdb or another thread
+     * reads the status of this thread before us. Consequently we will block.
+     * Thus we need to read without hanging. */
     tpid = mtcp_waitpid(inferior, &status, WNOHANG);
     if (tpid == -1 && errno == ECHILD) {
-      DPRINTF(("ptrace_detach_ckpthread: check for cloned process.\n"));
       if ((tpid = mtcp_waitpid(inferior, &status, __WCLONE | WNOHANG)) == -1) {
-        DPRINTF(("ptrace_detach_ckpthread: waitpid(..,__WCLONE): %s\n",
-                strerror(errno)));
+        mtcp_printf("ptrace_detach_ckpthread: waitpid(..,__WCLONE): %s\n",
+                    strerror(errno));
       }
     }
-    DPRINTF(("ptrace_detach_ckpthread: tpid=%d, stopped=%d, "
-             "is_sigstop=%d, signal=%d\n", tpid, WIFSTOPPED(status),
-            WSTOPSIG(status) == SIGSTOP, WSTOPSIG(status)));
   } else {
     if (kill(inferior, SIGSTOP) == -1) {
       mtcp_printf("ptrace_detach_checkpoint_threads: sending SIGSTOP to %d, "
@@ -822,21 +771,14 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
       return -EAGAIN;
     }
     tpid = mtcp_waitpid(inferior, &status, 0);
-    DPRINTF(("ptrace_detach_ckpthread: tpid = %d, errno = %d, ECHILD = %d\n",
-            tpid, errno, ECHILD));
     if (tpid == -1 && errno == ECHILD) {
-      DPRINTF(("ptrace_detach_ckpthread: check for cloned process.\n"));
       if ((tpid = mtcp_waitpid(inferior, &status, __WCLONE)) == -1) {
-        mtcp_printf("ptrace_detach_ckpthread: waitpid(..,__WCLONE): %s\n",
+        mtcp_printf("ptrace_detach_ckpthread: waitpid(..,__WCLONE), errno %s\n",
                     strerror(errno));
         return -EAGAIN;
       }
     }
   }
-  DPRINTF(("ptrace_detach_ckpthread: tpid=%d, stopped=%d, "
-           "is_sigstop=%d, signal=%d,err=%s\n",
-           tpid, WIFSTOPPED(status), WSTOPSIG(status) == SIGSTOP,
-           WSTOPSIG(status), strerror(errno)));
   if (WIFSTOPPED(status)) {
     if (WSTOPSIG(status) == SIGSTOP)
       DPRINTF(("ptrace_detach_ckpthread: ckpthread %d stopped by SIGSTOP\n",
@@ -849,12 +791,10 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
               inferior));
 
   if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, SIGCONT) == -1) {
-    DPRINTF(("ptrace_detach_ckpthread: parent = %d child = %d failed: %s\n",
-             superior, inferior, strerror(errno)));
+    mtcp_printf("ptrace_detach_ckpthread: parent = %d child = %d failed: %s\n",
+                superior, inferior, strerror(errno));
     return -EAGAIN;
   }
-  DPRINTF(("ptrace_detach_ckpthread: inferior =%d done.\n", inferior));
-
   /* No need for semaphore here - the UT execute this code. */
   __check_once_does_inferior_exist = 0;
 
