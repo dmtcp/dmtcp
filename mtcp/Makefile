@@ -76,8 +76,17 @@ LD = ${CC}
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
+# There might be a 32-bit built system running on top of 32/64 bit capable
+# kernel. In that case `uname -m` returns 'x86_64' which is not correct.
+# Instead, we should deduce the build-type from the build toochain itself.
+ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf64-x86-64)
+  BUILDTYPE=x86_64
+else
+  BUILDTYPE=i386
+endif
+
 # But for testmtcp, don't use CFLAGS if don't want position-independent code
-ifeq (${shell ${UNAME} -m},x86_64)
+ifeq ($(BUILDTYPE),x86_64)
   CFLAGS += -fPIC -DPIC
   LDFLAGS += -fPIC 
 endif
@@ -172,7 +181,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	sed -i -e '1,/========================/ d' mtcp.t
 	sed -i -e '/========================/,$$ d' mtcp.t
 	rm -f mtcp.t-fail
-	if test `grep OUTPUT_FORMAT mtcp.t|cut -d '"' -f2` = elf64-x86-64; then \
+	if test ${BUILDTYPE} = x86_64; then \
 	  if patch mtcp.t mtcp.t.patch-x86_64; then \
 	    :; \
 	  else \
@@ -211,8 +220,10 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
 	  cflags_extra=-fno-stack-protector ; \
 	fi; \
-	if  uname -a | grep '2\.6\.9.*x86_64' > /dev/null; then \
-	  cflags_extra="-DBUG_64BIT_2_6_9 $$cflags_extra"; \
+	if test ${BUILDTYPE} = x86_64; then \
+	  if uname -a | grep '2\.6\.9.*x86_64' > /dev/null; then \
+	    cflags_extra="-DBUG_64BIT_2_6_9 $$cflags_extra"; \
+	  fi; \
 	fi; \
 	echo cflags_extra='"'$$cflags_extra'"'; \
 	${CC} $(CFLAGS) $$cflags_extra -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c;
@@ -264,7 +275,7 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
 
-ifeq (${shell uname -m},x86_64)
+ifeq ($(BUILDTYPE),x86_64)
 ucontext_i_sym.h: ucontext_i_sym.c
 	gcc -o ucontext_i_sym ucontext_i_sym.c
 	./ucontext_i_sym > ucontext_i_sym.h

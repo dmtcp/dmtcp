@@ -1,5 +1,5 @@
-dmtcp (1.2.0+svn871-1) unstable; urgency=low
+dmtcp (1.2.0+svn873-1) unstable; urgency=low
 
   * Initial release (Closes: #610653)
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Tue, 01 Feb 2011 21:18:31 -0500
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 02 Feb 2011 16:55:41 -0500
