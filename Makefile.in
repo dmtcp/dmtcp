@@ -5,8 +5,13 @@ CC=@CC@
 M32=@M32@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
 prefix=@prefix@
+exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
+bindir=@bindir@
+libdir=@libdir@
+includedir=@includedir@
 mandir=@mandir@
+infodir=@mandir@
 
 ifeq ($(M32),1)
   MTCP_MAKE_FLAGS = M32=1
@@ -16,6 +21,14 @@ endif
 
 ifeq ($(PTRACE_SUPPORT),yes)
   MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
+endif
+
+libdir_dir := ${shell dirname ${libdir}}
+bindir_dir := ${shell dirname ${bindir}}
+ifeq ($(libdir_dir),$(bindir_dir))
+  rel_libdir := ../${shell basename $(libdir)}
+else
+  rel_libdir := $(DESTDIR)$(libdir)
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
@@ -109,34 +122,35 @@ bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijac
 
 install: all 
 	if test -z "$(prefix)"; then \
-		echo ERROR: prefix must be defined; \
-		exit 1; \
+	  echo ERROR: prefix must be defined; \
+	  exit 1; \
 	fi
 	(cd dmtcp && make install)
-	cp mtcp/libmtcp.so $(DESTDIR)/$(prefix)/lib/dmtcp
-	cp mtcp/mtcp_restart $(DESTDIR)/$(prefix)/lib/dmtcp
-	$(MKDIR_P) $(DESTDIR)/$(prefix)/bin
-	(mv $(DESTDIR)/$(prefix)/lib/dmtcp/libdmtcpaware.so $(DESTDIR)/$(prefix)/lib/dmtcp/libdmtcpaware.so.1)
-	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_coordinator)
-	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_checkpoint)
-	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_nocheckpoint)
-	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_restart)
-	(cd $(DESTDIR)/$(prefix)/bin && $(LN_S) ../lib/dmtcp/dmtcp_command)
-	(cd $(DESTDIR)/$(prefix)/lib && $(LN_S) dmtcp/libdmtcpaware.so.1)
-	(cd $(DESTDIR)/$(prefix)/lib && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so)
-	$(MKDIR_P) $(DESTDIR)/$(prefix)/lib/dmtcp/examples
-	cp test/dmtcpaware*.c $(DESTDIR)/$(prefix)/lib/dmtcp/examples
+	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
+	cp mtcp/mtcp_restart $(DESTDIR)$(libdir)/dmtcp
+	chmod -f 644 $(DESTDIR)$(libdir)/dmtcp/lib*
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_coordinator)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_checkpoint)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_nocheckpoint)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_restart)
+	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_command)
+	(cd $(DESTDIR)$(libdir) && $(LN_S) dmtcp/libdmtcpaware.so.1.0.0)
+	(cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
+	(cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so)
+	$(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp/examples
+	cp test/dmtcpaware*.c $(DESTDIR)$(libdir)/dmtcp/examples
 
 uninstall:
-	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_coordinator"
-	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_checkpoint"
-	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_nocheckpoint"
-	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_restart"
-	rm -f "$(DESTDIR)/$(prefix)/bin/dmtcp_command"
-	rm -f "$(DESTDIR)/$(prefix)/lib/libdmtcpaware.so"
-	rm -f "$(DESTDIR)/$(prefix)/lib/libdmtcpaware.a"
-	rm -f "$(DESTDIR)/$(prefix)/include/dmtcpaware.h"
-	rm -Rf "$(DESTDIR)/$(prefix)/lib/dmtcp"
-	#rm -Rf "$(DESTDIR)/$(prefix)/include/dmtcp"
+	rm -f "$(DESTDIR)$(bindir)/dmtcp_coordinator"
+	rm -f "$(DESTDIR)$(bindir)/dmtcp_checkpoint"
+	rm -f "$(DESTDIR)$(bindir)/dmtcp_nocheckpoint"
+	rm -f "$(DESTDIR)$(bindir)/dmtcp_restart"
+	rm -f "$(DESTDIR)$(bindir)/dmtcp_command"
+	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.so*"
+	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
+	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
+	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
+	#rm -Rf "$(DESTDIR)$(include/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
