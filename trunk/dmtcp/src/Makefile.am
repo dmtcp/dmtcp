@@ -6,7 +6,7 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint \
-	libdmtcpaware.so
+	libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 #lib_LTLIBRARIES = libdmtcpaware.la
@@ -85,8 +85,8 @@ dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 
-libdmtcpaware_so_SOURCES = dmtcpaware.c
-libdmtcpaware_so_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
+libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
+libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1.0.0 -module
 
 # dmtcpaware
 #pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
