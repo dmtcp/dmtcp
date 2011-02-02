@@ -169,10 +169,10 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	rm -f mtcp.t
 	${LD_RAW} -shared --verbose > mtcp.t
-	cat mtcp.t | sed -e '1,/========================/ d' > mtcp.tmp
-	cat mtcp.tmp | sed -e '/========================/,$$ d' > mtcp.t
-	rm -f mtcp.tmp mtcp.t-fail
-	if test `${UNAME} -m` = x86_64; then \
+	sed -i -e '1,/========================/ d' mtcp.t
+	sed -i -e '/========================/,$$ d' mtcp.t
+	rm -f mtcp.t-fail
+	if test `grep OUTPUT_FORMAT mtcp.t|cut -d '"' -f2` = elf64-x86-64; then \
 	  if patch mtcp.t mtcp.t.patch-x86_64; then \
 	    :; \
 	  else \
@@ -320,4 +320,4 @@ clean:
 	      ucontext_i_sym.h libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
 	      testmtcp.mtcp \
 	      mtcp_restart extractobjectmodule \
-	      x.x zz.out testmtcp testmtcp[0-9] threadtest
+	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp
