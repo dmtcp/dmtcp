@@ -86,7 +86,7 @@ dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
-libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1.0.0 -module
+libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
 
 # dmtcpaware
 #pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
