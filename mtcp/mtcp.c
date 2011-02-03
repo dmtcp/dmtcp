@@ -1340,9 +1340,9 @@ void mtcp_kill_ckpthread (void)
 
   lock_threads ();
   for (thread = threads; thread != NULL; thread = thread -> next) {
-    mtcp_printf ("%d\n", thread->original_tid);
+    //mtcp_printf ("%d\n", thread->original_tid);
     if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
-      mtcp_printf ("I %d\n", thread->original_tid);
+      //mtcp_printf ("I %d\n", thread->original_tid);
       unlk_threads ();
       DPRINTF(("mtcp_kill_ckpthread: Kill checkpinthread, tid=%d\n",thread->tid));
       mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
