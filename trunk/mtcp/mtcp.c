@@ -1753,8 +1753,10 @@ again:
      */
 
     if (needrescan) goto rescan;
+#ifdef PTRACE
     /* No need for a mutex. We're before the barrier. */
     jalib_ckpt_unlock_ready = 0;
+#endif
     RMB; // matched by WMB in stopthisthread
     DPRINTF (("mtcp checkpointhread*: everything suspended\n"));
 
