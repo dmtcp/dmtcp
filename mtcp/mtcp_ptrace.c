@@ -236,16 +236,16 @@ void ptrace_attach_threads(int isRestart)
                   WTERMSIG(status)));
         }
 
-        if (ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
+        if (mtcp_ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
           mtcp_printf("ptrace_attach_threads: %d failed while calling "
                       "PTRACE_GETREGS for %d\n", superior, inferior);
           perror("ptrace_attach_threads: PTRACE_GETREGS failed");
           mtcp_abort();
         }
 #ifdef __x86_64__ 
-        peekdata = ptrace(PTRACE_PEEKDATA, inferior, regs.rip, 0);
+        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, regs.rip, 0);
 #else
-        peekdata = ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
+        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
 #endif
         low = peekdata & 0xff;
         peekdata >>=8;
@@ -255,17 +255,16 @@ void ptrace_attach_threads(int isRestart)
         if (low == 0xf && upp == 0x05 && regs.rax == 0xf) {
           if (isRestart) { /* Restart time. */
             if (last_command == PTRACE_SINGLESTEP_COMMAND) {
-              if (regs.eax == DMTCP_SYS_sigreturn) addr = regs.esp;
+              if (regs.eax != DMTCP_SYS_rt_sigreturn) addr = regs.esp;
               else {
-                /* TODO: test, gdb very unclear. */
                 addr = regs.esp + 8;
-                addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
                 addr += 20;
               }
               addr += EFLAGS_OFFSET;
               errno = 0;
-              if ((eflags =
-                   ptrace(PTRACE_PEEKDATA, inferior, (void *)addr, 0)) < 0) {
+              if ((eflags = mtcp_ptrace(PTRACE_PEEKDATA, inferior,
+                                        (void *)addr, 0)) < 0) {
                 if (errno != 0) {
                   mtcp_printf("ptrace_attach_threads: %d failed while calling "
                               "PTRACE_PEEKDATA for %d\n", superior, inferior);
@@ -274,7 +273,8 @@ void ptrace_attach_threads(int isRestart)
                 }
               }
               eflags |= 0x0100;
-              if (ptrace(PTRACE_POKEDATA, inferior, addr, eflags) < 0) {
+              if (mtcp_ptrace(PTRACE_POKEDATA, inferior, (void *)addr,
+                              eflags) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_POKEDATA for %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
@@ -329,17 +329,16 @@ void ptrace_attach_threads(int isRestart)
              (regs.eax == DMTCP_SYS_rt_sigreturn))) {
           if (isRestart) { /* Restart time. */
             if (last_command == PTRACE_SINGLESTEP_COMMAND) {
-              if (regs.eax == DMTCP_SYS_sigreturn) addr = regs.esp;
+              if (regs.eax != DMTCP_SYS_rt_sigreturn) addr = regs.esp;
               else {
-                /* TODO: test, gdb very unclear. */
                 addr = regs.esp + 8;
-                addr = ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
                 addr += 20;
               }
               addr += EFLAGS_OFFSET;
               errno = 0;
-              if ((eflags =
-                     ptrace(PTRACE_PEEKDATA, inferior, (void *)addr, 0)) < 0) {
+              if ((eflags = mtcp_ptrace(PTRACE_PEEKDATA, inferior,
+                                        (void *)addr, 0)) < 0) {
                 if (errno != 0) {
                   mtcp_printf("ptrace_attach_threads: %d failed while calling "
                               "PTRACE_PEEKDATA for %d\n", superior, inferior);
@@ -348,7 +347,8 @@ void ptrace_attach_threads(int isRestart)
                 }
               }
               eflags |= 0x0100;
-              if (ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags) < 0) {
+              if (mtcp_ptrace(PTRACE_POKEDATA, inferior, (void *)addr,
+                              eflags) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_POKEDATA for %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
