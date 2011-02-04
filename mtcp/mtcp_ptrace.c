@@ -501,8 +501,7 @@ void ptrace_detach_user_threads ()
           pt_info.singlestep_waited_on == FALSE) {
         __ptrace_waitpid.has_status_and_pid = 1;
         __ptrace_waitpid.saved_status = status;
-        pt_info.singlestep_waited_on = TRUE;
-        pt_info.last_command = PTRACE_UNSPECIFIED_COMMAND;
+        mtcp_ptrace_info_list_update_info(TRUE);
       }
 
       have_file (pt_info.inferior);
@@ -874,6 +873,16 @@ void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
   cmd.singlestep_waited_on = singlestep_waited_on;
   cmd.inferior_st = inf_st;
   cmd.file_option = file_option;
+  (*callback_ptrace_info_list_command)(cmd);
+}
+
+void mtcp_ptrace_info_list_update_info(int singlestep_waited_on) {
+  if (!callback_ptrace_info_list_command) return;
+
+  struct cmd_info cmd;
+  init_empty_cmd_info(&cmd);
+  cmd.option = PTRACE_INFO_LIST_UPDATE_INFO;
+  cmd.singlestep_waited_on = singlestep_waited_on;
   (*callback_ptrace_info_list_command)(cmd);
 }
 

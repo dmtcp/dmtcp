@@ -382,7 +382,7 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
 }
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-                                  int singlestep_waited_on) {
+                                             int singlestep_waited_on) {
   dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
     if (it->superior == superior && it->inferior == inferior) {
@@ -415,6 +415,10 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
       ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command, 
                               cmd.singlestep_waited_on, cmd.inferior_st,
                               cmd.file_option);
+      break;
+    case PTRACE_INFO_LIST_UPDATE_INFO:
+      ptrace_info_list_update_info(cmd.superior, cmd.inferior,
+                                   cmd.singlestep_waited_on);
       break;
     default:
       printf ("ptrace_info_list_command: unknown option %d\n", cmd.option);
