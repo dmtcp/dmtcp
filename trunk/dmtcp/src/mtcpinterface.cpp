@@ -162,7 +162,10 @@ static void callbackJalibCkptUnlock ()
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
+/* In the case of PTRACE, we have already called JALIB_CKPT_UNLOCK. */
+#ifndef PTRACE
   JALIB_CKPT_UNLOCK();
+#endif
 
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
