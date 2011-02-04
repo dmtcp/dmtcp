@@ -300,7 +300,7 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
 }
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-                                             int singlestep_waited_on);
+                                             int singlestep_waited_on); 
 
 typedef struct ptrace_waitpid_info ( *t_mtcp_get_ptrace_waitpid_info) ( );
 extern "C" t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info;
