@@ -125,7 +125,8 @@ extern "C"
           void ( *restore_virtual_pid_table) ()
 #ifdef PTRACE
         , struct ptrace_info (*get_next_ptrace_info)(int index),
-          void (*ptrace_info_list_command)(struct cmd_info cmd)
+          void (*ptrace_info_list_command)(struct cmd_info cmd),
+          void (*jalib_ckpt_unlock)()
 #endif
   );
   typedef int ( *t_mtcp_ok ) ( void );
@@ -151,6 +152,11 @@ static struct ptrace_info callbackGetNextPtraceInfo (int index)
 static void callbackPtraceInfoListCommand (struct cmd_info cmd)
 {
   ptrace_info_list_command(cmd);
+}
+
+static void callbackJalibCkptUnlock ()
+{
+  JALIB_CKPT_UNLOCK();
 }
 #endif
 
@@ -326,6 +332,7 @@ void dmtcp::initializeMtcpEngine()
 #ifdef PTRACE
                  , &callbackGetNextPtraceInfo
                  , &callbackPtraceInfoListCommand
+                 , &callbackJalibCkptUnlock
 #endif
                  );
   JTRACE ("Calling mtcp_init");

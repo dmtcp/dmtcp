@@ -81,7 +81,8 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*write_tid_maps)()
 #ifdef PTRACE
                       , struct ptrace_info (*get_next_ptrace_info)(int index),
-                        void (*ptrace_info_list_command)(struct cmd_info cmd)
+                        void (*ptrace_info_list_command)(struct cmd_info cmd),
+                        void (*jalib_ckpt_unlock)()
 #endif
 );
 

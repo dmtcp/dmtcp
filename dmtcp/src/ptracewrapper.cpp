@@ -326,7 +326,6 @@ void ptrace_info_list_sort () {
 }
 
 void ptrace_info_list_remove_pairs_with_dead_tids () {
-  JALIB_CKPT_UNLOCK();
   dmtcp::list<ptrace_info>::iterator it;
   for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
     if (!procfs_state(it->inferior)) {
@@ -427,7 +426,7 @@ char procfs_state(int tid) {
   sprintf(name, "/proc/%d/stat", tid);
   int fd = open(name, O_RDONLY, 0);
   if (fd < 0) {
-    JNOTE("procfs_state: cannot open")(name);
+    //JNOTE("procfs_state: cannot open")(name);
     return 0;
   }
 

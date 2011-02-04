@@ -145,6 +145,9 @@ extern __attribute__ ((visibility ("hidden"))) struct ptrace_info
 extern __attribute__ ((visibility ("hidden"))) void
   (*callback_ptrace_info_list_command)(struct cmd_info cmd);
 
+extern __attribute__ ((visibility ("hidden"))) void
+  (*callback_jalib_ckpt_unlock)();
+
 /* The interface between MTCP and DMTCP. */
 extern void mtcp_ptrace_info_list_update_is_inferior_ckpthread(pid_t pid,
   pid_t tid);
