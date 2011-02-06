@@ -79,6 +79,7 @@ int main (int argc, char *argv[], char *envp[])
   char cmd_file[MAXPATHLEN+1];
   char ckpt_newname[MAXPATHLEN+1] = "";
   char **orig_argv = argv;
+  int orig_argc = argc;
 
   if (getuid() == 0 || geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
@@ -129,6 +130,9 @@ int main (int argc, char *argv[], char *envp[])
       return (-1);
     }
   }
+  // Restore argc and argv pointer
+  argv = orig_argv;
+  argc = orig_argc;
 
   /* XXX XXX XXX:
    *    DO NOT USE mtcp_printf OR DPRINTF BEFORE THIS BLOCK, IT'S DANGEROUS AND
@@ -223,7 +227,6 @@ int main (int argc, char *argv[], char *envp[])
     } else {
       mtcp_printf("mtcp_restart: info: restarting due to address conflict...\n");
       close (fd);
-      argv = orig_argv;
       execvp (argv[0], argv);
     }
   }

@@ -19,36 +19,54 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "constants.h"
-#include "mtcpinterface.h"
-#include "syscallwrappers.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jalloc.h"
-
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/syscall.h>
-#include "sockettable.h"
+#include <stdarg.h>
 #include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/mman.h>
+#include <sys/prctl.h>
+
+#include "constants.h"
+#include "mtcpinterface.h"
+#include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
 #include "protectedfds.h"
+#include "sockettable.h"
+#include "ptracewrapper.h"
+
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jalloc.h"
+
 
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
 
-#include "ptracewrapper.h"
-#include <stdarg.h>
 
 #ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif
+
+#ifdef __x86_64
+# define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L);
+#else
+# define MTCP_RESTORE_STACK_BASE ((char*)0xC0000000L);
+#endif
+
+static char prctlPrgName[22] = {0};
+static void prctlGetProcessName();
+static void prctlRestoreProcessName();
+
+static char *_mtcpRestoreArgvStartAddr = NULL;
+static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
+static void unmapRestoreArgv();
 
 namespace
 {
@@ -115,11 +133,14 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
-  typedef int ( *t_mtcp_init ) ( char const *checkpointFilename, int interval, int clonenabledefault );
+  typedef int ( *t_mtcp_init ) ( char const *checkpointFilename,
+                                 int interval,
+                                 int clonenabledefault );
   typedef void ( *t_mtcp_set_callbacks ) (
           void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) ( char ** ckptFilename ),
-          void ( *post_ckpt ) ( int is_restarting ),
+          void ( *post_ckpt ) ( int isRestarting,
+                                char* mtcpRestoreArgvStartAddr),
           int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
           void ( *restore_virtual_pid_table) ()
@@ -136,6 +157,9 @@ extern "C"
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+
+  prctlGetProcessName();
+  unmapRestoreArgv();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -189,10 +213,16 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 }
 
 
-static void callbackPostCheckpoint ( int isRestart )
+static void callbackPostCheckpoint ( int isRestart,
+                                     char* mtcpRestoreArgvStartAddr)
 {
   if ( isRestart )
   {
+    if (restoreArgvAfterRestart(mtcpRestoreArgvStartAddr)) {
+      prctlRestoreProcessName();
+    }
+
+
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.
@@ -343,6 +373,80 @@ void dmtcp::initializeMtcpEngine()
   ( *okFn ) ();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
+}
+
+void prctlGetProcessName()
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+  if (prctlPrgName[0] == '\0') {
+    bzero((void*) prctlPrgName, 22);
+    strcpy(prctlPrgName, "dmtcp:");
+    JASSERT(prctl(PR_GET_NAME, &prctlPrgName[6]) != -1) (JASSERT_ERRNO)
+      .Text ("prctl() failed");
+    JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
+  }
+#endif
+}
+
+void prctlRestoreProcessName()
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+    JASSERT(prctl(PR_SET_NAME, prctlPrgName) != -1) (prctlPrgName) (JASSERT_ERRNO)
+      .Text ("prctl() failed");
+    JTRACE("prctl(PR_SET_NAME, ...) succeeded") (prctlPrgName);
+#endif
+}
+
+static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
+{
+  /*
+   * The addresses where argv of mtcp_restart process start. /proc/pid/cmdline
+   * information is looked up from these addresses.  We observed that the
+   * stack-base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
+   * 0xc0000000 in case of 32-bit system.  Once we restore the checkpointed
+   * process' memory, we will map the pages ending in these address into
+   * process' memory if they are unused i.e. not mapped by the process (which
+   * is true for most processes running with ASLR).  Once we map them, we can
+   * put the argv of the checkpointed process in there so that
+   * /proc/self/cmdline show the correct values.
+   */
+  JASSERT(mtcpRestoreArgvStartAddr != NULL);
+
+  char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & PAGE_MASK);
+  char *endAddr = MTCP_RESTORE_STACK_BASE;
+  size_t len = endAddr - startAddr;
+
+  void *retAddr = mmap((void*) startAddr, len, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  if (retAddr != MAP_FAILED) {
+    JTRACE("Restoring /proc/self/cmdline") (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
+    dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+    char *addr = mtcpRestoreArgvStartAddr;
+    args[0] = "DMTCP:" + args[0];
+    for ( size_t i=0; i< args.size(); ++i ) {
+      if (addr + args[i].length() >= endAddr)
+        break;
+      strcpy(addr, args[0].c_str());
+      addr += args[0].length() + 1;
+    }
+    _mtcpRestoreArgvStartAddr = startAddr;
+    return true;
+  } else {
+    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
+    _mtcpRestoreArgvStartAddr = NULL;
+  }
+  return false;
+}
+
+static void unmapRestoreArgv()
+{
+  if (_mtcpRestoreArgvStartAddr != NULL) {
+    char *endAddr = MTCP_RESTORE_STACK_BASE;
+    size_t len = endAddr - _mtcpRestoreArgvStartAddr;
+    JASSERT(munmap(_mtcpRestoreArgvStartAddr, len) == 0)
+      (_mtcpRestoreArgvStartAddr) (len)
+      .Text ("Failed to munmap extra pages that were mapped during restart");
+  }
 }
 
 #ifdef PID_VIRTUALIZATION

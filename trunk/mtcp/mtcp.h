@@ -75,7 +75,8 @@ struct ptrace_waitpid_info {
 
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
-                        void (*post_ckpt)(int is_restarting),
+                        void (*post_ckpt)(int is_restarting,
+                                          char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
                         void (*write_ckpt_prefix)(int fd),
                         void (*write_tid_maps)()

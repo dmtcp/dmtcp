@@ -418,7 +418,6 @@ extern "C"
   int _real_fgetc(FILE *stream);
   int _real_ungetc(int c, FILE *stream);
   int _real_putc(int c, FILE *stream);
-  int _real_fclose(FILE *fp);
   int _real_fcntl(int fd, int cmd, ...);
   int _real_fdatasync(int fd);
   int _real_fsync(int fd);
