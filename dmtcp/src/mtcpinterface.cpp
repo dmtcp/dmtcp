@@ -380,7 +380,7 @@ void prctlGetProcessName()
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
   if (prctlPrgName[0] == '\0') {
     bzero((void*) prctlPrgName, 22);
-    strcpy(prctlPrgName, "dmtcp:");
+    strcpy(prctlPrgName, "DMTCP:");
     JASSERT(prctl(PR_GET_NAME, &prctlPrgName[6]) != -1) (JASSERT_ERRNO)
       .Text ("prctl() failed");
     JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
