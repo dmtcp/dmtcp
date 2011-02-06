@@ -104,8 +104,10 @@ static int theRestorePort = RESTORE_PORT_START;
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
 
-void processDmtcpCommands(dmtcp::string programName);
-static void processSshCommand(dmtcp::string programName);
+void processDmtcpCommands(dmtcp::string programName,
+                          dmtcp::vector<dmtcp::string>& args);
+static void processSshCommand(dmtcp::string programName,
+                              dmtcp::vector<dmtcp::string>& args);
 
 void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
@@ -245,16 +247,17 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
 
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
+  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
 
   if ( programName == "dmtcp_coordinator"  ||
        programName == "dmtcp_checkpoint"   ||
        programName == "dmtcp_restart"      ||
        programName == "dmtcp_command"      ||
        programName == "mtcp_restart" ) {
-    processDmtcpCommands(programName);
+    processDmtcpCommands(programName, args);
   }
   if ( programName == "ssh" ) {
-    processSshCommand(programName);
+    processSshCommand(programName, args);
   }
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
@@ -421,7 +424,8 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
-void processDmtcpCommands(dmtcp::string programName)
+void processDmtcpCommands(dmtcp::string programName, 
+                          dmtcp::vector<dmtcp::string>& args)
 {
   JASSERT ( programName == "dmtcp_coordinator"  ||
       programName == "dmtcp_checkpoint"   ||
@@ -447,9 +451,6 @@ void processDmtcpCommands(dmtcp::string programName)
     }
   }
 
-  //get program args
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
-
   //now repack args
   char** argv = new char*[args.size() + 1];
   memset ( argv, 0, sizeof ( char* ) * ( args.size() + 1 ) );
@@ -469,14 +470,13 @@ void processDmtcpCommands(dmtcp::string programName)
     ( JASSERT_ERRNO ) .Text ( "exec() failed" );
 }
 
-static void processSshCommand(dmtcp::string programName)
+static void processSshCommand(dmtcp::string programName,
+                              dmtcp::vector<dmtcp::string>& args)
 {
   JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
   //make sure coordinator connection is closed
   _real_close ( PROTECTEDFD ( 1 ) );
 
-  //get prog args
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
   JASSERT ( args.size() >= 3 ) ( args.size() ).Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
 
   //find command part

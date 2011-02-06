@@ -167,7 +167,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
       /* The first byte is null, which indicates abstract socket name */
       un_path++;
     }
-    dmtcp::string path = jalib::Filesystem::DirBaseName( un_path );
+    dmtcp::string path = jalib::Filesystem::GetDirName( un_path );
 
     if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix" ||
         path == "/var/run/nscd") { 

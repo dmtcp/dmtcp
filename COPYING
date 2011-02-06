@@ -8,10 +8,7 @@ ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
 for more details.
 
-As a special exception, the copyright holders contribute the two files
-dmtcp/src/dmtcpaware.c and dmtcp/src/dmtcpaware.h to the public domain and
-grant permission for these two files to be redistributed or changed under
-any license.
+The files dmtcp/src/dmtcpaware.c and dmtcp/src/dmtcpaware.h are released under MIT/BSD dual license. The user is allowed to use these files under either license.
 
 Files found in the directory dmtcp/src are Copyright (C) 2006-2008 by Jason
 Ansel, Kapil Arya, and Gene Cooperman.
@@ -22,8 +19,9 @@ Jason Ansel.
 Files found in the directory mtcp are Copyright (C) 2006-2008 by Michael
 Rieker, Jason Ansel, Kapil Arya, and Gene Cooperman.
 
-The contents of file dmtcp/src/glibcsystem.cpp are taken from glibc and is
-Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+The contents of files mtcp/mtcp_sigaction_*, mtcp/sysdep-*,
+mtcp/NOTES-x86_64/*.[hS] and dmtcp/src/glibcsystem.cpp are taken from glibc and
+is Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 
 Any remaining files (for building/testing) are Copyright (C) 2006-2008 Jason
 Ansel, Kapil Arya, and Gene Cooperman.

@@ -329,6 +329,8 @@ int dmtcp_info_pid_virtualization_enabled = 0;
 //int dmtcp_info_jassertlog_fd = -1;
 int dmtcp_info_restore_working_directory = -1;
 
+char* mtcp_restore_argv_start_addr = NULL;
+    
 	/* Static data */
 
 static sigset_t sigpending_global;                // pending signals for the process
@@ -368,7 +370,7 @@ static VA saved_heap_start = NULL;
 static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
-static void (*callback_post_ckpt)(int is_restarting) = NULL;
+static void (*callback_post_ckpt)(int is_restarting, char* argv_start) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_dmtcp_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
@@ -715,7 +717,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
-                        void (*post_ckpt)(int is_restarting),
+                        void (*post_ckpt)(int is_restarting,
+                                          char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
                         void (*write_dmtcp_header)(int fd),
                         void (*restore_virtual_pid_table)()
@@ -995,7 +998,7 @@ static int threadcloned (void *threadv)
       mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n",
                     motherpid, tls_pid, TLS_PID_OFFSET());
       mtcp_printf ("      %X\n", motherpid);
-      for (rc = 0; rc < 256; rc += 4) {
+      for (rc = 0; rc <= TLS_PID_OFFSET(); rc += 4) {
         tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + rc);
         mtcp_printf ("   %d: %X", rc, tls_pid);
         if ((rc & 31) == 28) mtcp_printf ("\n");
@@ -1850,7 +1853,7 @@ again:
     if (callback_post_ckpt != NULL){
         DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n",
 		 &callback_post_ckpt, callback_post_ckpt));
-        (*callback_post_ckpt)(0);
+        (*callback_post_ckpt)(0, NULL);
     }
     if (showtiming) {
       mtcp_sys_gettimeofday (&stopped, NULL);
@@ -3467,6 +3470,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
   }
   mtcp_restore_envp[i] = NULL;
 #endif
+  mtcp_restore_argv_start_addr = argv[0];
 
   /* Switch to a stack area that's part of the shareable's memory address range
    * and thus not used by the checkpointed program
@@ -3502,7 +3506,7 @@ static void restore_heap()
    */
   VA current_break = mtcp_sys_brk (NULL);
   if (current_break > mtcp_saved_break) {
-    DPRINTF(("mtcp finishrestore: Area between mtcp_saved_break:%p and "
+    DPRINTF(("mtcp restore_heap: Area between mtcp_saved_break:%p and "
              "Current_break:%p not mapped, mapping it now\n", 
              mtcp_saved_break, current_break));
     size_t oldsize = mtcp_saved_break - saved_heap_start;
@@ -3510,7 +3514,7 @@ static void restore_heap()
 
     void* addr = mtcp_sys_mremap (saved_heap_start, oldsize, newsize, 0);
     if (addr == NULL) {
-      mtcp_printf("mtcp finishrestore: mremap failed to map area between "
+      mtcp_printf("mtcp restore_heap: mremap failed to map area between "
                   "mtcp_saved_break (%p) and current_break (%p)\n",
                   mtcp_saved_break, current_break);
       mtcp_abort();
@@ -3596,7 +3600,7 @@ static int restarthread (void *threadv)
         DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1=restarting)"
 		 " (&%x,%x) \n",
 		 &callback_post_ckpt, callback_post_ckpt));
-        (*callback_post_ckpt)(1);
+        (*callback_post_ckpt)(1, mtcp_restore_argv_start_addr);
         DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
     }
     /* Do it once only, in motherofall thread. */

@@ -57,7 +57,7 @@ namespace jalib
     jalib::string GetProgramPath();
 
     jalib::string ResolveSymlink ( const jalib::string& file );
-    jalib::string DirBaseName ( const jalib::string& str );
+    jalib::string GetDirName ( const jalib::string& str );
     jalib::string FileBaseName ( const jalib::string& str );
 
     StringVector GetProgramArgs();

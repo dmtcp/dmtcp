@@ -52,6 +52,7 @@ namespace
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
     rc = dmtcp::Util::readAll(fd, buf, size);
+    _real_close(fd);
     return rc;
   }
 
@@ -70,16 +71,26 @@ jalib::string jalib::Filesystem::GetCWD()
 jalib::string jalib::Filesystem::FileBaseName ( const jalib::string& str )
 {
   int lastSlash = 0;
-  for ( size_t i = 0; i<str.length(); ++i )
+  size_t len = str.length();
+  // Do not consider trailing '/'
+  if (str.c_str()[len-1] == '/') {
+    len--;
+  }
+  for ( size_t i = 0; i<len; ++i )
     if ( str[i] == '/' )
       lastSlash = i;
   return str.substr ( lastSlash+1 );
 }
 
-jalib::string jalib::Filesystem::DirBaseName ( const jalib::string& str )
+jalib::string jalib::Filesystem::GetDirName ( const jalib::string& str )
 {
   int lastSlash = 0;
-  for ( size_t i = 0; i<str.length(); ++i )
+  size_t len = str.length();
+  // Do not consider trailing '/'
+  if (str.c_str()[len-1] == '/') {
+    len--;
+  }
+  for ( size_t i = 0; i<len; ++i )
     if ( str[i] == '/' )
       lastSlash = i;
   return str.substr ( 0,lastSlash );
@@ -87,7 +98,7 @@ jalib::string jalib::Filesystem::DirBaseName ( const jalib::string& str )
 
 jalib::string jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = DirBaseName ( GetProgramPath() );
+  static jalib::string value = GetDirName ( GetProgramPath() );
   return value;
 }
 
@@ -196,22 +207,24 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
 
 jalib::StringVector jalib::Filesystem::GetProgramArgs()
 {
-  StringVector rv;
+  static StringVector rv;
 
-  jalib::string path = "/proc/self/cmdline";
-  FILE* args = fopen ( path.c_str(),"r" );
+  if (rv.empty()) {
+    jalib::string path = "/proc/self/cmdline";
+    FILE* args = fopen ( path.c_str(),"r" );
 
-  JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
+    JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
 
-  char * lineptr = ( char* ) malloc ( 512 ); //getdelim will auto-grow this buffer
-  size_t len = 511;
+    char * lineptr = ( char* ) malloc ( 512 ); //getdelim will auto-grow this buffer
+    size_t len = 511;
 
-  while ( getdelim ( &lineptr, &len, '\0', args ) >= 0 )
-  {
-    rv.push_back ( lineptr );
+    while ( getdelim ( &lineptr, &len, '\0', args ) >= 0 ) {
+      rv.push_back ( lineptr );
+    }
+
+    free ( lineptr );
+    fclose(args);
   }
-
-  free ( lineptr );
 
   return rv;
 }

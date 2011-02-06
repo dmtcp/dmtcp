@@ -49,13 +49,14 @@
 #include "dmtcp_coordinator.h"
 #include "constants.h"
 #include "protectedfds.h"
-#include  "../jalib/jconvert.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jtimer.h"
+#include  "../jalib/jfilesystem.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include  "../jalib/jtimer.h"
 #include <algorithm>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -66,7 +67,6 @@
 
 
 static int thePort = -1;
-static char *argv0;
 
 static const char* theHelpMessage =
   "COMMANDS:\n"
@@ -1098,7 +1098,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   FILE* fp = fopen ( uniqueFilename.c_str(),"w" );
   JASSERT ( fp!=0 )(JASSERT_ERRNO)( uniqueFilename )
-	  .Text ( "failed to open file" );
+    .Text ( "failed to open file" );
 
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
@@ -1118,9 +1118,9 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     fprintf ( fp, "maybebatch=\n\n" );
 
   fprintf ( fp, "# Number of hosts in the computation = %zd\n",
-	    _restartFilenames.size() );
+            _restartFilenames.size() );
   fprintf ( fp, "# Number of processes in the computation = %d\n\n",
-	    getStatus().numPeers );
+            getStatus().numPeers );
 
   if ( isSingleHost ) {
     JTRACE ( "Single HOST");
@@ -1134,14 +1134,15 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
     fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
     fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
-		  " || DMTCP_RESTART=`dirname %s`/dmtcp_restart\n\n", argv0 );
+                  " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
+                  jalib::Filesystem::GetProgramDir().c_str());
     fprintf ( fp, "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
                   "  new_ckpt_names=\"\"\n"
                   "  names=\"%s\"\n"
                   "  for tmp in $names; do\n"
                   "    new_ckpt_names=\"$DMTCP_RESTART_DIR/`basename $tmp` $new_ckpt_names\"\n"
                   "  done\n"
-    	            "fi\n", o.str().c_str());
+                  "fi\n", o.str().c_str());
 
     fprintf ( fp,
               "if [ ! -z \"$maybebatch\" ]; then\n"
@@ -1258,7 +1259,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
     fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
     fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
-		  " || DMTCP_RESTART=`dirname %s`/dmtcp_restart\n\n", argv0 );
+                  " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
+                  jalib::Filesystem::GetProgramDir().c_str());
 
     fprintf ( fp, "%s",
               "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
@@ -1304,7 +1306,6 @@ static void setupSIGINTHandler()
 
 int main ( int argc, char** argv )
 {
-  argv0 = argv[0];
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
 
   //parse port
@@ -1373,7 +1374,7 @@ int main ( int argc, char** argv )
   JTRACE ( "New DMTCP coordinator starting." );
 
   JTRACE ( "recalculated process UniquePid..." )
-	 ( dmtcp::UniquePid::ThisProcess() );
+    ( dmtcp::UniquePid::ThisProcess() );
 #endif
 
   if ( thePort < 0 )
@@ -1397,7 +1398,7 @@ int main ( int argc, char** argv )
        "\nIf msg is \"Address already in use\", this may be an old coordinator."
        "\nKill default coordinator and try again:  dmtcp_command -q"
        "\nIf that fails, \"pkill -9 dmtcp_coord\","
-	" and try again in a minute or so." );
+       " and try again in a minute or so." );
   }
 
   thePort = sock->port();
