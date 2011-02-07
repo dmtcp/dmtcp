@@ -574,7 +574,6 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
 }
 
 int _real_ioctl(int d, unsigned long int request, ...) {
-  int i;
   void * arg;
   va_list ap;
 

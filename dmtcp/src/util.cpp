@@ -106,10 +106,10 @@ bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
-  ssize_t offs = 0;
+  size_t num_written = 0;
 
   do {
-    ssize_t rc = write (fd, ptr + offs, count - offs);
+    ssize_t rc = write (fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) 
 	continue;
@@ -119,10 +119,10 @@ ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
     else if (rc == 0)
       break;
     else // else rc > 0
-      offs += rc;
-  } while (offs < count);
-  JASSERT (offs == count) (offs) (count);
-  return count;
+      num_written += rc;
+  } while (num_written < count);
+  JASSERT (num_written == count) (num_written) (count);
+  return num_written;
 }
 
 // Fails, succeeds, or partial read due to EOF (returns num read)
@@ -131,9 +131,9 @@ ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 //   <n>: number of bytes read
 ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
 {
-  size_t rc;
+  ssize_t rc;
   char *ptr = (char *) buf;
-  int num_read = 0;
+  size_t num_read = 0;
   for (num_read = 0; num_read < count;) {
     rc = read (fd, ptr + num_read, count - num_read);
     if (rc == -1) {

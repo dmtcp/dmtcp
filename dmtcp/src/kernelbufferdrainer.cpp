@@ -189,7 +189,9 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
     msg.type = DMT_PEER_ECHO;
     msg.params[0] = size;
     jalib::JSocket sock ( i->first );
-    if ( size>0 ) JTRACE ( "requesting repeat buffer..." ) ( sock.sockfd() ) ( size );
+    if ( size>0 ) {
+      JTRACE ( "requesting repeat buffer..." ) ( sock.sockfd() ) ( size );
+    }
     sock << msg;
     if ( size>0 ) sock.writeAll ( &i->second[0],size );
     i->second.clear();

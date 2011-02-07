@@ -41,6 +41,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <syslog.h>
@@ -258,7 +259,6 @@ pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *r
 
 int send_sigwinch; /* not used.  Only version in pidwrappers.cpp is used */
 int _real_ioctl(int d, unsigned long int request, ...) {
-  int i;
   void * arg;
   va_list ap;
 

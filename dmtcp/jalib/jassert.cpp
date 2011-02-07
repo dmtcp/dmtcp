@@ -214,7 +214,7 @@ void writeBacktrace() {
 // But it could be dangerous to spawn a process in fragile state of JASSERT.
 void writeProcMaps() {
   char *mapsBuf = (char*) JALLOC_HELPER_MALLOC(50000);
-  int rc, count, total;
+  int  count;
   int fd = open("/proc/self/maps", O_RDONLY);
   if (fd == -1) return;
   count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);

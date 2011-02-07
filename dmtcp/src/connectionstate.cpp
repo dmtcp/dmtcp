@@ -243,8 +243,10 @@ void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
       ; i!= connections.end()
       ; ++i )
   {
-    if ( _conToFds[i->first].size() <= 0 )
-      JWARNING(false)  ( i->first.conId() ) .Text ( "WARNING:: stale connections should be gone by now" );
+    if ( _conToFds[i->first].size() <= 0 ) {
+      JWARNING(false)  ( i->first.conId() )
+        .Text ( "WARNING:: stale connections should be gone by now" );
+    }
 
     if ( _conToFds[i->first].size() == 0 ) continue;
 
@@ -267,8 +269,6 @@ void dmtcp::ConnectionState::postRestart()
     JWARNING ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
     if ( _conToFds[i->first].size() == 0 ) continue;
 
-    Connection *c = i->second;
-
     if ( ( i->second )->conType() == Connection::PTY &&
          ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
            ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
@@ -283,8 +283,6 @@ void dmtcp::ConnectionState::postRestart()
       ; ++i )
   {
     if ( _conToFds[i->first].size() == 0 ) continue;
-
-    Connection *c = i->second;
 
     if ( ( i->second )->conType() == Connection::PTY &&
          ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||

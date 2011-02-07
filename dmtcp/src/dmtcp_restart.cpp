@@ -856,7 +856,7 @@ int main ( int argc, char** argv )
   JASSERT ( false ).Text ( "unreachable" );
   return -1;
 #else
-  size_t i = targets.size();
+  //size_t i = targets.size();
 
   // Create roots vector, assign children to their parents.
   // Delete children that don't exist.
@@ -875,7 +875,7 @@ int main ( int argc, char** argv )
 
   int pgrp_index=-1;
   JTRACE ( "Creating ROOT Processes" )(roots.size());
-  for ( int j = 0 ; j < roots.size(); ++j )
+  for ( size_t j = 0 ; j < roots.size(); ++j )
   {
     if( roots[j].indep == false ){
       // We will restore this process from one of the independent roots.
@@ -906,7 +906,7 @@ int main ( int argc, char** argv )
 
   JTRACE("Restore processes without corresponding Root Target");
   int flat_index = -1;
-  int j = 0;
+  size_t j = 0;
   if( pgrp_index < 0 ){ // No root processes at all
     // Find first flat process that can replace currently running
     //   dmtcp_restart context.
@@ -1069,7 +1069,7 @@ void ProcessGroupInfo()
 
     pid_t sid = virtualPidTable.sid();
     pid_t gid = virtualPidTable.gid();
-    pid_t fgid = virtualPidTable.fgid();
+    //pid_t fgid = virtualPidTable.fgid();
 
     /*
     // If group ID doesn't belong to known PIDs, indicate that fact

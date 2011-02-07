@@ -228,8 +228,9 @@ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   , _bindAddrlen ( 0 )
   , _acceptRemoteId ( ConnectionIdentifier::Null() )
 {
-  if (domain != -1)
+  if (domain != -1) {
     JTRACE ("Creating TcpConnection.") ( id() ) ( domain ) ( type ) ( protocol );
+  }
   memset ( &_bindAddr, 0, sizeof _bindAddr );
 }
 
@@ -946,7 +947,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);
-  stat(_path.c_str(),&_stat);
+  fstat(fds[0], &_stat);
   _checkpointed = false;
 
   if (_isBlacklistedFile(_path)) {
@@ -1031,7 +1032,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
 
   if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
     if (buf.st_size > _stat.st_size && 
-        _fcntlFlags & (O_WRONLY|O_RDWR) != 0) {
+        (_fcntlFlags & (O_WRONLY|O_RDWR)) != 0) {
       errno = 0;
       JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
               ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
@@ -1294,7 +1295,7 @@ void dmtcp::FifoConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   JASSERT(ckptfd >= 0)(ckptfd)(JASSERT_ERRNO);
 
   _in_data.clear();
-  int bufsize = 256;
+  size_t bufsize = 256;
   char buf[bufsize];
   int size;
 
@@ -1322,16 +1323,16 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool
   ckptfd = open(_path.c_str(),new_flags);
   JASSERT (ckptfd >= 0) (ckptfd) (JASSERT_ERRNO);
 
-  int bufsize = 256;
+  size_t bufsize = 256;
   char buf[bufsize];
-  int j;
+  size_t j;
   ssize_t ret;
   for(size_t i=0;i<(_in_data.size()/bufsize);i++){ // refill fifo
     for(j=0; j<bufsize; j++){
       buf[j] = _in_data[j+i*bufsize];
     }
-    ret=write(ckptfd,buf,j);
-    JASSERT (ret == j) (JASSERT_ERRNO) (ret)(j) (fds[0])(i);
+    ret = Util::writeAll(ckptfd,buf,j);
+    JASSERT (ret == (ssize_t)j) (JASSERT_ERRNO) (ret)(j) (fds[0])(i);
   }
   int start = (_in_data.size()/bufsize)*bufsize;
   for(j=0; j<_in_data.size()%bufsize; j++){
@@ -1341,7 +1342,7 @@ void dmtcp::FifoConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool
   buf[j] ='\0';
   JTRACE ("Buf internals.") ((const char*)buf);
   ret = Util::writeAll(ckptfd,buf,j);
-  JASSERT (ret == j) (JASSERT_ERRNO)(ret)(j) (fds[0]);
+  JASSERT (ret == (ssize_t)j) (JASSERT_ERRNO)(ret)(j) (fds[0]);
 
   close(ckptfd);
   // unlock fifo
@@ -1381,8 +1382,6 @@ void dmtcp::FifoConnection::restore ( const dmtcp::vector<int>& fds, ConnectionR
   refreshPath();
   int tempfd = openFile ();
   JASSERT ( tempfd > 0 ) ( tempfd ) ( _path ) ( JASSERT_ERRNO );
-
-  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
 
   for(size_t i=0; i<fds.size(); ++i)
   {
@@ -1592,12 +1591,12 @@ static bool readyToRead(int fd) {
 // returns 0 if not ready to read; else returns -1, or size read incl. header
 static ssize_t readOnePacket(int fd, const void *buf, size_t maxCount) {
   typedef int hdr;
-  int rc = 0;
+  ssize_t rc = 0;
   // Read single packet:  rc > 0 will be true for at most one iteration.
   while (readyToRead(fd) && rc <= 0) {
     rc = read(fd, (char *)buf+sizeof(hdr), maxCount-sizeof(hdr));
     *(hdr *)buf = rc; // Record the number read in header
-    if (rc >= maxCount-sizeof(hdr)) {
+    if (rc >= (ssize_t)(maxCount-sizeof(hdr))) {
       rc = -1; errno = E2BIG; // Invoke new errno for buf size not large enough
     }
     if (rc == -1 && errno != EAGAIN && errno != EINTR)

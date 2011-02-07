@@ -75,7 +75,7 @@
 #include <sys/user.h>
 #include "mtcp_ptrace.h" 
 
-static int WAIT=1;
+// static int WAIT=1;
 // static int WAIT=0;
 
 #if 0
@@ -497,7 +497,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   char *p, *tmp, *endp;
   int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
-  mtcp_segreg_t TLSSEGREG;
+  //mtcp_segreg_t TLSSEGREG;
 #ifdef PTRACE 
   DPRINTF (("mtcp mtcp_init*: begin init_thread_local\n"));
   init_thread_local();

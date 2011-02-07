@@ -75,47 +75,47 @@ int do_system (const char *line)
 
   DO_LOCK ();
   if (ADD_REF () == 0)
+  {
+    if (sigaction (SIGINT, &sa, &intr) < 0)
     {
-      if (sigaction (SIGINT, &sa, &intr) < 0)
-  {
-    SUB_REF ();
-    goto out;
-  }
-      if (sigaction (SIGQUIT, &sa, &quit) < 0)
-  {
-    save = errno;
-    SUB_REF ();
-    goto out_restore_sigint;
-  }
+      SUB_REF ();
+      goto out;
     }
+    if (sigaction (SIGQUIT, &sa, &quit) < 0)
+    {
+      save = errno;
+      SUB_REF ();
+      goto out_restore_sigint;
+    }
+  }
   DO_UNLOCK ();
 
   /* We reuse the bitmap in the 'sa' structure.  */
   sigaddset (&sa.sa_mask, SIGCHLD);
   save = errno;
   if (sigprocmask (SIG_BLOCK, &sa.sa_mask, &omask) < 0)
-    {
-#ifndef _LIBC
-      if (errno == ENOSYS)
-  errno = save;
-      else
-#endif
   {
-    DO_LOCK ();
-    if (SUB_REF () == 0)
+#ifndef _LIBC
+    if (errno == ENOSYS)
+      errno = save;
+    else
+#endif
+    {
+      DO_LOCK ();
+      if (SUB_REF () == 0)
       {
         save = errno;
         (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
-      out_restore_sigint:
+out_restore_sigint:
         (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
         errno = save;
         //set_errno (save);
       }
-  out:
-    DO_UNLOCK ();
-    return -1;
-  }
+out:
+      DO_UNLOCK ();
+      return -1;
     }
+  }
 
 #ifdef CLEANUP_HANDLER
   CLEANUP_HANDLER;
@@ -127,24 +127,24 @@ int do_system (const char *line)
   pid = fork ();
 #endif
   if (pid == (pid_t) 0)
-    {
-      /* Child side.  */
-      const char *new_argv[4];
-      new_argv[0] = SHELL_NAME;
-      new_argv[1] = "-c";
-      new_argv[2] = line;
-      new_argv[3] = NULL;
+  {
+    /* Child side.  */
+    const char *new_argv[4];
+    new_argv[0] = SHELL_NAME;
+    new_argv[1] = "-c";
+    new_argv[2] = line;
+    new_argv[3] = NULL;
 
-      /* Restore the signals.  */
-      (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
-      (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
-      (void) sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL);
-      INIT_LOCK ();
+    /* Restore the signals.  */
+    (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
+    (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
+    (void) sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL);
+    INIT_LOCK ();
 
-      /* Exec the shell.  */
-      (void) execve (SHELL_PATH, (char *const *) new_argv, __environ);
-      _exit (127);
-    }
+    /* Exec the shell.  */
+    (void) execve (SHELL_PATH, (char *const *) new_argv, __environ);
+    _exit (127);
+  }
   else if (pid < (pid_t) 0)
     /* The fork failed.  */
     status = -1;
@@ -168,18 +168,18 @@ int do_system (const char *line)
   save = errno;
   DO_LOCK ();
   if ((SUB_REF () == 0
-       && (sigaction (SIGINT, &intr, (struct sigaction *) NULL)
-     | sigaction (SIGQUIT, &quit, (struct sigaction *) NULL)) != 0)
+        && (sigaction (SIGINT, &intr, (struct sigaction *) NULL)
+          | sigaction (SIGQUIT, &quit, (struct sigaction *) NULL)) != 0)
       || sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL) != 0)
-    {
+  {
 #ifndef _LIBC
-      /* glibc cannot be used on systems without waitpid.  */
-      if (errno == ENOSYS)
-        errno = save;
-      else
+    /* glibc cannot be used on systems without waitpid.  */
+    if (errno == ENOSYS)
+      errno = save;
+    else
 #endif
-  status = -1;
-    }
+      status = -1;
+  }
   DO_UNLOCK ();
 
   return status;

@@ -413,12 +413,14 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
       CoordinatorStatus s = getStatus();
       bool running = s.minimumStateUnanimous &&
 		     s.minimumState==WorkerState::RUNNING;
-      if(reply==NULL){
+      if (reply==NULL){
         printf("Status...\n");
         printf("NUM_PEERS=%d\n", s.numPeers);
         printf("RUNNING=%s\n", (running?"yes":"no"));
         fflush(stdout);
-        if(!running) JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
+        if (!running) {
+          JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
+        }
       }else{
         replyParams[0]=s.numPeers;
         replyParams[1]=running;
@@ -1345,13 +1347,14 @@ int main ( int argc, char** argv )
     }else if(argc == 1){ //last arg can be port
       char *endptr;
       long x = strtol(argv[0], &endptr, 10);
-      if (strlen(argv[0]) != endptr - argv[0]) {
+      if ((ssize_t)strlen(argv[0]) != endptr - argv[0]) {
         fprintf(stderr, theUsage, DEFAULT_PORT);
         return 1;
       } else {
         thePort = jalib::StringToInt( argv[0] );
         shift;
       }
+      x++, x--; // to suppress unused variable warning
     }else{
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;
@@ -1440,15 +1443,14 @@ int main ( int argc, char** argv )
     JASSERT(close(1)==0);
     JASSERT(open("/dev/null", O_WRONLY)==1);
     fflush(stderr);
-    if (close(2) != 0 || dup2(1,2) != 2)
-      JASSERT(false) .Text( "Can't print to stderr");
+    JASSERT (close(2) == 0 && dup2(1,2) == 2) .Text( "Can't print to stderr");
     close(JASSERT_STDERR_FD);
     dup2(2, JASSERT_STDERR_FD);
     if(fork()>0){
       JTRACE ( "Parent Exiting after fork()" );
       exit(0);
     }
-    pid_t sid = setsid();
+    //pid_t sid = setsid();
   } else if ( batchMode ) {
     JASSERT_STDERR  << "Going into Batch Mode...\n";
     close(0);

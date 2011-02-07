@@ -104,7 +104,6 @@ extern "C" pid_t getppid()
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  pid_t ppid = _real_getppid();
   if ( _real_getppid() == 1 )
   {
     dmtcp::VirtualPidTable::instance().setppid( 1 );
@@ -337,6 +336,7 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
   return retVal;
 }
 
+/* UNUSED FUNCTION
 extern "C" {
 static int get_sigckpt() {
   static char *nptr = getenv(ENV_VAR_SIGCKPT);
@@ -354,6 +354,7 @@ static int get_sigckpt() {
   return sigckpt;
 }
 }
+*/
 
 extern "C"
 pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
