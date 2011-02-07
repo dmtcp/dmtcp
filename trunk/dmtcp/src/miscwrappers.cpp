@@ -97,8 +97,8 @@ extern "C" int pipe2 ( int fds[2], int flags )
   JTRACE ( "promoting pipe2() to socketpair()" );
   //just promote pipes to socketpairs
   int newFlags = 0;
-  if (flags & O_NONBLOCK != 0) newFlags |= SOCK_NONBLOCK;
-  if (flags & O_CLOEXEC != 0)  newFlags |= SOCK_CLOEXEC;
+  if ((flags & O_NONBLOCK) != 0) newFlags |= SOCK_NONBLOCK;
+  if ((flags & O_CLOEXEC)  != 0) newFlags |= SOCK_CLOEXEC;
   return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
 }
 #endif

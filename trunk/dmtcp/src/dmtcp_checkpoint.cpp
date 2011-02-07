@@ -104,11 +104,11 @@ static const char* theBanner =
 
 // FIXME:  The warnings below should be collected into a single function,
 //          and also called after a user exec(), not just in dmtcp_checkpoint.
-static const char* theExecFailedMsg =
-  "ERROR: Failed to exec(\"%s\"): %s\n"
-  "Perhaps it is not in your $PATH?\n"
-  "See `dmtcp_checkpoint --help` for usage.\n"
-;
+// static const char* theExecFailedMsg =
+//   "ERROR: Failed to exec(\"%s\"): %s\n"
+//   "Perhaps it is not in your $PATH?\n"
+//   "See `dmtcp_checkpoint --help` for usage.\n"
+// ;
 
 static dmtcp::string _stderrProcPath()
 {
@@ -240,7 +240,7 @@ int main ( int argc, char** argv )
   shift;
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
-    if(s=="--help" || s=="-h" && argc==1){
+    if((s=="--help" || s=="-h") && argc==1){
       JASSERT_STDERR << theUsage;
       //fprintf(stderr, theUsage, "");
       return 1;
@@ -370,8 +370,9 @@ int main ( int argc, char** argv )
   o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid(getpid());
   JASSERT_INIT(o.str());
 
-  if (argc > 0)
+  if (argc > 0) {
     JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
+  }
 
   //setup CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
@@ -530,7 +531,7 @@ int isdir_0700(const char *pathname) {
   struct stat st;
   stat(pathname, &st);
   return (S_ISDIR(st.st_mode) == 1
-          && st.st_mode & 0777 == 0700
+          && (st.st_mode & 0777) == 0700
           && st.st_uid == getuid()
           && access(pathname, R_OK | W_OK | X_OK) == 0
          );
@@ -598,9 +599,9 @@ void testSetuid(const char *filename) {
     struct stat buf;
     int rc = stat(pathname, &buf);
     // screen tested separately.  Exclude it here.
-    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID
-        && strcmp(pathname, "screen") != 0
-        && strstr(pathname, "/screen") == NULL)) {
+    if (rc == 0 && ((buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)
+                    && strcmp(pathname, "screen") != 0
+                    && strstr(pathname, "/screen") == NULL)) {
       JASSERT_STDERR << theSetuidWarning;
       sleep(3);
     }
@@ -690,7 +691,6 @@ int testScreen(char **argvPtr[]) {
     setenv("SCREENDIR", tmpdir.c_str(), 1);
 
     static char cmdBuf[1024];
-    bool isElf, is32bitElf;
     char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
     *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
     expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
@@ -716,6 +716,7 @@ int testScreen(char **argvPtr[]) {
     *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
     // Use /lib64 if 64-bit O/S and not 32-bit app:
 # if defined(__x86_64__) && !defined(CONFIG_M32)
+    bool isElf, is32bitElf;
     elfType(cmdBuf, &isElf, &is32bitElf);
     if (is32bitElf)
       (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";

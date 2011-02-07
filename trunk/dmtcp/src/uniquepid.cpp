@@ -86,8 +86,9 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
     theProcess() = dmtcp::UniquePid ( theUniqueHostId() ,
                                       ::_real_getpid(),
                                       ::time(NULL) );
-    if (disableJTrace == false)
+    if (disableJTrace == false) {
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
+    }
   }
 
   return theProcess();

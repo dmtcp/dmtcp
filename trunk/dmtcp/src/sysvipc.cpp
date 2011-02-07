@@ -200,7 +200,7 @@ void dmtcp::SysVIPC::removeStaleShmObjects()
       staleShmids.push_back(i->first);
     }
   }
-  for (int j = 0; j < staleShmids.size(); ++j) {
+  for (size_t j = 0; j < staleShmids.size(); ++j) {
     _shm.erase(staleShmids[j]);
   }
 }

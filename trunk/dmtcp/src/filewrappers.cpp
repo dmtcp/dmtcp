@@ -253,7 +253,7 @@ static void updateProcPath ( const char *path, char *newpath )
   char temp [ 10 ];
   int index, tempIndex;
 
-  if (  path == "" || path == NULL )
+  if ( path == NULL || strlen(path) == 0 )
   {
     strcpy(newpath, "");
     return;
@@ -312,11 +312,13 @@ static int getNextFreeSlavePtyNum()
 #define UNIQUE_PTS_PREFIX_STR "/dev/pts/dmtcp_"
 //DMTCP_PTS_PREFIX_STR
 
+/*
 static int _nextPtmxId()
 {
   static int id = 0;
   return id++;
 }
+*/
 
 // XXX: The current implementation for handling Pseudo-Terminal Master-Slave pairs
 // works only if the process involved in it are restarted from the same
@@ -428,7 +430,6 @@ extern "C" int open (const char *path, int flags, ... )
 {
   va_list ap;
   mode_t mode;
-  int rc;
   char newpath [ PATH_MAX ] = {0} ;
 
   // Handling the variable number of arguments

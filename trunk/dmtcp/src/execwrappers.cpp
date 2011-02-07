@@ -199,6 +199,8 @@ static void execLibProcessAndExit(const char *path)
   memset(buf, 0, bufSize);
   FILE *output = popen(path, "r");
   int numRead = fread(buf, 1, bufSize, output);
+  numRead++, numRead--; // suppress unused-var warning
+
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
   // FIXME:  code currently allows wrapper to proceed without lock if
   //   it was busy because of a writer.  The unlock will then fail below.

@@ -176,7 +176,7 @@ extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname, int save
 {
   //Ignore EAGAIN errors
   if ( savedErrno == EAGAIN ) return ret;
-  if ( savedErrno = EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
+  if ( savedErrno == EADDRINUSE && strncmp(fname, "bind", 4) == 0 )
     return ret;
 
   JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( strerror(savedErrno) );

@@ -48,7 +48,6 @@ namespace
   {
     int fd = open("/proc/self/cmdline", O_RDONLY);
     int rc;
-    int count = 0;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
     rc = dmtcp::Util::readAll(fd, buf, size);
@@ -106,7 +105,7 @@ jalib::string jalib::Filesystem::GetProgramName()
 {
   static jalib::string value = "";
   if (value == "") {
-    int len;
+    size_t len;
     char cmdline[1024];
     value = FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.

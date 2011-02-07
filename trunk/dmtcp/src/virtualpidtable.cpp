@@ -407,8 +407,9 @@ void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
   JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
 
-  if ( _isRootOfProcessTree )
+  if ( _isRootOfProcessTree ) {
     JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
+  }
 
   serializeChildTable ( o );
 

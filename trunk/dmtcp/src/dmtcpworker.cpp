@@ -38,6 +38,7 @@
 #include "connectionmanager.h"
 #include "connectionstate.h"
 #include "dmtcp_coordinator.h"
+#include "util.h"
 #include "sysvipc.h"
 #include <signal.h>
 #include <pthread.h>
@@ -676,10 +677,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     JASSERT ( fd != -1 ) ( fd ) ( signatureFile )
       .Text ( "Unable to create signature file" );
     dmtcp::string pidstr = jalib::XToString(_real_getpid());
-    // FIXME: This assumes write is small, always completes
-    JASSERT( pidstr.length()+1
-	     == write(fd, pidstr.c_str(), pidstr.length()+1) )
-      ( pidstr.length()+1 );
+    ssize_t ret = Util::writeAll(fd, pidstr.c_str(), pidstr.length()+1);
+    JASSERT( (ssize_t)pidstr.length() + 1 == ret ) ( pidstr.length()+1 );
     _real_close(fd);
   }
 
@@ -1344,10 +1343,8 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
   if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
-  int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT
-                                                 : jalib::StringToInt(coordinatorPortStr);
 
-  dmtcp::string s=coordinatorAddr;
+  dmtcp::string s = coordinatorAddr;
   if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
     JASSERT(false)
       .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
