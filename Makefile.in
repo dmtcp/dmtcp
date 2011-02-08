@@ -4,6 +4,8 @@ MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
+PACKAGE=@PACKAGE_TARNAME@
+VERSION=@PACKAGE_VERSION@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
@@ -104,12 +106,23 @@ distclean: clean
 	-(cd dmtcp && $(MAKE) distclean)  
 	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/*
 
+svndist:
+	if test "`svn info`"; then \
+	  dirname=$(PACKAGE)-$(VERSION)+svn`svnversion`; \
+	  svn export . $$dirname; \
+	  tar cjf $$dirname.tar.bz2 $$dirname; \
+	  rm -rf $$dirname 2&>/dev/null; \
+	  ls -l $$dirname.tar.bz2; \
+	else \
+	  echo "svn info failed"; \
+	fi
+
 dist: distclean dist_exclude.txt
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
-	  --exclude-from=$$dir/dist_exclude.txt \
-	  --exclude $$dir/dist_exclude.txt \
-	  --exclude='.*/.svn/*' --exclude='*/.svn' --exclude='*/.deps' \
-	  ./`basename $$dir`
+	    --exclude-from=$$dir/dist_exclude.txt \
+	    --exclude $$dir/dist_exclude.txt \
+	    --exclude='.*/.svn/*' --exclude='*/.svn' --exclude='*/.deps' \
+	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
 bin/% : dmtcp/src/%

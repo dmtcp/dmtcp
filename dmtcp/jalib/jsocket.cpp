@@ -56,25 +56,34 @@ jalib::JSockAddr::JSockAddr ( const char* hostname )
 {
   memset ( &_addr, 0, sizeof ( _addr ) );
   _addr.sin_family = AF_INET;
-  if ( hostname == NULL )
-  {
+  if ( hostname == NULL ) {
     _addr.sin_addr.s_addr = INADDR_ANY;
+    return;
   }
-  else
-  {
-    struct hostent *server = gethostbyname ( hostname );
-    JWARNING ( server != NULL ) ( hostname ).Text ( "No such host" );
-    if ( server != NULL )
-    {
-      JASSERT ( ( int ) sizeof ( _addr.sin_addr.s_addr ) <= server->h_length )
-      ( sizeof ( _addr.sin_addr.s_addr ) )
-      ( server->h_length );
 
-      memcpy ( &_addr.sin_addr.s_addr,
-               server->h_addr,
-               server->h_length );
-    }
+  struct addrinfo hints;
+  struct addrinfo *res;
+  bzero(&hints, sizeof hints);
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_ADDRCONFIG;
+
+  /* FIXME: Ulrich Drepper states the following about getaddrinfo():
+   *   The most important thing when using getaddrinfo is to make sure that all
+   *   results are used in order. To stress the important words again: all and
+   *   order. Too many (incorrect) programs only use the first result. 
+   * Source: http://www.akkadia.org/drepper/userapi-ipv6.html
+   *
+   * This would require some sort of redesign of JSockAddr and JSocket classes.
+   */
+  int e = getaddrinfo(hostname, NULL, &hints, &res);
+  JWARNING (e == 0) (e) (JASSERT_ERRNO) (hostname) .Text ("No such host");
+  if (e == 0) {
+    JASSERT(sizeof _addr >= res->ai_addrlen) (sizeof _addr) (res->ai_addrlen);
+    memcpy(&_addr, res->ai_addr, res->ai_addrlen);
   }
+
+  freeaddrinfo(res);
 }
 
 jalib::JSocket::JSocket()

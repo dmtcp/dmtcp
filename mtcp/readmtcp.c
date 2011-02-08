@@ -153,6 +153,7 @@ int main(int argc, char **argv) {
   printf("*** done\n");
    close (fd);
    mtcp_restore_cpfd = -1;
+   return 0;
 }
 
 static void readcs (int fd, char cs)
