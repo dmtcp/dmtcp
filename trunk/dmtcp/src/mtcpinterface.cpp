@@ -158,8 +158,8 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
-  prctlGetProcessName();
-  unmapRestoreArgv();
+//  prctlGetProcessName();
+//  unmapRestoreArgv();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -218,9 +218,9 @@ static void callbackPostCheckpoint ( int isRestart,
 {
   if ( isRestart )
   {
-    if (restoreArgvAfterRestart(mtcpRestoreArgvStartAddr)) {
-      prctlRestoreProcessName();
-    }
+//    if (restoreArgvAfterRestart(mtcpRestoreArgvStartAddr)) {
+//      prctlRestoreProcessName();
+//    }
 
 
     dmtcp::DmtcpWorker::instance().postRestart();
