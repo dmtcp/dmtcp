@@ -94,7 +94,7 @@ endif
 all default: build tests readmtcp
 
 readmtcp: readmtcp.c
-	${CC} -o readmtcp readmtcp.c
+	${CC} ${CFLAGS} -o readmtcp readmtcp.c
 
 build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
@@ -277,7 +277,7 @@ extractobjectmodule: extractobjectmodule.c
 
 ifeq ($(BUILDTYPE),x86_64)
 ucontext_i_sym.h: ucontext_i_sym.c
-	gcc -o ucontext_i_sym ucontext_i_sym.c
+	${CC} $(CFLAGS) -o ucontext_i_sym ucontext_i_sym.c
 	./ucontext_i_sym > ucontext_i_sym.h
 	rm ucontext_i_sym
 else

@@ -129,12 +129,13 @@ jalib::string jalib::Filesystem::GetProgramPath()
 
 jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
-  char buf [1024]; // This could be passed on via call to readlink()
+  struct stat statBuf;
   // If path is not a symbolic link, just return it.
-  if (lstat(path.c_str(), (struct stat *)buf) == 0
-      && ! S_ISLNK(((struct stat *)buf)->st_mode))
+  if (lstat(path.c_str(), &statBuf) == 0
+      && ! S_ISLNK(statBuf.st_mode))
     return path;
-  memset ( buf,0,sizeof ( buf ) );
+  char buf [1024]; // This could be passed on via call to readlink()
+  bzero ( buf, sizeof buf );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
   if ( len <= 0 )
     return "";
