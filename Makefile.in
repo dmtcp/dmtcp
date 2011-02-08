@@ -110,9 +110,9 @@ svndist:
 	if test "`svn info`"; then \
 	  dirname=$(PACKAGE)-$(VERSION)+svn`svnversion`; \
 	  svn export . $$dirname; \
-	  tar cjf $$dirname.tar.bz2 $$dirname; \
+	  tar czf $$dirname.tar.gz $$dirname; \
 	  rm -rf $$dirname 2&>/dev/null; \
-	  ls -l $$dirname.tar.bz2; \
+	  ls -l $$dirname.tar.gz; \
 	else \
 	  echo "svn info failed"; \
 	fi
