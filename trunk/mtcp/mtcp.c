@@ -362,7 +362,8 @@ static int DEBUG_RESTARTING = 0;
 static Thread *motherofall = NULL;
 static Thread *ckpthread = NULL;
 static Thread *threads = NULL;
-struct sigaction sigactions[NSIG];  // signal handlers
+/* NOTE:  NSIG == SIGRTMAX+1 == 65 on Linux; NSIG is const, SIGRTMAX isn't */
+struct sigaction sigactions[NSIG];  /* signal handlers */
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
@@ -2933,7 +2934,7 @@ static void wait_for_all_restored (void)
      * sent to individual threads.
      */
     int i;
-    for (i = NSIG; i > 0; --i) {
+    for (i = SIGRTMAX; i > 0; --i) {
       if (sigismember(&sigpending_global, i) == 1) {
         kill(getpid(), i);
       }
@@ -3029,7 +3030,7 @@ static void restore_sig_state (Thread *thisthread)
   }
 
   // Raise the signals which were pending for only this thread at the time of checkpoint.
-  for (i = NSIG; i > 0; --i) {
+  for (i = SIGRTMAX; i > 0; --i) {
     if (sigismember(&(thisthread -> sigpending), i)  == 1  &&
         sigismember(&(thisthread -> sigblockmask), i) == 1 &&
         sigismember(&(sigpending_global), i) == 0) {
@@ -3048,9 +3049,9 @@ static void save_sig_handlers (void)
   int i;
   /* Now save all the signal handlers */
   DPRINTF (("mtcp save_sig_handlers*: saving signal handlers\n"));
-  for (i = NSIG; i > 0; --i) {
+  for (i = SIGRTMAX; i > 0; --i) {
     if (mtcp_sigaction (i, NULL, &sigactions[i]) < 0) {
-      if (mtcp_sys_errno == EINVAL)
+      if (errno == EINVAL)
          memset (&sigactions[i], 0, sizeof sigactions[i]);
       else {
         mtcp_printf ("mtcp save_sig_handlers: error saving signal %d action: %s\n",
@@ -3079,7 +3080,7 @@ static void restore_sig_handlers (Thread *thisthread)
 #if 0
 # define VERBOSE_DEBUG
 #endif
-  for(i = NSIG; i > 0; --i) {
+  for(i = SIGRTMAX; i > 0; --i) {
 #ifdef VERBOSE_DEBUG
     DPRINTF (("mtcp restore_sig_handlers*: restore signal handler for %d -> %p\n",
               i,
@@ -3782,6 +3783,8 @@ static void setup_sig_handler (void)
   sigfillset(&act.sa_mask);
   act.sa_flags = SA_RESTART;
 
+  // We can't use standard sigaction here, because DMTCP has a wrapper around
+  //  it that will not allow anyone to set a signal handler for SIGUSR2.
   if (mtcp_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
     mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n",
                  strerror (errno));
