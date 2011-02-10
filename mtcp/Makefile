@@ -156,9 +156,9 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o
 	${CC} $(CFLAGS) -static \
-    -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
-    mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-    mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o -lpthread
+	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
+	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
+	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o -lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -275,17 +275,7 @@ mtcp_check_vdso.o: mtcp_check_vdso.c
 extractobjectmodule: extractobjectmodule.c
 	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
 
-ifeq ($(BUILDTYPE),x86_64)
-ucontext_i_sym.h: ucontext_i_sym.c
-	${CC} $(CFLAGS) -o ucontext_i_sym ucontext_i_sym.c
-	./ucontext_i_sym > ucontext_i_sym.h
-	rm ucontext_i_sym
-else
-ucontext_i_sym.h:
-endif
-
-mtcp_sigaction.o: mtcp_sigaction.c mtcp_sigaction_x86_64.ic \
-		mtcp_sigaction_i386.ic ucontext_i_sym.h
+mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
 	${CC} $(CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
 
 mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
@@ -328,7 +318,6 @@ distclean: clean
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
-	      ucontext_i_sym.h libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
-	      testmtcp.mtcp \
+	      testmtcp.mtcp libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
 	      mtcp_restart extractobjectmodule \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp
