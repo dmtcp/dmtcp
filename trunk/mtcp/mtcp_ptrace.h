@@ -118,6 +118,8 @@ extern pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt);
 
 extern char procfs_state(int tid);
 
+extern int ptracing();
+
 extern void ptrace_attach_threads(int isRestart);
 
 extern void ptrace_detach_checkpoint_threads (void);
@@ -148,6 +150,9 @@ extern __attribute__ ((visibility ("hidden"))) void
 
 extern __attribute__ ((visibility ("hidden"))) void
   (*callback_jalib_ckpt_unlock)();
+
+extern __attribute__ ((visibility ("hidden"))) int
+  (*callback_ptrace_info_list_size)();
 
 /* The interface between MTCP and DMTCP. */
 extern void mtcp_ptrace_info_list_update_is_inferior_ckpthread(pid_t pid,

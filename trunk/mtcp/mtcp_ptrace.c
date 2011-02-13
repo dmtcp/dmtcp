@@ -65,6 +65,15 @@ char ptrace_setoptions_file[MAXPATHLEN];
 char checkpoint_threads_file[MAXPATHLEN];
 char ckpt_leader_file[MAXPATHLEN];
 
+/* We're ptracing when the size of ptrace_info_list is greater than zero or
+ * we have a file with the ptrace_info pairs. */
+int ptracing() {
+  if (!callback_ptrace_info_list_size) return 0;
+  struct stat buf;
+  return ((*callback_ptrace_info_list_size)() > 0) ||
+         (stat(ptrace_shared_file, &buf) == 0);
+}
+
 static pid_t mtcp_waitpid(pid_t pid, int *status, int options) {
   int rc;
   __ptrace_waitpid.is_waitpid_local = 1;
@@ -142,6 +151,7 @@ void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
 
 void ptrace_attach_threads(int isRestart)
 {
+  if (!ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   pid_t superior;
@@ -419,6 +429,7 @@ void ptrace_attach_threads(int isRestart)
  * can process the checkpoint message from the coordinator. */
 void ptrace_detach_checkpoint_threads ()
 {
+  if (!ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   int ret;
@@ -442,6 +453,7 @@ void ptrace_detach_checkpoint_threads ()
 /* This function detaches the user threads. */
 void ptrace_detach_user_threads ()
 {
+  if (!ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   int status = 0;
@@ -518,6 +530,8 @@ void ptrace_detach_user_threads ()
 
 void ptrace_lock_inferiors()
 {
+    if (!ptracing()) return;
+
     char file[RECORDPATHLEN];
     snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
              dmtcp_tmp_dir, GETTID());
@@ -526,6 +540,8 @@ void ptrace_lock_inferiors()
 
 void ptrace_unlock_inferiors()
 {
+    if (!ptracing()) return;
+ 
     char file[RECORDPATHLEN];
     int fd;
     snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_tmp_dir,

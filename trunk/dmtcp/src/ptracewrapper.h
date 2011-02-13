@@ -115,6 +115,10 @@ typedef void ( *t_mtcp_init_thread_local ) ();
 __attribute__ ((visibility ("hidden"))) extern t_mtcp_init_thread_local
   mtcp_init_thread_local; 
 
+typedef int ( *t_mtcp_ptracing) ();
+__attribute__ ((visibility ("hidden"))) extern t_mtcp_ptracing
+  mtcp_ptracing; 
+
 __attribute__ ((visibility ("hidden"))) extern sigset_t signals_set;
 
 void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
@@ -125,6 +129,8 @@ char procfs_state(int tid);
 extern "C" struct ptrace_info get_next_ptrace_info(int index);
 
 extern "C" void ptrace_info_list_command(struct cmd_info cmd);
+
+extern "C" int ptrace_info_list_size();
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
   int singlestep_waited_on); 

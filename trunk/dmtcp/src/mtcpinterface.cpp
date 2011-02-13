@@ -87,7 +87,10 @@ __attribute__ ((visibility ("hidden"))) t_mtcp_get_ptrace_waitpid_info
   mtcp_get_ptrace_waitpid_info = NULL;
 
 __attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
-  mtcp_init_thread_local;
+  mtcp_init_thread_local = NULL;
+
+__attribute__ ((visibility ("hidden"))) t_mtcp_ptracing
+  mtcp_ptracing = NULL;
 
 __attribute__ ((visibility ("hidden"))) sigset_t signals_set;
 #endif
@@ -147,7 +150,8 @@ extern "C"
 #ifdef PTRACE
         , struct ptrace_info (*get_next_ptrace_info)(int index),
           void (*ptrace_info_list_command)(struct cmd_info cmd),
-          void (*jalib_ckpt_unlock)()
+          void (*jalib_ckpt_unlock)(),
+          int (*ptrace_info_list_size)()
 #endif
   );
   typedef int ( *t_mtcp_ok ) ( void );
@@ -182,12 +186,20 @@ static void callbackJalibCkptUnlock ()
 {
   JALIB_CKPT_UNLOCK();
 }
+
+static int callbackPtraceInfoListSize ()
+{
+  return ptrace_info_list_size();
+}
+
 #endif
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
 /* In the case of PTRACE, we have already called JALIB_CKPT_UNLOCK. */
-#ifndef PTRACE
+#ifdef PTRACE
+  if (!mtcp_ptracing()) JALIB_CKPT_UNLOCK();
+#else
   JALIB_CKPT_UNLOCK();
 #endif
 
@@ -354,6 +366,9 @@ void dmtcp::initializeMtcpEngine()
 
   mtcp_init_thread_local = ( t_mtcp_init_thread_local ) 
     _get_mtcp_symbol ( "init_thread_local" );
+
+  mtcp_ptracing = ( t_mtcp_ptracing ) 
+    _get_mtcp_symbol ( "ptracing" );
 #endif
 
   ( *setCallbks )( &callbackSleepBetweenCheckpoint
@@ -366,6 +381,7 @@ void dmtcp::initializeMtcpEngine()
                  , &callbackGetNextPtraceInfo
                  , &callbackPtraceInfoListCommand
                  , &callbackJalibCkptUnlock
+                 , &callbackPtraceInfoListSize
 #endif
                  );
   JTRACE ("Calling mtcp_init");
