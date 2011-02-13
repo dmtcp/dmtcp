@@ -1529,11 +1529,14 @@ static void *checkpointhread (void *dummy)
 
       read_ptrace_setoptions_file(FALSE, 0);
 
-      int ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY,
-                                0644);
-      if (ckpt_leader_fd != -1) {
-        ckpt_leader = 1;    
-        close(ckpt_leader_fd);
+      int ckpt_leader_fd = -1;
+
+      if (possible_ckpt_leader(GETTID())) {
+        ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY, 0644);
+        if (ckpt_leader_fd != -1) {
+          ckpt_leader = 1;    
+          close(ckpt_leader_fd);
+        }
       }
  
       /* Is the checkpoint thread being traced? If yes, wait for the superior
