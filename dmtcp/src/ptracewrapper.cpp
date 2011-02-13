@@ -48,6 +48,10 @@ dmtcp::list<struct ptrace_info> ptrace_info_list;
 
 #define GETTID() (int)syscall(SYS_gettid)
 
+extern "C" int ptrace_info_list_size() {
+  return ptrace_info_list.size();
+}
+
 extern "C" struct ptrace_info get_next_ptrace_info(int index) {
   if (index >= ptrace_info_list.size()) return EMPTY_PTRACE_INFO;
 
