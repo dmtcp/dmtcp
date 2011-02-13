@@ -914,4 +914,42 @@ char retrieve_inferior_state(pid_t tid) {
   return 'u';
 }
 
+/* The checkpoint leader can only be the checkpoint thread of the superior. If
+ * we are to select as checkpoint leader an inferior, then we would have a race
+ * condition: the superior would wait for new_ptrace_shared_file to be written,
+ * then detach from the inferior, which then writes new_ptrace_shared_file.
+ * The detach has to happen after new_ptrace_shared_file is written.  Return 0,
+ * if the checkpoint thread can't be a possible ckpt_leader.  1, otherwise. */
+int possible_ckpt_leader(pid_t tid) {
+  int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
+  if (ptrace_fd != -1) {
+    pid_t superior, inferior;
+    while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
+      read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
+      if (inferior == tid)  {
+        if (close(ptrace_fd) != 0) {
+          mtcp_printf("possible_ckpt_leader: error closing the file. %s\n",
+                      strerror(errno));
+          mtcp_abort();
+        }
+        return 0;
+      }
+    }
+    if (close(ptrace_fd) != 0) {
+      mtcp_printf("possible_ckpt_leader: error closing the file. %s\n",
+                  strerror(errno));
+      mtcp_abort();
+    }
+  }
+
+  if (!callback_get_next_ptrace_info) return 0;
+
+  int index = 0;
+  struct ptrace_info pt_info;
+  while (empty_ptrace_info(
+           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+    if (pt_info.inferior == tid) return 0; 
+  }
+  return 1;
+}
 #endif

@@ -118,6 +118,8 @@ extern pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt);
 
 extern char procfs_state(int tid);
 
+extern int possible_ckpt_leader(pid_t tid);
+
 extern int ptracing();
 
 extern void ptrace_attach_threads(int isRestart);
