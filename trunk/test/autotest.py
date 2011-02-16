@@ -517,7 +517,7 @@ if testconfig.HAS_SCRIPT == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # BUT screen -s CMD works only when CMD is single word.
 # *** Works manually, but not yet in autotest ***
-if testconfig.HAS_SCREEN == "yes":
+if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])

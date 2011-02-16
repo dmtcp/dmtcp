@@ -1188,7 +1188,6 @@ void dmtcp::DmtcpWorker::connectToCoordinatorWithHandshake()
 
 bool dmtcp::DmtcpWorker::connectToCoordinator(bool dieOnError /*= true*/)
 {
-
   const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
   dmtcp::UniquePid zeroGroup;

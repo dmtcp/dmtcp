@@ -847,7 +847,7 @@ int main ( int argc, char** argv )
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
   worker.connectToCoordinatorWithoutHandshake();
-  worker.sendCoordinatorHandshake(targ.procname());
+  worker.sendCoordinatorHandshake(targ.procname(), targ._compGroup);
 
   //restart targets[i]
   targets[i].dupAllSockets ( slidingFd );
