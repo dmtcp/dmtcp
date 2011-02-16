@@ -230,8 +230,8 @@ static void dmtcpPrepareForExec(const char *path)
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().serialize ( wr );
-#endif
   dmtcp::SysVIPC::instance().serialize ( wr );
+#endif
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Preparing for Exec" ) ( path );
