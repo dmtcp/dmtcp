@@ -254,7 +254,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
       if (d->d_ino > 0) {
         char *ch;
         int fdnum = strtol ( d->d_name, &ch, 10 );
-        if ( *ch == 0 && fdnum >= 0 ) {
+        if ( *ch == 0 && fdnum >= 0 && fdnum != fd ) {
           fdVec.push_back ( fdnum );
         }
       }
