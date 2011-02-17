@@ -106,6 +106,7 @@ namespace dmtcp
                           int numPeers,
                           int &coordTstamp);
       void postRestart();
+      void updateCoordinatorHostAndPortEnv();
 
 
 

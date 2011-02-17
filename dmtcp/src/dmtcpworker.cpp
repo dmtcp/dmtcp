@@ -49,6 +49,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
+#include <netdb.h>
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #endif
@@ -937,12 +938,41 @@ void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
   _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
 }
 
+
+// At restart, the HOST/PORT used by dmtcp_coordinator could be different then
+// those at checkpoint time. This could cause the child processes created after
+// restart to fail to connect to the coordinator.
+void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
+{
+  struct sockaddr addr;
+  socklen_t addrLen = sizeof addr;
+  JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen)) 
+    (JASSERT_ERRNO);
+
+  JASSERT (addr.sa_family == AF_INET) (addr.sa_family)
+    .Text ("Coordinator socket always uses IPV4 sockets");
+
+  char host[256];
+  char port[16];
+
+  JASSERT (0 == getnameinfo(&addr, addrLen, host, sizeof host, 
+                            port, sizeof port, NI_NUMERICSERV)) (JASSERT_ERRNO);
+
+  JTRACE ("Current Corrdinator Address") (host) (port);
+
+  JASSERT (0 == setenv (ENV_VAR_NAME_ADDR, host, 1)) (JASSERT_ERRNO);
+
+  JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, port, 1)) (JASSERT_ERRNO);
+}
+
 void dmtcp::DmtcpWorker::postRestart()
 {
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   recvCoordinatorHandshake();
+
+  updateCoordinatorHostAndPortEnv();
 
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();

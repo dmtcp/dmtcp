@@ -32,7 +32,7 @@ DEFAULT_S=0.3
 S=DEFAULT_S
 
 #Max time to wait for ckpt/restart to finish (sec)
-TIMEOUT=15
+TIMEOUT=10
 
 #Interval between checks for ckpt/restart complete
 INTERVAL=0.1
@@ -484,9 +484,10 @@ runTest("perl",          1, ["/usr/bin/perl"])
 
 runTest("python",        1, ["/usr/bin/python"])
 
-os.environ['DMTCP_GZIP'] = "0"
-runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
-os.environ['DMTCP_GZIP'] = GZIP
+if testconfig.PID_VIRTUALIZATION == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
@@ -505,7 +506,7 @@ if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = GZIP
 
 # *** Works manually, but not yet in autotest ***
-if testconfig.HAS_SCRIPT == "yes":
+if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=2
   if sys.version_info[0:2] >= (2,6):
     runTest("script",      4,  ["/usr/bin/script -f" +
