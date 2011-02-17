@@ -650,6 +650,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
 void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp-serialized-exec-lifeboat!v0.07" );
+  ConnectionIdentifier::serialize(o);
   ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::KernelDeviceToConnection:" );
 
@@ -679,6 +680,7 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
       ConnectionIdentifier val;
       o & key & val;
       _table[key] = val;
+      //JTRACE ("Serializing") (key) (val);
     }
 
   }

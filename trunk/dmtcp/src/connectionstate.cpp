@@ -99,6 +99,8 @@ void dmtcp::ConnectionState::preLockSaveOptions()
 
   // build fd table with stale connections included
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
+  // now delete stale connections
+  deleteStaleConnections();
 
   // Save Options for each Fd (We need to do it here instead of
   // preCheckpointFdLeaderElection because we want to restore the correct owner
@@ -107,7 +109,7 @@ void dmtcp::ConnectionState::preLockSaveOptions()
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i ) {
-    if ( _conToFds[i->first].size() == 0 ) continue;
+    JASSERT ( _conToFds[i->first].size() != 0 );
 
     ( i->second )->saveOptions ( _conToFds[i->first] );
   }
@@ -119,7 +121,7 @@ void dmtcp::ConnectionState::preCheckpointFdLeaderElection()
   for ( ConnectionList::iterator i = connections.begin()
       ; i!= connections.end()
       ; ++i ) {
-    if ( _conToFds[i->first].size() == 0 ) continue;
+    JASSERT ( _conToFds[i->first].size() != 0 );
 
     ( i->second )->doLocking ( _conToFds[i->first] );
   }

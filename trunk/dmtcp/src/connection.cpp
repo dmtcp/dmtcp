@@ -1505,6 +1505,7 @@ void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::FifoConnection" );
   o & _path & _rel_path & _savedRelativePath & _stat & _in_data & _has_lock;
+  JTRACE("Serializing") (_path) (_rel_path) (_savedRelativePath);
 }
 
 void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
@@ -1518,6 +1519,7 @@ void dmtcp::PtyConnection::serializeSubClass ( jalib::JBinarySerializer& o )
       dmtcp::UniquePtsNameToPtmxConId::instance().add ( _uniquePtsName, _id );
     }
   }
+  JTRACE("Serializing") (_ptsName) (_uniquePtsName);
 }
 
 // void dmtcp::PipeConnection::serializeSubClass(jalib::JBinarySerializer& o)
@@ -1761,6 +1763,7 @@ void dmtcp::StdioConnection::restoreOptions ( const dmtcp::vector<int>& fds ){
 
 void dmtcp::StdioConnection::serializeSubClass ( jalib::JBinarySerializer& o ){
   JSERIALIZE_ASSERT_POINT ( "dmtcp::StdioConnection" );
+  //JTRACE("Serializing STDIO") (id());
 }
 
 void dmtcp::StdioConnection::mergeWith ( const Connection& that ){

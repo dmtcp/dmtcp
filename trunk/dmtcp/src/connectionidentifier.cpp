@@ -24,15 +24,23 @@
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 
+static int _nextConId = CONNECTION_ID_START;
 static int _nextConnectionId()
 {
-  static int id = CONNECTION_ID_START;
-  return id++;
+  //static int id = CONNECTION_ID_START;
+  return _nextConId++;
 }
 
 dmtcp::ConnectionIdentifier::ConnectionIdentifier ( const UniquePid& pid, int id )
     : _pid ( pid ) , _id ( id )
 {}
+
+void dmtcp::ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
+{
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionIdentifier:" );
+  o & _nextConId;
+  JASSERT ( _nextConId >= CONNECTION_ID_START);
+}
 
 dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Create()
 {

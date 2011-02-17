@@ -47,8 +47,7 @@ namespace dmtcp
       static ConnectionIdentifier Null();
       static ConnectionIdentifier Self();
 
-
-
+      static void serialize ( jalib::JBinarySerializer& o );
 
       int conId() const;
       const UniquePid& pid() const;

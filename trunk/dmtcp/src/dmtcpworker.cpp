@@ -268,15 +268,20 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   {
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
 
-    jalib::JBinarySerializeReader rd ( serialFile );
-    UniquePid::serialize ( rd );
-    KernelDeviceToConnection::instance().serialize ( rd );
+    // JBinarySerializeReader calls open() in constructor and close() in
+    // destructor. If we put the following code in block to make sure that
+    // after the control returns from the block, the close() has been called.
+    {
+      jalib::JBinarySerializeReader rd ( serialFile );
+      UniquePid::serialize ( rd );
+      KernelDeviceToConnection::instance().serialize ( rd );
 
 #ifdef PID_VIRTUALIZATION
-    VirtualPidTable::instance().serialize ( rd );
-    VirtualPidTable::instance().postExec();
-    SysVIPC::instance().serialize ( rd );
+      VirtualPidTable::instance().serialize ( rd );
+      VirtualPidTable::instance().postExec();
+      SysVIPC::instance().serialize ( rd );
 #endif
+    }
 
 #ifdef DEBUG
     JTRACE ( "initial socket table:" );
