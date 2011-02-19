@@ -141,14 +141,14 @@ install: all
 	(cd dmtcp && make install)
 	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
 	cp mtcp/mtcp_restart $(DESTDIR)$(libdir)/dmtcp
-	chmod -f 644 $(DESTDIR)$(libdir)/dmtcp/lib*
+	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_coordinator)
 	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_checkpoint)
 	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_nocheckpoint)
 	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_restart)
 	(cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_command)
-	(cd $(DESTDIR)$(libdir) && $(LN_S) dmtcp/libdmtcpaware.so.1.0.0)
+	(cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .)
 	(cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
 	(cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so)
 	$(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp/examples
