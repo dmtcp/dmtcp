@@ -396,7 +396,7 @@ void prctlGetProcessName()
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
   if (prctlPrgName[0] == '\0') {
     bzero((void*) prctlPrgName, 22);
-    strcpy(prctlPrgName, "DMTCP:");
+    strcpy(prctlPrgName, DMTCP_PRGNAME_PREFIX);
     JASSERT(prctl(PR_GET_NAME, &prctlPrgName[6]) != -1) (JASSERT_ERRNO)
       .Text ("prctl() failed");
     JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
@@ -438,7 +438,7 @@ static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
     JTRACE("Restoring /proc/self/cmdline") (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
     dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
-    args[0] = "DMTCP:" + args[0];
+    args[0] = DMTCP_PRGNAME_PREFIX + args[0];
     for ( size_t i=0; i< args.size(); ++i ) {
       if (addr + args[i].length() >= endAddr)
         break;
