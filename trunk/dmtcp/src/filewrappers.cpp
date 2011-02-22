@@ -428,14 +428,18 @@ static int _almost_real_open(const char *path, int flags, mode_t mode)
 
 extern "C" int open (const char *path, int flags, ... )
 {
-  va_list ap;
   mode_t mode;
   char newpath [ PATH_MAX ] = {0} ;
 
   // Handling the variable number of arguments
-  va_start( ap, flags );
-  mode = va_arg ( ap, mode_t );
-  va_end ( ap );
+  if (flags & O_CREAT)
+  {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
+
 #ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
 #else
