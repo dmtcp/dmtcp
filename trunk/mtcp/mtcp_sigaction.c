@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define MTCP_SYS_MEMCPY
 #include "mtcp_sys.h"
 
