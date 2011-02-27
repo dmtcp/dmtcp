@@ -111,6 +111,17 @@ namespace dmtcp
       dmtcp::map< dmtcp::string , ConnectionIdentifier > _table;
   };
 
+  class VirtualPidTable;
+  typedef struct _SerializedWorkerInfo {
+    UniquePid compGroup;
+    int       numPeers;
+    size_t    argvSize;
+    size_t    envSize;
+#ifdef PID_VIRTUALIZATION
+    dmtcp::VirtualPidTable virtualPidTable;
+#endif
+  } SerializedWorkerInfo;
+
 
   class ConnectionToFds
   {
@@ -152,11 +163,7 @@ namespace dmtcp
       static int openDmtcpCheckpointFile(const dmtcp::string& filename);
       static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
-#ifdef PID_VIRTUALIZATION
-      int loadFromFile(const dmtcp::string& filename,UniquePid &cg,int &, VirtualPidTable& virtualPidTable);
-#else
-      int loadFromFile(const dmtcp::string& filename,UniquePid &cg,int &);
-#endif
+      int loadFromFile(const dmtcp::string& filename, SerializedWorkerInfo *info);
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
       dmtcp::string _procname;

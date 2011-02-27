@@ -105,6 +105,8 @@ static bool _waitingForExternalSocketsToClose = false;
 static int theRestorePort = RESTORE_PORT_START;
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
+size_t dmtcp::DmtcpWorker::_argvSize = 0;
+size_t dmtcp::DmtcpWorker::_envSize = 0;
 
 void processDmtcpCommands(dmtcp::string programName,
                           dmtcp::vector<dmtcp::string>& args);
@@ -183,6 +185,24 @@ int _determineMtcpSignal(){
   return sig;
 }
 
+static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
+{
+  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  argvSize = 0;
+  for (int i = 0; i < args.size(); i++) {
+    argvSize += args[0].length() + 1;
+  }
+  envSize = 0;
+  if (environ != NULL) {
+    char *ptr = environ[0];
+    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
+      envSize += strlen(ptr) + 1;
+      ptr += strlen(ptr) + 1;
+    }
+  }
+  envSize += args[0].length();
+}
+
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
@@ -250,6 +270,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  calculateArgvAndEnvSize(_argvSize, _envSize);
 
   if ( programName == "dmtcp_coordinator"  ||
        programName == "dmtcp_checkpoint"   ||

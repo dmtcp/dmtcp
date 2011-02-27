@@ -65,7 +65,7 @@ static void prctlGetProcessName();
 static void prctlRestoreProcessName();
 
 static char *_mtcpRestoreArgvStartAddr = NULL;
-static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
+static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 static void unmapRestoreArgv();
 
 namespace
@@ -162,8 +162,8 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
-//  prctlGetProcessName();
-//  unmapRestoreArgv();
+  prctlGetProcessName();
+  unmapRestoreArgv();
 
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
@@ -230,10 +230,8 @@ static void callbackPostCheckpoint ( int isRestart,
 {
   if ( isRestart )
   {
-//    if (restoreArgvAfterRestart(mtcpRestoreArgvStartAddr)) {
-//      prctlRestoreProcessName();
-//    }
-
+    restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
+    prctlRestoreProcessName();
 
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
@@ -413,7 +411,7 @@ void prctlRestoreProcessName()
 #endif
 }
 
-static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
+static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 {
   /*
    * The addresses where argv of mtcp_restart process start. /proc/pid/cmdline
@@ -432,10 +430,24 @@ static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   char *endAddr = MTCP_RESTORE_STACK_BASE;
   size_t len = endAddr - startAddr;
 
+  // Check to verify if any page in the given range is already mmap()'d.
+  // It assumes that the given addresses may belong to stack only and if
+  // mapped, will have read+write permissions.
+  for (off_t i = 0; i < len; i += PAGE_SIZE) {
+    int ret = mprotect ((char*) startAddr + i, PAGE_SIZE,
+                        PROT_READ | PROT_WRITE);
+    if (ret != -1 || errno != ENOMEM) {
+      _mtcpRestoreArgvStartAddr = NULL;
+      return;
+    }
+  }
+
+  //None of the pages are mapped -- it is safe to mmap() them
   void *retAddr = mmap((void*) startAddr, len, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (retAddr != MAP_FAILED) {
-    JTRACE("Restoring /proc/self/cmdline") (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
+    JTRACE("Restoring /proc/self/cmdline")
+      (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
     dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
     args[0] = DMTCP_PRGNAME_PREFIX + args[0];
@@ -446,12 +458,11 @@ static bool restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
       addr += args[0].length() + 1;
     }
     _mtcpRestoreArgvStartAddr = startAddr;
-    return true;
   } else {
     JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
     _mtcpRestoreArgvStartAddr = NULL;
   }
-  return false;
+  return;
 }
 
 static void unmapRestoreArgv()

@@ -73,6 +73,7 @@
 #define ENV_VAR_CKPT_OPEN_FILES "DMTCP_CKPT_OPEN_FILES"
 #define ENV_VAR_QUIET "DMTCP_QUIET"
 #define ENV_VAR_ROOT_PROCESS "DMTCP_ROOT_PROCESS"
+#define ENV_VAR_DMTCP_DUMMY "DMTCP_DUMMY"
 
 
 // it is not yet safe to change these; these names are hard-wired in the code
