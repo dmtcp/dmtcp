@@ -53,7 +53,8 @@ using namespace dmtcp;
 static void openOriginalToCurrentMappingFiles();
 void unlockPidMapFile();
 #endif
-static void runMtcpRestore ( const char* path, int offset );
+static void runMtcpRestore ( const char* path, int offset,
+                             size_t argvSize, size_t envSize);
 
 namespace
 {
@@ -119,17 +120,24 @@ namespace
     {
       JASSERT ( jalib::Filesystem::FileExists ( _path ) ) ( _path )
 		.Text ( "checkpoint file missing" );
+
+      dmtcp::SerializedWorkerInfo workerInfo;
+      _offset = _conToFd.loadFromFile(_path, &workerInfo); 
+
+      _compGroup = workerInfo.compGroup;
+      _numPeers  = workerInfo.numPeers;
+      _argvSize  = workerInfo.argvSize;
+      _envSize   = workerInfo.envSize;
+
 #ifdef PID_VIRTUALIZATION
-      _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers,
-				      _virtualPidTable);
+      _virtualPidTable = workerInfo.virtualPidTable;
       _virtualPidTable.erase(getpid());
       _roots.clear();
       _children.clear();
       _smap.clear();
       _used = 0;
-#else
-      _offset = _conToFd.loadFromFile(_path, _compGroup, _numPeers);
 #endif
+
       JTRACE ( "restore target" ) ( _path ) (_numPeers ) (_compGroup)
 	                          ( _conToFd.size() ) (_offset);
     }
@@ -202,7 +210,7 @@ namespace
 
     void mtcpRestart()
     {
-      runMtcpRestore ( _path.c_str(), _offset );
+      runMtcpRestore ( _path.c_str(), _offset, _argvSize, _envSize );
     }
 
     const UniquePid& pid() const { return _conToFd.pid(); }
@@ -597,6 +605,8 @@ namespace
     ConnectionToFds _conToFd;
     UniquePid _compGroup;
     int _numPeers;
+    size_t _argvSize;
+    size_t _envSize;
 #ifdef PID_VIRTUALIZATION
     VirtualPidTable _virtualPidTable;
     // Links to children of this process
@@ -1280,7 +1290,8 @@ static void openOriginalToCurrentMappingFiles()
 }
 #endif
 
-static void runMtcpRestore ( const char* path, int offset )
+static void runMtcpRestore ( const char* path, int offset,
+                             size_t argvSize, size_t envSize)
 {
   static dmtcp::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
@@ -1330,7 +1341,41 @@ static void runMtcpRestore ( const char* path, int offset )
 
 #endif
 
-  execvp ( newArgs[0], newArgs );
+  // FIXME: Put an explanation of the logic below.   -- Kapil
+#define ENV_PTR(x) ((char*)(getenv(x) - strlen(x) - 1))
+
+  char* dummyEnviron = NULL;
+
+  char* newEnv[] = {
+    ENV_PTR("PATH"),
+    (char*) dummyEnviron,
+    NULL
+  };
+
+  size_t newArgsSize = 0;
+  for (int i = 0; newArgs[i] != 0; i++) {
+    newArgsSize += strlen(newArgs[i]) + 1;
+  }
+
+  size_t newEnvSize = 0;
+  for (int i = 0; newEnv[i] != 0; i++) {
+    newEnvSize += strlen(newEnv[i]) + 1;
+  }
+
+  size_t originalArgvEnvSize = argvSize + envSize;
+  size_t newArgvEnvSize = newArgsSize + newEnvSize + strlen(newArgs[0]);
+  size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
+
+  dummyEnviron = (char*) malloc(argvSizeDiff);
+  memset(dummyEnviron, '0', argvSizeDiff - 1);
+  strncpy(dummyEnviron, ENV_VAR_DMTCP_DUMMY "=0", strlen(ENV_VAR_DMTCP_DUMMY "="));
+  dummyEnviron[argvSizeDiff - 1] = '\0';
+
+  newEnv[1] = dummyEnviron;
+
+  JNOTE("Args/Env Sizes") (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
+
+  execve ( newArgs[0], newArgs, newEnv );
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO )
           .Text ( "exec() failed" );
 }

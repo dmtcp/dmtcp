@@ -73,6 +73,7 @@ namespace dmtcp
   };
 #endif
 
+
   class DmtcpWorker : public DmtcpCoordinatorAPI
   {
     public:
@@ -120,9 +121,8 @@ namespace dmtcp
 
       void useAlternateCoordinatorFd();
 
-      static void maskStdErr();
-      static void unmaskStdErr();
-      static bool isStdErrMasked() { return _stdErrMasked; }
+      static size_t argvSize() {return _argvSize;};
+      static size_t envSize() {return _envSize;};
 
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
@@ -174,8 +174,8 @@ namespace dmtcp
       jalib::JSocket _coordinatorSocket;
       UniquePid      _coordinatorId;
       jalib::JSocket _restoreSocket;
-      static bool _stdErrMasked;// = false;
-      static bool _stdErrClosed;
+      static size_t _argvSize;
+      static size_t _envSize;
       static bool _exitInProgress;
   };
 

@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "connectionstate.h"
 #include "constants.h"
+#include "connectionstate.h"
 #include "dmtcpmessagetypes.h"
 #include "syslogcheckpointer.h"
 #include "dmtcpworker.h"
@@ -225,8 +225,12 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
   //JTRACE ( "Writing *.dmtcp checkpoint file" );
   jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
 
+  size_t argvSize = DmtcpWorker::argvSize();
+  size_t envSize  = DmtcpWorker::envSize();
   wr & _compGroup;
   wr & _numPeers;
+  wr & argvSize;
+  wr & envSize;
   _conToFds.serialize ( wr );
 
 #ifdef PID_VIRTUALIZATION
