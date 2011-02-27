@@ -60,7 +60,18 @@ jalib::JSockAddr::JSockAddr ( const char* hostname )
     _addr.sin_addr.s_addr = INADDR_ANY;
     return;
   }
+#if 1
+  struct hostent *server = gethostbyname ( hostname );
+  JWARNING ( server != NULL ) ( hostname ).Text ( "No such host" );
+  if ( server != NULL )
+  {
+    JASSERT ( ( int ) sizeof ( _addr.sin_addr.s_addr ) <= server->h_length )
+      ( sizeof ( _addr.sin_addr.s_addr ) )
+      ( server->h_length );
 
+    memcpy ( &_addr.sin_addr.s_addr, server->h_addr, server->h_length );
+  }
+#else
   struct addrinfo hints;
   struct addrinfo *res;
   bzero(&hints, sizeof hints);
@@ -77,13 +88,14 @@ jalib::JSockAddr::JSockAddr ( const char* hostname )
    * This would require some sort of redesign of JSockAddr and JSocket classes.
    */
   int e = getaddrinfo(hostname, NULL, &hints, &res);
-  JWARNING (e == 0) (e) (JASSERT_ERRNO) (hostname) .Text ("No such host");
+  JWARNING (e == 0) (e) (gai_strerror(e)) (hostname) .Text ("No such host");
   if (e == 0) {
     JASSERT(sizeof _addr >= res->ai_addrlen) (sizeof _addr) (res->ai_addrlen);
     memcpy(&_addr, res->ai_addr, res->ai_addrlen);
   }
 
   freeaddrinfo(res);
+#endif
 }
 
 jalib::JSocket::JSocket()
