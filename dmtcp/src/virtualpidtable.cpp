@@ -134,7 +134,7 @@ void dmtcp::VirtualPidTable::postRestart()
   JASSERT ( serialFile.length() > 0 ) ( serialFile );
   _real_close ( PROTECTED_PIDTBL_FD );
 
-  JTRACE("Read originals pids from pid-table file") (serialFile);
+  JTRACE("Read original pids from pid-table file") (serialFile);
   jalib::JBinarySerializeReader rd ( serialFile );
   serialize ( rd );
 }

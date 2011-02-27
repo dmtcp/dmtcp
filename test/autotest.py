@@ -107,7 +107,7 @@ def splitWithQuotes(string):
   return string.split('%')
 
 def shouldRunTest(name):
-  if len(sys.argv) <= 1:
+  if len(sys.argv) <= 1 or VERBOSE and len(sys.argv) == 2:
     return True
   return args.has_key(name)
 
