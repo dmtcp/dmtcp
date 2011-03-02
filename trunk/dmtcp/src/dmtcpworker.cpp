@@ -970,20 +970,38 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
   JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen)) 
     (JASSERT_ERRNO);
 
-  JASSERT (addr.sa_family == AF_INET) (addr.sa_family)
-    .Text ("Coordinator socket always uses IPV4 sockets");
+  /* If the current coordinator is running on a HOST/PORT other than the
+   * pre-checkpoint HOST/PORT, we need to update the environment variables
+   * pointing to the coordinator HOST/PORT. This is needed if the new
+   * coordinator has been moved around.
+   */
+  
+  const char * origCoordAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * origCoordPortStr = getenv ( ENV_VAR_NAME_PORT );
+  if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
+  int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( origCoordPortStr );
 
-  char host[256];
-  char port[16];
+  jalib::JSockAddr originalCoordinatorAddr(origCoordAddr, origCoordPort);
+  if (addrLen != originalCoordinatorAddr.addrlen() ||
+      memcmp(originalCoordinatorAddr.addr(), &addr, addrLen) != 0) {
 
-  JASSERT (0 == getnameinfo(&addr, addrLen, host, sizeof host, 
-                            port, sizeof port, NI_NUMERICSERV)) (JASSERT_ERRNO);
+    JASSERT (addr.sa_family == AF_INET) (addr.sa_family)
+      .Text ("Coordinator socket always uses IPV4 sockets");
 
-  JTRACE ("Current Corrdinator Address") (host) (port);
+    char currHost[1024];
+    char currPort[16];
 
-  JASSERT (0 == setenv (ENV_VAR_NAME_ADDR, host, 1)) (JASSERT_ERRNO);
+    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost, 
+                          currPort, sizeof currPort, NI_NUMERICSERV);
+    JASSERT (res == 0) (currHost) (currPort) (gai_strerror(res))
+      .Text ("getnameinfo(... currHost, ..., currPort,...) failed");
 
-  JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, port, 1)) (JASSERT_ERRNO);
+    JTRACE ("Coordinator running at a different location")
+      (origCoordAddr) (origCoordPort) (currHost) (currPort);
+
+    JASSERT (0 == setenv (ENV_VAR_NAME_ADDR, currHost, 1)) (JASSERT_ERRNO);
+    JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
+  }
 }
 
 void dmtcp::DmtcpWorker::postRestart()
