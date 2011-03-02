@@ -47,7 +47,7 @@ namespace jalib
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      JSockAddr ( const char* hostname = NULL );
+      JSockAddr ( const char* hostname = NULL, int port = -1 );
       static const JSockAddr ANY;
       const struct sockaddr_in* addr() const{return &_addr;}
       socklen_t                 addrlen() const{return sizeof ( sockaddr_in );}

@@ -52,24 +52,38 @@
 
 const jalib::JSockAddr jalib::JSockAddr::ANY ( NULL );
 
-jalib::JSockAddr::JSockAddr ( const char* hostname )
+jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
+                              int port /* == -1*/ )
 {
   memset ( &_addr, 0, sizeof ( _addr ) );
   _addr.sin_family = AF_INET;
   if ( hostname == NULL ) {
     _addr.sin_addr.s_addr = INADDR_ANY;
+    if (port != -1) _addr.sin_port = htons (port);
     return;
   }
 #if 1
-  struct hostent *server = gethostbyname ( hostname );
-  JWARNING ( server != NULL ) ( hostname ).Text ( "No such host" );
-  if ( server != NULL )
-  {
-    JASSERT ( ( int ) sizeof ( _addr.sin_addr.s_addr ) <= server->h_length )
-      ( sizeof ( _addr.sin_addr.s_addr ) )
-      ( server->h_length );
+  struct hostent ret, *result;
+  char buf[1024];
+  int h_errnop;
+  
+  int res = gethostbyname_r(hostname, &ret, buf, sizeof buf, &result, &h_errnop);
 
-    memcpy ( &_addr.sin_addr.s_addr, server->h_addr, server->h_length );
+  // Fall back to gethostbyname on error
+  if (res != 0) {
+    JWARNING (false) (hostname) (hstrerror)
+      .Text("gethostbyname_r failed, calling gethostbyname");
+    result = gethostbyname ( hostname );
+  }
+
+  JWARNING (result != NULL) (hostname) .Text("No such host");
+
+  if (result != NULL) {
+    JASSERT ( ( int ) sizeof ( _addr.sin_addr.s_addr ) <= result->h_length )
+      (sizeof (_addr.sin_addr.s_addr)) (result->h_length);
+
+    memcpy ( &_addr.sin_addr.s_addr, result->h_addr, result->h_length );
+    if (port != -1) _addr.sin_port = htons (port);
   }
 #else
   struct addrinfo hints;
@@ -92,6 +106,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname )
   if (e == 0) {
     JASSERT(sizeof _addr >= res->ai_addrlen) (sizeof _addr) (res->ai_addrlen);
     memcpy(&_addr, res->ai_addr, res->ai_addrlen);
+    if (port != -1) _addr.sin_port = htons (port);
   }
 
   freeaddrinfo(res);
