@@ -58,7 +58,7 @@ static bool hasLock ( const dmtcp::vector<int>& fds )
 {
   JASSERT ( fds.size() > 0 );
   int owner = fcntl ( fds[0], F_GETOWN );
-  JASSERT ( owner != 0 );
+  JASSERT ( owner != 0 ) (owner) (JASSERT_ERRNO);
   int self = _real_getpid();
   JASSERT ( self >= 0 );
   return owner == self;
@@ -198,9 +198,20 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
   JASSERT ( _fcntlSignal >= 0 ) ( _fcntlSignal );
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
+
+  // FIXME: When restarting, the VirtualPidTable original to current pid
+  // mapping might not be restored at this point and thus the following
+  // F_SETOWN call will fail. At times it can set the wrong owner as well.
+  //  The correct fix would be to restore the fcntlowner after we have the
+  // original->current pid mappings.
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETOWN, ORIGINAL_TO_CURRENT_PID(_fcntlOwner) ) == 0 ) 
     ( fds[0] ) ( _fcntlOwner ) ( JASSERT_ERRNO );
+
+  // This JASSERT will almost always trigger until we fix the above mentioned
+  // bug.
+  //JASSERT (fcntl(fds[0], F_GETOWN) == _fcntlOwner) (fcntl(fds[0], F_GETOWN))(_fcntlOwner) (ORIGINAL_TO_CURRENT_PID(_fcntlOwner));
+
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETSIG,_fcntlSignal ) == 0 ) ( fds[0] ) ( _fcntlSignal ) ( JASSERT_ERRNO );
 }
@@ -258,8 +269,9 @@ void dmtcp::TcpConnection::onListen ( int backlog )
 
   JASSERT ( tcpType() == TCP_BIND ) ( tcpType() ) ( id() )
     .Text ( "Listening on a non-bind()ed socket????" );
-  JASSERT ( backlog > 0 ) ( backlog )
-    .Text ( "That is an odd backlog????" );
+  // A -1 backlog is not an error.
+  //JASSERT ( backlog > 0 ) ( backlog )
+    //.Text ( "That is an odd backlog????" );
 
   _type = TCP_LISTEN;
   _listenBacklog = backlog;
@@ -1727,6 +1739,7 @@ void dmtcp::StdioConnection::preCheckpoint ( const dmtcp::vector<int>& fds, Kern
   //JTRACE ("Checkpointing stdio") (fds[0]) (id());
 }
 void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds , bool isRestart ) {
+    restoreOptions ( fds );
   //nothing
 }
 void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& ){
@@ -1758,6 +1771,7 @@ void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, Connection
   }
 }
 void dmtcp::StdioConnection::restoreOptions ( const dmtcp::vector<int>& fds ){
+  Connection::restoreOptions ( fds );
   //nothing
 }
 
