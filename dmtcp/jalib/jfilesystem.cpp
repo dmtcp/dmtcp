@@ -46,7 +46,7 @@ namespace
   // Set buf, and return length read (including all null characters)
   int _GetProgramCmdline(char *buf, int size)
   {
-    int fd = open("/proc/self/cmdline", O_RDONLY);
+    int fd = _real_open("/proc/self/cmdline", O_RDONLY, 0);
     int rc;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
@@ -211,7 +211,7 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
   if (rv.empty()) {
     jalib::string path = "/proc/self/cmdline";
-    FILE* args = fopen ( path.c_str(),"r" );
+    FILE* args = _real_fopen ( path.c_str(),"r" );
 
     JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
 
@@ -320,7 +320,7 @@ jalib::string jalib::Filesystem::GetControllingTerm()
 
   int fd, num_read;
 
-  fd = open("/proc/self/stat", O_RDONLY, 0);
+  fd = _real_open("/proc/self/stat", O_RDONLY, 0);
   JASSERT( fd >= 0 ) (strerror(errno))
     .Text ("Unable to open /proc/self/stat\n");
 

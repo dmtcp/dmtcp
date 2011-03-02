@@ -199,7 +199,7 @@ void writeBacktrace() {
   int nptrs = backtrace(buffer, BT_SIZE);
   jalib::string backtrace = dmtcp::UniquePid::getTmpDir()
                           + "/backtrace." + jalib::XToString ( getpid() );
-  int fd = open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+  int fd = _real_open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
     close(fd);
@@ -215,7 +215,7 @@ void writeBacktrace() {
 void writeProcMaps() {
   char *mapsBuf = (char*) JALLOC_HELPER_MALLOC(50000);
   int  count;
-  int fd = open("/proc/self/maps", O_RDONLY);
+  int fd = _real_open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
   count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);

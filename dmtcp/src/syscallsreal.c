@@ -614,8 +614,20 @@ int   _real_tgkill(int tgid, int tid, int sig) {
   //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
 }
 
-int _real_open ( const char *pathname, int flags, mode_t mode ) {
+int _real_open( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
+}
+
+int _real_open64( const char *pathname, int flags, mode_t mode ) {
+  REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
+}
+
+FILE * _real_fopen( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
+}
+
+FILE * _real_fopen64( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen64 ) ( path, mode );
 }
 
 #ifdef RECORD_REPLAY
@@ -678,17 +690,7 @@ int _real_rmdir(const char *pathname) {
 long _real_ftell(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ftell ) ( stream );
 }
-#endif
 
-FILE * _real_fopen( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
-}
-
-FILE * _real_fopen64( const char *path, const char *mode ) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen64 ) ( path, mode );
-}
-
-#ifdef RECORD_REPLAY
 int _real_fputs(const char *s, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
 }

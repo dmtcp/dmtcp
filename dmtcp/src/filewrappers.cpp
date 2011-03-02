@@ -392,16 +392,6 @@ extern "C" int getpt()
 static int _almost_real_open(const char *path, int flags, mode_t mode)
 {
   char newpath [ 1024 ] = {0} ;
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_open ( path, flags, mode );
-  }
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -413,6 +403,34 @@ static int _almost_real_open(const char *path, int flags, mode_t mode)
   }
 
   int fd = _real_open( newpath, flags, mode );
+
+  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
+    processDevPtmxConnection(fd);
+  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+    processDevPtsConnection(fd, path, newpath);
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return fd;
+}
+
+/* Used by open64() wrapper to do other tracking of open apart from
+   synchronization stuff. */
+static int _almost_real_open64(const char *path, int flags, mode_t mode)
+{
+  char newpath [ 1024 ] = {0} ;
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    strcpy(newpath, currPtsDevName.c_str());
+  } else {
+    updateProcPath ( path, newpath );
+  }
+
+  int fd = _real_open64( newpath, flags, mode );
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
@@ -443,16 +461,6 @@ extern "C" int open (const char *path, int flags, ... )
 #ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
 #else
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_open ( path, flags, mode );
-  }
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -464,6 +472,55 @@ extern "C" int open (const char *path, int flags, ... )
   }
 
   int fd = _real_open( newpath, flags, mode );
+
+  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
+    processDevPtmxConnection(fd);
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    processDevPtsConnection(fd, path, newpath);
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return fd;
+#endif
+}
+
+// FIXME: The 'fn64' version of functions is defined only when within
+// __USE_LARGEFILE64 is #defined. The wrappers in this file need to conside
+// this fact. The problem can occur, for example, when DMTCP is not compiled
+// with __USE_LARGEFILE64 whereas the user-binary is. In that case the open64()
+// call from user will come to DMTCP and DMTCP might fail to execute it
+// properly.
+
+// FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
+extern "C" int open64 (const char *path, int flags, ... )
+{
+  mode_t mode;
+  char newpath [ PATH_MAX ] = {0} ;
+
+  // Handling the variable number of arguments
+  if (flags & O_CREAT)
+  {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
+
+#ifdef RECORD_REPLAY
+  BASIC_SYNC_WRAPPER(int, open64, _almost_real_open, path, flags, mode);
+#else
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    strcpy(newpath, currPtsDevName.c_str());
+  } else {
+    updateProcPath ( path, newpath );
+  }
+
+  int fd = _real_open64( newpath, flags, mode );
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
@@ -1012,17 +1069,6 @@ extern "C" long ftell(FILE *stream)
 
 static FILE *_almost_real_fopen(const char *path, const char *mode)
 {
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen ( path, mode );
-  }
-
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   char newpath [ PATH_MAX ] = {0} ;
@@ -1054,17 +1100,6 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
 
 static FILE *_almost_real_fopen64(const char *path, const char *mode)
 {
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen64 ( path, mode );
-  }
-
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   char newpath [ PATH_MAX ] = {0} ;
@@ -1152,16 +1187,6 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   }
   return retval;
 #else
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen ( path, mode );
-  }
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -1231,16 +1256,6 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
   }
   return retval;
 #else
-  /* If DMTCP has not yet initialized, it might be that JASSERT_INIT() is
-   * calling this function to open jassert log files. Therefore we shouldn't be
-   * playing with locks etc.
-   *
-   * FIXME: The following check is not required anymore. JASSERT_INIT calls
-   *        libc:open directly.
-   */
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
-    return _real_fopen64 ( path, mode );
-  }
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -1318,6 +1333,7 @@ extern "C" int fcntl(int fd, int cmd, ...)
     break;
   }
   int retval = 0;
+
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *return_addr = GET_RETURN_ADDRESS();
   if (!shouldSynchronize(return_addr)) {
