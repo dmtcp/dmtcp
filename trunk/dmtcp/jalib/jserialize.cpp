@@ -26,12 +26,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef DMTCP
-#  ifdef RECORD_REPLAY
-#    include "syscallwrappers.h"
-#    define read _real_read
-#  endif
-#endif
+#include "syscallwrappers.h"
 
 jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::string& path, int fd )
     : JBinarySerializer ( path )
@@ -41,7 +36,7 @@ jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::strin
 }
 
 jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const jalib::string& path )
-  : JBinarySerializeWriterRaw ( path , open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
+  : JBinarySerializeWriterRaw ( path , _real_open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
 {}
 
 jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::string& path, int fd )
@@ -52,7 +47,7 @@ jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::strin
 }
 
 jalib::JBinarySerializeReader::JBinarySerializeReader ( const jalib::string& path )
-  : JBinarySerializeReaderRaw ( path , open ( path.c_str(), O_RDONLY ) )
+  : JBinarySerializeReaderRaw ( path , _real_open ( path.c_str(), O_RDONLY, 0 ) )
 {}
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()

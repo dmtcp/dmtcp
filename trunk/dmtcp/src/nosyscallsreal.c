@@ -304,6 +304,18 @@ int _real_open ( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
+int _real_open64 ( const char *pathname, int flags, mode_t mode ) {
+  REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
+}
+
+FILE * _real_fopen( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
+}
+
+FILE * _real_fopen64( const char *path, const char *mode ) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen64 ) ( path, mode );
+}
+
 int _real_shmget (key_t key, size_t size, int shmflg) {
   REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
 }

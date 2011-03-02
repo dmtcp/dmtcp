@@ -233,6 +233,7 @@ extern "C"
   MACRO(fork)                               \
   MACRO(__clone)                            \
   MACRO(open)                               \
+  MACRO(open64)                             \
   MACRO(fopen)                              \
   MACRO(fopen64)                            \
   MACRO(close)                              \
@@ -249,6 +250,8 @@ extern "C"
   MACRO(getpt)                              \
   MACRO(openlog)                            \
   MACRO(closelog)
+//  MACRO(creat)
+//  MACRO(openat)
 
 #define GLIBC_SYS_V_IPC_WRAPPERS(MACRO)     \
   MACRO(shmget)                             \
@@ -322,6 +325,7 @@ extern "C"
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
   int _real_open(const char *pathname, int flags, mode_t mode);
+  int _real_open64(const char *pathname, int flags, mode_t mode);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
   int _real_close ( int fd );
