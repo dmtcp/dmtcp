@@ -253,9 +253,10 @@ int main (int argc, char *argv[], char *envp[])
 #if defined(DEBUG) && ! DMTCP_DEBUG
     char *p, symbolbuff[256];
     FILE *symbolfile;
-    VA textbase;
+    long textbase; /* offset */
 
-    mtcp_printf("mtcp_restart*: restore_begin=%p, restore_start=%p\n", restore_begin, restore_start);
+    mtcp_printf("mtcp_restart*: restore_begin=%p, restore_start=%p\n",
+		restore_begin, restore_start);
     textbase = 0;
 
     symbolfile = popen ("readelf -S libmtcp.so", "r");
