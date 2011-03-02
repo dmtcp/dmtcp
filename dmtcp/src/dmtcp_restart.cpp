@@ -1373,7 +1373,7 @@ static void runMtcpRestore ( const char* path, int offset,
 
   newEnv[1] = dummyEnviron;
 
-  JNOTE("Args/Env Sizes") (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
+  JTRACE("Args/Env Sizes") (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
 
   execve ( newArgs[0], newArgs, newEnv );
   JASSERT ( false ) ( newArgs[0] ) ( newArgs[1] ) ( JASSERT_ERRNO )
