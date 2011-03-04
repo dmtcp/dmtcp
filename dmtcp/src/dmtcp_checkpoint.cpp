@@ -443,6 +443,9 @@ int main ( int argc, char** argv )
     testStaticallyLinked(argv[0]);
   }
 
+  // UNSET DISPLAY environment variable.
+  unsetenv("DISPLAY");
+
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
