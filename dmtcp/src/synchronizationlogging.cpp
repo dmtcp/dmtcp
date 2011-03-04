@@ -444,6 +444,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == sigwait_event_return||
     GET_COMMON(e,event) == access_event_return ||
     GET_COMMON(e,event) == open_event_return ||
+    GET_COMMON(e,event) == open64_event_return ||
     GET_COMMON(e,event) == pthread_rwlock_unlock_event ||
     GET_COMMON(e,event) == pthread_rwlock_rdlock_event_return ||
     GET_COMMON(e,event) == pthread_rwlock_wrlock_event_return ||
@@ -1411,6 +1412,7 @@ log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
   SET_FIELD(e, munmap, length);
   return e;
 }
+
 log_entry_t create_open_entry(int clone_id, int event, const char *path,
    int flags, mode_t open_mode)
 {
@@ -1419,6 +1421,17 @@ log_entry_t create_open_entry(int clone_id, int event, const char *path,
   SET_FIELD2(e, open, path, (unsigned long int)path);
   SET_FIELD(e, open, flags);
   SET_FIELD(e, open, open_mode);
+  return e;
+}
+
+log_entry_t create_open64_entry(int clone_id, int event, const char *path,
+   int flags, mode_t open_mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, open64, path, (unsigned long int)path);
+  SET_FIELD(e, open64, flags);
+  SET_FIELD(e, open64, open_mode);
   return e;
 }
 
@@ -2567,6 +2580,17 @@ TURN_CHECK_P(open_turn_check)
       GET_FIELD_PTR(e2, open, flags) &&
     GET_FIELD_PTR(e1, open, open_mode) ==
       GET_FIELD_PTR(e2, open, open_mode);
+}
+
+TURN_CHECK_P(open64_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, open64, path) ==
+      GET_FIELD_PTR(e2, open64, path) &&
+    GET_FIELD_PTR(e1, open64, flags) ==
+      GET_FIELD_PTR(e2, open64, flags) &&
+    GET_FIELD_PTR(e1, open64, open_mode) ==
+      GET_FIELD_PTR(e2, open64, open_mode);
 }
 
 TURN_CHECK_P(pread_turn_check)

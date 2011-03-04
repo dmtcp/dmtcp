@@ -216,6 +216,7 @@
     MACRO(mremap, __VA_ARGS__);                                                \
     MACRO(munmap, __VA_ARGS__);                                                \
     MACRO(open, __VA_ARGS__);                                                  \
+    MACRO(open64, __VA_ARGS__);                                                  \
     MACRO(pread, __VA_ARGS__);                                                 \
     MACRO(putc, __VA_ARGS__);                                                  \
     MACRO(pwrite, __VA_ARGS__);                                                \
@@ -348,6 +349,8 @@ typedef enum {
   munmap_event_return,
   open_event,
   open_event_return,
+  open64_event,
+  open64_event_return,
   pread_event,
   pread_event_return,
   putc_event,
@@ -975,6 +978,15 @@ typedef struct {
 static const int log_event_open_size = sizeof(log_event_open_t);
 
 typedef struct {
+  // For open64():
+  unsigned long int path;
+  int flags;
+  mode_t open_mode;
+} log_event_open64_t;
+
+static const int log_event_open64_size = sizeof(log_event_open64_t);
+
+typedef struct {
   // For pread():
   int fd;
   unsigned long int buf;
@@ -1198,6 +1210,7 @@ typedef struct {
     log_event_ungetc_t                           log_event_ungetc;
     log_event_getline_t                          log_event_getline;
     log_event_open_t                             log_event_open;
+    log_event_open64_t                           log_event_open64;
     log_event_pread_t                            log_event_pread;
     log_event_putc_t                             log_event_putc;
     log_event_pwrite_t                           log_event_pwrite;
@@ -1404,6 +1417,8 @@ LIB_PRIVATE log_entry_t create_mremap_entry(int clone_id, int event,
     void *old_address, size_t old_size, size_t new_size, int flags);
 LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event,
     const char *path, int flags, mode_t mode);
+LIB_PRIVATE log_entry_t create_open64_entry(int clone_id, int event,
+    const char *path, int flags, mode_t mode);
 LIB_PRIVATE log_entry_t create_pread_entry(int clone_id, int event, int fd,
     unsigned long int buf, size_t count, off_t offset);
 LIB_PRIVATE log_entry_t create_putc_entry(int clone_id, int event, int c,
@@ -1531,6 +1546,7 @@ LIB_PRIVATE TURN_CHECK_P(mmap64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(mremap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(munmap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open_turn_check);
+LIB_PRIVATE TURN_CHECK_P(open64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pread_turn_check);
 LIB_PRIVATE TURN_CHECK_P(putc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pwrite_turn_check);
