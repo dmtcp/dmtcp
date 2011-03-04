@@ -31,18 +31,33 @@
 #include "constants.h"
 #include "dmtcpalloc.h"
 
-namespace dmtcp
+namespace Util
 {
-  namespace Util {
-    void lockFile(int fd);
-    void unlockFile(int fd);
-    bool strStartsWith(const char *str, const char *pattern);
-    bool strEndsWith(const char *str, const char *pattern);
-    bool strStartsWith(const dmtcp::string& str, const char *pattern);
-    bool strEndsWith(const dmtcp::string& str, const char *pattern);
-    ssize_t writeAll(int fd, const void *buf, size_t count);
-    ssize_t readAll(int fd, void *buf, size_t count);
-  };
+  void lockFile(int fd);
+  void unlockFile(int fd);
+
+  bool strStartsWith(const char *str, const char *pattern);
+  bool strEndsWith(const char *str, const char *pattern);
+  bool strStartsWith(const dmtcp::string& str, const char *pattern);
+  bool strEndsWith(const dmtcp::string& str, const char *pattern);
+
+  ssize_t writeAll(int fd, const void *buf, size_t count);
+  ssize_t readAll(int fd, void *buf, size_t count);
+
+  //char *dmtcpBasename(char *pathname);
+  int isdir0700(const char *pathname);
+  int safeMkdir(const char *pathname, mode_t mode);
+  int safeSystem(const char *command);
+
+  int expandPathname(const char *inpath, char * const outpath, size_t size);
+  int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
+
+  bool isStaticallyLinked(const char *filename);
+
+  bool isSetuid(const char *filename);
+  void freePatchedArgv(char **newArgv);
+  void patchArgvIfSetuid(const char* filename, char *const origArgv[],
+                         char **newArgv[]);
 }
 
 #endif

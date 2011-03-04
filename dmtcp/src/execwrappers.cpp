@@ -215,14 +215,25 @@ static void execLibProcessAndExit(const char *path)
 // FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-static void dmtcpPrepareForExec(const char *path)
+static void dmtcpPrepareForExec(const char *path, char *const argv[],
+                                char **filename, char ***newArgv)
 {
+  JTRACE("Preparing for Exec") (path);
+
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && dmtcp::Util::strStartsWith(path, libPrefix))
+  if (path != NULL && Util::strStartsWith(path, libPrefix))
     execLibProcessAndExit(path);
-  if (path != NULL && dmtcp::Util::strStartsWith(path, lib64Prefix))
+  if (path != NULL && Util::strStartsWith(path, lib64Prefix))
     execLibProcessAndExit(path);
+
+  if (Util::isSetuid(path)) {
+    Util::patchArgvIfSetuid(path, argv, newArgv);
+    *filename = (*newArgv)[0];
+  } else {
+    *filename = (char*)path;
+    *newArgv = (char**)argv;
+  }
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
@@ -234,7 +245,7 @@ static void dmtcpPrepareForExec(const char *path)
 #endif
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
-  JTRACE ( "Preparing for Exec" ) ( path );
+  JTRACE ( "Preparing for Exec" ) ( path ) (*filename);
 
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
@@ -276,17 +287,24 @@ static void dmtcpPrepareForExec(const char *path)
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }
 
-static void dmtcpProcessFailedExec(const char *path)
+static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 {
+  int saved_errno = errno;
+
+  if (Util::isSetuid(path)) {
+    Util::freePatchedArgv(newArgv);
+  }
+
   const char* str = getenv("LD_PRELOAD");
   JASSERT(str != NULL );
   dmtcp::string preload = getenv("LD_PRELOAD");
-  JASSERT(dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c));
+  JASSERT(Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c));
 
   preload.erase(0, strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1);
 
   setenv("LD_PRELOAD", preload.c_str(), 1);
   JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
+  errno = saved_errno;
 }
 
 static const char* ourImportantEnvs[] =
@@ -367,34 +385,13 @@ extern "C" int execve ( const char *filename, char *const argv[], char *const en
 
   dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
-  dmtcpPrepareForExec(filename);
+  char *newFilename;
+  char **newArgv;
+  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  int retVal = _real_execve ( filename, argv, patchUserEnv ( origUserEnv ) );
+  int retVal = _real_execve ( newFilename, newArgv, patchUserEnv ( origUserEnv ) );
 
-  dmtcpProcessFailedExec(filename);
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return retVal;
-}
-
-extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
-{
-  JTRACE ( "fexecve() wrapper" ) ( fd );
-  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
-   * processing this system call.
-   */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
-
-  // FIXME:  fexecve() could have fd bound to /lib/libXXX, requiring special
-  //    handling.  Because arg is NULL, we won't check for it.
-  dmtcpPrepareForExec(NULL);
-
-  int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
-
-  dmtcpProcessFailedExec(argv[0]);
+  dmtcpProcessFailedExec(filename, newArgv);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -409,35 +406,69 @@ extern "C" int execv ( const char *path, char *const argv[] )
    */
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  dmtcpPrepareForExec(path);
+  char *newFilename;
+  char **newArgv;
+  dmtcpPrepareForExec(path, argv, &newFilename, &newArgv);
 
-  int retVal = _real_execv ( path, argv );
+  int retVal = _real_execv ( newFilename, newArgv );
 
-  dmtcpProcessFailedExec(path);
+  dmtcpProcessFailedExec(path, newArgv);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
-extern "C" int execvp ( const char *file, char *const argv[] )
+extern "C" int execvp ( const char *filename, char *const argv[] )
 {
-  JTRACE ( "execvp() wrapper" ) ( file );
+  JTRACE ( "execvp() wrapper" ) ( filename );
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  dmtcpPrepareForExec(file);
+  char *newFilename;
+  char **newArgv;
+  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  int retVal = _real_execvp ( file, argv );
+  int retVal = _real_execvp ( newFilename, newArgv );
 
-  dmtcpProcessFailedExec(file);
+  dmtcpProcessFailedExec(filename, newArgv);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
+
+extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
+{
+  char buf[sizeof "/proc/self/fd/" + sizeof (int) * 3];
+  snprintf (buf, sizeof (buf), "/proc/self/fd/%d", fd);
+
+  JTRACE ("fexecve() wrapper calling execve()") (fd) (buf);
+  return execve(buf, argv, envp);
+
+#if 0
+  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
+   * processing this system call.
+   */
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  dmtcp::list<dmtcp::string> origUserEnv = copyUserEnv( envp );
+  // FIXME:  fexecve() could have fd bound to /lib/libXXX, requiring special
+  //    handling.  Because arg is NULL, we won't check for it.
+  dmtcpPrepareForExec(NULL);
+
+  int retVal = _real_fexecve ( fd, argv, patchUserEnv ( origUserEnv ) );
+
+  dmtcpProcessFailedExec(argv[0]);
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return retVal;
+#endif
+}
+
 
 extern "C" int execl ( const char *path, const char *arg, ... )
 {

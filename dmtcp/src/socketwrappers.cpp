@@ -165,6 +165,7 @@ static short int _X11ListenerPort() {
 
 static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len )
 {
+  return false;
   JASSERT( saddr != NULL );
 
   if ( saddr->sa_family == AF_FILE ) {
@@ -173,7 +174,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
       /* The first byte is null, which indicates abstract socket name */
       un_path++;
     }
-    dmtcp::string path = jalib::Filesystem::GetDirName( un_path );
+    dmtcp::string path = jalib::Filesystem::DirName( un_path );
 
     if (path == "/var/run/nscd") { 
       JTRACE("connect() to nscd process. Will not be drained")

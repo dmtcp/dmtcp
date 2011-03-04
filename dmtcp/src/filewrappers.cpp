@@ -259,7 +259,7 @@ static void updateProcPath ( const char *path, char *newpath )
     return;
   }
 
-  if ( dmtcp::Util::strStartsWith ( path, "/proc/" ) )
+  if ( Util::strStartsWith ( path, "/proc/" ) )
   {
     index = 6;
     tempIndex = 0;
@@ -464,7 +464,7 @@ extern "C" int open (const char *path, int flags, ... )
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -475,7 +475,7 @@ extern "C" int open (const char *path, int flags, ... )
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -513,7 +513,7 @@ extern "C" int open64 (const char *path, int flags, ... )
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -524,7 +524,7 @@ extern "C" int open64 (const char *path, int flags, ... )
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -1074,7 +1074,7 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
   char newpath [ PATH_MAX ] = {0} ;
   int fd = -1;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -1089,7 +1089,7 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -1105,7 +1105,7 @@ static FILE *_almost_real_fopen64(const char *path, const char *mode)
   char newpath [ PATH_MAX ] = {0} ;
   int fd = -1;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -1120,7 +1120,7 @@ static FILE *_almost_real_fopen64(const char *path, const char *mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -1193,7 +1193,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   char newpath [ PATH_MAX ] = {0} ;
   int fd = -1;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -1208,7 +1208,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -1262,7 +1262,7 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
   char newpath [ PATH_MAX ] = {0} ;
   int fd = -1;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -1277,7 +1277,7 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -1379,7 +1379,7 @@ static void updateStatPath(const char *path, char *newpath)
 {
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     strncpy(newpath, path, PATH_MAX);
-  } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
