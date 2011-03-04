@@ -508,7 +508,7 @@ extern "C" int open64 (const char *path, int flags, ... )
   }
 
 #ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, open64, _almost_real_open, path, flags, mode);
+  BASIC_SYNC_WRAPPER(int, open64, _almost_real_open64, path, flags, mode);
 #else
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
