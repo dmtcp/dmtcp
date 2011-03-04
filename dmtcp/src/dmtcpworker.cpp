@@ -190,7 +190,7 @@ static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
   argvSize = 0;
   for (int i = 0; i < args.size(); i++) {
-    argvSize += args[0].length() + 1;
+    argvSize += args[i].length() + 1;
   }
   envSize = 0;
   if (environ != NULL) {
