@@ -59,7 +59,7 @@ int jassert_quiet = 0;
 
 static int jwrite(int fd, const char *str)
 {
-  return dmtcp::Util::writeAll(fd, str, strlen(str));
+  return Util::writeAll(fd, str, strlen(str));
 #if 0
   ssize_t offs, rc;
   ssize_t size = strlen(str);
@@ -217,13 +217,13 @@ void writeProcMaps() {
   int  count;
   int fd = _real_open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
-  count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
+  count = Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
   jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
                           + "/proc-maps." + jalib::XToString ( getpid() );
   fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
-  count = dmtcp::Util::writeAll(fd, mapsBuf, count);
+  count = Util::writeAll(fd, mapsBuf, count);
   close(fd);
   jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
   unlink(lnk.c_str());  // just in case it had previously been created.

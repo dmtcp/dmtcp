@@ -182,7 +182,7 @@ const char* dmtcp::UniquePid::checkpointFilename()
 dmtcp::string dmtcp::UniquePid::checkpointFilesDirName()
 {
   if ( ckptFilesDirName_str.empty() ) {
-    ckptFilesDirName_str = jalib::Filesystem::FileBaseName(checkpointFilename());
+    ckptFilesDirName_str = jalib::Filesystem::BaseName(checkpointFilename());
     ckptFilesDirName_str.erase(ckptFilesDirName_str.length() - 
                                    strlen(CKPT_FILE_SUFFIX));
     ckptFilesDirName_str += CKPT_FILES_SUBDIR_SUFFIX;

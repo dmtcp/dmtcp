@@ -50,7 +50,7 @@ namespace
     int rc;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
-    rc = dmtcp::Util::readAll(fd, buf, size);
+    rc = Util::readAll(fd, buf, size);
     _real_close(fd);
     return rc;
   }
@@ -67,7 +67,7 @@ jalib::string jalib::Filesystem::GetCWD()
   return cwd;
 }
 
-jalib::string jalib::Filesystem::FileBaseName ( const jalib::string& str )
+jalib::string jalib::Filesystem::BaseName ( const jalib::string& str )
 {
   int lastSlash = 0;
   size_t len = str.length();
@@ -81,7 +81,7 @@ jalib::string jalib::Filesystem::FileBaseName ( const jalib::string& str )
   return str.substr ( lastSlash+1 );
 }
 
-jalib::string jalib::Filesystem::GetDirName ( const jalib::string& str )
+jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
 {
   int lastSlash = 0;
   size_t len = str.length();
@@ -97,7 +97,7 @@ jalib::string jalib::Filesystem::GetDirName ( const jalib::string& str )
 
 jalib::string jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = GetDirName ( GetProgramPath() );
+  static jalib::string value = DirName ( GetProgramPath() );
   return value;
 }
 
@@ -107,7 +107,7 @@ jalib::string jalib::Filesystem::GetProgramName()
   if (value == "") {
     size_t len;
     char cmdline[1024];
-    value = FileBaseName ( GetProgramPath() ); // uses /proc/self/exe
+    value = BaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value.empty()
         && ( value == ResolveSymlink("/lib/ld-linux.so.2")
@@ -115,7 +115,7 @@ jalib::string jalib::Filesystem::GetProgramName()
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& len > strlen(cmdline) + 1 // more than one word in cmdline
 	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag
-      value = FileBaseName(cmdline + strlen(cmdline) + 1); // find second word
+      value = BaseName(cmdline + strlen(cmdline) + 1); // find second word
   }
   return value;
 }

@@ -765,10 +765,10 @@ int main ( int argc, char** argv )
     dmtcp::string restorename(argv[0]);
     struct stat buf;
     int rc = stat(restorename.c_str(), &buf);
-    if (dmtcp::Util::strStartsWith(restorename, "ckpt_") &&
-        dmtcp::Util::strEndsWith(restorename, "_files")) {
+    if (Util::strStartsWith(restorename, "ckpt_") &&
+        Util::strEndsWith(restorename, "_files")) {
       continue;
-    } else if (!dmtcp::Util::strEndsWith(restorename, ".dmtcp")) {
+    } else if (!Util::strEndsWith(restorename, ".dmtcp")) {
       JNOTE("File doesn't have .dmtcp extension. Check Usage.")
         (restorename);
       JASSERT_STDERR << theUsage;
@@ -1271,7 +1271,7 @@ static void openOriginalToCurrentMappingFiles()
 	  ( pidMapCountFile.str() );
   close(fd);
 
-  dmtcp::Util::lockFile(PROTECTED_PIDMAPCNT_FD);
+  Util::lockFile(PROTECTED_PIDMAPCNT_FD);
 
   // Initialize pidMapCountFile with zero value.
   static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
@@ -1286,7 +1286,7 @@ static void openOriginalToCurrentMappingFiles()
     JTRACE("pidMapCountFile is not empty - do nothing");
   }
 
-  dmtcp::Util::unlockFile(PROTECTED_PIDMAPCNT_FD);
+  Util::unlockFile(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 

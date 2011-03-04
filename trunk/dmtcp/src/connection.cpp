@@ -98,9 +98,9 @@ static bool _isVimApp ( )
 
 static bool _isBlacklistedFile ( dmtcp::string& path )
 {
-  if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
-       !dmtcp::Util::strStartsWith(path, "/dev/shm/")) ||
-      dmtcp::Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
+  if ((Util::strStartsWith(path, "/dev/") &&
+       !Util::strStartsWith(path, "/dev/shm/")) ||
+      Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
     return true;
   }
   return false;
@@ -869,7 +869,7 @@ void dmtcp::FileConnection::handleUnlinkedFile()
         .Text ("File not found on disk and yet the filename doesn't "
                "contain the suffix '(deleted)'");
     }
-  } else if (Util::strStartsWith(jalib::Filesystem::FileBaseName(_path),
+  } else if (Util::strStartsWith(jalib::Filesystem::BaseName(_path),
                                  ".nfs")) {
     JWARNING(access(_path.c_str(), W_OK) == 0) (JASSERT_ERRNO);
     JTRACE(".nfsXXXX: files that are unlink()'d but still in use by some process(es)")
@@ -1165,7 +1165,7 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   dmtcp::ostringstream os;
   os << cwd 
      << "/" << _ckptFilesDir
-     << "/" << jalib::Filesystem::FileBaseName(_path) << "_" << _id.conId();
+     << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
 
   return os.str();
 }
@@ -1382,7 +1382,7 @@ void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   o & numSockOpts;
   if ( o.isWriter() )
   {
-    JTRACE ( "TCP Serialize " ) ( _type ) ( _id.conId() );
+    //JTRACE ( "TCP Serialize " ) ( _type ) ( _id.conId() );
     typedef dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > >::iterator levelIterator;
     typedef dmtcp::map< int, jalib::JBuffer >::iterator optionIterator;
 
