@@ -143,6 +143,12 @@ int socket ( int domain, int type, int protocol )
 #endif
 }
 
+/*
+ * Calculate X11 listener port using the env var "DISPLAY". It is computed in
+ * the following manner:
+ *   hostname:D.S means screen S on display D of host hostname; 
+ *     the X server for this display is listening at TCP port 6000+D.
+ */
 static short int _X11ListenerPort() {
   short int port = -1;
   const char *str = getenv("DISPLAY");
@@ -169,13 +175,30 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
     }
     dmtcp::string path = jalib::Filesystem::GetDirName( un_path );
 
-    if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix" ||
-        path == "/var/run/nscd") { 
+    if (path == "/var/run/nscd") { 
+      JTRACE("connect() to nscd process. Will not be drained")
+        (sockfd) (path);
+      return true;
+    }
+
+    // Block only connections to nscd daemon. Allow X11 connections. We have
+    // already unset DISPLAY environment variable. This is done to allow vnc
+    // application to connect to the vncserver (X11 proxie server).
+    return false;
+
+    if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix") { 
       JTRACE("connect() to external process (X-server). Will not be drained")
         (sockfd) (path);
       return true;
     }
-  } else if ( saddr->sa_family == AF_INET ) {
+  } 
+
+  // Block only connections to nscd daemon. Allow X11 connections. We have
+  // already unset DISPLAY environment variable. This is done to allow vnc
+  // application to connect to the vncserver (X11 proxie server).
+  return false;
+
+  if ( saddr->sa_family == AF_INET ) {
     struct sockaddr_in* addr = ( sockaddr_in* ) saddr;
     int port = ntohs(addr->sin_port);
     char inet_addr[32];
@@ -188,6 +211,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
   }
   return false;
 }
+
 int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
   if (_isBlacklistedTcp(sockfd, serv_addr, addrlen)) {

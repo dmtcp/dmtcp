@@ -105,57 +105,6 @@ static bool _isBlacklistedFile ( dmtcp::string& path )
   }
   return false;
 }
-/*
- * Calculate X11 listener port using the env var "DISPLAY". It is computed in
- * the following manner:
- *   hostname:D.S means screen S on display D of host hostname; 
- *     the X server for this display is listening at TCP port 6000+D.
- */
-static short int _X11ListenerPort() {
-  short int port = -1;
-  const char *str = getenv("DISPLAY");
-  if (str != NULL) {
-    dmtcp::string display = str;
-    int idx = display.find_last_of(':');
-    char *dummy;
-    port = X11_LISTENER_PORT_START 
-         + strtol(display.c_str() + idx + 1, &dummy, 10);
-    JTRACE("X11 Listener Port found") (port);
-  }
-  return port;
-}
-
-static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len )
-{
-  JASSERT( saddr != NULL );
-
-  if ( saddr->sa_family == AF_FILE ) {
-    const char* un_path = ( ( sockaddr_un* ) saddr )->sun_path;
-    if (un_path[0] == '\0') {
-      /* The first byte is null, which indicates abstract socket name */
-      un_path++;
-    }
-    dmtcp::string path = jalib::Filesystem::GetDirName( un_path );
-
-    if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix" ||
-        path == "/var/run/nscd") { 
-      JTRACE("connect() to external process (X-server). Will not be drained")
-        (sockfd) (path);
-      return true;
-    }
-  } else if ( saddr->sa_family == AF_INET ) {
-    struct sockaddr_in* addr = ( sockaddr_in* ) saddr;
-    int port = ntohs(addr->sin_port);
-    char inet_addr[32];
-    inet_ntop(AF_INET, &(addr->sin_addr), inet_addr, sizeof(inet_addr));
-    if (strcmp(inet_addr, "127.0.0.1") == 0 && port == _X11ListenerPort()) {
-      JTRACE("connect() to external process. Will not be drained") 
-        (sockfd) (inet_addr) (port);
-      return true;
-    }
-  }
-  return false;
-}
 
 dmtcp::Connection::Connection ( int t )
   : _id ( ConnectionIdentifier::Create() )
@@ -285,13 +234,7 @@ void dmtcp::TcpConnection::onConnect( int sockfd,
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Connecting with an in-use socket????" );
 
-  if (addr != NULL && _isBlacklistedTcp(sockfd, addr, len) ) {
-    _type = TCP_EXTERNAL_CONNECT;
-    _connectAddrlen = len;
-    memcpy ( &_connectAddr, addr, len );
-  } else {
-    _type = TCP_CONNECT;
-  }
+  _type = TCP_CONNECT;
 }
 
 /*onAccept*/
