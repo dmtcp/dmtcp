@@ -257,7 +257,7 @@ namespace dmtcp
           , _uniquePtsName ( "?" )
       {
         _type = PTY_INVALID;
-        JTRACE("Creating empty PtyConnection")(id());
+        //JTRACE("Creating empty PtyConnection")(id());
       }
 
       int  ptyType() { return _type;}// & TYPEMASK ); }
@@ -337,7 +337,8 @@ namespace dmtcp
           , _offset ( offset )
       {
         _type = type;
-        JTRACE("New File connection created")(_path);
+        if (path != "?")
+          JTRACE("New File connection created")(_path);
       }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds

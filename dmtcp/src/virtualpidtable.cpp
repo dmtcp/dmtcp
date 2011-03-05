@@ -161,12 +161,15 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 void dmtcp::VirtualPidTable::printPidMaps()
 {
 #ifdef DEBUG
-  JASSERT_STDERR << "     originalPid" << "  ->  " << "currentPid" << "\n";
+  ostringstream out;
+  out << "Pid mappings\n";
+  out << " original" << "  ->  " << "current" << "\n";
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
     pid_t originalPid = i->first;
     pid_t currentPid  = i->second;
-    JASSERT_STDERR << "\t" << originalPid << "\t->\t" << currentPid << "\n";
+    out << "\t" << originalPid << "\t->\t" << currentPid << "\n";
   }
+  JTRACE("Original To Current Pid Mappings:") ( out.str());
 #endif
 }
 
@@ -475,8 +478,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
 
   if ( o.isWriter() )
   {
-    for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
-    {
+    for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
       originalPid = i->first;
       currentPid  = i->second;
       serializePidMapEntry ( o, originalPid, currentPid );
@@ -484,8 +486,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
   }
   else
   {
-    while ( numMaps-- > 0 )
-    {
+    for (int i = 0; i < numMaps; i++) {
       serializePidMapEntry ( o, originalPid, currentPid );
       _pidMapTable[originalPid] = currentPid;
     }

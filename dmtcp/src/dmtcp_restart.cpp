@@ -801,28 +801,13 @@ int main ( int argc, char** argv )
     exit(1);
   }
 
-  SlidingFdTable slidingFd;
-  ConnectionToFds conToFd;
-
-  ConnectionList& connections = ConnectionList::instance();
-  for ( ConnectionList::iterator i = connections.begin()
-                                     ; i!= connections.end()
-          ; ++i )
-  {
-    conToFd[i->first].push_back ( slidingFd.getFdFor ( i->first ) );
-    JTRACE ( "will restore" ) ( i->first ) ( conToFd[i->first].back() );
-  }
-
   // Check that all targets belongs to one computation group
   // If not - abort
-  for(size_t i=0; i<targets.size(); i++){
-    JTRACE ( "Check targets: " )
-      ( targets[i]._path ) ( targets[i]._compGroup ) ( targets[i]._numPeers );
-  }
-
   compGroup = targets[0]._compGroup;
   numPeers = targets[0]._numPeers;
   for(size_t i=0; i<targets.size(); i++){
+    JTRACE ( "Check targets: " )
+      ( targets[i]._path ) ( targets[i]._compGroup ) ( targets[i]._numPeers );
     if( compGroup != targets[i]._compGroup){
       JASSERT(false)(compGroup)(targets[i]._compGroup)
 	.Text("ERROR: Restored programs belongs to different computation IDs");
@@ -831,6 +816,21 @@ int main ( int argc, char** argv )
 	.Text("ERROR: Different numpber of processes saved in checkpoint images");
     }
   }
+
+  SlidingFdTable slidingFd;
+  ConnectionToFds conToFd;
+
+  ostringstream out;
+  out << "will restore:\n";
+  out << "\tfd  -> connection-id\n";
+  ConnectionList& connections = ConnectionList::instance();
+  ConnectionList::iterator i;
+  for ( i = connections.begin(); i!= connections.end(); ++i ) {
+    int fd = slidingFd.getFdFor(i->first);
+    conToFd[i->first].push_back (fd);
+    out << fd << " -> " << (i->first) << "\n";
+  }
+  JTRACE ( "Allocating fds for Connections" ) (out.str());
 
   //------------------------
   DmtcpWorker worker ( false );
