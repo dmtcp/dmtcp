@@ -448,13 +448,16 @@ void dmtcp::ShmSegment::leaderElection()
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
   JASSERT (i != _shmaddrToFlag.end());
 
-  pid_t *addr = (pid_t *) i->first;
-  *addr = _ownerInfo.pid;
-  if (getpid() == _creatorPid) {
-    _ownerInfo.creatorSignature = ~(_originalInfo.creatorSignature);
-    *(int*)(addr+1) = _ownerInfo.creatorSignature;
-  } else {
-    _ownerInfo.creatorSignature = _originalInfo.creatorSignature;
+  int shmflag = i->second;
+  if ((shmflag & SHM_RDONLY) == 0) {
+    pid_t *addr = (pid_t *) i->first;
+    *addr = _ownerInfo.pid;
+    if (getpid() == _creatorPid) {
+      _ownerInfo.creatorSignature = ~(_originalInfo.creatorSignature);
+      *(int*)(addr+1) = _ownerInfo.creatorSignature;
+    } else {
+      _ownerInfo.creatorSignature = _originalInfo.creatorSignature;
+    }
   }
 }
 
@@ -549,7 +552,10 @@ void dmtcp::ShmSegment::remapAll()
 
   for (i = _shmaddrToFlag.begin() ; i != _shmaddrToFlag.end(); ++i) {
     if (_real_shmat(_currentShmid, i->first, i->second) == (void *) -1) {
-      JASSERT(errno == EINVAL && _ownerInfo.pid == getpid()) (JASSERT_ERRNO) (_currentShmid) (_originalShmid)(i->first) (_ownerInfo.pid)(getpid()) (_creatorPid);
+      JASSERT(errno == EINVAL && _ownerInfo.pid == getpid())
+        (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (i->first)
+        (_ownerInfo.pid) (getpid()) (_creatorPid)
+        .Text ("Error remapping shared memory segment");
     }
     JTRACE("Remapping shared memory segment")(_currentShmid);
   }
