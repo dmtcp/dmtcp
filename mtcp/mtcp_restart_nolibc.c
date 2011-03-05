@@ -61,6 +61,8 @@ __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden")))
   VA mtcp_saved_break = NULL;  // saved brk (0) value
+__attribute__ ((visibility ("hidden")))
+  char mtcp_saved_working_directory[MAXPATHLEN+1];
 
 	/* These two are used by the linker script to define the beginning and end of the image.         */
 	/* The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid to relocate a zero. */
@@ -628,7 +630,7 @@ static void readmemoryareas (void)
  * recreated file. The file is later mapped into memory with MAP_SHARED and
  * correct protection flags.
  *
- * If the file already exists on the disk, there are two possible scenerios as
+ * If the file already exists on the disk, there are two possible scenarios as
  * follows:
  * 1. The shared memory has WRITE access: In this case it is possible that the
  *    file was modified by the checkpoint process and so we restore the file
@@ -656,7 +658,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   /* Check to see if the filename ends with " (deleted)" */
   const char* deleted_file_suffix = " (deleted)";
   if (mtcp_strendswith(area->name, deleted_file_suffix)) {
-    area->name [ mtcp_strlen(area->name) - mtcp_strlen(deleted_file_suffix) ] = '\0';
+    area->name[ mtcp_strlen(area->name) - mtcp_strlen(deleted_file_suffix) ] =
+      '\0';
   }
 
   imagefd = mtcp_sys_open (area->name, flags, 0);  // open it
@@ -670,7 +673,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   if (imagefd < 0) {
 
     // If the shared file doesn't exist on the disk, we try to create it
-    DPRINTF(("mtcp restoreverything*: Shared file %s not found, Creating new\n",area->name));
+    DPRINTF(("mtcp restoreverything*: Shared file %s not found. Creating new\n",
+             area->name));
 
     /* Dangerous for DMTCP:  Since file is created with O_CREAT,    */
     /* hopefully, a second process should ignore O_CREAT and just     */
@@ -687,7 +691,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      */
     lock_file(imagefd, area->name, F_WRLCK);
 
-    // create a temp area in the memory exactly of the size of the
+    // Create a temp area in the memory exactly of the size of the
     // shared file.  We read the contents of the shared file from
     // checkpoint file(.mtcp) into system memory. From system memory,
     // the contents are written back to newly created replica of the shared
@@ -1064,6 +1068,7 @@ static int open_shared_file(char* fileName)
   int i;
   int fd;
   int fIndex;
+  int errorFilenameFromPreviousCwd = 0;
   char currentFolder[FILENAMESIZE];
   
   /* Find the starting index where the actual filename begins */
@@ -1072,24 +1077,57 @@ static int open_shared_file(char* fileName)
       fIndex = i+1;
   }
   
-  /* We now try to create the directories structure from the give path */
-  for ( i=0 ; i< fIndex; i++ ){
+  /* We now try to create the directories structure from the given path */
+  for ( i=0 ; i<fIndex ; i++ ){
     if (fileName[i] == '/' && i > 0){
       int res;
       currentFolder[i] = '\0';
       res = mtcp_sys_mkdir(currentFolder, S_IRWXU);
       if (res<0 && mtcp_sys_errno != EEXIST ){
-        mtcp_printf("mtcp_restart_nolibc open_shared_file: error %d creating directory %s in path of %s\n", mtcp_sys_errno, currentFolder, fileName);
+        if (mtcp_strstartswith(fileName, mtcp_saved_working_directory)) {
+          errorFilenameFromPreviousCwd = 1;
+          break;
+        }
+        mtcp_printf("mtcp_restart_nolibc open_shared_file:"
+		    " error %d creating directory %s in path of %s\n",
+		    mtcp_sys_errno, currentFolder, fileName);
 	mtcp_abort();
       }
     }
     currentFolder[i] = fileName[i];
   }
 
+  /* If filename began with previous cwd and wasn't found there,
+   * then let's try creating in current cwd (current working directory).
+   */
+  if (errorFilenameFromPreviousCwd) {
+    int prevCwdLen;
+    i=mtcp_strlen(mtcp_saved_working_directory);
+    while (fileName[i] == '/')
+      i++;
+    prevCwdLen = i;
+    for ( i=prevCwdLen ; i<fIndex ; i++ ){
+      if (fileName[i] == '/'){
+        int res;
+        currentFolder[i-prevCwdLen] = '\0';
+        res = mtcp_sys_mkdir(currentFolder, S_IRWXU);
+        if (res<0 && mtcp_sys_errno != EEXIST ){
+          mtcp_printf("mtcp_restart_nolibc open_shared_file:"
+		      " error %d creating directory %s in path of %s in cwd\n",
+		      mtcp_sys_errno, currentFolder, fileName);
+	  mtcp_abort();
+        }
+      }
+      currentFolder[i-prevCwdLen] = fileName[i];
+    }
+    fileName = fileName + prevCwdLen;  /* Now fileName is relative filename. */
+  }
+
   /* Create the file */
   fd = mtcp_sys_open(fileName, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
-    mtcp_printf("mtcp_restart_nolibc open_shared_file: unable to create file %s\n", fileName);
+    mtcp_printf("mtcp_restart_nolibc open_shared_file:"
+		" unable to create file %s\n", fileName);
     mtcp_abort();
   }
   return fd;

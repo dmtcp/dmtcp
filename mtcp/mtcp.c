@@ -368,7 +368,6 @@ static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
 static VA saved_heap_start = NULL;
-static char saved_working_directory[MTCP_MAX_PATH];
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting, char* argv_start) = NULL;
@@ -1858,7 +1857,7 @@ again:
     /* Do this once.  It's the same for all threads. */
     save_term_settings();
 
-    if (getcwd(saved_working_directory, MTCP_MAX_PATH) == NULL) {
+    if (getcwd(mtcp_saved_working_directory, MAXPATHLEN) == NULL) {
       // buffer wasn't large enough
       perror("getcwd");
       mtcp_printf ("getcwd failed.");
@@ -3639,7 +3638,7 @@ static int restarthread (void *threadv)
     restore_term_settings();
 
     if (dmtcp_info_restore_working_directory
-        && chdir(saved_working_directory) == -1) {
+        && chdir(mtcp_saved_working_directory) == -1) {
       perror("chdir");
       mtcp_abort ();
     }

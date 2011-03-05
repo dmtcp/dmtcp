@@ -218,6 +218,8 @@ extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[];
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[];
 
 extern __attribute__ ((visibility ("hidden"))) VA mtcp_saved_break;
+__attribute__ ((visibility ("hidden")))
+char mtcp_saved_working_directory[MAXPATHLEN+1];
 extern void *mtcp_libc_dl_handle;
 extern void *mtcp_old_dl_sysinfo_0;
 
