@@ -81,6 +81,7 @@ namespace dmtcp
 #endif
       static KernelDeviceToConnection& instance();
       Connection& retrieve ( int fd );
+      dmtcp::string getDevice( const ConnectionIdentifier& con );
       void        create ( int fd, Connection* c );
       void        createPtyDevice ( int fd, dmtcp::string deviceName, Connection* c );
 

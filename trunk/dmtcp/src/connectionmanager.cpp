@@ -93,7 +93,7 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 
 void dmtcp::ConnectionToFds::erase ( const ConnectionIdentifier& conId )
 {
-  JTRACE("erasing connection from ConnectionToFds") (conId);
+  // JTRACE("erasing connection from ConnectionToFds") (conId);
   // Find returns iterator 'it' w/ 0 or more elts, with first elt matching key.
   iterator it = _table.find(conId);
   JASSERT( it != _table.end() );
@@ -354,7 +354,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 void dmtcp::ConnectionList::erase ( iterator i )
 {
   Connection * con = i->second;
-  JTRACE ( "deleting stale connection..." ) ( con->id() );
+  //JTRACE ( "deleting stale connection..." ) ( con->id() );
   KernelDeviceToConnection::instance().erase( i->first );
   _connections.erase ( i );
   delete con;
@@ -373,12 +373,23 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
   for(iterator i = _table.begin(); i!=_table.end(); ++i){
     if(i->second == con){
       dmtcp::string k = i->first;
-      JTRACE("removing device->con mapping")(k)(con);
+      //JTRACE("removing device->con mapping")(k)(con);
       _table.erase(k);
       return;
     }
   }
   JTRACE("WARNING:: failed to find connection in table to erase it")(con);
+}
+
+dmtcp::string 
+dmtcp::KernelDeviceToConnection::getDevice( const ConnectionIdentifier& con )
+{
+  for(iterator i = _table.begin(); i!=_table.end(); ++i){
+    if(i->second == con){
+      return i->first;
+    }
+  }
+  return "";
 }
 
 //called when a device name changes
@@ -398,7 +409,8 @@ void dmtcp::KernelDeviceToConnection::redirect( int fd, const ConnectionIdentifi
 void dmtcp::KernelDeviceToConnection::dbgSpamFds()
 {
 #ifdef DEBUG
-  JASSERT_STDERR << "Listing FDs...\n";
+  dmtcp::ostringstream out;
+  out << "fd -> device \t\t -> inTable\n";
   dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
   for ( size_t i=0; i<fds.size(); ++i )
   {
@@ -406,10 +418,9 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
     if(ProtectedFDs::isProtected( fds[i] )) continue;
     dmtcp::string device = fdToDevice ( fds[i], true );
     bool exists = ( _table.find ( device ) != _table.end() );
-    JASSERT_STDERR << fds[i]
-                   << " -> "  << device
-                   << " inTable=" << exists << "\n";
+    out << "\t\t" << fds[i] << " -> "  << device << " inTable=" << exists << "\n";
   }
+  JTRACE("Listings FDs...") (out.str());
 #endif
 }
 
@@ -721,7 +732,7 @@ int dmtcp::SlidingFdTable::getFdFor ( const ConnectionIdentifier& con )
   _conToFd[con] = newfd;
   _fdToCon[newfd]  = con;
 
-  JTRACE ( "allocated fd for connection" ) ( newfd ) ( con );
+  //JTRACE ( "allocated fd for connection" ) ( newfd ) ( con );
 
   return newfd;
 }

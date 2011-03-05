@@ -34,6 +34,10 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
 {
   ConnectionList& connections = ConnectionList::instance();
 
+#ifdef DEBUG
+  ostringstream out;
+  out << "Duplicate file connections: \n";
+#endif
   // i is a list of all File Connections, including those which were dup()'d
   for ( ConnectionList::iterator i = connections.begin()
       ; i != connections.end()
@@ -41,6 +45,10 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
     if ( i->second->conType() != Connection::FILE )
       continue;
     FileConnection* fileConI = (FileConnection*) i->second;
+
+#ifdef DEBUG
+    out << "\t" << fileConI->filePath() << ": " <<  (i->first) << ":\n";
+#endif
 
     // Search ahead with j, and erase any dup()'s of i of type Connection::FILE
     ConnectionList::iterator prevJ = i;
@@ -51,24 +59,27 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
       if ( j->second->conType() != Connection::FILE )
         continue;
       else if ( fileConJ->isDupConnection( *fileConI, _conToFds ) ) {
-        JTRACE ("dup()'s file connections found, merging them")
-	       ( i->first ) ( j->first );
-        for ( size_t st = 0; st < _conToFds[j->first].size(); st++ )
+#ifdef DEBUG
+        out << "\t\t" << (j->first) << "\n";
+#endif
+        for ( size_t st = 0; st < _conToFds[j->first].size(); st++ ) {
           _conToFds[i->first].push_back ( _conToFds[j->first][st] );
-        JTRACE("Deleting dup()'d file connection") (j->first);
+        }
         _conToFds.erase( fileConJ->id() );
-        // ConnectionList::iterator j = connections.erase ( j );
         connections.erase ( j ); // returns next position after old j pos
         j = prevJ; // old position of j is now undefined, so back up to prev j
       }
     }
   }
+#ifdef DEBUG
+  JTRACE ("Deleting/Merging duplicate connections") (out.str());
+#endif
 
-  for ( ConnectionToFds::iterator cfIt = _conToFds.begin();
-        cfIt != _conToFds.end();
-        ++cfIt ) {
-    JTRACE("ConToFds")(cfIt->first);
-  }
+//  for ( ConnectionToFds::iterator cfIt = _conToFds.begin();
+//        cfIt != _conToFds.end();
+//        ++cfIt ) {
+//    JTRACE("ConToFds")(cfIt->first);
+//  }
 }
 
 void dmtcp::ConnectionState::deleteStaleConnections()
@@ -85,10 +96,23 @@ void dmtcp::ConnectionState::deleteStaleConnections()
       staleConnections.push_back ( i->first );
   }
 
+#ifdef DEBUG
+  if (staleConnections.size() > 0) {
+    dmtcp::ostringstream out;
+    out << "\n[" << getpid() << "] Device \t\t->\t ConnectionId \n";
+    out << "==================================================\n";
+    for ( size_t i=0; i<staleConnections.size(); ++i ) {
+      out << "\t"
+          << KernelDeviceToConnection::instance().getDevice(staleConnections[i])
+          << "\t->\t" << staleConnections[i] << "\n";
+    }
+    out << "==================================================\n";
+    JTRACE("Deleting Stale Connections") (out.str());
+  }
+#endif
+
   //delete all the stale connections
-  for ( size_t i=0; i<staleConnections.size(); ++i )
-  {
-    JTRACE ( "deleting stale connection" ) ( staleConnections[i] );
+  for ( size_t i=0; i<staleConnections.size(); ++i ) {
     connections.erase ( staleConnections[i] );
   }
 }
@@ -325,13 +349,10 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
       ; i!= connections.end()
       ; ++i )
   {
-    JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
+    JASSERT ( _conToFds[i->first].size() > 0 )
+      .Text ( "stale connections should be gone by now" );
 
     if ( (i->second)->restoreInSecondIteration() == false ){
-//    if ( ( i->second )->conType() == Connection::PTY &&
-//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) { }
-//    else {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
@@ -345,9 +366,6 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
 
     if ( ( i->second )->restoreInSecondIteration() == true ) {
-//    if ( ( i->second )->conType() == Connection::PTY &&
-//         ( ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_SLAVE ||
-//           ( (PtyConnection*) (i->second) )->ptyType() == PtyConnection::PTY_BSD_SLAVE ) ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
