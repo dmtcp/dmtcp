@@ -946,6 +946,8 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
       saveFile(fds[0]);
     } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(), "emacs")) {
       saveFile(fds[0]);
+    } else {
+      _restoreInSecondIteration = true;
     }
   } else {
     _restoreInSecondIteration = true;
@@ -1001,20 +1003,24 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
   JTRACE("Restoring File Connection") (id()) (_path);
   refreshPath();
 
-  if (_checkpointed && jalib::Filesystem::FileExists(_path)) {
-    JASSERT(false) (_path)
-      .Text("File aready exists! Checkpointed copy can't be restored. "
-            "Delete the existing file and try again!");
-  }
+  if (_checkpointed) {
+    JASSERT (jalib::Filesystem::FileExists(_path) == false) (_path)
+      .Text("\n**** File aready exists! Checkpointed copy can't be restored.\n"
+            "****Delete the existing file and try again!");
 
-  if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-    if (buf.st_size > _stat.st_size && 
-        (_fcntlFlags & (O_WRONLY|O_RDWR)) != 0) {
-      errno = 0;
-      JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
-              ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
-    } else if (buf.st_size < _stat.st_size) {
-      JWARNING (false) .Text("Size of file smaller than what we expected");
+    restoreFile();
+
+  } else if (jalib::Filesystem::FileExists(_path)) {
+
+    if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
+      if (buf.st_size > _stat.st_size && 
+          (_fcntlFlags & (O_WRONLY|O_RDWR)) != 0) {
+        errno = 0;
+        JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
+                ( _path.c_str() ) ( _stat.st_size ) ( JASSERT_ERRNO );
+      } else if (buf.st_size < _stat.st_size) {
+        JWARNING (false) .Text("Size of file smaller than what we expected");
+      }
     }
   }
 
@@ -1024,7 +1030,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
 
   for(size_t i=0; i<fds.size(); ++i)
   {
-    JASSERT ( _real_dup2 ( tempfd, fds[0] ) == fds[0] ) ( tempfd ) ( fds[0] )
+    JASSERT ( _real_dup2 ( tempfd, fds[i] ) == fds[i] ) ( tempfd ) ( fds[i] )
       .Text ( "dup2() failed" );
   }
   _real_close(tempfd);
@@ -1066,10 +1072,6 @@ static void CreateDirectoryStructure(const dmtcp::string& path)
 
 static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
 {
-  //dmtcp::ifstream in(src.c_str(), dmtcp::ios::in | dmtcp::ios::binary);
-  //dmtcp::ofstream out(dest.c_str(), dmtcp::ios::in | dmtcp::ios::binary);
-  //out << in.rdbuf();
-
   dmtcp::string command = "cp -f " + src + " " + dest;
   JASSERT(_real_system(command.c_str()) != -1);
 }
@@ -1098,6 +1100,21 @@ int dmtcp::FileConnection::openFile()
     }
   }
 
+  fd = open(_path.c_str(), _fcntlFlags);
+  JTRACE ("open(_path.c_str(), _fcntlFlags)")
+	 (fd) (_path.c_str() )(_fcntlFlags);
+
+  JASSERT(fd != -1) (_path) (JASSERT_ERRNO)
+    .Text ("open() failed");
+  return fd;
+}
+
+int dmtcp::FileConnection::restoreFile()
+{
+  int fd;
+  JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
+  JASSERT(_checkpointed);
+
   if (_checkpointed && !jalib::Filesystem::FileExists(_path)) {
 
     JNOTE("File not present, copying from saved checkpointed file") (_path);
@@ -1123,14 +1140,6 @@ int dmtcp::FileConnection::openFile()
     // }
 
   }
-
-  fd = open(_path.c_str(), _fcntlFlags);
-  JTRACE ("open(_path.c_str(), _fcntlFlags)")
-	 (fd) (_path.c_str() )(_fcntlFlags);
-
-  JASSERT(fd != -1) (_path) (JASSERT_ERRNO)
-    .Text ("open() failed");
-  return fd;
 }
 
 void dmtcp::FileConnection::saveFile(int fd)
@@ -1475,7 +1484,7 @@ void dmtcp::FileConnection::serializeSubClass ( jalib::JBinarySerializer& o )
   o & _path & _rel_path & _ckptFilesDir;
   o & _offset & _stat & _checkpointed;
   JTRACE("Serializing FileConn.") (_path) (_rel_path) (_ckptFilesDir)
-    (_checkpointed) (_fcntlFlags);
+    (_checkpointed) (_fcntlFlags) (_restoreInSecondIteration);
 }
 
 void dmtcp::FifoConnection::serializeSubClass ( jalib::JBinarySerializer& o )

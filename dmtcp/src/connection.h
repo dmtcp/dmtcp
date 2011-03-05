@@ -351,7 +351,12 @@ namespace dmtcp
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
+      int restoreFile();
       dmtcp::string filePath() { return _path; }
+      bool checkpointed() { return _checkpointed; }
+      void doNotRestoreCkptCopy() {
+        _checkpointed = false; _restoreInSecondIteration = true;
+      }
 
       bool isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds );
 

@@ -45,6 +45,7 @@ namespace dmtcp
 #endif
       ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
+      void handleDuplicateFilesInSeparateConnections();
       void deleteDupFileConnections();
       void deleteStaleConnections();
 #ifdef EXTERNAL_SOCKET_HANDLING
