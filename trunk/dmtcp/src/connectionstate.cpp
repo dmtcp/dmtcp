@@ -39,9 +39,9 @@ void dmtcp::ConnectionState::deleteDupFileConnections()
   out << "Duplicate file connections: \n";
 #endif
   // i is a list of all File Connections, including those which were dup()'d
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i != connections.end()
-      ; ++i ) {
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
+  {
     if ( i->second->conType() != Connection::FILE )
       continue;
     FileConnection* fileConI = (FileConnection*) i->second;
@@ -88,9 +88,8 @@ void dmtcp::ConnectionState::deleteStaleConnections()
 
   //build list of stale connections
   dmtcp::vector<ConnectionIdentifier> staleConnections;
-  for ( ConnectionList::iterator i = connections.begin()
-        ; i!= connections.end()
-        ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( _conToFds[i->first].size() == 0 )
       staleConnections.push_back ( i->first );
@@ -130,9 +129,8 @@ void dmtcp::ConnectionState::preLockSaveOptions()
   // preCheckpointFdLeaderElection because we want to restore the correct owner
   // in postcheckpoint).
   ConnectionList& connections = ConnectionList::instance();
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i ) {
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i ) {
     JASSERT ( _conToFds[i->first].size() != 0 );
 
     ( i->second )->saveOptions ( _conToFds[i->first] );
@@ -142,9 +140,8 @@ void dmtcp::ConnectionState::preLockSaveOptions()
 void dmtcp::ConnectionState::preCheckpointFdLeaderElection()
 {
   ConnectionList& connections = ConnectionList::instance();
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i ) {
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i ) {
     JASSERT ( _conToFds[i->first].size() != 0 );
 
     ( i->second )->doLocking ( _conToFds[i->first] );
@@ -157,9 +154,8 @@ void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectio
   deleteStaleConnections();
   ConnectionList& connections = ConnectionList::instance();
 
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( ( i->second )->conType() == Connection::TCP )
     {
@@ -172,12 +168,12 @@ void dmtcp::ConnectionState::preCheckpointPeerLookup( dmtcp::vector<TcpConnectio
 void dmtcp::ConnectionState::preCheckpointDrain()
 {
   deleteStaleConnections();
+
   ConnectionList& connections = ConnectionList::instance();
 
   //initialize the drainer
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( _conToFds[i->first].size() > 0 )
     {
@@ -209,6 +205,8 @@ void dmtcp::ConnectionState::preCheckpointDrain()
   //re build fd table without stale connections and with disconnects
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
 
+  //FIXME: Moving the deleteDupFileConnections() near the top of this function
+  //breaks make check-tcsh, why?
   deleteDupFileConnections();
 }
 
@@ -218,9 +216,8 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
 
   //must send first to avoid deadlock
   //we are relying on OS buffers holding our message without blocking
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     const dmtcp::vector<int>& fds = _conToFds[i->first];
     Connection* con =  i->second;
@@ -230,9 +227,7 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
   }
 
   //now receive
-  for ( ConnectionList::iterator i = connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  for ( i = connections.begin(); i != connections.end(); ++i )
   {
     const dmtcp::vector<int>& fds = _conToFds[i->first];
     Connection* con =  i->second;
@@ -269,9 +264,8 @@ void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
   _drain.refillAllSockets();
 
   ConnectionList& connections = ConnectionList::instance();
-  for ( ConnectionList::iterator i= connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( _conToFds[i->first].size() <= 0 ) {
       JWARNING(false)  ( i->first.conId() )
@@ -292,9 +286,8 @@ void dmtcp::ConnectionState::postRestart()
 
   // Two part restoreOptions. See the comments in doReconnect()
   // Part 1: Restore options for all but Pseudo-terminal slaves
-  for ( ConnectionList::iterator i= connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     JWARNING ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
     if ( _conToFds[i->first].size() == 0 ) continue;
@@ -308,9 +301,7 @@ void dmtcp::ConnectionState::postRestart()
   }
 
   // Part 2: Restore options for all Pseudo-terminal slaves
-  for ( ConnectionList::iterator i= connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( _conToFds[i->first].size() == 0 ) continue;
 
@@ -333,6 +324,8 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   _rewirer.addListenSocket ( restoreListen );
   _rewirer.setCoordinatorFd ( coordinator.sockfd() );
 
+  handleDuplicateFilesInSeparateConnections();
+
   ConnectionList& connections = ConnectionList::instance();
 
   // Here we modify the restore algorithm by splitting it in two parts. In the
@@ -345,29 +338,59 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   //         second iteration along with PTY_SLAVEs
   // Part 1: Restore all but Pseudo-terminal slaves and file connection which
   //         were not checkpointed
-  for ( ConnectionList::iterator i= connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
     JASSERT ( _conToFds[i->first].size() > 0 )
       .Text ( "stale connections should be gone by now" );
 
-    if ( (i->second)->restoreInSecondIteration() == false ){
+    if ( (i->second)->restoreInSecondIteration() == false ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
 
   // Part 2: Restore all Pseudo-terminal slaves and file connections that were
   //         not checkpointed.
-  for ( ConnectionList::iterator i= connections.begin()
-      ; i!= connections.end()
-      ; ++i )
+  for ( i= connections.begin(); i != connections.end(); ++i )
   {
-    JASSERT ( _conToFds[i->first].size() > 0 ).Text ( "stale connections should be gone by now" );
+    JASSERT ( _conToFds[i->first].size() > 0 )
+      .Text ( "stale connections should be gone by now" );
 
     if ( ( i->second )->restoreInSecondIteration() == true ) {
       ( i->second )->restore ( _conToFds[i->first], _rewirer );
     }
   }
   _rewirer.doReconnect();
+}
+
+void dmtcp::ConnectionState::handleDuplicateFilesInSeparateConnections()
+{
+  ostringstream out;
+  out << "Duplicate files in different connections: \n";
+
+  ConnectionList& connections = ConnectionList::instance();
+  ConnectionList::iterator i;
+  for ( i= connections.begin(); i != connections.end(); ++i )
+  {
+    if ( i->second->conType() != Connection::FILE ) continue;
+
+    FileConnection* fileConI = (FileConnection*) i->second;
+    if (fileConI->checkpointed() == false) continue;
+
+    out << "\t" << fileConI->filePath() << ": " <<  (i->first) << ":\n";
+
+    ConnectionList::iterator j = i; j++;
+    for ( ; j != connections.end() ; j++ ) {
+      FileConnection* fileConJ = (FileConnection*) j->second;
+
+      if ( j->second->conType() != Connection::FILE ) continue;
+
+      if (fileConJ->checkpointed() &&
+          fileConJ->filePath() == fileConI->filePath()) {
+        fileConJ->doNotRestoreCkptCopy();
+        out << "\t\t" << (j->first) << "\n";
+      }
+    }
+  }
+  JTRACE ("Duplicate files in separate connections") (out.str());
 }
