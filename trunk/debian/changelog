@@ -1,6 +1,6 @@
-dmtcp (1.2.0+svn876-1) unstable; urgency=low
+dmtcp (1.2.1-1) unstable; urgency=low
 
   * Initial release (Closes: #610653)
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 03 Feb 2011 09:52:24 -0500
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sun, 02 Mar 2011 02:03:31 -0500
