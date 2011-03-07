@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/inotify.h>
 #include <linux/version.h>
 #include <limits.h>
 #include "uniquepid.h"
@@ -58,6 +59,29 @@ extern "C" int epoll_create(int size)
 {
   JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
   errno = EPERM;
+  return -1;
+}
+
+extern "C" int epoll_create1(int flags)
+{
+  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
+  errno = EPERM;
+  return -1;
+}
+
+/* inotify is currently not supported by DMTCP */
+extern "C" int inotify_init()
+{
+  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
+  errno = EMFILE;
+  return -1;
+}
+
+/* inotify1 is currently not supported by DMTCP */
+extern "C" int inotify_init1(int flags)
+{
+  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
+  errno = EMFILE;
   return -1;
 }
 
@@ -523,6 +547,33 @@ extern "C" long int syscall(long int sys_num, ... )
       break;
     }
 # endif
+#endif
+    case SYS_epoll_create:
+    {
+      SYSCALL_GET_ARG(int,size);
+      ret = epoll_create(size);
+      break;
+    }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+    case SYS_inotify_init:
+    {
+      ret = inotify_init();
+      break;
+    }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+    case SYS_epoll_create1:
+    {
+      SYSCALL_GET_ARG(int,flags);
+      ret = epoll_create(flags);
+      break;
+    }
+    case SYS_inotify_init1:
+    {
+      SYSCALL_GET_ARG(int,flags);
+      ret = inotify_init1(flags);
+      break;
+    }
 #endif
 
     default:
