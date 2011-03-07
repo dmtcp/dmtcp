@@ -98,7 +98,7 @@ void dmtcp::ConnectionState::deleteStaleConnections()
 #ifdef DEBUG
   if (staleConnections.size() > 0) {
     dmtcp::ostringstream out;
-    out << "\n[" << getpid() << "] Device \t\t->\t ConnectionId \n";
+    out << "\tDevice \t\t->\t ConnectionId \n";
     out << "==================================================\n";
     for ( size_t i=0; i<staleConnections.size(); ++i ) {
       out << "\t"
