@@ -67,32 +67,49 @@ jalib::string jalib::Filesystem::GetCWD()
   return cwd;
 }
 
-jalib::string jalib::Filesystem::BaseName ( const jalib::string& str )
+jalib::string jalib::Filesystem::BaseName ( const jalib::string str )
 {
-  int lastSlash = 0;
   size_t len = str.length();
-  // Do not consider trailing '/'
-  if (str.c_str()[len-1] == '/') {
+
+  if (str == "/" || str == "." || str == ".." || str.empty())
+    return str;
+
+  // Remove trailing slashes
+  while (len > 0 && str[len - 1] == '/') {
+    str[len - 1] == '\0';
     len--;
   }
-  for ( size_t i = 0; i<len; ++i )
-    if ( str[i] == '/' )
-      lastSlash = i;
-  return str.substr ( lastSlash+1 );
+
+  size_t lastSlash = str.find_last_of('/', len);
+
+  if (lastSlash == string::npos)
+    return str;
+
+  return str.substr(lastSlash + 1);
 }
 
-jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
+jalib::string jalib::Filesystem::DirName ( const jalib::string str )
 {
-  int lastSlash = 0;
   size_t len = str.length();
-  // Do not consider trailing '/'
-  if (str.c_str()[len-1] == '/') {
+
+  if (str == "/" || str == "." || str.empty())
+    return str;
+
+  if (str == "..")
+    return ".";
+
+  // Remove trailing slashes
+  while (len > 0 && str[len - 1] == '/') {
+    str[len - 1] == '\0';
     len--;
   }
-  for ( size_t i = 0; i<len; ++i )
-    if ( str[i] == '/' )
-      lastSlash = i;
-  return str.substr ( 0,lastSlash );
+
+  size_t lastSlash = str.find_last_of('/', len);
+
+  if (lastSlash == string::npos)
+    return ".";
+
+  return str.substr(0, lastSlash);
 }
 
 jalib::string jalib::Filesystem::GetProgramDir()
