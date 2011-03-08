@@ -82,7 +82,8 @@ static void skipfile(size_t size);
 static void read_shared_memory_area_from_file(Area* area, int flags);
 static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
                                      VA * stack_end_addr);
-static int open_shared_file(char* fileName);
+static char* fix_filename_if_new_cwd(char* filename);
+static int open_shared_file(char* filename);
 static void lock_file(int fd, char* name, short l_type);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
@@ -649,6 +650,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
   int imagefd, rc;
+  char *area_name = area->name; /* Modified in fix_filename_if_new_cwd below. */
 
   if (!(area->prot & MAP_SHARED)) {
     mtcp_printf("read_shared_memory_area_from_file: Illegal function call\n");
@@ -657,16 +659,16 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 
   /* Check to see if the filename ends with " (deleted)" */
   const char* deleted_file_suffix = " (deleted)";
-  if (mtcp_strendswith(area->name, deleted_file_suffix)) {
-    area->name[ mtcp_strlen(area->name) - mtcp_strlen(deleted_file_suffix) ] =
+  if (mtcp_strendswith(area_name, deleted_file_suffix)) {
+    area_name[ mtcp_strlen(area_name) - mtcp_strlen(deleted_file_suffix) ] =
       '\0';
   }
 
-  imagefd = mtcp_sys_open (area->name, flags, 0);  // open it
+  imagefd = mtcp_sys_open (area_name, flags, 0);  // open it
 
   if (imagefd < 0 && mtcp_sys_errno != ENOENT) {
     mtcp_printf ("mtcp_restart_nolibc: error %d opening mmap file %s"
-                 "with flags:%d\n", mtcp_sys_errno, area->name, flags);
+                 "with flags:%d\n", mtcp_sys_errno, area_name, flags);
     mtcp_abort();
   } 
 
@@ -674,12 +676,13 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 
     // If the shared file doesn't exist on the disk, we try to create it
     DPRINTF(("mtcp restoreverything*: Shared file %s not found. Creating new\n",
-             area->name));
+             area_name));
 
     /* Dangerous for DMTCP:  Since file is created with O_CREAT,    */
     /* hopefully, a second process should ignore O_CREAT and just     */
     /*  duplicate the work of the first process, with no ill effect.*/
-    imagefd = open_shared_file(area->name);
+    area_name = fix_filename_if_new_cwd(area_name);
+    imagefd = open_shared_file(area_name);
 
     /* Acquire write lock on the file before writing anything to it 
      * If we don't, then there is a weird RACE going on between the
@@ -689,7 +692,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      * NOTE that we don't need to unlock the file as it will be
      * automatically done when we close it.
      */
-    lock_file(imagefd, area->name, F_WRLCK);
+    lock_file(imagefd, area_name, F_WRLCK);
 
     // Create a temp area in the memory exactly of the size of the
     // shared file.  We read the contents of the shared file from
@@ -711,7 +714,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 
     if ( mtcp_sys_write(imagefd, area->addr,area->size) < 0 ){
       mtcp_printf ("mtcp_restart_nolibc: error %d creating mmap file %s\n",
-          mtcp_sys_errno, area->name);
+          mtcp_sys_errno, area_name);
       mtcp_abort();
     }
 
@@ -734,26 +737,26 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     mtcp_sys_close(imagefd);
 
     // now open the file again, this time with appropriate flags
-    imagefd = mtcp_sys_open (area->name, flags, 0);
+    imagefd = mtcp_sys_open (area_name, flags, 0);
     if (imagefd < 0){
       mtcp_printf ("mtcp_restart_nolibc: error %d opening mmap file %s\n",
-          mtcp_sys_errno, area->name);
+          mtcp_sys_errno, area_name);
       mtcp_abort ();
     }
   } else { /* else file exists */
     /* Acquire read lock on the shared file before doing an mmap. See
      * detailed comments above.
      */
-    DPRINTF(("Acquiring lock on shared file :%s\n", area->name));
-    lock_file(imagefd, area->name, F_RDLCK); 
-    DPRINTF(("After Acquiring lock on shared file :%s\n", area->name));
+    DPRINTF(("Acquiring lock on shared file :%s\n", area_name));
+    lock_file(imagefd, area_name, F_RDLCK); 
+    DPRINTF(("After Acquiring lock on shared file :%s\n", area_name));
   }
 
   mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot, 
                              area->flags, imagefd, area->offset);
   if (mmappedat == MAP_FAILED) {
     mtcp_printf ("mtcp_restart_nolibc: error %d mapping %s offset %d at %p\n",
-                 mtcp_sys_errno, area->name, area->offset, area->addr);
+                 mtcp_sys_errno, area_name, area->offset, area->addr);
     mtcp_abort ();
   }
   if (mmappedat != area->addr) {
@@ -1063,7 +1066,8 @@ static void lock_file(int fd, char* name, short l_type)
   }
 }
 
-static int open_shared_file(char* fileName)
+/* Adjust for new pwd, and recreate any missing subdirectories. */
+static char* fix_filename_if_new_cwd(char* filename)
 {
   int i;
   int fd;
@@ -1072,29 +1076,29 @@ static int open_shared_file(char* fileName)
   char currentFolder[FILENAMESIZE];
   
   /* Find the starting index where the actual filename begins */
-  for ( i=0; fileName[i] != '\0'; i++ ){
-    if ( fileName[i] == '/' )
+  for ( i=0; filename[i] != '\0'; i++ ){
+    if ( filename[i] == '/' )
       fIndex = i+1;
   }
   
   /* We now try to create the directories structure from the given path */
   for ( i=0 ; i<fIndex ; i++ ){
-    if (fileName[i] == '/' && i > 0){
+    if (filename[i] == '/' && i > 0){
       int res;
       currentFolder[i] = '\0';
       res = mtcp_sys_mkdir(currentFolder, S_IRWXU);
       if (res<0 && mtcp_sys_errno != EEXIST ){
-        if (mtcp_strstartswith(fileName, mtcp_saved_working_directory)) {
+        if (mtcp_strstartswith(filename, mtcp_saved_working_directory)) {
           errorFilenameFromPreviousCwd = 1;
           break;
         }
         mtcp_printf("mtcp_restart_nolibc open_shared_file:"
 		    " error %d creating directory %s in path of %s\n",
-		    mtcp_sys_errno, currentFolder, fileName);
+		    mtcp_sys_errno, currentFolder, filename);
 	mtcp_abort();
       }
     }
-    currentFolder[i] = fileName[i];
+    currentFolder[i] = filename[i];
   }
 
   /* If filename began with previous cwd and wasn't found there,
@@ -1103,31 +1107,36 @@ static int open_shared_file(char* fileName)
   if (errorFilenameFromPreviousCwd) {
     int prevCwdLen;
     i=mtcp_strlen(mtcp_saved_working_directory);
-    while (fileName[i] == '/')
+    while (filename[i] == '/')
       i++;
     prevCwdLen = i;
     for ( i=prevCwdLen ; i<fIndex ; i++ ){
-      if (fileName[i] == '/'){
+      if (filename[i] == '/'){
         int res;
         currentFolder[i-prevCwdLen] = '\0';
         res = mtcp_sys_mkdir(currentFolder, S_IRWXU);
         if (res<0 && mtcp_sys_errno != EEXIST ){
           mtcp_printf("mtcp_restart_nolibc open_shared_file:"
 		      " error %d creating directory %s in path of %s in cwd\n",
-		      mtcp_sys_errno, currentFolder, fileName);
+		      mtcp_sys_errno, currentFolder, filename);
 	  mtcp_abort();
         }
       }
-      currentFolder[i-prevCwdLen] = fileName[i];
+      currentFolder[i-prevCwdLen] = filename[i];
     }
-    fileName = fileName + prevCwdLen;  /* Now fileName is relative filename. */
+    filename = filename + prevCwdLen;  /* Now filename is relative filename. */
   }
+  return filename;
+}
 
+static int open_shared_file(char* filename)
+{
+  int fd;
   /* Create the file */
-  fd = mtcp_sys_open(fileName, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+  fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
     mtcp_printf("mtcp_restart_nolibc open_shared_file:"
-		" unable to create file %s\n", fileName);
+		" unable to create file %s\n", filename);
     mtcp_abort();
   }
   return fd;
