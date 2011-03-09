@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# The contents of this file are inspired from the python script dmtcp_ctypes.py
+# originally supplied by Neal Becker.
+
 from ctypes import *
 
 class CoordinatorStatus (Structure):
