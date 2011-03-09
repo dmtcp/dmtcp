@@ -30,6 +30,8 @@ RETRIES=2
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
 S=DEFAULT_S
+#Appears as S*SLOW in code.  If --slow, then SLOW=5
+SLOW=1
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -60,8 +62,11 @@ for i in sys.argv:
     VERBOSE=True
   if i=="--stress":
     CYCLES=100000
+  if i=="--slow":
+    SLOW=5
   if i=="-h" or i=="--help":
-    print "USAGE "+sys.argv[0]+" [-v] [--stress] [testname] [testname...]  "
+    print ("USAGE "+sys.argv[0]+
+      " [-v] [--stress] [--slow] [testname] [testname ...]")
     sys.exit(1)
 
 stats = [0, 0]
@@ -107,9 +112,10 @@ def splitWithQuotes(string):
   return string.split('%')
 
 def shouldRunTest(name):
-  if len(sys.argv) <= 1 or VERBOSE and len(sys.argv) == 2:
+  # FIXME:  This is a hack.  We should have created var, testNaems and use here
+  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2):
     return True
-  return args.has_key(name)
+  return name in sys.argv
 
 #make sure we are in svn root
 if os.system("test -d bin") is not 0:
@@ -234,7 +240,7 @@ def coordinatorCmd(cmd):
 def SHUTDOWN():
   try:
     coordinatorCmd('q')
-    sleep(S)
+    sleep(S*SLOW)
   except:
     print "SHUTDOWN() failed"
   os.system("kill -9 %d" % coordinator.pid)
@@ -363,7 +369,7 @@ def runTest(name, numProcs, cmds):
     #start user programs
     for cmd in cmds:
       procs.append(launch(BIN+"dmtcp_checkpoint "+cmd))
-      sleep(S)
+      sleep(S*SLOW)
 
     WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
 
