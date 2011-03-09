@@ -141,11 +141,29 @@ if (DEBUG_RESTARTING) \
  *
  * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
  *
- * NOTE: glibc-2.10 further changes the size tcphead_t without updating the
+ * NOTE: glibc-2.11 further changes the size tcphead_t without updating the
  *       size of __padding in struct pthread. We need to add an extra 512 bytes
  *       to accomodate this.                                     -- KAPIL
  */
-#if __GLIBC_PREREQ (2,12)
+
+// Calculate offsets of pid/tid in pthread 'struct user_desc'
+#if __GLIBC_PREREQ (2,11)
+# ifdef __x86_64__
+#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *) + 512)
+# else
+#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
+# endif
+
+#elif __GLIBC_PREREQ (2,10)
+#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
+
+#else
+#  define STATIC_TLS_TID_OFFSET() (18*sizeof(void *))
+#endif
+
+# define STATIC_TLS_PID_OFFSET() (STATIC_TLS_TID_OFFSET() + sizeof(pid_t))
+
+#if 1
 /* WHEN WE HAVE CONFIDENCE IN THIS VERSION, REMOVE ALL OTHER __GLIBC_PREREQ
  * AND MAKE THIS THE ONLY VERSION.  IT SHOULD BE BACKWARDS COMPATIBLE.
  */
@@ -191,22 +209,28 @@ static int TLS_TID_OFFSET(void) {
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     if (tmp == NULL) {
-      mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n");
-      mtcp_abort();
+      mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n"
+                  "  Now relying on the value determined using the\n"
+                  "  glibc version with which DMTCP was compiled.\n");
+      return STATIC_TLS_TID_OFFSET();
+      //mtcp_abort();
     }
+
     tid_offset = tmp - (char *)pthread_desc;
-#ifdef __x86_64__
-    if (tid_offset != 512+26*sizeof(void *))
-#else
-    if (tid_offset != 26*sizeof(void *))
-#endif
+    if (tid_offset != STATIC_TLS_TID_OFFSET()) {
       mtcp_printf("MTCP:  Warning:  tid_offset = %d; different from expected.\n"
+                  "  It is possible that DMTCP was compiled with a different\n"
+                  "  glibc version than the one it's dynamically linking to.\n"
                   "  Continuing anyway.  If this fails, please try again.\n",
                   tid_offset);
+    }
     DPRINTF(("tid_offset: %d\n", tid_offset));
     if (tid_offset % sizeof(int) != 0) {
-      mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n");
-      mtcp_abort();
+      mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n"
+                  "  Now relying on the value determined using the\n"
+                  "  glibc version with which DMTCP was compiled.\n");
+      return STATIC_TLS_TID_OFFSET();
+      //mtcp_abort();
     }
     /* Should we do a double-check, and spawn a new thread and see
      *  if its TID matches at this tid_offset?  This would give greater
@@ -215,6 +239,7 @@ static int TLS_TID_OFFSET(void) {
   }
   return tid_offset;
 }
+
 static int TLS_PID_OFFSET(void) {
   static int pid_offset = -1;
   struct {pid_t tid; pid_t pid;} tid_pid;
@@ -225,24 +250,6 @@ static int TLS_PID_OFFSET(void) {
   }
   return pid_offset;
 }
-#elif __GLIBC_PREREQ (2,11)
-# ifdef __x86_64__
-#  define TLS_PID_OFFSET() \
-           (512+26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#  define TLS_TID_OFFSET() (512+26*sizeof(void *))  // offset of tid in pthread struct
-# else
-#  define TLS_PID_OFFSET() \
-           (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-#  define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
-# endif
-#elif __GLIBC_PREREQ (2,10)
-# define TLS_PID_OFFSET() \
-	  (26*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET() (26*sizeof(void *))  // offset of tid in pthread struct
-#else
-# define TLS_PID_OFFSET() \
-	  (18*sizeof(void *)+sizeof(pid_t))  // offset of pid in pthread struct
-# define TLS_TID_OFFSET() (18*sizeof(void *))  // offset of tid in pthread struct
 #endif
 
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
@@ -255,7 +262,7 @@ typedef struct Thread Thread;
 struct Thread { Thread *next;                       // next thread in 'threads' list
                 Thread **prev;                      // prev thread in 'threads' list
                 int tid;                            // this thread's id as returned by mtcp_sys_kernel_gettid ()
-                int original_tid;                   // this is the the thread's "original" tid
+                int original_tid;                   // this is the thread's "original" tid
                 MtcpState state;                    // see ST_... below
                 Thread *parent;                     // parent thread (or NULL if top-level thread)
                 Thread *children;                   // one of this thread's child threads
