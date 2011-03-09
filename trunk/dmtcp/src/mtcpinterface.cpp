@@ -450,7 +450,8 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
       (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
     dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
-    args[0] = DMTCP_PRGNAME_PREFIX + args[0];
+    // Do NOT change restarted process's /proc/self/cmdline.
+    //args[0] = DMTCP_PRGNAME_PREFIX + args[0];
     for ( size_t i=0; i< args.size(); ++i ) {
       if (addr + args[i].length() >= endAddr)
         break;
