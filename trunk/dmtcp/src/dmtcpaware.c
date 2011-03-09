@@ -65,9 +65,13 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
 //   dmtcphijack.so will call it in preference to the dmtcpIsEnabled()
 //   defined in dmtcphijack.so, resulting in an infinite loop.
 //   The "hidden" attribute prevents it from being exported.
+//
+//   NOTE: The definitions of __dyn_XXX functions have been changed in
+//   dmtcphijack.so. Instead of calling the corresponding function (without the
+//   __dyn_), they now call the _real_XXX function. The _real_XXX version
+//   actually does the real work.
 
 #ifdef RECORD_REPLAY
-__attribute__ ((visibility ("hidden")))
 int dmtcp_userSynchronizedEvent() {
   /* Don't use DMTCPAWARE_STUB because we don't want to warn if
      there's no DMTCP, we just want a no-op. */
@@ -77,45 +81,36 @@ int dmtcp_userSynchronizedEvent() {
 }
 #endif
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpIsEnabled() {
   DMTCPAWARE_STUB( dmtcpIsEnabled, (), 0 );
 }
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpCheckpoint(){
   DMTCPAWARE_STUB( dmtcpCheckpoint, (), -128 );
 }
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpDelayCheckpointsLock(){
   DMTCPAWARE_STUB( dmtcpDelayCheckpointsLock, (), -128 );
 }
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpDelayCheckpointsUnlock(){
   DMTCPAWARE_STUB( dmtcpDelayCheckpointsUnlock, (), -128 );
 }
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpRunCommand(char command){
   DMTCPAWARE_STUB( dmtcpRunCommand, (command), -128 );
 }
 
-__attribute__ ((visibility ("hidden")))
 const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
   DMTCPAWARE_STUB( dmtcpGetCoordinatorStatus, (), NULL );
 }
 
-__attribute__ ((visibility ("hidden")))
 const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   DMTCPAWARE_STUB( dmtcpGetLocalStatus, (), NULL );
 }
 
-__attribute__ ((visibility ("hidden")))
 int dmtcpInstallHooks( DmtcpFunctionPointer preCp
                      , DmtcpFunctionPointer postCp
                      , DmtcpFunctionPointer postRs){
   DMTCPAWARE_STUB( dmtcpInstallHooks, (preCp,postCp,postRs), -128 );
 }
-
