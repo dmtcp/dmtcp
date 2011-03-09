@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=1.2.1
+VERSION=1.2.0
 VCS_SVN=https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
 
 #run a command with error checking
