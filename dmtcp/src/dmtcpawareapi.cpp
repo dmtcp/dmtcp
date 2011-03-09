@@ -69,17 +69,30 @@ static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_unlock();
 }
 
+/*
+ * ___real_dmtcpXXX: Does the real work expected by dmtcpXXX
+ * __dyn_dmtcpXXX:   Dummy trampolines to support static linking of user code
+ *                   to libdmtcpaware.a
+ * dmtcpXXX:         Dummy trampolines to support dynamic linking of user code
+ *                   to libdmtcpaware.so
+ *
+ * NOTE: We do not want __dyn_dmtcpXXX for call dmtcpXXX functions directly
+ * because if the user binary is compiled with -rdynamic and libdmtcpaware.a,
+ * this would result in a call to libdmtcpaware.a:dmtcpXXX, thus creating an
+ * infinite loop.
+ */
+
 #ifdef RECORD_REPLAY
-EXTERNC int dmtcp_userSynchronizedEvent()
+int __real_dmtcp_userSynchronizedEvent()
 {
   userSynchronizedEvent();
   return 1;
 }
 #endif
 
-EXTERNC int dmtcpIsEnabled() { return 1; }
+int __real_dmtcpIsEnabled() { return 1; }
 
-EXTERNC int dmtcpCheckpoint(){
+int __real_dmtcpCheckpoint(){
   int rv = 0;
   int oldNumRestarts    = numRestarts;
   int oldNumCheckpoints = numCheckpoints;
@@ -105,7 +118,7 @@ EXTERNC int dmtcpCheckpoint(){
   return rv;
 }
 
-EXTERNC int dmtcpRunCommand(char command){
+int __real_dmtcpRunCommand(char command){
   int result[sizeof(exampleMessage->params)/sizeof(int)];
   int i = 0;
   while (i < 100) {
@@ -129,7 +142,7 @@ EXTERNC int dmtcpRunCommand(char command){
   return result[0]>=0;
 }
 
-EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
+const DmtcpCoordinatorStatus* __real_dmtcpGetCoordinatorStatus(){
   int result[sizeof(exampleMessage->params)/sizeof(int)];
   _runCoordinatorCmd('s',result);
 
@@ -141,7 +154,7 @@ EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
   return &status;
 }
 
-EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
+const DmtcpLocalStatus* __real_dmtcpGetLocalStatus(){
   //these must be static so their memory is not deleted.
   static dmtcp::string ckpt;
   static dmtcp::string pid;
@@ -159,7 +172,7 @@ EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
   return &status;
 }
 
-EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
+int __real_dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                               , DmtcpFunctionPointer postCheckpoint
                               , DmtcpFunctionPointer postRestart){
   userHookPreCheckpoint  = preCheckpoint;
@@ -168,12 +181,12 @@ EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
   return 1;
 }
 
-EXTERNC int dmtcpDelayCheckpointsLock(){
+int __real_dmtcpDelayCheckpointsLock(){
   dmtcp::DmtcpWorker::delayCheckpointsLock();
   return 1;
 }
 
-EXTERNC int dmtcpDelayCheckpointsUnlock(){
+int __real_dmtcpDelayCheckpointsUnlock(){
   dmtcp::DmtcpWorker::delayCheckpointsUnlock();
   return 1;
 }
@@ -253,34 +266,67 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
 #ifdef RECORD_REPLAY
 EXTERNC int __dyn_dmtcp_userSynchronizedEvent()
 {
-  return dmtcp_userSynchronizedEvent();
+  return __real_dmtcp_userSynchronizedEvent();
 }
 #endif
 EXTERNC int __dyn_dmtcpIsEnabled(){
-  return dmtcpIsEnabled();
+  return __real_dmtcpIsEnabled();
 }
 EXTERNC int __dyn_dmtcpCheckpoint(){
-  return dmtcpCheckpoint();
+  return __real_dmtcpCheckpoint();
 }
 EXTERNC int __dyn_dmtcpRunCommand(char command){
-  return dmtcpRunCommand(command);
+  return __real_dmtcpRunCommand(command);
 }
 EXTERNC int __dyn_dmtcpDelayCheckpointsLock(){
-  return dmtcpDelayCheckpointsLock();
+  return __real_dmtcpDelayCheckpointsLock();
 }
 EXTERNC int __dyn_dmtcpDelayCheckpointsUnlock(){
-  return dmtcpDelayCheckpointsUnlock();
+  return __real_dmtcpDelayCheckpointsUnlock();
 }
 EXTERNC int __dyn_dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
                                     ,  DmtcpFunctionPointer postCheckpoint
                                     ,  DmtcpFunctionPointer postRestart){
-  return dmtcpInstallHooks(preCheckpoint, postCheckpoint, postRestart);
+  return __real_dmtcpInstallHooks(preCheckpoint, postCheckpoint, postRestart);
 }
 EXTERNC const DmtcpCoordinatorStatus* __dyn_dmtcpGetCoordinatorStatus(){
-  return dmtcpGetCoordinatorStatus();
+  return __real_dmtcpGetCoordinatorStatus();
 }
 EXTERNC const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus(){
-  return dmtcpGetLocalStatus();
+  return __real_dmtcpGetLocalStatus();
 }
 
 
+//These dummy trampolines support dynamic linking of user code to libdmtcpaware.so
+#ifdef RECORD_REPLAY
+EXTERNC int dmtcp_userSynchronizedEvent()
+{
+  return __real_dmtcp_userSynchronizedEvent();
+}
+#endif
+EXTERNC int dmtcpIsEnabled(){
+  return __real_dmtcpIsEnabled();
+}
+EXTERNC int dmtcpCheckpoint(){
+  return __real_dmtcpCheckpoint();
+}
+EXTERNC int dmtcpRunCommand(char command){
+  return __real_dmtcpRunCommand(command);
+}
+EXTERNC int dmtcpDelayCheckpointsLock(){
+  return __real_dmtcpDelayCheckpointsLock();
+}
+EXTERNC int dmtcpDelayCheckpointsUnlock(){
+  return __real_dmtcpDelayCheckpointsUnlock();
+}
+EXTERNC int dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint,
+                               DmtcpFunctionPointer postCheckpoint,
+                               DmtcpFunctionPointer postRestart){
+  return __real_dmtcpInstallHooks(preCheckpoint, postCheckpoint, postRestart);
+}
+EXTERNC const DmtcpCoordinatorStatus* dmtcpGetCoordinatorStatus(){
+  return __real_dmtcpGetCoordinatorStatus();
+}
+EXTERNC const DmtcpLocalStatus* dmtcpGetLocalStatus(){
+  return __real_dmtcpGetLocalStatus();
+}
