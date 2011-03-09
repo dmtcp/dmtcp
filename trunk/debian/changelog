@@ -1,3 +1,10 @@
+dmtcp (1.2.0+svn923-1) unstable; urgency=low
+
+  * Adding debian/libdmtcpaware1.symbols file.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 09 Mar 2011 02:03:21 -0500
+
 dmtcp (1.2.0+svn876-1) unstable; urgency=low
 
   * Initial release (Closes: #610653)
