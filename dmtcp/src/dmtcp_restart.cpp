@@ -824,11 +824,11 @@ int main ( int argc, char** argv )
   out << "will restore:\n";
   out << "\tfd  -> connection-id\n";
   ConnectionList& connections = ConnectionList::instance();
-  ConnectionList::iterator i;
-  for ( i = connections.begin(); i!= connections.end(); ++i ) {
-    int fd = slidingFd.getFdFor(i->first);
-    conToFd[i->first].push_back (fd);
-    out << "\t" << fd << " -> " << (i->first) << "\n";
+  ConnectionList::iterator it;
+  for (it = connections.begin(); it != connections.end(); ++it ) {
+    int fd = slidingFd.getFdFor(it->first);
+    conToFd[it->first].push_back (fd);
+    out << "\t" << fd << " -> " << (it->first) << "\n";
   }
   JTRACE ( "Allocating fds for Connections" ) (out.str());
 
