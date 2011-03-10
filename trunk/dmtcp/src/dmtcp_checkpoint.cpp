@@ -47,7 +47,7 @@
 int testMatlab(const char *filename);
 bool testSetuid(const char *filename);
 void testStaticallyLinked(const char *filename);
-int testScreen(char **argvPtr[]);
+bool testScreen(char **argv, char ***newArgv);
 void adjust_rlimit_stack();
 int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
@@ -456,8 +456,8 @@ int main ( int argc, char** argv )
   adjust_rlimit_stack();
 
   //run the user program
-  char **newArgv = argv;
-  if (0 == testScreen(&newArgv))
+  char **newArgv = NULL;
+  if (testScreen(argv, &newArgv))
     execvp ( newArgv[0], newArgv );
   else
     execvp ( argv[0], argv );
@@ -571,7 +571,16 @@ void adjust_rlimit_stack() {
 }
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
-int testScreen(char **argvPtr[]) {
+bool testScreen(char **argv, char ***newArgv) 
+{
+  if (Util::isScreen(argv[0])) {
+    setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);
+    Util::patchArgvIfSetuid(argv[0], argv, newArgv);
+    return true;
+  }
+  return false;
+
+#if 0
   struct stat st;
   // If screen has setuid or segid bits set, ...
   dmtcp::string pathname_base = jalib::Filesystem::BaseName((*argvPtr)[0]);
@@ -631,4 +640,5 @@ int testScreen(char **argvPtr[]) {
 #endif
   } else
     return -1;
+#endif
 }
