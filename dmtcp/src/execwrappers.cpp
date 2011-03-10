@@ -228,6 +228,9 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     execLibProcessAndExit(path);
 
   if (Util::isSetuid(path)) {
+    if (Util::isScreen(path)) {
+      setenv(ENV_VAR_SCREENDIR, Util::getScreenDir().c_str(), 1);
+    }
     Util::patchArgvIfSetuid(path, argv, newArgv);
     *filename = (*newArgv)[0];
   } else {
@@ -330,17 +333,20 @@ static dmtcp::list<dmtcp::string>& copyUserEnv ( char *const envp[] )
   static dmtcp::list<dmtcp::string> strStorage;
   strStorage.clear();
 
-  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." );
+  dmtcp::ostringstream out;
+  out << "non-DMTCP env vars:\n";
   for ( ; *envp != NULL; ++envp ) {
     if ( isImportantEnv ( *envp ) ) {
       if(dbg) 
-        JASSERT_STDERR << "     skipping: " << *envp << '\n';
+        out << "     skipping: " << *envp << '\n';
       continue;
     }
     strStorage.push_back ( *envp );
     if(dbg) 
-      JASSERT_STDERR << "     addenv[user]:" << strStorage.back() << '\n';
+      out << "     addenv[user]:" << strStorage.back() << '\n';
   }
+  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
+
   return strStorage;
 }
 
@@ -356,18 +362,20 @@ static char** patchUserEnv ( dmtcp::list<dmtcp::string> &envList )
     envVect.push_back ( (char*)i->c_str() );
   }
 
-  JTRACE ( "patching user envp..." ) ( getenv ( "LD_PRELOAD" ) );
-
   //pack up our ENV into the new ENV
+  dmtcp::ostringstream out;
+  out << "DMTCP env vars:\n";
   for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
     const char* v = getenv ( ourImportantEnvs[i] );
     if ( v != NULL ) {
       envList.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
       envVect.push_back ( &envList.back() [0] );
       if(dbg) 
-        JASSERT_STDERR << "     addenv[dmtcp]:" << envList.back() << '\n';
+        out << "     addenv[dmtcp]:" << envList.back() << '\n';
     }
   }
+  JTRACE ( "patching user envp..." ) ( getenv ( "LD_PRELOAD" ) ) (out.str());
+
 
   envVect.push_back ( NULL );
 

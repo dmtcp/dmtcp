@@ -331,13 +331,27 @@ bool Util::isStaticallyLinked(const char *filename)
   return false;
 }
 
+bool Util::isScreen(const char *filename)
+{
+  return jalib::Filesystem::BaseName(filename) == "screen" &&
+         isSetuid(filename);
+}
+
+dmtcp::string Util::getScreenDir()
+{
+  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
+  safeMkdir(tmpdir.c_str(), 0700);
+  return tmpdir;
+}
+
 bool Util::isSetuid(const char *filename)
 {
   char pathname[PATH_MAX];
   if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
     struct stat buf;
     int rc = stat(pathname, &buf);
-    if (rc == 0 && (buf.st_mode & S_ISUID || buf.st_mode & S_ISGID)) {
+    if (stat(pathname, &buf) == 0 && (buf.st_mode & S_ISUID ||
+                                      buf.st_mode & S_ISGID)) {
       return true;
     }
   }

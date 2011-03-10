@@ -54,6 +54,9 @@ namespace Util
 
   bool isStaticallyLinked(const char *filename);
 
+
+  bool isScreen(const char *filename);
+  dmtcp::string getScreenDir();
   bool isSetuid(const char *filename);
   void freePatchedArgv(char **newArgv);
   void patchArgvIfSetuid(const char* filename, char *const origArgv[],
