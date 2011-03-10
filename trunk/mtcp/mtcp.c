@@ -146,19 +146,55 @@ if (DEBUG_RESTARTING) \
  *       to accomodate this.                                     -- KAPIL
  */
 
+#if !__GLIBC_PREREQ (2,1)
+# error "glibc version too old"
+#endif
+
 // Calculate offsets of pid/tid in pthread 'struct user_desc'
-#if __GLIBC_PREREQ (2,11)
-# ifdef __x86_64__
-#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *) + 512)
-# else
-#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
-# endif
+int STATIC_TLS_TID_OFFSET()
+{
+  static int offset = -1;
+  if (offset != -1) 
+    return offset;
 
-#elif __GLIBC_PREREQ (2,10)
-#  define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
+  char *ptr;
+  long major = strtol(gnu_get_libc_version(), &ptr, 10);
+  long minor = strtol(ptr+1, NULL, 10);
+  if (major != 2) {
+    mtcp_printf("**** MTCP:Error:: Incompatible glibc version: %s\n",
+                gnu_get_libc_version());
+    mtcp_abort();
+  }
 
+  if (minor >= 11) {
+#ifdef __x86_64__
+    offset = 26*sizeof(void *) + 512;
 #else
-#  define STATIC_TLS_TID_OFFSET() (18*sizeof(void *))
+    offset = 26*sizeof(void *);
+#endif
+  } else if (minor == 10) {
+    offset = 26*sizeof(void *);
+  } else {
+    offset = 18*sizeof(void *);
+  }
+
+  return offset;
+}
+
+#if 0
+# if __GLIBC_PREREQ (2,11)
+#  ifdef __x86_64__
+#   define STATIC_TLS_TID_OFFSET() (26*sizeof(void *) + 512)
+#  else
+#   define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
+#  endif
+
+# elif __GLIBC_PREREQ (2,10)
+#   define STATIC_TLS_TID_OFFSET() (26*sizeof(void *))
+
+# else
+#   define STATIC_TLS_TID_OFFSET() (18*sizeof(void *))
+# endif
 #endif
 
 # define STATIC_TLS_PID_OFFSET() (STATIC_TLS_TID_OFFSET() + sizeof(pid_t))
