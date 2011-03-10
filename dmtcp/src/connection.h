@@ -100,6 +100,7 @@ namespace dmtcp
 
       virtual void restartDup2(int oldFd, int newFd);
 
+      virtual string str() { return "<Not-a-File>"; };
 
       void serialize ( jalib::JBinarySerializer& o );
     protected:
@@ -351,6 +352,7 @@ namespace dmtcp
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
+      virtual string str() { return _path; }
       void restoreFile();
       dmtcp::string filePath() { return _path; }
       bool checkpointed() { return _checkpointed; }

@@ -828,7 +828,8 @@ int main ( int argc, char** argv )
   for (it = connections.begin(); it != connections.end(); ++it ) {
     int fd = slidingFd.getFdFor(it->first);
     conToFd[it->first].push_back (fd);
-    out << "\t" << fd << " -> " << (it->first) << "\n";
+    out << "\t" << fd << " -> " << (it->first)
+        << " -> " << (it->second)->str() << "\n";
   }
   JTRACE ( "Allocating fds for Connections" ) (out.str());
 
