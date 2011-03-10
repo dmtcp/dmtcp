@@ -395,19 +395,31 @@ void prctlGetProcessName()
   if (prctlPrgName[0] == '\0') {
     bzero((void*) prctlPrgName, 22);
     strcpy(prctlPrgName, DMTCP_PRGNAME_PREFIX);
-    JASSERT(prctl(PR_GET_NAME, &prctlPrgName[6]) != -1) (JASSERT_ERRNO)
-      .Text ("prctl() failed");
-    JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
+    int ret = prctl(PR_GET_NAME, &prctlPrgName[strlen(DMTCP_PRGNAME_PREFIX)]);
+    if (ret != -1) {
+      JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
+    } else {
+      JASSERT(errno == EINVAL) (JASSERT_ERRNO)
+        .Text ("prctl(PR_GET_NAME, ...) failed");
+      JTRACE("prctl(PR_GET_NAME, ...) failed. Not supported on this kernel?");
+    }
   }
 #endif
 }
 
 void prctlRestoreProcessName()
 {
+  // Although PR_SET_NAME has been supported since 2.6.9, we wouldn't use it on
+  // kernel < 2.6.11 since we didn't get the process name using PR_GET_NAME
+  // which is supported on >= 2.6.11
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
-    JASSERT(prctl(PR_SET_NAME, prctlPrgName) != -1) (prctlPrgName) (JASSERT_ERRNO)
-      .Text ("prctl() failed");
-    JTRACE("prctl(PR_SET_NAME, ...) succeeded") (prctlPrgName);
+    if (prctl(PR_SET_NAME, prctlPrgName) != -1) {
+      JTRACE("prctl(PR_SET_NAME, ...) succeeded") (prctlPrgName);
+    } else {
+      JASSERT(errno == EINVAL) (prctlPrgName) (JASSERT_ERRNO)
+        .Text ("prctl(PR_SET_NAME, ...) failed");
+      JTRACE("prctl(PR_SET_NAME, ...) failed") (prctlPrgName);
+    }
 #endif
 }
 

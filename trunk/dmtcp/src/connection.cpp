@@ -1001,7 +1001,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
 
   JASSERT ( fds.size() > 0 );
 
-  JTRACE("Restoring File Connection") (id()) (_path) (_restoreInSecondIteration);
+  JTRACE("Restoring File Connection") (id()) (_path);
   refreshPath();
 
   if (_checkpointed) {
@@ -1098,7 +1098,8 @@ int dmtcp::FileConnection::openFile()
     count++;
     if (count % 200 == 0) {
       // Print this message every second
-      JTRACE("Waiting for the file to be created/restored by some other process") (_path) (_restoreInSecondIteration);
+      JTRACE("Waiting for the file to be created/restored by some other process")
+        (_path);
     }
     if (count%1000 == 0) {
       JWARNING(false) (_path)
