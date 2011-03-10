@@ -163,11 +163,11 @@ void dmtcp::VirtualPidTable::printPidMaps()
 #ifdef DEBUG
   ostringstream out;
   out << "Pid mappings\n";
-  out << " original" << "  ->  " << "current" << "\n";
+  out << "      original" << "  ->  " << "current" << "\n";
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
     pid_t originalPid = i->first;
     pid_t currentPid  = i->second;
-    out << "\t" << originalPid << "\t->\t" << currentPid << "\n";
+    out << "\t" << originalPid << "\t->   " << currentPid << "\n";
   }
   JTRACE("Original To Current Pid Mappings:") ( out.str());
 #endif

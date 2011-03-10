@@ -410,7 +410,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
 {
 #ifdef DEBUG
   dmtcp::ostringstream out;
-  out << "fd -> device \t\t -> inTable\n";
+  out << "\n\tfd -> device \t\t -> inTable\n";
   dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
   for ( size_t i=0; i<fds.size(); ++i )
   {
@@ -418,7 +418,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
     if(ProtectedFDs::isProtected( fds[i] )) continue;
     dmtcp::string device = fdToDevice ( fds[i], true );
     bool exists = ( _table.find ( device ) != _table.end() );
-    out << "\t\t" << fds[i] << " -> "  << device << " inTable=" << exists << "\n";
+    out << "\t" << fds[i] << " -> "  << device << " inTable=" << exists << "\n";
   }
   JTRACE("Listings FDs...") (out.str());
 #endif

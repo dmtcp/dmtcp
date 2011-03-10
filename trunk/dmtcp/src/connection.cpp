@@ -926,6 +926,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   _offset = lseek(fds[0], 0, SEEK_CUR);
   fstat(fds[0], &_stat);
   _checkpointed = false;
+  _restoreInSecondIteration = true;
 
   if (_isBlacklistedFile(_path)) {
     return;
@@ -1000,7 +1001,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
 
   JASSERT ( fds.size() > 0 );
 
-  JTRACE("Restoring File Connection") (id()) (_path);
+  JTRACE("Restoring File Connection") (id()) (_path) (_restoreInSecondIteration);
   refreshPath();
 
   if (_checkpointed) {
@@ -1097,7 +1098,7 @@ int dmtcp::FileConnection::openFile()
     count++;
     if (count % 200 == 0) {
       // Print this message every second
-      JTRACE("Waiting for the file to be created/restored by some other process") (_path);
+      JTRACE("Waiting for the file to be created/restored by some other process") (_path) (_restoreInSecondIteration);
     }
     if (count%1000 == 0) {
       JWARNING(false) (_path)
@@ -1150,6 +1151,8 @@ void dmtcp::FileConnection::restoreFile()
 void dmtcp::FileConnection::saveFile(int fd)
 {
   _checkpointed = true;
+  _restoreInSecondIteration = false;
+
   dmtcp::string savedFilePath = getSavedFilePath(_path);
   CreateDirectoryStructure(savedFilePath);
   JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
@@ -1699,6 +1702,7 @@ void dmtcp::FileConnection::mergeWith ( const Connection& _that ){
     _checkpointed = that._checkpointed;
     _rel_path     = that._rel_path;
     _ckptFilesDir = that._ckptFilesDir;
+    _restoreInSecondIteration = that._restoreInSecondIteration;
   }
 
   //JWARNING(false)(id()).Text("We shouldn't be merging file connections, should we?");
