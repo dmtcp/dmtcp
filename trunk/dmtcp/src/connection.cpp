@@ -1114,7 +1114,7 @@ int dmtcp::FileConnection::openFile()
   return fd;
 }
 
-int dmtcp::FileConnection::restoreFile()
+void dmtcp::FileConnection::restoreFile()
 {
   int fd;
   JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);

@@ -433,7 +433,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
   // mapped, will have read+write permissions.
-  for (off_t i = 0; i < len; i += PAGE_SIZE) {
+  for (size_t i = 0; i < len; i += PAGE_SIZE) {
     int ret = mprotect ((char*) startAddr + i, PAGE_SIZE,
                         PROT_READ | PROT_WRITE);
     if (ret != -1 || errno != ENOMEM) {
