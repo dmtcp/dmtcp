@@ -40,9 +40,9 @@ EXTERNC int dmtcp_on_connect ( int ret, int sockfd,  const  struct sockaddr *ser
 EXTERNC int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
 EXTERNC int dmtcp_on_listen ( int ret, int sockfd, int backlog );
 EXTERNC int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen );
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 EXTERNC int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-#endif
+//#endif
 EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno );
 EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen );
 

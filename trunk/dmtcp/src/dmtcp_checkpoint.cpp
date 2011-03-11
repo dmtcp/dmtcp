@@ -128,9 +128,11 @@ static void *get_libc_symbol ( const char* name )
   void* tmp = dlsym ( handle, name );
   if ( tmp == NULL )
   {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR finding symbol %s using dlsym: %s \n",
-              name, dlerror() );
-    abort();
+    JASSERT_STDERR
+      << "dmtcp: get_libc_symbol: ERROR finding symbol "
+      << name << " using dlsym: " << dlerror() << " \n"
+      << "       Will fail if user-app tries to call this symbol.\n";
+    //abort();
   }
   return tmp;
 }
@@ -150,10 +152,8 @@ static void *get_libpthread_symbol ( const char* name )
   if ( tmp==NULL )
   {
     fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n"
-                     "       couldn't find symbol: %s in glibc.\n",
-                     "       Will fail if user-app tries to call this symbol.\n",
-              dlerror(), name );
-    //abort();
+              dlerror() );
+    abort();
   }
   return tmp;
 }
