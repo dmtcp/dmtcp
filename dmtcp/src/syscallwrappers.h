@@ -195,15 +195,16 @@ extern "C"
   MACRO(bind)                               \
   MACRO(listen)                             \
   MACRO(accept)                             \
+  MACRO(accept4)                             \
   MACRO(setsockopt)                         \
   MACRO(socketpair)
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
-   MACRO(accept4)
-#else
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)
-#endif
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
+//   MACRO(accept4)
+//#else
+//# define GLIBC_ACCEPT4_WRAPPER(MACRO)
+//#endif
 
 #define GLIBC_EXEC_WRAPPERS(MACRO)          \
   MACRO(fexecve)                            \
@@ -269,12 +270,12 @@ extern "C"
   GLIBC_MISC_WRAPPERS(MACRO)                \
   GLIBC_SYS_V_IPC_WRAPPERS(MACRO)           \
                                             \
-  GLIBC_ACCEPT4_WRAPPER(MACRO)              \
   GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
   GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)       \
   GLIBC_PTRACE_WRAPPERS(MACRO)              \
   GLIBC_RECORD_WRAPPERS(MACRO)
 
+//GLIBC_ACCEPT4_WRAPPER(MACRO)
 
 # define ENUM(x) enum_ ## x
 # define GEN_ENUM(x) ENUM(x),
@@ -301,9 +302,9 @@ extern "C"
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
   int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-#endif
+//#endif
 #ifdef RECORD_REPLAY
   int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);

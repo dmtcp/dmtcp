@@ -1652,7 +1652,11 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
 #endif
 }
 
+#if __GLIBC_PREREQ(2,5)
 extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
+#else
+extern "C" int readlink(const char *path, char *buf, size_t bufsiz)
+#endif
 {
 #ifdef RECORD_REPLAY
   char newpath [ PATH_MAX ] = {0} ;

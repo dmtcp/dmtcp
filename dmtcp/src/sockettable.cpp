@@ -163,12 +163,12 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 
 ///
 ///called automatically after a sucessful user function call
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 extern "C" int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {
   return dmtcp_on_accept(ret, sockfd, addr, addrlen);
 }
-#endif
+//#endif
 
 ///
 ///called automatically when a socket error is returned by user function

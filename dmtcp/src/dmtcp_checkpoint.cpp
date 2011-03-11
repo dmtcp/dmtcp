@@ -149,9 +149,11 @@ static void *get_libpthread_symbol ( const char* name )
   void* tmp = dlsym ( handle, name );
   if ( tmp==NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n"
+                     "       couldn't find symbol: %s in glibc.\n",
+                     "       Will fail if user-app tries to call this symbol.\n",
+              dlerror(), name );
+    //abort();
   }
   return tmp;
 }
@@ -167,9 +169,16 @@ static void prepareDmtcpWrappers()
 				  glibc_base_function_addr = (char *)&name;
   FOREACH_GLIBC_BASE_FUNC(_FIRST_BASE_ADDR);
 
-# define _GET_OFFSET(x) \
-    wrapperOffsetArray[enum_ ## x] = ((char*)get_libc_symbol(#x) \
-				     - glibc_base_function_addr);
+# define _GET_OFFSET(x) do { \
+    char *addr = (char*)get_libc_symbol(#x); \
+    int offset = (addr == NULL) ? -1 : (addr - glibc_base_function_addr); \
+    if (addr == NULL) \
+      offset = -1; \
+    else \
+      offset = addr - glibc_base_function_addr; \
+    wrapperOffsetArray[enum_ ## x] = offset; \
+  } while(0);
+
   FOREACH_GLIBC_FUNC_WRAPPER(_GET_OFFSET);
 
   dmtcp::ostringstream os;
