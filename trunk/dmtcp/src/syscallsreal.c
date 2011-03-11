@@ -179,6 +179,9 @@ static funcptr get_libc_symbol_from_array ( LibcWrapperOffset idx )
     libc_base_func_addr = get_libc_base_func();
     libcOffsetArrayComputed = 1;
   }
+  if (libcFuncOffsetArray[idx] == -1) {
+    return NULL;
+  }
   return (funcptr)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
 
@@ -278,6 +281,11 @@ static int use_dlsym = 0;
         fn = (void*)get_libc_symbol(#name); \
       else \
         fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
+      if (fn == NULL) { \
+        fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
+                        "           The symbol wasn't found in current glibc.\n" \
+                        "    Aborting.\n", #name); \
+      } \
     } \
     return (*fn)
 
@@ -287,6 +295,11 @@ static int use_dlsym = 0;
         fn = get_libc_symbol(#name); \
       else \
         fn = get_libc_symbol_from_array ( ENUM(name) ); \
+      if (fn == NULL) { \
+        fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
+                        "           The symbol wasn't found in current glibc.\n" \
+                        "    Aborting.\n", #name); \
+      } \
     } \
     (*fn)
 
@@ -351,13 +364,13 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
   REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 /// call the libc version of this function via dlopen/dlsym
 int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {
   REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
 }
-#endif
+//#endif
 
 #ifdef RECORD_REPLAY
 int _real_getsockname( int sockfd, struct sockaddr *addr, socklen_t *addrlen )

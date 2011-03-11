@@ -32,7 +32,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/syscall.h>
-#include <sys/inotify.h>
 #include <linux/version.h>
 #include <limits.h>
 #include "uniquepid.h"
@@ -46,6 +45,10 @@
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
+#include <sys/inotify.h>
+#endif
 
 extern "C" void exit ( int status )
 {
@@ -114,7 +117,7 @@ extern "C" int pipe ( int fds[2] )
   return socketpair ( AF_UNIX, SOCK_STREAM, 0, fds );
 }
 
-# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
 // pipe2 appeared in Linux 2.6.27
 extern "C" int pipe2 ( int fds[2], int flags )
 {
@@ -554,14 +557,14 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = epoll_create(size);
       break;
     }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
     case SYS_inotify_init:
     {
       ret = inotify_init();
       break;
     }
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,9)
     case SYS_epoll_create1:
     {
       SYSCALL_GET_ARG(int,flags);
