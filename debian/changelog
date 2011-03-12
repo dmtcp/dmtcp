@@ -1,3 +1,9 @@
+dmtcp (1.2.1-1) unstable; urgency=low
+
+  * Preparing for upstream release 1.2.1. 
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:41:11 -0500
+
 dmtcp (1.2.0+svn937-1) unstable; urgency=low
 
   * Updating libdmtcpaware1.symbols to reflect the proper version.
