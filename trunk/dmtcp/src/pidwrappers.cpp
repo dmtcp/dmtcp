@@ -229,40 +229,97 @@ extern "C" pid_t setsid(void)
 
 extern "C" int   kill(pid_t pid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  /* FIXME: When bash receives a SIGINT signal, the signal handler is
+   * called to processs the signal. Once the processing is done, bash
+   * performs a longjmp to a much higher call frame. As a result, this
+   * call frame never gets a chance to return and hence we fail to
+   * perform WRAPPER_EXECUTION_ENABLE_CKPT() which results in the lock
+   * being held but never released. Thus later on, when the ckpt-thread
+   * tries to acquire this lock, it results in a deadlock.
+   *
+   *  To avoid the deadlock, FOR NOW, we shouldn't call WRAPPER_...()
+   *  calls in this function or any kill() family of wrappers.
+   *
+   * Potential Solution: If the signal sending process is among the
+   * potential signal receivers, it should MASK/BLOCK signal delivery
+   * right before sending the signal (before calling _real_kill()). Once
+   * the system call returns, it should then call
+   * WRAPPER_EXECUTION_ENABLE_CKPT() and then restore the signal mask to
+   * as it was prior to calling this wrapper. So this function will as
+   * follows:
+   *     WRAPPER_EXECUTION_DISABLE_CKPT();
+   *     // if this process is a potential receiver of this signal
+   *     if (pid == getpid() || pid == 0 || pid == -1 ||
+   *         getpgrp() == abs(pid)) {
+   *       <SAVE_SIGNAL_MASK>;
+   *       <BLOCK SIGNAL 'sig'>;
+   *       sigmaskAltered = true;
+   *     }
+   *     pid_t currPid = originalToCurrentPid(pid);
+   *     int retVal = _real_kill(currPid, sig);
+   *     WRAPPER_EXECUTION_ENABLE_CKPT();
+   *     if (sigmaskAltered) {
+   *       <RESTORE_SIGNAL_MASK>
+   *     }
+   *     return retVal;
+   * 
+   *
+   * This longjmp trouble can happen with any wrapper, whose execution my
+   * end up in a call to user-code i.e. if the call frame looks sth like:
+   *        ...
+   *        user_func1(...)
+   *        ...
+   *        DMTCP_WRAPPER(...)
+   *        ...
+   *        user_func2(...)
+   *        ...
+   * 
+   * Another potential way would be to put a wrapper around longjmp() in
+   * which the calling thread should release all the DMTCP-locks being
+   * held at the moment. This would require us to keep a count of lock()
+   * calls without a corresponding unlock() call. After the longjmp()
+   * call, one need to make sure that an unlock() call is requested only
+   * if there is a corresponding lock, because it might happen that
+   * longjmp() was harmless in the sense that, it didn't cause a
+   * callframe like the one mentioned above. 
+   * 
+   */
+//  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   pid_t currPid = originalToCurrentPid (pid);
 
   int retVal = _real_kill (currPid, sig);
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+//  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 int   tkill(int tid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  // FIXME: Check the comments in kill()
+//  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tkill ( currentTid, sig );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+//  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
 
 int   tgkill(int tgid, int tid, int sig)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  // FIXME: Check the comments in kill()
+//  WRAPPER_EXECUTION_DISABLE_CKPT();
 
   int currentTgid = originalToCurrentPid ( tgid );
   int currentTid = originalToCurrentPid ( tid );
 
   int retVal = _real_tgkill ( currentTgid, currentTid, sig );
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+//  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return retVal;
 }
