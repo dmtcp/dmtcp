@@ -1,3 +1,10 @@
+dmtcp (1.2.0+svn937-1) unstable; urgency=low
+
+  * Updating libdmtcpaware1.symbols to reflect the proper version.
+  * Updating watch file to point to proper package name
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:10:02 -0500
+
 dmtcp (1.2.0+svn923-1) unstable; urgency=low
 
   * Adding debian/libdmtcpaware1.symbols file.

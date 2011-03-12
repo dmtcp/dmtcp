@@ -1,9 +1,9 @@
 libdmtcpaware.so.1 libdmtcpaware1 #MINVER#
- dmtcpCheckpoint@Base 1.2.0+svn876
- dmtcpDelayCheckpointsLock@Base 1.2.0+svn876
- dmtcpDelayCheckpointsUnlock@Base 1.2.0+svn876
- dmtcpGetCoordinatorStatus@Base 1.2.0+svn876
- dmtcpGetLocalStatus@Base 1.2.0+svn876
- dmtcpInstallHooks@Base 1.2.0+svn876
- dmtcpIsEnabled@Base 1.2.0+svn876
- dmtcpRunCommand@Base 1.2.0+svn876
+ dmtcpCheckpoint@Base 1.2.0+svn923
+ dmtcpDelayCheckpointsLock@Base 1.2.0+svn923
+ dmtcpDelayCheckpointsUnlock@Base 1.2.0+svn923
+ dmtcpGetCoordinatorStatus@Base 1.2.0+svn923
+ dmtcpGetLocalStatus@Base 1.2.0+svn923
+ dmtcpInstallHooks@Base 1.2.0+svn923
+ dmtcpIsEnabled@Base 1.2.0+svn923
+ dmtcpRunCommand@Base 1.2.0+svn923
