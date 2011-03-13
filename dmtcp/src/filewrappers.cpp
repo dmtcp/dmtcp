@@ -446,7 +446,7 @@ static int _almost_real_open64(const char *path, int flags, mode_t mode)
 
 extern "C" int open (const char *path, int flags, ... )
 {
-  mode_t mode;
+  mode_t mode = 0;
   char newpath [ PATH_MAX ] = {0} ;
 
   // Handling the variable number of arguments

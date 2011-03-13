@@ -359,9 +359,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   log_entry_t my_entry = create_exec_barrier_entry();
   if (SYNC_IS_REPLAY) {
     memfence();
-    if (log_loaded == 0) {
-      primeLog();
-    }
     waitForExecBarrier();
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {

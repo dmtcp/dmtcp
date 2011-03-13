@@ -821,7 +821,6 @@ static void annotateLog()
     }
     write_ret = writeEntryToDisk(record_patched_log_fd, entry);
   }
-
   // Rewind so we can write out over the original log.
   lseek(record_patched_log_fd, 0, SEEK_SET);
   // Close so we can re-open in O_TRUNC mode
@@ -902,7 +901,10 @@ void primeLog()
     }
     atomic_set(&log_loaded, 1);
     _real_pthread_mutex_unlock(&log_index_mutex);
-    getNextLogEntry();
+    if (total_read > 0) {
+      // If the log size is zero, there's nothing to load.
+      getNextLogEntry();
+    }
   }
 }
 
@@ -1865,8 +1867,8 @@ void getNextLogEntry() {
   } else {
     // The size that can be retrieved from the current log.
     int size = MAX_LOG_LENGTH - log_index;
-    JASSERT ( size < 256 );
-    char tmp[256] = {0};
+    JASSERT ( size < 512 ) ( size ) ( log_index ) ( log_entry_index );
+    char tmp[512] = {0};
     memcpy(tmp, &log[log_index], size);
     JTRACE ( "Ran out of log entries. Reading next from disk." ) 
            ( log_entry_index ) ( MAX_LOG_LENGTH );
@@ -2776,19 +2778,23 @@ static int has_optional_event(log_entry_t *e)
    that event. */
 static void execute_optional_event(int opt_event_num)
 {
+  _real_pthread_mutex_lock(&log_index_mutex);
   if (opt_event_num == mmap_event) {
     size_t length = GET_FIELD(currentLogEntry, mmap, length);
     int prot      = GET_FIELD(currentLogEntry, mmap, prot);
     int flags     = GET_FIELD(currentLogEntry, mmap, flags);
     int fd        = GET_FIELD(currentLogEntry, mmap, fd);
     off_t offset  = GET_FIELD(currentLogEntry, mmap, offset);
+    _real_pthread_mutex_unlock(&log_index_mutex);
     mmap(NULL, length, prot, flags, fd, offset);
   } else if (opt_event_num == malloc_event) {
     size_t size = GET_FIELD(currentLogEntry, malloc, size);
+    _real_pthread_mutex_unlock(&log_index_mutex);
     void *p = malloc(size);
   } else if (opt_event_num == free_event) {
     /* The fact that this works depends on memory-accurate replay. */
     void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
+    _real_pthread_mutex_unlock(&log_index_mutex);
     free(ptr);
   } else {
     JASSERT (false)(opt_event_num).Text("No action known for optional event.");
@@ -2837,11 +2843,11 @@ void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
   int opt;
   memfence();
-  if (__builtin_expect(log_loaded == 0, 0)) {
+  /*if (__builtin_expect(log_loaded == 0, 0)) {
     // If log_loaded == 0, then this is the first time.
     // Perform any initialization things here.
     primeLog();
-  }
+    }*/
   if (has_optional_event(&my_entry)) {
     waitForTurnWithOptional(&my_entry, pred);
   } else {
