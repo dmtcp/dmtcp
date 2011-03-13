@@ -301,7 +301,12 @@ static void callbackRestoreVirtualPidTable ( )
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
 
+#ifndef RECORD_REPLAY
+  /* This calls setenv() which calls malloc. Since this is only executed on
+     restart, that means it there is an extra malloc on replay. Commenting this
+     out for SOSP 11 deadline until we have time to fix it. */
   dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
+#endif
 
   // After this point, the user threads will be unlocked in mtcp.c and will
   // resume their computation and so it is OK to set the process state to

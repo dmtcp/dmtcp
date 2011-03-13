@@ -231,7 +231,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
         ( RECORD_LOG_PATH ) ( errno );
     }
     /* Eager log patching. */
-    //primeLog();
+    primeLog();
     log_all_allocs = 1;
 #endif
     numRestarts++;
