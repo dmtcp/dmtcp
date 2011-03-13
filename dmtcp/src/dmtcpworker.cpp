@@ -1011,8 +1011,6 @@ void dmtcp::DmtcpWorker::postRestart()
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   recvCoordinatorHandshake();
 
-  updateCoordinatorHostAndPortEnv();
-
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 

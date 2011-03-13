@@ -301,6 +301,8 @@ static void callbackRestoreVirtualPidTable ( )
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
 
+  dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
+
   // After this point, the user threads will be unlocked in mtcp.c and will
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
