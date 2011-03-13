@@ -172,6 +172,6 @@ uninstall:
 	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
-	#rm -Rf "$(DESTDIR)$(include/dmtcp"
+#	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
 .PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
