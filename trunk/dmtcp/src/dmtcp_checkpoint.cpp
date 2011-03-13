@@ -151,7 +151,7 @@ static void *get_libpthread_symbol ( const char* name )
   void* tmp = dlsym ( handle, name );
   if ( tmp==NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n"
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
               dlerror() );
     abort();
   }
