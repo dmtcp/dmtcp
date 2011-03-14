@@ -333,6 +333,14 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 #ifdef RECORD_REPLAY
+int _real_closedir(DIR *dirp) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
+}
+
+DIR * _real_opendir(const char *name) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
+}
+
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);

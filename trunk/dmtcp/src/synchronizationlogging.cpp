@@ -505,6 +505,8 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == mmap64_event_return ||
     GET_COMMON(e,event) == munmap_event_return ||
     GET_COMMON(e,event) == mremap_event_return ||
+    GET_COMMON(e,event) == opendir_event_return ||
+    GET_COMMON(e,event) == closedir_event_return ||
     GET_COMMON(e,event) == user_event_return;
 }
 
@@ -1036,6 +1038,14 @@ log_entry_t create_close_entry(int clone_id, int event, int fd)
   return e;
 }
 
+log_entry_t create_closedir_entry(int clone_id, int event, DIR *dirp)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, closedir, dirp, (unsigned long int)dirp);
+  return e;
+}
+
 log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
     const struct sockaddr *serv_addr, socklen_t addrlen)
 {
@@ -1434,6 +1444,14 @@ log_entry_t create_open64_entry(int clone_id, int event, const char *path,
   SET_FIELD2(e, open64, path, (unsigned long int)path);
   SET_FIELD(e, open64, flags);
   SET_FIELD(e, open64, open_mode);
+  return e;
+}
+
+log_entry_t create_opendir_entry(int clone_id, int event, const char *name)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, opendir, name, (unsigned long int)name);
   return e;
 }
 
@@ -2167,6 +2185,13 @@ TURN_CHECK_P(close_turn_check)
   return base_turn_check(e1, e2);// && e1->fd == e2->fd;
 }
 
+TURN_CHECK_P(closedir_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, closedir, dirp) ==
+      GET_FIELD_PTR(e2, closedir, dirp);
+}
+
 TURN_CHECK_P(connect_turn_check)
 {
   return base_turn_check(e1, e2) &&
@@ -2595,6 +2620,13 @@ TURN_CHECK_P(open64_turn_check)
       GET_FIELD_PTR(e2, open64, open_mode);
 }
 
+TURN_CHECK_P(opendir_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, opendir, name) ==
+      GET_FIELD_PTR(e2, opendir, name);
+}
+
 TURN_CHECK_P(pread_turn_check)
 {
   return base_turn_check(e1, e2) &&
@@ -2760,6 +2792,10 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
     opt_events[1] = free_event;
     opt_events[2] = mmap_event;
   } else if (event_num == fclose_event_return) {
+    opt_events[0] = free_event;
+  } else if (event_num == opendir_event_return) {
+    opt_events[0] = malloc_event;
+  } else if (event_num == closedir_event_return) {
     opt_events[0] = free_event;
   }
   // TODO: Some error checking that we do not accidently assign above

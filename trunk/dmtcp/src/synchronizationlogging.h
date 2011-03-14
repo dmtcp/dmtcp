@@ -177,6 +177,7 @@
     MACRO(bind, __VA_ARGS__);                                                  \
     MACRO(calloc, __VA_ARGS__);                                                \
     MACRO(close, __VA_ARGS__);                                                 \
+    MACRO(closedir, __VA_ARGS__);                                              \
     MACRO(connect, __VA_ARGS__);                                               \
     MACRO(dup, __VA_ARGS__);                                                   \
     MACRO(exec_barrier, __VA_ARGS__);                                          \
@@ -216,7 +217,8 @@
     MACRO(mremap, __VA_ARGS__);                                                \
     MACRO(munmap, __VA_ARGS__);                                                \
     MACRO(open, __VA_ARGS__);                                                  \
-    MACRO(open64, __VA_ARGS__);                                                  \
+    MACRO(open64, __VA_ARGS__);                                                \
+    MACRO(opendir, __VA_ARGS__);					       \
     MACRO(pread, __VA_ARGS__);                                                 \
     MACRO(putc, __VA_ARGS__);                                                  \
     MACRO(pwrite, __VA_ARGS__);                                                \
@@ -271,6 +273,8 @@ typedef enum {
   calloc_event_return,
   close_event,
   close_event_return,
+  closedir_event,
+  closedir_event_return,
   connect_event,
   connect_event_return,
   dup_event,
@@ -351,6 +355,8 @@ typedef enum {
   open_event_return,
   open64_event,
   open64_event_return,
+  opendir_event,
+  opendir_event_return,
   pread_event,
   pread_event_return,
   putc_event,
@@ -987,6 +993,14 @@ typedef struct {
 static const int log_event_open64_size = sizeof(log_event_open64_t);
 
 typedef struct {
+  // For opendir():
+  unsigned long int name;
+  DIR * opendir_retval;
+} log_event_opendir_t;
+
+static const int log_event_opendir_size = sizeof(log_event_opendir_t);
+
+typedef struct {
   // For pread():
   int fd;
   unsigned long int buf;
@@ -1030,6 +1044,13 @@ typedef struct {
 } log_event_close_t;
 
 static const int log_event_close_size = sizeof(log_event_close_t);
+
+typedef struct {
+  // For closedir():
+  unsigned long int dirp;
+} log_event_closedir_t;
+
+static const int log_event_closedir_size = sizeof(log_event_closedir_t);
 
 typedef struct {
   // For connect():
@@ -1186,6 +1207,7 @@ typedef struct {
     log_event_readlink_t                         log_event_readlink;
     log_event_write_t                            log_event_write;
     log_event_close_t                            log_event_close;
+    log_event_closedir_t                         log_event_closedir;
     log_event_connect_t                          log_event_connect;
     log_event_dup_t                              log_event_dup;
     log_event_exec_barrier_t                     log_event_exec_barrier;
@@ -1211,6 +1233,7 @@ typedef struct {
     log_event_getline_t                          log_event_getline;
     log_event_open_t                             log_event_open;
     log_event_open64_t                           log_event_open64;
+    log_event_opendir_t                          log_event_opendir;
     log_event_pread_t                            log_event_pread;
     log_event_putc_t                             log_event_putc;
     log_event_pwrite_t                           log_event_pwrite;
@@ -1347,6 +1370,7 @@ LIB_PRIVATE log_entry_t create_bind_entry(int clone_id, int event,
 LIB_PRIVATE log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
     size_t size);
 LIB_PRIVATE log_entry_t create_close_entry(int clone_id, int event, int fd);
+LIB_PRIVATE log_entry_t create_closedir_entry(int clone_id, int event, DIR *dirp);
 LIB_PRIVATE log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
     const struct sockaddr *serv_addr, socklen_t addrlen);
 LIB_PRIVATE log_entry_t create_dup_entry(int clone_id, int event, int oldfd);
@@ -1419,6 +1443,8 @@ LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event,
     const char *path, int flags, mode_t mode);
 LIB_PRIVATE log_entry_t create_open64_entry(int clone_id, int event,
     const char *path, int flags, mode_t mode);
+LIB_PRIVATE log_entry_t create_opendir_entry(int clone_id, int event,
+    const char *name);
 LIB_PRIVATE log_entry_t create_pread_entry(int clone_id, int event, int fd,
     unsigned long int buf, size_t count, off_t offset);
 LIB_PRIVATE log_entry_t create_putc_entry(int clone_id, int event, int c,
@@ -1508,6 +1534,7 @@ LIB_PRIVATE TURN_CHECK_P(access_turn_check);
 LIB_PRIVATE TURN_CHECK_P(bind_turn_check);
 LIB_PRIVATE TURN_CHECK_P(calloc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(close_turn_check);
+LIB_PRIVATE TURN_CHECK_P(closedir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(connect_turn_check);
 LIB_PRIVATE TURN_CHECK_P(dup_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fclose_turn_check);
@@ -1547,6 +1574,7 @@ LIB_PRIVATE TURN_CHECK_P(mremap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(munmap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open64_turn_check);
+LIB_PRIVATE TURN_CHECK_P(opendir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pread_turn_check);
 LIB_PRIVATE TURN_CHECK_P(putc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pwrite_turn_check);

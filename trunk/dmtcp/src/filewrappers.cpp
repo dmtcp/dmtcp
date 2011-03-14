@@ -59,8 +59,11 @@
 #include <fcntl.h>
 #undef open
 #undef open64
-
 #undef read
+#endif
+
+#ifdef RECORD_REPLAY
+static void *readdir_mapped_area = NULL;
 #endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -570,6 +573,61 @@ extern "C" FILE *fdopen(int fd, const char *mode)
     retval = _real_fdopen(fd, mode);
     SET_FIELD2(my_return_entry, fdopen, fdopen_retval, *retval);
     if (retval == NULL) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" DIR *opendir(const char *name)
+{
+  WRAPPER_HEADER(DIR *, opendir, _real_opendir, name);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &opendir_turn_check);
+    getNextLogEntry();
+    // Note the implicit malloc() is taken care of by optional event logic.
+    waitForTurn(my_return_entry, &opendir_turn_check);
+    /* We don't store the actual DIR structure, and so we will be returning a
+       bogus pointer. This ok because any other system calls that use this DIR
+       struct (readdir, closedir, etc) should be wrapped and virtualized by
+       us. */
+    retval = GET_FIELD(currentLogEntry, opendir, opendir_retval);
+    if (retval == NULL) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_opendir(name);
+    SET_FIELD2(my_return_entry, opendir, opendir_retval, retval);
+    if (retval == NULL) {
+      SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
+
+extern "C" int closedir(DIR *dirp)
+{
+  WRAPPER_HEADER(int, closedir, _real_closedir, dirp);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &closedir_turn_check);
+    getNextLogEntry();
+    // Implicit free() is taken care of by optional event logic.
+    waitForTurn(my_return_entry, &closedir_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (retval == -1) {
+      errno = GET_COMMON(currentLogEntry, my_errno);
+    }
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+    retval = _real_closedir(dirp);
+    SET_COMMON(my_return_entry, retval);
+    if (retval == -1) {
       SET_COMMON2(my_return_entry, my_errno, errno);
     }
     addNextLogEntry(my_return_entry);
@@ -2088,18 +2146,41 @@ extern "C" struct dirent *readdir(DIR *dirp)
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &readdir_turn_check);
     getNextLogEntry();
+    if (readdir_mapped_area == NULL) {
+      readdir_mapped_area = mmap(0, 4096, PROT_READ | PROT_WRITE,
+				 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    }
     waitForTurn(my_return_entry, &readdir_turn_check);
-    retval = &GET_FIELD(currentLogEntry, readdir, retval);
+    if (GET_COMMON(currentLogEntry, retval) == -1) {
+      retval = NULL;
+    } else {
+      // man page says readdir is not reentrant, so we shouldn't need to 
+      // worry here.
+      memcpy(readdir_mapped_area, &GET_FIELD(currentLogEntry, readdir, retval),
+	     sizeof(struct dirent));
+      retval = (struct dirent *)readdir_mapped_area;
+    }
     if (GET_COMMON(currentLogEntry, my_errno) != 0) {
       errno = GET_COMMON(currentLogEntry, my_errno);
     }
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     addNextLogEntry(my_entry);
+    if (readdir_mapped_area == NULL) {
+      // We don't actually need this on record, but we map it anyway so replay
+      // can map it too.
+      readdir_mapped_area = mmap(0, 4096, PROT_READ | PROT_WRITE,
+				 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    }
     retval = _real_readdir(dirp);
-    SET_FIELD2(my_return_entry, readdir, retval, *retval);
     if (errno != 0) {
       SET_COMMON2(my_return_entry, my_errno, errno);
+    }
+    if (retval != NULL) {
+      memcpy(&GET_FIELD(my_return_entry, readdir, retval), retval,
+	     sizeof(struct dirent));
+    } else {
+      SET_COMMON2(my_return_entry, retval, -1);
     }
     addNextLogEntry(my_return_entry);
   }
