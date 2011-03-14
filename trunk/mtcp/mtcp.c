@@ -988,8 +988,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
                                  FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
   }
   else read_ptrace_setoptions_file(TRUE, rc);
-  mtcp_ptrace_info_list_insert(getpid(), rc, PTRACE_UNSPECIFIED_COMMAND, FALSE,
-                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
 #endif
 
   return (rc);
@@ -1497,6 +1495,10 @@ static void *checkpointhread (void *dummy)
 #ifdef PTRACE
   DPRINTF (("mtcp checkpointhread*: begin init_thread_local\n"));
   init_thread_local();
+
+  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(), 
+                               PTRACE_UNSPECIFIED_COMMAND, FALSE,
+                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
 #endif
 
   /* We put a timeout in case the thread being waited for exits whilst we are waiting */

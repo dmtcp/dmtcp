@@ -488,6 +488,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 static void unmapRestoreArgv()
 {
   if (_mtcpRestoreArgvStartAddr != NULL) {
+    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     char *endAddr = MTCP_RESTORE_STACK_BASE;
     size_t len = endAddr - _mtcpRestoreArgvStartAddr;
     JASSERT(munmap(_mtcpRestoreArgvStartAddr, len) == 0)
