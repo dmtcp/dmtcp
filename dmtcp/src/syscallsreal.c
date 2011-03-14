@@ -644,6 +644,14 @@ FILE * _real_fopen64( const char *path, const char *mode ) {
 }
 
 #ifdef RECORD_REPLAY
+int _real_closedir(DIR *dirp) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
+}
+
+DIR * _real_opendir(const char *name) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
+}
+
 int _real_mkdir(const char *pathname, mode_t mode) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, mkdir ) ( pathname, mode );
 }

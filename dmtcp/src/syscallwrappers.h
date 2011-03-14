@@ -113,6 +113,8 @@ extern "C"
 #ifdef RECORD_REPLAY
 # define GLIBC_RECORD_WRAPPERS(MACRO)\
   MACRO(access)                               \
+  MACRO(closedir)			      \
+  MACRO(opendir)			      \
   MACRO(select)                               \
   MACRO(read)                                 \
   MACRO(readdir)                              \
@@ -414,6 +416,8 @@ extern "C"
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef RECORD_REPLAY
+  int _real_closedir(DIR *dirp);
+  DIR * _real_opendir(const char *name);
   int _real_mkdir(const char *pathname, mode_t mode);
   int _real_mkstemp(char *temp);
   FILE * _real_fdopen(int fd, const char *mode);
