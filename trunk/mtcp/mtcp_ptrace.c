@@ -286,7 +286,7 @@ void ptrace_attach_threads(int isRestart)
               }
               eflags |= 0x0100;
               if (mtcp_ptrace(PTRACE_POKEDATA, inferior, (void *)addr,
-                              eflags) < 0) {
+                              (void*) eflags) < 0) {
                 mtcp_printf("ptrace_attach_threads: %d failed while calling "
                             "PTRACE_POKEDATA for %d\n", superior, inferior);
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
