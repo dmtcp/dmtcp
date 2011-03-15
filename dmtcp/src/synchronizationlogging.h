@@ -186,6 +186,7 @@
     MACRO(fdatasync, __VA_ARGS__);                                             \
     MACRO(fdopen, __VA_ARGS__);                                                \
     MACRO(fgets, __VA_ARGS__);                                                 \
+    MACRO(fflush, __VA_ARGS__);                                                \
     MACRO(fopen, __VA_ARGS__);                                                 \
     MACRO(fopen64, __VA_ARGS__);                                               \
     MACRO(fprintf, __VA_ARGS__);                                               \
@@ -198,6 +199,7 @@
     MACRO(fxstat, __VA_ARGS__);                                                \
     MACRO(fxstat64, __VA_ARGS__);                                              \
     MACRO(getc, __VA_ARGS__);                                                  \
+    MACRO(gettimeofday, __VA_ARGS__);                                          \
     MACRO(fgetc, __VA_ARGS__);                                                 \
     MACRO(ungetc, __VA_ARGS__);                                                \
     MACRO(getline, __VA_ARGS__);                                               \
@@ -291,6 +293,8 @@ typedef enum {
   fdopen_event_return,
   fgets_event,
   fgets_event_return,
+  fflush_event,
+  fflush_event_return,
   fopen_event,
   fopen_event_return,
   fopen64_event,
@@ -315,6 +319,8 @@ typedef enum {
   fxstat64_event_return,
   getc_event,
   getc_event_return,
+  gettimeofday_event,
+  gettimeofday_event_return,
   fgetc_event,
   fgetc_event_return,
   ungetc_event,
@@ -783,6 +789,13 @@ typedef struct {
 static const int log_event_fgets_size = sizeof(log_event_fgets_t);
 
 typedef struct {
+  // For fflush():
+  unsigned long int stream;
+} log_event_fflush_t;
+
+static const int log_event_fflush_size = sizeof(log_event_fflush_t);
+
+typedef struct {
   // For fopen():
   unsigned long int name;
   unsigned long int mode;
@@ -835,6 +848,14 @@ typedef struct {
 } log_event_getc_t;
 
 static const int log_event_getc_size = sizeof(log_event_getc_t);
+
+typedef struct {
+  // For gettimeofday():
+  unsigned long int tv;
+  unsigned long int tz;
+} log_event_gettimeofday_t;
+
+static const int log_event_gettimeofday_size = sizeof(log_event_gettimeofday_t);
 
 typedef struct {
   // For fgetc():
@@ -1222,12 +1243,14 @@ typedef struct {
     log_event_fdatasync_t                        log_event_fdatasync;
     log_event_fdopen_t                           log_event_fdopen;
     log_event_fgets_t                            log_event_fgets;
+    log_event_fflush_t                           log_event_fflush;
     log_event_fopen_t                            log_event_fopen;
     log_event_fopen64_t                          log_event_fopen64;
     log_event_fprintf_t                          log_event_fprintf;
     log_event_fscanf_t                           log_event_fscanf;
     log_event_fputs_t                            log_event_fputs;
     log_event_getc_t                             log_event_getc;
+    log_event_gettimeofday_t                     log_event_gettimeofday;
     log_event_fgetc_t                            log_event_fgetc;
     log_event_ungetc_t                           log_event_ungetc;
     log_event_getline_t                          log_event_getline;
@@ -1384,6 +1407,8 @@ LIB_PRIVATE log_entry_t create_fdopen_entry(int clone_id, int event, int fd,
     const char *mode);
 LIB_PRIVATE log_entry_t create_fgets_entry(int clone_id, int event, char *s,
     int size, FILE *stream);
+LIB_PRIVATE log_entry_t create_fflush_entry(int clone_id, int event,
+    FILE *stream);
 LIB_PRIVATE log_entry_t create_fopen_entry(int clone_id, int event,
     const char *name, const char *mode);
 LIB_PRIVATE log_entry_t create_fopen64_entry(int clone_id, int event,
@@ -1406,6 +1431,8 @@ LIB_PRIVATE log_entry_t create_fxstat_entry(int clone_id, int event, int vers,
 LIB_PRIVATE log_entry_t create_fxstat64_entry(int clone_id, int event, int vers,
     int fd, struct stat64 *buf);
 LIB_PRIVATE log_entry_t create_getc_entry(int clone_id, int event, FILE *stream);
+LIB_PRIVATE log_entry_t create_gettimeofday_entry(int clone_id, int event,
+    struct timeval *tv, struct timezone *tz);
 LIB_PRIVATE log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream);
 LIB_PRIVATE log_entry_t create_ungetc_entry(int clone_id, int event, int c,
     FILE *stream);
@@ -1542,6 +1569,7 @@ LIB_PRIVATE TURN_CHECK_P(fcntl_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdatasync_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdopen_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fgets_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fflush_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fopen_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fopen64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fprintf_turn_check);
@@ -1554,6 +1582,7 @@ LIB_PRIVATE TURN_CHECK_P(fwrite_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fxstat_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fxstat64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getc_turn_check);
+LIB_PRIVATE TURN_CHECK_P(gettimeofday_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fgetc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(ungetc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getline_turn_check);

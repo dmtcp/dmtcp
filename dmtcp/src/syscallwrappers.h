@@ -136,12 +136,14 @@ extern "C"
   MACRO(sigset)                               \
   MACRO(fdopen)                               \
   MACRO(fgets)                                \
+  MACRO(fflush)                               \
   MACRO(putc)                                 \
   MACRO(fputs)                                \
   MACRO(fdatasync)                            \
   MACRO(fsync)                                \
   MACRO(link)                                 \
   MACRO(getc)                                 \
+  MACRO(gettimeofday)                         \
   MACRO(fgetc)                                \
   MACRO(ungetc)                               \
   MACRO(getline)                              \
@@ -422,8 +424,10 @@ extern "C"
   int _real_mkstemp(char *temp);
   FILE * _real_fdopen(int fd, const char *mode);
   char * _real_fgets(char *s, int size, FILE *stream);
+  int _real_fflush(FILE *stream);
   ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream);
   int _real_getc(FILE *stream);
+  int _real_gettimeofday(struct timeval *tv, struct timezone *tz);
   int _real_fgetc(FILE *stream);
   int _real_ungetc(int c, FILE *stream);
   int _real_putc(int c, FILE *stream);
