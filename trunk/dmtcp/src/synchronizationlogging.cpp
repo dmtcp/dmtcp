@@ -471,6 +471,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == pthread_cond_timedwait_event ||
     GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
     GET_COMMON(e,event) == getc_event_return ||
+    GET_COMMON(e,event) == gettimeofday_event_return ||
     GET_COMMON(e,event) == fgetc_event_return ||
     GET_COMMON(e,event) == ungetc_event_return ||
     GET_COMMON(e,event) == getline_event_return ||
@@ -489,6 +490,7 @@ static int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == fopen_event_return ||
     GET_COMMON(e,event) == fopen64_event_return ||
     GET_COMMON(e,event) == fgets_event_return ||
+    GET_COMMON(e,event) == fflush_event_return ||
     GET_COMMON(e,event) == mkstemp_event_return ||
     GET_COMMON(e,event) == rewind_event_return ||
     GET_COMMON(e,event) == ftell_event_return ||
@@ -879,8 +881,12 @@ void primeLog()
     }
     /******************* LOG PATCHING STUFF *******************/
     if (!isLogPatched()) {
+      SYNC_TIMER_START(annotate_log);
       annotateLog();
+      SYNC_TIMER_STOP(annotate_log);
+      SYNC_TIMER_START(patch_log);
       patchLog();
+      SYNC_TIMER_STOP(patch_log);
     }
     // TODO: comment out until fix the issue:
     //    signal, signal, wakeup, wakeup
@@ -1121,6 +1127,14 @@ log_entry_t create_fgets_entry(int clone_id, int event, char *s, int size,
   return e;
 }
 
+log_entry_t create_fflush_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fflush, stream, (unsigned long int)stream);
+  return e;
+}
+
 log_entry_t create_fopen_entry(int clone_id, int event,
     const char *name, const char *mode)
 {
@@ -1234,6 +1248,16 @@ log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, getc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_gettimeofday_entry(int clone_id, int event,
+    struct timeval *tv, struct timezone *tz)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, gettimeofday, tv, (unsigned long int)tv);
+  SET_FIELD2(e, gettimeofday, tz, (unsigned long int)tz);
   return e;
 }
 
@@ -2380,11 +2404,27 @@ TURN_CHECK_P(fgets_turn_check)
       GET_FIELD_PTR(e2, fgets, size);
 }
 
+TURN_CHECK_P(fflush_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fflush, stream) ==
+      GET_FIELD_PTR(e2, fflush, stream);
+}
+
 TURN_CHECK_P(getc_turn_check)
 {
   return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, getc, stream) ==
       GET_FIELD_PTR(e2, getc, stream);
+}
+
+TURN_CHECK_P(gettimeofday_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, gettimeofday, tv) ==
+      GET_FIELD_PTR(e2, gettimeofday, tv) &&
+    GET_FIELD_PTR(e1, gettimeofday, tz) ==
+      GET_FIELD_PTR(e2, gettimeofday, tz);
 }
 
 TURN_CHECK_P(fgetc_turn_check)

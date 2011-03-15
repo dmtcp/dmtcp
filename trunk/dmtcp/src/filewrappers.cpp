@@ -1955,14 +1955,14 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry, pread, data_offset), SEEK_SET);
     // Only pread however much was logged as the return value.
-    if (GET_COMMON(currentLogEntry, retval) != -1) {
-      readAll(read_data_fd, (char *)buf, GET_COMMON(currentLogEntry, retval));
+    retval = GET_COMMON(currentLogEntry, retval);
+    if (retval != -1) {
+      readAll(read_data_fd, (char *)buf, retval);
     }
     // Set the errno to what was logged (e.g. EINTR).
     if (GET_COMMON(currentLogEntry, my_errno) != 0) {
       errno = GET_COMMON(currentLogEntry, my_errno);
     }
-    retval = GET_COMMON(currentLogEntry, retval);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
@@ -2223,4 +2223,8 @@ extern "C" int mkstemp(char *temp)
   BASIC_SYNC_WRAPPER(int, mkstemp, _real_mkstemp, temp);
 }
 
+extern "C" int fflush(FILE *stream)
+{
+  BASIC_SYNC_WRAPPER(int, fflush, _real_fflush, stream);
+}
 #endif //RECORD_REPLAY

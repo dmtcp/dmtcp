@@ -668,6 +668,10 @@ char * _real_fgets(char *s, int size, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( char *, fgets ) ( s, size, stream );
 }
 
+int _real_fflush(FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
+}
+
 int _real_fdatasync(int fd) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fdatasync ) ( fd );
 }
@@ -678,6 +682,10 @@ int _real_fsync(int fd) {
 
 int _real_getc(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, getc ) ( stream );
+}
+
+int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
 }
 
 int _real_fgetc(FILE *stream) {

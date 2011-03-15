@@ -222,6 +222,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
     *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
 #endif
   }
+  JTRACE ( "MTCP is about to write checkpoint image." );
 }
 
 

@@ -22,6 +22,8 @@
 #include "jalloc.h"
 #include <pthread.h>
 #include <stdio.h>
+#include "syscallwrappers.h"
+#include "constants.h"
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -122,6 +124,16 @@ public:
 protected:
   //allocate more raw memory when stack is empty
   void expand() {
+#ifdef RECORD_REPLAY
+    if (_root != NULL) {
+      // TODO: why is expand being called? If you see this message, raise lvl2
+      // allocation level.
+      char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
+      _real_write(2, expand_msg, sizeof(expand_msg));
+      _real_fflush(stderr);
+      abort();
+    }
+#endif
     FreeItem* bufs = static_cast<FreeItem*>(_alloc_raw(BLOCKSIZE));
     int count=BLOCKSIZE / sizeof(FreeItem);
     for(int i=0; i<count-1; ++i){
@@ -193,9 +205,9 @@ private:
 #ifdef RECORD_REPLAY
 /* We need a greater arena size to eliminate mmap() calls that could happen
    at different times for record vs. replay. */
-typedef JGlobalAlloc< JFixedAllocStack<1024*64 ,  1024*1024*256 > > lvl1;
-typedef JGlobalAlloc< JFixedAllocStack<1024*256,  1024*1024*256 > > lvl2;
-typedef JGlobalAlloc< JFixedAllocStack<1024*1024, 1024*1024*256 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
+typedef JGlobalAlloc< JFixedAllocStack<256,  1024*1024*128 > > lvl2;
+typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*16 > > lvl3;
 #else
 typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*16 > > lvl2;

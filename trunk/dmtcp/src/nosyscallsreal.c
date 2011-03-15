@@ -333,6 +333,14 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 #ifdef RECORD_REPLAY
+int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
+}
+
+int _real_fflush(FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
+}
+
 int _real_closedir(DIR *dirp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
 }
