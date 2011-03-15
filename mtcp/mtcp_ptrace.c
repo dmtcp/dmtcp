@@ -65,6 +65,8 @@ char ptrace_setoptions_file[MAXPATHLEN];
 char checkpoint_threads_file[MAXPATHLEN];
 char ckpt_leader_file[MAXPATHLEN];
 
+void mtcp_ptrace_info_list_update_info(int singlestep_waited_on);
+
 /* We're ptracing when the size of ptrace_info_list is greater than zero or
  * we have a file with the ptrace_info pairs. */
 int ptracing() {
@@ -253,9 +255,9 @@ void ptrace_attach_threads(int isRestart)
           mtcp_abort();
         }
 #ifdef __x86_64__ 
-        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, regs.rip, 0);
+        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.rip, 0);
 #else
-        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, regs.eip, 0);
+        peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.eip, 0);
 #endif
         low = peekdata & 0xff;
         peekdata >>=8;
@@ -268,7 +270,7 @@ void ptrace_attach_threads(int isRestart)
               if (regs.eax != DMTCP_SYS_rt_sigreturn) addr = regs.esp;
               else {
                 addr = regs.esp + 8;
-                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
                 addr += 20;
               }
               addr += EFLAGS_OFFSET;
@@ -342,7 +344,7 @@ void ptrace_attach_threads(int isRestart)
               if (regs.eax != DMTCP_SYS_rt_sigreturn) addr = regs.esp;
               else {
                 addr = regs.esp + 8;
-                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, addr, 0);
+                addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
                 addr += 20;
               }
               addr += EFLAGS_OFFSET;
@@ -518,7 +520,7 @@ void ptrace_detach_user_threads ()
 
       have_file (pt_info.inferior);
       if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
-                 MTCP_DEFAULT_SIGNAL) == -1) {
+                 (void*) MTCP_DEFAULT_SIGNAL) == -1) {
         mtcp_printf("ptrace_detach_user_threads: parent = %d child = %d "
                     "PTRACE_DETACH failed, error = %d\n",
                     (int)pt_info.superior, (int)pt_info.inferior, errno);
@@ -809,7 +811,7 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
     DPRINTF(("ptrace_detach_ckpthread: ckpthread %d NOT stopped by a signal\n",
               inferior));
 
-  if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, SIGCONT) == -1) {
+  if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, (void*) SIGCONT) == -1) {
     mtcp_printf("ptrace_detach_ckpthread: parent = %d child = %d failed: %s\n",
                 superior, inferior, strerror(errno));
     return -EAGAIN;
