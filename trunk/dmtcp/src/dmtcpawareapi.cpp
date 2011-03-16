@@ -88,6 +88,18 @@ int __real_dmtcp_userSynchronizedEvent()
   userSynchronizedEvent();
   return 1;
 }
+
+EXTERNC int dmtcp_userSynchronizedEventBegin()
+{
+  userSynchronizedEventBegin();
+  return 1;
+}
+
+EXTERNC int dmtcp_userSynchronizedEventEnd()
+{
+  userSynchronizedEventEnd();
+  return 1;
+}
 #endif
 
 int __real_dmtcpIsEnabled() { return 1; }
@@ -267,6 +279,16 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
 EXTERNC int __dyn_dmtcp_userSynchronizedEvent()
 {
   return __real_dmtcp_userSynchronizedEvent();
+}
+
+EXTERNC int __dyn_dmtcp_userSynchronizedEventBegin()
+{
+  return dmtcp_userSynchronizedEventBegin();
+}
+
+EXTERNC int __dyn_dmtcp_userSynchronizedEventEnd()
+{
+  return dmtcp_userSynchronizedEventEnd();
 }
 #endif
 EXTERNC int __dyn_dmtcpIsEnabled(){

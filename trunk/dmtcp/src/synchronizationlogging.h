@@ -31,6 +31,7 @@
 // Needed for readdir:
 #include <sys/types.h>
 #include <dirent.h>
+#include <sys/time.h>
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
@@ -853,6 +854,9 @@ typedef struct {
   // For gettimeofday():
   unsigned long int tv;
   unsigned long int tz;
+  struct timeval tv_val;
+  struct timezone tz_val;
+  int gettimeofday_retval;
 } log_event_gettimeofday_t;
 
 static const int log_event_gettimeofday_size = sizeof(log_event_gettimeofday_t);
@@ -1380,6 +1384,8 @@ LIB_PRIVATE int    signalThread(int target, pthread_cond_t *cv);
 LIB_PRIVATE int    threadsToWakeContains(int clone_id);
 LIB_PRIVATE int    threadsToWakeEmpty();
 LIB_PRIVATE void   userSynchronizedEvent();
+LIB_PRIVATE void   userSynchronizedEventBegin();
+LIB_PRIVATE void   userSynchronizedEventEnd();
 LIB_PRIVATE int    validAddress(unsigned long int addr);
 LIB_PRIVATE ssize_t writeAll(int fd, const void *buf, size_t count);
 LIB_PRIVATE void   writeLogsToDisk();
