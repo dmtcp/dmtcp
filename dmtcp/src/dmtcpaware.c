@@ -41,6 +41,8 @@
 
 #ifdef RECORD_REPLAY
 extern int   __dyn_dmtcp_userSynchronizedEvent() WEAK;
+extern int   __dyn_dmtcp_userSynchronizedEventBegin() WEAK;
+extern int   __dyn_dmtcp_userSynchronizedEventEnd() WEAK;
 #endif
 extern int   __dyn_dmtcpIsEnabled() WEAK;
 extern int   __dyn_dmtcpCheckpoint() WEAK;
@@ -77,6 +79,24 @@ int dmtcp_userSynchronizedEvent() {
      there's no DMTCP, we just want a no-op. */
   if (__dyn_dmtcp_userSynchronizedEvent)
     return __dyn_dmtcp_userSynchronizedEvent();
+  return 0;
+}
+
+__attribute__ ((visibility ("hidden")))
+int dmtcp_userSynchronizedEventBegin() {
+  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
+     there's no DMTCP, we just want a no-op. */
+  if (__dyn_dmtcp_userSynchronizedEventBegin)
+    return __dyn_dmtcp_userSynchronizedEventBegin();
+  return 0;
+}
+
+__attribute__ ((visibility ("hidden")))
+int dmtcp_userSynchronizedEventEnd() {
+  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
+     there's no DMTCP, we just want a no-op. */
+  if (__dyn_dmtcp_userSynchronizedEventEnd)
+    return __dyn_dmtcp_userSynchronizedEventEnd();
   return 0;
 }
 #endif

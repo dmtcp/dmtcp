@@ -934,5 +934,49 @@ extern "C" time_t time(time_t *tloc)
   }
   return retval;
 }
+
+extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_gettimeofday(tv, tz);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_gettimeofday(tv, tz);
+  }
+  int retval = 0;
+  int fill_tv = 0;
+  int fill_tz = 0;
+  log_entry_t my_entry = create_gettimeofday_entry(my_clone_id,
+      gettimeofday_event, tv, tz);
+  log_entry_t my_return_entry = create_gettimeofday_entry(my_clone_id,
+      gettimeofday_event_return, tv, tz);
+  if (SYNC_IS_REPLAY) {
+    if (tv != NULL) fill_tv = 1;
+    if (tz != NULL) fill_tz = 1; 
+    waitForTurn(my_entry, &gettimeofday_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &gettimeofday_turn_check);
+    retval = GET_FIELD(currentLogEntry, gettimeofday, gettimeofday_retval);
+    if (fill_tv)
+      *tv = GET_FIELD(currentLogEntry, gettimeofday, tv_val);
+    if (fill_tz)
+      *tz = GET_FIELD(currentLogEntry, gettimeofday, tz_val);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    if (tv != NULL) fill_tv = 1;
+    if (tz != NULL) fill_tz = 1; 
+    addNextLogEntry(my_entry);
+    retval = _real_gettimeofday(tv, tz);
+    SET_FIELD2(my_return_entry, gettimeofday, gettimeofday_retval, retval);
+    if (fill_tv)
+      SET_FIELD2(my_return_entry, gettimeofday, tv_val, *tv);
+    if (fill_tz)
+      SET_FIELD2(my_return_entry, gettimeofday, tz_val, *tz);
+    addNextLogEntry(my_return_entry);
+  }
+  return retval;
+}
 /* End wrapper code */
 #endif

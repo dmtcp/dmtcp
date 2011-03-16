@@ -2968,4 +2968,27 @@ void userSynchronizedEvent()
     addNextLogEntry(my_return_entry);
   }
 }
+
+void userSynchronizedEventBegin()
+{
+  log_entry_t my_entry = create_user_entry(my_clone_id, user_event);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, user_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+  }
+}
+
+void userSynchronizedEventEnd()
+{
+  log_entry_t my_return_entry = create_user_entry(my_clone_id,
+      user_event_return);
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_return_entry, user_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_return_entry);
+  }
+}
 #endif
