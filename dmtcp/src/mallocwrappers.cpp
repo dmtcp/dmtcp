@@ -68,6 +68,14 @@
 # endif
 
 #ifdef RECORD_REPLAY
+static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
+
+char progname[200] = {0};
+#endif //RECORD_REPLAY
+
+#ifdef RECORD_REPLAY
+#if 0 // USED only for debug purposes.
 static int initHook = 0;
 static void my_init_hooks (void);
 static void *my_malloc_hook (size_t, const void *);
@@ -84,13 +92,7 @@ static void  (*old_free_hook) (void*, const void *);
 //void (*__malloc_initialize_hook) (void) = my_init_hooks;
 
 static pthread_mutex_t hook_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t allocation_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t mmap_lock = PTHREAD_MUTEX_INITIALIZER;
 
-char progname[200] = {0};
-#endif //RECORD_REPLAY
-
-#ifdef RECORD_REPLAY
 static void my_init_hooks(void)
 {
   strncpy(progname, jalib::Filesystem::GetProgramName().c_str(), 200);
@@ -221,6 +223,7 @@ static void my_free_hook (void *ptr, const void *caller)
   __free_hook = my_free_hook;
   _real_pthread_mutex_unlock(&hook_lock);
 }
+#endif
 #endif // RECORD_REPLAY
 
 extern "C" void *calloc(size_t nmemb, size_t size)
@@ -261,7 +264,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     waitForTurn(my_return_entry, &calloc_turn_check);
     JASSERT ( (unsigned long int)retval == GET_FIELD(currentLogEntry, calloc, return_ptr) )
       ( retval )
-      ( (void*)currentLogEntry.log_event_t.log_event_calloc.return_ptr );
+      ( (void*)GET_FIELD(currentLogEntry, calloc, return_ptr ) );
     _real_pthread_mutex_unlock(&allocation_lock);
     getNextLogEntry();
   } else if (SYNC_IS_LOG) {
@@ -326,7 +329,7 @@ extern "C" void *malloc(size_t size)
         GET_FIELD(currentLogEntry, malloc, return_ptr)) {
       JTRACE ( "malloc wrong address" ) ( retval ) 
         ( (void*) GET_FIELD(currentLogEntry, malloc, return_ptr) )
-        ( log_entry_index );
+        ( record_log_entry_index );
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -391,7 +394,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
         GET_FIELD(currentLogEntry, libc_memalign, return_ptr)) {
       JTRACE ( "tyler" ) ( retval ) 
         ( (void*) GET_FIELD(currentLogEntry, libc_memalign, return_ptr) )
-	     ( log_entry_index );
+        ( record_log_entry_index );
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);

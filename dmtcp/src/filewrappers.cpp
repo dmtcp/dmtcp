@@ -60,6 +60,8 @@
 #undef open
 #undef open64
 #undef read
+
+static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 #ifdef RECORD_REPLAY
@@ -675,7 +677,7 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,getline,data_offset), SEEK_SET);
     if (GET_FIELD(currentLogEntry, getline, retval) != -1) {
-      readAll(read_data_fd, *lineptr, GET_FIELD(currentLogEntry, getline, retval));
+      Util::readAll(read_data_fd, *lineptr, GET_FIELD(currentLogEntry, getline, retval));
       retval = GET_FIELD(currentLogEntry, getline, retval);
     } else {
       retval = -1;
@@ -956,7 +958,7 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry,fgets,data_offset), SEEK_SET);
     if (GET_FIELD(currentLogEntry, fgets, retval) != NULL) {
-      readAll(read_data_fd, s, size);
+      Util::readAll(read_data_fd, s, size);
       retval = s;
     } else {
       retval = NULL;
@@ -1836,7 +1838,7 @@ extern "C" int read(int fd, void *buf, size_t count)
     lseek(read_data_fd, GET_FIELD(currentLogEntry,read,data_offset), SEEK_SET);
     // Only read however much was logged as the return value.
     if (GET_COMMON(currentLogEntry, retval) != -1) {
-      readAll(read_data_fd, (char *)buf, GET_COMMON(currentLogEntry, retval));
+      Util::readAll(read_data_fd, (char *)buf, GET_COMMON(currentLogEntry, retval));
     }
     // Set the errno to what was logged (e.g. EINTR).
     if (GET_COMMON(currentLogEntry, my_errno) != 0) {
@@ -1954,10 +1956,11 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     }
     JASSERT ( read_data_fd != -1 );
     lseek(read_data_fd, GET_FIELD(currentLogEntry, pread, data_offset), SEEK_SET);
+
     // Only pread however much was logged as the return value.
     retval = GET_COMMON(currentLogEntry, retval);
     if (retval != -1) {
-      readAll(read_data_fd, (char *)buf, retval);
+      Util::readAll(read_data_fd, (char *)buf, retval);
     }
     // Set the errno to what was logged (e.g. EINTR).
     if (GET_COMMON(currentLogEntry, my_errno) != 0) {

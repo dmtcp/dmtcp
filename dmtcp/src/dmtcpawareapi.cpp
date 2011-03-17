@@ -211,8 +211,9 @@ void dmtcp::userHookTrampoline_preCkpt() {
   // Don't call setenv() here to avoid malloc()
   x[0] = '0';
   x[1] = '\0';
-  writeLogsToDisk();
-  close(record_log_fd);
+
+  //writeLogsToDisk();
+  sync_and_close_record_log();
 #endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
@@ -225,24 +226,13 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
 #endif
   if(isRestart){
 #ifdef RECORD_REPLAY
-    writeLogsToDisk(); // Write to disk any log entries that were recorded
-                       // before we re-open and seek to the beginning.
-    while ((record_log_fd = open(RECORD_LOG_PATH, 
-                                          O_RDONLY)) == -1
-        && errno == EINTR) ;
-    // Keep it open so the wrappers may read from it without opening.
-    if (record_log_fd >= 0) {
-      lseek(record_log_fd, 0, SEEK_SET);
-      char *x = getenv(ENV_VAR_LOG_REPLAY);
-      // Don't call setenv() here to avoid malloc()
-      x[0] = '2';
-      x[1] = '\0';
-      SET_SYNC_REPLAY();
-    } else {
-      JTRACE ( "problem opening synchronization log file on restart" ) 
-        ( RECORD_LOG_PATH ) ( errno );
-    }
-    /* Eager log patching. */
+    map_record_log_to_read();
+
+    char *x = getenv(ENV_VAR_LOG_REPLAY);
+    // Don't call setenv() here to avoid malloc()
+    x[0] = '2';
+    x[1] = '\0';
+    SET_SYNC_REPLAY();
     primeLog();
     log_all_allocs = 1;
 #endif
@@ -251,11 +241,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       (*userHookPostRestart)();
   }else{
 #ifdef RECORD_REPLAY
-    while ( (record_log_fd = open(RECORD_LOG_PATH, 
-                O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1 
-        && errno == EINTR ) ;
-    JASSERT ( record_log_fd >= 0 ) ( record_log_fd )
-      ( RECORD_LOG_PATH ).Text("problem opening sync log on resume");
+    map_record_log_to_write();
     char *x = getenv(ENV_VAR_LOG_REPLAY);
     // Don't call setenv() here to avoid malloc()
     x[0] = '1';
