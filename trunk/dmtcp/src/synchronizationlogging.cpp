@@ -270,32 +270,6 @@ static int writeEntryToLog(char *log, volatile ssize_t& log_index, log_entry_t e
   return ret_log_event + log_event_common_size;
 }
 
-#if 0
-int readEntryFromDisk(int fd, log_entry_t *entry) {
-  if (_real_read(fd, &GET_COMMON_PTR(entry,event), sizeof(GET_COMMON_PTR(entry,event))) == 0) return 0;
-  if (_real_read(fd, &GET_COMMON_PTR(entry,log_id), sizeof(GET_COMMON_PTR(entry,log_id))) == 0) return 0;
-  if (_real_read(fd, &GET_COMMON_PTR(entry,tid), sizeof(GET_COMMON_PTR(entry,tid))) == 0) return 0;
-  if (_real_read(fd, &GET_COMMON_PTR(entry,clone_id), sizeof(GET_COMMON_PTR(entry,clone_id))) == 0) return 0;
-  if (_real_read(fd, &GET_COMMON_PTR(entry,my_errno), sizeof(GET_COMMON_PTR(entry,my_errno))) == 0) return 0;
-  if (_real_read(fd, &GET_COMMON_PTR(entry,retval), sizeof(GET_COMMON_PTR(entry,retval))) == 0) return 0;
-  READ_ENTRY_FROM_LOG(fd, entry);
-}
-int writeEntryToDisk(int fd, log_entry_t entry) {
-
-  int ret_event_size = write(fd, &GET_COMMON(entry,event), sizeof(GET_COMMON(entry,event)));
-  int ret_log_id_size = write(fd, &GET_COMMON(entry,log_id), sizeof(GET_COMMON(entry,log_id)));
-  int ret_tid_size = write(fd, &GET_COMMON(entry,tid), sizeof(GET_COMMON(entry,tid)));
-  int ret_clone_id_size = write(fd, &GET_COMMON(entry,clone_id), sizeof(GET_COMMON(entry,clone_id)));
-  int ret_my_errno_size = write(fd, &GET_COMMON(entry,my_errno), sizeof(GET_COMMON(entry,my_errno)));
-  int ret_retval_size = write(fd, &GET_COMMON(entry,retval), sizeof(GET_COMMON(entry,retval)));
-  int ret_log_event;
-  WRITE_ENTRY_TO_DISK(fd, entry, ret_log_event);
-  return ret_log_event + ret_event_size + ret_log_id_size + ret_tid_size +
-    ret_clone_id_size + ret_my_errno_size + ret_retval_size;
-}
-
-#endif
-
 void atomic_increment(volatile int *ptr)
 {
   // This gcc builtin should eliminate the need for protecting each
@@ -447,18 +421,6 @@ int validAddress(unsigned long int addr)
     return 0;
   }
 }
-
-#if 0
-static void resetLog()
-{
-  JTRACE ( "resetting all log entries and log_index to 0." );
-  int i = 0;
-  for (i = 0; i < MAX_LOG_LENGTH; i++) {
-    log[i] = 0;
-  }
-  atomic_set(&log_index, 0);
-}
-#endif
 
 static int isUnlock(log_entry_t e)
 {
@@ -858,8 +820,6 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
     *create = e;
   pos = record_log_index;
   record_log_index = old_index;
-  //pos = lseek(record_log_fd, 0, SEEK_CUR);
-  //lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -869,7 +829,6 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
      n and stream as given.
      Returns the offset into the log file that the wakeup was found. */
   ssize_t old_index = record_log_index;
-  //off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
   off_t pos = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
@@ -888,8 +847,6 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
 
   pos = record_log_index;
   record_log_index = old_index;
-  //pos = lseek(record_log_fd, 0, SEEK_CUR);
-  //lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -907,8 +864,6 @@ static void annotateLog()
   log_entry_t create_return = EMPTY_LOG_ENTRY;
   log_entry_t getline_return = EMPTY_LOG_ENTRY;
   ssize_t write_ret = 0;
-
-#if 1
 
   JASSERT(record_log_index == 1);
 
@@ -943,46 +898,6 @@ static void annotateLog()
   }
   resetRecordLogIndex();
 
-#else
-
-  record_patched_log = map_file_to_memory(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH,
-                                          O_RDWR, S_IRUSR | S_IWUSR);
-  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
-    // FIXME: IS THIS IN PLACE REPLACEMENT? IF IT IS, then we don't need two files.
-    if (GET_COMMON(entry,event) == pthread_create_event) {
-      nextPthreadCreate(&create_return,
-                        GET_FIELD(entry, pthread_create, thread),
-                        GET_FIELD(entry, pthread_create, start_routine),
-                        GET_FIELD(entry, pthread_create, attr),
-                        GET_FIELD(entry, pthread_create, arg));
-      entry.event_data.log_event_pthread_create.stack_size = 
-        create_return.event_data.log_event_pthread_create.stack_size;
-      entry.event_data.log_event_pthread_create.stack_addr =
-        create_return.event_data.log_event_pthread_create.stack_addr;
-    } else if (GET_COMMON(entry,event) == getline_event) {
-      nextGetline(&getline_return,
-                  GET_FIELD(entry, getline, lineptr),
-                  GET_FIELD(entry, getline, stream));
-      SET_FIELD2(entry, getline, is_realloc,
-        GET_FIELD(getline_return, getline, is_realloc));
-    }
-    write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
-  }
-
-  // Rewind so we can write out over the original log.
-  lseek(record_patched_log_fd, 0, SEEK_SET);
-  // Close so we can re-open in O_TRUNC mode
-  close(record_log_fd);
-  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
-  markRecordLogAsPatched();
-  // Copy over to original log filename
-  while (readEntryFromDisk(record_patched_log, record_patched_log_index, &entry) != 0) {
-    write_ret = writeEntryToLog(record_log_fd, record_log_index, entry);
-  }
-  close(record_patched_log_fd);
-  unlink(RECORD_PATCHED_LOG_PATH);
-  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
-#endif
   JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
     ( RECORD_LOG_PATH );
 }
@@ -1048,21 +963,6 @@ void primeLog()
     //fixSpontaneousWakeups();
     /******************* END LOG PATCHING STUFF *******************/
 
-#if 0
-    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
-    JASSERT ( num_read != -1 ) ( strerror(errno) );
-    total_read += num_read;
-    // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
-    while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
-      num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
-      total_read += num_read;
-    }
-    JTRACE ( "read this many bytes." ) ( total_read );
-    if (num_read == -1) {
-      perror("read");
-      JTRACE ( "error reading from synch log." ) ( errno );
-    }
-#endif
     atomic_set(&record_log_loaded, 1);
     _real_pthread_mutex_unlock(&log_index_mutex);
 
@@ -1070,61 +970,6 @@ void primeLog()
     getNextLogEntry();
   }
 }
-
-#if 0
-/* Reads the next MAX_LOG_LENGTH entries (debug mode) / bytes (non-debug mode)
- * (or most available) from the logfile. */
-void readLogFromDisk()
-{
-  resetLog();
-  int num_read = 0, total_read = 0;
-  JTRACE ( "current position" ) ( lseek(record_log_fd, 0, SEEK_CUR) );
-  num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
-  total_read += num_read;
-  // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
-  while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
-    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
-    total_read += num_read;
-  }
-  JTRACE ( "read entries from disk. " ) ( total_read );
-  atomic_increment(&log_loaded);
-}
-
-int readAll(int fd, char *buf, int count)
-{
-  int retval = 0, to_read = count;
-  while (1) {
-    retval = _real_read(fd, buf, to_read);
-    if (retval == to_read) break;
-    if (errno == EINTR || errno == EAGAIN) {
-      buf += retval;
-      to_read -= retval;
-    } else {
-      // other error
-      break;
-    }
-  }
-  return retval;
-}
-
-ssize_t writeAll(int fd, const void *buf, size_t count)
-{
-  ssize_t retval = 0;
-  ssize_t to_write = count;
-  while (1) {
-    retval = _real_write(fd, buf, to_write);
-    if (retval == to_write) break;
-    if (errno == EINTR || errno == EAGAIN) {
-      buf = (char *)buf + retval;
-      to_write -= retval;
-    } else {
-      // other error
-      break;
-    }
-  }
-  return retval;
-}
-#endif
 
 ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
 {
@@ -2160,86 +2005,6 @@ void map_record_log_to_read()
                                   O_RDWR, 0);
   record_log_index = LOG_IS_PATCHED_SIZE;
 }
-
-
-#if 0
-void writeLogsToDisk() {
-  if (SYNC_IS_REPLAY) {
-    JTRACE ( "calling writeLogsToDisk() while in replay. "
-             "This is unimplemented." );
-    return;
-  }
-  if (strlen(RECORD_LOG_PATH) == 0) {
-    JTRACE ( "RECORD_LOG_PATH empty. Not writing." );
-    return;
-  }
-  if (log == NULL) return;
-  /* Blocking sync to disk. */
-  JASSERT ( msync(log, MAX_LOG_LENGTH, MS_SYNC) != -1 );
-  return;
-
-  int numwritten = 0;
-  int num_to_write = 0;
-  /* 'num_to_write' needs some explanation, since off-by-one errors are
-     very likely to creep in when using this kind of logic. There are
-     two scenarios where writeLogsToDisk() is called:
-
-     1) The in-memory log is full. This happens when a thread makes the last
-        entry in the log (log[MAX_LOG_LENGTH-1]) and then increments
-        log_index. Then, immediately after the increment of log_index, that
-        thread checks to see if log_index >= MAX_LOG_LENGTH. When that is true,
-        it calls writeLogsToDisk().  In that case, the check below (if
-        log_index == MAX_LOG_LENGTH) is TRUE. Then we want to write
-        MAX_LOG_LENGTH*sizeof(log_entry_t) bytes to the log.
-
-     2) The user program has exited. This means that log_index may be anywhere
-        in the (closed) interval [0, MAX_LOG_LENGTH]. If it is NOT EQUAL to
-        MAX_LOG_LENGTH, then we need to write (log_index+1)*sizeof(log_entry_t)
-        bytes. For example, the user program exits when log_index is 1862. That
-        means that log entries 0-1862 (inclusive) are in memory. Thus, we add
-        one to the index to get 1863, the total number of entries to write.
-        However, if the user program exited and log_index is 0, that means that
-        there was nothing recorded, so we should not write anything.
-
-	NOT NECESSARILY: The last wrapper execution calls addNextLogEntry which
-        logs at the current index, and then increments log_index. Thus, we're
-        left with the index pointing at the next element, which is never
-        recorded or needed since this was the last wrapper execution.
-  */
-  _real_pthread_mutex_lock(&log_file_mutex);
-  if (log_index == MAX_LOG_LENGTH) {
-    num_to_write = LOG_ENTRY_SIZE*MAX_LOG_LENGTH;
-  } else if (log_index == 0) {
-    JTRACE ( "log size 0, so nothing written to disk." );
-    _real_pthread_mutex_unlock(&log_file_mutex);
-    return;
-  } else {
-    // SEE #2 above for comment on this branch. For now I'm going with the 'NOT
-    // NECESSARILY' comment.
-    num_to_write = LOG_ENTRY_SIZE*log_index;
-  }
-  //JTRACE ( "writing to log path" ) ( RECORD_LOG_PATH );
-  while ((record_log_fd = open(RECORD_LOG_PATH, 
-              O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
-      && errno == EINTR) ;
-  if (record_log_fd == -1) {
-    // Create the log (with patched bit) and try to open again.
-    initializeLog();
-  }
-  while ((record_log_fd = open(RECORD_LOG_PATH, 
-              O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
-      && errno == EINTR) ;
-  JASSERT ( record_log_fd != -1 ) ( RECORD_LOG_PATH ) ( strerror(errno) );
-  numwritten = write(record_log_fd, log, num_to_write);
-  JASSERT ( numwritten != -1) ( strerror(errno) );
-  JASSERT ( fsync(record_log_fd) == 0 ) ( strerror(errno) );
-
-  close(record_log_fd);
-  JTRACE ( "Record log successfully written to disk." ) ( num_to_write ) ( numwritten );
-  resetLog();
-  _real_pthread_mutex_unlock(&log_file_mutex);
-}
-#endif
 
 static TURN_CHECK_P(base_turn_check)
 {
