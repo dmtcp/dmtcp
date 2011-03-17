@@ -55,7 +55,7 @@ static pthread_mutex_t attributes_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t arguments_decode_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t pthread_create_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t create_destroy_guard = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t read_mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t read_mutex = PTHREAD_MUTEX_INITIALIZER;
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 struct create_arg
 {
@@ -166,7 +166,6 @@ static void setupThreadStack(pthread_attr_t *attr_out,
 {
   size_t stack_size;
   void *stack_addr;
-  struct rlimit rl;
   int userStack = 0;
   // If the user's attributes have specified a stack size, use that.
   if (user_attr != NULL) {
@@ -187,7 +186,7 @@ static void setupThreadStack(pthread_attr_t *attr_out,
   void *s = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
   if (s == MAP_FAILED)  {
     JTRACE ( "Failed to map thread stack." ) ( mmap_size )
-      ( strerror(errno) ) ( log_entry_index );
+      ( strerror(errno) ) ( record_log_entry_index );
     JASSERT ( false );
   }
   pthread_attr_setstack(attr_out, s, mmap_size);
@@ -677,6 +676,8 @@ static void *thread_reaper(void *arg)
     reapThread();
     internal_pthread_mutex_unlock(&reap_mutex);
   }
+  JASSERT(false) .Text("Unreachable");
+  return NULL;
 }
 
 LIB_PRIVATE void reapThisThread()
@@ -750,6 +751,7 @@ extern "C" void pthread_exit(void *value_ptr)
       _real_pthread_exit(value_ptr);
     }
   }
+  while(1); // to suppress compiler warning about 'noreturn' function returning
 }
 
 extern "C" int pthread_detach(pthread_t thread)
@@ -786,9 +788,9 @@ static void *signal_thread(void *arg)
     // Lock this so it doesn't change from underneath:
     _real_pthread_mutex_lock(&log_index_mutex);
     if (__builtin_expect(GET_COMMON(currentLogEntry,event) == signal_handler_event, 0)) {
-      if (signal_sent_on != log_entry_index) {
+      if (signal_sent_on != record_log_entry_index) {
         // Only send one signal per sig_handler entry.
-        signal_sent_on = log_entry_index;
+        signal_sent_on = record_log_entry_index;
         _real_pthread_kill(clone_id_to_tid_table[GET_COMMON(currentLogEntry,clone_id)],
             GET_FIELD(currentLogEntry, signal_handler, sig));
       }
@@ -796,6 +798,8 @@ static void *signal_thread(void *arg)
     _real_pthread_mutex_unlock(&log_index_mutex);
     usleep(20);
   }
+  JASSERT(false) .Text("Unreachable");
+  return NULL;
 }
 
 static void createSignalThread()
@@ -873,7 +877,6 @@ extern "C" void srand(unsigned int seed)
   if (jalib::Filesystem::GetProgramName() == "gdb") {
     return _real_srand(seed);
   }
-  int retval = 0;
   log_entry_t my_entry = create_srand_entry(my_clone_id, srand_event, seed);
   log_entry_t my_return_entry = create_srand_entry(my_clone_id, srand_event_return, seed);
 

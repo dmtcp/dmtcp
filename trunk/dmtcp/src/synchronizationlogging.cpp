@@ -30,6 +30,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "dmtcpmessagetypes.h"
+#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jtimer.h"
 #include  "../jalib/jfilesystem.h"
@@ -39,10 +40,10 @@
 
 #ifdef RECORD_REPLAY
 
-LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
-
 /* IMPOTANT: if new fields are added to log_entry_t in the common area,
  * update the following. */
+//static const size_t log_event_common_size = sizeof(log_entry_header_t);
+
 #define log_event_common_size \
   (sizeof(GET_COMMON(currentLogEntry,event))       +                    \
       sizeof(GET_COMMON(currentLogEntry,log_id))   +                    \
@@ -50,6 +51,7 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
       sizeof(GET_COMMON(currentLogEntry,clone_id)) +                    \
       sizeof(GET_COMMON(currentLogEntry,my_errno)) +                    \
       sizeof(GET_COMMON(currentLogEntry,retval)))
+
 
 #define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
   do {                                                                  \
@@ -62,9 +64,9 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     if (GET_COMMON((e),event) == name##_event ||                        \
         GET_COMMON((e),event) == name##_event_return) {                 \
       memcpy((dest),                                                    \
-          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
-      memcpy(&currentLogEntry.log_event_t.log_event_##name,             \
-          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
+          &(e).event_data.log_event_##name, log_event_##name##_size);  \
+      memcpy(&currentLogEntry.event_data.log_event_##name,             \
+          &(e).event_data.log_event_##name, log_event_##name##_size);  \
     }                                                                   \
   } while(0)
 
@@ -72,37 +74,35 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
   do {                                                                  \
     if (GET_COMMON(dest,event) == name##_event ||                       \
         GET_COMMON(dest,event) == name##_event_return) {                \
-      memcpy(&dest.log_event_t.log_event_##name,                        \
+      memcpy(&dest.event_data.log_event_##name,                        \
           &source, log_event_##name##_size);                            \
     }                                                                   \
   } while(0)
 
-#define IFNAME_READ_ENTRY_FROM_DISK(name, fd, entry)                    \
+// FIXME: Can we use IFNAME_COPY_FROM_MEMORY_SOURCE to replace this definition?
+#define IFNAME_READ_ENTRY_FROM_LOG(name, buf, index, entry)                    \
   do {                                                                  \
     if (GET_COMMON_PTR(entry,event) == name##_event ||                  \
         GET_COMMON_PTR(entry,event) == name##_event_return) {           \
-      return _real_read(fd, &entry->log_event_t.log_event_##name,       \
-          log_event_##name##_size);                                     \
+      memcpy(&entry->event_data.log_event_##name, buf + index,      \
+             log_event_##name##_size);                                     \
+      index += log_event_##name##_size;                                     \
+      return log_event_##name##_size;                                     \
     }                                                                   \
   } while(0)
 
-#define IFNAME_WRITE_ENTRY_TO_DISK(name, fd, entry, ret)                \
+#define IFNAME_WRITE_ENTRY_TO_LOG(name, buf, index, entry, ret)                \
   do {                                                                  \
     if (GET_COMMON(entry,event) == name##_event ||                      \
         GET_COMMON(entry,event) == name##_event_return) {               \
-      ret = write(fd, &entry.log_event_t.log_event_##name,              \
-          log_event_##name##_size);                                     \
+      memcpy(buf + index, &entry.event_data.log_event_##name,              \
+             log_event_##name##_size);                                     \
+      ret = log_event_##name##_size;                                     \
     }                                                                   \
   } while(0)
 
 #define GET_EVENT_SIZE(event, event_size)                               \
   do {                                                                  \
-    if (event == pthread_cond_signal_anomalous_event ||                 \
-        event == pthread_cond_signal_anomalous_event_return)            \
-      event_size = log_event_pthread_cond_signal_size;                  \
-    if (event == pthread_cond_broadcast_anomalous_event ||              \
-        event == pthread_cond_broadcast_anomalous_event_return)         \
-      event_size = log_event_pthread_cond_broadcast_size;               \
     FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);             \
   } while(0)
 
@@ -116,43 +116,21 @@ LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
     FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source, dest);         \
   } while(0)
 
-#define READ_ENTRY_FROM_DISK(fd, entry)                                        \
+#define READ_ENTRY_FROM_LOG(buf, index, entry)                                        \
   do {                                                                         \
-    if (GET_COMMON_PTR(entry,event) == pthread_cond_signal_anomalous_event || \
-        GET_COMMON_PTR(entry,event) == pthread_cond_signal_anomalous_event_return) { \
-      return _real_read(fd,                                                    \
-                        &entry->log_event_t.log_event_pthread_cond_signal,     \
-                        log_event_pthread_cond_signal_size);                   \
-    }                                                                          \
-    if (GET_COMMON_PTR(entry,event) == pthread_cond_broadcast_anomalous_event ||              \
-        GET_COMMON_PTR(entry,event) == pthread_cond_broadcast_anomalous_event_return) {       \
-      return _real_read(fd,                                                    \
-                        &entry->log_event_t.log_event_pthread_cond_broadcast,  \
-                        log_event_pthread_cond_broadcast_size);                \
-    }                                                                          \
-    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_DISK, fd, entry);                      \
+    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_LOG, buf, index, entry);                      \
   } while(0)
 
-#define WRITE_ENTRY_TO_DISK(fd, entry, ret)                                    \
+#define WRITE_ENTRY_TO_LOG(buf, index, entry, ret)                                    \
   do {                                                                         \
-    if (GET_COMMON(entry,event) == pthread_cond_signal_anomalous_event || \
-        GET_COMMON(entry,event) == pthread_cond_signal_anomalous_event_return) {           \
-      ret = write(fd,                                                          \
-                  &entry.log_event_t.log_event_pthread_cond_signal,            \
-                  log_event_pthread_cond_signal_size);                         \
-    }                                                                          \
-    if (GET_COMMON(entry,event) == pthread_cond_broadcast_anomalous_event ||               \
-        GET_COMMON(entry,event) == pthread_cond_broadcast_anomalous_event_return) {        \
-      ret = write(fd,                                                          \
-                  &entry.log_event_t.log_event_pthread_cond_broadcast,         \
-                  log_event_pthread_cond_broadcast_size);                      \
-    }                                                                          \
-    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_DISK, fd, entry, ret);                  \
+    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_LOG, buf, index, entry, ret);                  \
   } while(0)
 
 /* #defined constants */
 #define MAX_OPTIONAL_EVENTS 5
 
+
+#if 1
 static void log_entry_to_buffer(log_entry_t *entry, char *buffer)
 {
   memcpy(buffer, &GET_COMMON_PTR(entry, event), sizeof(GET_COMMON_PTR(entry, event)));
@@ -184,10 +162,12 @@ static void buffer_to_log_entry(char *buffer, log_entry_t *entry)
   memcpy(&GET_COMMON_PTR(entry, retval), buffer, sizeof(GET_COMMON_PTR(entry, retval)));
   buffer += sizeof(GET_COMMON_PTR(entry, retval));
 }
+#endif
 
 /* Prototypes */
-static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
-    unsigned long int exceptfds, unsigned long int timeout);
+char* map_file_to_memory(const char* path, ssize_t size, int flags, int mode);
+//static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
+    //unsigned long int exceptfds, unsigned long int timeout);
 /* End prototypes */
 
 // TODO: Do we need LIB_PRIVATE again here if we had already specified it in
@@ -197,10 +177,11 @@ LIB_PRIVATE dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
 LIB_PRIVATE char RECORD_LOG_PATH[RECORD_LOG_PATH_MAX];
+LIB_PRIVATE char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_READ_DATA_LOG_PATH[RECORD_LOG_PATH_MAX];
-LIB_PRIVATE int             record_log_fd = -1;
 LIB_PRIVATE int             read_data_fd = -1;
 LIB_PRIVATE int             sync_logging_branch = 0;
+
 /* Setting this will log/replay *ALL* malloc family
    functions (i.e. including ones from DMTCP, std C++ lib, etc.). */
 LIB_PRIVATE int             log_all_allocs = 0;
@@ -212,31 +193,84 @@ LIB_PRIVATE pthread_mutex_t log_index_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t reap_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t thread_transition_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_t       thread_to_reap;
+
 /* Thread locals: */
 LIB_PRIVATE __thread long long int my_clone_id = 0;
 LIB_PRIVATE __thread int in_mmap_wrapper = 0;
+
 /* Volatiles: */
-LIB_PRIVATE volatile int           log_entry_index = 0;
-LIB_PRIVATE volatile int           log_index = 0;
-LIB_PRIVATE volatile int           log_loaded = 0;
+//FIXME: REN log_index -> record_log_index
+LIB_PRIVATE volatile ssize_t       record_log_index = 0;
+LIB_PRIVATE volatile ssize_t       record_log_entry_index = 0;
+LIB_PRIVATE volatile int           record_log_loaded = 0;
 LIB_PRIVATE volatile long long int global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
 /* File private: */
-static char patch_list[MAX_LOG_LENGTH] = {0};
-static int patch_list_index = 0;
-static char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
-static int               record_patched_log_fd = -1;
+static char *record_log = NULL;
+static char *record_patched_log = NULL;
+static char * patch_list = NULL;
+
+static ssize_t record_patched_log_index = 0;
+static ssize_t patch_list_index = 0;
+
 static unsigned long int code_lower = 0, data_break = 0,
                          stack_lower = 0, stack_upper = 0;
-static pthread_mutex_t   log_file_mutex       = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t   pthread_create_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t   atomic_set_mutex     = PTHREAD_MUTEX_INITIALIZER;
+
 /* File private volatiles: */
 static volatile long long int current_log_id = 0;
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
+static int readEntryFromLog(char *log, volatile ssize_t& log_index, log_entry_t *entry)
+{
+  size_t event_size;
+
+  JASSERT ((log_index + log_event_common_size) < MAX_LOG_LENGTH) 
+    (log_index) (log_event_common_size) (MAX_LOG_LENGTH);
+
+#if NO_LOG_ENTRY_TO_BUFFER
+  memcpy(&entry->header, log + log_index, log_event_common_size);
+#else
+  buffer_to_log_entry(&log[log_index], entry);
+#endif
+
+  log_index += log_event_common_size;
+
+  if (GET_COMMON_PTR(entry, clone_id) == 0) {
+    return 0;
+  }
+
+  GET_EVENT_SIZE(GET_COMMON_PTR(entry, event), event_size);
+
+  JASSERT ((log_index + log_event_common_size + event_size) < MAX_LOG_LENGTH)
+    (log_index) (log_event_common_size) (event_size) (MAX_LOG_LENGTH);
+
+  READ_ENTRY_FROM_LOG(log, log_index, entry);
+
+  JASSERT(false) .Text("Unreachable");
+  return -1;
+}
+
+static int writeEntryToLog(char *log, volatile ssize_t& log_index, log_entry_t entry) {
+
+#if NO_LOG_ENTRY_TO_BUFFER
+  memcpy(log + log_index, &entry.header, log_event_common_size);
+#else
+  log_entry_to_buffer(&entry, &log[log_index]);
+#endif
+
+  log_index += log_event_common_size;
+
+  int ret_log_event;
+  WRITE_ENTRY_TO_LOG(log, log_index, entry, ret_log_event);
+
+  log_index += ret_log_event;
+  return ret_log_event + log_event_common_size;
+}
+
+#if 0
 int readEntryFromDisk(int fd, log_entry_t *entry) {
   if (_real_read(fd, &GET_COMMON_PTR(entry,event), sizeof(GET_COMMON_PTR(entry,event))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,log_id), sizeof(GET_COMMON_PTR(entry,log_id))) == 0) return 0;
@@ -244,10 +278,10 @@ int readEntryFromDisk(int fd, log_entry_t *entry) {
   if (_real_read(fd, &GET_COMMON_PTR(entry,clone_id), sizeof(GET_COMMON_PTR(entry,clone_id))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,my_errno), sizeof(GET_COMMON_PTR(entry,my_errno))) == 0) return 0;
   if (_real_read(fd, &GET_COMMON_PTR(entry,retval), sizeof(GET_COMMON_PTR(entry,retval))) == 0) return 0;
-  READ_ENTRY_FROM_DISK(fd, entry);
+  READ_ENTRY_FROM_LOG(fd, entry);
 }
-
 int writeEntryToDisk(int fd, log_entry_t entry) {
+
   int ret_event_size = write(fd, &GET_COMMON(entry,event), sizeof(GET_COMMON(entry,event)));
   int ret_log_id_size = write(fd, &GET_COMMON(entry,log_id), sizeof(GET_COMMON(entry,log_id)));
   int ret_tid_size = write(fd, &GET_COMMON(entry,tid), sizeof(GET_COMMON(entry,tid)));
@@ -259,6 +293,8 @@ int writeEntryToDisk(int fd, log_entry_t entry) {
   return ret_log_event + ret_event_size + ret_log_id_size + ret_tid_size +
     ret_clone_id_size + ret_my_errno_size + ret_retval_size;
 }
+
+#endif
 
 void atomic_increment(volatile int *ptr)
 {
@@ -323,6 +359,11 @@ static int read_line(int fd, char *buf, int count)
 
 // TODO: Since this is C++, couldn't we use some C++ string processing methods
 // to simplify the logic? MAKE SURE TO AVOID MALLOC()
+//
+// FIXME: On some systems, stack might not be labelled as "[stack]"
+//   Instead, use environ[NN] to find an address in the stack and then use
+//   /proc/self/maps to find the mmap() location within which this address
+//   falls.
 LIB_PRIVATE void recordDataStackLocations()
 {
   int maps_file = -1;
@@ -386,7 +427,7 @@ LIB_PRIVATE void recordDataStackLocations()
   // Also figure out the default stack size for NPTL threads using the
   // architecture-specific limits defined in nptl/sysdeps/ARCH/pthreaddef.h
   struct rlimit rl;
-  int retval = getrlimit(RLIMIT_STACK, &rl);
+  JASSERT(0 == getrlimit(RLIMIT_STACK, &rl));
 #ifdef __x86_64__
   unsigned long arch_default_stack_size = 32*1024*1024;
 #else
@@ -407,6 +448,7 @@ int validAddress(unsigned long int addr)
   }
 }
 
+#if 0
 static void resetLog()
 {
   JTRACE ( "resetting all log entries and log_index to 0." );
@@ -416,6 +458,7 @@ static void resetLog()
   }
   atomic_set(&log_index, 0);
 }
+#endif
 
 static int isUnlock(log_entry_t e)
 {
@@ -531,8 +574,8 @@ void copyFdSet(fd_set *src, fd_set *dest)
 int fdAvailable(fd_set *set)
 {
   // Returns 1 if 'set' has at least one fd available (for any action), else 0.
-  int length_fd_bits = FD_SETSIZE/NFDBITS;
-  int i = 0, j = 0;
+  size_t length_fd_bits = FD_SETSIZE/NFDBITS;
+  size_t i = 0, j = 0;
   for (i = 0; i < length_fd_bits; i++) {
     for (j = 0; j < NFDBITS; j++) {
       if ((__FDS_BITS(set)[i]>>j) & 0x1)
@@ -582,7 +625,11 @@ static log_entry_t get_oldest_patch_entry(int clone_id)
     GET_EVENT_SIZE((unsigned char)patch_list[i], event_size);
     if (event_size == 0) break;
     // Load common data into e
+#if NO_LOG_ENTRY_TO_BUFFER
+    memcpy(&e.header, &patch_list[i], log_event_common_size);
+#else
     buffer_to_log_entry(&patch_list[i], &e);
+#endif
     old_i = i;
     i += log_event_common_size;
     // if clone id != given and we're not ignoring clone_ids: continue to next
@@ -619,12 +666,36 @@ static void add_to_patch_list(log_entry_t *e)
   JASSERT(patch_list_index + log_event_common_size + event_size 
           < MAX_LOG_LENGTH);
   // Copy common data to patch_list:
+#if NO_LOG_ENTRY_TO_BUFFER
+  memcpy(&patch_list[patch_list_index], &e->header, log_event_common_size);
+#else
   log_entry_to_buffer(e, &patch_list[patch_list_index]);
+#endif
   patch_list_index += log_event_common_size;
   // Copy event-specific data to patch_list:
   COPY_TO_MEMORY_LOG(*e, &patch_list[patch_list_index]);
   patch_list_index += event_size;
   //SYNC_TIMER_STOP(add_to_patch_list);
+}
+
+static void init_patch_list()
+{
+  JASSERT(patch_list == NULL);
+
+  patch_list = (char*) mmap(0, MAX_LOG_LENGTH, PROT_READ | PROT_WRITE,
+                            MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+  JASSERT(patch_list != MAP_FAILED);
+
+  patch_list_index = 0;
+}
+
+static void remove_patch_list()
+{
+  JASSERT(patch_list != NULL);
+
+  JASSERT(_real_munmap (patch_list, MAX_LOG_LENGTH) == 0);
+  patch_list_index = 0;
 }
 
 /* Empties patch_list. */
@@ -634,48 +705,61 @@ static void clear_patch_list()
   patch_list_index = 0;
 }
 
-static int isLogPatched()
+static int isRecordLogPatched()
 {
-  char is_patched = 0;
-  _real_read(record_log_fd, &is_patched, sizeof(char));
-  return is_patched == LOG_IS_PATCHED_VALUE;
+  return record_log[0] == LOG_IS_PATCHED_VALUE;
 }
 
-static void markLogAsPatched()
+static void markRecordLogAsPatched()
 {
-  lseek(record_log_fd, 0, SEEK_SET);
   LOG_IS_PATCHED_TYPE c = LOG_IS_PATCHED_VALUE;
-  _real_write(record_log_fd, (void *)&c, LOG_IS_PATCHED_SIZE);
-  // Don't seek back to zero.
+  memcpy(record_log, (void *)&c, LOG_IS_PATCHED_SIZE);
+  record_log_index = LOG_IS_PATCHED_SIZE;
+}
+
+static void resetRecordLogIndex()
+{
+  record_log_index = LOG_IS_PATCHED_SIZE;
+}
+
+static bool isEndOfRecordLogIndex()
+{
+  return record_log[record_log_index] == '\0';
 }
 
 static void patchLog()
 {
   JTRACE ( "Begin log patching." );
-  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
-      O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+
+  record_patched_log = map_file_to_memory(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH,
+                                          O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
   log_entry_t entry = EMPTY_LOG_ENTRY, temp = EMPTY_LOG_ENTRY;
   log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
-  int i = 0;
   ssize_t write_ret = 0;
   // Read one log entry at a time from the file on disk, and write the patched
   // version out to record_patched_log_fd.
-  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
+  
+  init_patch_list();
+
+  resetRecordLogIndex();
+  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
     if (GET_COMMON(entry,event) == exec_barrier_event) {
       // Nothing may move past an exec barrier. Dump everything in patch_list
       // into the new log before the exec barrier.
       while (1) {
         temp = get_oldest_patch_entry(0);
         if (GET_COMMON(temp, clone_id) == 0) break;
-        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+        write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
       }
       clear_patch_list();
-      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
       continue;
     }
+    // XXX: shouldn't this be treated as exec?
     if (GET_COMMON(entry,event) == pthread_kill_event) {
       JTRACE ( "Found a pthread_kill in log. Not moving it." );
-      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
       continue;
     }
     if (GET_COMMON(entry,clone_id) == 0) {
@@ -684,14 +768,14 @@ static void patchLog()
     if (isUnlock(entry)) {
       temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       while (GET_COMMON(temp,clone_id) != 0) {
-        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+        write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
         temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
       }
-      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
     } else {
       add_to_patch_list(&entry);
     }
-    log_entry_index++;
+    record_log_entry_index++;
   }
   // If the patch_list is not empty (patch_list_idx != 0), then there were
   // some leftover log entries that were not balanced. So we tack them on to
@@ -702,10 +786,10 @@ static void patchLog()
     while (1) {
       temp = get_oldest_patch_entry(0);
       if (GET_COMMON(temp, clone_id) == 0) break;
-      write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
     }
-    clear_patch_list();
   }
+  remove_patch_list();
   // NOW it should be empty.
   // TODO: Why does this sometimes trigger?
   JASSERT ( patch_list_index == 0 ) ( patch_list_index );
@@ -714,23 +798,39 @@ static void patchLog()
   // TODO: Why can't we just use 'rename()' to move the patched log over the
   // original location?
 
+  ssize_t patched_log_size = record_patched_log_index;
+#if 1
+  record_patched_log_index = 0;
+#else
   // Rewind so we can write out over the original log.
   lseek(record_patched_log_fd, 0, SEEK_SET);
   // Close so we can re-open with O_TRUNC
   close(record_log_fd);
   record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
-  markLogAsPatched();
+#endif
+
+  markRecordLogAsPatched();
+
+#if 1
+  JASSERT(record_log_index == LOG_IS_PATCHED_SIZE);
+  // TODO: Can we just exchange the pointers, we anyways don't care about the underlying files.
+  memcpy(record_log + record_log_index, record_patched_log, patched_log_size);
+  //unlink(RECORD_PATCHED_LOG_PATH);
+#else
   // Copy over to original log filename
-  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
-    write_ret = writeEntryToDisk(record_log_fd, entry);
+  while (readEntryFromLog(record_patched_log, record_patched_log_index, &entry) != 0) {
+    write_ret = writeEntryToLog(record_log_fd, entry);
   }
   close(record_patched_log_fd);
   unlink(RECORD_PATCHED_LOG_PATH);
   JTRACE ( "log patching finished." ) 
     ( RECORD_LOG_PATH );
+
   lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
-  log_entry_index = 0;
-} 
+#endif
+  record_log_entry_index = 0;
+}
+
 
 static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   unsigned long int start_routine, unsigned long int attr,
@@ -738,11 +838,11 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   /* Finds the next pthread_create return event with the same thread,
      start_routine, attr, and arg as given.
      Returns the offset into the log file that the wakeup was found. */
-  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
+  ssize_t old_index = record_log_index;
   off_t pos = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromDisk(record_log_fd, &e) == 0) {
+    if (readEntryFromLog(record_log, record_log_index, &e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -756,8 +856,10 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   }
   if (create != NULL)
     *create = e;
-  pos = lseek(record_log_fd, 0, SEEK_CUR);
-  lseek(record_log_fd, old_pos, SEEK_SET);
+  pos = record_log_index;
+  record_log_index = old_index;
+  //pos = lseek(record_log_fd, 0, SEEK_CUR);
+  //lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -766,11 +868,12 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
   /* Finds the next getline return event with the same lineptr,
      n and stream as given.
      Returns the offset into the log file that the wakeup was found. */
-  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
+  ssize_t old_index = record_log_index;
+  //off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
   off_t pos = 0;
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromDisk(record_log_fd, &e) == 0) {
+    if (readEntryFromLog(record_log, record_log_index, &e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -782,8 +885,11 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
   }
   if (getline_entry != NULL)
     *getline_entry = e;
-  pos = lseek(record_log_fd, 0, SEEK_CUR);
-  lseek(record_log_fd, old_pos, SEEK_SET);
+
+  pos = record_log_index;
+  record_log_index = old_index;
+  //pos = lseek(record_log_fd, 0, SEEK_CUR);
+  //lseek(record_log_fd, old_pos, SEEK_SET);
   return pos;
 }
 
@@ -796,50 +902,89 @@ static void annotateLog()
         respective return events.
   
      This function should be called *before* log patching happens.*/
-  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
-      O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
   JTRACE ( "Annotating log." );
   log_entry_t entry = EMPTY_LOG_ENTRY;
   log_entry_t create_return = EMPTY_LOG_ENTRY;
   log_entry_t getline_return = EMPTY_LOG_ENTRY;
   ssize_t write_ret = 0;
-  int entryNum = 0;
-  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
-    entryNum++;
+
+#if 1
+
+  JASSERT(record_log_index == 1);
+
+  ssize_t prev_record_log_index = record_log_index;
+  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
     if (GET_COMMON(entry,event) == pthread_create_event) {
       nextPthreadCreate(&create_return,
-          GET_FIELD(entry, pthread_create, thread),
-          GET_FIELD(entry, pthread_create, start_routine),
-          GET_FIELD(entry, pthread_create, attr),
-          GET_FIELD(entry, pthread_create, arg));
-      entry.log_event_t.log_event_pthread_create.stack_size = 
-        create_return.log_event_t.log_event_pthread_create.stack_size;
-      entry.log_event_t.log_event_pthread_create.stack_addr =
-        create_return.log_event_t.log_event_pthread_create.stack_addr;
+                        GET_FIELD(entry, pthread_create, thread),
+                        GET_FIELD(entry, pthread_create, start_routine),
+                        GET_FIELD(entry, pthread_create, attr),
+                        GET_FIELD(entry, pthread_create, arg));
+      entry.event_data.log_event_pthread_create.stack_size = 
+        create_return.event_data.log_event_pthread_create.stack_size;
+      entry.event_data.log_event_pthread_create.stack_addr =
+        create_return.event_data.log_event_pthread_create.stack_addr;
+
+      record_log_index = prev_record_log_index;
+      write_ret = writeEntryToLog(record_log, record_log_index, entry);
+
     } else if (GET_COMMON(entry,event) == getline_event) {
       nextGetline(&getline_return,
-          GET_FIELD(entry, getline, lineptr),
-          GET_FIELD(entry, getline, stream));
+                  GET_FIELD(entry, getline, lineptr),
+                  GET_FIELD(entry, getline, stream));
+      SET_FIELD2(entry, getline, is_realloc,
+        GET_FIELD(getline_return, getline, is_realloc));
+
+      record_log_index = prev_record_log_index;
+      write_ret = writeEntryToLog(record_log, record_log_index, entry);
+
+    }
+    prev_record_log_index = record_log_index;
+  }
+  resetRecordLogIndex();
+
+#else
+
+  record_patched_log = map_file_to_memory(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH,
+                                          O_RDWR, S_IRUSR | S_IWUSR);
+  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
+    // FIXME: IS THIS IN PLACE REPLACEMENT? IF IT IS, then we don't need two files.
+    if (GET_COMMON(entry,event) == pthread_create_event) {
+      nextPthreadCreate(&create_return,
+                        GET_FIELD(entry, pthread_create, thread),
+                        GET_FIELD(entry, pthread_create, start_routine),
+                        GET_FIELD(entry, pthread_create, attr),
+                        GET_FIELD(entry, pthread_create, arg));
+      entry.event_data.log_event_pthread_create.stack_size = 
+        create_return.event_data.log_event_pthread_create.stack_size;
+      entry.event_data.log_event_pthread_create.stack_addr =
+        create_return.event_data.log_event_pthread_create.stack_addr;
+    } else if (GET_COMMON(entry,event) == getline_event) {
+      nextGetline(&getline_return,
+                  GET_FIELD(entry, getline, lineptr),
+                  GET_FIELD(entry, getline, stream));
       SET_FIELD2(entry, getline, is_realloc,
         GET_FIELD(getline_return, getline, is_realloc));
     }
-    write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+    write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
   }
+
   // Rewind so we can write out over the original log.
   lseek(record_patched_log_fd, 0, SEEK_SET);
   // Close so we can re-open in O_TRUNC mode
   close(record_log_fd);
   record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
-  markLogAsPatched();
+  markRecordLogAsPatched();
   // Copy over to original log filename
-  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
-    write_ret = writeEntryToDisk(record_log_fd, entry);
+  while (readEntryFromDisk(record_patched_log, record_patched_log_index, &entry) != 0) {
+    write_ret = writeEntryToLog(record_log_fd, record_log_index, entry);
   }
   close(record_patched_log_fd);
   unlink(RECORD_PATCHED_LOG_PATH);
+  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+#endif
   JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
     ( RECORD_LOG_PATH );
-  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
 }
 
 /* Initializes log pathnames. One log per process. */
@@ -875,12 +1020,20 @@ void primeLog()
   // into memory, so we skip this.
   if (_real_pthread_mutex_trylock(&log_index_mutex) != EBUSY) {
     JTRACE ( "Priming log." );
+#if 1
+    resetRecordLogIndex();
+#else
     int num_read = 0, total_read = 0;
     if (lseek(record_log_fd, 0, SEEK_SET) == -1) {
       perror("lseek");
     }
+#endif
     /******************* LOG PATCHING STUFF *******************/
-    if (!isLogPatched()) {
+    // TODO: A nice way to patch the log would be to do it in place, i.e. use a
+    // index table which points to the offset of a particular entry inside the
+    // log. Now to patch the log is just to shuffle the pointers. Hence
+    // everything is in place and quick.
+    if (!isRecordLogPatched()) {
       SYNC_TIMER_START(annotate_log);
       annotateLog();
       SYNC_TIMER_STOP(annotate_log);
@@ -894,6 +1047,8 @@ void primeLog()
     // at a bad time?)
     //fixSpontaneousWakeups();
     /******************* END LOG PATCHING STUFF *******************/
+
+#if 0
     num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
     JASSERT ( num_read != -1 ) ( strerror(errno) );
     total_read += num_read;
@@ -907,15 +1062,16 @@ void primeLog()
       perror("read");
       JTRACE ( "error reading from synch log." ) ( errno );
     }
-    atomic_set(&log_loaded, 1);
+#endif
+    atomic_set(&record_log_loaded, 1);
     _real_pthread_mutex_unlock(&log_index_mutex);
-    if (total_read > 0) {
-      // If the log size is zero, there's nothing to load.
-      getNextLogEntry();
-    }
+
+    // If the log size is zero, there's nothing to load.
+    getNextLogEntry();
   }
 }
 
+#if 0
 /* Reads the next MAX_LOG_LENGTH entries (debug mode) / bytes (non-debug mode)
  * (or most available) from the logfile. */
 void readLogFromDisk()
@@ -954,7 +1110,7 @@ int readAll(int fd, char *buf, int count)
 ssize_t writeAll(int fd, const void *buf, size_t count)
 {
   ssize_t retval = 0;
-  size_t to_write = count;
+  ssize_t to_write = count;
   while (1) {
     retval = _real_write(fd, buf, to_write);
     if (retval == to_write) break;
@@ -968,11 +1124,12 @@ ssize_t writeAll(int fd, const void *buf, size_t count)
   }
   return retval;
 }
+#endif
 
 ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
 {
   ssize_t retval = 0;
-  size_t to_write = count;
+  ssize_t to_write = count;
   while (1) {
     retval = _real_pwrite(fd, buf, to_write, offset);
     if (retval == to_write) break;
@@ -1869,61 +2026,59 @@ void addNextLogEntry(log_entry_t e)
   SET_COMMON2(e, log_id, current_log_id++);
   int event_size;
   GET_EVENT_SIZE(GET_COMMON(e,event), event_size);
-  if ((log_index + log_event_common_size + event_size) > MAX_LOG_LENGTH) {
-    // The new entry doesn't fit in the current log. Write the log to disk.
-    JTRACE ( "Log overflowed bounds. Writing to disk." );
-    writeLogsToDisk();
-  }
+
+  JASSERT ((record_log_index + log_event_common_size + event_size) < MAX_LOG_LENGTH)
+    .Text ("Log size too large");
+
   // Copy common data to log[] buffer:
-  log_entry_to_buffer(&e, &log[log_index]);
-  log_index += log_event_common_size;
+#if NO_LOG_ENTRY_TO_BUFFER
+  memcpy(&record_log[record_log_index], &e.header, log_event_common_size);
+#else
+  log_entry_to_buffer(&e, &record_log[record_log_index]);
+#endif
+
+  record_log_index += log_event_common_size;
   // Copy event-specific data to log[] buffer:
-  COPY_TO_MEMORY_LOG(e, &log[log_index]);
-  log_index += event_size;
+  COPY_TO_MEMORY_LOG(e, &record_log[record_log_index]);
+  record_log_index += event_size;
   // Keep this up to date for debugging purposes:
-  log_entry_index++;
+  record_log_entry_index++;
   _real_pthread_mutex_unlock(&log_index_mutex);  
 }
 
-void getNextLogEntry() {
+void getNextLogEntry()
+{
   _real_pthread_mutex_lock(&log_index_mutex);
-  int event_size;
-  // Make sure to cast the event type byte to the correct type:
-  GET_EVENT_SIZE((unsigned char)log[log_index], event_size);
-  int newEntrySize = log_event_common_size + event_size;
-  if (__builtin_expect((log_index + newEntrySize) <= MAX_LOG_LENGTH, 1)) {
-    /* The entire currentLogEntry can be retrieved from the current log.
-       This is the most common case. */
-    // Copy common data to currentLogEntry:
-    buffer_to_log_entry(&log[log_index], &currentLogEntry);
-    log_index += log_event_common_size;
-    // Copy event-specific data to currentLogEntry:
-    COPY_FROM_MEMORY_SOURCE(log[log_index], currentLogEntry);
-    log_index += event_size;
-    if (__builtin_expect((log_index) == MAX_LOG_LENGTH, 0)) {
-      JTRACE ( "Ran out of log entries. Reading next from disk." ) 
-             ( log_entry_index ) ( MAX_LOG_LENGTH );
-      readLogFromDisk();
-      log_index = 0;
-    }
-  } else {
-    // The size that can be retrieved from the current log.
-    int size = MAX_LOG_LENGTH - log_index;
-    JASSERT ( size < 512 ) ( size ) ( log_index ) ( log_entry_index );
-    char tmp[512] = {0};
-    memcpy(tmp, &log[log_index], size);
-    JTRACE ( "Ran out of log entries. Reading next from disk." ) 
-           ( log_entry_index ) ( MAX_LOG_LENGTH );
-    readLogFromDisk();
-    memcpy(&tmp[size], &log[0], newEntrySize - size); 
-    // Copy common data to currentLogEntry:
-    buffer_to_log_entry(&tmp[0], &currentLogEntry);
-    // Copy event-specific data to currentLogEntry:
-    COPY_FROM_MEMORY_SOURCE(tmp[log_event_common_size], currentLogEntry);
-    // Update new log_index:
-    log_index = newEntrySize - size;
+
+  // If log is empty, don't do anything
+  if (isEndOfRecordLogIndex()) {
+    _real_pthread_mutex_unlock(&log_index_mutex);
+    return;
   }
-  log_entry_index++;
+  size_t event_size = 0;
+
+  // Make sure to cast the event type byte to the correct type:
+  GET_EVENT_SIZE((unsigned char)record_log[record_log_index], event_size);
+  size_t newEntrySize = log_event_common_size + event_size;
+
+  JASSERT ((record_log_index + newEntrySize) <= MAX_LOG_LENGTH) (record_log_index)
+    (newEntrySize) (event_size)
+    .Text ( "Ran out of log entries." );
+
+  // Copy common data to currentLogEntry:
+#if NO_LOG_ENTRY_TO_BUFFER
+  memcpy(&currentLogEntry.header, &record_log[record_log_index], 
+         log_event_common_size);
+#else
+  buffer_to_log_entry(&record_log[record_log_index], &currentLogEntry);
+#endif
+  record_log_index += log_event_common_size;
+  // Copy event-specific data to currentLogEntry:
+  COPY_FROM_MEMORY_SOURCE(record_log[record_log_index], currentLogEntry);
+  record_log_index += event_size;
+
+  record_log_entry_index++;
+
   _real_pthread_mutex_unlock(&log_index_mutex);
 }
 
@@ -1942,15 +2097,87 @@ void logReadData(void *buf, int count)
   read_log_pos += written;
 }
 
+/* Close log file and unmap it from memory. */
+void sync_and_close_record_log()
+{
+  if (record_log == NULL) return;
+
+  JASSERT ( msync(record_log, record_log_index + 1, MS_SYNC) != -1 );
+
+  _real_munmap(record_log, MAX_LOG_LENGTH);
+  record_log = NULL;
+}
+
+/* Open log file and map it into memory. Flags are passed directly to
+   open(). */
+char* map_file_to_memory(const char* path, ssize_t size, int flags, int mode)
+{
+  int mmap_flags = 0;
+  if (flags == O_RDONLY) {
+    mmap_flags = PROT_READ;
+  } else if (flags & O_WRONLY) {
+    // The man page for mmap tells us this.
+    JASSERT ( false ) ( "You must specify O_RDWR to use writable with "
+                        " MAP_SHARED." );
+  } else if (flags & O_RDWR) {
+    mmap_flags = PROT_READ | PROT_WRITE;
+  } else {
+    JNOTE("FAILEDn\n\n\n\n\n");
+    sleep(20);
+    JASSERT ( false ) ( "Unhandled flags." );
+  }
+
+  int fd = _real_open(path, flags, mode);
+  JASSERT ( fd != -1 ) (JASSERT_ERRNO) .Text("open() failed");
+
+  JASSERT(_real_lseek(fd, size, SEEK_SET) == size);
+
+  Util::writeAll(fd, "", 1);
+
+
+  char *addr = (char *) mmap(NULL, size, mmap_flags, MAP_SHARED, fd, 0);
+  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO) .Text("mmap() failed");
+
+  _real_close(fd);
+
+  return addr;
+}
+
+/* Open log file and map it into memory. Flags are passed directly to
+   open(). */
+void map_record_log_to_write()
+{
+  JASSERT(record_log == NULL);
+  record_log = map_file_to_memory(RECORD_LOG_PATH, MAX_LOG_LENGTH, 
+                                  O_RDWR, S_IRUSR | S_IWUSR);
+  record_log_index = LOG_IS_PATCHED_SIZE;
+}
+
+void map_record_log_to_read()
+{
+  JASSERT(record_log == NULL);
+  record_log = map_file_to_memory(RECORD_LOG_PATH, MAX_LOG_LENGTH, 
+                                  O_RDWR, 0);
+  record_log_index = LOG_IS_PATCHED_SIZE;
+}
+
+
+#if 0
 void writeLogsToDisk() {
   if (SYNC_IS_REPLAY) {
-    JTRACE ( "calling writeLogsToDisk() while in replay. This is probably an error. Not writing." );
+    JTRACE ( "calling writeLogsToDisk() while in replay. "
+             "This is unimplemented." );
     return;
   }
   if (strlen(RECORD_LOG_PATH) == 0) {
     JTRACE ( "RECORD_LOG_PATH empty. Not writing." );
     return;
   }
+  if (log == NULL) return;
+  /* Blocking sync to disk. */
+  JASSERT ( msync(log, MAX_LOG_LENGTH, MS_SYNC) != -1 );
+  return;
+
   int numwritten = 0;
   int num_to_write = 0;
   /* 'num_to_write' needs some explanation, since off-by-one errors are
@@ -2012,21 +2239,13 @@ void writeLogsToDisk() {
   resetLog();
   _real_pthread_mutex_unlock(&log_file_mutex);
 }
+#endif
 
 static TURN_CHECK_P(base_turn_check)
 {
   // Predicate function for a basic check -- event # and clone id.
-  // TODO: factor out this anomalous signal business.
   return GET_COMMON_PTR(e1,clone_id) == GET_COMMON_PTR(e2,clone_id) &&
-    ((GET_COMMON_PTR(e1,event) == GET_COMMON_PTR(e2,event)) ||
-     (GET_COMMON_PTR(e1,event) == pthread_cond_signal_event && 
-         GET_COMMON_PTR(e2,event) == pthread_cond_signal_anomalous_event) ||
-     (GET_COMMON_PTR(e1,event) == pthread_cond_signal_anomalous_event && 
-         GET_COMMON_PTR(e2,event) == pthread_cond_signal_event) ||
-     (GET_COMMON_PTR(e1,event) == pthread_cond_broadcast_event && 
-         GET_COMMON_PTR(e2,event) == pthread_cond_broadcast_anomalous_event) ||
-     (GET_COMMON_PTR(e1,event) == pthread_cond_broadcast_anomalous_event && 
-         GET_COMMON_PTR(e2,event) == pthread_cond_broadcast_event));
+         GET_COMMON_PTR(e1,event) == GET_COMMON_PTR(e2,event);
 }
 
 TURN_CHECK_P(pthread_mutex_lock_turn_check)
@@ -2866,7 +3085,7 @@ static void execute_optional_event(int opt_event_num)
   } else if (opt_event_num == malloc_event) {
     size_t size = GET_FIELD(currentLogEntry, malloc, size);
     _real_pthread_mutex_unlock(&log_index_mutex);
-    void *p = malloc(size);
+    JASSERT(NULL != malloc(size));
   } else if (opt_event_num == free_event) {
     /* The fact that this works depends on memory-accurate replay. */
     void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
@@ -2917,9 +3136,9 @@ static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
 
 void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
-  int opt;
+  //int opt;
   memfence();
-  /*if (__builtin_expect(log_loaded == 0, 0)) {
+  /*if (__builtin_expect(record_log_loaded == 0, 0)) {
     // If log_loaded == 0, then this is the first time.
     // Perform any initialization things here.
     primeLog();

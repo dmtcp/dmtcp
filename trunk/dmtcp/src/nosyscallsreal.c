@@ -192,6 +192,10 @@ int _dmtcp_unsetenv( const char *name ) {
   REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
 }
 
+off_t _real_lseek(int fd, off_t offset, int whence) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd,offset,whence );
+}
+
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );

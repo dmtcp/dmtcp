@@ -203,12 +203,14 @@ extern "C"
   MACRO(setsockopt)                         \
   MACRO(socketpair)
 
-//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-//# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
-//   MACRO(accept4)
-//#else
-//# define GLIBC_ACCEPT4_WRAPPER(MACRO)
-//#endif
+/*
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
+   MACRO(accept4)
+#else
+# define GLIBC_ACCEPT4_WRAPPER(MACRO)
+#endif
+*/
 
 #define GLIBC_EXEC_WRAPPERS(MACRO)          \
   MACRO(fexecve)                            \

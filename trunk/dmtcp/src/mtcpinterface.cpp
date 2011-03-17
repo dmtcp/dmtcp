@@ -767,9 +767,9 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   }
 
   int retval = 0;
-  size_t stack_size;
-  void *stack_addr;
-  pthread_attr_t attr;
+  //size_t stack_size;
+  //void *stack_addr;
+  //pthread_attr_t attr;
   log_entry_t my_entry = create_pthread_join_entry(my_clone_id,
       pthread_join_event, (unsigned long int)thread,
       (unsigned long int)value_ptr);

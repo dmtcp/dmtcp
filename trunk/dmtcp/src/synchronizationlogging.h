@@ -35,8 +35,8 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-#define MAX_LOG_LENGTH 16777216 // = 4096*4096. For what reason?
-#define MAX_PATCH_LIST_LENGTH 16777216
+#define MAX_LOG_LENGTH ((size_t)512 * 1024 * 1024) // = 4096*4096. For what reason?
+#define MAX_PATCH_LIST_LENGTH MAX_LOG_LENGTH
 #define READLINK_MAX_LENGTH 256
 #define WAKE_ALL_THREADS -1
 #define LOG_IS_PATCHED_VALUE 1
@@ -374,10 +374,11 @@ typedef enum {
   pthread_detach_event_return,
   pthread_create_event,
   pthread_create_event_return,
-  pthread_cond_broadcast_anomalous_event,
-  pthread_cond_broadcast_anomalous_event_return, // unused;
-  pthread_cond_signal_anomalous_event,
-  pthread_cond_signal_anomalous_event_return, // unused;
+  // Remove these... not needed anymore.
+//  pthread_cond_broadcast_anomalous_event,
+//  pthread_cond_broadcast_anomalous_event_return, // unused;
+//  pthread_cond_signal_anomalous_event,
+//  pthread_cond_signal_anomalous_event_return, // unused;
   pthread_cond_broadcast_event,
   pthread_cond_broadcast_event_return,
   pthread_mutex_lock_event,
@@ -1200,18 +1201,25 @@ typedef struct {
 static const int log_event_xstat64_size = sizeof(log_event_xstat64_t);
 
 typedef struct {
-  // We aren't going to map more than 256 system calls/functions.
-  // We can expand it to 4 bytes if needed. However a single byte makes
-  // things easier.
-  // Shared among all events ("common area"):
-  /* IMPORTANT: Adding new fields to the common area requires that you also
-   * update the log_event_common_size definition. */
+  // FIXME:
+  //event_code_t event;
   unsigned char event;
   long long int log_id;
   int tid;
   long long int clone_id;
   int my_errno;
   int retval;
+} log_entry_header_t;
+
+typedef struct {
+  // We aren't going to map more than 256 system calls/functions.
+  // We can expand it to 4 bytes if needed. However a single byte makes
+  // things easier.
+  // Shared among all events ("common area"):
+  /* IMPORTANT: Adding new fields to the common area requires that you also
+   * update the log_event_common_size definition. */
+  log_entry_header_t header;
+
   union {
     log_event_access_t                           log_event_access;
     log_event_bind_t                             log_event_bind;
@@ -1301,9 +1309,28 @@ typedef struct {
     log_event_sigwait_t                          log_event_sigwait;
     log_event_xstat_t                            log_event_xstat;
     log_event_xstat64_t                          log_event_xstat64;
+  } event_data;
+#if 0
   } log_event_t;
+#endif
 } log_entry_t;
 
+#define GET_FIELD(event, name, field)     event.event_data.log_event_##name.field
+#define GET_FIELD_PTR(event, name, field) event->event_data.log_event_##name.field
+
+#define SET_FIELD2(event,name,field,field2) GET_FIELD(event,name, field) = field2
+
+#define SET_FIELD(event, name, field) SET_FIELD2(event, name, field, field)
+
+#define GET_COMMON(event, field) event.header.field
+#define GET_COMMON_PTR(event, field) event->header.field
+
+#define SET_COMMON_PTR(event, field) GET_COMMON_PTR(event, field) = field
+
+#define SET_COMMON2(event, field, field2) GET_COMMON(event, field) = field2
+#define SET_COMMON(event, field) SET_COMMON2(event, field, field)
+
+#if 0
 #define GET_FIELD(event, name, field) event.log_event_t.log_event_##name.field
 #define GET_FIELD_PTR(event, name, field) event->log_event_t.log_event_##name.field
 #define GET_COMMON(event, field) event.field
@@ -1313,6 +1340,7 @@ typedef struct {
 #define SET_COMMON(event, field) event.field = field
 #define SET_COMMON_PTR(event, field) event->field = field
 #define SET_COMMON2(event, field, field2) event.field = field2
+#endif
 
 /* Typedefs */
 // Type for predicate to check for a turn in the log.
@@ -1326,11 +1354,10 @@ typedef struct {
 /* Static constants: */
 // Clone id to indicate anyone may do this event (used for exec):
 static const int         CLONE_ID_ANYONE = -2;
-static const log_entry_t EMPTY_LOG_ENTRY = {0, 0, 0, 0, 0, 0};
+static const log_entry_t EMPTY_LOG_ENTRY = {{0, 0, 0, 0, 0, 0}};
 // Number to start clone_ids at:
 static const int         GLOBAL_CLONE_COUNTER_INIT = 1;
 static const int         RECORD_LOG_PATH_MAX = 256;
-static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Library private: */
 LIB_PRIVATE extern dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
@@ -1343,7 +1370,6 @@ LIB_PRIVATE extern int             read_data_fd;
 LIB_PRIVATE extern int             sync_logging_branch;
 LIB_PRIVATE extern int             log_all_allocs;
 LIB_PRIVATE extern unsigned long   default_stack_size;
-LIB_PRIVATE extern char            log[MAX_LOG_LENGTH];
 // TODO: rename this, since a log entry is not a char. maybe log_event_TYPE_SIZE?
 #define LOG_ENTRY_SIZE sizeof(char)
 LIB_PRIVATE extern pthread_cond_t  reap_cv;
@@ -1357,9 +1383,9 @@ LIB_PRIVATE extern pthread_t       thread_to_reap;
 LIB_PRIVATE extern __thread long long int my_clone_id;
 LIB_PRIVATE extern __thread int in_mmap_wrapper;
 /* Volatiles: */
-LIB_PRIVATE extern volatile int           log_entry_index;
-LIB_PRIVATE extern volatile int           log_index;
-LIB_PRIVATE extern volatile int           log_loaded;
+LIB_PRIVATE extern volatile ssize_t       record_log_entry_index;
+LIB_PRIVATE extern volatile ssize_t       record_log_index;
+LIB_PRIVATE extern volatile int           record_log_loaded;
 LIB_PRIVATE extern volatile int           threads_to_wake_index;
 LIB_PRIVATE extern volatile long long int global_clone_counter;
 LIB_PRIVATE extern volatile off_t         read_log_pos;
@@ -1373,9 +1399,13 @@ LIB_PRIVATE int    fdSetDiff(fd_set *one, fd_set *two);
 LIB_PRIVATE void   getNextLogEntry();
 LIB_PRIVATE void   initializeLog();
 LIB_PRIVATE void   logReadData(void *buf, int count);
+LIB_PRIVATE void   sync_and_close_record_log();
+LIB_PRIVATE void   map_record_log_to_read();
+LIB_PRIVATE void   map_record_log_to_write();
+//LIB_PRIVATE void   open_record_log(int flags, int mode);
 LIB_PRIVATE void   primeLog();
-LIB_PRIVATE ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t off);
-LIB_PRIVATE int    readAll(int fd, char *buf, int count);
+//LIB_PRIVATE ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t off);
+//LIB_PRIVATE int    readAll(int fd, char *buf, int count);
 LIB_PRIVATE void   reapThisThread();
 LIB_PRIVATE void   recordDataStackLocations();
 LIB_PRIVATE void   removeThreadToWake(int clone_id);

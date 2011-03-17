@@ -364,7 +364,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   } else if (SYNC_IS_LOG) {
     addNextLogEntry(my_entry);
   }
-#endif // RECORD_REPLAY
+#endif
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
@@ -397,7 +397,7 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   unInitializedThreadCount = 0;
 #ifdef RECORD_REPLAY
   JTRACE ( "writing synchronization logs to disk." );
-  writeLogsToDisk();
+  //sync_and_close_record_log();
 #endif
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
@@ -436,12 +436,6 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-#ifdef RECORD_REPLAY
-    if (SYNC_IS_LOG) {
-      JTRACE ( "writing synchronization logs to disk." );
-      writeLogsToDisk();
-    }
-#endif
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
     interruptCkpthread();
@@ -636,7 +630,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
       JTRACE ( "Received KILL Message from coordinator, exiting" );
 #ifdef RECORD_REPLAY
       JTRACE ( "TYLER NEW MESSAGE" );
-      writeLogsToDisk();
+      sync_and_close_record_log();
 #endif
       _exit ( 0 );
     }
