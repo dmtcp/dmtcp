@@ -26,6 +26,7 @@
 #include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
+#include "dmtcpalloc.h"
 #include <string>
 #include <unistd.h>
 #include <time.h>
@@ -36,6 +37,7 @@
 #include <sys/wait.h>
 #include  "../jalib/jfilesystem.h"
 #include "synchronizationlogging.h"
+#include "log.h"
 #endif
 
 #ifndef EXTERNC
@@ -212,8 +214,21 @@ void dmtcp::userHookTrampoline_preCkpt() {
   x[0] = '0';
   x[1] = '\0';
 
-  //writeLogsToDisk();
-  sync_and_close_record_log();
+  // Remove the threads which aren't alive anymore.
+  {
+    dmtcp::map<long long int, pthread_t>::iterator it;
+    dmtcp::vector<long long int> stale_clone_ids;
+    for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
+      if (_real_pthread_kill(it->second, 0) != 0) {
+        stale_clone_ids.push_back(it->first);
+      }
+    }
+    for (size_t i = 0; i < stale_clone_ids.size(); i++) {
+      clone_id_to_tid_table.erase(stale_clone_ids[i]);
+      clone_id_to_log_table.erase(stale_clone_ids[i]);
+    }
+  }
+
 #endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
@@ -223,16 +238,31 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   //this function runs before other threads are resumed
 #ifdef RECORD_REPLAY
     recordDataStackLocations();
+
+    // Initialize mmap()'d logs for the current threads.
+    // FIXME: This code should be moved to sync* or log* files.
+    unified_log.init(10 * MAX_LOG_LENGTH, true, true);
+
+    dmtcp::map<long long int, pthread_t>::iterator it;
+    for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
+
+      dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
+      log->init2(it->first, MAX_LOG_LENGTH, true);
+
+      if (!isRestart) {
+        register_in_global_log_list(it->first);
+      }
+    }
+
 #endif
   if(isRestart){
 #ifdef RECORD_REPLAY
-    map_record_log_to_read();
-
     char *x = getenv(ENV_VAR_LOG_REPLAY);
     // Don't call setenv() here to avoid malloc()
     x[0] = '2';
     x[1] = '\0';
     SET_SYNC_REPLAY();
+
     primeLog();
     log_all_allocs = 1;
 #endif
@@ -241,7 +271,6 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       (*userHookPostRestart)();
   }else{
 #ifdef RECORD_REPLAY
-    map_record_log_to_write();
     char *x = getenv(ENV_VAR_LOG_REPLAY);
     // Don't call setenv() here to avoid malloc()
     x[0] = '1';

@@ -47,6 +47,7 @@
 
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
+#include "log.h"
 #endif
 
 
@@ -527,7 +528,13 @@ int thread_start(void *arg)
 #ifdef RECORD_REPLAY
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
     my_clone_id = threadArg->clone_id;
+    my_log = new dmtcp::SynchronizationLog();
+    if (SYNC_IS_RECORD || SYNC_IS_REPLAY) {
+      my_log->init(MAX_LOG_LENGTH);
+    }
     clone_id_to_tid_table[my_clone_id] = pthread_self();
+    tid_to_clone_id_table[pthread_self()] = my_clone_id;
+    clone_id_to_log_table[my_clone_id] = my_log;
   } else {
     JASSERT ( my_clone_id != 0 );
   }
@@ -546,6 +553,11 @@ int thread_start(void *arg)
   
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
+    my_log->destroy();
+    delete my_log;
+    clone_id_to_tid_table.erase(my_clone_id);
+    tid_to_clone_id_table.erase(pthread_self());
+    clone_id_to_log_table.erase(my_clone_id);
     return 0;
   }
 

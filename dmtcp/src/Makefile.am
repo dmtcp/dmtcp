@@ -21,7 +21,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrapper.h
+	synchronizationlogging.h ptracewrapper.h log.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -39,7 +39,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
-	../jalib/jalloc.cpp synchronizationlogging.cpp
+	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
@@ -62,7 +62,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
 	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp
 # This should be a superset of all optional files.
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
+EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
@@ -75,7 +75,7 @@ dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o \
+dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o log.o\
                           libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
