@@ -129,6 +129,7 @@ ssize_t read_no_error(int fd, void *buf, size_t count)
 
 void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
 {
+  return;
   if (getsid(inferior) == getsid(superior)) {
     char tty_name[80];
     if (mtcp_get_controlling_term(tty_name, 80) == -1) {
@@ -787,7 +788,7 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
     }
   } else {
     if (kill(inferior, SIGSTOP) == -1) {
-      mtcp_printf("ptrace_detach_checkpoint_threads: sending SIGSTOP to %d, "
+      mtcp_printf("ptrace_detach_ckpthread: sending SIGSTOP to %d, "
                   "error = %s\n", inferior, strerror(errno));
       return -EAGAIN;
     }

@@ -36,6 +36,7 @@
 #include  "../jalib/jfilesystem.h"
 #include <sys/select.h>
 #include "synchronizationlogging.h"
+#include "log.h"
 #include <sys/resource.h>
 
 #ifdef RECORD_REPLAY
@@ -53,119 +54,11 @@
       sizeof(GET_COMMON(currentLogEntry,retval)))
 
 
-#define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
-  do {                                                                  \
-    if (event == name##_event || event == name##_event_return)          \
-      event_size = log_event_##name##_size;                             \
-  } while(0)
-
-#define IFNAME_COPY_TO_MEMORY_LOG(name, e, dest)                        \
-  do {                                                                  \
-    if (GET_COMMON((e),event) == name##_event ||                        \
-        GET_COMMON((e),event) == name##_event_return) {                 \
-      memcpy((dest),                                                    \
-          &(e).event_data.log_event_##name, log_event_##name##_size);  \
-      memcpy(&currentLogEntry.event_data.log_event_##name,             \
-          &(e).event_data.log_event_##name, log_event_##name##_size);  \
-    }                                                                   \
-  } while(0)
-
-#define IFNAME_COPY_FROM_MEMORY_SOURCE(name, source, dest)              \
-  do {                                                                  \
-    if (GET_COMMON(dest,event) == name##_event ||                       \
-        GET_COMMON(dest,event) == name##_event_return) {                \
-      memcpy(&dest.event_data.log_event_##name,                        \
-          &source, log_event_##name##_size);                            \
-    }                                                                   \
-  } while(0)
-
-// FIXME: Can we use IFNAME_COPY_FROM_MEMORY_SOURCE to replace this definition?
-#define IFNAME_READ_ENTRY_FROM_LOG(name, buf, index, entry)                    \
-  do {                                                                  \
-    if (GET_COMMON_PTR(entry,event) == name##_event ||                  \
-        GET_COMMON_PTR(entry,event) == name##_event_return) {           \
-      memcpy(&entry->event_data.log_event_##name, buf + index,      \
-             log_event_##name##_size);                                     \
-      index += log_event_##name##_size;                                     \
-      return log_event_##name##_size;                                     \
-    }                                                                   \
-  } while(0)
-
-#define IFNAME_WRITE_ENTRY_TO_LOG(name, buf, index, entry, ret)                \
-  do {                                                                  \
-    if (GET_COMMON(entry,event) == name##_event ||                      \
-        GET_COMMON(entry,event) == name##_event_return) {               \
-      memcpy(buf + index, &entry.event_data.log_event_##name,              \
-             log_event_##name##_size);                                     \
-      ret = log_event_##name##_size;                                     \
-    }                                                                   \
-  } while(0)
-
-#define GET_EVENT_SIZE(event, event_size)                               \
-  do {                                                                  \
-    FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);             \
-  } while(0)
-
-#define COPY_TO_MEMORY_LOG(entry, dest)                                 \
-  do {                                                                  \
-    FOREACH_NAME(IFNAME_COPY_TO_MEMORY_LOG, (entry), (dest));           \
-  } while(0)
-
-#define COPY_FROM_MEMORY_SOURCE(source, dest)                           \
-  do {                                                                  \
-    FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source, dest);         \
-  } while(0)
-
-#define READ_ENTRY_FROM_LOG(buf, index, entry)                                        \
-  do {                                                                         \
-    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_LOG, buf, index, entry);                      \
-  } while(0)
-
-#define WRITE_ENTRY_TO_LOG(buf, index, entry, ret)                                    \
-  do {                                                                         \
-    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_LOG, buf, index, entry, ret);                  \
-  } while(0)
-
 /* #defined constants */
 #define MAX_OPTIONAL_EVENTS 5
 
-
-#if 1
-static void log_entry_to_buffer(log_entry_t *entry, char *buffer)
-{
-  memcpy(buffer, &GET_COMMON_PTR(entry, event), sizeof(GET_COMMON_PTR(entry, event)));
-  buffer += sizeof(GET_COMMON_PTR(entry, event));
-  memcpy(buffer, &GET_COMMON_PTR(entry, log_id), sizeof(GET_COMMON_PTR(entry, log_id)));
-  buffer += sizeof(GET_COMMON_PTR(entry, log_id));
-  memcpy(buffer, &GET_COMMON_PTR(entry, tid), sizeof(GET_COMMON_PTR(entry, tid)));
-  buffer += sizeof(GET_COMMON_PTR(entry, tid));
-  memcpy(buffer, &GET_COMMON_PTR(entry, clone_id), sizeof(GET_COMMON_PTR(entry, clone_id)));
-  buffer += sizeof(GET_COMMON_PTR(entry, clone_id));
-  memcpy(buffer, &GET_COMMON_PTR(entry, my_errno), sizeof(GET_COMMON_PTR(entry, my_errno)));
-  buffer += sizeof(GET_COMMON_PTR(entry, my_errno));
-  memcpy(buffer, &GET_COMMON_PTR(entry, retval), sizeof(GET_COMMON_PTR(entry, retval)));
-  buffer += sizeof(GET_COMMON_PTR(entry, retval));
-}
-
-static void buffer_to_log_entry(char *buffer, log_entry_t *entry)
-{
-  memcpy(&GET_COMMON_PTR(entry, event), buffer, sizeof(GET_COMMON_PTR(entry, event)));
-  buffer += sizeof(GET_COMMON_PTR(entry, event));
-  memcpy(&GET_COMMON_PTR(entry, log_id), buffer, sizeof(GET_COMMON_PTR(entry, log_id)));
-  buffer += sizeof(GET_COMMON_PTR(entry, log_id));
-  memcpy(&GET_COMMON_PTR(entry, tid), buffer, sizeof(GET_COMMON_PTR(entry, tid)));
-  buffer += sizeof(GET_COMMON_PTR(entry, tid));
-  memcpy(&GET_COMMON_PTR(entry, clone_id), buffer, sizeof(GET_COMMON_PTR(entry, clone_id)));
-  buffer += sizeof(GET_COMMON_PTR(entry, clone_id));
-  memcpy(&GET_COMMON_PTR(entry, my_errno), buffer, sizeof(GET_COMMON_PTR(entry, my_errno)));
-  buffer += sizeof(GET_COMMON_PTR(entry, my_errno));
-  memcpy(&GET_COMMON_PTR(entry, retval), buffer, sizeof(GET_COMMON_PTR(entry, retval)));
-  buffer += sizeof(GET_COMMON_PTR(entry, retval));
-}
-#endif
-
 /* Prototypes */
-char* map_file_to_memory(const char* path, ssize_t size, int flags, int mode);
+char* map_file_to_memory(const char* path, size_t size, int flags, int mode);
 //static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
     //unsigned long int exceptfds, unsigned long int timeout);
 /* End prototypes */
@@ -174,8 +67,12 @@ char* map_file_to_memory(const char* path, ssize_t size, int flags, int mode);
 // the header file?
 /* Library private: */
 LIB_PRIVATE dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
+LIB_PRIVATE dmtcp::map<pthread_t, long long int> tid_to_clone_id_table;
+LIB_PRIVATE dmtcp::map<long long int, dmtcp::SynchronizationLog*> clone_id_to_log_table;
+LIB_PRIVATE void* unified_log_addr = NULL;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
+LIB_PRIVATE char GLOBAL_LOG_LIST_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_LOG_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_READ_DATA_LOG_PATH[RECORD_LOG_PATH_MAX];
@@ -194,81 +91,32 @@ LIB_PRIVATE pthread_mutex_t reap_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t thread_transition_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_t       thread_to_reap;
 
+
+LIB_PRIVATE dmtcp::SynchronizationLog unified_log;
+
 /* Thread locals: */
-LIB_PRIVATE __thread long long int my_clone_id = 0;
+LIB_PRIVATE __thread long long int my_clone_id = -1;
 LIB_PRIVATE __thread int in_mmap_wrapper = 0;
+LIB_PRIVATE __thread dmtcp::SynchronizationLog *my_log;
+
 
 /* Volatiles: */
-//FIXME: REN log_index -> record_log_index
-LIB_PRIVATE volatile ssize_t       record_log_index = 0;
-LIB_PRIVATE volatile ssize_t       record_log_entry_index = 0;
-LIB_PRIVATE volatile int           record_log_loaded = 0;
 LIB_PRIVATE volatile long long int global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
-/* File private: */
-static char *record_log = NULL;
-static char *record_patched_log = NULL;
-static char * patch_list = NULL;
-
-static ssize_t record_patched_log_index = 0;
-static ssize_t patch_list_index = 0;
+LIB_PRIVATE int global_log_list_fd = -1;
+LIB_PRIVATE pthread_mutex_t global_log_list_fd_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static unsigned long int code_lower = 0, data_break = 0,
                          stack_lower = 0, stack_upper = 0;
 static pthread_mutex_t   atomic_set_mutex     = PTHREAD_MUTEX_INITIALIZER;
 
 /* File private volatiles: */
-static volatile long long int current_log_id = 0;
+static volatile long long int next_log_id = 0;
+
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
-static int readEntryFromLog(char *log, volatile ssize_t& log_index, log_entry_t *entry)
-{
-  size_t event_size;
-
-  JASSERT ((log_index + log_event_common_size) < MAX_LOG_LENGTH) 
-    (log_index) (log_event_common_size) (MAX_LOG_LENGTH);
-
-#if NO_LOG_ENTRY_TO_BUFFER
-  memcpy(&entry->header, log + log_index, log_event_common_size);
-#else
-  buffer_to_log_entry(&log[log_index], entry);
-#endif
-
-  log_index += log_event_common_size;
-
-  if (GET_COMMON_PTR(entry, clone_id) == 0) {
-    return 0;
-  }
-
-  GET_EVENT_SIZE(GET_COMMON_PTR(entry, event), event_size);
-
-  JASSERT ((log_index + log_event_common_size + event_size) < MAX_LOG_LENGTH)
-    (log_index) (log_event_common_size) (event_size) (MAX_LOG_LENGTH);
-
-  READ_ENTRY_FROM_LOG(log, log_index, entry);
-
-  JASSERT(false) .Text("Unreachable");
-  return -1;
-}
-
-static int writeEntryToLog(char *log, volatile ssize_t& log_index, log_entry_t entry) {
-
-#if NO_LOG_ENTRY_TO_BUFFER
-  memcpy(log + log_index, &entry.header, log_event_common_size);
-#else
-  log_entry_to_buffer(&entry, &log[log_index]);
-#endif
-
-  log_index += log_event_common_size;
-
-  int ret_log_event;
-  WRITE_ENTRY_TO_LOG(log, log_index, entry, ret_log_event);
-
-  log_index += ret_log_event;
-  return ret_log_event + log_event_common_size;
-}
 
 void atomic_increment(volatile int *ptr)
 {
@@ -298,6 +146,16 @@ void atomic_set(volatile int *ptr, int val)
   _real_pthread_mutex_unlock(&atomic_set_mutex);
 }
 
+long long int get_next_clone_id()
+{
+  return __sync_fetch_and_add (&global_clone_counter, 1);
+}
+
+long long int get_next_log_id()
+{
+  return __sync_fetch_and_add (&next_log_id, 1);
+}
+
 int shouldSynchronize(void *return_addr)
 {
   // Returns 1 if we should synchronize this call, instead of calling _real
@@ -312,24 +170,66 @@ int shouldSynchronize(void *return_addr)
   return 1;
 }
 
-/* Begin miscellaneous/helper functions. */
-// Reads from fd until count bytes are read, or newline encountered.
-// Returns NULL at EOF.
-static int read_line(int fd, char *buf, int count)
+void register_in_global_log_list(long long int clone_id)
 {
-  int i = 0;
-  char c;
-  while (1) {
-    if (_real_read(fd, &c, 1) == 0) {
-      buf[i] = '\0';
-      return NULL;
-    }
-    buf[i++] = c;
-    if (c == '\n') break;
+  _real_pthread_mutex_lock(&global_log_list_fd_mutex);
+  if (global_log_list_fd == -1) {
+    global_log_list_fd = _real_open(GLOBAL_LOG_LIST_PATH,
+                                    O_WRONLY | O_CREAT | O_APPEND,
+                                    S_IRUSR | S_IWUSR);
+    JASSERT(global_log_list_fd != -1) (JASSERT_ERRNO);
   }
-  buf[i++] = '\0';
-  return i;
+
+  Util::writeAll(global_log_list_fd, &clone_id, sizeof(clone_id));
+  _real_close(global_log_list_fd);
+  global_log_list_fd = -1;
+  _real_pthread_mutex_unlock(&global_log_list_fd_mutex);
 }
+
+void merge_all_logs()
+{
+  dmtcp::vector<long long int> clone_ids;
+  dmtcp::vector<dmtcp::SynchronizationLog> sync_logs;
+  dmtcp::vector<log_entry_t> curr_entries;
+  log_entry_t entry;
+
+  int fd = _real_open(GLOBAL_LOG_LIST_PATH, O_RDONLY, 0);
+  long long int id;
+  size_t num_entries = 0;
+  while (Util::readAll(fd, &id, sizeof(id)) != 0) {
+    dmtcp::SynchronizationLog slog;
+    clone_ids.push_back(id);
+    slog.init2(id, MAX_LOG_LENGTH, true);
+    slog.getNextEntry(entry);
+    JTRACE("Entries for this thread") (id) (slog.numEntries());
+    num_entries += slog.numEntries();
+    sync_logs.push_back(slog);
+    curr_entries.push_back(entry);
+  }
+  JTRACE("Total number of log entries") (num_entries);
+
+  size_t entry_index = 0;
+  while(entry_index < num_entries)
+  {
+    size_t total_done = 0;
+    for (size_t i = 0 ; i < clone_ids.size() ; i++)
+    {
+      if (curr_entries[i].header.log_id < entry_index &&
+          curr_entries[i].header.log_id != 0) {
+        JASSERT(false) .Text("Unreachable");
+      }
+      if (GET_COMMON(curr_entries[i], log_id) == entry_index &&
+          GET_COMMON(curr_entries[i], clone_id) != 0)
+      {
+        unified_log.writeEntry(curr_entries[i]);
+        sync_logs[i].getNextEntry(entry);
+        curr_entries[i] = entry;
+        entry_index++;
+      }
+    }
+  }
+}
+
 
 // TODO: Since this is C++, couldn't we use some C++ string processing methods
 // to simplify the logic? MAKE SURE TO AVOID MALLOC()
@@ -347,7 +247,7 @@ LIB_PRIVATE void recordDataStackLocations()
     perror("open");
     exit(1);
   }
-  while (read_line(maps_file, line, 199) != 0) {
+  while (Util::readLine(maps_file, line, 199) != 0) {
     if (strstr(line, "r-xp") != NULL && strstr(line, progname.c_str()) != NULL) {
       // beginning of .text segment
       strncpy(code_line, line, 199);
@@ -570,241 +470,87 @@ int fdSetDiff(fd_set *one, fd_set *two)
   return 0;
 }
 
-/* Given a clone_id, this returns the entry in patch_list with the lowest index
-   and same clone_id.  If clone_id is 0, return the oldest entry, regardless of
-   clone_id. If clone_id != 0 and no entry found, returns EMPTY_LOG_ENTRY. */
-static log_entry_t get_oldest_patch_entry(int clone_id)
-{
-  int i = 0, old_i = 0, event_size = 0, found = 0;
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  //JTRACE ( "tyler:" ) ( *((long *)&e) );
-  //memset(&e, 0, sizeof(e));
-  /* Loop through patch_list. We don't need to worry about reading from disk or
-     anything, since the only way things get added to patch_list is via the
-     add_to_patch_list function. */
-  while (i < patch_list_index) {
-    // Get entry size
-    GET_EVENT_SIZE((unsigned char)patch_list[i], event_size);
-    if (event_size == 0) break;
-    // Load common data into e
-#if NO_LOG_ENTRY_TO_BUFFER
-    memcpy(&e.header, &patch_list[i], log_event_common_size);
-#else
-    buffer_to_log_entry(&patch_list[i], &e);
-#endif
-    old_i = i;
-    i += log_event_common_size;
-    // if clone id != given and we're not ignoring clone_ids: continue to next
-    if (GET_COMMON(e, clone_id) != clone_id && clone_id != 0) {
-      i += event_size;
-      continue;
-    }
-    // Load specific data into e
-    COPY_FROM_MEMORY_SOURCE(patch_list[i], e);
-    i += event_size;
-    // Remove it from patch_list by shifting everything left.
-    memmove(&patch_list[old_i], &patch_list[i], patch_list_index-i);
-    // Adjust patch_list_index for that removal.
-    JASSERT ( patch_list_index > old_i );
-    patch_list_index -= (log_event_common_size + event_size);
-    // Overwrite stale data at the end:
-    memset(&patch_list[patch_list_index], 0, log_event_common_size+event_size);
-    found = 1;
-    break;
-  }
-  if (found == 1) {
-    return e;
-  } else {
-    return EMPTY_LOG_ENTRY;
-  }
-}
-
-/* Append the given log entry to the end of patch_list. */
-static void add_to_patch_list(log_entry_t *e)
-{
-  //SYNC_TIMER_START(add_to_patch_list);
-  int event_size = 0;
-  GET_EVENT_SIZE(GET_COMMON_PTR(e, event), event_size);
-  JASSERT(patch_list_index + log_event_common_size + event_size 
-          < MAX_LOG_LENGTH);
-  // Copy common data to patch_list:
-#if NO_LOG_ENTRY_TO_BUFFER
-  memcpy(&patch_list[patch_list_index], &e->header, log_event_common_size);
-#else
-  log_entry_to_buffer(e, &patch_list[patch_list_index]);
-#endif
-  patch_list_index += log_event_common_size;
-  // Copy event-specific data to patch_list:
-  COPY_TO_MEMORY_LOG(*e, &patch_list[patch_list_index]);
-  patch_list_index += event_size;
-  //SYNC_TIMER_STOP(add_to_patch_list);
-}
-
-static void init_patch_list()
-{
-  JASSERT(patch_list == NULL);
-
-  patch_list = (char*) mmap(0, MAX_LOG_LENGTH, PROT_READ | PROT_WRITE,
-                            MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
-  JASSERT(patch_list != MAP_FAILED);
-
-  patch_list_index = 0;
-}
-
-static void remove_patch_list()
-{
-  JASSERT(patch_list != NULL);
-
-  JASSERT(_real_munmap (patch_list, MAX_LOG_LENGTH) == 0);
-  patch_list_index = 0;
-}
-
-/* Empties patch_list. */
-static void clear_patch_list()
-{
-  memset(patch_list, 0, patch_list_index);
-  patch_list_index = 0;
-}
-
-static int isRecordLogPatched()
-{
-  return record_log[0] == LOG_IS_PATCHED_VALUE;
-}
-
-static void markRecordLogAsPatched()
-{
-  LOG_IS_PATCHED_TYPE c = LOG_IS_PATCHED_VALUE;
-  memcpy(record_log, (void *)&c, LOG_IS_PATCHED_SIZE);
-  record_log_index = LOG_IS_PATCHED_SIZE;
-}
-
-static void resetRecordLogIndex()
-{
-  record_log_index = LOG_IS_PATCHED_SIZE;
-}
-
-static bool isEndOfRecordLogIndex()
-{
-  return record_log[record_log_index] == '\0';
-}
 
 static void patchLog()
 {
   JTRACE ( "Begin log patching." );
 
-  record_patched_log = map_file_to_memory(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH,
-                                          O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  dmtcp::SynchronizationLog record_patched_log;
+  dmtcp::SynchronizationLog patch_list;
+  record_patched_log.init3(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH);
+  patch_list.init4(MAX_LOG_LENGTH);
 
-  log_entry_t entry = EMPTY_LOG_ENTRY, temp = EMPTY_LOG_ENTRY;
+  log_entry_t entry = EMPTY_LOG_ENTRY;
+  log_entry_t temp = EMPTY_LOG_ENTRY;
   log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
-  ssize_t write_ret = 0;
+  size_t write_ret = 0;
   // Read one log entry at a time from the file on disk, and write the patched
   // version out to record_patched_log_fd.
   
-  init_patch_list();
-
-  resetRecordLogIndex();
-  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
+  unified_log.resetIndex();
+  while (unified_log.getNextEntry(entry) != 0) {
     if (GET_COMMON(entry,event) == exec_barrier_event) {
       // Nothing may move past an exec barrier. Dump everything in patch_list
       // into the new log before the exec barrier.
-      while (1) {
-        temp = get_oldest_patch_entry(0);
-        if (GET_COMMON(temp, clone_id) == 0) break;
-        write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
-      }
-      clear_patch_list();
-      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
+      record_patched_log.appendDataFrom(patch_list);
+      patch_list.clearLog();
       continue;
     }
     // XXX: shouldn't this be treated as exec?
     if (GET_COMMON(entry,event) == pthread_kill_event) {
       JTRACE ( "Found a pthread_kill in log. Not moving it." );
-      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
+      write_ret = record_patched_log.writeEntry(entry);
       continue;
     }
-    if (GET_COMMON(entry,clone_id) == 0) {
-      JASSERT ( false ) .Text("Encountered a clone_id of 0 in log.");
-    }
+
+    JASSERT (GET_COMMON(entry,clone_id) != 0)
+      .Text("Encountered a clone_id of 0 in log.");
+    
     if (isUnlock(entry)) {
-      temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
+      temp = patch_list.getFirstEntryWithCloneID(GET_COMMON(entry,clone_id));
       while (GET_COMMON(temp,clone_id) != 0) {
-        write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
-        temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
+        write_ret = record_patched_log.writeEntry(temp);
+        temp = patch_list.getFirstEntryWithCloneID(GET_COMMON(entry,clone_id));
       }
-      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, entry);
+      write_ret = record_patched_log.writeEntry(entry);
     } else {
-      add_to_patch_list(&entry);
+      patch_list.writeEntry(entry);
     }
-    record_log_entry_index++;
   }
   // If the patch_list is not empty (patch_list_idx != 0), then there were
   // some leftover log entries that were not balanced. So we tack them on to
   // the very end of the log.
-  if (patch_list_index != 0) {
+  if (patch_list.empty() == false) {
     JTRACE ( "Extra log entries. Tacking them onto end of log." )
-      ( patch_list_index );
-    while (1) {
-      temp = get_oldest_patch_entry(0);
-      if (GET_COMMON(temp, clone_id) == 0) break;
-      write_ret = writeEntryToLog(record_patched_log, record_patched_log_index, temp);
-    }
+      (patch_list.dataSize());
+      record_patched_log.appendDataFrom(patch_list);
+      patch_list.clearLog();
   }
-  remove_patch_list();
-  // NOW it should be empty.
-  // TODO: Why does this sometimes trigger?
-  JASSERT ( patch_list_index == 0 ) ( patch_list_index );
-  
+  patch_list.destroy();
   // Now copy the contents of the patched log over the original log.
   // TODO: Why can't we just use 'rename()' to move the patched log over the
   // original location?
 
-  ssize_t patched_log_size = record_patched_log_index;
-#if 1
-  record_patched_log_index = 0;
-#else
-  // Rewind so we can write out over the original log.
-  lseek(record_patched_log_fd, 0, SEEK_SET);
-  // Close so we can re-open with O_TRUNC
-  close(record_log_fd);
-  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
-#endif
+  // TODO: Can we just exchange the pointers, we anyways don't care about the
+  // underlying files.
+  unified_log.markAsPatched();
 
-  markRecordLogAsPatched();
-
-#if 1
-  JASSERT(record_log_index == LOG_IS_PATCHED_SIZE);
-  // TODO: Can we just exchange the pointers, we anyways don't care about the underlying files.
-  memcpy(record_log + record_log_index, record_patched_log, patched_log_size);
-  //unlink(RECORD_PATCHED_LOG_PATH);
-#else
-  // Copy over to original log filename
-  while (readEntryFromLog(record_patched_log, record_patched_log_index, &entry) != 0) {
-    write_ret = writeEntryToLog(record_log_fd, entry);
-  }
-  close(record_patched_log_fd);
-  unlink(RECORD_PATCHED_LOG_PATH);
-  JTRACE ( "log patching finished." ) 
-    ( RECORD_LOG_PATH );
-
-  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
-#endif
-  record_log_entry_index = 0;
+  unified_log.copyDataFrom(record_patched_log);
+  unified_log.resetIndex();
 }
 
 
-static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
+static void nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   unsigned long int start_routine, unsigned long int attr,
   unsigned long int arg) {
   /* Finds the next pthread_create return event with the same thread,
      start_routine, attr, and arg as given.
      Returns the offset into the log file that the wakeup was found. */
-  ssize_t old_index = record_log_index;
-  off_t pos = 0;
+  size_t old_index = unified_log.currentIndex();
+  size_t old_entry_index = unified_log.currentEntryIndex();
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromLog(record_log, record_log_index, &e) == 0) {
+    if (unified_log.getNextEntry(e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -818,21 +564,20 @@ static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
   }
   if (create != NULL)
     *create = e;
-  pos = record_log_index;
-  record_log_index = old_index;
-  return pos;
+  unified_log.setIndex(old_index);
+  unified_log.setEntryIndex(old_entry_index);
 }
 
-static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
+void nextGetline(log_entry_t *getline_entry, char *lineptr,
   unsigned long int stream) {
   /* Finds the next getline return event with the same lineptr,
      n and stream as given.
      Returns the offset into the log file that the wakeup was found. */
-  ssize_t old_index = record_log_index;
-  off_t pos = 0;
+  size_t old_index = unified_log.currentIndex();
+  size_t old_entry_index = unified_log.currentEntryIndex();
   log_entry_t e = EMPTY_LOG_ENTRY;
   while (1) {
-    if (readEntryFromLog(record_log, record_log_index, &e) == 0) {
+    if (unified_log.getNextEntry(e) == 0) {
       e = EMPTY_LOG_ENTRY;
       break;
     }
@@ -845,9 +590,8 @@ static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
   if (getline_entry != NULL)
     *getline_entry = e;
 
-  pos = record_log_index;
-  record_log_index = old_index;
-  return pos;
+  unified_log.setIndex(old_index);
+  unified_log.setEntryIndex(old_entry_index);
 }
 
 static void annotateLog()
@@ -863,12 +607,12 @@ static void annotateLog()
   log_entry_t entry = EMPTY_LOG_ENTRY;
   log_entry_t create_return = EMPTY_LOG_ENTRY;
   log_entry_t getline_return = EMPTY_LOG_ENTRY;
-  ssize_t write_ret = 0;
+  size_t write_ret = 0;
 
-  JASSERT(record_log_index == 1);
-
-  ssize_t prev_record_log_index = record_log_index;
-  while (readEntryFromLog(record_log, record_log_index, &entry) != 0) {
+  unified_log.resetIndex();
+  size_t prev_index = unified_log.currentIndex();
+  size_t prev_entry_index = unified_log.currentEntryIndex();
+  while (unified_log.getNextEntry(entry) != 0) {
     if (GET_COMMON(entry,event) == pthread_create_event) {
       nextPthreadCreate(&create_return,
                         GET_FIELD(entry, pthread_create, thread),
@@ -880,8 +624,9 @@ static void annotateLog()
       entry.event_data.log_event_pthread_create.stack_addr =
         create_return.event_data.log_event_pthread_create.stack_addr;
 
-      record_log_index = prev_record_log_index;
-      write_ret = writeEntryToLog(record_log, record_log_index, entry);
+      unified_log.setIndex(prev_index);
+      unified_log.setEntryIndex(prev_entry_index);
+      write_ret = unified_log.replaceEntry(entry);
 
     } else if (GET_COMMON(entry,event) == getline_event) {
       nextGetline(&getline_return,
@@ -890,13 +635,14 @@ static void annotateLog()
       SET_FIELD2(entry, getline, is_realloc,
         GET_FIELD(getline_return, getline, is_realloc));
 
-      record_log_index = prev_record_log_index;
-      write_ret = writeEntryToLog(record_log, record_log_index, entry);
-
+      unified_log.setIndex(prev_index);
+      unified_log.setEntryIndex(prev_entry_index);
+      write_ret = unified_log.replaceEntry(entry);
     }
-    prev_record_log_index = record_log_index;
+    prev_index = unified_log.currentIndex();
+    prev_entry_index = unified_log.currentEntryIndex();
   }
-  resetRecordLogIndex();
+  unified_log.resetIndex();
 
   JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
     ( RECORD_LOG_PATH );
@@ -913,6 +659,9 @@ void initializeLog()
       "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
   snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
       "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
+  snprintf(GLOBAL_LOG_LIST_PATH, RECORD_LOG_PATH_MAX,
+      "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
+
   // Create the file:
   int fd = open(RECORD_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND, 
       S_IRUSR | S_IWUSR);
@@ -935,20 +684,21 @@ void primeLog()
   // into memory, so we skip this.
   if (_real_pthread_mutex_trylock(&log_index_mutex) != EBUSY) {
     JTRACE ( "Priming log." );
-#if 1
-    resetRecordLogIndex();
-#else
-    int num_read = 0, total_read = 0;
-    if (lseek(record_log_fd, 0, SEEK_SET) == -1) {
-      perror("lseek");
+
+    if (!unified_log.isMerged()) {
+      JTRACE ( "Merging Logs." );
+      SYNC_TIMER_START(merge_logs);
+      merge_all_logs();
+      unified_log.markAsMerged();
+      SYNC_TIMER_STOP(merge_logs);
     }
-#endif
+
     /******************* LOG PATCHING STUFF *******************/
     // TODO: A nice way to patch the log would be to do it in place, i.e. use a
     // index table which points to the offset of a particular entry inside the
     // log. Now to patch the log is just to shuffle the pointers. Hence
     // everything is in place and quick.
-    if (!isRecordLogPatched()) {
+    if (!unified_log.isPatched() && unified_log.numEntries() != 0) {
       SYNC_TIMER_START(annotate_log);
       annotateLog();
       SYNC_TIMER_STOP(annotate_log);
@@ -963,12 +713,68 @@ void primeLog()
     //fixSpontaneousWakeups();
     /******************* END LOG PATCHING STUFF *******************/
 
-    atomic_set(&record_log_loaded, 1);
+    // FIXME: Check if we have this functionality in the new code.
+    //atomic_set(&record_log_loaded, 1);
     _real_pthread_mutex_unlock(&log_index_mutex);
 
     // If the log size is zero, there's nothing to load.
     getNextLogEntry();
   }
+}
+
+
+void addNextLogEntry(log_entry_t e)
+{
+  if (SYNC_IS_REPLAY) {
+    JASSERT (false).Text("Asked to log an event while in replay. "
+        "This is probably not intended.");
+  }
+
+  if (__builtin_expect(my_clone_id == -1, 0)) {
+    JASSERT(false);
+    my_log->init(MAX_LOG_LENGTH);
+  }
+  if (__builtin_expect(my_log->isLoaded() == false, 0)) {
+    my_log->init(MAX_LOG_LENGTH);
+  }
+
+  long long log_id = get_next_log_id();
+
+  SET_COMMON2(e, log_id, log_id);
+  my_log->writeEntry(e);
+}
+
+void getNextLogEntry()
+{
+  _real_pthread_mutex_lock(&log_index_mutex);
+
+  // If log is empty, don't do anything
+  if (unified_log.isEndOfLog()) {
+    _real_pthread_mutex_unlock(&log_index_mutex);
+    return;
+  }
+
+  if (unified_log.getNextEntry(currentLogEntry) == 0) {
+    JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
+      .Text ( "Ran out of log entries." );
+  }
+
+  _real_pthread_mutex_unlock(&log_index_mutex);
+}
+
+void logReadData(void *buf, int count)
+{
+  if (SYNC_IS_REPLAY) {
+    JASSERT (false).Text("Asked to log read data while in replay. "
+        "This is probably not intended.");
+  }
+  if (read_data_fd == -1) {
+    read_data_fd = open(RECORD_READ_DATA_LOG_PATH,
+        O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+  }
+  int written = write(read_data_fd, buf, count);
+  JASSERT ( written == count );
+  read_log_pos += written;
 }
 
 ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
@@ -1859,151 +1665,6 @@ log_entry_t create_write_entry(int clone_id, int event, int writefd,
   SET_FIELD(e, write, buf_addr);
   SET_FIELD(e, write, count);
   return e;
-}
-
-void addNextLogEntry(log_entry_t e)
-{
-  if (SYNC_IS_REPLAY) {
-    JASSERT (false).Text("Asked to log an event while in replay. "
-        "This is probably not intended.");
-  }
-  _real_pthread_mutex_lock(&log_index_mutex);
-  SET_COMMON2(e, log_id, current_log_id++);
-  int event_size;
-  GET_EVENT_SIZE(GET_COMMON(e,event), event_size);
-
-  JASSERT ((record_log_index + log_event_common_size + event_size) < MAX_LOG_LENGTH)
-    .Text ("Log size too large");
-
-  // Copy common data to log[] buffer:
-#if NO_LOG_ENTRY_TO_BUFFER
-  memcpy(&record_log[record_log_index], &e.header, log_event_common_size);
-#else
-  log_entry_to_buffer(&e, &record_log[record_log_index]);
-#endif
-
-  record_log_index += log_event_common_size;
-  // Copy event-specific data to log[] buffer:
-  COPY_TO_MEMORY_LOG(e, &record_log[record_log_index]);
-  record_log_index += event_size;
-  // Keep this up to date for debugging purposes:
-  record_log_entry_index++;
-  _real_pthread_mutex_unlock(&log_index_mutex);  
-}
-
-void getNextLogEntry()
-{
-  _real_pthread_mutex_lock(&log_index_mutex);
-
-  // If log is empty, don't do anything
-  if (isEndOfRecordLogIndex()) {
-    _real_pthread_mutex_unlock(&log_index_mutex);
-    return;
-  }
-  size_t event_size = 0;
-
-  // Make sure to cast the event type byte to the correct type:
-  GET_EVENT_SIZE((unsigned char)record_log[record_log_index], event_size);
-  size_t newEntrySize = log_event_common_size + event_size;
-
-  JASSERT ((record_log_index + newEntrySize) <= MAX_LOG_LENGTH) (record_log_index)
-    (newEntrySize) (event_size)
-    .Text ( "Ran out of log entries." );
-
-  // Copy common data to currentLogEntry:
-#if NO_LOG_ENTRY_TO_BUFFER
-  memcpy(&currentLogEntry.header, &record_log[record_log_index], 
-         log_event_common_size);
-#else
-  buffer_to_log_entry(&record_log[record_log_index], &currentLogEntry);
-#endif
-  record_log_index += log_event_common_size;
-  // Copy event-specific data to currentLogEntry:
-  COPY_FROM_MEMORY_SOURCE(record_log[record_log_index], currentLogEntry);
-  record_log_index += event_size;
-
-  record_log_entry_index++;
-
-  _real_pthread_mutex_unlock(&log_index_mutex);
-}
-
-void logReadData(void *buf, int count)
-{
-  if (SYNC_IS_REPLAY) {
-    JASSERT (false).Text("Asked to log read data while in replay. "
-        "This is probably not intended.");
-  }
-  if (read_data_fd == -1) {
-    read_data_fd = open(RECORD_READ_DATA_LOG_PATH,
-        O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
-  }
-  int written = write(read_data_fd, buf, count);
-  JASSERT ( written == count );
-  read_log_pos += written;
-}
-
-/* Close log file and unmap it from memory. */
-void sync_and_close_record_log()
-{
-  if (record_log == NULL) return;
-
-  JASSERT ( msync(record_log, record_log_index + 1, MS_SYNC) != -1 );
-
-  _real_munmap(record_log, MAX_LOG_LENGTH);
-  record_log = NULL;
-}
-
-/* Open log file and map it into memory. Flags are passed directly to
-   open(). */
-char* map_file_to_memory(const char* path, ssize_t size, int flags, int mode)
-{
-  int mmap_flags = 0;
-  if (flags == O_RDONLY) {
-    mmap_flags = PROT_READ;
-  } else if (flags & O_WRONLY) {
-    // The man page for mmap tells us this.
-    JASSERT ( false ) ( "You must specify O_RDWR to use writable with "
-                        " MAP_SHARED." );
-  } else if (flags & O_RDWR) {
-    mmap_flags = PROT_READ | PROT_WRITE;
-  } else {
-    JNOTE("FAILEDn\n\n\n\n\n");
-    sleep(20);
-    JASSERT ( false ) ( "Unhandled flags." );
-  }
-
-  int fd = _real_open(path, flags, mode);
-  JASSERT ( fd != -1 ) (JASSERT_ERRNO) .Text("open() failed");
-
-  JASSERT(_real_lseek(fd, size, SEEK_SET) == size);
-
-  Util::writeAll(fd, "", 1);
-
-
-  char *addr = (char *) mmap(NULL, size, mmap_flags, MAP_SHARED, fd, 0);
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO) .Text("mmap() failed");
-
-  _real_close(fd);
-
-  return addr;
-}
-
-/* Open log file and map it into memory. Flags are passed directly to
-   open(). */
-void map_record_log_to_write()
-{
-  JASSERT(record_log == NULL);
-  record_log = map_file_to_memory(RECORD_LOG_PATH, MAX_LOG_LENGTH, 
-                                  O_RDWR, S_IRUSR | S_IWUSR);
-  record_log_index = LOG_IS_PATCHED_SIZE;
-}
-
-void map_record_log_to_read()
-{
-  JASSERT(record_log == NULL);
-  record_log = map_file_to_memory(RECORD_LOG_PATH, MAX_LOG_LENGTH, 
-                                  O_RDWR, 0);
-  record_log_index = LOG_IS_PATCHED_SIZE;
 }
 
 static TURN_CHECK_P(base_turn_check)

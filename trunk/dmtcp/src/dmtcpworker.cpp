@@ -52,6 +52,7 @@
 #include <netdb.h>
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
+#include "log.h"
 #endif
 
 #ifdef RECORD_REPLAY
@@ -344,8 +345,11 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   JTRACE ( "resetting global clone counter." );
   global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
   my_clone_id = global_clone_counter;
-  clone_id_to_tid_table[my_clone_id] = pthread_self();
   global_clone_counter++;
+
+  my_log = new dmtcp::SynchronizationLog();
+  clone_id_to_tid_table[my_clone_id] = pthread_self();
+  clone_id_to_log_table[my_clone_id] = my_log;
 
   /* Other initialization for sync log/replay specific to this process. */
   initializeLog();
@@ -395,10 +399,6 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   destroyDmtcpWorker = newDestroyDmtcpWorker;
 
   unInitializedThreadCount = 0;
-#ifdef RECORD_REPLAY
-  JTRACE ( "writing synchronization logs to disk." );
-  //sync_and_close_record_log();
-#endif
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
@@ -628,10 +628,6 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
     if ( msg.type == DMT_KILL_PEER ) {
       JTRACE ( "Received KILL Message from coordinator, exiting" );
-#ifdef RECORD_REPLAY
-      JTRACE ( "TYLER NEW MESSAGE" );
-      sync_and_close_record_log();
-#endif
       _exit ( 0 );
     }
 

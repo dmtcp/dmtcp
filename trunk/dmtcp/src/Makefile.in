@@ -93,7 +93,8 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) dmtcpcoordinatorapi.$(OBJEXT) \
 	virtualpidtable.$(OBJEXT) sysvipc.$(OBJEXT) util.$(OBJEXT) \
-	jalloc.$(OBJEXT) synchronizationlogging.$(OBJEXT)
+	jalloc.$(OBJEXT) synchronizationlogging.$(OBJEXT) \
+	log.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
@@ -134,7 +135,8 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	ptracewrapper.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
-	synchronizationlogging.o libdmtcpinternal.a libsyscallsreal.a
+	synchronizationlogging.o log.o libdmtcpinternal.a \
+	libsyscallsreal.a
 dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(dmtcphijack_so_LDFLAGS) $(LDFLAGS) -o $@
 am_libdmtcpaware_so_1_0_0_OBJECTS = dmtcpaware.$(OBJEXT)
@@ -299,7 +301,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
-	../jalib/jalloc.cpp synchronizationlogging.cpp
+	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
@@ -318,7 +320,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp
 
 # This should be a superset of all optional files.
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp
+EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
@@ -329,7 +331,7 @@ dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD = pthreadwrappers.o synchronizationlogging.o \
+dmtcphijack_so_LDADD = pthreadwrappers.o synchronizationlogging.o log.o\
                           libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
 
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
@@ -371,9 +373,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign src/Makefile
+	  $(AUTOMAKE) --gnu src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -556,6 +558,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jsocket.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jtimer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kernelbufferdrainer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mallocwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
@@ -929,7 +932,7 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLIBRARIES \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrapper.h
+	synchronizationlogging.h ptracewrapper.h log.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -39,6 +39,7 @@
 #include "dmtcpworker.h"
 #include "protectedfds.h"
 #include "synchronizationlogging.h"
+#include "log.h"
 #include "syscallwrappers.h"
 #include "virtualpidtable.h"
 
@@ -186,7 +187,7 @@ static void setupThreadStack(pthread_attr_t *attr_out,
   void *s = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
   if (s == MAP_FAILED)  {
     JTRACE ( "Failed to map thread stack." ) ( mmap_size )
-      ( strerror(errno) ) ( record_log_entry_index );
+      ( strerror(errno) ) (unified_log.currentEntryIndex());
     JASSERT ( false );
   }
   pthread_attr_setstack(attr_out, s, mmap_size);
@@ -655,6 +656,14 @@ static void reapThread()
   join_retval.value_ptr = value_ptr;
   pthread_join_retvals[thread_to_reap] = join_retval;
   teardownThreadStack(stack_addr, stack_size);
+  {
+    long long int clone_id = tid_to_clone_id_table[thread_to_reap];
+    dmtcp::SynchronizationLog *log = clone_id_to_log_table[clone_id];
+    JASSERT(log != NULL);
+    log->destroy();
+    clone_id_to_log_table.erase(clone_id);
+    tid_to_clone_id_table.erase(thread_to_reap);
+  }
   delete_thread_fnc ( thread_to_reap );
   RELEASE_THREAD_CREATE_DESTROY_LOCK(); // End of thread destruction.
 }
@@ -783,14 +792,16 @@ extern "C" int pthread_detach(pthread_t thread)
 
 static void *signal_thread(void *arg)
 {
-  int signal_sent_on = 0;
+  size_t signal_sent_on = 0;
   while (1) {
     // Lock this so it doesn't change from underneath:
     _real_pthread_mutex_lock(&log_index_mutex);
     if (__builtin_expect(GET_COMMON(currentLogEntry,event) == signal_handler_event, 0)) {
-      if (signal_sent_on != record_log_entry_index) {
+      ////if (signal_sent_on != record_log_entry_index) {
+      //FIXME: Ask Tyler to see if these changes are correct. --Kapil
+      if (signal_sent_on != unified_log.currentEntryIndex()) {
         // Only send one signal per sig_handler entry.
-        signal_sent_on = record_log_entry_index;
+        signal_sent_on = unified_log.currentEntryIndex();
         _real_pthread_kill(clone_id_to_tid_table[GET_COMMON(currentLogEntry,clone_id)],
             GET_FIELD(currentLogEntry, signal_handler, sig));
       }

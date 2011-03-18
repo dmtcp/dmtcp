@@ -454,3 +454,23 @@ void Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
 }
+
+/* Begin miscellaneous/helper functions. */
+// Reads from fd until count bytes are read, or newline encountered.
+// Returns NULL at EOF.
+int Util::readLine(int fd, char *buf, int count)
+{
+  int i = 0;
+  char c;
+  while (1) {
+    if (_real_read(fd, &c, 1) == 0) {
+      buf[i] = '\0';
+      return NULL;
+    }
+    buf[i++] = c;
+    if (c == '\n') break;
+  }
+  buf[i++] = '\0';
+  return i;
+}
+

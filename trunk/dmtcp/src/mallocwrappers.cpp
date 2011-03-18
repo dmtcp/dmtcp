@@ -50,6 +50,7 @@
 #include  "../jalib/jconvert.h"
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
+#include "log.h"
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <malloc.h>
@@ -329,7 +330,7 @@ extern "C" void *malloc(size_t size)
         GET_FIELD(currentLogEntry, malloc, return_ptr)) {
       JTRACE ( "malloc wrong address" ) ( retval ) 
         ( (void*) GET_FIELD(currentLogEntry, malloc, return_ptr) )
-        ( record_log_entry_index );
+        (unified_log.currentEntryIndex());
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
@@ -394,7 +395,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
         GET_FIELD(currentLogEntry, libc_memalign, return_ptr)) {
       JTRACE ( "tyler" ) ( retval ) 
         ( (void*) GET_FIELD(currentLogEntry, libc_memalign, return_ptr) )
-        ( record_log_entry_index );
+        (unified_log.currentEntryIndex());
       kill(getpid(), SIGSEGV);
     }
     _real_pthread_mutex_unlock(&allocation_lock);
