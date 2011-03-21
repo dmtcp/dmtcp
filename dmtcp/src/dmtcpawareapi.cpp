@@ -216,8 +216,8 @@ void dmtcp::userHookTrampoline_preCkpt() {
 
   // Remove the threads which aren't alive anymore.
   {
-    dmtcp::map<long long int, pthread_t>::iterator it;
-    dmtcp::vector<long long int> stale_clone_ids;
+    dmtcp::map<clone_id_t, pthread_t>::iterator it;
+    dmtcp::vector<clone_id_t> stale_clone_ids;
     for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
       if (_real_pthread_kill(it->second, 0) != 0) {
         stale_clone_ids.push_back(it->first);
@@ -243,7 +243,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     // FIXME: This code should be moved to sync* or log* files.
     unified_log.init(10 * MAX_LOG_LENGTH, true, true);
 
-    dmtcp::map<long long int, pthread_t>::iterator it;
+    dmtcp::map<clone_id_t, pthread_t>::iterator it;
     for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
 
       dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
