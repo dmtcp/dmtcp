@@ -59,16 +59,16 @@
 
 /* Prototypes */
 char* map_file_to_memory(const char* path, size_t size, int flags, int mode);
-//static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
+//static off_t nextSelect (log_entry_t *select, clone_id_t clone_id, int nfds, 
     //unsigned long int exceptfds, unsigned long int timeout);
 /* End prototypes */
 
 // TODO: Do we need LIB_PRIVATE again here if we had already specified it in
 // the header file?
 /* Library private: */
-LIB_PRIVATE dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
-LIB_PRIVATE dmtcp::map<pthread_t, long long int> tid_to_clone_id_table;
-LIB_PRIVATE dmtcp::map<long long int, dmtcp::SynchronizationLog*> clone_id_to_log_table;
+LIB_PRIVATE dmtcp::map<clone_id_t, pthread_t> clone_id_to_tid_table;
+LIB_PRIVATE dmtcp::map<pthread_t, clone_id_t> tid_to_clone_id_table;
+LIB_PRIVATE dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*> clone_id_to_log_table;
 LIB_PRIVATE void* unified_log_addr = NULL;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
@@ -95,13 +95,13 @@ LIB_PRIVATE pthread_t       thread_to_reap;
 LIB_PRIVATE dmtcp::SynchronizationLog unified_log;
 
 /* Thread locals: */
-LIB_PRIVATE __thread long long int my_clone_id = -1;
+LIB_PRIVATE __thread clone_id_t my_clone_id = -1;
 LIB_PRIVATE __thread int in_mmap_wrapper = 0;
 LIB_PRIVATE __thread dmtcp::SynchronizationLog *my_log;
 
 
 /* Volatiles: */
-LIB_PRIVATE volatile long long int global_clone_counter = 0;
+LIB_PRIVATE volatile clone_id_t global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
 LIB_PRIVATE int global_log_list_fd = -1;
@@ -112,8 +112,7 @@ static unsigned long int code_lower = 0, data_break = 0,
 static pthread_mutex_t   atomic_set_mutex     = PTHREAD_MUTEX_INITIALIZER;
 
 /* File private volatiles: */
-static volatile long long int next_log_id = 0;
-
+static volatile log_id_t next_log_id = 0;
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
@@ -146,12 +145,12 @@ void atomic_set(volatile int *ptr, int val)
   _real_pthread_mutex_unlock(&atomic_set_mutex);
 }
 
-long long int get_next_clone_id()
+clone_id_t get_next_clone_id()
 {
   return __sync_fetch_and_add (&global_clone_counter, 1);
 }
 
-long long int get_next_log_id()
+log_id_t get_next_log_id()
 {
   return __sync_fetch_and_add (&next_log_id, 1);
 }
@@ -170,7 +169,7 @@ int shouldSynchronize(void *return_addr)
   return 1;
 }
 
-void register_in_global_log_list(long long int clone_id)
+void register_in_global_log_list(clone_id_t clone_id)
 {
   _real_pthread_mutex_lock(&global_log_list_fd_mutex);
   if (global_log_list_fd == -1) {
@@ -188,13 +187,13 @@ void register_in_global_log_list(long long int clone_id)
 
 void merge_all_logs()
 {
-  dmtcp::vector<long long int> clone_ids;
+  dmtcp::vector<clone_id_t> clone_ids;
   dmtcp::vector<dmtcp::SynchronizationLog> sync_logs;
   dmtcp::vector<log_entry_t> curr_entries;
   log_entry_t entry;
 
   int fd = _real_open(GLOBAL_LOG_LIST_PATH, O_RDONLY, 0);
-  long long int id;
+  clone_id_t id;
   size_t num_entries = 0;
   while (Util::readAll(fd, &id, sizeof(id)) != 0) {
     dmtcp::SynchronizationLog slog;
@@ -738,7 +737,7 @@ void addNextLogEntry(log_entry_t e)
     my_log->init(MAX_LOG_LENGTH);
   }
 
-  long long log_id = get_next_log_id();
+  log_id_t log_id = get_next_log_id();
 
   SET_COMMON2(e, log_id, log_id);
   my_log->writeEntry(e);
@@ -796,13 +795,13 @@ ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
   return retval;
 }
 
-static void setupCommonFields(log_entry_t *e, int clone_id, int event)
+static void setupCommonFields(log_entry_t *e, clone_id_t clone_id, int event)
 {
   SET_COMMON_PTR(e, clone_id);
   SET_COMMON_PTR(e, event);
 }
 
-log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
+log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
     unsigned long int sockaddr, unsigned long int addrlen)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -813,7 +812,7 @@ log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
   return e;
 }
 
-log_entry_t create_access_entry(int clone_id, int event,
+log_entry_t create_access_entry(clone_id_t clone_id, int event,
    const char *pathname, int mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -823,7 +822,7 @@ log_entry_t create_access_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_bind_entry(int clone_id, int event,
+log_entry_t create_bind_entry(clone_id_t clone_id, int event,
     int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -834,7 +833,7 @@ log_entry_t create_bind_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
+log_entry_t create_calloc_entry(clone_id_t clone_id, int event, size_t nmemb,
     size_t size)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -844,7 +843,7 @@ log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
   return e;
 }
 
-log_entry_t create_close_entry(int clone_id, int event, int fd)
+log_entry_t create_close_entry(clone_id_t clone_id, int event, int fd)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -852,7 +851,7 @@ log_entry_t create_close_entry(int clone_id, int event, int fd)
   return e;
 }
 
-log_entry_t create_closedir_entry(int clone_id, int event, DIR *dirp)
+log_entry_t create_closedir_entry(clone_id_t clone_id, int event, DIR *dirp)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -860,7 +859,7 @@ log_entry_t create_closedir_entry(int clone_id, int event, DIR *dirp)
   return e;
 }
 
-log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
+log_entry_t create_connect_entry(clone_id_t clone_id, int event, int sockfd,
     const struct sockaddr *serv_addr, socklen_t addrlen)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -871,7 +870,7 @@ log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
   return e;
 }
 
-log_entry_t create_dup_entry(int clone_id, int event, int oldfd)
+log_entry_t create_dup_entry(clone_id_t clone_id, int event, int oldfd)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -886,7 +885,7 @@ log_entry_t create_exec_barrier_entry()
   return e;
 }
 
-log_entry_t create_fclose_entry(int clone_id, int event, FILE *fp)
+log_entry_t create_fclose_entry(clone_id_t clone_id, int event, FILE *fp)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -894,7 +893,7 @@ log_entry_t create_fclose_entry(int clone_id, int event, FILE *fp)
   return e;
 }
 
-log_entry_t create_fcntl_entry(int clone_id, int event, int fd, int cmd,
+log_entry_t create_fcntl_entry(clone_id_t clone_id, int event, int fd, int cmd,
     long arg_3_l, unsigned long int arg_3_f)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -906,7 +905,7 @@ log_entry_t create_fcntl_entry(int clone_id, int event, int fd, int cmd,
   return e;
 }
 
-log_entry_t create_fdatasync_entry(int clone_id, int event, int fd)
+log_entry_t create_fdatasync_entry(clone_id_t clone_id, int event, int fd)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -914,7 +913,7 @@ log_entry_t create_fdatasync_entry(int clone_id, int event, int fd)
   return e;
 }
 
-log_entry_t create_fdopen_entry(int clone_id, int event, int fd,
+log_entry_t create_fdopen_entry(clone_id_t clone_id, int event, int fd,
     const char *mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -924,7 +923,7 @@ log_entry_t create_fdopen_entry(int clone_id, int event, int fd,
   return e;
 }
 
-log_entry_t create_fgets_entry(int clone_id, int event, char *s, int size,
+log_entry_t create_fgets_entry(clone_id_t clone_id, int event, char *s, int size,
     FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -935,7 +934,7 @@ log_entry_t create_fgets_entry(int clone_id, int event, char *s, int size,
   return e;
 }
 
-log_entry_t create_fflush_entry(int clone_id, int event, FILE *stream)
+log_entry_t create_fflush_entry(clone_id_t clone_id, int event, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -943,7 +942,7 @@ log_entry_t create_fflush_entry(int clone_id, int event, FILE *stream)
   return e;
 }
 
-log_entry_t create_fopen_entry(int clone_id, int event,
+log_entry_t create_fopen_entry(clone_id_t clone_id, int event,
     const char *name, const char *mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -953,7 +952,7 @@ log_entry_t create_fopen_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_fopen64_entry(int clone_id, int event,
+log_entry_t create_fopen64_entry(clone_id_t clone_id, int event,
     const char *name, const char *mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -963,7 +962,7 @@ log_entry_t create_fopen64_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_fprintf_entry(int clone_id, int event,
+log_entry_t create_fprintf_entry(clone_id_t clone_id, int event,
     FILE *stream, const char *format)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -973,7 +972,7 @@ log_entry_t create_fprintf_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_fscanf_entry(int clone_id, int event,
+log_entry_t create_fscanf_entry(clone_id_t clone_id, int event,
     FILE *stream, const char *format)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -983,7 +982,7 @@ log_entry_t create_fscanf_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_fputs_entry(int clone_id, int event,
+log_entry_t create_fputs_entry(clone_id_t clone_id, int event,
     const char *s, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -993,7 +992,7 @@ log_entry_t create_fputs_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_free_entry(int clone_id, int event, unsigned long int ptr)
+log_entry_t create_free_entry(clone_id_t clone_id, int event, unsigned long int ptr)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1001,7 +1000,7 @@ log_entry_t create_free_entry(int clone_id, int event, unsigned long int ptr)
   return e;
 }
 
-log_entry_t create_ftell_entry(int clone_id, int event, FILE *stream)
+log_entry_t create_ftell_entry(clone_id_t clone_id, int event, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1009,7 +1008,7 @@ log_entry_t create_ftell_entry(int clone_id, int event, FILE *stream)
   return e;
 }
 
-log_entry_t create_fwrite_entry(int clone_id, int event, const void *ptr,
+log_entry_t create_fwrite_entry(clone_id_t clone_id, int event, const void *ptr,
     size_t size, size_t nmemb, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1021,7 +1020,7 @@ log_entry_t create_fwrite_entry(int clone_id, int event, const void *ptr,
   return e;
 }
 
-log_entry_t create_fsync_entry(int clone_id, int event, int fd)
+log_entry_t create_fsync_entry(clone_id_t clone_id, int event, int fd)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1029,7 +1028,7 @@ log_entry_t create_fsync_entry(int clone_id, int event, int fd)
   return e;
 }
 
-log_entry_t create_fxstat_entry(int clone_id, int event, int vers, int fd,
+log_entry_t create_fxstat_entry(clone_id_t clone_id, int event, int vers, int fd,
      struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1040,7 +1039,7 @@ log_entry_t create_fxstat_entry(int clone_id, int event, int vers, int fd,
   return e;
 }
 
-log_entry_t create_fxstat64_entry(int clone_id, int event, int vers, int fd,
+log_entry_t create_fxstat64_entry(clone_id_t clone_id, int event, int vers, int fd,
      struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1051,7 +1050,7 @@ log_entry_t create_fxstat64_entry(int clone_id, int event, int vers, int fd,
   return e;
 }
 
-log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
+log_entry_t create_getc_entry(clone_id_t clone_id, int event, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1059,7 +1058,7 @@ log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
   return e;
 }
 
-log_entry_t create_gettimeofday_entry(int clone_id, int event,
+log_entry_t create_gettimeofday_entry(clone_id_t clone_id, int event,
     struct timeval *tv, struct timezone *tz)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1069,7 +1068,7 @@ log_entry_t create_gettimeofday_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream)
+log_entry_t create_fgetc_entry(clone_id_t clone_id, int event, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1077,7 +1076,7 @@ log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream)
   return e;
 }
 
-log_entry_t create_ungetc_entry(int clone_id, int event, int c, FILE *stream)
+log_entry_t create_ungetc_entry(clone_id_t clone_id, int event, int c, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1086,7 +1085,7 @@ log_entry_t create_ungetc_entry(int clone_id, int event, int c, FILE *stream)
   return e;
 }
 
-log_entry_t create_getline_entry(int clone_id, int event, char **lineptr, size_t *n,
+log_entry_t create_getline_entry(clone_id_t clone_id, int event, char **lineptr, size_t *n,
     FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1097,7 +1096,7 @@ log_entry_t create_getline_entry(int clone_id, int event, char **lineptr, size_t
   return e;
 }
 
-log_entry_t create_getpeername_entry(int clone_id, int event, int sockfd,
+log_entry_t create_getpeername_entry(clone_id_t clone_id, int event, int sockfd,
     struct sockaddr sockaddr, unsigned long int addrlen)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1108,7 +1107,7 @@ log_entry_t create_getpeername_entry(int clone_id, int event, int sockfd,
   return e;
 }
 
-log_entry_t create_getsockname_entry(int clone_id, int event, int sockfd,
+log_entry_t create_getsockname_entry(clone_id_t clone_id, int event, int sockfd,
     unsigned long int sockaddr, unsigned long int addrlen)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1119,7 +1118,7 @@ log_entry_t create_getsockname_entry(int clone_id, int event, int sockfd,
   return e;
 }
 
-log_entry_t create_libc_memalign_entry(int clone_id, int event, size_t boundary,
+log_entry_t create_libc_memalign_entry(clone_id_t clone_id, int event, size_t boundary,
     size_t size)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1129,7 +1128,7 @@ log_entry_t create_libc_memalign_entry(int clone_id, int event, size_t boundary,
   return e;
 }
 
-log_entry_t create_lseek_entry(int clone_id, int event, int fd, off_t offset,
+log_entry_t create_lseek_entry(clone_id_t clone_id, int event, int fd, off_t offset,
      int whence)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1140,7 +1139,7 @@ log_entry_t create_lseek_entry(int clone_id, int event, int fd, off_t offset,
   return e;
 }
 
-log_entry_t create_link_entry(int clone_id, int event, const char *oldpath,
+log_entry_t create_link_entry(clone_id_t clone_id, int event, const char *oldpath,
     const char *newpath)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1150,7 +1149,7 @@ log_entry_t create_link_entry(int clone_id, int event, const char *oldpath,
   return e;
 }
 
-log_entry_t create_listen_entry(int clone_id, int event, int sockfd, int backlog)
+log_entry_t create_listen_entry(clone_id_t clone_id, int event, int sockfd, int backlog)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1159,7 +1158,7 @@ log_entry_t create_listen_entry(int clone_id, int event, int sockfd, int backlog
   return e;
 }
 
-log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
+log_entry_t create_lxstat_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1170,7 +1169,7 @@ log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
   return e;
 }
 
-log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
+log_entry_t create_lxstat64_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1181,7 +1180,7 @@ log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
   return e;
 }
 
-log_entry_t create_malloc_entry(int clone_id, int event, size_t size)
+log_entry_t create_malloc_entry(clone_id_t clone_id, int event, size_t size)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1189,7 +1188,7 @@ log_entry_t create_malloc_entry(int clone_id, int event, size_t size)
   return e;
 }
 
-log_entry_t create_mkdir_entry(int clone_id, int event, const char *pathname,
+log_entry_t create_mkdir_entry(clone_id_t clone_id, int event, const char *pathname,
     mode_t mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1199,7 +1198,7 @@ log_entry_t create_mkdir_entry(int clone_id, int event, const char *pathname,
   return e;
 }
 
-log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp)
+log_entry_t create_mkstemp_entry(clone_id_t clone_id, int event, char *temp)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1207,7 +1206,7 @@ log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp)
   return e;
 }
 
-log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
+log_entry_t create_mmap_entry(clone_id_t clone_id, int event, void *addr,
     size_t length, int prot, int flags, int fd, off_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1221,7 +1220,7 @@ log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
   return e;
 }
 
-log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
+log_entry_t create_mmap64_entry(clone_id_t clone_id, int event, void *addr,
     size_t length, int prot, int flags, int fd, off64_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1235,7 +1234,7 @@ log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
   return e;
 }
 
-log_entry_t create_mremap_entry(int clone_id, int event, void *old_address,
+log_entry_t create_mremap_entry(clone_id_t clone_id, int event, void *old_address,
     size_t old_size, size_t new_size, int flags)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1247,7 +1246,7 @@ log_entry_t create_mremap_entry(int clone_id, int event, void *old_address,
   return e;
 }
 
-log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
+log_entry_t create_munmap_entry(clone_id_t clone_id, int event, void *addr,
     size_t length)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1257,7 +1256,7 @@ log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
   return e;
 }
 
-log_entry_t create_open_entry(int clone_id, int event, const char *path,
+log_entry_t create_open_entry(clone_id_t clone_id, int event, const char *path,
    int flags, mode_t open_mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1268,7 +1267,7 @@ log_entry_t create_open_entry(int clone_id, int event, const char *path,
   return e;
 }
 
-log_entry_t create_open64_entry(int clone_id, int event, const char *path,
+log_entry_t create_open64_entry(clone_id_t clone_id, int event, const char *path,
    int flags, mode_t open_mode)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1279,7 +1278,7 @@ log_entry_t create_open64_entry(int clone_id, int event, const char *path,
   return e;
 }
 
-log_entry_t create_opendir_entry(int clone_id, int event, const char *name)
+log_entry_t create_opendir_entry(clone_id_t clone_id, int event, const char *name)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1287,7 +1286,7 @@ log_entry_t create_opendir_entry(int clone_id, int event, const char *name)
   return e;
 }
 
-log_entry_t create_pread_entry(int clone_id, int event, int fd, 
+log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd, 
     unsigned long int buf, size_t count, off_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1299,7 +1298,7 @@ log_entry_t create_pread_entry(int clone_id, int event, int fd,
   return e;
 }
 
-log_entry_t create_putc_entry(int clone_id, int event, int c,
+log_entry_t create_putc_entry(clone_id_t clone_id, int event, int c,
     FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1309,7 +1308,7 @@ log_entry_t create_putc_entry(int clone_id, int event, int c,
   return e;
 }
 
-log_entry_t create_pwrite_entry(int clone_id, int event, int fd, 
+log_entry_t create_pwrite_entry(clone_id_t clone_id, int event, int fd, 
     unsigned long int buf, size_t count, off_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1321,7 +1320,7 @@ log_entry_t create_pwrite_entry(int clone_id, int event, int fd,
   return e;
 }
 
-log_entry_t create_pthread_cond_broadcast_entry(int clone_id, int event,
+log_entry_t create_pthread_cond_broadcast_entry(clone_id_t clone_id, int event,
     unsigned long int cond_var)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1330,7 +1329,7 @@ log_entry_t create_pthread_cond_broadcast_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_cond_signal_entry(int clone_id, int event,
+log_entry_t create_pthread_cond_signal_entry(clone_id_t clone_id, int event,
     unsigned long int cond_var)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1339,7 +1338,7 @@ log_entry_t create_pthread_cond_signal_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_cond_wait_entry(int clone_id, int event,
+log_entry_t create_pthread_cond_wait_entry(clone_id_t clone_id, int event,
     unsigned long int mutex, unsigned long int cond_var)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1349,7 +1348,7 @@ log_entry_t create_pthread_cond_wait_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_cond_timedwait_entry(int clone_id, int event,
+log_entry_t create_pthread_cond_timedwait_entry(clone_id_t clone_id, int event,
     unsigned long int mutex, unsigned long int cond_var,
     unsigned long int abstime)
 {
@@ -1361,7 +1360,7 @@ log_entry_t create_pthread_cond_timedwait_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_rwlock_unlock_entry(int clone_id, int event,
+log_entry_t create_pthread_rwlock_unlock_entry(clone_id_t clone_id, int event,
     unsigned long int rwlock)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1370,7 +1369,7 @@ log_entry_t create_pthread_rwlock_unlock_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_rwlock_rdlock_entry(int clone_id, int event,
+log_entry_t create_pthread_rwlock_rdlock_entry(clone_id_t clone_id, int event,
     unsigned long int rwlock)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1379,7 +1378,7 @@ log_entry_t create_pthread_rwlock_rdlock_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_rwlock_wrlock_entry(int clone_id, int event,
+log_entry_t create_pthread_rwlock_wrlock_entry(clone_id_t clone_id, int event,
     unsigned long int rwlock)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1388,7 +1387,7 @@ log_entry_t create_pthread_rwlock_wrlock_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_create_entry(long long int clone_id, int event,
+log_entry_t create_pthread_create_entry(clone_id_t clone_id, int event,
     unsigned long int thread, unsigned long int attr, 
     unsigned long int start_routine, unsigned long int arg)
 {
@@ -1401,7 +1400,7 @@ log_entry_t create_pthread_create_entry(long long int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_detach_entry(long long int clone_id, int event,
+log_entry_t create_pthread_detach_entry(clone_id_t clone_id, int event,
     unsigned long int thread)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1410,7 +1409,7 @@ log_entry_t create_pthread_detach_entry(long long int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_exit_entry(long long int clone_id, int event,
+log_entry_t create_pthread_exit_entry(clone_id_t clone_id, int event,
     unsigned long int value_ptr)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1419,7 +1418,7 @@ log_entry_t create_pthread_exit_entry(long long int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_join_entry(long long int clone_id, int event,
+log_entry_t create_pthread_join_entry(clone_id_t clone_id, int event,
     unsigned long int thread, unsigned long int value_ptr)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1429,7 +1428,7 @@ log_entry_t create_pthread_join_entry(long long int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_kill_entry(long long int clone_id, int event,
+log_entry_t create_pthread_kill_entry(clone_id_t clone_id, int event,
     unsigned long int thread, int sig)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1439,35 +1438,35 @@ log_entry_t create_pthread_kill_entry(long long int clone_id, int event,
   return e;
 }
 
-log_entry_t create_pthread_mutex_lock_entry(int clone_id, int event, unsigned long int mutex) {
+log_entry_t create_pthread_mutex_lock_entry(clone_id_t clone_id, int event, unsigned long int mutex) {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, pthread_mutex_lock, mutex);
   return e;
 }
 
-log_entry_t create_pthread_mutex_trylock_entry(int clone_id, int event, unsigned long int mutex) {
+log_entry_t create_pthread_mutex_trylock_entry(clone_id_t clone_id, int event, unsigned long int mutex) {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, pthread_mutex_trylock, mutex);
   return e;
 }
 
-log_entry_t create_pthread_mutex_unlock_entry(int clone_id, int event, unsigned long int mutex) {
+log_entry_t create_pthread_mutex_unlock_entry(clone_id_t clone_id, int event, unsigned long int mutex) {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, pthread_mutex_unlock, mutex);
   return e;
 }
 
-log_entry_t create_rand_entry(int clone_id, int event)
+log_entry_t create_rand_entry(clone_id_t clone_id, int event)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   return e;
 }
 
-log_entry_t create_read_entry(int clone_id, int event, int readfd,
+log_entry_t create_read_entry(clone_id_t clone_id, int event, int readfd,
     unsigned long int buf_addr, size_t count)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1478,7 +1477,7 @@ log_entry_t create_read_entry(int clone_id, int event, int readfd,
   return e;
 }
 
-log_entry_t create_readdir_entry(int clone_id, int event, DIR *dirp)
+log_entry_t create_readdir_entry(clone_id_t clone_id, int event, DIR *dirp)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1486,7 +1485,7 @@ log_entry_t create_readdir_entry(int clone_id, int event, DIR *dirp)
   return e;
 }
 
-log_entry_t create_readdir_r_entry(int clone_id, int event, DIR *dirp,
+log_entry_t create_readdir_r_entry(clone_id_t clone_id, int event, DIR *dirp,
     struct dirent *entry, struct dirent **result)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1497,7 +1496,7 @@ log_entry_t create_readdir_r_entry(int clone_id, int event, DIR *dirp,
   return e;
 }
 
-log_entry_t create_readlink_entry(int clone_id, int event,
+log_entry_t create_readlink_entry(clone_id_t clone_id, int event,
     const char *path, char *buf, size_t bufsiz)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1509,7 +1508,7 @@ log_entry_t create_readlink_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_realloc_entry(int clone_id, int event, 
+log_entry_t create_realloc_entry(clone_id_t clone_id, int event, 
     unsigned long int ptr, size_t size)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1519,7 +1518,7 @@ log_entry_t create_realloc_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_rename_entry(int clone_id, int event, const char *oldpath,
+log_entry_t create_rename_entry(clone_id_t clone_id, int event, const char *oldpath,
     const char *newpath)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1529,7 +1528,7 @@ log_entry_t create_rename_entry(int clone_id, int event, const char *oldpath,
   return e;
 }
 
-log_entry_t create_rewind_entry(int clone_id, int event, FILE *stream)
+log_entry_t create_rewind_entry(clone_id_t clone_id, int event, FILE *stream)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1537,7 +1536,7 @@ log_entry_t create_rewind_entry(int clone_id, int event, FILE *stream)
   return e;
 }
 
-log_entry_t create_rmdir_entry(int clone_id, int event, const char *pathname)
+log_entry_t create_rmdir_entry(clone_id_t clone_id, int event, const char *pathname)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1545,7 +1544,7 @@ log_entry_t create_rmdir_entry(int clone_id, int event, const char *pathname)
   return e;
 }
 
-log_entry_t create_select_entry(int clone_id, int event, int nfds,
+log_entry_t create_select_entry(clone_id_t clone_id, int event, int nfds,
     fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     struct timeval *timeout)
 {
@@ -1561,7 +1560,7 @@ log_entry_t create_select_entry(int clone_id, int event, int nfds,
   return e;
 }
 
-log_entry_t create_setsockopt_entry(int clone_id, int event, int sockfd,
+log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event, int sockfd,
     int level, int optname, unsigned long int optval, socklen_t optlen) {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1573,7 +1572,7 @@ log_entry_t create_setsockopt_entry(int clone_id, int event, int sockfd,
   return e;
 }
 
-log_entry_t create_signal_handler_entry(int clone_id, int event, int sig)
+log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event, int sig)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1581,7 +1580,7 @@ log_entry_t create_signal_handler_entry(int clone_id, int event, int sig)
   return e;
 }
 
-log_entry_t create_sigwait_entry(int clone_id, int event, unsigned long int set,
+log_entry_t create_sigwait_entry(clone_id_t clone_id, int event, unsigned long int set,
     unsigned long int sigwait_sig)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1591,7 +1590,7 @@ log_entry_t create_sigwait_entry(int clone_id, int event, unsigned long int set,
   return e;
 }
 
-log_entry_t create_srand_entry(int clone_id, int event, unsigned int seed)
+log_entry_t create_srand_entry(clone_id_t clone_id, int event, unsigned int seed)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1599,7 +1598,7 @@ log_entry_t create_srand_entry(int clone_id, int event, unsigned int seed)
   return e;
 }
 
-log_entry_t create_socket_entry(int clone_id, int event, int domain, int type,
+log_entry_t create_socket_entry(clone_id_t clone_id, int event, int domain, int type,
     int protocol)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1610,7 +1609,7 @@ log_entry_t create_socket_entry(int clone_id, int event, int domain, int type,
   return e;
 }
 
-log_entry_t create_xstat_entry(int clone_id, int event, int vers,
+log_entry_t create_xstat_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1621,7 +1620,7 @@ log_entry_t create_xstat_entry(int clone_id, int event, int vers,
   return e;
 }
 
-log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
+log_entry_t create_xstat64_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat64 *buf)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1632,7 +1631,7 @@ log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
   return e;
 }
 
-log_entry_t create_time_entry(int clone_id, int event, unsigned long int tloc)
+log_entry_t create_time_entry(clone_id_t clone_id, int event, unsigned long int tloc)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
@@ -1640,7 +1639,7 @@ log_entry_t create_time_entry(int clone_id, int event, unsigned long int tloc)
   return e;
 }
 
-log_entry_t create_unlink_entry(int clone_id, int event,
+log_entry_t create_unlink_entry(clone_id_t clone_id, int event,
      const char *pathname)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1649,14 +1648,14 @@ log_entry_t create_unlink_entry(int clone_id, int event,
   return e;
 }
 
-log_entry_t create_user_entry(int clone_id, int event)
+log_entry_t create_user_entry(clone_id_t clone_id, int event)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   return e;
 }
 
-log_entry_t create_write_entry(int clone_id, int event, int writefd,
+log_entry_t create_write_entry(clone_id_t clone_id, int event, int writefd,
     unsigned long int buf_addr, size_t count)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;

@@ -35,6 +35,13 @@
 #include <sys/time.h>
 #include "dmtcpalloc.h"
 
+#ifdef __x86_64__
+typedef long long int clone_id_t;
+typedef unsigned long long int log_id_t;
+#else
+typedef long int clone_id_t;
+typedef unsigned long int log_id_t;
+#endif
 
 namespace dmtcp { class SynchronizationLog; }
 
@@ -1207,9 +1214,9 @@ typedef struct {
   // FIXME:
   //event_code_t event;
   unsigned char event;
-  unsigned long long int log_id;
+  log_id_t log_id;
   int tid;
-  long long int clone_id;
+  clone_id_t clone_id;
   int my_errno;
   int retval;
 } log_entry_header_t;
@@ -1421,7 +1428,7 @@ typedef struct {
   int retval;
   int my_errno;
   void *value_ptr;
-} pthread_join_retval_t;;
+} pthread_join_retval_t;
 
 /* Static constants: */
 // Clone id to indicate anyone may do this event (used for exec):
@@ -1436,9 +1443,9 @@ LIB_PRIVATE extern int global_log_list_fd;
 LIB_PRIVATE extern pthread_mutex_t global_log_list_fd_mutex;
 
 /* Library private: */
-LIB_PRIVATE extern dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
-LIB_PRIVATE extern dmtcp::map<pthread_t, long long int> tid_to_clone_id_table;
-LIB_PRIVATE extern dmtcp::map<long long int, dmtcp::SynchronizationLog*> clone_id_to_log_table;
+LIB_PRIVATE extern dmtcp::map<clone_id_t, pthread_t> clone_id_to_tid_table;
+LIB_PRIVATE extern dmtcp::map<pthread_t, clone_id_t> tid_to_clone_id_table;
+LIB_PRIVATE extern dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*> clone_id_to_log_table;
 LIB_PRIVATE extern void* unified_log_addr;
 LIB_PRIVATE extern dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE extern log_entry_t     currentLogEntry;
@@ -1463,7 +1470,7 @@ LIB_PRIVATE extern pthread_mutex_t wake_target_mutex;
 LIB_PRIVATE extern pthread_t       thread_to_reap;
 
 /* Thread locals: */
-LIB_PRIVATE extern __thread long long int my_clone_id;
+LIB_PRIVATE extern __thread clone_id_t my_clone_id;
 LIB_PRIVATE extern __thread int in_mmap_wrapper;
 LIB_PRIVATE extern __thread dmtcp::SynchronizationLog *my_log;
 
@@ -1472,12 +1479,12 @@ LIB_PRIVATE extern volatile size_t        record_log_entry_index;
 LIB_PRIVATE extern volatile size_t        record_log_index;
 LIB_PRIVATE extern volatile int           record_log_loaded;
 LIB_PRIVATE extern volatile int           threads_to_wake_index;
-LIB_PRIVATE extern volatile long long int global_clone_counter;
+LIB_PRIVATE extern volatile clone_id_t    global_clone_counter;
 LIB_PRIVATE extern volatile off_t         read_log_pos;
 
 /* Functions */
-LIB_PRIVATE void register_in_global_log_list(long long int clone_id);
-LIB_PRIVATE void merge_all_logs();
+LIB_PRIVATE void   register_in_global_log_list(clone_id_t clone_id);
+LIB_PRIVATE void   merge_all_logs();
 LIB_PRIVATE void   addNextLogEntry(log_entry_t);
 LIB_PRIVATE void   atomic_increment(volatile int *ptr);
 LIB_PRIVATE void   atomic_decrement(volatile int *ptr);
@@ -1494,10 +1501,10 @@ LIB_PRIVATE void   primeLog();
 //LIB_PRIVATE ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t off);
 LIB_PRIVATE void   reapThisThread();
 LIB_PRIVATE void   recordDataStackLocations();
-LIB_PRIVATE void   removeThreadToWake(int clone_id);
+LIB_PRIVATE void   removeThreadToWake(clone_id_t clone_id);
 LIB_PRIVATE int    shouldSynchronize(void *return_addr);
 LIB_PRIVATE int    signalThread(int target, pthread_cond_t *cv);
-LIB_PRIVATE int    threadsToWakeContains(int clone_id);
+LIB_PRIVATE int    threadsToWakeContains(clone_id_t clone_id);
 LIB_PRIVATE int    threadsToWakeEmpty();
 LIB_PRIVATE void   userSynchronizedEvent();
 LIB_PRIVATE void   userSynchronizedEventBegin();
@@ -1506,172 +1513,172 @@ LIB_PRIVATE int    validAddress(unsigned long int addr);
 LIB_PRIVATE ssize_t writeAll(int fd, const void *buf, size_t count);
 LIB_PRIVATE void   writeLogsToDisk();
 
-LIB_PRIVATE log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
+LIB_PRIVATE log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
     unsigned long int sockaddr, unsigned long int addrlen);
-LIB_PRIVATE log_entry_t create_access_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_access_entry(clone_id_t clone_id, int event,
     const char *pathname, int mode);
-LIB_PRIVATE log_entry_t create_bind_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_bind_entry(clone_id_t clone_id, int event,
     int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
-LIB_PRIVATE log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
+LIB_PRIVATE log_entry_t create_calloc_entry(clone_id_t clone_id, int event, size_t nmemb,
     size_t size);
-LIB_PRIVATE log_entry_t create_close_entry(int clone_id, int event, int fd);
-LIB_PRIVATE log_entry_t create_closedir_entry(int clone_id, int event, DIR *dirp);
-LIB_PRIVATE log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
+LIB_PRIVATE log_entry_t create_close_entry(clone_id_t clone_id, int event, int fd);
+LIB_PRIVATE log_entry_t create_closedir_entry(clone_id_t clone_id, int event, DIR *dirp);
+LIB_PRIVATE log_entry_t create_connect_entry(clone_id_t clone_id, int event, int sockfd,
     const struct sockaddr *serv_addr, socklen_t addrlen);
-LIB_PRIVATE log_entry_t create_dup_entry(int clone_id, int event, int oldfd);
+LIB_PRIVATE log_entry_t create_dup_entry(clone_id_t clone_id, int event, int oldfd);
 LIB_PRIVATE log_entry_t create_exec_barrier_entry();
-LIB_PRIVATE log_entry_t create_fcntl_entry(int clone_id, int event, int fd,
+LIB_PRIVATE log_entry_t create_fcntl_entry(clone_id_t clone_id, int event, int fd,
     int cmd, long arg_3_l, unsigned long int arg_3_f);
-LIB_PRIVATE log_entry_t create_fclose_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fclose_entry(clone_id_t clone_id, int event,
     FILE *fp);
-LIB_PRIVATE log_entry_t create_fdatasync_entry(int clone_id, int event, int fd);
-LIB_PRIVATE log_entry_t create_fdopen_entry(int clone_id, int event, int fd,
+LIB_PRIVATE log_entry_t create_fdatasync_entry(clone_id_t clone_id, int event, int fd);
+LIB_PRIVATE log_entry_t create_fdopen_entry(clone_id_t clone_id, int event, int fd,
     const char *mode);
-LIB_PRIVATE log_entry_t create_fgets_entry(int clone_id, int event, char *s,
+LIB_PRIVATE log_entry_t create_fgets_entry(clone_id_t clone_id, int event, char *s,
     int size, FILE *stream);
-LIB_PRIVATE log_entry_t create_fflush_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fflush_entry(clone_id_t clone_id, int event,
     FILE *stream);
-LIB_PRIVATE log_entry_t create_fopen_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fopen_entry(clone_id_t clone_id, int event,
     const char *name, const char *mode);
-LIB_PRIVATE log_entry_t create_fopen64_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fopen64_entry(clone_id_t clone_id, int event,
     const char *name, const char *mode);
-LIB_PRIVATE log_entry_t create_fprintf_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fprintf_entry(clone_id_t clone_id, int event,
     FILE *stream, const char *format);
-LIB_PRIVATE log_entry_t create_fscanf_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fscanf_entry(clone_id_t clone_id, int event,
     FILE *stream, const char *format);
-LIB_PRIVATE log_entry_t create_fputs_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fputs_entry(clone_id_t clone_id, int event,
     const char *s, FILE *stream);
-LIB_PRIVATE log_entry_t create_free_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_free_entry(clone_id_t clone_id, int event,
     unsigned long int ptr);
-LIB_PRIVATE log_entry_t create_fsync_entry(int clone_id, int event, int fd);
-LIB_PRIVATE log_entry_t create_ftell_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fsync_entry(clone_id_t clone_id, int event, int fd);
+LIB_PRIVATE log_entry_t create_ftell_entry(clone_id_t clone_id, int event,
     FILE *stream);
-LIB_PRIVATE log_entry_t create_fwrite_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_fwrite_entry(clone_id_t clone_id, int event,
     const void *ptr, size_t size, size_t nmemb, FILE *stream);
-LIB_PRIVATE log_entry_t create_fxstat_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_fxstat_entry(clone_id_t clone_id, int event, int vers,
     int fd, struct stat *buf);
-LIB_PRIVATE log_entry_t create_fxstat64_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_fxstat64_entry(clone_id_t clone_id, int event, int vers,
     int fd, struct stat64 *buf);
-LIB_PRIVATE log_entry_t create_getc_entry(int clone_id, int event, FILE *stream);
-LIB_PRIVATE log_entry_t create_gettimeofday_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_getc_entry(clone_id_t clone_id, int event, FILE *stream);
+LIB_PRIVATE log_entry_t create_gettimeofday_entry(clone_id_t clone_id, int event,
     struct timeval *tv, struct timezone *tz);
-LIB_PRIVATE log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream);
-LIB_PRIVATE log_entry_t create_ungetc_entry(int clone_id, int event, int c,
+LIB_PRIVATE log_entry_t create_fgetc_entry(clone_id_t clone_id, int event, FILE *stream);
+LIB_PRIVATE log_entry_t create_ungetc_entry(clone_id_t clone_id, int event, int c,
     FILE *stream);
-LIB_PRIVATE log_entry_t create_getline_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_getline_entry(clone_id_t clone_id, int event,
     char **lineptr, size_t *n, FILE *stream);
-LIB_PRIVATE log_entry_t create_getpeername_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_getpeername_entry(clone_id_t clone_id, int event,
     int sockfd, struct sockaddr sockaddr, unsigned long int addrlen);
-LIB_PRIVATE log_entry_t create_getsockname_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_getsockname_entry(clone_id_t clone_id, int event,
     int sockfd, unsigned long int sockaddr, unsigned long int addrlen);
-LIB_PRIVATE log_entry_t create_libc_memalign_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_libc_memalign_entry(clone_id_t clone_id, int event,
     size_t boundary, size_t size);
-LIB_PRIVATE log_entry_t create_link_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_link_entry(clone_id_t clone_id, int event,
     const char *oldpath, const char *newpath);
-LIB_PRIVATE log_entry_t create_listen_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_listen_entry(clone_id_t clone_id, int event,
     int sockfd, int backlog);
-LIB_PRIVATE log_entry_t create_lseek_entry(int clone_id, int event, int fd,
+LIB_PRIVATE log_entry_t create_lseek_entry(clone_id_t clone_id, int event, int fd,
     off_t offset, int whence);
-LIB_PRIVATE log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_lxstat_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat *buf);
-LIB_PRIVATE log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_lxstat64_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat64 *buf);
-LIB_PRIVATE log_entry_t create_malloc_entry(int clone_id, int event, size_t size);
-LIB_PRIVATE log_entry_t create_mkdir_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_malloc_entry(clone_id_t clone_id, int event, size_t size);
+LIB_PRIVATE log_entry_t create_mkdir_entry(clone_id_t clone_id, int event,
     const char *pathname, mode_t mode);
-LIB_PRIVATE log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp);
-LIB_PRIVATE log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
+LIB_PRIVATE log_entry_t create_mkstemp_entry(clone_id_t clone_id, int event, char *temp);
+LIB_PRIVATE log_entry_t create_mmap_entry(clone_id_t clone_id, int event, void *addr,
     size_t length, int prot, int flags, int fd, off_t offset);
-LIB_PRIVATE log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
+LIB_PRIVATE log_entry_t create_mmap64_entry(clone_id_t clone_id, int event, void *addr,
     size_t length, int prot, int flags, int fd, off64_t offset);
-LIB_PRIVATE log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
+LIB_PRIVATE log_entry_t create_munmap_entry(clone_id_t clone_id, int event, void *addr,
     size_t length);
-LIB_PRIVATE log_entry_t create_mremap_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_mremap_entry(clone_id_t clone_id, int event,
     void *old_address, size_t old_size, size_t new_size, int flags);
-LIB_PRIVATE log_entry_t create_open_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_open_entry(clone_id_t clone_id, int event,
     const char *path, int flags, mode_t mode);
-LIB_PRIVATE log_entry_t create_open64_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_open64_entry(clone_id_t clone_id, int event,
     const char *path, int flags, mode_t mode);
-LIB_PRIVATE log_entry_t create_opendir_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_opendir_entry(clone_id_t clone_id, int event,
     const char *name);
-LIB_PRIVATE log_entry_t create_pread_entry(int clone_id, int event, int fd,
+LIB_PRIVATE log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd,
     unsigned long int buf, size_t count, off_t offset);
-LIB_PRIVATE log_entry_t create_putc_entry(int clone_id, int event, int c,
+LIB_PRIVATE log_entry_t create_putc_entry(clone_id_t clone_id, int event, int c,
     FILE *stream);
-LIB_PRIVATE log_entry_t create_pwrite_entry(int clone_id, int event, int fd,
+LIB_PRIVATE log_entry_t create_pwrite_entry(clone_id_t clone_id, int event, int fd,
     unsigned long int buf, size_t count, off_t offset);
-LIB_PRIVATE log_entry_t create_pthread_cond_broadcast_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_cond_broadcast_entry(clone_id_t clone_id, int event,
     unsigned long int cond_var);
-LIB_PRIVATE log_entry_t create_pthread_cond_signal_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_cond_signal_entry(clone_id_t clone_id, int event,
     unsigned long int cond_var);
-LIB_PRIVATE log_entry_t create_pthread_cond_wait_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_cond_wait_entry(clone_id_t clone_id, int event,
     unsigned long int mutex, unsigned long int cond_var);
-LIB_PRIVATE log_entry_t create_pthread_cond_timedwait_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_cond_timedwait_entry(clone_id_t clone_id, int event,
     unsigned long int mutex, unsigned long int cond_var, unsigned long int abstime);
-LIB_PRIVATE log_entry_t create_pthread_rwlock_unlock_entry(int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_rwlock_unlock_entry(clone_id_t clone_id,
     int event, unsigned long int rwlock);
-LIB_PRIVATE log_entry_t create_pthread_rwlock_rdlock_entry(int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_rwlock_rdlock_entry(clone_id_t clone_id,
     int event, unsigned long int rwlock);
-LIB_PRIVATE log_entry_t create_pthread_rwlock_wrlock_entry(int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_rwlock_wrlock_entry(clone_id_t clone_id,
     int event, unsigned long int rwlock);
-LIB_PRIVATE log_entry_t create_pthread_create_entry(long long int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_create_entry(clone_id_t clone_id,
     int event, unsigned long int thread, unsigned long int attr,
     unsigned long int start_routine, unsigned long int arg);
-LIB_PRIVATE log_entry_t create_pthread_detach_entry(long long int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_detach_entry(clone_id_t clone_id,
     int event, unsigned long int thread);
-LIB_PRIVATE log_entry_t create_pthread_exit_entry(long long int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_exit_entry(clone_id_t clone_id,
     int event, unsigned long int value_ptr);
-LIB_PRIVATE log_entry_t create_pthread_join_entry(long long int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_join_entry(clone_id_t clone_id,
     int event, unsigned long int thread, unsigned long int value_ptr);
-LIB_PRIVATE log_entry_t create_pthread_kill_entry(long long int clone_id,
+LIB_PRIVATE log_entry_t create_pthread_kill_entry(clone_id_t clone_id,
     int event, unsigned long int thread, int sig);
-LIB_PRIVATE log_entry_t create_pthread_mutex_lock_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_mutex_lock_entry(clone_id_t clone_id, int event,
     unsigned long int mutex);
-LIB_PRIVATE log_entry_t create_pthread_mutex_trylock_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_mutex_trylock_entry(clone_id_t clone_id, int event,
     unsigned long int mutex);
-LIB_PRIVATE log_entry_t create_pthread_mutex_unlock_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_pthread_mutex_unlock_entry(clone_id_t clone_id, int event,
     unsigned long int mutex);
-LIB_PRIVATE log_entry_t create_rand_entry(int clone_id, int event);
-LIB_PRIVATE log_entry_t create_read_entry(int clone_id, int event, int readfd,
+LIB_PRIVATE log_entry_t create_rand_entry(clone_id_t clone_id, int event);
+LIB_PRIVATE log_entry_t create_read_entry(clone_id_t clone_id, int event, int readfd,
     unsigned long int buf_addr, size_t count);
-LIB_PRIVATE log_entry_t create_readdir_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_readdir_entry(clone_id_t clone_id, int event,
     DIR *dirp);
-LIB_PRIVATE log_entry_t create_readdir_r_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_readdir_r_entry(clone_id_t clone_id, int event,
     DIR *dirp, struct dirent *entry, struct dirent **result);
-LIB_PRIVATE log_entry_t create_readlink_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_readlink_entry(clone_id_t clone_id, int event,
     const char *path, char *buf, size_t bufsiz);
-LIB_PRIVATE log_entry_t create_realloc_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_realloc_entry(clone_id_t clone_id, int event,
     unsigned long int ptr, size_t size);
-LIB_PRIVATE log_entry_t create_rename_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_rename_entry(clone_id_t clone_id, int event,
     const char *oldpath, const char *newpath);
-LIB_PRIVATE log_entry_t create_rewind_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_rewind_entry(clone_id_t clone_id, int event,
     FILE *stream);
-LIB_PRIVATE log_entry_t create_rmdir_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_rmdir_entry(clone_id_t clone_id, int event,
     const char *pathname);
-LIB_PRIVATE log_entry_t create_select_entry(int clone_id, int event, int nfds,
+LIB_PRIVATE log_entry_t create_select_entry(clone_id_t clone_id, int event, int nfds,
     fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     struct timeval *timeout);
-LIB_PRIVATE log_entry_t create_setsockopt_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event,
     int sockfd, int level, int optname, unsigned long int optval,
     socklen_t optlen);
-LIB_PRIVATE log_entry_t create_signal_handler_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event,
     int sig);
-LIB_PRIVATE log_entry_t create_sigwait_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_sigwait_entry(clone_id_t clone_id, int event,
     unsigned long int set, unsigned long int sigwait_sig);
-LIB_PRIVATE log_entry_t create_srand_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_srand_entry(clone_id_t clone_id, int event,
     unsigned int seed);
-LIB_PRIVATE log_entry_t create_socket_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_socket_entry(clone_id_t clone_id, int event,
     int domain, int type, int protocol);
-LIB_PRIVATE log_entry_t create_xstat_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_xstat_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat *buf);
-LIB_PRIVATE log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
+LIB_PRIVATE log_entry_t create_xstat64_entry(clone_id_t clone_id, int event, int vers,
     const char *path, struct stat64 *buf);
-LIB_PRIVATE log_entry_t create_time_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_time_entry(clone_id_t clone_id, int event,
     unsigned long int tloc);
-LIB_PRIVATE log_entry_t create_unlink_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_unlink_entry(clone_id_t clone_id, int event,
     const char *pathname);
-LIB_PRIVATE log_entry_t create_user_entry(int clone_id, int event);
-LIB_PRIVATE log_entry_t create_write_entry(int clone_id, int event,
+LIB_PRIVATE log_entry_t create_user_entry(clone_id_t clone_id, int event);
+LIB_PRIVATE log_entry_t create_write_entry(clone_id_t clone_id, int event,
     int writefd, unsigned long int buf_addr, size_t count);
 
 LIB_PRIVATE void waitForTurn(log_entry_t my_entry, turn_pred_t pred);
