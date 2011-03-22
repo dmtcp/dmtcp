@@ -59,8 +59,6 @@
 
 /* Prototypes */
 char* map_file_to_memory(const char* path, size_t size, int flags, int mode);
-//static off_t nextSelect (log_entry_t *select, clone_id_t clone_id, int nfds, 
-    //unsigned long int exceptfds, unsigned long int timeout);
 /* End prototypes */
 
 // TODO: Do we need LIB_PRIVATE again here if we had already specified it in
@@ -799,6 +797,11 @@ static void setupCommonFields(log_entry_t *e, clone_id_t clone_id, int event)
 {
   SET_COMMON_PTR(e, clone_id);
   SET_COMMON_PTR(e, event);
+  // Zero out all other fields:
+  memset(&(GET_COMMON_PTR(e, log_id)), 0, sizeof(GET_COMMON_PTR(e, log_id);
+  memset(&(GET_COMMON_PTR(e, tid)), 0, sizeof(GET_COMMON_PTR(e, tid);
+  memset(&(GET_COMMON_PTR(e, my_errno)), 0, sizeof(GET_COMMON_PTR(e, my_errno);
+  memset(&(GET_COMMON_PTR(e, retval)), 0, sizeof(GET_COMMON_PTR(e, retval);
 }
 
 log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
