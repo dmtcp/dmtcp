@@ -556,6 +556,8 @@ LTLIBOBJS
 LIBOBJS
 CONFIG_M32_FALSE
 CONFIG_M32_TRUE
+RECORD_REPLAY_FALSE
+RECORD_REPLAY_TRUE
 RECORD_REPLAY
 RANLIB
 am__fastdepCXX_FALSE
@@ -4079,6 +4081,14 @@ else
   RECORD_REPLAY=no
 
 fi
+ if test "$record_replay" = "yes"; then
+  RECORD_REPLAY_TRUE=
+  RECORD_REPLAY_FALSE='#'
+else
+  RECORD_REPLAY_TRUE='#'
+  RECORD_REPLAY_FALSE=
+fi
+
 
 # Check whether --enable-m32 was given.
 if test "${enable_m32+set}" = set; then :
@@ -4101,6 +4111,7 @@ if test "$use_quiet" = "yes"; then
 $as_echo "#define CONFIG_M32 /**/" >>confdefs.h
 
 fi
+
 
 
 $as_echo "#define DMTCP /**/" >>confdefs.h
@@ -4223,6 +4234,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error "conditional \"am__fastdepCXX\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${RECORD_REPLAY_TRUE}" && test -z "${RECORD_REPLAY_FALSE}"; then
+  as_fn_error "conditional \"RECORD_REPLAY\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
