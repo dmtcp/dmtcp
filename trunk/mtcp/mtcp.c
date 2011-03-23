@@ -2173,8 +2173,13 @@ static void checkpointeverything (void)
   tcdrain(STDOUT_FILENO);
   tcdrain(STDERR_FILENO);
 
-  if (use_compression) /* if use_compression, fork a gzip process */
+  if (use_compression) { /* if use_compression, fork a gzip process */
+    /* disable SIGCHLD handling; will be restored after gzip finishes */
+    struct sigaction ignore_sigchld_action;
+    ignore_sigchld_action.sa_handler = SIG_IGN;
+    sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
     fd = open_ckpt_to_write(fd, pipe_fds, gzip_path);
+  }
 
   if (tmpDMTCPHeaderFd != -1 ) {
     char tmpBuff[1024];
@@ -2399,6 +2404,7 @@ static void checkpointeverything (void)
       mtcp_printf ("mtcp checkpointeverything(grandchild): waitpid: %s\n",
                    strerror (errno));
     mtcp_ckpt_gzip_child_pid = -1;
+    sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
   }
 
   /* Maybe it's time to verify the checkpoint.
