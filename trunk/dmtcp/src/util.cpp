@@ -34,6 +34,10 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
+#ifdef RECORD_REPLAY
+#define read _real_read
+#endif
+
 void Util::lockFile(int fd)
 {
   struct flock fl;
@@ -463,7 +467,7 @@ int Util::readLine(int fd, char *buf, int count)
   int i = 0;
   char c;
   while (1) {
-    if (_real_read(fd, &c, 1) == 0) {
+    if (read(fd, &c, 1) == 0) {
       buf[i] = '\0';
       return NULL;
     }

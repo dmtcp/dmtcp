@@ -26,18 +26,21 @@
 #include "../jalib/jassert.h"
 #include "synchronizationlogging.h"
 
-#define LOG_IS_PATCHED_VALUE 1
-#define LOG_IS_PATCHED_TYPE char
-#define LOG_IS_PATCHED_SIZE sizeof(LOG_IS_PATCHED_TYPE)
+#define LOG_IS_UNIFIED_VALUE 1
+#define LOG_IS_UNIFIED_TYPE char
+#define LOG_IS_UNIFIED_SIZE sizeof(LOG_IS_UNIFIED_TYPE)
 
-#define LOG_IS_MERGED_VALUE 1
-#define LOG_IS_MERGED_TYPE char
-#define LOG_IS_MERGED_SIZE sizeof(LOG_IS_MERGED_TYPE)
-
-#define LOG_OFFSET_FROM_START 32
+#define LOG_OFFSET_FROM_START 64
 
 namespace dmtcp
 {
+  typedef struct LogMetadata {
+    bool   isUnified;
+    size_t size;
+    size_t dataSize;
+    size_t numEntries;
+  } LogMetadata;
+
   class SynchronizationLog
   {
     public:
@@ -49,92 +52,76 @@ namespace dmtcp
       SynchronizationLog()
         : _path ("")
         , _cloneId(-1)
-        , _size (-1)
         , _startAddr (NULL)
         , _log (NULL)
         , _index (0)
-        , _dataSize (0)
         , _entryIndex (0)
+        , _size (NULL)
+        , _dataSize (NULL)
         , _numEntries (NULL)
-        , _isLoaded (false)
-        , _isPatched (NULL)
-        , _isMerged (NULL)
-      {}
-
-      SynchronizationLog(void *addr, size_t size)
-        : _path ("")
-        , _cloneId(-1)
-        , _size (size)
-        , _startAddr ((char*)addr)
-        , _log (NULL)
-        , _index (0)
-        , _dataSize (0)
-        , _entryIndex (0)
-        , _numEntries (NULL)
-        , _isLoaded (false)
-        , _isPatched (NULL)
-        , _isMerged (NULL)
+        , _isUnified (NULL)
       {}
 
       ~SynchronizationLog() {}
 
-      void init (size_t size, bool readOnly = false, bool globalLog = false );
-      void init2(long long int clone_id, size_t size = MAX_LOG_LENGTH, bool readOnly = false);
-      void init3(const char *path, size_t size = MAX_LOG_LENGTH, bool readOnly = false);
-      void init4(size_t size);
-      void init_common(size_t size, bool readonly = false);
-      void destroy();
-      bool empty() { return numEntries() == 0; }
-      bool isLoaded() { return _isLoaded; }
-      bool isPatched() 
-        { if (_isPatched == NULL ) return false; return *_isPatched; }
-      bool isMerged()
-        { if (_isMerged == NULL ) return false; return *_isMerged; }
+      void initGlobalLog(const char* path, size_t size = MAX_LOG_LENGTH);
+      void initOnThreadCreation(size_t size = MAX_LOG_LENGTH);
+      void initForCloneId(clone_id_t clone_id, size_t size = MAX_LOG_LENGTH);
 
-      void resetIndex() { _index = 0; _entryIndex = 0; }
-      void clearLog();
+    private:
+      void init2(clone_id_t clone_id, size_t size, bool mapWithNoReserveFlag);
+      void init3(const char *path, size_t size, bool mapWithNoReserveFlag);
 
-      void markAsPatched();
-      void markAsMerged();
-      
-      bool isEndOfLog();
+      void init_common(size_t size);
 
-      size_t numEntries() { 
-        if (_numEntries == NULL) return 0;
-        return *_numEntries; 
-      }
-      void copyDataFrom(SynchronizationLog& other);
-      void appendDataFrom(SynchronizationLog& other);
-
-      log_entry_t getFirstEntryWithCloneID(int clone_id);
-      int getNextEntry(log_entry_t& entry);
-      int writeEntry(const log_entry_t& entry);
-      int replaceEntry(const log_entry_t& entry);
-      void getNextEntryHeader(log_entry_t& entry);
-      void writeEntryHeader(const log_entry_t& entry);
-
-    //private:
-      char* logAddr() { return _log; }
-      size_t dataSize() { return _index; }
-      size_t currentIndex() { return _index; }
-      void  setIndex(size_t index) { JASSERT(index < _size); _index = index; }
+    public:
+      void   clearLog(); //Needed for log patching
+      void   destroy();
       size_t currentEntryIndex() { return _entryIndex; }
-      void setEntryIndex(size_t index)
-        { JASSERT(index <= *_numEntries); _entryIndex = index; }
+      bool   empty() { return numEntries() == 0; }
+      size_t dataSize() { return _dataSize == NULL ? 0 : *_dataSize; }
+      size_t numEntries() { return _numEntries == NULL ? 0 : *_numEntries; }
+      bool   isUnified() { return _isUnified == NULL ? false : *_isUnified; }
+
+      
+      void   mergeLogs(dmtcp::vector<clone_id_t> clone_ids);
+      void   annotate();
+      void   patchLog();
+
+      int    getNextEntry(log_entry_t& entry);
+      int    appendEntry(const log_entry_t& entry);
+
+    private:
+      void   resetIndex() { _index = 0; _entryIndex = 0; }
+      size_t currentIndex() { return _index; }
+      void   resetMarkers()
+        { resetIndex(); *_dataSize = 0; *_numEntries = 0; *_isUnified = false; }
+
+      void   writeEntryHeaderAtIndex(const log_entry_t& entry, size_t index);
+      size_t getEntryHeaderAtIndex(log_entry_t& entry, size_t index);
+      int    writeEntryAtIndex(const log_entry_t& entry, size_t index);
+      int    getEntryAtIndex(log_entry_t& entry, size_t index);
+
+      void   updateEntryFromNextPthreadCreate(log_entry_t& entry);
+      void   updateEntryFromNextGetline(log_entry_t& entry);
+
+      // The following four functions are need for Log-patching only.
+      char*  logAddr() { return _log; }
+      log_entry_t getNextEntryWithCloneID(int clone_id);
+      void   copyDataFrom(SynchronizationLog& other);
+      void   appendDataFrom(SynchronizationLog& other);
 
     private:
       string  _path;
-      long long int _cloneId;
-      size_t  _size;
-      char    *_startAddr;
-      char    *_log;
+      clone_id_t _cloneId;
+      char   *_startAddr;
+      char   *_log;
       size_t  _index;
-      size_t  _dataSize;
       size_t  _entryIndex;
+      size_t *_size;
+      size_t *_dataSize;
       size_t *_numEntries;
-      bool    _isLoaded;
-      bool   *_isPatched;
-      bool   *_isMerged;
+      bool   *_isUnified;
   };
 
 }

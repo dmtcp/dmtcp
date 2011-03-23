@@ -41,19 +41,6 @@
 
 #ifdef RECORD_REPLAY
 
-/* IMPOTANT: if new fields are added to log_entry_t in the common area,
- * update the following. */
-//static const size_t log_event_common_size = sizeof(log_entry_header_t);
-
-#define log_event_common_size \
-  (sizeof(GET_COMMON(currentLogEntry,event))       +                    \
-      sizeof(GET_COMMON(currentLogEntry,log_id))   +                    \
-      sizeof(GET_COMMON(currentLogEntry,tid))      +                    \
-      sizeof(GET_COMMON(currentLogEntry,clone_id)) +                    \
-      sizeof(GET_COMMON(currentLogEntry,my_errno)) +                    \
-      sizeof(GET_COMMON(currentLogEntry,retval)))
-
-
 /* #defined constants */
 #define MAX_OPTIONAL_EVENTS 5
 
@@ -183,47 +170,159 @@ void register_in_global_log_list(clone_id_t clone_id)
   _real_pthread_mutex_unlock(&global_log_list_fd_mutex);
 }
 
-void merge_all_logs()
+dmtcp::vector<clone_id_t> get_log_list()
 {
   dmtcp::vector<clone_id_t> clone_ids;
-  dmtcp::vector<dmtcp::SynchronizationLog> sync_logs;
-  dmtcp::vector<log_entry_t> curr_entries;
-  log_entry_t entry;
 
   int fd = _real_open(GLOBAL_LOG_LIST_PATH, O_RDONLY, 0);
   clone_id_t id;
-  size_t num_entries = 0;
   while (Util::readAll(fd, &id, sizeof(id)) != 0) {
-    dmtcp::SynchronizationLog slog;
     clone_ids.push_back(id);
-    slog.init2(id, MAX_LOG_LENGTH, true);
-    slog.getNextEntry(entry);
-    JTRACE("Entries for this thread") (id) (slog.numEntries());
-    num_entries += slog.numEntries();
-    sync_logs.push_back(slog);
-    curr_entries.push_back(entry);
   }
-  JTRACE("Total number of log entries") (num_entries);
+  _real_close(fd);
+  JTRACE("Total number of log files") (clone_ids.size());
+  return clone_ids;
+}
 
-  size_t entry_index = 0;
-  while(entry_index < num_entries)
-  {
-    size_t total_done = 0;
-    for (size_t i = 0 ; i < clone_ids.size() ; i++)
-    {
-      if (curr_entries[i].header.log_id < entry_index &&
-          curr_entries[i].header.log_id != 0) {
-        JASSERT(false) .Text("Unreachable");
-      }
-      if (GET_COMMON(curr_entries[i], log_id) == entry_index &&
-          GET_COMMON(curr_entries[i], clone_id) != 0)
-      {
-        unified_log.writeEntry(curr_entries[i]);
-        sync_logs[i].getNextEntry(entry);
-        curr_entries[i] = entry;
-        entry_index++;
-      }
+/* Initializes log pathnames. One log per process. */
+void initializeLogNames()
+{
+  pid_t pid = getpid();
+  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-log-%d", tmpdir.c_str(), pid);
+  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
+  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
+  snprintf(GLOBAL_LOG_LIST_PATH, RECORD_LOG_PATH_MAX,
+      "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
+}
+
+ 
+int isUnlock(log_entry_t e)
+{
+  return GET_COMMON(e,event) == pthread_mutex_unlock_event ||
+    GET_COMMON(e,event) == select_event_return ||
+    GET_COMMON(e,event) == read_event_return ||
+    GET_COMMON(e,event) == pthread_create_event_return ||
+    GET_COMMON(e,event) == pthread_exit_event ||
+    GET_COMMON(e,event) == malloc_event_return ||
+    GET_COMMON(e,event) == calloc_event_return ||
+    GET_COMMON(e,event) == realloc_event_return ||
+    GET_COMMON(e,event) == free_event_return ||
+    GET_COMMON(e,event) == accept_event_return ||
+    GET_COMMON(e,event) == getsockname_event_return ||
+    GET_COMMON(e,event) == fcntl_event_return ||
+    GET_COMMON(e,event) == libc_memalign_event_return ||
+    GET_COMMON(e,event) == setsockopt_event_return ||
+    GET_COMMON(e,event) == write_event_return ||
+    GET_COMMON(e,event) == rand_event_return ||
+    GET_COMMON(e,event) == srand_event_return ||
+    GET_COMMON(e,event) == time_event_return ||
+    GET_COMMON(e,event) == pthread_detach_event_return ||
+    GET_COMMON(e,event) == pthread_join_event_return ||
+    GET_COMMON(e,event) == close_event_return ||
+    GET_COMMON(e,event) == signal_handler_event_return ||
+    GET_COMMON(e,event) == sigwait_event_return||
+    GET_COMMON(e,event) == access_event_return ||
+    GET_COMMON(e,event) == open_event_return ||
+    GET_COMMON(e,event) == open64_event_return ||
+    GET_COMMON(e,event) == pthread_rwlock_unlock_event ||
+    GET_COMMON(e,event) == pthread_rwlock_rdlock_event_return ||
+    GET_COMMON(e,event) == pthread_rwlock_wrlock_event_return ||
+    GET_COMMON(e,event) == pthread_mutex_trylock_event_return ||
+    GET_COMMON(e,event) == dup_event_return ||
+    GET_COMMON(e,event) == xstat_event_return ||
+    GET_COMMON(e,event) == xstat64_event_return ||
+    GET_COMMON(e,event) == fxstat_event_return ||
+    GET_COMMON(e,event) == fxstat64_event_return ||
+    GET_COMMON(e,event) == lxstat_event_return ||
+    GET_COMMON(e,event) == lxstat64_event_return ||
+    GET_COMMON(e,event) == lseek_event_return ||
+    GET_COMMON(e,event) == unlink_event_return ||
+    GET_COMMON(e,event) == pread_event_return ||
+    GET_COMMON(e,event) == pwrite_event_return ||
+    GET_COMMON(e,event) == pthread_cond_signal_event_return ||
+    GET_COMMON(e,event) == pthread_cond_broadcast_event_return ||
+    /* We only use cond_*wait_return to store return value information. Thus,
+       the "real" unlock events are the cond_*wait events themselves, the return
+       events are only for storing return values. Nonetheless, they are "unlock"
+       events themselves, since they are return events. */
+    GET_COMMON(e,event) == pthread_cond_wait_event ||
+    GET_COMMON(e,event) == pthread_cond_wait_event_return ||
+    GET_COMMON(e,event) == pthread_cond_timedwait_event ||
+    GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
+    GET_COMMON(e,event) == getc_event_return ||
+    GET_COMMON(e,event) == gettimeofday_event_return ||
+    GET_COMMON(e,event) == fgetc_event_return ||
+    GET_COMMON(e,event) == ungetc_event_return ||
+    GET_COMMON(e,event) == getline_event_return ||
+    GET_COMMON(e,event) == getpeername_event_return ||
+    GET_COMMON(e,event) == fdopen_event_return ||
+    GET_COMMON(e,event) == fdatasync_event_return ||
+    GET_COMMON(e,event) == link_event_return ||
+    GET_COMMON(e,event) == rename_event_return ||
+    GET_COMMON(e,event) == bind_event_return ||
+    GET_COMMON(e,event) == listen_event_return ||
+    GET_COMMON(e,event) == socket_event_return ||
+    GET_COMMON(e,event) == connect_event_return ||
+    GET_COMMON(e,event) == readdir_event_return ||
+    GET_COMMON(e,event) == readdir_r_event_return ||
+    GET_COMMON(e,event) == fclose_event_return ||
+    GET_COMMON(e,event) == fopen_event_return ||
+    GET_COMMON(e,event) == fopen64_event_return ||
+    GET_COMMON(e,event) == fgets_event_return ||
+    GET_COMMON(e,event) == fflush_event_return ||
+    GET_COMMON(e,event) == mkstemp_event_return ||
+    GET_COMMON(e,event) == rewind_event_return ||
+    GET_COMMON(e,event) == ftell_event_return ||
+    GET_COMMON(e,event) == fsync_event_return ||
+    GET_COMMON(e,event) == readlink_event_return ||
+    GET_COMMON(e,event) == rmdir_event_return ||
+    GET_COMMON(e,event) == mkdir_event_return ||
+    GET_COMMON(e,event) == fprintf_event_return ||
+    GET_COMMON(e,event) == fputs_event_return ||
+    GET_COMMON(e,event) == fscanf_event_return ||
+    GET_COMMON(e,event) == fwrite_event_return ||
+    GET_COMMON(e,event) == putc_event_return ||
+    GET_COMMON(e,event) == mmap_event_return ||
+    GET_COMMON(e,event) == mmap64_event_return ||
+    GET_COMMON(e,event) == munmap_event_return ||
+    GET_COMMON(e,event) == mremap_event_return ||
+    GET_COMMON(e,event) == opendir_event_return ||
+    GET_COMMON(e,event) == closedir_event_return ||
+    GET_COMMON(e,event) == user_event_return;
+}
+
+void initLogsForRecordReplay()
+{
+  // Initialize mmap()'d logs for the current threads.
+  unified_log.initGlobalLog(RECORD_LOG_PATH, 10 * MAX_LOG_LENGTH);
+
+  dmtcp::map<clone_id_t, pthread_t>::iterator it;
+  for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
+    dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
+    log->initForCloneId(it->first);
+  }
+
+  if (SYNC_IS_REPLAY) {
+    if (!unified_log.isUnified()) {
+      JTRACE ( "Merging/Unifying Logs." );
+
+      //SYNC_TIMER_START(merge_logs);
+      unified_log.mergeLogs(get_log_list());
+      //SYNC_TIMER_STOP(merge_logs);
+
+      //SYNC_TIMER_START(patch_logs);
+      unified_log.patchLog();
+      //SYNC_TIMER_STOP(patch_logs);
+
+      //SYNC_TIMER_START(annotate_log);
+      unified_log.annotate();
+      //SYNC_TIMER_STOP(annotate_log);
     }
+    getNextLogEntry();
   }
 }
 
@@ -319,101 +418,6 @@ int validAddress(unsigned long int addr)
   }
 }
 
-static int isUnlock(log_entry_t e)
-{
-  return GET_COMMON(e,event) == pthread_mutex_unlock_event ||
-    GET_COMMON(e,event) == select_event_return ||
-    GET_COMMON(e,event) == read_event_return ||
-    GET_COMMON(e,event) == pthread_create_event_return ||
-    GET_COMMON(e,event) == pthread_exit_event ||
-    GET_COMMON(e,event) == malloc_event_return ||
-    GET_COMMON(e,event) == calloc_event_return ||
-    GET_COMMON(e,event) == realloc_event_return ||
-    GET_COMMON(e,event) == free_event_return ||
-    GET_COMMON(e,event) == accept_event_return ||
-    GET_COMMON(e,event) == getsockname_event_return ||
-    GET_COMMON(e,event) == fcntl_event_return ||
-    GET_COMMON(e,event) == libc_memalign_event_return ||
-    GET_COMMON(e,event) == setsockopt_event_return ||
-    GET_COMMON(e,event) == write_event_return ||
-    GET_COMMON(e,event) == rand_event_return ||
-    GET_COMMON(e,event) == srand_event_return ||
-    GET_COMMON(e,event) == time_event_return ||
-    GET_COMMON(e,event) == pthread_detach_event_return ||
-    GET_COMMON(e,event) == pthread_join_event_return ||
-    GET_COMMON(e,event) == close_event_return ||
-    GET_COMMON(e,event) == signal_handler_event_return ||
-    GET_COMMON(e,event) == sigwait_event_return||
-    GET_COMMON(e,event) == access_event_return ||
-    GET_COMMON(e,event) == open_event_return ||
-    GET_COMMON(e,event) == open64_event_return ||
-    GET_COMMON(e,event) == pthread_rwlock_unlock_event ||
-    GET_COMMON(e,event) == pthread_rwlock_rdlock_event_return ||
-    GET_COMMON(e,event) == pthread_rwlock_wrlock_event_return ||
-    GET_COMMON(e,event) == pthread_mutex_trylock_event_return ||
-    GET_COMMON(e,event) == dup_event_return ||
-    GET_COMMON(e,event) == xstat_event_return ||
-    GET_COMMON(e,event) == xstat64_event_return ||
-    GET_COMMON(e,event) == fxstat_event_return ||
-    GET_COMMON(e,event) == fxstat64_event_return ||
-    GET_COMMON(e,event) == lxstat_event_return ||
-    GET_COMMON(e,event) == lxstat64_event_return ||
-    GET_COMMON(e,event) == lseek_event_return ||
-    GET_COMMON(e,event) == unlink_event_return ||
-    GET_COMMON(e,event) == pread_event_return ||
-    GET_COMMON(e,event) == pwrite_event_return ||
-    GET_COMMON(e,event) == pthread_cond_signal_event_return ||
-    GET_COMMON(e,event) == pthread_cond_broadcast_event_return ||
-    /* We only use cond_*wait_return to store return value information. Thus,
-       the "real" unlock events are the cond_*wait events themselves, the return
-       events are only for storing return values. Nonetheless, they are "unlock"
-       events themselves, since they are return events. */
-    GET_COMMON(e,event) == pthread_cond_wait_event ||
-    GET_COMMON(e,event) == pthread_cond_wait_event_return ||
-    GET_COMMON(e,event) == pthread_cond_timedwait_event ||
-    GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
-    GET_COMMON(e,event) == getc_event_return ||
-    GET_COMMON(e,event) == gettimeofday_event_return ||
-    GET_COMMON(e,event) == fgetc_event_return ||
-    GET_COMMON(e,event) == ungetc_event_return ||
-    GET_COMMON(e,event) == getline_event_return ||
-    GET_COMMON(e,event) == getpeername_event_return ||
-    GET_COMMON(e,event) == fdopen_event_return ||
-    GET_COMMON(e,event) == fdatasync_event_return ||
-    GET_COMMON(e,event) == link_event_return ||
-    GET_COMMON(e,event) == rename_event_return ||
-    GET_COMMON(e,event) == bind_event_return ||
-    GET_COMMON(e,event) == listen_event_return ||
-    GET_COMMON(e,event) == socket_event_return ||
-    GET_COMMON(e,event) == connect_event_return ||
-    GET_COMMON(e,event) == readdir_event_return ||
-    GET_COMMON(e,event) == readdir_r_event_return ||
-    GET_COMMON(e,event) == fclose_event_return ||
-    GET_COMMON(e,event) == fopen_event_return ||
-    GET_COMMON(e,event) == fopen64_event_return ||
-    GET_COMMON(e,event) == fgets_event_return ||
-    GET_COMMON(e,event) == fflush_event_return ||
-    GET_COMMON(e,event) == mkstemp_event_return ||
-    GET_COMMON(e,event) == rewind_event_return ||
-    GET_COMMON(e,event) == ftell_event_return ||
-    GET_COMMON(e,event) == fsync_event_return ||
-    GET_COMMON(e,event) == readlink_event_return ||
-    GET_COMMON(e,event) == rmdir_event_return ||
-    GET_COMMON(e,event) == mkdir_event_return ||
-    GET_COMMON(e,event) == fprintf_event_return ||
-    GET_COMMON(e,event) == fputs_event_return ||
-    GET_COMMON(e,event) == fscanf_event_return ||
-    GET_COMMON(e,event) == fwrite_event_return ||
-    GET_COMMON(e,event) == putc_event_return ||
-    GET_COMMON(e,event) == mmap_event_return ||
-    GET_COMMON(e,event) == mmap64_event_return ||
-    GET_COMMON(e,event) == munmap_event_return ||
-    GET_COMMON(e,event) == mremap_event_return ||
-    GET_COMMON(e,event) == opendir_event_return ||
-    GET_COMMON(e,event) == closedir_event_return ||
-    GET_COMMON(e,event) == user_event_return;
-}
-
 void copyFdSet(fd_set *src, fd_set *dest)
 {
   // fd_set struct has one member: __fds_bits. which is an array of longs.
@@ -467,259 +471,6 @@ int fdSetDiff(fd_set *one, fd_set *two)
   return 0;
 }
 
-
-static void patchLog()
-{
-  JTRACE ( "Begin log patching." );
-
-  dmtcp::SynchronizationLog record_patched_log;
-  dmtcp::SynchronizationLog patch_list;
-  record_patched_log.init3(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH);
-  patch_list.init4(MAX_LOG_LENGTH);
-
-  log_entry_t entry = EMPTY_LOG_ENTRY;
-  log_entry_t temp = EMPTY_LOG_ENTRY;
-  log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
-  size_t write_ret = 0;
-  // Read one log entry at a time from the file on disk, and write the patched
-  // version out to record_patched_log_fd.
-  
-  unified_log.resetIndex();
-  while (unified_log.getNextEntry(entry) != 0) {
-    if (GET_COMMON(entry,event) == exec_barrier_event) {
-      // Nothing may move past an exec barrier. Dump everything in patch_list
-      // into the new log before the exec barrier.
-      record_patched_log.appendDataFrom(patch_list);
-      patch_list.clearLog();
-      continue;
-    }
-    // XXX: shouldn't this be treated as exec?
-    if (GET_COMMON(entry,event) == pthread_kill_event) {
-      JTRACE ( "Found a pthread_kill in log. Not moving it." );
-      write_ret = record_patched_log.writeEntry(entry);
-      continue;
-    }
-
-    JASSERT (GET_COMMON(entry,clone_id) != 0)
-      .Text("Encountered a clone_id of 0 in log.");
-    
-    if (isUnlock(entry)) {
-      temp = patch_list.getFirstEntryWithCloneID(GET_COMMON(entry,clone_id));
-      while (GET_COMMON(temp,clone_id) != 0) {
-        write_ret = record_patched_log.writeEntry(temp);
-        temp = patch_list.getFirstEntryWithCloneID(GET_COMMON(entry,clone_id));
-      }
-      write_ret = record_patched_log.writeEntry(entry);
-    } else {
-      patch_list.writeEntry(entry);
-    }
-  }
-  // If the patch_list is not empty (patch_list_idx != 0), then there were
-  // some leftover log entries that were not balanced. So we tack them on to
-  // the very end of the log.
-  if (patch_list.empty() == false) {
-    JTRACE ( "Extra log entries. Tacking them onto end of log." )
-      (patch_list.dataSize());
-      record_patched_log.appendDataFrom(patch_list);
-      patch_list.clearLog();
-  }
-  patch_list.destroy();
-  // Now copy the contents of the patched log over the original log.
-  // TODO: Why can't we just use 'rename()' to move the patched log over the
-  // original location?
-
-  // TODO: Can we just exchange the pointers, we anyways don't care about the
-  // underlying files.
-  unified_log.markAsPatched();
-
-  unified_log.copyDataFrom(record_patched_log);
-  unified_log.resetIndex();
-}
-
-
-static void nextPthreadCreate(log_entry_t *create, unsigned long int thread,
-  unsigned long int start_routine, unsigned long int attr,
-  unsigned long int arg) {
-  /* Finds the next pthread_create return event with the same thread,
-     start_routine, attr, and arg as given.
-     Returns the offset into the log file that the wakeup was found. */
-  size_t old_index = unified_log.currentIndex();
-  size_t old_entry_index = unified_log.currentEntryIndex();
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  while (1) {
-    if (unified_log.getNextEntry(e) == 0) {
-      e = EMPTY_LOG_ENTRY;
-      break;
-    }
-    if (GET_COMMON(e, event) == pthread_create_event_return &&
-        GET_FIELD(e, pthread_create, thread) == thread &&
-        GET_FIELD(e, pthread_create, start_routine) == start_routine &&
-        GET_FIELD(e, pthread_create, attr) == attr &&
-        GET_FIELD(e, pthread_create, arg) == arg) {
-      break;
-    }
-  }
-  if (create != NULL)
-    *create = e;
-  unified_log.setIndex(old_index);
-  unified_log.setEntryIndex(old_entry_index);
-}
-
-void nextGetline(log_entry_t *getline_entry, char *lineptr,
-  unsigned long int stream) {
-  /* Finds the next getline return event with the same lineptr,
-     n and stream as given.
-     Returns the offset into the log file that the wakeup was found. */
-  size_t old_index = unified_log.currentIndex();
-  size_t old_entry_index = unified_log.currentEntryIndex();
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  while (1) {
-    if (unified_log.getNextEntry(e) == 0) {
-      e = EMPTY_LOG_ENTRY;
-      break;
-    }
-    if (GET_COMMON(e, event) == getline_event_return &&
-        GET_FIELD(e, getline, lineptr) == lineptr &&
-        GET_FIELD(e, getline, stream) == stream) {
-      break;
-    }
-  }
-  if (getline_entry != NULL)
-    *getline_entry = e;
-
-  unified_log.setIndex(old_index);
-  unified_log.setEntryIndex(old_entry_index);
-}
-
-static void annotateLog()
-{
-  /* This function performs several tasks for the log:
-     1) Annotates pthread_create events with stack information from their
-        respective return events.
-     2) Annotates getline events with is_realloc information from their
-        respective return events.
-  
-     This function should be called *before* log patching happens.*/
-  JTRACE ( "Annotating log." );
-  log_entry_t entry = EMPTY_LOG_ENTRY;
-  log_entry_t create_return = EMPTY_LOG_ENTRY;
-  log_entry_t getline_return = EMPTY_LOG_ENTRY;
-  size_t write_ret = 0;
-
-  unified_log.resetIndex();
-  size_t prev_index = unified_log.currentIndex();
-  size_t prev_entry_index = unified_log.currentEntryIndex();
-  while (unified_log.getNextEntry(entry) != 0) {
-    if (GET_COMMON(entry,event) == pthread_create_event) {
-      nextPthreadCreate(&create_return,
-                        GET_FIELD(entry, pthread_create, thread),
-                        GET_FIELD(entry, pthread_create, start_routine),
-                        GET_FIELD(entry, pthread_create, attr),
-                        GET_FIELD(entry, pthread_create, arg));
-      entry.event_data.log_event_pthread_create.stack_size = 
-        create_return.event_data.log_event_pthread_create.stack_size;
-      entry.event_data.log_event_pthread_create.stack_addr =
-        create_return.event_data.log_event_pthread_create.stack_addr;
-
-      unified_log.setIndex(prev_index);
-      unified_log.setEntryIndex(prev_entry_index);
-      write_ret = unified_log.replaceEntry(entry);
-
-    } else if (GET_COMMON(entry,event) == getline_event) {
-      nextGetline(&getline_return,
-                  GET_FIELD(entry, getline, lineptr),
-                  GET_FIELD(entry, getline, stream));
-      SET_FIELD2(entry, getline, is_realloc,
-        GET_FIELD(getline_return, getline, is_realloc));
-
-      unified_log.setIndex(prev_index);
-      unified_log.setEntryIndex(prev_entry_index);
-      write_ret = unified_log.replaceEntry(entry);
-    }
-    prev_index = unified_log.currentIndex();
-    prev_entry_index = unified_log.currentEntryIndex();
-  }
-  unified_log.resetIndex();
-
-  JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
-    ( RECORD_LOG_PATH );
-}
-
-/* Initializes log pathnames. One log per process. */
-void initializeLog()
-{
-  pid_t pid = getpid();
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-log-%d", tmpdir.c_str(), pid);
-  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
-  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
-  snprintf(GLOBAL_LOG_LIST_PATH, RECORD_LOG_PATH_MAX,
-      "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
-
-  // Create the file:
-  int fd = open(RECORD_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND, 
-      S_IRUSR | S_IWUSR);
-  // Write the patched bit if the file is empty.
-  struct stat st;
-  fstat(fd, &st);
-  if (st.st_size == 0) {
-    char c = 0;
-    _real_write(fd, (void *)&c, 1);
-  }
-  close(fd);
-  JTRACE ( "Initialized synchronization log path to" ) ( RECORD_LOG_PATH );
-}
-
-/* Patches the log, and reads in MAX_LOG_LENGTH entries (debug mode) /
- * bytes (non-debug). */
-void primeLog()
-{
-  // If the trylock fails, another thread is already reading the log
-  // into memory, so we skip this.
-  if (_real_pthread_mutex_trylock(&log_index_mutex) != EBUSY) {
-    JTRACE ( "Priming log." );
-
-    if (!unified_log.isMerged()) {
-      JTRACE ( "Merging Logs." );
-      SYNC_TIMER_START(merge_logs);
-      merge_all_logs();
-      unified_log.markAsMerged();
-      SYNC_TIMER_STOP(merge_logs);
-    }
-
-    /******************* LOG PATCHING STUFF *******************/
-    // TODO: A nice way to patch the log would be to do it in place, i.e. use a
-    // index table which points to the offset of a particular entry inside the
-    // log. Now to patch the log is just to shuffle the pointers. Hence
-    // everything is in place and quick.
-    if (!unified_log.isPatched() && unified_log.numEntries() != 0) {
-      SYNC_TIMER_START(annotate_log);
-      annotateLog();
-      SYNC_TIMER_STOP(annotate_log);
-      SYNC_TIMER_START(patch_log);
-      patchLog();
-      SYNC_TIMER_STOP(patch_log);
-    }
-    // TODO: comment out until fix the issue:
-    //    signal, signal, wakeup, wakeup
-    // where it thinks the second wakeup is spontaneous (resets signal_pos
-    // at a bad time?)
-    //fixSpontaneousWakeups();
-    /******************* END LOG PATCHING STUFF *******************/
-
-    // FIXME: Check if we have this functionality in the new code.
-    //atomic_set(&record_log_loaded, 1);
-    _real_pthread_mutex_unlock(&log_index_mutex);
-
-    // If the log size is zero, there's nothing to load.
-    getNextLogEntry();
-  }
-}
-
-
 void addNextLogEntry(log_entry_t e)
 {
   if (SYNC_IS_REPLAY) {
@@ -727,29 +478,20 @@ void addNextLogEntry(log_entry_t e)
         "This is probably not intended.");
   }
 
-  if (__builtin_expect(my_clone_id == -1, 0)) {
-    JASSERT(false);
-    my_log->init(MAX_LOG_LENGTH);
-  }
-  if (__builtin_expect(my_log->isLoaded() == false, 0)) {
-    my_log->init(MAX_LOG_LENGTH);
-  }
-
   log_id_t log_id = get_next_log_id();
 
   SET_COMMON2(e, log_id, log_id);
-  my_log->writeEntry(e);
+  my_log->appendEntry(e);
 }
 
 void getNextLogEntry()
 {
-  _real_pthread_mutex_lock(&log_index_mutex);
-
   // If log is empty, don't do anything
-  if (unified_log.isEndOfLog()) {
-    _real_pthread_mutex_unlock(&log_index_mutex);
+  if (unified_log.numEntries() == 0) {
     return;
   }
+
+  _real_pthread_mutex_lock(&log_index_mutex);
 
   if (unified_log.getNextEntry(currentLogEntry) == 0) {
     JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
@@ -798,10 +540,10 @@ static void setupCommonFields(log_entry_t *e, clone_id_t clone_id, int event)
   SET_COMMON_PTR(e, clone_id);
   SET_COMMON_PTR(e, event);
   // Zero out all other fields:
-  memset(&(GET_COMMON_PTR(e, log_id)), 0, sizeof(GET_COMMON_PTR(e, log_id);
-  memset(&(GET_COMMON_PTR(e, tid)), 0, sizeof(GET_COMMON_PTR(e, tid);
-  memset(&(GET_COMMON_PTR(e, my_errno)), 0, sizeof(GET_COMMON_PTR(e, my_errno);
-  memset(&(GET_COMMON_PTR(e, retval)), 0, sizeof(GET_COMMON_PTR(e, retval);
+  // FIXME: Shouldn't we replace the memset with a simpler SET_COMMON_PTR()?
+  memset(&(GET_COMMON_PTR(e, log_id)), 0, sizeof(GET_COMMON_PTR(e, log_id)));
+  memset(&(GET_COMMON_PTR(e, my_errno)), 0, sizeof(GET_COMMON_PTR(e, my_errno)));
+  memset(&(GET_COMMON_PTR(e, retval)), 0, sizeof(GET_COMMON_PTR(e, retval)));
 }
 
 log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
@@ -2564,13 +2306,7 @@ static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
 
 void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
-  //int opt;
   memfence();
-  /*if (__builtin_expect(record_log_loaded == 0, 0)) {
-    // If log_loaded == 0, then this is the first time.
-    // Perform any initialization things here.
-    primeLog();
-    }*/
   if (has_optional_event(&my_entry)) {
     waitForTurnWithOptional(&my_entry, pred);
   } else {

@@ -1215,7 +1215,6 @@ typedef struct {
   //event_code_t event;
   unsigned char event;
   log_id_t log_id;
-  int tid;
   clone_id_t clone_id;
   int my_errno;
   int retval;
@@ -1325,27 +1324,34 @@ typedef struct {
 #define log_event_common_size \
   (sizeof(GET_COMMON(currentLogEntry,event))       +                    \
       sizeof(GET_COMMON(currentLogEntry,log_id))   +                    \
-      sizeof(GET_COMMON(currentLogEntry,tid))      +                    \
       sizeof(GET_COMMON(currentLogEntry,clone_id)) +                    \
       sizeof(GET_COMMON(currentLogEntry,my_errno)) +                    \
       sizeof(GET_COMMON(currentLogEntry,retval)))
 
 
 
-#define GET_FIELD(event, name, field)     event.event_data.log_event_##name.field
-#define GET_FIELD_PTR(event, name, field) event->event_data.log_event_##name.field
+#define GET_FIELD(entry, event, field)     entry.event_data.log_event_##event.field
+#define GET_FIELD_PTR(entry, event, field) entry->event_data.log_event_##event.field
 
-#define SET_FIELD2(event,name,field,field2) GET_FIELD(event,name, field) = field2
+#define SET_FIELD2(entry,event,field,field2) GET_FIELD(entry, event, field) = field2
 
-#define SET_FIELD(event, name, field) SET_FIELD2(event, name, field, field)
+#define SET_FIELD(entry, event, field) SET_FIELD2(entry, event, field, field)
 
-#define GET_COMMON(event, field) event.header.field
-#define GET_COMMON_PTR(event, field) event->header.field
+#define SET_FIELD_FROM(entry, event, field, source) \
+  GET_FIELD(entry, event, field) = GET_FIELD(source, event, field)
 
-#define SET_COMMON_PTR(event, field) GET_COMMON_PTR(event, field) = field
+#define GET_COMMON(entry, field) entry.header.field
+#define GET_COMMON_PTR(entry, field) entry->header.field
 
-#define SET_COMMON2(event, field, field2) GET_COMMON(event, field) = field2
-#define SET_COMMON(event, field) SET_COMMON2(event, field, field)
+#define SET_COMMON_PTR(entry, field) GET_COMMON_PTR(entry, field) = field
+
+#define SET_COMMON2(entry, field, field2) GET_COMMON(entry, field) = field2
+#define SET_COMMON(entry, field) SET_COMMON2(entry, field, field)
+
+#define IS_EQUAL_COMMON(e1, e2, field) \
+  (GET_COMMON(e1, field) == GET_COMMON(e2, field))
+#define IS_EQUAL_FIELD(e1, e2, event, field) \
+  (GET_FIELD(e1, event, field) == GET_FIELD(e2, event, field))
 
 
 #define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
@@ -1354,71 +1360,37 @@ typedef struct {
       event_size = log_event_##name##_size;                             \
   } while(0)
 
-#define IFNAME_COPY_TO_MEMORY_LOG(name, e, dest)                        \
-  do {                                                                  \
-    if (GET_COMMON((e),event) == name##_event ||                        \
-        GET_COMMON((e),event) == name##_event_return) {                 \
-      memcpy((dest),                                                    \
-          &(e).event_data.log_event_##name, log_event_##name##_size);  \
-      memcpy(&currentLogEntry.event_data.log_event_##name,             \
-          &(e).event_data.log_event_##name, log_event_##name##_size);  \
-    }                                                                   \
-  } while(0)
-
-#define IFNAME_COPY_FROM_MEMORY_SOURCE(name, source, dest)              \
-  do {                                                                  \
-    if (GET_COMMON(dest,event) == name##_event ||                       \
-        GET_COMMON(dest,event) == name##_event_return) {                \
-      memcpy(&dest.event_data.log_event_##name,                        \
-          &source, log_event_##name##_size);                            \
-    }                                                                   \
-  } while(0)
-
-// FIXME: Can we use IFNAME_COPY_FROM_MEMORY_SOURCE to replace this definition?
-#define IFNAME_READ_ENTRY_FROM_LOG(name, buf, index, entry)                    \
-  do {                                                                  \
-    if (GET_COMMON(entry,event) == name##_event ||                  \
-        GET_COMMON(entry,event) == name##_event_return) {           \
-      memcpy(&entry.event_data.log_event_##name, buf + index,      \
-             log_event_##name##_size);                                     \
-      index += log_event_##name##_size;                                     \
-      return log_event_##name##_size;                                     \
-    }                                                                   \
-  } while(0)
-
-#define IFNAME_WRITE_ENTRY_TO_LOG(name, buf, index, entry, ret)                \
-  do {                                                                  \
-    if (GET_COMMON(entry,event) == name##_event ||                      \
-        GET_COMMON(entry,event) == name##_event_return) {               \
-      memcpy(buf + index, &entry.event_data.log_event_##name,              \
-             log_event_##name##_size);                                     \
-      ret = log_event_##name##_size;                                     \
-    }                                                                   \
-  } while(0)
-
 #define GET_EVENT_SIZE(event, event_size)                               \
   do {                                                                  \
     FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);             \
   } while(0)
 
-#define COPY_TO_MEMORY_LOG(entry, dest)                                 \
+#define IFNAME_READ_ENTRY_FROM_LOG(name, source, entry)                    \
   do {                                                                  \
-    FOREACH_NAME(IFNAME_COPY_TO_MEMORY_LOG, (entry), (dest));           \
+    if (GET_COMMON(entry,event) == name##_event ||                  \
+        GET_COMMON(entry,event) == name##_event_return) {           \
+      memcpy(&entry.event_data.log_event_##name, source,      \
+             log_event_##name##_size);                                     \
+    }                                                                   \
   } while(0)
 
-#define COPY_FROM_MEMORY_SOURCE(source, dest)                           \
+#define IFNAME_WRITE_ENTRY_TO_LOG(name, dest, entry)                \
   do {                                                                  \
-    FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source, dest);         \
+    if (GET_COMMON(entry,event) == name##_event ||                      \
+        GET_COMMON(entry,event) == name##_event_return) {               \
+      memcpy(dest, &entry.event_data.log_event_##name,              \
+             log_event_##name##_size);                                     \
+    }                                                                   \
   } while(0)
 
-#define READ_ENTRY_FROM_LOG(buf, index, entry)                          \
+#define READ_ENTRY_FROM_LOG(source, entry)                          \
   do {                                                                  \
-    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_LOG, buf, index, entry);        \
+    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_LOG, source, entry);        \
   } while(0)
 
-#define WRITE_ENTRY_TO_LOG(buf, index, entry, ret)                      \
+#define WRITE_ENTRY_TO_LOG(dest, entry)                      \
   do {                                                                  \
-    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_LOG, buf, index, entry, ret);    \
+    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_LOG, dest, entry);    \
   } while(0)
 
 /* Typedefs */
@@ -1433,12 +1405,13 @@ typedef struct {
 /* Static constants: */
 // Clone id to indicate anyone may do this event (used for exec):
 static const int         CLONE_ID_ANYONE = -2;
-static const log_entry_t EMPTY_LOG_ENTRY = {{0, 0, 0, 0, 0, 0}};
+static const log_entry_t EMPTY_LOG_ENTRY = {{0, 0, 0, 0, 0}};
 // Number to start clone_ids at:
 static const int         GLOBAL_CLONE_COUNTER_INIT = 1;
 static const int         RECORD_LOG_PATH_MAX = 256;
 
 LIB_PRIVATE extern char GLOBAL_LOG_LIST_PATH[RECORD_LOG_PATH_MAX];
+LIB_PRIVATE extern char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE extern int global_log_list_fd;
 LIB_PRIVATE extern pthread_mutex_t global_log_list_fd_mutex;
 
@@ -1484,7 +1457,7 @@ LIB_PRIVATE extern volatile off_t         read_log_pos;
 
 /* Functions */
 LIB_PRIVATE void   register_in_global_log_list(clone_id_t clone_id);
-LIB_PRIVATE void   merge_all_logs();
+LIB_PRIVATE int    isUnlock(log_entry_t e);
 LIB_PRIVATE void   addNextLogEntry(log_entry_t);
 LIB_PRIVATE void   atomic_increment(volatile int *ptr);
 LIB_PRIVATE void   atomic_decrement(volatile int *ptr);
@@ -1492,7 +1465,9 @@ LIB_PRIVATE void   copyFdSet(fd_set *src, fd_set *dest);
 LIB_PRIVATE int    fdAvailable(fd_set *set);
 LIB_PRIVATE int    fdSetDiff(fd_set *one, fd_set *two);
 LIB_PRIVATE void   getNextLogEntry();
-LIB_PRIVATE void   initializeLog();
+LIB_PRIVATE void   initializeLogNames();
+LIB_PRIVATE void   initLogsForRecordReplay();
+LIB_PRIVATE dmtcp::vector<clone_id_t> get_log_list();
 LIB_PRIVATE void   logReadData(void *buf, int count);
 LIB_PRIVATE void   sync_and_close_record_log();
 LIB_PRIVATE void   map_record_log_to_read();

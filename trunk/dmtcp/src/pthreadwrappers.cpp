@@ -657,7 +657,7 @@ static void reapThread()
   pthread_join_retvals[thread_to_reap] = join_retval;
   teardownThreadStack(stack_addr, stack_size);
   {
-    long long int clone_id = tid_to_clone_id_table[thread_to_reap];
+    clone_id_t clone_id = tid_to_clone_id_table[thread_to_reap];
     dmtcp::SynchronizationLog *log = clone_id_to_log_table[clone_id];
     JASSERT(log != NULL);
     log->destroy();
