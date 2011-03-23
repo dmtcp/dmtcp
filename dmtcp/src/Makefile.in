@@ -37,7 +37,8 @@ POST_UNINSTALL = :
 pkglib_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
 	dmtcp_inspector$(EXEEXT) dmtcphijack.so$(EXEEXT) \
-	dmtcp_nocheckpoint$(EXEEXT) libdmtcpaware.so.1.0.0$(EXEEXT)
+	dmtcp_nocheckpoint$(EXEEXT) rewrite_log$(EXEEXT) \
+	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
 DIST_COMMON = $(include_HEADERS) $(nobase_noinst_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -144,6 +145,9 @@ libdmtcpaware_so_1_0_0_OBJECTS = $(am_libdmtcpaware_so_1_0_0_OBJECTS)
 libdmtcpaware_so_1_0_0_LDADD = $(LDADD)
 libdmtcpaware_so_1_0_0_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libdmtcpaware_so_1_0_0_LDFLAGS) $(LDFLAGS) -o $@
+am_rewrite_log_OBJECTS = rewrite_log.$(OBJEXT)
+rewrite_log_OBJECTS = $(am_rewrite_log_OBJECTS)
+rewrite_log_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -163,7 +167,7 @@ SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
 	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
 	$(dmtcphijack_so_SOURCES) $(EXTRA_dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES)
+	$(libdmtcpaware_so_1_0_0_SOURCES) $(rewrite_log_SOURCES)
 DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libnohijack_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
@@ -171,7 +175,7 @@ DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
 	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
 	$(EXTRA_dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES)
+	$(libdmtcpaware_so_1_0_0_SOURCES) $(rewrite_log_SOURCES)
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -322,6 +326,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
+rewrite_log_SOURCES = rewrite_log.cpp
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
@@ -339,6 +344,7 @@ dmtcp_checkpoint_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_restart_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+rewrite_log_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
@@ -523,6 +529,9 @@ dmtcphijack.so$(EXEEXT): $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_DEPENDENCIES
 libdmtcpaware.so.1.0.0$(EXEEXT): $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_DEPENDENCIES) 
 	@rm -f libdmtcpaware.so.1.0.0$(EXEEXT)
 	$(libdmtcpaware_so_1_0_0_LINK) $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_LDADD) $(LIBS)
+rewrite_log$(EXEEXT): $(rewrite_log_OBJECTS) $(rewrite_log_DEPENDENCIES) 
+	@rm -f rewrite_log$(EXEEXT)
+	$(CXXLINK) $(rewrite_log_OBJECTS) $(rewrite_log_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -568,6 +577,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pthreadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rewrite_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
