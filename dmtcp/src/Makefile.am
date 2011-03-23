@@ -6,10 +6,15 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint \
-	rewrite_log libdmtcpaware.so.1.0.0
+	libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
-#lib_LTLIBRARIES = libdmtcpaware.la
+
+if RECORD_REPLAY
+pkglib_PROGRAMS += fred_read_log
+fred_read_log_SOURCES = fred_read_log.cpp
+fred_read_log_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
+endif
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -65,7 +70,6 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
-rewrite_log_SOURCES = rewrite_log.cpp
 
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
@@ -83,7 +87,6 @@ dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
-rewrite_log_LDADD      = libdmtcpinternal.a libnohijack.a -lpthread
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 

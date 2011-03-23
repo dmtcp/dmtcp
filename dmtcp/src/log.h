@@ -26,6 +26,8 @@
 #include "../jalib/jassert.h"
 #include "synchronizationlogging.h"
 
+#ifdef RECORD_REPLAY
+
 #define LOG_IS_UNIFIED_VALUE 1
 #define LOG_IS_UNIFIED_TYPE char
 #define LOG_IS_UNIFIED_SIZE sizeof(LOG_IS_UNIFIED_TYPE)
@@ -125,5 +127,6 @@ namespace dmtcp
   };
 
 }
+#endif
 
 #endif

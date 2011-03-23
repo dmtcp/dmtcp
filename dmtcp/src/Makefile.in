@@ -37,8 +37,9 @@ POST_UNINSTALL = :
 pkglib_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
 	dmtcp_inspector$(EXEEXT) dmtcphijack.so$(EXEEXT) \
-	dmtcp_nocheckpoint$(EXEEXT) rewrite_log$(EXEEXT) \
-	libdmtcpaware.so.1.0.0$(EXEEXT)
+	dmtcp_nocheckpoint$(EXEEXT) libdmtcpaware.so.1.0.0$(EXEEXT) \
+	$(am__EXEEXT_1)
+@RECORD_REPLAY_TRUE@am__append_1 = fred_read_log
 subdir = src
 DIST_COMMON = $(include_HEADERS) $(nobase_noinst_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -107,6 +108,7 @@ libsyscallsreal_a_LIBADD =
 am_libsyscallsreal_a_OBJECTS = syscallsreal.$(OBJEXT) \
 	trampolines.$(OBJEXT)
 libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
+@RECORD_REPLAY_TRUE@am__EXEEXT_1 = fred_read_log$(EXEEXT)
 PROGRAMS = $(pkglib_PROGRAMS)
 am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT)
 dmtcp_checkpoint_OBJECTS = $(am_dmtcp_checkpoint_OBJECTS)
@@ -140,14 +142,17 @@ dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
 	libsyscallsreal.a
 dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(dmtcphijack_so_LDFLAGS) $(LDFLAGS) -o $@
+am__fred_read_log_SOURCES_DIST = fred_read_log.cpp
+@RECORD_REPLAY_TRUE@am_fred_read_log_OBJECTS =  \
+@RECORD_REPLAY_TRUE@	fred_read_log.$(OBJEXT)
+fred_read_log_OBJECTS = $(am_fred_read_log_OBJECTS)
+@RECORD_REPLAY_TRUE@fred_read_log_DEPENDENCIES = libdmtcpinternal.a \
+@RECORD_REPLAY_TRUE@	libnohijack.a
 am_libdmtcpaware_so_1_0_0_OBJECTS = dmtcpaware.$(OBJEXT)
 libdmtcpaware_so_1_0_0_OBJECTS = $(am_libdmtcpaware_so_1_0_0_OBJECTS)
 libdmtcpaware_so_1_0_0_LDADD = $(LDADD)
 libdmtcpaware_so_1_0_0_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libdmtcpaware_so_1_0_0_LDFLAGS) $(LDFLAGS) -o $@
-am_rewrite_log_OBJECTS = rewrite_log.$(OBJEXT)
-rewrite_log_OBJECTS = $(am_rewrite_log_OBJECTS)
-rewrite_log_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -167,7 +172,7 @@ SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
 	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
 	$(dmtcphijack_so_SOURCES) $(EXTRA_dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES) $(rewrite_log_SOURCES)
+	$(fred_read_log_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
 DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libnohijack_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
@@ -175,7 +180,8 @@ DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
 	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
 	$(EXTRA_dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES) $(rewrite_log_SOURCES)
+	$(am__fred_read_log_SOURCES_DIST) \
+	$(libdmtcpaware_so_1_0_0_SOURCES)
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -278,7 +284,8 @@ INCLUDES = $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
-#lib_LTLIBRARIES = libdmtcpaware.la
+@RECORD_REPLAY_TRUE@fred_read_log_SOURCES = fred_read_log.cpp
+@RECORD_REPLAY_TRUE@fred_read_log_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -326,7 +333,6 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
-rewrite_log_SOURCES = rewrite_log.cpp
 dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
@@ -344,7 +350,6 @@ dmtcp_checkpoint_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_restart_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_inspector_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
-rewrite_log_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
@@ -526,12 +531,12 @@ dmtcp_restart$(EXEEXT): $(dmtcp_restart_OBJECTS) $(dmtcp_restart_DEPENDENCIES)
 dmtcphijack.so$(EXEEXT): $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_DEPENDENCIES) 
 	@rm -f dmtcphijack.so$(EXEEXT)
 	$(dmtcphijack_so_LINK) $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_LDADD) $(LIBS)
+fred_read_log$(EXEEXT): $(fred_read_log_OBJECTS) $(fred_read_log_DEPENDENCIES) 
+	@rm -f fred_read_log$(EXEEXT)
+	$(CXXLINK) $(fred_read_log_OBJECTS) $(fred_read_log_LDADD) $(LIBS)
 libdmtcpaware.so.1.0.0$(EXEEXT): $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_DEPENDENCIES) 
 	@rm -f libdmtcpaware.so.1.0.0$(EXEEXT)
 	$(libdmtcpaware_so_1_0_0_LINK) $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_LDADD) $(LIBS)
-rewrite_log$(EXEEXT): $(rewrite_log_OBJECTS) $(rewrite_log_DEPENDENCIES) 
-	@rm -f rewrite_log$(EXEEXT)
-	$(CXXLINK) $(rewrite_log_OBJECTS) $(rewrite_log_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -558,6 +563,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/filewrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_read_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jassert.Po@am__quote@
@@ -577,7 +583,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pthreadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrapper.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rewrite_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@

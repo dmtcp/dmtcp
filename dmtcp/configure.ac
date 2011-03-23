@@ -153,6 +153,7 @@ if test "$record_replay" != "no"; then
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi
+AM_CONDITIONAL(RECORD_REPLAY, [test "$record_replay" = "yes"])
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
@@ -164,6 +165,7 @@ AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 if test "$use_quiet" = "yes"; then
   AC_DEFINE([CONFIG_M32],[],[Compiling in 32 bit mode on 64 bit linux.])
 fi
+  
   
 AC_DEFINE([DMTCP],[],[Always enable this.])
 
