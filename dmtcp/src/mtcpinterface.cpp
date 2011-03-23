@@ -505,7 +505,7 @@ struct ThreadArg {
   void *arg;
   pid_t original_tid;
 #ifdef RECORD_REPLAY
-  long long int clone_id;
+  clone_id_t clone_id;
 #endif
 };
 
@@ -530,7 +530,7 @@ int thread_start(void *arg)
     my_clone_id = threadArg->clone_id;
     my_log = new dmtcp::SynchronizationLog();
     if (SYNC_IS_RECORD || SYNC_IS_REPLAY) {
-      my_log->init(MAX_LOG_LENGTH);
+      my_log->initOnThreadCreation();
     }
     clone_id_to_tid_table[my_clone_id] = pthread_self();
     tid_to_clone_id_table[pthread_self()] = my_clone_id;
@@ -553,11 +553,13 @@ int thread_start(void *arg)
   
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
+#ifdef RECORD_REPLAY
     my_log->destroy();
     delete my_log;
     clone_id_to_tid_table.erase(my_clone_id);
     tid_to_clone_id_table.erase(pthread_self());
     clone_id_to_log_table.erase(my_clone_id);
+#endif
     return 0;
   }
 

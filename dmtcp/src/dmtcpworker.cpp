@@ -352,7 +352,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   clone_id_to_log_table[my_clone_id] = my_log;
 
   /* Other initialization for sync log/replay specific to this process. */
-  initializeLog();
+  initializeLogNames();
   if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
     /* If it is NULL, this is the very first exec. We unset => set to 0
        (meaning no logging, no replay) */

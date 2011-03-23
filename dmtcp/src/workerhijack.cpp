@@ -47,7 +47,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
 
   // Perform other initialization for sync log/replay specific to this process.
   recordDataStackLocations();
-  initializeLog();
+  initializeLogNames();
 #endif
 
   theInstance.cleanupWorker();

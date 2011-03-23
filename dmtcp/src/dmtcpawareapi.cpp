@@ -238,22 +238,6 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
   //this function runs before other threads are resumed
 #ifdef RECORD_REPLAY
     recordDataStackLocations();
-
-    // Initialize mmap()'d logs for the current threads.
-    // FIXME: This code should be moved to sync* or log* files.
-    unified_log.init(10 * MAX_LOG_LENGTH, true, true);
-
-    dmtcp::map<clone_id_t, pthread_t>::iterator it;
-    for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
-
-      dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
-      log->init2(it->first, MAX_LOG_LENGTH, true);
-
-      if (!isRestart) {
-        register_in_global_log_list(it->first);
-      }
-    }
-
 #endif
   if(isRestart){
 #ifdef RECORD_REPLAY
@@ -263,7 +247,8 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     x[1] = '\0';
     SET_SYNC_REPLAY();
 
-    primeLog();
+    initLogsForRecordReplay();
+
     log_all_allocs = 1;
 #endif
     numRestarts++;
@@ -277,6 +262,9 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     x[1] = '\0';
     log_all_allocs = 1;
     SET_SYNC_LOG();
+
+    initLogsForRecordReplay();
+
 #endif
     numCheckpoints++;
     if(userHookPostCheckpoint != NULL)
