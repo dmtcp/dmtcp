@@ -54,6 +54,7 @@ static void readcs (int fd, char cs);
 static void readfile (int fd, void *buf, size_t size);
 
 static pid_t gzip_child_pid = -1;
+pid_t saved_pid = 0;
 
 extern int dmtcp_info_stderr_fd;
 

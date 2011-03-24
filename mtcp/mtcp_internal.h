@@ -56,8 +56,13 @@
 #  define DEBUG
 #endif
 
+extern pid_t saved_pid;
 #ifdef DEBUG
-#define DPRINTF(x) mtcp_printf x  // debugging printing
+#define DPRINTF(x) \
+  do { \
+    mtcp_printf ("[%d] %s:%d %s:\n  ", saved_pid, __FILE__, __LINE__, __FUNCTION__); \
+    mtcp_printf x; \
+  } while (0)
 #else
 #define DPRINTF(x) // debugging printing
 #endif

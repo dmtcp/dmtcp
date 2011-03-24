@@ -172,7 +172,7 @@ void ptrace_attach_threads(int isRestart)
   int i;
   struct ptrace_info pt_info;
 
-  DPRINTF(("ptrace_attach_threads: %d started.\n", GETTID()));
+  DPRINTF(("%d started.\n", GETTID()));
 
   int index = 0;
   while (empty_ptrace_info(
@@ -242,10 +242,10 @@ void ptrace_attach_threads(int isRestart)
           }
         }
         if (WIFEXITED(status)) {
-          DPRINTF(("ptrace_attach_threads: %d is dead because %d\n",
+          DPRINTF(("%d is dead because %d\n",
                   inferior, WEXITSTATUS(status)));
         } else if(WIFSIGNALED(status)) {
-          DPRINTF(("ptrace_attach_threads: %d is dead because of signal %d\n",
+          DPRINTF(("%d is dead because of signal %d\n",
                   WTERMSIG(status)));
         }
 
@@ -424,7 +424,7 @@ void ptrace_attach_threads(int isRestart)
       have_file (inferior);
     }
   }
-  DPRINTF(("ptrace_attach_threads: %d done.\n", GETTID()));
+  DPRINTF(("%d done.\n", GETTID()));
 }
 
 /* Detach only the checkpoint threads.
@@ -450,7 +450,7 @@ void ptrace_detach_checkpoint_threads ()
       }
     }
   }
-  DPRINTF(("ptrace_detach_checkpoint_threads: done for %d\n", GETTID()));
+  DPRINTF(("done for %d\n", GETTID()));
 }
 
 /* This function detaches the user threads. */
@@ -528,7 +528,7 @@ void ptrace_detach_user_threads ()
       }
     }
   }
-  DPRINTF(("ptrace_detach_user_threads: %d done.\n", GETTID()));
+  DPRINTF(("%d done.\n", GETTID()));
 }
 
 void ptrace_lock_inferiors()
@@ -640,7 +640,7 @@ char procfs_state(int tid) {
   sprintf(name, "/proc/%d/stat", tid);
   int fd = open(name, O_RDONLY, 0);
   if (fd < 0) {
-    DPRINTF(("procfs_state: cannot open %s\n",name));
+    DPRINTF(("cannot open %s\n",name));
     return 0;
   }
 
@@ -700,7 +700,7 @@ pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
 void read_ptrace_setoptions_file (int record_to_file, int rc) {
   int fd = open(ptrace_setoptions_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("read_ptrace_setoptions_file: NO setoptions file\n"));
+    DPRINTF(("NO setoptions file\n"));
     return;
   }
 
@@ -727,7 +727,7 @@ void read_ptrace_setoptions_file (int record_to_file, int rc) {
 void read_new_ptrace_shared_file () {
   int fd = open(new_ptrace_shared_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("read_new_ptrace_shared_file: no file.\n"));
+    DPRINTF(("no file.\n"));
     return;
   }
 
@@ -749,7 +749,7 @@ void read_new_ptrace_shared_file () {
 void read_checkpoint_threads_file () {
   int fd = open(checkpoint_threads_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("read_checkpoint_threads_file: no file.\n"));
+    DPRINTF(("no file.\n"));
     return;
   }
 
@@ -803,13 +803,13 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
   }
   if (WIFSTOPPED(status)) {
     if (WSTOPSIG(status) == SIGSTOP)
-      DPRINTF(("ptrace_detach_ckpthread: ckpthread %d stopped by SIGSTOP\n",
+      DPRINTF(("ckpthread %d stopped by SIGSTOP\n",
               inferior));
     else  /* We should never get here. */ 
-      DPRINTF(("ptrace_detach_ckpthread: ckpthread %d stopped by %d\n",
+      DPRINTF(("ckpthread %d stopped by %d\n",
                inferior, WSTOPSIG(status)));
   } else /* We should never get here. */
-    DPRINTF(("ptrace_detach_ckpthread: ckpthread %d NOT stopped by a signal\n",
+    DPRINTF(("ckpthread %d NOT stopped by a signal\n",
               inferior));
 
   if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, (void*) SIGCONT) == -1) {

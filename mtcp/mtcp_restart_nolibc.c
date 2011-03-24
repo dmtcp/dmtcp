@@ -143,7 +143,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   }
   if (new_brk != mtcp_saved_break) {
     if (new_brk == current_brk && new_brk > mtcp_saved_break)
-      DPRINTF(("mtcp_restoreverything: new_brk == current_brk == %p\n"
+      DPRINTF(("new_brk == current_brk == %p\n"
         "  saved_break, %p, is strictly smaller; data segment not extended.\n",
         new_brk, mtcp_saved_break));
     else {
@@ -193,13 +193,13 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 	   vdso_addr, highest_va, vsyscall_addr));
 
   if (vdso_addr != NULL && vdso_addr < holebase) {
-    DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
+    DPRINTF(("unmapping %p..%p, %p..%p\n",
 	      NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1));
     rc = mtcp_sys_munmap (NULL, (size_t)vdso_addr);
     rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
 			   holebase - vdso_addr - MTCP_PAGE_SIZE);
   } else {
-    DPRINTF (("mtcp restoreverything*: unmapping 0..%p\n", holebase - 1));
+    DPRINTF(("unmapping 0..%p\n", holebase - 1));
     rc = mtcp_sys_munmap (NULL, holebase);
   }
   if (rc == -1) {
@@ -215,13 +215,13 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 		   & -MTCP_PAGE_SIZE);
   if (vdso_addr != NULL && vdso_addr + MTCP_PAGE_SIZE <= highest_va) {
     if (vdso_addr > holebase) {
-      DPRINTF (("mtcp restoreverything*: unmapping %p..%p, %p..%p\n",
+      DPRINTF(("unmapping %p..%p, %p..%p\n",
 	        holebase, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, highest_va - 1));
       rc = mtcp_sys_munmap (holebase, vdso_addr - holebase);
       rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
 			   highest_va - vdso_addr - MTCP_PAGE_SIZE);
     } else {
-      DPRINTF (("mtcp restoreverything*: unmapping %p..%p\n",
+      DPRINTF(("unmapping %p..%p\n",
 	        holebase, highest_va - 1));
       if (highest_va < holebase) {
         mtcp_printf ("mtcp_sys_munmap: error unmapping:"
@@ -246,29 +246,29 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   /* Restore file descriptors */
 
-  DPRINTF (("mtcp restoreverything*: restoring file descriptors\n"));
+  DPRINTF(("restoring file descriptors\n"));
   readfiledescrs ();                              // restore files
 
   /* Restore memory areas */
 
   global_vdso_addr = vdso_addr;/* This global var goes away when linker used. */
-  DPRINTF (("mtcp restoreverything*: restoring memory areas\n"));
+  DPRINTF(("restoring memory areas\n"));
   readmemoryareas ();
 
   /* Everything restored, close file and finish up */
 
-  DPRINTF (("mtcp restoreverything*: close cpfd %d\n", mtcp_restore_cpfd));
+  DPRINTF(("close cpfd %d\n", mtcp_restore_cpfd));
   mtcp_sys_close (mtcp_restore_cpfd);
   mtcp_restore_cpfd = -1;
-  DPRINTF (("mtcp restoreverything*: waiting on gzip_child_pid: %d\n", mtcp_restore_gzip_child_pid ));
+  DPRINTF(("waiting on gzip_child_pid: %d\n", mtcp_restore_gzip_child_pid ));
   // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
   if( mtcp_restore_gzip_child_pid != -1 ) {
     if( mtcp_sys_wait4(mtcp_restore_gzip_child_pid , NULL, 0, NULL ) == -1 )
-        DPRINTF (("mtcp restoreverything*: error wait4: errno: %d", mtcp_sys_errno));
+        DPRINTF(("error wait4: errno: %d", mtcp_sys_errno));
     mtcp_restore_gzip_child_pid = -1;
   }
 
-  DPRINTF (("mtcp restoreverything*: restore complete, resuming...\n"));
+  DPRINTF(("restore complete, resuming...\n"));
 
   /* Jump to finishrestore in original program's libmtcp.so image */
 
@@ -308,7 +308,7 @@ static void readfiledescrs (void)
     readfile (linkbuf, linklen);
     linkbuf[linklen] = 0;
 
-    DPRINTF (("mtcp readfiledescrs*: restoring %d -> %s\n", fdnum, linkbuf));
+    DPRINTF(("restoring %d -> %s\n", fdnum, linkbuf));
 
     /* Maybe it restores to same fd as we're using for checkpoint file. */
     /* If so, move the checkpoint file somewhere else.                  */
@@ -321,7 +321,7 @@ static void readfiledescrs (void)
         mtcp_abort ();
       }
       mtcp_restore_cpfd = flags;
-      DPRINTF (("mtcp readfiledescrs*: cpfd changed to %d\n",
+      DPRINTF(("cpfd changed to %d\n",
 	        mtcp_restore_cpfd));
     }
 
@@ -438,9 +438,9 @@ static void readmemoryareas (void)
       /* Create the memory area */
 
       if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF (("mtcp restoreverything*: restoring anonymous area %p at %p\n", area.size, area.addr));
+        DPRINTF(("restoring anonymous area %p at %p\n", area.size, area.addr));
       } else {
-        DPRINTF (("mtcp restoreverything*: restoring to non-anonymous area from anonymous area %p at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
+        DPRINTF(("restoring to non-anonymous area from anonymous area %p at %p from %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       }
       /* POSIX says mmap would unmap old memory.  Munmap never fails if args
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
@@ -449,7 +449,7 @@ static void readmemoryareas (void)
       mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
 				 area.flags, imagefd, area.offset);
       if (mmappedat == MAP_FAILED) {
-        DPRINTF(("mtcp_restart_nolibc: error %d mapping %p bytes at %p\n",
+        DPRINTF(("error %d mapping %p bytes at %p\n",
 		 mtcp_sys_errno, area.size, area.addr));
 
 	try_skipping_existing_segment = 1;
@@ -533,7 +533,7 @@ static void readmemoryareas (void)
     /* Otherwise, we mmap the original file contents to the area */
 
     else {
-      DPRINTF (("mtcp restoreverything*: restoring mapped area %p at %p to %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
+      DPRINTF(("restoring mapped area %p at %p to %s + 0x%X\n", area.size, area.addr, area.name, area.offset));
       flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
       // O_WRONLY = 01
@@ -675,7 +675,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   if (imagefd < 0) {
 
     // If the shared file doesn't exist on the disk, we try to create it
-    DPRINTF(("mtcp restoreverything*: Shared file %s not found. Creating new\n",
+    DPRINTF(("Shared file %s not found. Creating new\n",
              area_name));
 
     /* Dangerous for DMTCP:  Since file is created with O_CREAT,    */

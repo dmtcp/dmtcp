@@ -389,7 +389,8 @@ static char perm_checkpointfilename[MAXPATHLEN];
 static char temp_checkpointfilename[MAXPATHLEN];
 static size_t checkpointsize;
 static int intervalsecs;
-static pid_t motherpid;
+static pid_t motherpid = 0;
+pid_t saved_pid = 0;
 static size_t restore_size;
 static int showtiming;
 static int threadenabledefault;
@@ -542,9 +543,12 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   char *p, *tmp, *endp;
   int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
+
+  saved_pid = mtcp_sys_getpid ();
+
   //mtcp_segreg_t TLSSEGREG;
 #ifdef PTRACE 
-  DPRINTF (("mtcp mtcp_init*: begin init_thread_local\n"));
+  DPRINTF(("begin init_thread_local\n"));
   init_thread_local();
 #endif
   /* Initialize the static curbrk variable in sbrk wrapper. */
@@ -615,7 +619,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
 #endif
 
-  DPRINTF (("mtcp_init*: main tid %d\n", mtcp_sys_kernel_gettid ()));
+  DPRINTF(("main tid %d\n", mtcp_sys_kernel_gettid ()));
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
   if (getenv("MTCP_INIT_PAUSE")) {
     mtcp_printf("Pausing 15 seconds.  Do:  gdb attach %d\n", mtcp_sys_getpid());
@@ -926,9 +930,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       mtcp_state_init(&thread->state, ST_RUNDISABLED);
     }
 
-    DPRINTF (("mtcp wrapper clone*: calling clone thread=%p,"
+    DPRINTF(("calling clone thread=%p,"
 	      " fn=%p, flags=0x%X\n", thread, fn, flags));
-    DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p,"
+    DPRINTF(("parent_tidptr=%p, newtls=%p,"
 	      " child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
     //asm volatile ("int3");
 
@@ -947,7 +951,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       child_tidptr = &(thread -> child_tid);
     }
     thread -> actual_tidptr = child_tidptr;
-    DPRINTF (("mtcp wrapper clone*: thread %p -> actual_tidptr %p\n",
+    DPRINTF(("thread %p -> actual_tidptr %p\n",
 	      thread, thread -> actual_tidptr));
 
     /* Alter call parameters, forcing CLEARTID and make it call the wrapper routine */
@@ -964,13 +968,13 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 
   /* Now create the thread */
 
-  DPRINTF (("mtcp wrapper clone*: clone fn=%p, child_stack=%p, flags=%X, arg=%p\n", fn, child_stack, flags, arg));
-  DPRINTF (("mtcp wrapper clone*: parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
+  DPRINTF(("clone fn=%p, child_stack=%p, flags=%X, arg=%p\n", fn, child_stack, flags, arg));
+  DPRINTF(("parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
   rc = (*clone_entry) (fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
   if (rc < 0) {
-    DPRINTF (("mtcp wrapper clone*: clone rc=%d, errno=%d\n", rc, errno));
+    DPRINTF(("clone rc=%d, errno=%d\n", rc, errno));
   } else {
-    DPRINTF (("mtcp wrapper clone*: clone rc=%d\n", rc));
+    DPRINTF(("clone rc=%d\n", rc));
   }
 
 #ifdef PTRACE
@@ -1031,7 +1035,7 @@ static int threadcloned (void *threadv)
   int rc;
   Thread *const thread = threadv;
 
-  DPRINTF (("mtcp threadcloned*: starting thread %p\n", thread));
+  DPRINTF(("starting thread %p\n", thread));
 
   setupthread (thread);
 
@@ -1064,9 +1068,9 @@ static int threadcloned (void *threadv)
 
   /* Call the user's function for whatever processing they want done */
 
-  DPRINTF (("mtcp threadcloned*: calling %p (%p)\n", thread -> fn, thread -> arg));
+  DPRINTF(("calling %p (%p)\n", thread -> fn, thread -> arg));
   rc = (*(thread -> fn)) (thread -> arg);
-  DPRINTF (("mtcp threadcloned*: returned %d\n", rc));
+  DPRINTF(("returned %d\n", rc));
 
   /* Make sure checkpointing is inhibited while we clean up and exit */
   /* Otherwise, checkpointer might wait forever for us to re-enable  */
@@ -1098,7 +1102,7 @@ static long set_tid_address (int *tidptr)
   Thread *thread;
 
   thread = getcurrenthread ();
-  DPRINTF (("set_tid_address wrapper*: thread %p -> tid %d, tidptr %p\n",
+  DPRINTF(("thread %p -> tid %d, tidptr %p\n",
 	    thread, thread -> tid, tidptr));
   thread -> actual_tidptr = tidptr;  // save new tidptr so subsequent restore will create with new pointer
   rc = mtcp_sys_set_tid_address(tidptr);
@@ -1134,7 +1138,7 @@ static void setupthread (Thread *thread)
   thread -> tid = mtcp_sys_kernel_gettid ();
   thread -> original_tid = GETTID ();
 
-  DPRINTF (("mtcp setupthread*: thread %p -> tid %d\n", thread, thread->tid));
+  DPRINTF(("thread %p -> tid %d\n", thread, thread->tid));
 
   lock_threads ();
 
@@ -1233,7 +1237,7 @@ static void threadisdead (Thread *thread)
 
   lock_threads ();
 
-  DPRINTF (("mtcp threadisdead*: thread %p -> tid %d\n", thread, thread -> tid));
+  DPRINTF(("thread %p -> tid %d\n", thread, thread -> tid));
 
   /* Remove thread block from 'threads' list */
 
@@ -1398,7 +1402,7 @@ void mtcp_kill_ckpthread (void)
   for (thread = threads; thread != NULL; thread = thread -> next) {
     if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
       unlk_threads ();
-      DPRINTF(("mtcp_kill_ckpthread: Kill checkpinthread, tid=%d\n",thread->tid));
+      DPRINTF(("Kill checkpinthread, tid=%d\n",thread->tid));
       mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
       return;
     }
@@ -1452,7 +1456,7 @@ static void restore_term_settings() {
         DPRINTF(("WARNING: mtcp finishrestore*: failed to restore terminal\n"));
       else {
         struct winsize cur_win;
-        DPRINTF(("mtcp finishrestore*: restored terminal\n"));
+        DPRINTF(("restored terminal\n"));
         ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &cur_win);
 	/* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
 	 * it back to last known row/col prior to checkpoint, and then send a
@@ -1493,7 +1497,7 @@ static void *checkpointhread (void *dummy)
   static int originalstartup = 1;
 
 #ifdef PTRACE
-  DPRINTF (("mtcp checkpointhread*: begin init_thread_local\n"));
+  DPRINTF(("begin init_thread_local\n"));
   init_thread_local();
 
   mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(), 
@@ -1505,7 +1509,7 @@ static void *checkpointhread (void *dummy)
 
   static struct timespec const enabletimeout = { 10, 0 };
 
-  DPRINTF (("mtcp checkpointhread*: %d started\n", mtcp_sys_kernel_gettid ()));
+  DPRINTF(("%d started\n", mtcp_sys_kernel_gettid ()));
 
   /* Set up our restart point, ie, we get jumped to here after a restore */
 
@@ -1518,7 +1522,7 @@ static void *checkpointhread (void *dummy)
   /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
 
-  DPRINTF (("mtcp checkpointhread*: after getcontext. current_tid %d, original_tid:%d\n",
+  DPRINTF(("after getcontext. current_tid %d, original_tid:%d\n",
         mtcp_sys_kernel_gettid(), ckpthread->original_tid));
   if (originalstartup)
     originalstartup = 0;
@@ -1526,12 +1530,12 @@ static void *checkpointhread (void *dummy)
 
     /* We are being restored.  Wait for all other threads to finish being restored before resuming checkpointing. */
 
-    DPRINTF (("mtcp checkpointhread*: waiting for other threads after restore\n"));
+    DPRINTF(("waiting for other threads after restore\n"));
     wait_for_all_restored ();
 #ifdef PTRACE
     create_file (GETTID());
 #endif
-    DPRINTF (("mtcp checkpointhread*: resuming after restore\n"));
+    DPRINTF(("resuming after restore\n"));
   }
 
   /* Reset the verification counter - on init, this will set it to it's start value. */
@@ -1539,7 +1543,7 @@ static void *checkpointhread (void *dummy)
   /* restore, it will set it to its start value.  So this covers all cases.          */
 
   verify_count = verify_total;
-  DPRINTF (("After verify count mtcp checkpointhread*: %d started\n",
+  DPRINTF(("After verify count mtcp checkpointhread*: %d started\n",
 	    mtcp_sys_kernel_gettid ()));
 
   while (1) {
@@ -1553,9 +1557,9 @@ static void *checkpointhread (void *dummy)
     }
     else
     {
-        DPRINTF(("mtcp checkpointhread*: before callback_sleep_between_ckpt(%d)\n",intervalsecs));
+        DPRINTF(("before callback_sleep_between_ckpt(%d)\n",intervalsecs));
         (*callback_sleep_between_ckpt)(intervalsecs);
-        DPRINTF(("mtcp checkpointhread*: after callback_sleep_between_ckpt(%d)\n",intervalsecs));
+        DPRINTF(("after callback_sleep_between_ckpt(%d)\n",intervalsecs));
     }
 
     mtcp_sys_gettimeofday (&started, NULL);
@@ -1603,13 +1607,13 @@ static void *checkpointhread (void *dummy)
           ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());  
         }
         if (ckpt_ptraced_by) {
-          DPRINTF(("checkpointhread: ckpt %d is being traced by %d.\n",
+          DPRINTF(("ckpt %d is being traced by %d.\n",
                    GETTID(), ckpt_ptraced_by));
           ptrace_wait4(ckpt_ptraced_by);
-          DPRINTF(("checkpointhread: ckpt %d is done waiting for its "
+          DPRINTF(("ckpt %d is done waiting for its "
                    "superior %d: superior is in stopthisthread.\n",
                    GETTID(), ckpt_ptraced_by));
-        } else DPRINTF(("checkpointhread: ckpt %d not being traced.\n",
+        } else DPRINTF(("ckpt %d not being traced.\n",
                         GETTID()));
       }
     }
@@ -1627,7 +1631,7 @@ rescan:
 
 again:
       if (*(thread -> actual_tidptr) == 0) {
-        DPRINTF (("mtcp checkpointhread*: thread %d disappeared\n", thread -> tid));
+        DPRINTF(("thread %d disappeared\n", thread -> tid));
         unlk_threads ();
         threadisdead (thread);
         goto rescan;
@@ -1829,12 +1833,12 @@ again:
       jalib_ckpt_unlock_ready = 0;
 #endif
     RMB; // matched by WMB in stopthisthread
-    DPRINTF (("mtcp checkpointhread*: everything suspended\n"));
+    DPRINTF(("everything suspended\n"));
 
     /* If no threads, we're all done */
 
     if (threads == NULL) {
-      DPRINTF (("mtcp checkpointhread*: exiting (no threads)\n"));
+      DPRINTF(("exiting (no threads)\n"));
       return (NULL);
     }
 
@@ -1881,16 +1885,16 @@ again:
      */
     if (callback_pre_ckpt != NULL){
       // Here we want to synchronize the shared memory pages with the backup files
-      DPRINTF(("mtcp checkpointhread*: syncing shared memory with backup files\n"));
+      DPRINTF(("syncing shared memory with backup files\n"));
       sync_shared_mem();
 
-      DPRINTF(("mtcp checkpointhread*: before callback_pre_ckpt() (&%x,%x) \n",
+      DPRINTF(("before callback_pre_ckpt() (&%x,%x) \n",
 	       &callback_pre_ckpt, callback_pre_ckpt));
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
       if (dmtcp_checkpoint_filename &&
           strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
         mtcp_sys_strcpy(perm_checkpointfilename, dmtcp_checkpoint_filename);
-        DPRINTF(("mtcp checkpointhread*: Checkpoint filename changed to %s\n",
+        DPRINTF(("Checkpoint filename changed to %s\n",
 		perm_checkpointfilename));
       }
     }
@@ -1909,7 +1913,7 @@ again:
       mtcp_abort ();
     }
 
-    DPRINTF (("mtcp checkpointhread*: mtcp_saved_break=%p\n", mtcp_saved_break));
+    DPRINTF(("mtcp_saved_break=%p\n", mtcp_saved_break));
 
     if ( dmtcp_checkpoint_filename == NULL ||
          strcmp (dmtcp_checkpoint_filename, "/dev/null") != 0) {
@@ -1920,7 +1924,7 @@ again:
     }
 
     if (callback_post_ckpt != NULL){
-        DPRINTF(("mtcp checkpointhread*: before callback_post_ckpt() (&%x,%x) \n",
+        DPRINTF(("before callback_post_ckpt() (&%x,%x) \n",
 		 &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(0, NULL);
     }
@@ -1943,7 +1947,7 @@ again:
      * running when we exec the mtcp_restore program.
      */
 
-    DPRINTF (("mtcp checkpointhread*: resuming everything\n"));
+    DPRINTF(("resuming everything\n"));
     lock_threads();
     for (thread = threads; thread != NULL; thread = thread -> next) {
       if (mtcp_state_value(&(thread -> state)) != ST_CKPNTHREAD) {
@@ -1953,7 +1957,7 @@ again:
       }
     }
     unlk_threads ();
-    DPRINTF (("mtcp checkpointhread*: everything resumed\n"));
+    DPRINTF(("everything resumed\n"));
     /* But if we're doing a restore verify, just exit.  The main thread is doing the exec to start the restore. */
 #ifdef PTRACE
     create_file(GETTID());
@@ -2073,7 +2077,7 @@ static void checkpointeverything (void)
 
   static void *const frpointer = finishrestore;
 
-  DPRINTF (("mtcp checkpointeverything*: tid %d\n", mtcp_sys_kernel_gettid ()));
+  DPRINTF(("tid %d\n", mtcp_sys_kernel_gettid ()));
 
   if (getenv("MTCP_FORKED_CHECKPOINT") != NULL)
     forked_checkpointing = 1;
@@ -2109,9 +2113,9 @@ static void checkpointeverything (void)
         close(tmpDMTCPHeaderFd);
       // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
       if ( waitpid(forked_cpid, NULL, 0) == -1 )
-        DPRINTF (("mtcp restoreverything*: error waitpid: errno: %d",
+        DPRINTF(("error waitpid: errno: %d",
               mtcp_sys_errno));
-      DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
+      DPRINTF(("checkpoint complete\n"));
       return;
     } else {
       pid_t grandchild_pid = mtcp_sys_fork();
@@ -2121,7 +2125,7 @@ static void checkpointeverything (void)
         mtcp_sys_exit(0); /* child exits */
       }
       /* grandchild continues; no need now to waitpid() on grandchild */
-      DPRINTF (("mtcp checkpointeverything*: inside grandchild process\n"));
+      DPRINTF(("inside grandchild process\n"));
     }
   }
 
@@ -2204,19 +2208,19 @@ static void checkpointeverything (void)
 
   writefile (fd, MAGIC, MAGIC_LEN);
 
-  DPRINTF (("mtcp checkpointeverything*: restore_begin %X at %p from [libmtcp.so]\n",
+  DPRINTF(("restore_begin %X at %p from [libmtcp.so]\n",
             restore_size, restore_begin));
 
   struct rlimit stack_rlimit;
   getrlimit(RLIMIT_STACK, &stack_rlimit);
 
-  DPRINTF (("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+  DPRINTF(("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
 	    stack_rlimit.rlim_cur, stack_rlimit.rlim_max));
 
   writecs (fd, CS_STACKRLIMIT);
   writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
-  DPRINTF (("mtcp checkpointeverything*: [libmtcp.so] image of size %X at %p\n",
+  DPRINTF(("[libmtcp.so] image of size %X at %p\n",
 	    restore_size, restore_begin));
 
   writecs (fd, CS_RESTOREBEGIN);
@@ -2292,14 +2296,14 @@ static void checkpointeverything (void)
 
     if ( mtcp_strstartswith(area.name, dev_zero_deleted_str) ||
          mtcp_strstartswith(area.name, dev_null_deleted_str) ) {
-      DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n",
+      DPRINTF(("saving area \"%s\" as Anonymous\n",
 	       area.name));
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     }
 
     if (mtcp_strstartswith(area.name, sys_v_shmem_file)) {
-      DPRINTF(("mtcp checkpointeverything: saving area \"%s\" as Anonymous\n",
+      DPRINTF(("saving area \"%s\" as Anonymous\n",
 	       area.name));
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
@@ -2309,7 +2313,7 @@ static void checkpointeverything (void)
     if ( mtcp_strstartswith(area.name, nscd_mmap_str) ||
          mtcp_strstartswith(area.name, nscd_mmap_str2) ||
          mtcp_strstartswith(area.name, nscd_mmap_str3) ) {
-      DPRINTF(("mtcp checkpointeverything: NSCD daemon shared memory area present. MTCP will now try to remap\n" \
+      DPRINTF(("NSCD daemon shared memory area present. MTCP will now try to remap\n" \
             "                           this area in read/write mode and then will fill it with zeros so that\n" \
             "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
       area.prot = PROT_READ | PROT_WRITE;
@@ -2425,7 +2429,7 @@ static void checkpointeverything (void)
   if (forked_checkpointing)
     mtcp_sys_exit (0); /* grandchild exits */
 
-  DPRINTF (("mtcp checkpointeverything*: checkpoint complete\n"));
+  DPRINTF(("checkpoint complete\n"));
 }
 
 /* True if the given FD should be checkpointed */
@@ -2498,7 +2502,7 @@ static void writefiledescrs (int fd)
           }
           linkbuf[linklen] = '\0';
 
-          DPRINTF (("mtcp writefiledescrs*: checkpointing fd %d -> %s\n",
+          DPRINTF(("checkpointing fd %d -> %s\n",
 		    fdnum, linkbuf));
 
           /* Read about the link itself so we know read/write open flags */
@@ -2564,23 +2568,23 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
     orig_stack = area -> addr + area -> size;
 
   if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vdso] section"
+    DPRINTF(("skipping over [vdso] section"
               " %p at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
-    DPRINTF (("mtcp checkpointeverything*: skipping over [vsyscall] section"
+    DPRINTF(("skipping over [vsyscall] section"
     	      " %p at %p\n", area -> size, area -> addr));
   else if (0 == strcmp(area -> name, "[stack]") &&
 	   orig_stack != area -> addr + area -> size)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
-    DPRINTF (("mtcp checkpointeverything*: skipping over [stack] segment"
+    DPRINTF(("skipping over [stack] segment"
     	      " %X at %pi (not the orig stack)\n", area -> size, area -> addr));
   else if (!(area -> flags & MAP_ANONYMOUS))
-    DPRINTF (("mtcp checkpointeverything*: save %p at %p from %s + %X\n",
+    DPRINTF(("save %p at %p from %s + %X\n",
               area -> size, area -> addr, area -> name, area -> offset));
   else if (area -> name[0] == '\0')
-    DPRINTF (("mtcp checkpointeverything*: save anonymous %p at %p\n",
+    DPRINTF(("save anonymous %p at %p\n",
               area -> size, area -> addr));
-  else DPRINTF (("mtcp checkpointeverything*: save anonymous %p at %p"
+  else DPRINTF(("save anonymous %p at %p"
                  " from %s + %X\n",
 		 area -> size, area -> addr, area -> name, area -> offset));
 
@@ -2756,7 +2760,7 @@ static void stopthisthread (int signum)
 #define STDERR_FD 826
 #define LOG_FD 826
 
-  DPRINTF (("mtcp stopthisthread*: tid %d returns to %p\n",
+  DPRINTF(("tid %d returns to %p\n",
             mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 
   thread = getcurrenthread (); // see which thread this is
@@ -2771,7 +2775,7 @@ static void stopthisthread (int signum)
     void *buffer[BT_SIZE];
     int nptrs;
 
-    DPRINTF (( "printing stacktrace of the motherofall Thread\n\n" ));
+    DPRINTF(( "printing stacktrace of the motherofall Thread\n\n" ));
     nptrs = backtrace (buffer, BT_SIZE);
     backtrace_symbols_fd ( buffer, nptrs, STDERR_FD );
     backtrace_symbols_fd ( buffer, nptrs, LOG_FD );
@@ -2793,7 +2797,7 @@ static void stopthisthread (int signum)
       if (is_first_checkpoint) {
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
-        DPRINTF(("mtcp_stopthisthread: temp. grow main stack by %d kilobytes\n",
+        DPRINTF(("temp. grow main stack by %d kilobytes\n",
 		 kbStack));
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
@@ -2810,7 +2814,7 @@ static void stopthisthread (int signum)
                    rc, errno);
       mtcp_abort ();
     }
-    DPRINTF (("mtcp stopthisthread*: after getcontext\n"));
+    DPRINTF(("after getcontext\n"));
     if (mtcp_state_value(&restoreinprog) == 0) {
 
       /* We are the original process and all context is saved
@@ -2907,7 +2911,7 @@ static void stopthisthread (int signum)
 
       /* Then we wait for the checkpoint thread to write the checkpoint file then wake us up */
 
-      DPRINTF (("mtcp stopthisthread*: thread %d suspending\n", thread -> tid));
+      DPRINTF(("thread %d suspending\n", thread -> tid));
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
@@ -2943,7 +2947,7 @@ static void stopthisthread (int signum)
          * The restore will rename the file after it has done the restart.
          */
 
-        DPRINTF (("mtcp checkpointeverything*: verifying checkpoint...\n"));
+        DPRINTF(("verifying checkpoint...\n"));
         execlp ("mtcp_restart", "mtcp_restart", "--verify", temp_checkpointfilename, NULL);
         mtcp_printf ("mtcp checkpointeverything: error execing mtcp_restart %s: %s\n", temp_checkpointfilename, strerror (errno));
         mtcp_abort ();
@@ -2951,7 +2955,7 @@ static void stopthisthread (int signum)
 
       /* No verification, resume where we left off */
 
-      DPRINTF (("mtcp stopthisthread*: thread %d resuming\n", thread -> tid));
+      DPRINTF(("thread %d resuming\n", thread -> tid));
     }
 
     /* Else restoreinprog >= 1;  This stuff executes to do a restart */
@@ -2960,7 +2964,7 @@ static void stopthisthread (int signum)
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
 	mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
       wait_for_all_restored ();
-      DPRINTF (("mtcp stopthisthread*: thread %d restored\n", thread -> tid));
+      DPRINTF(("thread %d restored\n", thread -> tid));
 
       if (thread == motherofall) {
 
@@ -2976,7 +2980,7 @@ static void stopthisthread (int signum)
 #endif 
     }
   }
-  DPRINTF (("mtcp stopthisthread*: tid %d returning to %p\n",
+  DPRINTF(("tid %d returning to %p\n",
 	    mtcp_sys_kernel_gettid (), __builtin_return_address (0)));
 #ifdef PTRACE
   ptrace_lock_inferiors();
@@ -3101,7 +3105,7 @@ static void save_sig_state (Thread *thisthread)
 static void restore_sig_state (Thread *thisthread)
 {
   int i;
-  DPRINTF (("mtcp restore_sig_state*: restoring handlers for thread %d\n",
+  DPRINTF(("restoring handlers for thread %d\n",
 	    thisthread->original_tid));
   if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
     mtcp_printf("mtcp %s: error setting sigal mask: %s\n",
@@ -3128,7 +3132,7 @@ static void save_sig_handlers (void)
 {
   int i;
   /* Now save all the signal handlers */
-  DPRINTF (("mtcp save_sig_handlers*: saving signal handlers\n"));
+  DPRINTF(("saving signal handlers\n"));
   for (i = SIGRTMAX; i > 0; --i) {
     if (mtcp_sigaction (i, NULL, &sigactions[i]) < 0) {
       if (errno == EINVAL)
@@ -3140,7 +3144,7 @@ static void save_sig_handlers (void)
       }
     }
 
-    DPRINTF (("mtcp save_sig_handlers*: saving signal handler for %d -> %p\n",
+    DPRINTF(("saving signal handler for %d -> %p\n",
               i,
               (sigactions[i].sa_flags & SA_SIGINFO ?
                  (void *)(sigactions[i].sa_sigaction) :
@@ -3156,13 +3160,13 @@ static void save_sig_handlers (void)
 static void restore_sig_handlers (Thread *thisthread)
 {
   int i;
-  DPRINTF (("mtcp restore_sig_handlers*: restoring signal handlers\n"));
+  DPRINTF(("restoring signal handlers\n"));
 #if 0
 # define VERBOSE_DEBUG
 #endif
   for(i = SIGRTMAX; i > 0; --i) {
 #ifdef VERBOSE_DEBUG
-    DPRINTF (("mtcp restore_sig_handlers*: restore signal handler for %d -> %p\n",
+    DPRINTF(("restore signal handler for %d -> %p\n",
               i,
               (sigactions[i].sa_flags & SA_SIGINFO ?
                  sigactions[i].sa_sigaction :
@@ -3456,7 +3460,7 @@ static int readmapsline (int mapsfd, Area *area)
   return (1);
 
 skipeol:
-  DPRINTF (("ERROR:  mtcp readmapsline*: bad maps line <%c", c));
+  DPRINTF(("ERROR:  mtcp readmapsline*: bad maps line <%c", c));
   while ((c != '\n') && (c != '\0')) {
     c = mtcp_readchar (mapsfd);
     mtcp_printf ("%c", c);
@@ -3587,7 +3591,7 @@ static void restore_heap()
    */
   VA current_break = mtcp_sys_brk (NULL);
   if (current_break > mtcp_saved_break) {
-    DPRINTF(("mtcp restore_heap: Area between mtcp_saved_break:%p and "
+    DPRINTF(("Area between mtcp_saved_break:%p and "
              "Current_break:%p not mapped, mapping it now\n", 
              mtcp_saved_break, current_break));
     size_t oldsize = mtcp_saved_break - saved_heap_start;
@@ -3614,14 +3618,14 @@ static void finishrestore (void)
   struct timeval stopped;
   int nnamelen;
 
-  DPRINTF (("mtcp finishrestore*: mtcp_printf works; libc should work\n"));
+  DPRINTF(("mtcp_printf works; libc should work\n"));
 
   restore_heap();
 
   if ( (nnamelen = strlen(mtcp_ckpt_newname))
        && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
-    DPRINTF(("mtcp finishrestore*: checkpoint file name was changed\n"));
+    DPRINTF(("checkpoint file name was changed\n"));
     if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
       mtcp_printf("mtcp finishrestore: new ckpt file name (%s) too long (>=512 bytes)\n",
                   mtcp_ckpt_newname);
@@ -3678,11 +3682,11 @@ static int restarthread (void *threadv)
     set_tid_address (&(thread -> child_tid));
 
     if (callback_post_ckpt != NULL) {
-        DPRINTF(("mtcp finishrestore*: before callback_post_ckpt(1=restarting)"
+        DPRINTF(("before callback_post_ckpt(1=restarting)"
 		 " (&%x,%x) \n",
 		 &callback_post_ckpt, callback_post_ckpt));
         (*callback_post_ckpt)(1, mtcp_restore_argv_start_addr);
-        DPRINTF(("mtcp finishrestore*: after callback_post_ckpt(1=restarting)\n"));
+        DPRINTF(("after callback_post_ckpt(1=restarting)\n"));
     }
     /* Do it once only, in motherofall thread. */
 
@@ -3770,7 +3774,7 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
-  DPRINTF (("mtcp restarthread*: calling setcontext: thread->tid: %d, original_tid:%d\n",
+  DPRINTF(("calling setcontext: thread->tid: %d, original_tid:%d\n",
             thread->tid, thread->original_tid));
   setcontext (&(thread -> savctx)); /* Shouldn't return */
   mtcp_abort ();
@@ -3908,7 +3912,7 @@ static void sync_shared_mem(void)
 
     if (strstr(area.name, " (deleted)")) continue;
 
-    DPRINTF(("mtcp sync_shared_memory: syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
+    DPRINTF(("syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
 
     if ( msync(area.addr, area.size, MS_SYNC) < 0 ){
       mtcp_printf ("mtcp sync_shared_memory: error syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset);
