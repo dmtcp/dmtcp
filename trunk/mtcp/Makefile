@@ -60,7 +60,7 @@ endif
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
 #CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
-# CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+ CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
