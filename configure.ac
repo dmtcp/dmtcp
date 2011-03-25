@@ -91,11 +91,6 @@ AC_ARG_ENABLE([stale_socket_handling],
                              external-socket-handling configure option.])],
             [use_stale_socket_handling=$enableval],
             [use_stale_socket_handling=yes])
-#Force other config options for Condor
-if test "$use_condor_support=" = "yes"; then
-  use_external_socket_handling = yes
-  use_stale_socket_handling = no
-fi
 
 AC_ARG_ENABLE([forked_checkpointing],
             [AS_HELP_STRING([--enable-forked-checkpointing],
