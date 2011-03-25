@@ -184,7 +184,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
 
     // Block only connections to nscd daemon. Allow X11 connections. We have
     // already unset DISPLAY environment variable. This is done to allow vnc
-    // application to connect to the vncserver (X11 proxie server).
+    // application to connect to the vncserver (X11 proxy server).
     return false;
 
     if (path == "/tmp/.ICE-unix" || path == "/tmp/.X11-unix") { 
@@ -196,7 +196,7 @@ static bool _isBlacklistedTcp ( int sockfd, const sockaddr* saddr, socklen_t len
 
   // Block only connections to nscd daemon. Allow X11 connections. We have
   // already unset DISPLAY environment variable. This is done to allow vnc
-  // application to connect to the vncserver (X11 proxie server).
+  // application to connect to the vncserver (X11 proxy server).
   return false;
 
   if ( saddr->sa_family == AF_INET ) {

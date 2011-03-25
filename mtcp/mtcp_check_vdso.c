@@ -275,10 +275,10 @@ void mtcp_check_vdso_enabled() {
          *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
          *  has to do with VDSO. The location of VDSO section conflicts with the
          *  location of process libraries and hence it is unmapped which causes
-         *  failure during thre restarting phase. If we set the stack limit to
+         *  failure during the restarting phase. If we set the stack limit to
          *  256 MB or higher, we donot see this bug. 
          * It Should also be noted that the process will call setrlimit to set
-         *  the resource limites to their pre-checkpoint values.
+         *  the resource limits to their pre-checkpoint values.
          */
 #define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
 	 

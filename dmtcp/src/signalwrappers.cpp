@@ -319,7 +319,7 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
 /*
  * TODO: man page says that sigwait is implemented via sigtimedwait, however
  * sigtimedwait can return EINTR (acc. to man page) whereas sigwait won't.
- * Should we make the wrappers for sigwait/sigtimedwait homogenious??
+ * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
  *                                                          -- Kapil
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig) {
@@ -375,7 +375,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
 /* 
  * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
  * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
- * that might have occured while executing the system call. These system call
+ * that might have occurred while executing the system call. These system call
  * will return -1 with errno set to EINTR.
  * To deal with the situation, we do not remove the MTCP_SIGCKPT from the
  * signal set (if it is present); instead, we check the return value and if it

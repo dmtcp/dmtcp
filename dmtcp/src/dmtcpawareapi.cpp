@@ -138,7 +138,7 @@ int __real_dmtcpRunCommand(char command){
   while (i < 100) {
     _runCoordinatorCmd(command, result);
   // if we got error result - check it
-	// There is posibility that checkpoint thread
+	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
     if (result[0] == dmtcp::DmtcpCoordinator::ERROR_NOT_RUNNING_STATE) {

@@ -248,7 +248,7 @@ static void callbackPostCheckpoint ( int isRestart,
      *      verifying the _dataSockets, this socket is closed and the
      *      corresponding entry in _dataSockets is freed.
      *
-     *      The problem occurrs when some other worker sends a status messages
+     *      The problem occurs when some other worker sends a status messages
      *      which should take the computation to the next barrier, but since
      *      the _to_be_disconnected socket is present, the minimum state is not
      *      reached unanimously and hence the coordinator doesn't raise the
@@ -674,8 +674,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  // We have to use DMTCP specific memory allocator because using glibc:malloc
-  // can interfere with user theads
+  // We have to use DMTCP-specific memory allocator because using glibc:malloc
+  // can interfere with user threads.
   struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;

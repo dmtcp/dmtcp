@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   size_t restore_size;
   void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 
-  /* Set the resourse limits for stack from saved values */
+  /* Set the resource limits for stack from saved values */
   struct rlimit stack_rlimit;
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);

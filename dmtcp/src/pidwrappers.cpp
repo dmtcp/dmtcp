@@ -230,7 +230,7 @@ extern "C" pid_t setsid(void)
 extern "C" int   kill(pid_t pid, int sig)
 {
   /* FIXME: When bash receives a SIGINT signal, the signal handler is
-   * called to processs the signal. Once the processing is done, bash
+   * called to process the signal. Once the processing is done, bash
    * performs a longjmp to a much higher call frame. As a result, this
    * call frame never gets a chance to return and hence we fail to
    * perform WRAPPER_EXECUTION_ENABLE_CKPT() which results in the lock
