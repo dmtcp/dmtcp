@@ -222,6 +222,7 @@ static bool workersRunningAndSuspendMsgSent = false;
 
 static int theCheckpointInterval = 0;
 static bool batchMode = false;
+static bool isRestarting = false;
 
 const int STDIN_FD = fileno ( stdin );
 
@@ -542,6 +543,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_RESUME );
 
           JTIMER_STOP ( checkpoint );
+          isRestarting = false;
 
           setTimeoutInterval( theCheckpointInterval );
 
@@ -728,6 +730,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   } else if ( hello_remote.type == DMT_RESTART_PROCESS ) {
     if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
       return;
+    isRestarting = true;
   } else if ( hello_remote.type == DMT_HELLO_COORDINATOR ) {
     if ( validateWorkerProcess ( hello_remote, remote ) == false )
       return;
@@ -1063,7 +1066,8 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
 
   status.minimumState = ( m==INITIAL ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)m );
-  if( status.minimumState == WorkerState::CHECKPOINTED && count < numPeers ){
+  if( status.minimumState == WorkerState::CHECKPOINTED &&
+      isRestarting && count < numPeers ){
     JTRACE("minimal state counted as CHECKPOINTED but not all processes"
 	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;

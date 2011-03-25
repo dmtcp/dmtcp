@@ -169,7 +169,7 @@ void dmtcp::VirtualPidTable::printPidMaps()
     pid_t currentPid  = i->second;
     out << "\t" << originalPid << "\t->   " << currentPid << "\n";
   }
-  JTRACE("Original To Current Pid Mappings:") ( out.str());
+  JTRACE("Original To Current Pid Mappings:") (_pidMapTable.size()) (out.str());
 #endif
 }
 
@@ -182,7 +182,6 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _tidVector.clear();
   _inferiorVector.clear();
   //_pidMapTable[_pid] = _pid;
-  JTRACE("current original to current mappings:") (_pidMapTable.size());
   printPidMaps();
 }
 
