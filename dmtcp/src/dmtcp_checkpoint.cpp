@@ -49,7 +49,6 @@ bool testSetuid(const char *filename);
 void testStaticallyLinked(const char *filename);
 bool testScreen(char **argv, char ***newArgv);
 void adjust_rlimit_stack();
-int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -369,11 +368,6 @@ int main ( int argc, char** argv )
     argv = newArgv;
   };
 
-  prepareDmtcpWrappers();
-
-  if(autoStartCoordinator)
-     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
-
   dmtcp::string dmtcphjk =
     jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
@@ -442,7 +436,7 @@ int main ( int argc, char** argv )
     //         unless we're sure that the executable is not readable.
     JASSERT_STDERR <<
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n"
-      << argv[0];
+      << argv[0] << "\n";
     exit(1);
   } else {
 #if defined(__x86_64__) && !defined(CONFIG_M32)
@@ -463,6 +457,11 @@ int main ( int argc, char** argv )
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
   adjust_rlimit_stack();
+
+  prepareDmtcpWrappers();
+
+  if (autoStartCoordinator)
+     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
 
   //run the user program
   char **newArgv = NULL;
@@ -589,65 +588,4 @@ bool testScreen(char **argv, char ***newArgv)
   }
   return false;
 
-#if 0
-  struct stat st;
-  // If screen has setuid or segid bits set, ...
-  dmtcp::string pathname_base = jalib::Filesystem::BaseName((*argvPtr)[0]);
-  char pathname[1024];
-  if ((*argvPtr)[0] == NULL)
-    return -1;
-  if (Util::expandPathname((*argvPtr)[0], pathname, sizeof(pathname)) != 0)
-    return -1;
-  if ( pathname_base == "screen"
-       && stat(pathname, &st) == 0
-       && (st.st_mode & S_ISUID || st.st_mode & S_ISGID) ) {
-    dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
-    Util::safeMkdir(tmpdir.c_str(), 0700);
-    setenv("SCREENDIR", tmpdir.c_str(), 1);
-
-    static char cmdBuf[1024];
-    char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
-    *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
-    Util::expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
-#define COPY_SCREEN
-#ifdef COPY_SCREEN
-    // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
-    char *newArgv0 = cmdBuf + strlen(cmdBuf) + 1;
-    snprintf(newArgv0, sizeof(cmdBuf)-(newArgv0-cmdBuf), "%s/%s",
-	    dmtcp::UniquePid::getTmpDir().c_str(), pathname_base.c_str());
-    unlink(newArgv0);  // Remove any stale copy, just in case it's not right.
-    char *cpCmd = newArgv0 + strlen(newArgv0) + 1;
-    snprintf(cpCmd, sizeof(cmdBuf)-(cpCmd-cmdBuf), "cp %s %s",
-	     pathname, newArgv0);
-    Util::safeSystem(cpCmd);
-    JASSERT (access(newArgv0, X_OK) == 0) (newArgv0) (JASSERT_ERRNO);
-    (*argvPtr)[0] = newArgv0;
-    return 0;
-#else
-    // Translate: screen   to: /lib/ld-linux.so /usr/bin/screen
-    // This version is more general, but has a bug on restart:
-    //    memory layout is altered on restart, and so brk() doesn't match.
-    // Switch argvPtr from ptr to input to ptr to output now.
-    *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
-    // Use /lib64 if 64-bit O/S and not 32-bit app:
-# if defined(__x86_64__) && !defined(CONFIG_M32)
-    bool isElf, is32bitElf;
-    Util::elfType(cmdBuf, &isElf, &is32bitElf);
-    if (is32bitElf)
-      (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
-    else
-      (*argvPtr)[0] = (char *)"/lib64/ld-linux-x86-64.so.2";
-# else
-    (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
-# endif
-    (*argvPtr)[1] = cmdBuf;
-    for (int i = 1; oldArgv[i] != NULL; i++)
-      *argvPtr[i+1] = oldArgv[i];
-    JASSERT ((char *)cmdBuf[sizeof(cmdBuf)-sizeof(char *)] == NULL)
-      (sizeof(cmdBuf)) .Text("Expanded command longer than sizeof(cmdBuf");
-    return 0;
-#endif
-  } else
-    return -1;
-#endif
 }
