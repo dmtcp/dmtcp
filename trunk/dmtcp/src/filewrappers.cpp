@@ -491,7 +491,7 @@ extern "C" int open (const char *path, int flags, ... )
 }
 
 // FIXME: The 'fn64' version of functions is defined only when within
-// __USE_LARGEFILE64 is #defined. The wrappers in this file need to conside
+// __USE_LARGEFILE64 is #defined. The wrappers in this file need to consider
 // this fact. The problem can occur, for example, when DMTCP is not compiled
 // with __USE_LARGEFILE64 whereas the user-binary is. In that case the open64()
 // call from user will come to DMTCP and DMTCP might fail to execute it

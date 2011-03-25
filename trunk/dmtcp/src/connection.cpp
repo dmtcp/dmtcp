@@ -1006,11 +1006,11 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
 
   if (_checkpointed) {
     JASSERT (jalib::Filesystem::FileExists(_path) == false) (_path)
-      .Text("\n**** File aready exists! Checkpointed copy can't be restored.\n"
+      .Text("\n**** File already exists! Checkpointed copy can't be restored.\n"
             "****Delete the existing file and try again!");
 
 //    JWARNING (jalib::Filesystem::FileExists(_path) == false) (_path)
-//      .Text("\n**** File aready exists! Deleting it ");
+//      .Text("\n**** File already exists! Deleting it ");
 //
 //    unlink(_path.c_str());
 

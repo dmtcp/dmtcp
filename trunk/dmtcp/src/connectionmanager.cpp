@@ -914,7 +914,7 @@ static int open_ckpt_to_read(const char *filename)
         return fd;
     else if(fc == GZIP_FIRST) /* gzip */
     {
-        JASSERT(pipe(fds) != -1)(filename).Text("Cannote create pipe to execute gunzip to decompress checkpoint file!");
+        JASSERT(pipe(fds) != -1)(filename).Text("Cannot create pipe to execute gunzip to decompress checkpoint file!");
 
         cpid = _real_fork();
 

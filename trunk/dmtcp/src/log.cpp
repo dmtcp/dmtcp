@@ -312,7 +312,7 @@ void dmtcp::SynchronizationLog::mergeLogs(dmtcp::vector<clone_id_t> clone_ids)
   // different logs. Here is pseudo-code:
   //   1. for all i; entry_size[i] <- size of entry with log_id == i
   //   2. Now create a similar array, this time with the offset for this entry
-  //   from the begginning of log.
+  //   from the beginning of log.
   //   3. Now we iterate through one log at a time and insert the entries at
   //   the current offset in the unified log.
   size_t entry_index = 0;

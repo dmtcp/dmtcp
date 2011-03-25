@@ -349,7 +349,7 @@ int main ( int argc, char** argv )
   // until finding region of memory segment with many zeroes.
   // Then mark as CS_ZERO_PAGES in MTCP instead of CS_RESTORE (or mark
   // entire segment as CS_ZERO_PAGES and then overwrite with CS_RESTORE
-  // region for portion to be read back fom checkpoint image.
+  // region for portion to be read back from checkpoint image.
   // For CS_ZERO_PAGES region, mmap // on restart, but don't write in zeroes.
   // Also, after checkpointing segment, munmap zero pages, and mmap them again.
   // Don't try to find all pages.  The above strategy may increase

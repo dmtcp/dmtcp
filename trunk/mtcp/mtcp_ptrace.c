@@ -133,13 +133,15 @@ void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
   if (getsid(inferior) == getsid(superior)) {
     char tty_name[80];
     if (mtcp_get_controlling_term(tty_name, 80) == -1) {
-      mtcp_printf("ptrace_set_controlling_term: unable to find ctrling term\n");
+      mtcp_printf("ptrace_set_controlling_term: unable to find"
+		  " controlling term\n");
       mtcp_abort();
     }
 
     int fd = open(tty_name, O_RDONLY);
     if (fd < 0) {
-      mtcp_printf("ptrace_set_controlling_term: error %s opening ctrlling term "                  " %s\n", strerror(errno), tty_name);
+      mtcp_printf("ptrace_set_controlling_term: error %s opening"
+		  " controlling term %s\n", strerror(errno), tty_name);
       mtcp_abort();
     }
 

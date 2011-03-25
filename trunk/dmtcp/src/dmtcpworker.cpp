@@ -162,12 +162,12 @@ void restoreUserLDPRELOAD()
 //         See:  pidwrappers.cpp:get_sigckpt()
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
-// This shold be visible to library only.  DmtcpWorker will call
+// This should be visible to library only.  DmtcpWorker will call
 //   this to initialize tmp (ckpt signal) at startup time.  This avoids
 //   any later calls to getenv(), at which time the user app may have
 //   a wrapper around getenv, modified environ, or other tricks.
 //   (Matlab needs this or else it segfaults on restart, and bash plays
-//   similar tricks with maintaining its own environmnet.)
+//   similar tricks with maintaining its own environment.)
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
 __attribute__ ((visibility ("hidden")))
 int _determineMtcpSignal(){
@@ -800,8 +800,8 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   /*
    * write pid at offset 0. Also write pid at offset sizeof(pid_t) if this
    * process is the creator of this memory area. After the leader election
-   * barrier, the leader of the shared-memory object is the creater of the
-   * object. If the creater process is missing, then the leader process is the
+   * barrier, the leader of the shared-memory object is the creator of the
+   * object. If the creator process is missing, then the leader process is the
    * process whose pid is stored at offset 0
    */
   SysVIPC::instance().leaderElection();
@@ -1008,7 +1008,7 @@ void dmtcp::DmtcpWorker::postRestart()
   // Must send SIGWINCH to adjust it.
   // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
   // to execute ioctl wrapper.  The wrapper will report a changed winsize,
-  // so that 'screen' must re-initialize the screen (scrolling resions, etc.).
+  // so that 'screen' must re-initialize the screen (scrolling regions, etc.).
   // The wrapper will also send a second SIGWINCH.  Then 'screen' will
   // call ioctl and get the correct window size and resize again.
   // We can't just send two SIGWINCH's now, since window size has not

@@ -186,7 +186,7 @@ int main (int argc, char *argv[], char *envp[])
     return (-1);
   }
 
-  /* Set the resourse limits for stack from saved values */
+  /* Set the resource limits for stack from saved values */
   struct rlimit stack_rlimit;
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);

@@ -185,7 +185,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
   JASSERT(currentShmid != -1);
   int ret = _real_shmctl(currentShmid, cmd, buf);
-  // Change the creater-pid of the shm object to the original so that if
+  // Change the creator-pid of the shm object to the original so that if
   // calling thread wants to use it, pid-virtualization layer can take care of
   // the original to current conversion.
   // TODO: Need to update uid/gid fields to support uid/gid virtualization.

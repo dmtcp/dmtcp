@@ -47,7 +47,7 @@
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
-  /* Shall we create seperate classes for holding original to current pid map
+  /* Shall we create separate classes for holding original to current pid map
    * and  for holding child process ids?
    */
 

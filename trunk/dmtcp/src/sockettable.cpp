@@ -53,7 +53,7 @@ extern "C" int dmtcp_on_socket ( int ret, int domain, int type, int protocol )
 }
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
 //     JASSERT(serv_addr != NULL)(serv_addr)(addrlen);
@@ -77,7 +77,7 @@ extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *s
 }
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 extern "C" int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
   dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd ).asTcp();
@@ -97,7 +97,7 @@ extern "C" int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my
 }
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 extern "C" int dmtcp_on_listen ( int ret, int sockfd, int backlog )
 {
 
@@ -110,7 +110,7 @@ extern "C" int dmtcp_on_listen ( int ret, int sockfd, int backlog )
 }
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(ret);
@@ -162,7 +162,7 @@ extern "C" int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, soc
 }
 
 ///
-///called automatically after a sucessful user function call
+///called automatically after a successful user function call
 //#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 extern "C" int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {

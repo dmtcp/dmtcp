@@ -143,7 +143,7 @@ if (DEBUG_RESTARTING) \
  *
  * NOTE: glibc-2.11 further changes the size tcphead_t without updating the
  *       size of __padding in struct pthread. We need to add an extra 512 bytes
- *       to accomodate this.                                     -- KAPIL
+ *       to accommodate this.                                    -- KAPIL
  */
 
 #if !__GLIBC_PREREQ (2,1)
@@ -1430,7 +1430,7 @@ static void save_term_settings() {
 int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
   struct termios old_termios, new_termios;
-  /* We will compare old and new, and we don't want unitialized data */
+  /* We will compare old and new, and we don't want uninitialized data */
   memset(&new_termios, 0, sizeof(new_termios));
   /* tcgetattr returns success as long as at least one of requested
    * changes was executed.  So, repeat until no more changes.

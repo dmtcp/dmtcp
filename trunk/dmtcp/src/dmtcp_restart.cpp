@@ -974,9 +974,10 @@ void BuildProcessTree()
       roots.push_back(rt);
       targets[j]._used = true;
     }else if( !targets[j]._used ){
-      // We set used flag if we use target as somebodys child. If it is used - no need to check is it roor
-      // Iterate through all targets and try to find the one who has this process
-      // as child process
+      // We set used flag if we use target as somebody's child.
+      // If it is used, then there is no need to check if it is root.
+      // Iterate through all targets and try to find the one who has
+      // this process as their child process.
       JTRACE("Process is not root of process tree: try to find if it has parent");
       bool is_root = true;
       for (size_t i = 0; i < targets.size(); i++) {
@@ -1148,7 +1149,7 @@ void ProcessGroupInfo()
     }
     s.fgid = fgid;
     if( s.groups.find(s.fgid) == s.groups.end() ){
-      // foreground group is missing, don't need to change foreground groop
+      // foreground group is missing, don't need to change foreground group
       s.fgid = -1;
     }
 
