@@ -122,7 +122,7 @@ void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
   _startAddr = (char*) _real_mmap(0, size, mmapProt, mmapFlags, fd, 0);
   UNSET_IN_MMAP_WRAPPER();
 
-  JASSERT(_startAddr != MAP_FAILED);
+  JASSERT(_startAddr != MAP_FAILED) (JASSERT_ERRNO);
 
   _real_close(fd);
 

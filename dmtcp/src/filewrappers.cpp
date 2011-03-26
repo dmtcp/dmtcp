@@ -124,7 +124,6 @@ extern "C" int close ( int fd )
 #endif //RECORD_REPLAY
 }
 
-#ifdef RECORD_REPLAY
 static int _almost_real_fclose(FILE *fp)
 {
   int fd = fileno(fp);
@@ -154,7 +153,6 @@ static int _almost_real_fclose(FILE *fp)
 #endif
   return rv;
 }
-#endif
 
 extern "C" int fclose(FILE *fp)
 {
@@ -172,32 +170,7 @@ extern "C" int fclose(FILE *fp)
   }
   return retval;
 #else
-  int fd = fileno(fp);
-  if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
-  {
-    JTRACE ( "blocked attempt to fclose protected fd" ) ( fd );
-    errno = EBADF;
-    return -1;
-  }
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-  dmtcp::ConnectionIdentifier conId;
-
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
-       dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       dup2(fd,fd) != -1 ) {
-    conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
-  }
-#endif
-
-  int rv = _real_fclose(fp);
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-  if (rv == 0 ) {
-    processClose(conId);
-  }
-#endif
-  return rv;
+  return _almost_real_fclose(fp);
 #endif
 }
 
@@ -391,92 +364,22 @@ extern "C" int getpt()
   return fd;
 }
 
-#ifdef RECORD_REPLAY
-/* Used by open() wrapper to do other tracking of open apart from
-   synchronization stuff. */
-static int _almost_real_open(const char *path, int flags, mode_t mode)
+static int _open_open64_work(int (*fn)(const char *path, int flags, mode_t mode),
+                             const char *path, int flags, mode_t mode)
 {
   char newpath [ 1024 ] = {0} ;
-
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  int fd = _real_open( newpath, flags, mode );
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return fd;
-}
-
-/* Used by open64() wrapper to do other tracking of open apart from
-   synchronization stuff. */
-static int _almost_real_open64(const char *path, int flags, mode_t mode)
-{
-  char newpath [ 1024 ] = {0} ;
-
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  if ( strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  int fd = _real_open64( newpath, flags, mode );
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && strncmp(path, UNIQUE_PTS_PREFIX_STR, strlen(UNIQUE_PTS_PREFIX_STR)) == 0 ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return fd;
-}
-#endif
-
-extern "C" int open (const char *path, int flags, ... )
-{
-  mode_t mode = 0;
-  char newpath [ PATH_MAX ] = {0} ;
-
-  // Handling the variable number of arguments
-  if (flags & O_CREAT)
-  {
-    va_list arg;
-    va_start (arg, flags);
-    mode = va_arg (arg, int);
-    va_end (arg);
-  }
-
-#ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
-#else
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName =
+      dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );
   }
 
-  int fd = _real_open( newpath, flags, mode );
+  int fd = (*fn)( newpath, flags, mode );
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
@@ -487,6 +390,36 @@ extern "C" int open (const char *path, int flags, ... )
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return fd;
+}
+
+/* Used by open() wrapper to do other tracking of open apart from
+   synchronization stuff. */
+static int _almost_real_open(const char *path, int flags, mode_t mode)
+{
+  return _open_open64_work(_real_open, path, flags, mode);
+}
+
+/* Used by open64() wrapper to do other tracking of open apart from
+   synchronization stuff. */
+static int _almost_real_open64(const char *path, int flags, mode_t mode)
+{
+  return _open_open64_work(_real_open64, path, flags, mode);
+}
+
+extern "C" int open (const char *path, int flags, ... )
+{
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
+#ifdef RECORD_REPLAY
+  BASIC_SYNC_WRAPPER(int, open, _almost_real_open, path, flags, mode);
+#else
+  return _almost_real_open(path, flags, mode);
 #endif
 }
 
@@ -501,41 +434,17 @@ extern "C" int open (const char *path, int flags, ... )
 extern "C" int open64 (const char *path, int flags, ... )
 {
   mode_t mode;
-  char newpath [ PATH_MAX ] = {0} ;
-
   // Handling the variable number of arguments
-  if (flags & O_CREAT)
-  {
+  if (flags & O_CREAT) {
     va_list arg;
     va_start (arg, flags);
     mode = va_arg (arg, int);
     va_end (arg);
   }
-
 #ifdef RECORD_REPLAY
   BASIC_SYNC_WRAPPER(int, open64, _almost_real_open64, path, flags, mode);
 #else
-
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  int fd = _real_open64( newpath, flags, mode );
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return fd;
+  return _almost_real_open(path, flags, mode);
 #endif
 }
 
@@ -1126,16 +1035,18 @@ extern "C" long ftell(FILE *stream)
 {
   BASIC_SYNC_WRAPPER(long, ftell, _real_ftell, stream);
 }
+#endif
 
-static FILE *_almost_real_fopen(const char *path, const char *mode)
+static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode),
+                                 const char *path, const char *mode)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   char newpath [ PATH_MAX ] = {0} ;
-  int fd = -1;
 
   if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    dmtcp::string currPtsDevName =
+      dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
     updateProcPath ( path, newpath );
@@ -1144,13 +1055,12 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
   FILE *file = _real_fopen ( newpath, mode );
 
   if (file != NULL) {
-    fd = fileno(file);
-  }
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    processDevPtsConnection(fd, path, newpath);
+    int fd = fileno(file);
+    if ( strcmp(path, "/dev/ptmx") == 0 ) {
+      processDevPtmxConnection(fd);
+    } else if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+      processDevPtsConnection(fd, path, newpath);
+    }
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -1158,37 +1068,14 @@ static FILE *_almost_real_fopen(const char *path, const char *mode)
   return file;
 }
 
+static FILE *_almost_real_fopen(const char *path, const char *mode)
+{
+  return _fopen_fopen64_work(_real_fopen, path, mode);
+}
 static FILE *_almost_real_fopen64(const char *path, const char *mode)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  char newpath [ PATH_MAX ] = {0} ;
-  int fd = -1;
-
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  FILE *file = _real_fopen64 ( newpath, mode );
-
-  if (file != NULL) {
-    fd = fileno(file);
-  }
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return file;
+  return _fopen_fopen64_work(_real_fopen64, path, mode);
 }
-#endif
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
@@ -1247,34 +1134,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
   }
   return retval;
 #else
-
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  char newpath [ PATH_MAX ] = {0} ;
-  int fd = -1;
-
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  FILE *file = _real_fopen ( newpath, mode );
-
-  if (file != NULL) {
-    fd = fileno(file);
-  }
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return file;
+  return _almost_real_fopen(path, mode);
 #endif
 }
 
@@ -1316,34 +1176,7 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
   }
   return retval;
 #else
-
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  char newpath [ PATH_MAX ] = {0} ;
-  int fd = -1;
-
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
-  }
-
-  FILE *file = _real_fopen64 ( newpath, mode );
-
-  if (file != NULL) {
-    fd = fileno(file);
-  }
-
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
-    processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
-    processDevPtsConnection(fd, path, newpath);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return file;
+  return _almost_real_fopen64(path, mode);
 #endif
 }
 
