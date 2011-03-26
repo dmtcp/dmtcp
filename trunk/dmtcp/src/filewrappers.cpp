@@ -159,7 +159,7 @@ static int _almost_real_fclose(FILE *fp)
 extern "C" int fclose(FILE *fp)
 {
 #ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int fclose, _almost_real_fclose, fp);
+  BASIC_SYNC_WRAPPER(int, fclose, _almost_real_fclose, fp);
 #else
   return _almost_real_fclose(fp);
 #endif
