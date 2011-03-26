@@ -87,15 +87,8 @@ static void processClose(dmtcp::ConnectionIdentifier conId)
 }
 #endif
 
-extern "C" int close ( int fd )
+static int _almost_real_close ( int fd )
 {
-#ifdef RECORD_REPLAY
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
-    int retval = _real_close(fd);
-    return retval;
-  }
-  BASIC_SYNC_WRAPPER(int, close, _real_close, fd);
-#else
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
   {
     JTRACE ( "blocked attempt to close protected fd" ) ( fd );
@@ -110,17 +103,25 @@ extern "C" int close ( int fd )
        dup2(fd,fd) != -1 ) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
-#endif
 
   int rv = _real_close ( fd );
 
-#ifdef EXTERNAL_SOCKET_HANDLING
   if (rv == 0) {
     processClose(conId);
   }
+#else
+  int rv = _real_close ( fd );
 #endif
 
   return rv;
+}
+
+extern "C" int close ( int fd )
+{
+#ifdef RECORD_REPLAY
+  BASIC_SYNC_WRAPPER(int, close, _almost_real_close, fd);
+#else
+  return _almost_real_close(fd);
 #endif //RECORD_REPLAY
 }
 
@@ -142,33 +143,23 @@ static int _almost_real_fclose(FILE *fp)
        dup2(fd,fd) != -1 ) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
-#endif
 
   int rv = _real_fclose(fp);
 
-#ifdef EXTERNAL_SOCKET_HANDLING
   if (rv == 0 ) {
     processClose(conId);
   }
+#else
+  int rv = _real_fclose(fp);
 #endif
+
   return rv;
 }
 
 extern "C" int fclose(FILE *fp)
 {
 #ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, fclose, _almost_real_fclose, fp);
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &fclose_turn_check);
-    getNextLogEntry();
-/* If fp is not any of stdin, stdout or stderr, then free should be called.
- * The optional event deals with this situation. */
-    waitForTurn(my_return_entry, &fclose_turn_check);
-    getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
-    WRAPPER_LOG(_almost_real_fclose, fp);
-  }
-  return retval;
+  BASIC_SYNC_WRAPPER(int fclose, _almost_real_fclose, fp);
 #else
   return _almost_real_fclose(fp);
 #endif
