@@ -32,6 +32,14 @@ DEFAULT_S=0.3
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
+#In the case of gdb, even if both gdb and the inferior are running after
+#ckpt or restart, this does not guarantee that the ptrace related work
+#(that is needed at resume or restart) is over. The ptrace related work happens
+#in the signal handler. Proceeding while still being inside the signal handler,
+#can lead to bad consquences. To play it on the safe side, GDB_SLEEP was
+#set at 2 seconds.
+if testconfig.PTRACE_SUPPORT == "yes":
+  GDB_SLEEP=2 
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -380,6 +388,8 @@ def runTest(name, numProcs, cmds):
       printFixed("ckpt:")
       testCheckpoint()
       printFixed("PASSED ")
+      if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
+        sleep(GDB_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -387,6 +397,8 @@ def runTest(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
+          if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
+            sleep(GDB_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
