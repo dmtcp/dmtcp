@@ -38,6 +38,7 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <sys/types.h>
 #include <linux/version.h>
 
 #if USE_FUTEX
