@@ -847,9 +847,9 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 }
 
 #ifdef PTRACE
-# ifndef SYNCHRONIZATION_LOG_AND_REPLAY
-   // SYNCHRONIZATION_LOG_AND_REPLAY defines its own __libc_memalign
-   //   wrapper.  So, we won't interfere with it here.
+# ifndef RECORD_REPLAY
+   // RECORD_REPLAY defines its own __libc_memalign wrapper. 
+   // So, we won't interfere with it here.
 #  include <malloc.h>
 // This is needed to fix what is arguably a bug in libdl-2.10.so
 //   (and probably extending from versions 2.4 at least through 2.11).
