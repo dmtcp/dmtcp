@@ -251,7 +251,7 @@ int main (int argc, char *argv[], char *envp[])
   }
 #endif
 
-#if defined(DEBUG) && ! DMTCP_DEBUG
+#if defined(DEBUG) &&  !defined(DMTCP_DEBUG)
     char *p, symbolbuff[256];
     FILE *symbolfile;
     long textbase; /* offset */
