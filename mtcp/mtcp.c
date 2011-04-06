@@ -2708,6 +2708,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
        * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
        * environment strings and the argv[] was not shown in /proc/self/maps.
+       * This is arguably a bug in the Linux kernel as of version 2.6.32, etc.
        * This happens on some odd combination of environment passed on to
        * Matlab process. As a result, the page was not checkpointed and hence
        * the process segfaulted on restart. The fix is to try to mprotect this
