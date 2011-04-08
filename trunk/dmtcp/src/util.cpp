@@ -353,7 +353,6 @@ bool Util::isSetuid(const char *filename)
   char pathname[PATH_MAX];
   if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
     struct stat buf;
-    int rc = stat(pathname, &buf);
     if (stat(pathname, &buf) == 0 && (buf.st_mode & S_ISUID ||
                                       buf.st_mode & S_ISGID)) {
       return true;
@@ -469,7 +468,7 @@ int Util::readLine(int fd, char *buf, int count)
   while (1) {
     if (read(fd, &c, 1) == 0) {
       buf[i] = '\0';
-      return NULL;
+      return '\0';
     }
     buf[i++] = c;
     if (c == '\n') break;

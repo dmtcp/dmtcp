@@ -485,7 +485,7 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
   }
   else
   {
-    for (int i = 0; i < numMaps; i++) {
+    for (size_t i = 0; i < numMaps; i++) {
       serializePidMapEntry ( o, originalPid, currentPid );
       _pidMapTable[originalPid] = currentPid;
     }

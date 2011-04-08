@@ -52,6 +52,11 @@
 #  define DECORATE_FN(fn) ::_real_ ## fn
 #endif
 
+#ifdef RECORD_REPLAY
+#define pthread_mutex_lock _real_pthread_mutex_lock
+#define pthread_mutex_unlock _real_pthread_mutex_unlock
+#endif
+
 int jassert_quiet = 0;
 
 #define DUP_STDERR_FD PROTECTED_STDERR_FD

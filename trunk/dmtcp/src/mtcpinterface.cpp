@@ -782,14 +782,9 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 
   int retval = 0;
   log_entry_t my_entry = create_pthread_join_entry(my_clone_id,
-      pthread_join_event, (unsigned long int)thread,
-      (unsigned long int)value_ptr);
-  log_entry_t my_return_entry = create_pthread_join_entry(my_clone_id,
-      pthread_join_event_return, (unsigned long int)thread,
-      (unsigned long int)value_ptr);
+      pthread_join_event, thread, value_ptr);
   if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &pthread_join_turn_check);
-    getNextLogEntry();
+    WRAPPER_REPLAY_START(pthread_join);
     while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
       usleep(100);
     }
@@ -807,11 +802,9 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
     } else {
       JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
     }
-    waitForTurn(my_return_entry, &pthread_join_turn_check);
-    getNextLogEntry();
+    WRAPPER_REPLAY_END(pthread_join);
   } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
-    addNextLogEntry(my_entry);
     while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
       usleep(100);
     }
@@ -829,7 +822,7 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
     } else {
       JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
     }
-    addNextLogEntry(my_return_entry);
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
   return retval;
 #else

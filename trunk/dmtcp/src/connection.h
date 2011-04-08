@@ -338,8 +338,9 @@ namespace dmtcp
           , _offset ( offset )
       {
         _type = type;
-        if (path != "?")
+        if (path != "?") {
           JTRACE("New File connection created")(_path);
+        }
       }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
