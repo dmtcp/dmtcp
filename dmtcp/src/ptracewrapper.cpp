@@ -53,7 +53,8 @@ extern "C" int ptrace_info_list_size() {
 }
 
 extern "C" struct ptrace_info get_next_ptrace_info(int index) {
-  if (index >= ptrace_info_list.size()) return EMPTY_PTRACE_INFO;
+  if ((unsigned int)index >= ptrace_info_list.size())
+    return EMPTY_PTRACE_INFO;
 
   dmtcp::list<struct ptrace_info>::iterator it;
   int local_index = 0;

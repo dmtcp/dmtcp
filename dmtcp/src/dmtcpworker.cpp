@@ -57,6 +57,11 @@
 
 #ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
+#define pthread_mutex_lock _real_pthread_mutex_lock
+#define pthread_mutex_unlock _real_pthread_mutex_unlock
+#define pthread_rwlock_rdlock _real_pthread_rwlock_rdlock
+#define pthread_rwlock_wrlock _real_pthread_rwlock_wrlock
+#define pthread_rwlock_unlock _real_pthread_rwlock_unlock
 #endif
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;

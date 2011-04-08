@@ -164,19 +164,9 @@ void dmtcp::SynchronizationLog::destroy()
   _isUnified = NULL;
 }
 
-void dmtcp::SynchronizationLog::clearLog()
-{
-  JASSERT(_startAddr != NULL);
-  bzero(_startAddr, *_dataSize);
-  resetIndex();
-  _entryIndex = 0;
-  *_dataSize = 0;
-  *_numEntries = 0;
-}
-
 int dmtcp::SynchronizationLog::getNextEntry(log_entry_t& entry)
 {
-  int entrySize = getEntryAtIndex(entry, _index);
+  int entrySize = getEntryAtOffset(entry, _index);
   if (entrySize != 0) {
     _index += entrySize;
     _entryIndex++;
@@ -185,9 +175,9 @@ int dmtcp::SynchronizationLog::getNextEntry(log_entry_t& entry)
 }
 
 // Reads the entry from log and returns the length of entry
-int dmtcp::SynchronizationLog::getEntryAtIndex(log_entry_t& entry, size_t index)
+int dmtcp::SynchronizationLog::getEntryAtOffset(log_entry_t& entry, size_t index)
 {
-  if (index == *_dataSize || getEntryHeaderAtIndex(entry, index) == 0) {
+  if (index == *_dataSize || getEntryHeaderAtOffset(entry, index) == 0) {
     entry = EMPTY_LOG_ENTRY;
     return 0;
   }
@@ -198,7 +188,13 @@ int dmtcp::SynchronizationLog::getEntryAtIndex(log_entry_t& entry, size_t index)
   JASSERT ((index + log_event_common_size + event_size) <= *_dataSize)
     (_index) (log_event_common_size) (event_size) (*_dataSize);
 
+#if 1
   READ_ENTRY_FROM_LOG(&_log[index + log_event_common_size], entry);
+#else
+  void *ptr;
+  GET_EVENT_DATA_PTR(entry, ptr);
+  memcpy(ptr, &_log[index + log_event_common_size], event_size);
+#endif
 
   return log_event_common_size + event_size;
 }
@@ -206,13 +202,32 @@ int dmtcp::SynchronizationLog::getEntryAtIndex(log_entry_t& entry, size_t index)
 int dmtcp::SynchronizationLog::appendEntry(const log_entry_t& entry)
 {
   JASSERT(_index == 0 && _entryIndex == 0);
-  ssize_t entrySize = writeEntryAtIndex(entry, *_dataSize);
+  ssize_t entrySize = writeEntryAtOffset(entry, *_dataSize);
   *_dataSize += entrySize;
   *_numEntries += 1;
   return entrySize;
 }
 
-int dmtcp::SynchronizationLog::writeEntryAtIndex(const log_entry_t& entry,
+void dmtcp::SynchronizationLog::replaceEntryAtOffset(const log_entry_t& entry,
+                                                    size_t index)
+{
+  // only allow it for pthread_create call
+  JASSERT(GET_COMMON(entry, event) == pthread_create_event);
+
+  log_entry_t old_entry = EMPTY_LOG_ENTRY;
+  JASSERT(getEntryAtOffset(old_entry, index) != 0);
+
+  JASSERT(GET_COMMON(entry, log_id) == GET_COMMON(old_entry, log_id) &&
+          IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
+          IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
+          IS_EQUAL_FIELD(entry, old_entry, pthread_create, start_routine) &&
+          IS_EQUAL_FIELD(entry, old_entry, pthread_create, attr) &&
+          IS_EQUAL_FIELD(entry, old_entry, pthread_create, arg));
+
+  writeEntryAtOffset(entry, index);
+}
+
+int dmtcp::SynchronizationLog::writeEntryAtOffset(const log_entry_t& entry,
                                                  size_t index)
 {
   if (__builtin_expect(_startAddr == 0, 0)) {
@@ -225,13 +240,19 @@ int dmtcp::SynchronizationLog::writeEntryAtIndex(const log_entry_t& entry,
   JASSERT ((_index + log_event_common_size + event_size) < *_size)
     .Text ("Log size too large");
 
-  writeEntryHeaderAtIndex(entry, index);
+  writeEntryHeaderAtOffset(entry, index);
 
+#if 1
   WRITE_ENTRY_TO_LOG(&_log[index + log_event_common_size], entry);
+#else
+  void *ptr;
+  GET_EVENT_DATA_PTR(entry, ptr);
+  memcpy(&_log[index + log_event_common_size], ptr, event_size);
+#endif
   return log_event_common_size + event_size;
 }
 
-size_t dmtcp::SynchronizationLog::getEntryHeaderAtIndex(log_entry_t& entry,
+size_t dmtcp::SynchronizationLog::getEntryHeaderAtOffset(log_entry_t& entry,
                                                       size_t index)
 {
   JASSERT ((index + log_event_common_size) <= *_dataSize) (index) (*_dataSize);
@@ -243,6 +264,8 @@ size_t dmtcp::SynchronizationLog::getEntryHeaderAtIndex(log_entry_t& entry,
 
   memcpy(&GET_COMMON(entry, event), buffer, sizeof(GET_COMMON(entry, event)));
   buffer += sizeof(GET_COMMON(entry, event));
+  memcpy(&GET_COMMON(entry, isOptional), buffer, sizeof(GET_COMMON(entry, isOptional)));
+  buffer += sizeof(GET_COMMON(entry, isOptional));
   memcpy(&GET_COMMON(entry, log_id), buffer, sizeof(GET_COMMON(entry, log_id)));
   buffer += sizeof(GET_COMMON(entry, log_id));
   memcpy(&GET_COMMON(entry, clone_id), buffer, sizeof(GET_COMMON(entry, clone_id)));
@@ -262,7 +285,7 @@ size_t dmtcp::SynchronizationLog::getEntryHeaderAtIndex(log_entry_t& entry,
   return log_event_common_size;
 }
 
-void dmtcp::SynchronizationLog::writeEntryHeaderAtIndex(const log_entry_t& entry,
+void dmtcp::SynchronizationLog::writeEntryHeaderAtOffset(const log_entry_t& entry,
                                                         size_t index)
 {
 #ifdef NO_LOG_ENTRY_TO_BUFFER
@@ -272,6 +295,8 @@ void dmtcp::SynchronizationLog::writeEntryHeaderAtIndex(const log_entry_t& entry
 
   memcpy(buffer, &GET_COMMON(entry, event), sizeof(GET_COMMON(entry, event)));
   buffer += sizeof(GET_COMMON(entry, event));
+  memcpy(buffer, &GET_COMMON(entry, isOptional), sizeof(GET_COMMON(entry, isOptional)));
+  buffer += sizeof(GET_COMMON(entry, isOptional));
   memcpy(buffer, &GET_COMMON(entry, log_id), sizeof(GET_COMMON(entry, log_id)));
   buffer += sizeof(GET_COMMON(entry, log_id));
   memcpy(buffer, &GET_COMMON(entry, clone_id), sizeof(GET_COMMON(entry, clone_id)));
@@ -336,214 +361,4 @@ void dmtcp::SynchronizationLog::mergeLogs(dmtcp::vector<clone_id_t> clone_ids)
   resetIndex();
 }
 
-void dmtcp::SynchronizationLog::annotate()
-{
-  /*
-   * This function performs several tasks for the log:
-     1) Annotates pthread_create events with stack information from their
-        respective return events.
-     2) Annotates getline events with is_realloc information from their
-        respective return events.
-   */
-  
-  JTRACE ( "Annotating log." );
-  log_entry_t entry = EMPTY_LOG_ENTRY;
-
-  resetIndex();
-  size_t prev_index = currentIndex();
-  while (getNextEntry(entry) != 0) {
-    if (GET_COMMON(entry,event) == pthread_create_event) {
-      updateEntryFromNextPthreadCreate(entry);
-      JASSERT(0 != writeEntryAtIndex(entry, prev_index));
-
-    } else if (GET_COMMON(entry,event) == getline_event) {
-      updateEntryFromNextGetline(entry);
-      JASSERT(0 != writeEntryAtIndex(entry, prev_index));
-    }
-
-    prev_index = currentIndex();
-  }
-
-  resetIndex();
-  *_isUnified = LOG_IS_UNIFIED_VALUE;
-
-  JTRACE ( "log annotation finished. Opening annotated log file." ) 
-    ( _path );
-}
-
-void dmtcp::SynchronizationLog::updateEntryFromNextPthreadCreate(log_entry_t& entry)
-{
-  /* Finds the next pthread_create return event with the same thread,
-   * start_routine, attr, and arg as given.
-   * NOTE: IT SEARCHES FROM CURRENT INDEX ONWARDS
-   */
-
-  size_t index = currentIndex();
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  while (index < dataSize()) {
-    if (getNextEntry(e) == 0) {
-      JASSERT(false)
-        .Text("Looks like this pthread_create never returned on RECORD");
-    }
-    if (GET_COMMON(e, event) == pthread_create_event_return &&
-        IS_EQUAL_FIELD(entry, e, pthread_create, thread) &&
-        IS_EQUAL_FIELD(entry, e, pthread_create, start_routine) &&
-        IS_EQUAL_FIELD(entry, e, pthread_create, attr) &&
-        IS_EQUAL_FIELD(entry, e, pthread_create, arg)) {
-      break;
-    }
-  }
-
-  SET_FIELD_FROM(entry, pthread_create, stack_size, e);
-  SET_FIELD_FROM(entry, pthread_create, stack_addr, e);
-}
-
-void dmtcp::SynchronizationLog::updateEntryFromNextGetline(log_entry_t& entry)
-{
-  /* Finds the next getline return event with the same lineptr, n and stream as
-   * given.
-   * NOTE: IT SEARCHES FROM CURRENT INDEX ONWARDS
-   */
-  size_t index = currentIndex();
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  while (index < dataSize()) {
-    if (getEntryAtIndex(e, index) == 0) {
-      JASSERT(false)
-        .Text("Looks like this getline never returned on RECORD");
-    }
-    if (GET_COMMON(e, event) == getline_event_return &&
-        IS_EQUAL_FIELD(entry, e, getline, lineptr) &&
-        IS_EQUAL_FIELD(entry, e, getline, stream)) {
-      break;
-    }
-  }
-
-  SET_FIELD_FROM(entry, getline, is_realloc, e);
-}
-
-void dmtcp::SynchronizationLog::copyDataFrom(SynchronizationLog& other)
-{
-  if (other.numEntries() == 0) return;
-
-  JASSERT(_log != NULL && other.logAddr() != NULL) (_log);
-  JASSERT(numEntries() == other.numEntries()) (numEntries()) (other.numEntries());
-  JASSERT(dataSize() == other.dataSize()) (dataSize()) (other.dataSize());
-
-  memcpy(_log, other.logAddr(), other.dataSize());
-  resetIndex();
-}
-
-void dmtcp::SynchronizationLog::appendDataFrom(SynchronizationLog& other)
-{
-  if (other.numEntries() == 0) return;
-  JASSERT(_log != NULL && other.logAddr() != NULL) (_log);
-
-  JASSERT(_index == *_dataSize);
-  JASSERT(dataSize() + other.dataSize() < *_size)
-    (dataSize()) (other.dataSize()) (*_size);
-
-  memcpy(&_log[dataSize()], other.logAddr(), other.dataSize());
-  _index += other.dataSize();
-  *_dataSize += other.dataSize();
-  *_numEntries += other.numEntries();
-}
-
-/* Given a clone_id, this returns the entry in patch_list with the lowest index
-   and same clone_id.  If clone_id is 0, return the oldest entry, regardless of
-   clone_id. If clone_id != 0 and no entry found, returns EMPTY_LOG_ENTRY. */
-log_entry_t dmtcp::SynchronizationLog::getNextEntryWithCloneID(int clone_id)
-{
-  log_entry_t entry = EMPTY_LOG_ENTRY;
-
-  while (getNextEntry(entry) != 0) {
-    if (GET_COMMON(entry, clone_id) == clone_id) {
-      break;
-    }
-  }
-
-  if (GET_COMMON(entry, clone_id) == 0) {
-    return entry;
-  }
-
-  size_t event_size = 0;
-  GET_EVENT_SIZE(GET_COMMON(entry, event), event_size);
-  size_t entry_size = log_event_common_size + event_size;
-
-
-  JASSERT(*_dataSize >= _index) (*_dataSize) (_index);
-
-  memmove(&_log[_index - entry_size], &_log[_index], *_dataSize - _index);
-
-  _index -= entry_size;
-  _entryIndex -= 1;
-
-  *_dataSize -= entry_size;
-  *_numEntries -= 1;
-
-  return entry;
-}
-
-void dmtcp::SynchronizationLog::patchLog()
-{
-  JTRACE ( "Begin log patching." );
-
-  dmtcp::SynchronizationLog record_patched_log;
-  dmtcp::SynchronizationLog patch_list;
-  record_patched_log.initGlobalLog(RECORD_PATCHED_LOG_PATH, MAX_LOG_LENGTH * 10);
-  patch_list.initGlobalLog(NULL, MAX_LOG_LENGTH * 10);
-
-  log_entry_t entry = EMPTY_LOG_ENTRY;
-  log_entry_t temp = EMPTY_LOG_ENTRY;
-  log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
-  size_t write_ret = 0;
-  // Read one log entry at a time from the file on disk, and write the patched
-  // version out to record_patched_log_fd.
-  
-  resetIndex();
-  while (getNextEntry(entry) != 0) {
-    if (GET_COMMON(entry,event) == exec_barrier_event) {
-      // Nothing may move past an exec barrier. Dump everything in patch_list
-      // into the new log before the exec barrier.
-      record_patched_log.appendDataFrom(patch_list);
-      patch_list.clearLog();
-      continue;
-    }
-    // XXX: shouldn't this be treated as exec?
-    if (GET_COMMON(entry,event) == pthread_kill_event) {
-      JTRACE ( "Found a pthread_kill in log. Not moving it." );
-      write_ret = record_patched_log.appendEntry(entry);
-      continue;
-    }
-
-    JASSERT (GET_COMMON(entry,clone_id) != 0)
-      .Text("Encountered a clone_id of 0 in log.");
-    
-    if (isUnlock(entry)) {
-      patch_list.resetIndex();
-      temp = patch_list.getNextEntryWithCloneID(GET_COMMON(entry,clone_id));
-      while (GET_COMMON(temp,clone_id) != 0) {
-        write_ret = record_patched_log.appendEntry(temp);
-        temp = patch_list.getNextEntryWithCloneID(GET_COMMON(entry,clone_id));
-      }
-      patch_list.resetIndex();
-      write_ret = record_patched_log.appendEntry(entry);
-    } else {
-      patch_list.appendEntry(entry);
-    }
-  }
-  // If the patch_list is not empty (patch_list_idx != 0), then there were
-  // some leftover log entries that were not balanced. So we tack them on to
-  // the very end of the log.
-  if (patch_list.empty() == false) {
-    JTRACE ( "Extra log entries. Tacking them onto end of log." )
-      (patch_list.dataSize());
-      record_patched_log.appendDataFrom(patch_list);
-      patch_list.clearLog();
-  }
-  patch_list.destroy();
-
-  copyDataFrom(record_patched_log);
-  record_patched_log.destroy();
-  resetIndex();
-}
 #endif

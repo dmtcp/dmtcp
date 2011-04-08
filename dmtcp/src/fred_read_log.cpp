@@ -26,8 +26,7 @@
 
 #define IFNAME_PRINT_ENTRY(name, idx, entry)                                   \
   do {                                                                         \
-    if (GET_COMMON_PTR(entry, event) == name##_event || \
-        GET_COMMON_PTR(entry, event) == name##_event_return)   \
+    if (GET_COMMON_PTR(entry, event) == name##_event)                          \
       print_log_entry_##name(idx, entry);                                      \
   } while(0)
 
@@ -37,8 +36,6 @@
   do {                                                                         \
     if (e == name##_event)                                                     \
       event_type.assign(TOSTRING(name));                               \
-    else if (e == name##_event_return)                                         \
-      event_type.assign(TOSTRING(name_return));                        \
   } while(0)
 
 #define EVENT_TO_STRING(event_type, e)                                         \
@@ -56,46 +53,54 @@ void print_log_entry_common(int idx, log_entry_t *entry) {
   //char *event_type;
   std::string event_type;
   EVENT_TO_STRING(event_type, GET_COMMON_PTR(entry, event));
-  printf("%d: clone_id=%lld, [%s]: retval=%d, log_id=%lld, my_errno=%d",
+  printf("%d: clone_id=%lld, [%s]: retval=%lu, log_id=%lld, my_errno=%d",
          idx, GET_COMMON_PTR(entry, clone_id), event_type.c_str(),
-         GET_COMMON_PTR(entry, retval), GET_COMMON_PTR(entry, log_id),
-         GET_COMMON_PTR(entry, my_errno));
+         (unsigned long) GET_COMMON_PTR(entry, retval),
+         GET_COMMON_PTR(entry, log_id), GET_COMMON_PTR(entry, my_errno));
 }
 
 void print_log_entry_accept(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, sockaddr=%lu, addrlen=%lu\n",
+  printf(", sockfd=%d, sockaddr=%p, addrlen=%p\n",
          GET_FIELD_PTR(entry, accept, sockfd),
-         GET_FIELD_PTR(entry, accept, sockaddr),
+         GET_FIELD_PTR(entry, accept, addr),
          GET_FIELD_PTR(entry, accept, addrlen));
+}
+
+void print_log_entry_accept4(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", sockfd=%d, sockaddr=%p, addrlen=%p, flags:%d\n",
+         GET_FIELD_PTR(entry, accept4, sockfd),
+         GET_FIELD_PTR(entry, accept4, addr),
+         GET_FIELD_PTR(entry, accept4, addrlen),
+         GET_FIELD_PTR(entry, accept4, flags));
 }
 
 void print_log_entry_access(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu, mode=%d\n",
+  printf(", pathname=%p, mode=%d\n",
          GET_FIELD_PTR(entry, access, pathname),
          GET_FIELD_PTR(entry, access, mode));
 }
 
 void print_log_entry_bind(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, my_addr=%lu, addrlen=%d\n",
+  printf(", sockfd=%d, my_addr=%p, addrlen=%d\n",
          GET_FIELD_PTR(entry, bind, sockfd),
-         GET_FIELD_PTR(entry, bind, my_addr),
+         GET_FIELD_PTR(entry, bind, addr),
          GET_FIELD_PTR(entry, bind, addrlen));
 }
 
 void print_log_entry_calloc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", nmemb=%Zu, size=%Zu, return_ptr=%p\n",
+  printf(", nmemb=%Zu, size=%Zu\n",
       GET_FIELD_PTR(entry, calloc, nmemb),
-      GET_FIELD_PTR(entry, calloc, size),
-      (void *)GET_FIELD_PTR(entry, calloc, return_ptr));
+      GET_FIELD_PTR(entry, calloc, size));
 }
 
 void print_log_entry_connect(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, serv_addr=%lu, addrlen=%d\n",
+  printf(", sockfd=%d, serv_addr=%p, addrlen=%d\n",
          GET_FIELD_PTR(entry, connect, sockfd),
          GET_FIELD_PTR(entry, connect, serv_addr),
          GET_FIELD_PTR(entry, connect, addrlen));
@@ -114,7 +119,7 @@ void print_log_entry_close(int idx, log_entry_t *entry) {
 
 void print_log_entry_closedir(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", dirp=%lu\n", GET_FIELD_PTR(entry, closedir, dirp));
+  printf(", dirp=%p\n", GET_FIELD_PTR(entry, closedir, dirp));
 }
 
 void print_log_entry_exec_barrier(int idx, log_entry_t *entry) {
@@ -124,13 +129,13 @@ void print_log_entry_exec_barrier(int idx, log_entry_t *entry) {
 
 void print_log_entry_fclose(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fp=%lu\n",
+  printf(", fp=%p\n",
       GET_FIELD_PTR(entry, fclose, fp));
 }
 
 void print_log_entry_fcntl(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fd=%d, cmd=%d, arg_3_l=%ld, arg_3_f=%ld\n",
+  printf(", fd=%d, cmd=%d, arg_3_l=%ld, arg_3_f=%p\n",
          GET_FIELD_PTR(entry, fcntl, fd),
          GET_FIELD_PTR(entry, fcntl, cmd),
          GET_FIELD_PTR(entry, fcntl, arg_3_l),
@@ -145,14 +150,14 @@ void print_log_entry_fdatasync(int idx, log_entry_t *entry) {
 
 void print_log_entry_fdopen(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fd=%d, mode=%lu\n",
+  printf(", fd=%d, mode=%p\n",
          GET_FIELD_PTR(entry, fdopen, fd),
          GET_FIELD_PTR(entry, fdopen, mode));
 }
 
 void print_log_entry_fgets(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", s=%lu, size=%d, stream=%lu\n",
+  printf(", s=%p, size=%d, stream=%p\n",
          GET_FIELD_PTR(entry, fgets, s),
          GET_FIELD_PTR(entry, fgets, size),
          GET_FIELD_PTR(entry, fgets, stream));
@@ -160,38 +165,38 @@ void print_log_entry_fgets(int idx, log_entry_t *entry) {
 
 void print_log_entry_fopen(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", name=%lu, mode=%lu\n",
+  printf(", name=%p, mode=%p\n",
          GET_FIELD_PTR(entry, fopen, name),
          GET_FIELD_PTR(entry, fopen, mode));
 }
 
 void print_log_entry_fprintf(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu, format=%lu\n",
+  printf(", stream=%p, format=%p\n",
       GET_FIELD_PTR(entry, fprintf, stream),
       GET_FIELD_PTR(entry, fprintf, format));
 }
 
 void print_log_entry_fputs(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", s=%lu, stream=%lu\n",
+  printf(", s=%p, stream=%p\n",
       GET_FIELD_PTR(entry, fputs, s),
       GET_FIELD_PTR(entry, fputs, stream));
 }
 
 void print_log_entry_free(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", ptr=%lu\n", GET_FIELD_PTR(entry, free, ptr));
+  printf(", ptr=%p\n", GET_FIELD_PTR(entry, free, ptr));
 }
 
 void print_log_entry_ftell(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu\n", GET_FIELD_PTR(entry, ftell, stream));
+  printf(", stream=%p\n", GET_FIELD_PTR(entry, ftell, stream));
 }
 
 void print_log_entry_fwrite(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", ptr=%lu, size=%Zu, nmemb=%Zu, stream=%lu\n",
+  printf(", ptr=%p, size=%Zu, nmemb=%Zu, stream=%p\n",
       GET_FIELD_PTR(entry, fwrite, ptr),
       GET_FIELD_PTR(entry, fwrite, size),
       GET_FIELD_PTR(entry, fwrite, nmemb),
@@ -219,17 +224,17 @@ void print_log_entry_fxstat64(int idx, log_entry_t *entry) {
 
 void print_log_entry_getpeername(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, sockaddr=xx, addrlen=%lu\n",
+  printf(", sockfd=%d, sockaddr=%p, addrlen=%p\n",
          GET_FIELD_PTR(entry, getpeername, sockfd),
-      //GET_FIELD_PTR(entry, getpeername, sockaddr),
+         GET_FIELD_PTR(entry, getpeername, addr),
          GET_FIELD_PTR(entry, getpeername, addrlen));
 }
 
 void print_log_entry_getsockname(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, sockaddr=%lu, addrlen=%lu\n",
+  printf(", sockfd=%d, sockaddr=%p, addrlen=%p\n",
          GET_FIELD_PTR(entry, getsockname, sockfd),
-         GET_FIELD_PTR(entry, getsockname, sockaddr),
+         GET_FIELD_PTR(entry, getsockname, addr),
          GET_FIELD_PTR(entry, getsockname, addrlen));
 }
 
@@ -251,7 +256,7 @@ void print_log_entry_lseek(int idx, log_entry_t *entry) {
 
 void print_log_entry_link(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", oldpath=%lu, newpath=%lu\n",
+  printf(", oldpath=%p, newpath=%p\n",
          GET_FIELD_PTR(entry, link, oldpath),
          GET_FIELD_PTR(entry, link, newpath));
 }
@@ -265,82 +270,78 @@ void print_log_entry_listen(int idx, log_entry_t *entry) {
 
 void print_log_entry_lxstat(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", vers=%d, path=%lu\n",
+  printf(", vers=%d, path=%p\n",
          GET_FIELD_PTR(entry, lxstat, vers),
          GET_FIELD_PTR(entry, lxstat, path));
 }
 
 void print_log_entry_lxstat64(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", vers=%d, path=%lu\n",
+  printf(", vers=%d, path=%p\n",
          GET_FIELD_PTR(entry, lxstat64, vers),
          GET_FIELD_PTR(entry, lxstat64, path));
 }
 
 void print_log_entry_malloc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", size=%Zu, return_ptr=%p\n",
-      GET_FIELD_PTR(entry, malloc, size),
-      (void *)GET_FIELD_PTR(entry, malloc, return_ptr));
+  printf(", size=%Zu\n",
+      GET_FIELD_PTR(entry, malloc, size));
 }
 
 void print_log_entry_mkdir(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu, mode=%d",
+  printf(", pathname=%p, mode=%d",
       GET_FIELD_PTR(entry, mkdir, pathname),
       GET_FIELD_PTR(entry, mkdir, mode));
 }
 
 void print_log_entry_mkstemp(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", temp=%lu\n",
+  printf(", temp=%p\n",
          GET_FIELD_PTR(entry, mkstemp, temp));
 }
 
 void print_log_entry_mmap(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", addr=%lu, length=%Zu, prot=%d, flags=%d, fd=%d, offset=%Zu, retval=%p\n",
+  printf(", addr=%p, length=%Zu, prot=%d, flags=%d, fd=%d, offset=%Zu\n",
       GET_FIELD_PTR(entry, mmap, addr),
       GET_FIELD_PTR(entry, mmap, length),
       GET_FIELD_PTR(entry, mmap, prot),
       GET_FIELD_PTR(entry, mmap, flags),
       GET_FIELD_PTR(entry, mmap, fd),
-      GET_FIELD_PTR(entry, mmap, offset),
-      (void *)GET_FIELD_PTR(entry, mmap, retval));
+      GET_FIELD_PTR(entry, mmap, offset));
 }
 
 void print_log_entry_mmap64(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", addr=%lu, length=%Zu, prot=%d, flags=%d, fd=%d, offset=%Zu, retval=%p\n",
+  printf(", addr=%p, length=%Zu, prot=%d, flags=%d, fd=%d, offset=%Zu\n",
       GET_FIELD_PTR(entry, mmap64, addr),
       GET_FIELD_PTR(entry, mmap64, length),
       GET_FIELD_PTR(entry, mmap64, prot),
       GET_FIELD_PTR(entry, mmap64, flags),
       GET_FIELD_PTR(entry, mmap64, fd),
-      GET_FIELD_PTR(entry, mmap64, offset),
-      (void *)GET_FIELD_PTR(entry, mmap64, retval));
+      GET_FIELD_PTR(entry, mmap64, offset));
 }
 
 void print_log_entry_mremap(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", old_address=%lu, old_size=%Zu, new_size=%Zu, flags=%d, retval=%p\n",
+  printf(", old_address=%p, old_size=%Zu, new_size=%Zu, flags=%d\n",
       GET_FIELD_PTR(entry, mremap, old_address),
       GET_FIELD_PTR(entry, mremap, old_size),
       GET_FIELD_PTR(entry, mremap, new_size),
-      GET_FIELD_PTR(entry, mremap, flags),
-      (void *)GET_FIELD_PTR(entry, mremap, retval));
+      GET_FIELD_PTR(entry, mremap, flags));
 }
 
 void print_log_entry_munmap(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", addr=%lu, length=%Zu\n",
+  printf(", addr=%p, length=%Zu\n",
       GET_FIELD_PTR(entry, munmap, addr),
       GET_FIELD_PTR(entry, munmap, length));
 }
 
 void print_log_entry_open(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu, flags=%d, mode=%d\n",
+  printf(", pathname=%p, flags=%d, mode=%d\n",
          GET_FIELD_PTR(entry, open, path),
          GET_FIELD_PTR(entry, open, flags),
          GET_FIELD_PTR(entry, open, open_mode));
@@ -348,7 +349,7 @@ void print_log_entry_open(int idx, log_entry_t *entry) {
 
 void print_log_entry_open64(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu, flags=%d, mode=%d\n",
+  printf(", pathname=%p, flags=%d, mode=%d\n",
          GET_FIELD_PTR(entry, open64, path),
          GET_FIELD_PTR(entry, open64, flags),
          GET_FIELD_PTR(entry, open64, open_mode));
@@ -356,13 +357,13 @@ void print_log_entry_open64(int idx, log_entry_t *entry) {
 
 void print_log_entry_opendir(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", name=%lu\n",
+  printf(", name=%p\n",
          GET_FIELD_PTR(entry, opendir, name));
 }
 
 void print_log_entry_pread(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fd=%d, buf=%lu, count=%Zu, offset=%Zu\n",
+  printf(", fd=%d, buf=%p, count=%Zu, offset=%Zu\n",
          GET_FIELD_PTR(entry, pread, fd),
          GET_FIELD_PTR(entry, pread, buf),
          GET_FIELD_PTR(entry, pread, count),
@@ -371,14 +372,14 @@ void print_log_entry_pread(int idx, log_entry_t *entry) {
 
 void print_log_entry_putc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", c=%d, stream=%lu\n",
+  printf(", c=%d, stream=%p\n",
       GET_FIELD_PTR(entry, putc, c),
       GET_FIELD_PTR(entry, putc, stream));
 }
 
 void print_log_entry_pwrite(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fd=%d, buf=%lu, count=%Zu, offset=%Zu\n",
+  printf(", fd=%d, buf=%p, count=%Zu, offset=%Zu\n",
          GET_FIELD_PTR(entry, pwrite, fd),
          GET_FIELD_PTR(entry, pwrite, buf),
          GET_FIELD_PTR(entry, pwrite, count),
@@ -392,7 +393,7 @@ void print_log_entry_pthread_detach(int idx, log_entry_t *entry) {
 
 void print_log_entry_pthread_create(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", thread=%lu, attr=%lu, start_routine=%lu, arg=%lu, stack_addr=%lu\n",
+  printf(", thread=%p, attr=%p, start_routine=%p, arg=%p, stack_addr=%p\n",
          GET_FIELD_PTR(entry, pthread_create, thread),
          GET_FIELD_PTR(entry, pthread_create, attr),
          GET_FIELD_PTR(entry, pthread_create, start_routine),
@@ -402,56 +403,56 @@ void print_log_entry_pthread_create(int idx, log_entry_t *entry) {
 
 void print_log_entry_pthread_cond_broadcast(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", cond_var=%lu, signal_target=%d\n",
-         GET_FIELD_PTR(entry, pthread_cond_broadcast, cond_var),
+  printf(", cond_addr=%p, signal_target=%d\n",
+         GET_FIELD_PTR(entry, pthread_cond_broadcast, addr),
          GET_FIELD_PTR(entry, pthread_cond_broadcast, signal_target));
 }
 
 void print_log_entry_pthread_cond_signal(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", cond_var=%lu, signal_target=%d\n",
-         GET_FIELD_PTR(entry, pthread_cond_signal, cond_var),
+  printf(", cond_addr=%p, signal_target=%d\n",
+         GET_FIELD_PTR(entry, pthread_cond_signal, addr),
          GET_FIELD_PTR(entry, pthread_cond_signal, signal_target));
 }
 
 void print_log_entry_pthread_mutex_lock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", mutex=%lu\n", GET_FIELD_PTR(entry, pthread_mutex_lock, mutex));
+  printf(", mutex=%p\n", GET_FIELD_PTR(entry, pthread_mutex_lock, addr));
 }
 
 void print_log_entry_pthread_mutex_trylock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", mutex=%lu\n", GET_FIELD_PTR(entry, pthread_mutex_trylock, mutex));
+  printf(", mutex=%p\n", GET_FIELD_PTR(entry, pthread_mutex_trylock, addr));
 }
 
 void print_log_entry_pthread_mutex_unlock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", mutex=%lu\n", GET_FIELD_PTR(entry, pthread_mutex_unlock, mutex));
+  printf(", mutex=%p\n", GET_FIELD_PTR(entry, pthread_mutex_unlock, addr));
 }
 
 void print_log_entry_pthread_cond_wait(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", mutex=%lu, cond_var=%lu\n",
-         GET_FIELD_PTR(entry, pthread_cond_wait, mutex),
-         GET_FIELD_PTR(entry, pthread_cond_wait, cond_var));
+  printf(", mutex_addr=%p, cond_addr=%p\n",
+         GET_FIELD_PTR(entry, pthread_cond_wait, mutex_addr),
+         GET_FIELD_PTR(entry, pthread_cond_wait, cond_addr));
 }
 
 void print_log_entry_pthread_cond_timedwait(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", mutex=%lu, cond_var=%lu, abstime=%lu\n",
-         GET_FIELD_PTR(entry, pthread_cond_timedwait, mutex),
-         GET_FIELD_PTR(entry, pthread_cond_timedwait, cond_var),
+  printf(", mutex_addr=%p, cond_addr=%p, abstime=%p\n",
+         GET_FIELD_PTR(entry, pthread_cond_timedwait, mutex_addr),
+         GET_FIELD_PTR(entry, pthread_cond_timedwait, cond_addr),
          GET_FIELD_PTR(entry, pthread_cond_timedwait, abstime));
 }
 
 void print_log_entry_pthread_exit(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", value_ptr=%lu\n", GET_FIELD_PTR(entry, pthread_exit, value_ptr));
+  printf(", value_ptr=%p\n", GET_FIELD_PTR(entry, pthread_exit, value_ptr));
 }
 
 void print_log_entry_pthread_join(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", thread=%lu, value_ptr=%lu\n",
+  printf(", thread=%lu, value_ptr=%p\n",
          GET_FIELD_PTR(entry, pthread_join, thread),
          GET_FIELD_PTR(entry, pthread_join, value_ptr));
 }
@@ -465,20 +466,20 @@ void print_log_entry_pthread_kill(int idx, log_entry_t *entry) {
 
 void print_log_entry_pthread_rwlock_unlock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", rwlock=%lu\n",
-         GET_FIELD_PTR(entry, pthread_rwlock_unlock, rwlock));
+  printf(", rwlock=%p\n",
+         GET_FIELD_PTR(entry, pthread_rwlock_unlock, addr));
 }
 
 void print_log_entry_pthread_rwlock_rdlock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", rwlock=%lu\n",
-         GET_FIELD_PTR(entry, pthread_rwlock_rdlock, rwlock));
+  printf(", rwlock=%p\n",
+         GET_FIELD_PTR(entry, pthread_rwlock_rdlock, addr));
 }
 
 void print_log_entry_pthread_rwlock_wrlock(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", rwlock=%lu\n",
-         GET_FIELD_PTR(entry, pthread_rwlock_wrlock, rwlock));
+  printf(", rwlock=%p\n",
+         GET_FIELD_PTR(entry, pthread_rwlock_wrlock, addr));
 }
 
 void print_log_entry_rand(int idx, log_entry_t *entry) {
@@ -488,7 +489,7 @@ void print_log_entry_rand(int idx, log_entry_t *entry) {
 
 void print_log_entry_read(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", readfd=%d, buf_addr=%lu, count=%Zu, data_offset=%Zu\n",
+  printf(", readfd=%d, buf_addr=%p, count=%Zu, data_offset=%Zu\n",
          GET_FIELD_PTR(entry, read, readfd),
          GET_FIELD_PTR(entry, read, buf_addr),
          GET_FIELD_PTR(entry, read, count),
@@ -497,54 +498,53 @@ void print_log_entry_read(int idx, log_entry_t *entry) {
 
 void print_log_entry_readdir(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", dirp=%lu\n",
+  printf(", dirp=%p\n",
          GET_FIELD_PTR(entry, readdir, dirp));
 }
 
 void print_log_entry_readdir_r(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", dirp=%lu, result=%d\n",
+  printf(", dirp=%p, result=%p\n",
       GET_FIELD_PTR(entry, readdir_r, dirp),
       GET_FIELD_PTR(entry, readdir_r, result));
 }
 
 void print_log_entry_readlink(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", path=%lu, bufsiz=%Zu\n",
+  printf(", path=%p, bufsiz=%Zu\n",
       GET_FIELD_PTR(entry, readlink, path),
       GET_FIELD_PTR(entry, readlink, bufsiz));
 }
 
 void print_log_entry_realloc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", size=%Zu, ptr=%lu, return_ptr=%p\n",
+  printf(", size=%Zu, ptr=%p\n",
       GET_FIELD_PTR(entry, realloc, size),
-      GET_FIELD_PTR(entry, realloc, ptr),
-      (void *)GET_FIELD_PTR(entry, realloc, return_ptr));
+      GET_FIELD_PTR(entry, realloc, ptr));
 }
 
 void print_log_entry_rename(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", oldpath=%lu, newpath=%lu\n",
+  printf(", oldpath=%p, newpath=%p\n",
          GET_FIELD_PTR(entry, rename, oldpath),
          GET_FIELD_PTR(entry, rename, newpath));
 }
 
 void print_log_entry_rewind(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu\n",
+  printf(", stream=%p\n",
          GET_FIELD_PTR(entry, rewind, stream));
 }
 
 void print_log_entry_rmdir(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu\n",
+  printf(", pathname=%p\n",
       GET_FIELD_PTR(entry, rmdir, pathname));
 }
 
 void print_log_entry_select(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", nfds=%d, exceptfds=%lu, timeout=%lu\n",
+  printf(", nfds=%d, exceptfds=%p, timeout=%p\n",
          GET_FIELD_PTR(entry, select, nfds),
          GET_FIELD_PTR(entry, select, exceptfds),
          GET_FIELD_PTR(entry, select, timeout));
@@ -558,14 +558,14 @@ void print_log_entry_signal_handler(int idx, log_entry_t *entry) {
 
 void print_log_entry_sigwait(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", set=%lu, sigwait_sig=%lu\n",
+  printf(", set=%p, sigwait_sig=%p\n",
          GET_FIELD_PTR(entry, sigwait, set),
          GET_FIELD_PTR(entry, sigwait, sigwait_sig));
 }
 
 void print_log_entry_setsockopt(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", sockfd=%d, level=%d, optname=%d, optval=%lu\n",
+  printf(", sockfd=%d, level=%d, optname=%d, optval=%p\n",
          GET_FIELD_PTR(entry, setsockopt, sockfd),
          GET_FIELD_PTR(entry, setsockopt, level),
          GET_FIELD_PTR(entry, setsockopt, optname),
@@ -587,37 +587,37 @@ void print_log_entry_socket(int idx, log_entry_t *entry) {
 
 void print_log_entry_xstat(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", vers=%d, path=%lu\n",
+  printf(", vers=%d, path=%p\n",
          GET_FIELD_PTR(entry, xstat, vers),
          GET_FIELD_PTR(entry, xstat, path));
 }
 
 void print_log_entry_xstat64(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", vers=%d, path=%lu\n",
+  printf(", vers=%d, path=%p\n",
          GET_FIELD_PTR(entry, xstat64, vers),
          GET_FIELD_PTR(entry, xstat64, path));
 }
 
 void print_log_entry_time(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", tloc=%lu\n", GET_FIELD_PTR(entry, time, tloc));
+  printf(", tloc=%p\n", GET_FIELD_PTR(entry, time, tloc));
 }
 
 void print_log_entry_gettimeofday(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", tv=%lu, tz=%lu\n", GET_FIELD_PTR(entry, gettimeofday, tv),
+  printf(", tv=%p, tz=%p\n", GET_FIELD_PTR(entry, gettimeofday, tv),
          GET_FIELD_PTR(entry, gettimeofday, tz));
 }
 
 void print_log_entry_fflush(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu\n", GET_FIELD_PTR(entry, fflush, stream));
+  printf(", stream=%p\n", GET_FIELD_PTR(entry, fflush, stream));
 }
 
 void print_log_entry_unlink(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", pathname=%lu\n",
+  printf(", pathname=%p\n",
          GET_FIELD_PTR(entry, unlink, pathname));
 }
 
@@ -628,7 +628,7 @@ void print_log_entry_user(int idx, log_entry_t *entry) {
 
 void print_log_entry_write(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", writefd=%d, buf_addr=%lu, count=%Zu\n",
+  printf(", writefd=%d, buf_addr=%p, count=%Zu\n",
          GET_FIELD_PTR(entry, write, writefd),
          GET_FIELD_PTR(entry, write, buf_addr),
          GET_FIELD_PTR(entry, write, count));
@@ -636,7 +636,7 @@ void print_log_entry_write(int idx, log_entry_t *entry) {
 
 void print_log_entry_getline(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", lineptr=%d, n=%Zu, stream=%lu\n",
+  printf(", lineptr=%d, n=%Zu, stream=%p\n",
          *(GET_FIELD_PTR(entry, getline, lineptr)),
          GET_FIELD_PTR(entry, getline, n),
          GET_FIELD_PTR(entry, getline, stream));
@@ -644,33 +644,33 @@ void print_log_entry_getline(int idx, log_entry_t *entry) {
 
 void print_log_entry_fscanf(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu, format=%lu\n",
+  printf(", stream=%p, format=%p\n",
          GET_FIELD_PTR(entry, fscanf, stream),
          GET_FIELD_PTR(entry, fscanf, format));
 }
 
 void print_log_entry_getc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu\n",
+  printf(", stream=%p\n",
          GET_FIELD_PTR(entry, getc, stream));
 }
 
 void print_log_entry_fgetc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", stream=%lu\n",
+  printf(", stream=%p\n",
          GET_FIELD_PTR(entry, fgetc, stream));
 }
 
 void print_log_entry_ungetc(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", c=%d, stream=%lu\n",
+  printf(", c=%d, stream=%p\n",
          GET_FIELD_PTR(entry, ungetc, c),
          GET_FIELD_PTR(entry, ungetc, stream));
 }
 
 void print_log_entry_fopen64(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", name=%lu, mode=%lu\n",
+  printf(", name=%p, mode=%p\n",
          GET_FIELD_PTR(entry, fopen64, name),
          GET_FIELD_PTR(entry, fopen64, mode));
 }

@@ -77,41 +77,29 @@ namespace dmtcp
       void init_common(size_t size);
 
     public:
-      void   clearLog(); //Needed for log patching
       void   destroy();
+      size_t currentIndex() { return _index; }
       size_t currentEntryIndex() { return _entryIndex; }
       bool   empty() { return numEntries() == 0; }
       size_t dataSize() { return _dataSize == NULL ? 0 : *_dataSize; }
       size_t numEntries() { return _numEntries == NULL ? 0 : *_numEntries; }
       bool   isUnified() { return _isUnified == NULL ? false : *_isUnified; }
-
       
       void   mergeLogs(dmtcp::vector<clone_id_t> clone_ids);
-      void   annotate();
-      void   patchLog();
 
       int    getNextEntry(log_entry_t& entry);
       int    appendEntry(const log_entry_t& entry);
+      void   replaceEntryAtOffset(const log_entry_t& entry, size_t index);
 
     private:
       void   resetIndex() { _index = 0; _entryIndex = 0; }
-      size_t currentIndex() { return _index; }
       void   resetMarkers()
         { resetIndex(); *_dataSize = 0; *_numEntries = 0; *_isUnified = false; }
 
-      void   writeEntryHeaderAtIndex(const log_entry_t& entry, size_t index);
-      size_t getEntryHeaderAtIndex(log_entry_t& entry, size_t index);
-      int    writeEntryAtIndex(const log_entry_t& entry, size_t index);
-      int    getEntryAtIndex(log_entry_t& entry, size_t index);
-
-      void   updateEntryFromNextPthreadCreate(log_entry_t& entry);
-      void   updateEntryFromNextGetline(log_entry_t& entry);
-
-      // The following four functions are need for Log-patching only.
-      char*  logAddr() { return _log; }
-      log_entry_t getNextEntryWithCloneID(int clone_id);
-      void   copyDataFrom(SynchronizationLog& other);
-      void   appendDataFrom(SynchronizationLog& other);
+      void   writeEntryHeaderAtOffset(const log_entry_t& entry, size_t index);
+      size_t getEntryHeaderAtOffset(log_entry_t& entry, size_t index);
+      int    writeEntryAtOffset(const log_entry_t& entry, size_t index);
+      int    getEntryAtOffset(log_entry_t& entry, size_t index);
 
     private:
       string  _path;

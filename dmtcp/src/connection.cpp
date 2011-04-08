@@ -80,8 +80,9 @@ static int _makeDeadSocket()
   JASSERT ( sp[0]>=0 && sp[1]>=0 ) ( sp[0] ) ( sp[1] )
     .Text ( "socketpair() failed" );
   _real_close ( sp[1] );
-  if (really_verbose)
+  if (really_verbose) {
     JTRACE ( "Created dead socket." ) ( sp[0] );
+  }
   return sp[0];
 }
 
@@ -208,8 +209,9 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
 
 void dmtcp::TcpConnection::onBind ( const struct sockaddr* addr, socklen_t len )
 {
-  if (really_verbose)
+  if (really_verbose) {
     JTRACE ("Binding.") ( id() ) ( len );
+  }
 
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Binding a socket in use????" );
@@ -222,8 +224,9 @@ void dmtcp::TcpConnection::onBind ( const struct sockaddr* addr, socklen_t len )
 }
 void dmtcp::TcpConnection::onListen ( int backlog )
 {
-  if (really_verbose)
+  if (really_verbose) {
     JTRACE ( "Listening." ) ( id() ) ( backlog );
+  }
 
   JASSERT ( tcpType() == TCP_BIND ) ( tcpType() ) ( id() )
     .Text ( "Listening on a non-bind()ed socket????" );
@@ -238,8 +241,9 @@ void dmtcp::TcpConnection::onConnect( int sockfd,
                                       const  struct sockaddr *addr, 
                                       socklen_t len )
 {
-  if (really_verbose)
+  if (really_verbose) {
     JTRACE ( "Connecting." ) ( id() );
+  }
 
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Connecting with an in-use socket????" );
@@ -260,8 +264,9 @@ dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const Connect
   , _bindAddrlen ( 0 )
   , _acceptRemoteId ( remote )
 {
-  if (really_verbose)
+  if (really_verbose) {
     JTRACE ( "Accepting." ) ( id() ) ( parent.id() ) ( remote );
+  }
 
   //     JASSERT(parent.tcpType() == TCP_LISTEN)(parent.tcpType())(parent.id())
   //             .Text("Accepting from a non listening socket????");
@@ -307,8 +312,9 @@ void dmtcp::TcpConnection::preCheckpointPeerLookup ( const dmtcp::vector<int>& f
       }
       else
       {
-        if (really_verbose)
+        if (really_verbose) {
           JTRACE ( "Did not get lock.  Won't lookup." ) ( fds[0] ) ( id() );
+        }
       }
       break;
     case TCP_LISTEN:
@@ -326,8 +332,9 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
-    if (really_verbose)
+    if (really_verbose) {
       JTRACE ( "Removing O_ASYNC flag during checkpoint." ) ( fds[0] ) ( id() );
+    }
     errno = 0;
     JASSERT ( fcntl ( fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC ) == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( id() );
   }
@@ -345,8 +352,9 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
       }
       else
       {
-        if (really_verbose)
+        if (really_verbose) {
           JTRACE ( "Did not get lock.  Won't drain" ) ( fds[0] ) ( id() );
+        }
       }
       break;
     case TCP_LISTEN:
@@ -377,9 +385,10 @@ void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, cons
         }
         else
         {
-          if (really_verbose)
+          if (really_verbose) {
             JTRACE("Skipping handshake send (shared socket, not owner).")
 		(id()) (fds[0]);
+          }
         }
         break;
       case TCP_EXTERNAL_CONNECT:
@@ -397,14 +406,16 @@ void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, cons
           JTRACE ("Receiving handshake ...") (id()) (fds[0]);
           jalib::JSocket sock(fds[0]);
           recvHandshake( sock, coordinator );
-          if (really_verbose)
+          if (really_verbose) {
             JTRACE ("Received handshake.") (getRemoteId()) (fds[0]);
+          }
         }
         else
         {
-          if (really_verbose)
+          if (really_verbose) {
             JTRACE ("Skipping handshake recv (shared socket, not owner).")
               (id()) (fds[0]);
+          }
         }
         break;
       case TCP_EXTERNAL_CONNECT:
@@ -417,9 +428,10 @@ void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool 
 {
   if ( ( _fcntlFlags & O_ASYNC ) != 0 )
   {
-    if (really_verbose)
+    if (really_verbose) {
       JTRACE ( "Re-adding O_ASYNC flag." ) ( fds[0] ) ( id() );
     restoreOptions ( fds );
+    }
   }
 }
 void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
@@ -453,8 +465,9 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         ( _sockProtocol )
         .Text ( "Socket type not yet [fully] supported." );
 
-      if (really_verbose)
+      if (really_verbose) {
         JTRACE ( "Restoring socket." ) ( id() ) ( fds[0] );
+      }
 
       jalib::JSocket sock ( _real_socket ( _sockDomain,_sockType,_sockProtocol ) );
       JASSERT ( sock.isValid() );
@@ -514,16 +527,18 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         }
       }
 
-      if (really_verbose)
+      if (really_verbose) {
         JTRACE ( "Binding socket." ) ( id() );
+      }
       errno = 0;
       JWARNING ( sock.bind ( ( sockaddr* ) &_bindAddr,_bindAddrlen ) )
         ( JASSERT_ERRNO ) ( id() )
         .Text ( "Bind failed." );
       if ( tcpType() == TCP_BIND ) break;
 
-      if (really_verbose)
+      if (really_verbose) {
         JTRACE ( "Listening socket." ) ( id() );
+      }
       errno = 0;
       JWARNING ( sock.listen ( _listenBacklog ) )
         ( JASSERT_ERRNO ) ( id() ) ( _listenBacklog )
@@ -1118,7 +1133,6 @@ int dmtcp::FileConnection::openFile()
 
 void dmtcp::FileConnection::restoreFile()
 {
-  int fd;
   JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
   JASSERT(_checkpointed);
 
@@ -1643,9 +1657,9 @@ static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode) {
   typedef int hdr;
   ssize_t cum_count = 0;
-  int rc;
+  ssize_t rc;
   while ((rc = writeOnePacket(fd, (char *)buf+cum_count, isPacketMode))
-	 > sizeof(hdr)) {
+	 > (ssize_t)sizeof(hdr)) {
     cum_count += rc;
   }
   JASSERT (rc < 0 || rc == sizeof(hdr)) (rc) (cum_count);

@@ -116,6 +116,7 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
 #ifdef RECORD_REPLAY
 static void sig_handler_wrapper(int sig)
 {
+  // FIXME: Why is the following  commented out?
   /*void *return_addr = GET_RETURN_ADDRESS();
 if (!shouldSynchronize(return_addr)) {
     kill(getpid(), SIGSEGV);
@@ -125,21 +126,14 @@ if (!shouldSynchronize(return_addr)) {
     JASSERT ( false ) .Text("don't want this");
     return (*user_sig_handlers[sig]) (sig);
   }
+  int retval = 0;
   log_entry_t my_entry = create_signal_handler_entry(my_clone_id, signal_handler_event, sig);
-  log_entry_t my_return_entry = create_signal_handler_entry(my_clone_id, signal_handler_event_return, sig);
   if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &signal_handler_turn_check);
-    getNextLogEntry();
-    // Call user's signal handler:
+    WRAPPER_REPLAY(signal_handler);
     (*user_sig_handlers[sig]) (sig);
-    waitForTurn(my_return_entry, &signal_handler_turn_check);
-    getNextLogEntry();
   } else if (SYNC_IS_LOG) {
-    // Not restart; we should be logging.
-    addNextLogEntry(my_entry);
-    // Call user's signal handler:
     (*user_sig_handlers[sig]) (sig);
-    addNextLogEntry(my_return_entry);
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
 }
 #endif
@@ -150,16 +144,11 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler){
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) || jalib::Filesystem::GetProgramName() == "gdb") {
-    // Don't use our wrapper for non-user signal() calls:
-    return _real_signal (signum, handler);
-  } else {
-    // We don't need to log and replay this call, we just need to note the user's
-    // signal handler so that our signal handler wrapper can call that function.
-    user_sig_handlers[signum] = handler;
-    return _real_signal( signum, sig_handler_wrapper );
-  }
+  WRAPPER_HEADER_RAW(sighandler_t, signal, _real_signal, signum, handler);
+  // We don't need to log and replay this call, we just need to note the user's
+  // signal handler so that our signal handler wrapper can call that function.
+  user_sig_handlers[signum] = handler;
+  return _real_signal( signum, sig_handler_wrapper );
 #else
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
@@ -328,36 +317,19 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr)) {
-    return _real_sigwait(set, sig);
-  }
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    return _real_sigwait(set, sig);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_sigwait_entry(my_clone_id, sigwait_event,
-      (unsigned long int)set, (unsigned long int)sig);
-  log_entry_t my_return_entry = create_sigwait_entry(my_clone_id, sigwait_event_return,
-      (unsigned long int)set, (unsigned long int)sig);
+  WRAPPER_HEADER(int, sigwait, _real_sigwait, set, sig);
   if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &sigwait_turn_check);
-    getNextLogEntry();
-    waitForTurn(my_return_entry, &sigwait_turn_check);
-    // Report what signal woke the sigwait up on record:
-    *sig = GET_FIELD(currentLogEntry, sigwait, sig);
-    retval = GET_COMMON(currentLogEntry,retval);
-    if (retval != 0) errno = GET_COMMON(currentLogEntry,my_errno);
-    getNextLogEntry();
+    WRAPPER_REPLAY_START(sigwait);
+    if (sig != NULL) {
+      *sig = GET_FIELD(currentLogEntry, sigwait, sig);
+    }
+    WRAPPER_REPLAY_END(sigwait);
   } else if (SYNC_IS_LOG) {
-    // Not restart; we should be logging.
-    addNextLogEntry(my_entry);
     retval = _real_sigwait(set, sig);
-    // Record which signal woke this call up:
-    SET_FIELD2(my_return_entry, sigwait, sig, *sig);
-    SET_COMMON(my_return_entry, retval);
-    if (retval != 0) SET_COMMON2(my_return_entry, my_errno, errno);
-    addNextLogEntry(my_return_entry);
+    if (sig != NULL) {
+      SET_FIELD2(my_entry, sigwait, sig, *sig);
+    }
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
   return retval;
 #else
