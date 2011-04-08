@@ -161,7 +161,7 @@ int STATIC_TLS_TID_OFFSET()
   long major = strtol(gnu_get_libc_version(), &ptr, 10);
   long minor = strtol(ptr+1, NULL, 10);
   if (major != 2) {
-    mtcp_printf("**** MTCP:Error:: Incompatible glibc version: %s\n",
+    MTCP_PRINTF("**** Error:: Incompatible glibc version: %s\n",
                 gnu_get_libc_version());
     mtcp_abort();
   }
@@ -245,7 +245,7 @@ static int TLS_TID_OFFSET(void) {
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     if (tmp == NULL) {
-      mtcp_printf("MTCP:  Couldn't find offsets of tid/pid in thread_area.\n"
+      MTCP_PRINTF("Couldn't find offsets of tid/pid in thread_area.\n"
                   "  Now relying on the value determined using the\n"
                   "  glibc version with which DMTCP was compiled.\n");
       return STATIC_TLS_TID_OFFSET();
@@ -254,7 +254,7 @@ static int TLS_TID_OFFSET(void) {
 
     tid_offset = tmp - (char *)pthread_desc;
     if (tid_offset != STATIC_TLS_TID_OFFSET()) {
-      mtcp_printf("MTCP:  Warning:  tid_offset = %d; different from expected.\n"
+      MTCP_PRINTF("Warning:  tid_offset = %d; different from expected.\n"
                   "  It is possible that DMTCP was compiled with a different\n"
                   "  glibc version than the one it's dynamically linking to.\n"
                   "  Continuing anyway.  If this fails, please try again.\n",
@@ -262,7 +262,7 @@ static int TLS_TID_OFFSET(void) {
     }
     DPRINTF(("tid_offset: %d\n", tid_offset));
     if (tid_offset % sizeof(int) != 0) {
-      mtcp_printf("MTCP:  tid_offset is not divisible by sizeof(int).\n"
+      MTCP_PRINTF("tid_offset is not divisible by sizeof(int).\n"
                   "  Now relying on the value determined using the\n"
                   "  glibc version with which DMTCP was compiled.\n");
       return STATIC_TLS_TID_OFFSET();
@@ -376,7 +376,7 @@ char* mtcp_restore_argv_start_addr = NULL;
     
 	/* Static data */
 
-static sigset_t sigpending_global;                // pending signals for the process
+static sigset_t sigpending_global;  // pending signals for the process
 static char const *nscd_mmap_str = "/var/run/nscd/";    // OpenSUSE
 static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
 static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat (Linux 2.6.9)
@@ -555,8 +555,8 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   sbrk(0);
 
   if (sizeof(void *) != sizeof(long)) {
-    mtcp_printf("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
-	   "       This code assumes they are equal.\n");
+    MTCP_PRINTF("ERROR: sizeof(void *) != sizeof(long) on this architecture.\n"
+                "       This code assumes they are equal.\n");
     mtcp_abort ();
   }
 
@@ -595,7 +595,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   intervalsecs = interval;
 
   if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
-    mtcp_printf("mtcp mtcp_init: new ckpt file name (%s) too long (>=512 bytes)\n",
+    MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
                 mtcp_ckpt_newname);
     mtcp_abort();
   }
@@ -622,7 +622,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   DPRINTF(("main tid %d\n", mtcp_sys_kernel_gettid ()));
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
   if (getenv("MTCP_INIT_PAUSE")) {
-    mtcp_printf("Pausing 15 seconds.  Do:  gdb attach %d\n", mtcp_sys_getpid());
+    MTCP_PRINTF("Pausing 15 seconds. Do:  gdb attach %d\n", mtcp_sys_getpid());
     sleep(15);
   }
 
@@ -648,7 +648,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
     tls_tid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_TID_OFFSET());
 
     if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
-      mtcp_printf ("mtcp_init: getpid %d, tls pid %d, tls tid %d, must all match\n",
+      MTCP_PRINTF ("getpid %d, tls pid %d, tls tid %d, must all match\n",
                     motherpid, tls_pid, tls_tid);
       mtcp_abort ();
     }
@@ -661,7 +661,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
   if (tmp != NULL) {
     verify_total = strtol (tmp, &p, 0);
     if ((*p != '\0') || (verify_total < 0)) {
-      mtcp_printf ("mtcp_init: bad MTCP_VERIFY_CHECKPOINT %s\n", tmp);
+      MTCP_PRINTF ("bad MTCP_VERIFY_CHECKPOINT %s\n", tmp);
       mtcp_abort ();
     }
   }
@@ -678,7 +678,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
 
       if ((errno != 0) || (tmp == endp))
       {
-          mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%s\" does not "
+          MTCP_PRINTF("Your chosen SIGCKPT of \"%s\" does not "
                         "translate to a number,\n"
 			"  and cannot be used.  Signal %d "
                         "will be used instead.\n", tmp, MTCP_DEFAULT_SIGNAL);
@@ -686,7 +686,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
       }
       else if (STOPSIGNAL < 1 || STOPSIGNAL > 31)
       {
-          mtcp_printf("mtcp_init: Your chosen SIGCKPT of \"%d\" is not a valid "
+          MTCP_PRINTF("Your chosen SIGCKPT of \"%d\" is not a valid "
                         "signal, and cannot be used.\n"
 			"  Signal %d will be used instead.\n",
 		       STOPSIGNAL, MTCP_DEFAULT_SIGNAL);
@@ -734,7 +734,7 @@ void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefa
     perror("ERROR: continue anyway from " __FILE__ ":mtcp_init:sem_trywait()");
   /* Now we successfully locked it.  The sempaphore value is zero. */
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
-    mtcp_printf ("mtcp_init: error creating checkpoint thread: %s\n", strerror (errno));
+    MTCP_PRINTF ("error creating checkpoint thread: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
   if (checkpointhreadstarting) mtcp_abort ();  // make sure the clone wrapper executed (ie, not just the standard clone)
@@ -826,12 +826,12 @@ void mtcp_dump_tls (char const *file, int line)
   /* Get the segment for the TLS stuff */
 
   asm volatile ("movw %%gs,%0" : "=g" (gs));
-  mtcp_printf("mtcp_init: gs=%X at %s:%d\n", gs, file, line);
+  MTCP_PRINTF("gs=%X at %s:%d\n", gs, file, line);
   if (gs != 0) {
 
     /* We only handle GDT based stuff */
 
-    if (gs & 4) mtcp_printf("   *** part of LDT\n");
+    if (gs & 4) MTCP_PRINTF("   *** part of LDT\n");
 
     /* It's in the GDT */
 
@@ -841,7 +841,7 @@ void mtcp_dump_tls (char const *file, int line)
 
       gdtentry.entry_number = gs / 8;
       i = mtcp_sys_get_thread_area (&gdtentry);
-      if (i < 0) mtcp_printf("  error getting GDT entry %d: %d\n", gdtentry.entry_number, mtcp_sys_errno);
+      if (i < 0) MTCP_PRINTF("  error getting GDT entry %d: %d\n", gdtentry.entry_number, mtcp_sys_errno);
       else {
 
         /* Print out descriptor and first 80 bytes of data */
@@ -867,7 +867,7 @@ void mtcp_dump_tls (char const *file, int line)
         /* Offset 4C should be the process id */
 
         asm volatile ("mov %%gs:0x4C,%0" : "=r" (i));
-        mtcp_printf("mtcp_init: getpid=%d, gettid=%d, tls=%d\n", getpid (), mtcp_sys_kernel_gettid (), i);
+        MTCP_PRINTF("mtcp_init: getpid=%d, gettid=%d, tls=%d\n", getpid (), mtcp_sys_kernel_gettid (), i);
       }
     }
   }
@@ -968,9 +968,12 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 
   /* Now create the thread */
 
-  DPRINTF(("clone fn=%p, child_stack=%p, flags=%X, arg=%p\n", fn, child_stack, flags, arg));
-  DPRINTF(("parent_tidptr=%p, newtls=%p, child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr));
-  rc = (*clone_entry) (fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
+  DPRINTF(("clone fn=%p, child_stack=%p, flags=%X, arg=%p\n",
+           fn, child_stack, flags, arg));
+  DPRINTF(("parent_tidptr=%p, newtls=%p, child_tidptr=%p\n",
+           parent_tidptr, newtls, child_tidptr));
+  rc = (*clone_entry) (fn, child_stack, flags, arg, parent_tidptr, newtls,
+                       child_tidptr);
   if (rc < 0) {
     DPRINTF(("clone rc=%d, errno=%d\n", rc, errno));
   } else {
@@ -1044,7 +1047,7 @@ static int threadcloned (void *threadv)
   {
     pid_t  tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());
     if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
-      mtcp_printf ("mtcp threadcloned: getpid %d, tls pid %d at offset %d, must match\n",
+      MTCP_PRINTF ("getpid %d, tls pid %d at offset %d, must match\n",
                     motherpid, tls_pid, TLS_PID_OFFSET());
       mtcp_printf ("      %X\n", motherpid);
       for (rc = 0; rc <= TLS_PID_OFFSET(); rc += 4) {
@@ -1179,7 +1182,7 @@ static void setup_clone_entry (void)
   tmp = getenv ("MTCP_WRAPPER_LIBC_SO");
   if (tmp != NULL) {
     if (strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
-      mtcp_printf("mtcp setup_clone_entry: libc area name (%s) too long (>=1024 chars)\n",
+      MTCP_PRINTF("libc area name (%s) too long (>=1024 chars)\n",
                   tmp);
       mtcp_abort();
     }
@@ -1187,7 +1190,7 @@ static void setup_clone_entry (void)
   } else {
     mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
     if (mapsfd < 0) {
-      mtcp_printf ("mtcp_init: error opening /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
+      MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
       mtcp_abort ();
     }
     p = NULL;
@@ -1199,13 +1202,14 @@ static void setup_clone_entry (void)
     }
     close (mapsfd);
     if (p == NULL) {
-      mtcp_printf ("mtcp_init: cannot find */libc[-.]* in /proc/self/maps\n");
+      MTCP_PRINTF("cannot find */libc[-.]* in /proc/self/maps\n");
       mtcp_abort ();
     }
   }
   mtcp_libc_dl_handle = dlopen (mtcp_libc_area.name, RTLD_LAZY | RTLD_GLOBAL);
   if (mtcp_libc_dl_handle == NULL) {
-    mtcp_printf ("mtcp_init: error opening libc shareable %s: %s\n", mtcp_libc_area.name, dlerror ());
+    MTCP_PRINTF("error opening libc shareable %s: %s\n",
+                mtcp_libc_area.name, dlerror ());
     mtcp_abort ();
   }
 
@@ -1249,7 +1253,9 @@ static void threadisdead (Thread *thread)
 
   parent = thread -> parent;
   if (parent != NULL) {
-    for (lthread = &(parent -> children); (xthread = *lthread) != thread; lthread = &(xthread -> siblings)) {}
+    for (lthread = &(parent -> children);
+         (xthread = *lthread) != thread;
+         lthread = &(xthread -> siblings)) {}
     *lthread = xthread -> siblings;
   }
 
@@ -1287,7 +1293,7 @@ void *mtcp_get_libc_symbol (char const *name)
 
   temp = dlsym (mtcp_libc_dl_handle, name);
   if (temp == NULL) {
-    mtcp_printf ("mtcp_get_libc_symbol: error getting %s from %s: %s\n",
+    MTCP_PRINTF ("error getting %s from %s: %s\n",
                  name, mtcp_libc_area.name, dlerror ());
     mtcp_abort ();
   }
@@ -1315,7 +1321,8 @@ again:
     /* Thread was running normally with checkpointing disabled.  Enable checkpointing then just return. */
 
     case ST_RUNDISABLED: {
-      if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_RUNDISABLED)) goto again;
+      if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_RUNDISABLED))
+        goto again;
       return (0);
     }
 
@@ -1329,7 +1336,8 @@ again:
     /* as having checkpointing enabled, then just 'manually' call the signal handler as if the signal to suspend were just sent. */
 
     case ST_SIGDISABLED: {
-      if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_SIGDISABLED)) goto again;
+      if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_SIGDISABLED))
+        goto again;
       stopthisthread (0);
       return (0);
     }
@@ -1373,7 +1381,8 @@ again:
     }
 
     case ST_RUNENABLED: {
-      if (!mtcp_state_set (&(thread -> state), ST_RUNDISABLED, ST_RUNENABLED)) goto again;
+      if (!mtcp_state_set (&(thread -> state), ST_RUNDISABLED, ST_RUNENABLED))
+        goto again;
       return (1);
     }
 
@@ -1553,7 +1562,7 @@ static void *checkpointhread (void *dummy)
     {
         memset (&sleeperiod, 0, sizeof sleeperiod);
         sleeperiod.tv_sec = intervalsecs;
-        while ((nanosleep (&sleeperiod, &sleeperiod) < 0) && (errno == EINTR)) {}
+        while (nanosleep (&sleeperiod, &sleeperiod) < 0 && errno == EINTR) {}
     }
     else
     {
@@ -1646,7 +1655,9 @@ again:
         /* We will need to rescan so we will see it suspended  */
 
         case ST_RUNDISABLED: {
-          if (!mtcp_state_set (&(thread -> state), ST_SIGDISABLED, ST_RUNDISABLED)) goto again;
+          if (!mtcp_state_set (&(thread -> state), ST_SIGDISABLED,
+                               ST_RUNDISABLED))
+            goto again;
           needrescan = 1;
           break;
         }
@@ -1656,7 +1667,8 @@ again:
         /* We will need to rescan (hopefully it will be suspended by then) */
 
         case ST_RUNENABLED: {
-          if (!mtcp_state_set (&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) goto again;
+          if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
+            goto again;
 #ifdef PTRACE
           if (ptracing()) {
             has_new_ptrace_shared_file = 0;
@@ -1683,32 +1695,27 @@ again:
                 if (inferior == thread -> original_tid) inferior_st = inf_st;
                 if (ckpt_leader && new_ptrace_fd != -1) {
                   if (write(new_ptrace_fd, &superior, sizeof(pid_t)) == -1) {
-                    mtcp_printf("checkpointhread: Error writing to file: %s\n",
-                                 strerror(errno));
+                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
                     mtcp_abort();
                   }
                   if (write(new_ptrace_fd, &inferior, sizeof(pid_t)) == -1) {
-                    mtcp_printf("checkpointhread: Error writing to file: %s\n",
-                                 strerror(errno));
+                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
                     mtcp_abort();
                   }
                   if (write(new_ptrace_fd, &inf_st, sizeof(char)) == -1) {
-                    mtcp_printf("checkpointhread: Error writing to file: %s\n",
-                                 strerror(errno));
+                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
                     mtcp_abort();
                   }
                 }
               }
               if (ckpt_leader && new_ptrace_fd != -1) {
                 if (close(new_ptrace_fd) != 0) {
-                  mtcp_printf("checkpointhread: error while closing file, %s.\n",
-                               strerror(errno));
+                  MTCP_PRINTF("error while closing file: %s\n", MTCP_STR_ERRNO);
                   mtcp_abort();
                 }
               }
               if (close(ptrace_fd) != 0) {
-                mtcp_printf("checkpointhread: error while closing file, %s.\n",
-                             strerror(errno));
+                MTCP_PRINTF("error while closing file, %s\n", MTCP_STR_ERRNO);
                 mtcp_abort();
               }
             }
@@ -1717,7 +1724,7 @@ again:
               /* If the state is unknown, send a stop signal to inferior. */
               if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
-                  mtcp_printf("ckpt thread: error signalling thread %d: %s\n",
+                  MTCP_PRINTF("error signalling thread %d: %s\n",
                               thread -> tid, strerror (mtcp_sys_errno));
                 }
                 unlk_threads();
@@ -1731,7 +1738,7 @@ again:
               if (inferior_st != 'T') {
                 if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
                   if (mtcp_sys_errno != ESRCH) {
-                    mtcp_printf("ckpt thread: error signalling thread %d: %s\n",
+                    MTCP_PRINTF("error signalling thread %d: %s\n",
                                  thread -> tid, strerror(mtcp_sys_errno));
                   }
                   unlk_threads();
@@ -1744,8 +1751,8 @@ again:
           } else {
             if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
               if (mtcp_sys_errno != ESRCH) {
-                mtcp_printf ("checkpointhread: error signalling thread %d: "
-                             " %s\n", thread -> tid, strerror (mtcp_sys_errno));
+                MTCP_PRINTF ("error signalling thread %d:  %s\n",
+                             thread -> tid, strerror (mtcp_sys_errno));
               }
               unlk_threads ();
               threadisdead (thread);
@@ -1755,7 +1762,7 @@ again:
 #else
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
             if (mtcp_sys_errno != ESRCH) {
-              mtcp_printf ("checkpointhread: error signalling thread %d: %s\n",
+              MTCP_PRINTF ("error signalling thread %d: %s\n",
                            thread -> tid, strerror (mtcp_sys_errno));
             }
             unlk_threads ();
@@ -1847,7 +1854,7 @@ again:
     if (ptracing()) {
       if (callback_jalib_ckpt_unlock) (*callback_jalib_ckpt_unlock)();
       else {
-        mtcp_printf("checkpointhread: invalid callback_jalib_ckpt_unlock.\n");
+        MTCP_PRINTF("invalid callback_jalib_ckpt_unlock.\n");
         mtcp_abort();
       }
       /* Allow user threads to process new_ptrace_shared_file. */
@@ -1909,7 +1916,7 @@ again:
     if (getcwd(mtcp_saved_working_directory, MAXPATHLEN) == NULL) {
       // buffer wasn't large enough
       perror("getcwd");
-      mtcp_printf ("getcwd failed.");
+      MTCP_PRINTF ("getcwd failed.");
       mtcp_abort ();
     }
 
@@ -1919,8 +1926,8 @@ again:
          strcmp (dmtcp_checkpoint_filename, "/dev/null") != 0) {
       checkpointeverything ();
     } else {
-      mtcp_printf("mtcp checkpointhread*:  received \'/dev/null\'" \
-		  " as ckpt filename.\n*** Skipping checkpoint. ***\n");
+      MTCP_PRINTF("received \'/dev/null\' as ckpt filename.\n"
+                  "*** Skipping checkpoint. ***\n");
     }
 
     if (callback_post_ckpt != NULL){
@@ -1930,11 +1937,11 @@ again:
     }
     if (showtiming) {
       mtcp_sys_gettimeofday (&stopped, NULL);
-      stopped.tv_usec += (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
-      mtcp_printf ("mtcp checkpoint: time %u uS, size %u megabytes," \
-		   " avg rate %u MB/s\n",
-                   stopped.tv_usec, (unsigned int)(checkpointsize / 1000000),
-                   (unsigned int)(checkpointsize / stopped.tv_usec));
+      stopped.tv_usec +=
+        (stopped.tv_sec - started.tv_sec) * 1000000 - started.tv_usec;
+      MTCP_PRINTF("time %u uS, size %u megabytes, avg rate %u MB/s\n",
+                  stopped.tv_usec, (unsigned int)(checkpointsize / 1000000),
+                  (unsigned int)(checkpointsize / stopped.tv_usec));
     }
 
     /* Call weak symbol of this file, possibly overridden by user's strong symbol.
@@ -1987,7 +1994,7 @@ static int test_use_compression(void)
   char *endptr;
   strtol(do_we_compress, &endptr, 0);
   if ( *do_we_compress == '\0' || *endptr != '\0' ) {
-    mtcp_printf("WARNING: MTCP_GZIP/DMTCP_GZIP defined as %s (not a number)\n"
+    MTCP_PRINTF("WARNING: MTCP_GZIP/DMTCP_GZIP defined as %s (not a number)\n"
 	        "  Checkpoint image will not be compressed.\n",
 	        do_we_compress);
     do_we_compress = "0";
@@ -2007,7 +2014,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
 
   cpid = mtcp_sys_fork();
   if (cpid == -1) {
-    mtcp_printf("WARNING: error forking child process `%s`.  Compression will "
+    MTCP_PRINTF("WARNING: error forking child process `%s`.  Compression will "
                 "not be used [%s].\n", gzip_path, strerror(mtcp_sys_errno));
     close(pipe_fds[0]);
     close(pipe_fds[1]);
@@ -2017,11 +2024,9 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     // See revision log 342 for details concerning bash.
     mtcp_ckpt_gzip_child_pid = cpid;
     if (close(pipe_fds[0]) == -1)
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n",
-		  strerror(errno));
+      MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
     if (close(fd) == -1)
-      mtcp_printf("WARNING: (in open_ckpt_to_write) close failed: %s\n",
-		  strerror(errno));
+      MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
     fd=pipe_fds[1];//change return value
   } else { /* child process */
     static int (*libc_unsetenv) (const char *name);
@@ -2042,7 +2047,7 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char *gzip_path)
     (*libc_execvp)(gzip_path, gzip_args);
 
     /* should not arrive here */
-    mtcp_printf("ERROR: compression failed!  No checkpointing will be"
+    MTCP_PRINTF("ERROR: compression failed!  No checkpointing will be"
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
   }
@@ -2089,13 +2094,12 @@ static void checkpointeverything (void)
     /* Temp file for DMTCP header; will be written into the checkpoint file. */
     tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpDMTCPHeaderFd < 0) {
-      mtcp_printf("error %d creating temp file: %s\n", errno, strerror(errno));
+      MTCP_PRINTF("error %d creating temp file: %s\n", errno, MTCP_STR_ERRNO);
       mtcp_abort();
     }
 
     if (unlink(tmpDMTCPHeaderFileName) == -1) {
-      mtcp_printf("NOTE: error %d unlinking temp file: %s\n", errno,
-		  strerror(errno));
+      MTCP_PRINTF("error %d unlinking temp file: %s\n", errno, MTCP_STR_ERRNO);
     }
 
     /* Better to do this in parent, not child, for most accurate header info */
@@ -2105,26 +2109,28 @@ static void checkpointeverything (void)
   if (forked_checkpointing) {
     forked_cpid = mtcp_sys_fork();
     if (forked_cpid == -1) {
-      mtcp_printf("WARNING: Failed to do forked checkpointing,"
+      MTCP_PRINTF("WARNING: Failed to do forked checkpointing,"
 		  " trying normal checkpoint\n");
     } else if (forked_cpid > 0) {
       /* Parent process*/
       if (tmpDMTCPHeaderFd != -1)
         close(tmpDMTCPHeaderFd);
-      // Calling waitpid here, but on 32-bit Linux, libc:waitpid() calls wait4()
-      if ( waitpid(forked_cpid, NULL, 0) == -1 )
-        DPRINTF(("error waitpid: errno: %d",
-              mtcp_sys_errno));
+      // Calling mtcp_sys_waitpid here, but on 32-bit Linux, libc:waitpid()
+      // calls wait4()
+      if ( mtcp_sys_wait4(forked_cpid, NULL, 0, NULL) == -1 ) {
+        DPRINTF(("error mtcp_sys_wait4: errno: %d", mtcp_sys_errno));
+      }
       DPRINTF(("checkpoint complete\n"));
       return;
     } else {
       pid_t grandchild_pid = mtcp_sys_fork();
       if (grandchild_pid == -1) {
-        mtcp_printf("WARNING: Forked checkpoint failed, no checkpoint available\n");
+        MTCP_PRINTF("WARNING: Forked checkpoint failed,"
+                    " no checkpoint available\n");
       } else if (grandchild_pid > 0) {
         mtcp_sys_exit(0); /* child exits */
       }
-      /* grandchild continues; no need now to waitpid() on grandchild */
+      /* grandchild continues; no need now to mtcp_sys_wait4() on grandchild */
       DPRINTF(("inside grandchild process\n"));
     }
   }
@@ -2133,7 +2139,7 @@ static void checkpointeverything (void)
   use_compression = test_use_compression();
   /* 2. Get gzip path */
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+    MTCP_PRINTF("WARNING: gzip cannot be executed.  Compression will "
                 "not be used.\n");
     use_compression = 0;
   }
@@ -2143,7 +2149,7 @@ static void checkpointeverything (void)
    *   DMTCP doesn't directly checkpoint/restart pipes.
    */
   if ( use_compression && mtcp_sys_pipe(pipe_fds) == -1 ) {
-    mtcp_printf("WARNING: error creating pipe. Compression will "
+    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
                 "not be used.\n");
     use_compression = 0;
   }
@@ -2153,7 +2159,7 @@ static void checkpointeverything (void)
   fd = mtcp_safe_open(temp_checkpointfilename,
 		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
   if (fd < 0) {
-    mtcp_printf("mtcp.c: checkpointeverything: error creating %s: %s\n",
+    MTCP_PRINTF("error creating %s: %s\n",
                 temp_checkpointfilename, strerror(mtcp_sys_errno));
     mtcp_abort();
   }
@@ -2169,7 +2175,7 @@ static void checkpointeverything (void)
    */
 #else
   if (mtcp_sys_break(0) != mtcp_saved_break)
-    mtcp_printf("\n\n*** ERROR:  End of heap grew."
+    MTCP_PRINTF("\n\n*** ERROR:  End of heap grew."
 		"  Continue at your own risk. ***\n\n\n");
 #endif
 
@@ -2195,7 +2201,7 @@ static void checkpointeverything (void)
       if (retval == -1 && (errno == EAGAIN || errno == EINTR))
         continue;
       if (retval == -1) {
-        mtcp_printf("Error writing checkpoint file: %s\n", strerror(errno));
+        MTCP_PRINTF("Error writing checkpoint file: %s\n", MTCP_STR_ERRNO);
         mtcp_abort();
       }
       writefile(fd, tmpBuff, retval);
@@ -2313,21 +2319,22 @@ static void checkpointeverything (void)
     if ( mtcp_strstartswith(area.name, nscd_mmap_str) ||
          mtcp_strstartswith(area.name, nscd_mmap_str2) ||
          mtcp_strstartswith(area.name, nscd_mmap_str3) ) {
-      DPRINTF(("NSCD daemon shared memory area present. MTCP will now try to remap\n" \
-            "                           this area in read/write mode and then will fill it with zeros so that\n" \
-            "                           glibc will automatically ask NSCD daemon for new shared area\n\n"));
+      DPRINTF(("NSCD daemon shared memory area present. MTCP will now try to\n"
+               "  remap this area in read/write mode and then will fill it \n"
+               "  with zeros so that glibc will automatically ask NSCD daemon\n"
+               "  for new shared area\n\n"));
       area.prot = PROT_READ | PROT_WRITE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
       if ( munmap(area.addr, area.size) == -1) {
-        mtcp_printf ("mtcp checkpointeverything: error unmapping NSCD shared area: %s\n",
-                     strerror (mtcp_sys_errno));
+        MTCP_PRINTF("error unmapping NSCD shared area: %s\n",
+                     strerror(mtcp_sys_errno));
         mtcp_abort();
       }
 
       if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0)
            == MAP_FAILED ){
-        mtcp_printf ("mtcp checkpointeverything: error remapping NSCD shared area: %s\n",
+        MTCP_PRINTF("error remapping NSCD shared area: %s\n",
                      strerror (mtcp_sys_errno));
         mtcp_abort();
       }
@@ -2352,9 +2359,9 @@ static void checkpointeverything (void)
        * writing them to ckpt file) will cause them to be reloaded from the disk.
        */
       if ( msync(area.addr, area.size, MS_INVALIDATE) < 0 ){
-        mtcp_printf ("mtcp sync_shared_memory: error %d Invalidating %X"
-            " at %p from %s + %X\n", mtcp_sys_errno, area.size,
-            area.addr, area.name, area.offset);
+        MTCP_PRINTF("error %d Invalidating %X at %p from %s + %X\n",
+                     mtcp_sys_errno, area.size,
+                     area.addr, area.name, area.offset);
         mtcp_abort();
       }
     }
@@ -2398,15 +2405,16 @@ static void checkpointeverything (void)
 
   writecs (fd, CS_THEEND);
   if (close (fd) < 0) {
-    mtcp_printf ("mtcp checkpointeverything(grandchild):"
-                 " error closing checkpoint file: %s\n", strerror (errno));
+    MTCP_PRINTF("(grandchild): error closing checkpoint file: %s\n",
+                MTCP_STR_ERRNO);
     mtcp_abort ();
   }
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    if ( waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0 ) == -1 )
-      mtcp_printf ("mtcp checkpointeverything(grandchild): waitpid: %s\n",
-                   strerror (errno));
+    if ( waitpid(mtcp_ckpt_gzip_child_pid, NULL, 0) == -1 ) {
+      /* TODO: The waitpid always fails, check why? */
+      DPRINTF(("(grandchild): waitpid: %s\n", MTCP_STR_ERRNO));
+    }
     mtcp_ckpt_gzip_child_pid = -1;
     sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
   }
@@ -2466,7 +2474,7 @@ static void writefiledescrs (int fd)
 
   fddir = mtcp_sys_open ("/proc/self/fd", O_RDONLY, 0);
   if (fddir < 0) {
-    mtcp_printf ("mtcp writefiledescrs: error opening directory /proc/self/fd: %s\n", strerror (errno));
+    MTCP_PRINTF("error opening directory /proc/self/fd: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 
@@ -2474,8 +2482,10 @@ static void writefiledescrs (int fd)
 
   while (1) {
     dsiz = -1;
-    if (sizeof dent -> d_ino == 4) dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
-    if (sizeof dent -> d_ino == 8) dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
+    if (sizeof dent -> d_ino == 4)
+      dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
+    if (sizeof dent -> d_ino == 8)
+      dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
     if (dsiz <= 0) break;
 
     for (doff = 0; doff < dsiz; doff += dent -> d_reclen) {
@@ -2496,20 +2506,18 @@ static void writefiledescrs (int fd)
         linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
         if ((linklen >= 0) || (errno != ENOENT)) { // probably was the proc/self/fd directory itself
           if (linklen < 0) {
-            mtcp_printf ("mtcp writefiledescrs: error reading %s: %s\n",
-	                 procfdname, strerror (errno));
+            MTCP_PRINTF("error reading %s: %s\n", procfdname, MTCP_STR_ERRNO);
             mtcp_abort ();
           }
           linkbuf[linklen] = '\0';
 
-          DPRINTF(("checkpointing fd %d -> %s\n",
-		    fdnum, linkbuf));
+          DPRINTF(("checkpointing fd %d -> %s\n", fdnum, linkbuf));
 
           /* Read about the link itself so we know read/write open flags */
 
           rc = lstat (procfdname, &lstatbuf);
           if (rc < 0) {
-            mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
+            MTCP_PRINTF("error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
             mtcp_abort ();
           }
@@ -2518,7 +2526,7 @@ static void writefiledescrs (int fd)
 
           rc = stat (linkbuf, &statbuf);
           if (rc < 0) {
-            mtcp_printf ("mtcp writefiledescrs: error statting %s -> %s: %s\n",
+            MTCP_PRINTF("error statting %s -> %s: %s\n",
 	                 procfdname, linkbuf, strerror (-rc));
           }
 
@@ -2544,8 +2552,7 @@ static void writefiledescrs (int fd)
     }
   }
   if (dsiz < 0) {
-    mtcp_printf ("mtcp writefiledescrs: error reading /proc/self/fd: %s\n",
-                 strerror (mtcp_sys_errno));
+    MTCP_PRINTF("error reading /proc/self/fd: %s\n", strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
 
@@ -2559,8 +2566,8 @@ static void writefiledescrs (int fd)
 
 static void writememoryarea (int fd, Area *area, int stack_was_seen,
 			     int vsyscall_exists)
-
-{ static void * orig_stack = NULL;
+{
+  static void * orig_stack = NULL;
 
   /* Write corresponding descriptor to the file */
 
@@ -2656,8 +2663,8 @@ static void writefile (int fd, void const *buff, size_t size)
     else {
       if (rc == 0) errno = EPIPE;
       if (rc <= 0) {
-        mtcp_printf ("mtcp writefile: error writing from %p to %s: %s\n",
-	             bf, temp_checkpointfilename, strerror (errno));
+        MTCP_PRINTF("error writing from %p to %s: %s\n",
+	             bf, temp_checkpointfilename, MTCP_STR_ERRNO);
         mtcp_abort ();
       }
     }
@@ -2674,8 +2681,8 @@ static void preprocess_special_segments(int *vsyscall_exists)
   Area area;
   int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error opening"
-        " /proc/self/maps: %s\n", strerror (mtcp_sys_errno));
+    MTCP_PRINTF("error opening /proc/self/maps: %s\n",
+                strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
 
@@ -2718,9 +2725,9 @@ static void preprocess_special_segments(int *vsyscall_exists)
       int ret = mprotect(area.addr + area.size, 0x1000, 
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
-        mtcp_printf("mtcp checkpointeverything: bottom-most page of stack\n"
-                 "(page with highest address) was invisible in /proc/self/maps.\n"
-                 "It is made visible again now.\n");
+        MTCP_PRINTF("bottom-most page of stack (page with highest address)\n"
+                    "  was invisible in /proc/self/maps.\n"
+                    "  It is made visible again now.\n");
       }
     }
   }
@@ -2802,7 +2809,7 @@ static void stopthisthread (int signum)
 		 kbStack));
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
-        mtcp_printf("WARNING:  Stack within %d bytes of end;\n"
+        MTCP_PRINTF("WARNING:  Stack within %d bytes of end;\n"
 		    "  Consider increasing 'kbStack' at line %d of mtcp/%s\n",
 		    kbStack*1024/4, __LINE__-9, __FILE__);
       }
@@ -2811,8 +2818,7 @@ static void stopthisthread (int signum)
     ///JA: new code ported from v54b
     rc = getcontext (&(thread -> savctx));
     if (rc < 0) {
-      mtcp_printf ("mtcp stopthisthread: getcontext rc %d errno %d\n",
-                   rc, errno);
+      MTCP_PRINTF("getcontext rc %d errno %d\n", rc, strerror(mtcp_sys_errno));
       mtcp_abort ();
     }
     DPRINTF(("after getcontext\n"));
@@ -2853,7 +2859,8 @@ static void stopthisthread (int signum)
         ts.tv_sec = 0;
         ts.tv_nsec = 100000000;
         if (errno != ENOENT) {
-          mtcp_printf("stopthisthread: Unexpected error in stat: %d\n",errno);
+          MTCP_PRINTF("Unexpected error in stat: %s\n",
+                      strerror(mtcp_sys_errno));
           mtcp_abort();
         }
         nanosleep(&ts,NULL);
@@ -2949,8 +2956,10 @@ static void stopthisthread (int signum)
          */
 
         DPRINTF(("verifying checkpoint...\n"));
-        execlp ("mtcp_restart", "mtcp_restart", "--verify", temp_checkpointfilename, NULL);
-        mtcp_printf ("mtcp checkpointeverything: error execing mtcp_restart %s: %s\n", temp_checkpointfilename, strerror (errno));
+        execlp ("mtcp_restart", "mtcp_restart", "--verify",
+                temp_checkpointfilename, NULL);
+        MTCP_PRINTF("error execing mtcp_restart %s: %s\n",
+                    temp_checkpointfilename, MTCP_STR_ERRNO);
         mtcp_abort ();
       }
 
@@ -3081,15 +3090,13 @@ static void save_sig_state (Thread *thisthread)
     sigdelset(&set, SIGCANCEL);
 
     if (pthread_sigmask(SIG_SETMASK, &set, NULL) < 0) {
-      mtcp_printf("mtcp %s: error getting sigal mask: %s\n",
-          __FUNCTION__, strerror(errno));
+      MTCP_PRINTF("error getting sigal mask: %s\n", MTCP_STR_ERRNO);
       mtcp_abort ();
     }
   }
   // Save signal block mask
   if (pthread_sigmask (SIG_SETMASK, NULL, &(thisthread -> sigblockmask)) < 0) {
-    mtcp_printf("mtcp %s: error getting sigal mask: %s\n",
-                __FUNCTION__, strerror(errno));
+    MTCP_PRINTF("error getting sigal mask: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 
@@ -3109,8 +3116,7 @@ static void restore_sig_state (Thread *thisthread)
   DPRINTF(("restoring handlers for thread %d\n",
 	    thisthread->original_tid));
   if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
-    mtcp_printf("mtcp %s: error setting sigal mask: %s\n",
-                __FUNCTION__, strerror(errno));
+    MTCP_PRINTF("error setting sigal mask: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 
@@ -3139,8 +3145,7 @@ static void save_sig_handlers (void)
       if (errno == EINVAL)
          memset (&sigactions[i], 0, sizeof sigactions[i]);
       else {
-        mtcp_printf ("mtcp save_sig_handlers: error saving signal %d action: %s\n",
-                     i, strerror(errno));
+        MTCP_PRINTF("error saving signal %d action: %s\n", i, MTCP_STR_ERRNO);
         mtcp_abort ();
       }
     }
@@ -3176,9 +3181,8 @@ static void restore_sig_handlers (Thread *thisthread)
 
     if (mtcp_sigaction(i, &sigactions[i], NULL) < 0) {
         if (errno != EINVAL) {
-          mtcp_printf ("mtcp restore_sig_handlers:" \
-		       " error restoring signal %d handler: %s\n",
-		       i, strerror(errno));
+          MTCP_PRINTF("error restoring signal %d handler: %s\n",
+		      i, MTCP_STR_ERRNO);
           mtcp_abort ();
         }
     }
@@ -3193,7 +3197,6 @@ static void restore_sig_handlers (Thread *thisthread)
 /********************************************************************************************************************************/
 
 static void save_tls_state (Thread *thisthread)
-
 {
   int i, rc;
 
@@ -3213,9 +3216,11 @@ static void save_tls_state (Thread *thisthread)
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   for (i = GDT_ENTRY_TLS_MIN; i <= GDT_ENTRY_TLS_MAX; i ++) {
     thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN].entry_number = i;
-    rc = mtcp_sys_get_thread_area (&(thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN]));
+    int offset = i - GDT_ENTRY_TLS_MIN;
+    rc = mtcp_sys_get_thread_area(&(thisthread -> gdtentrytls[offset]));
     if (rc < 0) {
-      mtcp_printf ("mtcp checkpointeverything: error saving GDT TLS entry[%d]: %s\n", i, strerror (mtcp_sys_errno));
+      MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
+                  i, strerror (mtcp_sys_errno));
       mtcp_abort ();
     }
   }
@@ -3228,7 +3233,8 @@ static void save_tls_state (Thread *thisthread)
   thisthread -> gdtentrytls[0].entry_number = i;
   rc = mtcp_sys_get_thread_area (&(thisthread -> gdtentrytls[0]));
   if (rc < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error saving GDT TLS entry[%d]: %s\n", i, strerror (mtcp_sys_errno));
+    MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
+                i, strerror (mtcp_sys_errno));
     mtcp_abort ();
   }
 #endif
@@ -3268,7 +3274,7 @@ static void *mtcp_get_tls_base_addr(void)
 
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   if (mtcp_get_tls_segreg() / 8 != GDT_ENTRY_TLS_MIN) {
-    mtcp_printf ("mtcp_init: gs %X not set to first TLS GDT ENTRY %X\n",
+    MTCP_PRINTF("gs %X not set to first TLS GDT ENTRY %X\n",
                  gs, GDT_ENTRY_TLS_MIN * 8 + 3);
     mtcp_abort ();
   }
@@ -3276,8 +3282,7 @@ static void *mtcp_get_tls_base_addr(void)
 
   gdtentrytls.entry_number = mtcp_get_tls_segreg() / 8;
   if ( mtcp_sys_get_thread_area ( &gdtentrytls ) < 0 ) {
-    mtcp_printf ("mtcp_init: error getting GDT TLS entry: %s\n",
-        strerror (mtcp_sys_errno));
+    MTCP_PRINTF("error getting GDT TLS entry: %s\n", strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
   return (void *)(*(unsigned long *)&(gdtentrytls.base_addr));
@@ -3287,8 +3292,9 @@ static void renametempoverperm (void)
 
 {
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
-    mtcp_printf ("mtcp checkpointeverything: error renaming %s to %s: %s\n",  			temp_checkpointfilename, perm_checkpointfilename,
-		 strerror (errno));
+    MTCP_PRINTF("error renaming %s to %s: %s\n",
+                temp_checkpointfilename, perm_checkpointfilename,
+                MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 }
@@ -3315,7 +3321,7 @@ static Thread *getcurrenthread (void)
       return (thread);
     }
   }
-  mtcp_printf ("mtcp getcurrenthread: can't find thread id %d\n", tid);
+  MTCP_PRINTF("can't find thread id %d\n", tid);
   mtcp_abort ();
   return thread; /* NOTREACHED : stop compiler warning */
 }
@@ -3429,14 +3435,12 @@ static int readmapsline (int mapsfd, Area *area)
   } else if (area -> name[0] == '/') {                 /* if an absolute pathname */
     rc = stat (area -> name, &statbuf);
     if (rc < 0) {
-      mtcp_printf ("ERROR:  mtcp readmapsline: error %d statting %s\n",
-                   -rc, area -> name);
+      MTCP_PRINTF("ERROR: error %d statting %s\n", -rc, area -> name);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
     }
     devnum = makedev (devmajor, devminor);
     if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
-      mtcp_printf ("ERROR:  mtcp readmapsline: image %s dev:inode %X:%u"
-		   " not eq maps %X:%u\n",
+      MTCP_PRINTF("ERROR: image %s dev:inode %X:%u not eq maps %X:%u\n",
                    area -> name, statbuf.st_dev, statbuf.st_ino,
 		   devnum, inodenum);
       return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
@@ -3494,9 +3498,9 @@ skipeol:
 
 #define STRINGS_LEN 10000
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
-			 char *cmd_file, char *argv[], char *envp[] )
-
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+                         char *ckpt_newname, char *cmd_file,
+                         char *argv[], char *envp[] )
 {
 #ifndef __x86_64__
   int i;
@@ -3543,8 +3547,7 @@ void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_new
 	  x = strings; \
 	  strings += mtcp_sys_strlen(y) + 1; \
 	} else { \
-	  DPRINTF(("MTCP:  ran out of string space." \
-		   "  Trying to continue anyway\n")); \
+	  DPRINTF(("ran out of string space. Trying to continue anyway\n")); \
 	}
   STRCPY(mtcp_restore_cmd_file, cmd_file);
   for (i = 0; argv[i] != NULL; i++) {
@@ -3600,7 +3603,7 @@ static void restore_heap()
 
     void* addr = mtcp_sys_mremap (saved_heap_start, oldsize, newsize, 0);
     if (addr == NULL) {
-      mtcp_printf("mtcp restore_heap: mremap failed to map area between "
+      MTCP_PRINTF("mremap failed to map area between "
                   "mtcp_saved_break (%p) and current_break (%p)\n",
                   mtcp_saved_break, current_break);
       mtcp_abort();
@@ -3628,7 +3631,7 @@ static void finishrestore (void)
     // we start from different place - change it!
     DPRINTF(("checkpoint file name was changed\n"));
     if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
-      mtcp_printf("mtcp finishrestore: new ckpt file name (%s) too long (>=512 bytes)\n",
+      MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
                   mtcp_ckpt_newname);
       mtcp_abort();
     }
@@ -3638,7 +3641,8 @@ static void finishrestore (void)
   }
 
   mtcp_sys_gettimeofday (&stopped, NULL);
-  stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000 - restorestarted.tv_usec;
+  stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000
+                         - restorestarted.tv_usec;
   TPRINTF (("mtcp finishrestore*: time %u uS\n", stopped.tv_usec));
 
   /* Now we can access all our files and memory that existed at the time of the checkpoint  */
@@ -3761,12 +3765,12 @@ static int restarthread (void *threadv)
     }
 
     if (tid < 0) {
-      mtcp_printf ("mtcp restarthread: error %d recreating thread\n", errno);
-      mtcp_printf ("mtcp restarthread:   clone_flags %X, savedsp %p\n",
+      MTCP_PRINTF("error %d recreating thread\n", errno);
+      MTCP_PRINTF("clone_flags %X, savedsp %p\n",
                    child -> clone_flags, child -> savctx.SAVEDSP);
       mtcp_abort ();
     }
-    DPRINTF((" Parent:%d, tid of newly created thread:%d\n\n", thread->tid, tid));
+    DPRINTF(("Parent:%d, tid of newly created thread:%d\n", thread->tid, tid));
   }
 
   /* All my children have been created, jump to the stopthisthread routine just after getcontext call */
@@ -3814,9 +3818,10 @@ static void restore_tls_state (Thread *thisthread)
 
 #if MTCP__SAVE_MANY_GDT_ENTRIES
   for (i = GDT_ENTRY_TLS_MIN; i <= GDT_ENTRY_TLS_MAX; i ++) {
-    rc = mtcp_sys_set_thread_area (&(thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN]));
+    int offset = i - GDT_ENTRY_TLS_MIN;
+    rc = mtcp_sys_set_thread_area (&(thisthread -> gdtentrytls[offset]));
     if (rc < 0) {
-      mtcp_printf ("mtcp restore_tls_state: error %d restoring GDT TLS entry[%d]\n", mtcp_sys_errno, i);
+      MTCP_PRINTF("error %d restoring GDT TLS entry[%d]\n", mtcp_sys_errno, i);
       mtcp_abort ();
     }
   }
@@ -3826,7 +3831,8 @@ static void restore_tls_state (Thread *thisthread)
 #else
   rc = mtcp_sys_set_thread_area (&(thisthread -> gdtentrytls[0]));
   if (rc < 0) {
-    mtcp_printf ("mtcp restore_tls_state: error %d restoring GDT TLS entry[%d]\n", mtcp_sys_errno, thisthread -> gdtentrytls[0].entry_number);
+    MTCP_PRINTF("error %d restoring GDT TLS entry[%d]\n",
+                mtcp_sys_errno, thisthread -> gdtentrytls[0].entry_number);
     mtcp_abort ();
   }
 #endif
@@ -3871,18 +3877,17 @@ static void setup_sig_handler (void)
   // We can't use standard sigaction here, because DMTCP has a wrapper around
   //  it that will not allow anyone to set a signal handler for SIGUSR2.
   if (mtcp_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
-    mtcp_printf ("mtcp setupthread: error setting up signal handler: %s\n",
-                 strerror (errno));
+    MTCP_PRINTF("error setting up signal handler: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 
   if ((old_act.sa_handler != SIG_IGN) && (old_act.sa_handler != SIG_DFL) && 
       (old_act.sa_handler != stopthisthread)) {
-    mtcp_printf ("mtcp setupthread: signal handler %d already in use (%p).\n"
-                 " You may employ a different signal by setting the\n"
-                 " environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
-		 " to the number\n of the signal MTCP should "
-                 "use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
+    MTCP_PRINTF("signal handler %d already in use (%p).\n"
+                "  You may employ a different signal by setting the\n"
+                "  environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
+		"  to the number\n of the signal MTCP should "
+                "  use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
     mtcp_abort ();
   }
 }
@@ -3899,8 +3904,7 @@ static void sync_shared_mem(void)
 
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    mtcp_printf ("mtcp sync_shared_memory: error opening /proc/self/maps: %s\n",
-                 strerror (mtcp_sys_errno));
+    MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
     mtcp_abort ();
   }
 
@@ -3913,10 +3917,12 @@ static void sync_shared_mem(void)
 
     if (strstr(area.name, " (deleted)")) continue;
 
-    DPRINTF(("syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset));
+    DPRINTF(("syncing %X at %p from %s + %X\n",
+             area.size, area.addr, area.name, area.offset));
 
     if ( msync(area.addr, area.size, MS_SYNC) < 0 ){
-      mtcp_printf ("mtcp sync_shared_memory: error syncing %X at %p from %s + %X\n", area.size, area.addr, area.name, area.offset);
+      MTCP_PRINTF("error syncing %X at %p from %s + %X\n",
+                   area.size, area.addr, area.name, area.offset);
       mtcp_abort();
     }
   }
