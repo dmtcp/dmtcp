@@ -56,8 +56,9 @@ __attribute__ ((visibility ("hidden")))
       rc = -rc;
       if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
       if (rc != EINTR) {
-        mtcp_printf ("mtcp_state_futex: futex error %d: %s\n", rc, strerror (rc));
-        mtcp_printf ("mtcp_state_futex: (%p, %d, %d, %p, NULL, 0)\n", &state->value, func, val, timeout);
+        MTCP_PRINTF("futex error %d: %s\n", rc, strerror (rc));
+        MTCP_PRINTF("(%p, %d, %d, %p, NULL, 0)\n",
+                    &state->value, func, val, timeout);
         mtcp_abort ();
       }
     }
@@ -84,11 +85,11 @@ __attribute__ ((visibility ("hidden")))
             break;
                     
         default:
-            mtcp_printf("mtcp_state_futex* : unknown func=%d",func);
+            MTCP_PRINTF("unknown func=%d",func);
             mtcp_abort();
     }
     if(rv != 0 && rv != ETIMEDOUT){
-        mtcp_printf("mtcp_state_futex* : pthread_cond_* failure func=%d,val=%d",func,val);
+        MTCP_PRINTF("pthread_cond_* failure func=%d,val=%d",func,val);
         mtcp_abort();
     }
     pthread_mutex_unlock(&state->mutex);

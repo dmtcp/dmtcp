@@ -58,6 +58,14 @@
 #endif
 
 extern pid_t saved_pid;
+
+#define MTCP_STR_ERRNO strerror(mtcp_sys_errno)
+#define MTCP_PRINTF(args...) \
+  do { \
+    mtcp_printf ("[%d] %s:%d %s:\n  ", saved_pid, __FILE__, __LINE__, __FUNCTION__); \
+    mtcp_printf(args); \
+  } while (0)
+
 #ifdef DEBUG
 #define DPRINTF(x) \
   do { \

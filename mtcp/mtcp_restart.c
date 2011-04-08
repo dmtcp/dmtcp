@@ -159,11 +159,12 @@ int main (int argc, char *argv[], char *envp[])
       perror(error_msg);
       abort();
     } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
-      mtcp_printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
-	          "checkpoint image (%s).\n" \
+      MTCP_PRINTF("\nProcess uid (%d) doesn't match uid (%d) of\n" \
+	          "  checkpoint image (%s).\n" \
 		  "This is dangerous.  Aborting for security reasons.\n" \
-	   "If you still want to do this, modify mtcp/%s:%d and re-compile.\n",
-	   getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 5);
+                  "If you still want to do this, modify mtcp/%s:%d and"
+                  "  re-compile.\n",
+                  getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 5);
       abort();
     }
   }
@@ -182,7 +183,8 @@ int main (int argc, char *argv[], char *envp[])
   memset(magicbuf, 0, sizeof magicbuf);
   readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    mtcp_printf("mtcp_restart: '%s' is '%s', but this restore is '%s' (fd=%d)\n", restorename, magicbuf, MAGIC, fd);
+    MTCP_PRINTF("'%s' is '%s', but this restore is '%s' (fd=%d)\n",
+                restorename, magicbuf, MAGIC, fd);
     return (-1);
   }
 
@@ -191,7 +193,8 @@ int main (int argc, char *argv[], char *envp[])
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
 #ifdef DEBUG
-  mtcp_printf("mtcp_restart: saved stack resource limit: soft_lim:%p, hard_lim:%p\n", stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+  MTCP_PRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+              stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 #endif
   setrlimit(RLIMIT_STACK, &stack_rlimit);
 
@@ -210,29 +213,33 @@ int main (int argc, char *argv[], char *envp[])
    */
 
 #ifdef DEBUG
-  mtcp_printf("mtcp_restart.c: main*: restoring anonymous area %p at %p\n",
+  MTCP_PRINTF("restoring anonymous area %p at %p\n",
               restore_size, restore_begin);
 #endif
   if (munmap(restore_begin, restore_size) < 0) {
-    mtcp_printf("mtcp_restart.c: failed to unmap region at %p\n", restore_begin);
+    MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
     abort ();
   }
-  restore_mmap = mtcp_safemmap (restore_begin, restore_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
+  restore_mmap = mtcp_safemmap (restore_begin, restore_size,
+                                PROT_READ | PROT_WRITE | PROT_EXEC,
+                                MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
   if (restore_mmap == MAP_FAILED) {
 #ifndef _XOPEN_UNIX
-    mtcp_printf("mtcp_restart: Does mmap here support MAP_FIXED?\n");
+    MTCP_PRINTF("Does mmap here support MAP_FIXED?\n");
 #endif
     if (mtcp_sys_errno != EBUSY) {
-      mtcp_printf("mtcp_restart: error creating %p byte restore region at %p: %s\n", restore_size, restore_begin, strerror(mtcp_sys_errno));
+      MTCP_PRINTF("error creating %p byte restore region at %p: %s\n",
+                  restore_size, restore_begin, strerror(mtcp_sys_errno));
       abort ();
     } else {
-      mtcp_printf("mtcp_restart: info: restarting due to address conflict...\n");
+      MTCP_PRINTF("restarting due to address conflict...\n");
       close (fd);
       execvp (argv[0], argv);
     }
   }
   if (restore_mmap != restore_begin) {
-    mtcp_printf("mtcp_restart: %p byte restore region at %p got mapped at %p\n", restore_size, restore_begin, restore_mmap);
+    MTCP_PRINTF("%p byte restore region at %p got mapped at %p\n",
+                restore_size, restore_begin, restore_mmap);
     abort ();
   }
   readcs (fd, CS_RESTOREIMAGE);
@@ -244,7 +251,7 @@ int main (int argc, char *argv[], char *envp[])
   cmd_file[0] = '\0';
   { int cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
     if (cmd_len == -1)
-      mtcp_printf("WARNING:  Couldn't find /proc/self/exe."
+      MTCP_PRINTF("WARNING:  Couldn't find /proc/self/exe."
 		  "  Trying to continue anyway.\n");
     else
       cmd_file[cmd_len] = '\0';
@@ -256,7 +263,7 @@ int main (int argc, char *argv[], char *envp[])
     FILE *symbolfile;
     long textbase; /* offset */
 
-    mtcp_printf("mtcp_restart*: restore_begin=%p, restore_start=%p\n",
+    MTCP_PRINTF("restore_begin=%p, restore_start=%p\n",
 		restore_begin, restore_start);
     textbase = 0;
 
@@ -282,8 +289,9 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
   /* Now call it - it shouldn't return */
-  (*restore_start) (fd, verify, gzip_child_pid, ckpt_newname, cmd_file, argv, envp);
-  mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
+  (*restore_start) (fd, verify, gzip_child_pid, ckpt_newname, cmd_file,
+                    argv, envp);
+  MTCP_PRINTF("restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
 }
@@ -303,14 +311,14 @@ static char first_char(char *filename)
     fd = open(filename, O_RDONLY);
     if(fd < 0)
     {
-        mtcp_printf("ERROR: Cannot open file %s\n", filename);
+        MTCP_PRINTF("ERROR: Cannot open file %s\n", filename);
         abort();
     }
 
     rc = read(fd, &c, 1);
     if(rc != 1)
     {
-        mtcp_printf("ERROR: Error reading from file %s\n", filename);
+        MTCP_PRINTF("ERROR: Error reading from file %s\n", filename);
         abort();
     }
 
@@ -340,7 +348,7 @@ static int open_ckpt_to_read(char *filename) {
     fc = first_char(filename);
     fd = open(filename, O_RDONLY);
     if(fd < 0) {
-        mtcp_printf("ERROR: Cannot open checkpoint file %s\n", filename);
+        MTCP_PRINTF("ERROR: Cannot open checkpoint file %s\n", filename);
         abort();
     }
 
@@ -348,19 +356,22 @@ static int open_ckpt_to_read(char *filename) {
         return fd;
     else if (fc == GZIP_FIRST) /* gzip : Set gzip_path */ {
         if (mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-            fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
+            fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n",
+                  stderr);
             abort();
         }
 
         if (pipe(fds) == -1) {
-            fputs("ERROR: Cannot create pipe to execute gunzip to decompress checkpoint file!\n", stderr);
+            fputs("ERROR: Cannot create pipe to execute gunzip to decompress"
+                  " checkpoint file!\n", stderr);
             abort();
         }
 
         cpid = fork();
 
         if(cpid == -1) {
-            fputs("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!\n", stderr);
+            fputs("ERROR: Cannot fork to execute gunzip to decompress"
+                  " checkpoint file!\n", stderr);
             abort();
         }
         else if(cpid > 0) /* parent process */ {
@@ -372,13 +383,15 @@ static int open_ckpt_to_read(char *filename) {
         else /* child process */ {
             fd = dup(dup(dup(fd)));
             if (fd == -1) {
-            fputs("ERROR: dup() failed!  No restoration will be performed!  Cancel now!\n", stderr);
+            fputs("ERROR: dup() failed!  No restoration will be performed!"
+                  " Cancel now!\n", stderr);
               mtcp_abort();
             }
             fds[1] = dup(fds[1]);
             close(fds[0]);
             if (dup2(fd, STDIN_FILENO) != STDIN_FILENO) {
-            fputs("ERROR: dup2() failed!  No restoration will be performed!  Cancel now!\n", stderr);
+            fputs("ERROR: dup2() failed!  No restoration will be performed!"
+                  " Cancel now!\n", stderr);
               mtcp_abort();
             }
             close(fd);
@@ -386,7 +399,8 @@ static int open_ckpt_to_read(char *filename) {
             close(fds[1]);
             execvp(gzip_path, gzip_args);
             /* should not get here */
-            fputs("ERROR: Decompression failed!  No restoration will be performed!  Cancel now!\n", stderr);
+            fputs("ERROR: Decompression failed!  No restoration will be"
+                  " performed!  Cancel now!\n", stderr);
             abort();
         }
     }
@@ -403,7 +417,7 @@ static void readcs (int fd, char cs)
 
   readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
-    mtcp_printf("mtcp_restart readcs: checkpoint section %d next, expected %d\n", xcs, cs);
+    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
     abort ();
   }
 }
@@ -418,12 +432,13 @@ static void readfile(int fd, void *buf, size_t size)
         rc = read(fd, (char *)buf + ar, size - ar);
         if(rc < 0)
         {
-            mtcp_printf("mtcp_restart readfile: error reading checkpoint file: %s\n", strerror(errno));
+            MTCP_PRINTF("error reading checkpoint file: %s\n", strerror(errno));
             abort();
         }
         else if(rc == 0)
         {
-            mtcp_printf("mtcp_restart readfile: only read %d bytes instead of %d from checkpoint file\n", ar, size);
+            MTCP_PRINTF("only read %d bytes instead of %d from checkpoint"
+                        " file\n", ar, size);
             abort();
         }
 
