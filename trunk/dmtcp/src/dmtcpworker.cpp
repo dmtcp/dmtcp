@@ -525,6 +525,9 @@ static void processSshCommand(dmtcp::string programName,
   const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
   const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
   const char * compression          = getenv ( ENV_VAR_COMPRESSION );
+#ifdef HBICT_DELTACOMP
+  const char * deltacompression     = getenv ( ENV_VAR_DELTACOMPRESSION );
+#endif
   const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES );
   const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
   const char * tmpDir               = getenv ( ENV_VAR_TMPDIR );
@@ -556,6 +559,15 @@ static void processSshCommand(dmtcp::string programName,
     else
       prefix += "--gzip ";
   }
+
+#ifdef HBICT_DELTACOMP
+  if (deltacompression != NULL) {
+    if (strcmp(deltacompression, "0") == 0)
+      prefix += "--no-hbict ";
+    else
+      prefix += "--hbict ";
+  }
+#endif
 
   // process command
   size_t semipos, pos;

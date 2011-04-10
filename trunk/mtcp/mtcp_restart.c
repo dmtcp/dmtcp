@@ -53,7 +53,7 @@ static int open_ckpt_to_read(char *filename);
 static void readcs (int fd, char cs);
 static void readfile (int fd, void *buf, size_t size);
 
-static pid_t gzip_child_pid = -1;
+static pid_t decomp_child_pid = -1;
 pid_t saved_pid = 0;
 
 extern int dmtcp_info_stderr_fd;
@@ -74,7 +74,7 @@ int main (int argc, char *argv[], char *envp[])
   int fd, verify;
   size_t restore_size, offset=0;
   void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify, pid_t gzip_child_pid,
+  void (*restore_start) (int fd, int verify, pid_t decomp_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
   char cmd_file[MAXPATHLEN+1];
@@ -93,7 +93,7 @@ int main (int argc, char *argv[], char *envp[])
   /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
   mtcp_check_vdso_enabled();
 
-  fd = gzip_child_pid = -1;
+  fd = decomp_child_pid = -1;
   verify = 0;
 
   shift;
@@ -112,7 +112,7 @@ int main (int argc, char *argv[], char *envp[])
       fd = atoi(argv[1]);
       shift; shift;
     } else if (strcasecmp (argv[0], "--gzip-child-pid") == 0 && argc >= 2) {
-      gzip_child_pid = atoi(argv[1]);
+      decomp_child_pid = atoi(argv[1]);
       shift; shift;
     } else if (strcasecmp (argv[0], "--rename-ckpt") == 0 && argc >= 2) {
       strncpy(ckpt_newname, argv[1], MAXPATHLEN);
@@ -142,9 +142,9 @@ int main (int argc, char *argv[], char *envp[])
    *                                                                   --Kapil
    */
 
-  if (fd != -1 && gzip_child_pid != -1) {
+  if (fd != -1 && decomp_child_pid != -1) {
     restorename = NULL;
-  } else if ((fd == -1 && gzip_child_pid != -1) ||
+  } else if ((fd == -1 && decomp_child_pid != -1) ||
              (offset != 0 && fd != -1)) {
     mtcp_printf("%s", theUsage);
     return (-1);
@@ -289,9 +289,8 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
   /* Now call it - it shouldn't return */
-  (*restore_start) (fd, verify, gzip_child_pid, ckpt_newname, cmd_file,
-                    argv, envp);
-  MTCP_PRINTF("restore routine returned (it should never do this!)\n");
+  (*restore_start) (fd, verify, decomp_child_pid, ckpt_newname, cmd_file, argv, envp);
+  mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
   abort ();
   return (0);
 }
@@ -341,8 +340,11 @@ static int open_ckpt_to_read(char *filename) {
     int fds[2];
     char fc;
     char *gzip_cmd = "gzip";
-    char gzip_path[MTCP_MAX_PATH];
+    char *hbict_cmd = "hbict";
+    char decomp_path[MTCP_MAX_PATH];
     static char *gzip_args[] = { "gzip", "-d", "-", NULL };
+    static char *hbict_args[] = { "hbict", "-r", NULL };
+    static char **decomp_args;
     pid_t cpid;
 
     fc = first_char(filename);
@@ -354,11 +356,21 @@ static int open_ckpt_to_read(char *filename) {
 
     if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
         return fd;
-    else if (fc == GZIP_FIRST) /* gzip : Set gzip_path */ {
-        if (mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-            fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n",
-                  stderr);
-            abort();
+    else if (fc == GZIP_FIRST || fc == HBICT_FIRST){ /* Set prog_path */
+        if( fc == GZIP_FIRST ){
+            decomp_args = gzip_args;
+            if( mtcp_find_executable(gzip_cmd, decomp_path) == NULL ) {
+                fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
+                abort();
+            }
+        }
+
+       	if( fc == HBICT_FIRST ){
+            decomp_args = hbict_args;
+            if( mtcp_find_executable(hbict_cmd, decomp_path) == NULL ) {
+                fputs("ERROR: Cannot find hbict to decompress checkpoint file!\n", stderr);
+                abort();
+            }
         }
 
         if (pipe(fds) == -1) {
@@ -375,7 +387,7 @@ static int open_ckpt_to_read(char *filename) {
             abort();
         }
         else if(cpid > 0) /* parent process */ {
-            gzip_child_pid = cpid;
+            decomp_child_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
@@ -397,7 +409,7 @@ static int open_ckpt_to_read(char *filename) {
             close(fd);
             dup2(fds[1], STDOUT_FILENO);
             close(fds[1]);
-            execvp(gzip_path, gzip_args);
+            execvp(decomp_path, decomp_args);
             /* should not get here */
             fputs("ERROR: Decompression failed!  No restoration will be"
                   " performed!  Cancel now!\n", stderr);

@@ -56,10 +56,24 @@ AC_ARG_ENABLE([pid_virtualization],
             [use_pid_virt=yes])
 
 if test "$use_pid_virt" = "yes"; then
+  AC_SUBST([HBICT_DELTA_COMPRESSION], [yes])
+else
+  AC_SUBST([HBICT_DELTA_COMPRESSION], [no])
+fi
+
+
+AC_ARG_ENABLE([delta_compression],
+            [AS_HELP_STRING([--enable-delta_compression],
+                            [enable delta compression facility.])],
+            [use_deltacomp=$enableval],
+            [use_deltacomp=yes])
+
+if test "$use_deltacomp" = "yes"; then
   AC_SUBST([PID_VIRTUALIZATION], [yes])
 else
   AC_SUBST([PID_VIRTUALIZATION], [no])
 fi
+
 
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],

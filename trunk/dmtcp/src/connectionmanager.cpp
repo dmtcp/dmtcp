@@ -854,18 +854,18 @@ bool dmtcp::PtsToSymlink::exists( dmtcp::string device )
 }
 */
 
-pid_t dmtcp::ConnectionToFds::gzip_child_pid = -1;
+pid_t dmtcp::ConnectionToFds::ext_decomp_pid = -1;
 static void close_ckpt_to_read(const int fd)
 {
     int status;
     int rc;
     while (-1 == (rc = close(fd)) && errno == EINTR) ;
     JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
-    if (dmtcp::ConnectionToFds::gzip_child_pid != -1) {
-      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::gzip_child_pid,
+    if (dmtcp::ConnectionToFds::ext_decomp_pid != -1) {
+      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::ext_decomp_pid,
 			         &status, 0)) && errno == EINTR) ;
       JASSERT (rc != -1) ("waitpid:") (JASSERT_ERRNO);
-      dmtcp::ConnectionToFds::gzip_child_pid = -1;
+      dmtcp::ConnectionToFds::ext_decomp_pid = -1;
     }
 }
 
@@ -875,6 +875,11 @@ static void close_ckpt_to_read(const int fd)
 // Copied from mtcp/mtcp_restart.c.
 #define DMTCP_MAGIC_FIRST 'D'
 #define GZIP_FIRST 037
+#ifdef HBICT_DELTACOMP
+#define HBICT_FIRST 'H'
+#endif
+
+
 char *mtcp_executable_path(char *filename);
 static char first_char(const char *filename)
 {
@@ -896,14 +901,20 @@ static char first_char(const char *filename)
 // MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
 // A previous version tried to replace this with popen, causing a regression:
 //   (no call to pclose, and possibility of using a wrong fd).
-// Returns fd; sets dmtcp::gzip_child_pid::ConnectionToFds, if gzip compression.
+// Returns fd; sets dmtcp::ext_decomp_pid::ConnectionToFds, if checkpoint was compressed.
 static int open_ckpt_to_read(const char *filename)
 {
     int fd;
     int fds[2];
     char fc;
+    const char *decomp_path;
+    const char **decomp_args;
     const char *gzip_path = "gzip";
     static const char * gzip_args[] = { "gzip", "-d", "-", NULL };
+#ifdef HBICT_DELTACOMP
+    const char *hbict_path = "hbict";
+    static const char *hbict_args[] = { "hbict", "-r", NULL };
+#endif
     pid_t cpid;
 
     fc = first_char(filename);
@@ -912,8 +923,22 @@ static int open_ckpt_to_read(const char *filename)
 
     if(fc == DMTCP_MAGIC_FIRST) /* no compression */
         return fd;
-    else if(fc == GZIP_FIRST) /* gzip */
-    {
+#ifdef HBICT_DELTACOMP
+    else if (fc == GZIP_FIRST || fc == HBICT_FIRST){ /* External compression */
+#else
+    else if(fc == GZIP_FIRST){ /* gzip */
+#endif
+        if( fc == GZIP_FIRST ){
+          decomp_path = gzip_path;
+          decomp_args = gzip_args;
+        }
+#ifdef HBICT_DELTACOMP
+        else{
+          decomp_path = hbict_path;
+          decomp_args = hbict_args;
+        }
+#endif
+
         JASSERT(pipe(fds) != -1)(filename).Text("Cannot create pipe to execute gunzip to decompress checkpoint file!");
 
         cpid = _real_fork();
@@ -921,15 +946,15 @@ static int open_ckpt_to_read(const char *filename)
         JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
         if(cpid > 0) /* parent process */
         {
-           JTRACE ( "created gzip child process to uncompress checkpoint file")(cpid);
-            dmtcp::ConnectionToFds::gzip_child_pid = cpid;
+           JTRACE ( "created child process to uncompress checkpoint file")(cpid);
+            dmtcp::ConnectionToFds::ext_decomp_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
         }
         else /* child process */
         {
-           JTRACE ( "child process, will exec into gzip");
+           JTRACE ( "child process, will exec into external de-compressor");
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
@@ -938,14 +963,13 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
             close(fds[1]);
-            _real_execvp(gzip_path, (char **)gzip_args);
-            JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
+            _real_execvp(decomp_path, (char **)decomp_args);
+            JASSERT(decomp_path!=NULL)(decomp_path).Text("Failed to launch gzip.");
             /* should not get here */
             JASSERT(false)("ERROR: Decompression failed!  No restoration will be performed!  Cancelling now!");
             abort();
         }
-    }
-    else /* invalid magic number */
+    } else /* invalid magic number */
         JASSERT(false).Text("ERROR: Invalid magic number in this checkpoint file!");
     // NOT_REACHED
     return -1;
@@ -953,7 +977,7 @@ static int open_ckpt_to_read(const char *filename)
 
 // See comments above for open_ckpt_to_read()
 int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
-  // Function also sets dmtcp::gzip_child_pid::ConnectionToFds
+  // Function also sets dmtcp::ext_decomp_pid::ConnectionToFds
   int fd = open_ckpt_to_read( path.c_str() );
   // The rest of this function is for compatibility with original definition.
   JASSERT(fd>=0)(path).Text("Failed to open file.");

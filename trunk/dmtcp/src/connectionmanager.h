@@ -160,7 +160,7 @@ namespace dmtcp
       const UniquePid&   pid()        const { return _pid; }
       const UniquePid&   ppid()       const { return _ppid; }
 
-      static pid_t gzip_child_pid;
+      static pid_t ext_decomp_pid;
       static int openDmtcpCheckpointFile(const dmtcp::string& filename);
       static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
