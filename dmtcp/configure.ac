@@ -112,6 +112,11 @@ AC_ARG_ENABLE([pid_virtualization],
                             reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
+AC_ARG_ENABLE([delta_compression],
+            [AS_HELP_STRING([--enable-delta_compression],
+                            [enable delta compression of checkpoints.])],
+            [use_deltacomp=$enableval],
+            [use_deltacomp=no])
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],
                             [enable ptrace support for gdb, valgrind, etc.
@@ -124,6 +129,9 @@ if test "$use_pid_virt" = "yes"; then
 fi
 if test "$use_ptrace_support" = "yes"; then
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+fi
+if test "$use_deltacomp" = "yes"; then
+  AC_DEFINE([HBICT_DELTACOMP],[],[Use delta compression.])
 fi
 
 AC_ARG_ENABLE([allocator],

@@ -152,6 +152,7 @@ typedef unsigned int mtcp_segreg_t;
 #endif
 #define MAGIC_FIRST 'M'
 #define GZIP_FIRST 037
+#define HBICT_FIRST 'H'
 
 int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)

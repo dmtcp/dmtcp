@@ -63,6 +63,10 @@ static const char* theUsage =
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"
+#ifdef HBICT_DELTACOMP
+  "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01]):\n"
+  "      Enable/disable compression of checkpoint images (default: 1)\n"
+#endif
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store checkpoint images (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
@@ -267,7 +271,17 @@ int main ( int argc, char** argv )
     }else if(s == "--no-gzip"){
       setenv(ENV_VAR_COMPRESSION, "0", 1);
       shift;
-    }else if(s == "-n" || s == "--new"){
+    }
+#ifdef HBICT_DELTACOMP
+    else if(s == "--hbict"){
+      setenv(ENV_VAR_DELTACOMPRESSION, "1", 1);
+      shift;
+    }else if(s == "--no-hbict"){
+      setenv(ENV_VAR_DELTACOMPRESSION, "0", 1);
+      shift;
+    }
+#endif
+    else if(s == "-n" || s == "--new"){
       allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
       shift;
     }else if(s == "--new-coordinator"){

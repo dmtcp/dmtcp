@@ -15,6 +15,9 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
+/* Use delta compression. */
+#undef HBICT_DELTACOMP
+
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 #undef NO_MINUS_C_MINUS_O
 
