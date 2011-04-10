@@ -163,7 +163,9 @@ static void readcs (int fd, char cs)
 
   readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
-    fprintf (stderr, "readmtcp readcs: checkpoint section %d next, expected %d\n", xcs, cs);
+    fprintf (stderr,
+             "readmtcp readcs: checkpoint section %d next, expected %d\n",
+             xcs, cs);
     abort ();
   }
 }
@@ -180,12 +182,17 @@ static void readfile(int fd, void *buf, size_t size)
       rc = read(fd, buf + ar, size - ar);
       if(rc < 0)
         {
-	  fprintf(stderr, "readmtcp readfile: error reading checkpoint file: %s\n", strerror(errno));
+	  fprintf(stderr,
+                  "readmtcp readfile: error reading checkpoint file: %s\n",
+                  strerror(errno));
 	  abort();
         }
       else if(rc == 0)
 	{
-          fprintf(stderr, "readmtcp readfile: only read %zu bytes instead of %zu from checkpoint file\n", ar, size);
+          fprintf(stderr,
+                  "readmtcp readfile: only read %zu bytes instead of %zu from"
+                  " checkpoint file\n",
+                  ar, size);
           abort();
 	}
 
@@ -210,7 +217,9 @@ static void skipfile(int fd, size_t size)
         }
       else if(rc == 0)
         {
-	  printf("readmtcp skipfile: only skipped %zu bytes instead of %zu from checkpoint file\n", ar, size);
+	  printf("readmtcp skipfile: only skipped %zu bytes instead of %zu from"
+                 " checkpoint file\n",
+                 ar, size);
 	  exit(1);
         }
 

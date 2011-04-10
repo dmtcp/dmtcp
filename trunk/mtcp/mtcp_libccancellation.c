@@ -21,20 +21,18 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Dummy routines for libmtcp.so so it won't reference any tls stuff during the restore						*/
-/*  The restore can't use %gs etc because it is not set up yet									*/
-/*																*/
-/********************************************************************************************************************************/
+/*****************************************************************************
+ *
+ *  Dummy routines for libmtcp.so so it won't reference any tls stuff during the
+ *  restore.
+ *  The restore can't use %gs etc because it is not set up yet
+ *****************************************************************************/
 
 static int __libc_enable_asynccancel (void)
-
 {
   return (0);
 }
 
 static void __libc_disable_asynccancel (int oldtype)
-
 {
 }

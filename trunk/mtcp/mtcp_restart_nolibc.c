@@ -21,17 +21,20 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Static part of restore - This gets linked in the libmtcp.so shareable image that gets loaded as part of the user's original 	*/
-/*  application.  The makefile appends all the needed system call routines onto the end of this module so it will link with no 	*/
-/*  undefined symbols.  This allows the restore procedure to simply read this object image from the restore file, load it to 	*/
-/*  the same address it was in the user's original application, and jump to it.							*/
-/*																*/
-/*  If we didn't assemble it all as one module, the idiot loader would make references to glibc routines go to libc.so even 	*/
-/*  though there are object modules linked in with those routines defined.							*/
-/*																*/
-/********************************************************************************************************************************/
+/***************************************************************************** 
+ *
+ *  Static part of restore - This gets linked in the libmtcp.so shareable image
+ *  that gets loaded as part of the user's original application. The makefile
+ *  appends all the needed system call routines onto the end of this module so
+ *  it will link with no undefined symbols.  This allows the restore procedure
+ *  to simply read this object image from the restore file, load it to the same
+ *  address it was in the user's original application, and jump to it.
+ *
+ *  If we didn't assemble it all as one module, the idiot loader would make
+ *  references to glibc routines go to libc.so even though there are object
+ *  modules linked in with those routines defined.
+ *
+ *****************************************************************************/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -48,11 +51,12 @@
 #include "mtcp_internal.h"
 
 __attribute__ ((visibility ("hidden")))
-  int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
+  int mtcp_restore_cpfd = -1; // '-1' puts it in regular data instead of common
 __attribute__ ((visibility ("hidden")))
-  int mtcp_restore_verify = 0;// 0: normal restore; 1: verification restore
+  int mtcp_restore_verify = 0; // 0: normal restore; 1: verification restore
 __attribute__ ((visibility ("hidden")))
-  pid_t mtcp_restore_gzip_child_pid = -1; // '= -1' puts it in regular data instead of common
+  pid_t mtcp_restore_gzip_child_pid = -1; // '-1' puts it in regular data
+                                          // instead of common
 __attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[MAXPATHLEN+1];
 #define MAX_ARGS 50
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
@@ -64,11 +68,15 @@ __attribute__ ((visibility ("hidden")))
 __attribute__ ((visibility ("hidden")))
   char mtcp_saved_working_directory[MAXPATHLEN+1];
 
-	/* These two are used by the linker script to define the beginning and end of the image.         */
-	/* The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid to relocate a zero. */
+  /* These two are used by the linker script to define the beginning and end of
+   * the image.
+   * The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid
+   * to relocate a zero. */
 
-asm (".section __shareable_begin ; .globl mtcp_shareable_begin ; .long 0 ; mtcp_shareable_begin:");
-asm (".section __shareable_end   ; .globl mtcp_shareable_end; .long 0  ; mtcp_shareable_end:");
+asm (".section __shareable_begin ; .globl mtcp_shareable_begin \
+                                 ; .long 0 ; mtcp_shareable_begin:");
+asm (".section __shareable_end   ; .globl mtcp_shareable_end \
+                                 ; .long 0  ; mtcp_shareable_end:");
 asm (".text");
 
 	/* Internal routines */
@@ -100,12 +108,12 @@ static void *mystrstr(char *string, char *substring) {
   return NULL;
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  This routine is called executing on the temporary stack									*/
-/*  It performs the actual restore of everything (except the libmtcp.so area)							*/
-/*																*/
-/********************************************************************************************************************************/
+/***************************************************************************** 
+ *
+ *  This routine is called executing on the temporary stack
+ *  It performs the actual restore of everything (except the libmtcp.so area)
+ *
+ *****************************************************************************/
 
 __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
@@ -119,14 +127,20 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   DPRINTF(("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n"));
 
-  /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.  The only access we have is brk() which basically */
-  /* sets mm->brk to the new value, but also has a nasty side-effect (as far as we're concerned) of mmapping an anonymous       */
-  /* section between the old value of mm->brk and the value being passed to brk().  It will munmap the bracketed memory if the  */
-  /* value being passed is lower than the old value.  But if zero, it will return the current mm->brk value.                    */
-
-  /* So we're going to restore the brk here.  As long as the current mm->brk value is below the static restore region, we're ok */
-  /* because we 'know' the restored brk can't be in the static restore region, and we don't care if the kernel mmaps something  */
-  /* or munmaps something because we're going to wipe it all out anyway.                                                        */
+  /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.
+   * The only access we have is brk() which basically sets mm->brk to the new
+   * value, but also has a nasty side-effect (as far as we're concerned) of
+   * mmapping an anonymous section between the old value of mm->brk and the
+   * value being passed to brk().  It will munmap the bracketed memory if the
+   * value being passed is lower than the old value.  But if zero, it will
+   * return the current mm->brk value.
+   *
+   * So we're going to restore the brk here.  As long as the current mm->brk
+   * value is below the static restore region, we're ok because we 'know' the
+   * restored brk can't be in the static restore region, and we don't care if
+   * the kernel mmaps something or munmaps something because we're going to wipe
+   * it all out anyway.
+   */
 
   current_brk = mtcp_sys_brk (NULL);
   if ((current_brk > mtcp_shareable_begin) &&
@@ -177,10 +191,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   holebase  = mtcp_shareable_begin;
   holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
+  // the unmaps will wipe what it points to anyway
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
-				: : : CLEAN_FOR_64_BIT(eax)); // the unmaps will wipe what it points to anyway
-  // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs) : : : CLEAN_FOR_64_BIT(eax)); // so make sure we get a hard failure just in case
-                                                                  // ... it's left dangling on something I want
+				: : : CLEAN_FOR_64_BIT(eax));
+
+  // so make sure we get a hard failure just in case
+  // ... it's left dangling on something I want
+  // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs)
+  //                                : : : CLEAN_FOR_64_BIT(eax));
 
   /* Unmap from address 0 to holebase, except for [vdso] section */
   vdso_addr = vsyscall_addr = stack_end_addr = 0;
@@ -278,12 +296,14 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   (*finishrestore) ();
 }
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Read file descriptor info from checkpoint file and re-open and re-position files on the same descriptors			*/
-/*  Move the checkpoint file to a different fd if needed									*/
-/*																*/
-/********************************************************************************************************************************/
+/***************************************************************************** 
+ *
+ *  Read file descriptor info from checkpoint file and re-open and re-position
+ *  files on the same descriptors
+ * 
+ *  Move the checkpoint file to a different fd if needed
+ *
+ *****************************************************************************/
 
 static void readfiledescrs (void)
 
@@ -362,32 +382,32 @@ static void readfiledescrs (void)
   }
 }
 
-/**************************************************************************/
-/*									  */
-/*  Read memory area descriptors from checkpoint file			  */
-/*  Read memory area contents and/or mmap original file			  */
-/*  Four cases: MAP_ANONYMOUS (if file /proc/.../maps reports file,	  */
-/*		   handle it as if MAP_PRIVATE and not MAP_ANONYMOUS,	  */
-/*		   but restore from ckpt image: no copy-on-write);	  */
-/*		 private, currently assumes backing file exists		  */
-/*               shared, but need to recreate file;			  */
-/*		 shared and file currently exists			  */
-/*		   (if writeable by us and memory map has write		  */
-/*		    protection, then write to it from checkpoint file;	  */
-/*		    else skip ckpt image and map current data of file)	  */ 
-/*		 NOTE:  Linux option MAP_SHARED|MAP_ANONYMOUS		  */
-/*		    currently not supported; result is undefined.	  */
-/*		    If there is an important use case, we will fix this.  */
-/*		 (NOTE:  mmap requires that if MAP_ANONYMOUS		  */
-/*		   was not set, then mmap must specify a backing store.	  */
-/*		   Further, a reference by mmap constitutes a reference	  */
-/*		   to the file, and so the file cannot truly be deleted	  */
-/*		   until the process no longer maps it.  So, if we don't  */
-/*		   see the file on restart and there is no MAP_ANONYMOUS, */
-/*		   then we have a responsibility to recreate the file.	  */
-/*		   MAP_ANONYMOUS is not currently POSIX.)		  */
-/*									  */
-/**************************************************************************/
+/************************************************************************** 
+ *
+ *  Read memory area descriptors from checkpoint file
+ *  Read memory area contents and/or mmap original file
+ *  Four cases: MAP_ANONYMOUS (if file /proc/.../maps reports file,
+ *		   handle it as if MAP_PRIVATE and not MAP_ANONYMOUS,
+ *		   but restore from ckpt image: no copy-on-write);
+ *		 private, currently assumes backing file exists
+ *               shared, but need to recreate file;
+ *		 shared and file currently exists
+ *		   (if writeable by us and memory map has write
+ *		    protection, then write to it from checkpoint file;
+ *		    else skip ckpt image and map current data of file)
+ *		 NOTE:  Linux option MAP_SHARED|MAP_ANONYMOUS
+ *		    currently not supported; result is undefined.
+ *		    If there is an important use case, we will fix this.
+ *		 (NOTE:  mmap requires that if MAP_ANONYMOUS
+ *		   was not set, then mmap must specify a backing store.
+ *		   Further, a reference by mmap constitutes a reference
+ *		   to the file, and so the file cannot truly be deleted
+ *		   until the process no longer maps it.  So, if we don't
+ *		   see the file on restart and there is no MAP_ANONYMOUS,
+ *		   then we have a responsibility to recreate the file.
+ *		   MAP_ANONYMOUS is not currently POSIX.)
+ *
+ **************************************************************************/
 
 static void readmemoryareas (void)
 
@@ -396,7 +416,7 @@ static void readmemoryareas (void)
   char cstype;
   int flags, imagefd;
   void *mmappedat;
-/* make check:  stale-fd and forkexec fail (and others?) with this turned on. */
+  // make check:  stale-fd and forkexec fail (and others?) with this turned on.
 #if 0
   /* If not using gzip decompression, then use mmapfile instead of readfile. */
   int do_mmap_ckpt_image = (mtcp_restore_gzip_child_pid == -1);
@@ -420,17 +440,19 @@ static void readmemoryareas (void)
 		  "  and MAP_SHARED.\n"
 		  "*** Turning off MAP_ANONYMOUS and hoping for best.\n\n");
 
-    /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):		     */
-    /* For anonymous areas, the checkpoint file contains the memory contents */
-    /* directly.  So mmap an anonymous area and read the file into it.       */
-    /* If file exists, turn off MAP_ANONYMOUS: standard private map	     */
+    /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
+     * For anonymous areas, the checkpoint file contains the memory contents
+     * directly.  So mmap an anonymous area and read the file into it.
+     * If file exists, turn off MAP_ANONYMOUS: standard private map
+     */
 
     if (area.flags & MAP_ANONYMOUS) {
 
-      /* If there is a filename there, though, pretend like we're mapping    */
-      /* to it so a new /proc/self/maps will show a filename there like with */
-      /* original process.  We only need read-only access because we don't   */
-      /* want to ever write the file.					     */
+      /* If there is a filename there, though, pretend like we're mapping
+       * to it so a new /proc/self/maps will show a filename there like with
+       * original process.  We only need read-only access because we don't
+       * want to ever write the file.
+       */
 
       imagefd = 0;
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
@@ -515,7 +537,7 @@ static void readmemoryareas (void)
         /* This mmapfile after prev. mmap is okay; use same args again.
          *  Posix says prev. map will be munmapped.
          */
-/* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
+        /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
         if (do_mmap_ckpt_image
             && mystrstr(area.name, "[vdso]")
             && mystrstr(area.name, "[vsyscall]"))
@@ -534,8 +556,9 @@ static void readmemoryareas (void)
       if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
     }
 
-    /* CASE NOT MAP_ANONYMOUS:						     */
-    /* Otherwise, we mmap the original file contents to the area */
+    /* CASE NOT MAP_ANONYMOUS:
+     * Otherwise, we mmap the original file contents to the area
+     */
 
     else {
       DPRINTF(("restoring mapped area %p at %p to %s + 0x%X\n",
@@ -563,7 +586,7 @@ static void readmemoryareas (void)
           mtcp_abort ();
         }
 
-        /* CASE NOT MAP_ANONYMOUS, and MAP_PRIVATE,		     */
+        /* CASE NOT MAP_ANONYMOUS, and MAP_PRIVATE, */
         mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot, 
             area.flags, imagefd, area.offset);
         if (mmappedat == MAP_FAILED) {
@@ -680,9 +703,10 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     DPRINTF(("Shared file %s not found. Creating new\n",
              area_name));
 
-    /* Dangerous for DMTCP:  Since file is created with O_CREAT,    */
-    /* hopefully, a second process should ignore O_CREAT and just     */
-    /*  duplicate the work of the first process, with no ill effect.*/
+    /* Dangerous for DMTCP:  Since file is created with O_CREAT,
+     * hopefully, a second process should ignore O_CREAT and just
+     *  duplicate the work of the first process, with no ill effect.
+     */
     area_name = fix_filename_if_new_cwd(area_name);
     imagefd = open_shared_file(area_name);
 
@@ -1060,7 +1084,6 @@ static void lock_file(int fd, char* name, short l_type)
 static char* fix_filename_if_new_cwd(char* filename)
 {
   int i;
-  int fd;
   int fIndex;
   int errorFilenameFromPreviousCwd = 0;
   char currentFolder[FILENAMESIZE];

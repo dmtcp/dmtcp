@@ -244,7 +244,9 @@ void mtcp_check_vdso_enabled() {
   if (! (pers & ADDR_NO_RANDOMIZE)) /* if addr space randomization ... */
   { 
     unsigned long oldpers = pers;
-    /* then turn off randomization and (just in case) remove ADDR_COMPAT_LAYOUT*/
+    /* then turn off randomization and (just in case) remove
+     * ADDR_COMPAT_LAYOUT
+     */
     personality((pers | ADDR_NO_RANDOMIZE) & ~ADDR_COMPAT_LAYOUT);
     if ( ADDR_NO_RANDOMIZE & personality(0xffffffffUL) ) /* if it's off now */
     { char runtime[MAXPATHLEN+1];
