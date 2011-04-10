@@ -21,16 +21,19 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*																*/
-/*  This command-line utility is what a user uses to perform a restore								*/
-/*  It reads the given checkpoint file into memory then jumps to it, thus being just like the original program was restarted 	*/
-/*  from the last checkpoint.													*/
-/*																*/
-/*  It is also used by the checkpoint verification to perform a restore while the original application program is running, to 	*/
-/*  make sure the restore works.  The --verify option tells it to rename the checkpoint file, removing the .temp from the end.	*/
-/*																*/
-/********************************************************************************************************************************/
+/***************************************************************************** 
+ *
+ *  This command-line utility is what a user uses to perform a restore
+ *  It reads the given checkpoint file into memory then jumps to it, thus being
+ *  just like the original program was restarted from the last
+ *  checkpoint.
+ *
+ *  It is also used by the checkpoint verification to perform a restore while
+ *  the original application program is running, to make sure the restore works.
+ *  The --verify option tells it to rename the checkpoint file, removing the
+ *  .temp from the end.
+ *
+ *****************************************************************************/
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -64,8 +67,10 @@ extern int dmtcp_info_stderr_fd;
 static const char* theUsage =
   "USAGE:\n"
   "mtcp_restart [--verify] <ckeckpointfile>\n\n"
-  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] [--] <ckeckpointfile>\n\n"
-  "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>] [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
+  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] [--]"
+      " <ckeckpointfile>\n\n"
+  "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>]"
+      " [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
 ;
 
 int main (int argc, char *argv[], char *envp[])
@@ -90,7 +95,7 @@ int main (int argc, char *argv[], char *envp[])
     abort();
   }
 
-  /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
+  // Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on.
   mtcp_check_vdso_enabled();
 
   fd = decomp_child_pid = -1;

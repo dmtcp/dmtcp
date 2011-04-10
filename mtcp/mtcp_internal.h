@@ -62,14 +62,16 @@ extern pid_t saved_pid;
 #define MTCP_STR_ERRNO strerror(mtcp_sys_errno)
 #define MTCP_PRINTF(args...) \
   do { \
-    mtcp_printf ("[%d] %s:%d %s:\n  ", saved_pid, __FILE__, __LINE__, __FUNCTION__); \
+    mtcp_printf("[%d] %s:%d %s:\n  ", \
+                saved_pid, __FILE__, __LINE__, __FUNCTION__); \
     mtcp_printf(args); \
   } while (0)
 
 #ifdef DEBUG
 #define DPRINTF(x) \
   do { \
-    mtcp_printf ("[%d] %s:%d %s:\n  ", saved_pid, __FILE__, __LINE__, __FUNCTION__); \
+    mtcp_printf("[%d] %s:%d %s:\n  ", \
+                saved_pid, __FILE__, __LINE__, __FUNCTION__); \
     mtcp_printf x; \
   } while (0)
 #else
@@ -124,8 +126,10 @@ typedef unsigned int mtcp_segreg_t;
 #endif
 
 #define MTCP_PAGE_SIZE 4096
-#define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
-#define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" : : : "eax", "ebx", "ecx", "edx", "memory")
+#define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                          : : : "eax", "ebx", "ecx", "edx", "memory")
+#define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                          : : : "eax", "ebx", "ecx", "edx", "memory")
 
 #ifndef HIGHEST_VA
 // If 32-bit process in 64-bit Linux, then Makefile overrides this address,
@@ -144,17 +148,20 @@ typedef unsigned int mtcp_segreg_t;
 #define FILENAMESIZE 1024
 
 #ifdef __x86_64__
-# define MAGIC "MTCP64-V1.0"      // magic number at beginning of uncompressed checkpoint file
-# define MAGIC_LEN 12               // length of magic number (including \0)
+# define MAGIC "MTCP64-V1.0"      // magic number at beginning of uncompressed
+                                  //  checkpoint file
+# define MAGIC_LEN 12             // length of magic number (including \0)
 #else
-# define MAGIC "MTCP-V1.0"        // magic number at beginning of checkpoint file (uncompressed)
+# define MAGIC "MTCP-V1.0"        // magic number at beginning of checkpoint
+                                  //  file (uncompressed)
 # define MAGIC_LEN 10             // length of magic number (including \0)
 #endif
 #define MAGIC_FIRST 'M'
 #define GZIP_FIRST 037
 #define HBICT_FIRST 'H'
 
-int STOPSIGNAL;     // signal to use to signal other threads to stop for checkpointing
+int STOPSIGNAL;             // signal to use to signal other threads to stop for
+                            //   checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
 #define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
@@ -168,8 +175,8 @@ struct Area { char *addr;   // args required for mmap to restore memory area
               off_t offset;
               char name[FILENAMESIZE];
             };
-
-// struct Jmpbuf { uLong ebx, esi, edi, ebp, esp;   // order must match that in mtcp_jmpbuf.s
+// order must match that in mtcp_jmpbuf.s
+// struct Jmpbuf { uLong ebx, esi, edi, ebp, esp; 
 //                 uLong eip;
 //                 uByte fpusave[232];
 //               };
@@ -189,19 +196,26 @@ struct Area { char *addr;   // args required for mmap to restore memory area
 void mtcp_printf (char const *format, ...);
 
 /* cmpxchgl is only supported on Intel 486 processors and later. */
-static inline int atomic_setif_int (int volatile *loc, int newval, int oldval)
+static inline int atomic_setif_int(int volatile *loc, int newval, int oldval)
 {
   char rc;
 
-  asm volatile ("lock ; cmpxchgl %2,%1 ; sete %%al" : "=a" (rc) : "m" (*loc), "r" (newval), "a" (oldval) : "cc", "memory");
+  asm volatile ("lock ; cmpxchgl %2,%1 ; sete %%al"
+                : "=a" (rc)
+                : "m" (*loc), "r" (newval), "a" (oldval)
+                : "cc", "memory");
   return (rc);
 }
 
-static inline int atomic_setif_ptr (void *volatile *loc, void *newval, void *oldval)
+static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
+                                    void *oldval)
 {
   char rc;
 
-  asm volatile ("lock ; cmpxchg %2,%1 ; sete %%al" : "=a" (rc) : "m" (*loc), "r" (newval), "a" (oldval) : "cc", "memory");
+  asm volatile ("lock ; cmpxchg %2,%1 ; sete %%al"
+                : "=a" (rc)
+                : "m" (*loc), "r" (newval), "a" (oldval)
+                : "cc", "memory");
   return (rc);
 }
 
@@ -245,7 +259,8 @@ struct MtcpState { int volatile value;
                    pthread_cond_t cond;
                    pthread_mutex_t mutex;};
                    
-#define MTCP_STATE_INITIALIZER {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
+#define MTCP_STATE_INITIALIZER \
+  {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
 
 __attribute__ ((visibility ("hidden")))
    void mtcp_state_init(MtcpState * state, int value);
@@ -277,14 +292,17 @@ int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
 int mtcp_get_controlling_term(char* ttyName, size_t len);
 
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,char *ckpt_newname,
-			 char *cmd_file, char *argv[], char *envp[]);
+void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+                         char *ckpt_newname, char *cmd_file,
+                         char *argv[], char *envp[]);
 __attribute__ ((visibility ("hidden")))
    void mtcp_restoreverything (void);
 __attribute__ ((visibility ("hidden")))
    void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
-__attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
+__attribute__ ((visibility ("hidden")))
+void *mtcp_safemmap(void *start, size_t length, int prot, int flags, int fd,
+                    off_t offset);
 int mtcp_setjmp (Jmpbuf *jmpbuf);
 void mtcp_longjmp (Jmpbuf *jmpbuf, int retval);
 int mtcp_safe_open(char const *filename, int flags, mode_t mode);

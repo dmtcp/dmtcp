@@ -21,12 +21,14 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*																*/
-/*  Just like mmap, except it fails (EBUSY) if you do a MAP_FIXED and the space is already (partially) occupied			*/
-/*  The regular mmap will unmap anything that was there and overlay it with the new stuff					*/
-/*																*/
-/********************************************************************************************************************************/
+/*****************************************************************************
+ *
+ *  Just like mmap, except it fails (EBUSY) if you do a MAP_FIXED and the space
+ *  is already (partially) occupied
+ *  The regular mmap will unmap anything that was there and overlay it with the
+ *  new stuff
+ *
+ *****************************************************************************/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -42,8 +44,9 @@
  */
 int mtcp_sys_errno;
 
-__attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset)
-
+__attribute__ ((visibility ("hidden")))
+void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd,
+                      off_t offset)
 {
   char c;
   int indx, mapsfd, size;

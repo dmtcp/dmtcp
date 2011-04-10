@@ -21,11 +21,11 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*																*/
-/*  If parent is gdb, do a breakpoint, else nop											*/
-/*																*/
-/********************************************************************************************************************************/
+/*****************************************************************************
+ *
+ *  If parent is gdb, do a breakpoint, else nop
+ *
+ *****************************************************************************/
 
 #include <fcntl.h>
 #include <string.h>
@@ -46,29 +46,29 @@ void mtcp_maybebpt (void)
 
   static int known = -1;
 
-  if (known < 0) {                                  // see if it is known if we are child of gdb
-    known = 0;                                      // not known, assume that we aren't child of gdb
-    pid = mtcp_sys_getppid ();                         // get parent's process id
-    for (i = sizeof buff; -- i >= 0;) {             // convert to decimal string
-      buff[i] = (pid % 10) + '0';                     // (sprintf uses all kinds of tls crapola)
+  if (known < 0) { // see if it is known if we are child of gdb
+    known = 0;     // not known, assume that we aren't child of gdb
+    pid = mtcp_sys_getppid ();           // get parent's process id
+    for (i = sizeof buff; -- i >= 0;) {  // convert to decimal string
+      buff[i] = (pid % 10) + '0';  // (sprintf uses all kinds of tls crapola)
       pid /= 10;
       if (pid == 0) break;
     }
-    mtcp_sys_memcpy (buff, "/proc/", 6);             // make /proc/<ppid>/cmdline string
+    mtcp_sys_memcpy (buff, "/proc/", 6); // make /proc/<ppid>/cmdline string
     mtcp_sys_memmove (buff + 6, buff + i, sizeof buff - i);
     i = 6 + sizeof buff - i;
     mtcp_sys_memcpy (buff + i, "/cmdline", 9);
-    j = mtcp_sys_open2 (buff, O_RDONLY);                // open that file
+    j = mtcp_sys_open2 (buff, O_RDONLY); // open that file
     if (j >= 0) {
-      i = mtcp_sys_read (j, buff, sizeof buff);      // read parent's command line
+      i = mtcp_sys_read (j, buff, sizeof buff); // read parent's command line
       mtcp_sys_close (j);
-      if (mtcp_sys_memcmp (buff, "gdb", 3) == 0) {   // see if it begins with gdb
+      if (mtcp_sys_memcmp (buff, "gdb", 3) == 0) {  // see if it begins with gdb
         known = 1;                                  // if so, parent is gdb
       }
     }
   }
 
-  if (known > 0) {                                  // see if we know our parent is gdb
-    asm volatile ("int3");                          // if so, we do a breakpoint
+  if (known > 0) { // see if we know our parent is gdb
+    asm volatile ("int3"); // if so, we do a breakpoint
   }
 }
