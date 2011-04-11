@@ -362,7 +362,7 @@ def runTest(name, numProcs, cmds):
     #run restart and test if it worked
     procs.append(launch(cmd))
     WAITFOR(lambda: status==getStatus(), wfMsg("restart error"))
-    #clearCkptDir()
+    clearCkptDir()
 
   try:
     printFixed(name,15)
