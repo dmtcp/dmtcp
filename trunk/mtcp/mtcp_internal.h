@@ -68,14 +68,9 @@ extern pid_t saved_pid;
   } while (0)
 
 #ifdef DEBUG
-#define DPRINTF(x) \
-  do { \
-    mtcp_printf("[%d] %s:%d %s:\n  ", \
-                saved_pid, __FILE__, __LINE__, __FUNCTION__); \
-    mtcp_printf x; \
-  } while (0)
+#define DPRINTF(args...) MTCP_PRINTF(args)
 #else
-#define DPRINTF(x) // debugging printing
+#define DPRINTF(args...) // debugging printing
 #endif
 
 #ifdef TIMING
