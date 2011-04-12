@@ -172,7 +172,7 @@ void ptrace_attach_threads(int isRestart)
   int i;
   struct ptrace_info pt_info;
 
-  DPRINTF(("%d started.\n", GETTID()));
+  DPRINTF("%d started.\n", GETTID());
 
   int index = 0;
   while (empty_ptrace_info(
@@ -239,11 +239,9 @@ void ptrace_attach_threads(int isRestart)
           }
         }
         if (WIFEXITED(status)) {
-          DPRINTF(("%d is dead because %d\n",
-                  inferior, WEXITSTATUS(status)));
+          DPRINTF("%d is dead because %d\n", inferior, WEXITSTATUS(status));
         } else if(WIFSIGNALED(status)) {
-          DPRINTF(("%d is dead because of signal %d\n",
-                  WTERMSIG(status)));
+          DPRINTF("%d is dead because of signal %d\n", WTERMSIG(status));
         }
 
         if (mtcp_ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
@@ -419,7 +417,7 @@ void ptrace_attach_threads(int isRestart)
       have_file (inferior);
     }
   }
-  DPRINTF(("%d done.\n", GETTID()));
+  DPRINTF("%d done.\n", GETTID());
 }
 
 /* Detach only the checkpoint threads.
@@ -445,7 +443,7 @@ void ptrace_detach_checkpoint_threads ()
       }
     }
   }
-  DPRINTF(("done for %d\n", GETTID()));
+  DPRINTF("done for %d\n", GETTID());
 }
 
 /* This function detaches the user threads. */
@@ -495,13 +493,13 @@ void ptrace_detach_user_threads ()
         }
         if (WIFSTOPPED(status)) {
           if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
-            DPRINTF(("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
-                    pt_info.inferior));
+            DPRINTF("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
+                    pt_info.inferior);
           else /* We should never get here. */
-            DPRINTF(("UT %d was stopped by the delivery of %d\n",
-                    pt_info.inferior, WSTOPSIG(status)));
+            DPRINTF("UT %d was stopped by the delivery of %d\n",
+                    pt_info.inferior, WSTOPSIG(status));
         } else  /* We should never end up here. */ 
-          DPRINTF(("UT %d was NOT stopped by a signal\n", pt_info.inferior));
+          DPRINTF("UT %d was NOT stopped by a signal\n", pt_info.inferior);
       }
 
       if (pt_info.last_command == PTRACE_SINGLESTEP_COMMAND &&
@@ -519,7 +517,7 @@ void ptrace_detach_user_threads ()
       }
     }
   }
-  DPRINTF(("%d done.\n", GETTID()));
+  DPRINTF("%d done.\n", GETTID());
 }
 
 void ptrace_lock_inferiors()
@@ -629,7 +627,7 @@ char procfs_state(int tid) {
   sprintf(name, "/proc/%d/stat", tid);
   int fd = open(name, O_RDONLY, 0);
   if (fd < 0) {
-    DPRINTF(("cannot open %s\n",name));
+    DPRINTF("cannot open %s\n",name);
     return 0;
   }
 
@@ -688,7 +686,7 @@ pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
 void read_ptrace_setoptions_file (int record_to_file, int rc) {
   int fd = open(ptrace_setoptions_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("NO setoptions file\n"));
+    DPRINTF("NO setoptions file\n");
     return;
   }
 
@@ -714,7 +712,7 @@ void read_ptrace_setoptions_file (int record_to_file, int rc) {
 void read_new_ptrace_shared_file () {
   int fd = open(new_ptrace_shared_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("no file.\n"));
+    DPRINTF("no file.\n");
     return;
   }
 
@@ -735,7 +733,7 @@ void read_new_ptrace_shared_file () {
 void read_checkpoint_threads_file () {
   int fd = open(checkpoint_threads_file, O_RDONLY);
   if (fd == -1) {
-    DPRINTF(("no file.\n"));
+    DPRINTF("no file.\n");
     return;
   }
 
@@ -786,14 +784,11 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
   }
   if (WIFSTOPPED(status)) {
     if (WSTOPSIG(status) == SIGSTOP)
-      DPRINTF(("ckpthread %d stopped by SIGSTOP\n",
-              inferior));
+      DPRINTF("ckpthread %d stopped by SIGSTOP\n", inferior);
     else  /* We should never get here. */ 
-      DPRINTF(("ckpthread %d stopped by %d\n",
-               inferior, WSTOPSIG(status)));
+      DPRINTF("ckpthread %d stopped by %d\n", inferior, WSTOPSIG(status));
   } else /* We should never get here. */
-    DPRINTF(("ckpthread %d NOT stopped by a signal\n",
-              inferior));
+    DPRINTF("ckpthread %d NOT stopped by a signal\n", inferior);
 
   if (mtcp_ptrace(PTRACE_DETACH, inferior, 0, (void*) SIGCONT) == -1) {
     MTCP_PRINTF("parent = %d child = %d failed: %s\n",
