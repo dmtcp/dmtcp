@@ -354,8 +354,8 @@ static void readfiledescrs (void)
     else if (!(statbuf.st_mode & S_IRUSR)) flags = O_WRONLY;
     tempfd = mtcp_sys_open (linkbuf, flags, 0);
     if (tempfd < 0) {
-      MTCP_PRINTF("error %d re-opening %s flags %o: %s\n",
-                  mtcp_sys_errno, linkbuf, flags, MTCP_STR_ERRNO);
+      MTCP_PRINTF("error %d re-opening %s flags %o\n",
+                  mtcp_sys_errno, linkbuf, flags);
       continue;
     }
 
