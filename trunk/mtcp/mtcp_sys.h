@@ -314,6 +314,7 @@ struct linux_dirent {
     // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
     //   otherwise.
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
+#define mtcp_sys_ftruncate(args...) mtcp_inline_syscall(ftruncate,2,args)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
 #define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
