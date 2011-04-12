@@ -320,18 +320,9 @@ void initLogsForRecordReplay()
   if (SYNC_IS_REPLAY) {
     if (!unified_log.isUnified()) {
       JTRACE ( "Merging/Unifying Logs." );
-
       //SYNC_TIMER_START(merge_logs);
       unified_log.mergeLogs(get_log_list());
       //SYNC_TIMER_STOP(merge_logs);
-
-      //SYNC_TIMER_START(patch_logs);
-      //unified_log.patchLog();
-      //SYNC_TIMER_STOP(patch_logs);
-
-      //SYNC_TIMER_START(annotate_log);
-      //unified_log.annotate();
-      //SYNC_TIMER_STOP(annotate_log);
     }
     getNextLogEntry();
   }
@@ -513,8 +504,14 @@ void getNextLogEntry()
   _real_pthread_mutex_lock(&log_index_mutex);
 
   if (unified_log.getNextEntry(currentLogEntry) == 0) {
-    JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
-      .Text ( "Ran out of log entries." );
+    static bool endOfLog = false;
+    if (unified_log.empty() == false && endOfLog == false) {
+      currentLogEntry = EMPTY_LOG_ENTRY;
+      endOfLog = true;
+    } else {
+      JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
+        .Text ( "Ran out of log entries." );
+    }
   }
 
   _real_pthread_mutex_unlock(&log_index_mutex);
