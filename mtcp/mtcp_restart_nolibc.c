@@ -724,8 +724,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     // the contents are written back to newly created replica of the shared
     // file (at the same path where it used to exist before checkpoint).
     mmappedat = mtcp_sys_mmap (area->addr, area->size, PROT_READ | PROT_WRITE, 
-                               MAP_PRIVATE | MAP_ANONYMOUS, imagefd, 
-                               area->offset);
+                               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mmappedat == MAP_FAILED) {
       MTCP_PRINTF("error %d mapping temp memory at %p\n",
                   mtcp_sys_errno, area->addr);
@@ -767,6 +766,11 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
   } else { /* else file exists */
+    /* This prevents us writing to an mmap()ed file whose length is smaller than the
+     * region in memory.  This occurred when checkpointing from within OpenMPI.
+     */
+    mtcp_sys_ftruncate(imagefd, area->size);
+
     /* Acquire read lock on the shared file before doing an mmap. See
      * detailed comments above.
      */
@@ -775,7 +779,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
   }
 
-  mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot, 
+  mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot,
                              area->flags, imagefd, area->offset);
   if (mmappedat == MAP_FAILED) {
     MTCP_PRINTF("error %d mapping %s offset %d at %p\n",
