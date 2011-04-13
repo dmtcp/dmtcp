@@ -1190,7 +1190,7 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
     }
     WRAPPER_REPLAY_END(pread);
   } else if (SYNC_IS_LOG) {
-    retval = _real_read(fd, buf, count);
+    retval = _real_pread(fd, buf, count, offset);
     if (retval > 0) {
       WRAPPER_LOG_WRITE_INTO_READ_LOG(pread, buf, retval);
     }

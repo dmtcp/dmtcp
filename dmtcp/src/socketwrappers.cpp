@@ -215,7 +215,7 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
     }
     WRAPPER_REPLAY_END(accept);
   } else if (SYNC_IS_LOG) {
-    retval = _real_accept(sockfd, addr, addrlen);
+    retval = _almost_real_accept(sockfd, addr, addrlen);
     if (retval != -1) {
       SET_FIELD2(my_entry, accept, ret_addr, *addr);
       SET_FIELD2(my_entry, accept, ret_addrlen, *addrlen);
@@ -241,7 +241,7 @@ int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
     }
     WRAPPER_REPLAY_END(accept4);
   } else if (SYNC_IS_LOG) {
-    retval = _real_accept4(sockfd, addr, addrlen, flags);
+    retval = _almost_real_accept4(sockfd, addr, addrlen, flags);
     if (retval != -1) {
       SET_FIELD2(my_entry, accept4, ret_addr, *addr);
       SET_FIELD2(my_entry, accept4, ret_addrlen, *addrlen);
