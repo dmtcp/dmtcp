@@ -226,6 +226,30 @@ static void my_free_hook (void *ptr, const void *caller)
 }
 #endif
 
+#define MMAP_WRAPPER_HEADER(name, ...)                                  \
+  void *return_addr = GET_RETURN_ADDRESS();                             \
+  if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||           \
+      jalib::Filesystem::GetProgramName() == "gdb") {                   \
+    _real_pthread_mutex_lock(&mmap_lock);                               \
+    void *retval = _real_ ## name (__VA_ARGS__);                        \
+    _real_pthread_mutex_unlock(&mmap_lock);                             \
+    UNSET_IN_MMAP_WRAPPER();                                            \
+    WRAPPER_EXECUTION_ENABLE_CKPT();                                    \
+    return retval;                                                      \
+  }                                                                     \
+  log_entry_t my_entry = create_ ## name ## _entry(my_clone_id,         \
+      name ## _event,                                                   \
+      __VA_ARGS__);                                                     \
+  void *retval;
+
+#define MMAP_WRAPPER_REPLAY_START(name)                                 \
+  WRAPPER_REPLAY_START_TYPED(void*, name);                              \
+  _real_pthread_mutex_lock(&mmap_lock);
+
+#define MMAP_WRAPPER_REPLAY_END(name)                                   \
+  _real_pthread_mutex_unlock(&mmap_lock);                               \
+  WRAPPER_REPLAY_END(name);
+
 #define MALLOC_FAMILY_WRAPPER_HEADER_TYPED(ret_type, name, ...)             \
   void *return_addr = GET_RETURN_ADDRESS();                                 \
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||               \
@@ -371,15 +395,15 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
-  MALLOC_FAMILY_WRAPPER_HEADER(mmap, addr, length, prot, flags, fd, offset);
+  MMAP_WRAPPER_HEADER(mmap, addr, length, prot, flags, fd, offset);
   if (SYNC_IS_REPLAY) {
-    MALLOC_FAMILY_WRAPPER_REPLAY_START(mmap);
+    MMAP_WRAPPER_REPLAY_START(mmap);
     JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
     addr = GET_COMMON(currentLogEntry, retval);
     flags |= MAP_FIXED;
     retval = _real_mmap (addr, length, prot, flags, fd, offset);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
-    MALLOC_FAMILY_WRAPPER_REPLAY_END(mmap);
+    MMAP_WRAPPER_REPLAY_END(mmap);
   } else if (SYNC_IS_LOG) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap (addr, length, prot, flags, fd, offset);
@@ -396,15 +420,15 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
-  MALLOC_FAMILY_WRAPPER_HEADER(mmap64, addr, length, prot, flags, fd, offset);
+  MMAP_WRAPPER_HEADER(mmap64, addr, length, prot, flags, fd, offset);
   if (SYNC_IS_REPLAY) {
-    MALLOC_FAMILY_WRAPPER_REPLAY_START(mmap64);
+    MMAP_WRAPPER_REPLAY_START(mmap64);
     JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
     addr = GET_COMMON(currentLogEntry, retval);
     flags |= MAP_FIXED;
     retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
-    MALLOC_FAMILY_WRAPPER_REPLAY_END(mmap64);
+    MMAP_WRAPPER_REPLAY_END(mmap64);
   } else if (SYNC_IS_LOG) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
