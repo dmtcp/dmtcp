@@ -2097,6 +2097,8 @@ static int test_use_compression(char *compressor, int def)
   return 1;
 }
 
+#ifdef HBICT_DELTACOMP
+
 static int
 open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path, int use_gzip)
 {
@@ -2110,6 +2112,7 @@ open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path, int use_gzip
   return open_ckpt_to_write(fd,pipe_fds,hbict_args);
 }
 
+#endif
 
 static int
 open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
@@ -2188,11 +2191,18 @@ static void checkpointeverything (void)
   int vsyscall_exists = 0;
   int forked_checkpointing = 0;
   int forked_cpid;
-  int use_compression = -1; /* decide later */
-  int use_deltacompression = -1; /* decide later */
   int pipe_fds[2]; /* for potential piping */
-  char *gzip_cmd = "gzip", *hbict_cmd = "hbict";
-  char gzip_path[MTCP_MAX_PATH], hbict_path[MTCP_MAX_PATH];
+
+  int use_compression = -1; /* decide later */
+  char *gzip_cmd = "gzip";
+  char gzip_path[MTCP_MAX_PATH];
+
+#ifdef HBICT_DELTACOMP
+  int use_deltacompression = -1; /* decide later */
+  char *hbict_cmd = "hbict";
+  char hbict_path[MTCP_MAX_PATH];
+#endif
+
   char tmpDMTCPHeaderBuf[] = "/tmp/dmtcp.XXXXXX";
   char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
   int tmpDMTCPHeaderFd = -1;
@@ -2252,31 +2262,49 @@ static void checkpointeverything (void)
     }
   }
 
-  /* 1. Test if using compression */
+  /* 1. Test if using GZIP compression */
   use_compression = test_use_compression("GZIP", 1);
-  use_deltacompression = test_use_compression("HBICT", 0);
-  /* 2. Get external compression tool path */
+
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
     MTCP_PRINTF("WARNING: gzip cannot be executed.  Compression will "
                 "not be used.\n");
     use_compression = 0;
   }
+
+#ifdef HBICT_DELTACOMP
+
+  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
+
+  /* 2. Test if using HBICT compression */
+  use_deltacompression = test_use_compression("HBICT", 1);
+
   if (use_deltacompression && mtcp_find_executable(hbict_cmd, hbict_path) == NULL) {
     mtcp_printf("WARNING: hbict cannot be executed.  Compression will "
                 "not be used.\n");
     use_deltacompression = 0;
   }
-
-  /* 3. Create pipe */
-  /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
-   *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
-   *   DMTCP doesn't directly checkpoint/restart pipes.
-   */
+  
+  /* 3. Open pipe */ 
   if ( (use_compression || use_deltacompression) && mtcp_sys_pipe(pipe_fds) == -1 ) {
     MTCP_PRINTF("WARNING: error creating pipe. Compression will "
                 "not be used.\n");
     use_compression = use_deltacompression = 0;
   }
+
+#else
+  /* 2. Open pipe */
+  if ( use_compression && mtcp_sys_pipe(pipe_fds) == -1 ) {
+    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
+                "not be used.\n");
+    use_compression = 0;
+  }
+
+#endif
+
+  /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
+   *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
+   *   DMTCP doesn't directly checkpoint/restart pipes.
+   */
   /* 4. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
@@ -2307,6 +2335,7 @@ static void checkpointeverything (void)
   tcdrain(STDOUT_FILENO);
   tcdrain(STDERR_FILENO);
 
+#ifdef HBICT_DELTACOMP
   if( use_deltacompression || use_compression ){
     /* disable SIGCHLD handling; will be restored after gzip finishes */
     struct sigaction ignore_sigchld_action;
@@ -2318,6 +2347,15 @@ static void checkpointeverything (void)
     else if (use_compression) /* fork a gzip process */
       fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
   }
+#else 
+  if( use_compression ){
+    /* disable SIGCHLD handling; will be restored after gzip finishes */
+    struct sigaction ignore_sigchld_action;
+    ignore_sigchld_action.sa_handler = SIG_IGN;
+    sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
+    fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
+  }
+#endif
 
   if (tmpDMTCPHeaderFd != -1 ) {
     char tmpBuff[1024];
@@ -2542,7 +2580,11 @@ static void checkpointeverything (void)
                 MTCP_STR_ERRNO);
     mtcp_abort ();
   }
-  if (use_compression) {
+  if (use_compression
+#ifdef HBICT_DELTACOMP
+  || use_deltacompression
+#endif
+      ) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
     if ( waitpid(mtcp_ckpt_extcomp_child_pid, NULL, 0 ) == -1 )
       /* TODO: The waitpid always fails, check why? */

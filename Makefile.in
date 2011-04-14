@@ -4,6 +4,7 @@ MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
+HBICT_DELTACOMP=@HBICT_DELTACOMP@
 PACKAGE=@PACKAGE_TARNAME@
 VERSION=@PACKAGE_VERSION@
 prefix=@prefix@
@@ -24,6 +25,11 @@ endif
 ifeq ($(PTRACE_SUPPORT),yes)
   MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
 endif
+
+ifeq ($(HBICT_DELTACOMP),yes)
+  MTCP_MAKE_FLAGS += HBICT_DELTACOMP=1
+endif
+
 
 libdir_dir := ${shell dirname ${libdir}}
 bindir_dir := ${shell dirname ${bindir}}

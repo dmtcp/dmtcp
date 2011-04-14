@@ -620,8 +620,8 @@ HAS_TCSH
 HAS_DASH
 HAS_READLINE
 PTRACE_SUPPORT
+HBICT_DELTACOMP
 PID_VIRTUALIZATION
-HBICT_DELTA_COMPRESSION
 subdirs
 ac_ct_CXX
 CXXFLAGS
@@ -1333,7 +1333,8 @@ Optional Features:
                           programs. Disable it for performance reasons or for
                           diagnosis of bugs.
   --enable-delta_compression
-                          enable delta compression facility.
+                          enable incremental/differential checkpointing using
+                          HBICT (Hash-based incremental checkpointing tool
   --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
                           (EXPERIMENTAL)
   --enable-condor-support set configure options to support Condor.
@@ -3325,6 +3326,7 @@ else
   use_unique_checkpoint_filenames=no
 fi
 
+
 # Check whether --enable-pid_virtualization was given.
 if test "${enable_pid_virtualization+set}" = set; then :
   enableval=$enable_pid_virtualization; use_pid_virt=$enableval
@@ -3334,27 +3336,28 @@ fi
 
 
 if test "$use_pid_virt" = "yes"; then
-  HBICT_DELTA_COMPRESSION=yes
+  PID_VIRTUALIZATION=yes
 
 else
-  HBICT_DELTA_COMPRESSION=no
+  PID_VIRTUALIZATION=no
 
 fi
+
 
 
 # Check whether --enable-delta_compression was given.
 if test "${enable_delta_compression+set}" = set; then :
   enableval=$enable_delta_compression; use_deltacomp=$enableval
 else
-  use_deltacomp=yes
+  use_deltacomp=no
 fi
 
 
 if test "$use_deltacomp" = "yes"; then
-  PID_VIRTUALIZATION=yes
+  HBICT_DELTACOMP=yes
 
 else
-  PID_VIRTUALIZATION=no
+  HBICT_DELTACOMP=no
 
 fi
 

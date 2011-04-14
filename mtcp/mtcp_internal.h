@@ -153,7 +153,9 @@ typedef unsigned int mtcp_segreg_t;
 #endif
 #define MAGIC_FIRST 'M'
 #define GZIP_FIRST 037
-#define HBICT_FIRST 'H'
+#ifdef HBICT_DELTACOMP
+  #define HBICT_FIRST 'H'
+#endif
 
 int STOPSIGNAL;             // signal to use to signal other threads to stop for
                             //   checkpointing
