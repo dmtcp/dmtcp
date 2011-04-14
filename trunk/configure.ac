@@ -46,6 +46,7 @@ AC_ARG_ENABLE([unique_checkpoint_filenames],
 			    checkpoint should be a unique filename.])],
             [use_unique_checkpoint_filenames=$enableval],
             [use_unique_checkpoint_filenames=no])
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
@@ -56,22 +57,24 @@ AC_ARG_ENABLE([pid_virtualization],
             [use_pid_virt=yes])
 
 if test "$use_pid_virt" = "yes"; then
-  AC_SUBST([HBICT_DELTA_COMPRESSION], [yes])
+  AC_SUBST([PID_VIRTUALIZATION], [yes])
 else
-  AC_SUBST([HBICT_DELTA_COMPRESSION], [no])
+  AC_SUBST([PID_VIRTUALIZATION], [no])
 fi
+
 
 
 AC_ARG_ENABLE([delta_compression],
             [AS_HELP_STRING([--enable-delta_compression],
-                            [enable delta compression facility.])],
+                            [enable incremental/differential checkpointing using HBICT 
+                            (Hash-based incremental checkpointing tool])],
             [use_deltacomp=$enableval],
-            [use_deltacomp=yes])
+            [use_deltacomp=no])
 
 if test "$use_deltacomp" = "yes"; then
-  AC_SUBST([PID_VIRTUALIZATION], [yes])
+  AC_SUBST([HBICT_DELTACOMP], [yes])
 else
-  AC_SUBST([PID_VIRTUALIZATION], [no])
+  AC_SUBST([HBICT_DELTACOMP], [no])
 fi
 
 

@@ -345,10 +345,12 @@ static int open_ckpt_to_read(char *filename) {
     int fds[2];
     char fc;
     char *gzip_cmd = "gzip";
-    char *hbict_cmd = "hbict";
-    char decomp_path[MTCP_MAX_PATH];
     static char *gzip_args[] = { "gzip", "-d", "-", NULL };
+#ifdef HBICT_DELTACOMP
+    char *hbict_cmd = "hbict";
     static char *hbict_args[] = { "hbict", "-r", NULL };
+#endif
+    char decomp_path[MTCP_MAX_PATH];
     static char **decomp_args;
     pid_t cpid;
 
@@ -361,7 +363,11 @@ static int open_ckpt_to_read(char *filename) {
 
     if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
         return fd;
-    else if (fc == GZIP_FIRST || fc == HBICT_FIRST){ /* Set prog_path */
+    else if (fc == GZIP_FIRST 
+#ifdef HBICT_DELTACOMP        
+        || fc == HBICT_FIRST
+#endif
+        ){ /* Set prog_path */
         if( fc == GZIP_FIRST ){
             decomp_args = gzip_args;
             if( mtcp_find_executable(gzip_cmd, decomp_path) == NULL ) {
@@ -369,7 +375,7 @@ static int open_ckpt_to_read(char *filename) {
                 abort();
             }
         }
-
+#ifdef HBICT_DELTACOMP
        	if( fc == HBICT_FIRST ){
             decomp_args = hbict_args;
             if( mtcp_find_executable(hbict_cmd, decomp_path) == NULL ) {
@@ -377,7 +383,7 @@ static int open_ckpt_to_read(char *filename) {
                 abort();
             }
         }
-
+#endif
         if (pipe(fds) == -1) {
             fputs("ERROR: Cannot create pipe to execute gunzip to decompress"
                   " checkpoint file!\n", stderr);

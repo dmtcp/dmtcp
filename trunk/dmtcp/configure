@@ -4067,6 +4067,7 @@ else
   use_deltacomp=no
 fi
 
+
 # Check whether --enable-ptrace_support was given.
 if test "${enable_ptrace_support+set}" = set; then :
   enableval=$enable_ptrace_support; use_ptrace_support=$enableval
@@ -4085,6 +4086,7 @@ if test "$use_ptrace_support" = "yes"; then
 $as_echo "#define PTRACE /**/" >>confdefs.h
 
 fi
+
 if test "$use_deltacomp" = "yes"; then
 
 $as_echo "#define HBICT_DELTACOMP /**/" >>confdefs.h
