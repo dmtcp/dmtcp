@@ -2254,7 +2254,7 @@ static void checkpointeverything (void)
 
   /* 1. Test if using compression */
   use_compression = test_use_compression("GZIP", 1);
-  use_deltacompression = test_use_compression("HBICT", 1);
+  use_deltacompression = test_use_compression("HBICT", 0);
   /* 2. Get external compression tool path */
   if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
     MTCP_PRINTF("WARNING: gzip cannot be executed.  Compression will "
@@ -2262,7 +2262,7 @@ static void checkpointeverything (void)
     use_compression = 0;
   }
   if (use_deltacompression && mtcp_find_executable(hbict_cmd, hbict_path) == NULL) {
-    mtcp_printf("WARNING: gzip cannot be executed.  Compression will "
+    mtcp_printf("WARNING: hbict cannot be executed.  Compression will "
                 "not be used.\n");
     use_deltacompression = 0;
   }
