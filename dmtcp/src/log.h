@@ -78,13 +78,18 @@ namespace dmtcp
 
     public:
       void   destroy();
+      void   unmap();
+      void   map_in(const char *path, size_t size,
+                        bool mapWithNoReserveFlag);
+      void   map_in();
       size_t currentIndex() { return _index; }
       size_t currentEntryIndex() { return _entryIndex; }
       bool   empty() { return numEntries() == 0; }
       size_t dataSize() { return _dataSize == NULL ? 0 : *_dataSize; }
       size_t numEntries() { return _numEntries == NULL ? 0 : *_numEntries; }
       bool   isUnified() { return _isUnified == NULL ? false : *_isUnified; }
-      
+      bool   isMappedIn() { return _startAddr != NULL; }
+      string getPath() { return _path; }
       void   mergeLogs(dmtcp::vector<clone_id_t> clone_ids);
 
       int    getNextEntry(log_entry_t& entry);
@@ -109,6 +114,7 @@ namespace dmtcp
       size_t  _index;
       size_t  _entryIndex;
       size_t *_size;
+      size_t _savedSize; // Only used between checkpoints
       size_t *_dataSize;
       size_t *_numEntries;
       bool   *_isUnified;

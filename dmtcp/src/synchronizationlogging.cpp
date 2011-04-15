@@ -203,7 +203,34 @@ void initializeLogNames()
       "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
 }
 
- 
+/* Unmap all open logs, if any are in memory. Return whether any were
+   unmapped. */
+bool close_all_logs()
+{
+  bool result = false;
+  dmtcp::map<clone_id_t, pthread_t>::iterator it;
+  for (it = clone_id_to_tid_table.begin();
+       it != clone_id_to_tid_table.end();
+       it++) {
+    if (clone_id_to_log_table[it->first]->isMappedIn()) {
+      clone_id_to_log_table[it->first]->unmap();
+      result = true;
+    }
+  }
+  return result;
+}
+
+void reopen_all_logs()
+{
+  dmtcp::map<clone_id_t, pthread_t>::iterator it;
+  for (it = clone_id_to_tid_table.begin();
+       it != clone_id_to_tid_table.end();
+       it++) {
+    JASSERT ( clone_id_to_log_table[it->first]->getPath().length() != 0 );
+    clone_id_to_log_table[it->first]->map_in();
+  }
+}
+
 int isUnlock(log_entry_t e)
 {
   return 0;
@@ -504,15 +531,6 @@ void getNextLogEntry()
     JTRACE ( "Switching back to record." );
     next_log_id = unified_log.numEntries();
     SET_SYNC_LOG();
-    /*
-    static bool endOfLog = false;
-    if (unified_log.empty() == false && endOfLog == false) {
-      currentLogEntry = EMPTY_LOG_ENTRY;
-      endOfLog = true;
-    } else {
-      JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
-        .Text ( "Ran out of log entries." );
-        }*/
   }
   _real_pthread_mutex_unlock(&log_index_mutex);
 }

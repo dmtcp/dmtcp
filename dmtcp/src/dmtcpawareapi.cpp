@@ -53,6 +53,10 @@ static DmtcpFunctionPointer userHookPreCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostRestart = NULL;
 
+#ifdef RECORD_REPLAY
+static bool remap_logs = false;
+#endif
+
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
@@ -207,13 +211,14 @@ int __real_dmtcpDelayCheckpointsUnlock(){
 
 void dmtcp::userHookTrampoline_preCkpt() {
 #ifdef RECORD_REPLAY
-  // Write the logs to disk, if any are in memory.
-  JTRACE ( "preCkpt, about to writeLogsToDisk." );
   char *x = getenv(ENV_VAR_LOG_REPLAY);
   // Don't call setenv() here to avoid malloc()
   x[0] = '0';
   x[1] = '\0';
-
+  JASSERT ( SYNC_IS_LOG || SYNC_IS_NOOP ).Text("Unimplemented to checkpoint "
+                                               "during replay.");
+  SET_SYNC_NOOP();
+  log_all_allocs = 0;
   // Remove the threads which aren't alive anymore.
   {
     dmtcp::map<clone_id_t, pthread_t>::iterator it;
@@ -228,6 +233,8 @@ void dmtcp::userHookTrampoline_preCkpt() {
       clone_id_to_log_table.erase(stale_clone_ids[i]);
     }
   }
+  // Write the logs to disk, if any are in memory, and unmap them.
+  remap_logs = close_all_logs();
 
 #endif
   if(userHookPreCheckpoint != NULL)
@@ -258,9 +265,14 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     // Don't call setenv() here to avoid malloc()
     x[0] = '1';
     x[1] = '\0';
-    log_all_allocs = 1;
     SET_SYNC_LOG();
-    initLogsForRecordReplay();
+    if (remap_logs) {
+      // True on any checkpoint but the first.
+      reopen_all_logs();
+    } else {
+      initLogsForRecordReplay();
+    }
+    log_all_allocs = 1;
 #endif
     numCheckpoints++;
     if(userHookPostCheckpoint != NULL)
