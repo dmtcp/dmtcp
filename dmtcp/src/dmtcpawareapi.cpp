@@ -246,9 +246,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     x[0] = '2';
     x[1] = '\0';
     SET_SYNC_REPLAY();
-
     initLogsForRecordReplay();
-
     log_all_allocs = 1;
 #endif
     numRestarts++;
@@ -262,9 +260,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
     x[1] = '\0';
     log_all_allocs = 1;
     SET_SYNC_LOG();
-
     initLogsForRecordReplay();
-
 #endif
     numCheckpoints++;
     if(userHookPostCheckpoint != NULL)

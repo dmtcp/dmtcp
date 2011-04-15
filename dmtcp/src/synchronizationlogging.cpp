@@ -479,7 +479,6 @@ void prepareNextLogEntry(log_entry_t& e)
     JASSERT (false).Text("Asked to log an event while in replay. "
         "This is probably not intended.");
   }
-
   JASSERT(GET_COMMON(e, log_id) == (log_id_t)-1) (GET_COMMON(e, log_id));
   log_id_t log_id = get_next_log_id();
   SET_COMMON2(e, log_id, log_id);
@@ -500,10 +499,12 @@ void getNextLogEntry()
   if (unified_log.numEntries() == 0) {
     return;
   }
-
   _real_pthread_mutex_lock(&log_index_mutex);
-
   if (unified_log.getNextEntry(currentLogEntry) == 0) {
+    JTRACE ( "Switching back to record." );
+    next_log_id = unified_log.numEntries();
+    SET_SYNC_LOG();
+    /*
     static bool endOfLog = false;
     if (unified_log.empty() == false && endOfLog == false) {
       currentLogEntry = EMPTY_LOG_ENTRY;
@@ -511,9 +512,8 @@ void getNextLogEntry()
     } else {
       JASSERT (false) (unified_log.currentEntryIndex()) (unified_log.numEntries())
         .Text ( "Ran out of log entries." );
-    }
+        }*/
   }
-
   _real_pthread_mutex_unlock(&log_index_mutex);
 }
 
