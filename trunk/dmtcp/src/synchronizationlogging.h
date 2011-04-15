@@ -54,9 +54,11 @@ namespace dmtcp { class SynchronizationLog; }
 #define WAKE_ALL_THREADS -1
 #define SYNC_IS_REPLAY    (sync_logging_branch == 2)
 #define SYNC_IS_LOG       (sync_logging_branch == 1)
+#define SYNC_IS_NOOP      (sync_logging_branch == 0)
 #define SYNC_IS_RECORD    SYNC_IS_LOG
 #define SET_SYNC_REPLAY() (sync_logging_branch = 2)
 #define SET_SYNC_LOG()    (sync_logging_branch = 1)
+#define SET_SYNC_NOOP()   (sync_logging_branch = 0)
 #define GET_RETURN_ADDRESS() __builtin_return_address(0)
 #define SET_IN_MMAP_WRAPPER()   (in_mmap_wrapper = 1)
 #define UNSET_IN_MMAP_WRAPPER() (in_mmap_wrapper = 0)
@@ -1506,6 +1508,8 @@ LIB_PRIVATE void   addNextLogEntry(log_entry_t&);
 LIB_PRIVATE void   prepareNextLogEntry(log_entry_t& e);
 LIB_PRIVATE void   atomic_increment(volatile int *ptr);
 LIB_PRIVATE void   atomic_decrement(volatile int *ptr);
+LIB_PRIVATE bool   close_all_logs();
+LIB_PRIVATE void   reopen_all_logs();
 LIB_PRIVATE void   copyFdSet(fd_set *src, fd_set *dest);
 LIB_PRIVATE int    fdAvailable(fd_set *set);
 LIB_PRIVATE int    fdSetDiff(fd_set *one, fd_set *two);

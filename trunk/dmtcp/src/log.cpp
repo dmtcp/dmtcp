@@ -95,39 +95,8 @@ void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
   JASSERT(_entryIndex == 0);
   JASSERT(_numEntries == NULL);
   JASSERT(_isUnified == NULL);
-
-  //JASSERT(path != NULL);
-
-  int fd = _real_open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-  JASSERT(path==NULL || fd != -1);
-
-  JASSERT(fd == -1 || _real_lseek(fd, size, SEEK_SET) == (off_t)size);
-  if (fd != -1) Util::writeAll(fd, "", 1);
-
-  // FIXME: Instead of MAP_NORESERVE, we may also choose to back it with
-  // /dev/null which would also _not_ allocate pages until needed.
-  int mmapProt = PROT_READ | PROT_WRITE;
-  int mmapFlags;
-
-  if (fd != -1)
-    mmapFlags = MAP_SHARED;
-  else
-    mmapFlags = MAP_PRIVATE | MAP_ANONYMOUS;
-
-  if (mapWithNoReserveFlag) {
-    mmapFlags |= MAP_NORESERVE;
-  }
-
-  SET_IN_MMAP_WRAPPER();
-  _startAddr = (char*) _real_mmap(0, size, mmapProt, mmapFlags, fd, 0);
-  UNSET_IN_MMAP_WRAPPER();
-
-  JASSERT(_startAddr != MAP_FAILED) (JASSERT_ERRNO);
-
-  _real_close(fd);
-
-  _path = path == NULL ? "" : path;
-  init_common(size);
+  /* map_in calls init_common if appropriate. */
+  map_in(path, size, mapWithNoReserveFlag);
 }
 
 void dmtcp::SynchronizationLog::init_common(size_t size)
@@ -152,7 +121,7 @@ void dmtcp::SynchronizationLog::init_common(size_t size)
 void dmtcp::SynchronizationLog::destroy()
 {
   if (_startAddr != NULL) {
-    JASSERT(_real_munmap(_startAddr, *_size) == 0) (JASSERT_ERRNO) (*_size) (_startAddr);
+    unmap();
   }
   _startAddr = _log = NULL;
   _path = "";
@@ -162,6 +131,72 @@ void dmtcp::SynchronizationLog::destroy()
   _dataSize = NULL;
   _numEntries = NULL;
   _isUnified = NULL;
+}
+
+void dmtcp::SynchronizationLog::unmap()
+{
+  if (_startAddr == NULL) {
+    return;
+  }
+  // Save the size in case we want to remap after this unmap:
+  _savedSize = *_size; 
+  JASSERT(_real_munmap(_startAddr, *_size) == 0) (JASSERT_ERRNO) (*_size) (_startAddr);
+}
+
+void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
+                                       bool mapWithNoReserveFlag)
+{
+  bool created = false;
+  if (stat(path, NULL) == -1 && errno == ENOENT) {
+    created = true;
+    /* Make sure to clear old state, if this is not the first checkpoint.
+       This case can happen (not first checkpoint, but create the log file)
+       if log files have been moved or deleted. */
+    _startAddr = NULL;
+    destroy();
+  }
+  int fd = _real_open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+  JASSERT(path==NULL || fd != -1);
+  JASSERT(fd == -1 || _real_lseek(fd, size, SEEK_SET) == (off_t)size);
+  if (fd != -1) Util::writeAll(fd, "", 1);
+  // FIXME: Instead of MAP_NORESERVE, we may also choose to back it with
+  // /dev/null which would also _not_ allocate pages until needed.
+  int mmapProt = PROT_READ | PROT_WRITE;
+  int mmapFlags;
+  if (fd != -1) {
+    mmapFlags = MAP_SHARED;
+  } else {
+    mmapFlags = MAP_PRIVATE | MAP_ANONYMOUS;
+  }
+  if (mapWithNoReserveFlag) {
+    mmapFlags |= MAP_NORESERVE;
+  }
+  SET_IN_MMAP_WRAPPER();
+  /* _startAddr may not be null if this is not the first checkpoint. */
+  if (_startAddr == NULL) {
+    _startAddr = (char*) _real_mmap(0, size, mmapProt, mmapFlags, fd, 0);
+  } else {
+    void *retval = (char*) _real_mmap(_startAddr, size, mmapProt,
+                                      mmapFlags | MAP_FIXED, fd, 0);
+    JASSERT ( retval == (void *)_startAddr );
+  }
+  UNSET_IN_MMAP_WRAPPER();
+  JASSERT(_startAddr != MAP_FAILED) (JASSERT_ERRNO);
+  _real_close(fd);
+  _path = path == NULL ? "" : path;
+  if (created || _size == NULL) {
+    /* We either had to create the file, or this is the first checkpoint. */
+    init_common(size);
+  }
+}
+
+void dmtcp::SynchronizationLog::map_in()
+{
+  char path_copy[RECORD_LOG_PATH_MAX] = {'\0'};
+  strncpy(path_copy, _path.c_str(), RECORD_LOG_PATH_MAX);
+  /* We don't want to pass a pointer to _path, because that could be reset
+     as part of a subsequent call to destroy(). */
+  map_in(path_copy, _savedSize, false);
 }
 
 int dmtcp::SynchronizationLog::getNextEntry(log_entry_t& entry)
