@@ -53,8 +53,8 @@ BUFFER_SIZE=4096*8
 #False redirects process stderr
 VERBOSE=False
 
-#Run (most) tests with gzip enable 
-GZIP="1"
+#Run (most) tests with user default (usually with gzip enable)
+GZIP=os.getenv('DMTCP_GZIP') or "1"
 
 #Warn cant create a file of size:
 REQUIRE_MB=50
