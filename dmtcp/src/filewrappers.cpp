@@ -741,7 +741,7 @@ static int _almost_real_fprintf(FILE *stream, const char *format, va_list arg)
     WRAPPER_REPLAY(fprintf);
     /* If we're writing to stdout, we want to see the data to screen.
      * Thus execute the real system call. */
-    if (stream == stdout) {
+    if (stream == stdout || stream == stderr) {
       retval = vfprintf(stream, format, arg);
     }
   } else if (SYNC_IS_LOG) {
@@ -1318,6 +1318,18 @@ extern "C" int mkstemp(char *temp)
 
 extern "C" int fflush(FILE *stream)
 {
-  BASIC_SYNC_WRAPPER(int, fflush, _real_fflush, stream);
+  WRAPPER_HEADER(int, fflush, _real_fflush, stream);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY(fflush);
+    /* If the stream is stdout, we want to see the data to screen.
+     * Thus execute the real system call. */
+    if (stream == stdout || stream == stderr) {
+      retval = _real_fflush(stream);
+    }
+  } else if (SYNC_IS_LOG) {
+    retval = _real_fflush(stream);
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 }
 #endif //RECORD_REPLAY
