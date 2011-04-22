@@ -79,8 +79,11 @@ void dmtcp::SynchronizationLog::init2(clone_id_t clone_id, size_t size,
                                       bool mapWithNoReserveFlag)
 {
   char buf[RECORD_LOG_PATH_MAX];
+#ifdef __x86_64__
   snprintf(buf, RECORD_LOG_PATH_MAX, "%s_%Ld", RECORD_LOG_PATH, clone_id);
-
+#else
+  snprintf(buf, RECORD_LOG_PATH_MAX, "%s_%ld", RECORD_LOG_PATH, clone_id);
+#endif
   init3(buf, size, mapWithNoReserveFlag);
   _cloneId = clone_id;
 }
@@ -147,7 +150,8 @@ void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
                                        bool mapWithNoReserveFlag)
 {
   bool created = false;
-  if (stat(path, NULL) == -1 && errno == ENOENT) {
+  struct stat buf;
+  if (stat(path, &buf) == -1 && errno == ENOENT) {
     created = true;
     /* Make sure to clear old state, if this is not the first checkpoint.
        This case can happen (not first checkpoint, but create the log file)
