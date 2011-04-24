@@ -38,8 +38,7 @@ extern int dmtcp_exists;
 
 __attribute__ ((weak))
 _real_sigaction (int sig, const struct sigaction *act, struct sigaction *oact) {
-  printf("mtcp internal error:\n"
-	 "  __FILE__:__FUNCTION__() should never be called.\n");
+  MTCP_PRINTF("This function should never be called when running with DMTCP.\n");
   abort();
 }
 
