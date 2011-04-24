@@ -671,8 +671,8 @@ void mtcp_init (char const *checkpointfilename,
     tls_tid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_TID_OFFSET());
 
     if ((tls_pid != motherpid) || (tls_tid != motherpid)) {
-      MTCP_PRINTF ("getpid %d, tls pid %d, tls tid %d, must all match\n",
-                    motherpid, tls_pid, tls_tid);
+      MTCP_PRINTF("getpid %d, tls pid %d, tls tid %d, must all match\n",
+                  motherpid, tls_pid, tls_tid);
       mtcp_abort ();
     }
   }
@@ -693,29 +693,25 @@ void mtcp_init (char const *checkpointfilename,
    * MTCP_DEFAULT_SIGNAL */
 
   tmp = getenv("MTCP_SIGCKPT");
-  if (tmp == NULL)
+  if (tmp == NULL) {
       STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
-  else
-  {
-      errno = 0;
-      STOPSIGNAL = strtol(tmp, &endp, 0);
+  } else {
+    errno = 0;
+    STOPSIGNAL = strtol(tmp, &endp, 0);
 
-      if ((errno != 0) || (tmp == endp))
-      {
-          MTCP_PRINTF("Your chosen SIGCKPT of \"%s\" does not "
-                        "translate to a number,\n"
-			"  and cannot be used.  Signal %d "
-                        "will be used instead.\n", tmp, MTCP_DEFAULT_SIGNAL);
-          STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
-      }
-      else if (STOPSIGNAL < 1 || STOPSIGNAL > 31)
-      {
-          MTCP_PRINTF("Your chosen SIGCKPT of \"%d\" is not a valid "
-                        "signal, and cannot be used.\n"
-			"  Signal %d will be used instead.\n",
-		       STOPSIGNAL, MTCP_DEFAULT_SIGNAL);
-          STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
-      }
+    if ((errno != 0) || (tmp == endp)) {
+      MTCP_PRINTF("Your chosen SIGCKPT of \"%s\" does not "
+                  "translate to a number,\n"
+                  "  and cannot be used.  Signal %d "
+                  "will be used instead.\n", tmp, MTCP_DEFAULT_SIGNAL);
+      STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
+    } else if (STOPSIGNAL < 1 || STOPSIGNAL > 31) {
+      MTCP_PRINTF("Your chosen SIGCKPT of \"%d\" is not a valid "
+                  "signal, and cannot be used.\n"
+                  "  Signal %d will be used instead.\n",
+                  STOPSIGNAL, MTCP_DEFAULT_SIGNAL);
+      STOPSIGNAL = MTCP_DEFAULT_SIGNAL;
+    }
   }
 
   /* Set up signal handler so we can interrupt the thread for checkpointing */
@@ -975,10 +971,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       mtcp_state_init(&thread->state, ST_RUNDISABLED);
     }
 
-    DPRINTF("calling clone thread=%p,"
-	    " fn=%p, flags=0x%X\n", thread, fn, flags);
-    DPRINTF("parent_tidptr=%p, newtls=%p,"
-	    " child_tidptr=%p\n", parent_tidptr, newtls, child_tidptr);
+    DPRINTF("calling clone thread=%p, fn=%p, flags=0x%X\n", thread, fn, flags);
+    DPRINTF("parent_tidptr=%p, newtls=%p, child_tidptr=%p\n",
+            parent_tidptr, newtls, child_tidptr);
     //asm volatile ("int3");
 
     /* Save exactly what the caller is supplying */
@@ -997,8 +992,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       child_tidptr = &(thread -> child_tid);
     }
     thread -> actual_tidptr = child_tidptr;
-    DPRINTF("thread %p -> actual_tidptr %p\n",
-            thread, thread -> actual_tidptr);
+    DPRINTF("thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr);
 
     /* Alter call parameters, forcing CLEARTID and make it call the wrapper
      * routine
@@ -1235,8 +1229,7 @@ static void setup_clone_entry (void)
   tmp = getenv ("MTCP_WRAPPER_LIBC_SO");
   if (tmp != NULL) {
     if (strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
-      MTCP_PRINTF("libc area name (%s) too long (>=1024 chars)\n",
-                  tmp);
+      MTCP_PRINTF("libc area name (%s) too long (>=1024 chars)\n", tmp);
       mtcp_abort();
     }
     strncpy (mtcp_libc_area.name, tmp, sizeof mtcp_libc_area.name);
@@ -1812,7 +1805,7 @@ again:
                 if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
                   if (mtcp_sys_errno != ESRCH) {
                     MTCP_PRINTF("error signalling thread %d: %s\n",
-                                 thread -> tid, strerror(mtcp_sys_errno));
+                                thread -> tid, strerror(mtcp_sys_errno));
                   }
                   unlk_threads();
                   threadisdead(thread);
@@ -2166,7 +2159,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     (*libc_execvp)(extcomp_args[0], extcomp_args);
 
     /* should not arrive here */
-    MTCP_PRINTF("ERROR: compression failed!  No checkpointing will be"
+    MTCP_PRINTF("ERROR: compression failed!  No checkpointing will be "
                 "performed!  Cancel now!\n");
     mtcp_sys_exit(1);
   }
@@ -2286,8 +2279,7 @@ static void checkpointeverything (void)
   
   /* 3. Open pipe */ 
   if ( (use_compression || use_deltacompression) && mtcp_sys_pipe(pipe_fds) == -1 ) {
-    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
-                "not be used.\n");
+    MTCP_PRINTF("WARNING: error creating pipe. Compression will " "not be used.\n");
     use_compression = use_deltacompression = 0;
   }
 
