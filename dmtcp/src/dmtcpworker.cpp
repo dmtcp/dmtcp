@@ -370,7 +370,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     memfence();
     waitForExecBarrier();
     getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     addNextLogEntry(my_entry);
   }
 #endif

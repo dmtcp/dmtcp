@@ -226,7 +226,7 @@ static int internal_pthread_mutex_lock(pthread_mutex_t *mutex)
       *mutex = GET_FIELD(currentLogEntry, pthread_mutex_lock, mutex);
     }
     WRAPPER_REPLAY_END(pthread_mutex_lock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_mutex_lock(mutex);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_mutex_lock, mutex, *mutex);
@@ -252,7 +252,7 @@ static int internal_pthread_mutex_unlock(pthread_mutex_t *mutex)
       *mutex = GET_FIELD(currentLogEntry, pthread_mutex_lock, mutex);
     }
     WRAPPER_REPLAY_END(pthread_mutex_unlock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     WRAPPER_LOG_SET_LOG_ID(my_entry);
     retval = _real_pthread_mutex_unlock(mutex);
     if (retval == 0) {
@@ -278,7 +278,7 @@ static int internal_pthread_cond_signal(pthread_cond_t *cond)
       *cond = GET_FIELD(my_entry, pthread_cond_signal, cond);
     }
     WRAPPER_REPLAY_END(pthread_cond_signal);
-  } else  if (SYNC_IS_LOG) {
+  } else  if (SYNC_IS_RECORD) {
     retval = _real_pthread_cond_signal(cond);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_signal, cond, *cond);
@@ -305,7 +305,7 @@ static int internal_pthread_cond_wait(pthread_cond_t *cond,
       *mutex = GET_FIELD(my_entry, pthread_cond_wait, mutex);
     }
     WRAPPER_REPLAY_END(pthread_cond_wait);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_cond_wait(cond, mutex);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_wait, cond, *cond);
@@ -370,7 +370,7 @@ static int internal_pthread_create(pthread_t *thread,
     RELEASE_THREAD_CREATE_DESTROY_LOCK();
     pthread_attr_destroy(&the_attr);
 
-  } else  if (SYNC_IS_LOG) {
+  } else  if (SYNC_IS_RECORD) {
     // Log annotation on the fly.
     size_t savedOffset = my_log->dataSize();
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
@@ -424,7 +424,7 @@ extern "C" int pthread_mutex_trylock(pthread_mutex_t *mutex)
       *mutex = GET_FIELD(my_entry, pthread_mutex_trylock, mutex);
     }
     WRAPPER_REPLAY_END(pthread_mutex_trylock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_mutex_trylock(mutex);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_mutex_trylock, mutex, *mutex);
@@ -462,7 +462,7 @@ extern "C" int pthread_cond_broadcast(pthread_cond_t *cond)
       *cond = GET_FIELD(my_entry, pthread_cond_broadcast, cond);
     }
     WRAPPER_REPLAY_END(pthread_cond_broadcast);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_cond_broadcast(cond);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_broadcast, cond, *cond);
@@ -496,7 +496,7 @@ extern "C" int pthread_cond_timedwait(pthread_cond_t *cond,
       *mutex = GET_FIELD(my_entry, pthread_cond_timedwait, mutex);
     }
     WRAPPER_REPLAY_END(pthread_cond_timedwait);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_cond_timedwait(cond, mutex, abstime);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_timedwait, cond, *cond);
@@ -517,7 +517,7 @@ extern "C" int pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
       *rwlock = GET_FIELD(my_entry, pthread_rwlock_unlock, rwlock);
     }
     WRAPPER_REPLAY_START(pthread_rwlock_unlock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     WRAPPER_LOG_SET_LOG_ID(my_entry);
     retval = _real_pthread_rwlock_unlock(rwlock);
     if (retval == 0) {
@@ -538,7 +538,7 @@ extern "C" int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
       *rwlock = GET_FIELD(my_entry, pthread_rwlock_rdlock, rwlock);
     }
     WRAPPER_REPLAY_START(pthread_rwlock_rdlock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_rwlock_rdlock(rwlock);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_rwlock_rdlock, rwlock, *rwlock);
@@ -558,7 +558,7 @@ extern "C" int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
       *rwlock = GET_FIELD(my_entry, pthread_rwlock_wrlock, rwlock);
     }
     WRAPPER_REPLAY_START(pthread_rwlock_wrlock);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pthread_rwlock_wrlock(rwlock);
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_rwlock_wrlock, rwlock, *rwlock);
@@ -683,7 +683,7 @@ extern "C" void pthread_exit(void *value_ptr)
     ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
     reapThisThread();
     _real_pthread_exit(value_ptr);
-  } else  if (SYNC_IS_LOG) {
+  } else  if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
@@ -701,7 +701,7 @@ extern "C" int pthread_detach(pthread_t thread)
     waitForTurn(my_entry, &pthread_detach_turn_check);
     getNextLogEntry();
     retval = 0;
-  } else  if (SYNC_IS_LOG) {
+  } else  if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = 0;
@@ -751,7 +751,7 @@ extern "C" int pthread_kill(pthread_t thread, int sig)
     getNextLogEntry();
     // TODO: Do something better than always returning success.
     retval = 0;//_real_pthread_kill(thread, sig);
-  } else  if (SYNC_IS_LOG) {
+  } else  if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = _real_pthread_kill(thread, sig);
@@ -764,7 +764,7 @@ extern "C" int rand()
   WRAPPER_HEADER_NO_ARGS(int, rand, _real_rand);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY(rand);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_rand();
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
@@ -787,7 +787,7 @@ extern "C" time_t time(time_t *tloc)
       *tloc = GET_FIELD(my_entry, time, time_retval);
     }
     WRAPPER_REPLAY_END(time);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_time(tloc);
     SET_FIELD2(my_entry, time, time_retval, retval);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
@@ -807,7 +807,7 @@ extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
       *tz = GET_FIELD(my_entry, gettimeofday, tz_val);
     }
     WRAPPER_REPLAY_END(time);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_gettimeofday(tv, tz);
     if (retval == 0 && tv != NULL) {
       SET_FIELD2(my_entry, gettimeofday, tv_val, *tv);

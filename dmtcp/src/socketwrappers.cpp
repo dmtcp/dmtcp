@@ -214,7 +214,7 @@ int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
       *addrlen = GET_FIELD(currentLogEntry, accept, ret_addrlen);
     }
     WRAPPER_REPLAY_END(accept);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _almost_real_accept(sockfd, addr, addrlen);
     if (retval != -1) {
       SET_FIELD2(my_entry, accept, ret_addr, *addr);
@@ -240,7 +240,7 @@ int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
       *addrlen = GET_FIELD(currentLogEntry, accept4, ret_addrlen);
     }
     WRAPPER_REPLAY_END(accept4);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _almost_real_accept4(sockfd, addr, addrlen, flags);
     if (retval != -1) {
       SET_FIELD2(my_entry, accept4, ret_addr, *addr);
@@ -279,7 +279,7 @@ int getsockname ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
       *addrlen = GET_FIELD(currentLogEntry, getsockname, ret_addrlen);
     }
     WRAPPER_REPLAY_END(getsockname);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_getsockname(sockfd, addr, addrlen);
     if (retval != -1) {
       SET_FIELD2(my_entry, getsockname, ret_addr, *addr);
@@ -303,7 +303,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
       *addrlen = GET_FIELD(currentLogEntry, getpeername, ret_addrlen);
     }
     WRAPPER_REPLAY_END(getpeername);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_getpeername(sockfd, addr, addrlen);
     if (retval != -1) {
       SET_FIELD2(my_entry, getpeername, ret_addr, *addr);

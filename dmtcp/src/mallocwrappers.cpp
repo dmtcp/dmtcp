@@ -289,7 +289,7 @@ static void my_free_hook (void *ptr, const void *caller)
         kill(getpid(), SIGSEGV);                                            \
       }                                                                     \
       MALLOC_FAMILY_WRAPPER_REPLAY_END(name);                               \
-    } else if (SYNC_IS_LOG) {                                               \
+    } else if (SYNC_IS_RECORD) {                                               \
       _real_pthread_mutex_lock(&allocation_lock);                           \
       retval = _real_ ## name(__VA_ARGS__);                                 \
       WRAPPER_LOG_WRITE_ENTRY(my_entry);                                    \
@@ -362,7 +362,7 @@ extern "C" void free(void *ptr)
     MALLOC_FAMILY_WRAPPER_REPLAY_START(free);
     _real_free(ptr);
     MALLOC_FAMILY_WRAPPER_REPLAY_END(free);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);
     _real_free(ptr);
@@ -404,7 +404,7 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
     retval = _real_mmap (addr, length, prot, flags, fd, offset);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
     MMAP_WRAPPER_REPLAY_END(mmap);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap (addr, length, prot, flags, fd, offset);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
@@ -429,7 +429,7 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
     retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
     MMAP_WRAPPER_REPLAY_END(mmap64);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
@@ -451,7 +451,7 @@ extern "C" int munmap(void *addr, size_t length)
     JASSERT ( retval == (int)(unsigned long)GET_COMMON(currentLogEntry, retval) );
     _real_pthread_mutex_unlock(&allocation_lock);
     WRAPPER_REPLAY_END(munmap);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_munmap (addr, length);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
@@ -479,7 +479,7 @@ extern "C" void *mremap(void *old_address, size_t old_size,
     retval = _real_mremap (old_address, old_size, new_size, flags, addr);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
     MALLOC_FAMILY_WRAPPER_REPLAY_END(mremap);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mremap (old_address, old_size, new_size, flags, new_address);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);

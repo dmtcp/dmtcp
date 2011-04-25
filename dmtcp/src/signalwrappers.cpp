@@ -131,7 +131,7 @@ if (!shouldSynchronize(return_addr)) {
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY(signal_handler);
     (*user_sig_handlers[sig]) (sig);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     (*user_sig_handlers[sig]) (sig);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
@@ -324,7 +324,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
       *sig = GET_FIELD(currentLogEntry, sigwait, sig);
     }
     WRAPPER_REPLAY_END(sigwait);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_sigwait(set, sig);
     if (sig != NULL) {
       SET_FIELD2(my_entry, sigwait, sig, *sig);

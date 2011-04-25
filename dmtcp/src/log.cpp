@@ -63,11 +63,12 @@ void dmtcp::SynchronizationLog::initOnThreadCreation(size_t size)
 }
 
 void dmtcp::SynchronizationLog::initForCloneId(clone_id_t clone_id,
-                                                         size_t size)
+                                               bool register_globally)
 {
+  size_t size = MAX_LOG_LENGTH;
   bool mapWithNoReserveFlag = SYNC_IS_REPLAY;
   init2(clone_id, size, mapWithNoReserveFlag);
-  if (SYNC_IS_RECORD) {
+  if (SYNC_IS_RECORD && register_globally) {
     register_in_global_log_list(clone_id);
   }
 
@@ -94,6 +95,7 @@ void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
   JASSERT(_startAddr == NULL);
   JASSERT(_log == NULL);
   JASSERT(_index == 0);
+  JASSERT(_size == NULL);
   JASSERT(_dataSize == NULL);
   JASSERT(_entryIndex == 0);
   JASSERT(_numEntries == NULL);
@@ -104,10 +106,6 @@ void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
 
 void dmtcp::SynchronizationLog::init_common(size_t size)
 {
-  if (SYNC_IS_RECORD) {
-    memset(_startAddr, 0, 4096);
-  }
-
   JASSERT(sizeof (LogMetadata) < LOG_OFFSET_FROM_START) (sizeof(LogMetadata));
 
   LogMetadata *metadata = (LogMetadata *) _startAddr;
@@ -149,6 +147,7 @@ void dmtcp::SynchronizationLog::unmap()
 void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
                                        bool mapWithNoReserveFlag)
 {
+#if 0
   bool created = false;
   struct stat buf;
   if (stat(path, &buf) == -1 && errno == ENOENT) {
@@ -159,6 +158,7 @@ void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
     _startAddr = NULL;
     destroy();
   }
+#endif
   int fd = _real_open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   JASSERT(path==NULL || fd != -1);
   JASSERT(fd == -1 || _real_lseek(fd, size, SEEK_SET) == (off_t)size);
@@ -188,10 +188,14 @@ void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
   JASSERT(_startAddr != MAP_FAILED) (JASSERT_ERRNO);
   _real_close(fd);
   _path = path == NULL ? "" : path;
+#if 0
   if (created || _size == NULL) {
     /* We either had to create the file, or this is the first checkpoint. */
     init_common(size);
   }
+#else
+  init_common(size);
+#endif
 }
 
 void dmtcp::SynchronizationLog::map_in()
@@ -240,7 +244,6 @@ int dmtcp::SynchronizationLog::getEntryAtOffset(log_entry_t& entry, size_t index
 
 int dmtcp::SynchronizationLog::appendEntry(const log_entry_t& entry)
 {
-  JASSERT(_index == 0 && _entryIndex == 0);
   ssize_t entrySize = writeEntryAtOffset(entry, *_dataSize);
   *_dataSize += entrySize;
   *_numEntries += 1;
@@ -264,6 +267,13 @@ void dmtcp::SynchronizationLog::replaceEntryAtOffset(const log_entry_t& entry,
           IS_EQUAL_FIELD(entry, old_entry, pthread_create, arg));
 
   writeEntryAtOffset(entry, index);
+}
+
+/* Move appropriate markers to the end, so that we enter "append" mode. */
+void dmtcp::SynchronizationLog::moveMarkersToEnd()
+{
+  _index = *_dataSize;
+  _entryIndex = *_numEntries;
 }
 
 int dmtcp::SynchronizationLog::writeEntryAtOffset(const log_entry_t& entry,
@@ -352,17 +362,26 @@ void dmtcp::SynchronizationLog::writeEntryHeaderAtOffset(const log_entry_t& entr
 
 void dmtcp::SynchronizationLog::mergeLogs(dmtcp::vector<clone_id_t> clone_ids)
 {
-  dmtcp::vector<dmtcp::SynchronizationLog> sync_logs;
+  /* We can use dynamic allocation here AS LONG AS the net effect on the memory
+     layout or usage is zero. In other words, free() what you malloc() and
+     'delete' what you 'new' before returning from this function. */
+  dmtcp::vector<dmtcp::SynchronizationLog *> sync_logs;
   dmtcp::vector<log_entry_t> curr_entries;
   log_entry_t entry;
-
   size_t num_entries = 0;
   for (size_t i = 0; i < clone_ids.size(); i++) {
-    dmtcp::SynchronizationLog slog;
-    slog.initForCloneId(clone_ids[i]);
-    JTRACE("Entries for this thread") (clone_ids[i]) (slog.numEntries());
-    slog.getNextEntry(entry);
-    num_entries += slog.numEntries();
+    dmtcp::SynchronizationLog *slog = NULL;
+    if (clone_id_to_log_table.find(clone_ids[i]) != clone_id_to_log_table.end()
+        && clone_id_to_log_table[clone_ids[i]]->isMappedIn()) {
+      // Don't map it in again if it's already present.
+      slog = clone_id_to_log_table[clone_ids[i]];
+    } else {
+      slog = new dmtcp::SynchronizationLog();
+      slog->initForCloneId(clone_ids[i], true);
+    }
+    JTRACE("Entries for this thread") (clone_ids[i]) (slog->numEntries());
+    slog->getNextEntry(entry);
+    num_entries += slog->numEntries();
     sync_logs.push_back(slog);
     curr_entries.push_back(entry);
   }
@@ -391,12 +410,22 @@ void dmtcp::SynchronizationLog::mergeLogs(dmtcp::vector<clone_id_t> clone_ids)
       if (GET_COMMON(curr_entries[i], log_id) == entry_index &&
           GET_COMMON(curr_entries[i], clone_id) != 0) {
         appendEntry(curr_entries[i]);
-        sync_logs[i].getNextEntry(entry);
+        sync_logs[i]->getNextEntry(entry);
         curr_entries[i] = entry;
         entry_index++;
       }
     }
   }
+  for (size_t i = 0; i < clone_ids.size(); i++) {
+    // Only delete if we called new.
+    if (clone_id_to_log_table.find(clone_ids[i]) == clone_id_to_log_table.end()
+        || ! clone_id_to_log_table[clone_ids[i]]->isMappedIn()) {
+      sync_logs[i]->destroy();
+      delete sync_logs[i];
+    }
+  }
+  
+  *_isUnified = true;
   resetIndex();
 }
 

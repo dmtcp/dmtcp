@@ -211,14 +211,12 @@ int __real_dmtcpDelayCheckpointsUnlock(){
 
 void dmtcp::userHookTrampoline_preCkpt() {
 #ifdef RECORD_REPLAY
-  char *x = getenv(ENV_VAR_LOG_REPLAY);
-  // Don't call setenv() here to avoid malloc()
-  x[0] = '0';
-  x[1] = '\0';
-  JASSERT ( SYNC_IS_LOG || SYNC_IS_NOOP ).Text("Unimplemented to checkpoint "
+  JASSERT ( SYNC_IS_RECORD || SYNC_IS_NOOP ).Text("Unimplemented to checkpoint "
                                                "during replay.");
-  SET_SYNC_NOOP();
+  set_sync_mode(SYNC_NOOP);
   log_all_allocs = 0;
+  // Write the logs to disk, if any are in memory, and unmap them.
+  close_all_logs();
   // Remove the threads which aren't alive anymore.
   {
     dmtcp::map<clone_id_t, pthread_t>::iterator it;
@@ -233,9 +231,6 @@ void dmtcp::userHookTrampoline_preCkpt() {
       clone_id_to_log_table.erase(stale_clone_ids[i]);
     }
   }
-  // Write the logs to disk, if any are in memory, and unmap them.
-  remap_logs = close_all_logs();
-
 #endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
@@ -248,11 +243,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
 #endif
   if(isRestart){
 #ifdef RECORD_REPLAY
-    char *x = getenv(ENV_VAR_LOG_REPLAY);
-    // Don't call setenv() here to avoid malloc()
-    x[0] = '2';
-    x[1] = '\0';
-    SET_SYNC_REPLAY();
+    set_sync_mode(SYNC_REPLAY);
     initLogsForRecordReplay();
     log_all_allocs = 1;
 #endif
@@ -261,17 +252,8 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       (*userHookPostRestart)();
   }else{
 #ifdef RECORD_REPLAY
-    char *x = getenv(ENV_VAR_LOG_REPLAY);
-    // Don't call setenv() here to avoid malloc()
-    x[0] = '1';
-    x[1] = '\0';
-    SET_SYNC_LOG();
-    if (remap_logs) {
-      // True on any checkpoint but the first.
-      reopen_all_logs();
-    } else {
-      initLogsForRecordReplay();
-    }
+    set_sync_mode(SYNC_RECORD);
+    initLogsForRecordReplay();
     log_all_allocs = 1;
 #endif
     numCheckpoints++;

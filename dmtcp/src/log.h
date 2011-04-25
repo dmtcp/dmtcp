@@ -68,7 +68,7 @@ namespace dmtcp
 
       void initGlobalLog(const char* path, size_t size = MAX_LOG_LENGTH);
       void initOnThreadCreation(size_t size = MAX_LOG_LENGTH);
-      void initForCloneId(clone_id_t clone_id, size_t size = MAX_LOG_LENGTH);
+      void initForCloneId(clone_id_t clone_id, bool register_globally);
 
     private:
       void init2(clone_id_t clone_id, size_t size, bool mapWithNoReserveFlag);
@@ -88,6 +88,7 @@ namespace dmtcp
       size_t dataSize() { return _dataSize == NULL ? 0 : *_dataSize; }
       size_t numEntries() { return _numEntries == NULL ? 0 : *_numEntries; }
       bool   isUnified() { return _isUnified == NULL ? false : *_isUnified; }
+      void   setUnified(bool b) { *_isUnified = b; }
       bool   isMappedIn() { return _startAddr != NULL; }
       string getPath() { return _path; }
       void   mergeLogs(dmtcp::vector<clone_id_t> clone_ids);
@@ -95,6 +96,7 @@ namespace dmtcp
       int    getNextEntry(log_entry_t& entry);
       int    appendEntry(const log_entry_t& entry);
       void   replaceEntryAtOffset(const log_entry_t& entry, size_t index);
+      void   moveMarkersToEnd();
 
     private:
       void   resetIndex() { _index = 0; _entryIndex = 0; }
