@@ -926,6 +926,22 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
 
     remote << hello_local;
 
+    // NOTE: Sending the same message twice. We want to make sure that the
+    // worker process receives/processes the first messages as soon as it
+    // connects to the coordinator. The second message will be processed in
+    // postRestart routine in DmtcpWorker.
+    //
+    // The reason to do this is the following. The dmtcp_restart process
+    // connects to the coordinator at a very early stage. Later on, before
+    // exec()'ing into mtcp_restart, it reconnects to the coordinator using
+    // it's original UniquiePid and closes the earlier socket connection.
+    // However, the coordinator might process the disconnect() before it
+    // processes the connect() which would lead to a situation where the
+    // coordinator is not connected to any worker processes. The coordinator
+    // would now process the connect() and may reject the worker because the
+    // worker state is RESTARTING, but the minimumState() is UNKNOWN.
+    remote << hello_local;
+
   } else if ( hello_remote.state == WorkerState::RUNNING ) {
     CoordinatorStatus s = getStatus();
     // If some of the processes are not in RUNNING state OR if the SUSPEND
