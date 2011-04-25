@@ -211,8 +211,11 @@ int __real_dmtcpDelayCheckpointsUnlock(){
 
 void dmtcp::userHookTrampoline_preCkpt() {
 #ifdef RECORD_REPLAY
-  JASSERT ( SYNC_IS_RECORD || SYNC_IS_NOOP ).Text("Unimplemented to checkpoint "
-                                               "during replay.");
+  if (SYNC_IS_REPLAY) {
+    /* Checkpointing during replay -- we will truncate the log to the current
+       position, and begin recording again. */
+    truncate_all_logs();
+  }
   set_sync_mode(SYNC_NOOP);
   log_all_allocs = 0;
   // Write the logs to disk, if any are in memory, and unmap them.

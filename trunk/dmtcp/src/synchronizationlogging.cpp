@@ -224,6 +224,23 @@ void initializeLogNames()
       "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
 }
 
+/* Truncate all logs to their current positions. */
+void truncate_all_logs()
+{
+  JASSERT ( SYNC_IS_REPLAY );
+  dmtcp::map<clone_id_t, dmtcp::SynchronizationLog *>::iterator it;
+  for (it = clone_id_to_log_table.begin();
+       it != clone_id_to_log_table.end();
+       it++) {
+    if (it->second->isMappedIn()) {
+      it->second->truncate();
+    }
+  }
+  if (unified_log.isMappedIn()) {
+    unified_log.truncate();
+  }
+}
+
 /* Unmap all open logs, if any are in memory. Return whether any were
    unmapped. */
 bool close_all_logs()

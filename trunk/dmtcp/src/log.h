@@ -82,6 +82,7 @@ namespace dmtcp
       void   map_in(const char *path, size_t size,
                         bool mapWithNoReserveFlag);
       void   map_in();
+      void   truncate();
       size_t currentIndex() { return _index; }
       size_t currentEntryIndex() { return _entryIndex; }
       bool   empty() { return numEntries() == 0; }
