@@ -493,9 +493,15 @@ static void unmapRestoreArgv()
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     char *endAddr = MTCP_RESTORE_STACK_BASE;
     size_t len = endAddr - _mtcpRestoreArgvStartAddr;
+#ifdef RECORD_REPLAY
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
+#else
+    JASSERT(munmap(_mtcpRestoreArgvStartAddr, len) == 0)
+      (_mtcpRestoreArgvStartAddr) (len)
+      .Text ("Failed to munmap extra pages that were mapped during restart");
+#endif
   }
 }
 
