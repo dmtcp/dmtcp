@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #define MTCP_SYS_MEMCPY
+#include "mtcp_internal.h"  /* Needed for MTCP_PRINTF */
 #include "mtcp_sys.h"
 
 /* Defined and allocated in mtcp.c */
