@@ -449,7 +449,7 @@ extern "C" FILE *fdopen(int fd, const char *mode)
       *retval = GET_FIELD(currentLogEntry, fdopen, fdopen_retval);
     }
     WRAPPER_REPLAY_END(fdopen);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _real_fdopen(fd, mode);
     isOptionalEvent = false;
@@ -467,7 +467,7 @@ extern "C" DIR *opendir(const char *name)
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_TYPED(DIR*, opendir);
     //TODO: May be we should restore data in *retval;
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _real_opendir(name);
     isOptionalEvent = false;
@@ -481,7 +481,7 @@ extern "C" int closedir(DIR *dirp)
   WRAPPER_HEADER(int, closedir, _real_closedir, dirp);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY(closedir);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _real_closedir(dirp);
     isOptionalEvent = false;
@@ -501,7 +501,7 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
       WRAPPER_REPLAY_READ_FROM_READ_LOG(getline, *lineptr, *n);
     }
     WRAPPER_REPLAY_END(getline);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _real_getline(lineptr, n, stream);
     isOptionalEvent = false;
@@ -692,7 +692,7 @@ extern "C" int __isoc99_fscanf (FILE *stream, const char *format, ...)
       va_end(arg);
     }
     WRAPPER_REPLAY_END(fscanf);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     errno = 0;
     retval = vfscanf(stream, format, arg);
     int saved_errno = errno;
@@ -723,7 +723,7 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
       WRAPPER_REPLAY_READ_FROM_READ_LOG(fgets, s, size);
     }
     WRAPPER_REPLAY_END(fgets);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_fgets(s, size, stream);
     if (retval != NULL) {
       WRAPPER_LOG_WRITE_INTO_READ_LOG(fgets, s, size);
@@ -744,7 +744,7 @@ static int _almost_real_fprintf(FILE *stream, const char *format, va_list arg)
     if (stream == stdout || stream == stderr) {
       retval = vfprintf(stream, format, arg);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = vfprintf(stream, format, arg);
     isOptionalEvent = false;
@@ -867,7 +867,7 @@ extern "C" FILE *fopen (const char* path, const char* mode)
     if (retval != NULL) {
       *retval = GET_FIELD(currentLogEntry, fopen, fopen_retval);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _almost_real_fopen(path, mode);
     isOptionalEvent = false;
@@ -891,7 +891,7 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
     if (retval != NULL) {
       *retval = GET_FIELD(currentLogEntry, fopen64, fopen64_retval);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     isOptionalEvent = true;
     retval = _almost_real_fopen64(path, mode);
     isOptionalEvent = false;
@@ -978,7 +978,7 @@ static void updateStatPath(const char *path, char *newpath)
       if (retval == 0 && buf != NULL) {                                     \
         *buf = GET_FIELD(currentLogEntry, name, buf);                       \
       }                                                                     \
-    } else if (SYNC_IS_LOG) {                                               \
+    } else if (SYNC_IS_RECORD) {                                               \
       retval = _real_ ## name(__VA_ARGS__);                                 \
       if (retval != -1 && buf != NULL) {                                    \
         SET_FIELD2(my_entry, name, buf, *buf);                              \
@@ -1097,7 +1097,7 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz
     if (retval == 0 && buf != NULL) {
       WRAPPER_REPLAY_READ_FROM_READ_LOG(readlink, buf, retval);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_readlink(newpath, buf, bufsiz);
     if (retval != -1 && buf != NULL) {
       WRAPPER_LOG_WRITE_INTO_READ_LOG(getline, buf, retval);
@@ -1124,7 +1124,7 @@ extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds,
       copyFdSet(&GET_FIELD(currentLogEntry, select, writefds), writefds);
     }
     WRAPPER_REPLAY_END(select);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_select(nfds, readfds, writefds, exceptfds, timeout);
     int saved_errno = errno;
     if (retval != -1) {
@@ -1157,7 +1157,7 @@ extern "C" ssize_t read(int fd, void *buf, size_t count)
       WRAPPER_REPLAY_READ_FROM_READ_LOG(read, buf, retval);
     }
     WRAPPER_REPLAY_END(read);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     // Note we don't call readAll here. It should be the responsibility of
     // the user code to handle EINTR if needed.
     retval = _real_read(fd, buf, count);
@@ -1189,7 +1189,7 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
       WRAPPER_REPLAY_READ_FROM_READ_LOG(pread, buf, retval);
     }
     WRAPPER_REPLAY_END(pread);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_pread(fd, buf, count, offset);
     if (retval > 0) {
       WRAPPER_LOG_WRITE_INTO_READ_LOG(pread, buf, retval);
@@ -1272,7 +1272,7 @@ extern "C" struct dirent *readdir(DIR *dirp)
     if (retval != NULL) {
       buf = GET_FIELD(currentLogEntry, readdir, retval);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_readdir(dirp);
     if (retval != NULL) {
       buf = *retval;
@@ -1298,7 +1298,7 @@ extern "C" int readdir_r(DIR *dirp, struct dirent *entry,
     if (retval != 0) {
       *result = NULL;
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_readdir_r(dirp, entry, result);
     if (retval == 0 && entry != NULL) {
       SET_FIELD2(my_entry, readdir_r, ret_entry, *entry);
@@ -1326,7 +1326,7 @@ extern "C" int fflush(FILE *stream)
     if (stream == stdout || stream == stderr) {
       retval = _real_fflush(stream);
     }
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     retval = _real_fflush(stream);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }

@@ -493,7 +493,7 @@ static void unmapRestoreArgv()
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     char *endAddr = MTCP_RESTORE_STACK_BASE;
     size_t len = endAddr - _mtcpRestoreArgvStartAddr;
-    JASSERT(munmap(_mtcpRestoreArgvStartAddr, len) == 0)
+    JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
   }
@@ -803,7 +803,7 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
       JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
     }
     WRAPPER_REPLAY_END(pthread_join);
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
       usleep(100);

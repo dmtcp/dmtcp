@@ -134,6 +134,25 @@ void atomic_set(volatile int *ptr, int val)
   _real_pthread_mutex_unlock(&atomic_set_mutex);
 }
 
+/* Switch record/replay to specified mode. mode should be one of:
+   SYNC_NOOP, SYNC_RECORD, SYNC_REPLAY. */
+inline void set_sync_mode(int mode)
+{
+  char *x = getenv(ENV_VAR_LOG_REPLAY);
+  // Don't call setenv() to avoid hidden malloc()
+  if (mode == SYNC_NOOP) {
+    x[0] = '0';
+  } else if (mode == SYNC_RECORD) {
+    x[0] = '1';
+  } else if (mode == SYNC_REPLAY) {
+    x[0] = '2';
+  } else {
+    JASSERT ( false ) ( mode ).Text("Invalid mode request.");
+  }
+  x[1] = '\0';
+  sync_logging_branch = mode;
+}
+
 clone_id_t get_next_clone_id()
 {
   return __sync_fetch_and_add (&global_clone_counter, 1);
@@ -177,8 +196,10 @@ void register_in_global_log_list(clone_id_t clone_id)
 dmtcp::vector<clone_id_t> get_log_list()
 {
   dmtcp::vector<clone_id_t> clone_ids;
-
   int fd = _real_open(GLOBAL_LOG_LIST_PATH, O_RDONLY, 0);
+  if (fd < 0) {
+    return clone_ids;
+  }
   clone_id_t id;
   while (Util::readAll(fd, &id, sizeof(id)) != 0) {
     clone_ids.push_back(id);
@@ -213,22 +234,15 @@ bool close_all_logs()
        it != clone_id_to_tid_table.end();
        it++) {
     if (clone_id_to_log_table[it->first]->isMappedIn()) {
-      clone_id_to_log_table[it->first]->unmap();
+      clone_id_to_log_table[it->first]->destroy();
       result = true;
     }
   }
-  return result;
-}
-
-void reopen_all_logs()
-{
-  dmtcp::map<clone_id_t, pthread_t>::iterator it;
-  for (it = clone_id_to_tid_table.begin();
-       it != clone_id_to_tid_table.end();
-       it++) {
-    JASSERT ( clone_id_to_log_table[it->first]->getPath().length() != 0 );
-    clone_id_to_log_table[it->first]->map_in();
+  if (unified_log.isMappedIn()) {
+    unified_log.destroy();
+    result = true;
   }
+  return result;
 }
 
 int isUnlock(log_entry_t e)
@@ -337,21 +351,29 @@ void initLogsForRecordReplay()
 {
   // Initialize mmap()'d logs for the current threads.
   unified_log.initGlobalLog(RECORD_LOG_PATH, 10 * MAX_LOG_LENGTH);
-
+  dmtcp::vector<clone_id_t> clone_ids = get_log_list();
   dmtcp::map<clone_id_t, pthread_t>::iterator it;
   for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
     dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
-    log->initForCloneId(it->first);
+    // Only append to global log if it doesn't already exist:
+    log->initForCloneId(it->first, it->first > clone_ids.size());
   }
 
   if (SYNC_IS_REPLAY) {
     if (!unified_log.isUnified()) {
       JTRACE ( "Merging/Unifying Logs." );
       //SYNC_TIMER_START(merge_logs);
-      unified_log.mergeLogs(get_log_list());
+      unified_log.mergeLogs(clone_ids);
       //SYNC_TIMER_STOP(merge_logs);
     }
     getNextLogEntry();
+  }
+  // Move to end of each log we have so we don't overwrite old entries.
+  dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*>::iterator it2;
+  for (it2 = clone_id_to_log_table.begin();
+       it2 != clone_id_to_log_table.end();
+       it2++) {
+    it2->second->moveMarkersToEnd();
   }
 }
 
@@ -530,7 +552,8 @@ void getNextLogEntry()
   if (unified_log.getNextEntry(currentLogEntry) == 0) {
     JTRACE ( "Switching back to record." );
     next_log_id = unified_log.numEntries();
-    SET_SYNC_LOG();
+    unified_log.setUnified(false);
+    set_sync_mode(SYNC_RECORD);
   }
   _real_pthread_mutex_unlock(&log_index_mutex);
 }
@@ -2396,7 +2419,7 @@ void userSynchronizedEvent()
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, user_turn_check);
     getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     addNextLogEntry(my_entry);
   }
 }
@@ -2407,7 +2430,7 @@ void userSynchronizedEventBegin()
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, user_turn_check);
     getNextLogEntry();
-  } else if (SYNC_IS_LOG) {
+  } else if (SYNC_IS_RECORD) {
     addNextLogEntry(my_entry);
   }
 }
