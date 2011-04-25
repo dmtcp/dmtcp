@@ -1508,6 +1508,7 @@ LIB_PRIVATE void   prepareNextLogEntry(log_entry_t& e);
 LIB_PRIVATE void   atomic_increment(volatile int *ptr);
 LIB_PRIVATE void   atomic_decrement(volatile int *ptr);
 LIB_PRIVATE void   set_sync_mode(int mode);
+LIB_PRIVATE void   truncate_all_logs();
 LIB_PRIVATE bool   close_all_logs();
 LIB_PRIVATE void   copyFdSet(fd_set *src, fd_set *dest);
 LIB_PRIVATE int    fdAvailable(fd_set *set);

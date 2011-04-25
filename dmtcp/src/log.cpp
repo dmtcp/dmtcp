@@ -207,6 +207,18 @@ void dmtcp::SynchronizationLog::map_in()
   map_in(path_copy, _savedSize, false);
 }
 
+/* Truncate the log to the current position. */
+void dmtcp::SynchronizationLog::truncate()
+{
+  JTRACE ( "Truncating log to current position." ) 
+    ( _path ) ( _entryIndex ) ( _index );
+  memset(&_log[_index], 0, *_dataSize - _index);
+  // Note that currently _size is constant, so we don't modify it here.
+  *_numEntries = _entryIndex;
+  *_dataSize = _index;
+  *_isUnified = false;
+}
+
 int dmtcp::SynchronizationLog::getNextEntry(log_entry_t& entry)
 {
   int entrySize = getEntryAtOffset(entry, _index);
