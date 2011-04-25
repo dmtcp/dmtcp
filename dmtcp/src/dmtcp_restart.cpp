@@ -546,8 +546,14 @@ namespace
 
       //Reconnect to dmtcp_coordinator
       WorkerState::setCurrentState ( WorkerState::RESTARTING );
+
+      int tmpCoordFd = dup(PROTECTEDFD(1));
+      JASSERT(tmpCoordFd != -1);
       worker.connectToCoordinatorWithoutHandshake();
       worker.sendCoordinatorHandshake(procname(), _compGroup);
+      worker.recvCoordinatorHandshake();
+      close(tmpCoordFd);
+
       dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
 
       JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
@@ -857,8 +863,13 @@ int main ( int argc, char** argv )
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
+
+  int tmpCoordFd = dup(PROTECTEDFD(1));
+  JASSERT(tmpCoordFd != -1);
   worker.connectToCoordinatorWithoutHandshake();
   worker.sendCoordinatorHandshake(targ.procname(), targ._compGroup);
+  worker.recvCoordinatorHandshake();
+  close(tmpCoordFd);
 
   //restart targets[i]
   targets[i].dupAllSockets ( slidingFd );
