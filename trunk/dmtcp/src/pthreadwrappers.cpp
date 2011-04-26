@@ -403,7 +403,7 @@ static int internal_pthread_create(pthread_t *thread,
 
 extern "C" int pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-  WRAPPER_HEADER_RAW(int, pthread_mutex_lock, _real_pthread_mutex_unlock,
+  WRAPPER_HEADER_RAW(int, pthread_mutex_lock, _real_pthread_mutex_lock,
                      mutex);
 
   /* NOTE: Don't call JTRACE (or anything that calls JTRACE) before
