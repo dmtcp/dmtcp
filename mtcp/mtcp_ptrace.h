@@ -171,5 +171,7 @@ extern void mtcp_ptrace_info_list_print();
 extern void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
   int last_command, int singlestep_waited_on, char inf_st, int file_option);
 
+void read_ptrace_setoptions_file (int record_to_file, int rc);
+char retrieve_inferior_state(pid_t tid);
 #endif 
 #endif
