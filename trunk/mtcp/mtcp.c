@@ -477,7 +477,8 @@ static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
-static int test_use_compression(char *compressor, int def);
+static int test_use_compression(char *compressor, char *command, char *path,
+                                int def);
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **args);
 static void checkpointeverything (void);
 static void writefiledescrs (int fd);
@@ -504,6 +505,21 @@ static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
 static void sync_shared_mem(void);
+
+#define FORKED_CKPT_FAILED 0
+#define FORKED_CKPT_MASTER 1
+#define FORKED_CKPT_WORKER 2
+
+#ifdef HBICT_DELTACOMP
+static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
+                                    char *gzip_path);
+#endif
+static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
+
+int perform_callback_write_dmtcp_header();
+int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
+int test_and_prepare_for_compression(int *fd);
+void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd);;
 
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
@@ -763,7 +779,7 @@ void mtcp_init (char const *checkpointfilename,
     perror("ERROR: continue anyway from " __FILE__ ":mtcp_init:sem_trywait()");
   /* Now we successfully locked it.  The sempaphore value is zero. */
   if (pthread_create (&checkpointhreadid, NULL, checkpointhread, NULL) < 0) {
-    MTCP_PRINTF ("error creating checkpoint thread: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF ("error creating checkpoint thread: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
@@ -1761,27 +1777,27 @@ again:
                 if (inferior == thread -> original_tid) inferior_st = inf_st;
                 if (ckpt_leader && new_ptrace_fd != -1) {
                   if (write(new_ptrace_fd, &superior, sizeof(pid_t)) == -1) {
-                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
+                    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
                     mtcp_abort();
                   }
                   if (write(new_ptrace_fd, &inferior, sizeof(pid_t)) == -1) {
-                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
+                    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
                     mtcp_abort();
                   }
                   if (write(new_ptrace_fd, &inf_st, sizeof(char)) == -1) {
-                    MTCP_PRINTF("Error writing to file: %s\n", MTCP_STR_ERRNO);
+                    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
                     mtcp_abort();
                   }
                 }
               }
               if (ckpt_leader && new_ptrace_fd != -1) {
                 if (close(new_ptrace_fd) != 0) {
-                  MTCP_PRINTF("error while closing file: %s\n", MTCP_STR_ERRNO);
+                  MTCP_PRINTF("error while closing file: %s\n", strerror(errno));
                   mtcp_abort();
                 }
               }
               if (close(ptrace_fd) != 0) {
-                MTCP_PRINTF("error while closing file, %s\n", MTCP_STR_ERRNO);
+                MTCP_PRINTF("error while closing file, %s\n", strerror(errno));
                 mtcp_abort();
               }
             }
@@ -2049,7 +2065,8 @@ again:
  * The purpose of using this function over mtcp_sys_open() is that this
  * function will handle compression and gzipping.
  */
-static int test_use_compression(char *compressor, int def)
+static int test_use_compression(char *compressor, char *command, char *path,
+                                int def)
 {
   char *default_val;
   char env_var1[256] = "MTCP_";
@@ -2084,31 +2101,37 @@ static int test_use_compression(char *compressor, int def)
 	        env_var1, env_var2, do_we_compress);
     do_we_compress = "0";
   }
+
   if ( 0 == strcmp(do_we_compress, "0") )
     return 0;
-  /* If we arrive down here, it's safe to ccompress. */
+
+  /* Check if the executable exists. */
+  if (mtcp_find_executable(command, path) == NULL) {
+    MTCP_PRINTF("WARNING: %s cannot be executed. Compression will "
+                "not be used.\n", command);
+    return 0;
+  }
+
+  /* If we arrive down here, it's safe to compress. */
   return 1;
 }
 
 #ifdef HBICT_DELTACOMP
-
-static int
-open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path, int use_gzip)
+static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
+                                    char *gzip_path)
 {
   char *hbict_args[] = { "hbict", "-a", NULL, NULL };
   hbict_args[0] = hbict_path;
   DPRINTF("open_ckpt_to_write_hbict\n");
 
-  if( use_gzip == 1 ){
+  if (gzip_path != NULL){
     hbict_args[3] = "-z100";
   }
   return open_ckpt_to_write(fd,pipe_fds,hbict_args);
 }
-
 #endif
 
-static int
-open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
+static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
 {
   char *gzip_args[] = { "gzip", "-1", "-", NULL };
   gzip_args[0] = gzip_path;
@@ -2125,28 +2148,29 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
   cpid = mtcp_sys_fork();
   if (cpid == -1) {
     MTCP_PRINTF("WARNING: error forking child process `%s`.  Compression will "
-                "not be used [%s].\n", extcomp_args[0], strerror(mtcp_sys_errno));
-    close(pipe_fds[0]);
-    close(pipe_fds[1]);
+                "not be used [%s].\n", extcomp_args[0],
+                strerror(mtcp_sys_errno));
+    mtcp_sys_close(pipe_fds[0]);
+    mtcp_sys_close(pipe_fds[1]);
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
     //Before running gzip in child process, we must not use LD_PRELOAD.
     // See revision log 342 for details concerning bash.
     mtcp_ckpt_extcomp_child_pid = cpid;
-    if (close(pipe_fds[0]) == -1)
+    if (mtcp_sys_close(pipe_fds[0]) == -1)
       MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
-    if (close(fd) == -1)
+    if (mtcp_sys_close(fd) == -1)
       MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
     fd=pipe_fds[1];//change return value
   } else { /* child process */
     static int (*libc_unsetenv) (const char *name);
     static int (*libc_execvp) (const char *path, char *const argv[]);
 
-    close(pipe_fds[1]);
+    mtcp_sys_close(pipe_fds[1]);
     dup2(pipe_fds[0], STDIN_FILENO);
-    close(pipe_fds[0]);
+    mtcp_sys_close(pipe_fds[0]);
     dup2(fd, STDOUT_FILENO);
-    close(fd);
+    mtcp_sys_close(fd);
 
     // Don't load dmtcphijack.so, etc. in exec.
     unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
@@ -2177,121 +2201,14 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
 
 static void checkpointeverything (void)
 {
-  Area area;
-  int fd, mapsfd;
-  VA area_begin, area_end;
-  int stack_was_seen = 0;
-  int vsyscall_exists = 0;
-  int forked_checkpointing = 0;
-  int forked_cpid;
-  int pipe_fds[2]; /* for potential piping */
+  DPRINTF("thread:%d performing checkpoint.\n", mtcp_sys_kernel_gettid ());
 
-  int use_compression = -1; /* decide later */
-  char *gzip_cmd = "gzip";
-  char gzip_path[MTCP_MAX_PATH];
+  int tmpDMTCPHeaderFd = perform_callback_write_dmtcp_header();
 
-#ifdef HBICT_DELTACOMP
-  int use_deltacompression = -1; /* decide later */
-  char *hbict_cmd = "hbict";
-  char hbict_path[MTCP_MAX_PATH];
-#endif
-
-  char tmpDMTCPHeaderBuf[] = "/tmp/dmtcp.XXXXXX";
-  char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
-  int tmpDMTCPHeaderFd = -1;
-
-  static void *const frpointer = finishrestore;
-
-  DPRINTF("tid %d\n", mtcp_sys_kernel_gettid ());
-
-  if (getenv("MTCP_FORKED_CHECKPOINT") != NULL)
-    forked_checkpointing = 1;
-#ifdef TEST_FORKED_CHECKPOINTING
-  forked_checkpointing = 1;
-#endif
-
-  if (callback_write_dmtcp_header != 0) {
-    /* Temp file for DMTCP header; will be written into the checkpoint file. */
-    tmpDMTCPHeaderFd = mkstemp(tmpDMTCPHeaderFileName);
-    if (tmpDMTCPHeaderFd < 0) {
-      MTCP_PRINTF("error %d creating temp file: %s\n", errno, MTCP_STR_ERRNO);
-      mtcp_abort();
-    }
-
-    if (unlink(tmpDMTCPHeaderFileName) == -1) {
-      MTCP_PRINTF("error %d unlinking temp file: %s\n", errno, MTCP_STR_ERRNO);
-    }
-
-    /* Better to do this in parent, not child, for most accurate header info */
-    (*callback_write_dmtcp_header)(tmpDMTCPHeaderFd);
+  int forked_ckpt_status = test_and_prepare_for_forked_ckpt(tmpDMTCPHeaderFd);
+  if (forked_ckpt_status == FORKED_CKPT_MASTER) {
+    return;
   }
-
-  if (forked_checkpointing) {
-    forked_cpid = mtcp_sys_fork();
-    if (forked_cpid == -1) {
-      MTCP_PRINTF("WARNING: Failed to do forked checkpointing,"
-		  " trying normal checkpoint\n");
-    } else if (forked_cpid > 0) {
-      /* Parent process*/
-      if (tmpDMTCPHeaderFd != -1)
-        close(tmpDMTCPHeaderFd);
-      // Calling mtcp_sys_waitpid here, but on 32-bit Linux, libc:waitpid()
-      // calls wait4()
-      if ( mtcp_sys_wait4(forked_cpid, NULL, 0, NULL) == -1 ) {
-        DPRINTF("error mtcp_sys_wait4: errno: %d", mtcp_sys_errno);
-      }
-      DPRINTF("checkpoint complete\n");
-      return;
-    } else {
-      pid_t grandchild_pid = mtcp_sys_fork();
-      if (grandchild_pid == -1) {
-        MTCP_PRINTF("WARNING: Forked checkpoint failed,"
-                    " no checkpoint available\n");
-      } else if (grandchild_pid > 0) {
-        mtcp_sys_exit(0); /* child exits */
-      }
-      /* grandchild continues; no need now to mtcp_sys_wait4() on grandchild */
-      DPRINTF("inside grandchild process\n");
-    }
-  }
-
-  /* 1. Test if using GZIP compression */
-  use_compression = test_use_compression("GZIP", 1);
-
-  if (use_compression && mtcp_find_executable(gzip_cmd, gzip_path) == NULL) {
-    MTCP_PRINTF("WARNING: gzip cannot be executed.  Compression will "
-                "not be used.\n");
-    use_compression = 0;
-  }
-
-#ifdef HBICT_DELTACOMP
-
-  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
-
-  /* 2. Test if using HBICT compression */
-  use_deltacompression = test_use_compression("HBICT", 1);
-
-  if (use_deltacompression && mtcp_find_executable(hbict_cmd, hbict_path) == NULL) {
-    mtcp_printf("WARNING: hbict cannot be executed.  Compression will "
-                "not be used.\n");
-    use_deltacompression = 0;
-  }
-  
-  /* 3. Open pipe */ 
-  if ( (use_compression || use_deltacompression) && mtcp_sys_pipe(pipe_fds) == -1 ) {
-    MTCP_PRINTF("WARNING: error creating pipe. Compression will " "not be used.\n");
-    use_compression = use_deltacompression = 0;
-  }
-
-#else
-  /* 2. Open pipe */
-  if ( use_compression && mtcp_sys_pipe(pipe_fds) == -1 ) {
-    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
-                "not be used.\n");
-    use_compression = 0;
-  }
-
-#endif
 
   /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
    *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
@@ -2300,54 +2217,182 @@ static void checkpointeverything (void)
   /* 4. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
-  fd = mtcp_safe_open(temp_checkpointfilename,
-		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
+  int flags = O_CREAT | O_TRUNC | O_WRONLY;
+  int fd = mtcp_safe_open(temp_checkpointfilename, flags, 0600);
   if (fd < 0) {
     MTCP_PRINTF("error creating %s: %s\n",
                 temp_checkpointfilename, strerror(mtcp_sys_errno));
     mtcp_abort();
   }
+
+  int use_compression = test_and_prepare_for_compression(&fd);
+
+  write_ckpt_to_file(fd, tmpDMTCPHeaderFd);
+
+  if (use_compression) {
+    /* IF OUT OF DISK SPACE, REPORT IT HERE. */
+    /* In test_and_prepare_for_compression(), we set SIGCHLD to SIG_IGN, i.e.
+     * we ignore the signal. This is done to avoid calling the user SIGCHLD
+     * handler (if the user has installed one). As a result, mtcp_sys_wait4()
+     * will always fail for the child pid. */
+#if 0
+    if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
+      DPRINTF("(grandchild): waitpid: %s\n", strerror(errno));
+    }
+#endif
+    mtcp_ckpt_extcomp_child_pid = -1;
+    sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
+  }
+
+  /* Maybe it's time to verify the checkpoint.
+   * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
+   *   we'll still have the last one).
+   * If the new file is good, mtcp_restore will rename it over the last one.
+   */
+
+  if (verify_total != 0) -- verify_count;
+
+  /* Now that temp checkpoint file is complete, rename it over old permanent
+   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+   * So, gzip process can continue to write to file even after renaming.
+   */
+
+  else renametempoverperm ();
+
+  if (forked_ckpt_status == FORKED_CKPT_WORKER)
+    mtcp_sys_exit (0); /* grandchild exits */
+
+  DPRINTF("checkpoint complete\n");
+}
+
+int perform_callback_write_dmtcp_header()
+{
+  char tmpDMTCPHeaderBuf[] = "/tmp/dmtcp.XXXXXX";
+  char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
+
+  int tmpfd = -1;
+  if (callback_write_dmtcp_header != 0) {
+    /* Temp file for DMTCP header; will be written into the checkpoint file. */
+    tmpfd = mkstemp(tmpDMTCPHeaderFileName);
+    if (tmpfd < 0) {
+      MTCP_PRINTF("error %d creating temp file: %s\n", errno, strerror(errno));
+      mtcp_abort();
+    }
+
+    if (unlink(tmpDMTCPHeaderFileName) == -1) {
+      MTCP_PRINTF("error %d unlinking temp file: %s\n", errno, strerror(errno));
+    }
+
+    /* Better to do this in parent, not child, for most accurate header info */
+    (*callback_write_dmtcp_header)(tmpfd);
+  }
+  return tmpfd;
+}
+
+int test_and_prepare_for_compression(int *fd)
+{
+  char *gzip_cmd = "gzip";
+  char gzip_path[MTCP_MAX_PATH];
+
+  int use_gzip_compression = 0;
+  int use_deltacompression = 0;
+
+  /* 1. Test if using GZIP compression */
+  use_gzip_compression = test_use_compression("GZIP", gzip_cmd, gzip_path, 1);
+  DPRINTF("*******\n\n\n\n********** use gzip: %d\n\n\n\n", use_gzip_compression);
+
+#ifdef HBICT_DELTACOMP
+  char *hbict_cmd = "hbict";
+  char hbict_path[MTCP_MAX_PATH];
+  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
+
+  /* 2. Test if using HBICT compression */
+  use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path,
+                                              1);
+#endif
+
+  if (!use_gzip_compression && !use_deltacompression) {
+    return 0;
+  }
+
+  /* 3. Open pipe */ 
+  int pipe_fds[2];
+  if (mtcp_sys_pipe(pipe_fds) == -1) {
+    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
+                "not be used.\n");
+    use_gzip_compression = use_deltacompression = 0;
+    return 0;
+  }
+
   /* 5. We now have the information to pipe to gzip, or directly to fd
   *     We do it this way, so that gzip will be direct child of forked process
   *       when using forked checkpointing.
   */
 
-#if 1
-  /* Temporary fix, until DMTCP uses its own separate allocator.
-   * The else code should really go lower down, just before we checkpoint
-   * the heap.
-   */
-#else
-  if (mtcp_sys_break(0) != mtcp_saved_break)
-    MTCP_PRINTF("\n\n*** ERROR:  End of heap grew."
-		"  Continue at your own risk. ***\n\n\n");
-#endif
+  /* disable SIGCHLD handling; will be restored after gzip finishes */
+  struct sigaction ignore_sigchld_action;
+  ignore_sigchld_action.sa_handler = SIG_IGN;
+  sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
 
-  /* Drain stdin and stdout before checkpoint */
-  tcdrain(STDOUT_FILENO);
-  tcdrain(STDERR_FILENO);
-
+  if (use_deltacompression) { /* fork a hbict process */
 #ifdef HBICT_DELTACOMP
-  if( use_deltacompression || use_compression ){
-    /* disable SIGCHLD handling; will be restored after gzip finishes */
-    struct sigaction ignore_sigchld_action;
-    ignore_sigchld_action.sa_handler = SIG_IGN;
-    sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
-
-    if (use_deltacompression) /* fork a hbict process */
-      fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, use_compression);
-    else if (use_compression) /* fork a gzip process */
-      fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
-  }
-#else 
-  if( use_compression ){
-    /* disable SIGCHLD handling; will be restored after gzip finishes */
-    struct sigaction ignore_sigchld_action;
-    ignore_sigchld_action.sa_handler = SIG_IGN;
-    sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
-    fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
-  }
+    *fd = open_ckpt_to_write_hbict(*fd, pipe_fds, hbict_path, gzip_path);
 #endif
+  } else if (use_gzip_compression) {/* fork a gzip process */
+    *fd = open_ckpt_to_write_gz(*fd, pipe_fds, gzip_path);
+  }
+
+  return 1;
+}
+
+int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
+{
+#ifdef TEST_FORKED_CHECKPOINTING
+  return 1;
+#endif
+
+  if (getenv("MTCP_FORKED_CHECKPOINT") == NULL) {
+    return 0;
+  }
+
+  int fds[2];
+  if (mtcp_sys_pipe(fds) == -1) {
+    MTCP_PRINTF("Error creating pipe :%s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  pid_t forked_cpid = mtcp_sys_fork();
+  if (forked_cpid == -1) {
+    MTCP_PRINTF("WARNING: Failed to do forked checkpointing,"
+                " trying normal checkpoint\n");
+    return FORKED_CKPT_FAILED;
+  } else if (forked_cpid > 0) {
+    // Calling mtcp_sys_waitpid here, but on 32-bit Linux, libc:waitpid()
+    // calls wait4()
+    if ( mtcp_sys_wait4(forked_cpid, NULL, 0, NULL) == -1 ) {
+      DPRINTF("error mtcp_sys_wait4: errno: %d", mtcp_sys_errno);
+    }
+    DPRINTF("checkpoint complete\n");
+    return FORKED_CKPT_MASTER;
+  } else {
+    pid_t grandchild_pid = mtcp_sys_fork();
+    if (grandchild_pid == -1) {
+      MTCP_PRINTF("WARNING: Forked checkpoint failed,"
+                  " no checkpoint available\n");
+    } else if (grandchild_pid > 0) {
+      mtcp_sys_exit(0); /* child exits */
+    }
+    /* grandchild continues; no need now to mtcp_sys_wait4() on grandchild */
+    DPRINTF("inside grandchild process\n");
+  }
+  return FORKED_CKPT_WORKER;
+}
+
+void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
+{
+  Area area;
+  int stack_was_seen = 0;
+  static void *const frpointer = finishrestore;
 
   if (tmpDMTCPHeaderFd != -1 ) {
     char tmpBuff[1024];
@@ -2359,7 +2404,7 @@ static void checkpointeverything (void)
       if (retval == -1 && (errno == EAGAIN || errno == EINTR))
         continue;
       if (retval == -1) {
-        MTCP_PRINTF("Error writing checkpoint file: %s\n", MTCP_STR_ERRNO);
+        MTCP_PRINTF("Error writing checkpoint file: %s\n", strerror(errno));
         mtcp_abort();
       }
       writefile(fd, tmpBuff, retval);
@@ -2367,6 +2412,11 @@ static void checkpointeverything (void)
     close(tmpDMTCPHeaderFd);
   }
 
+  /* Drain stdin and stdout before checkpoint */
+  tcdrain(STDOUT_FILENO);
+  tcdrain(STDERR_FILENO);
+
+  int vsyscall_exists = 0;
   // Preprocess special segments like vsyscall, stack, heap etc.
   preprocess_special_segments(&vsyscall_exists);
 
@@ -2411,11 +2461,11 @@ static void checkpointeverything (void)
   /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
-  mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+  int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (readmapsline (mapsfd, &area)) {
-    area_begin = area.addr;
-    area_end   = area_begin + area.size;
+    VA area_begin = area.addr;
+    VA area_end   = area_begin + area.size;
 
     /* Original comment:  Skip anything in kernel address space ---
      *   beats me what's at FFFFE000..FFFFFFFF - we can't even read it;
@@ -2490,8 +2540,7 @@ static void checkpointeverything (void)
 
       if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0)
            == MAP_FAILED ){
-        MTCP_PRINTF("error remapping NSCD shared area: %s\n",
-                     strerror (mtcp_sys_errno));
+        MTCP_PRINTF("error remapping NSCD shared area: %s\n", strerror(errno));
         mtcp_abort();
       }
 
@@ -2565,45 +2614,13 @@ static void checkpointeverything (void)
   close (mapsfd);
 
   /* That's all folks */
-
   writecs (fd, CS_THEEND);
-  if (close (fd) < 0) {
+
+  if (mtcp_sys_close (fd) < 0) {
     MTCP_PRINTF("(grandchild): error closing checkpoint file: %s\n",
-                MTCP_STR_ERRNO);
+                strerror(errno));
     mtcp_abort ();
   }
-  if (use_compression
-#ifdef HBICT_DELTACOMP
-  || use_deltacompression
-#endif
-      ) {
-    /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    if ( waitpid(mtcp_ckpt_extcomp_child_pid, NULL, 0 ) == -1 )
-      /* TODO: The waitpid always fails, check why? */
-      DPRINTF("(grandchild): waitpid: %s\n", MTCP_STR_ERRNO);
-    mtcp_ckpt_extcomp_child_pid = -1;
-    sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
-  }
-
-  /* Maybe it's time to verify the checkpoint.
-   * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
-   *   we'll still have the last one).
-   * If the new file is good, mtcp_restore will rename it over the last one.
-   */
-
-  if (verify_total != 0) -- verify_count;
-
-  /* Now that temp checkpoint file is complete, rename it over old permanent
-   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
-   * So, gzip process can continue to write to file even after renaming.
-   */
-
-  else renametempoverperm ();
-
-  if (forked_checkpointing)
-    mtcp_sys_exit (0); /* grandchild exits */
-
-  DPRINTF("checkpoint complete\n");
 }
 
 /* True if the given FD should be checkpointed */
@@ -2671,7 +2688,7 @@ static void writefiledescrs (int fd)
         if ((linklen >= 0) || (errno != ENOENT)) {
           // probably was the proc/self/fd directory itself
           if (linklen < 0) {
-            MTCP_PRINTF("error reading %s: %s\n", procfdname, MTCP_STR_ERRNO);
+            MTCP_PRINTF("error reading %s: %s\n", procfdname, strerror(errno));
             mtcp_abort ();
           }
           linkbuf[linklen] = '\0';
@@ -2826,7 +2843,7 @@ static void writefile (int fd, void const *buff, size_t size)
       if (rc == 0) errno = EPIPE;
       if (rc <= 0) {
         MTCP_PRINTF("error writing from %p to %s: %s\n",
-	             bf, temp_checkpointfilename, MTCP_STR_ERRNO);
+	             bf, temp_checkpointfilename, strerror(errno));
         mtcp_abort ();
       }
     }
@@ -3130,7 +3147,7 @@ static void stopthisthread (int signum)
         execlp ("mtcp_restart", "mtcp_restart", "--verify",
                 temp_checkpointfilename, NULL);
         MTCP_PRINTF("error execing mtcp_restart %s: %s\n",
-                    temp_checkpointfilename, MTCP_STR_ERRNO);
+                    temp_checkpointfilename, strerror(errno));
         mtcp_abort ();
       }
 
@@ -3271,13 +3288,13 @@ static void save_sig_state (Thread *thisthread)
     sigdelset(&set, SIGCANCEL);
 
     if (pthread_sigmask(SIG_SETMASK, &set, NULL) < 0) {
-      MTCP_PRINTF("error getting sigal mask: %s\n", MTCP_STR_ERRNO);
+      MTCP_PRINTF("error getting sigal mask: %s\n", strerror(errno));
       mtcp_abort ();
     }
   }
   // Save signal block mask
   if (pthread_sigmask (SIG_SETMASK, NULL, &(thisthread -> sigblockmask)) < 0) {
-    MTCP_PRINTF("error getting sigal mask: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error getting sigal mask: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
@@ -3296,7 +3313,7 @@ static void restore_sig_state (Thread *thisthread)
   int i;
   DPRINTF("restoring handlers for thread %d\n", thisthread->original_tid);
   if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
-    MTCP_PRINTF("error setting sigal mask: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error setting sigal mask: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
@@ -3326,7 +3343,7 @@ static void save_sig_handlers (void)
       if (errno == EINVAL)
          memset (&sigactions[i], 0, sizeof sigactions[i]);
       else {
-        MTCP_PRINTF("error saving signal %d action: %s\n", i, MTCP_STR_ERRNO);
+        MTCP_PRINTF("error saving signal %d action: %s\n", i, strerror(errno));
         mtcp_abort ();
       }
     }
@@ -3361,7 +3378,7 @@ static void restore_sig_handlers (Thread *thisthread)
     if (mtcp_sigaction(i, &sigactions[i], NULL) < 0) {
         if (errno != EINVAL) {
           MTCP_PRINTF("error restoring signal %d handler: %s\n",
-		      i, MTCP_STR_ERRNO);
+		      i, strerror(errno));
           mtcp_abort ();
         }
     }
@@ -3476,7 +3493,7 @@ static void renametempoverperm (void)
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
     MTCP_PRINTF("error renaming %s to %s: %s\n",
                 temp_checkpointfilename, perm_checkpointfilename,
-                MTCP_STR_ERRNO);
+                strerror(errno));
     mtcp_abort ();
   }
 }
@@ -4092,7 +4109,7 @@ static void setup_sig_handler (void)
   // We can't use standard sigaction here, because DMTCP has a wrapper around
   //  it that will not allow anyone to set a signal handler for SIGUSR2.
   if (mtcp_sigaction(STOPSIGNAL, &act, &old_act) == -1) {
-    MTCP_PRINTF("error setting up signal handler: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error setting up signal handler: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
