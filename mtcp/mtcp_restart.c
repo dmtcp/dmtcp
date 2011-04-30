@@ -197,8 +197,10 @@ int main (int argc, char *argv[], char *envp[])
   struct rlimit stack_rlimit;
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_read_header(fd, &stack_rlimit, (VA*) &restore_begin,
-                       &restore_size, (VA*) &restore_start);
+  Area area;
+  fastckpt_read_header(fd, &stack_rlimit, &area, (VA*) &restore_start);
+  restore_begin = area.addr;
+  restore_size = area.size;
 #else
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
@@ -228,6 +230,10 @@ int main (int argc, char *argv[], char *envp[])
     MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
     abort ();
   }
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_load_restore_image(fd, &area);
+#else
   restore_mmap = mtcp_safemmap (restore_begin, restore_size,
                                 PROT_READ | PROT_WRITE | PROT_EXEC,
                                 MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
@@ -250,9 +256,6 @@ int main (int argc, char *argv[], char *envp[])
                 restore_size, restore_begin, restore_mmap);
     abort ();
   }
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_load_restore_image(fd, restore_begin, restore_size);
-#else
   readcs (fd, CS_RESTOREIMAGE);
   readfile (fd, restore_begin, restore_size);
 #endif

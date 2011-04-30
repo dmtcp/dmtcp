@@ -154,7 +154,7 @@ ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
   size_t num_written = 0;
 
   do {
-    ssize_t rc = write (fd, ptr + num_written, count - num_written);
+    ssize_t rc = mtcp_sys_write (fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) 
 	continue;
@@ -176,7 +176,7 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
   char *ptr = (char *) buf;
   size_t num_read = 0;
   for (num_read = 0; num_read < count;) {
-    rc = read (fd, ptr + num_read, count - num_read);
+    rc = mtcp_sys_read (fd, ptr + num_read, count - num_read);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN)
         continue;

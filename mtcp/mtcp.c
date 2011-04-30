@@ -2229,10 +2229,13 @@ static void checkpointeverything (void)
     mtcp_abort();
   }
 
+#ifndef FAST_CKPT_RST_VIA_MMAP
   int use_compression = test_and_prepare_for_compression(&fd);
+#endif
 
   write_ckpt_to_file(fd, tmpDMTCPHeaderFd);
 
+#ifndef FAST_CKPT_RST_VIA_MMAP
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
     /* In test_and_prepare_for_compression(), we set SIGCHLD to SIG_IGN, i.e.
@@ -2247,6 +2250,7 @@ static void checkpointeverything (void)
     mtcp_ckpt_extcomp_child_pid = -1;
     sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
   }
+#endif
 
   /* Maybe it's time to verify the checkpoint.
    * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
@@ -2303,7 +2307,6 @@ int test_and_prepare_for_compression(int *fd)
 
   /* 1. Test if using GZIP compression */
   use_gzip_compression = test_use_compression("GZIP", gzip_cmd, gzip_path, 1);
-  DPRINTF("*******\n\n\n\n********** use gzip: %d\n\n\n\n", use_gzip_compression);
 
 #ifdef HBICT_DELTACOMP
   char *hbict_cmd = "hbict";
@@ -2431,7 +2434,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
   fastckpt_prepare_for_ckpt(fd, restore_start, frpointer);
-  fastckpt_save_restore_image(restore_begin, restore_size);
+  fastckpt_save_restore_image(fd, restore_begin, restore_size);
 #else
   struct rlimit stack_rlimit;
   getrlimit(RLIMIT_STACK, &stack_rlimit);
@@ -2820,7 +2823,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      */
     if (area -> flags & MAP_ANONYMOUS || area -> flags & MAP_SHARED) {
 #ifdef FAST_CKPT_RST_VIA_MMAP
-      fastckpt_write_mem_region(area);
+      fastckpt_write_mem_region(fd, area);
 #else
       writecs (fd, CS_AREACONTENTS);
       writefile (fd, area -> addr, area -> size);

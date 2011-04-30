@@ -202,20 +202,20 @@ typedef struct MTCP_CKPT_Image_Header {
 } MTCP_CKPT_Image_Header;
 
 VA fastckpt_mmap_addr();
-void fastckpt_write_mem_region(Area *area);
+void fastckpt_write_mem_region(int fd, Area *area);
 void fastckpt_get_mem_region_info(size_t *vmsize, size_t *num_mem_regions);
 void fastckpt_prepare_for_ckpt(int ckptfd, VA restore_start, VA finishrestore);
-void fastckpt_save_restore_image(VA restore_begin, size_t restore_size);
+void fastckpt_save_restore_image(int fd, VA restore_begin, size_t restore_size);
 void fastckpt_finish_ckpt(int ckptfd);
-void fastckpt_read_header(int fd, struct rlimit *stack_rlimit,
-                          VA *restore_begin, size_t *restore_size,
+void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
                           VA *restore_start);
-void fastckpt_load_restore_image(int fd, VA restore_begin, size_t restore_size);
+void fastckpt_load_restore_image(int fd, Area *area);
 void fastckpt_prepare_for_restore(int fd, VA *finishrestore);
 void fastckpt_finish_restore();
-void fastckpt_get_next_area_dscr(Area *area);
-VA fastckpt_restore_mem_region(int fd, const Area *area);
-void fastckpt_read_contents_into_mmap_region(int fd, Area *area);
+int fastckpt_get_next_area_dscr(Area *area);
+void fastckpt_restore_mem_region(int fd, const Area *area);
+void fastckpt_populate_shared_file_from_ckpt_image(int ckptfd, int imagefd,
+                                                   Area* area);
 #endif
 
 // order must match that in mtcp_jmpbuf.s
