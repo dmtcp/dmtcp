@@ -54,7 +54,6 @@
 static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename);
 static void readcs (int fd, char cs);
-static void readfile (int fd, void *buf, size_t size);
 
 static pid_t decomp_child_pid = -1;
 pid_t saved_pid = 0;
@@ -182,11 +181,11 @@ int main (int argc, char *argv[], char *envp[])
   if(offset>0){
     //skip into the file a bit
     char* tmp = malloc(offset);
-    readfile(fd, tmp, offset);
+    mtcp_readfile(fd, tmp, offset);
     free(tmp);
   }
   memset(magicbuf, 0, sizeof magicbuf);
-  readfile (fd, magicbuf, MAGIC_LEN);
+  mtcp_readfile (fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     MTCP_PRINTF("'%s' is '%s', but this restore is '%s' (fd=%d)\n",
                 restorename, magicbuf, MAGIC, fd);
@@ -203,14 +202,14 @@ int main (int argc, char *argv[], char *envp[])
   restore_size = area.size;
 #else
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
-  readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+  mtcp_readfile (fd, &stack_rlimit, sizeof stack_rlimit);
   /* Find where the restore image goes */
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
-  readfile (fd, &restore_begin, sizeof restore_begin);
+  mtcp_readfile (fd, &restore_begin, sizeof restore_begin);
   readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
-  readfile (fd, &restore_size, sizeof restore_size);
+  mtcp_readfile (fd, &restore_size, sizeof restore_size);
   readcs (fd, CS_RESTORESTART);
-  readfile (fd, &restore_start, sizeof restore_start);
+  mtcp_readfile (fd, &restore_start, sizeof restore_start);
 
   DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
           stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
@@ -257,7 +256,7 @@ int main (int argc, char *argv[], char *envp[])
     abort ();
   }
   readcs (fd, CS_RESTOREIMAGE);
-  readfile (fd, restore_begin, restore_size);
+  mtcp_readfile (fd, restore_begin, restore_size);
 #endif
 
 #ifndef __x86_64__
@@ -448,33 +447,9 @@ static void readcs (int fd, char cs)
 {
   char xcs;
 
-  readfile (fd, &xcs, sizeof xcs);
+  mtcp_readfile (fd, &xcs, sizeof xcs);
   if (xcs != cs) {
     MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
     abort ();
   }
-}
-
-static void readfile(int fd, void *buf, size_t size)
-{
-    int rc;
-    unsigned int ar = 0;
-
-    while(ar != size)
-    {
-        rc = read(fd, (char *)buf + ar, size - ar);
-        if(rc < 0)
-        {
-            MTCP_PRINTF("error reading checkpoint file: %s\n", strerror(errno));
-            abort();
-        }
-        else if(rc == 0)
-        {
-            MTCP_PRINTF("only read %d bytes instead of %d from checkpoint"
-                        " file\n", ar, size);
-            abort();
-        }
-
-        ar += rc;
-    }
 }

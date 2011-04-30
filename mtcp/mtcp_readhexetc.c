@@ -114,10 +114,10 @@ int mtcp_strncmp (const char *s1, const char *s2, size_t n)
   return c1 - c2;
 }
 
-void *mtcp_strstr(char *string, char *substring)
+const void *mtcp_strstr(const char *string, const char *substring)
 {
   for ( ; *string != '\0' ; string++) {
-    char *ptr1, *ptr2;
+    const char *ptr1, *ptr2;
     for (ptr1 = string, ptr2 = substring;
          *ptr1 == *ptr2 && *ptr2 != '\0';
          ptr1++, ptr2++) ;
@@ -148,6 +148,77 @@ int mtcp_strendswith (const char *s1, const char *s2)
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
 
+/* Write something to checkpoint file */
+void mtcp_writefile (int fd, void const *buff, size_t size)
+{
+  char const *bf;
+  ssize_t rc;
+  size_t sz, wt;
+  static char zeroes[MTCP_PAGE_SIZE] = { 0 };
+
+  //checkpointsize += size;
+
+  bf = buff;
+  sz = size;
+  while (sz > 0) {
+    for (wt = sz; wt > 0; wt /= 2) {
+      rc = mtcp_sys_write (fd, bf, wt);
+      if ((rc >= 0) || (mtcp_sys_errno != EFAULT)) break;
+    }
+
+    /* Sometimes image page alignment will leave a hole in the middle of an
+     * image ... but the idiot proc/self/maps will include it anyway
+     */
+
+    if (wt == 0) {
+      rc = (sz > sizeof zeroes ? sizeof zeroes : sz);
+      //checkpointsize -= rc; /* Correct now, since mtcp_writefile will add rc
+      //                           back */
+      mtcp_writefile (fd, zeroes, rc);
+    }
+
+    /* Otherwise, check for real error */
+
+    else {
+      if (rc == 0) mtcp_sys_errno = EPIPE;
+      if (rc <= 0) {
+        MTCP_PRINTF("error writing from %p to checkpoint file: %s\n",
+	             bf, MTCP_STR_ERRNO);
+        mtcp_abort ();
+      }
+    }
+
+    /* It's ok, we're on to next part */
+
+    sz -= rc;
+    bf += rc;
+  }
+}
+
+void mtcp_readfile(int fd, void *buf, size_t size)
+{
+  ssize_t rc;
+  size_t ar = 0;
+  int tries = 0;
+
+  while(ar != size) {
+    rc = mtcp_sys_read(fd, buf + ar, size - ar);
+    if (rc < 0) {
+      MTCP_PRINTF("error %d reading checkpoint\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+    else if (rc == 0) {
+      MTCP_PRINTF("only read %zu bytes instead of %zu from checkpoint file\n",
+                  ar, size);
+      if (tries++ >= 10) {
+        MTCP_PRINTF(" failed to read after 10 tries in a row.\n");
+        mtcp_abort();
+      }
+    }
+    ar += rc;
+  }
+}
+
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
@@ -156,7 +227,7 @@ ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
   do {
     ssize_t rc = mtcp_sys_write (fd, ptr + num_written, count - num_written);
     if (rc == -1) {
-      if (errno == EINTR || errno == EAGAIN) 
+      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN) 
 	continue;
       else
         return rc;
@@ -178,7 +249,7 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
   for (num_read = 0; num_read < count;) {
     rc = mtcp_sys_read (fd, ptr + num_read, count - num_read);
     if (rc == -1) {
-      if (errno == EINTR || errno == EAGAIN)
+      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN)
         continue;
       else
         return -1;

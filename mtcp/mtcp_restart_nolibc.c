@@ -84,7 +84,7 @@ asm (".text");
 static void readfiledescrs (void);
 static void readmemoryareas (void);
 static void readcs (char cs);
-static void readfile (void *buf, size_t size);
+//static void readfile (void *buf, size_t size);
 static void mmapfile(void *buf, size_t size, int prot, int flags);
 static void skipfile(size_t size);
 static void read_shared_memory_area_from_file(Area* area, int flags);
@@ -249,12 +249,13 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   DPRINTF("\n"); /* end of munmap */
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_prepare_for_restore(mtcp_restore_cpfd, (VA*) &finishrestore);
+  fastckpt_prepare_for_restore(mtcp_restore_cpfd);
+  finishrestore = (void*) fastckpt_get_finishrestore();
 #else
   /* Read address of mtcp.c's finishrestore routine */
 
   readcs (CS_FINISHRESTORE);
-  readfile (&finishrestore, sizeof finishrestore);
+  mtcp_readfile(mtcp_restore_cpfd, &finishrestore, sizeof finishrestore);
 
   /* Restore file descriptors */
 
@@ -315,16 +316,16 @@ static void readfiledescrs (void)
 
     /* Read parameters of next file to restore */
 
-    readfile (&fdnum, sizeof fdnum);
+    mtcp_readfile(mtcp_restore_cpfd, &fdnum, sizeof fdnum);
     if (fdnum < 0) break;
-    readfile (&statbuf, sizeof statbuf);
-    readfile (&offset, sizeof offset);
-    readfile (&linklen, sizeof linklen);
+    mtcp_readfile(mtcp_restore_cpfd, &statbuf, sizeof statbuf);
+    mtcp_readfile(mtcp_restore_cpfd, &offset, sizeof offset);
+    mtcp_readfile(mtcp_restore_cpfd, &linklen, sizeof linklen);
     if (linklen >= sizeof linkbuf) {
       MTCP_PRINTF("filename too long %d\n", linklen);
       mtcp_abort ();
     }
-    readfile (linkbuf, linklen);
+    mtcp_readfile(mtcp_restore_cpfd, linkbuf, linklen);
     linkbuf[linklen] = 0;
 
     DPRINTF("restoring %d -> %s\n", fdnum, linkbuf);
@@ -425,13 +426,13 @@ static void readmemoryareas (void)
 #else
     int try_skipping_existing_segment = 0;
 
-    readfile (&cstype, sizeof cstype);
+    mtcp_readfile(mtcp_restore_cpfd, &cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
       MTCP_PRINTF("expected CS_AREADESCRIP but had %d\n", cstype);
       mtcp_abort ();
     }
-    readfile (&area, sizeof area);
+    mtcp_readfile(mtcp_restore_cpfd, &area, sizeof area);
 #endif
 
     if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED))
@@ -507,7 +508,7 @@ static void readmemoryareas (void)
         }
 # else
 	// This fails in CERN Linux 2.6.9; can't readfile on top of vsyscall
-        readfile (area.addr, area.size);
+        mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
 # endif
 #else
 # ifdef __x86_64__
@@ -547,7 +548,7 @@ static void readmemoryareas (void)
             && mtcp_strstr(area.name, "[vsyscall]"))
           mmapfile (area.addr, area.size, area.prot | PROT_WRITE, area.flags);
         else
-          readfile (area.addr, area.size);
+          mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
         if (!(area.prot & PROT_WRITE))
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
             MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
@@ -619,7 +620,7 @@ static void readmemoryareas (void)
         if ( (imagefd = mtcp_sys_open(area.name, O_WRONLY, 0)) >= 0
               && ( (flags == O_WRONLY || flags == O_RDWR) ) ) {
           MTCP_PRINTF("mapping %s with data from ckpt image\n", area.name);
-          readfile (area.addr, area.size);
+          mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
         }
         // If we have no write permission on file, then we should use data
         //   from version of file at restart-time (not from checkpoint-time).
@@ -749,7 +750,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     }
 
     readcs (CS_AREACONTENTS);
-    readfile (area->addr, area->size);
+    mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
 
     areaContentsAlreadyRead = 1;
 
@@ -836,7 +837,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
         || (0 == mtcp_sys_access(area->name, X_OK)) ) {
 
       MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
-      readfile (area->addr, area->size);
+      mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
       mtcp_sys_close (imagefd); // don't leave dangling fd
     }
 #else
@@ -846,7 +847,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       fastckpt_populate_shared_file_from_ckpt_image(mtcp_restore_cpfd, imagefd,
                                                     area);
 # else
-      readfile (area->addr, area->size);
+      mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
 # endif
     } 
 #endif 
@@ -901,38 +902,10 @@ static void readcs (char cs)
 {
   char xcs;
 
-  readfile (&xcs, sizeof xcs);
+  mtcp_readfile(mtcp_restore_cpfd, &xcs, sizeof xcs);
   if (xcs != cs) {
     MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
     mtcp_abort ();
-  }
-}
-
-static void readfile(void *buf, size_t size)
-{
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  MTCP_PRINTF("Not Reached.\n");
-  mtcp_abort();
-#endif
-  ssize_t rc;
-  size_t ar = 0;
-  int tries = 0;
-
-  while(ar != size) {
-    rc = mtcp_sys_read(mtcp_restore_cpfd, buf + ar, size - ar);
-    if (rc < 0) {
-      MTCP_PRINTF("error %d reading checkpoint\n", mtcp_sys_errno);
-      mtcp_abort();
-    }
-    else if (rc == 0) {
-      MTCP_PRINTF("only read %zu bytes instead of %zu from checkpoint file\n",
-                  ar, size);
-      if (tries++ >= 10) {
-        MTCP_PRINTF(" failed to read after 10 tries in a row.\n");
-        mtcp_abort();
-      }
-    }
-    ar += rc;
   }
 }
 
@@ -966,7 +939,7 @@ static void skipfile(size_t size)
     MTCP_PRINTF("mtcp_sys_mmap() failed with error: %s", MTCP_STR_ERRNO);
     mtcp_abort();
   }
-  readfile(tmp_addr, size);
+  mtcp_readfile(mtcp_restore_cpfd, tmp_addr, size);
   if (mtcp_sys_munmap(tmp_addr, size) == -1) {
     MTCP_PRINTF("mtcp_sys_munmap() failed with error: %s", MTCP_STR_ERRNO);
     mtcp_abort();

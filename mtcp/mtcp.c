@@ -485,7 +485,7 @@ static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
 static void writecs (int fd, char cs);
-static void writefile (int fd, void const *buff, size_t size);
+//static void writefile (int fd, void const *buff, size_t size);
 static void preprocess_special_segments(int *vsyscall_exists);
 static void stopthisthread (int signum);
 static void wait_for_all_restored (void);
@@ -2414,7 +2414,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
         MTCP_PRINTF("Error writing checkpoint file: %s\n", strerror(errno));
         mtcp_abort();
       }
-      writefile(fd, tmpBuff, retval);
+      mtcp_writefile(fd, tmpBuff, retval);
     }
     close(tmpDMTCPHeaderFd);
   }
@@ -2427,7 +2427,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   // Preprocess special segments like vsyscall, stack, heap etc.
   preprocess_special_segments(&vsyscall_exists);
 
-  writefile (fd, MAGIC, MAGIC_LEN);
+  mtcp_writefile (fd, MAGIC, MAGIC_LEN);
 
   DPRINTF("restore_begin %X at %p from [libmtcp.so]\n",
           restore_size, restore_begin);
@@ -2443,18 +2443,18 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
           stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
   writecs (fd, CS_STACKRLIMIT);
-  writefile (fd, &stack_rlimit, sizeof stack_rlimit);
+  mtcp_writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
   writecs (fd, CS_RESTOREBEGIN);
-  writefile (fd, &restore_begin, sizeof restore_begin);
+  mtcp_writefile (fd, &restore_begin, sizeof restore_begin);
   writecs (fd, CS_RESTORESIZE);
-  writefile (fd, &restore_size, sizeof restore_size);
+  mtcp_writefile (fd, &restore_size, sizeof restore_size);
   writecs (fd, CS_RESTORESTART);
-  writefile (fd, &restore_start, sizeof restore_start);
+  mtcp_writefile (fd, &restore_start, sizeof restore_start);
   writecs (fd, CS_RESTOREIMAGE);
-  writefile (fd, restore_begin, restore_size);
+  mtcp_writefile (fd, restore_begin, restore_size);
   writecs (fd, CS_FINISHRESTORE);
-  writefile (fd, &frpointer, sizeof frpointer);
+  mtcp_writefile (fd, &frpointer, sizeof frpointer);
 
   /* Write out file descriptors */
   writefiledescrs (fd);
@@ -2746,11 +2746,11 @@ static void writefiledescrs (int fd)
 	      offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
             statbuf.st_mode = (statbuf.st_mode & ~0777)
 			       | (lstatbuf.st_mode & 0777);
-            writefile (fd, &fdnum, sizeof fdnum);
-            writefile (fd, &statbuf, sizeof statbuf);
-            writefile (fd, &offset, sizeof offset);
-            writefile (fd, &linklen, sizeof linklen);
-            writefile (fd, linkbuf, linklen);
+            mtcp_writefile (fd, &fdnum, sizeof fdnum);
+            mtcp_writefile (fd, &statbuf, sizeof statbuf);
+            mtcp_writefile (fd, &offset, sizeof offset);
+            mtcp_writefile (fd, &linklen, sizeof linklen);
+            mtcp_writefile (fd, linkbuf, linklen);
           }
         }
       }
@@ -2766,7 +2766,7 @@ static void writefiledescrs (int fd)
   /* Write end-of-fd-list marker to checkpoint file */
 
   fdnum = -1;
-  writefile (fd, &fdnum, sizeof fdnum);
+  mtcp_writefile (fd, &fdnum, sizeof fdnum);
 }
 
 
@@ -2813,7 +2813,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   {
 #ifndef FAST_CKPT_RST_VIA_MMAP
     writecs (fd, CS_AREADESCRIP);
-    writefile (fd, area, sizeof *area);
+    mtcp_writefile (fd, area, sizeof *area);
 #endif
 
     /* Anonymous sections need to have their data copied to the file,
@@ -2826,7 +2826,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
       fastckpt_write_mem_region(fd, area);
 #else
       writecs (fd, CS_AREACONTENTS);
-      writefile (fd, area -> addr, area -> size);
+      mtcp_writefile (fd, area -> addr, area -> size);
 #endif
     } else {
       MTCP_PRINTF("UnImplemented");
@@ -2838,56 +2838,9 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 /* Write checkpoint section number to checkpoint file */
 static void writecs (int fd, char cs)
 {
-  writefile (fd, &cs, sizeof cs);
+  mtcp_writefile (fd, &cs, sizeof cs);
 }
 
-static char zeroes[MTCP_PAGE_SIZE] = { 0 };
-
-/* Write something to checkpoint file */
-static void writefile (int fd, void const *buff, size_t size)
-{
-  char const *bf;
-  ssize_t rc;
-  size_t sz, wt;
-
-  checkpointsize += size;
-
-  bf = buff;
-  sz = size;
-  while (sz > 0) {
-    for (wt = sz; wt > 0; wt /= 2) {
-      rc = write (fd, bf, wt);
-      if ((rc >= 0) || (errno != EFAULT)) break;
-    }
-
-    /* Sometimes image page alignment will leave a hole in the middle of an
-     * image ... but the idiot proc/self/maps will include it anyway
-     */
-
-    if (wt == 0) {
-      rc = (sz > sizeof zeroes ? sizeof zeroes : sz);
-      checkpointsize -= rc; /* Correct now, since writefile will add rc back */
-      writefile (fd, zeroes, rc);
-    }
-
-    /* Otherwise, check for real error */
-
-    else {
-      if (rc == 0) errno = EPIPE;
-      if (rc <= 0) {
-        MTCP_PRINTF("error writing from %p to %s: %s\n",
-	             bf, temp_checkpointfilename, strerror(errno));
-        mtcp_abort ();
-      }
-    }
-
-    /* It's ok, we're on to next part */
-
-    sz -= rc;
-    bf += rc;
-  }
-}
-
 static void preprocess_special_segments(int *vsyscall_exists)
 {
   Area area;
