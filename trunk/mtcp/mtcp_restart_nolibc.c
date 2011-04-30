@@ -421,7 +421,7 @@ static void readmemoryareas (void)
 
   while (1) {
 #ifdef FAST_CKPT_RST_VIA_MMAP
-    fastckpt_get_next_area_dscr(&area);
+    if (fastckpt_get_next_area_dscr(&area) == 0) break;
 #else
     int try_skipping_existing_segment = 0;
 
@@ -461,15 +461,7 @@ static void readmemoryareas (void)
                 area.size, area.addr, area.name, area.offset);
       }
 #ifdef FAST_CKPT_RST_VIA_MMAP
-      mmappedat = fastckpt_restore_mem_region(mtcp_restore_cpfd, &area);
-      if (mmappedat == MAP_FAILED) {
-        DPRINTF("error %d mapping %p bytes at %p\n",
-                mtcp_sys_errno, area.size, area.addr);
-      }
-      if (mmappedat != area.addr) {
-        MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
-        mtcp_abort ();
-      }
+      fastckpt_restore_mem_region(mtcp_restore_cpfd, &area);
 #else
       imagefd = 0;
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
@@ -739,6 +731,10 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      */
     lock_file(imagefd, area_name, F_WRLCK);
 
+#ifdef FAST_CKPT_RST_VIA_MMAP
+    fastckpt_populate_shared_file_from_ckpt_image(mtcp_restore_cpfd, imagefd,
+                                                  area);
+#else
     // Create a temp area in the memory exactly of the size of the
     // shared file.  We read the contents of the shared file from
     // checkpoint file(.mtcp) into system memory. From system memory,
@@ -752,12 +748,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
 
-#ifdef FAST_CKPT_RST_VIA_MMAP
-    fastckpt_read_contents_into_mmap_region(mtcp_restore_cpfd, area);
-#else
     readcs (CS_AREACONTENTS);
     readfile (area->addr, area->size);
-#endif
 
     areaContentsAlreadyRead = 1;
 
@@ -774,6 +766,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
                   mtcp_sys_errno, area->addr);
       mtcp_abort ();
     }
+#endif
 
     // set file permissions as per memory area protection.
     int fileprot = 0;
@@ -792,13 +785,6 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
   } else { /* else file exists */
-    /* Acquire read lock on the shared file before doing an mmap. See
-     * detailed comments above.
-     */
-    DPRINTF("Acquiring lock on shared file :%s\n", area_name);
-    lock_file(imagefd, area_name, F_RDLCK); 
-    DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
-
     /* This prevents us writing to an mmap()ed file whose length is smaller
      * than the region in memory.  This occurred when checkpointing from within
      * OpenMPI.
@@ -809,6 +795,13 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
               "  Extending it to mmap() size.\n", file_size, area->size);
       mtcp_sys_ftruncate(imagefd, area->size);
     }
+
+    /* Acquire read lock on the shared file before doing an mmap. See
+     * detailed comments above.
+     */
+    DPRINTF("Acquiring lock on shared file :%s\n", area_name);
+    lock_file(imagefd, area_name, F_RDLCK); 
+    DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
   }
 
   mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot,
@@ -823,8 +816,11 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     mtcp_abort ();
   }
 
+  // TODO: Simplify this entire logic.
   if ( areaContentsAlreadyRead == 0 ){
+#ifndef FAST_CKPT_RST_VIA_MMAP
     readcs (CS_AREACONTENTS);
+#endif
 
 #if 0
     // If we have write permission or execute permission on file,
@@ -846,11 +842,12 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 #else
     if (area->prot & PROT_WRITE) {
       MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
-#ifdef FAST_CKPT_RST_VIA_MMAP
-    fastckpt_read_contents_into_mmap_region(mtcp_restore_cpfd, area);
-#else
+# ifdef FAST_CKPT_RST_VIA_MMAP
+      fastckpt_populate_shared_file_from_ckpt_image(mtcp_restore_cpfd, imagefd,
+                                                    area);
+# else
       readfile (area->addr, area->size);
-#endif
+# endif
     } 
 #endif 
     // If we have no write permission on file, then we should use data
