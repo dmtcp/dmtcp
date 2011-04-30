@@ -2628,12 +2628,12 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 
   close (mapsfd);
 
+  /* That's all folks */
 #ifdef FAST_CKPT_RST_VIA_MMAP
   fastckpt_finish_ckpt(fd);
-#endif
-
-  /* That's all folks */
+#else
   writecs (fd, CS_THEEND);
+#endif
 
   if (mtcp_sys_close (fd) < 0) {
     MTCP_PRINTF("(grandchild): error closing checkpoint file: %s\n",
