@@ -60,7 +60,7 @@ endif
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
 #CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
-# CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
@@ -154,11 +154,12 @@ threadtest: threadtest.c
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o
+	mtcp_check_vdso.o mtcp_fastckpt.o
 	${CC} $(CFLAGS) -static \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o -lpthread
+	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_fastckpt.o \
+	 -lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -198,7 +199,8 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_ptrace.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_ptrace.o \
+	mtcp_fastckpt.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -280,6 +282,9 @@ mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
 
 mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
 	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c
+
+mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
+	${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

@@ -96,18 +96,6 @@ static void lock_file(int fd, char* name, short l_type);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
-static void *mystrstr(char *string, char *substring) {
-  for ( ; *string != '\0' ; string++) {
-    char *ptr1, *ptr2;
-    for (ptr1 = string, ptr2 = substring;
-         *ptr1 == *ptr2 && *ptr2 != '\0';
-         ptr1++, ptr2++) ;
-    if (*ptr2 == '\0')
-      return string;
-  }
-  return NULL;
-}
-
 /***************************************************************************** 
  *
  *  This routine is called executing on the temporary stack
@@ -260,6 +248,9 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   }
   DPRINTF("\n"); /* end of munmap */
 
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_prepare_for_restore(mtcp_restore_cpfd, (VA*) &finishrestore);
+#else
   /* Read address of mtcp.c's finishrestore routine */
 
   readcs (CS_FINISHRESTORE);
@@ -269,6 +260,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 
   DPRINTF("restoring file descriptors\n");
   readfiledescrs ();                              // restore files
+#endif
 
   /* Restore memory areas */
 
@@ -312,6 +304,10 @@ static void readfiledescrs (void)
   int fdnum, flags, linklen, tempfd;
   off_t offset;
   struct stat statbuf;
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  MTCP_PRINTF("Unimplemented.\n");
+  mtcp_abort();
+#endif
 
   readcs (CS_FILEDESCRS);
 
@@ -424,6 +420,9 @@ static void readmemoryareas (void)
 #endif
 
   while (1) {
+#ifdef FAST_CKPT_RST_VIA_MMAP
+    fastckpt_get_next_area_dscr(&area);
+#else
     int try_skipping_existing_segment = 0;
 
     readfile (&cstype, sizeof cstype);
@@ -433,6 +432,7 @@ static void readmemoryareas (void)
       mtcp_abort ();
     }
     readfile (&area, sizeof area);
+#endif
 
     if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED))
       MTCP_PRINTF("\n\n*** WARNING:  Next area specifies MAP_ANONYMOUS"
@@ -453,6 +453,24 @@ static void readmemoryareas (void)
        * want to ever write the file.
        */
 
+      if (area.flags & MAP_ANONYMOUS) {
+        DPRINTF("restoring anonymous area %p at %p\n", area.size, area.addr);
+      } else {
+        DPRINTF("restoring to non-anonymous area from anonymous area %p at %p "
+                " from %s + 0x%X\n",
+                area.size, area.addr, area.name, area.offset);
+      }
+#ifdef FAST_CKPT_RST_VIA_MMAP
+      mmappedat = fastckpt_restore_mem_region(mtcp_restore_cpfd, &area);
+      if (mmappedat == MAP_FAILED) {
+        DPRINTF("error %d mapping %p bytes at %p\n",
+                mtcp_sys_errno, area.size, area.addr);
+      }
+      if (mmappedat != area.addr) {
+        MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_abort ();
+      }
+#else
       imagefd = 0;
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
         imagefd = mtcp_sys_open (area.name, O_RDONLY, 0);
@@ -462,23 +480,18 @@ static void readmemoryareas (void)
 
       /* Create the memory area */
 
-      if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF("restoring anonymous area %p at %p\n", area.size, area.addr);
-      } else {
-        DPRINTF("restoring to non-anonymous area from anonymous area %p at %p "
-                " from %s + 0x%X\n",
-                area.size, area.addr, area.name, area.offset);
-      }
       /* POSIX says mmap would unmap old memory.  Munmap never fails if args
        * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
        * mtcp_safemmap here to check for address conflicts.
        */
       mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
 				 area.flags, imagefd, area.offset);
+
+      /* Close image file (fd only gets in the way) */
+      if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
       if (mmappedat == MAP_FAILED) {
         DPRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
-
 	try_skipping_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_skipping_existing_segment) {
@@ -488,7 +501,8 @@ static void readmemoryareas (void)
 
       /* Read saved area contents */
       readcs (CS_AREACONTENTS);
-      if (try_skipping_existing_segment)
+
+      if (try_skipping_existing_segment) {
 #ifdef BUG_64BIT_2_6_9
 # if 0
         // This fails on teracluster.  Presumably extra symbols cause overflow.
@@ -517,29 +531,28 @@ static void readmemoryareas (void)
       //   might be required.  But early 32-bit Linux kernels also don't name
       //   [vdso] in the /proc filesystem, and it's safe to skipfile() there.
       // This code is based on what's in mtcp_check_vdso.c .
-      { if (area.name[0] == '/' /* If not null string, not [stack] or [vdso] */
-            && global_vdso_addr >= area.addr
-            && global_vdso_addr < area.addr + area.size
-           ) {
-          DPRINTF("randomized vdso conflict; retrying\n");
-          mtcp_sys_close (mtcp_restore_cpfd);
-          mtcp_restore_cpfd = -1;
-          if (-1 == mtcp_sys_execve(mtcp_restore_cmd_file,
-                                    mtcp_restore_argv, mtcp_restore_envp))
-            DPRINTF("execve failed.  Restart may fail.\n");
-        } else
-          skipfile (area.size);
+      if (area.name[0] == '/' /* If not null string, not [stack] or [vdso] */
+          && global_vdso_addr >= area.addr
+          && global_vdso_addr < area.addr + area.size) {
+        DPRINTF("randomized vdso conflict; retrying\n");
+        mtcp_sys_close (mtcp_restore_cpfd);
+        mtcp_restore_cpfd = -1;
+        if (-1 == mtcp_sys_execve(mtcp_restore_cmd_file,
+                                  mtcp_restore_argv, mtcp_restore_envp))
+          DPRINTF("execve failed.  Restart may fail.\n");
+      } else {
+        skipfile (area.size);
       }
 # endif
 #endif
-      else {
+      } else {
         /* This mmapfile after prev. mmap is okay; use same args again.
          *  Posix says prev. map will be munmapped.
          */
         /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
         if (do_mmap_ckpt_image
-            && mystrstr(area.name, "[vdso]")
-            && mystrstr(area.name, "[vsyscall]"))
+            && mtcp_strstr(area.name, "[vdso]")
+            && mtcp_strstr(area.name, "[vsyscall]"))
           mmapfile (area.addr, area.size, area.prot | PROT_WRITE, area.flags);
         else
           readfile (area.addr, area.size);
@@ -550,9 +563,7 @@ static void readmemoryareas (void)
             mtcp_abort ();
           }
       }
-
-      /* Close image file (fd only gets in the way) */
-      if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
+#endif // FAST_CKPT_RST_VIA_MMAP
     }
 
     /* CASE NOT MAP_ANONYMOUS:
@@ -576,6 +587,15 @@ static void readmemoryareas (void)
         read_shared_memory_area_from_file(&area, flags);
 
       } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
+#if 1
+        /* During checkpoint, MAP_ANONYMOUS flag is forced whenever MAP_PRIVATE
+         * is set. There is no reason for any mapping to have MAP_PRIVATE and
+         * not have MAP_ANONYMOUS at this point. (MAP_ANONYMOUS is handled
+         * earlier in this function.
+         */
+        MTCP_PRINTF("Unreachable. MAP_PRIVATE implies MAP_ANONYMOUS\n");
+        mtcp_abort();
+#else
         imagefd = mtcp_sys_open (area.name, flags, 0);  // open it
 
         /* CASE NOT MAP_ANONYMOUS, MAP_PRIVATE, backing file doesn't exist: */
@@ -638,13 +658,15 @@ static void readmemoryareas (void)
         }
         if (imagefd >= 0)
 	  mtcp_sys_close (imagefd); // don't leave dangling fd
+#endif
       }
     }
 
-    if (area.name && mystrstr(area.name, "[heap]")
-        && mtcp_sys_brk(NULL) != area.addr + area.size)
+    if (area.name && mtcp_strstr(area.name, "[heap]")
+        && mtcp_sys_brk(NULL) != area.addr + area.size) {
       DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
               mtcp_sys_brk(NULL), area.addr + area.size);
+    }
   }
 }
 
@@ -683,9 +705,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   }
 
   /* Check to see if the filename ends with " (deleted)" */
-  const char* deleted_file_suffix = " (deleted)";
-  if (mtcp_strendswith(area_name, deleted_file_suffix)) {
-    area_name[ mtcp_strlen(area_name) - mtcp_strlen(deleted_file_suffix) ] =
+  if (mtcp_strendswith(area_name, DELETED_FILE_SUFFIX)) {
+    area_name[ mtcp_strlen(area_name) - mtcp_strlen(DELETED_FILE_SUFFIX) ] =
       '\0';
   }
 
@@ -731,8 +752,13 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
 
+#ifdef FAST_CKPT_RST_VIA_MMAP
+    fastckpt_read_contents_into_mmap_region(mtcp_restore_cpfd, area);
+#else
     readcs (CS_AREACONTENTS);
     readfile (area->addr, area->size);
+#endif
+
     areaContentsAlreadyRead = 1;
 
     if ( mtcp_sys_write(imagefd, area->addr,area->size) < 0 ){
@@ -766,17 +792,23 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
   } else { /* else file exists */
-    /* This prevents us writing to an mmap()ed file whose length is smaller than the
-     * region in memory.  This occurred when checkpointing from within OpenMPI.
-     */
-    mtcp_sys_ftruncate(imagefd, area->size);
-
     /* Acquire read lock on the shared file before doing an mmap. See
      * detailed comments above.
      */
     DPRINTF("Acquiring lock on shared file :%s\n", area_name);
     lock_file(imagefd, area_name, F_RDLCK); 
     DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
+
+    /* This prevents us writing to an mmap()ed file whose length is smaller
+     * than the region in memory.  This occurred when checkpointing from within
+     * OpenMPI.
+     */
+    int file_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
+    if (area->size > file_size) {
+      DPRINTF("File size (%d) on disk smaller than mmap() size (%d).\n"
+              "  Extending it to mmap() size.\n", file_size, area->size);
+      mtcp_sys_ftruncate(imagefd, area->size);
+    }
   }
 
   mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot,
@@ -814,7 +846,11 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 #else
     if (area->prot & PROT_WRITE) {
       MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
+#ifdef FAST_CKPT_RST_VIA_MMAP
+    fastckpt_read_contents_into_mmap_region(mtcp_restore_cpfd, area);
+#else
       readfile (area->addr, area->size);
+#endif
     } 
 #endif 
     // If we have no write permission on file, then we should use data
@@ -855,7 +891,9 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
                       area->name, __FILE__, __LINE__);
         }
       }
+#ifndef FAST_CKPT_RST_VIA_MMAP
       skipfile (area->size);
+#endif
     }
   }
   if (imagefd >= 0)
@@ -863,7 +901,6 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 }
 
 static void readcs (char cs)
-
 {
   char xcs;
 
@@ -876,6 +913,10 @@ static void readcs (char cs)
 
 static void readfile(void *buf, size_t size)
 {
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  MTCP_PRINTF("Not Reached.\n");
+  mtcp_abort();
+#endif
   ssize_t rc;
   size_t ar = 0;
   int tries = 0;
@@ -921,6 +962,19 @@ static void mmapfile(void *buf, size_t size, int prot, int flags)
 
 static void skipfile(size_t size)
 {
+#if 1
+  VA tmp_addr = mtcp_sys_mmap(0, size, PROT_WRITE | PROT_READ,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (tmp_addr == MAP_FAILED) {
+    MTCP_PRINTF("mtcp_sys_mmap() failed with error: %s", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+  readfile(tmp_addr, size);
+  if (mtcp_sys_munmap(tmp_addr, size) == -1) {
+    MTCP_PRINTF("mtcp_sys_munmap() failed with error: %s", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+#else
   size_t ar;
   ssize_t rc;
   ar = 0;
@@ -940,6 +994,7 @@ static void skipfile(size_t size)
 
     ar += rc;
   }
+#endif
 }
 
 #if 1
@@ -1032,19 +1087,19 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
   *vdso_addr = NULL; /* Default to NULL if not found. */
   while (readmapsline (mapsfd, &area)) {
     /* Gcc expands strstr() inline, but it's safer to use our own function. */
-    p = mystrstr (area.name, "[stack]");
+    p = mtcp_strstr (area.name, "[stack]");
     if (p != NULL)
       area_end = area.addr + area.size;
-    p = mystrstr (area.name, "[vdso]");
+    p = mtcp_strstr (area.name, "[vdso]");
     if (p != NULL)
       *vdso_addr = area.addr;
-    p = mystrstr (area.name, "[vsyscall]");
+    p = mtcp_strstr (area.name, "[vsyscall]");
     if (p != NULL)
       *vsyscall_addr = area.addr;
-    p = mystrstr (area.name, "[stack]");
+    p = mtcp_strstr (area.name, "[stack]");
     if (p != NULL)
       *stack_end_addr = area.addr + addr.size;
-    p = mystrstr (area.name, "[vsyscall]");
+    p = mtcp_strstr (area.name, "[vsyscall]");
     if (p != NULL) /* vsyscall is highest section, when it exists */
       return area.addr;
   }

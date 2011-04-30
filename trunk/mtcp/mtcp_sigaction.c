@@ -37,10 +37,11 @@
 /* Defined and allocated in mtcp.c */
 extern int dmtcp_exists;
 
-__attribute__ ((weak))
+int __attribute__ ((weak))
 _real_sigaction (int sig, const struct sigaction *act, struct sigaction *oact) {
-  MTCP_PRINTF("This function should never be called when running with DMTCP.\n");
-  abort();
+  MTCP_PRINTF("This function should never be called when running with"
+              "DMTCP.\n");
+  mtcp_abort();
 }
 
 /* The difference here is that the sigaction structure used in the

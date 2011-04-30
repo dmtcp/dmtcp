@@ -39,6 +39,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <linux/version.h>
 
 #if USE_FUTEX
@@ -157,6 +158,10 @@ typedef unsigned int mtcp_segreg_t;
   #define HBICT_FIRST 'H'
 #endif
 
+#define DELETED_FILE_SUFFIX " (deleted)"
+
+#define FAST_CKPT_RST_VIA_MMAP
+
 int STOPSIGNAL;             // signal to use to signal other threads to stop for
                             //   checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
@@ -171,7 +176,48 @@ struct Area { char *addr;   // args required for mmap to restore memory area
               int flags;
               off_t offset;
               char name[FILENAMESIZE];
+#ifdef FAST_CKPT_RST_VIA_MMAP
+              size_t mem_region_offset;
+#endif
             };
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+#define MTCP_CKPT_IMAGE_VERSION 1.3
+typedef struct MTCP_CKPT_Image_Header {
+  float ckpt_image_version;
+
+  VA start_addr;
+  size_t hdr_offset_in_file;
+  size_t total_size;
+  size_t maps_offset;
+  size_t num_memory_regions;
+  size_t VmSize;
+
+  size_t restore_size;
+  VA restore_begin;
+  VA restore_start_fncptr; /* will be bound to fnc, mtcp_restore_start */
+  VA finish_retore_fncptr; /* will be bound to fnc, finishrestore */
+
+  struct rlimit stack_rlimit;
+} MTCP_CKPT_Image_Header;
+
+VA fastckpt_mmap_addr();
+void fastckpt_write_mem_region(Area *area);
+void fastckpt_get_mem_region_info(size_t *vmsize, size_t *num_mem_regions);
+void fastckpt_prepare_for_ckpt(int ckptfd, VA restore_start, VA finishrestore);
+void fastckpt_save_restore_image(VA restore_begin, size_t restore_size);
+void fastckpt_finish_ckpt(int ckptfd);
+void fastckpt_read_header(int fd, struct rlimit *stack_rlimit,
+                          VA *restore_begin, size_t *restore_size,
+                          VA *restore_start);
+void fastckpt_load_restore_image(int fd, VA restore_begin, size_t restore_size);
+void fastckpt_prepare_for_restore(int fd, VA *finishrestore);
+void fastckpt_finish_restore();
+void fastckpt_get_next_area_dscr(Area *area);
+VA fastckpt_restore_mem_region(int fd, const Area *area);
+void fastckpt_read_contents_into_mmap_region(int fd, Area *area);
+#endif
+
 // order must match that in mtcp_jmpbuf.s
 // struct Jmpbuf { uLong ebx, esi, edi, ebp, esp; 
 //                 uLong eip;
@@ -283,12 +329,15 @@ char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
 ssize_t mtcp_read_all(int fd, void *buf, size_t count);
+ssize_t mtcp_write_all(int fd, const void *buf, size_t count);
 size_t mtcp_strlen (const char *s1);
+void *mtcp_strstr(char *string, char *substring);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
 int mtcp_get_controlling_term(char* ttyName, size_t len);
 
+int readmapsline (int mapsfd, Area *area);
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
