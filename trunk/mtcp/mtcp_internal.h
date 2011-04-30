@@ -160,7 +160,7 @@ typedef unsigned int mtcp_segreg_t;
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
-//#define FAST_CKPT_RST_VIA_MMAP
+#define FAST_CKPT_RST_VIA_MMAP
 
 int STOPSIGNAL;             // signal to use to signal other threads to stop for
                             //   checkpointing
@@ -210,7 +210,8 @@ void fastckpt_finish_ckpt(int ckptfd);
 void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
                           VA *restore_start);
 void fastckpt_load_restore_image(int fd, Area *area);
-void fastckpt_prepare_for_restore(int fd, VA *finishrestore);
+void fastckpt_prepare_for_restore(int fd);
+VA fastckpt_get_finishrestore();
 void fastckpt_finish_restore();
 int fastckpt_get_next_area_dscr(Area *area);
 void fastckpt_restore_mem_region(int fd, const Area *area);
@@ -318,6 +319,8 @@ __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
 
+void mtcp_readfile(int fd, void *buf, size_t size);
+void mtcp_writefile (int fd, void const *buff, size_t size);
 void mtcp_check_vdso_enabled(void);
 int mtcp_have_thread_sysinfo_offset();
 void *mtcp_get_thread_sysinfo(void);
@@ -331,7 +334,7 @@ char mtcp_readhex (int fd, VA *value);
 ssize_t mtcp_read_all(int fd, void *buf, size_t count);
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count);
 size_t mtcp_strlen (const char *s1);
-void *mtcp_strstr(char *string, char *substring);
+const void *mtcp_strstr(const char *string, const char *substring);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);

@@ -93,8 +93,8 @@ endif
 
 all default: build tests readmtcp
 
-readmtcp: readmtcp.c
-	${CC} ${CFLAGS} -o readmtcp readmtcp.c
+readmtcp: readmtcp.c mtcp_internal.h libmtcp.so
+	${CC} ${CFLAGS} -o readmtcp readmtcp.c libmtcp.so
 
 build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
