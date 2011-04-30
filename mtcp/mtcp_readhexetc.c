@@ -114,6 +114,19 @@ int mtcp_strncmp (const char *s1, const char *s2, size_t n)
   return c1 - c2;
 }
 
+void *mtcp_strstr(char *string, char *substring)
+{
+  for ( ; *string != '\0' ; string++) {
+    char *ptr1, *ptr2;
+    for (ptr1 = string, ptr2 = substring;
+         *ptr1 == *ptr2 && *ptr2 != '\0';
+         ptr1++, ptr2++) ;
+    if (*ptr2 == '\0')
+      return string;
+  }
+  return NULL;
+}
+
 int mtcp_strstartswith (const char *s1, const char *s2)
 {
   if (mtcp_strlen(s1) >= mtcp_strlen(s2)) {
@@ -133,6 +146,27 @@ int mtcp_strendswith (const char *s1, const char *s2)
   s1 += (len1 - len2);
 
   return mtcp_strncmp(s1, s2, len2) == 0;
+}
+
+ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
+{
+  const char *ptr = (const char *) buf;
+  size_t num_written = 0;
+
+  do {
+    ssize_t rc = write (fd, ptr + num_written, count - num_written);
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN) 
+	continue;
+      else
+        return rc;
+    }
+    else if (rc == 0)
+      break;
+    else // else rc > 0
+      num_written += rc;
+  } while (num_written < count);
+  return num_written;
 }
 
 // Fails, succeeds, or partial read due to EOF (returns num read)

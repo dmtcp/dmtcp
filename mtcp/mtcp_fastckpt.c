@@ -1,0 +1,304 @@
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/user.h>
+#include <errno.h>
+#include "mtcp_internal.h"
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+static MTCP_CKPT_Image_Header *ckpt_image_header = NULL;
+static int proc_self_mem_fd = -1;
+static int curr_area_idx = 0;
+static Area *area_array = NULL;
+
+VA fastckpt_mmap_addr()
+{
+  return ckpt_image_header->start_addr;
+}
+
+void fastckpt_write_mem_region(Area *area)
+{
+  area->mem_region_offset = ckpt_image_header->hdr_offset_in_file
+                            + ckpt_image_header->maps_offset 
+                            + ckpt_image_header->VmSize;
+  memcpy(&area_array[curr_area_idx], area, sizeof(*area));
+  curr_area_idx++;
+
+  VA addr = ckpt_image_header->start_addr + ckpt_image_header->maps_offset
+            + ckpt_image_header->VmSize;
+
+  VA res = mtcp_sys_mmap(addr, area->size, PROT_READ, MAP_PRIVATE | MAP_FIXED,
+                         proc_self_mem_fd, (off_t) area->addr);
+  if (res != addr) {
+    sleep(20);
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  ckpt_image_header->VmSize += area->size;
+  ckpt_image_header->num_memory_regions += 1;
+}
+
+void fastckpt_get_mem_region_info(size_t *VmSize, size_t *num_mem_regions)
+{
+  int fd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
+  if (fd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort ();
+  }
+
+  char ch;
+  while ((ch = mtcp_readchar(fd)) != '\0') {
+    if (ch == '\n')
+      (*num_mem_regions)++;
+  }
+  close(fd);
+
+  fd = mtcp_sys_open2("/proc/self/statm", O_RDONLY);
+  if (fd < 0) {
+    MTCP_PRINTF("error opening /proc/self/statm: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort ();
+  }
+
+  size_t num_pages = 0;
+  if (mtcp_readdec(fd, (VA *) &num_pages) != ' ' || num_pages == 0) {
+    MTCP_PRINTF("error reading /proc/self/statm");
+    mtcp_abort();
+  }
+  *VmSize = num_pages * PAGE_SIZE;
+  return;
+}
+
+void fastckpt_prepare_for_ckpt(int ckptfd, VA restore_start, VA finishrestore)
+{
+  size_t num_memory_regions = 0;
+  size_t VmSize = 0;
+
+  fastckpt_get_mem_region_info(&VmSize, &num_memory_regions);
+
+  proc_self_mem_fd = mtcp_sys_open2("/proc/self/mem", O_RDONLY);
+  if (proc_self_mem_fd == -1) {
+    MTCP_PRINTF("error open()'ing /proc/self/mem: %s", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  off_t curr_offset = lseek(ckptfd, 0, SEEK_CUR);
+  if (curr_offset % PAGE_SIZE != 0) {
+    size_t padding = (PAGE_SIZE - (curr_offset % PAGE_SIZE)) % PAGE_SIZE;
+    mtcp_sys_ftruncate(ckptfd, curr_offset + padding);
+    curr_offset = lseek(ckptfd, padding, SEEK_CUR);
+  }
+
+  size_t maps_offset = (sizeof (MTCP_CKPT_Image_Header)
+                        + (sizeof (Area) * num_memory_regions)
+                        + (PAGE_SIZE - 1)) & PAGE_MASK;
+
+  size_t total_size = maps_offset + VmSize;
+
+  VA addr = (VA) mtcp_sys_mmap(NULL, total_size, PROT_READ | PROT_WRITE,
+                               MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS,
+                               -1, 0);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap() failed with error :%s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  mtcp_sys_ftruncate(ckptfd, curr_offset + maps_offset);
+  errno = 0;
+  mtcp_sys_errno = 0;
+  VA hdr_addr = (VA) mtcp_sys_mmap(NULL, maps_offset, PROT_READ | PROT_WRITE,
+                                   MAP_SHARED, ckptfd, curr_offset);
+  if (hdr_addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap() failed with error :%s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  ckpt_image_header = (MTCP_CKPT_Image_Header*) hdr_addr;
+  memset(ckpt_image_header, 0, sizeof(ckpt_image_header));
+
+  // TODO : place this lseek at proper place
+  lseek(ckptfd, maps_offset, SEEK_CUR);
+
+  ckpt_image_header->ckpt_image_version = MTCP_CKPT_IMAGE_VERSION;
+  ckpt_image_header->start_addr = addr;
+  ckpt_image_header->hdr_offset_in_file = curr_offset;
+  ckpt_image_header->total_size = total_size;
+  ckpt_image_header->maps_offset = maps_offset;
+  ckpt_image_header->num_memory_regions = 0;
+  ckpt_image_header->VmSize = 0;
+
+  ckpt_image_header->restore_start_fncptr = restore_start; 
+  ckpt_image_header->finish_retore_fncptr = finishrestore; 
+
+  getrlimit(RLIMIT_STACK, &ckpt_image_header->stack_rlimit);
+
+  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+          ckpt_image_header->stack_rlimit.rlim_cur,
+          ckpt_image_header->stack_rlimit.rlim_max);
+
+  area_array = (Area*) (addr + sizeof (MTCP_CKPT_Image_Header));
+  curr_area_idx = 0;
+}
+
+void fastckpt_save_restore_image(VA restore_begin, size_t restore_size)
+{
+  Area area;
+
+  ckpt_image_header->restore_begin = restore_begin;
+  ckpt_image_header->restore_size = restore_size;
+
+
+  area.addr = restore_begin;
+  area.size = restore_size;
+  area.prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+  area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+  area.offset = 0;
+  strcpy(area.name, "[libmtcp.so]");
+
+  fastckpt_write_mem_region(&area);
+}
+
+void fastckpt_finish_ckpt(int ckptfd)
+{
+  VA addr = ckpt_image_header->start_addr + ckpt_image_header->maps_offset;
+
+  ssize_t ret = mtcp_write_all(ckptfd, addr, ckpt_image_header->VmSize);
+  if (ret != ckpt_image_header->VmSize) {
+    MTCP_PRINTF("mtcp_write_all failed with error:%s", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+  close(proc_self_mem_fd);
+  mtcp_sys_munmap(ckpt_image_header->start_addr, ckpt_image_header->total_size);
+  proc_self_mem_fd = -1;
+  ckpt_image_header = NULL;
+}
+
+void fastckpt_read_header(int fd, struct rlimit *stack_rlimit,
+                          VA *restore_begin, size_t *restore_size,
+                          VA *restore_start)
+{
+  off_t curr_offset = lseek(fd, 0, SEEK_CUR);
+  if (curr_offset % PAGE_SIZE != 0) {
+    size_t padding = (PAGE_SIZE - (curr_offset % PAGE_SIZE)) % PAGE_SIZE;
+    curr_offset = lseek(fd, padding, SEEK_CUR);
+  }
+
+  VA addr = mtcp_sys_mmap(0, sizeof(MTCP_CKPT_Image_Header), PROT_READ,
+                          MAP_PRIVATE, fd, curr_offset);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+  MTCP_CKPT_Image_Header *hdr = (MTCP_CKPT_Image_Header*) addr;
+
+  *stack_rlimit = hdr->stack_rlimit;
+  *restore_begin = hdr->restore_begin;
+  *restore_size = hdr->restore_size;
+  *restore_start = hdr->restore_start_fncptr;
+
+  mtcp_sys_munmap(addr, sizeof(MTCP_CKPT_Image_Header));
+}
+
+void fastckpt_load_restore_image(int fd, VA restore_begin, size_t restore_size)
+{
+  off_t offset = lseek(fd, 0, SEEK_CUR);
+  VA addr = mtcp_sys_mmap(0, sizeof(MTCP_CKPT_Image_Header), PROT_READ,
+                         MAP_PRIVATE, fd, offset);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  MTCP_CKPT_Image_Header *hdr = (MTCP_CKPT_Image_Header*) addr;
+  off_t restore_image_offset = hdr->hdr_offset_in_file + hdr->maps_offset;
+
+  VA tmp_addr = mtcp_sys_mmap(0, restore_size, PROT_READ, MAP_PRIVATE, fd,
+                              restore_image_offset);
+  if (tmp_addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  memcpy(restore_begin, tmp_addr, restore_size);
+
+  mtcp_sys_munmap(addr, sizeof(MTCP_CKPT_Image_Header));
+  mtcp_sys_munmap(tmp_addr, restore_size);
+}
+
+void fastckpt_prepare_for_restore(int fd, VA *finishrestore)
+{
+  off_t offset = lseek(fd, 0, SEEK_CUR);
+  VA addr = mtcp_sys_mmap(0, sizeof(MTCP_CKPT_Image_Header),
+                          PROT_READ, MAP_PRIVATE, fd, offset);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+  MTCP_CKPT_Image_Header hdr = *(MTCP_CKPT_Image_Header*) addr;
+  if (munmap(addr, sizeof(MTCP_CKPT_Image_Header)) == -1) {
+    MTCP_PRINTF("munmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  addr = mtcp_sys_mmap(hdr.start_addr, hdr.maps_offset, PROT_READ,
+                       MAP_PRIVATE, fd, hdr.hdr_offset_in_file);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  ckpt_image_header = (MTCP_CKPT_Image_Header*) addr;
+  *finishrestore = ckpt_image_header->finish_retore_fncptr;
+  curr_area_idx = 1;
+  area_array = (Area*) (ckpt_image_header->start_addr +
+                        sizeof(MTCP_CKPT_Image_Header));
+}
+
+void fastckpt_finish_restore()
+{
+  int res = mtcp_sys_munmap(ckpt_image_header, ckpt_image_header->maps_offset);
+  if (res == -1) {
+    MTCP_PRINTF("munmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  ckpt_image_header = NULL;
+  curr_area_idx = 0;
+  area_array = NULL;
+}
+
+void fastckpt_get_next_area_dscr(Area *area)
+{
+  if (curr_area_idx == ckpt_image_header->num_memory_regions) {
+    MTCP_PRINTF("Next memory region not found in CKPT Image\n"
+                "  num_memory_regions: %d",
+                ckpt_image_header->num_memory_regions);
+    mtcp_abort();
+  }
+
+  *area = area_array[curr_area_idx];
+  curr_area_idx ++;
+}
+
+VA fastckpt_restore_mem_region(int fd, const Area *area)
+{
+  return (VA) mtcp_sys_mmap (area->addr, area->size, area->prot,
+                             area->flags | MAP_FIXED, fd,
+                             area->mem_region_offset);
+}
+
+void fastckpt_read_contents_into_mmap_region(int fd, Area *area)
+{
+  VA tmp_addr = mtcp_sys_mmap(0, area->size, PROT_READ, MAP_PRIVATE, fd,
+                              area->mem_region_offset);
+  if (tmp_addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %s\n", MTCP_STR_ERRNO);
+    mtcp_abort();
+  }
+
+  memcpy(area->addr, tmp_addr, area->size);
+
+  mtcp_sys_munmap(tmp_addr, area->size);
+}
+
+#endif

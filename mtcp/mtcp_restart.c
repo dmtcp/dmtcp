@@ -195,14 +195,13 @@ int main (int argc, char *argv[], char *envp[])
 
   /* Set the resource limits for stack from saved values */
   struct rlimit stack_rlimit;
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_read_header(fd, &stack_rlimit, (VA*) &restore_begin,
+                       &restore_size, (VA*) &restore_start);
+#else
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   readfile (fd, &stack_rlimit, sizeof stack_rlimit);
-#ifdef DEBUG
-  MTCP_PRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
-              stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
-#endif
-  setrlimit(RLIMIT_STACK, &stack_rlimit);
-
   /* Find where the restore image goes */
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
   readfile (fd, &restore_begin, sizeof restore_begin);
@@ -211,16 +210,20 @@ int main (int argc, char *argv[], char *envp[])
   readcs (fd, CS_RESTORESTART);
   readfile (fd, &restore_start, sizeof restore_start);
 
+  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+          stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
+
+#endif // FAST_CKPT_RST_VIA_MMAP
+  setrlimit(RLIMIT_STACK, &stack_rlimit);
+
   /* Read in the restore image to same address where it was loaded at time
    *  of checkpoint.  This is libmtcp.so, including both text and data sections
    *  as a single section.  Hence, we need both write and exec permission,
    *  and MAP_ANONYMOUS, since the data could have changed.
    */
 
-#ifdef DEBUG
-  MTCP_PRINTF("restoring anonymous area %p at %p\n",
-              restore_size, restore_begin);
-#endif
+  DPRINTF("restoring anonymous area %p at %p\n", restore_size, restore_begin);
+
   if (munmap(restore_begin, restore_size) < 0) {
     MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
     abort ();
@@ -247,8 +250,12 @@ int main (int argc, char *argv[], char *envp[])
                 restore_size, restore_begin, restore_mmap);
     abort ();
   }
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_load_restore_image(fd, restore_begin, restore_size);
+#else
   readcs (fd, CS_RESTOREIMAGE);
   readfile (fd, restore_begin, restore_size);
+#endif
 
 #ifndef __x86_64__
   // Copy command line to libmtcp.so, so that we can re-exec if randomized vdso

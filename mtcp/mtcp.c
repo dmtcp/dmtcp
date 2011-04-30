@@ -403,7 +403,6 @@ static size_t checkpointsize;
 static int intervalsecs;
 static pid_t motherpid = 0;
 pid_t saved_pid = 0;
-static size_t restore_size;
 static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
@@ -420,6 +419,7 @@ static Thread *ckpthread = NULL;
 static Thread *threads = NULL;
 /* NOTE:  NSIG == SIGRTMAX+1 == 65 on Linux; NSIG is const, SIGRTMAX isn't */
 struct sigaction sigactions[NSIG];  /* signal handlers */
+static size_t restore_size;
 static VA restore_begin, restore_end;
 static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
 static void *saved_sysinfo;
@@ -498,7 +498,7 @@ static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
 static void lock_threads (void);
 static void unlk_threads (void);
-static int readmapsline (int mapsfd, Area *area);
+//static int readmapsline (int mapsfd, Area *area);
 static void restore_heap(void);
 static void finishrestore (void);
 static int restarthread (void *threadv);
@@ -2217,7 +2217,11 @@ static void checkpointeverything (void)
   /* 4. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  int flags = O_CREAT | O_TRUNC | O_RDWR;
+#else
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
+#endif
   int fd = mtcp_safe_open(temp_checkpointfilename, flags, 0600);
   if (fd < 0) {
     MTCP_PRINTF("error creating %s: %s\n",
@@ -2425,6 +2429,10 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   DPRINTF("restore_begin %X at %p from [libmtcp.so]\n",
           restore_size, restore_begin);
 
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_prepare_for_ckpt(fd, restore_start, frpointer);
+  fastckpt_save_restore_image(restore_begin, restore_size);
+#else
   struct rlimit stack_rlimit;
   getrlimit(RLIMIT_STACK, &stack_rlimit);
 
@@ -2433,9 +2441,6 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 
   writecs (fd, CS_STACKRLIMIT);
   writefile (fd, &stack_rlimit, sizeof stack_rlimit);
-
-  DPRINTF("[libmtcp.so] image of size %X at %p\n",
-          restore_size, restore_begin);
 
   writecs (fd, CS_RESTOREBEGIN);
   writefile (fd, &restore_begin, sizeof restore_begin);
@@ -2449,8 +2454,8 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   writefile (fd, &frpointer, sizeof frpointer);
 
   /* Write out file descriptors */
-
   writefiledescrs (fd);
+#endif
 
   /* Finally comes the memory contents */
 
@@ -2487,6 +2492,13 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
      */
     if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffffffff600000)
       continue;
+#endif
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+    /* We don't want to ckpt the mmap()'d area */
+    if (area_begin == fastckpt_mmap_addr()) {
+      continue;
+    }
 #endif
 
     /* Skip anything that has no read or execute permission.  This occurs
@@ -2613,6 +2625,10 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 
   close (mapsfd);
 
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  fastckpt_finish_ckpt(fd);
+#endif
+
   /* That's all folks */
   writecs (fd, CS_THEEND);
 
@@ -2642,7 +2658,6 @@ static int should_ckpt_fd (int fd)
 
 /* Write list of open files to the checkpoint file */
 static void writefiledescrs (int fd)
-
 {
   char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
   int doff, dsiz, fddir, fdnum, linklen, rc;
@@ -2681,6 +2696,11 @@ static void writefiledescrs (int fd)
       fdnum = strtol (dent -> d_name, &p, 10);
       if ((*p == '\0') && (fdnum >= 0) && (fdnum != fd) && (fdnum != fddir)
 	  && (should_ckpt_fd (fdnum) > 0)) {
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+        MTCP_PRINTF("FAST ckpt restart not supported without DMTCP");
+        mtcp_abort();
+#endif
 
         // Read the symbolic link so we get the filename that's open on the fd
         sprintf (procfdname, "/proc/self/fd/%d", fdnum);
@@ -2746,6 +2766,7 @@ static void writefiledescrs (int fd)
   writefile (fd, &fdnum, sizeof fdnum);
 }
 
+
 static void writememoryarea (int fd, Area *area, int stack_was_seen,
 			     int vsyscall_exists)
 {
@@ -2787,8 +2808,10 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
              || !stack_was_seen ))) /* If vdso appeared before stack, it can be
                                        replaced */
   {
+#ifndef FAST_CKPT_RST_VIA_MMAP
     writecs (fd, CS_AREADESCRIP);
     writefile (fd, area, sizeof *area);
+#endif
 
     /* Anonymous sections need to have their data copied to the file,
      *   as there is no file that contains their data
@@ -2796,8 +2819,15 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      *   implemented with backing files
      */
     if (area -> flags & MAP_ANONYMOUS || area -> flags & MAP_SHARED) {
+#ifdef FAST_CKPT_RST_VIA_MMAP
+      fastckpt_write_mem_region(area);
+#else
       writecs (fd, CS_AREACONTENTS);
       writefile (fd, area -> addr, area -> size);
+#endif
+    } else {
+      MTCP_PRINTF("UnImplemented");
+      mtcp_abort();
     }
   }
 }
@@ -3576,7 +3606,7 @@ static void unlk_threads (void)
  *
  *****************************************************************************/
 
-static int readmapsline (int mapsfd, Area *area)
+int readmapsline (int mapsfd, Area *area)
 
 {
   char c, rflag, sflag, wflag, xflag;
@@ -3632,7 +3662,7 @@ static int readmapsline (int mapsfd, Area *area)
     /* if nscd is active */
   } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
     /* System V Shared-Memory segments are handled by DMTCP. */
-  } else if ( mtcp_strendswith(area -> name, " (deleted)") ) {
+  } else if ( mtcp_strendswith(area -> name, DELETED_FILE_SUFFIX) ) {
     /* Deleted File */
   } else if (area -> name[0] == '/') {  /* if an absolute pathname */
     rc = stat (area -> name, &statbuf);
@@ -4151,7 +4181,7 @@ static void sync_shared_mem(void)
 
     if (!(area.flags & MAP_SHARED)) continue;
 
-    if (strstr(area.name, " (deleted)")) continue;
+    if (strstr(area.name, DELETED_FILE_SUFFIX)) continue;
 
     DPRINTF("syncing %X at %p from %s + %X\n",
             area.size, area.addr, area.name, area.offset);
