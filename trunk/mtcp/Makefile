@@ -71,6 +71,11 @@ CFLAGS += -O0 -g
 ifdef PTRACE_SUPPORT
   CFLAGS += -DPTRACE
 endif
+# If ./configure --enable-fast-ckpt-restart defined, DMTCP 'make' will set this.
+# If building MTCP standalone, change the line below to invoke this option.
+ifdef FAST_CKPT_RESTART
+  CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
+endif
 
 LD = ${CC}
 ASFLAGS =

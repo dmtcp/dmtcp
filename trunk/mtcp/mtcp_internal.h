@@ -160,8 +160,6 @@ typedef unsigned int mtcp_segreg_t;
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
-#define FAST_CKPT_RST_VIA_MMAP
-
 int STOPSIGNAL;             // signal to use to signal other threads to stop for
                             //   checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)

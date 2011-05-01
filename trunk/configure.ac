@@ -62,22 +62,6 @@ else
   AC_SUBST([PID_VIRTUALIZATION], [no])
 fi
 
-
-
-AC_ARG_ENABLE([delta_compression],
-            [AS_HELP_STRING([--enable-delta_compression],
-                            [enable incremental/differential checkpointing using HBICT 
-                            (Hash-based incremental checkpointing tool])],
-            [use_deltacomp=$enableval],
-            [use_deltacomp=no])
-
-if test "$use_deltacomp" = "yes"; then
-  AC_SUBST([HBICT_DELTACOMP], [yes])
-else
-  AC_SUBST([HBICT_DELTACOMP], [no])
-fi
-
-
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],
                             [enable ptrace support for gdb, valgrind, etc.
@@ -89,6 +73,31 @@ if test "$use_ptrace_support" = "yes"; then
 else
   AC_SUBST([PTRACE_SUPPORT], [no])
 fi
+
+AC_ARG_ENABLE([fast_ckpt_restart],
+            [AS_HELP_STRING([--enable-fast-ckpt-restart],
+                            [uses tricks to mmap from checkpoint image file
+			    (EXPERIMENTAL)])],
+            [use_fast_ckpt_restart=$enableval],
+            [use_fast_ckpt_restart=default])
+if test "$use_fast_ckpt_restart" = "yes"; then
+  AC_SUBST([FAST_CKPT_RESTART], [yes])
+else
+  AC_SUBST([FAST_CKPT_RESTART], [no])
+fi
+
+AC_ARG_ENABLE([delta_compression],
+            [AS_HELP_STRING([--enable-delta_compression],
+                            [enable incremental/differential checkpointing using HBICT 
+                            (hash-based incremental checkpointing tool, EXPERIMENTAL)])],
+            [use_deltacomp=$enableval],
+            [use_deltacomp=no])
+if test "$use_deltacomp" = "yes"; then
+  AC_SUBST([HBICT_DELTACOMP], [yes])
+else
+  AC_SUBST([HBICT_DELTACOMP], [no])
+fi
+
 AC_ARG_ENABLE([condor_support],
             [AS_HELP_STRING([--enable-condor-support],
                             [set configure options to support Condor.])],
@@ -113,7 +122,7 @@ AC_ARG_ENABLE([forked_checkpointing],
             [AS_HELP_STRING([--enable-forked-checkpointing],
                             [fork a child process to do checkpointing, so that
                             parent sees only minor delay during checkpoint
-			    (experimental)])],
+			    (EXPERIMENTAL)])],
             [use_forked_ckpt=$enableval],
             [use_forked_ckpt=no])
 AC_ARG_ENABLE([allocator],
@@ -131,6 +140,7 @@ else
   AC_SUBST([HAS_READLINE], [no])
 fi
 
+#Add check for libc.a next.  MTCP uses it in build.
 # Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
 # Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
 #  and AC_MSG_FAILURE in future version.
@@ -193,15 +203,14 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
      [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
     )])
 
-#Add check for libc.a next.  MTCP uses it in build.
-
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
 #check for record-replay capability
 # REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
 #            [AS_HELP_STRING([--with-record-replay],
-#                            [support record replay (experimental)])],
+#                            [support record replay (EXPERIMENTAL)
+#			      forces fast_ckpt_restart unless --disable-fast-ckpt-restart specified])],
 AC_ARG_WITH([record-replay],
             [AS_HELP_STRING([--experts-only-flag], [for experts only])],
             [record_replay=$withval],
@@ -211,10 +220,17 @@ if test "$record_replay" != "no"; then
   AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
   AC_SUBST([PTRACE_SUPPORT], [yes])
+  if test "$use_fast_ckpt_restart" != "no"; then
+    dnl FAST_CKPT_RESTART is based on mmap
+    AC_SUBST([FAST_CKPT_RESTART], [yes])
+  else
+    AC_SUBST([FAST_CKPT_RESTART], [no])
+  fi
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi
+echo "use_fast_ckpt_restart": $use_fast_ckpt_restart
 
 #check for mpich2
 AC_ARG_WITH([mpich],
