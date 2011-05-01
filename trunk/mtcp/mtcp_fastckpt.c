@@ -56,15 +56,16 @@ void fastckpt_get_mem_region_info(size_t *VmSize, size_t *num_mem_regions)
     MTCP_PRINTF("error reading /proc/self/statm");
     mtcp_abort();
   }
-  *VmSize = num_pages * PAGE_SIZE;
+  *VmSize = num_pages * MTCP_PAGE_SIZE;
   return;
 }
 
 off_t fastckpt_align_offset(int fd, int isRestart)
 {
   off_t curr_offset = mtcp_sys_lseek(fd, 0, SEEK_CUR);
-  if (curr_offset % PAGE_SIZE != 0) {
-    size_t padding = (PAGE_SIZE - (curr_offset % PAGE_SIZE)) % PAGE_SIZE;
+  if (curr_offset % MTCP_PAGE_SIZE != 0) {
+    size_t padding = (MTCP_PAGE_SIZE
+                      - (curr_offset % MTCP_PAGE_SIZE)) % MTCP_PAGE_SIZE;
     if (!isRestart) {
       mtcp_sys_ftruncate(fd, curr_offset + padding);
     }
@@ -84,7 +85,7 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
 
   size_t maps_offset = (sizeof (MTCP_CKPT_Image_Header)
                         + (sizeof (Area) * num_memory_regions)
-                        + (PAGE_SIZE - 1)) & PAGE_MASK;
+                        + (MTCP_PAGE_SIZE - 1)) & PAGE_MASK;
 
   mtcp_sys_ftruncate(fd, curr_offset + maps_offset);
   VA hdr_addr = (VA) mtcp_sys_mmap(NULL, maps_offset, PROT_READ | PROT_WRITE,
