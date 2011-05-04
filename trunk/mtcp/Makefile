@@ -71,6 +71,13 @@ CFLAGS += -O0 -g
 ifdef PTRACE_SUPPORT
   CFLAGS += -DPTRACE
 endif
+
+# If ./configure --enable-ptrace-support defined, DMTCP 'make' will set this.
+# If calling 'make' from mtcp subdir, you may want to unconditionally set this.
+ifdef HBICT_DELTACOMP
+  CFLAGS += -DHBICT_DELTACOMP
+endif
+
 # If ./configure --enable-fast-ckpt-restart defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
 ifdef FAST_CKPT_RESTART
