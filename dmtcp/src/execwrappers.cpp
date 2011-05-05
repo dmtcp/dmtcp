@@ -65,7 +65,8 @@ static pid_t forkChild ( long child_host, time_t child_time )
       dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
       //child should get new logfile
       dmtcp::ostringstream o;
-      o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << child.toString();
+      o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << child.toString()
+        << "_" << jalib::Filesystem::GetProgramName() << " (forked)";
       JASSERT_INIT (o.str());
 #endif
 

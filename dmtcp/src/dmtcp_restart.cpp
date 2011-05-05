@@ -434,12 +434,17 @@ namespace
 
     void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
     {
+#ifdef DEBUG
       dmtcp::ostringstream o;
-      o << dmtcpTmpDir << "/jassertlog." << pid();
+      o << dmtcpTmpDir << "/jassertlog." << pid() << "_" << procname();
       JASSERT_INIT(o.str());
+      JTRACE("Creating process during restart") (pid()) (procname());
+#endif
 
       //change UniquePid
-      UniquePid::resetOnFork(pid());
+      //UniquePid::resetOnFork(pid());
+      UniquePid::ThisProcess() = _conToFd.pid();
+
       VirtualPidTable &vt = _virtualPidTable;
 
       JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
@@ -760,10 +765,16 @@ int main ( int argc, char** argv )
   if (autoStartCoordinator)
     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
+#ifdef DEBUG
   //make sure JASSERT initializes now, rather than during restart
+  dmtcp::UniquePid::ThisProcess(true); // Don't allow it to write to log
   dmtcp::ostringstream o;
-  o << dmtcpTmpDir << "/jassertlog." << dmtcp::UniquePid(getpid());
+  o << dmtcpTmpDir << "/jassertlog."
+    << dmtcp::UniquePid::ThisProcess(true)
+    << "_dmtcp_restart";
   JASSERT_INIT(o.str());
+#endif
+
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;

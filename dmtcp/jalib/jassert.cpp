@@ -160,7 +160,9 @@ static int _open_log_safe ( const char* filename, int protectedFd )
   if (tfd == -1) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
-  close ( tfd );
+  if (tfd != nfd) {
+    close ( tfd );
+  }
 
   return nfd;
 }
