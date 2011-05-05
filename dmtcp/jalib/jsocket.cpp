@@ -84,6 +84,8 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
 
     memcpy ( &_addr.sin_addr.s_addr, result->h_addr, result->h_length );
     if (port != -1) _addr.sin_port = htons (port);
+  } else { // else (hostname, port) not valid; poison the port number
+    _addr.sin_port = -2;
   }
 #else
   struct addrinfo hints;
@@ -107,7 +109,8 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
     JASSERT(sizeof _addr >= res->ai_addrlen) (sizeof _addr) (res->ai_addrlen);
     memcpy(&_addr, res->ai_addr, res->ai_addrlen);
     if (port != -1) _addr.sin_port = htons (port);
-  }
+  } else { // else (hostname, port) not valid; poison the port number
+    _addr.sin_port = -2;
 
   freeaddrinfo(res);
 #endif
@@ -121,6 +124,9 @@ jalib::JSocket::JSocket()
 
 bool jalib::JSocket::connect ( const JSockAddr& addr, int port )
 {
+  // jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
+  if (addr._addr.sin_port == (unsigned short)-2)
+    return false;
   return JSocket::connect ( ( sockaddr* ) &addr._addr, sizeof ( addr._addr ), port );
 }
 
