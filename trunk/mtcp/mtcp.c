@@ -2125,7 +2125,7 @@ static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
   DPRINTF("open_ckpt_to_write_hbict\n");
 
   if (gzip_path != NULL){
-    hbict_args[3] = "-z100";
+    hbict_args[2] = "-z100";
   }
   return open_ckpt_to_write(fd,pipe_fds,hbict_args);
 }
