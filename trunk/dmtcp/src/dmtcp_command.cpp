@@ -127,8 +127,9 @@ int main ( int argc, char** argv )
       fprintf(stderr, theUsage, "");
       return 1;
     case 'i':
-      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
       coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+      printf("Interval changed to %s\n", interval.c_str());
       break;
     case 'b':
       // blocking prefix
