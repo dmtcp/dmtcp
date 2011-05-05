@@ -959,7 +959,10 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
       return false;
     } else if ( hello_remote.compGroup != UniquePid() ) {
       // New Process trying to connect to Coordinator but already has compGroup
-      JNOTE  ( "New Process, but already has computation group.  Rejecting" );
+      JNOTE  ( "New Process, but already has computation group,\n"
+               "OR perhaps a different DMTCP_PREFIX_ID.  Rejecting." )
+        (hello_remote.compGroup);
+
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
@@ -1392,11 +1395,9 @@ int main ( int argc, char** argv )
 
   dmtcp::ostringstream o;
   o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess();
+    << dmtcp::UniquePid::ThisProcess(true) << "_dmtcp_coordinator";
   JASSERT_INIT(o.str());
-  JTRACE ( "New DMTCP coordinator starting." );
-
-  JTRACE ( "recalculated process UniquePid..." )
+  JTRACE ( "New DMTCP coordinator starting." )
     ( dmtcp::UniquePid::ThisProcess() );
 #endif
 

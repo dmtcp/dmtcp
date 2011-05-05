@@ -114,6 +114,7 @@ dmtcp::UniquePid::UniquePid()
     ,_hostid ( 0 )
 {
   memset ( &_time,0,sizeof ( _time ) );
+  setPrefix();
 }
 
 dmtcp::UniquePid::UniquePid(pid_t pid)
@@ -121,20 +122,18 @@ dmtcp::UniquePid::UniquePid(pid_t pid)
 {
   _hostid = theUniqueHostId();
   memset ( &_time,0,sizeof ( _time ) );
+  setPrefix();
 }
-
 
 long  dmtcp::UniquePid::hostid() const
 {
   return _hostid;
 }
 
-
 pid_t  dmtcp::UniquePid::pid() const
 {
   return _pid;
 }
-
 
 time_t  dmtcp::UniquePid::time() const
 {
@@ -145,11 +144,24 @@ int  dmtcp::UniquePid::generation() const
 {
   return _generation;
 }
+
+const char* dmtcp::UniquePid::prefix() const
+{
+  return _prefix;
+}
+
+void dmtcp::UniquePid::setPrefix()
+{
+  memset(_prefix, 0, sizeof(_prefix));
+  if (getenv(ENV_VAR_PREFIX_ID) != NULL) {
+    strncpy(_prefix, getenv(ENV_VAR_PREFIX_ID), sizeof(_prefix) - 1);
+  }
+}
+
 void  dmtcp::UniquePid::incrementGeneration()
 {
   _generation++;
 }
-
 
 const char* dmtcp::UniquePid::checkpointFilename()
 {
@@ -318,11 +330,15 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 {
   return _hostid==that.hostid()
          && _pid==that.pid()
-         && _time==that.time();
+         && _time==that.time()
+         && strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
 }
 
 dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
 {
+  if (strlen(id.prefix()) != 0) {
+    o << id.prefix() << "-";
+  }
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }

@@ -151,7 +151,7 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   if (lstat(path.c_str(), &statBuf) == 0
       && ! S_ISLNK(statBuf.st_mode))
     return path;
-  char buf [1024]; // This could be passed on via call to readlink()
+  char buf [PATH_MAX]; // This could be passed on via call to readlink()
   bzero ( buf, sizeof buf );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
   if ( len <= 0 )

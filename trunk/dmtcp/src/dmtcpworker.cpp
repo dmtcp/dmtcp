@@ -44,6 +44,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <linux/limits.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -211,6 +212,29 @@ static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
   envSize += args[0].length();
 }
 
+static void prepareLogFile()
+{
+  dmtcp::UniquePid::ThisProcess(true);
+
+#ifdef DEBUG
+  char buf[PATH_MAX];
+  sprintf(buf, "/proc/self/%d", PROTECTED_JASSERTLOG_FD);
+  dmtcp::string oldLogStr = jalib::Filesystem::ResolveSymlink(buf);
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
+    << dmtcp::UniquePid::ThisProcess()
+    << "_" << jalib::Filesystem::GetProgramName();
+
+  /* Now rename */
+  if (Util::strEndsWith(oldLogStr, "_dmtcp_checkpoint")) {
+    rename(oldLogStr.c_str(), o.str().c_str());
+  }
+
+  JASSERT_INIT (o.str());
+#endif
+}
+
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
@@ -218,21 +242,13 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
   if ( !enableCheckpointing ) return;
+  /* DO NOT PUT ANYTHING BEFORE THE FOLLOWING FUNCTION CALL */
+  prepareLogFile();
 
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
 
-  /* DO NOT PUT ANYTHING BEFORE THE FOLLOWING BLOCK OF CODE (#ifdef .... #endif) */
-#ifdef DEBUG
-  /* Disable Jassert Logging */
-  dmtcp::UniquePid::ThisProcess(true);
-
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess()
-    << "_" << jalib::Filesystem::GetProgramName();
-  JASSERT_INIT (o.str());
-
-  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
-#endif
+  JTRACE ( "recalculated process UniquePid..." )
+    ( dmtcp::UniquePid::ThisProcess() );
 
   //This is called for side effect only.  Force this function to call
   // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
@@ -697,7 +713,9 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     _checkpointThreadInitialized = true;
   }
 
-  if ( compGroup != UniquePid() ) {
+  // Create signature file which could then be used by an outside process to
+  // check if the process restarted successfully.
+  if ( 0 && compGroup != UniquePid() ) {
     dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
                                 + compGroup.toString() + "-"
 #ifdef PID_VIRTUALIZATION

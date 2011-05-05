@@ -42,14 +42,18 @@ namespace dmtcp
     UniquePid();
     UniquePid(pid_t pid);
     UniquePid ( long host, pid_t pd, time_t tm )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( 0 ) {}
+        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( 0 )
+    {setPrefix();}
+
     UniquePid ( long host, pid_t pd, time_t tm, int gen )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen) {}
+        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen)
+    {setPrefix();}
 
     long hostid() const;
     pid_t pid() const;
     time_t time() const;
     int generation() const;
+    const char* prefix() const;
     void incrementGeneration();
     static const char* checkpointFilename();
     static dmtcp::string checkpointFilesDirName();
@@ -74,10 +78,13 @@ namespace dmtcp
     bool isNull() const;
 
   private:
+    void setPrefix();
+
     pid_t _pid; //getpid()
     long  _hostid; //gethostid()
     time_t _time; //time()
     int _generation; //generation()
+    char _prefix[32];
   };
 }
 
