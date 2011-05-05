@@ -174,8 +174,10 @@ void restoreUserLDPRELOAD()
 //   (Matlab needs this or else it segfaults on restart, and bash plays
 //   similar tricks with maintaining its own environment.)
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
-__attribute__ ((visibility ("hidden")))
-int _determineMtcpSignal(){
+// FIXME: DO we still want it to be library visible only?
+//__attribute__ ((visibility ("hidden")))
+int dmtcp::DmtcpWorker::determineMtcpSignal()
+{
   // this mimics the MTCP logic for determining signal number found in
   // mtcp_init()
   int sig = MTCP_DEFAULT_SIGNAL;
@@ -234,7 +236,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   //This is called for side effect only.  Force this function to call
   // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
-  _determineMtcpSignal();
+  determineMtcpSignal();
 
 #ifdef __i386__
   // Match work begun in dmtcpPrepareForExec()

@@ -33,6 +33,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <cstddef>
 
 #define DMTCPSTRING    dmtcp::string
 #define DMTCPVECTOR(T) dmtcp::vector<T>

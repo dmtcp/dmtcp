@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
@@ -46,8 +47,7 @@ static __thread bool checkpointSignalBlockedForThread = false;
 
 
 static int bannedSignalNumber(){
-  int _determineMtcpSignal(); // from signalwrappers.cpp
-  const int cache = _determineMtcpSignal();
+  const int cache = dmtcp::DmtcpWorker::determineMtcpSignal();
   return cache;
 }
 

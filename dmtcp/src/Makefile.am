@@ -71,7 +71,7 @@ EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp lo
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
-dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
+dmtcphijack_so_LDFLAGS = -shared -module
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
