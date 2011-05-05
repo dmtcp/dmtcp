@@ -333,7 +333,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
-dmtcphijack_so_LDFLAGS = -shared -avoid-version -module
+dmtcphijack_so_LDFLAGS = -shared -module
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 

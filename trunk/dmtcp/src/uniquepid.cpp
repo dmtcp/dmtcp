@@ -35,9 +35,16 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 
-static dmtcp::string checkpointFilename_str;
-static dmtcp::string ckptFilesDirName_str;
-
+static dmtcp::string& ckptDirName()
+{
+  static dmtcp::string str;
+  return str;
+}
+static dmtcp::string& ckptFileName()
+{
+  static dmtcp::string str;
+  return str;
+}
 inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
   return ::gethostid()
@@ -146,7 +153,7 @@ void  dmtcp::UniquePid::incrementGeneration()
 
 const char* dmtcp::UniquePid::checkpointFilename()
 {
-  if ( checkpointFilename_str.empty() )
+  if ( ckptFileName().empty() )
   {
     dmtcp::ostringstream os;
 
@@ -163,31 +170,30 @@ const char* dmtcp::UniquePid::checkpointFilename()
 #endif
        << CKPT_FILE_SUFFIX;
 
-    checkpointFilename_str = os.str();
+    ckptFileName() = os.str();
   }
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
   // Include 5-digit generation number in filename, which changes
   //   after each checkpoint, during same process
-  JASSERT( Util::strEndsWith(checkpointFilename_str, CKPT_FILE_SUFFIX) )
-	 ( checkpointFilename_str )
-	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
-  sprintf((char *)checkpointFilename_str.c_str()
-	  + checkpointFilename_str.length() - strlen("XXXXX" CKPT_FILE_SUFFIX),
+  JASSERT( Util::strEndsWith(ckptFileName(), CKPT_FILE_SUFFIX) )
+	 ( ckptFileName() )
+	 .Text ( "ckptFileName() doesn't end in .dmtcp" );
+  sprintf((char *)ckptFileName().c_str()
+	  + ckptFileName().length() - strlen("XXXXX" CKPT_FILE_SUFFIX),
 	  "%5.5d%s", ThisProcess().generation(), CKPT_FILE_SUFFIX);
 #endif
-  return checkpointFilename_str.c_str();
+  return ckptFileName().c_str();
 }
 
 dmtcp::string dmtcp::UniquePid::checkpointFilesDirName()
 {
-  if ( ckptFilesDirName_str.empty() ) {
-    ckptFilesDirName_str = jalib::Filesystem::BaseName(checkpointFilename());
-    ckptFilesDirName_str.erase(ckptFilesDirName_str.length() - 
-                                   strlen(CKPT_FILE_SUFFIX));
-    ckptFilesDirName_str += CKPT_FILES_SUBDIR_SUFFIX;
+  if ( ckptDirName().empty() ) {
+    ckptDirName() = jalib::Filesystem::BaseName(checkpointFilename());
+    ckptDirName().erase(ckptDirName().length() - strlen(CKPT_FILE_SUFFIX));
+    ckptDirName() += CKPT_FILES_SUBDIR_SUFFIX;
   }
-  return ckptFilesDirName_str;
+  return ckptDirName();
 }
 
 dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
@@ -334,8 +340,8 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  checkpointFilename_str.clear();
-  ckptFilesDirName_str.clear();
+  ckptFileName().clear();
+  ckptDirName().clear();
 }
 
 bool dmtcp::UniquePid::isNull() const

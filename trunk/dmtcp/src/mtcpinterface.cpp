@@ -907,11 +907,11 @@ void __libc_free(void * ptr) {
   //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
-  int _determineMtcpSignal(); // from signalwrappers.cpp
   // Remove our signal handler from our SIG_CKPT
   errno = 0;
-  JWARNING (SIG_ERR != _real_signal(_determineMtcpSignal(), SIG_DFL))
-           (_determineMtcpSignal())
+  JWARNING (SIG_ERR != _real_signal(dmtcp::DmtcpWorker::determineMtcpSignal(),
+                                    SIG_DFL))
+           (dmtcp::DmtcpWorker::determineMtcpSignal())
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
   _get_mtcp_symbol ( REOPEN_MTCP );

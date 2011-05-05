@@ -121,6 +121,7 @@ namespace dmtcp
 
       void useAlternateCoordinatorFd();
 
+      static int determineMtcpSignal(); 
       static size_t argvSize() {return _argvSize;};
       static size_t envSize() {return _envSize;};
 
