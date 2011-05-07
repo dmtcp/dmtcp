@@ -50,6 +50,7 @@
 #include "constants.h"
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
+#include "dmtcpcoordinatorapi.h"
 #include "dmtcpworker.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jtimer.h"
@@ -320,8 +321,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
 
   JASSERT(sizeof(reply->params)/sizeof(int) >= 2); //this should be compiled out
   //default reply is 0
-  replyParams[0] = NOERROR;
-  replyParams[1] = NOERROR;
+  replyParams[0] = DmtcpCoordinatorAPI::NOERROR;
+  replyParams[1] = DmtcpCoordinatorAPI::NOERROR;
 
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
@@ -332,8 +333,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     if(startCheckpoint()){
       replyParams[0] = getStatus().numPeers;
     }else{
-      replyParams[0] = ERROR_NOT_RUNNING_STATE;
-      replyParams[1] = ERROR_NOT_RUNNING_STATE;
+      replyParams[0] = DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE;
+      replyParams[1] = DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE;
     }
     break;
   case 'i': case 'I':
@@ -433,8 +434,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   default:
     JTRACE("unhandled user command")(cmd);
-    replyParams[0] = ERROR_INVALID_COMMAND;
-    replyParams[1] = ERROR_INVALID_COMMAND;
+    replyParams[0] = DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND;
+    replyParams[1] = DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND;
   }
   return;
 }

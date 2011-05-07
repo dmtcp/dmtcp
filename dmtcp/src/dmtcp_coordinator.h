@@ -32,13 +32,6 @@ namespace dmtcp
   class DmtcpCoordinator : public jalib::JMultiSocketProgram
   {
     public:
-      enum  ErrorCodes {
-        NOERROR                 =  0,
-        ERROR_INVALID_COMMAND   = -1,
-        ERROR_NOT_RUNNING_STATE = -2,
-        ERROR_COORDINATOR_NOT_FOUND = -3
-      };
-
       typedef struct { dmtcp::WorkerState minimumState; bool minimumStateUnanimous; int numPeers; } CoordinatorStatus;
 
       virtual void onData ( jalib::JReaderInterface* sock );

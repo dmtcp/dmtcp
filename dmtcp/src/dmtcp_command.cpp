@@ -24,9 +24,10 @@
 #include <string.h>
 
 #include "dmtcpcoordinatorapi.h"
-#include "dmtcp_coordinator.h"
+//#include "dmtcp_coordinator.h"
 #include "dmtcpmessagetypes.h"
-#include "mtcpinterface.h"
+//#include "mtcpinterface.h"
+//#include "uniquepid.h"
 
 using namespace dmtcp;
 
@@ -65,6 +66,11 @@ int main ( int argc, char** argv )
   bool quiet = false;
   dmtcp::string interval = "";
   dmtcp::string request = "h";
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
+    << dmtcp::UniquePid::ThisProcess(true) << "_dmtcp_command";
+  JASSERT_INIT(o.str());
 
   //process args
   shift;
@@ -149,7 +155,7 @@ int main ( int argc, char** argv )
     //check for error
     if(result[0]<0){
       switch(result[0]){
-      case DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND:
+      case DmtcpCoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
 	if (getenv("DMTCP_PORT"))
           fprintf(stderr,
 		  "Coordinator not found.  Please check port and host.\n");
@@ -157,11 +163,11 @@ int main ( int argc, char** argv )
           fprintf(stderr,
 	      "Coordinator not found.  Try specifying port with \'--port\'.\n");
         break;
-      case DmtcpCoordinator::ERROR_INVALID_COMMAND:
+      case DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND:
         fprintf(stderr,
 		"Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
         break;
-      case DmtcpCoordinator::ERROR_NOT_RUNNING_STATE:
+      case DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE:
         fprintf(stderr, "Error, computation not in running state."
 		"  Either a checkpoint is\n"
 		" currently happening or there are no connected processes.\n");
