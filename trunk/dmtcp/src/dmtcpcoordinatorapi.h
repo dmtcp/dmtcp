@@ -35,6 +35,13 @@ namespace dmtcp
   class DmtcpCoordinatorAPI
   {
     public:
+      enum  ErrorCodes {
+        NOERROR                 =  0,
+        ERROR_INVALID_COMMAND   = -1,
+        ERROR_NOT_RUNNING_STATE = -2,
+        ERROR_COORDINATOR_NOT_FOUND = -3
+      };
+
       DmtcpCoordinatorAPI ();
       // Use default destructor
 

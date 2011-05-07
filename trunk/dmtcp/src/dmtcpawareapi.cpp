@@ -145,7 +145,7 @@ int __real_dmtcpRunCommand(char command){
 	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (result[0] == dmtcp::DmtcpCoordinator::ERROR_NOT_RUNNING_STATE) {
+    if (result[0] == dmtcp::DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;

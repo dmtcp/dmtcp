@@ -558,16 +558,17 @@ void dmtcp::ConnectionList::scanForPreExisting()
 void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
 {
   //this has the side effect of on-demand creating everything except sockets
-  dmtcp::string device = KernelDeviceToConnection::instance().fdToDevice ( fd, true );
+  dmtcp::string device =
+    KernelDeviceToConnection::instance().fdToDevice ( fd, true );
 
   JTRACE ( "scanning pre-existing device" ) ( fd ) ( device );
 
   //so if it doesn't exist it must be a socket
   if ( _table.find ( device ) == _table.end() )
   {
-    if ( fd <= 2 )
+    if ( Util::strStartsWith(device, "file")) 
     {
-      create(fd, new StdioConnection(fd));
+      device = KernelDeviceToConnection::instance().fdToDevice (fd);
     }
     else if ( device.compare("/dev/tty") == 0 )
     {
@@ -583,7 +584,8 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
     else if ( Util::strStartsWith(device, "/dev/pts/")) 
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
-      JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
+      JNOTE ( "Found pre-existing PTY connection, "
+              "will be restored as current TTY" )
         ( fd ) ( deviceName );
 
       int type = dmtcp::PtyConnection::PTY_CTTY;
@@ -591,9 +593,14 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
+    else if (fd <= 2)
+    {
+      create(fd, new StdioConnection(fd));
+    }
     else
     {
-      JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
+      JNOTE ( "found pre-existing socket... will not be restored" )
+        ( fd ) ( device );
       TcpConnection* con = new TcpConnection ( 0, 0, 0 );
       con->markPreExisting();
       create ( fd, con );

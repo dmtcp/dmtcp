@@ -65,7 +65,7 @@ void dmtcp::DmtcpCoordinatorAPI::connectAndSendUserCommand(char c, int* result /
   DmtcpWorker::delayCheckpointsLock();
   {
     if ( tryConnectToCoordinator() == false ) {
-      *result = DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND;
+      *result = ERROR_COORDINATOR_NOT_FOUND;
       return;
     }
     sendUserCommand(c,result);
