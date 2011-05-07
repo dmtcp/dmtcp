@@ -187,33 +187,30 @@ void jassert_internal::jassert_init ( const jalib::string& f )
 }
 
 const jalib::string writeJbacktraceMsg() {
+  dmtcp::ostringstream o;
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
     "   Execute:  utils/dmtcp_backtrace.py  [found in DMTCP_ROOT]\n" \
     "   For usage:  utils/dmtcp_backtrace.py --help\n" \
     "   Files saved: ";
-  msg += dmtcp::UniquePid::getTmpDir()
-                          + "/backtrace." + jalib::XToString ( getpid() );
-  msg += "\n                ";
-  msg += dmtcp::UniquePid::getTmpDir()
-                          + "/proc-maps." + jalib::XToString ( getpid() );
-  msg += "\n";
-  return msg;
+  o << msg << dmtcp::UniquePid::getTmpDir() << "/backtrace."
+    << dmtcp::UniquePid::ThisProcess(true) << "\n                "
+    << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
+    << dmtcp::UniquePid::ThisProcess(true) << "\n";
+  return o.str();
 }
 
 void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  jalib::string backtrace = dmtcp::UniquePid::getTmpDir()
-                          + "/backtrace." + jalib::XToString ( getpid() );
-  int fd = _real_open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/backtrace."
+    << dmtcp::UniquePid::ThisProcess(true);
+  int fd = _real_open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
+                      S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
     close(fd);
-    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/backtrace";
-    unlink(lnk.c_str());  // just in case it had previously been created.
-    if (symlink(backtrace.c_str(), lnk.c_str()) == -1)
-      {}  // Too late to issue a user warning here.
   }
 }
 
@@ -226,16 +223,14 @@ void writeProcMaps() {
   if (fd == -1) return;
   count = Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
-  jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
-                          + "/proc-maps." + jalib::XToString ( getpid() );
-  fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
+
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
+    << dmtcp::UniquePid::ThisProcess(true);
+  fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = Util::writeAll(fd, mapsBuf, count);
   close(fd);
-  jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
-  unlink(lnk.c_str());  // just in case it had previously been created.
-  if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
-  {}  // Too late to issue a user warning here.
   JALLOC_HELPER_FREE(mapsBuf);
 }
 

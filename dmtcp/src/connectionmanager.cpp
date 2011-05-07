@@ -566,7 +566,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
   //so if it doesn't exist it must be a socket
   if ( _table.find ( device ) == _table.end() )
   {
-    if ( Util::strStartsWith(device, "file")) 
+    if ( Util::strStartsWith(device, "file"))
     {
       device = KernelDeviceToConnection::instance().fdToDevice (fd);
     }
