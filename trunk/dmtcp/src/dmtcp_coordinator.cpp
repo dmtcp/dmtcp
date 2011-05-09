@@ -74,6 +74,8 @@ static const char* theHelpMessage =
   "  l : List connected nodes\n"
   "  s : Print status message\n"
   "  c : Checkpoint all nodes\n"
+  "  i : Print current checkpoint interval\n"
+  "      (To change checkpoint interval, use dmtcp_command)\n"
   "  f : Force a restart even if there are missing nodes (debugging only)\n"
   "  k : Kill all nodes\n"
   "  q : Kill all nodes and quit\n"
@@ -221,7 +223,7 @@ static dmtcp::DmtcpCoordinator prog;
 */
 static bool workersRunningAndSuspendMsgSent = false;
 
-static int theCheckpointInterval = 0;
+static int theCheckpointInterval = 0; /* Default is manual checkpoint only */
 static bool batchMode = false;
 static bool isRestarting = false;
 
@@ -281,7 +283,7 @@ namespace
 }
 
 #ifdef EXTERNAL_SOCKET_HANDLING
-void dmtcp::DmtcpCoordinator::sendUnIdentifiedPeerNotifications()
+void dmtcp::DmtcpCoordinator::sendUnidentifiedPeerNotifications()
 {
   _socketPeerLookupMessagesIterator it;
   for ( it = _socketPeerLookupMessages.begin();
@@ -339,7 +341,10 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'i': case 'I':
     setTimeoutInterval ( theCheckpointInterval );
-    JNOTE ( "CheckpointInterval Updated" ) ( theCheckpointInterval );
+    if (theCheckpointInterval == 0)
+      printf("Checkpoint Interval: Disabled (checkpoint manually instead)\n");
+    else
+      printf("Checkpoint Interval: %d\n", theCheckpointInterval);
     break;
   case 'l': case 'L':
   case 't': case 'T':
@@ -493,7 +498,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
             JNOTE ( "draining all nodes" );
             broadcastMessage ( DMT_DO_DRAIN );
           } else {
-            sendUnIdentifiedPeerNotifications();
+            sendUnidentifiedPeerNotifications();
             JNOTE ( "Not all socket peers were Identified, resuming computation without checkpointing" );
             broadcastMessage ( DMT_DO_RESUME );
           }
@@ -741,7 +746,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
 
-  if ( hello_remote.theCheckpointInterval > 0 ) {
+  if ( hello_remote.theCheckpointInterval >= 0 ) {
     int oldInterval = theCheckpointInterval;
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     setTimeoutInterval ( theCheckpointInterval );
@@ -828,7 +833,7 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
     blockUntilDoneReply = reply;
     handleUserCommand( hello_remote.params[0], &reply );
   } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I')
-               && hello_remote.theCheckpointInterval > 0 ) {
+               && hello_remote.theCheckpointInterval >= 0 ) {
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     handleUserCommand( hello_remote.params[0], &reply );
     remote << reply;
@@ -1129,8 +1134,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
-  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_ADDR"\n"
-                "if test -z \"$" ENV_VAR_NAME_ADDR "\"; then\n"
+  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
+                "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
                 "  coord_host=%s\nfi\n\n", hostname );
   fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\n"
                 "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
@@ -1500,9 +1505,6 @@ int main ( int argc, char** argv )
   if(!background && !batchMode)
     prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
 
-  // FIXME: Should we use a default checkpoint interval (1 hour in this case)
-  //        even if the user has not explicitely requested it.
-  if ( theCheckpointInterval <= 0 ) theCheckpointInterval = 3600;
   prog.monitorSockets ( theCheckpointInterval );
   return 0;
 }
