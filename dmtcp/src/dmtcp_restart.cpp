@@ -45,7 +45,7 @@ static dmtcp::UniquePid compGroup;
 static int numPeers;
 static int coordTstamp = 0;
 
-dmtcp::string dmtcpTmpDir = "/DMTCP/UnInitialized/Tmp/Dir";
+dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
 using namespace dmtcp;
 
@@ -728,7 +728,7 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-h" || s == "--host")){
-      setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
+      setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);

@@ -89,7 +89,7 @@ bool dmtcp::DmtcpCoordinatorAPI::tryConnectToCoordinator()
 bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
 {
 
-  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_HOST );
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
 
   if ( coordinatorAddr == NULL ) coordinatorAddr = DEFAULT_HOST;

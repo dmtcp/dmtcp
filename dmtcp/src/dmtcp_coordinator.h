@@ -40,7 +40,7 @@ namespace dmtcp
       virtual void onTimeoutInterval();
       
 #ifdef EXTERNAL_SOCKET_HANDLING
-      void sendUnIdentifiedPeerNotifications();
+      void sendUnidentifiedPeerNotifications();
 #endif
       void broadcastMessage( DmtcpMessageType type, dmtcp::UniquePid, int );
       void broadcastMessage ( const DmtcpMessage& msg );

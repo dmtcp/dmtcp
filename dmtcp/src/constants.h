@@ -61,7 +61,7 @@
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
 
 //it should be safe to change any of these names
-#define ENV_VAR_NAME_ADDR "DMTCP_HOST"
+#define ENV_VAR_NAME_HOST "DMTCP_HOST"
 #define ENV_VAR_NAME_PORT "DMTCP_PORT"
 #define ENV_VAR_NAME_RESTART_DIR  "DMTCP_RESTART_DIR"
 #define ENV_VAR_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
@@ -116,7 +116,7 @@
 
 //this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
-    ENV_VAR_NAME_ADDR,\
+    ENV_VAR_NAME_HOST,\
     ENV_VAR_NAME_PORT,\
     ENV_VAR_CKPT_INTR,\
     ENV_VAR_SERIALFILE_INITIAL,\

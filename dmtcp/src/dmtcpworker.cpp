@@ -539,7 +539,7 @@ static void processSshCommand(dmtcp::string programName,
   dmtcp::string& cmd = args[commandStart];
 
 
-  const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_ADDR );
+  const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
   const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
   const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
   const char * compression          = getenv ( ENV_VAR_COMPRESSION );
@@ -1000,7 +1000,7 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
    * coordinator has been moved around.
    */
   
-  const char * origCoordAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * origCoordAddr = getenv ( ENV_VAR_NAME_HOST );
   const char * origCoordPortStr = getenv ( ENV_VAR_NAME_PORT );
   if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
   int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( origCoordPortStr );
@@ -1023,7 +1023,7 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
     JTRACE ("Coordinator running at a different location")
       (origCoordAddr) (origCoordPort) (currHost) (currPort);
 
-    JASSERT (0 == setenv (ENV_VAR_NAME_ADDR, currHost, 1)) (JASSERT_ERRNO);
+    JASSERT (0 == setenv (ENV_VAR_NAME_HOST, currHost, 1)) (JASSERT_ERRNO);
     JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
   }
 }
@@ -1284,7 +1284,7 @@ void dmtcp::DmtcpWorker::connectToCoordinatorWithHandshake()
 
 bool dmtcp::DmtcpWorker::connectToCoordinator(bool dieOnError /*= true*/)
 {
-  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_HOST );
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
   dmtcp::UniquePid zeroGroup;
 
@@ -1435,7 +1435,7 @@ void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
 {
   int coordinatorStatus = -1;
   //get location of coordinator
-  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_HOST );
   if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
   const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
 
