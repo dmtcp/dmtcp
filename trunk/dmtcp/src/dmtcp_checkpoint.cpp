@@ -23,8 +23,8 @@
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
-#include  "../jalib/jassert.h"
 #include <ctype.h>
+#include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
@@ -290,9 +290,16 @@ int main ( int argc, char** argv )
     }else if(s == "-b" || s == "--batch"){
       allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
       shift;
-    }else if(s == "-i" || s == "--interval"){
-      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
-      shift; shift;
+    }else if(s == "-i" || s == "--interval" ||
+             (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
+              isdigit(s.c_str()[2]) ) ){
+      if (isdigit(s.c_str()[2])) { // if -i5, for example
+        setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
+        shift;
+      } else { // else -i 5
+        setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+        shift; shift;
+      }
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
