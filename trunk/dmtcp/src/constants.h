@@ -106,6 +106,7 @@
 #endif
 
 #ifdef PTRACE
+#define LIBDL_BASE_FUNC dlerror
 #define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
 
 #define ENV_PTRACE \
