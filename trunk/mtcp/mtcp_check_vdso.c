@@ -39,18 +39,7 @@
 #include <errno.h>
 #include <elf.h> // For value of AT_SYSINFO, Elf??_auxv_t
 #include "mtcp_sys.h" // For CLEAN_FOR_64BIT
-#include "mtcp_internal.h" // For CLEAN_FOR_64BIT and MAXPATHLEN
-
-// We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).  
-// For a _given_ binary,
-// this fixes the address of the vdso.  Luckily, on restart, we
-// get our vdso from mtcp_restart.  So, we need to maintain two
-// vdso segments:  one from the user binary and one from each
-// invocation of mtcp_restart during iterated restarts.
-# define NO_RAND_VA_PERSONALITY 1
-
-//======================================================================
-// Get and set AT_SYSINFO for purposes of patching address in vdso
+#include "mtcp_internal.h" // For CLEAN_FOR_64BIT and PATH_MAX
 
 #ifdef __x86_64__
 # define ELF_AUXV_T Elf64_auxv_t
@@ -60,6 +49,8 @@
 # define UINT_T uint32_t
 #endif
 
+static int setPersonalityEnv(const char* name, const char* val);
+static int unsetPersonalityEnv(const char* name);
 // Returns value for AT_SYSINFO in kernel's auxv
 // Ideally:  mtcp_at_sysinfo() == *mtcp_addr_sysinfo()
 // Best if we call this early, before the user makes problems
@@ -99,18 +90,18 @@ static void * get_at_sysinfo() {
   if (*stack != NULL) {
     MTCP_PRINTF("This should be argv[argc] == NULL and it's not.\n"
 	"NO &argv[argc], stack: %p\n", stack);
-    exit(1);
+    mtcp_sys_exit(1);
   }
 #endif
   // stack[-1] should be argv[argc-1]
   if ( (void **)stack[-1] < stack || (void **)stack[-1] > stack + 100000 ) {
     MTCP_PRINTF("candidate argv[argc-1] failed consistency check\n");
-    exit(1);
+    mtcp_sys_exit(1);
   }
   for (i = 1; stack[i] != NULL; i++)
     if ( (void **)stack[i] < stack || (void **)stack[i] > stack + 10000 ) {
       MTCP_PRINTF("candidate argv[%d] failed consistency check\n", i);
-      exit(1);
+      mtcp_sys_exit(1);
     }
   stack = &stack[i+1];
   // Now stack is beginning of auxiliary vector (auxv)
@@ -165,6 +156,17 @@ void mtcp_set_thread_sysinfo(void *sysinfo) {
                 : : "r" (sysinfo) );
 }
 
+// We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).  
+// For a _given_ binary,
+// this fixes the address of the vdso.  Luckily, on restart, we
+// get our vdso from mtcp_restart.  So, we need to maintain two
+// vdso segments:  one from the user binary and one from each
+// invocation of mtcp_restart during iterated restarts.
+# define NO_RAND_VA_PERSONALITY 1
+
+//======================================================================
+// Get and set AT_SYSINFO for purposes of patching address in vdso
+
 //======================================================================
 // Used to check if vdso is an issue
 
@@ -175,13 +177,13 @@ static int write_args(char **vector, char *filename) {
   char strings[10001];
   char *str = strings;
 
-  if (-1 == (fd = open(filename, O_RDONLY))) {
-    perror("open");
-    exit(1);
+  if (-1 == (fd = mtcp_sys_open2(filename, O_RDONLY))) {
+    MTCP_PRINTF("Error %d opening %s\n", filename, mtcp_sys_errno);
+    mtcp_sys_exit(1);
   }
   strings[10001] = '\0';
   ssize_t num_read = mtcp_read_all(fd, strings, 10000);
-  close(fd);
+  mtcp_sys_close(fd);
 
   if (num_read == -1)
     return -1;
@@ -199,8 +201,8 @@ static unsigned long getenv_oldpers() {
     unsigned long oldpers = 0;
     char *oldpers_str = getenv("MTCP_OLDPERS");
     if (oldpers_str == NULL) {
-      MTCP_PRINTF("internal error: %s:%d\n", __FILE__, __LINE__);
-      exit(1);
+      MTCP_PRINTF("internal error!\n");
+      mtcp_sys_exit(1);
     }
     while (*oldpers_str != '\0')
       oldpers = (oldpers << 1) + (*oldpers_str++ == '1' ? 1 : 0);
@@ -215,12 +217,13 @@ static int setenv_oldpers(int oldpers) {
       oldpers_str[i--] = ((oldpers & 1) ? '1' : '0');
       oldpers = oldpers >> 1;
     }
-    return setenv("MTCP_OLDPERS", oldpers_str, 1);
+    return setPersonalityEnv("MTCP_OLDPERS", oldpers_str);
 }
 
 /* Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on. */
-void mtcp_check_vdso_enabled() {
-  char buf[1];
+void mtcp_check_vdso_enabled()
+{
+  char buf;
 #ifdef RESET_THREAD_SYSINFO
   get_at_sysinfo(); /* Initialize pointer to environ for later calls */
 #endif
@@ -231,12 +234,12 @@ void mtcp_check_vdso_enabled() {
    * fixed position in mtcp_init (since /lib/ld-2.7.so is inserted
    * above [vdso] and below [stack].  mtcp_restart has no /lib/ld-2.7.so.
    */
-  int pers = personality(0xffffffffUL); /* get current personality */
+  int pers = mtcp_sys_personality(0xffffffffUL); /* get current personality */
   if (pers & ADDR_NO_RANDOMIZE) { /* if no addr space randomization ... */
     if (getenv("MTCP_OLDPERS") != NULL) {
-      personality(getenv_oldpers()); /* restore orig pre-exec personality */
-      if (-1 == unsetenv("MTCP_OLDPERS"))
-        perror("unsetenv");
+      mtcp_sys_personality(getenv_oldpers()); /* restore orig pre-exec personality */
+      if (-1 == unsetPersonalityEnv("MTCP_OLDPERS"))
+        MTCP_PRINTF("Error: unsetenv\n");
     }
     return; /* skip the rest */
   }
@@ -247,10 +250,10 @@ void mtcp_check_vdso_enabled() {
     /* then turn off randomization and (just in case) remove
      * ADDR_COMPAT_LAYOUT
      */
-    personality((pers | ADDR_NO_RANDOMIZE) & ~ADDR_COMPAT_LAYOUT);
-    if ( ADDR_NO_RANDOMIZE & personality(0xffffffffUL) ) /* if it's off now */
-    { char runtime[MAXPATHLEN+1];
-      int i = readlink("/proc/self/exe", runtime, MAXPATHLEN);
+    mtcp_sys_personality((pers | ADDR_NO_RANDOMIZE) & ~ADDR_COMPAT_LAYOUT);
+    if ( ADDR_NO_RANDOMIZE & mtcp_sys_personality(0xffffffffUL) ) /* if it's off now */
+    { char runtime[PATH_MAX+1];
+      int i = mtcp_sys_readlink("/proc/self/exe", runtime, PATH_MAX);
       if ( i != -1)
       { char *argv[MAX_ARGS+1];
         extern char **environ;
@@ -284,22 +287,22 @@ void mtcp_check_vdso_enabled() {
          */
 #define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
 	 
-	if ( -1 == getrlimit(RLIMIT_STACK, &rlim) ||
+	if ( -1 == mtcp_sys_getrlimit(RLIMIT_STACK, &rlim) ||
              ( rlim.rlim_cur = rlim.rlim_max = ARCH_STACK_DEFAULT_SIZE,
-	       setrlimit(RLIMIT_STACK, &rlim),
-	       getrlimit(RLIMIT_STACK, &rlim),
+	       mtcp_sys_setrlimit(RLIMIT_STACK, &rlim),
+	       mtcp_sys_getrlimit(RLIMIT_STACK, &rlim),
 	       rlim.rlim_max == RLIM_INFINITY )
 	   ) {
           MTCP_PRINTF("Failed to reduce RLIMIT_STACK below RLIM_INFINITY\n");
-	  exit(1);
+	  mtcp_sys_exit(1);
 	}
 	write_args(argv, "/proc/self/cmdline");
         runtime[i] = '\0';
 	setenv_oldpers(oldpers);
-        execve(runtime, argv, environ);
+        mtcp_sys_execve(runtime, argv, environ);
       }
-      if (-1 == personality(oldpers)) /* reset if we couldn't exec */
-        perror("personality");
+      if (-1 == mtcp_sys_personality(oldpers)) /* reset if we couldn't exec */
+        MTCP_PRINTF("Error %d in personality\n", mtcp_sys_errno);
     }
   }
 #endif
@@ -308,24 +311,21 @@ void mtcp_check_vdso_enabled() {
    * On newer kernels, there is no /proc/sys/vm/vdso_enabled, we will cross our
    *  fingers and continue anyways.
    */
-  FILE * stream = fopen("/proc/sys/vm/vdso_enabled", "r");
-  if (stream == NULL)
+  int fd = mtcp_sys_open2("/proc/sys/vm/vdso_enabled", O_RDONLY);
+  if (fd == -1)
     return;  /* In older kernels, if it doesn't exist, it can't be enabled. */
-  clearerr(stream);
-  if (fread(buf, sizeof(buf[0]), 1, stream) < 1) {
-    if (ferror(stream)) {
-      perror("fread");
-      exit(1);
-    }
+  if (mtcp_read_all(fd, &buf, sizeof(buf)) != sizeof(buf)) {
+    MTCP_PRINTF("Error %d reading /proc/sys/vm/vdso_enabled\n", mtcp_sys_errno);
+    mtcp_sys_exit(1);
   }
-  if (-1 == fclose(stream)) {
-    perror("fclose");
-    exit(1);
+  if (-1 == mtcp_sys_close(fd)) {
+    MTCP_PRINTF("Error %d closing /proc/sys/vm/vdso_enabled\n", mtcp_sys_errno);
+    mtcp_sys_exit(1);
   }
   /* This call also caches AT_SYSINFO for use by mtcp_set_thread_sysinfo() */
   if (mtcp_have_thread_sysinfo_offset())
     return;
-  if (buf[0] == '1') {
+  if (buf == '1') {
     MTCP_PRINTF("\n\n\nPROBLEM:  cat /proc/sys/vm/vdso_enabled returns 1\n"
     "  Further, I failed to find SYSINFO_OFFSET in TLS.\n"
     "  Can't work around this problem.\n"
@@ -333,14 +333,86 @@ void mtcp_check_vdso_enabled() {
     "                                    echo 0 > /proc/sys/vm/vdso_enabled\n"
     "  Alternatively, upgrade kernel to one that allows for a personality\n"
     "  with ADDR_NO_RANDOMIZE in /usr/include/linux/personality.h.\n");
-    exit(1);
+    mtcp_sys_exit(1);
   }
 }
 
+#define MAX_NEW_ENVP_SIZE 10
+static char* newEnv[MAX_NEW_ENVP_SIZE];
+static int newEnvInitialized = 0;
+static int setPersonalityEnv(const char* name, const char* val)
+{
+  int i;
+  static char buf[64];
+  if (!newEnvInitialized) {
+    extern char **environ;
+    for (i = 0; environ[i] != NULL; i++) {
+      if (i >= MAX_NEW_ENVP_SIZE) {
+        MTCP_PRINTF("Too large envp\n");
+        mtcp_abort();
+      }
+      newEnv[i] = environ[i];
+    }
+    while (i < MAX_NEW_ENVP_SIZE) {
+      newEnv[i++] = NULL;
+    }
+    newEnvInitialized = 1;
+    environ = newEnv;
+  }
+
+  char *ptr = (char*) getenv(name);
+  size_t len = mtcp_strlen(val);
+
+  if (ptr == NULL) {
+    if (mtcp_strlen(name) + len + 2 > sizeof(buf)) {
+      MTCP_PRINTF("buffer too small\n");
+      mtcp_abort();
+    }
+
+    mtcp_strncpy(buf, name, mtcp_strlen(name));
+    mtcp_strncat(buf, "=", 1);
+    mtcp_strncat(buf, val, len);
+
+    for (i = 0; newEnv[i] != NULL; i++);
+    if (i >= MAX_NEW_ENVP_SIZE) {
+      MTCP_PRINTF("Too large envp\n");
+      mtcp_abort();
+    }
+    newEnv[i] = buf;
+    return 0;
+  }
+
+  if (len > 0) {
+    mtcp_strncpy(ptr, val, len);
+  } else {
+    *ptr = '\0';
+  }
+  return 0;
+}
+
+static int unsetPersonalityEnv(const char* name)
+{
+  int i = 1;
+  extern char **environ;
+  size_t len = mtcp_strlen(name);
+  for (i = 0; i < MAX_NEW_ENVP_SIZE; i++) {
+    if (mtcp_strstartswith(environ[i], name)) {
+      if (mtcp_strlen(environ[i]) > len && environ[i][len] == '=') {
+        break;
+      }
+    }
+  }
+
+  while (i < MAX_NEW_ENVP_SIZE - 1 && environ[i] != NULL) {
+    environ[i] = environ[i+1];
+    i++;
+  }
+}
 #ifdef STANDALONE
 int main() {
   mtcp_check_vdso_enabled();
-  system("echo ulimit -s | sh");
+  // FIXME: Replace it with mtcp_sys_XXX
+  //system("echo ulimit -s | sh");
   return 0;
 }
 #endif

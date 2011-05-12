@@ -35,7 +35,7 @@
 #define MTCP_SYS_MEMCPY
 #define MTCP_SYS_MEMMOVE
 #include "mtcp_internal.h"
-#define mtcp_sys_memcmp memcmp
+//#define mtcp_sys_memcmp memcmp
 
 void mtcp_maybebpt (void)
 
@@ -62,7 +62,7 @@ void mtcp_maybebpt (void)
     if (j >= 0) {
       i = mtcp_sys_read (j, buff, sizeof buff); // read parent's command line
       mtcp_sys_close (j);
-      if (mtcp_sys_memcmp (buff, "gdb", 3) == 0) {  // see if it begins with gdb
+      if (mtcp_memcmp (buff, "gdb", 3) == 0) {  // see if it begins with gdb
         known = 1;                                  // if so, parent is gdb
       }
     }

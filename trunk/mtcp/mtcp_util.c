@@ -99,8 +99,43 @@ size_t mtcp_strlen(const char *s)
   return len;
 }
 
+void mtcp_strncpy(char *dest, const char *src, size_t n)
+{
+  size_t i;
+
+  for (i = 0; i < n && src[i] != '\0'; i++)
+    dest[i] = src[i];
+  if (i < n) {
+    dest[i] = '\0';
+  }
+
+  //return dest;
+}
+
+void mtcp_strncat(char *dest, const char *src, size_t n)
+{
+  mtcp_strncpy(dest + mtcp_strlen(dest), src, n);
+  //return dest;
+}
+
 int mtcp_strncmp (const char *s1, const char *s2, size_t n)
 {
+  unsigned char c1 = '\0';
+  unsigned char c2 = '\0';
+
+  while (n > 0) {
+    c1 = (unsigned char) *s1++;
+    c2 = (unsigned char) *s2++;
+    if (c1 == '\0' || c1 != c2)
+      return c1 - c2;
+    n--;
+  }
+  return c1 - c2;
+}
+
+int mtcp_strcmp (const char *s1, const char *s2)
+{
+  size_t n = mtcp_strlen(s2);
   unsigned char c1 = '\0';
   unsigned char c2 = '\0';
 
@@ -148,6 +183,32 @@ int mtcp_strendswith (const char *s1, const char *s2)
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
 
+int mtcp_memcmp(char *dest, const char *src, size_t n)
+{
+  return mtcp_strncmp(dest, src, n);
+}
+
+void mtcp_memset(char *dest, int c, size_t n)
+{
+  size_t i;
+  for (i = 0; i < n; i++)
+    dest[i] = (char) c;
+}
+
+//void mtcp_check_vdso_enabled() {
+//}
+
+int mtcp_atoi(const char *nptr)
+{
+  int v = 0;
+
+  while (*nptr >= '0' && *nptr <= '9') {
+    v = v * 10 + (*nptr - '0');
+    nptr++;
+  }
+  return v;
+}
+
 /* Write something to checkpoint file */
 void mtcp_writefile (int fd, void const *buff, size_t size)
 {
@@ -182,8 +243,8 @@ void mtcp_writefile (int fd, void const *buff, size_t size)
     else {
       if (rc == 0) mtcp_sys_errno = EPIPE;
       if (rc <= 0) {
-        MTCP_PRINTF("error writing from %p to checkpoint file: %s\n",
-	             bf, MTCP_STR_ERRNO);
+        MTCP_PRINTF("Error %d writing from %p to checkpoint file.\n",
+	             mtcp_sys_errno, bf);
         mtcp_abort ();
       }
     }
@@ -193,6 +254,12 @@ void mtcp_writefile (int fd, void const *buff, size_t size)
     sz -= rc;
     bf += rc;
   }
+}
+
+/* Write checkpoint section number to checkpoint file */
+void mtcp_writecs (int fd, char cs)
+{
+  mtcp_writefile (fd, &cs, sizeof cs);
 }
 
 void mtcp_readfile(int fd, void *buf, size_t size)
@@ -216,6 +283,17 @@ void mtcp_readfile(int fd, void *buf, size_t size)
       }
     }
     ar += rc;
+  }
+}
+
+void mtcp_readcs(int fd, char cs)
+{
+  char xcs;
+
+  mtcp_readfile (fd, &xcs, sizeof xcs);
+  if (xcs != cs) {
+    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
+    mtcp_abort ();
   }
 }
 
@@ -262,48 +340,44 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
   return num_read;
 }
 
-// Return Value
-// 0 : Succeeded
-// -1: Failed
-int mtcp_get_controlling_term(char* ttyName, size_t len)
+int mtcp_is_executable(const char *exec_path)
 {
-  char sbuf[1024];
-  char *tmp;
-  char *S;
-  char state;
-  int ppid, pgrp, session, tty, tpgid;
-
-  int fd, num_read;
-
-  if (len < strlen("/dev/pts/123456780"))
-    return -1;
-  ttyName[0] = '\0';
-
-  fd = open("/proc/self/stat", O_RDONLY, 0);
-  if (fd == -1) return -1;
-
-  num_read = read(fd, sbuf, sizeof sbuf - 1);
-  close(fd);
-  if(num_read<=0) return -1;
-  sbuf[num_read] = '\0';
-
-  S = strchr(sbuf, '(') + 1;
-  tmp = strrchr(S, ')');
-  S = tmp + 2;                 // skip ") "
-
-  sscanf(S,
-      "%c "
-      "%d %d %d %d %d ",
-      &state,
-      &ppid, &pgrp, &session, &tty, &tpgid
-      );
-
-  int maj =  ((unsigned)(tty)>>8u) & 0xfffu;
-  int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
-
-  /* /dev/pts/ * has major numbers in the range 136 - 143 */
-  if ( maj >= 136 && maj <= 143) 
-    sprintf(ttyName, "/dev/pts/%d", min+(maj-136)*256);
-
-  return 0;
+#if 1
+  return 0 == mtcp_sys_access(exec_path, X_OK);
+#else
+  struct stat stat_buf;
+  /* Bash says "have to use access(2) to determine access because AFS
+    does not [find] answers for non-AFS files when ruid != euid." ??  */
+  return 0 == mtcp_sys_stat(exec_path, &stat_buf)
+    && S_ISREG(stat_buf.st_mode) && stat_buf.st_mode & S_IXOTH;
+#endif
 }
+
+/* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
+char *mtcp_find_executable(char *executable, const char* path_env, char exec_path[PATH_MAX])
+{
+  char *path;
+  int len;
+
+  if (path_env == NULL) {
+    *exec_path = 0;
+    return NULL;
+  }
+
+  while (*path_env != '\0') {
+    path = exec_path;
+    len = 0;
+    while (*path_env != ':' && *path_env != '\0' && ++len < PATH_MAX - 1)
+      *path++ = *path_env++;
+    if (*path_env == ':') /* but if *path_env == '\0', will exit while loop */
+      path_env++;
+    *path++ = '/'; /* '...//... is same as .../... in POSIX */
+    len++;
+    *path++ = '\0';
+    mtcp_strncat(exec_path, executable, PATH_MAX - len - 1);
+    if (mtcp_is_executable(exec_path))
+      return exec_path;
+  }
+  return NULL;
+}
+

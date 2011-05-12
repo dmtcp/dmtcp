@@ -337,6 +337,16 @@ struct linux_dirent {
 #define mtcp_sys_rt_sigaction(args...) mtcp_inline_syscall(rt_sigaction,4,args)
 #define mtcp_sys_set_tid_address(args...) \
   mtcp_inline_syscall(set_tid_address,1,args)
+
+//#define mtcp_sys_stat(args...) mtcp_inline_syscall(stat, 2, args)
+#define mtcp_sys_getuid(args...) mtcp_inline_syscall(getuid, 0)
+#define mtcp_sys_geteuid(args...) mtcp_inline_syscall(geteuid, 0)
+
+#define mtcp_sys_personality(args...) mtcp_inline_syscall(personality, 1, args)
+#define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlink, 3, args)
+#define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
+#define mtcp_sys_setrlimit(args...) mtcp_inline_syscall(setrlimit, 2, args)
+
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
    /* Note that getdents() does not fill the buf with 'struct dirent's, but

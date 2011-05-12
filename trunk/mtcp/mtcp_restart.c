@@ -52,8 +52,7 @@
 #include <sys/personality.h>
 
 static char first_char(char *filename);
-static int open_ckpt_to_read(char *filename);
-static void readcs (int fd, char cs);
+static int open_ckpt_to_read(char *filename, char *envp[]);
 
 static pid_t decomp_child_pid = -1;
 pid_t saved_pid = 0;
@@ -72,6 +71,7 @@ static const char* theUsage =
       " [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
 ;
 
+char **environ = NULL;
 int main (int argc, char *argv[], char *envp[])
 {
   char magicbuf[MAGIC_LEN], *restorename;
@@ -81,17 +81,18 @@ int main (int argc, char *argv[], char *envp[])
   void (*restore_start) (int fd, int verify, pid_t decomp_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
-  char cmd_file[MAXPATHLEN+1];
-  char ckpt_newname[MAXPATHLEN+1] = "";
+  char cmd_file[PATH_MAX+1];
+  char ckpt_newname[PATH_MAX+1] = "";
   char **orig_argv = argv;
   int orig_argc = argc;
+  environ = envp;
 
-  if (getuid() == 0 || geteuid() == 0) {
+  if (mtcp_sys_getuid() == 0 || mtcp_sys_geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
 	   "If you still want to do this (at your own risk)," \
 	   "  then modify mtcp/%s:%d and re-compile.\n",
 	   __FILE__, __LINE__ - 4);
-    abort();
+    mtcp_abort();
   }
 
   // Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on.
@@ -102,29 +103,29 @@ int main (int argc, char *argv[], char *envp[])
 
   shift;
   while (1) {
-    if (argc == 0 || (strcasecmp(argv[0], "--help") == 0 && argc == 1)) {
+    if (argc == 0 || (mtcp_strcmp(argv[0], "--help") == 0 && argc == 1)) {
       mtcp_printf("%s", theUsage);
       return (-1);
-    } else if (strcasecmp (argv[0], "--verify") == 0 && argc == 2) {
+    } else if (mtcp_strcmp (argv[0], "--verify") == 0 && argc == 2) {
       verify = 1;
       restorename = argv[1];
       break;
-    } else if (strcasecmp (argv[0], "--offset") == 0 && argc >= 3) {
-      offset = atoi(argv[1]);
+    } else if (mtcp_strcmp (argv[0], "--offset") == 0 && argc >= 3) {
+      offset = mtcp_atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--fd") == 0 && argc >= 2) {
-      fd = atoi(argv[1]);
+    } else if (mtcp_strcmp (argv[0], "--fd") == 0 && argc >= 2) {
+      fd = mtcp_atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--gzip-child-pid") == 0 && argc >= 2) {
-      decomp_child_pid = atoi(argv[1]);
+    } else if (mtcp_strcmp (argv[0], "--gzip-child-pid") == 0 && argc >= 2) {
+      decomp_child_pid = mtcp_atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--rename-ckpt") == 0 && argc >= 2) {
-      strncpy(ckpt_newname, argv[1], MAXPATHLEN);
+    } else if (mtcp_strcmp (argv[0], "--rename-ckpt") == 0 && argc >= 2) {
+      mtcp_strncpy(ckpt_newname, argv[1], PATH_MAX);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--stderr-fd") == 0 && argc >= 2) {
-      dmtcp_info_stderr_fd = atoi(argv[1]);
+    } else if (mtcp_strcmp (argv[0], "--stderr-fd") == 0 && argc >= 2) {
+      dmtcp_info_stderr_fd = mtcp_atoi(argv[1]);
       shift; shift;
-    } else if (strcasecmp (argv[0], "--") == 0 && argc == 2) {
+    } else if (mtcp_strcmp (argv[0], "--") == 0 && argc == 2) {
       restorename = argv[1];
       break;
     } else if (argc == 1) {
@@ -155,38 +156,57 @@ int main (int argc, char *argv[], char *envp[])
   }
 
   if (restorename) {
+#if 1
+    if (mtcp_sys_access(restorename, R_OK) != 0 && mtcp_sys_errno == EACCES) {
+      MTCP_PRINTF("\nProcess does not have read permission for\n" \
+	          "  checkpoint image (%s).\n" \
+                  "  (Check file permissions, UIDs etc.)\n",
+                  restorename);
+      mtcp_abort();
+    }
+#else
     struct stat buf;
-    int rc = stat(restorename, &buf);
+    int rc = mtcp_sys_stat(restorename, &buf);
     if (rc == -1) {
-      char error_msg[MAXPATHLEN+35];
-      sprintf(error_msg, "\nmtcp_restart: ckpt image %s", restorename);
-      perror(error_msg);
-      abort();
-    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+      MTCP_PRINTF("Error %d stat()'ing ckpt image %s.",
+                  mtcp_sys_errno, restorename);
+      mtcp_abort();
+    } else if (buf.st_uid != mtcp_sys_getuid()) { /*Could also run if geteuid()
+                                                    matches*/
       MTCP_PRINTF("\nProcess uid (%d) doesn't match uid (%d) of\n" \
 	          "  checkpoint image (%s).\n" \
 		  "This is dangerous.  Aborting for security reasons.\n" \
                   "If you still want to do this, modify mtcp/%s:%d and"
                   "  re-compile.\n",
-                  getuid(), buf.st_uid, restorename, __FILE__, __LINE__ - 5);
-      abort();
+                  mtcp_sys_getuid(), buf.st_uid, restorename,
+                  __FILE__, __LINE__ - 5);
+      mtcp_abort();
+    }
+#endif
+  }
+
+  if (mtcp_strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
+    mtcp_strncpy(ckpt_newname, restorename, PATH_MAX);
+  }
+
+  if (restorename!=NULL) fd = open_ckpt_to_read(restorename, envp);
+  if (offset>0) {
+    //skip into the file a bit
+    VA addr = (VA) mtcp_sys_mmap(0, offset, PROT_READ | PROT_WRITE,
+                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (addr == MAP_FAILED) {
+      MTCP_PRINTF("mmap failed with error %d\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+    mtcp_readfile(fd, addr, offset);
+    if (mtcp_sys_munmap(addr, offset) == -1) {
+      MTCP_PRINTF("munmap failed with error %d\n", mtcp_sys_errno);
+      mtcp_abort();
     }
   }
-
-  if (strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
-    strncpy(ckpt_newname, restorename, MAXPATHLEN);
-  }
-
-  if(restorename!=NULL) fd = open_ckpt_to_read(restorename);
-  if(offset>0){
-    //skip into the file a bit
-    char* tmp = malloc(offset);
-    mtcp_readfile(fd, tmp, offset);
-    free(tmp);
-  }
-  memset(magicbuf, 0, sizeof magicbuf);
+  mtcp_memset(magicbuf, 0, sizeof magicbuf);
   mtcp_readfile (fd, magicbuf, MAGIC_LEN);
-  if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
+  if (mtcp_memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
     MTCP_PRINTF("'%s' is '%s', but this restore is '%s' (fd=%d)\n",
                 restorename, magicbuf, MAGIC, fd);
     return (-1);
@@ -201,21 +221,21 @@ int main (int argc, char *argv[], char *envp[])
   restore_begin = area.addr;
   restore_size = area.size;
 #else
-  readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
+  mtcp_readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
   mtcp_readfile (fd, &stack_rlimit, sizeof stack_rlimit);
   /* Find where the restore image goes */
-  readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
+  mtcp_readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
   mtcp_readfile (fd, &restore_begin, sizeof restore_begin);
-  readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
+  mtcp_readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
   mtcp_readfile (fd, &restore_size, sizeof restore_size);
-  readcs (fd, CS_RESTORESTART);
+  mtcp_readcs (fd, CS_RESTORESTART);
   mtcp_readfile (fd, &restore_start, sizeof restore_start);
 
   DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
           stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
 #endif // FAST_CKPT_RST_VIA_MMAP
-  setrlimit(RLIMIT_STACK, &stack_rlimit);
+  mtcp_sys_setrlimit(RLIMIT_STACK, &stack_rlimit);
 
   /* Read in the restore image to same address where it was loaded at time
    *  of checkpoint.  This is libmtcp.so, including both text and data sections
@@ -225,9 +245,9 @@ int main (int argc, char *argv[], char *envp[])
 
   DPRINTF("restoring anonymous area %p at %p\n", restore_size, restore_begin);
 
-  if (munmap(restore_begin, restore_size) < 0) {
+  if (mtcp_sys_munmap(restore_begin, restore_size) < 0) {
     MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
-    abort ();
+    mtcp_abort ();
   }
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
@@ -241,21 +261,21 @@ int main (int argc, char *argv[], char *envp[])
     MTCP_PRINTF("Does mmap here support MAP_FIXED?\n");
 #endif
     if (mtcp_sys_errno != EBUSY) {
-      MTCP_PRINTF("error creating %p byte restore region at %p: %s\n",
-                  restore_size, restore_begin, strerror(mtcp_sys_errno));
-      abort ();
+      MTCP_PRINTF("Error %d creating %p byte restore region at %p.\n",
+                  mtcp_sys_errno, restore_size, restore_begin);
+      mtcp_abort ();
     } else {
       MTCP_PRINTF("restarting due to address conflict...\n");
-      close (fd);
-      execvp (argv[0], argv);
+      mtcp_sys_close (fd);
+      mtcp_sys_execve (argv[0], argv, envp);
     }
   }
   if (restore_mmap != restore_begin) {
     MTCP_PRINTF("%p byte restore region at %p got mapped at %p\n",
                 restore_size, restore_begin, restore_mmap);
-    abort ();
+    mtcp_abort ();
   }
-  readcs (fd, CS_RESTOREIMAGE);
+  mtcp_readcs (fd, CS_RESTOREIMAGE);
   mtcp_readfile (fd, restore_begin, restore_size);
 #endif
 
@@ -263,7 +283,7 @@ int main (int argc, char *argv[], char *envp[])
   // Copy command line to libmtcp.so, so that we can re-exec if randomized vdso
   //   steps on us.  This won't be needed when we use the linker to map areas.
   cmd_file[0] = '\0';
-  { int cmd_len = readlink("/proc/self/exe", cmd_file, MAXPATHLEN);
+  { int cmd_len = mtcp_sys_readlink("/proc/self/exe", cmd_file, PATH_MAX);
     if (cmd_len == -1)
       MTCP_PRINTF("WARNING:  Couldn't find /proc/self/exe."
 		  "  Trying to continue anyway.\n");
@@ -272,6 +292,7 @@ int main (int argc, char *argv[], char *envp[])
   }
 #endif
 
+#ifdef LIBC_STATIC_AVAILABLE
 #if defined(DEBUG) &&  !defined(DMTCP_DEBUG)
     char *p, symbolbuff[256];
     FILE *symbolfile;
@@ -301,12 +322,39 @@ int main (int argc, char *argv[], char *envp[])
     }
     mtcp_maybebpt ();
 #endif
+#endif
 
   /* Now call it - it shouldn't return */
   (*restore_start) (fd, verify, decomp_child_pid, ckpt_newname, cmd_file, argv, envp);
-  mtcp_printf("mtcp_restart: restore routine returned (it should never do this!)\n");
-  abort ();
+  MTCP_PRINTF("restore routine returned (it should never do this!)\n");
+  mtcp_abort ();
   return (0);
+}
+
+int __libc_start_main (int (*main) (int, char **, char **),
+                       int argc, char **argv,
+                       void (*init) (void), void (*fini) (void),
+                       void (*rtld_fini) (void), void *stack_end)
+{
+  //while(1);
+  char **envp = argv + argc + 1;
+  int result = main (argc, argv, envp);
+  mtcp_sys_exit(result);
+  while(1);
+}
+
+
+void
+__libc_csu_init (int argc, char **argv, char **envp)
+{
+  while(1);
+}
+
+/* This function should not be used anymore.  We run the executable's
+   destructor now just like any other.  We cannot remove the function,
+   though.  */
+void __libc_csu_fini (void)
+{
 }
 
 /**
@@ -321,21 +369,21 @@ static char first_char(char *filename)
     int fd, rc;
     char c;
 
-    fd = open(filename, O_RDONLY);
+    fd = mtcp_sys_open(filename, O_RDONLY, 0);
     if(fd < 0)
     {
         MTCP_PRINTF("ERROR: Cannot open file %s\n", filename);
-        abort();
+        mtcp_abort();
     }
 
-    rc = read(fd, &c, 1);
+    rc = mtcp_sys_read(fd, &c, 1);
     if(rc != 1)
     {
         MTCP_PRINTF("ERROR: Error reading from file %s\n", filename);
-        abort();
+        mtcp_abort();
     }
 
-    close(fd);
+    mtcp_sys_close(fd);
     return c;
 }
 
@@ -349,107 +397,118 @@ static char first_char(char *filename)
  * @param filename the name of the checkpoint file
  * @return the fd to use
  */
-static int open_ckpt_to_read(char *filename) {
-    int fd;
-    int fds[2];
-    char fc;
-    char *gzip_cmd = "gzip";
-    static char *gzip_args[] = { "gzip", "-d", "-", NULL };
-#ifdef HBICT_DELTACOMP
-    char *hbict_cmd = "hbict";
-    static char *hbict_args[] = { "hbict", "-r", NULL };
-#endif
-    char decomp_path[MTCP_MAX_PATH];
-    static char **decomp_args;
-    pid_t cpid;
-
-    fc = first_char(filename);
-    fd = open(filename, O_RDONLY);
-    if(fd < 0) {
-        MTCP_PRINTF("ERROR: Cannot open checkpoint file %s\n", filename);
-        abort();
-    }
-
-    if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
-        return fd;
-    else if (fc == GZIP_FIRST 
-#ifdef HBICT_DELTACOMP        
-        || fc == HBICT_FIRST
-#endif
-        ){ /* Set prog_path */
-        if( fc == GZIP_FIRST ){
-            decomp_args = gzip_args;
-            if( mtcp_find_executable(gzip_cmd, decomp_path) == NULL ) {
-                fputs("ERROR: Cannot find gunzip to decompress checkpoint file!\n", stderr);
-                abort();
-            }
-        }
-#ifdef HBICT_DELTACOMP
-       	if( fc == HBICT_FIRST ){
-            decomp_args = hbict_args;
-            if( mtcp_find_executable(hbict_cmd, decomp_path) == NULL ) {
-                fputs("ERROR: Cannot find hbict to decompress checkpoint file!\n", stderr);
-                abort();
-            }
-        }
-#endif
-        if (pipe(fds) == -1) {
-            fputs("ERROR: Cannot create pipe to execute gunzip to decompress"
-                  " checkpoint file!\n", stderr);
-            abort();
-        }
-
-        cpid = fork();
-
-        if(cpid == -1) {
-            fputs("ERROR: Cannot fork to execute gunzip to decompress"
-                  " checkpoint file!\n", stderr);
-            abort();
-        }
-        else if(cpid > 0) /* parent process */ {
-            decomp_child_pid = cpid;
-            close(fd);
-            close(fds[1]);
-            return fds[0];
-        }
-        else /* child process */ {
-            fd = dup(dup(dup(fd)));
-            if (fd == -1) {
-            fputs("ERROR: dup() failed!  No restoration will be performed!"
-                  " Cancel now!\n", stderr);
-              mtcp_abort();
-            }
-            fds[1] = dup(fds[1]);
-            close(fds[0]);
-            if (dup2(fd, STDIN_FILENO) != STDIN_FILENO) {
-            fputs("ERROR: dup2() failed!  No restoration will be performed!"
-                  " Cancel now!\n", stderr);
-              mtcp_abort();
-            }
-            close(fd);
-            dup2(fds[1], STDOUT_FILENO);
-            close(fds[1]);
-            execvp(decomp_path, decomp_args);
-            /* should not get here */
-            fputs("ERROR: Decompression failed!  No restoration will be"
-                  " performed!  Cancel now!\n", stderr);
-            abort();
-        }
-    }
-    else /* invalid magic number */ {
-        fputs("ERROR: Invalid magic number in this checkpoint file!\n", stderr);
-        abort();
-    }
-}
-
-static void readcs (int fd, char cs)
-
+static int open_ckpt_to_read(char *filename, char *envp[])
 {
-  char xcs;
+  int fd;
+  int fds[2];
+  char fc;
+  char *gzip_cmd = "gzip";
+  static char *gzip_args[] = { "gzip", "-d", "-", NULL };
+#ifdef HBICT_DELTACOMP
+  char *hbict_cmd = "hbict";
+  static char *hbict_args[] = { "hbict", "-r", NULL };
+#endif
+  char decomp_path[PATH_MAX];
+  static char **decomp_args;
+  pid_t cpid;
 
-  mtcp_readfile (fd, &xcs, sizeof xcs);
-  if (xcs != cs) {
-    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
-    abort ();
+  fc = first_char(filename);
+  fd = mtcp_sys_open(filename, O_RDONLY, 0);
+  if(fd < 0) {
+    MTCP_PRINTF("ERROR: Cannot open checkpoint file %s\n", filename);
+    mtcp_abort();
+  }
+
+  if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
+    return fd;
+  else if (fc == GZIP_FIRST 
+#ifdef HBICT_DELTACOMP        
+           || fc == HBICT_FIRST
+#endif
+          ) { /* Set prog_path */
+    if( fc == GZIP_FIRST ){
+      decomp_args = gzip_args;
+      if( mtcp_find_executable(gzip_cmd, getenv("PATH"),
+                               decomp_path) == NULL ) {
+        MTCP_PRINTF("ERROR: Cannot find gunzip to decompress ckpt file!\n");
+        mtcp_abort();
+      }
+    }
+#ifdef HBICT_DELTACOMP
+    if( fc == HBICT_FIRST ){
+      decomp_args = hbict_args;
+      if( mtcp_find_executable(hbict_cmd, decomp_path) == NULL ) {
+        MTCP_PRINTF("ERROR: Cannot find hbict to decompress ckpt file!\n");
+        mtcp_abort();
+      }
+    }
+#endif
+    if (mtcp_sys_pipe(fds) == -1) {
+      MTCP_PRINTF("ERROR: Cannot create pipe to execute gunzip to decompress"
+                  " checkpoint file!\n");
+      mtcp_abort();
+    }
+
+    cpid = mtcp_sys_fork();
+
+    if(cpid == -1) {
+      MTCP_PRINTF("ERROR: Cannot fork to execute gunzip to decompress"
+                  " checkpoint file!\n");
+      mtcp_abort();
+    }
+    else if(cpid > 0) /* parent process */ {
+      decomp_child_pid = cpid;
+      mtcp_sys_close(fd);
+      mtcp_sys_close(fds[1]);
+      return fds[0];
+    }
+    else /* child process */ {
+      fd = mtcp_sys_dup(mtcp_sys_dup(mtcp_sys_dup(fd)));
+      if (fd == -1) {
+        MTCP_PRINTF("ERROR: dup() failed!  No restoration will be performed!"
+                    " Cancel now!\n");
+        mtcp_abort();
+      }
+      fds[1] = mtcp_sys_dup(fds[1]);
+      mtcp_sys_close(fds[0]);
+      if (mtcp_sys_dup2(fd, STDIN_FILENO) != STDIN_FILENO) {
+        MTCP_PRINTF("ERROR: dup2() failed!  No restoration will be performed!"
+                    " Cancel now!\n");
+        mtcp_abort();
+      }
+      mtcp_sys_close(fd);
+      mtcp_sys_dup2(fds[1], STDOUT_FILENO);
+      mtcp_sys_close(fds[1]);
+      mtcp_sys_execve(decomp_path, decomp_args, envp);
+      /* should not get here */
+      MTCP_PRINTF("ERROR: Decompression failed!  No restoration will be"
+                  " performed!  Cancel now!\n");
+      mtcp_abort();
+    }
+  }
+  else /* invalid magic number */ {
+    MTCP_PRINTF("ERROR: Invalid magic number in this checkpoint file!\n");
+    mtcp_abort();
   }
 }
+
+char* getenv(const char* name)
+{
+  int i;
+  extern char **environ;
+  ssize_t len = mtcp_strlen(name);
+
+  if (environ == NULL)
+    return NULL;
+
+  for (i = 0; environ[i] != NULL; i++) {
+    if (mtcp_strstartswith(environ[i], name)) {
+      if (mtcp_strlen(environ[i]) > len && environ[i][len] == '=') {
+        if (environ[i][len+1] == '\0') return NULL;
+        return &(environ[i][len+1]);
+      }
+    }
+  }
+  return NULL;
+}
+

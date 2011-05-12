@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <linux/version.h>
+#include <linux/limits.h>
 
 #if USE_FUTEX
 #  ifndef __user
@@ -163,7 +164,7 @@ typedef unsigned int mtcp_segreg_t;
 int STOPSIGNAL;             // signal to use to signal other threads to stop for
                             //   checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
-#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
+//#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
 typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
@@ -265,8 +266,8 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
 static inline void mtcp_abort (void) __attribute__ ((noreturn));
 static inline void mtcp_abort (void)
 {
-  asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
   for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
+  asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
 }
 
 extern char mtcp_shareable_begin[];
@@ -276,9 +277,9 @@ extern __attribute__ ((visibility ("hidden")))
 int mtcp_sigaction(int sig, const struct sigaction *act,
 		   struct sigaction *oact);
 
-#ifndef MAXPATHLEN
-# define MAXPATHLEN 512
-#endif
+//#ifndef MAXPATHLEN
+//# define MAXPATHLEN 512
+//#endif
 // mtcp_restore_XXX are globals for arguments to mtcp_restore_start();
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_cpfd;
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_verify;
@@ -290,7 +291,7 @@ extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[];
 
 extern __attribute__ ((visibility ("hidden"))) VA mtcp_saved_break;
 __attribute__ ((visibility ("hidden")))
-char mtcp_saved_working_directory[MAXPATHLEN+1];
+char mtcp_saved_working_directory[PATH_MAX + 1];
 extern void *mtcp_libc_dl_handle;
 extern void *mtcp_old_dl_sysinfo_0;
 
@@ -317,7 +318,9 @@ __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
 
+void mtcp_readcs (int fd, char cs);
 void mtcp_readfile(int fd, void *buf, size_t size);
+void mtcp_writecs (int fd, char cs);
 void mtcp_writefile (int fd, void const *buff, size_t size);
 void mtcp_check_vdso_enabled(void);
 int mtcp_have_thread_sysinfo_offset();
@@ -325,7 +328,8 @@ void *mtcp_get_thread_sysinfo(void);
 void mtcp_set_thread_sysinfo(void *);
 void mtcp_dump_tls (char const *file, int line);
 int mtcp_is_executable(const char *exec_path);
-char *mtcp_find_executable(char *filename, char exec_path[MTCP_MAX_PATH]);
+char *mtcp_find_executable(char *filename, const char* path_env,
+                           char exec_path[PATH_MAX]);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
@@ -333,10 +337,18 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count);
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count);
 size_t mtcp_strlen (const char *s1);
 const void *mtcp_strstr(const char *string, const char *substring);
+void mtcp_strncpy(char *targ, const char* source, size_t len);
+void mtcp_strncat(char *dest, const char *src, size_t n);
+int mtcp_memcmp(char *targ, const char* source, size_t len);
+void mtcp_memset(char *targ, int c, size_t n);
+void mtcp_check_vdso_enabled();
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
+int mtcp_strcmp (const char *s1, const char *s2);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
+int mtcp_atoi(const char *nptr);
 int mtcp_get_controlling_term(char* ttyName, size_t len);
+const char* mtcp_getenv(const char* name);
 
 int readmapsline (int mapsfd, Area *area);
 void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
