@@ -51,7 +51,7 @@
 #endif
 typedef int ( *funcptr_t ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
-typedef funcptr ( *signal_funcptr_t ) ();
+typedef funcptr_t ( *signal_funcptr_t ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
 #ifdef RECORD_REPLAY
