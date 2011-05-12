@@ -63,6 +63,8 @@ namespace Util
                          char **newArgv[]);
 
   int readLine(int fd, char *buf, int count);
+
+  void initializeLogFile(dmtcp::string procname = "");
 }
 
 #endif

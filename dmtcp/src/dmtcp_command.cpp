@@ -27,6 +27,7 @@
 #include "dmtcpcoordinatorapi.h"
 //#include "dmtcp_coordinator.h"
 #include "dmtcpmessagetypes.h"
+#include "util.h"
 //#include "mtcpinterface.h"
 //#include "uniquepid.h"
 
@@ -69,10 +70,7 @@ int main ( int argc, char** argv )
   dmtcp::string interval = "";
   dmtcp::string request = "h";
 
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess(true) << "_dmtcp_command";
-  JASSERT_INIT(o.str());
+  Util::initializeLogFile();
 
   //process args
   shift;

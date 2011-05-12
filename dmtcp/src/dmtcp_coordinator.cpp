@@ -52,6 +52,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpcoordinatorapi.h"
 #include "dmtcpworker.h"
+#include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jtimer.h"
 #include  "../jalib/jfilesystem.h"
@@ -1395,17 +1396,10 @@ int main ( int argc, char** argv )
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-#ifdef DEBUG
-  /* Disable Jassert Logging */
-  dmtcp::UniquePid::ThisProcess(true);
+  Util::initializeLogFile();
 
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess(true) << "_dmtcp_coordinator";
-  JASSERT_INIT(o.str());
   JTRACE ( "New DMTCP coordinator starting." )
     ( dmtcp::UniquePid::ThisProcess() );
-#endif
 
   if ( thePort < 0 )
   {
@@ -1415,8 +1409,8 @@ int main ( int argc, char** argv )
 
   jalib::JServerSocket* sock;
   /*Test if the listener socket is already open*/
-  if ( fcntl(PROTECTEDFD(1), F_GETFD) != -1 ) {
-    sock = new jalib::JServerSocket ( PROTECTEDFD(1) );
+  if ( fcntl(PROTECTED_COORD_FD, F_GETFD) != -1 ) {
+    sock = new jalib::JServerSocket ( PROTECTED_COORD_FD );
     JASSERT ( sock->port() != -1 ) .Text ( "Invalid listener socket" );
     JTRACE ( "Using already created listener socker" ) ( sock->port() );
   } else {

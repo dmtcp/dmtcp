@@ -214,7 +214,7 @@ namespace
       runMtcpRestore ( _path.c_str(), _offset, _argvSize, _envSize );
     }
 
-    const UniquePid& pid() const { return _conToFd.pid(); }
+    const UniquePid& upid() const { return _conToFd.upid(); }
     const dmtcp::string& procname() const { return _conToFd.procname(); }
 
 #ifdef PID_VIRTUALIZATION
@@ -226,23 +226,23 @@ namespace
     void addChild(RestoreTarget *t){ _children.push_back(t); }
 
     bool isSessionLeader(){
-      JTRACE("")(_virtualPidTable.sid()) (pid().pid());
-      if( _virtualPidTable.sid() == pid().pid() )
+      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
+      if( _virtualPidTable.sid() == upid().pid() )
 	return true;
       else
 	return false;
     }
 
     bool isGroupLeader(){
-      JTRACE("")(_virtualPidTable.sid()) (pid().pid());
-      if( _virtualPidTable.gid() == pid().pid() )
+      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
+      if( _virtualPidTable.gid() == upid().pid() )
 	return true;
       else
 	return false;
     }
 
     bool isForegroundProcess() {
-      JTRACE("")(_virtualPidTable.sid()) (pid().pid());
+      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
       if( _virtualPidTable.fgid() == _virtualPidTable.gid() )
 	return true;
       else
@@ -321,7 +321,7 @@ namespace
       for(; it != _children.end(); it++){
 	(*it)->printMapping();
       }
-      JTRACE("")(pid());
+      JTRACE("")(upid());
       s_iterator sit = _smap.begin();
       for(; sit != _smap.end(); sit++){
 	JTRACE("") (sit->first) (sit->second);
@@ -435,22 +435,19 @@ namespace
 
     void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
     {
-#ifdef DEBUG
-      dmtcp::ostringstream o;
-      o << dmtcpTmpDir << "/jassertlog." << pid() << "_" << procname();
-      JASSERT_INIT(o.str());
-      JTRACE("Creating process during restart") (pid()) (procname());
-#endif
-
       //change UniquePid
-      //UniquePid::resetOnFork(pid());
-      UniquePid::ThisProcess() = _conToFd.pid();
+      UniquePid::resetOnFork(upid());
+      //UniquePid::ThisProcess(true) = _conToFd.upid();
+
+      Util::initializeLogFile(procname());
+      JTRACE("Creating process during restart") (upid()) (procname());
+
 
       VirtualPidTable &vt = _virtualPidTable;
 
       JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
 
-      vt.updateMapping(pid().pid(), _real_getpid());
+      vt.updateMapping(upid().pid(), _real_getpid());
       pid_t psid = vt.sid();
 
       if( !isSessionLeader() ){
@@ -461,7 +458,7 @@ namespace
 	// If process is not session leader, restore it and all children.
 	t_iterator it = _children.begin();
 	for(; it != _children.end(); it++){
-	  JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
+	  JTRACE ( "Forking Child Process" ) ( (*it)->upid() );
 	  pid_t cid = forkChild();
 
 	  if ( cid == 0 )
@@ -472,7 +469,7 @@ namespace
 	  JASSERT ( cid > 0 );
 	  VirtualPidTable::iterator vit = vt.begin();
 	  for(; vit != vt.end(); vit++){
-	    if( (*it)->pid() == vit->second ){
+	    if( (*it)->upid() == vit->second ){
 	      vt.updateMapping ( vit->first, cid );
 	      break;
 	    }
@@ -486,7 +483,7 @@ namespace
 	  s_iterator sit = (*it)->getSmap().find(psid);
 	  JTRACE("Restore processes that was created before their parent called setsid()");
 	  if( sit == (*it)->getSmap().end() ){
-	    JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
+	    JTRACE ( "Forking Child Process" ) ( (*it)->upid() );
 	    pid_t cid = forkChild();
 	    if ( cid == 0 )
 	      {
@@ -496,7 +493,7 @@ namespace
 	    JASSERT ( cid > 0 );
 	    VirtualPidTable::iterator vit = _virtualPidTable.begin();
 	    for(; vit != _virtualPidTable.end(); vit++){
-	      if( (*it)->pid() == vit->second ){
+	      if( (*it)->upid() == vit->second ){
 		_virtualPidTable.updateMapping ( vit->first, cid );
 	      }
 	    }
@@ -513,7 +510,7 @@ namespace
 	  JTRACE("Restore processes that was created after their parent called setsid()");
 	  s_iterator sit = (*it)->getSmap().find(psid);
 	  if( sit != (*it)->getSmap().end() ) {
-	    JTRACE ( "Forking Child Process" ) ( (*it)->pid() );
+	    JTRACE ( "Forking Child Process" ) ( (*it)->upid() );
 	    pid_t cid = forkChild();
 	    if ( cid == 0 ){
 	      (*it)->CreateProcess (worker, slidingFd );
@@ -522,7 +519,7 @@ namespace
 	    JASSERT ( cid> 0 );
 	    VirtualPidTable::iterator vit = _virtualPidTable.begin();
 	    for(; vit != _virtualPidTable.end(); vit++) {
-	      if( (*it)->pid() == vit->second ) {
+	      if( (*it)->upid() == vit->second ) {
 		_virtualPidTable.updateMapping ( vit->first, cid );
 	      }
 	    }
@@ -530,7 +527,7 @@ namespace
 	}
 
 	for(t_iterator it = _roots.begin() ; it != _roots.end(); it++) {
-	  JTRACE ( "Forking Dependent Root Process" ) ( (*it)->pid() );
+	  JTRACE ( "Forking Dependent Root Process" ) ( (*it)->upid() );
 	  pid_t cid;
 	  if( (cid = fork()) ){
 	    waitpid(cid, NULL, 0);
@@ -544,16 +541,16 @@ namespace
       }
 
       JTRACE("Child and dependent root processes forked, restoring process")
-	    (pid())(getpid())(isGroupLeader());
+	    (upid())(getpid())(isGroupLeader());
       // Save PID mapping information
-      pid_t orig = pid().pid();
+      pid_t orig = upid().pid();
       pid_t curr = _real_getpid();
       dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig, curr);
 
       //Reconnect to dmtcp_coordinator
       WorkerState::setCurrentState ( WorkerState::RESTARTING );
 
-      int tmpCoordFd = dup(PROTECTEDFD(1));
+      int tmpCoordFd = dup(PROTECTED_COORD_FD);
       JASSERT(tmpCoordFd != -1);
       worker.connectToCoordinatorWithoutHandshake();
       worker.sendCoordinatorHandshake(procname(), _compGroup);
@@ -773,15 +770,8 @@ int main ( int argc, char** argv )
   if (autoStartCoordinator)
     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
 
-#ifdef DEBUG
   //make sure JASSERT initializes now, rather than during restart
-  dmtcp::UniquePid::ThisProcess(true); // Don't allow it to write to log
-  dmtcp::ostringstream o;
-  o << dmtcpTmpDir << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess(true)
-    << "_dmtcp_restart";
-  JASSERT_INIT(o.str());
-#endif
+  Util::initializeLogFile();
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
@@ -875,15 +865,15 @@ int main ( int argc, char** argv )
   }
   RestoreTarget& targ = targets[i];
 
-  JTRACE("forked, restoring process")(i)(targets.size())(targ.pid())(getpid());
+  JTRACE("forked, restoring process")(i)(targets.size())(targ.upid())(getpid());
 
   //change UniquePid
-  UniquePid::resetOnFork(targ.pid());
+  UniquePid::resetOnFork(targ.upid());
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
 
-  int tmpCoordFd = dup(PROTECTEDFD(1));
+  int tmpCoordFd = dup(PROTECTED_COORD_FD);
   JASSERT(tmpCoordFd != -1);
   worker.connectToCoordinatorWithoutHandshake();
   worker.sendCoordinatorHandshake(targ.procname(), targ._compGroup);
@@ -971,16 +961,16 @@ int main ( int argc, char** argv )
           continue;
       }else{
         targets[j].CreateProcess(worker, slidingFd);
-        JTRACE("Need in flat-like restore for process")(targets[j].pid());
+        JTRACE("Need in flat-like restore for process")(targets[j].upid());
       }
     }
   }
 
   if( pgrp_index >=0 ){
-    JTRACE("Restore first Root Target")(roots[pgrp_index].t->pid());
+    JTRACE("Restore first Root Target")(roots[pgrp_index].t->upid());
     roots[pgrp_index].t->CreateProcess(worker, slidingFd);
   }else if (flat_index >= 0){
-    JTRACE("Restore first Flat Target")(targets[flat_index].pid());
+    JTRACE("Restore first Flat Target")(targets[flat_index].upid());
     targets[flat_index].CreateProcess(worker, slidingFd );
   }else{
     // FIXME: Under what conditions will this path be exercised?
@@ -1016,14 +1006,14 @@ void BuildProcessTree()
         // Search inside the child list of target[j], make sure that i != j
         for (it = virtualPidTable.begin(); (i != j) && (it != virtualPidTable.end()) ; it++) {
           UniquePid& childUniquePid = it->second;
-          JTRACE("Check child")(childUniquePid)(" parent ")(targets[i].pid())("checked ")(targets[j].pid());
-          if (childUniquePid == targets[j].pid()){
+          JTRACE("Check child")(childUniquePid)(" parent ")(targets[i].upid())("checked ")(targets[j].upid());
+          if (childUniquePid == targets[j].upid()){
             is_root = false;
             break;
           }
         }
       }
-      JTRACE("Root detection:")(is_root)(targets[j].pid());
+      JTRACE("Root detection:")(is_root)(targets[j].upid());
       if( is_root ){
         RootTarget rt;
         rt.t = &targets[j];
@@ -1043,10 +1033,10 @@ void BuildProcessTree()
 
       for ( size_t i = 0; i < targets.size(); i++ )
       {
-        if ( childUniquePid == targets[i].pid() )
+        if ( childUniquePid == targets[i].upid() )
         {
           found = 1;
-          JTRACE ( "Add child to current target" ) ( targets[j].pid() ) ( childUniquePid );
+          JTRACE ( "Add child to current target" ) ( targets[j].upid() ) ( childUniquePid );
           targets[i]._used = true;
           targets[j].addChild(&targets[i]);
         }
@@ -1230,7 +1220,7 @@ void SetupSessions()
       pid_t sid;
       if( (sid = (roots[i].t)->checkDependence(roots[j].t)) >= 0 ){
         // it2 depends on it1
-        JTRACE("Root target j depends on Root target i")(i)(roots[i].t->pid())(j)(roots[j].t->pid());
+        JTRACE("Root target j depends on Root target i")(i)(roots[i].t->upid())(j)(roots[j].t->upid());
         (roots[i].t)->addRoot(roots[j].t, sid);
         roots[j].indep = false;
       }
@@ -1325,7 +1315,8 @@ static void openOriginalToCurrentMappingFiles()
 static void runMtcpRestore ( const char* path, int offset,
                              size_t argvSize, size_t envSize)
 {
-  static dmtcp::string mtcprestart = jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
+  static dmtcp::string mtcprestart =
+    jalib::Filesystem::FindHelperUtility ( "mtcp_restart" );
 
   // Tell mtcp_restart process to write its debugging information to
   // PROTECTED_STDERR_FD. This way we prevent it from spitting out garbage onto

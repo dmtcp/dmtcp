@@ -79,8 +79,8 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   _procname = jalib::Filesystem::GetProgramName();
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _inhostname = jalib::Filesystem::GetCurrentHostname();
-  _pid = UniquePid::ThisProcess();
-  _ppid = UniquePid::ParentProcess();
+  _upid = UniquePid::ThisProcess();
+  _uppid = UniquePid::ParentProcess();
 
   for ( size_t i=0; i<fds.size(); ++i )
   {
@@ -627,7 +627,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
   // Current process information
-  o & _procname & _inhostname & _pid & _ppid;
+  o & _procname & _inhostname & _upid & _uppid;
 
   size_t numCons = _table.size();
   o & numCons;
@@ -636,7 +636,8 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   {
     _hostname = jalib::Filesystem::GetCurrentHostname();
     o & _hostname;
-    JTRACE("Writing hostname to checkpoint file")(_hostname)(_inhostname)(_procname)(_ppid);
+    JTRACE("Writing hostname to checkpoint file")
+      (_hostname) (_inhostname) (_procname) (_uppid);
 
     // Save connections
     for ( iterator i=_table.begin(); i!=_table.end(); ++i )

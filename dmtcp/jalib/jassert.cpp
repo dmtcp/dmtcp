@@ -59,6 +59,10 @@
 
 int jassert_quiet = 0;
 
+static int theLogFileFd = -1;
+static int errConsoleFd = -1;
+
+
 #define DUP_STDERR_FD PROTECTED_STDERR_FD
 #define DUP_LOG_FD    PROTECTED_JASSERTLOG_FD
 
@@ -85,6 +89,11 @@ int jassert_internal::jassert_console_fd()
   //make sure stream is open
   jassert_safe_print ( "" );
   return DUP_STDERR_FD;
+}
+
+void jassert_internal::jassert_set_console_fd(int fd)
+{
+  errConsoleFd = fd;
 }
 
 jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
@@ -171,10 +180,6 @@ static int _open_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _open_log_safe ( s.c_str(), protectedFd );
 }
-
-
-static int theLogFileFd = -1;
-static int errConsoleFd = -1;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
