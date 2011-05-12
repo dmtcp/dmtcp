@@ -225,7 +225,7 @@ static void prepareDmtcpWrappers()
     fprintf(stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n", dlerror());
     abort();
   }
-  tmp1 = (void *)&dlopen;
+  tmp1 = (void *)&LIBDL_BASE_FUNC;
   tmp2 = (void *)&dlsym;
   tmp3 = (char *)tmp2 - (char *)tmp1;
   char str[21] = {0} ;
