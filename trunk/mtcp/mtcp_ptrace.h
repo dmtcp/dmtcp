@@ -67,7 +67,7 @@ enum {
 };
 
 #define EFLAGS_OFFSET (64)
-#define RECORDPATHLEN (MAXPATHLEN + 128)
+#define RECORDPATHLEN (PATH_MAX + 128)
 
 /* On restart, superior must wait for inferior to be created before attaching.
  * On resume, inferior already exists. Thus this check is not important on
@@ -76,28 +76,28 @@ extern sem_t __does_inferior_exist_sem;
 extern int __init_does_inferior_exist_sem;
 extern int __check_once_does_inferior_exist;
 
-extern char dmtcp_tmp_dir[MAXPATHLEN];
+extern char dmtcp_tmp_dir[PATH_MAX];
 
 /* Superior, inferior tids and the state of inferior are stored in this file.
  * This extra file is needed because we can't copy to memory the information
  * from ptrace_shared_file in the checkpoint thread. However we need to
  * record the state of inferiors in the checkpoint thread. */
-extern char new_ptrace_shared_file[MAXPATHLEN];
+extern char new_ptrace_shared_file[PATH_MAX];
 
 /* Superior and inferior tids from ptrace wrapper are stored to this file. */
-extern char ptrace_shared_file[MAXPATHLEN];
+extern char ptrace_shared_file[PATH_MAX];
 
 /* Superior, inferior tids are stored to this file, if PTRACE_SETOPTIONS is set.
  * See below. */
-extern char ptrace_setoptions_file[MAXPATHLEN];
+extern char ptrace_setoptions_file[PATH_MAX];
 
 /* Pid and checkpoint thread tid are stored to this file. For each process we
  * need to know the ckpt thread, especially for the traced processes. */
-extern char checkpoint_threads_file[MAXPATHLEN];
+extern char checkpoint_threads_file[PATH_MAX];
 
 /* File used for synchronization purposes. The checkpoint thread which creates
  * this file gets to write new_ptrace_shared_file. */
-extern char ckpt_leader_file[MAXPATHLEN];
+extern char ckpt_leader_file[PATH_MAX];
 
 /* The following two variables are used in case the superior calls ptrace with
  * PTRACE_SETOPTIONS. In this case, all threads forked off by the already

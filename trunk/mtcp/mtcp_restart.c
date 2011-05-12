@@ -512,3 +512,17 @@ char* getenv(const char* name)
   return NULL;
 }
 
+void *memcpy(void *dest, const void *src, size_t n)
+{
+  MTCP_PRINTF("ERROR: Not Implemented!\n");
+  mtcp_abort();
+  return NULL; // to suppress compiler warning
+}
+void *memset(void *s, int c, size_t n)
+{
+  MTCP_PRINTF("ERROR: Not Implemented!\n");
+  mtcp_abort();
+  return NULL; // to suppress compiler warning
+}
+
+

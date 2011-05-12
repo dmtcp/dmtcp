@@ -23,7 +23,7 @@ void fastckpt_write_mem_region(int fd, Area *area)
   memcpy(&area_array[curr_area_idx], area, sizeof(*area));
   curr_area_idx++;
 
-  lseek(fd, area->mem_region_offset, SEEK_SET);
+  mtcp_sys_lseek(fd, area->mem_region_offset, SEEK_SET);
   mtcp_writefile(fd, area->addr, area->size);
   
   ckpt_image_header->VmSize += area->size;
@@ -34,7 +34,7 @@ void fastckpt_get_mem_region_info(size_t *VmSize, size_t *num_mem_regions)
 {
   int fd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
   if (fd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error opening /proc/self/maps: %d\n", mtcp_sys_errno);
     mtcp_abort ();
   }
 
@@ -43,11 +43,11 @@ void fastckpt_get_mem_region_info(size_t *VmSize, size_t *num_mem_regions)
     if (ch == '\n')
       (*num_mem_regions)++;
   }
-  close(fd);
+  mtcp_sys_close(fd);
 
   fd = mtcp_sys_open2("/proc/self/statm", O_RDONLY);
   if (fd < 0) {
-    MTCP_PRINTF("error opening /proc/self/statm: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error opening /proc/self/statm: %d\n", mtcp_sys_errno);
     mtcp_abort ();
   }
 
@@ -91,8 +91,8 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
   VA hdr_addr = (VA) mtcp_sys_mmap(NULL, maps_offset, PROT_READ | PROT_WRITE,
                                    MAP_SHARED, fd, curr_offset);
   if (hdr_addr == MAP_FAILED) {
-    MTCP_PRINTF("mmap(NULL, %x, ..., ..., %d, %x) failed with error :%s\n",
-                maps_offset, fd, curr_offset, MTCP_STR_ERRNO);
+    MTCP_PRINTF("mmap(NULL, %x, ..., ..., %d, %x) failed with error :%d\n",
+                maps_offset, fd, curr_offset, mtcp_sys_errno);
     mtcp_abort();
   }
 
@@ -100,7 +100,7 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
   memset(ckpt_image_header, 0, sizeof(ckpt_image_header));
 
   // TODO : place this lseek at proper place
-  lseek(fd, maps_offset, SEEK_CUR);
+  mtcp_sys_lseek(fd, maps_offset, SEEK_CUR);
 
   ckpt_image_header->ckpt_image_version = MTCP_CKPT_IMAGE_VERSION;
   ckpt_image_header->start_addr = hdr_addr;
@@ -112,7 +112,7 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
   ckpt_image_header->restore_start_fncptr = restore_start; 
   ckpt_image_header->finish_retore_fncptr = finishrestore; 
 
-  getrlimit(RLIMIT_STACK, &ckpt_image_header->stack_rlimit);
+  mtcp_sys_getrlimit(RLIMIT_STACK, &ckpt_image_header->stack_rlimit);
 
   DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
           ckpt_image_header->stack_rlimit.rlim_cur,
