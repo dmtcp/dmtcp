@@ -1364,6 +1364,9 @@ static void runMtcpRestore ( const char* path, int offset,
 
 #endif
 
+  // Create the placeholder for "MTCP_OLDPERS" environment.
+  //setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
+
   // FIXME: Put an explanation of the logic below.   -- Kapil
 #define ENV_PTR(x) ((char*)(getenv(x) - strlen(x) - 1))
 
@@ -1371,6 +1374,7 @@ static void runMtcpRestore ( const char* path, int offset,
 
   char* newEnv[] = {
     ENV_PTR("PATH"),
+   // ENV_PTR("MTCP_OLDPERS"),
     (char*) dummyEnviron,
     NULL
   };

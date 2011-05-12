@@ -67,6 +67,53 @@ char ckpt_leader_file[MAXPATHLEN];
 
 void mtcp_ptrace_info_list_update_info(int singlestep_waited_on);
 
+
+// Return Value
+// 0 : succeeded
+// -1: failed
+int mtcp_get_controlling_term(char* ttyname, size_t len)
+{
+  char sbuf[1024];
+  char *tmp;
+  char *s;
+  char state;
+  int ppid, pgrp, session, tty, tpgid;
+
+  int fd, num_read;
+
+  if (len < strlen("/dev/pts/123456780"))
+    return -1;
+  ttyname[0] = '\0';
+
+  fd = mtcp_sys_open("/proc/self/stat", o_rdonly, 0);
+  if (fd == -1) return -1;
+
+  num_read = mtcp_sys_read(fd, sbuf, sizeof sbuf - 1);
+  close(fd);
+  if(num_read<=0) return -1;
+  sbuf[num_read] = '\0';
+
+  s = strchr(sbuf, '(') + 1;
+  tmp = strrchr(s, ')');
+  s = tmp + 2;                 // skip ") "
+
+  sscanf(s,
+      "%c "
+      "%d %d %d %d %d ",
+      &state,
+      &ppid, &pgrp, &session, &tty, &tpgid
+      );
+
+  int maj =  ((unsigned)(tty)>>8u) & 0xfffu;
+  int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
+
+  /* /dev/pts/ * has major numbers in the range 136 - 143 */
+  if ( maj >= 136 && maj <= 143) 
+    sprintf(ttyname, "/dev/pts/%d", min+(maj-136)*256);
+
+  return 0;
+}
+
 /* We're ptracing when the size of ptrace_info_list is greater than zero or
  * we have a file with the ptrace_info pairs. */
 int ptracing() {

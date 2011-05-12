@@ -161,25 +161,34 @@ threadtest: threadtest.c
 	${CC} $(CFLAGS) -o threadtest threadtest.c
 
 # This is the command-line utility to restore a process
+# NOTE: Compile/build mtcp_restart with -nodefaultlibs. See the following
+#       explanation.
+# RedHat doesn't provide the static libc in their standard
+# repository. We want to have mtcp_restart statically linked for the sake
+# of VDSO placement and ASLR. Thus we decided to remove the dependency of
+# mtcp_restart on libc by rewriting some glibc function calls and
+# replacing the glibc-syscall wrappers with the respective mtcp_sys_XXX()
+# version.
 
-
-mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
-	mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
+mtcp_restart: mtcp_restart.c mtcp_internal.h \
+	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o mtcp_fastckpt.o
-	${CC} $(CFLAGS) -static \
-	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
-	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o \
-	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_fastckpt.o \
-	 -lpthread
+	${CC} $(CFLAGS) -static -nodefaultlibs \
+	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
+	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
+	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_fastckpt.o
+	#\
+	 #-lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
-# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_safe_open.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_state.o
+# mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
+#   mtcp_printf.o mtcp_safe_open.o mtcp_util.o mtcp_safemmap.o mtcp_state.o
 # 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
 # 	${CC} $(CFLAGS) -shared \
-# 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o mtcp_find_executable.o \
-# 	 mtcp_printf.o mtcp_readhexetc.o mtcp_safemmap.o mtcp_state.o \
+# 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o \
+# 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
 # This is the shareable that a user links with the application
@@ -209,7 +218,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	fi
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
-	mtcp_maybebpt.o mtcp_find_executable.o mtcp_printf.o mtcp_readhexetc.o \
+	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
 	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_ptrace.o \
 	mtcp_fastckpt.o
@@ -257,9 +266,6 @@ mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
-mtcp_find_executable.o: mtcp_find_executable.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_find_executable.o mtcp_find_executable.c
-
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
 
@@ -271,8 +277,8 @@ mtcp_printf.o: mtcp_printf.c mtcp_internal.h
 	  ${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c; \
 	fi
 
-mtcp_readhexetc.o: mtcp_readhexetc.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_readhexetc.o mtcp_readhexetc.c
+mtcp_util.o: mtcp_util.c mtcp_internal.h
+	${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c

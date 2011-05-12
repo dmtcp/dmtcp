@@ -397,8 +397,8 @@ static char const *dev_null_deleted_str = "/dev/null (deleted)";
 static char const *sys_v_shmem_file = "/SYSV";
 //static char const *perm_checkpointfilename = NULL;
 //static char const *temp_checkpointfilename = NULL;
-static char perm_checkpointfilename[MAXPATHLEN];
-static char temp_checkpointfilename[MAXPATHLEN];
+static char perm_checkpointfilename[PATH_MAX];
+static char temp_checkpointfilename[PATH_MAX];
 static size_t checkpointsize;
 static int intervalsecs;
 static pid_t motherpid = 0;
@@ -484,7 +484,6 @@ static void checkpointeverything (void);
 static void writefiledescrs (int fd);
 static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
-static void writecs (int fd, char cs);
 //static void writefile (int fd, void const *buff, size_t size);
 static void preprocess_special_segments(int *vsyscall_exists);
 static void stopthisthread (int signum);
@@ -628,30 +627,30 @@ void mtcp_init (char const *checkpointfilename,
 
   intervalsecs = interval;
 
-  if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
+  if (strlen(mtcp_ckpt_newname) >= PATH_MAX) {
     MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
                 mtcp_ckpt_newname);
     mtcp_abort();
   }
   // this is what user wants the checkpoint file called
-  strncpy(perm_checkpointfilename,checkpointfilename,MAXPATHLEN);
+  strncpy(perm_checkpointfilename,checkpointfilename,PATH_MAX);
   // make up another name, same as that, with ".temp" on the end ... we use it
   // to write to in case we crash while writing, we will leave the previous good
   // one intact
   len = strlen (perm_checkpointfilename);
   memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
-  strncpy(temp_checkpointfilename + len, ".temp",MAXPATHLEN-len);
+  strncpy(temp_checkpointfilename + len, ".temp",PATH_MAX-len);
 
 #ifdef PTRACE
-  memset(ptrace_shared_file, '\0', MAXPATHLEN);
+  memset(ptrace_shared_file, '\0', PATH_MAX);
   sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
-  memset(ptrace_setoptions_file, '\0', MAXPATHLEN);
+  memset(ptrace_setoptions_file, '\0', PATH_MAX);
   sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dmtcp_tmp_dir);
-  memset(checkpoint_threads_file, '\0', MAXPATHLEN);
+  memset(checkpoint_threads_file, '\0', PATH_MAX);
   sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dmtcp_tmp_dir);
-  memset(new_ptrace_shared_file, '\0', MAXPATHLEN);
+  memset(new_ptrace_shared_file, '\0', PATH_MAX);
   sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dmtcp_tmp_dir);
-  memset(ckpt_leader_file, '\0', MAXPATHLEN);
+  memset(ckpt_leader_file, '\0', PATH_MAX);
   sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
 #endif
 
@@ -1997,7 +1996,7 @@ again:
     /* Do this once.  It's the same for all threads. */
     save_term_settings();
 
-    if (getcwd(mtcp_saved_working_directory, MAXPATHLEN) == NULL) {
+    if (getcwd(mtcp_saved_working_directory, PATH_MAX) == NULL) {
       // buffer wasn't large enough
       perror("getcwd");
       MTCP_PRINTF ("getcwd failed.");
@@ -2106,7 +2105,7 @@ static int test_use_compression(char *compressor, char *command, char *path,
     return 0;
 
   /* Check if the executable exists. */
-  if (mtcp_find_executable(command, path) == NULL) {
+  if (mtcp_find_executable(command, getenv("PATH"), path) == NULL) {
     MTCP_PRINTF("WARNING: %s cannot be executed. Compression will "
                 "not be used.\n", command);
     return 0;
@@ -2300,7 +2299,7 @@ int perform_callback_write_dmtcp_header()
 int test_and_prepare_for_compression(int *fd)
 {
   char *gzip_cmd = "gzip";
-  char gzip_path[MTCP_MAX_PATH];
+  char gzip_path[PATH_MAX];
 
   int use_gzip_compression = 0;
   int use_deltacompression = 0;
@@ -2310,7 +2309,7 @@ int test_and_prepare_for_compression(int *fd)
 
 #ifdef HBICT_DELTACOMP
   char *hbict_cmd = "hbict";
-  char hbict_path[MTCP_MAX_PATH];
+  char hbict_path[PATH_MAX];
   MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
 
   /* 2. Test if using HBICT compression */
@@ -2442,18 +2441,18 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
           stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
-  writecs (fd, CS_STACKRLIMIT);
+  mtcp_writecs (fd, CS_STACKRLIMIT);
   mtcp_writefile (fd, &stack_rlimit, sizeof stack_rlimit);
 
-  writecs (fd, CS_RESTOREBEGIN);
+  mtcp_writecs (fd, CS_RESTOREBEGIN);
   mtcp_writefile (fd, &restore_begin, sizeof restore_begin);
-  writecs (fd, CS_RESTORESIZE);
+  mtcp_writecs (fd, CS_RESTORESIZE);
   mtcp_writefile (fd, &restore_size, sizeof restore_size);
-  writecs (fd, CS_RESTORESTART);
+  mtcp_writecs (fd, CS_RESTORESTART);
   mtcp_writefile (fd, &restore_start, sizeof restore_start);
-  writecs (fd, CS_RESTOREIMAGE);
+  mtcp_writecs (fd, CS_RESTOREIMAGE);
   mtcp_writefile (fd, restore_begin, restore_size);
-  writecs (fd, CS_FINISHRESTORE);
+  mtcp_writecs (fd, CS_FINISHRESTORE);
   mtcp_writefile (fd, &frpointer, sizeof frpointer);
 
   /* Write out file descriptors */
@@ -2632,7 +2631,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 #ifdef FAST_CKPT_RST_VIA_MMAP
   fastckpt_finish_ckpt(fd);
 #else
-  writecs (fd, CS_THEEND);
+  mtcp_writecs (fd, CS_THEEND);
 #endif
 
   if (mtcp_sys_close (fd) < 0) {
@@ -2668,7 +2667,7 @@ static void writefiledescrs (int fd)
   struct linux_dirent *dent;
   struct stat lstatbuf, statbuf;
 
-  writecs (fd, CS_FILEDESCRS);
+  mtcp_writecs (fd, CS_FILEDESCRS);
 
   /* Open /proc/self/fd directory - it contains a list of files I have open */
 
@@ -2812,7 +2811,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
                                        replaced */
   {
 #ifndef FAST_CKPT_RST_VIA_MMAP
-    writecs (fd, CS_AREADESCRIP);
+    mtcp_writecs (fd, CS_AREADESCRIP);
     mtcp_writefile (fd, area, sizeof *area);
 #endif
 
@@ -2825,7 +2824,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 #ifdef FAST_CKPT_RST_VIA_MMAP
       fastckpt_write_mem_region(fd, area);
 #else
-      writecs (fd, CS_AREACONTENTS);
+      mtcp_writecs (fd, CS_AREACONTENTS);
       mtcp_writefile (fd, area -> addr, area -> size);
 #endif
     } else {
@@ -2833,12 +2832,6 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
       mtcp_abort();
     }
   }
-}
-
-/* Write checkpoint section number to checkpoint file */
-static void writecs (int fd, char cs)
-{
-  mtcp_writefile (fd, &cs, sizeof cs);
 }
 
 static void preprocess_special_segments(int *vsyscall_exists)
@@ -3825,14 +3818,14 @@ static void finishrestore (void)
        && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
     // we start from different place - change it!
     DPRINTF("checkpoint file name was changed\n");
-    if (strlen(mtcp_ckpt_newname) >= MAXPATHLEN) {
+    if (strlen(mtcp_ckpt_newname) >= PATH_MAX) {
       MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
                   mtcp_ckpt_newname);
       mtcp_abort();
     }
-    strncpy(perm_checkpointfilename,mtcp_ckpt_newname,MAXPATHLEN);
-    memcpy(temp_checkpointfilename,perm_checkpointfilename,MAXPATHLEN);
-    strncpy(temp_checkpointfilename + nnamelen, ".temp",MAXPATHLEN - nnamelen);
+    strncpy(perm_checkpointfilename,mtcp_ckpt_newname,PATH_MAX);
+    memcpy(temp_checkpointfilename,perm_checkpointfilename,PATH_MAX);
+    strncpy(temp_checkpointfilename + nnamelen, ".temp",PATH_MAX - nnamelen);
   }
 
   mtcp_sys_gettimeofday (&stopped, NULL);

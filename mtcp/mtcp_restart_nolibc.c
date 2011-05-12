@@ -57,7 +57,7 @@ __attribute__ ((visibility ("hidden")))
 __attribute__ ((visibility ("hidden")))
   pid_t mtcp_restore_gzip_child_pid = -1; // '-1' puts it in regular data
                                           // instead of common
-__attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[MAXPATHLEN+1];
+__attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[PATH_MAX+1];
 #define MAX_ARGS 50
 __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
 
@@ -66,7 +66,7 @@ __attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
 __attribute__ ((visibility ("hidden")))
   VA mtcp_saved_break = NULL;  // saved brk (0) value
 __attribute__ ((visibility ("hidden")))
-  char mtcp_saved_working_directory[MAXPATHLEN+1];
+  char mtcp_saved_working_directory[PATH_MAX+1];
 
   /* These two are used by the linker script to define the beginning and end of
    * the image.
@@ -83,8 +83,6 @@ asm (".text");
 
 static void readfiledescrs (void);
 static void readmemoryareas (void);
-static void readcs (char cs);
-//static void readfile (void *buf, size_t size);
 static void mmapfile(void *buf, size_t size, int prot, int flags);
 static void skipfile(size_t size);
 static void read_shared_memory_area_from_file(Area* area, int flags);
@@ -254,7 +252,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
 #else
   /* Read address of mtcp.c's finishrestore routine */
 
-  readcs (CS_FINISHRESTORE);
+  mtcp_readcs (mtcp_restore_cpfd, CS_FINISHRESTORE);
   mtcp_readfile(mtcp_restore_cpfd, &finishrestore, sizeof finishrestore);
 
   /* Restore file descriptors */
@@ -310,7 +308,7 @@ static void readfiledescrs (void)
   mtcp_abort();
 #endif
 
-  readcs (CS_FILEDESCRS);
+  mtcp_readcs (mtcp_restore_cpfd, CS_FILEDESCRS);
 
   while (1) {
 
@@ -493,7 +491,7 @@ static void readmemoryareas (void)
       }
 
       /* Read saved area contents */
-      readcs (CS_AREACONTENTS);
+      mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
 
       if (try_skipping_existing_segment) {
 #ifdef BUG_64BIT_2_6_9
@@ -612,7 +610,7 @@ static void readmemoryareas (void)
         }
         mtcp_sys_close (imagefd); // don't leave dangling fd
 
-        readcs (CS_AREACONTENTS);
+        mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
 
         // If we have write permission on file and memory area (data segment),
 	// then we use data in checkpoint image.
@@ -749,7 +747,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
 
-    readcs (CS_AREACONTENTS);
+    mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
     mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
 
     areaContentsAlreadyRead = 1;
@@ -820,7 +818,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   // TODO: Simplify this entire logic.
   if ( areaContentsAlreadyRead == 0 ){
 #ifndef FAST_CKPT_RST_VIA_MMAP
-    readcs (CS_AREACONTENTS);
+    mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
 #endif
 
 #if 0
@@ -896,17 +894,6 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   }
   if (imagefd >= 0)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
-}
-
-static void readcs (char cs)
-{
-  char xcs;
-
-  mtcp_readfile(mtcp_restore_cpfd, &xcs, sizeof xcs);
-  if (xcs != cs) {
-    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
-    mtcp_abort ();
-  }
 }
 
 static void mmapfile(void *buf, size_t size, int prot, int flags)

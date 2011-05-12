@@ -61,7 +61,7 @@ void mtcp_state_futex(MtcpState * state, int func, int val,
     rc = -rc;
     if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
     if (rc != EINTR) {
-      MTCP_PRINTF("futex error %d: %s\n", rc, strerror (rc));
+      MTCP_PRINTF("futex error %d.\n", rc);
       MTCP_PRINTF("(%p, %d, %d, %p, NULL, 0)\n",
                   &state->value, func, val, timeout);
       mtcp_abort ();
