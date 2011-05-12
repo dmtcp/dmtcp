@@ -58,12 +58,12 @@ sem_t __does_inferior_exist_sem;
 int __init_does_inferior_exist_sem = 0;
 int __check_once_does_inferior_exist = 0;
 
-char dmtcp_tmp_dir[MAXPATHLEN];
-char new_ptrace_shared_file[MAXPATHLEN];
-char ptrace_shared_file[MAXPATHLEN];
-char ptrace_setoptions_file[MAXPATHLEN];
-char checkpoint_threads_file[MAXPATHLEN];
-char ckpt_leader_file[MAXPATHLEN];
+char dmtcp_tmp_dir[PATH_MAX];
+char new_ptrace_shared_file[PATH_MAX];
+char ptrace_shared_file[PATH_MAX];
+char ptrace_setoptions_file[PATH_MAX];
+char checkpoint_threads_file[PATH_MAX];
+char ckpt_leader_file[PATH_MAX];
 
 void mtcp_ptrace_info_list_update_info(int singlestep_waited_on);
 
@@ -85,7 +85,7 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
     return -1;
   ttyname[0] = '\0';
 
-  fd = mtcp_sys_open("/proc/self/stat", o_rdonly, 0);
+  fd = mtcp_sys_open("/proc/self/stat", O_RDONLY, 0);
   if (fd == -1) return -1;
 
   num_read = mtcp_sys_read(fd, sbuf, sizeof sbuf - 1);
