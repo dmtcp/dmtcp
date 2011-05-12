@@ -50,13 +50,13 @@
 #include <sys/wait.h>
 
 dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI ()
-  :_coordinatorSocket ( PROTECTEDFD ( 1 ) )
-  ,_restoreSocket ( PROTECTEDFD ( 3 ) )
+  :_coordinatorSocket ( PROTECTED_COORD_FD )
+  ,_restoreSocket ( PROTECTED_RESTORE_SOCK_FD )
 {  return;
 }
 
 void dmtcp::DmtcpCoordinatorAPI::useAlternateCoordinatorFd(){
-  _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
+  _coordinatorSocket = jalib::JSocket( PROTECTED_COORD_ALT_FD );
 }
 
 void dmtcp::DmtcpCoordinatorAPI::connectAndSendUserCommand(char c, int* result /*= NULL*/)

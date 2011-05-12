@@ -45,7 +45,9 @@ static dmtcp::string& ckptFileName()
   static dmtcp::string str;
   return str;
 }
-inline static long theUniqueHostId(){
+
+inline static long theUniqueHostId()
+{
 #ifdef USE_GETHOSTID
   return ::gethostid()
 #else
@@ -367,6 +369,7 @@ bool dmtcp::UniquePid::isNull() const
 
 void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
 {
+  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
   if ( o.isWriter() )
@@ -383,4 +386,3 @@ void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
     parentProcess() = theParentProcess;
   }
 }
-

@@ -136,8 +136,8 @@ namespace dmtcp
         _procname   = jalib::Filesystem::GetProgramName();
         _hostname   = jalib::Filesystem::GetCurrentHostname();
         _inhostname = jalib::Filesystem::GetCurrentHostname();
-        _pid        = UniquePid::ThisProcess();
-        _ppid       = UniquePid::ParentProcess();
+        _upid       = UniquePid::ThisProcess();
+        _uppid      = UniquePid::ParentProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
@@ -157,8 +157,8 @@ namespace dmtcp
       const dmtcp::string& procname()   const { return _procname; }
       const dmtcp::string& hostname()   const { return _hostname; }
       const dmtcp::string& inhostname() const { return _inhostname; }
-      const UniquePid&   pid()        const { return _pid; }
-      const UniquePid&   ppid()       const { return _ppid; }
+      const UniquePid&   upid()        const { return _upid; }
+      const UniquePid&   uppid()       const { return _uppid; }
 
       static pid_t ext_decomp_pid;
       static int openDmtcpCheckpointFile(const dmtcp::string& filename);
@@ -170,7 +170,7 @@ namespace dmtcp
       dmtcp::string _procname;
       dmtcp::string _hostname;
       dmtcp::string _inhostname;
-      UniquePid _pid,_ppid;
+      UniquePid _upid, _uppid;
   };
 
 

@@ -235,7 +235,6 @@ static void prepareDmtcpWrappers()
 #endif
 }
 
-
 //shift args
 #define shift argc--,argv++
 int main ( int argc, char** argv )
@@ -337,8 +336,8 @@ int main ( int argc, char** argv )
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
-
-  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
+  dmtcp::UniquePid::ThisProcess(true);
+  Util::initializeLogFile();
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -351,6 +350,10 @@ int main ( int argc, char** argv )
 
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
+
+  dmtcp::string dmtcphjk =
+    jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
@@ -388,17 +391,6 @@ int main ( int argc, char** argv )
     Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
   };
-
-  dmtcp::string dmtcphjk =
-    jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
-  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
-
-  // Initialize JASSERT library here
-  // TODO: Use timestamp as well to reduce conflicts
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess(true) << "_dmtcp_checkpoint";
-  JASSERT_INIT(o.str());
 
   if (argc > 0) {
     JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);

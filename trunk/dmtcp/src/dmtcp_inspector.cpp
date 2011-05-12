@@ -72,8 +72,8 @@ namespace
         procname = conToFd.procname();
         hostname = conToFd.hostname();
         inhostname = conToFd.inhostname();
-        pid = conToFd.pid();
-        ppid = conToFd.ppid();
+        pid = conToFd.upid();
+        ppid = conToFd.uppid();
         _index = _nextIndex();
         fullinfo = finfo;
       }

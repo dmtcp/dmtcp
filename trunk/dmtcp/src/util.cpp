@@ -477,3 +477,47 @@ int Util::readLine(int fd, char *buf, int count)
   return i;
 }
 
+void Util::initializeLogFile(dmtcp::string procname)
+{
+  dmtcp::UniquePid::ThisProcess(true);
+  int errConsoleFd = JASSERT_STDERR_FD;
+#ifdef DEBUG
+  // Initialize JASSERT library here
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
+    << dmtcp::UniquePid::ThisProcess()
+    << "_";
+  if (procname.empty()) {
+    o << jalib::Filesystem::GetProgramName();
+  } else {
+    o << procname;
+  }
+
+  JASSERT_INIT(o.str());
+
+  dmtcp::ostringstream a;
+  int i;
+  a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
+    << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
+
+  a << "\nArgv: ";
+  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  for (i = 0; i < args.size(); i++) {
+    a << " " << args[i];
+  }
+
+  a << "\nEnvirnoment:";
+  for (i = 0; environ[i] != NULL; i++) {
+    a << "\n\t" << environ[i] << ";";
+  }
+
+  JASSERT_SET_CONSOLE_FD(-1);
+  JTRACE("Process Information") (a.str());
+  JASSERT_SET_CONSOLE_FD(errConsoleFd);
+#endif
+  if (getenv(ENV_VAR_QUIET)) {
+    jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
+  } else {
+    jassert_quiet = 0;
+  }
+}

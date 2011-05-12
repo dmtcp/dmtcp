@@ -158,6 +158,7 @@ namespace jassert_internal
   void reset_on_fork ( );
 
   int jassert_console_fd();
+  void jassert_set_console_fd(int fd);
 
 }//jassert_internal
 
@@ -170,6 +171,9 @@ namespace jassert_internal
 #define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
+
+#define JASSERT_SET_CONSOLE_FD(fd) \
+  jassert_internal::jassert_set_console_fd(fd)
 
 #define JASSERT_PRINT(str) jassert_internal::JAssert(false).Print(str)
 #define JASSERT_STDERR      jassert_internal::JAssert(false)
