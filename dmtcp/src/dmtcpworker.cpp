@@ -240,9 +240,6 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
     Util::writeAll(fd, o.str().c_str(), o.str().length());
   }
   _real_close(fd);
-
-  // Now write the name of old Log file into new log file as well.
-  JTRACE("Previous JAssertLog path:") (path);
 #endif
 }
 
@@ -257,7 +254,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
     jalib::JBinarySerializeReader rd ( serialFile );
     UniquePid::serialize ( rd );
-    Util::initializeLogFile();
+    Util::initializeLogFile("", prevLogFilePath);
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 

@@ -477,7 +477,7 @@ int Util::readLine(int fd, char *buf, int count)
   return i;
 }
 
-void Util::initializeLogFile(dmtcp::string procname)
+void Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
   dmtcp::UniquePid::ThisProcess(true);
   int errConsoleFd = JASSERT_STDERR_FD;
@@ -496,20 +496,26 @@ void Util::initializeLogFile(dmtcp::string procname)
   JASSERT_INIT(o.str());
 
   dmtcp::ostringstream a;
-  int i;
+  a << "\n========================================";
   a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
     << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
 
+  if (!prevLogPath.empty()) {
+    a << "\nPrev JAssertLog path: " << prevLogPath;
+  }
+
   a << "\nArgv: ";
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  int i;
   for (i = 0; i < args.size(); i++) {
     a << " " << args[i];
   }
 
-  a << "\nEnvirnoment:";
+  a << "\nEnvirnoment: ";
   for (i = 0; environ[i] != NULL; i++) {
-    a << "\n\t" << environ[i] << ";";
+    a << " " << environ[i] << ";";
   }
+  a << "\n========================================\n";
 
   JASSERT_SET_CONSOLE_FD(-1);
   JTRACE("Process Information") (a.str());

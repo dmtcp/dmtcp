@@ -64,7 +64,8 @@ namespace Util
 
   int readLine(int fd, char *buf, int count);
 
-  void initializeLogFile(dmtcp::string procname = "");
+  void initializeLogFile(dmtcp::string procname = "",
+                         dmtcp::string preLogPath = "");
 }
 
 #endif
