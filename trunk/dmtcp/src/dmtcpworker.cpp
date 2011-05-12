@@ -232,7 +232,7 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
   o << "========================================\n"
     << "This Process exec()'d into a new program\n"
     << "Program Name: " << jalib::Filesystem::GetProgramName() << "\n"
-    << "New JAssertLog Path: " << path << "\n"
+    << "New JAssertLog Path: " << getLogFilePath() << "\n"
     << "========================================\n";
 
   int fd = open(path.c_str(), O_WRONLY | O_APPEND, 0);
