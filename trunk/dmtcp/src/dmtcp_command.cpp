@@ -21,15 +21,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <ctype.h>
 
 #include "dmtcpcoordinatorapi.h"
-//#include "dmtcp_coordinator.h"
-#include "dmtcpmessagetypes.h"
 #include "util.h"
-//#include "mtcpinterface.h"
-//#include "uniquepid.h"
 
 using namespace dmtcp;
 

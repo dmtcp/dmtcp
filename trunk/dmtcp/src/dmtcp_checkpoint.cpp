@@ -28,9 +28,9 @@
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
-#include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
+#include "dmtcpcoordinatorapi.h"
 #include "util.h"
 #include <errno.h>
 #include <sys/types.h>
@@ -239,7 +239,7 @@ int main ( int argc, char** argv )
   bool isSSHSlave=false;
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
-  int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
+  int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -259,7 +259,7 @@ int main ( int argc, char** argv )
       autoStartCoordinator = false;
       shift;
     }else if(s == "-j" || s == "--join"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_JOIN;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
       shift;
     }else if(s == "--gzip"){
       setenv(ENV_VAR_COMPRESSION, "1", 1);
@@ -278,13 +278,13 @@ int main ( int argc, char** argv )
     }
 #endif
     else if(s == "-n" || s == "--new"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
       shift;
     }else if(s == "--new-coordinator"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
       shift;
     }else if(s == "-b" || s == "--batch"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
       shift;
     }else if(s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -465,7 +465,7 @@ int main ( int argc, char** argv )
   prepareDmtcpWrappers();
 
   if (autoStartCoordinator)
-     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
 
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
   //   if dmtcp_checkpoint survived the experience, then pass it back to user.

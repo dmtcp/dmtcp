@@ -242,32 +242,7 @@ namespace dmtcp
 
     private:
       dmtcp::map< dmtcp::string, ConnectionIdentifier > _table;
-      //dmtcp::map< dmtcp::string, ConnectionIdentifier > _uniquePtsNameToPtmxConIdTable;
-      //dmtcp::map< dmtcp::string, ConnectionIdentifier > _ptsDevNameToPtmxConIdTable;
   };
-
-  /*
-  ///
-  /// Mapping from pts device to symlink file in $DMTCP_TMPDIR
-  ///
-  class PtsToSymlink
-  {
-    public:
-      static PtsToSymlink& instance();
-      typedef dmtcp::map<dmtcp::string, dmtcp::string>::iterator iterator;
-      void replace ( dmtcp::string oldDevice, dmtcp::string newDevice );
-      PtsToSymlink();
-
-      //void serialize(jalib::JBinarySerializer& o);
-
-      void add ( dmtcp::string device, dmtcp::string filename );
-      dmtcp::string getFilename ( dmtcp::string device );
-      bool exists(dmtcp::string);
-
-    private:
-      dmtcp::map<dmtcp::string, dmtcp::string> _table;
-  };
-  */
 
 }
 

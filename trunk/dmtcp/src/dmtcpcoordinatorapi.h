@@ -42,6 +42,14 @@ namespace dmtcp
         ERROR_COORDINATOR_NOT_FOUND = -3
       };
 
+      enum CoordinatorModes {
+        COORD_JOIN      = 0x0001,
+        COORD_NEW       = 0x0002,
+        COORD_FORCE_NEW = 0x0004,
+        COORD_BATCH     = 0x0008,
+        COORD_ANY       = COORD_JOIN | COORD_NEW 
+      };
+
       DmtcpCoordinatorAPI ();
       // Use default destructor
 
@@ -53,10 +61,13 @@ namespace dmtcp
       bool tryConnectToCoordinator();
       void sendUserCommand(char c, int* result = NULL);
 
-      jalib::JSocket _coordinatorSocket;
+      static void startCoordinatorIfNeeded(int modes, int isRestart = 0);
+      static void startNewCoordinator(int modes, int isRestart = 0);
 
     protected:
       jalib::JSocket _restoreSocket;
+      jalib::JSocket _coordinatorSocket;
+    private:
   };
 
 }

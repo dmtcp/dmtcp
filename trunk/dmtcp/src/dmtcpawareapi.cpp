@@ -70,7 +70,10 @@ static inline void _runCoordinatorCmd(char c, int* result){
   {
     dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
     coordinatorAPI.useAlternateCoordinatorFd();
+
+    dmtcp::DmtcpWorker::delayCheckpointsLock();
     coordinatorAPI.connectAndSendUserCommand(c, result);
+    dmtcp::DmtcpWorker::delayCheckpointsUnlock();
   }
   _dmtcp_unlock();
 }
