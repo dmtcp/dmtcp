@@ -33,19 +33,15 @@
 
 namespace dmtcp
 {
-
   struct UniquePid
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
     static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
-    UniquePid(pid_t pid);
-    UniquePid ( long host, pid_t pd, time_t tm )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( 0 )
-    {setPrefix();}
 
-    UniquePid ( long host, pid_t pd, time_t tm, int gen )
+    UniquePid ( const long& host, const pid_t& pd, const time_t& tm,
+                const int& gen = 0 )
         : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen)
     {setPrefix();}
 
@@ -61,7 +57,6 @@ namespace dmtcp
 #ifdef PID_VIRTUALIZATION
     static dmtcp::string pidTableFilename();
 #endif
-    static const char* ptsSymlinkFilename ( char *pts );
     static void setTmpDir(const char * envVarTmpDir);
     static dmtcp::string getTmpDir();
 

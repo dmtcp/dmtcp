@@ -119,14 +119,6 @@ dmtcp::UniquePid::UniquePid()
   setPrefix();
 }
 
-dmtcp::UniquePid::UniquePid(pid_t pid)
-    :_pid ( pid )
-{
-  _hostid = theUniqueHostId();
-  memset ( &_time,0,sizeof ( _time ) );
-  setPrefix();
-}
-
 long  dmtcp::UniquePid::hostid() const
 {
   return _hostid;
@@ -231,20 +223,6 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   return os.str();
 }
 #endif
-
-const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
-{
-  char *devicename = ptsname + strlen ( "/dev/pts/" );
-
-  //this must be static so dmtcp::string isn't destructed
-  static dmtcp::string ptsSymlinkFilename_str;
-
-  ptsSymlinkFilename_str = getTmpDir();
-  ptsSymlinkFilename_str += "/pts_" + ThisProcess().toString() + '_';
-  ptsSymlinkFilename_str += devicename;
-
-  return ptsSymlinkFilename_str.c_str();
-}
 
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {

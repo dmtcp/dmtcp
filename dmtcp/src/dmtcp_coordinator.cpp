@@ -51,7 +51,6 @@
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpcoordinatorapi.h"
-#include "dmtcpworker.h"
 #include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jtimer.h"
@@ -1027,22 +1026,6 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     }
     return false;
   }
-}
-
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance()
-{
-  JASSERT ( false ).Text ( "This method is only available on workers" );
-  return * ( ( DmtcpWorker* ) 0 );
-}
-
-/*
-  Can cause conflict with method of same signature in dmtcpworker.cpp.
-  What was the purpose of this method? -- Praveen
-*/
-const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
-{
-  JASSERT ( false ).Text ( "This method is only available on workers" );
-  return * ( ( UniquePid* ) 0 );
 }
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,

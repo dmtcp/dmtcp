@@ -694,7 +694,7 @@ int main ( int argc, char** argv )
 {
   bool autoStartCoordinator=true;
   bool isRestart = true;
-  int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
+  int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -711,16 +711,16 @@ int main ( int argc, char** argv )
       autoStartCoordinator = false;
       shift;
     }else if(s == "-j" || s == "--join"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_JOIN;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
       shift;
     }else if(s == "-n" || s == "--new"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
       shift;
     }else if(s == "--new-coordinator"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
       shift;
     }else if(s == "-b" || s == "--batch"){
-      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
       shift;
     }else if(s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -768,7 +768,8 @@ int main ( int argc, char** argv )
     JASSERT_STDERR << theBanner;
 
   if (autoStartCoordinator)
-    dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes, isRestart);
+    dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
+                                                         isRestart);
 
   //make sure JASSERT initializes now, rather than during restart
   Util::initializeLogFile();

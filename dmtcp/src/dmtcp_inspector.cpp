@@ -37,7 +37,6 @@
 #include  "../jalib/jfilesystem.h"
 #include "connectionmanager.h"
 #include "constants.h"
-#include "dmtcpworker.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
