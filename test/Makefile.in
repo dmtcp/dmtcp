@@ -18,7 +18,7 @@ PWD=$(shell pwd)
 TESTS=$(basename $(wildcard *.c *.cpp))
 
 tests: $(TESTS)
-	${MAKE} -C credentials all
+	${MAKE} -C credentials
 
 clean distclean:
 	rm -f $(TESTS) *.pyc *.so

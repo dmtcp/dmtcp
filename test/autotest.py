@@ -131,7 +131,7 @@ if os.system("test -d bin") is not 0:
 assert os.system("test -d bin") is 0
 
 #make sure dmtcp is built
-if os.system("make -s --no-print-directory all tests") != 0:
+if os.system("make -s --no-print-directory tests") != 0:
   print "`make all tests` FAILED"
   sys.exit(1)
 

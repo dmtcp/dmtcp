@@ -49,6 +49,7 @@ endif
 
 default: mtcp dmtcp
 	($(MAKE) bin)
+	($(MAKE) dmtcpaware)
 
 all: default tests
 
@@ -123,7 +124,7 @@ clean: tidy
 distclean: clean
 	-(cd mtcp  && $(MAKE) distclean)
 	-(cd dmtcp && $(MAKE) distclean)  
-	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/*
+	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/* dmtcpaware/*dmtcpaware*
 
 svndist:
 	if test "`svn info`"; then \
@@ -151,6 +152,11 @@ bin/% : mtcp/%
 	(cd bin && $(LN_S) ../$< $*)
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/libmtcp.so bin/mtcp_restart bin/dmtcp_command bin/dmtcp_nocheckpoint
+
+dmtcpaware/% : dmtcp/src/%
+	(cd dmtcpaware && $(LN_S) ../$< $*)
+
+dmtcpaware: dmtcpaware/dmtcpaware.c dmtcpaware/dmtcpaware.h dmtcpaware/libdmtcpaware.a
 
 install: all 
 	if test -z "$(prefix)"; then \
@@ -185,4 +191,4 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
-.PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples
+.PHONY: all mtcp dmtcp clean distclean bin dmtcpaware examples dmtcp_noexamples
