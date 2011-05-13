@@ -923,12 +923,12 @@ static void skipfile(size_t size)
   VA tmp_addr = mtcp_sys_mmap(0, size, PROT_WRITE | PROT_READ,
                               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (tmp_addr == MAP_FAILED) {
-    MTCP_PRINTF("mtcp_sys_mmap() failed with error: %s", MTCP_STR_ERRNO);
+    MTCP_PRINTF("mtcp_sys_mmap() failed with error: %d", mtcp_sys_errno);
     mtcp_abort();
   }
   mtcp_readfile(mtcp_restore_cpfd, tmp_addr, size);
   if (mtcp_sys_munmap(tmp_addr, size) == -1) {
-    MTCP_PRINTF("mtcp_sys_munmap() failed with error: %s", MTCP_STR_ERRNO);
+    MTCP_PRINTF("mtcp_sys_munmap() failed with error: %d", mtcp_sys_errno);
     mtcp_abort();
   }
 #else

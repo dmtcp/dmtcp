@@ -337,7 +337,7 @@ void mtcp_check_vdso_enabled()
   }
 }
 
-#define MAX_NEW_ENVP_SIZE 10
+#define MAX_NEW_ENVP_SIZE 1024
 static char* newEnv[MAX_NEW_ENVP_SIZE];
 static int newEnvInitialized = 0;
 static int setPersonalityEnv(const char* name, const char* val)
@@ -382,6 +382,7 @@ static int setPersonalityEnv(const char* name, const char* val)
     return 0;
   }
 
+  // FIXME: Re-check the logic here and find out the corner case(s).
   if (len > 0) {
     mtcp_strncpy(ptr, val, len);
   } else {
