@@ -514,15 +514,20 @@ char* getenv(const char* name)
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
-  MTCP_PRINTF("ERROR: Not Implemented!\n");
-  mtcp_abort();
-  return NULL; // to suppress compiler warning
+  mtcp_strncpy(dest, src, n);
+  return dest;
 }
+
+/* Implement memcpy() and memset() inside mtcp_restart. Although we are not
+ * calling memset, the compiler may generate a call to memset() when trying to
+ * initialize a large array etc.
+ */
 void *memset(void *s, int c, size_t n)
 {
-  MTCP_PRINTF("ERROR: Not Implemented!\n");
-  mtcp_abort();
-  return NULL; // to suppress compiler warning
+  while (n-- > 0) {
+    *(char*)s = (char)c;
+  }
+  return s;
 }
 
 
