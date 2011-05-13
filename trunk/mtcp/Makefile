@@ -105,8 +105,10 @@ endif
 
 all default: build tests readmtcp
 
-readmtcp: readmtcp.c mtcp_internal.h libmtcp.so
-	${CC} ${CFLAGS} -o readmtcp readmtcp.c libmtcp.so
+readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
+	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o
+	${CC} ${CFLAGS} -o readmtcp readmtcp.c libmtcp.so mtcp_util.o \
+	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o
 
 build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
@@ -278,7 +280,11 @@ mtcp_printf.o: mtcp_printf.c mtcp_internal.h
 	fi
 
 mtcp_util.o: mtcp_util.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c
+	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
+	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_util.o mtcp_util.c; \
+	else \
+	  ${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c; \
+	fi
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
@@ -302,7 +308,12 @@ mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
 	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c
 
 mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
+	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
+	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_fastckpt.o \
+	    mtcp_fastckpt.c; \
+	else \
+	  ${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c; \
+	fi
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

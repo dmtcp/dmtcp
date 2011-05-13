@@ -38,7 +38,6 @@
 /* Read decimal number, return value and terminating character */
 
 char mtcp_readdec (int fd, VA *value)
-
 {
   char c;
   unsigned long int v;
@@ -57,7 +56,6 @@ char mtcp_readdec (int fd, VA *value)
 /* Read decimal number, return value and terminating character */
 
 char mtcp_readhex (int fd, VA *value)
-
 {
   char c;
   unsigned long int v;
@@ -78,7 +76,6 @@ char mtcp_readhex (int fd, VA *value)
 /* Read non-null character, return null if EOF */
 
 char mtcp_readchar (int fd)
-
 {
   char c;
   int rc;
@@ -90,6 +87,7 @@ char mtcp_readchar (int fd)
   return (c);
 }
 
+__attribute__ ((visibility ("hidden")))
 size_t mtcp_strlen(const char *s)
 {
   size_t len = 0;
@@ -99,6 +97,7 @@ size_t mtcp_strlen(const char *s)
   return len;
 }
 
+__attribute__ ((visibility ("hidden")))
 void mtcp_strncpy(char *dest, const char *src, size_t n)
 {
   size_t i;
@@ -112,12 +111,14 @@ void mtcp_strncpy(char *dest, const char *src, size_t n)
   //return dest;
 }
 
+__attribute__ ((visibility ("hidden")))
 void mtcp_strncat(char *dest, const char *src, size_t n)
 {
   mtcp_strncpy(dest + mtcp_strlen(dest), src, n);
   //return dest;
 }
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_strncmp (const char *s1, const char *s2, size_t n)
 {
   unsigned char c1 = '\0';
@@ -133,6 +134,7 @@ int mtcp_strncmp (const char *s1, const char *s2, size_t n)
   return c1 - c2;
 }
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_strcmp (const char *s1, const char *s2)
 {
   size_t n = mtcp_strlen(s2);
@@ -149,6 +151,7 @@ int mtcp_strcmp (const char *s1, const char *s2)
   return c1 - c2;
 }
 
+__attribute__ ((visibility ("hidden")))
 const void *mtcp_strstr(const char *string, const char *substring)
 {
   for ( ; *string != '\0' ; string++) {
@@ -162,6 +165,7 @@ const void *mtcp_strstr(const char *string, const char *substring)
   return NULL;
 }
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_strstartswith (const char *s1, const char *s2)
 {
   if (mtcp_strlen(s1) >= mtcp_strlen(s2)) {
@@ -170,6 +174,7 @@ int mtcp_strstartswith (const char *s1, const char *s2)
   return 0;
 }
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_strendswith (const char *s1, const char *s2)
 {
   size_t len1 = mtcp_strlen(s1);
@@ -183,11 +188,13 @@ int mtcp_strendswith (const char *s1, const char *s2)
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_memcmp(char *dest, const char *src, size_t n)
 {
   return mtcp_strncmp(dest, src, n);
 }
 
+__attribute__ ((visibility ("hidden")))
 void mtcp_memset(char *dest, int c, size_t n)
 {
   size_t i;
@@ -198,6 +205,7 @@ void mtcp_memset(char *dest, int c, size_t n)
 //void mtcp_check_vdso_enabled() {
 //}
 
+__attribute__ ((visibility ("hidden")))
 int mtcp_atoi(const char *nptr)
 {
   int v = 0;
@@ -210,6 +218,7 @@ int mtcp_atoi(const char *nptr)
 }
 
 /* Write something to checkpoint file */
+__attribute__ ((visibility ("hidden")))
 void mtcp_writefile (int fd, void const *buff, size_t size)
 {
   char const *bf;
@@ -257,11 +266,13 @@ void mtcp_writefile (int fd, void const *buff, size_t size)
 }
 
 /* Write checkpoint section number to checkpoint file */
+__attribute__ ((visibility ("hidden")))
 void mtcp_writecs (int fd, char cs)
 {
   mtcp_writefile (fd, &cs, sizeof cs);
 }
 
+__attribute__ ((visibility ("hidden")))
 void mtcp_readfile(int fd, void *buf, size_t size)
 {
   ssize_t rc;
@@ -286,6 +297,7 @@ void mtcp_readfile(int fd, void *buf, size_t size)
   }
 }
 
+__attribute__ ((visibility ("hidden")))
 void mtcp_readcs(int fd, char cs)
 {
   char xcs;
@@ -297,6 +309,7 @@ void mtcp_readcs(int fd, char cs)
   }
 }
 
+__attribute__ ((visibility ("hidden")))
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
@@ -319,6 +332,7 @@ ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
 }
 
 // Fails, succeeds, or partial read due to EOF (returns num read)
+__attribute__ ((visibility ("hidden")))
 ssize_t mtcp_read_all(int fd, void *buf, size_t count)
 {
   int rc;

@@ -149,6 +149,7 @@ void fastckpt_finish_ckpt(int fd)
   area_array = NULL;
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
                           VA *restore_start)
 {
@@ -169,6 +170,7 @@ void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
   mtcp_sys_munmap(addr, sizeof(MTCP_CKPT_Image_Header));
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_prepare_for_restore(int fd)
 {
   off_t curr_offset = fastckpt_align_offset(fd, 1);
@@ -198,6 +200,7 @@ void fastckpt_prepare_for_restore(int fd)
                         sizeof(MTCP_CKPT_Image_Header));
 }
 
+__attribute__ ((visibility ("hidden")))
 VA fastckpt_get_finishrestore()
 {
   if (ckpt_image_header == NULL) {
@@ -207,6 +210,7 @@ VA fastckpt_get_finishrestore()
   return ckpt_image_header->finish_retore_fncptr;
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_finish_restore()
 {
   int res = mtcp_sys_munmap(ckpt_image_header, ckpt_image_header->maps_offset);
@@ -220,11 +224,13 @@ void fastckpt_finish_restore()
   area_array = NULL;
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_load_restore_image(int fd, Area *area)
 {
   fastckpt_restore_mem_region(fd, area);
 }
 
+__attribute__ ((visibility ("hidden")))
 int fastckpt_get_next_area_dscr(Area *area)
 {
   if (curr_area_idx == ckpt_image_header->num_memory_regions) {
@@ -238,6 +244,7 @@ int fastckpt_get_next_area_dscr(Area *area)
   return 1;
 }
 
+__attribute__ ((visibility ("hidden")))
 static int fastckpt_restore_without_mmap(int fd, const Area *area)
 {
   int imagefd = mtcp_sys_open (area->name, O_RDONLY, 0);
@@ -277,6 +284,7 @@ static int fastckpt_restore_without_mmap(int fd, const Area *area)
   return 1;
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_restore_mem_region(int fd, const Area *area)
 {
   if (mtcp_strstartswith(area->name, "/") &&
@@ -300,6 +308,7 @@ void fastckpt_restore_mem_region(int fd, const Area *area)
   }
 }
 
+__attribute__ ((visibility ("hidden")))
 void fastckpt_populate_shared_file_from_ckpt_image(int fd, int imagefd,
                                                    Area* area)
 {

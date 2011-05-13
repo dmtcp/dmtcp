@@ -19,7 +19,6 @@
 
 int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 
-static char first_char(char *filename);
 static void readcs (int fd, char cs);
 static void skipfile (int fd, size_t size);
 
@@ -116,7 +115,7 @@ int main(int argc, char **argv) {
 
 
   char linkbuf[FILENAMESIZE];
-  int fdnum, flags, linklen, tempfd;
+  int fdnum, linklen ;
   struct stat statbuf;
   off_t offset;
 
