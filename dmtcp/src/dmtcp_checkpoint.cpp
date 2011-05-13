@@ -129,13 +129,10 @@ static void *get_libc_symbol ( const char* name )
   }
 
   void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL )
-  {
-    JASSERT_STDERR
-      << "dmtcp: get_libc_symbol: ERROR finding symbol "
-      << name << " using dlsym: " << dlerror() << " \n"
-      << "       Will fail if user-app tries to call this symbol.\n";
-    //abort();
+  if ( tmp == NULL ) {
+    JTRACE("ERROR finding symbol using dlsym.\n" \
+           "      Will fail if user-app tries to call this symbol.")
+      (name) (dlerror());
   }
   return tmp;
 }
