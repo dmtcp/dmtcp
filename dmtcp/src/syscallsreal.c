@@ -501,6 +501,22 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
 }
 
+int _real_sigsuspend(const sigset_t *mask){
+  REAL_FUNC_PASSTHROUGH ( sigsuspend ) ( mask );
+}
+int _real_sighold(int sig){
+  REAL_FUNC_PASSTHROUGH ( sighold ) ( sig );
+}
+int _real_sigignore(int sig){
+  REAL_FUNC_PASSTHROUGH ( sigignore ) ( sig );
+}
+int _real_sigpause(int sig){
+  REAL_FUNC_PASSTHROUGH ( sigpause ) ( sig );
+}
+int _real_sigrelse(int sig){
+  REAL_FUNC_PASSTHROUGH ( sigrelse ) ( sig );
+}
+
 int _real_sigwait(const sigset_t *set, int *sig) {
   REAL_FUNC_PASSTHROUGH ( sigwait ) ( set, sig);
 }

@@ -419,14 +419,6 @@ int main ( int argc, char** argv )
   else// if( isSSHSlave )
     setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
-  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
-  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
-  if (getenv("LD_PRELOAD"))
-    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
-  setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
-  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
-  setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
-  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
   if ( getenv(ENV_VAR_SIGCKPT) != NULL )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
   else
@@ -474,6 +466,15 @@ int main ( int argc, char** argv )
 
   if (autoStartCoordinator)
      dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+
+  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
+  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
+  if (getenv("LD_PRELOAD"))
+    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
+  setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
+  setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
+  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
   //run the user program
   char **newArgv = NULL;

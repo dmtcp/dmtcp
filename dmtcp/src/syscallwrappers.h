@@ -232,6 +232,12 @@ extern "C"
   MACRO(siggetmask)                         \
   MACRO(sigprocmask)                        \
                                             \
+  MACRO(sigsuspend)                         \
+  MACRO(sighold)                            \
+  MACRO(sigignore)                          \
+  MACRO(sigpause)                           \
+  MACRO(sigrelse)                           \
+                                            \
   MACRO(sigwait)                            \
   MACRO(sigwaitinfo)                        \
   MACRO(sigtimedwait)
@@ -369,6 +375,12 @@ extern "C"
   int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
+
+  int _real_sigsuspend(const sigset_t *mask);
+  int _real_sighold(int sig);
+  int _real_sigignore(int sig);
+  int _real_sigpause(int sig);
+  int _real_sigrelse(int sig);
 
   int _real_sigwait(const sigset_t *set, int *sig);
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);

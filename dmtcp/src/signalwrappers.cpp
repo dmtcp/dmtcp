@@ -284,6 +284,54 @@ EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 //  return ret;
 }
 
+EXTERNC int sigsuspend(const sigset_t *mask)
+{
+  const sigset_t *orig = mask;
+  if (mask != NULL) {
+    sigset_t tmp = patchPOSIXMask(mask);
+    mask = &tmp;
+  }
+
+  int ret = _real_sigsuspend(mask);
+  return ret;
+}
+
+/* FIXME: Reverify the logic of the following four wrappers:
+ *          sighold, sigignore, sigrelse, sigpause
+ *        These are deprecated according to manpage.
+ */
+EXTERNC int sighold(int sig)
+{
+  if (sig == bannedSignalNumber()) {
+    return 0;
+  }
+  return _real_sighold(sig);
+}
+
+EXTERNC int sigignore(int sig)
+{
+  if (sig == bannedSignalNumber()) {
+    return 0;
+  }
+  return _real_sigignore(sig);
+}
+
+EXTERNC int sigrelse(int sig)
+{
+  if (sig == bannedSignalNumber()) {
+    return 0;
+  }
+  return _real_sigrelse(sig);
+}
+
+EXTERNC int sigpause(int sig)
+{
+  JWARNING(false)
+    .Text("This function is deprecated. Use sigsuspend instead." \
+          "  The DMTCP wrappers for this function may not be fully tested");
+  return _real_sigpause(sig);
+}
+
 /*
  * This wrapper should be thread safe so we use the multithreaded version of
  * patchPOSIXUserMask function. This will declare the static variables with
