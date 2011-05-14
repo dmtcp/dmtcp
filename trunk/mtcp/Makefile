@@ -59,8 +59,8 @@ endif
 
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
-#CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
-#CFLAGS = -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+#CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
+#CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
@@ -103,12 +103,16 @@ ifeq ($(BUILDTYPE),x86_64)
   LDFLAGS += -fPIC 
 endif
 
+ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
+  CFLAGS+=-fno-stack-protector
+endif
+
 all default: build tests readmtcp
 
 readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
-	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o
+	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
 	${CC} ${CFLAGS} -o readmtcp readmtcp.c libmtcp.so mtcp_util.o \
-	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o
+	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
 
 build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
@@ -242,16 +246,7 @@ mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
-	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  cflags_extra=-fno-stack-protector ; \
-	fi; \
-	if test ${BUILDTYPE} = x86_64; then \
-	  if uname -a | grep '2\.6\.9.*x86_64' > /dev/null; then \
-	    cflags_extra="-DBUG_64BIT_2_6_9 $$cflags_extra"; \
-	  fi; \
-	fi; \
-	echo cflags_extra='"'$$cflags_extra'"'; \
-	${CC} $(CFLAGS) $$cflags_extra -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c;
+	${CC} $(CFLAGS) -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c
 
 # mtcp.lis is needed only for debugging.
 mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
@@ -272,19 +267,10 @@ mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
-	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_printf.o \
-	    mtcp_printf.c; \
-	else \
-	  ${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c; \
-	fi
+	${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
 
 mtcp_util.o: mtcp_util.c mtcp_internal.h
-	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_util.o mtcp_util.c; \
-	else \
-	  ${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c; \
-	fi
+	${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
@@ -308,12 +294,7 @@ mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
 	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c
 
 mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
-	if  ${CC} -v --help 2>&1 | grep stack-protector > /dev/null; then \
-	  ${CC} $(CFLAGS) -fno-stack-protector -c -o mtcp_fastckpt.o \
-	    mtcp_fastckpt.c; \
-	else \
-	  ${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c; \
-	fi
+	${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

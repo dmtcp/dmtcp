@@ -61,7 +61,7 @@ dlopen-lib1.so:
 dlopen-lib2.so:
 	${CC} -shared -fPIC  -DLIB2 -o dlopen-lib2.so dlopen.c
 dlopen: dlopen.c dlopen-lib1.so dlopen-lib2.so
-	${CC} -ldl $(CFLAGS) -o $@ $<
+	${CC} $(CFLAGS) -o $@ $< -ldl
 
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)

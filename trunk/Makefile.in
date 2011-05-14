@@ -48,6 +48,7 @@ endif
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
 default: mtcp dmtcp
+	$(MKDIR_P) bin
 	($(MAKE) bin)
 	($(MAKE) dmtcpaware)
 

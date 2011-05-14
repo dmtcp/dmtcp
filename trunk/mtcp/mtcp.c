@@ -402,7 +402,6 @@ static char temp_checkpointfilename[PATH_MAX];
 static size_t checkpointsize;
 static int intervalsecs;
 static pid_t motherpid = 0;
-pid_t saved_pid = 0;
 static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
