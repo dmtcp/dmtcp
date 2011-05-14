@@ -181,7 +181,7 @@ static int write_args(char **vector, char *filename) {
     MTCP_PRINTF("Error %d opening %s\n", filename, mtcp_sys_errno);
     mtcp_sys_exit(1);
   }
-  strings[10001] = '\0';
+  strings[1000] = '\0';
   ssize_t num_read = mtcp_read_all(fd, strings, 10000);
   mtcp_sys_close(fd);
 
@@ -212,7 +212,7 @@ static unsigned long getenv_oldpers() {
 static int setenv_oldpers(int oldpers) {
     static char oldpers_str[sizeof(oldpers)*8+1];
     int i = sizeof(oldpers_str); 
-    oldpers_str[i--] = '\0';
+    oldpers_str[--i] = '\0';
     while (i >= 0) {
       oldpers_str[i--] = ((oldpers & 1) ? '1' : '0');
       oldpers = oldpers >> 1;
@@ -408,6 +408,7 @@ static int unsetPersonalityEnv(const char* name)
     environ[i] = environ[i+1];
     i++;
   }
+  return 1;
 }
 #ifdef STANDALONE
 int main() {

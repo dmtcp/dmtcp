@@ -200,7 +200,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
 
   jalib::string pth; 
   jalib::string udir; 
-  int i = 0;
+  size_t i = 0;
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL )
   {
     udir = d;

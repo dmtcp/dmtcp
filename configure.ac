@@ -144,15 +144,15 @@ fi
 # Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
 # Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
 #  and AC_MSG_FAILURE in future version.
-AC_MSG_CHECKING([if 'gcc -static' works])
-AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
-$CC -static -o conftest$ac_exeext conftest.$ac_ext
-AC_CHECK_FILE([conftest$ac_exeext], [], [static_libc=no])
-if test x"$static_libc" = xno; then
-  AC_MSG_ERROR(['gcc -static hello.c' failed.  No static libc.a found?
-  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
-    in default system, and must be added via the glibc-static package.])
-fi
+#AC_MSG_CHECKING([if 'gcc -static' works])
+#AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
+#$CC -static -o conftest$ac_exeext conftest.$ac_ext
+#AC_CHECK_FILE([conftest$ac_exeext], [], [static_libc=no])
+#if test x"$static_libc" = xno; then
+#  AC_MSG_ERROR(['gcc -static hello.c' failed.  No static libc.a found?
+#  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
+#    in default system, and must be added via the glibc-static package.])
+#fi
 
 #check for dash
 AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])

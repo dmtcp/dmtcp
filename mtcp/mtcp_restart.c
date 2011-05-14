@@ -55,7 +55,6 @@ static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename, char *envp[]);
 
 static pid_t decomp_child_pid = -1;
-pid_t saved_pid = 0;
 
 extern int dmtcp_info_stderr_fd;
 
@@ -530,4 +529,8 @@ void *memset(void *s, int c, size_t n)
   return s;
 }
 
-
+void __stack_chk_fail(void)
+{
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
