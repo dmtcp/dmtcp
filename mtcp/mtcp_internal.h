@@ -266,8 +266,8 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
 static inline void mtcp_abort (void) __attribute__ ((noreturn));
 static inline void mtcp_abort (void)
 {
-  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
+  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
 }
 
 extern char mtcp_shareable_begin[];
