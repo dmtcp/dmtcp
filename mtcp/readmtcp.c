@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
   }
 
   memset(magicbuf, 0, sizeof magicbuf);
-  mtcp_readfile (fd, magicbuf, MAGIC_LEN);
+  read(fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, "DMTCP_CHECKPOINT", MAGIC_LEN) == 0) {
     while (memcmp(magicbuf, MAGIC, MAGIC_LEN) != 0) {
       int i;
@@ -88,18 +88,18 @@ int main(int argc, char **argv) {
   printf("finishrestore routine: %p\n", finishrestore);
 #else
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
-  mtcp_readfile (fd, &stack_rlimit, sizeof stack_rlimit);
+  read(fd, &stack_rlimit, sizeof stack_rlimit);
   printf("mtcp_restart: saved stack resource limit:" \
 	 " soft_lim: %lu, hard_lim: %lu\n",
 	 stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
   printf("*** restored libmtcp.so\n");
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
-  mtcp_readfile (fd, &restore_begin, sizeof restore_begin);
+  read(fd, &restore_begin, sizeof restore_begin);
   readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
-  mtcp_readfile (fd, &restore_size, sizeof restore_size);
+  read(fd, &restore_size, sizeof restore_size);
   readcs (fd, CS_RESTORESTART);
-  mtcp_readfile (fd, &restore_start, sizeof restore_start);
+  read(fd, &restore_start, sizeof restore_start);
   readcs (fd, CS_RESTOREIMAGE);
   skipfile (fd, restore_size);
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 
   printf("*** finishrestore\n");
   readcs (fd, CS_FINISHRESTORE);
-  mtcp_readfile (fd, &finishrestore, sizeof finishrestore);
+  read(fd, &finishrestore, sizeof finishrestore);
   printf("finishrestore routine: %p\n", finishrestore);
 
 
@@ -125,16 +125,16 @@ int main(int argc, char **argv) {
 
     /* Read parameters of next file to restore */
 
-    mtcp_readfile (fd, &fdnum, sizeof fdnum);
+    read(fd, &fdnum, sizeof fdnum);
     if (fdnum < 0) break;
-    mtcp_readfile (fd, &statbuf, sizeof statbuf);
-    mtcp_readfile (fd, &offset, sizeof offset);
-    mtcp_readfile (fd, &linklen, sizeof linklen);
+    read(fd, &statbuf, sizeof statbuf);
+    read(fd, &offset, sizeof offset);
+    read(fd, &linklen, sizeof linklen);
     if (linklen >= sizeof linkbuf) {
       printf ("filename too long %d\n", linklen);
       exit(1);
     }
-    mtcp_readfile (fd, linkbuf, linklen);
+    read(fd, linkbuf, linklen);
     linkbuf[linklen] = 0;
   }
 #endif
@@ -149,14 +149,14 @@ int main(int argc, char **argv) {
 #ifdef FAST_CKPT_RST_VIA_MMAP
     if (fastckpt_get_next_area_dscr(&area) == 0) break;
 #else
-    mtcp_readfile (fd, &cstype, sizeof cstype);
+    read(fd, &cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
       printf ("readmtcp: expected CS_AREADESCRIP but had %d\n", cstype);
       exit(1);
     }
 
-    mtcp_readfile (fd, &area, sizeof area);
+    read(fd, &area, sizeof area);
     readcs (fd, CS_AREACONTENTS);
     skipfile (fd, area.size);
 #endif
@@ -181,7 +181,7 @@ static void readcs (int fd, char cs)
 {
   char xcs;
 
-  mtcp_readfile (fd, &xcs, sizeof xcs);
+  read(fd, &xcs, sizeof xcs);
   if (xcs != cs) {
     fprintf (stderr,
              "readmtcp readcs: checkpoint section %d next, expected %d\n",

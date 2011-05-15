@@ -111,8 +111,12 @@ all default: build tests readmtcp
 
 readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
 	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
-	${CC} ${CFLAGS} -o readmtcp readmtcp.c libmtcp.so mtcp_util.o \
+ifdef FAST_CKPT_RESTART
+	${CC} ${CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
+else
+	${CC} ${CFLAGS} -o readmtcp readmtcp.c
+endif
 
 build: libmtcp.so mtcp_restart
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
