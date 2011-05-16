@@ -21,7 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/***************************************************************************** 
+/*****************************************************************************
  *
  *  Read from file without using any external memory routines (like malloc,
  *  fget, etc)
@@ -318,7 +318,7 @@ ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
   do {
     ssize_t rc = mtcp_sys_write (fd, ptr + num_written, count - num_written);
     if (rc == -1) {
-      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN) 
+      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN)
 	continue;
       else
         return rc;

@@ -18,14 +18,14 @@ VA fastckpt_mmap_addr()
 void fastckpt_write_mem_region(int fd, Area *area)
 {
   area->mem_region_offset = ckpt_image_header->hdr_offset_in_file
-                            + ckpt_image_header->maps_offset 
+                            + ckpt_image_header->maps_offset
                             + ckpt_image_header->VmSize;
   memcpy(&area_array[curr_area_idx], area, sizeof(*area));
   curr_area_idx++;
 
   mtcp_sys_lseek(fd, area->mem_region_offset, SEEK_SET);
   mtcp_writefile(fd, area->addr, area->size);
-  
+
   ckpt_image_header->VmSize += area->size;
   ckpt_image_header->num_memory_regions += 1;
 }
@@ -109,8 +109,8 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
   ckpt_image_header->num_memory_regions = 0;
   ckpt_image_header->VmSize = 0;
 
-  ckpt_image_header->restore_start_fncptr = restore_start; 
-  ckpt_image_header->finish_retore_fncptr = finishrestore; 
+  ckpt_image_header->restore_start_fncptr = restore_start;
+  ckpt_image_header->finish_retore_fncptr = finishrestore;
 
   mtcp_sys_getrlimit(RLIMIT_STACK, &ckpt_image_header->stack_rlimit);
 

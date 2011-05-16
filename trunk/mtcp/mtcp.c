@@ -39,6 +39,10 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
+// Set _BSD_SOURCE in order to expose glibc-defined fsync()
+#ifndef _BSD_SOURCE
+# define _BSD_SOURCE
+#endif
 #include <asm/ldt.h>      // for struct user_desc
 //#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
@@ -73,7 +77,7 @@
 
 /* required for ptrace sake */
 #include <sys/user.h>
-#include "mtcp_ptrace.h" 
+#include "mtcp_ptrace.h"
 
 // static int WAIT=1;
 // static int WAIT=0;
@@ -154,7 +158,7 @@ if (DEBUG_RESTARTING) \
 int STATIC_TLS_TID_OFFSET()
 {
   static int offset = -1;
-  if (offset != -1) 
+  if (offset != -1)
     return offset;
 
   char *ptr;
@@ -385,7 +389,7 @@ int dmtcp_info_pid_virtualization_enabled = 0;
 int dmtcp_info_restore_working_directory = -1;
 
 char* mtcp_restore_argv_start_addr = NULL;
-    
+
 	/* Static data */
 
 static sigset_t sigpending_global;  // pending signals for the process
@@ -436,7 +440,7 @@ __attribute__ ((visibility ("hidden"))) void
   (*callback_ptrace_info_list_command)(struct cmd_info cmd) = NULL;
 __attribute__ ((visibility ("hidden"))) void
   (*callback_jalib_ckpt_unlock)() = NULL;
-__attribute__ ((visibility ("hidden"))) int 
+__attribute__ ((visibility ("hidden"))) int
   (*callback_ptrace_info_list_size)() = NULL;
 int motherofall_done_reading = 0;
 pthread_mutex_t motherofall_done_reading_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -524,7 +528,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd);;
  * The wrappers go to these mtcp_real_XXX versions so that MTCP can call
  * the actual system calls and avoid the wrappers.
  *
- * Update: 
+ * Update:
  * mtcp_sigaction below is implemented as a direct kernel call avoiding glibc.
  *   This allows us to manipulate SIGSETXID and SIGCANCEL/SIGTIMER
  * sigprocmask should not be used in multi-threaded process, use
@@ -579,7 +583,7 @@ void mtcp_init (char const *checkpointfilename,
   saved_pid = mtcp_sys_getpid ();
 
   //mtcp_segreg_t TLSSEGREG;
-#ifdef PTRACE 
+#ifdef PTRACE
   DPRINTF("begin init_thread_local\n");
   init_thread_local();
 #endif
@@ -827,7 +831,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*ptrace_info_list_command)(struct cmd_info cmd),
                         void (*jalib_ckpt_unlock)(),
                         int (*ptrace_info_list_size)()
-#endif 
+#endif
                        )
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
@@ -1517,7 +1521,7 @@ int safe_tcsetattr(int fd, int optional_actions,
   memset(&new_termios, 0, sizeof(new_termios));
   /* tcgetattr returns success as long as at least one of requested
    * changes was executed.  So, repeat until no more changes.
-   */ 
+   */
   do {
     memcpy(&old_termios, &new_termios, sizeof(new_termios));
     if (tcsetattr(fd, TCSANOW, termios_p) == -1) return -1;
@@ -1582,7 +1586,7 @@ static void *checkpointhread (void *dummy)
   DPRINTF("begin init_thread_local\n");
   init_thread_local();
 
-  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(), 
+  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
                                PTRACE_UNSPECIFIED_COMMAND, FALSE,
                                'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
 #endif
@@ -1670,11 +1674,11 @@ static void *checkpointhread (void *dummy)
       if (possible_ckpt_leader(GETTID())) {
         ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY, 0644);
         if (ckpt_leader_fd != -1) {
-          ckpt_leader = 1;    
+          ckpt_leader = 1;
           close(ckpt_leader_fd);
         }
       }
- 
+
       /* Is the checkpoint thread being traced? If yes, wait for the superior
        * to arrive at stopthisthread. */
       if (callback_get_next_ptrace_info) {
@@ -1692,7 +1696,7 @@ static void *checkpointhread (void *dummy)
          * However, we have one more chance of finding it, by reading
          * ptrace_shared_file. */
         if (!ckpt_ptraced_by) {
-          ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());  
+          ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());
         }
         if (ckpt_ptraced_by) {
           DPRINTF("ckpt %d is being traced by %d.\n",
@@ -1704,7 +1708,7 @@ static void *checkpointhread (void *dummy)
         } else DPRINTF("ckpt %d not being traced.\n", GETTID());
       }
     }
-#endif 
+#endif
 
     /* Halt all other threads - force them to call stopthisthread
      * If any have blocked checkpointing, wait for them to unblock before
@@ -1752,7 +1756,7 @@ again:
 #ifdef PTRACE
           if (ptracing()) {
             has_new_ptrace_shared_file = 0;
-  
+
             char inferior_st;
             int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
             if (ptrace_fd == -1) {
@@ -1763,7 +1767,7 @@ again:
             } else {
               has_new_ptrace_shared_file = 1;
               int new_ptrace_fd = -1;
-  
+
               if (ckpt_leader)
                 new_ptrace_fd = open(new_ptrace_shared_file,
                                      O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
@@ -2070,7 +2074,7 @@ static int test_use_compression(char *compressor, char *command, char *path,
   char env_var1[256] = "MTCP_";
   char env_var2[256] = "DMTCP_";
   char *do_we_compress;
-  
+
   int env_var1_len = sizeof(env_var1);
   int env_var2_len = sizeof(env_var2);
 
@@ -2138,7 +2142,7 @@ static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
   return open_ckpt_to_write(fd,pipe_fds,gzip_args);
 }
 
-static int 
+static int
 open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
 {
   pid_t cpid;
@@ -2156,8 +2160,6 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     // See revision log 342 for details concerning bash.
     mtcp_ckpt_extcomp_child_pid = cpid;
     if (mtcp_sys_close(pipe_fds[0]) == -1)
-      MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
-    if (mtcp_sys_close(fd) == -1)
       MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
     fd=pipe_fds[1];//change return value
   } else { /* child process */
@@ -2221,6 +2223,7 @@ static void checkpointeverything (void)
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
 #endif
   int fd = mtcp_safe_open(temp_checkpointfilename, flags, 0600);
+  int fdCkptFileOnDisk = fd; /* if use_compression, fd is reset to pipe */
   if (fd < 0) {
     MTCP_PRINTF("error creating %s: %s\n",
                 temp_checkpointfilename, strerror(mtcp_sys_errno));
@@ -2229,6 +2232,7 @@ static void checkpointeverything (void)
 
 #ifndef FAST_CKPT_RST_VIA_MMAP
   int use_compression = test_and_prepare_for_compression(&fd);
+  /* fd is now the write end of a pipe leading to compression child process */
 #endif
 
   write_ckpt_to_file(fd, tmpDMTCPHeaderFd);
@@ -2236,17 +2240,28 @@ static void checkpointeverything (void)
 #ifndef FAST_CKPT_RST_VIA_MMAP
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    /* In test_and_prepare_for_compression(), we set SIGCHLD to SIG_IGN, i.e.
-     * we ignore the signal. This is done to avoid calling the user SIGCHLD
-     * handler (if the user has installed one). As a result, mtcp_sys_wait4()
-     * will always fail for the child pid. */
-#if 0
+    /* In test_and_prepare_for_compression(), we set SIGCHLD to SIG_DFL.
+     * This is done to avoid calling the user SIGCHLD handler (if the user
+     * SIG_DFL is needed for mtcp_sys_wait4() to work cleanly.
+     * NOTE: We must wait in case user did rapid ckpt-kill in succession.
+     *  Otherwise, kernel could have optimization allowing us to close fd
+     *  and rename tmp ckpt file to permanent even while gzip is still writing.
+     */
     if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
-      DPRINTF("(grandchild): waitpid: %s\n", strerror(errno));
+      DPRINTF("(compression): waitpid: %s\n", strerror(errno));
     }
-#endif
     mtcp_ckpt_extcomp_child_pid = -1;
     sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
+    if (fsync(fdCkptFileOnDisk) < 0) {
+      MTCP_PRINTF("(compression): fsync error on checkpoint file: %s\n",
+                  strerror(errno));
+      mtcp_abort ();
+    }
+    if (close(fdCkptFileOnDisk) < 0) {
+      MTCP_PRINTF("(compression): error closing checkpoint file: %s\n",
+                  strerror(errno));
+      mtcp_abort ();
+    }
   }
 #endif
 
@@ -2256,7 +2271,7 @@ static void checkpointeverything (void)
    * If the new file is good, mtcp_restore will rename it over the last one.
    */
 
-  if (verify_total != 0) -- verify_count;
+  if (verify_total != 0) --verify_count;
 
   /* Now that temp checkpoint file is complete, rename it over old permanent
    * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
@@ -2320,7 +2335,7 @@ int test_and_prepare_for_compression(int *fd)
     return 0;
   }
 
-  /* 3. Open pipe */ 
+  /* 3. Open pipe */
   int pipe_fds[2];
   if (mtcp_sys_pipe(pipe_fds) == -1) {
     MTCP_PRINTF("WARNING: error creating pipe. Compression will "
@@ -2334,10 +2349,11 @@ int test_and_prepare_for_compression(int *fd)
   *       when using forked checkpointing.
   */
 
-  /* disable SIGCHLD handling; will be restored after gzip finishes */
-  struct sigaction ignore_sigchld_action;
-  ignore_sigchld_action.sa_handler = SIG_IGN;
-  sigaction(SIGCHLD, &ignore_sigchld_action, NULL);
+  /* set SIGCHLD to default; user handling is restored after gzip finishes */
+  { struct sigaction default_sigchld_action;
+    default_sigchld_action.sa_handler = SIG_DFL;
+    sigaction(SIGCHLD, &default_sigchld_action, NULL);
+  }
 
   if (use_deltacompression) { /* fork a hbict process */
 #ifdef HBICT_DELTACOMP
@@ -2433,6 +2449,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 #ifdef FAST_CKPT_RST_VIA_MMAP
   fastckpt_prepare_for_ckpt(fd, restore_start, frpointer);
   fastckpt_save_restore_image(fd, restore_begin, restore_size);
+  // MAYBE NEED TO CALL msync() here
 #else
   struct rlimit stack_rlimit;
   getrlimit(RLIMIT_STACK, &stack_rlimit);
@@ -2634,7 +2651,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 #endif
 
   if (mtcp_sys_close (fd) < 0) {
-    MTCP_PRINTF("(grandchild): error closing checkpoint file: %s\n",
+    MTCP_PRINTF("error closing checkpoint file: %s\n",
                 strerror(errno));
     mtcp_abort ();
   }
@@ -2882,7 +2899,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
        * page with RWX permission to make the page visible again. This call
        * will fail if no stack page was invisible to begin with.
        */
-      int ret = mprotect(area.addr + area.size, 0x1000, 
+      int ret = mprotect(area.addr + area.size, 0x1000,
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
         MTCP_PRINTF("bottom-most page of stack (page with highest address)\n"
@@ -2903,7 +2920,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * Grow the stack by kbStack*1024 so that large stack is allocated on restart
  * The kernel won't do it automatically for us any more, since it thinks
  * the stack is in a different place after restart.
- * 
+ *
  * growstackValue is volatile so compiler doesn't optimize away growstack
  * Maybe it's not needed if we use ((optimize(0))) .
  *****************************************************************************/
@@ -3153,7 +3170,7 @@ static void stopthisthread (int signum)
 
 #ifdef PTRACE
       ptrace_attach_threads(1);
-#endif 
+#endif
     }
   }
   DPRINTF("tid %d returning to %p\n",
@@ -3205,7 +3222,7 @@ static void wait_for_all_restored (void)
     }
 
     if (callback_restore_virtual_pid_table != NULL) {
-      DPRINTF("Before callback_restore_virtual_pid_table: Thread:%d \n", 
+      DPRINTF("Before callback_restore_virtual_pid_table: Thread:%d \n",
               mtcp_sys_kernel_gettid());
       (*callback_restore_virtual_pid_table)();
       DPRINTF("After callback_restore_virtual_pid_table: Thread:%d \n",
@@ -3247,7 +3264,7 @@ static void save_sig_state (Thread *thisthread)
    * signals
    */
   if (thisthread == ckpthread) {
-    /* 
+    /*
      * For the checkpoint thread, we should not block SIGSETXID which is used
      * by the setsid family of system calls to change the session leader. Glibc
      * uses this signal to notify the process threads of the change in session
@@ -3266,13 +3283,13 @@ static void save_sig_state (Thread *thisthread)
     sigdelset(&set, SIGCANCEL);
 
     if (pthread_sigmask(SIG_SETMASK, &set, NULL) < 0) {
-      MTCP_PRINTF("error getting sigal mask: %s\n", strerror(errno));
+      MTCP_PRINTF("error getting signal mask: %s\n", strerror(errno));
       mtcp_abort ();
     }
   }
   // Save signal block mask
   if (pthread_sigmask (SIG_SETMASK, NULL, &(thisthread -> sigblockmask)) < 0) {
-    MTCP_PRINTF("error getting sigal mask: %s\n", strerror(errno));
+    MTCP_PRINTF("error getting signal mask: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
@@ -3291,7 +3308,7 @@ static void restore_sig_state (Thread *thisthread)
   int i;
   DPRINTF("restoring handlers for thread %d\n", thisthread->original_tid);
   if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
-    MTCP_PRINTF("error setting sigal mask: %s\n", strerror(errno));
+    MTCP_PRINTF("error setting signal mask: %s\n", strerror(errno));
     mtcp_abort ();
   }
 
@@ -3326,10 +3343,12 @@ static void save_sig_handlers (void)
       }
     }
 
-    DPRINTF("saving signal handler for %d -> %p\n",
-            i, (sigactions[i].sa_flags & SA_SIGINFO ?
-                (void *)(sigactions[i].sa_sigaction) :
-                (void *)(sigactions[i].sa_handler)));
+    if (sigactions[i].sa_handler != SIG_DFL) {
+      DPRINTF("saving signal handler (non-default) for %d -> %p\n",
+              i, (sigactions[i].sa_flags & SA_SIGINFO ?
+                  (void *)(sigactions[i].sa_sigaction) :
+                  (void *)(sigactions[i].sa_handler)));
+    }
   }
 }
 
@@ -3400,7 +3419,7 @@ static void save_tls_state (Thread *thisthread)
   }
 
   /* With newer Linuxes, we just save the one GDT entry indexed by GS so we
-   * don't need the GDT_ENTRY_TLS_... definitions. 
+   * don't need the GDT_ENTRY_TLS_... definitions.
    * We get the particular index of the GDT entry to save by reading GS.
    */
 
@@ -3466,7 +3485,6 @@ static void *mtcp_get_tls_base_addr(void)
 }
 
 static void renametempoverperm (void)
-
 {
   if (rename (temp_checkpointfilename, perm_checkpointfilename) < 0) {
     MTCP_PRINTF("error renaming %s to %s: %s\n",
@@ -3783,7 +3801,7 @@ static void restore_heap()
   VA current_break = mtcp_sys_brk (NULL);
   if (current_break > mtcp_saved_break) {
     DPRINTF("Area between mtcp_saved_break:%p and "
-            "Current_break:%p not mapped, mapping it now\n", 
+            "Current_break:%p not mapped, mapping it now\n",
             mtcp_saved_break, current_break);
     size_t oldsize = mtcp_saved_break - saved_heap_start;
     size_t newsize = current_break - saved_heap_start;
@@ -3848,7 +3866,7 @@ static void finishrestore (void)
   // so restarthread will have a big stack
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
 		: : "g" (motherofall->savctx.SAVEDSP - 128) //-128 for red zone
-                : "memory");  
+                : "memory");
   restarthread (motherofall);
 }
 
@@ -4091,7 +4109,7 @@ static void setup_sig_handler (void)
     mtcp_abort ();
   }
 
-  if ((old_act.sa_handler != SIG_IGN) && (old_act.sa_handler != SIG_DFL) && 
+  if ((old_act.sa_handler != SIG_IGN) && (old_act.sa_handler != SIG_DFL) &&
       (old_act.sa_handler != stopthisthread)) {
     MTCP_PRINTF("signal handler %d already in use (%p).\n"
                 "  You may employ a different signal by setting the\n"

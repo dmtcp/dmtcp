@@ -1,5 +1,5 @@
 /* Short utility to read sections of .mtcp file.
- * It is primarily useful to developers. 
+ * It is primarily useful to developers.
  * It is not used by the rest of MTCP.
  * To compile:  gcc -o readmtcp readmtcp.c
  */

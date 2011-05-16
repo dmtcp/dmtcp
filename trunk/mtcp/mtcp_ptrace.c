@@ -108,7 +108,7 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
   int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
 
   /* /dev/pts/ * has major numbers in the range 136 - 143 */
-  if ( maj >= 136 && maj <= 143) 
+  if ( maj >= 136 && maj <= 143)
     sprintf(ttyname, "/dev/pts/%d", min+(maj-136)*256);
 
   return 0;
@@ -297,7 +297,7 @@ void ptrace_attach_threads(int isRestart)
           perror("ptrace_attach_threads: PTRACE_GETREGS failed");
           mtcp_abort();
         }
-#ifdef __x86_64__ 
+#ifdef __x86_64__
         peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.rip, 0);
 #else
         peekdata = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.eip, 0);
@@ -545,7 +545,7 @@ void ptrace_detach_user_threads ()
           else /* We should never get here. */
             DPRINTF("UT %d was stopped by the delivery of %d\n",
                     pt_info.inferior, WSTOPSIG(status));
-        } else  /* We should never end up here. */ 
+        } else  /* We should never end up here. */
           DPRINTF("UT %d was NOT stopped by a signal\n", pt_info.inferior);
       }
 
@@ -580,7 +580,7 @@ void ptrace_lock_inferiors()
 void ptrace_unlock_inferiors()
 {
     if (!ptracing()) return;
- 
+
     char file[RECORDPATHLEN];
     int fd;
     snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_tmp_dir,
@@ -629,7 +629,7 @@ void have_file(pid_t pid)
 {
   char file[RECORDPATHLEN];
   snprintf(file, RECORDPATHLEN, "%s/%d", dmtcp_tmp_dir, pid);
-  
+
   wait_for_file(file);
   if (unlink(file) == -1) {
     MTCP_PRINTF("unlink failed: %s\n", strerror(errno));
@@ -663,7 +663,7 @@ static int is_alive (pid_t pid)
     if ( close(fd) != 0 ) {
       MTCP_PRINTF("Error closing file: %s\n", strerror(errno));
       mtcp_abort();
-    } 
+    }
     return 1;
   }
   return 0;
@@ -728,7 +728,7 @@ pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
 }
 
 /* rc is the tid returned by __clone. We record to file only when
- * record_to_file is true. In this case, the tid of the superior is 
+ * record_to_file is true. In this case, the tid of the superior is
  * determined from ptrace_setoptions_file. */
 void read_ptrace_setoptions_file (int record_to_file, int rc) {
   int fd = open(ptrace_setoptions_file, O_RDONLY);
@@ -832,7 +832,7 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
   if (WIFSTOPPED(status)) {
     if (WSTOPSIG(status) == SIGSTOP)
       DPRINTF("ckpthread %d stopped by SIGSTOP\n", inferior);
-    else  /* We should never get here. */ 
+    else  /* We should never get here. */
       DPRINTF("ckpthread %d stopped by %d\n", inferior, WSTOPSIG(status));
   } else /* We should never get here. */
     DPRINTF("ckpthread %d NOT stopped by a signal\n", inferior);
@@ -974,7 +974,7 @@ int possible_ckpt_leader(pid_t tid) {
   struct ptrace_info pt_info;
   while (empty_ptrace_info(
            pt_info = (*callback_get_next_ptrace_info)(index++))) {
-    if (pt_info.inferior == tid) return 0; 
+    if (pt_info.inferior == tid) return 0;
   }
   return 1;
 }

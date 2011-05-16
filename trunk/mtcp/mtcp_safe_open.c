@@ -27,7 +27,7 @@ int mtcp_safe_open(char const *filename, int flags, mode_t mode)
            (fd != STDOUT_FILENO) &&
            (fd != STDERR_FILENO))
             break;
-        
+
         fds[i] = fd;
     }
 
