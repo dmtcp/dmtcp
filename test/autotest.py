@@ -586,3 +586,5 @@ except CheckFailed, e:
   print "Error in SHUTDOWN():", e.value
 except:
   print "Error in SHUTDOWN()"
+
+exit( stats[1] - stats[0] )  # Return code is number of failing tests.
