@@ -2210,10 +2210,6 @@ static void checkpointeverything (void)
     return;
   }
 
-  /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
-   *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
-   *   DMTCP doesn't directly checkpoint/restart pipes.
-   */
   /* 4. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
@@ -2336,6 +2332,10 @@ int test_and_prepare_for_compression(int *fd)
   }
 
   /* 3. Open pipe */
+  /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
+   *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
+   *   DMTCP doesn't directly checkpoint/restart pipes.
+   */
   int pipe_fds[2];
   if (mtcp_sys_pipe(pipe_fds) == -1) {
     MTCP_PRINTF("WARNING: error creating pipe. Compression will "
