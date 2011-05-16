@@ -21,7 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/***************************************************************************** 
+/*****************************************************************************
  *
  *  Static part of restore - This gets linked in the libmtcp.so shareable image
  *  that gets loaded as part of the user's original application. The makefile
@@ -94,7 +94,7 @@ static void lock_file(int fd, char* name, short l_type);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
-/***************************************************************************** 
+/*****************************************************************************
  *
  *  This routine is called executing on the temporary stack
  *  It performs the actual restore of everything (except the libmtcp.so area)
@@ -132,7 +132,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   if ((current_brk > mtcp_shareable_begin) &&
       (mtcp_saved_break < mtcp_shareable_end)) {
     MTCP_PRINTF("current_brk %p, mtcp_saved_break %p, mtcp_shareable_begin %p,"
-                " mtcp_shareable_end %p\n", 
+                " mtcp_shareable_end %p\n",
                  current_brk, mtcp_saved_break, mtcp_shareable_begin,
                  mtcp_shareable_end);
     mtcp_abort ();
@@ -287,11 +287,11 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   (*finishrestore) ();
 }
 
-/***************************************************************************** 
+/*****************************************************************************
  *
  *  Read file descriptor info from checkpoint file and re-open and re-position
  *  files on the same descriptors
- * 
+ *
  *  Move the checkpoint file to a different fd if needed
  *
  *****************************************************************************/
@@ -376,7 +376,7 @@ static void readfiledescrs (void)
   }
 }
 
-/************************************************************************** 
+/**************************************************************************
  *
  *  Read memory area descriptors from checkpoint file
  *  Read memory area contents and/or mmap original file
@@ -597,7 +597,7 @@ static void readmemoryareas (void)
         }
 
         /* CASE NOT MAP_ANONYMOUS, and MAP_PRIVATE, */
-        mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot, 
+        mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot,
             area.flags, imagefd, area.offset);
         if (mmappedat == MAP_FAILED) {
           MTCP_PRINTF("error %d mapping %s offset %d at %p\n",
@@ -707,7 +707,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     MTCP_PRINTF("error %d opening mmap file %s with flags:%d\n",
                 mtcp_sys_errno, area_name, flags);
     mtcp_abort();
-  } 
+  }
 
   if (imagefd < 0) {
     // If the shared file doesn't exist on the disk, we try to create it
@@ -720,11 +720,11 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     area_name = fix_filename_if_new_cwd(area_name);
     imagefd = open_shared_file(area_name);
 
-    /* Acquire write lock on the file before writing anything to it 
+    /* Acquire write lock on the file before writing anything to it
      * If we don't, then there is a weird RACE going on between the
      * restarting processes which causes problems with mmap()ed area for
      * this file and hence the restart fails. We still don't know the
-     * reason for it.                                       --KAPIL 
+     * reason for it.                                       --KAPIL
      * NOTE that we don't need to unlock the file as it will be
      * automatically done when we close it.
      */
@@ -739,7 +739,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     // checkpoint file(.mtcp) into system memory. From system memory,
     // the contents are written back to newly created replica of the shared
     // file (at the same path where it used to exist before checkpoint).
-    mmappedat = mtcp_sys_mmap (area->addr, area->size, PROT_READ | PROT_WRITE, 
+    mmappedat = mtcp_sys_mmap (area->addr, area->size, PROT_READ | PROT_WRITE,
                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mmappedat == MAP_FAILED) {
       MTCP_PRINTF("error %d mapping temp memory at %p\n",
@@ -799,7 +799,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      * detailed comments above.
      */
     DPRINTF("Acquiring lock on shared file :%s\n", area_name);
-    lock_file(imagefd, area_name, F_RDLCK); 
+    lock_file(imagefd, area_name, F_RDLCK);
     DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
   }
 
@@ -847,8 +847,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 # else
       mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
 # endif
-    } 
-#endif 
+    }
+#endif
     // If we have no write permission on file, then we should use data
     //   from version of file at restart-time (not from checkpoint-time).
     // Because Linux library files have execute permission,
@@ -1100,13 +1100,13 @@ static char* fix_filename_if_new_cwd(char* filename)
   int fIndex;
   int errorFilenameFromPreviousCwd = 0;
   char currentFolder[FILENAMESIZE];
-  
+
   /* Find the starting index where the actual filename begins */
   for ( i=0; filename[i] != '\0'; i++ ){
     if ( filename[i] == '/' )
       fIndex = i+1;
   }
-  
+
   /* We now try to create the directories structure from the given path */
   for ( i=0 ; i<fIndex ; i++ ){
     if (filename[i] == '/' && i > 0){

@@ -21,7 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/***************************************************************************** 
+/*****************************************************************************
  *
  *  This command-line utility is what a user uses to perform a restore
  *  It reads the given checkpoint file into memory then jumps to it, thus being
@@ -420,8 +420,8 @@ static int open_ckpt_to_read(char *filename, char *envp[])
 
   if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
     return fd;
-  else if (fc == GZIP_FIRST 
-#ifdef HBICT_DELTACOMP        
+  else if (fc == GZIP_FIRST
+#ifdef HBICT_DELTACOMP
            || fc == HBICT_FIRST
 #endif
           ) { /* Set prog_path */

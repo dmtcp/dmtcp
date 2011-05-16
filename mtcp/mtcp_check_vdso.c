@@ -156,7 +156,7 @@ void mtcp_set_thread_sysinfo(void *sysinfo) {
                 : : "r" (sysinfo) );
 }
 
-// We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).  
+// We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).
 // For a _given_ binary,
 // this fixes the address of the vdso.  Luckily, on restart, we
 // get our vdso from mtcp_restart.  So, we need to maintain two
@@ -187,7 +187,7 @@ static int write_args(char **vector, char *filename) {
 
   if (num_read == -1)
     return -1;
-  
+
   for (i = 0; str - strings < num_read && i < MAX_ARGS; i++) {
     vector[i] = str;
     while (*str++ != '\0')
@@ -211,7 +211,7 @@ static unsigned long getenv_oldpers() {
 
 static int setenv_oldpers(int oldpers) {
     static char oldpers_str[sizeof(oldpers)*8+1];
-    int i = sizeof(oldpers_str); 
+    int i = sizeof(oldpers_str);
     oldpers_str[--i] = '\0';
     while (i >= 0) {
       oldpers_str[i--] = ((oldpers & 1) ? '1' : '0');
@@ -245,7 +245,7 @@ void mtcp_check_vdso_enabled()
   }
 
   if (! (pers & ADDR_NO_RANDOMIZE)) /* if addr space randomization ... */
-  { 
+  {
     unsigned long oldpers = pers;
     /* then turn off randomization and (just in case) remove
      * ADDR_COMPAT_LAYOUT
@@ -262,11 +262,11 @@ void mtcp_check_vdso_enabled()
 	/* "make" has the capability to raise RLIMIT_STACK to infinity.
 	 * This is a problem.  When the kernel (2.6.24 or later) detects this,
 	 * it falls back to an older "standard" memory layout for libs.
-	 * 
-	 * "standard" memory layout puts [vdso] segment in low memory, which 
+	 *
+	 * "standard" memory layout puts [vdso] segment in low memory, which
 	 *  MTCP currently doesn't handle properly.
 	 *
-	 * glibc:nptl/sysdeps/<ARCH>/pthreaddef.h defines the default stack for 
+	 * glibc:nptl/sysdeps/<ARCH>/pthreaddef.h defines the default stack for
 	 *  pthread_create to be ARCH_STACK_DEFAULT_SIZE if rlimit is set to be
 	 *  unlimited. We follow the same default.
 	 */
@@ -274,19 +274,19 @@ void mtcp_check_vdso_enabled()
 //# define ARCH_STACK_DEFAULT_SIZE (32 * 1024 * 1024)
 //#else
 //# define ARCH_STACK_DEFAULT_SIZE (2 * 1024 * 1024)
-//#endif 
+//#endif
         /*
          * XXX: TODO: Due to some reason, manual restart of checkpointed
          *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
          *  has to do with VDSO. The location of VDSO section conflicts with the
          *  location of process libraries and hence it is unmapped which causes
          *  failure during the restarting phase. If we set the stack limit to
-         *  256 MB or higher, we donot see this bug. 
+         *  256 MB or higher, we donot see this bug.
          * It Should also be noted that the process will call setrlimit to set
          *  the resource limits to their pre-checkpoint values.
          */
 #define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
-	 
+
 	if ( -1 == mtcp_sys_getrlimit(RLIMIT_STACK, &rlim) ||
              ( rlim.rlim_cur = rlim.rlim_max = ARCH_STACK_DEFAULT_SIZE,
 	       mtcp_sys_setrlimit(RLIMIT_STACK, &rlim),
@@ -307,7 +307,7 @@ void mtcp_check_vdso_enabled()
   }
 #endif
 
-  /* We failed to turn off address space rand., but maybe vdso is not enabled 
+  /* We failed to turn off address space rand., but maybe vdso is not enabled
    * On newer kernels, there is no /proc/sys/vm/vdso_enabled, we will cross our
    *  fingers and continue anyways.
    */

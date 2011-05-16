@@ -103,7 +103,7 @@ void mtcp_state_futex(MtcpState * state, int func, int val,
 __attribute__ ((visibility ("hidden")))
 int mtcp_state_set(MtcpState * state, int value, int oldval)
 {
-  return atomic_setif_int(&state->value, value, oldval); 
+  return atomic_setif_int(&state->value, value, oldval);
 }
 
 __attribute__ ((visibility ("hidden")))
