@@ -21,6 +21,7 @@ int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 
 static void readcs (int fd, char cs);
 static void skipfile (int fd, size_t size);
+static ssize_t readall(int fd, void *buf, size_t count);
 
 int main(int argc, char **argv) {
   int fd = -1;
@@ -40,14 +41,14 @@ int main(int argc, char **argv) {
   }
 
   memset(magicbuf, 0, sizeof magicbuf);
-  read(fd, magicbuf, MAGIC_LEN);
+  readall(fd, magicbuf, MAGIC_LEN);
   if (memcmp (magicbuf, "DMTCP_CHECKPOINT", MAGIC_LEN) == 0) {
     while (memcmp(magicbuf, MAGIC, MAGIC_LEN) != 0) {
       int i;
       for (i = 0; i < MAGIC_LEN-1; i++)
         magicbuf[i] = magicbuf[i+1];
       magicbuf[MAGIC_LEN-1] = '\0'; /* MAGIC should be a string w/o '\0' */
-      if (0 == read(fd, magicbuf+(MAGIC_LEN-1), 1)) /* if EOF */
+      if (0 == readall(fd, magicbuf+(MAGIC_LEN-1), 1)) /* if EOF */
         break;
     }
   }
@@ -88,18 +89,18 @@ int main(int argc, char **argv) {
   printf("finishrestore routine: %p\n", finishrestore);
 #else
   readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
-  read(fd, &stack_rlimit, sizeof stack_rlimit);
+  readall(fd, &stack_rlimit, sizeof stack_rlimit);
   printf("mtcp_restart: saved stack resource limit:" \
 	 " soft_lim: %lu, hard_lim: %lu\n",
 	 stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
 
   printf("*** restored libmtcp.so\n");
   readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
-  read(fd, &restore_begin, sizeof restore_begin);
+  readall(fd, &restore_begin, sizeof restore_begin);
   readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
-  read(fd, &restore_size, sizeof restore_size);
+  readall(fd, &restore_size, sizeof restore_size);
   readcs (fd, CS_RESTORESTART);
-  read(fd, &restore_start, sizeof restore_start);
+  readall(fd, &restore_start, sizeof restore_start);
   readcs (fd, CS_RESTOREIMAGE);
   skipfile (fd, restore_size);
 
@@ -110,7 +111,7 @@ int main(int argc, char **argv) {
 
   printf("*** finishrestore\n");
   readcs (fd, CS_FINISHRESTORE);
-  read(fd, &finishrestore, sizeof finishrestore);
+  readall(fd, &finishrestore, sizeof finishrestore);
   printf("finishrestore routine: %p\n", finishrestore);
 
 
@@ -125,16 +126,16 @@ int main(int argc, char **argv) {
 
     /* Read parameters of next file to restore */
 
-    read(fd, &fdnum, sizeof fdnum);
+    readall(fd, &fdnum, sizeof fdnum);
     if (fdnum < 0) break;
-    read(fd, &statbuf, sizeof statbuf);
-    read(fd, &offset, sizeof offset);
-    read(fd, &linklen, sizeof linklen);
+    readall(fd, &statbuf, sizeof statbuf);
+    readall(fd, &offset, sizeof offset);
+    readall(fd, &linklen, sizeof linklen);
     if (linklen >= sizeof linkbuf) {
       printf ("filename too long %d\n", linklen);
       exit(1);
     }
-    read(fd, linkbuf, linklen);
+    readall(fd, linkbuf, linklen);
     linkbuf[linklen] = 0;
   }
 #endif
@@ -149,14 +150,14 @@ int main(int argc, char **argv) {
 #ifdef FAST_CKPT_RST_VIA_MMAP
     if (fastckpt_get_next_area_dscr(&area) == 0) break;
 #else
-    read(fd, &cstype, sizeof cstype);
+    readall(fd, &cstype, sizeof cstype);
     if (cstype == CS_THEEND) break;
     if (cstype != CS_AREADESCRIP) {
       printf ("readmtcp: expected CS_AREADESCRIP but had %d\n", cstype);
       exit(1);
     }
 
-    read(fd, &area, sizeof area);
+    readall(fd, &area, sizeof area);
     readcs (fd, CS_AREACONTENTS);
     skipfile (fd, area.size);
 #endif
@@ -177,11 +178,10 @@ int main(int argc, char **argv) {
 }
 
 static void readcs (int fd, char cs)
-
 {
   char xcs;
 
-  read(fd, &xcs, sizeof xcs);
+  readall(fd, &xcs, sizeof xcs);
   if (xcs != cs) {
     fprintf (stderr,
              "readmtcp readcs: checkpoint section %d next, expected %d\n",
@@ -199,7 +199,7 @@ static void skipfile(int fd, size_t size)
 
   while(ar != size)
     {
-      rc = read(fd, array, (size-ar < 512 ? size - ar : 512));
+      rc = readall(fd, array, (size-ar < 512 ? size - ar : 512));
       if(rc < 0)
         {
 	  printf("readmtcp skipfile: error %d skipping checkpoint\n", errno);
@@ -215,4 +215,25 @@ static void skipfile(int fd, size_t size)
 
       ar += rc;
     }
+}
+
+static ssize_t readall(int fd, void *buf, size_t count)
+{
+  int rc;
+  char *ptr = (char *) buf;
+  size_t num_read = 0;
+  for (num_read = 0; num_read < count;) {
+    rc = read(fd, ptr + num_read, count - num_read);
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN)
+        continue;
+      else
+        return -1;
+    }
+    else if (rc == 0)
+      break;
+    else // else rc > 0
+      num_read += rc;
+  }
+  return num_read;
 }
