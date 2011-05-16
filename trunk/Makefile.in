@@ -47,10 +47,16 @@ endif
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: mtcp dmtcp
+default: build_environment mtcp dmtcp
 	$(MKDIR_P) bin
 	($(MAKE) bin)
 	($(MAKE) dmtcpaware)
+
+build_environment:
+	@ uname -a
+	@ ${CC} --version
+	@ ls -l /lib/libc.so.6 /lib64/libc.so.6 /lib32/libc.so.6
+	@ echo ""
 
 all: default tests
 
@@ -60,16 +66,16 @@ mtcp:
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
-tests: default
+tests: mtcp dmtcp
 	(cd test && $(MAKE) $(MTCP_MAKE_FLAGS))
 
 #prevent mtcp_restart from flying out of control
 LIMIT=ulimit -v 1048576
 
-check:  all
+check: tests
 	+bash -c "$(LIMIT) && ./test/autotest.py $*"
 
-check-%: all
+check-%: tests
 	+bash -c "$(LIMIT) && ./test/autotest.py '$*'"
 
 check1: icheck-dmtcp1
@@ -192,4 +198,5 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
-.PHONY: all mtcp dmtcp clean distclean bin dmtcpaware examples dmtcp_noexamples
+.PHONY: all build_environment mtcp dmtcp clean distclean bin dmtcpaware \
+	examples dmtcp_noexamples

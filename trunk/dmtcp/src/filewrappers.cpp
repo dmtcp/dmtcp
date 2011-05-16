@@ -1080,13 +1080,8 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
 
 #if __GLIBC_PREREQ(2,5)
 # define READLINK_RET_TYPE ssize_t
-#elif __GLIBC_PREREQ(2,9)
-  /* Ubuntu 9.10 uses glibc-2.10, which uses ssize_t.
-   * What distro uses 'int'?  - Gene
-   */
-# define READLINK_RET_TYPE int
 #else
-# define READLINK_RET_TYPE ssize_t
+# define READLINK_RET_TYPE int
 #endif
 
 extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz)
