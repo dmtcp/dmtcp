@@ -53,9 +53,10 @@ default: build_environment mtcp dmtcp
 	($(MAKE) dmtcpaware)
 
 build_environment:
-	@ uname -a
-	@ ${CC} --version
-	@ ls -l /lib/libc.so.6 /lib64/libc.so.6 /lib32/libc.so.6
+	@- uname -a
+	@- ${CC} --version
+	@- ls -l /lib/libc.so.6 /lib64/libc.so.6 /lib32/libc.so.6
+	@- ls -l /var/*/nscd
 	@ echo ""
 
 all: default tests
