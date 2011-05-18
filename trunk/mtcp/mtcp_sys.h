@@ -382,23 +382,25 @@ struct linux_dirent {
 #  define user_desc modify_ldt_ldt_s
 # endif
 
+# ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
  * This is all because get_thread_area is not implemented for x86_64.
  */
 static unsigned long int myinfo_gs;
 
-# define mtcp_sys_get_thread_area(uinfo) \
+#  define mtcp_sys_get_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
     )
-# define mtcp_sys_set_thread_area(uinfo) \
+#  define mtcp_sys_set_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
     )
-#endif
+# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
+#endif /* end __x86_64__ */
 
 /*****************************************************************************
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses

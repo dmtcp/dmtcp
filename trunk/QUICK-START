@@ -1,6 +1,6 @@
     Overview of DMTCP (Distributed MultiThreaded Checkpointing)
 
-Concepts:
+CONCEPTS:
 DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
 a distributed computation.  It works under Linux, with no modifications
 to the Linux kernel nor to the application binaries.  It can be used by
@@ -8,22 +8,38 @@ unprivileged users (no root privilege needed).  One can later restart
 from a checkpoint, or even migrate the processes by moving the checkpoint
 files to another host prior to restarting.
 
+There is one DMTCP coordinator for each computation that you wish
+to checkpoint.  By specifying --host and --port (or the environment
+variables DMTCP_HOST and DMTCP_PORT), you can add a process
+to a coordinator different from the default coordinator.  If you don't
+specify, the default coordinator is always at (localhost, 7779).
+
 A DMTCP coordinator process is started on one host.  Application binaries
 are started under the dmtcp_checkpoint command, causing them to connect
 to the coordinator upon startup.  As threads are spawned, child processes
 are forked, remote processes are spawned via ssh, libraries are dynamically
 loaded, DMTCP transparently and automatically tracks them.
 
+By default, DMTCP uses gzip to compress the checkpoint images.  This can
+be turned off (dmtcp_checkpoint --no-gzip ; or setting an
+environment variable to 0: DMTCP_GZIP=0).  This will be faster, and if
+your memory is dominated by incompressible data, this can be helpful.
+
+A DMTCP checkpoint image includes any libraries (.so files) that it may
+have been using.  This strategy is used for greater portability of
+the checkpoint images --- and in some cases, it even allows migration of
+the checkpoint images (and hence, processes) to hosts with different
+Linux distributions, different Linux kernels, etc.
 
 To run a program with checkpointing:
   1) Run dmtcp_coordinator in a separate terminal/window
 
-        ./bin/dmtcp_coordinator
+        bin/dmtcp_coordinator
 
   2) In separate terminal(s), replace each command(s)
      with "dmtcp_checkpoint [command]"
 
-        ./bin/dmtcp_checkpoint ./a.out
+        bin/dmtcp_checkpoint ./a.out
 
   3) To checkpoint, type 'c'<return> into dmtcp_coordinator
 
@@ -41,27 +57,34 @@ To run a program with checkpointing:
     a script, dmtcp_restart_script.sh, along with a
     checkpoint file (file type: .dmtcp) for each client process.
     The simplest way to restart a previously checkpointed computation is:
-    [ Edit ./dmtcp_restart_script.sh ]
         ./bin/dmtcp_restart_script.sh
+    [ ./dmtcp_restart_script.sh  usually works "as is", but it can be edited ]
     [ Alternatively, if all processes were on the same processor,
         and there were no .dmtcp files prior to this checkpoint: ]
         ./bin/dmtcp_restart ckpt_*.dmtcp
 
 ============================================
 CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
+  # Help exists:
+  bin/dmtcp_coordinator --help ; bin/dmtcp_checkpoint --help ;
+  bin/dmtcp_command --help, etc.
   # Automatically start a coordinator in background
-  ./bin/dmtcp_checkpoint ./a.out &
+  bin/dmtcp_checkpoint ./a.out &
   # Checkpoint all processes of the default coordinator
-  ./bin/dmtcp_command --checkpoint
+  bin/dmtcp_command --checkpoint
   # Kill a.out, and optionally kill coordinator process
-  ./bin/dmtcp_command --quit
+  bin/dmtcp_command --kill
+  # Kill a.out, and optionally kill coordinator process
+  bin/dmtcp_command --quit
   # Restart directly from local checkpoint images (.dmtcp files)
+  ./dmtcp_restart_script.sh
+  # Or else, directly restart from the ckpt images in the current directory. 
   # (Be sure there are no old ckpt_a.out_*.dmtcp files.
   #  Ensure that the restarted process is running, and not suspended.)
-  ./bin/dmtcp_restart ckpt_a.out_*.dmtcp &
+  bin/dmtcp_restart ckpt_a.out_*.dmtcp &
   # Have gdb attach to a restarted process, and debug
   # NOTE:  You must specify 'mtcp_restart', not 'dmtcp_restart'
-  gdb ./a.out `pgrep -n mtcp_restart`
+  gdb ./a.out `pgrep -n MTCP`
   # force a.out to exit any low level libraries and return to a known location
   # set a breakpoint on a common function and continue:
   (gdb) break write   
@@ -83,22 +106,29 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
 					 (default: env var TMPDIR or /tmp)
 
   dmtcp_checkpoint / dmtcp_restart:
-    DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
-    DMTCP_PORT=<coordinator listener port> (default: 7779)
-    DMTCP_GZIP=<0: disable compression of checkpoint image>
+    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT = <coordinator listener port> (default: 7779)
+    DMTCP_GZIP = <0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
-    DMTCP_CHECKPOINT_DIR=<location to store checkpoints> (default: ./)
-    DMTCP_SIGCKPT=<internal signal number> (default: 12 = SIGUSR2)
-    DMTCP_TMPDIR=<where temporary files are written>
+    DMTCP_CHECKPOINT_DIR = <location to store checkpoints> (default: ./)
+    DMTCP_SIGCKPT = <internal signal number> (default: 12 = SIGUSR2)
+    DMTCP_TMPDIR = <where temporary files are written>
 					 (default: env var TMPDIR or /tmp)
 
   dmtcp_command:
-    DMTCP_HOST=<hostname where coordinator is running> (default: localhost)
-    DMTCP_PORT=<coordinator listener port> (default: 7779)
+    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT = <coordinator listener port> (default: 7779)
 
- Application-defined hook functions: called by MTCP/DMTCP if defined 
-   User code containing these functions must be compiled with
+ Application-defined hook functions: called by DMTCP if defined 
+   User code containing these functions and linked with libdmtcpaware.so
+   must be compiled with
 	 -Wl,-export-dynamic under gcc/g++ or they won't be invoked.
+   If linked with dmtcpaware.a, no special compilation flags are needed.
+   For a libdmtcpaware.a example, do: cd test; rm dmtcpaware1; make dmtcpaware1
+   For example source code, see test/dmtcpaware[123].c
+
+ Application-defined hook functions are also available at the MTCP level
+    For an example, see mtcp/testmtcp.c, and try:  cd mtcp ; make check
    void mtcpHookPreCheckpoint(void);
    void mtcpHookPostCheckpoint(void);
    void mtcpHookRestart(void);
@@ -126,7 +156,7 @@ SHORT NOTES:
             communication), configure with: ./configure --enable-debug
             (or './configure --help', in general)
             --enable-debug both prints to stderr and writes files. This both
-            prints to stderr and writes files $DMTCP_TMPIDR/jassert.log.XXX
+            prints to stderr and writes files $DMTCP_TMPDIR/jassert.log.XXX
             where XXX is the pid of a process (checkpoint coordinator or
             application process). In reading this, it's useful to know that
             DMTCP sets up barriers so that all processes proceed to the
@@ -138,14 +168,11 @@ SHORT NOTES:
             do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
-            Then (cd mtcp; make clean; make)
+            Then:  (cd mtcp; make clean); make
 	 C. If debugging MTCP from within DMTCP, then:
 	      a.  uncomment the line:
-		 CFLAGS = -DDMTCP=1 -O0 -g -DDEBUG -DTIMING -Wall
-	      b.  set DUP_STDERR_FD in mtcp/mtcp_printf.c to 826 or 827
-		  depending on whether MTCP debug output should go to
-		  stdout or $DMTCP_TMPDIR/jassertlog.*
-              c.  Then (cd mtcp; make clean; make)
+		 CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+              b.  Then:  (cd mtcp; make clean); make
 	 D. If debugging:  dmtcp_checkpoint a.out
 	    and you wish to attach to a.out when it starts, then
 	      a.  Set the environment variable MTCP_INIT_PAUSE
@@ -179,7 +206,7 @@ SHORT NOTES:
     9. dmtcpaware exists for programs that wish to directly talk to the
        dmtcp_coordinator, without the intervention of a human being.
        See the test subdirectory for several example dmtcpaware programs.
-    10. bin/gdb-add-symbol-file may be a useful debugging tool.  It computes
+    10. utils/gdb-add-symbol-file may be a useful debugging tool.  It computes
 	the arguments for the add-symbol-file command of gdb, to import
 	symbol information about a dynamic library.  It is most useful in
 	combination with *-dbg Linux packages and prefix to dmtcp_checkpoint:
@@ -194,18 +221,18 @@ SHORT NOTES:
 	but do not include "-O2".  Alternatively, when configuring, use:
 	  env CXXFLAGS=-O1 ./configure
     12. A. Matlab should be invoked without graphics, and to be extra safe,
-	   without the JVM.  The -nodisplay and -nojvm matlab flags suffice:
+	   without the JVM.  The -nodisplay and -nojvm flags for Matlab suffice:
 		bin/dmtcp_checkpoint matlab -nodisplay -nojvm
 	B.  Older releases of Matlab (e.g. release 7.4) have several issues:
 	    If you see a message about GLIBCXX-3.4 not found, you can either
-	    use root privilege to replace matlab's older libstdc++  by your
-	    system's newer libstdc++ (back up matlab's older libstdc++),
+	    use root privilege to replace Matlab's older libstdc++  by your
+	    system's newer libstdc++ (back up Matlab's older libstdc++),
 	    or else just re-configure and re-compile DMTCP as follows:
 		env CC=gcc-4.1 CXX=g++-4.1 ./configure
 		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
                 make clean; make
 	C.  While we believe that with the DMTCP-1.10 release, directly
-	    checkpointing the standard matlab script should now be reliable,
+	    checkpointing the standard Matlab script should now be reliable,
 	    we are continuing to do stress testing.  If you encounter any
 	    unreliability please notify the developers.  As a workaround, you
 	    can always revert to the older method of directly running
@@ -320,9 +347,9 @@ SHORT NOTES:
         of disk space, and that there are no other file system problems.
 
     15. For Mandriva Linux, and some others, you will need to ensure that the
-	  packages 'patch', 'glibc-static', and 'linux-userspace-headers'
+	  packages 'patch', and 'linux-userspace-headers'
 	  are installed in order to build DMTCP.
-	For Ubunutu/Debian Linux, ensure that the
+	For Ubuntu/Debian Linux, ensure that the
 	  packages 'patch' and 'linux-libc-dev' are installed.
 	For OpenSuse Linux, ensure that the
 	  packages 'patch' and 'linux-kernel-headers'

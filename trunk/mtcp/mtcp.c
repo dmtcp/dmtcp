@@ -73,6 +73,7 @@
 
 #define MTCP_SYS_STRCPY
 #define MTCP_SYS_STRLEN
+#define MTCP_SYS_GET_SET_THREAD_AREA
 #include "mtcp_internal.h"
 
 /* required for ptrace sake */
@@ -393,9 +394,9 @@ char* mtcp_restore_argv_start_addr = NULL;
 	/* Static data */
 
 static sigset_t sigpending_global;  // pending signals for the process
-static char const *nscd_mmap_str = "/var/run/nscd/";    // OpenSUSE
+static char const *nscd_mmap_str1 = "/var/run/nscd/";   // OpenSUSE
 static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
-static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat (Linux 2.6.9)
+static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat / Fedora
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
 static char const *sys_v_shmem_file = "/SYSV";
@@ -2409,6 +2410,36 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
   return FORKED_CKPT_WORKER;
 }
 
+/* FIXME:
+ * We should read /proc/self/maps into temporary array and readmapsline
+ * should then read from it.  this ic cleaner than this hack here.
+ * Then this body can go back to replacing:
+ *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
+ * - Gene
+ */
+static const int END_OF_NSCD_AREAS = -1;
+static void remap_nscd_areas(Area remap_nscd_areas_array[],
+			     int  num_remap_nscd_areas) {
+  Area *area;
+  for (area = remap_nscd_areas_array; num_remap_nscd_areas-- > 0; area++) {
+    if (area->flags == END_OF_NSCD_AREAS) {
+      MTCP_PRINTF("Too many NSCD areas to remap.\n");
+      mtcp_abort();
+    }
+    if ( munmap(area->addr, area->size) == -1) {
+      MTCP_PRINTF("error unmapping NSCD shared area: %s\n",
+                  strerror(mtcp_sys_errno));
+      mtcp_abort();
+    }
+    if (mmap(area->addr, area->size, area->prot, area->flags, 0, 0)
+        == MAP_FAILED) {
+      MTCP_PRINTF("error remapping NSCD shared area: %s\n", strerror(errno));
+      mtcp_abort();
+    }
+    memset(area->addr, 0, area->size);
+  }
+}
+
 void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 {
   Area area;
@@ -2484,6 +2515,10 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
+  int num_remap_nscd_areas = 0;
+  Area remap_nscd_areas_array[10];
+  remap_nscd_areas_array[9].flags = END_OF_NSCD_AREAS;
+
   int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (readmapsline (mapsfd, &area)) {
@@ -2552,29 +2587,19 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
     }
 
     /* Special Case Handling: nscd is enabled*/
-    if ( mtcp_strstartswith(area.name, nscd_mmap_str) ||
+    if ( mtcp_strstartswith(area.name, nscd_mmap_str1) ||
          mtcp_strstartswith(area.name, nscd_mmap_str2) ||
          mtcp_strstartswith(area.name, nscd_mmap_str3) ) {
-      DPRINTF("NSCD daemon shared memory area present. MTCP will now try to\n"
-              "  remap this area in read/write mode and then will fill it \n"
-              "  with zeros so that glibc will automatically ask NSCD daemon\n"
-              "  for new shared area\n\n");
+      DPRINTF("NSCD daemon shared memory area present:  %s\n"
+              "  MTCP will now try to remap this area in read/write mode as\n"
+              "  private (zero pages), so that glibc will automatically\n"
+              "  stop using NSCD or ask NSCD daemon for new shared area\n\n",
+              area.name);
       area.prot = PROT_READ | PROT_WRITE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
-      if ( munmap(area.addr, area.size) == -1) {
-        MTCP_PRINTF("error unmapping NSCD shared area: %s\n",
-                     strerror(mtcp_sys_errno));
-        mtcp_abort();
-      }
-
-      if ( mmap(area.addr, area.size, area.prot, area.flags, 0, 0)
-           == MAP_FAILED ){
-        MTCP_PRINTF("error remapping NSCD shared area: %s\n", strerror(errno));
-        mtcp_abort();
-      }
-
-      memset(area.addr, 0, area.size);
+      /* We're still using proc-maps in readmapsline(); So, remap NSCD later. */
+      remap_nscd_areas_array[num_remap_nscd_areas++] = area;
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the
@@ -2603,7 +2628,8 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
     }
 
 
-    /* Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
+    /* Only write this image if it is not CS_RESTOREIMAGE.
+     * Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
      * at the beginning.
      */
 
@@ -2640,6 +2666,9 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
       writememoryarea (fd, &area, stack_was_seen, vsyscall_exists);
     }
   }
+
+  /* It's now safe to do this, since we're done using readmapsline() */
+  remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
 
   close (mapsfd);
 
@@ -3573,7 +3602,6 @@ static void unlk_threads (void)
  *****************************************************************************/
 
 int readmapsline (int mapsfd, Area *area)
-
 {
   char c, rflag, sflag, wflag, xflag;
   int i, rc;
@@ -3622,7 +3650,7 @@ int readmapsline (int mapsfd, Area *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-  if (mtcp_strstartswith(area -> name, nscd_mmap_str)  ||
+  if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
       mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
       mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
     /* if nscd is active */
