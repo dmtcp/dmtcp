@@ -151,28 +151,32 @@ SHORT NOTES:
        will override the default port.  Similarly, setting DMTCP_HOST for
        dmtcp_checkpoint and dmtcp_restart is needed if they start on
        a different host than that of the coordinator.
-    3. In order to enable various types of debugging, do:
+    3. If your application has only a single process (single- or
+       multi-threaded), then you can also directly use the software in
+       the mtcp subdirectory (single-process layer) without the upper
+       layer in the dmtcp subdirectory.  This may be convenient for
+       customizing the source code for your own application.
+    4. In order to enable various types of debugging, do:
          A. To enable debug statements for DMTCP only (related to multi-process
             communication), configure with: ./configure --enable-debug
             (or './configure --help', in general)
             --enable-debug both prints to stderr and writes files. This both
-            prints to stderr and writes files $DMTCP_TMPDIR/jassert.log.XXX
-            where XXX is the pid of a process (checkpoint coordinator or
-            application process). In reading this, it's useful to know that
+            prints to stderr and writes files
+		 $DMTCP_TMPDIR/dmtcp-$USER@$HOST/jassertlog.*
+            where $DMTCP_TMPDIR is /tmp by default on most distributions.
+            In reading this, it's useful to know that
             DMTCP sets up barriers so that all processes proceed to the
             following states together during checkpoint: RUNNING, SUSPENDED,
-            LOCKED, DRAINED, CHECKPOINTED, REFILLED.
-            - Currently DMTCP will not work with --enable-debug and
-              --enable-pid-virtualization. This will be fixed.
-         B. To enable debug statements from MTCP (single-process component),
+            FD_LEADER_ELECTION, DRAINED, CHECKPOINTED, REFILLED, RUNNING.
+	 B. If debugging MTCP (single-process layer) from within DMTCP, then:
+	      a.  uncomment the line:
+		 CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+              b.  Then:  (cd mtcp; make clean); make
+         C. To enable debug statements from MTCP (standalone mode),
             do: In mtcp/Makefile, uncomment the line:
             CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
             Also, comment out the line: CFLAGS = -O0 -g
             Then:  (cd mtcp; make clean); make
-	 C. If debugging MTCP from within DMTCP, then:
-	      a.  uncomment the line:
-		 CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
-              b.  Then:  (cd mtcp; make clean); make
 	 D. If debugging:  dmtcp_checkpoint a.out
 	    and you wish to attach to a.out when it starts, then
 	      a.  Set the environment variable MTCP_INIT_PAUSE
@@ -181,16 +185,16 @@ SHORT NOTES:
 	      c.  gdb a.out `pgrep -n a.out`  [During the 15 second pause.]
 	      d.  The usual gdb commands should be available to debug
 			a.out/libmtcp.so/dmtcphijack.so
-    4. It often works to migrate processes by moving the checkpoint files to
+    5. It often works to migrate processes by moving the checkpoint files to
        another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting.  Whether it works is affected by how different are the
        corresponding versions for the kernel and glibc.
-    5. Checkpoint is implemented by sending a signal to each user thread.
+    6. Checkpoint is implemented by sending a signal to each user thread.
        As with all well-written code, your system calls should be prepared
        for an error return of EINTR (interrupted, due to a simultaneous
        checkpoint invocation or other kernel activity), in which case you
        can call the system call again.
-    6. See comment in code before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
+    7. See comment in code before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
        for specific handling of mapping of memory objects via mmap:
          MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
        Heuristically, if a memory area is mapped to a file for which user has
@@ -198,9 +202,6 @@ SHORT NOTES:
        file. If a memory area is mapped to a file with write or execute
        permission, the pre-checkpoint memory contents is copied back into
        memory area.
-    7. If your application has only a single process (single- or
-       multi-threaded), then you can also directly use the software in
-       the MTCP subdirectory.  You may not need the generality of DMTCP.
     8. For developers, mtcp/readmtcp is useful for debugging checkpoint
        images.  Run it without arguments for a usage message.
     9. dmtcpaware exists for programs that wish to directly talk to the
