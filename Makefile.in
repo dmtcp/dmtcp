@@ -47,17 +47,23 @@ endif
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: build_environment mtcp dmtcp
+default: display_build_env mtcp dmtcp
 	$(MKDIR_P) bin
 	($(MAKE) bin)
 	($(MAKE) dmtcpaware)
 
-build_environment:
-	@- uname -a
-	@- ${CC} --version
-	@- ls -l /lib/libc.so.6 /lib64/libc.so.6 /lib32/libc.so.6
-	@- ls -l /var/*/nscd
+display_build_env: display_release
+	@ uname -a
+	@ ${CC} --version
+	@ ls -l /lib/libc.so.6 /lib{64,32}/libc.so.6 2> /dev/null || true
+	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
+
+display_release:
+	@ grep DISTRIB_DESCRIPTION /etc/lsb-release 2> /dev/null || true
+	@ grep DISTRIB_CODENAME /etc/lsb-release 2> /dev/null || true
+	@ cat /etc/redhat-release 2> /dev/null || true
+	@ cat /etc/debian-version 2> /dev/null || true
 
 all: default tests
 
@@ -199,5 +205,5 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
-.PHONY: all build_environment mtcp dmtcp clean distclean bin dmtcpaware \
-	examples dmtcp_noexamples
+.PHONY: all display_build_env display_release mtcp dmtcp clean distclean bin \
+	dmtcpaware examples dmtcp_noexamples
