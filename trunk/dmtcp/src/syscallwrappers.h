@@ -235,6 +235,7 @@ extern "C"
   MACRO(sigsuspend)                         \
   MACRO(sighold)                            \
   MACRO(sigignore)                          \
+  MACRO(__sigpause)                         \
   MACRO(sigpause)                           \
   MACRO(sigrelse)                           \
                                             \
@@ -359,8 +360,8 @@ extern "C"
   void _real_openlog ( const char *ident, int option, int facility );
   void _real_closelog ( void );
 
-
-  typedef void (*sighandler_t)(int);
+  // Despite what 'man signal' says, signal.h already defines sighandler_t
+  // typedef void (*sighandler_t)(int);
 
   //set the handler
   sighandler_t _real_signal(int signum, sighandler_t handler);
@@ -379,6 +380,7 @@ extern "C"
   int _real_sigsuspend(const sigset_t *mask);
   int _real_sighold(int sig);
   int _real_sigignore(int sig);
+  int _real__sigpause(int __sig_or_mask, int __is_sig);
   int _real_sigpause(int sig);
   int _real_sigrelse(int sig);
 

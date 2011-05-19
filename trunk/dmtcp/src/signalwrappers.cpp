@@ -324,6 +324,20 @@ EXTERNC int sigrelse(int sig)
   return _real_sigrelse(sig);
 }
 
+// signal.h can define sigpause as a macro expanding into __sigpause
+// That takes an extra arg to handle sigmask (BSD) or signal (System V)
+// So, we wrap both version.
+EXTERNC int __sigpause(int __sig_or_mask, int __is_sig)
+{
+  JWARNING(false)
+    .Text("This function is deprecated. Use sigsuspend instead." \
+          "  The DMTCP wrappers for this function may not be fully tested");
+  return _real__sigpause(__sig_or_mask, __is_sig);
+}
+
+// Remove any possible macro expansion from signal.h
+// sigpause must not be invoked after this in this file.
+#undef sigpause
 EXTERNC int sigpause(int sig)
 {
   JWARNING(false)

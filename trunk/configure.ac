@@ -151,6 +151,9 @@ fi
 #  AC_MSG_ERROR(['gcc -static hello.c' failed.
 #fi
 
+#check for python
+AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
+
 #check for dash
 AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
 

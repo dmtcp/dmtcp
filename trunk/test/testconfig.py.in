@@ -1,6 +1,8 @@
 #testconfig.py is generated using testconfig.py.in by ./configure
 
 HAS_READLINE="@HAS_READLINE@"
+# We may be running a user's python, but we should only test with canonical one 
+HAS_PYTHON="@HAS_PYTHON@"
 HAS_DASH="@HAS_DASH@"
 HAS_TCSH="@HAS_TCSH@"
 HAS_ZSH="@HAS_ZSH@"

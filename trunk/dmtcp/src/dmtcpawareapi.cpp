@@ -140,7 +140,7 @@ int __real_dmtcpCheckpoint(){
 }
 
 int __real_dmtcpRunCommand(char command){
-  int result[sizeof(exampleMessage->params)/sizeof(int)];
+  int result[DMTCPMESSAGE_NUM_PARAMS];
   int i = 0;
   while (i < 100) {
     _runCoordinatorCmd(command, result);
@@ -164,7 +164,7 @@ int __real_dmtcpRunCommand(char command){
 }
 
 const DmtcpCoordinatorStatus* __real_dmtcpGetCoordinatorStatus(){
-  int result[sizeof(exampleMessage->params)/sizeof(int)];
+  int result[DMTCPMESSAGE_NUM_PARAMS];
   _runCoordinatorCmd('s',result);
 
   //must be static so memory is not deleted.

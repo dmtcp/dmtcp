@@ -510,6 +510,10 @@ int _real_sighold(int sig){
 int _real_sigignore(int sig){
   REAL_FUNC_PASSTHROUGH ( sigignore ) ( sig );
 }
+// See 'man sigpause':  signal.h defines two possible versions for sigpause.
+int _real__sigpause(int __sig_or_mask, int __is_sig){
+  REAL_FUNC_PASSTHROUGH ( __sigpause ) ( __sig_or_mask, __is_sig );
+}
 int _real_sigpause(int sig){
   REAL_FUNC_PASSTHROUGH ( sigpause ) ( sig );
 }

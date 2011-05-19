@@ -485,6 +485,7 @@ extern "C" long int syscall(long int sys_num, ... )
       break;
     }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9))
     case SYS_waitid:
     {
       //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
@@ -492,6 +493,7 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = waitid((idtype_t)idtype, id, infop, options);
       break;
     }
+#endif
     case SYS_wait4:
     {
       SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,

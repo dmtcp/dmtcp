@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <algorithm>
 #include <set>
+#include <typeinfo>
 
 #ifndef DMTCP
 #  define DECORATE_FN(fn) ::fn
@@ -71,7 +72,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
 
   // Fall back to gethostbyname on error
   if (res != 0) {
-    JWARNING (false) (hostname) (hstrerror)
+    JWARNING (false) (hostname) (hstrerror(h_errno))
       .Text("gethostbyname_r failed, calling gethostbyname");
     result = gethostbyname ( hostname );
   }
@@ -85,7 +86,8 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
     memcpy ( &_addr.sin_addr.s_addr, result->h_addr, result->h_length );
     if (port != -1) _addr.sin_port = htons (port);
   } else { // else (hostname, port) not valid; poison the port number
-    _addr.sin_port = -2;
+    JASSERT( typeid(_addr.sin_port) == typeid(in_port_t) );
+    _addr.sin_port = (in_port_t)-2;
   }
 #else
   struct addrinfo hints;
