@@ -500,7 +500,8 @@ runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 runTest("perl",          1, ["/usr/bin/perl"])
 
-runTest("python",        1, ["/usr/bin/python"])
+if testconfig.HAS_PYTHON == "yes":
+  runTest("python",        1, ["/usr/bin/python"])
 
 if testconfig.PID_VIRTUALIZATION == "yes":
   os.environ['DMTCP_GZIP'] = "0"

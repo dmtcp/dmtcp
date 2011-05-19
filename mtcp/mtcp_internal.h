@@ -102,7 +102,11 @@ struct user_desc
 #  include <asm/ldt.h>
 # endif
   // WARNING: /usr/include/linux/version.h often has out-of-date version.
-# if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
+/* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
+ * struct user_desc from /usr/include/.../ldt.h
+ * Perhaps kernel was patched by backport.  Let's not re-define user_desc.
+ */
+# if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9) && 0
    /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
 #  define user_desc modify_ldt_ldt_s
 # endif

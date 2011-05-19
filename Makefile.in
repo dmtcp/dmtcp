@@ -64,6 +64,8 @@ display_release:
 	@ grep DISTRIB_CODENAME /etc/lsb-release 2> /dev/null || true
 	@ cat /etc/redhat-release 2> /dev/null || true
 	@ cat /etc/debian-version 2> /dev/null || true
+	@ grep SUSE /etc/SuSE-release 2> /dev/null || true
+# Mandriva uses lsb-release and redhat-release, as well as mandriva-release
 
 all: default tests
 
@@ -80,7 +82,11 @@ tests: mtcp dmtcp
 LIMIT=ulimit -v 1048576
 
 check: tests
-	+bash -c "$(LIMIT) && ./test/autotest.py $*"
+	@+ if which python > /dev/null; then \
+	   bash -c "$(LIMIT) && ./test/autotest.py $*"; \
+	  else echo '*** No python found in your path.'; echo '*** Please add' \
+	   ' python to path or build Python 2.x for x >= 6 or later.'; \
+	  fi
 
 check-%: tests
 	+bash -c "$(LIMIT) && ./test/autotest.py '$*'"
@@ -150,6 +156,9 @@ svndist:
 	else \
 	  echo "svn info failed"; \
 	fi
+
+dist_exclude.txt:
+	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
 
 dist: distclean dist_exclude.txt
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \

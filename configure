@@ -615,6 +615,7 @@ HAS_GCL
 HAS_ZSH
 HAS_TCSH
 HAS_DASH
+HAS_PYTHON
 HAS_READLINE
 HBICT_DELTACOMP
 FAST_CKPT_RESTART
@@ -3449,19 +3450,56 @@ else
 
 fi
 
-#Add check for libc.a next.  MTCP uses it in build.
 # Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
 # Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
 #  and AC_MSG_FAILURE in future version.
 #AC_MSG_CHECKING([if 'gcc -static' works])
 #AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
 #$CC -static -o conftest$ac_exeext conftest.$ac_ext
-#AC_CHECK_FILE([conftest$ac_exeext], [], [static_libc=no])
-#if test x"$static_libc" = xno; then
-#  AC_MSG_ERROR(['gcc -static hello.c' failed.  No static libc.a found?
-#  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
-#    in default system, and must be added via the glibc-static package.])
+#AC_CHECK_FILE([conftest$ac_exeext], [], [static_gcc=no])
+#if test x"$static_gcc" = xno; then
+#  AC_MSG_ERROR(['gcc -static hello.c' failed.
 #fi
+
+#check for python
+# Extract the first word of "python", so it can be a program name with args.
+set dummy python; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_PYTHON+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_PYTHON"; then
+  ac_cv_prog_HAS_PYTHON="$HAS_PYTHON" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_PYTHON="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_PYTHON" && ac_cv_prog_HAS_PYTHON="no"
+fi
+fi
+HAS_PYTHON=$ac_cv_prog_HAS_PYTHON
+if test -n "$HAS_PYTHON"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_PYTHON" >&5
+$as_echo "$HAS_PYTHON" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
 
 #check for dash
 # Extract the first word of "dash", so it can be a program name with args.
