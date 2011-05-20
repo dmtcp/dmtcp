@@ -47,15 +47,19 @@ endif
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: display_build_env mtcp dmtcp
+default: display-build-env mtcp dmtcp
 	$(MKDIR_P) bin
 	($(MAKE) bin)
 	($(MAKE) dmtcpaware)
 
-display_build_env: display_release
+display-build-env: display_release
+	@ if test -r ./config.log ; then \
+	    echo -n config.log: ; \
+	    grep '\$$ ' ./config.log | grep configure ; \
+	  fi || true
 	@ uname -a
-	@ ${CC} --version
-	@ ls -l /lib/libc.so.6 /lib{64,32}/libc.so.6 2> /dev/null || true
+	@ ${CC} --version || true
+	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 2> /dev/null || true
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
 
@@ -214,5 +218,5 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
-.PHONY: all display_build_env display_release mtcp dmtcp clean distclean bin \
+.PHONY: all display-build-env display_release mtcp dmtcp clean distclean bin \
 	dmtcpaware examples dmtcp_noexamples
