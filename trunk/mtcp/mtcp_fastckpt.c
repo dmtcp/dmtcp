@@ -1,12 +1,11 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
-#include <sys/user.h>
 #include <errno.h>
 #include "mtcp_internal.h"
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
-static MTCP_CKPT_Image_Header *ckpt_image_header = NULL;
+static mtcp_ckpt_image_header_t *ckpt_image_header = NULL;
 static int curr_area_idx = 0;
 static Area *area_array = NULL;
 
@@ -83,9 +82,9 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
 
   off_t curr_offset = fastckpt_align_offset(fd, 0);
 
-  size_t maps_offset = (sizeof (MTCP_CKPT_Image_Header)
+  size_t maps_offset = (sizeof (mtcp_ckpt_image_header_t)
                         + (sizeof (Area) * num_memory_regions)
-                        + (MTCP_PAGE_SIZE - 1)) & PAGE_MASK;
+                        + (MTCP_PAGE_SIZE - 1)) & MTCP_PAGE_MASK;
 
   mtcp_sys_ftruncate(fd, curr_offset + maps_offset);
   VA hdr_addr = (VA) mtcp_sys_mmap(NULL, maps_offset, PROT_READ | PROT_WRITE,
@@ -96,7 +95,7 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
     mtcp_abort();
   }
 
-  ckpt_image_header = (MTCP_CKPT_Image_Header*) hdr_addr;
+  ckpt_image_header = (mtcp_ckpt_image_header_t*) hdr_addr;
   memset(ckpt_image_header, 0, sizeof(ckpt_image_header));
 
   // TODO : place this lseek at proper place
@@ -118,7 +117,7 @@ void fastckpt_prepare_for_ckpt(int fd, VA restore_start, VA finishrestore)
           ckpt_image_header->stack_rlimit.rlim_cur,
           ckpt_image_header->stack_rlimit.rlim_max);
 
-  area_array = (Area*) (hdr_addr + sizeof (MTCP_CKPT_Image_Header));
+  area_array = (Area*) (hdr_addr + sizeof (mtcp_ckpt_image_header_t));
   curr_area_idx = 0;
 }
 
@@ -155,19 +154,19 @@ void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
 {
   off_t curr_offset = fastckpt_align_offset(fd, 1);
 
-  VA addr = mtcp_sys_mmap(0, sizeof(MTCP_CKPT_Image_Header) + sizeof(Area),
+  VA addr = mtcp_sys_mmap(0, sizeof(mtcp_ckpt_image_header_t) + sizeof(Area),
                           PROT_READ, MAP_PRIVATE, fd, curr_offset);
   if (addr == MAP_FAILED) {
     MTCP_PRINTF("mmap failed with error: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
-  MTCP_CKPT_Image_Header *hdr = (MTCP_CKPT_Image_Header*) addr;
+  mtcp_ckpt_image_header_t *hdr = (mtcp_ckpt_image_header_t*) addr;
 
   *stack_rlimit = hdr->stack_rlimit;
   *area = *(Area *)((VA)hdr + sizeof(*hdr));
   *restore_start = hdr->restore_start_fncptr;
 
-  mtcp_sys_munmap(addr, sizeof(MTCP_CKPT_Image_Header));
+  mtcp_sys_munmap(addr, sizeof(mtcp_ckpt_image_header_t));
 }
 
 __attribute__ ((visibility ("hidden")))
@@ -175,14 +174,14 @@ void fastckpt_prepare_for_restore(int fd)
 {
   off_t curr_offset = fastckpt_align_offset(fd, 1);
 
-  VA addr = mtcp_sys_mmap(0, sizeof(MTCP_CKPT_Image_Header), PROT_READ,
+  VA addr = mtcp_sys_mmap(0, sizeof(mtcp_ckpt_image_header_t), PROT_READ,
                           MAP_PRIVATE, fd, curr_offset);
   if (addr == MAP_FAILED) {
     MTCP_PRINTF("mmap failed with error: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
-  MTCP_CKPT_Image_Header hdr = *(MTCP_CKPT_Image_Header*) addr;
-  if (mtcp_sys_munmap(addr, sizeof(MTCP_CKPT_Image_Header)) == -1) {
+  mtcp_ckpt_image_header_t hdr = *(mtcp_ckpt_image_header_t*) addr;
+  if (mtcp_sys_munmap(addr, sizeof(mtcp_ckpt_image_header_t)) == -1) {
     MTCP_PRINTF("munmap failed with error: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
@@ -194,10 +193,10 @@ void fastckpt_prepare_for_restore(int fd)
     mtcp_abort();
   }
 
-  ckpt_image_header = (MTCP_CKPT_Image_Header*) addr;
+  ckpt_image_header = (mtcp_ckpt_image_header_t*) addr;
   curr_area_idx = 1;
   area_array = (Area*) (ckpt_image_header->start_addr +
-                        sizeof(MTCP_CKPT_Image_Header));
+                        sizeof(mtcp_ckpt_image_header_t));
 }
 
 __attribute__ ((visibility ("hidden")))

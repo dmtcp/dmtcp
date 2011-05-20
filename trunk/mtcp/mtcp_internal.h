@@ -126,7 +126,9 @@ typedef unsigned short mtcp_segreg_t;
 typedef unsigned int mtcp_segreg_t;
 #endif
 
+// MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE 4096
+#define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
 #define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                           : : : "eax", "ebx", "ecx", "edx", "memory")
 #define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
@@ -186,7 +188,7 @@ struct Area { char *addr;   // args required for mmap to restore memory area
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
 #define MTCP_CKPT_IMAGE_VERSION 1.3
-typedef struct MTCP_CKPT_Image_Header {
+typedef struct mtcp_ckpt_image_header {
   float ckpt_image_version;
 
   VA start_addr;
@@ -202,7 +204,7 @@ typedef struct MTCP_CKPT_Image_Header {
   VA finish_retore_fncptr; /* will be bound to fnc, finishrestore */
 
   struct rlimit stack_rlimit;
-} MTCP_CKPT_Image_Header;
+} mtcp_ckpt_image_header_t;
 
 VA fastckpt_mmap_addr();
 void fastckpt_write_mem_region(int fd, Area *area);
