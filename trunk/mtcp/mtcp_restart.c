@@ -335,7 +335,6 @@ int __libc_start_main (int (*main) (int, char **, char **),
                        void (*init) (void), void (*fini) (void),
                        void (*rtld_fini) (void), void *stack_end)
 {
-  //while(1);
   char **envp = argv + argc + 1;
   int result = main (argc, argv, envp);
   mtcp_sys_exit(result);

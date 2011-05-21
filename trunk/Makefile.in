@@ -52,7 +52,7 @@ default: display-build-env mtcp dmtcp
 	($(MAKE) bin)
 	($(MAKE) dmtcpaware)
 
-display-build-env: display_release
+display-build-env: display-release
 	@ if test -r ./config.log ; then \
 	    echo -n config.log: ; \
 	    grep '\$$ ' ./config.log | grep configure ; \
@@ -63,7 +63,7 @@ display-build-env: display_release
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
 
-display_release:
+display-release:
 	@ grep DISTRIB_DESCRIPTION /etc/lsb-release 2> /dev/null || true
 	@ grep DISTRIB_CODENAME /etc/lsb-release 2> /dev/null || true
 	@ cat /etc/redhat-release 2> /dev/null || true
@@ -218,5 +218,5 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
  
-.PHONY: all display-build-env display_release mtcp dmtcp clean distclean bin \
+.PHONY: all display-build-env display-release mtcp dmtcp clean distclean bin \
 	dmtcpaware examples dmtcp_noexamples

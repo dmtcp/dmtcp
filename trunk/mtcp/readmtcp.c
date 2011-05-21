@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
       exit(1);
     }
     readall(fd, linkbuf, linklen);
-    linkbuf[linklen] = 0;
+    linkbuf[linklen] = '\0';
   }
 #endif
 

@@ -1,3 +1,17 @@
+# We should disable AM_MAINTAINER_MODE since otherwise a re-build by the
+#  end-user #  may require local tools, which may be missing or whose version is
+#  incompatible with these tools (e.g. autoheader).  Instead, we run NMI and
+#  openSUSE build services to test compatibility with end-user machines.
+#  The developers should run autoconf, automake, etc., as needed, but
+#  not propagate to the svn-generated tools that may be incompatible
+#  with the user's local tools.  - Gene
+# See http://www.gnu.org/s/hello/manual/automake/CVS.html#CVS
+# AM_MAINTAINER_MDE([disable])
+
+# not a GNU package. You can remove this line, if
+# have all needed files, that a GNU package needs
+AUTOMAKE_OPTIONS = foreign
+
 #HEADERS
 #set the include path found by configure
 INCLUDES= $(all_includes)

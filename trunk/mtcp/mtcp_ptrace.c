@@ -58,7 +58,7 @@ sem_t __does_inferior_exist_sem;
 int __init_does_inferior_exist_sem = 0;
 int __check_once_does_inferior_exist = 0;
 
-char dmtcp_tmp_dir[PATH_MAX];
+char dmtcp_tmp_dir[PATH_MAX] = "";  /* Can test this to see if uninitialized */
 char new_ptrace_shared_file[PATH_MAX];
 char ptrace_shared_file[PATH_MAX];
 char ptrace_setoptions_file[PATH_MAX];
@@ -596,12 +596,21 @@ void ptrace_unlock_inferiors()
 void create_file(pid_t pid)
 {
   char str[RECORDPATHLEN];
+  char default_tmpdir[sizeof("/tmp")] = "/tmp";
   memset(str, 0, RECORDPATHLEN);
+  if (dmtcp_tmp_dir[0] == '\0') {
+    char *new_tmpdir =
+      ( getenv("DMTCP_TMPDIR") ? getenv("DMTCP_TMPDIR") :
+                                 ( getenv("TMDPIR") ? getenv("TMDPIR") :
+                                                      default_tmpdir));
+    strncpy(dmtcp_tmp_dir, new_tmpdir, sizeof(dmtcp_tmp_dir));
+  }
   sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
 
   int fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
     MTCP_PRINTF("Error opening file %s\n: %s\n", str, strerror(errno));
+while(1);
     mtcp_abort();
   }
   if (close(fd) != 0) {

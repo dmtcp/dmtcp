@@ -485,7 +485,7 @@ static int test_use_compression(char *compressor, char *command, char *path,
                                 int def);
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **args);
 static void checkpointeverything (void);
-static void writefiledescrs (int fd);
+static void writefiledescrs (int fd, int fdCkptFileOnDisk);
 static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
 //static void writefile (int fd, void const *buff, size_t size);
@@ -522,7 +522,7 @@ static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
 int perform_callback_write_dmtcp_header();
 int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
 int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk);
-void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd);;
+void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk);
 
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
@@ -2221,7 +2221,7 @@ static void checkpointeverything (void)
   MTCP_ASSERT( fdCkptFileOnDisk >= 0 );
   MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
 
-  write_ckpt_to_file(fd, tmpDMTCPHeaderFd);
+  write_ckpt_to_file(fd, tmpDMTCPHeaderFd, fdCkptFileOnDisk);
 
 #ifndef FAST_CKPT_RST_VIA_MMAP
   if (use_compression) {
@@ -2448,7 +2448,8 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
   }
 }
 
-void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
+/* fd is file descriptor for gzip or other compression process */
+void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 {
   Area area;
   int stack_was_seen = 0;
@@ -2511,7 +2512,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
   mtcp_writefile (fd, &frpointer, sizeof frpointer);
 
   /* Write out file descriptors */
-  writefiledescrs (fd);
+  writefiledescrs (fd, fdCkptFileOnDisk);
 #endif
 
   /* Finally comes the memory contents */
@@ -2697,6 +2698,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd)
 /* True if the given FD should be checkpointed */
 static int should_ckpt_fd (int fd)
 {
+   /* DMTCP policy is to never let MTCP checkpoint fd; DMTCP will do it. */
    if ( callback_ckpt_fd!=NULL )
      return (*callback_ckpt_fd)(fd); //delegate to callback
    else if (fd > 2)
@@ -2711,8 +2713,9 @@ static int should_ckpt_fd (int fd)
    }
 }
 
-/* Write list of open files to the checkpoint file */
-static void writefiledescrs (int fd)
+/* Write list of open files to the ckpt file.  fd is file descriptor to gzip
+ * or other compression process.  May or may not be same as fdCkptFileOnDisk */
+static void writefiledescrs (int fd, int fdCkptFileOnDisk)
 {
   char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
   int doff, dsiz, fddir, fdnum, linklen, rc;
@@ -2749,7 +2752,8 @@ static void writefiledescrs (int fd)
        */
 
       fdnum = strtol (dent -> d_name, &p, 10);
-      if ((*p == '\0') && (fdnum >= 0) && (fdnum != fd) && (fdnum != fddir)
+      if ((*p == '\0') && (fdnum >= 0)
+          && (fdnum != fd) && (fdnum != fdCkptFileOnDisk) && (fdnum != fddir)
 	  && (should_ckpt_fd (fdnum) > 0)) {
 
 #ifdef FAST_CKPT_RST_VIA_MMAP

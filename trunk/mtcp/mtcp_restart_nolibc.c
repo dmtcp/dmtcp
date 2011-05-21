@@ -739,6 +739,8 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     // checkpoint file(.mtcp) into system memory. From system memory,
     // the contents are written back to newly created replica of the shared
     // file (at the same path where it used to exist before checkpoint).
+    // Note that we overwrite the contents of the shared file with
+    // the original contents from the checkpoint image.
     mmappedat = mtcp_sys_mmap (area->addr, area->size, PROT_READ | PROT_WRITE,
                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mmappedat == MAP_FAILED) {
@@ -747,6 +749,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       mtcp_abort ();
     }
 
+    // Overwrite mmap'ed memory region with contents from original ckpt image.
     mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
     mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
 
