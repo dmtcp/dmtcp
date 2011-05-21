@@ -84,13 +84,13 @@ namespace
 }
 
 #ifdef PTRACE
-__attribute__ ((visibility ("hidden"))) t_mtcp_get_ptrace_waitpid_info
+__attribute__ ((visibility ("hidden"))) mtcp_get_ptrace_waitpid_info_t
   mtcp_get_ptrace_waitpid_info = NULL;
 
-__attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
+__attribute__ ((visibility ("hidden"))) mtcp_init_thread_local_t
   mtcp_init_thread_local = NULL;
 
-__attribute__ ((visibility ("hidden"))) t_mtcp_ptracing
+__attribute__ ((visibility ("hidden"))) mtcp_ptracing_t
   mtcp_ptracing = NULL;
 
 __attribute__ ((visibility ("hidden"))) sigset_t signals_set;
@@ -137,15 +137,15 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
-  typedef int ( *t_mtcp_init ) ( char const *checkpointFilename,
+  typedef int ( *mtcp_init_t ) ( char const *checkpointFilename,
                                  int interval,
                                  int clonenabledefault );
-  typedef void ( *t_mtcp_set_callbacks ) (
+  typedef void ( *mtcp_set_callbacks_t ) (
           void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) ( char ** ckptFilename ),
           void ( *post_ckpt ) ( int isRestarting,
                                 char* mtcpRestoreArgvStartAddr),
-          int  ( *ckpt_fd ) ( int fd ),
+          int  ( *should_ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
           void ( *restore_virtual_pid_table) ()
 #ifdef PTRACE
@@ -155,8 +155,8 @@ extern "C"
           int (*ptrace_info_list_size)()
 #endif
   );
-  typedef int ( *t_mtcp_ok ) ( void );
-  typedef void ( *t_mtcp_kill_ckpthread ) ( void );
+  typedef int ( *mtcp_ok_t ) ( void );
+  typedef void ( *mtcp_kill_ckpthread_t ) ( void );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -357,28 +357,28 @@ void dmtcp::initializeMtcpEngine()
   else
     *dmtcp_info_restore_working_directory = 0;
 
-  t_mtcp_set_callbacks setCallbks =
-    ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+  mtcp_set_callbacks_t mtcp_set_callbacks =
+    ( mtcp_set_callbacks_t ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
-  t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
-  t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
+  mtcp_init_t init = ( mtcp_init_t ) _get_mtcp_symbol ( "mtcp_init" );
+  mtcp_ok_t okFn = ( mtcp_ok_t ) _get_mtcp_symbol ( "mtcp_ok" );
 
 #ifdef PTRACE
   sigemptyset (&signals_set);
   // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
+  mtcp_get_ptrace_waitpid_info = ( mtcp_get_ptrace_waitpid_info_T )
     _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
 
-  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) 
+  mtcp_init_thread_local = ( mtcp_init_thread_local_t ) 
     _get_mtcp_symbol ( "init_thread_local" );
 
-  mtcp_ptracing = ( t_mtcp_ptracing ) 
+  mtcp_ptracing = ( mtcp_ptracing_t ) 
     _get_mtcp_symbol ( "ptracing" );
 #endif
 
-  ( *setCallbks )( &callbackSleepBetweenCheckpoint
+  ( *mtcp_set_callbacks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
@@ -919,7 +919,7 @@ void dmtcp::shutdownMtcpEngineOnFork()
 
 void dmtcp::killCkpthread()
 {
-  t_mtcp_kill_ckpthread kill_ckpthread =
-    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
+  mtcp_kill_ckpthread_t kill_ckpthread =
+    (mtcp_kill_ckpthread_t) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
   kill_ckpthread();
 }
