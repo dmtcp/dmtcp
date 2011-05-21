@@ -26,7 +26,8 @@ fi
 
 AC_ARG_ENABLE([quiet],
             [AS_HELP_STRING([--enable-quiet],
-                            [disable NOTE and WARNING (default is                             to print NOTE, WARNING, but no TRACE)])],
+                            [disable NOTE and WARNING (default is
+                             to print NOTE, WARNING, but no TRACE)])],
             [use_quiet=$enableval],
             [use_quiet=no])
 
@@ -52,19 +53,6 @@ AC_ARG_ENABLE([condor_support],
             [use_condor_support=$enableval],
             [use_condor_support=no])
 
-AC_ARG_ENABLE([forked_checkpointing],
-            [AS_HELP_STRING([--enable-forked-checkpointing],
-                            [fork a child process to do checkpointing, so that
-                            parent sees only minor delay during checkpoint.
-                            (EXPERIMENTAL)])],
-            [use_forked_ckpt=$enableval],
-            [use_forked_ckpt=no])
-
-if test "$use_forked_ckpt" = "yes"; then
-  AC_DEFINE([FORKED_CHECKPOINTING],[],[Child process does checkpointing])
-fi
-
-
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written
@@ -84,13 +72,51 @@ AC_ARG_ENABLE([ptrace_support],
             [use_ptrace_support=$enableval],
             [use_ptrace_support=no])
 
+if test "$use_ptrace_support" = "yes"; then
+  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+fi
+
+AC_ARG_ENABLE([forked_checkpointing],
+            [AS_HELP_STRING([--enable-forked-checkpointing],
+                            [fork a child process to do checkpointing, so that
+                            parent sees only minor delay during checkpoint.
+                            (EXPERIMENTAL)])],
+            [use_forked_ckpt=$enableval],
+            [use_forked_ckpt=no])
+
+if test "$use_forked_ckpt" = "yes"; then
+  AC_DEFINE([FORKED_CHECKPOINTING],[],[Child process does checkpointing])
+fi
+
+AC_ARG_ENABLE([delta_compression],
+            [AS_HELP_STRING([--enable-delta_compression],
+                            [enable incremental/differential checkpointing
+			     using HBICT (hash-based incremental checkpointing)
+			     tool; disables default gzip compression
+			     (EXPERIMENTAL)])],
+            [use_deltacomp=$enableval],
+            [use_deltacomp=no])
+
+if test "$use_deltacomp" = "yes"; then
+  AC_DEFINE([HBICT_DELTACOMP],[],[Use delta compression.])
+fi
+
 AC_ARG_ENABLE([experts_only_space1], [], [], [])
 AC_ARG_ENABLE([experts_only],
             [AS_HELP_STRING(
              [               === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===],
 			    [(Use at your own risk!!)])],
 	    [], [])
-AC_ARG_ENABLE([Bexperts_only_after], [AS_HELP_STRING([ ], [])], [], [])
+AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
+
+AC_ARG_ENABLE([pid_virtualization],
+            [AS_HELP_STRING([--disable-pid-virtualization],
+                            [disable pid virtualization.  Pid virtualization
+                            is _required_ for checkpointing shells and for many
+                            programs using fork().  Disable it only for
+                            performance reasons or for diagnosis of bugs.])],
+            [use_pid_virt=$enableval],
+            [use_pid_virt=yes])
 
 AC_ARG_ENABLE([external_socket_handling],
             [AS_HELP_STRING([--enable-external-socket-handling],
@@ -119,29 +145,8 @@ if test "$use_condor_support" = "yes"; then
   AC_DEFINE([STALE_SOCKET_HANDLING],[no])
 fi
 
-AC_ARG_ENABLE([pid_virtualization],
-            [AS_HELP_STRING([--disable-pid-virtualization],
-                            [disable pid virtualization.  Pid virtualization
-                            is needed for checkpointing shells and certain
-                            other programs.  Disable it for performance
-                            reasons or for diagnosis of bugs.])],
-            [use_pid_virt=$enableval],
-            [use_pid_virt=yes])
-AC_ARG_ENABLE([delta_compression],
-            [AS_HELP_STRING([--enable-delta_compression],
-                            [enable delta compression of checkpoints.
-			     (EXPERIMENTAL)])],
-            [use_deltacomp=$enableval],
-            [use_deltacomp=no])
-
 if test "$use_pid_virt" = "yes"; then
   AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls.])
-fi
-if test "$use_ptrace_support" = "yes"; then
-  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
-fi
-if test "$use_deltacomp" = "yes"; then
-  AC_DEFINE([HBICT_DELTACOMP],[],[Use delta compression.])
 fi
 
 AC_ARG_ENABLE([allocator],

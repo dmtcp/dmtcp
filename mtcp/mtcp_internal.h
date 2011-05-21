@@ -69,6 +69,12 @@ extern pid_t saved_pid;
     mtcp_printf(args); \
   } while (0)
 
+#define MTCP_ASSERT(condition) \
+  if (! (condition)) { \
+    MTCP_PRINTF("Assertion failed: %s\n", #condition); \
+    mtcp_abort(); \
+  }
+
 #ifdef DEBUG
 #define DPRINTF(args...) MTCP_PRINTF(args)
 #else

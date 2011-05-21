@@ -651,16 +651,16 @@ enable_debug
 enable_quiet
 enable_timing
 enable_condor_support
-enable_forked_checkpointing
 enable_unique_checkpoint_filenames
 enable_ptrace_support
+enable_forked_checkpointing
+enable_delta_compression
 enable_experts_only_space1
 enable_experts_only
-enable_Bexperts_only_after
+enable_experts_only_after
+enable_pid_virtualization
 enable_external_socket_handling
 enable_stale_socket_handling
-enable_pid_virtualization
-enable_delta_compression
 enable_allocator
 with_record_replay
 enable_m32
@@ -1301,20 +1301,29 @@ Optional Features:
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
   --enable-condor-support set configure options to support Condor.
-  --enable-forked-checkpointing
-                          fork a child process to do checkpointing, so that
-                          parent sees only minor delay during checkpoint.
-                          (EXPERIMENTAL)
   --enable-unique-checkpoint-filenames
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
   --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
                           (EXPERIMENTAL)
+  --enable-forked-checkpointing
+                          fork a child process to do checkpointing, so that
+                          parent sees only minor delay during checkpoint.
+                          (EXPERIMENTAL)
+  --enable-delta_compression
+                          enable incremental/differential checkpointing using
+                          HBICT (hash-based incremental checkpointing) tool;
+                          disables default gzip compression (EXPERIMENTAL)
 
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
+  --disable-pid-virtualization
+                          disable pid virtualization. Pid virtualization is
+                          _required_ for checkpointing shells and for many
+                          programs using fork(). Disable it only for
+                          performance reasons or for diagnosis of bugs.
   --enable-external-socket-handling
                           wait for connection to external peer to close;
                           expensive if stale-socket-handling also enabled.
@@ -1322,14 +1331,6 @@ Optional Features:
                           disable stale socket handling; unknown peer assumed
                           to be external; follow poicy of
                           external-socket-handling configure option.
-  --disable-pid-virtualization
-                          disable pid virtualization. Pid virtualization is
-                          needed for checkpointing shells and certain other
-                          programs. Disable it for performance reasons or for
-                          diagnosis of bugs.
-  --enable-delta_compression
-                          enable delta compression of checkpoints.
-                          (EXPERIMENTAL)
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free. (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
@@ -3965,21 +3966,6 @@ else
 fi
 
 
-# Check whether --enable-forked_checkpointing was given.
-if test "${enable_forked_checkpointing+set}" = set; then :
-  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
-else
-  use_forked_ckpt=no
-fi
-
-
-if test "$use_forked_ckpt" = "yes"; then
-
-$as_echo "#define FORKED_CHECKPOINTING /**/" >>confdefs.h
-
-fi
-
-
 # Check whether --enable-unique_checkpoint_filenames was given.
 if test "${enable_unique_checkpoint_filenames+set}" = set; then :
   enableval=$enable_unique_checkpoint_filenames; use_unique_checkpoint_filenames=$enableval
@@ -4002,6 +3988,40 @@ else
 fi
 
 
+if test "$use_ptrace_support" = "yes"; then
+
+$as_echo "#define PTRACE /**/" >>confdefs.h
+
+fi
+
+# Check whether --enable-forked_checkpointing was given.
+if test "${enable_forked_checkpointing+set}" = set; then :
+  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
+else
+  use_forked_ckpt=no
+fi
+
+
+if test "$use_forked_ckpt" = "yes"; then
+
+$as_echo "#define FORKED_CHECKPOINTING /**/" >>confdefs.h
+
+fi
+
+# Check whether --enable-delta_compression was given.
+if test "${enable_delta_compression+set}" = set; then :
+  enableval=$enable_delta_compression; use_deltacomp=$enableval
+else
+  use_deltacomp=no
+fi
+
+
+if test "$use_deltacomp" = "yes"; then
+
+$as_echo "#define HBICT_DELTACOMP /**/" >>confdefs.h
+
+fi
+
 # Check whether --enable-experts_only_space1 was given.
 if test "${enable_experts_only_space1+set}" = set; then :
   enableval=$enable_experts_only_space1;
@@ -4012,9 +4032,17 @@ if test "${enable_experts_only+set}" = set; then :
   enableval=$enable_experts_only;
 fi
 
-# Check whether --enable-Bexperts_only_after was given.
-if test "${enable_Bexperts_only_after+set}" = set; then :
-  enableval=$enable_Bexperts_only_after;
+# Check whether --enable-experts_only_after was given.
+if test "${enable_experts_only_after+set}" = set; then :
+  enableval=$enable_experts_only_after;
+fi
+
+
+# Check whether --enable-pid_virtualization was given.
+if test "${enable_pid_virtualization+set}" = set; then :
+  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
+else
+  use_pid_virt=yes
 fi
 
 
@@ -4051,34 +4079,9 @@ if test "$use_condor_support" = "yes"; then
 
 fi
 
-# Check whether --enable-pid_virtualization was given.
-if test "${enable_pid_virtualization+set}" = set; then :
-  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
-else
-  use_pid_virt=yes
-fi
-
-# Check whether --enable-delta_compression was given.
-if test "${enable_delta_compression+set}" = set; then :
-  enableval=$enable_delta_compression; use_deltacomp=$enableval
-else
-  use_deltacomp=no
-fi
-
-
 if test "$use_pid_virt" = "yes"; then
 
 $as_echo "#define PID_VIRTUALIZATION /**/" >>confdefs.h
-
-fi
-if test "$use_ptrace_support" = "yes"; then
-
-$as_echo "#define PTRACE /**/" >>confdefs.h
-
-fi
-if test "$use_deltacomp" = "yes"; then
-
-$as_echo "#define HBICT_DELTACOMP /**/" >>confdefs.h
 
 fi
 

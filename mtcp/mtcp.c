@@ -521,7 +521,7 @@ static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
 
 int perform_callback_write_dmtcp_header();
 int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
-int test_and_prepare_for_compression(int *fd);
+int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk);
 void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd);;
 
 /* FIXME:
@@ -2204,6 +2204,7 @@ static void checkpointeverything (void)
 {
   DPRINTF("thread:%d performing checkpoint.\n", mtcp_sys_kernel_gettid ());
 
+  /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
   int tmpDMTCPHeaderFd = perform_callback_write_dmtcp_header();
 
   int forked_ckpt_status = test_and_prepare_for_forked_ckpt(tmpDMTCPHeaderFd);
@@ -2211,33 +2212,21 @@ static void checkpointeverything (void)
     return;
   }
 
-  /* 4. Open fd to checkpoint image on disk */
-  /* Create temp checkpoint file and write magic number to it */
-  /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  int flags = O_CREAT | O_TRUNC | O_RDWR;
-#else
-  int flags = O_CREAT | O_TRUNC | O_WRONLY;
-#endif
-  int fd = mtcp_safe_open(temp_checkpointfilename, flags, 0600);
-  int fdCkptFileOnDisk = fd; /* if use_compression, fd is reset to pipe */
-  if (fd < 0) {
-    MTCP_PRINTF("error creating %s: %s\n",
-                temp_checkpointfilename, strerror(mtcp_sys_errno));
-    mtcp_abort();
-  }
-
-#ifndef FAST_CKPT_RST_VIA_MMAP
-  int use_compression = test_and_prepare_for_compression(&fd);
-  /* fd is now the write end of a pipe leading to compression child process */
-#endif
+  /* fd will either point to the ckpt file to write, or else the write end
+   * of a pipe leading to a compression child process.
+   */
+  int use_compression = 0;
+  int fdCkptFileOnDisk = -1;
+  int fd = perform_open_ckpt_image_fd(&use_compression, &fdCkptFileOnDisk);
+  MTCP_ASSERT( fdCkptFileOnDisk >= 0 );
+  MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
 
   write_ckpt_to_file(fd, tmpDMTCPHeaderFd);
 
 #ifndef FAST_CKPT_RST_VIA_MMAP
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    /* In test_and_prepare_for_compression(), we set SIGCHLD to SIG_DFL.
+    /* In perform_open_ckpt_image_fd(), we set SIGCHLD to SIG_DFL.
      * This is done to avoid calling the user SIGCHLD handler (if the user
      * SIG_DFL is needed for mtcp_sys_wait4() to work cleanly.
      * NOTE: We must wait in case user did rapid ckpt-kill in succession.
@@ -2307,30 +2296,30 @@ int perform_callback_write_dmtcp_header()
   return tmpfd;
 }
 
-int test_and_prepare_for_compression(int *fd)
+int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
 {
   char *gzip_cmd = "gzip";
   char gzip_path[PATH_MAX];
 
   int use_gzip_compression = 0;
   int use_deltacompression = 0;
+  *use_compression = 0;  /* default value */
 
   /* 1. Test if using GZIP compression */
+#ifndef FAST_CKPT_RST_VIA_MMAP
   use_gzip_compression = test_use_compression("GZIP", gzip_cmd, gzip_path, 1);
+#endif
 
+  /* 2. Test if using HBICT compression */
 #ifdef HBICT_DELTACOMP
   char *hbict_cmd = "hbict";
   char hbict_path[PATH_MAX];
   MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
 
-  /* 2. Test if using HBICT compression */
+# ifndef FAST_CKPT_RST_VIA_MMAP
   use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path,
-                                              1);
+# endif
 #endif
-
-  if (!use_gzip_compression && !use_deltacompression) {
-    return 0;
-  }
 
   /* 3. Open pipe */
   /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
@@ -2342,10 +2331,24 @@ int test_and_prepare_for_compression(int *fd)
     MTCP_PRINTF("WARNING: error creating pipe. Compression will "
                 "not be used.\n");
     use_gzip_compression = use_deltacompression = 0;
-    return 0;
   }
 
-  /* 5. We now have the information to pipe to gzip, or directly to fd
+  /* 4. Open fd to checkpoint image on disk */
+  /* Create temp checkpoint file and write magic number to it */
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  int flags = O_CREAT | O_TRUNC | O_RDWR;
+#else
+  int flags = O_CREAT | O_TRUNC | O_WRONLY;
+#endif
+  int fd = mtcp_safe_open(temp_checkpointfilename, flags, 0600);
+  *fdCkptFileOnDisk = fd; /* if use_compression, fd will be reset to pipe */
+  if (fd < 0) {
+    MTCP_PRINTF("error creating %s: %s\n",
+                temp_checkpointfilename, strerror(mtcp_sys_errno));
+    mtcp_abort();
+  }
+
+  /* 5. We now have the information to pipe to gzip, or directly to fd.
   *     We do it this way, so that gzip will be direct child of forked process
   *       when using forked checkpointing.
   */
@@ -2358,13 +2361,18 @@ int test_and_prepare_for_compression(int *fd)
 
   if (use_deltacompression) { /* fork a hbict process */
 #ifdef HBICT_DELTACOMP
-    *fd = open_ckpt_to_write_hbict(*fd, pipe_fds, hbict_path, gzip_path);
+    *use_compression = 1;
+    fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
 #endif
   } else if (use_gzip_compression) {/* fork a gzip process */
-    *fd = open_ckpt_to_write_gz(*fd, pipe_fds, gzip_path);
+    *use_compression = 1;
+    fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
+  } else {
+    *use_compression = 0;
+    fd = *fdCkptFileOnDisk;
   }
 
-  return 1;
+  return fd;
 }
 
 int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
