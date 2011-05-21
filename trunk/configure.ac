@@ -26,12 +26,14 @@ AC_ARG_ENABLE([debug],
                              disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
+
 AC_ARG_ENABLE([quiet],
             [AS_HELP_STRING([--enable-quiet],
                             [disable NOTE and WARNING (default is
                              to print NOTE, WARNING, but no TRACE)])],
             [use_quiet=$enableval],
             [use_quiet=no])
+
 AC_ARG_ENABLE([timing],
             [AS_HELP_STRING([--enable-timing],
                             [record checkpoint/restart timing information
@@ -39,6 +41,13 @@ AC_ARG_ENABLE([timing],
                             dmtcp_coordinator, and to stderr.])],
             [use_jtiming=$enableval],
             [use_jtiming=no])
+
+AC_ARG_ENABLE([condor_support],
+            [AS_HELP_STRING([--enable-condor-support],
+                            [set configure options to support Condor.])],
+            [use_condor_support=$enableval],
+            [use_condor_support=no])
+
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written
@@ -47,32 +56,26 @@ AC_ARG_ENABLE([unique_checkpoint_filenames],
             [use_unique_checkpoint_filenames=$enableval],
             [use_unique_checkpoint_filenames=no])
 
-AC_ARG_ENABLE([pid_virtualization],
-            [AS_HELP_STRING([--disable-pid-virtualization],
-                            [disable pid virtualization.  Pid virtualization
-			    is required for checkpointing shells and for many
-			    programs using fork().  Disable it only for
-			    performance reasons or for diagnosis of bugs.])],
-            [use_pid_virt=$enableval],
-            [use_pid_virt=yes])
-
-if test "$use_pid_virt" = "yes"; then
-  AC_SUBST([PID_VIRTUALIZATION], [yes])
-else
-  AC_SUBST([PID_VIRTUALIZATION], [no])
-fi
-
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],
                             [enable ptrace support for gdb, valgrind, etc.
 			    (EXPERIMENTAL)])],
             [use_ptrace_support=$enableval],
             [use_ptrace_support=no])
+
 if test "$use_ptrace_support" = "yes"; then
   AC_SUBST([PTRACE_SUPPORT], [yes])
 else
   AC_SUBST([PTRACE_SUPPORT], [no])
 fi
+
+AC_ARG_ENABLE([forked_checkpointing],
+            [AS_HELP_STRING([--enable-forked-checkpointing],
+                            [fork a child process to do checkpointing, so that
+                            parent sees only minor delay during checkpoint.
+			    (EXPERIMENTAL)])],
+            [use_forked_ckpt=$enableval],
+            [use_forked_ckpt=no])
 
 AC_ARG_ENABLE([fast_ckpt_restart],
             [AS_HELP_STRING([--enable-fast-ckpt-restart],
@@ -88,21 +91,42 @@ fi
 
 AC_ARG_ENABLE([delta_compression],
             [AS_HELP_STRING([--enable-delta_compression],
-                            [enable incremental/differential checkpointing using HBICT 
-                            (hash-based incremental checkpointing tool, EXPERIMENTAL)])],
+                            [enable incremental/differential checkpointing
+			     using HBICT (hash-based incremental checkpointing)
+			     tool; disables default gzip compression
+			     (EXPERIMENTAL)])],
             [use_deltacomp=$enableval],
             [use_deltacomp=no])
+
 if test "$use_deltacomp" = "yes"; then
   AC_SUBST([HBICT_DELTACOMP], [yes])
 else
   AC_SUBST([HBICT_DELTACOMP], [no])
 fi
 
-AC_ARG_ENABLE([condor_support],
-            [AS_HELP_STRING([--enable-condor-support],
-                            [set configure options to support Condor.])],
-            [use_condor_support=$enableval],
-            [use_condor_support=no])
+AC_ARG_ENABLE([experts_only_space1], [], [], [])
+AC_ARG_ENABLE([experts_only],
+            [AS_HELP_STRING(
+             [               === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===],
+			    [(Use at your own risk!!)])],
+	    [], [])
+AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
+
+AC_ARG_ENABLE([pid_virtualization],
+            [AS_HELP_STRING([--disable-pid-virtualization],
+                            [disable pid virtualization.  Pid virtualization
+			    is _required_ for checkpointing shells and for many
+			    programs using fork().  Disable it only for
+			    performance reasons or for diagnosis of bugs.])],
+            [use_pid_virt=$enableval],
+            [use_pid_virt=yes])
+
+if test "$use_pid_virt" = "yes"; then
+  AC_SUBST([PID_VIRTUALIZATION], [yes])
+else
+  AC_SUBST([PID_VIRTUALIZATION], [no])
+fi
+
 AC_ARG_ENABLE([external_socket_handling],
             [AS_HELP_STRING([--enable-external-socket-handling],
                             [wait for connection to external peer to close;
@@ -113,18 +137,11 @@ AC_ARG_ENABLE([external_socket_handling],
 AC_ARG_ENABLE([stale_socket_handling],
             [AS_HELP_STRING([--disable-stale-socket-handling],
 			    [disable stale socket handling; unknown peer
-                             assumed to be external; follow poicy of 
+                             assumed to be external; follow poicy of
                              external-socket-handling configure option.])],
             [use_stale_socket_handling=$enableval],
             [use_stale_socket_handling=yes])
 
-AC_ARG_ENABLE([forked_checkpointing],
-            [AS_HELP_STRING([--enable-forked-checkpointing],
-                            [fork a child process to do checkpointing, so that
-                            parent sees only minor delay during checkpoint
-			    (EXPERIMENTAL)])],
-            [use_forked_ckpt=$enableval],
-            [use_forked_ckpt=no])
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],
                             [cause DMTCP to use a custom allocator based on mmap 

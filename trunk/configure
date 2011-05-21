@@ -617,10 +617,10 @@ HAS_TCSH
 HAS_DASH
 HAS_PYTHON
 HAS_READLINE
+PID_VIRTUALIZATION
 HBICT_DELTACOMP
 FAST_CKPT_RESTART
 PTRACE_SUPPORT
-PID_VIRTUALIZATION
 subdirs
 ac_ct_CXX
 CXXFLAGS
@@ -679,15 +679,18 @@ enable_option_checking
 enable_debug
 enable_quiet
 enable_timing
+enable_condor_support
 enable_unique_checkpoint_filenames
-enable_pid_virtualization
 enable_ptrace_support
+enable_forked_checkpointing
 enable_fast_ckpt_restart
 enable_delta_compression
-enable_condor_support
+enable_experts_only_space1
+enable_experts_only
+enable_experts_only_after
+enable_pid_virtualization
 enable_external_socket_handling
 enable_stale_socket_handling
-enable_forked_checkpointing
 enable_allocator
 with_record_replay
 with_mpich
@@ -1322,25 +1325,33 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
+  --enable-condor-support set configure options to support Condor.
   --enable-unique-checkpoint-filenames
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
-  --disable-pid-virtualization
-                          disable pid virtualization. Pid virtualization is
-                          required for checkpointing shells and for many
-                          programs using fork(). Disable it only for
-                          performance reasons or for diagnosis of bugs.
   --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
+                          (EXPERIMENTAL)
+  --enable-forked-checkpointing
+                          fork a child process to do checkpointing, so that
+                          parent sees only minor delay during checkpoint.
                           (EXPERIMENTAL)
   --enable-fast-ckpt-restart
                           uses tricks to mmap from checkpoint image file
                           (EXPERIMENTAL)
   --enable-delta_compression
                           enable incremental/differential checkpointing using
-                          HBICT (hash-based incremental checkpointing tool,
-                          EXPERIMENTAL)
-  --enable-condor-support set configure options to support Condor.
+                          HBICT (hash-based incremental checkpointing) tool;
+                          disables default gzip compression (EXPERIMENTAL)
+
+                 === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
+                          (Use at your own risk!!)
+
+  --disable-pid-virtualization
+                          disable pid virtualization. Pid virtualization is
+                          _required_ for checkpointing shells and for many
+                          programs using fork(). Disable it only for
+                          performance reasons or for diagnosis of bugs.
   --enable-external-socket-handling
                           wait for connection to external peer to close;
                           expensive if stale-socket-handling also enabled.
@@ -1348,10 +1359,6 @@ Optional Features:
                           disable stale socket handling; unknown peer assumed
                           to be external; follow poicy of
                           external-socket-handling configure option.
-  --enable-forked-checkpointing
-                          fork a child process to do checkpointing, so that
-                          parent sees only minor delay during checkpoint
-                          (EXPERIMENTAL)
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
@@ -3278,6 +3285,7 @@ else
   use_jassert=no
 fi
 
+
 # Check whether --enable-quiet was given.
 if test "${enable_quiet+set}" = set; then :
   enableval=$enable_quiet; use_quiet=$enableval
@@ -3285,12 +3293,22 @@ else
   use_quiet=no
 fi
 
+
 # Check whether --enable-timing was given.
 if test "${enable_timing+set}" = set; then :
   enableval=$enable_timing; use_jtiming=$enableval
 else
   use_jtiming=no
 fi
+
+
+# Check whether --enable-condor_support was given.
+if test "${enable_condor_support+set}" = set; then :
+  enableval=$enable_condor_support; use_condor_support=$enableval
+else
+  use_condor_support=no
+fi
+
 
 # Check whether --enable-unique_checkpoint_filenames was given.
 if test "${enable_unique_checkpoint_filenames+set}" = set; then :
@@ -3300,28 +3318,13 @@ else
 fi
 
 
-# Check whether --enable-pid_virtualization was given.
-if test "${enable_pid_virtualization+set}" = set; then :
-  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
-else
-  use_pid_virt=yes
-fi
-
-
-if test "$use_pid_virt" = "yes"; then
-  PID_VIRTUALIZATION=yes
-
-else
-  PID_VIRTUALIZATION=no
-
-fi
-
 # Check whether --enable-ptrace_support was given.
 if test "${enable_ptrace_support+set}" = set; then :
   enableval=$enable_ptrace_support; use_ptrace_support=$enableval
 else
   use_ptrace_support=no
 fi
+
 
 if test "$use_ptrace_support" = "yes"; then
   PTRACE_SUPPORT=yes
@@ -3330,6 +3333,14 @@ else
   PTRACE_SUPPORT=no
 
 fi
+
+# Check whether --enable-forked_checkpointing was given.
+if test "${enable_forked_checkpointing+set}" = set; then :
+  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
+else
+  use_forked_ckpt=no
+fi
+
 
 # Check whether --enable-fast_ckpt_restart was given.
 if test "${enable_fast_ckpt_restart+set}" = set; then :
@@ -3353,6 +3364,7 @@ else
   use_deltacomp=no
 fi
 
+
 if test "$use_deltacomp" = "yes"; then
   HBICT_DELTACOMP=yes
 
@@ -3361,11 +3373,36 @@ else
 
 fi
 
-# Check whether --enable-condor_support was given.
-if test "${enable_condor_support+set}" = set; then :
-  enableval=$enable_condor_support; use_condor_support=$enableval
+# Check whether --enable-experts_only_space1 was given.
+if test "${enable_experts_only_space1+set}" = set; then :
+  enableval=$enable_experts_only_space1;
+fi
+
+# Check whether --enable-experts_only was given.
+if test "${enable_experts_only+set}" = set; then :
+  enableval=$enable_experts_only;
+fi
+
+# Check whether --enable-experts_only_after was given.
+if test "${enable_experts_only_after+set}" = set; then :
+  enableval=$enable_experts_only_after;
+fi
+
+
+# Check whether --enable-pid_virtualization was given.
+if test "${enable_pid_virtualization+set}" = set; then :
+  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
 else
-  use_condor_support=no
+  use_pid_virt=yes
+fi
+
+
+if test "$use_pid_virt" = "yes"; then
+  PID_VIRTUALIZATION=yes
+
+else
+  PID_VIRTUALIZATION=no
+
 fi
 
 # Check whether --enable-external_socket_handling was given.
@@ -3382,13 +3419,6 @@ else
   use_stale_socket_handling=yes
 fi
 
-
-# Check whether --enable-forked_checkpointing was given.
-if test "${enable_forked_checkpointing+set}" = set; then :
-  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
-else
-  use_forked_ckpt=no
-fi
 
 # Check whether --enable-allocator was given.
 if test "${enable_allocator+set}" = set; then :
