@@ -84,13 +84,13 @@ namespace
 }
 
 #ifdef PTRACE
-__attribute__ ((visibility ("hidden"))) mtcp_get_ptrace_waitpid_info_t
+__attribute__ ((visibility ("hidden"))) t_mtcp_get_ptrace_waitpid_info
   mtcp_get_ptrace_waitpid_info = NULL;
 
-__attribute__ ((visibility ("hidden"))) mtcp_init_thread_local_t
+__attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
   mtcp_init_thread_local = NULL;
 
-__attribute__ ((visibility ("hidden"))) mtcp_ptracing_t
+__attribute__ ((visibility ("hidden"))) t_mtcp_ptracing
   mtcp_ptracing = NULL;
 
 __attribute__ ((visibility ("hidden"))) sigset_t signals_set;
@@ -368,13 +368,13 @@ void dmtcp::initializeMtcpEngine()
   // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
 
-  mtcp_get_ptrace_waitpid_info = ( mtcp_get_ptrace_waitpid_info_T )
+  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
     _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
 
-  mtcp_init_thread_local = ( mtcp_init_thread_local_t ) 
+  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) 
     _get_mtcp_symbol ( "init_thread_local" );
 
-  mtcp_ptracing = ( mtcp_ptracing_t ) 
+  mtcp_ptracing = ( t_mtcp_ptracing ) 
     _get_mtcp_symbol ( "ptracing" );
 #endif
 
