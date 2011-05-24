@@ -2298,42 +2298,9 @@ int perform_callback_write_dmtcp_header()
 
 int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
 {
-  char *gzip_cmd = "gzip";
-  char gzip_path[PATH_MAX];
-
-  int use_gzip_compression = 0;
-  int use_deltacompression = 0;
   *use_compression = 0;  /* default value */
 
-  /* 1. Test if using GZIP compression */
-#ifndef FAST_CKPT_RST_VIA_MMAP
-  use_gzip_compression = test_use_compression("GZIP", gzip_cmd, gzip_path, 1);
-#endif
-
-  /* 2. Test if using HBICT compression */
-#ifdef HBICT_DELTACOMP
-  char *hbict_cmd = "hbict";
-  char hbict_path[PATH_MAX];
-  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
-
-# ifndef FAST_CKPT_RST_VIA_MMAP
-  use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path,
-# endif
-#endif
-
-  /* 3. Open pipe */
-  /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
-   *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
-   *   DMTCP doesn't directly checkpoint/restart pipes.
-   */
-  int pipe_fds[2];
-  if (mtcp_sys_pipe(pipe_fds) == -1) {
-    MTCP_PRINTF("WARNING: error creating pipe. Compression will "
-                "not be used.\n");
-    use_gzip_compression = use_deltacompression = 0;
-  }
-
-  /* 4. Open fd to checkpoint image on disk */
+  /* 1. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
 #ifdef FAST_CKPT_RST_VIA_MMAP
   int flags = O_CREAT | O_TRUNC | O_RDWR;
@@ -2348,29 +2315,62 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
     mtcp_abort();
   }
 
-  /* 5. We now have the information to pipe to gzip, or directly to fd.
+  /* 2. Test if using GZIP/HBICT compression */
+#ifndef FAST_CKPT_RST_VIA_MMAP
+  /* 2a. Test if using GZIP compression */
+  int use_gzip_compression = 0;
+  int use_deltacompression = 0;
+  char *gzip_cmd = "gzip";
+  char gzip_path[PATH_MAX];
+  use_gzip_compression = test_use_compression("GZIP", gzip_cmd, gzip_path, 1);
+
+  /* 2b. Test if using HBICT compression */
+# ifdef HBICT_DELTACOMP
+  char *hbict_cmd = "hbict";
+  char hbict_path[PATH_MAX];
+  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
+
+  use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path, 0);
+# endif
+
+  /* 3. We now have the information to pipe to gzip, or directly to fd.
   *     We do it this way, so that gzip will be direct child of forked process
   *       when using forked checkpointing.
   */
 
-  /* set SIGCHLD to default; user handling is restored after gzip finishes */
-  { struct sigaction default_sigchld_action;
+  if (use_deltacompression || use_gzip_compression) { /* fork a hbict process */
+    /* 3a. Set SIGCHLD to default; user handling is restored after gzip finishes */
+    struct sigaction default_sigchld_action;
     default_sigchld_action.sa_handler = SIG_DFL;
     sigaction(SIGCHLD, &default_sigchld_action, NULL);
-  }
 
-  if (use_deltacompression) { /* fork a hbict process */
+    /* 3b. Open pipe */
+    /* Note:  Must use mtcp_sys_pipe(), to go to kernel, since
+     *   DMTCP has a wrapper around glibc promoting pipes to socketpairs,
+     *   DMTCP doesn't directly checkpoint/restart pipes.
+     */
+    int pipe_fds[2];
+    if (mtcp_sys_pipe(pipe_fds) == -1) {
+      MTCP_PRINTF("WARNING: error creating pipe. Compression will "
+          "not be used.\n");
+      use_gzip_compression = use_deltacompression = 0;
+    }
+
+    /* 3c. Fork compressor child */
+    if (use_deltacompression) { /* fork a hbict process */
 #ifdef HBICT_DELTACOMP
-    *use_compression = 1;
-    fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
+      *use_compression = 1;
+      fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
 #endif
-  } else if (use_gzip_compression) {/* fork a gzip process */
-    *use_compression = 1;
-    fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
-  } else {
-    *use_compression = 0;
-    fd = *fdCkptFileOnDisk;
+    } else if (use_gzip_compression) {/* fork a gzip process */
+      *use_compression = 1;
+      fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
+    } else {
+      MTCP_PRINTF("Not Reached!\n");
+      mtcp_abort();
+    }
   }
+#endif
 
   return fd;
 }
