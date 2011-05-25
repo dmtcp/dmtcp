@@ -2330,7 +2330,7 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
   char hbict_path[PATH_MAX];
   MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
 
-  use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path, 0);
+  use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path, 1);
 # endif
 
   /* 3. We now have the information to pipe to gzip, or directly to fd.
