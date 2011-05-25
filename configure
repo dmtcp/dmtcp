@@ -1359,6 +1359,7 @@ Optional Features:
                           disable stale socket handling; unknown peer assumed
                           to be external; follow poicy of
                           external-socket-handling configure option.
+                          (OBSOLETE: Do not use)
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
