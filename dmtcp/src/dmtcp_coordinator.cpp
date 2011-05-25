@@ -328,10 +328,12 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
 
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
+    JTRACE ( "blocking checkpoint beginning..." );
     blockUntilDone = true;
     replyParams[0] = 0;  // reply from prefix command will be ignored
     break;
   case 'c': case 'C':
+    JTRACE ( "checkpointing..." );
     if(startCheckpoint()){
       replyParams[0] = getStatus().numPeers;
     }else{
@@ -340,6 +342,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     }
     break;
   case 'i': case 'I':
+    JTRACE("setting timeout interval...");
     setTimeoutInterval ( theCheckpointInterval );
     if (theCheckpointInterval == 0)
       printf("Checkpoint Interval: Disabled (checkpoint manually instead)\n");
@@ -371,7 +374,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 'q': case 'Q':
   {
-    JNOTE ( "Killing all connected Peers ..." );
+    JNOTE ( "killing all connected peers and quitting ..." );
     broadcastMessage ( DMT_KILL_PEER );
     /* Call to broadcastMessage only puts the messages into the write queue.
      * We actually want the messages to be written out to the respective sockets
@@ -1297,6 +1300,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     // Create a symlink from
     //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
     unlink ( filename.c_str() );
+    JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
+	  (filename)(uniqueFilename);
     // FIXME:  Handle error case of symlink()
     JWARNING( 0 == symlink ( uniqueFilename.c_str(), filename.c_str() ) );
   }
