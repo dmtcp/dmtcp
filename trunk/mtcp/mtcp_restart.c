@@ -435,7 +435,8 @@ static int open_ckpt_to_read(char *filename, char *envp[])
 #ifdef HBICT_DELTACOMP
     if( fc == HBICT_FIRST ){
       decomp_args = hbict_args;
-      if( mtcp_find_executable(hbict_cmd, decomp_path) == NULL ) {
+      if( mtcp_find_executable(hbict_cmd, getenv("PATH"), 
+                              decomp_path) == NULL ) {
         MTCP_PRINTF("ERROR: Cannot find hbict to decompress ckpt file!\n");
         mtcp_abort();
       }
