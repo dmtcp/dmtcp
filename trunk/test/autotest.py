@@ -588,4 +588,4 @@ except CheckFailed, e:
 except:
   print "Error in SHUTDOWN()"
 
-exit( stats[1] - stats[0] )  # Return code is number of failing tests.
+sys.exit( stats[1] - stats[0] )  # Return code is number of failing tests.
