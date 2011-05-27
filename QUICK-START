@@ -376,7 +376,7 @@ SHORT NOTES:
 	package at http://hbict.sourceforge.net/projects/hbict/ .
 	HBICT (Hash Based Incremental Checkpointing Tool) provides DMTCP
 	support for delta-compression (relative to the previous checkpoint)
-	which is then additionally compressed usinggzip.  To enable it:
+	which is then additionally compressed using gzip.  To enable it:
 
 	1) Download and install HBICT somewhere in your PATH.  For example,
 	   to test it in a single user's account:
