@@ -90,7 +90,7 @@ else
 fi
 
 AC_ARG_ENABLE([delta_compression],
-            [AS_HELP_STRING([--enable-delta_compression],
+            [AS_HELP_STRING([--enable-delta-compression],
                             [enable incremental/differential checkpointing
 			     using HBICT (hash-based incremental checkpointing)
 			     tool; disables default gzip compression
