@@ -377,7 +377,7 @@ SHORT NOTES:
   HBICT (Hash Based Incremental Checkpointing Tool) provides DMTCP support                                                                                              
   for delta-compression (and additional gzip compresion). To enable it:                                                                                                 
                                                                                                                                                                         
-  1) download, untar, compile and install HBICT from sources to one of                                                                                                  
+  1) download, untar, configure, compile and install HBICT from sources to one of                                                                                                  
   PATH visible paths;                                                                                                                                                   
                                                                                                                                                                         
   2) configure DMTCP with --enable-delta_compression$                                                                                                                   
