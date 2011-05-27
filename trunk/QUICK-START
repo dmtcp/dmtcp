@@ -371,3 +371,52 @@ SHORT NOTES:
 	successfully restarts these applications, it does not currently
 	restore the connection to X11.  Mouse events are no longer recognized
 	after restart.
+
+    19. Support for incremental and differential checkpoint (using HBICT                                                                                                
+  package, http://sourceforge.net/projects/hbict/).                                                                                                                     
+  HBICT (Hash Based Incremental Checkpointing Tool) provides DMTCP support                                                                                              
+  for delta-compression (and additional gzip compresion). To enable it:                                                                                                 
+                                                                                                                                                                        
+  1) download, untar, compile and install HBICT from sources to one of                                                                                                  
+  PATH visible paths;                                                                                                                                                   
+                                                                                                                                                                        
+  2) configure DMTCP with --enable-delta_compression$                                                                                                                   
+                                                                                                                                                                        
+  3) using --no-hbict and --no-gzip options of dmtcp_checkpoint you can control                                                                                         
+  what type of compression is used now:                                                                                                                                 
+    - 'dmtcp_checkpoint <my_prog>' means that sequential checkpoints will be                                                                                            
+    delta-compresset relatively previous checkpoints (hbict compression) and                                                                                            
+    next will be compressed with gzip;                                                                                                                                  
+    - 'dmtcp_checkpoint --no-gzip <my_prog>' means that sequential checkpoints                                                                                          
+    will be delta-compresset relatively previous checkpoints (hbict compression only);                                                                                  
+    - 'dmtcp_checkpoint --no-hbict <my_prog>' means that no delta-compression will                                                                                      
+    be performed, only gzip compression;                                                                                                                                
+    - 'dmtcp_checkpoint --no-hbict --no-gzip  <my_prog>' disables any compression.                                                                                      
+                                                                                                                                                                        
+  If delta-compression is used you'll see the several checkpoint files in your
+  DMTCP_CHECKPOINT_DIR. For example (hbict+gzip compression used):
+  $ ls -1 -sh
+  4,0K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp
+  1,8M ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.0
+   56K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.1
+   52K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.2
+   56K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.3
+   52K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.4
+   56K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.5
+   64K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.6
+   64K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.7
+   64K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.8
+  
+  The *.dmtcp file is so called fron-end which represents a checkpoint to DMTCP.
+  *.hbict.N files are real incremental checkpoint that are created (N is a number of
+  checjpoint). *.hbict.0 file is first checkpoint so it can't be delta-compressed 
+  using previous checkpoints. *.hbict.1, *.hbict.2, ..., *.hbict.N files are 
+  delta-compressed (previous checkpoint for compresion choosed adaptively). As you
+  can see in following example the size of those checkpoints are 32 times smaller.
+  Of course effeciency of delta-compression significantly depends on checkpointed 
+  application.
+  
+  4) To restart application you just need ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp file:
+    $ dmtcp_restart ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp
+  and all *.hbict.N files will be discovered by HBICT tool (but they should present in the
+  same directory as *.dmtcp file)
