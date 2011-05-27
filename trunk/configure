@@ -1339,7 +1339,7 @@ Optional Features:
   --enable-fast-ckpt-restart
                           uses tricks to mmap from checkpoint image file
                           (EXPERIMENTAL)
-  --enable-delta_compression
+  --enable-delta-compression
                           enable incremental/differential checkpointing using
                           HBICT (hash-based incremental checkpointing) tool;
                           disables default gzip compression (EXPERIMENTAL)
