@@ -91,6 +91,8 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
+  "  --with-module (environment variable DMTCP_MODULE):\n"
+  "      Colon-separated list of DMTCP modules to be preloaded with DMTCP.\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
   "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -314,6 +316,9 @@ int main ( int argc, char** argv )
     }else if(s == "--checkpoint-open-files"){
       checkpointOpenFiles = true;
       shift;
+    }else if(s == "--with-module"){
+      setenv(ENV_VAR_MODULE, argv[1], 1);
+      shift; shift;
     }else if(s == "-q" || s == "--quiet"){
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
       // Just in case a non-standard version of setenv is being used:
@@ -348,8 +353,16 @@ int main ( int argc, char** argv )
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
 
-  dmtcp::string dmtcphjk =
-    jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  dmtcp::string dmtcphjk = "";
+  // FIXME:  If the colon-separated elements of ENV_VAR_MODULE are not
+  //     absolute pathnames, then they must be expanded to absolute pathnames.
+  //     Warn user if an absolute pathname is not valid.
+  if ( getenv(ENV_VAR_MODULE) != NULL ) {
+    dmtcphjk += getenv(ENV_VAR_MODULE);
+    dmtcphjk += ":";
+  }
+  dmtcphjk += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
