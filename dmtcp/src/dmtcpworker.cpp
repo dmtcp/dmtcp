@@ -149,8 +149,9 @@ void restoreUserLDPRELOAD()
   //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char * preload =  getenv("LD_PRELOAD");
-  char * preload_rest = strstr(preload, ":");
+  char * preload_rest = strstr(preload, "dmtcphijack.so:");
   if (preload_rest) {
+    preload_rest = strstr(preload_rest, ":");
     *preload_rest = '\0'; // Now preload is just our preload string
     preload_rest++;
   }
