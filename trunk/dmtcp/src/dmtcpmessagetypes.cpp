@@ -160,11 +160,11 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_UNKNOWN_PEER )
       OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
 #endif
-#ifdef IBV
+//#ifdef IBV
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
-#endif
+//#endif
 
       OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
       OSHIFTPRINTF ( DMT_RESTORE_WAITING )

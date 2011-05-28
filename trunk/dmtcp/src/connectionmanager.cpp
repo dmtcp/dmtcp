@@ -89,11 +89,12 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 #ifdef IBV
     dmtcp::string device = dmtcp::KernelDeviceToConnection::instance().fdToDevice(fds[i]);
 
-    if(!Util::strStartsWith(device, "/dev/infiniband/") && !Util::strStartsWith(device, "infinibandevent:")) {
+    if(!Util::strStartsWith(device, "/dev/infiniband/") && !Util::strStartsWith(device, "infinibandevent:"))
+#endif
+    {
       Connection* con = &source.retrieve ( fds[i] );
       _table[con->id() ].push_back ( fds[i] );
     }
-#endif
   }
 }
 
