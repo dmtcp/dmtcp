@@ -54,8 +54,15 @@ namespace dmtcp
 #ifdef EXTERNAL_SOCKET_HANDLING
     DMT_DO_PEER_LOOKUP,      // when coordinator wants, lookup peer for all sockets
 #endif
+
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
+
+#ifdef IBV
+    DMT_DO_REGISTER_NAME_SERVICE_DATA,
+    DMT_DO_SEND_QUERIES,
+#endif
+
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -63,6 +70,12 @@ namespace dmtcp
     DMT_UNKNOWN_PEER,        // Peer not found
     DMT_EXTERNAL_SOCKETS_CLOSED,
 #endif
+
+//#ifdef IBV
+    DMT_REGISTER_NAME_SERVICE_DATA,
+    DMT_NAME_SERVICE_QUERY,
+    DMT_NAME_SERVICE_QUERY_RESPONSE,
+//#endif
 
     DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
     DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
@@ -103,6 +116,10 @@ namespace dmtcp
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
+#ifdef IBV
+        NAME_SERVICE_DATA_REGISTERED,
+        DONE_QUERYING,
+#endif
         REFILLED,
         _MAX
       };
@@ -157,6 +174,11 @@ namespace dmtcp
     socklen_t               localAddrlen;
     struct sockaddr_storage remoteAddr;
 #endif
+
+//#ifdef IBV
+    size_t                  keyLen;
+    size_t                  valLen;
+//#endif
 
     int theCheckpointInterval;
 

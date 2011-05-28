@@ -19,7 +19,7 @@ INCLUDES= $(all_includes)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
 pkglib_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	dmtcp_restart dmtcp_inspector dmtcphijack.so dmtcp_nocheckpoint \
+	dmtcp_restart dmtcphijack.so dmtcp_inspector dmtcp_nocheckpoint \
 	libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
@@ -40,7 +40,8 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogcheckpointer.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrapper.h log.h
+	synchronizationlogging.h ptracewrapper.h log.h dmtcpmodule.h \
+	lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -64,7 +65,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
-dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp
+dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
@@ -79,7 +80,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp
+	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp dmtcpmodule.cpp
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 
@@ -94,8 +95,8 @@ dmtcphijack_so_LDFLAGS = -shared -module
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o log.o\
-                          libdmtcpinternal.a libsyscallsreal.a -ldl -lpthread
+dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o log.o \
+	libdmtcpinternal.a libsyscallsreal.a  -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread

@@ -83,9 +83,10 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       static DmtcpWorker& instance();
-      static const unsigned int ld_preload_c_len = 256;
+      static const unsigned int ld_preload_c_len = 1024;
       static char ld_preload_c[ld_preload_c_len];
       const dmtcp::UniquePid& coordinatorId() const;
+      jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
       void waitForCoordinatorMsg(dmtcp::string signalStr,
                                  DmtcpMessageType type);
