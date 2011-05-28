@@ -51,6 +51,7 @@
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpcoordinatorapi.h"
+#include "lookup_service.h"
 #include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jtimer.h"
@@ -235,6 +236,8 @@ JTIMER ( restart );
 static dmtcp::UniquePid curCompGroup = dmtcp::UniquePid();
 static int numPeers = -1;
 static int curTimeStamp = -1;
+
+static dmtcp::LookupService lookupService;
 
 namespace
 {
@@ -476,12 +479,14 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         client->setState ( msg.state );
         WorkerState newState = minimumState();
 
-        JTRACE ("got DMT_OK message")( msg.from )( msg.state )( oldState )( newState );
+        JTRACE ("got DMT_OK message")
+          ( msg.from )( msg.state )( oldState )( newState );
 
         if ( oldState == WorkerState::RUNNING
                 && newState == WorkerState::SUSPENDED )
         {
-          // All the workers are in SUSPENDED state, now it is safe to reset this flag.
+          // All the workers are in SUSPENDED state, now it is safe to reset
+          // this flag.
           workersRunningAndSuspendMsgSent = false;
 
           JNOTE ( "locking all nodes" );
@@ -502,7 +507,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
             broadcastMessage ( DMT_DO_DRAIN );
           } else {
             sendUnidentifiedPeerNotifications();
-            JNOTE ( "Not all socket peers were Identified, resuming computation without checkpointing" );
+            JNOTE ( "Not all socket peers were Identified, "
+                    " resuming computation without checkpointing" );
             broadcastMessage ( DMT_DO_RESUME );
           }
         }
@@ -526,6 +532,42 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           broadcastMessage ( DMT_DO_CHECKPOINT );
         }
 #endif
+
+#ifdef IBV
+        if ( oldState == WorkerState::DRAINED
+                && newState == WorkerState::CHECKPOINTED )
+        {
+          writeRestartScript();
+          JNOTE ( "building name service database" );
+          lookupService.reset();
+          broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+        }
+        if ( oldState == WorkerState::RESTARTING
+                && newState == WorkerState::CHECKPOINTED )
+        {
+          JTRACE ( "resetting _restoreWaitingMessages" )
+          ( _restoreWaitingMessages.size() );
+          _restoreWaitingMessages.clear();
+
+          JTIMER_STOP ( restart );
+
+          lookupService.reset();
+          JNOTE ( "building name service database (after restart)" );
+          broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+        }
+        if ( oldState == WorkerState::CHECKPOINTED
+                && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ){
+          JNOTE ( "entertaining queries now" );
+          broadcastMessage ( DMT_DO_SEND_QUERIES );
+        }
+        if ( oldState == WorkerState::NAME_SERVICE_DATA_REGISTERED
+                && newState == WorkerState::DONE_QUERYING ){
+          JNOTE ( "refilling all nodes" );
+          broadcastMessage ( DMT_DO_REFILL );
+        }
+        if ( oldState == WorkerState::DONE_QUERYING
+                && newState == WorkerState::REFILLED )
+#else
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
         {
@@ -547,6 +589,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         }
         if ( oldState == WorkerState::CHECKPOINTED
                 && newState == WorkerState::REFILLED )
+#endif
         {
           JNOTE ( "restarting all nodes" );
           broadcastMessage ( DMT_DO_RESUME );
@@ -557,7 +600,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           setTimeoutInterval( theCheckpointInterval );
 
           if (blockUntilDone) {
-          JNOTE ( "replying to dmtcp_command:  we're done" );
+            JNOTE ( "replying to dmtcp_command:  we're done" );
 	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
 	    jalib::JSocket remote ( blockUntilDoneRemote );
             remote << blockUntilDoneReply;
@@ -575,17 +618,22 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         memcpy ( &restMsg.restoreAddr,client->addr(),client->addrlen() );
         restMsg.restoreAddrlen = client->addrlen();
         restMsg.restorePort = client->restorePort();
-        JASSERT ( restMsg.restorePort > 0 ) ( restMsg.restorePort ) ( client->identity() );
-        JASSERT ( restMsg.restoreAddrlen > 0 ) ( restMsg.restoreAddrlen ) ( client->identity() );
-        JASSERT ( restMsg.restorePid != ConnectionIdentifier::Null() ) ( client->identity() );
-        JTRACE ( "broadcasting RESTORE_WAITING" )( restMsg.restorePid )( restMsg.restoreAddrlen )( restMsg.restorePort );
+        JASSERT ( restMsg.restorePort > 0 )
+          ( restMsg.restorePort ) ( client->identity() );
+        JASSERT ( restMsg.restoreAddrlen > 0 )
+          ( restMsg.restoreAddrlen ) ( client->identity() );
+        JASSERT ( restMsg.restorePid != ConnectionIdentifier::Null() )
+          ( client->identity() );
+        JTRACE ( "broadcasting RESTORE_WAITING" )
+          (restMsg.restorePid) (restMsg.restoreAddrlen) (restMsg.restorePort);
         _restoreWaitingMessages.push_back ( restMsg );
         broadcastMessage ( restMsg );
         break;
       }
       case DMT_CKPT_FILENAME:
       {
-        JASSERT ( extraData!=0 ).Text ( "extra data expected with DMT_CKPT_FILENAME message" );
+        JASSERT ( extraData!=0 )
+          .Text ( "extra data expected with DMT_CKPT_FILENAME message" );
         dmtcp::string ckptFilename;
         dmtcp::string hostname;
         ckptFilename = extraData;
@@ -597,7 +645,8 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       break;
       case DMT_USER_CMD:  // dmtcpaware API being used
         {
-          JTRACE("got user command from client")(msg.params[0])(client->identity());
+          JTRACE("got user command from client")
+            (msg.params[0])(client->identity());
 	  // Checkpointing commands should always block, to prevent
 	  //   dmtcpaware checkpoint call from returning prior to checkpoint.
 	  if (msg.params[0] == 'c')
@@ -610,14 +659,16 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           handleUserCommand( msg.params[0], &reply );
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
-          //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg, sizeof(DmtcpMessage)));
+          //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg,
+          //                                 sizeof(DmtcpMessage)));
         }
         break;
 #ifdef EXTERNAL_SOCKET_HANDLING
       case DMT_PEER_LOOKUP:
       {
         JTRACE ( "received PEER_LOOKUP msg" ) ( msg.conId );
-        JASSERT ( msg.localAddrlen > 0 ) ( msg.localAddrlen ) ( client->identity() );
+        JASSERT ( msg.localAddrlen > 0 )
+          ( msg.localAddrlen ) ( client->identity() );
         _socketPeerLookupMessagesIterator i;
         bool foundPeer = false;
         for ( i = _socketPeerLookupMessages.begin();
@@ -662,6 +713,23 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 		   "  Trying to checkpoint." );
           handleUserCommand('c');
         }
+      }
+      break;
+#endif
+
+#ifdef IBV
+      case DMT_REGISTER_NAME_SERVICE_DATA:
+      {
+        JTRACE ("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());
+        lookupService.registerData(client->identity(), msg,
+                                   (const char*) extraData);
+      }
+      break;
+      case DMT_NAME_SERVICE_QUERY:
+      {
+        JTRACE ("received NAME_SERVICE_QUERY msg") (client->identity());
+        lookupService.respondToQuery(client->identity(), sock->socket(), msg,
+                                     (const char*) extraData);
       }
       break;
 #endif
@@ -744,7 +812,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     if ( validateWorkerProcess ( hello_remote, remote ) == false )
       return;
   } else {
-    JASSERT ( false ) .Text ( "Connect request from Unknown Remote Process Type" );
+    JASSERT ( false )
+      .Text ( "Connect request from Unknown Remote Process Type" );
   }
 
   JNOTE ( "worker connected" ) ( hello_remote.from );

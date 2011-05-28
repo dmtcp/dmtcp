@@ -24,6 +24,8 @@
 #ifndef _MTCP_INTERNAL_H
 #define _MTCP_INTERNAL_H
 
+#define IBV
+
 #ifdef __x86_64__
 // The alternative to using futex is to load in the pthread library,
 //  which would be a real pain.  The __i386__ arch doesn't seem to be bothered
@@ -231,7 +233,7 @@ void fastckpt_populate_shared_file_from_ckpt_image(int ckptfd, int imagefd,
 #endif
 
 // order must match that in mtcp_jmpbuf.s
-// struct Jmpbuf { uLong ebx, esi, edi, ebp, esp; 
+// struct Jmpbuf { uLong ebx, esi, edi, ebp, esp;
 //                 uLong eip;
 //                 uByte fpusave[232];
 //               };
@@ -313,7 +315,7 @@ typedef struct MtcpState MtcpState;
 struct MtcpState { int volatile value;
                    pthread_cond_t cond;
                    pthread_mutex_t mutex;};
-                   
+
 #define MTCP_STATE_INITIALIZER \
   {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
 

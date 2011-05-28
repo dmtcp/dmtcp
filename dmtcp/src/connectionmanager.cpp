@@ -82,12 +82,18 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   _upid = UniquePid::ThisProcess();
   _uppid = UniquePid::ParentProcess();
 
-  for ( size_t i=0; i<fds.size(); ++i )
-  {
+  for ( size_t i=0; i<fds.size(); ++i ) {
     if ( _isBadFd ( fds[i] ) ) continue;
     if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
-    Connection* con = &source.retrieve ( fds[i] );
-    _table[con->id() ].push_back ( fds[i] );
+
+#ifdef IBV
+    dmtcp::string device = dmtcp::KernelDeviceToConnection::instance().fdToDevice(fds[i]);
+
+    if(!Util::strStartsWith(device, "/dev/infiniband/") && !Util::strStartsWith(device, "infinibandevent:")) {
+      Connection* con = &source.retrieve ( fds[i] );
+      _table[con->id() ].push_back ( fds[i] );
+    }
+#endif
   }
 }
 
@@ -162,11 +168,18 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   bool isPtmx  = (device.compare("/dev/ptmx") == 0);
   bool isPts   = Util::strStartsWith(device, "/dev/pts/");
 
-  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") && 
+  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") &&
                        device.compare("/dev/pty") != 0);
   bool isBSDSlave   = (Util::strStartsWith(device, "/dev/tty") &&
                        device.compare("/dev/tty")) != 0;
+#ifdef IBV
+  bool isInfinibandDevice   = Util::strStartsWith(device, "/dev/infiniband/");
+  bool isInfinibandConnection   = Util::strStartsWith(device, "infinibandevent:");
 
+  if ( isInfinibandDevice || isInfinibandConnection ) {
+    return device;
+  } else
+#endif
   if ( isTty ) {
     dmtcp::string deviceName = "tty:" + device;
 
@@ -305,7 +318,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       }
 
       return deviceName;
-    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
+    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) ||
                S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
       /* /dev/null is a character special file (non-regular file) */
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
@@ -381,7 +394,7 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
   JTRACE("WARNING:: failed to find connection in table to erase it")(con);
 }
 
-dmtcp::string 
+dmtcp::string
 dmtcp::KernelDeviceToConnection::getDevice( const ConnectionIdentifier& con )
 {
   for(iterator i = _table.begin(); i!=_table.end(); ++i){
@@ -581,7 +594,7 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else if ( Util::strStartsWith(device, "/dev/pts/")) 
+    else if ( Util::strStartsWith(device, "/dev/pts/"))
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
       JNOTE ( "Found pre-existing PTY connection, "

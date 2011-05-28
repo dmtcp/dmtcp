@@ -400,6 +400,9 @@ static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat / Fedora
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
 static char const *sys_v_shmem_file = "/SYSV";
+#ifdef IBV
+static char const *infiniband_shmem_file = "/dev/infiniband/uverbs";
+#endif
 //static char const *perm_checkpointfilename = NULL;
 //static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[PATH_MAX];
@@ -2595,6 +2598,13 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
       area.name[0] = '\0';
     }
 
+#ifdef IBV
+    // TODO: Don't checkpoint infiniband shared area for now.
+    if (strncmp (area.name, infiniband_shmem_file, strlen(infiniband_shmem_file)) == 0) {
+      continue;
+    }
+#endif
+
     /* Special Case Handling: nscd is enabled*/
     if ( mtcp_strstartswith(area.name, nscd_mmap_str1) ||
          mtcp_strstartswith(area.name, nscd_mmap_str2) ||
@@ -4188,6 +4198,13 @@ static void sync_shared_mem(void)
     if (!(area.flags & MAP_SHARED)) continue;
 
     if (strstr(area.name, DELETED_FILE_SUFFIX)) continue;
+
+#ifdef IBV
+    // TODO: Don't checkpoint infiniband shared area for now.
+   if (strncmp (area.name, infiniband_shmem_file, strlen(infiniband_shmem_file)) == 0) {
+     continue;
+   }
+#endif
 
     DPRINTF("syncing %X at %p from %s + %X\n",
             area.size, area.addr, area.name, area.offset);
