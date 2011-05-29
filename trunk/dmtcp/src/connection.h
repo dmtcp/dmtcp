@@ -23,7 +23,6 @@
 #define DMTCPCONNECTION_H
 
 #include "dmtcpalloc.h"
-#include "dmtcpworker.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>

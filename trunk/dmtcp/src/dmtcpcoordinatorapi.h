@@ -25,6 +25,7 @@
 #include  "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
 #include "dmtcpmessagetypes.h"
+#include "connectionstate.h"
 #include "constants.h"
 
 namespace dmtcp
@@ -47,11 +48,13 @@ namespace dmtcp
         COORD_NEW       = 0x0002,
         COORD_FORCE_NEW = 0x0004,
         COORD_BATCH     = 0x0008,
-        COORD_ANY       = COORD_JOIN | COORD_NEW 
+        COORD_ANY       = COORD_JOIN | COORD_NEW
       };
 
       DmtcpCoordinatorAPI ();
       // Use default destructor
+
+      jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
       void connectAndSendUserCommand(char c, int* result = NULL);
 
@@ -59,14 +62,32 @@ namespace dmtcp
 
       bool connectToCoordinator(bool dieOnError=true);
       bool tryConnectToCoordinator();
+      void connectToCoordinatorWithHandshake();
+      void connectToCoordinatorWithoutHandshake();
       void sendUserCommand(char c, int* result = NULL);
+
+      // np > -1  means it is restarting a process that have np processes in its
+      //           computation group
+      // np == -1 means it is a new pure process, so coordinator needs to
+      //           generate compGroup ID for it
+      // np == -2 means it is a service connection from dmtcp_restart
+      //           - ignore it
+      void sendCoordinatorHandshake(const dmtcp::string& procName,
+                                    UniquePid compGroup = UniquePid(),
+                                    int np = -1,
+                                    DmtcpMessageType msgType =
+                                      DMT_HELLO_COORDINATOR);
+      void recvCoordinatorHandshake(int *param1 = NULL);
+
+      jalib::JSocket& openRestoreSocket();
 
       static void startCoordinatorIfNeeded(int modes, int isRestart = 0);
       static void startNewCoordinator(int modes, int isRestart = 0);
 
     protected:
-      jalib::JSocket _restoreSocket;
+      UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
+      jalib::JSocket _restoreSocket;
     private:
   };
 

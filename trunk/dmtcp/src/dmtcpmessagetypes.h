@@ -42,13 +42,13 @@ namespace dmtcp
     DMT_HELLO_COORDINATOR,   // on connect established worker-coordinator
     DMT_HELLO_WORKER,        // on connect established coordinator-worker
 
-    DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator 
-    DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command          
+    DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
+    DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
-    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator 
+    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator
     DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
 
-    DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8 
+    DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -187,7 +187,7 @@ namespace dmtcp
 
     //extraBytes are used for passing checkpoint filename to coordinator it
     //must be zero in all messages except for in DMT_CKPT_FILENAME
-    int extraBytes;
+    size_t extraBytes;
 
     static void setDefaultCoordinator ( const UniquePid& id );
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );

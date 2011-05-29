@@ -56,7 +56,7 @@ namespace dmtcp
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
       void postCheckpoint(bool isRestart);
-      void outputDmtcpConnectionTable(int fd);
+      void outputDmtcpConnectionTable(int fd, size_t argvSize, size_t envSize);
 
       void postRestart();
       void doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen );
