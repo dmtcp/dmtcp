@@ -57,7 +57,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp sockettable.cpp \
-	syslogcheckpointer.cpp uniquepid.cpp dmtcpworker.cpp \
+	syslogcheckpointer.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 # FIXME:  Rename libsyscallsreal.a to libhijack.a

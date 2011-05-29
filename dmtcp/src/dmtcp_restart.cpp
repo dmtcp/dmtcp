@@ -123,7 +123,7 @@ namespace
 		.Text ( "checkpoint file missing" );
 
       dmtcp::SerializedWorkerInfo workerInfo;
-      _offset = _conToFd.loadFromFile(_path, &workerInfo); 
+      _offset = _conToFd.loadFromFile(_path, &workerInfo);
 
       _compGroup = workerInfo.compGroup;
       _numPeers  = workerInfo.numPeers;
@@ -190,7 +190,7 @@ namespace
 
       slidingFd.closeAll();
     }
-			
+
     int find_stdin( SlidingFdTable& slidingFd )
     {
       for ( ConnectionToFds::const_iterator i = _conToFd.begin();
@@ -367,7 +367,7 @@ namespace
 	  }else if (ptr == NULL){
             JTRACE("Cannot restore controlling terminal") (ttyname(sin));
           } else {
-	    JWARNING(false) (ttyname(sin)) 
+	    JWARNING(false) (ttyname(sin))
                     .Text("Cannot restore controlling terminal");
 	  }
 	}
@@ -396,7 +396,7 @@ namespace
             JTRACE("CANNOT Change current GID to foreground GID")
                   (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO);
           } else {
-            JWARNING(false) 
+            JWARNING(false)
                      (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO)
                     .Text("CANNOT Change current GID to foreground GID");
           }
@@ -433,7 +433,8 @@ namespace
       }
     }
 
-    void CreateProcess(DmtcpWorker& worker, SlidingFdTable& slidingFd)
+    void CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
+                       SlidingFdTable& slidingFd)
     {
       //change UniquePid
       UniquePid::resetOnFork(upid());
@@ -463,7 +464,7 @@ namespace
 
 	  if ( cid == 0 )
             {
-              (*it)->CreateProcess (worker, slidingFd);
+              (*it)->CreateProcess (coordinatorAPI, slidingFd);
               JASSERT ( false ) . Text ( "Unreachable" );
             }
 	  JASSERT ( cid > 0 );
@@ -487,7 +488,7 @@ namespace
 	    pid_t cid = forkChild();
 	    if ( cid == 0 )
 	      {
-		(*it)->CreateProcess (worker, slidingFd);
+		(*it)->CreateProcess (coordinatorAPI, slidingFd);
 		JASSERT ( false ) . Text ( "Unreachable" );
 	      }
 	    JASSERT ( cid > 0 );
@@ -502,7 +503,7 @@ namespace
 
 	pid_t nsid = setsid();
 	JTRACE("change SID")(nsid);
-	
+
 	// Restore group information
 	restoreGroup(slidingFd);
 
@@ -513,7 +514,7 @@ namespace
 	    JTRACE ( "Forking Child Process" ) ( (*it)->upid() );
 	    pid_t cid = forkChild();
 	    if ( cid == 0 ){
-	      (*it)->CreateProcess (worker, slidingFd );
+	      (*it)->CreateProcess (coordinatorAPI, slidingFd );
 	      JASSERT ( false ) . Text ( "Unreachable" );
 	    }
 	    JASSERT ( cid> 0 );
@@ -534,7 +535,7 @@ namespace
 	  }else{
 	    if( fork() )
 	      exit(0);
-	    (*it)->CreateProcess(worker, slidingFd );
+	    (*it)->CreateProcess(coordinatorAPI, slidingFd );
 	    JASSERT (false) . Text( "Unreachable" );
 	  }
 	}
@@ -552,9 +553,9 @@ namespace
 
       int tmpCoordFd = dup(PROTECTED_COORD_FD);
       JASSERT(tmpCoordFd != -1);
-      worker.connectToCoordinatorWithoutHandshake();
-      worker.sendCoordinatorHandshake(procname(), _compGroup);
-      worker.recvCoordinatorHandshake();
+      coordinatorAPI.connectToCoordinator();
+      coordinatorAPI.sendCoordinatorHandshake(procname(), _compGroup);
+      coordinatorAPI.recvCoordinatorHandshake();
       close(tmpCoordFd);
 
       dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
@@ -689,6 +690,27 @@ void ProcessGroupInfo();
 void SetupSessions();
 
 #endif
+
+static void restoreSockets(dmtcp::DmtcpCoordinatorAPI& coordinatorAPI,
+                           dmtcp::ConnectionState& ckptCoord)
+{
+  JTRACE ("restoreSockets begin");
+  jalib::JSocket& restoreSocket = coordinatorAPI.openRestoreSocket();
+
+  //reconnect to our coordinator
+  coordinatorAPI.connectToCoordinator();
+  coordinatorAPI.sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),
+                                          compGroup, numPeers,
+                                          DMT_RESTART_PROCESS);
+  coordinatorAPI.recvCoordinatorHandshake(&coordTstamp);
+  JTRACE("Connected to coordinator") (coordTstamp);
+
+  jalib::JSocket& coordinatorSocket = coordinatorAPI.coordinatorSocket();
+  // finish sockets restoration
+  ckptCoord.doReconnect(coordinatorSocket, restoreSocket);
+
+  JTRACE ("sockets restored!");
+}
 
 int main ( int argc, char** argv )
 {
@@ -850,10 +872,10 @@ int main ( int argc, char** argv )
   JTRACE ( "Allocating fds for Connections" ) (out.str());
 
   //------------------------
-  DmtcpWorker worker ( false );
   WorkerState::setCurrentState ( WorkerState::RESTARTING );
   ConnectionState ckptCoord ( conToFd );
-  worker.restoreSockets ( ckptCoord, compGroup, numPeers, coordTstamp );
+  DmtcpCoordinatorAPI coordinatorAPI;
+  restoreSockets(coordinatorAPI, ckptCoord);
 
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
@@ -876,9 +898,9 @@ int main ( int argc, char** argv )
 
   int tmpCoordFd = dup(PROTECTED_COORD_FD);
   JASSERT(tmpCoordFd != -1);
-  worker.connectToCoordinatorWithoutHandshake();
-  worker.sendCoordinatorHandshake(targ.procname(), targ._compGroup);
-  worker.recvCoordinatorHandshake();
+  coordinatorAPI.connectToCoordinator();
+  coordinatorAPI.sendCoordinatorHandshake(targ.procname(), targ._compGroup);
+  coordinatorAPI.recvCoordinatorHandshake();
   close(tmpCoordFd);
 
   //restart targets[i]
@@ -927,7 +949,7 @@ int main ( int argc, char** argv )
         if( fork() )
           _exit(0);
       }
-      roots[j].t->CreateProcess(worker, slidingFd);
+      roots[j].t->CreateProcess(coordinatorAPI, slidingFd);
       JASSERT (false) . Text( "Unreachable" );
     }
     JASSERT ( cid > 0 );
@@ -961,7 +983,7 @@ int main ( int argc, char** argv )
           pgrp_index = j;
           continue;
       }else{
-        targets[j].CreateProcess(worker, slidingFd);
+        targets[j].CreateProcess(coordinatorAPI, slidingFd);
         JTRACE("Need in flat-like restore for process")(targets[j].upid());
       }
     }
@@ -969,10 +991,10 @@ int main ( int argc, char** argv )
 
   if( pgrp_index >=0 ){
     JTRACE("Restore first Root Target")(roots[pgrp_index].t->upid());
-    roots[pgrp_index].t->CreateProcess(worker, slidingFd);
+    roots[pgrp_index].t->CreateProcess(coordinatorAPI, slidingFd);
   }else if (flat_index >= 0){
     JTRACE("Restore first Flat Target")(targets[flat_index].upid());
-    targets[flat_index].CreateProcess(worker, slidingFd );
+    targets[flat_index].CreateProcess(coordinatorAPI, slidingFd );
   }else{
     // FIXME: Under what conditions will this path be exercised?
     JNOTE ("unknown type of target?") (targets[flat_index]._path);

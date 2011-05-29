@@ -39,7 +39,7 @@
 dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI ()
   :_coordinatorSocket ( PROTECTED_COORD_FD )
   ,_restoreSocket ( PROTECTED_RESTORE_SOCK_FD )
-{ 
+{
   return;
 }
 
@@ -100,6 +100,66 @@ bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/
     _coordinatorSocket.changeFd ( oldFd.sockfd() );
   }
   return true;
+}
+
+void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithHandshake()
+{
+  connectToCoordinator ( );
+  JTRACE("CONNECT TO coordinator, trying to handshake");
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
+  recvCoordinatorHandshake();
+}
+
+void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithoutHandshake()
+{
+  connectToCoordinator ( );
+}
+
+// FIXME:
+static int theRestorePort = RESTORE_PORT_START;
+void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
+  const dmtcp::string& progname, UniquePid compGroup /*= UniquePid()*/,
+  int np /*= -1*/, DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
+{
+  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+
+  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
+  dmtcp::DmtcpMessage hello_local;
+  hello_local.type = msgType;
+  hello_local.params[0] = np;
+  hello_local.compGroup = compGroup;
+  hello_local.restorePort = theRestorePort;
+
+  const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+  if ( interval != NULL )
+    hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
+
+  hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
+  _coordinatorSocket << hello_local;
+  _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
+  _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
+}
+
+void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
+{
+  JTRACE("receiving coordinator handshake");
+
+  dmtcp::DmtcpMessage hello_remote;
+  hello_remote.poison();
+  _coordinatorSocket >> hello_remote;
+  hello_remote.assertValid();
+
+  if ( param1 == NULL )
+    JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
+  else
+    JASSERT ( hello_remote.type == dmtcp::DMT_RESTART_PROCESS_REPLY ) ( hello_remote.type );
+
+  _coordinatorId = hello_remote.coordinator;
+  DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
+  if( param1 ){
+    *param1 = hello_remote.params[0];
+  }
+  JTRACE("Coordinator handshake RECEIVED!!!!!");
 }
 
 //tell the coordinator to run given user command
@@ -273,3 +333,23 @@ void dmtcp::DmtcpCoordinatorAPI::startNewCoordinator(int modes, int isRestart)
   }
 }
 
+jalib::JSocket& dmtcp::DmtcpCoordinatorAPI::openRestoreSocket()
+{
+  JTRACE ("restoreSockets begin");
+
+  theRestorePort = RESTORE_PORT_START;
+
+  jalib::JSocket restoreSocket (-1);
+  while (!restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP) {
+    restoreSocket = jalib::JServerSocket(jalib::JSockAddr::ANY,
+                                         ++theRestorePort);
+    JTRACE ("open listen socket attempt") (theRestorePort);
+  }
+  JASSERT (restoreSocket.isValid()) (RESTORE_PORT_START)
+    .Text("failed to open listen socket");
+  restoreSocket.changeFd(_restoreSocket.sockfd());
+  JTRACE ("opening listen sockets")
+    (_restoreSocket.sockfd()) (restoreSocket.sockfd());
+  _restoreSocket = restoreSocket;
+  return _restoreSocket;
+}

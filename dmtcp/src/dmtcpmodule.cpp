@@ -50,6 +50,7 @@ EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
   DmtcpWorker::instance().coordinatorSocket().writeAll(extraData,
                                                        msg.extraBytes);
   delete [] extraData;
+  return 1;
 }
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
@@ -88,4 +89,5 @@ EXTERNC int send_query_to_coordinator(const void *key, size_t key_len,
   memcpy(val, extraData + key_len, msg.extraBytes-key_len);
   *val_len = msg.valLen;
   delete [] extraData;
+  return 1;
 }
