@@ -93,6 +93,7 @@ static const char* theUsage =
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
   "  --with-module (environment variable DMTCP_MODULE):\n"
   "      Colon-separated list of DMTCP modules to be preloaded with DMTCP.\n"
+  "      (Absolute pathnames are required.)\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
   "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
