@@ -9,9 +9,7 @@ void dmtcp::LookupService::reset()
 {
   keyValueMapIterator it;
   for (it = _keyValueMap.begin(); it != _keyValueMap.end(); it++) {
-    KeyValue *k = it->first;
     KeyValue *v = it->second;
-    delete k;
     delete v;
   }
   _keyValueMap.clear();
@@ -20,7 +18,7 @@ void dmtcp::LookupService::reset()
 void dmtcp::LookupService::addKeyValue(const void *key, size_t keyLen,
                                        const void *val, size_t valLen)
 {
-  KeyValue *k = new KeyValue(key, keyLen);
+  KeyValue k(key, keyLen);
   KeyValue *v = new KeyValue(val, valLen);
   if (_keyValueMap.find(k) != _keyValueMap.end()) {
     JTRACE("Duplicate key");
@@ -31,7 +29,7 @@ void dmtcp::LookupService::addKeyValue(const void *key, size_t keyLen,
 const void* dmtcp::LookupService::query(const void *key, size_t keyLen,
                                         void **val, size_t *valLen)
 {
-  KeyValue *k = new KeyValue(key, keyLen);
+  KeyValue k(key, keyLen);
   if (_keyValueMap.find(k) == _keyValueMap.end()) {
     JTRACE("Lookup Failed, Key not found.");
     return NULL;
@@ -40,6 +38,7 @@ const void* dmtcp::LookupService::query(const void *key, size_t keyLen,
   KeyValue *v = _keyValueMap[k];
   *val = v->data();
   *valLen = v->len();
+  
   return *val;
 }
 
@@ -72,7 +71,7 @@ void dmtcp::LookupService::respondToQuery(const dmtcp::UniquePid& upid,
   JASSERT(query(key, msg.keyLen, &val, &valLen) != NULL);
 
   char *extraData = 0;
-  extraData = new char[msg.extraBytes];
+  extraData = new char[msg.keyLen + valLen];
   memcpy(extraData, key, keyLen);
   memcpy(extraData + keyLen, val, valLen);
 
