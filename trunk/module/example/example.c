@@ -15,7 +15,13 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
     printf("The module containing %s has been initialized.\n", __FILE__);
     break;
   case DMTCP_EVENT_PRE_CHECKPOINT:
-    printf("The module is being called before checkpointing.\n");
+    printf("\n*** The module is being called before checkpointing. ***\n");
+    break;
+  case DMTCP_EVENT_POST_CHECKPOINT:
+    printf("*** The module has now been checkpointed. ***\n");
+    break;
+  case DMTCP_EVENT_POST_CHECKPOINT_RESUME:
+    printf("The process is now resuming after checkpoint.\n");
     break;
   case DMTCP_EVENT_POST_RESTART_RESUME:
     printf("The module is now resuming or restarting from checkpointing.\n");
@@ -27,8 +33,6 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
    * complete list.
    */
   case DMTCP_EVENT_POST_RESTART:
-  case DMTCP_EVENT_POST_CHECKPOINT:
-  case DMTCP_EVENT_POST_CHECKPOINT_RESUME:
   case DMTCP_EVENT_RESET_ON_FORK:
   case DMTCP_EVENT_POST_SUSPEND:
   case DMTCP_EVENT_POST_LEADER_ELECTION:
