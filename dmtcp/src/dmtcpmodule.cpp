@@ -39,7 +39,7 @@ EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
 {
   char *extraData = new char[key_len + val_len];
   memcpy(extraData, key, key_len);
-  memcpy(extraData, val, val_len);
+  memcpy(extraData + key_len, val, val_len);
 
   DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
   msg.keyLen = key_len;
@@ -70,18 +70,18 @@ EXTERNC int send_query_to_coordinator(const void *key, size_t key_len,
 
   msg.poison();
 
-  DmtcpWorker::instance().coordinatorSocket() << msg;
+  DmtcpWorker::instance().coordinatorSocket() >> msg;
   msg.assertValid();
 
   JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
-          msg.extraBytes > 0 && msg.valLen == msg.extraBytes);
+          msg.extraBytes > 0 && (msg.valLen + msg.keyLen) == msg.extraBytes);
 
   extraData = new char[msg.extraBytes];
   DmtcpWorker::instance().coordinatorSocket().readAll(extraData,
                                                       msg.extraBytes);
   //TODO: FIXME --> enforce the JASSERT
-  JASSERT(msg.extraBytes <= *val_len);
-  memcpy(val, extraData, msg.extraBytes);
+  JASSERT(msg.extraBytes <= *val_len + key_len);
+  memcpy(val, extraData + key_len, msg.extraBytes-key_len);
   *val_len = msg.valLen;
   delete [] extraData;
 }

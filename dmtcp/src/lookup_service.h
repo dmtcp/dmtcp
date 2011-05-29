@@ -66,7 +66,7 @@ namespace dmtcp
       ~LookupService() { reset(); }
       void reset();
 
-      typedef map<KeyValue*, KeyValue*>::iterator keyValueMapIterator;
+      typedef map<KeyValue, KeyValue*>::iterator keyValueMapIterator;
 
       void registerData(const UniquePid& upid, const DmtcpMessage& msg,
                         const char *data);
@@ -79,7 +79,7 @@ namespace dmtcp
                         void **val, size_t *valLen);
 
     private:
-      map<KeyValue*, KeyValue*> _keyValueMap;
+      map<KeyValue, KeyValue*> _keyValueMap;
   };
 }
 #endif
