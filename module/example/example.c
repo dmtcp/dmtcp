@@ -18,7 +18,7 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
     printf("The module is being called before checkpointing.\n");
     break;
   case DMTCP_EVENT_POST_RESTART_RESUME:
-    printf("The module is now resuming from checkpointing.\n");
+    printf("The module is now resuming or restarting from checkpointing.\n");
     break;
   case DMTCP_EVENT_PRE_EXIT:
     printf("The module is being called before exiting.\n");

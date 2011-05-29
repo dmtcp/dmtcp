@@ -22,6 +22,8 @@
 #ifndef DMTCPMODULE_H
 #define DMTCPMODULE_H
 
+#include <sys/types.h>
+
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"
@@ -48,6 +50,11 @@ typedef enum eDmtcpEvent {
 } DmtcpEvent_t;
 
 EXTERNC void process_dmtcp_event(DmtcpEvent_t event, void* data);
+EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
+                                    const void *val, size_t val_len);
+EXTERNC int send_query_to_coordinator(const void *key, size_t key_len,
+                                          void *val, size_t *val_len);
+
 EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC const char* dmtcp_get_uniquepid_str();
