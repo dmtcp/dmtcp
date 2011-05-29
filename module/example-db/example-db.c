@@ -17,28 +17,31 @@ struct keyPid {
 
 void process_dmtcp_event(DmtcpEvent_t event, void* data)
 {
-  int sizeofPid;
+  size_t sizeofPid;
 
   switch (event) {
   case DMTCP_EVENT_INIT:
     printf("The module containing %s has been initialized.\n", __FILE__);
-    if (getenv("DMTCP_EXAMPLE_DB")) {
-      mystruct.key = atoi(getenv("DMTCP_EXAMPLE_DB"));
+    if (getenv("EXAMPLE_DB_KEY")) {
+      mystruct.key = atoi(getenv("EXAMPLE_DB_KEY"));
       mystruct.pid = getpid();
+      printf("  Data initialized:  My (key, pid) is: (%d, %ld).\n",
+             mystruct.key, (long)mystruct.pid);
     }
-    if (getenv("DMTCP_EXAMPLE_DB_OTHER")) {
-      mystruct_other.key = atoi(getenv("DMTCP_EXAMPLE_DB_OTHER"));
+    if (getenv("EXAMPLE_DB_KEY")) {
+      mystruct_other.key = atoi(getenv("EXAMPLE_DB_KEY"));
       mystruct_other.pid = -1; /* -1 means unkonwn */
     }
     break;
   case DMTCP_EVENT_PRE_CHECKPOINT:
-    printf("The module is being called before checkpointing.\n");
+    printf("\nThe module is being called before checkpointing.\n");
     break;
-  case DMTCP_EVENT_POST_RESTART_RESUME:
+  case DMTCP_EVENT_POST_CHECKPOINT:
+  // case DMTCP_EVENT_POST_RESTART_RESUME:
     printf("The module is now resuming or restarting from checkpointing.\n");
     send_key_val_pair_to_coordinator(&(mystruct.key), sizeof(mystruct.key),
                                      &(mystruct.pid), sizeof(mystruct.pid));
-    printf("Data sent:  My (key, pid) is: (%d, %ld).\n",
+    printf("  Data sent:  My (key, pid) is: (%d, %ld).\n",
 	   mystruct.key, (long)mystruct.pid);
     /* NOTE: DMTCP automatically creates a barrier between all calls to
      *   send_key_val_pair and send_query.  Using these functions in the wrong
