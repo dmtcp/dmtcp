@@ -73,7 +73,7 @@ static const char* theUsage =
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
-  "      Join an existing coordinator, raise error if one already exists\n"
+  "      Join an existing coordinator, raise error if one doesn't already exist\n"
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
   "  --new-coordinator:\n"

@@ -1,0 +1,4 @@
+This is similar to example, but it illustrates the use of the coordinator
+  database.
+To demonstrate, do:  make check    [Checkpoints every 5 seconds]
+After killing it, try:  ./dmtcp_restart_script.sh

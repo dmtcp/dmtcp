@@ -52,6 +52,10 @@ EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
   delete [] extraData;
 }
 
+// On input, val points to a buffer in user memory and *val_len is the maximum
+//   size of that buffer (the memory allocated by user).
+// On output, we copy data to val, and set *val_len to the actual buffer size
+//   (to the size of the data that we copied in).
 EXTERNC int send_query_to_coordinator(const void *key, size_t key_len,
                                       void *val, size_t *val_len)
 {

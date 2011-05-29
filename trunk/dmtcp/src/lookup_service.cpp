@@ -60,7 +60,6 @@ void dmtcp::LookupService::respondToQuery(const dmtcp::UniquePid& upid,
                                           jalib::JSocket& remote,
                                           const DmtcpMessage& msg,
                                           const char *data)
-
 {
   JASSERT (msg.keyLen > 0 && msg.keyLen == msg.extraBytes)
     (msg.keyLen) (msg.extraBytes) (upid);
@@ -70,7 +69,7 @@ void dmtcp::LookupService::respondToQuery(const dmtcp::UniquePid& upid,
   size_t valLen = 0;
   JASSERT(query(key, msg.keyLen, &val, &valLen) != NULL);
 
-  char *extraData = 0;
+  char *extraData = NULL;
   extraData = new char[msg.keyLen + valLen];
   memcpy(extraData, key, keyLen);
   memcpy(extraData + keyLen, val, valLen);

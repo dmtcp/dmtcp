@@ -35,6 +35,9 @@ ${LIBNAME}.so: ${LIBOBJS}
 .cpp.o:
 	${CXX} ${CPPFLAGS} -o $@ $<
 
+tidy:
+	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
+
 clean:
 	rm -f ${LIBOBJS}
 
