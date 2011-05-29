@@ -135,6 +135,7 @@ clean: tidy
 	-(cd mtcp  && $(MAKE) clean)
 	-(cd dmtcp && $(MAKE) clean)
 	-(cd test  && $(MAKE) clean)
+	-(cd module  && $(MAKE) clean)
 	-if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
 	     DMTCP_TMPDIR=/tmp; \
@@ -147,6 +148,7 @@ clean: tidy
 distclean: clean
 	-(cd mtcp  && $(MAKE) distclean)
 	-(cd dmtcp && $(MAKE) distclean)  
+	-(cd module && $(MAKE) distclean)  
 	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/* dmtcpaware/*dmtcpaware*
 
 svndist:
