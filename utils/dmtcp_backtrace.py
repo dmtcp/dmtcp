@@ -53,6 +53,7 @@ def getOrigOffset(pathname,procMaps):
       break
   if textOffset == 0:
     print pathname + " not found in proc maps: " + procMaps
+    sys.exit(1)
   # Now we get the offset of the text section in the file.  When the text
   #   section was mapped to memory, in fact all the program header table
   #   and all the sections preceding .text were mapped in.
