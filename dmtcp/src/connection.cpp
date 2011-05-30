@@ -1176,7 +1176,8 @@ void dmtcp::FileConnection::saveFile(int fd)
     CopyFile(_path, savedFilePath);
     return;
   } else if (_type == FileConnection::FILE_DELETED) {
-    const size_t bufSize = 2 * PAGE_SIZE;
+    long page_size = sysconf(_SC_PAGESIZE);
+    const size_t bufSize = 2 * page_size;
     char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
 
     int destFd = open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,

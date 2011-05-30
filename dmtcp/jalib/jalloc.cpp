@@ -22,6 +22,7 @@
 #include "jalloc.h"
 #include <pthread.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "syscallwrappers.h"
 #include "constants.h"
 
@@ -53,10 +54,7 @@ void jalib::JAllocDispatcher::unlock()
 #ifdef JALIB_ALLOCATOR
 
 #include <sys/mman.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <sys/user.h>
-
 
 namespace jalib
 {
@@ -72,8 +70,8 @@ inline void* _alloc_raw(size_t n) {
 #error "USE_DMTCP_ALLOC_ARENA can't be used with 32-bit binaries"
 #endif
   static void *mmapHintAddr = (void*) 0x1f000000000;
-  if (n % PAGE_SIZE != 0) {
-    n = (n + PAGE_SIZE) - (n % PAGE_SIZE);
+  if (n % sysconf(_SC_PAGESIZE) != 0) {
+    n = (n + sysconf(_SC_PAGESIZE) - (n % sysconf(_SC_PAGESIZE)));
   }
   void* p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE, 
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);

@@ -447,15 +447,17 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
    */
   JASSERT(mtcpRestoreArgvStartAddr != NULL);
 
-  char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & PAGE_MASK);
+  long page_size = sysconf(_SC_PAGESIZE);
+  long page_mask = ~(page_size - 1);
+  char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
   char *endAddr = MTCP_RESTORE_STACK_BASE;
   size_t len = endAddr - startAddr;
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
   // mapped, will have read+write permissions.
-  for (size_t i = 0; i < len; i += PAGE_SIZE) {
-    int ret = mprotect ((char*) startAddr + i, PAGE_SIZE,
+  for (size_t i = 0; i < len; i += page_size) {
+    int ret = mprotect ((char*) startAddr + i, page_size,
                         PROT_READ | PROT_WRITE);
     if (ret != -1 || errno != ENOMEM) {
       _mtcpRestoreArgvStartAddr = NULL;
