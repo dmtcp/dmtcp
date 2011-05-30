@@ -1086,7 +1086,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 
   WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
 
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
                           DMT_DO_REGISTER_NAME_SERVICE_DATA );
   process_dmtcp_event(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, NULL);

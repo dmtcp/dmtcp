@@ -533,7 +533,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         }
 #endif
 
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
         if ( oldState == WorkerState::DRAINED
                 && newState == WorkerState::CHECKPOINTED )
         {
@@ -717,7 +717,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       break;
 #endif
 
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
       case DMT_REGISTER_NAME_SERVICE_DATA:
       {
         JTRACE ("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());

@@ -58,7 +58,7 @@ namespace dmtcp
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
 
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
     DMT_DO_REGISTER_NAME_SERVICE_DATA,
     DMT_DO_SEND_QUERIES,
 #endif
@@ -71,7 +71,7 @@ namespace dmtcp
     DMT_EXTERNAL_SOCKETS_CLOSED,
 #endif
 
-//#ifdef IBV
+//#ifdef COORD_NAMESERVICE
     DMT_REGISTER_NAME_SERVICE_DATA,
     DMT_NAME_SERVICE_QUERY,
     DMT_NAME_SERVICE_QUERY_RESPONSE,
@@ -116,7 +116,7 @@ namespace dmtcp
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
         NAME_SERVICE_DATA_REGISTERED,
         DONE_QUERYING,
 #endif
@@ -175,7 +175,7 @@ namespace dmtcp
     struct sockaddr_storage remoteAddr;
 #endif
 
-//#ifdef IBV
+//#ifdef COORD_NAMESERVICE
     size_t                  keyLen;
     size_t                  valLen;
 //#endif

@@ -27,6 +27,15 @@
 #endif
 #include "linux/version.h"
 
+// Turn on coordinator NameService by default. In future, we will replace the
+// logic in dmtcp_coordinator.cpp and dmtcp_worker.cpp to allow the coordinator
+// to automatically detect when a worker wants to use NameService. If it does,
+// the worker will go through two extra barriers in the coordinator (REGISTER
+// and QUERY).
+// Every worker that uses the NameService, must register _some_ data with the
+// coordinator before it can do a query.
+#define COORD_NAMESERVICE
+
 #ifdef PTRACE
 # define LIBTHREAD_DB "libthread_db.so.1"
 # define LIBPTHREAD_FILENAME "libpthread.so.0"
@@ -111,9 +120,9 @@
 #define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
 
 #define ENV_PTRACE \
-    , ENV_VAR_DLSYM_OFFSET 
+    , ENV_VAR_DLSYM_OFFSET
 #else
-#define ENV_PTRACE 
+#define ENV_PTRACE
 #endif
 
 //this list should be kept up to date with all "protected" environment vars
