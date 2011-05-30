@@ -28,8 +28,8 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
       printf("  Data initialized:  My (key, pid) is: (%d, %ld).\n",
              mystruct.key, (long)mystruct.pid);
     }
-    if (getenv("EXAMPLE_DB_KEY")) {
-      mystruct_other.key = atoi(getenv("EXAMPLE_DB_KEY"));
+    if (getenv("EXAMPLE_DB_KEY_OTHER")) {
+      mystruct_other.key = atoi(getenv("EXAMPLE_DB_KEY_OTHER"));
       mystruct_other.pid = -1; /* -1 means unkonwn */
     }
     break;
