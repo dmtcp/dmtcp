@@ -30,44 +30,181 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "dmtcpmessagetypes.h"
-#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jtimer.h"
 #include  "../jalib/jfilesystem.h"
 #include <sys/select.h>
 #include "synchronizationlogging.h"
-#include "log.h"
 #include <sys/resource.h>
 
 #ifdef RECORD_REPLAY
 
+LIB_PRIVATE char log[MAX_LOG_LENGTH] = { 0 };
+
+/* IMPOTANT: if new fields are added to log_entry_t in the common area,
+ * update the following. */
+#define log_event_common_size \
+  (sizeof(GET_COMMON(currentLogEntry,event))       +                    \
+      sizeof(GET_COMMON(currentLogEntry,log_id))   +                    \
+      sizeof(GET_COMMON(currentLogEntry,tid))      +                    \
+      sizeof(GET_COMMON(currentLogEntry,clone_id)) +                    \
+      sizeof(GET_COMMON(currentLogEntry,my_errno)) +                    \
+      sizeof(GET_COMMON(currentLogEntry,retval)))
+
+#define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
+  do {                                                                  \
+    if (event == name##_event || event == name##_event_return)          \
+      event_size = log_event_##name##_size;                             \
+  } while(0)
+
+#define IFNAME_COPY_TO_MEMORY_LOG(name, e, dest)                        \
+  do {                                                                  \
+    if (GET_COMMON((e),event) == name##_event ||                        \
+        GET_COMMON((e),event) == name##_event_return) {                 \
+      memcpy((dest),                                                    \
+          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
+      memcpy(&currentLogEntry.log_event_t.log_event_##name,             \
+          &(e).log_event_t.log_event_##name, log_event_##name##_size);  \
+    }                                                                   \
+  } while(0)
+
+#define IFNAME_COPY_FROM_MEMORY_SOURCE(name, source, dest)              \
+  do {                                                                  \
+    if (GET_COMMON(dest,event) == name##_event ||                       \
+        GET_COMMON(dest,event) == name##_event_return) {                \
+      memcpy(&dest.log_event_t.log_event_##name,                        \
+          &source, log_event_##name##_size);                            \
+    }                                                                   \
+  } while(0)
+
+#define IFNAME_READ_ENTRY_FROM_DISK(name, fd, entry)                    \
+  do {                                                                  \
+    if (GET_COMMON_PTR(entry,event) == name##_event ||                  \
+        GET_COMMON_PTR(entry,event) == name##_event_return) {           \
+      return _real_read(fd, &entry->log_event_t.log_event_##name,       \
+          log_event_##name##_size);                                     \
+    }                                                                   \
+  } while(0)
+
+#define IFNAME_WRITE_ENTRY_TO_DISK(name, fd, entry, ret)                \
+  do {                                                                  \
+    if (GET_COMMON(entry,event) == name##_event ||                      \
+        GET_COMMON(entry,event) == name##_event_return) {               \
+      ret = write(fd, &entry.log_event_t.log_event_##name,              \
+          log_event_##name##_size);                                     \
+    }                                                                   \
+  } while(0)
+
+#define GET_EVENT_SIZE(event, event_size)                               \
+  do {                                                                  \
+    if (event == pthread_cond_signal_anomalous_event ||                 \
+        event == pthread_cond_signal_anomalous_event_return)            \
+      event_size = log_event_pthread_cond_signal_size;                  \
+    if (event == pthread_cond_broadcast_anomalous_event ||              \
+        event == pthread_cond_broadcast_anomalous_event_return)         \
+      event_size = log_event_pthread_cond_broadcast_size;               \
+    FOREACH_NAME(IFNAME_GET_EVENT_SIZE, event, event_size);             \
+  } while(0)
+
+#define COPY_TO_MEMORY_LOG(entry, dest)                                 \
+  do {                                                                  \
+    FOREACH_NAME(IFNAME_COPY_TO_MEMORY_LOG, (entry), (dest));           \
+  } while(0)
+
+#define COPY_FROM_MEMORY_SOURCE(source, dest)                           \
+  do {                                                                  \
+    FOREACH_NAME(IFNAME_COPY_FROM_MEMORY_SOURCE, source, dest);         \
+  } while(0)
+
+#define READ_ENTRY_FROM_DISK(fd, entry)                                        \
+  do {                                                                         \
+    if (GET_COMMON_PTR(entry,event) == pthread_cond_signal_anomalous_event || \
+        GET_COMMON_PTR(entry,event) == pthread_cond_signal_anomalous_event_return) { \
+      return _real_read(fd,                                                    \
+                        &entry->log_event_t.log_event_pthread_cond_signal,     \
+                        log_event_pthread_cond_signal_size);                   \
+    }                                                                          \
+    if (GET_COMMON_PTR(entry,event) == pthread_cond_broadcast_anomalous_event ||              \
+        GET_COMMON_PTR(entry,event) == pthread_cond_broadcast_anomalous_event_return) {       \
+      return _real_read(fd,                                                    \
+                        &entry->log_event_t.log_event_pthread_cond_broadcast,  \
+                        log_event_pthread_cond_broadcast_size);                \
+    }                                                                          \
+    FOREACH_NAME(IFNAME_READ_ENTRY_FROM_DISK, fd, entry);                      \
+  } while(0)
+
+#define WRITE_ENTRY_TO_DISK(fd, entry, ret)                                    \
+  do {                                                                         \
+    if (GET_COMMON(entry,event) == pthread_cond_signal_anomalous_event || \
+        GET_COMMON(entry,event) == pthread_cond_signal_anomalous_event_return) {           \
+      ret = write(fd,                                                          \
+                  &entry.log_event_t.log_event_pthread_cond_signal,            \
+                  log_event_pthread_cond_signal_size);                         \
+    }                                                                          \
+    if (GET_COMMON(entry,event) == pthread_cond_broadcast_anomalous_event ||               \
+        GET_COMMON(entry,event) == pthread_cond_broadcast_anomalous_event_return) {        \
+      ret = write(fd,                                                          \
+                  &entry.log_event_t.log_event_pthread_cond_broadcast,         \
+                  log_event_pthread_cond_broadcast_size);                      \
+    }                                                                          \
+    FOREACH_NAME(IFNAME_WRITE_ENTRY_TO_DISK, fd, entry, ret);                  \
+  } while(0)
+
 /* #defined constants */
 #define MAX_OPTIONAL_EVENTS 5
 
+static void log_entry_to_buffer(log_entry_t *entry, char *buffer)
+{
+  memcpy(buffer, &GET_COMMON_PTR(entry, event), sizeof(GET_COMMON_PTR(entry, event)));
+  buffer += sizeof(GET_COMMON_PTR(entry, event));
+  memcpy(buffer, &GET_COMMON_PTR(entry, log_id), sizeof(GET_COMMON_PTR(entry, log_id)));
+  buffer += sizeof(GET_COMMON_PTR(entry, log_id));
+  memcpy(buffer, &GET_COMMON_PTR(entry, tid), sizeof(GET_COMMON_PTR(entry, tid)));
+  buffer += sizeof(GET_COMMON_PTR(entry, tid));
+  memcpy(buffer, &GET_COMMON_PTR(entry, clone_id), sizeof(GET_COMMON_PTR(entry, clone_id)));
+  buffer += sizeof(GET_COMMON_PTR(entry, clone_id));
+  memcpy(buffer, &GET_COMMON_PTR(entry, my_errno), sizeof(GET_COMMON_PTR(entry, my_errno)));
+  buffer += sizeof(GET_COMMON_PTR(entry, my_errno));
+  memcpy(buffer, &GET_COMMON_PTR(entry, retval), sizeof(GET_COMMON_PTR(entry, retval)));
+  buffer += sizeof(GET_COMMON_PTR(entry, retval));
+}
+
+static void buffer_to_log_entry(char *buffer, log_entry_t *entry)
+{
+  memcpy(&GET_COMMON_PTR(entry, event), buffer, sizeof(GET_COMMON_PTR(entry, event)));
+  buffer += sizeof(GET_COMMON_PTR(entry, event));
+  memcpy(&GET_COMMON_PTR(entry, log_id), buffer, sizeof(GET_COMMON_PTR(entry, log_id)));
+  buffer += sizeof(GET_COMMON_PTR(entry, log_id));
+  memcpy(&GET_COMMON_PTR(entry, tid), buffer, sizeof(GET_COMMON_PTR(entry, tid)));
+  buffer += sizeof(GET_COMMON_PTR(entry, tid));
+  memcpy(&GET_COMMON_PTR(entry, clone_id), buffer, sizeof(GET_COMMON_PTR(entry, clone_id)));
+  buffer += sizeof(GET_COMMON_PTR(entry, clone_id));
+  memcpy(&GET_COMMON_PTR(entry, my_errno), buffer, sizeof(GET_COMMON_PTR(entry, my_errno)));
+  buffer += sizeof(GET_COMMON_PTR(entry, my_errno));
+  memcpy(&GET_COMMON_PTR(entry, retval), buffer, sizeof(GET_COMMON_PTR(entry, retval)));
+  buffer += sizeof(GET_COMMON_PTR(entry, retval));
+}
+
 /* Prototypes */
-char* map_file_to_memory(const char* path, size_t size, int flags, int mode);
+static off_t nextSelect (log_entry_t *select, int clone_id, int nfds, 
+    unsigned long int exceptfds, unsigned long int timeout);
 /* End prototypes */
 
 // TODO: Do we need LIB_PRIVATE again here if we had already specified it in
 // the header file?
 /* Library private: */
-LIB_PRIVATE dmtcp::map<clone_id_t, pthread_t> clone_id_to_tid_table;
-LIB_PRIVATE dmtcp::map<pthread_t, clone_id_t> tid_to_clone_id_table;
-LIB_PRIVATE dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*> clone_id_to_log_table;
-LIB_PRIVATE void* unified_log_addr = NULL;
+LIB_PRIVATE dmtcp::map<long long int, pthread_t> clone_id_to_tid_table;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
-LIB_PRIVATE char GLOBAL_LOG_LIST_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_LOG_PATH[RECORD_LOG_PATH_MAX];
-LIB_PRIVATE char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
 LIB_PRIVATE char RECORD_READ_DATA_LOG_PATH[RECORD_LOG_PATH_MAX];
+LIB_PRIVATE int             record_log_fd = -1;
 LIB_PRIVATE int             read_data_fd = -1;
 LIB_PRIVATE int             sync_logging_branch = 0;
-
 /* Setting this will log/replay *ALL* malloc family
    functions (i.e. including ones from DMTCP, std C++ lib, etc.). */
 LIB_PRIVATE int             log_all_allocs = 0;
-LIB_PRIVATE size_t          default_stack_size = 0;
+LIB_PRIVATE unsigned long   default_stack_size = 0;
 LIB_PRIVATE pthread_cond_t  reap_cv = PTHREAD_COND_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t fd_change_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t global_clone_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -75,36 +212,53 @@ LIB_PRIVATE pthread_mutex_t log_index_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t reap_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_mutex_t thread_transition_mutex = PTHREAD_MUTEX_INITIALIZER;
 LIB_PRIVATE pthread_t       thread_to_reap;
-
-
-LIB_PRIVATE dmtcp::SynchronizationLog unified_log;
-
 /* Thread locals: */
-LIB_PRIVATE __thread clone_id_t my_clone_id = -1;
+LIB_PRIVATE __thread long long int my_clone_id = 0;
 LIB_PRIVATE __thread int in_mmap_wrapper = 0;
-LIB_PRIVATE __thread dmtcp::SynchronizationLog *my_log;
-LIB_PRIVATE __thread unsigned char isOptionalEvent = 0;
-
-
 /* Volatiles: */
-LIB_PRIVATE volatile clone_id_t global_clone_counter = 0;
+LIB_PRIVATE volatile int           log_entry_index = 0;
+LIB_PRIVATE volatile int           log_index = 0;
+LIB_PRIVATE volatile int           log_loaded = 0;
+LIB_PRIVATE volatile long long int global_clone_counter = 0;
 LIB_PRIVATE volatile off_t         read_log_pos = 0;
 
-LIB_PRIVATE int global_log_list_fd = -1;
-LIB_PRIVATE pthread_mutex_t global_log_list_fd_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static char *code_lower  = 0;
-static char *data_break  = 0;
-static char *stack_lower = 0;
-static char *stack_upper = 0;
-
+/* File private: */
+static char patch_list[MAX_LOG_LENGTH] = {0};
+static int patch_list_index = 0;
+static char RECORD_PATCHED_LOG_PATH[RECORD_LOG_PATH_MAX];
+static int               record_patched_log_fd = -1;
+static unsigned long int code_lower = 0, data_break = 0,
+                         stack_lower = 0, stack_upper = 0;
+static pthread_mutex_t   log_file_mutex       = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t   pthread_create_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t   atomic_set_mutex     = PTHREAD_MUTEX_INITIALIZER;
-
 /* File private volatiles: */
-static volatile log_id_t next_log_id = 0;
+static volatile long long int current_log_id = 0;
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
+int readEntryFromDisk(int fd, log_entry_t *entry) {
+  if (_real_read(fd, &GET_COMMON_PTR(entry,event), sizeof(GET_COMMON_PTR(entry,event))) == 0) return 0;
+  if (_real_read(fd, &GET_COMMON_PTR(entry,log_id), sizeof(GET_COMMON_PTR(entry,log_id))) == 0) return 0;
+  if (_real_read(fd, &GET_COMMON_PTR(entry,tid), sizeof(GET_COMMON_PTR(entry,tid))) == 0) return 0;
+  if (_real_read(fd, &GET_COMMON_PTR(entry,clone_id), sizeof(GET_COMMON_PTR(entry,clone_id))) == 0) return 0;
+  if (_real_read(fd, &GET_COMMON_PTR(entry,my_errno), sizeof(GET_COMMON_PTR(entry,my_errno))) == 0) return 0;
+  if (_real_read(fd, &GET_COMMON_PTR(entry,retval), sizeof(GET_COMMON_PTR(entry,retval))) == 0) return 0;
+  READ_ENTRY_FROM_DISK(fd, entry);
+}
+
+int writeEntryToDisk(int fd, log_entry_t entry) {
+  int ret_event_size = write(fd, &GET_COMMON(entry,event), sizeof(GET_COMMON(entry,event)));
+  int ret_log_id_size = write(fd, &GET_COMMON(entry,log_id), sizeof(GET_COMMON(entry,log_id)));
+  int ret_tid_size = write(fd, &GET_COMMON(entry,tid), sizeof(GET_COMMON(entry,tid)));
+  int ret_clone_id_size = write(fd, &GET_COMMON(entry,clone_id), sizeof(GET_COMMON(entry,clone_id)));
+  int ret_my_errno_size = write(fd, &GET_COMMON(entry,my_errno), sizeof(GET_COMMON(entry,my_errno)));
+  int ret_retval_size = write(fd, &GET_COMMON(entry,retval), sizeof(GET_COMMON(entry,retval)));
+  int ret_log_event;
+  WRITE_ENTRY_TO_DISK(fd, entry, ret_log_event);
+  return ret_log_event + ret_event_size + ret_log_id_size + ret_tid_size +
+    ret_clone_id_size + ret_my_errno_size + ret_retval_size;
+}
 
 void atomic_increment(volatile int *ptr)
 {
@@ -134,35 +288,6 @@ void atomic_set(volatile int *ptr, int val)
   _real_pthread_mutex_unlock(&atomic_set_mutex);
 }
 
-/* Switch record/replay to specified mode. mode should be one of:
-   SYNC_NOOP, SYNC_RECORD, SYNC_REPLAY. */
-inline void set_sync_mode(int mode)
-{
-  char *x = getenv(ENV_VAR_LOG_REPLAY);
-  // Don't call setenv() to avoid hidden malloc()
-  if (mode == SYNC_NOOP) {
-    x[0] = '0';
-  } else if (mode == SYNC_RECORD) {
-    x[0] = '1';
-  } else if (mode == SYNC_REPLAY) {
-    x[0] = '2';
-  } else {
-    JASSERT ( false ) ( mode ).Text("Invalid mode request.");
-  }
-  x[1] = '\0';
-  sync_logging_branch = mode;
-}
-
-clone_id_t get_next_clone_id()
-{
-  return __sync_fetch_and_add (&global_clone_counter, 1);
-}
-
-log_id_t get_next_log_id()
-{
-  return __sync_fetch_and_add (&next_log_id, 1);
-}
-
 int shouldSynchronize(void *return_addr)
 {
   // Returns 1 if we should synchronize this call, instead of calling _real
@@ -171,103 +296,128 @@ int shouldSynchronize(void *return_addr)
   if (state != dmtcp::WorkerState::RUNNING) {
     return 0;
   }
-  if (!validAddress(return_addr)) {
+  if (!validAddress((unsigned long int)return_addr)) {
     return 0;
   }
   return 1;
 }
 
-void register_in_global_log_list(clone_id_t clone_id)
+/* Begin miscellaneous/helper functions. */
+// Reads from fd until count bytes are read, or newline encountered.
+// Returns NULL at EOF.
+static int read_line(int fd, char *buf, int count)
 {
-  _real_pthread_mutex_lock(&global_log_list_fd_mutex);
-  if (global_log_list_fd == -1) {
-    global_log_list_fd = _real_open(GLOBAL_LOG_LIST_PATH,
-                                    O_WRONLY | O_CREAT | O_APPEND,
-                                    S_IRUSR | S_IWUSR);
-    JASSERT(global_log_list_fd != -1) (JASSERT_ERRNO);
+  int i = 0;
+  char c;
+  while (1) {
+    if (_real_read(fd, &c, 1) == 0) {
+      buf[i] = '\0';
+      return NULL;
+    }
+    buf[i++] = c;
+    if (c == '\n') break;
   }
-
-  Util::writeAll(global_log_list_fd, &clone_id, sizeof(clone_id));
-  _real_close(global_log_list_fd);
-  global_log_list_fd = -1;
-  _real_pthread_mutex_unlock(&global_log_list_fd_mutex);
+  buf[i++] = '\0';
+  return i;
 }
 
-dmtcp::vector<clone_id_t> get_log_list()
+// TODO: Since this is C++, couldn't we use some C++ string processing methods
+// to simplify the logic? MAKE SURE TO AVOID MALLOC()
+LIB_PRIVATE void recordDataStackLocations()
 {
-  dmtcp::vector<clone_id_t> clone_ids;
-  int fd = _real_open(GLOBAL_LOG_LIST_PATH, O_RDONLY, 0);
-  if (fd < 0) {
-    return clone_ids;
+  int maps_file = -1;
+  char line[200], stack_line[200], code_line[200];
+  dmtcp::string progname = jalib::Filesystem::GetProgramName();
+  if ((maps_file = _real_open("/proc/self/maps", O_RDONLY, S_IRUSR)) == -1) {
+    perror("open");
+    exit(1);
   }
-  clone_id_t id;
-  while (Util::readAll(fd, &id, sizeof(id)) != 0) {
-    clone_ids.push_back(id);
-  }
-  _real_close(fd);
-  JTRACE("Total number of log files") (clone_ids.size());
-  return clone_ids;
-}
-
-/* Initializes log pathnames. One log per process. */
-void initializeLogNames()
-{
-  pid_t pid = getpid();
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-log-%d", tmpdir.c_str(), pid);
-  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
-  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
-      "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
-  snprintf(GLOBAL_LOG_LIST_PATH, RECORD_LOG_PATH_MAX,
-      "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
-}
-
-/* Truncate all logs to their current positions. */
-void truncate_all_logs()
-{
-  JASSERT ( SYNC_IS_REPLAY );
-  dmtcp::map<clone_id_t, dmtcp::SynchronizationLog *>::iterator it;
-  for (it = clone_id_to_log_table.begin();
-       it != clone_id_to_log_table.end();
-       it++) {
-    if (it->second->isMappedIn()) {
-      it->second->truncate();
+  while (read_line(maps_file, line, 199) != 0) {
+    if (strstr(line, "r-xp") != NULL && strstr(line, progname.c_str()) != NULL) {
+      // beginning of .text segment
+      strncpy(code_line, line, 199);
+    }
+    if (strstr(line, "[stack]") != NULL) {
+      strncpy(stack_line, line, 199);
     }
   }
-  if (unified_log.isMappedIn()) {
-    unified_log.truncate();
+  close(maps_file);
+  char addrs[32];
+  char addr_lower[16];
+  char addr_upper[16];
+  addr_lower[0] = '0';
+  addr_lower[1] = 'x';
+  addr_upper[0] = '0';
+  addr_upper[1] = 'x';
+  // TODO: there must be a better way to do this.
+#ifdef __x86_64__
+  strncpy(addrs, stack_line, 25);
+  strncpy(addr_lower+2, addrs, 12);
+  strncpy(addr_upper+2, addrs+13, 12);
+  addr_lower[14] = '\0';
+  addr_upper[14] = '\0';
+  //printf("s_stack_lower=%s, s_stack_upper=%s\n", addr_lower, addr_upper);
+  stack_lower = strtoul(addr_lower, NULL, 16);
+  stack_upper = strtoul(addr_upper, NULL, 16);
+  addr_lower[0] = '0';
+  addr_lower[1] = 'x';
+  strncpy(addrs, code_line, 25);
+  strncpy(addr_lower+2, addrs, 12);
+  addr_lower[14] = '\0';
+  code_lower = strtoul(addr_lower, NULL, 16);
+#else
+  strncpy(addrs, stack_line, 17);
+  strncpy(addr_lower+2, addrs, 8);
+  strncpy(addr_upper+2, addrs+9, 8);
+  addr_lower[10] = '\0';
+  addr_upper[10] = '\0';
+  //printf("s_stack_lower=%s, s_stack_upper=%s\n", addr_lower, addr_upper);
+  stack_lower = strtoul(addr_lower, NULL, 16);
+  stack_upper = strtoul(addr_upper, NULL, 16);
+  addr_lower[0] = '0';
+  addr_lower[1] = 'x';
+  strncpy(addrs, code_line, 17);
+  strncpy(addr_lower+2, addrs, 8);
+  addr_lower[10] = '\0';
+  code_lower = strtoul(addr_lower, NULL, 16);
+#endif
+  // Returns the next address after the end of the heap.
+  data_break = (unsigned long int)sbrk(0);
+  // Also figure out the default stack size for NPTL threads using the
+  // architecture-specific limits defined in nptl/sysdeps/ARCH/pthreaddef.h
+  struct rlimit rl;
+  int retval = getrlimit(RLIMIT_STACK, &rl);
+#ifdef __x86_64__
+  unsigned long arch_default_stack_size = 32*1024*1024;
+#else
+  unsigned long arch_default_stack_size = 2*1024*1024;
+#endif
+  default_stack_size =
+    (rl.rlim_cur == RLIM_INFINITY) ? arch_default_stack_size : rl.rlim_cur;
+}
+
+int validAddress(unsigned long int addr)
+{
+  // This code assumes the user's segments .text through .data are contiguous.
+  if ((addr >= code_lower && addr < data_break) ||
+      (addr >= stack_lower && addr < stack_upper)) {
+    return 1;
+  } else {
+    return 0;
   }
 }
 
-/* Unmap all open logs, if any are in memory. Return whether any were
-   unmapped. */
-bool close_all_logs()
+static void resetLog()
 {
-  bool result = false;
-  dmtcp::map<clone_id_t, pthread_t>::iterator it;
-  for (it = clone_id_to_tid_table.begin();
-       it != clone_id_to_tid_table.end();
-       it++) {
-    if (clone_id_to_log_table[it->first]->isMappedIn()) {
-      clone_id_to_log_table[it->first]->destroy();
-      result = true;
-    }
+  JTRACE ( "resetting all log entries and log_index to 0." );
+  int i = 0;
+  for (i = 0; i < MAX_LOG_LENGTH; i++) {
+    log[i] = 0;
   }
-  if (unified_log.isMappedIn()) {
-    unified_log.destroy();
-    result = true;
-  }
-  return result;
+  atomic_set(&log_index, 0);
 }
 
-int isUnlock(log_entry_t e)
-{
-  return 0;
-}
-#if 0
-int isUnlock(log_entry_t e)
+static int isUnlock(log_entry_t e)
 {
   return GET_COMMON(e,event) == pthread_mutex_unlock_event ||
     GET_COMMON(e,event) == select_event_return ||
@@ -279,7 +429,6 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == realloc_event_return ||
     GET_COMMON(e,event) == free_event_return ||
     GET_COMMON(e,event) == accept_event_return ||
-    GET_COMMON(e,event) == accept4_event_return ||
     GET_COMMON(e,event) == getsockname_event_return ||
     GET_COMMON(e,event) == fcntl_event_return ||
     GET_COMMON(e,event) == libc_memalign_event_return ||
@@ -322,7 +471,6 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == pthread_cond_timedwait_event ||
     GET_COMMON(e,event) == pthread_cond_timedwait_event_return ||
     GET_COMMON(e,event) == getc_event_return ||
-    GET_COMMON(e,event) == gettimeofday_event_return ||
     GET_COMMON(e,event) == fgetc_event_return ||
     GET_COMMON(e,event) == ungetc_event_return ||
     GET_COMMON(e,event) == getline_event_return ||
@@ -341,7 +489,6 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == fopen_event_return ||
     GET_COMMON(e,event) == fopen64_event_return ||
     GET_COMMON(e,event) == fgets_event_return ||
-    GET_COMMON(e,event) == fflush_event_return ||
     GET_COMMON(e,event) == mkstemp_event_return ||
     GET_COMMON(e,event) == rewind_event_return ||
     GET_COMMON(e,event) == ftell_event_return ||
@@ -358,132 +505,7 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == mmap64_event_return ||
     GET_COMMON(e,event) == munmap_event_return ||
     GET_COMMON(e,event) == mremap_event_return ||
-    GET_COMMON(e,event) == opendir_event_return ||
-    GET_COMMON(e,event) == closedir_event_return ||
     GET_COMMON(e,event) == user_event_return;
-}
-#endif
-
-void initLogsForRecordReplay()
-{
-  // Initialize mmap()'d logs for the current threads.
-  unified_log.initGlobalLog(RECORD_LOG_PATH, 10 * MAX_LOG_LENGTH);
-  dmtcp::vector<clone_id_t> clone_ids = get_log_list();
-  dmtcp::map<clone_id_t, pthread_t>::iterator it;
-  for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
-    dmtcp::SynchronizationLog *log = clone_id_to_log_table[it->first];
-    // Only append to global log if it doesn't already exist:
-    log->initForCloneId(it->first, it->first > clone_ids.size());
-  }
-
-  if (SYNC_IS_REPLAY) {
-    if (!unified_log.isUnified()) {
-      JTRACE ( "Merging/Unifying Logs." );
-      //SYNC_TIMER_START(merge_logs);
-      unified_log.mergeLogs(clone_ids);
-      //SYNC_TIMER_STOP(merge_logs);
-    }
-    getNextLogEntry();
-  }
-  // Move to end of each log we have so we don't overwrite old entries.
-  dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*>::iterator it2;
-  for (it2 = clone_id_to_log_table.begin();
-       it2 != clone_id_to_log_table.end();
-       it2++) {
-    it2->second->moveMarkersToEnd();
-  }
-}
-
-
-// TODO: Since this is C++, couldn't we use some C++ string processing methods
-// to simplify the logic? MAKE SURE TO AVOID MALLOC()
-//
-// FIXME: On some systems, stack might not be labelled as "[stack]"
-//   Instead, use environ[NN] to find an address in the stack and then use
-//   /proc/self/maps to find the mmap() location within which this address
-//   falls.
-LIB_PRIVATE void recordDataStackLocations()
-{
-  int maps_file = -1;
-  char line[200], stack_line[200], code_line[200];
-  dmtcp::string progname = jalib::Filesystem::GetProgramName();
-  if ((maps_file = _real_open("/proc/self/maps", O_RDONLY, S_IRUSR)) == -1) {
-    perror("open");
-    exit(1);
-  }
-  while (Util::readLine(maps_file, line, 199) != 0) {
-    if (strstr(line, "r-xp") != NULL && strstr(line, progname.c_str()) != NULL) {
-      // beginning of .text segment
-      strncpy(code_line, line, 199);
-    }
-    if (strstr(line, "[stack]") != NULL) {
-      strncpy(stack_line, line, 199);
-    }
-  }
-  close(maps_file);
-  char addrs[32];
-  char addr_lower[16];
-  char addr_upper[16];
-  addr_lower[0] = '0';
-  addr_lower[1] = 'x';
-  addr_upper[0] = '0';
-  addr_upper[1] = 'x';
-  // TODO: there must be a better way to do this.
-#ifdef __x86_64__
-  strncpy(addrs, stack_line, 25);
-  strncpy(addr_lower+2, addrs, 12);
-  strncpy(addr_upper+2, addrs+13, 12);
-  addr_lower[14] = '\0';
-  addr_upper[14] = '\0';
-  //printf("s_stack_lower=%s, s_stack_upper=%s\n", addr_lower, addr_upper);
-  stack_lower = (char*) strtoul(addr_lower, NULL, 16);
-  stack_upper = (char*) strtoul(addr_upper, NULL, 16);
-  addr_lower[0] = '0';
-  addr_lower[1] = 'x';
-  strncpy(addrs, code_line, 25);
-  strncpy(addr_lower+2, addrs, 12);
-  addr_lower[14] = '\0';
-  code_lower = (char*) strtoul(addr_lower, NULL, 16);
-#else
-  strncpy(addrs, stack_line, 17);
-  strncpy(addr_lower+2, addrs, 8);
-  strncpy(addr_upper+2, addrs+9, 8);
-  addr_lower[10] = '\0';
-  addr_upper[10] = '\0';
-  //printf("s_stack_lower=%s, s_stack_upper=%s\n", addr_lower, addr_upper);
-  stack_lower = (char*) strtoul(addr_lower, NULL, 16);
-  stack_upper = (char*) strtoul(addr_upper, NULL, 16);
-  addr_lower[0] = '0';
-  addr_lower[1] = 'x';
-  strncpy(addrs, code_line, 17);
-  strncpy(addr_lower+2, addrs, 8);
-  addr_lower[10] = '\0';
-  code_lower = (char*) strtoul(addr_lower, NULL, 16);
-#endif
-  // Returns the next address after the end of the heap.
-  data_break = (char*) sbrk(0);
-  // Also figure out the default stack size for NPTL threads using the
-  // architecture-specific limits defined in nptl/sysdeps/ARCH/pthreaddef.h
-  struct rlimit rl;
-  JASSERT(0 == getrlimit(RLIMIT_STACK, &rl));
-#ifdef __x86_64__
-  size_t arch_default_stack_size = 32*1024*1024;
-#else
-  size_t arch_default_stack_size = 2*1024*1024;
-#endif
-  default_stack_size =
-    (rl.rlim_cur == RLIM_INFINITY) ? arch_default_stack_size : rl.rlim_cur;
-}
-
-int validAddress(void *addr)
-{
-  // This code assumes the user's segments .text through .data are contiguous.
-  if ((addr >= code_lower && addr < data_break) ||
-      (addr >= stack_lower && addr < stack_upper)) {
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 void copyFdSet(fd_set *src, fd_set *dest)
@@ -505,8 +527,8 @@ void copyFdSet(fd_set *src, fd_set *dest)
 int fdAvailable(fd_set *set)
 {
   // Returns 1 if 'set' has at least one fd available (for any action), else 0.
-  size_t length_fd_bits = FD_SETSIZE/NFDBITS;
-  size_t i = 0, j = 0;
+  int length_fd_bits = FD_SETSIZE/NFDBITS;
+  int i = 0, j = 0;
   for (i = 0; i < length_fd_bits; i++) {
     for (j = 0; j < NFDBITS; j++) {
       if ((__FDS_BITS(set)[i]>>j) & 0x1)
@@ -539,39 +561,1325 @@ int fdSetDiff(fd_set *one, fd_set *two)
   return 0;
 }
 
-void prepareNextLogEntry(log_entry_t& e)
+/* Given a clone_id, this returns the entry in patch_list with the lowest index
+   and same clone_id.  If clone_id is 0, return the oldest entry, regardless of
+   clone_id. If clone_id != 0 and no entry found, returns EMPTY_LOG_ENTRY. */
+static log_entry_t get_oldest_patch_entry(int clone_id)
+{
+  int i = 0, old_i = 0, event_size = 0, found = 0;
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  //JTRACE ( "tyler:" ) ( *((long *)&e) );
+  //memset(&e, 0, sizeof(e));
+  /* Loop through patch_list. We don't need to worry about reading from disk or
+     anything, since the only way things get added to patch_list is via the
+     add_to_patch_list function. */
+  while (i < patch_list_index) {
+    // Get entry size
+    GET_EVENT_SIZE((unsigned char)patch_list[i], event_size);
+    if (event_size == 0) break;
+    // Load common data into e
+    buffer_to_log_entry(&patch_list[i], &e);
+    old_i = i;
+    i += log_event_common_size;
+    // if clone id != given and we're not ignoring clone_ids: continue to next
+    if (GET_COMMON(e, clone_id) != clone_id && clone_id != 0) {
+      i += event_size;
+      continue;
+    }
+    // Load specific data into e
+    COPY_FROM_MEMORY_SOURCE(patch_list[i], e);
+    i += event_size;
+    // Remove it from patch_list by shifting everything left.
+    memmove(&patch_list[old_i], &patch_list[i], patch_list_index-i);
+    // Adjust patch_list_index for that removal.
+    JASSERT ( patch_list_index > old_i );
+    patch_list_index -= (log_event_common_size + event_size);
+    // Overwrite stale data at the end:
+    memset(&patch_list[patch_list_index], 0, log_event_common_size+event_size);
+    found = 1;
+    break;
+  }
+  if (found == 1) {
+    return e;
+  } else {
+    return EMPTY_LOG_ENTRY;
+  }
+}
+
+/* Append the given log entry to the end of patch_list. */
+static void add_to_patch_list(log_entry_t *e)
+{
+  //SYNC_TIMER_START(add_to_patch_list);
+  int event_size = 0;
+  GET_EVENT_SIZE(GET_COMMON_PTR(e, event), event_size);
+  JASSERT(patch_list_index + log_event_common_size + event_size 
+          < MAX_LOG_LENGTH);
+  // Copy common data to patch_list:
+  log_entry_to_buffer(e, &patch_list[patch_list_index]);
+  patch_list_index += log_event_common_size;
+  // Copy event-specific data to patch_list:
+  COPY_TO_MEMORY_LOG(*e, &patch_list[patch_list_index]);
+  patch_list_index += event_size;
+  //SYNC_TIMER_STOP(add_to_patch_list);
+}
+
+/* Empties patch_list. */
+static void clear_patch_list()
+{
+  memset(patch_list, 0, patch_list_index);
+  patch_list_index = 0;
+}
+
+static int isLogPatched()
+{
+  char is_patched = 0;
+  _real_read(record_log_fd, &is_patched, sizeof(char));
+  return is_patched == LOG_IS_PATCHED_VALUE;
+}
+
+static void markLogAsPatched()
+{
+  lseek(record_log_fd, 0, SEEK_SET);
+  LOG_IS_PATCHED_TYPE c = LOG_IS_PATCHED_VALUE;
+  _real_write(record_log_fd, (void *)&c, LOG_IS_PATCHED_SIZE);
+  // Don't seek back to zero.
+}
+
+static void patchLog()
+{
+  JTRACE ( "Begin log patching." );
+  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
+      O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+  log_entry_t entry = EMPTY_LOG_ENTRY, temp = EMPTY_LOG_ENTRY;
+  log_entry_t entry_to_write = EMPTY_LOG_ENTRY;
+  int i = 0;
+  ssize_t write_ret = 0;
+  // Read one log entry at a time from the file on disk, and write the patched
+  // version out to record_patched_log_fd.
+  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
+    if (GET_COMMON(entry,event) == exec_barrier_event) {
+      // Nothing may move past an exec barrier. Dump everything in patch_list
+      // into the new log before the exec barrier.
+      while (1) {
+        temp = get_oldest_patch_entry(0);
+        if (GET_COMMON(temp, clone_id) == 0) break;
+        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+      }
+      clear_patch_list();
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+      continue;
+    }
+    if (GET_COMMON(entry,event) == pthread_kill_event) {
+      JTRACE ( "Found a pthread_kill in log. Not moving it." );
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+      continue;
+    }
+    if (GET_COMMON(entry,clone_id) == 0) {
+      JASSERT ( false ) .Text("Encountered a clone_id of 0 in log.");
+    }
+    if (isUnlock(entry)) {
+      temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
+      while (GET_COMMON(temp,clone_id) != 0) {
+        write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+        temp = get_oldest_patch_entry(GET_COMMON(entry,clone_id));
+      }
+      write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+    } else {
+      add_to_patch_list(&entry);
+    }
+    log_entry_index++;
+  }
+  // If the patch_list is not empty (patch_list_idx != 0), then there were
+  // some leftover log entries that were not balanced. So we tack them on to
+  // the very end of the log.
+  if (patch_list_index != 0) {
+    JTRACE ( "Extra log entries. Tacking them onto end of log." )
+      ( patch_list_index );
+    while (1) {
+      temp = get_oldest_patch_entry(0);
+      if (GET_COMMON(temp, clone_id) == 0) break;
+      write_ret = writeEntryToDisk(record_patched_log_fd, temp);
+    }
+    clear_patch_list();
+  }
+  // NOW it should be empty.
+  // TODO: Why does this sometimes trigger?
+  JASSERT ( patch_list_index == 0 ) ( patch_list_index );
+  
+  // Now copy the contents of the patched log over the original log.
+  // TODO: Why can't we just use 'rename()' to move the patched log over the
+  // original location?
+
+  // Rewind so we can write out over the original log.
+  lseek(record_patched_log_fd, 0, SEEK_SET);
+  // Close so we can re-open with O_TRUNC
+  close(record_log_fd);
+  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
+  markLogAsPatched();
+  // Copy over to original log filename
+  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
+    write_ret = writeEntryToDisk(record_log_fd, entry);
+  }
+  close(record_patched_log_fd);
+  unlink(RECORD_PATCHED_LOG_PATH);
+  JTRACE ( "log patching finished." ) 
+    ( RECORD_LOG_PATH );
+  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+  log_entry_index = 0;
+} 
+
+static off_t nextPthreadCreate(log_entry_t *create, unsigned long int thread,
+  unsigned long int start_routine, unsigned long int attr,
+  unsigned long int arg) {
+  /* Finds the next pthread_create return event with the same thread,
+     start_routine, attr, and arg as given.
+     Returns the offset into the log file that the wakeup was found. */
+  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
+  off_t pos = 0;
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  while (1) {
+    if (readEntryFromDisk(record_log_fd, &e) == 0) {
+      e = EMPTY_LOG_ENTRY;
+      break;
+    }
+    if (GET_COMMON(e, event) == pthread_create_event_return &&
+        GET_FIELD(e, pthread_create, thread) == thread &&
+        GET_FIELD(e, pthread_create, start_routine) == start_routine &&
+        GET_FIELD(e, pthread_create, attr) == attr &&
+        GET_FIELD(e, pthread_create, arg) == arg) {
+      break;
+    }
+  }
+  if (create != NULL)
+    *create = e;
+  pos = lseek(record_log_fd, 0, SEEK_CUR);
+  lseek(record_log_fd, old_pos, SEEK_SET);
+  return pos;
+}
+
+static off_t nextGetline(log_entry_t *getline_entry, char *lineptr,
+  unsigned long int stream) {
+  /* Finds the next getline return event with the same lineptr,
+     n and stream as given.
+     Returns the offset into the log file that the wakeup was found. */
+  off_t old_pos = lseek(record_log_fd, 0, SEEK_CUR);
+  off_t pos = 0;
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  while (1) {
+    if (readEntryFromDisk(record_log_fd, &e) == 0) {
+      e = EMPTY_LOG_ENTRY;
+      break;
+    }
+    if (GET_COMMON(e, event) == getline_event_return &&
+        GET_FIELD(e, getline, lineptr) == lineptr &&
+        GET_FIELD(e, getline, stream) == stream) {
+      break;
+    }
+  }
+  if (getline_entry != NULL)
+    *getline_entry = e;
+  pos = lseek(record_log_fd, 0, SEEK_CUR);
+  lseek(record_log_fd, old_pos, SEEK_SET);
+  return pos;
+}
+
+static void annotateLog()
+{
+  /* This function performs several tasks for the log:
+     1) Annotates pthread_create events with stack information from their
+        respective return events.
+     2) Annotates getline events with is_realloc information from their
+        respective return events.
+  
+     This function should be called *before* log patching happens.*/
+  record_patched_log_fd = open(RECORD_PATCHED_LOG_PATH,
+      O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+  JTRACE ( "Annotating log." );
+  log_entry_t entry = EMPTY_LOG_ENTRY;
+  log_entry_t create_return = EMPTY_LOG_ENTRY;
+  log_entry_t getline_return = EMPTY_LOG_ENTRY;
+  ssize_t write_ret = 0;
+  int entryNum = 0;
+  while (readEntryFromDisk(record_log_fd, &entry) != 0) {
+    entryNum++;
+    if (GET_COMMON(entry,event) == pthread_create_event) {
+      nextPthreadCreate(&create_return,
+          GET_FIELD(entry, pthread_create, thread),
+          GET_FIELD(entry, pthread_create, start_routine),
+          GET_FIELD(entry, pthread_create, attr),
+          GET_FIELD(entry, pthread_create, arg));
+      entry.log_event_t.log_event_pthread_create.stack_size = 
+        create_return.log_event_t.log_event_pthread_create.stack_size;
+      entry.log_event_t.log_event_pthread_create.stack_addr =
+        create_return.log_event_t.log_event_pthread_create.stack_addr;
+    } else if (GET_COMMON(entry,event) == getline_event) {
+      nextGetline(&getline_return,
+          GET_FIELD(entry, getline, lineptr),
+          GET_FIELD(entry, getline, stream));
+      SET_FIELD2(entry, getline, is_realloc,
+        GET_FIELD(getline_return, getline, is_realloc));
+    }
+    write_ret = writeEntryToDisk(record_patched_log_fd, entry);
+  }
+
+  // Rewind so we can write out over the original log.
+  lseek(record_patched_log_fd, 0, SEEK_SET);
+  // Close so we can re-open in O_TRUNC mode
+  close(record_log_fd);
+  record_log_fd = open(RECORD_LOG_PATH, O_RDWR | O_TRUNC);
+  markLogAsPatched();
+  // Copy over to original log filename
+  while (readEntryFromDisk(record_patched_log_fd, &entry) != 0) {
+    write_ret = writeEntryToDisk(record_log_fd, entry);
+  }
+  close(record_patched_log_fd);
+  unlink(RECORD_PATCHED_LOG_PATH);
+  JTRACE ( "log annotation finished. Opening patched/annotated log file." ) 
+    ( RECORD_LOG_PATH );
+  lseek(record_log_fd, 0+LOG_IS_PATCHED_SIZE, SEEK_SET);
+}
+
+/* Initializes log pathnames. One log per process. */
+void initializeLog()
+{
+  pid_t pid = getpid();
+  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-log-%d", tmpdir.c_str(), pid);
+  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
+  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
+      "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
+  // Create the file:
+  int fd = open(RECORD_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND, 
+      S_IRUSR | S_IWUSR);
+  // Write the patched bit if the file is empty.
+  struct stat st;
+  fstat(fd, &st);
+  if (st.st_size == 0) {
+    char c = 0;
+    _real_write(fd, (void *)&c, 1);
+  }
+  close(fd);
+  JTRACE ( "Initialized synchronization log path to" ) ( RECORD_LOG_PATH );
+}
+
+/* Patches the log, and reads in MAX_LOG_LENGTH entries (debug mode) /
+ * bytes (non-debug). */
+void primeLog()
+{
+  // If the trylock fails, another thread is already reading the log
+  // into memory, so we skip this.
+  if (_real_pthread_mutex_trylock(&log_index_mutex) != EBUSY) {
+    JTRACE ( "Priming log." );
+    int num_read = 0, total_read = 0;
+    if (lseek(record_log_fd, 0, SEEK_SET) == -1) {
+      perror("lseek");
+    }
+    /******************* LOG PATCHING STUFF *******************/
+    if (!isLogPatched()) {
+      annotateLog();
+      patchLog();
+    }
+    // TODO: comment out until fix the issue:
+    //    signal, signal, wakeup, wakeup
+    // where it thinks the second wakeup is spontaneous (resets signal_pos
+    // at a bad time?)
+    //fixSpontaneousWakeups();
+    /******************* END LOG PATCHING STUFF *******************/
+    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+    JASSERT ( num_read != -1 ) ( strerror(errno) );
+    total_read += num_read;
+    // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
+    while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
+      num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+      total_read += num_read;
+    }
+    JTRACE ( "read this many bytes." ) ( total_read );
+    if (num_read == -1) {
+      perror("read");
+      JTRACE ( "error reading from synch log." ) ( errno );
+    }
+    atomic_set(&log_loaded, 1);
+    _real_pthread_mutex_unlock(&log_index_mutex);
+    getNextLogEntry();
+  }
+}
+
+/* Reads the next MAX_LOG_LENGTH entries (debug mode) / bytes (non-debug mode)
+ * (or most available) from the logfile. */
+void readLogFromDisk()
+{
+  resetLog();
+  int num_read = 0, total_read = 0;
+  JTRACE ( "current position" ) ( lseek(record_log_fd, 0, SEEK_CUR) );
+  num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+  total_read += num_read;
+  // Read until we've gotten MAX_LOG_LENGTH or there is no more to read.
+  while (num_read != (MAX_LOG_LENGTH*LOG_ENTRY_SIZE) && num_read != 0) {
+    num_read = _real_read(record_log_fd, log, MAX_LOG_LENGTH*LOG_ENTRY_SIZE);
+    total_read += num_read;
+  }
+  JTRACE ( "read entries from disk. " ) ( total_read );
+  atomic_increment(&log_loaded);
+}
+
+int readAll(int fd, char *buf, int count)
+{
+  int retval = 0, to_read = count;
+  while (1) {
+    retval = _real_read(fd, buf, to_read);
+    if (retval == to_read) break;
+    if (errno == EINTR || errno == EAGAIN) {
+      buf += retval;
+      to_read -= retval;
+    } else {
+      // other error
+      break;
+    }
+  }
+  return retval;
+}
+
+ssize_t writeAll(int fd, const void *buf, size_t count)
+{
+  ssize_t retval = 0;
+  size_t to_write = count;
+  while (1) {
+    retval = _real_write(fd, buf, to_write);
+    if (retval == to_write) break;
+    if (errno == EINTR || errno == EAGAIN) {
+      buf = (char *)buf + retval;
+      to_write -= retval;
+    } else {
+      // other error
+      break;
+    }
+  }
+  return retval;
+}
+
+ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
+{
+  ssize_t retval = 0;
+  size_t to_write = count;
+  while (1) {
+    retval = _real_pwrite(fd, buf, to_write, offset);
+    if (retval == to_write) break;
+    if (errno == EINTR || errno == EAGAIN) {
+      buf = (char *)buf + retval;
+      to_write -= retval;
+      offset += retval;
+    } else {
+      // other error
+      break;
+    }
+  }
+  return retval;
+}
+
+static void setupCommonFields(log_entry_t *e, int clone_id, int event)
+{
+  SET_COMMON_PTR(e, clone_id);
+  SET_COMMON_PTR(e, event);
+}
+
+log_entry_t create_accept_entry(int clone_id, int event, int sockfd,
+    unsigned long int sockaddr, unsigned long int addrlen)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, accept, sockfd);
+  SET_FIELD(e, accept, sockaddr);
+  SET_FIELD(e, accept, addrlen);
+  return e;
+}
+
+log_entry_t create_access_entry(int clone_id, int event,
+   const char *pathname, int mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, access, pathname, (unsigned long int)pathname);
+  SET_FIELD(e, access, mode);
+  return e;
+}
+
+log_entry_t create_bind_entry(int clone_id, int event,
+    int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, bind, sockfd);
+  SET_FIELD2(e, bind, my_addr, (unsigned long int)my_addr);
+  SET_FIELD(e, bind, addrlen);
+  return e;
+}
+
+log_entry_t create_calloc_entry(int clone_id, int event, size_t nmemb,
+    size_t size)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, calloc, nmemb);
+  SET_FIELD(e, calloc, size);
+  return e;
+}
+
+log_entry_t create_close_entry(int clone_id, int event, int fd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, close, fd);
+  return e;
+}
+
+log_entry_t create_connect_entry(int clone_id, int event, int sockfd,
+    const struct sockaddr *serv_addr, socklen_t addrlen)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, connect, sockfd);
+  SET_FIELD2(e, connect, serv_addr, (unsigned long int)serv_addr);
+  SET_FIELD(e, connect, addrlen);
+  return e;
+}
+
+log_entry_t create_dup_entry(int clone_id, int event, int oldfd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, dup, oldfd);
+  return e;
+}
+
+log_entry_t create_exec_barrier_entry()
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, CLONE_ID_ANYONE, exec_barrier_event);
+  return e;
+}
+
+log_entry_t create_fclose_entry(int clone_id, int event, FILE *fp)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fclose, fp, (unsigned long int)fp);
+  return e;
+}
+
+log_entry_t create_fcntl_entry(int clone_id, int event, int fd, int cmd,
+    long arg_3_l, unsigned long int arg_3_f)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fcntl, fd);
+  SET_FIELD(e, fcntl, cmd);
+  SET_FIELD(e, fcntl, arg_3_l);
+  SET_FIELD(e, fcntl, arg_3_f);
+  return e;
+}
+
+log_entry_t create_fdatasync_entry(int clone_id, int event, int fd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fdatasync, fd);
+  return e;
+}
+
+log_entry_t create_fdopen_entry(int clone_id, int event, int fd,
+    const char *mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fdopen, fd);
+  SET_FIELD2(e, fdopen, mode, (unsigned long int)mode);
+  return e;
+}
+
+log_entry_t create_fgets_entry(int clone_id, int event, char *s, int size,
+    FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fgets, s, (unsigned long int)s);
+  SET_FIELD(e, fgets, size);
+  SET_FIELD2(e, fgets, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_fopen_entry(int clone_id, int event,
+    const char *name, const char *mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fopen, name, (unsigned long int)name);
+  SET_FIELD2(e, fopen, mode, (unsigned long int)mode);
+  return e;
+}
+
+log_entry_t create_fopen64_entry(int clone_id, int event,
+    const char *name, const char *mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fopen64, name, (unsigned long int)name);
+  SET_FIELD2(e, fopen64, mode, (unsigned long int)mode);
+  return e;
+}
+
+log_entry_t create_fprintf_entry(int clone_id, int event,
+    FILE *stream, const char *format)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fprintf, stream, (unsigned long int)stream);
+  SET_FIELD2(e, fprintf, format, (unsigned long int)format);
+  return e;
+}
+
+log_entry_t create_fscanf_entry(int clone_id, int event,
+    FILE *stream, const char *format)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fscanf, stream, (unsigned long int)stream);
+  SET_FIELD2(e, fscanf, format, (unsigned long int)format);
+  return e;
+}
+
+log_entry_t create_fputs_entry(int clone_id, int event,
+    const char *s, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fputs, s, (unsigned long int)s);
+  SET_FIELD2(e, fputs, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_free_entry(int clone_id, int event, unsigned long int ptr)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, free, ptr);
+  return e;
+}
+
+log_entry_t create_ftell_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, ftell, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_fwrite_entry(int clone_id, int event, const void *ptr,
+    size_t size, size_t nmemb, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fwrite, ptr, (unsigned long int)ptr);
+  SET_FIELD(e, fwrite, size);
+  SET_FIELD(e, fwrite, nmemb);
+  SET_FIELD2(e, fwrite, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_fsync_entry(int clone_id, int event, int fd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fsync, fd);
+  return e;
+}
+
+log_entry_t create_fxstat_entry(int clone_id, int event, int vers, int fd,
+     struct stat *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fxstat, vers);
+  SET_FIELD(e, fxstat, fd);
+  memset(&GET_FIELD(e, fxstat, buf), '\0', sizeof(struct stat));
+  return e;
+}
+
+log_entry_t create_fxstat64_entry(int clone_id, int event, int vers, int fd,
+     struct stat64 *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fxstat64, vers);
+  SET_FIELD(e, fxstat64, fd);
+  memset(&GET_FIELD(e, fxstat64, buf), '\0', sizeof(struct stat64));
+  return e;
+}
+
+log_entry_t create_getc_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, getc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_fgetc_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fgetc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_ungetc_entry(int clone_id, int event, int c, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, ungetc, stream, (unsigned long int)stream);
+  SET_FIELD2(e, ungetc, c, (unsigned char)c);
+  return e;
+}
+
+log_entry_t create_getline_entry(int clone_id, int event, char **lineptr, size_t *n,
+    FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, getline, lineptr, *lineptr);
+  SET_FIELD2(e, getline, n, *n);
+  SET_FIELD2(e, getline, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_getpeername_entry(int clone_id, int event, int sockfd,
+    struct sockaddr sockaddr, unsigned long int addrlen)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getpeername, sockfd);
+  SET_FIELD(e, getpeername, sockaddr);
+  SET_FIELD(e, getpeername, addrlen);
+  return e;
+}
+
+log_entry_t create_getsockname_entry(int clone_id, int event, int sockfd,
+    unsigned long int sockaddr, unsigned long int addrlen)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getsockname, sockfd);
+  SET_FIELD(e, getsockname, sockaddr);
+  SET_FIELD(e, getsockname, addrlen);
+  return e;
+}
+
+log_entry_t create_libc_memalign_entry(int clone_id, int event, size_t boundary,
+    size_t size)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, libc_memalign, boundary);
+  SET_FIELD(e, libc_memalign, size);
+  return e;
+}
+
+log_entry_t create_lseek_entry(int clone_id, int event, int fd, off_t offset,
+     int whence)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, lseek, fd);
+  SET_FIELD(e, lseek, offset);
+  SET_FIELD(e, lseek, whence);
+  return e;
+}
+
+log_entry_t create_link_entry(int clone_id, int event, const char *oldpath,
+    const char *newpath)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, link, oldpath, (unsigned long int)oldpath);
+  SET_FIELD2(e, link, newpath, (unsigned long int)newpath);
+  return e;
+}
+
+log_entry_t create_listen_entry(int clone_id, int event, int sockfd, int backlog)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, listen, sockfd);
+  SET_FIELD(e, listen, backlog);
+  return e;
+}
+
+log_entry_t create_lxstat_entry(int clone_id, int event, int vers,
+    const char *path, struct stat *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, lxstat, vers);
+  SET_FIELD2(e, lxstat, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, lxstat, buf), '\0', sizeof(struct stat));
+  return e;
+}
+
+log_entry_t create_lxstat64_entry(int clone_id, int event, int vers,
+    const char *path, struct stat64 *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, lxstat64, vers);
+  SET_FIELD2(e, lxstat64, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, lxstat64, buf), '\0', sizeof(struct stat64));
+  return e;
+}
+
+log_entry_t create_malloc_entry(int clone_id, int event, size_t size)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, malloc, size);
+  return e;
+}
+
+log_entry_t create_mkdir_entry(int clone_id, int event, const char *pathname,
+    mode_t mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mkdir, pathname, (unsigned long int)pathname);
+  SET_FIELD(e, mkdir, mode);
+  return e;
+}
+
+log_entry_t create_mkstemp_entry(int clone_id, int event, char *temp)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mkstemp, temp, (unsigned long int)temp);
+  return e;
+}
+
+log_entry_t create_mmap_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mmap, addr, (unsigned long int)addr);
+  SET_FIELD(e, mmap, length);
+  SET_FIELD(e, mmap, prot);
+  SET_FIELD(e, mmap, flags);
+  SET_FIELD(e, mmap, fd);
+  SET_FIELD(e, mmap, offset);
+  return e;
+}
+
+log_entry_t create_mmap64_entry(int clone_id, int event, void *addr,
+    size_t length, int prot, int flags, int fd, off64_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mmap64, addr, (unsigned long int)addr);
+  SET_FIELD(e, mmap64, length);
+  SET_FIELD(e, mmap64, prot);
+  SET_FIELD(e, mmap64, flags);
+  SET_FIELD(e, mmap64, fd);
+  SET_FIELD(e, mmap64, offset);
+  return e;
+}
+
+log_entry_t create_mremap_entry(int clone_id, int event, void *old_address,
+    size_t old_size, size_t new_size, int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, mremap, old_address, (unsigned long int)old_address);
+  SET_FIELD(e, mremap, old_size);
+  SET_FIELD(e, mremap, new_size);
+  SET_FIELD(e, mremap, flags);
+  return e;
+}
+
+log_entry_t create_munmap_entry(int clone_id, int event, void *addr,
+    size_t length)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, munmap, addr, (unsigned long int)addr);
+  SET_FIELD(e, munmap, length);
+  return e;
+}
+
+log_entry_t create_open_entry(int clone_id, int event, const char *path,
+   int flags, mode_t open_mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, open, path, (unsigned long int)path);
+  SET_FIELD(e, open, flags);
+  SET_FIELD(e, open, open_mode);
+  return e;
+}
+
+log_entry_t create_open64_entry(int clone_id, int event, const char *path,
+   int flags, mode_t open_mode)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, open64, path, (unsigned long int)path);
+  SET_FIELD(e, open64, flags);
+  SET_FIELD(e, open64, open_mode);
+  return e;
+}
+
+log_entry_t create_pread_entry(int clone_id, int event, int fd, 
+    unsigned long int buf, size_t count, off_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pread, fd);
+  SET_FIELD(e, pread, buf);
+  SET_FIELD(e, pread, count);
+  SET_FIELD(e, pread, offset);
+  return e;
+}
+
+log_entry_t create_putc_entry(int clone_id, int event, int c,
+    FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, putc, c);
+  SET_FIELD2(e, putc, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_pwrite_entry(int clone_id, int event, int fd, 
+    unsigned long int buf, size_t count, off_t offset)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pwrite, fd);
+  SET_FIELD(e, pwrite, buf);
+  SET_FIELD(e, pwrite, count);
+  SET_FIELD(e, pwrite, offset);
+  return e;
+}
+
+log_entry_t create_pthread_cond_broadcast_entry(int clone_id, int event,
+    unsigned long int cond_var)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_cond_broadcast, cond_var);
+  return e;
+}
+
+log_entry_t create_pthread_cond_signal_entry(int clone_id, int event,
+    unsigned long int cond_var)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_cond_signal, cond_var);
+  return e;
+}
+
+log_entry_t create_pthread_cond_wait_entry(int clone_id, int event,
+    unsigned long int mutex, unsigned long int cond_var)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_cond_wait, mutex);
+  SET_FIELD(e, pthread_cond_wait, cond_var);
+  return e;
+}
+
+log_entry_t create_pthread_cond_timedwait_entry(int clone_id, int event,
+    unsigned long int mutex, unsigned long int cond_var,
+    unsigned long int abstime)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_cond_timedwait, mutex);
+  SET_FIELD(e, pthread_cond_timedwait, cond_var);
+  SET_FIELD(e, pthread_cond_timedwait, abstime);
+  return e;
+}
+
+log_entry_t create_pthread_rwlock_unlock_entry(int clone_id, int event,
+    unsigned long int rwlock)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_rwlock_unlock, rwlock);
+  return e;
+}
+
+log_entry_t create_pthread_rwlock_rdlock_entry(int clone_id, int event,
+    unsigned long int rwlock)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_rwlock_rdlock, rwlock);
+  return e;
+}
+
+log_entry_t create_pthread_rwlock_wrlock_entry(int clone_id, int event,
+    unsigned long int rwlock)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_rwlock_wrlock, rwlock);
+  return e;
+}
+
+log_entry_t create_pthread_create_entry(long long int clone_id, int event,
+    unsigned long int thread, unsigned long int attr, 
+    unsigned long int start_routine, unsigned long int arg)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_create, thread);
+  SET_FIELD(e, pthread_create, attr);
+  SET_FIELD(e, pthread_create, start_routine);
+  SET_FIELD(e, pthread_create, arg);
+  return e;
+}
+
+log_entry_t create_pthread_detach_entry(long long int clone_id, int event,
+    unsigned long int thread)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_detach, thread);
+  return e;
+}
+
+log_entry_t create_pthread_exit_entry(long long int clone_id, int event,
+    unsigned long int value_ptr)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_exit, value_ptr);
+  return e;
+}
+
+log_entry_t create_pthread_join_entry(long long int clone_id, int event,
+    unsigned long int thread, unsigned long int value_ptr)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_join, thread);
+  SET_FIELD(e, pthread_join, value_ptr);
+  return e;
+}
+
+log_entry_t create_pthread_kill_entry(long long int clone_id, int event,
+    unsigned long int thread, int sig)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_kill, thread);
+  SET_FIELD(e, pthread_kill, sig);
+  return e;
+}
+
+log_entry_t create_pthread_mutex_lock_entry(int clone_id, int event, unsigned long int mutex) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_mutex_lock, mutex);
+  return e;
+}
+
+log_entry_t create_pthread_mutex_trylock_entry(int clone_id, int event, unsigned long int mutex) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_mutex_trylock, mutex);
+  return e;
+}
+
+log_entry_t create_pthread_mutex_unlock_entry(int clone_id, int event, unsigned long int mutex) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, pthread_mutex_unlock, mutex);
+  return e;
+}
+
+log_entry_t create_rand_entry(int clone_id, int event)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  return e;
+}
+
+log_entry_t create_read_entry(int clone_id, int event, int readfd,
+    unsigned long int buf_addr, size_t count)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, read, readfd);
+  SET_FIELD(e, read, buf_addr);
+  SET_FIELD(e, read, count);
+  return e;
+}
+
+log_entry_t create_readdir_entry(int clone_id, int event, DIR *dirp)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, readdir, dirp, (unsigned long int)dirp);
+  return e;
+}
+
+log_entry_t create_readdir_r_entry(int clone_id, int event, DIR *dirp,
+    struct dirent *entry, struct dirent **result)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, readdir_r, dirp, (unsigned long int)dirp);
+  // Leave 'entry' uninitialized.
+  SET_FIELD2(e, readdir_r, result, 0);
+  return e;
+}
+
+log_entry_t create_readlink_entry(int clone_id, int event,
+    const char *path, char *buf, size_t bufsiz)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, readlink, path, (unsigned long int)path);
+  // Just initialize 'buf' to all 0s
+  memset(GET_FIELD(e, readlink, buf), 0, READLINK_MAX_LENGTH);
+  SET_FIELD(e, readlink, bufsiz);
+  return e;
+}
+
+log_entry_t create_realloc_entry(int clone_id, int event, 
+    unsigned long int ptr, size_t size)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, realloc, ptr);
+  SET_FIELD(e, realloc, size);
+  return e;
+}
+
+log_entry_t create_rename_entry(int clone_id, int event, const char *oldpath,
+    const char *newpath)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, rename, oldpath, (unsigned long int)oldpath);
+  SET_FIELD2(e, rename, newpath, (unsigned long int)newpath);
+  return e;
+}
+
+log_entry_t create_rewind_entry(int clone_id, int event, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, rewind, stream, (unsigned long int)stream);
+  return e;
+}
+
+log_entry_t create_rmdir_entry(int clone_id, int event, const char *pathname)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, rmdir, pathname, (unsigned long int)pathname);
+  return e;
+}
+
+log_entry_t create_select_entry(int clone_id, int event, int nfds,
+    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+    struct timeval *timeout)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, select, nfds);
+  // We have to do something special for 'readfds' and 'writefds' since we
+  // do a deep copy.
+  copyFdSet(readfds, &GET_FIELD(e, select, readfds));
+  copyFdSet(writefds, &GET_FIELD(e, select, writefds));
+  SET_FIELD2(e, select, exceptfds, (unsigned long int)exceptfds);
+  SET_FIELD2(e, select, timeout, (unsigned long int)timeout);
+  return e;
+}
+
+log_entry_t create_setsockopt_entry(int clone_id, int event, int sockfd,
+    int level, int optname, unsigned long int optval, socklen_t optlen) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, setsockopt, sockfd);
+  SET_FIELD(e, setsockopt, level);
+  SET_FIELD(e, setsockopt, optname);
+  SET_FIELD(e, setsockopt, optval);
+  SET_FIELD(e, setsockopt, optlen);
+  return e;
+}
+
+log_entry_t create_signal_handler_entry(int clone_id, int event, int sig)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, signal_handler, sig);
+  return e;
+}
+
+log_entry_t create_sigwait_entry(int clone_id, int event, unsigned long int set,
+    unsigned long int sigwait_sig)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, sigwait, set);
+  SET_FIELD(e, sigwait, sigwait_sig);
+  return e;
+}
+
+log_entry_t create_srand_entry(int clone_id, int event, unsigned int seed)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, srand, seed);
+  return e;
+}
+
+log_entry_t create_socket_entry(int clone_id, int event, int domain, int type,
+    int protocol)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, socket, domain);
+  SET_FIELD(e, socket, type);
+  SET_FIELD(e, socket, protocol);
+  return e;
+}
+
+log_entry_t create_xstat_entry(int clone_id, int event, int vers,
+    const char *path, struct stat *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, xstat, vers);
+  SET_FIELD2(e, xstat, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, xstat, buf), '\0', sizeof(struct stat));
+  return e;
+}
+
+log_entry_t create_xstat64_entry(int clone_id, int event, int vers,
+    const char *path, struct stat64 *buf)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, xstat64, vers);
+  SET_FIELD2(e, xstat64, path, (unsigned long int)path);
+  memset(&GET_FIELD(e, xstat64, buf), '\0', sizeof(struct stat64));
+  return e;
+}
+
+log_entry_t create_time_entry(int clone_id, int event, unsigned long int tloc)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, time, tloc);
+  return e;
+}
+
+log_entry_t create_unlink_entry(int clone_id, int event,
+     const char *pathname)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, unlink, pathname, (unsigned long int)pathname);
+  return e;
+}
+
+log_entry_t create_user_entry(int clone_id, int event)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  return e;
+}
+
+log_entry_t create_write_entry(int clone_id, int event, int writefd,
+    unsigned long int buf_addr, size_t count)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, write, writefd);
+  SET_FIELD(e, write, buf_addr);
+  SET_FIELD(e, write, count);
+  return e;
+}
+
+void addNextLogEntry(log_entry_t e)
 {
   if (SYNC_IS_REPLAY) {
     JASSERT (false).Text("Asked to log an event while in replay. "
         "This is probably not intended.");
   }
-  JASSERT(GET_COMMON(e, log_id) == (log_id_t)-1) (GET_COMMON(e, log_id));
-  log_id_t log_id = get_next_log_id();
-  SET_COMMON2(e, log_id, log_id);
-}
-
-void addNextLogEntry(log_entry_t& e)
-{
-  if (GET_COMMON(e, log_id) == 0) {
-    log_id_t log_id = get_next_log_id();
-    SET_COMMON2(e, log_id, log_id);
-  }
-  my_log->appendEntry(e);
-}
-
-void getNextLogEntry()
-{
-  // If log is empty, don't do anything
-  if (unified_log.numEntries() == 0) {
-    return;
-  }
   _real_pthread_mutex_lock(&log_index_mutex);
-  if (unified_log.getNextEntry(currentLogEntry) == 0) {
-    JTRACE ( "Switching back to record." );
-    next_log_id = unified_log.numEntries();
-    unified_log.setUnified(false);
-    set_sync_mode(SYNC_RECORD);
+  SET_COMMON2(e, log_id, current_log_id++);
+  int event_size;
+  GET_EVENT_SIZE(GET_COMMON(e,event), event_size);
+  if ((log_index + log_event_common_size + event_size) > MAX_LOG_LENGTH) {
+    // The new entry doesn't fit in the current log. Write the log to disk.
+    JTRACE ( "Log overflowed bounds. Writing to disk." );
+    writeLogsToDisk();
   }
+  // Copy common data to log[] buffer:
+  log_entry_to_buffer(&e, &log[log_index]);
+  log_index += log_event_common_size;
+  // Copy event-specific data to log[] buffer:
+  COPY_TO_MEMORY_LOG(e, &log[log_index]);
+  log_index += event_size;
+  // Keep this up to date for debugging purposes:
+  log_entry_index++;
+  _real_pthread_mutex_unlock(&log_index_mutex);  
+}
+
+void getNextLogEntry() {
+  _real_pthread_mutex_lock(&log_index_mutex);
+  int event_size;
+  // Make sure to cast the event type byte to the correct type:
+  GET_EVENT_SIZE((unsigned char)log[log_index], event_size);
+  int newEntrySize = log_event_common_size + event_size;
+  if (__builtin_expect((log_index + newEntrySize) <= MAX_LOG_LENGTH, 1)) {
+    /* The entire currentLogEntry can be retrieved from the current log.
+       This is the most common case. */
+    // Copy common data to currentLogEntry:
+    buffer_to_log_entry(&log[log_index], &currentLogEntry);
+    log_index += log_event_common_size;
+    // Copy event-specific data to currentLogEntry:
+    COPY_FROM_MEMORY_SOURCE(log[log_index], currentLogEntry);
+    log_index += event_size;
+    if (__builtin_expect((log_index) == MAX_LOG_LENGTH, 0)) {
+      JTRACE ( "Ran out of log entries. Reading next from disk." ) 
+             ( log_entry_index ) ( MAX_LOG_LENGTH );
+      readLogFromDisk();
+      log_index = 0;
+    }
+  } else {
+    // The size that can be retrieved from the current log.
+    int size = MAX_LOG_LENGTH - log_index;
+    JASSERT ( size < 256 );
+    char tmp[256] = {0};
+    memcpy(tmp, &log[log_index], size);
+    JTRACE ( "Ran out of log entries. Reading next from disk." ) 
+           ( log_entry_index ) ( MAX_LOG_LENGTH );
+    readLogFromDisk();
+    memcpy(&tmp[size], &log[0], newEntrySize - size); 
+    // Copy common data to currentLogEntry:
+    buffer_to_log_entry(&tmp[0], &currentLogEntry);
+    // Copy event-specific data to currentLogEntry:
+    COPY_FROM_MEMORY_SOURCE(tmp[log_event_common_size], currentLogEntry);
+    // Update new log_index:
+    log_index = newEntrySize - size;
+  }
+  log_entry_index++;
   _real_pthread_mutex_unlock(&log_index_mutex);
 }
 
@@ -590,970 +1898,144 @@ void logReadData(void *buf, int count)
   read_log_pos += written;
 }
 
-ssize_t pwriteAll(int fd, const void *buf, size_t count, off_t offset)
-{
-  ssize_t retval = 0;
-  ssize_t to_write = count;
-  while (1) {
-    retval = _real_pwrite(fd, buf, to_write, offset);
-    if (retval == to_write) break;
-    if (errno == EINTR || errno == EAGAIN) {
-      buf = (char *)buf + retval;
-      to_write -= retval;
-      offset += retval;
-    } else {
-      // other error
-      break;
-    }
+void writeLogsToDisk() {
+  if (SYNC_IS_REPLAY) {
+    JTRACE ( "calling writeLogsToDisk() while in replay. This is probably an error. Not writing." );
+    return;
   }
-  return retval;
-}
-
-static void setupCommonFields(log_entry_t *e, clone_id_t clone_id, int event)
-{
-  SET_COMMON_PTR(e, clone_id);
-  SET_COMMON_PTR(e, event);
-  // Zero out all other fields:
-  // FIXME: Shouldn't we replace the memset with a simpler SET_COMMON_PTR()?
-  memset(&(GET_COMMON_PTR(e, log_id)), 0, sizeof(GET_COMMON_PTR(e, log_id)));
-  memset(&(GET_COMMON_PTR(e, my_errno)), 0, sizeof(GET_COMMON_PTR(e, my_errno)));
-  memset(&(GET_COMMON_PTR(e, retval)), 0, sizeof(GET_COMMON_PTR(e, retval)));
-}
-
-log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
-                                sockaddr *addr, socklen_t *addrlen)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, accept, sockfd);
-  SET_FIELD(e, accept, addr);
-  SET_FIELD(e, accept, addrlen);
-  return e;
-}
-
-log_entry_t create_accept4_entry(clone_id_t clone_id, int event, int sockfd,
-                                sockaddr *addr, socklen_t *addrlen, int flags)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, accept4, sockfd);
-  SET_FIELD(e, accept4, addr);
-  SET_FIELD(e, accept4, addrlen);
-  SET_FIELD(e, accept4, flags);
-  return e;
-}
-
-log_entry_t create_access_entry(clone_id_t clone_id, int event,
-   const char *pathname, int mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, access, pathname, (char*)pathname);
-  SET_FIELD(e, access, mode);
-  return e;
-}
-
-log_entry_t create_bind_entry(clone_id_t clone_id, int event,
-    int sockfd, const struct sockaddr *addr, socklen_t addrlen)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, bind, sockfd);
-  SET_FIELD2(e, bind, addr, (struct sockaddr*)addr);
-  SET_FIELD(e, bind, addrlen);
-  return e;
-}
-
-log_entry_t create_calloc_entry(clone_id_t clone_id, int event, size_t nmemb,
-    size_t size)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, calloc, nmemb);
-  SET_FIELD(e, calloc, size);
-  return e;
-}
-
-log_entry_t create_close_entry(clone_id_t clone_id, int event, int fd)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, close, fd);
-  return e;
-}
-
-log_entry_t create_closedir_entry(clone_id_t clone_id, int event, DIR *dirp)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, closedir, dirp, dirp);
-  return e;
-}
-
-log_entry_t create_connect_entry(clone_id_t clone_id, int event, int sockfd,
-                                 const struct sockaddr *serv_addr, socklen_t addrlen)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, connect, sockfd);
-  SET_FIELD2(e, connect, serv_addr, (struct sockaddr*)serv_addr);
-  SET_FIELD(e, connect, addrlen);
-  return e;
-}
-
-log_entry_t create_dup_entry(clone_id_t clone_id, int event, int oldfd)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, dup, oldfd);
-  return e;
-}
-
-log_entry_t create_exec_barrier_entry()
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, CLONE_ID_ANYONE, exec_barrier_event);
-  return e;
-}
-
-log_entry_t create_fclose_entry(clone_id_t clone_id, int event, FILE *fp)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fclose, fp, fp);
-  return e;
-}
-
-log_entry_t create_fcntl_entry(clone_id_t clone_id, int event, int fd, int cmd,
-    long arg_3_l, struct flock *arg_3_f)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fcntl, fd);
-  SET_FIELD(e, fcntl, cmd);
-  SET_FIELD(e, fcntl, arg_3_l);
-  SET_FIELD(e, fcntl, arg_3_f);
-  return e;
-}
-
-log_entry_t create_fdatasync_entry(clone_id_t clone_id, int event, int fd)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fdatasync, fd);
-  return e;
-}
-
-log_entry_t create_fdopen_entry(clone_id_t clone_id, int event, int fd,
-    const char *mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fdopen, fd);
-  SET_FIELD2(e, fdopen, mode, (char*)mode);
-  return e;
-}
-
-log_entry_t create_fgets_entry(clone_id_t clone_id, int event, char *s, int size,
-    FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fgets, s, s);
-  SET_FIELD(e, fgets, size);
-  SET_FIELD2(e, fgets, stream, stream);
-  return e;
-}
-
-log_entry_t create_fflush_entry(clone_id_t clone_id, int event, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fflush, stream, stream);
-  return e;
-}
-
-log_entry_t create_fopen_entry(clone_id_t clone_id, int event,
-    const char *name, const char *mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fopen, name, (char*)name);
-  SET_FIELD2(e, fopen, mode, (char*)mode);
-  return e;
-}
-
-log_entry_t create_fopen64_entry(clone_id_t clone_id, int event,
-    const char *name, const char *mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fopen64, name, (char*)name);
-  SET_FIELD2(e, fopen64, mode, (char*)mode);
-  return e;
-}
-
-log_entry_t create_fprintf_entry(clone_id_t clone_id, int event,
-    FILE *stream, const char *format, va_list ap)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fprintf, stream, stream);
-  SET_FIELD2(e, fprintf, format, (char*)format);
-  return e;
-}
-
-log_entry_t create_fscanf_entry(clone_id_t clone_id, int event,
-    FILE *stream, const char *format, va_list ap)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fscanf, stream, stream);
-  SET_FIELD2(e, fscanf, format, (char*)format);
-  return e;
-}
-
-log_entry_t create_fputs_entry(clone_id_t clone_id, int event,
-    const char *s, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fputs, s, (char*)s);
-  SET_FIELD2(e, fputs, stream, stream);
-  return e;
-}
-
-log_entry_t create_free_entry(clone_id_t clone_id, int event, void *ptr)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, free, ptr);
-  return e;
-}
-
-log_entry_t create_ftell_entry(clone_id_t clone_id, int event, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, ftell, stream, stream);
-  return e;
-}
-
-log_entry_t create_fwrite_entry(clone_id_t clone_id, int event, const void *ptr,
-    size_t size, size_t nmemb, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fwrite, ptr, (void*)ptr);
-  SET_FIELD(e, fwrite, size);
-  SET_FIELD(e, fwrite, nmemb);
-  SET_FIELD2(e, fwrite, stream, stream);
-  return e;
-}
-
-log_entry_t create_fsync_entry(clone_id_t clone_id, int event, int fd)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fsync, fd);
-  return e;
-}
-
-log_entry_t create_fxstat_entry(clone_id_t clone_id, int event, int vers, int fd,
-     struct stat *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fxstat, vers);
-  SET_FIELD(e, fxstat, fd);
-  memset(&GET_FIELD(e, fxstat, buf), '\0', sizeof(struct stat));
-  return e;
-}
-
-log_entry_t create_fxstat64_entry(clone_id_t clone_id, int event, int vers, int fd,
-     struct stat64 *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, fxstat64, vers);
-  SET_FIELD(e, fxstat64, fd);
-  memset(&GET_FIELD(e, fxstat64, buf), '\0', sizeof(struct stat64));
-  return e;
-}
-
-log_entry_t create_getc_entry(clone_id_t clone_id, int event, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, getc, stream, stream);
-  return e;
-}
-
-log_entry_t create_gettimeofday_entry(clone_id_t clone_id, int event,
-    struct timeval *tv, struct timezone *tz)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, gettimeofday, tv, tv);
-  SET_FIELD2(e, gettimeofday, tz, tz);
-  return e;
-}
-
-log_entry_t create_fgetc_entry(clone_id_t clone_id, int event, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, fgetc, stream, stream);
-  return e;
-}
-
-log_entry_t create_ungetc_entry(clone_id_t clone_id, int event, int c, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, ungetc, stream, stream);
-  SET_FIELD2(e, ungetc, c, c);
-  return e;
-}
-
-log_entry_t create_getline_entry(clone_id_t clone_id, int event, char **lineptr, size_t *n,
-    FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, getline, lineptr, *lineptr);
-  SET_FIELD2(e, getline, n, *n);
-  SET_FIELD2(e, getline, stream, stream);
-  return e;
-}
-
-log_entry_t create_getpeername_entry(clone_id_t clone_id, int event, int sockfd,
-                                     struct sockaddr *addr, socklen_t *addrlen)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, getpeername, sockfd);
-  SET_FIELD2(e, getpeername, addr, addr);
-  SET_FIELD(e, getpeername, addrlen);
-  return e;
-}
-
-log_entry_t create_getsockname_entry(clone_id_t clone_id, int event, int sockfd,
-                                     sockaddr *addr, socklen_t *addrlen)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, getsockname, sockfd);
-  SET_FIELD(e, getsockname, addr);
-  SET_FIELD(e, getsockname, addrlen);
-  return e;
-}
-
-log_entry_t create_libc_memalign_entry(clone_id_t clone_id, int event, size_t boundary,
-    size_t size)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, libc_memalign, boundary);
-  SET_FIELD(e, libc_memalign, size);
-  return e;
-}
-
-log_entry_t create_lseek_entry(clone_id_t clone_id, int event, int fd, off_t offset,
-     int whence)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, lseek, fd);
-  SET_FIELD(e, lseek, offset);
-  SET_FIELD(e, lseek, whence);
-  return e;
-}
-
-log_entry_t create_link_entry(clone_id_t clone_id, int event, const char *oldpath,
-    const char *newpath)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, link, oldpath, (char*)oldpath);
-  SET_FIELD2(e, link, newpath, (char*)newpath);
-  return e;
-}
-
-log_entry_t create_listen_entry(clone_id_t clone_id, int event, int sockfd, int backlog)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, listen, sockfd);
-  SET_FIELD(e, listen, backlog);
-  return e;
-}
-
-log_entry_t create_lxstat_entry(clone_id_t clone_id, int event, int vers,
-    const char *path, struct stat *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, lxstat, vers);
-  SET_FIELD2(e, lxstat, path, (char*)path);
-  memset(&GET_FIELD(e, lxstat, buf), '\0', sizeof(struct stat));
-  return e;
-}
-
-log_entry_t create_lxstat64_entry(clone_id_t clone_id, int event, int vers,
-    const char *path, struct stat64 *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, lxstat64, vers);
-  SET_FIELD2(e, lxstat64, path, (char*)path);
-  memset(&GET_FIELD(e, lxstat64, buf), '\0', sizeof(struct stat64));
-  return e;
-}
-
-log_entry_t create_malloc_entry(clone_id_t clone_id, int event, size_t size)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, malloc, size);
-  return e;
-}
-
-log_entry_t create_mkdir_entry(clone_id_t clone_id, int event, const char *pathname,
-    mode_t mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, mkdir, pathname, (char*)pathname);
-  SET_FIELD2(e, mkdir, mode, mode);
-  return e;
-}
-
-log_entry_t create_mkstemp_entry(clone_id_t clone_id, int event, char *temp)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, mkstemp, temp, temp);
-  return e;
-}
-
-log_entry_t create_mmap_entry(clone_id_t clone_id, int event, void *addr,
-    size_t length, int prot, int flags, int fd, off_t offset)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, mmap, addr, addr);
-  SET_FIELD(e, mmap, length);
-  SET_FIELD(e, mmap, prot);
-  SET_FIELD(e, mmap, flags);
-  SET_FIELD(e, mmap, fd);
-  SET_FIELD(e, mmap, offset);
-  return e;
-}
-
-log_entry_t create_mmap64_entry(clone_id_t clone_id, int event, void *addr,
-    size_t length, int prot, int flags, int fd, off64_t offset)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, mmap64, addr, addr);
-  SET_FIELD(e, mmap64, length);
-  SET_FIELD(e, mmap64, prot);
-  SET_FIELD(e, mmap64, flags);
-  SET_FIELD(e, mmap64, fd);
-  SET_FIELD(e, mmap64, offset);
-  return e;
-}
-
-log_entry_t create_mremap_entry(clone_id_t clone_id, int event, void *old_address,
-    size_t old_size, size_t new_size, int flags, void *new_addr)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, mremap, old_address, old_address);
-  SET_FIELD(e, mremap, old_size);
-  SET_FIELD(e, mremap, new_size);
-  SET_FIELD(e, mremap, flags);
-  return e;
-}
-
-log_entry_t create_munmap_entry(clone_id_t clone_id, int event, void *addr,
-    size_t length)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, munmap, addr, addr);
-  SET_FIELD(e, munmap, length);
-  return e;
-}
-
-log_entry_t create_open_entry(clone_id_t clone_id, int event, const char *path,
-   int flags, mode_t open_mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, open, path, (char*)path);
-  SET_FIELD(e, open, flags);
-  SET_FIELD(e, open, open_mode);
-  return e;
-}
-
-log_entry_t create_open64_entry(clone_id_t clone_id, int event, const char *path,
-   int flags, mode_t open_mode)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, open64, path, (char*)path);
-  SET_FIELD(e, open64, flags);
-  SET_FIELD(e, open64, open_mode);
-  return e;
-}
-
-log_entry_t create_opendir_entry(clone_id_t clone_id, int event, const char *name)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, opendir, name, (char*)name);
-  return e;
-}
-
-log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd, 
-    void* buf, size_t count, off_t offset)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pread, fd);
-  SET_FIELD(e, pread, buf);
-  SET_FIELD(e, pread, count);
-  SET_FIELD(e, pread, offset);
-  return e;
-}
-
-log_entry_t create_putc_entry(clone_id_t clone_id, int event, int c,
-    FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, putc, c);
-  SET_FIELD2(e, putc, stream, stream);
-  return e;
-}
-
-log_entry_t create_pwrite_entry(clone_id_t clone_id, int event, int fd, 
-    const void* buf, size_t count, off_t offset)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pwrite, fd);
-  SET_FIELD2(e, pwrite, buf, (void*)buf);
-  SET_FIELD(e, pwrite, count);
-  SET_FIELD(e, pwrite, offset);
-  return e;
-}
-
-log_entry_t create_pthread_cond_broadcast_entry(clone_id_t clone_id, int event,
-    pthread_cond_t *cond_var)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_cond_broadcast, addr, cond_var);
-  return e;
-}
-
-log_entry_t create_pthread_cond_signal_entry(clone_id_t clone_id, int event,
-    pthread_cond_t *cond_var)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_cond_signal, addr, cond_var);
-  return e;
-}
-
-log_entry_t create_pthread_cond_wait_entry(clone_id_t clone_id, int event,
-    pthread_cond_t *cond_var, pthread_mutex_t *mutex)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_cond_wait, mutex_addr, mutex);
-  SET_FIELD2(e, pthread_cond_wait, cond_addr, cond_var);
-  return e;
-}
-
-log_entry_t create_pthread_cond_timedwait_entry(clone_id_t clone_id, int event,
-    pthread_cond_t *cond_var, pthread_mutex_t *mutex,
-    const struct timespec *abstime)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_cond_timedwait, mutex_addr, mutex);
-  SET_FIELD2(e, pthread_cond_timedwait, cond_addr, cond_var);
-  SET_FIELD2(e, pthread_cond_timedwait, abstime, (struct timespec*) abstime);
-  return e;
-}
-
-log_entry_t create_pthread_rwlock_unlock_entry(clone_id_t clone_id, int event,
-    pthread_rwlock_t *rwlock)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_rwlock_unlock, addr, rwlock);
-  return e;
-}
-
-log_entry_t create_pthread_rwlock_rdlock_entry(clone_id_t clone_id, int event,
-    pthread_rwlock_t *rwlock)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_rwlock_rdlock, addr, rwlock);
-  return e;
-}
-
-log_entry_t create_pthread_rwlock_wrlock_entry(clone_id_t clone_id, int event,
-    pthread_rwlock_t *rwlock)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_rwlock_wrlock, addr, rwlock);
-  return e;
-}
-
-log_entry_t create_pthread_create_entry(clone_id_t clone_id, int event,
-    pthread_t *thread, const pthread_attr_t *attr, 
-    void *(*start_routine)(void*), void *arg)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pthread_create, thread);
-  SET_FIELD2(e, pthread_create, attr, (pthread_attr_t*) attr);
-  SET_FIELD(e, pthread_create, start_routine);
-  SET_FIELD(e, pthread_create, arg);
-  return e;
-}
-
-log_entry_t create_pthread_detach_entry(clone_id_t clone_id, int event,
-    pthread_t thread)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pthread_detach, thread);
-  return e;
-}
-
-log_entry_t create_pthread_exit_entry(clone_id_t clone_id, int event,
-    void *value_ptr)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pthread_exit, value_ptr);
-  return e;
-}
-
-log_entry_t create_pthread_join_entry(clone_id_t clone_id, int event,
-    pthread_t thread, void *value_ptr)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pthread_join, thread);
-  SET_FIELD(e, pthread_join, value_ptr);
-  return e;
-}
-
-log_entry_t create_pthread_kill_entry(clone_id_t clone_id, int event,
-    pthread_t thread, int sig)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, pthread_kill, thread);
-  SET_FIELD(e, pthread_kill, sig);
-  return e;
-}
-
-log_entry_t create_pthread_mutex_lock_entry(clone_id_t clone_id, int event, pthread_mutex_t *mutex) {
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_mutex_lock, addr, mutex);
-  return e;
-}
-
-log_entry_t create_pthread_mutex_trylock_entry(clone_id_t clone_id, int event, pthread_mutex_t *mutex) {
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_mutex_trylock, addr, mutex);
-  return e;
-}
-
-log_entry_t create_pthread_mutex_unlock_entry(clone_id_t clone_id, int event, pthread_mutex_t *mutex) {
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, pthread_mutex_unlock, addr, mutex);
-  return e;
-}
-
-log_entry_t create_rand_entry(clone_id_t clone_id, int event)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  return e;
-}
-
-log_entry_t create_read_entry(clone_id_t clone_id, int event, int readfd,
-    void* buf_addr, size_t count)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, read, readfd);
-  SET_FIELD(e, read, buf_addr);
-  SET_FIELD(e, read, count);
-  return e;
-}
-
-log_entry_t create_readdir_entry(clone_id_t clone_id, int event, DIR *dirp)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, readdir, dirp, dirp);
-  return e;
-}
-
-log_entry_t create_readdir_r_entry(clone_id_t clone_id, int event, DIR *dirp,
-    struct dirent *entry, struct dirent **result)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, readdir_r, dirp, dirp);
-  SET_FIELD2(e, readdir_r, entry, entry);
-  SET_FIELD2(e, readdir_r, result, result);
-  return e;
-}
-
-log_entry_t create_readlink_entry(clone_id_t clone_id, int event,
-    const char *path, char *buf, size_t bufsiz)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, readlink, path, (char*)path);
-  SET_FIELD(e, readlink, buf);
-  SET_FIELD(e, readlink, bufsiz);
-  return e;
-}
-
-log_entry_t create_realloc_entry(clone_id_t clone_id, int event, 
-    void *ptr, size_t size)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, realloc, ptr);
-  SET_FIELD(e, realloc, size);
-  return e;
-}
-
-log_entry_t create_rename_entry(clone_id_t clone_id, int event, const char *oldpath,
-    const char *newpath)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, rename, oldpath, (char*)oldpath);
-  SET_FIELD2(e, rename, newpath, (char*)newpath);
-  return e;
-}
-
-log_entry_t create_rewind_entry(clone_id_t clone_id, int event, FILE *stream)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, rewind, stream, stream);
-  return e;
-}
-
-log_entry_t create_rmdir_entry(clone_id_t clone_id, int event, const char *pathname)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, rmdir, pathname, (char*)pathname);
-  return e;
-}
-
-log_entry_t create_select_entry(clone_id_t clone_id, int event, int nfds,
-    fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-    struct timeval *timeout)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, select, nfds);
-  // We have to do something special for 'readfds' and 'writefds' since we
-  // do a deep copy.
-  copyFdSet(readfds, &GET_FIELD(e, select, readfds));
-  copyFdSet(writefds, &GET_FIELD(e, select, writefds));
-  SET_FIELD2(e, select, exceptfds, exceptfds);
-  SET_FIELD2(e, select, timeout, timeout);
-  return e;
-}
-
-log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event, int sockfd,
-    int level, int optname, const void *optval, socklen_t optlen) {
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, setsockopt, sockfd);
-  SET_FIELD(e, setsockopt, level);
-  SET_FIELD(e, setsockopt, optname);
-  SET_FIELD2(e, setsockopt, optval, (void*) optval);
-  SET_FIELD(e, setsockopt, optlen);
-  return e;
-}
-
-log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event, int sig)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, signal_handler, sig);
-  return e;
-}
-
-log_entry_t create_sigwait_entry(clone_id_t clone_id, int event, const sigset_t *set,
-    int *sigwait_sig)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, sigwait, set, (sigset_t*)set);
-  SET_FIELD(e, sigwait, sigwait_sig);
-  return e;
-}
-
-log_entry_t create_srand_entry(clone_id_t clone_id, int event, unsigned int seed)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, srand, seed);
-  return e;
-}
-
-log_entry_t create_socket_entry(clone_id_t clone_id, int event, int domain, int type,
-    int protocol)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, socket, domain);
-  SET_FIELD(e, socket, type);
-  SET_FIELD(e, socket, protocol);
-  return e;
-}
-
-log_entry_t create_xstat_entry(clone_id_t clone_id, int event, int vers,
-    const char *path, struct stat *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, xstat, vers);
-  SET_FIELD2(e, xstat, path, (char*)path);
-  memset(&GET_FIELD(e, xstat, buf), '\0', sizeof(struct stat));
-  return e;
-}
-
-log_entry_t create_xstat64_entry(clone_id_t clone_id, int event, int vers,
-    const char *path, struct stat64 *buf)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, xstat64, vers);
-  SET_FIELD2(e, xstat64, path, (char*)path);
-  memset(&GET_FIELD(e, xstat64, buf), '\0', sizeof(struct stat64));
-  return e;
-}
-
-log_entry_t create_time_entry(clone_id_t clone_id, int event, time_t *tloc)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, time, tloc);
-  return e;
-}
-
-log_entry_t create_unlink_entry(clone_id_t clone_id, int event,
-     const char *pathname)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD2(e, unlink, pathname, (char*)pathname);
-  return e;
-}
-
-log_entry_t create_user_entry(clone_id_t clone_id, int event)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  return e;
-}
-
-log_entry_t create_write_entry(clone_id_t clone_id, int event, int writefd,
-    const void* buf_addr, size_t count)
-{
-  log_entry_t e = EMPTY_LOG_ENTRY;
-  setupCommonFields(&e, clone_id, event);
-  SET_FIELD(e, write, writefd);
-  SET_FIELD2(e, write, buf_addr, (void*)buf_addr);
-  SET_FIELD(e, write, count);
-  return e;
+  if (strlen(RECORD_LOG_PATH) == 0) {
+    JTRACE ( "RECORD_LOG_PATH empty. Not writing." );
+    return;
+  }
+  int numwritten = 0;
+  int num_to_write = 0;
+  /* 'num_to_write' needs some explanation, since off-by-one errors are
+     very likely to creep in when using this kind of logic. There are
+     two scenarios where writeLogsToDisk() is called:
+
+     1) The in-memory log is full. This happens when a thread makes the last
+        entry in the log (log[MAX_LOG_LENGTH-1]) and then increments
+        log_index. Then, immediately after the increment of log_index, that
+        thread checks to see if log_index >= MAX_LOG_LENGTH. When that is true,
+        it calls writeLogsToDisk().  In that case, the check below (if
+        log_index == MAX_LOG_LENGTH) is TRUE. Then we want to write
+        MAX_LOG_LENGTH*sizeof(log_entry_t) bytes to the log.
+
+     2) The user program has exited. This means that log_index may be anywhere
+        in the (closed) interval [0, MAX_LOG_LENGTH]. If it is NOT EQUAL to
+        MAX_LOG_LENGTH, then we need to write (log_index+1)*sizeof(log_entry_t)
+        bytes. For example, the user program exits when log_index is 1862. That
+        means that log entries 0-1862 (inclusive) are in memory. Thus, we add
+        one to the index to get 1863, the total number of entries to write.
+        However, if the user program exited and log_index is 0, that means that
+        there was nothing recorded, so we should not write anything.
+
+	NOT NECESSARILY: The last wrapper execution calls addNextLogEntry which
+        logs at the current index, and then increments log_index. Thus, we're
+        left with the index pointing at the next element, which is never
+        recorded or needed since this was the last wrapper execution.
+  */
+  _real_pthread_mutex_lock(&log_file_mutex);
+  if (log_index == MAX_LOG_LENGTH) {
+    num_to_write = LOG_ENTRY_SIZE*MAX_LOG_LENGTH;
+  } else if (log_index == 0) {
+    JTRACE ( "log size 0, so nothing written to disk." );
+    _real_pthread_mutex_unlock(&log_file_mutex);
+    return;
+  } else {
+    // SEE #2 above for comment on this branch. For now I'm going with the 'NOT
+    // NECESSARILY' comment.
+    num_to_write = LOG_ENTRY_SIZE*log_index;
+  }
+  //JTRACE ( "writing to log path" ) ( RECORD_LOG_PATH );
+  while ((record_log_fd = open(RECORD_LOG_PATH, 
+              O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
+      && errno == EINTR) ;
+  if (record_log_fd == -1) {
+    // Create the log (with patched bit) and try to open again.
+    initializeLog();
+  }
+  while ((record_log_fd = open(RECORD_LOG_PATH, 
+              O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR)) == -1
+      && errno == EINTR) ;
+  JASSERT ( record_log_fd != -1 ) ( RECORD_LOG_PATH ) ( strerror(errno) );
+  numwritten = write(record_log_fd, log, num_to_write);
+  JASSERT ( numwritten != -1) ( strerror(errno) );
+  JASSERT ( fsync(record_log_fd) == 0 ) ( strerror(errno) );
+
+  close(record_log_fd);
+  JTRACE ( "Record log successfully written to disk." ) ( num_to_write ) ( numwritten );
+  resetLog();
+  _real_pthread_mutex_unlock(&log_file_mutex);
 }
 
 static TURN_CHECK_P(base_turn_check)
 {
   // Predicate function for a basic check -- event # and clone id.
+  // TODO: factor out this anomalous signal business.
   return GET_COMMON_PTR(e1,clone_id) == GET_COMMON_PTR(e2,clone_id) &&
-         GET_COMMON_PTR(e1,event) == GET_COMMON_PTR(e2,event);
+    ((GET_COMMON_PTR(e1,event) == GET_COMMON_PTR(e2,event)) ||
+     (GET_COMMON_PTR(e1,event) == pthread_cond_signal_event && 
+         GET_COMMON_PTR(e2,event) == pthread_cond_signal_anomalous_event) ||
+     (GET_COMMON_PTR(e1,event) == pthread_cond_signal_anomalous_event && 
+         GET_COMMON_PTR(e2,event) == pthread_cond_signal_event) ||
+     (GET_COMMON_PTR(e1,event) == pthread_cond_broadcast_event && 
+         GET_COMMON_PTR(e2,event) == pthread_cond_broadcast_anomalous_event) ||
+     (GET_COMMON_PTR(e1,event) == pthread_cond_broadcast_anomalous_event && 
+         GET_COMMON_PTR(e2,event) == pthread_cond_broadcast_event));
 }
 
 TURN_CHECK_P(pthread_mutex_lock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_mutex_lock, addr) ==
-      GET_FIELD_PTR(e2, pthread_mutex_lock, addr);
+    GET_FIELD_PTR(e1, pthread_mutex_lock, mutex) ==
+      GET_FIELD_PTR(e2, pthread_mutex_lock, mutex);
 }
 
 TURN_CHECK_P(pthread_mutex_trylock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_mutex_trylock, addr) ==
-      GET_FIELD_PTR(e2, pthread_mutex_trylock, addr);
+    GET_FIELD_PTR(e1, pthread_mutex_trylock, mutex) ==
+      GET_FIELD_PTR(e2, pthread_mutex_trylock, mutex);
 }
 
 TURN_CHECK_P(pthread_mutex_unlock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_mutex_unlock, addr) ==
-      GET_FIELD_PTR(e2, pthread_mutex_unlock, addr);
+    GET_FIELD_PTR(e1, pthread_mutex_unlock, mutex) ==
+      GET_FIELD_PTR(e2, pthread_mutex_unlock, mutex);
 }
 
 TURN_CHECK_P(pthread_cond_signal_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_cond_signal, addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_signal, addr);
+    GET_FIELD_PTR(e1, pthread_cond_signal, cond_var) ==
+      GET_FIELD_PTR(e2, pthread_cond_signal, cond_var);
 }
 
 TURN_CHECK_P(pthread_cond_broadcast_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_cond_broadcast, addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_broadcast, addr);
+    GET_FIELD_PTR(e1, pthread_cond_broadcast, cond_var) ==
+      GET_FIELD_PTR(e2, pthread_cond_broadcast, cond_var);
 }
 
 TURN_CHECK_P(pthread_cond_wait_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_cond_wait, mutex_addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_wait, mutex_addr) &&
-    GET_FIELD_PTR(e1, pthread_cond_wait, cond_addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_wait, cond_addr);
+    GET_FIELD_PTR(e1, pthread_cond_wait, mutex) ==
+      GET_FIELD_PTR(e2, pthread_cond_wait, mutex) &&
+    GET_FIELD_PTR(e1, pthread_cond_wait, cond_var) ==
+      GET_FIELD_PTR(e2, pthread_cond_wait, cond_var);
 }
 
 TURN_CHECK_P(pthread_cond_timedwait_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_cond_timedwait, mutex_addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_timedwait, mutex_addr) &&
-    GET_FIELD_PTR(e1, pthread_cond_timedwait, cond_addr) ==
-      GET_FIELD_PTR(e2, pthread_cond_timedwait, cond_addr) &&
+    GET_FIELD_PTR(e1, pthread_cond_timedwait, mutex) ==
+      GET_FIELD_PTR(e2, pthread_cond_timedwait, mutex) &&
+    GET_FIELD_PTR(e1, pthread_cond_timedwait, cond_var) ==
+      GET_FIELD_PTR(e2, pthread_cond_timedwait, cond_var) &&
     GET_FIELD_PTR(e1, pthread_cond_timedwait, abstime) ==
       GET_FIELD_PTR(e2, pthread_cond_timedwait, abstime);
 }
@@ -1561,22 +2043,22 @@ TURN_CHECK_P(pthread_cond_timedwait_turn_check)
 TURN_CHECK_P(pthread_rwlock_unlock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_rwlock_unlock, addr) ==
-      GET_FIELD_PTR(e2, pthread_rwlock_unlock, addr);
+    GET_FIELD_PTR(e1, pthread_rwlock_unlock, rwlock) ==
+      GET_FIELD_PTR(e2, pthread_rwlock_unlock, rwlock);
 }
 
 TURN_CHECK_P(pthread_rwlock_rdlock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_rwlock_rdlock, addr) ==
-      GET_FIELD_PTR(e2, pthread_rwlock_rdlock, addr);
+    GET_FIELD_PTR(e1, pthread_rwlock_rdlock, rwlock) ==
+      GET_FIELD_PTR(e2, pthread_rwlock_rdlock, rwlock);
 }
 
 TURN_CHECK_P(pthread_rwlock_wrlock_turn_check)
 {
   return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, pthread_rwlock_wrlock, addr) ==
-      GET_FIELD_PTR(e2, pthread_rwlock_wrlock, addr);
+    GET_FIELD_PTR(e1, pthread_rwlock_wrlock, rwlock) ==
+      GET_FIELD_PTR(e2, pthread_rwlock_wrlock, rwlock);
 }
 
 TURN_CHECK_P(pthread_create_turn_check)
@@ -1683,13 +2165,6 @@ TURN_CHECK_P(close_turn_check)
   return base_turn_check(e1, e2);// && e1->fd == e2->fd;
 }
 
-TURN_CHECK_P(closedir_turn_check)
-{
-  return base_turn_check(e1, e2) &&
-    GET_FIELD_PTR(e1, closedir, dirp) ==
-      GET_FIELD_PTR(e2, closedir, dirp);
-}
-
 TURN_CHECK_P(connect_turn_check)
 {
   return base_turn_check(e1, e2) &&
@@ -1759,21 +2234,10 @@ TURN_CHECK_P(time_turn_check)
 TURN_CHECK_P(accept_turn_check)
 {
   return base_turn_check(e1, e2) &&
-    GET_FIELD_PTR(e1, accept, addr) ==
-      GET_FIELD_PTR(e2, accept, addr) &&
+    GET_FIELD_PTR(e1, accept, sockaddr) ==
+      GET_FIELD_PTR(e2, accept, sockaddr) &&
     GET_FIELD_PTR(e1, accept, addrlen) ==
       GET_FIELD_PTR(e2, accept, addrlen);
-}
-
-TURN_CHECK_P(accept4_turn_check)
-{
-  return base_turn_check(e1, e2) &&
-    GET_FIELD_PTR(e1, accept4, addr) ==
-      GET_FIELD_PTR(e2, accept4, addr) &&
-    GET_FIELD_PTR(e1, accept4, addrlen) ==
-      GET_FIELD_PTR(e2, accept4, addrlen) &&
-    GET_FIELD_PTR(e1, accept4, flags) ==
-      GET_FIELD_PTR(e2, accept4, flags);
 }
 
 TURN_CHECK_P(access_turn_check)
@@ -1788,8 +2252,8 @@ TURN_CHECK_P(access_turn_check)
 TURN_CHECK_P(bind_turn_check)
 {
   return base_turn_check(e1, e2) &&
-    GET_FIELD_PTR(e1, bind, addr) ==
-      GET_FIELD_PTR(e2, bind, addr) &&
+    GET_FIELD_PTR(e1, bind, my_addr) ==
+      GET_FIELD_PTR(e2, bind, my_addr) &&
     GET_FIELD_PTR(e1, bind, addrlen) ==
       GET_FIELD_PTR(e2, bind, addrlen);
 }
@@ -1802,8 +2266,8 @@ TURN_CHECK_P(getpeername_turn_check)
     GET_FIELD_PTR(e1, getpeername, addrlen) ==
       GET_FIELD_PTR(e2, getpeername, addrlen);
     // TODO: How to compare these:
-  /*GET_FIELD_PTR(e1, getpeername, addr) ==
-      GET_FIELD_PTR(e2, getpeername, addr)*/
+  /*GET_FIELD_PTR(e1, getpeername, sockaddr) ==
+      GET_FIELD_PTR(e2, getpeername, sockaddr)*/
 }
 
 TURN_CHECK_P(getsockname_turn_check)
@@ -1813,8 +2277,8 @@ TURN_CHECK_P(getsockname_turn_check)
       GET_FIELD_PTR(e2, getsockname, sockfd) &&*/
     GET_FIELD_PTR(e1, getsockname, addrlen) ==
       GET_FIELD_PTR(e2, getsockname, addrlen) &&
-    GET_FIELD_PTR(e1, getsockname, addr) ==
-      GET_FIELD_PTR(e2, getsockname, addr);
+    GET_FIELD_PTR(e1, getsockname, sockaddr) ==
+      GET_FIELD_PTR(e2, getsockname, sockaddr);
 }
 
 TURN_CHECK_P(setsockopt_turn_check)
@@ -1889,27 +2353,11 @@ TURN_CHECK_P(fgets_turn_check)
       GET_FIELD_PTR(e2, fgets, size);
 }
 
-TURN_CHECK_P(fflush_turn_check)
-{
-  return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, fflush, stream) ==
-      GET_FIELD_PTR(e2, fflush, stream);
-}
-
 TURN_CHECK_P(getc_turn_check)
 {
   return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, getc, stream) ==
       GET_FIELD_PTR(e2, getc, stream);
-}
-
-TURN_CHECK_P(gettimeofday_turn_check)
-{
-  return base_turn_check(e1,e2) &&
-    GET_FIELD_PTR(e1, gettimeofday, tv) ==
-      GET_FIELD_PTR(e2, gettimeofday, tv) &&
-    GET_FIELD_PTR(e1, gettimeofday, tz) ==
-      GET_FIELD_PTR(e2, gettimeofday, tz);
 }
 
 TURN_CHECK_P(fgetc_turn_check)
@@ -2145,13 +2593,6 @@ TURN_CHECK_P(open64_turn_check)
       GET_FIELD_PTR(e2, open64, open_mode);
 }
 
-TURN_CHECK_P(opendir_turn_check)
-{
-  return base_turn_check(e1, e2) &&
-    GET_FIELD_PTR(e1, opendir, name) ==
-      GET_FIELD_PTR(e2, opendir, name);
-}
-
 TURN_CHECK_P(pread_turn_check)
 {
   return base_turn_check(e1, e2) &&
@@ -2300,24 +2741,23 @@ TURN_CHECK_P(select_turn_check)
 static void get_optional_events(log_entry_t *e, int *opt_events)
 {
   event_code_t event_num = (event_code_t) GET_COMMON_PTR(e, event);
-  if (event_num == fscanf_event ||
-      event_num == fgets_event ||
-      event_num == getc_event ||
-      //event_num == fgetc_event ||
-      event_num == fprintf_event ||
-      event_num == accept_event ||
-      event_num == accept4_event ||
-      event_num == fdopen_event) {
+  /* These should ONLY be return events in the current implementation. For
+     example, fscanf. The mmap happens between fscanf_event and
+     fscanf_event_return, so we should only be looking for the mmap if we're
+     looking for the fscanf return event. */
+  if (event_num == fscanf_event_return ||
+      event_num == fgets_event_return ||
+      event_num == getc_event_return ||
+      //event_num == fgetc_event_return ||
+      event_num == fprintf_event_return ||
+      event_num == accept_event_return ||
+      event_num == fdopen_event_return) {
     opt_events[0] = mmap_event;
-  } else if (event_num == setsockopt_event) {
+  } else if (event_num == setsockopt_event_return) {
     opt_events[0] = malloc_event;
     opt_events[1] = free_event;
     opt_events[2] = mmap_event;
-  } else if (event_num == fclose_event) {
-    opt_events[0] = free_event;
-  } else if (event_num == opendir_event) {
-    opt_events[0] = malloc_event;
-  } else if (event_num == closedir_event) {
+  } else if (event_num == fclose_event_return) {
     opt_events[0] = free_event;
   }
   // TODO: Some error checking that we do not accidently assign above
@@ -2336,23 +2776,19 @@ static int has_optional_event(log_entry_t *e)
    that event. */
 static void execute_optional_event(int opt_event_num)
 {
-  _real_pthread_mutex_lock(&log_index_mutex);
   if (opt_event_num == mmap_event) {
     size_t length = GET_FIELD(currentLogEntry, mmap, length);
     int prot      = GET_FIELD(currentLogEntry, mmap, prot);
     int flags     = GET_FIELD(currentLogEntry, mmap, flags);
     int fd        = GET_FIELD(currentLogEntry, mmap, fd);
     off_t offset  = GET_FIELD(currentLogEntry, mmap, offset);
-    _real_pthread_mutex_unlock(&log_index_mutex);
-    JASSERT(mmap(NULL, length, prot, flags, fd, offset) != MAP_FAILED);
+    mmap(NULL, length, prot, flags, fd, offset);
   } else if (opt_event_num == malloc_event) {
     size_t size = GET_FIELD(currentLogEntry, malloc, size);
-    _real_pthread_mutex_unlock(&log_index_mutex);
-    JASSERT(malloc(size) != NULL);
+    void *p = malloc(size);
   } else if (opt_event_num == free_event) {
     /* The fact that this works depends on memory-accurate replay. */
     void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
-    _real_pthread_mutex_unlock(&log_index_mutex);
     free(ptr);
   } else {
     JASSERT (false)(opt_event_num).Text("No action known for optional event.");
@@ -2389,8 +2825,7 @@ static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
     /* For the optional event, we can only check the clone_id and the event
        number, since we don't know any more information. */
     if (GET_COMMON(currentLogEntry, clone_id) == my_clone_id &&
-        GET_COMMON(currentLogEntry, isOptional) == 1) {
-      JASSERT(opt_events_contains(opt_events, GET_COMMON(currentLogEntry, event)));
+        opt_events_contains(opt_events, GET_COMMON(currentLogEntry, event))) {
       execute_optional_event(GET_COMMON(currentLogEntry, event));
     }
     memfence();
@@ -2400,7 +2835,13 @@ static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
 
 void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
+  int opt;
   memfence();
+  if (__builtin_expect(log_loaded == 0, 0)) {
+    // If log_loaded == 0, then this is the first time.
+    // Perform any initialization things here.
+    primeLog();
+  }
   if (has_optional_event(&my_entry)) {
     waitForTurnWithOptional(&my_entry, pred);
   } else {
@@ -2433,28 +2874,16 @@ void waitForExecBarrier()
 void userSynchronizedEvent()
 {
   log_entry_t my_entry = create_user_entry(my_clone_id, user_event);
+  log_entry_t my_return_entry = create_user_entry(my_clone_id,
+      user_event_return);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, user_turn_check);
     getNextLogEntry();
-  } else if (SYNC_IS_RECORD) {
-    addNextLogEntry(my_entry);
-  }
-}
-
-void userSynchronizedEventBegin()
-{
-  log_entry_t my_entry = create_user_entry(my_clone_id, user_event);
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, user_turn_check);
+    waitForTurn(my_return_entry, user_turn_check);
     getNextLogEntry();
-  } else if (SYNC_IS_RECORD) {
+  } else if (SYNC_IS_LOG) {
     addNextLogEntry(my_entry);
+    addNextLogEntry(my_return_entry);
   }
-}
-
-void userSynchronizedEventEnd()
-{
-  JASSERT(false);
-  return;
 }
 #endif

@@ -31,17 +31,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #define MTCP_SYS_MEMCPY
-#include "mtcp_internal.h"  /* Needed for MTCP_PRINTF */
 #include "mtcp_sys.h"
 
 /* Defined and allocated in mtcp.c */
 extern int dmtcp_exists;
 
-int __attribute__ ((weak))
+__attribute__ ((weak))
 _real_sigaction (int sig, const struct sigaction *act, struct sigaction *oact) {
-  MTCP_PRINTF("This function should never be called when running with"
-              "DMTCP.\n");
-  mtcp_abort();
+  printf("mtcp internal error:\n"
+	 "  __FILE__:__FUNCTION__() should never be called.\n");
+  abort();
 }
 
 /* The difference here is that the sigaction structure used in the

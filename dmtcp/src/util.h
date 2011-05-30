@@ -61,11 +61,6 @@ namespace Util
   void freePatchedArgv(char **newArgv);
   void patchArgvIfSetuid(const char* filename, char *const origArgv[],
                          char **newArgv[]);
-
-  int readLine(int fd, char *buf, int count);
-
-  void initializeLogFile(dmtcp::string procname = "",
-                         dmtcp::string preLogPath = "");
 }
 
 #endif

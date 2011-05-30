@@ -24,7 +24,6 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jalloc.h"
 #include "dmtcpmessagetypes.h"
-#include "dmtcpmodule.h"
 #include <stdlib.h>
 #include "mtcpinterface.h"
 #include <unistd.h>
@@ -45,7 +44,6 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -54,19 +52,11 @@
 #include <netdb.h>
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
-#include "log.h"
 #endif
 
 #ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-#define pthread_mutex_lock _real_pthread_mutex_lock
-#define pthread_mutex_unlock _real_pthread_mutex_unlock
-#define pthread_rwlock_rdlock _real_pthread_rwlock_rdlock
-#define pthread_rwlock_wrlock _real_pthread_rwlock_wrlock
-#define pthread_rwlock_unlock _real_pthread_rwlock_unlock
 #endif
-
-using namespace dmtcp;
 
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
@@ -112,6 +102,8 @@ dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
 static bool _waitingForExternalSocketsToClose = false;
 #endif
 
+static int theRestorePort = RESTORE_PORT_START;
+
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
 size_t dmtcp::DmtcpWorker::_argvSize = 0;
 size_t dmtcp::DmtcpWorker::_envSize = 0;
@@ -120,6 +112,10 @@ void processDmtcpCommands(dmtcp::string programName,
                           dmtcp::vector<dmtcp::string>& args);
 static void processSshCommand(dmtcp::string programName,
                               dmtcp::vector<dmtcp::string>& args);
+
+void dmtcp::DmtcpWorker::useAlternateCoordinatorFd(){
+  _coordinatorSocket = jalib::JSocket( PROTECTEDFD( 4 ) );
+}
 
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
@@ -144,9 +140,8 @@ void restoreUserLDPRELOAD()
   //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char * preload =  getenv("LD_PRELOAD");
-  char * preload_rest = strstr(preload, "dmtcphijack.so:");
+  char * preload_rest = strstr(preload, ":");
   if (preload_rest) {
-    preload_rest = strstr(preload_rest, ":");
     *preload_rest = '\0'; // Now preload is just our preload string
     preload_rest++;
   }
@@ -166,17 +161,15 @@ void restoreUserLDPRELOAD()
 //         See:  pidwrappers.cpp:get_sigckpt()
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
-// This should be visible to library only.  DmtcpWorker will call
+// This shold be visible to library only.  DmtcpWorker will call
 //   this to initialize tmp (ckpt signal) at startup time.  This avoids
 //   any later calls to getenv(), at which time the user app may have
 //   a wrapper around getenv, modified environ, or other tricks.
 //   (Matlab needs this or else it segfaults on restart, and bash plays
-//   similar tricks with maintaining its own environment.)
+//   similar tricks with maintaining its own environmnet.)
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
-// FIXME: DO we still want it to be library visible only?
-//__attribute__ ((visibility ("hidden")))
-int dmtcp::DmtcpWorker::determineMtcpSignal()
-{
+__attribute__ ((visibility ("hidden")))
+int _determineMtcpSignal(){
   // this mimics the MTCP logic for determining signal number found in
   // mtcp_init()
   int sig = MTCP_DEFAULT_SIGNAL;
@@ -210,82 +203,33 @@ static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
   envSize += args[0].length();
 }
 
-static dmtcp::string getLogFilePath()
+//called before user main()
+//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
+    :_coordinatorSocket ( PROTECTEDFD ( 1 ) )
+    ,_restoreSocket ( PROTECTEDFD ( 3 ) )
 {
+  if ( !enableCheckpointing ) return;
+
+  WorkerState::setCurrentState( WorkerState::UNKNOWN);
+
+  /* DO NOT PUT ANYTHING BEFORE THE FOLLOWING BLOCK OF CODE (#ifdef .... #endif) */
 #ifdef DEBUG
+  /* Disable Jassert Logging */
+  dmtcp::UniquePid::ThisProcess(true);
+
   dmtcp::ostringstream o;
-  o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
-  return jalib::Filesystem::ResolveSymlink(o.str());
-#else
-  return "";
-#endif
-}
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid::ThisProcess()
+    << "_" << jalib::Filesystem::GetProgramName();
+  JASSERT_INIT (o.str());
 
-static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
-{
-#ifdef DEBUG
-  dmtcp::ostringstream o;
-  o << "========================================\n"
-    << "This Process exec()'d into a new program\n"
-    << "Program Name: " << jalib::Filesystem::GetProgramName() << "\n"
-    << "New JAssertLog Path: " << getLogFilePath() << "\n"
-    << "========================================\n";
-
-  int fd = open(path.c_str(), O_WRONLY | O_APPEND, 0);
-  if (fd != -1) {
-    Util::writeAll(fd, o.str().c_str(), o.str().length());
-  }
-  _real_close(fd);
-#endif
-}
-
-static void prepareLogAndProcessdDataFromSerialFile()
-{
-  const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
-  if ( serialFile != NULL ) {
-    // This process was under ckpt-control and exec()'d into a new program.
-    // Find out path of previous log file so that later, we can write the name
-    // of the new log file into that one.
-    dmtcp::string prevLogFilePath = getLogFilePath();
-
-    jalib::JBinarySerializeReader rd ( serialFile );
-    UniquePid::serialize ( rd );
-    Util::initializeLogFile("", prevLogFilePath);
-
-    writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
-
-    JTRACE ( "loading initial socket table from file..." ) ( serialFile );
-    KernelDeviceToConnection::instance().serialize ( rd );
-
-#ifdef PID_VIRTUALIZATION
-    VirtualPidTable::instance().serialize ( rd );
-    VirtualPidTable::instance().postExec();
-    SysVIPC::instance().serialize ( rd );
-#endif
-    _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
-  } else {
-    // Brand new process (was never under ckpt-control),
-    // Initialize the log file
-    Util::initializeLogFile();
-
-#ifdef PID_VIRTUALIZATION
-    if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
-      JTRACE("Root of processes tree");
-      VirtualPidTable::instance().setRootOfProcessTree();
-      _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
-    }
+  JTRACE ( "recalculated process UniquePid..." ) ( dmtcp::UniquePid::ThisProcess() );
 #endif
 
-    JTRACE("Checking for pre-existing sockets");
-    ConnectionList::instance().scanForPreExisting();
-  }
+  //This is called for side effect only.  Force this function to call
+  // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
+  _determineMtcpSignal();
 
-  JTRACE ("Initial socket table:");
-  KernelDeviceToConnection::instance().dbgSpamFds();
-}
-
-static void processRlimit()
-{
 #ifdef __i386__
   // Match work begun in dmtcpPrepareForExec()
 # if 0
@@ -308,101 +252,122 @@ static void processRlimit()
   }
 # endif
 #endif
-}
 
-#ifdef RECORD_REPLAY
-static void recordReplayInit()
-{
-  // As of rev. 816, this line caused DMTCP with standard ./configure
-  //   (no command line flags) to segfault.
-  // To see bug, do:  gdb --args bin/dmtcp_checkpoint ls
-  // NOTe: This comment may not be true anymore.
-  _dmtcp_setup_trampolines();
-
-  /* This is called only on exec(). We reset the global clone counter for this
-     process, assign the first thread (this one) clone_id 1, and increment the
-     counter. */
-  JTRACE ( "resetting global clone counter." );
-  global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
-  my_clone_id = global_clone_counter;
-  global_clone_counter++;
-
-  my_log = new dmtcp::SynchronizationLog();
-  clone_id_to_tid_table[my_clone_id] = pthread_self();
-  clone_id_to_log_table[my_clone_id] = my_log;
-
-  /* Other initialization for sync log/replay specific to this process. */
-  initializeLogNames();
-  if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
-    /* If it is NULL, this is the very first exec. We unset => set to 0
-       (meaning no logging, no replay) */
-    // FIXME: setenv is known to cause issues when interacting with bash.
-    setenv(ENV_VAR_LOG_REPLAY, "0", 1);
-  }
-  sync_logging_branch = atoi(getenv(ENV_VAR_LOG_REPLAY));
-  /* Synchronize this constructor, if this is not the very first exec. */
-  log_entry_t my_entry = create_exec_barrier_entry();
-  if (SYNC_IS_REPLAY) {
-    memfence();
-    waitForExecBarrier();
-    getNextLogEntry();
-  } else if (SYNC_IS_RECORD) {
-    addNextLogEntry(my_entry);
-  }
-}
-#endif
-
-//called before user main()
-//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
-{
-  if ( !enableCheckpointing ) return;
-  else {
-    //open("", -1, 0);
-    //initialize_wrappers();
-    WorkerState::setCurrentState( WorkerState::UNKNOWN);
-    prepareLogAndProcessdDataFromSerialFile();
-  }
-
-  JTRACE ( "dmtcphijack.so:  Running " )
-    ( jalib::Filesystem::GetProgramName() ) ( getenv ( "LD_PRELOAD" ) );
-
-  if (getenv(ENV_VAR_UTILITY_DIR) == NULL) {
+  if ( getenv(ENV_VAR_UTILITY_DIR) == NULL ) {
     JNOTE ( "\n **** Not checkpointing this process,"
             " due to missing environment var ****" )
           ( getenv(ENV_VAR_UTILITY_DIR) )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
+  if (! getenv(ENV_VAR_QUIET))
+    setenv(ENV_VAR_QUIET, "0", 0);
+  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
-  processRlimit();
 
-  //This is called for side effect only.  Force this function to call
-  // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
-  determineMtcpSignal();
+  JTRACE ( "dmtcphijack.so:  Running " ) ( jalib::Filesystem::GetProgramName() )                                         ( getenv ( "LD_PRELOAD" ) );
+  JTRACE ( "dmtcphijack.so:  Child of pid " ) ( getppid() );
 
-  // Also cache programName and arguments
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  calculateArgvAndEnvSize(_argvSize, _envSize);
 
-  if (programName == "dmtcp_coordinator" || programName == "dmtcp_command" ||
-      programName == "dmtcp_checkpoint"  || programName == "dmtcp_restart" ||
-      programName == "mtcp_restart" ) {
+  if ( programName == "dmtcp_coordinator"  ||
+       programName == "dmtcp_checkpoint"   ||
+       programName == "dmtcp_restart"      ||
+       programName == "dmtcp_command"      ||
+       programName == "mtcp_restart" ) {
     processDmtcpCommands(programName, args);
-  } else if ( programName == "ssh" ) {
+  }
+  if ( programName == "ssh" ) {
     processSshCommand(programName, args);
   }
-  calculateArgvAndEnvSize(_argvSize, _envSize);
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
+  const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
+  if ( serialFile != NULL )
+  {
+    JTRACE ( "loading initial socket table from file..." ) ( serialFile );
+
+    // JBinarySerializeReader calls open() in constructor and close() in
+    // destructor. If we put the following code in block to make sure that
+    // after the control returns from the block, the close() has been called.
+    {
+      jalib::JBinarySerializeReader rd ( serialFile );
+      UniquePid::serialize ( rd );
+      KernelDeviceToConnection::instance().serialize ( rd );
+
+#ifdef PID_VIRTUALIZATION
+      VirtualPidTable::instance().serialize ( rd );
+      VirtualPidTable::instance().postExec();
+      SysVIPC::instance().serialize ( rd );
+#endif
+    }
+
+#ifdef DEBUG
+    JTRACE ( "initial socket table:" );
+    KernelDeviceToConnection::instance().dbgSpamFds();
+#endif
+
+    _dmtcp_unsetenv ( ENV_VAR_SERIALFILE_INITIAL );
+  }
+  else
+  {
+    JTRACE ( "root of processes tree, checking for pre-existing sockets" );
+
+#ifdef PID_VIRTUALIZATION
+    if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
+      dmtcp::VirtualPidTable::instance().setRootOfProcessTree();
+      _dmtcp_unsetenv( ENV_VAR_ROOT_PROCESS );
+    }
+#endif
+
+    ConnectionList::instance().scanForPreExisting();
+  }
+
   connectToCoordinatorWithHandshake();
 
+  WorkerState::setCurrentState ( WorkerState::RUNNING );
+
+// As of rev. 816, this line caused DMTCP with standard ./configure
+//   (no command line flags) to segfault.
+// To see bug, do:  gdb --args bin/dmtcp_checkpoint ls
 #ifdef RECORD_REPLAY
-  recordReplayInit();
+  _dmtcp_setup_trampolines();
 #endif
-  // define "Weak Symbols for each library module in dmtcphijack.so
-  process_dmtcp_event(DMTCP_EVENT_INIT, NULL);
+
+#ifdef RECORD_REPLAY
+  /* This is called only on exec(). We reset the global clone counter for this
+     process, assign the first thread (this one) clone_id 1, and increment the
+     counter. */
+  JTRACE ( "resetting global clone counter." );
+  global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
+  my_clone_id = global_clone_counter;
+  clone_id_to_tid_table[my_clone_id] = pthread_self();
+  global_clone_counter++;
+
+  /* Other initialization for sync log/replay specific to this process. */
+  initializeLog();
+  if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
+    /* If it is NULL, this is the very first exec. We unset => set to 0
+       (meaning no logging, no replay) */
+    setenv(ENV_VAR_LOG_REPLAY, "0", 1);
+  } 
+  sync_logging_branch = atoi(getenv(ENV_VAR_LOG_REPLAY));
+  /* Synchronize this constructor, if this is not the very first exec. */
+  log_entry_t my_entry = create_exec_barrier_entry();
+  if (SYNC_IS_REPLAY) {
+    memfence();
+    if (log_loaded == 0) {
+      primeLog();
+    }
+    waitForExecBarrier();
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    addNextLogEntry(my_entry);
+  }
+#endif // RECORD_REPLAY
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
@@ -411,8 +376,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   initializeMtcpEngine();
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
-  /* Now wait for Checkpoint Thread to finish initialization
-   * NOTE: This should be the last thing in this constructor
+  /* 
+   * Now wait for Checkpoint Thread to finish initialization 
+   * XXX: This should be the last thing in this constructor
    */
   while (!_checkpointThreadInitialized) {
     struct timespec sleepTime = {0, 10*1000*1000};
@@ -432,6 +398,10 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   destroyDmtcpWorker = newDestroyDmtcpWorker;
 
   unInitializedThreadCount = 0;
+#ifdef RECORD_REPLAY
+  JTRACE ( "writing synchronization logs to disk." );
+  writeLogsToDisk();
+#endif
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
@@ -448,6 +418,7 @@ void dmtcp::DmtcpWorker::interruptCkpthread()
 //called after user main()
 dmtcp::DmtcpWorker::~DmtcpWorker()
 {
+
   if( exitInProgress() ){
     /*
      * Exit race fixed. If the user threads calls exit(), ~DmtcpWorker() is
@@ -468,7 +439,12 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-    process_dmtcp_event(DMTCP_EVENT_PRE_EXIT, NULL);
+#ifdef RECORD_REPLAY
+    if (SYNC_IS_LOG) {
+      JTRACE ( "writing synchronization logs to disk." );
+      writeLogsToDisk();
+    }
+#endif
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
     interruptCkpthread();
@@ -476,17 +452,17 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
-void processDmtcpCommands(dmtcp::string programName,
+void processDmtcpCommands(dmtcp::string programName, 
                           dmtcp::vector<dmtcp::string>& args)
 {
-  JASSERT (programName == "dmtcp_coordinator" ||
-           programName == "dmtcp_checkpoint"  ||
-           programName == "dmtcp_restart"     ||
-           programName == "dmtcp_command"     ||
-           programName == "mtcp_restart");
+  JASSERT ( programName == "dmtcp_coordinator"  ||
+      programName == "dmtcp_checkpoint"   ||
+      programName == "dmtcp_restart"      ||
+      programName == "dmtcp_command"      ||
+      programName == "mtcp_restart" );
 
   //make sure coordinator connection is closed
-  _real_close ( PROTECTED_COORD_FD );
+  _real_close ( PROTECTEDFD ( 1 ) );
 
   /*
    * When running gdb or any shell which does a waitpid() on the child
@@ -527,10 +503,9 @@ static void processSshCommand(dmtcp::string programName,
 {
   JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
   //make sure coordinator connection is closed
-  _real_close ( PROTECTED_COORD_FD );
+  _real_close ( PROTECTEDFD ( 1 ) );
 
-  JASSERT ( args.size() >= 3 ) ( args.size() )
-    .Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
+  JASSERT ( args.size() >= 3 ) ( args.size() ).Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
 
   //find command part
   size_t commandStart = 2;
@@ -550,21 +525,14 @@ static void processSshCommand(dmtcp::string programName,
   dmtcp::string& cmd = args[commandStart];
 
 
-  const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
+  const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_ADDR );
   const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
   const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
   const char * compression          = getenv ( ENV_VAR_COMPRESSION );
-#ifdef HBICT_DELTACOMP
-  const char * deltacompression     = getenv ( ENV_VAR_DELTACOMPRESSION );
-#endif
   const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES );
   const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
   const char * tmpDir               = getenv ( ENV_VAR_TMPDIR );
-  if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet                   = *getenv ( ENV_VAR_QUIET ) - '0';
-  } else {
-    jassert_quiet = 0;
-  }
+  jassert_quiet                     = *getenv ( ENV_VAR_QUIET ) - '0';
 
   //modify the command
 
@@ -592,15 +560,6 @@ static void processSshCommand(dmtcp::string programName,
     else
       prefix += "--gzip ";
   }
-
-#ifdef HBICT_DELTACOMP
-  if (deltacompression != NULL) {
-    if (strcmp(deltacompression, "0") == 0)
-      prefix += "--no-hbict ";
-    else
-      prefix += "--hbict ";
-  }
-#endif
 
   // process command
   size_t semipos, pos;
@@ -678,6 +637,10 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
     if ( msg.type == DMT_KILL_PEER ) {
       JTRACE ( "Received KILL Message from coordinator, exiting" );
+#ifdef RECORD_REPLAY
+      JTRACE ( "TYLER NEW MESSAGE" );
+      writeLogsToDisk();
+#endif
       _exit ( 0 );
     }
 
@@ -728,9 +691,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     _checkpointThreadInitialized = true;
   }
 
-  // Create signature file which could then be used by an outside process to
-  // check if the process restarted successfully.
-  if ( 0 && compGroup != UniquePid() ) {
+  if ( compGroup != UniquePid() ) {
     dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
                                 + compGroup.toString() + "-"
 #ifdef PID_VIRTUALIZATION
@@ -811,12 +772,11 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   }
 
   JASSERT(_coordinatorSocket.isValid());
-
   JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
-  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
-  process_dmtcp_event(DMTCP_EVENT_POST_SUSPEND, NULL);
+  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+
+  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   theCheckpointState->preLockSaveOptions();
 
@@ -837,8 +797,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
-  process_dmtcp_event(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
-
 #ifdef EXTERNAL_SOCKET_HANDLING
   if ( waitForStage2bCheckpoint() == false ) {
     return false;
@@ -855,16 +813,14 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   /*
    * write pid at offset 0. Also write pid at offset sizeof(pid_t) if this
    * process is the creator of this memory area. After the leader election
-   * barrier, the leader of the shared-memory object is the creator of the
-   * object. If the creator process is missing, then the leader process is the
+   * barrier, the leader of the shared-memory object is the creater of the
+   * object. If the creater process is missing, then the leader process is the
    * process whose pid is stored at offset 0
    */
   SysVIPC::instance().leaderElection();
 #endif
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
-
-  process_dmtcp_event(DMTCP_EVENT_POST_DRAIN, NULL);
 
   waitForCoordinatorMsg ( "CHECKPOINT", DMT_DO_CHECKPOINT );
   JTRACE ( "got checkpoint message" );
@@ -883,8 +839,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   dmtcp::VirtualPidTable::instance().preCheckpoint();
   SysVIPC::instance().preCheckpoint();
 #endif
-
-  process_dmtcp_event(DMTCP_EVENT_PRE_CHECKPOINT, NULL);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
@@ -988,7 +942,7 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
   const int len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
 
-  theCheckpointState->outputDmtcpConnectionTable(fd, argvSize(), envSize());
+  theCheckpointState->outputDmtcpConnectionTable(fd);
 }
 
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
@@ -1013,7 +967,7 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
 {
   struct sockaddr addr;
   socklen_t addrLen = sizeof addr;
-  JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen))
+  JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen)) 
     (JASSERT_ERRNO);
 
   /* If the current coordinator is running on a HOST/PORT other than the
@@ -1021,8 +975,8 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
    * pointing to the coordinator HOST/PORT. This is needed if the new
    * coordinator has been moved around.
    */
-
-  const char * origCoordAddr = getenv ( ENV_VAR_NAME_HOST );
+  
+  const char * origCoordAddr = getenv ( ENV_VAR_NAME_ADDR );
   const char * origCoordPortStr = getenv ( ENV_VAR_NAME_PORT );
   if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
   int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( origCoordPortStr );
@@ -1037,7 +991,7 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
     char currHost[1024];
     char currPort[16];
 
-    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost,
+    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost, 
                           currPort, sizeof currPort, NI_NUMERICSERV);
     JASSERT (res == 0) (currHost) (currPort) (gai_strerror(res))
       .Text ("getnameinfo(... currHost, ..., currPort,...) failed");
@@ -1045,7 +999,7 @@ void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
     JTRACE ("Coordinator running at a different location")
       (origCoordAddr) (origCoordPort) (currHost) (currPort);
 
-    JASSERT (0 == setenv (ENV_VAR_NAME_HOST, currHost, 1)) (JASSERT_ERRNO);
+    JASSERT (0 == setenv (ENV_VAR_NAME_ADDR, currHost, 1)) (JASSERT_ERRNO);
     JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
   }
 }
@@ -1057,6 +1011,8 @@ void dmtcp::DmtcpWorker::postRestart()
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   recvCoordinatorHandshake();
 
+  updateCoordinatorHostAndPortEnv();
+
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
@@ -1067,17 +1023,15 @@ void dmtcp::DmtcpWorker::postRestart()
   // Must send SIGWINCH to adjust it.
   // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
   // to execute ioctl wrapper.  The wrapper will report a changed winsize,
-  // so that 'screen' must re-initialize the screen (scrolling regions, etc.).
+  // so that 'screen' must re-initialize the screen (scrolling resions, etc.).
   // The wrapper will also send a second SIGWINCH.  Then 'screen' will
   // call ioctl and get the correct window size and resize again.
   // We can't just send two SIGWINCH's now, since window size has not
-  // changed yet, and 'screen' will assume that there's nothing to do.
+  // changed yet, and 'screen' will assume that there's nothing to do. 
 
   dmtcp::VirtualPidTable::instance().postRestart();
   SysVIPC::instance().postRestart();
 #endif
-
-  process_dmtcp_event(DMTCP_EVENT_POST_RESTART, NULL);
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -1085,19 +1039,6 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
   JTRACE ( "checkpointed" );
 
   WorkerState::setCurrentState ( WorkerState::CHECKPOINTED );
-
-#ifdef IBV
-  waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
-                          DMT_DO_REGISTER_NAME_SERVICE_DATA );
-  process_dmtcp_event(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, NULL);
-  JTRACE("Key Value Pairs registered with the coordinator");
-  WorkerState::setCurrentState(WorkerState::NAME_SERVICE_DATA_REGISTERED);
-
-  waitForCoordinatorMsg("SEND_QUERIES", DMT_DO_SEND_QUERIES);
-  process_dmtcp_event(DMTCP_EVENT_SEND_QUERIES, NULL);
-  JTRACE("Queries sent to the coordinator");
-  WorkerState::setCurrentState(WorkerState::DONE_QUERYING);
-#endif
 
   waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
 
@@ -1109,9 +1050,6 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 #ifdef PID_VIRTUALIZATION
   SysVIPC::instance().postCheckpoint();
 #endif
-  if (!isRestart) {
-    process_dmtcp_event(DMTCP_EVENT_POST_CHECKPOINT, NULL);
-  }
 }
 
 void dmtcp::DmtcpWorker::waitForStage4Resume()
@@ -1134,6 +1072,43 @@ void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 #endif
 }
 
+void dmtcp::DmtcpWorker::restoreSockets(ConnectionState& coordinator,
+                                        dmtcp::UniquePid compGroup,
+                                        int              numPeers,
+                                        int&             coordTstamp)
+{
+  JTRACE ( "restoreSockets begin" );
+
+  theRestorePort = RESTORE_PORT_START;
+
+  //open up restore socket
+  {
+    jalib::JSocket restoreSocket ( -1 );
+    while ( !restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP )
+    {
+      restoreSocket = jalib::JServerSocket ( jalib::JSockAddr::ANY, ++theRestorePort );
+      JTRACE ( "open listen socket attempt" ) ( theRestorePort );
+    }
+    JASSERT ( restoreSocket.isValid() ) ( RESTORE_PORT_START ).Text ( "failed to open listen socket" );
+    restoreSocket.changeFd ( _restoreSocket.sockfd() );
+    JTRACE ( "opening listen sockets" ) ( _restoreSocket.sockfd() ) ( restoreSocket.sockfd() );
+    _restoreSocket = restoreSocket;
+  }
+
+  //reconnect to our coordinator
+  connectToCoordinatorWithoutHandshake();
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),
+			   compGroup, numPeers, DMT_RESTART_PROCESS);
+  recvCoordinatorHandshake(&coordTstamp);
+  JTRACE("Connected to coordinator")(coordTstamp);
+
+  // finish sockets restoration
+  coordinator.doReconnect ( _coordinatorSocket,_restoreSocket );
+
+  JTRACE ( "sockets restored!" );
+
+}
+
 void dmtcp::DmtcpWorker::delayCheckpointsLock(){
   JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
@@ -1146,7 +1121,7 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 {
-#ifdef PTRACE
+#ifdef PTRACE 
   return false;
 #endif
   int saved_errno = errno;
@@ -1154,7 +1129,7 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
     int retVal = pthread_rwlock_rdlock(&theWrapperExecutionLock);
     if ( retVal != 0 && retVal != EDEADLK ) {
-      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
+      perror ( "ERROR DmtcpWorker::wrapperExecutionLockLock: Failed to acquire lock" );
       _exit(1);
     }
     // retVal should always be 0 (success) here.
@@ -1175,7 +1150,7 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
     _exit(1);
   }
   if ( pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s: Failed to release lock", __PRETTY_FUNCTION__ );
+    perror ( "ERROR DmtcpWorker::wrapperExecutionLockUnlock: Failed to release lock" );
     _exit(1);
     }
   errno = saved_errno;
@@ -1193,12 +1168,10 @@ void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
+    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
     unInitializedThreadCount++;
     //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
+    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
   }
   errno = saved_errno;
 }
@@ -1207,15 +1180,298 @@ void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
+    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
     JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
     unInitializedThreadCount--;
     //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
+    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0) (JASSERT_ERRNO);
   }
   errno = saved_errno;
+}
+
+void dmtcp::DmtcpWorker::connectAndSendUserCommand(char c, int* result /*= NULL*/)
+{
+  //prevent checkpoints from starting
+  delayCheckpointsLock();
+  {
+    if ( tryConnectToCoordinator() == false ) {
+      *result = DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND;
+      return;
+    }
+    sendUserCommand(c,result);
+    _coordinatorSocket.close();
+  }
+  delayCheckpointsUnlock();
+}
+
+//tell the coordinator to run given user command
+void dmtcp::DmtcpWorker::sendUserCommand(char c, int* result /*= NULL*/)
+{
+  DmtcpMessage msg,reply;
+
+  //send
+  msg.type = DMT_USER_CMD;
+  msg.params[0] = c;
+
+  if (c == 'i') {
+    const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+    if ( interval != NULL )
+      msg.theCheckpointInterval = jalib::StringToInt ( interval );
+  }
+
+  _coordinatorSocket << msg;
+
+  //the coordinator will violently close our socket...
+  if(c=='q' || c=='Q'){
+    result[0]=0;
+    return;
+  }
+
+  //receive REPLY
+  reply.poison();
+  _coordinatorSocket >> reply;
+  reply.assertValid();
+  JASSERT ( reply.type == DMT_USER_CMD_RESULT );
+
+  if(result!=NULL){
+    memcpy( result, reply.params, sizeof(reply.params) );
+  }
+}
+
+
+/*!
+    \fn dmtcp::DmtcpWorker::connectToCoordinator()
+ */
+bool dmtcp::DmtcpWorker::tryConnectToCoordinator()
+{
+  return connectToCoordinator ( false );
+}
+
+void dmtcp::DmtcpWorker::connectToCoordinatorWithoutHandshake()
+{
+  connectToCoordinator ( );
+}
+
+void dmtcp::DmtcpWorker::connectToCoordinatorWithHandshake()
+{
+  connectToCoordinator ( );
+  JTRACE("CONNECT TO coordinator, trying to handshake");
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName());
+  recvCoordinatorHandshake();
+}
+
+bool dmtcp::DmtcpWorker::connectToCoordinator(bool dieOnError /*= true*/)
+{
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
+  dmtcp::UniquePid zeroGroup;
+
+  if ( coordinatorAddr == NULL ) coordinatorAddr = DEFAULT_HOST;
+  int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( coordinatorPortStr );
+
+  jalib::JSocket oldFd = _coordinatorSocket;
+
+  _coordinatorSocket = jalib::JClientSocket ( coordinatorAddr,coordinatorPort );
+
+  if ( ! _coordinatorSocket.isValid() && ! dieOnError ) {
+    return false;
+  }
+
+  JASSERT ( _coordinatorSocket.isValid() )
+    ( coordinatorAddr ) ( coordinatorPort )
+    .Text ( "Failed to connect to DMTCP coordinator" );
+
+  JTRACE ( "connected to dmtcp coordinator, no handshake" )
+    ( coordinatorAddr ) ( coordinatorPort );
+
+  if ( oldFd.isValid() )
+  {
+    JTRACE ( "restoring old coordinatorsocket fd" )
+      ( oldFd.sockfd() ) ( _coordinatorSocket.sockfd() );
+
+    _coordinatorSocket.changeFd ( oldFd.sockfd() );
+  }
+  return true;
+}
+
+void dmtcp::DmtcpWorker::sendCoordinatorHandshake(const dmtcp::string& progname,
+                                                  UniquePid compGroup /*= UniquePid()*/,
+                                                  int np /*= -1*/,
+                                                  DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
+{
+  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+
+  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
+  dmtcp::DmtcpMessage hello_local;
+  hello_local.type = msgType;
+  hello_local.params[0] = np;
+  hello_local.compGroup = compGroup;
+  hello_local.restorePort = theRestorePort;
+
+  const char* interval = getenv ( ENV_VAR_CKPT_INTR );
+  if ( interval != NULL )
+    hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
+
+  hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
+  _coordinatorSocket << hello_local;
+  _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
+  _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
+}
+
+void dmtcp::DmtcpWorker::recvCoordinatorHandshake( int *param1 ){
+  JTRACE("receiving coordinator handshake");
+
+  dmtcp::DmtcpMessage hello_remote;
+  hello_remote.poison();
+  _coordinatorSocket >> hello_remote;
+  hello_remote.assertValid();
+
+  if ( param1 == NULL )
+    JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
+  else
+    JASSERT ( hello_remote.type == dmtcp::DMT_RESTART_PROCESS_REPLY ) ( hello_remote.type );
+
+  _coordinatorId = hello_remote.coordinator;
+  DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
+  if( param1 ){
+    *param1 = hello_remote.params[0];
+  }
+  JTRACE("Coordinator handshake RECEIVED!!!!!");
+}
+
+void dmtcp::DmtcpWorker::startCoordinatorIfNeeded(int modes, int isRestart){
+  const static int CS_OK = 91;
+  const static int CS_NO = 92;
+  int coordinatorStatus = -1;
+
+  if (modes & COORD_BATCH) {
+    startNewCoordinator ( modes, isRestart );
+    return;
+  }
+  //fork a child process to probe the coordinator
+  if (fork()==0) {
+    //fork so if we hit an error parent won't die
+    dup2(2,1);                          //copy stderr to stdout
+    dup2(open("/dev/null",O_RDWR), 2);  //close stderr
+    int result[DMTCPMESSAGE_NUM_PARAMS];
+    dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+    {
+      if ( coordinatorAPI.tryConnectToCoordinator() == false ) {
+        JTRACE("Coordinator not found.  Will try to start a new one.");
+        _real_exit(1);
+      }
+    }
+
+    coordinatorAPI.sendUserCommand('s',result);
+    coordinatorAPI._coordinatorSocket.close();
+
+    // result[0] == numPeers of coord;  bool result[1] == computation is running
+    if(result[0]==0 || result[1] ^ isRestart){
+      if(result[0] != 0) {
+        int num_processes = result[0];
+        JTRACE("Joining existing computation.") (num_processes);
+      }
+      _real_exit(CS_OK);
+    }else{
+      JTRACE("Existing computation not in a running state," \
+	     " perhaps checkpoint in progress?");
+      _real_exit(CS_NO);
+    }
+  }
+  errno = 0;
+  // FIXME:  wait() could return -1 if a signal happened before child exits
+  JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
+  JASSERT(WIFEXITED(coordinatorStatus));
+
+  //is coordinator running?
+  if (WEXITSTATUS(coordinatorStatus) != CS_OK) {
+    //is coordinator in funny state?
+    if(WEXITSTATUS(coordinatorStatus) == CS_NO){
+      JASSERT (false) (isRestart)
+	 .Text ("Coordinator in a funny state.  Peers exist, not restarting," \
+		"\n but not in a running state.  Checkpointing?" \
+		"\n Or maybe restarting and running with peers existing?");
+    }else{
+      JTRACE("Bad result found for coordinator.  Try a new one.");
+    }
+
+    JTRACE("Coordinator not found.  Starting a new one.");
+    startNewCoordinator ( modes, isRestart );
+
+  }else{
+    if (modes & COORD_FORCE_NEW) {
+      JTRACE("Forcing new coordinator.  --new-coordinator flag given.");
+      startNewCoordinator ( modes, isRestart );
+      return;
+    }
+    JASSERT( modes & COORD_JOIN )
+      .Text("Coordinator already running, but '--new' flag was given.");
+  }
+}
+
+void dmtcp::DmtcpWorker::startNewCoordinator(int modes, int isRestart)
+{
+  int coordinatorStatus = -1;
+  //get location of coordinator
+  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_ADDR );
+  if(coordinatorAddr==NULL) coordinatorAddr = DEFAULT_HOST;
+  const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
+
+  dmtcp::string s = coordinatorAddr;
+  if(s!="localhost" && s!="127.0.0.1" && s!=jalib::Filesystem::GetCurrentHostname()){
+    JASSERT(false)
+      .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
+    _real_exit(1);
+  }
+
+  if ( modes & COORD_BATCH || modes & COORD_FORCE_NEW ) {
+    // Create a socket and bind it to an unused port.
+    jalib::JServerSocket coordinatorListenerSocket ( jalib::JSockAddr::ANY, 0 );
+    errno = 0;
+    JASSERT ( coordinatorListenerSocket.isValid() )
+      ( coordinatorListenerSocket.port() ) ( JASSERT_ERRNO )
+      .Text ( "Failed to create listen socket."
+          "\nIf msg is \"Address already in use\", this may be an old coordinator."
+          "\nKill other coordinators and try again in a minute or so." );
+    // Now dup the sockfd to
+    coordinatorListenerSocket.changeFd(PROTECTEDFD(1));
+
+    dmtcp::string coordPort= jalib::XToString(coordinatorListenerSocket.port());
+    setenv ( ENV_VAR_NAME_PORT, coordPort.c_str(), 1 );
+  }
+
+  JTRACE("Starting a new coordinator automatically.") (coordinatorPortStr);
+
+  if(fork()==0){
+    dmtcp::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+    char *modeStr = (char *)"--background";
+    if ( modes & COORD_BATCH ) {
+      modeStr = (char *)"--batch";
+    }
+    char * args[] = {
+      (char*)coordinator.c_str(),
+      (char*)"--exit-on-last",
+      modeStr,
+      NULL
+    };
+    execv(args[0], args);
+    JASSERT(false)(coordinator)(JASSERT_ERRNO).Text("exec(dmtcp_coordinator) failed");
+  } else {
+    _real_close ( PROTECTEDFD (1) );
+  }
+
+  errno = 0;
+
+  if ( modes & COORD_BATCH ) {
+    // FIXME: If running in batch Mode, we sleep here for 5 seconds to let
+    // the coordinator get started up.  We need to fix this in future.
+    sleep(5);
+  } else {
+    JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
+
+    JASSERT(WEXITSTATUS(coordinatorStatus) == 0)
+      .Text("Failed to start coordinator, port already in use.  You may use a different port by running with \'-p 12345\'\n");
+  }
 }
 
 //to allow linking without mtcpinterface

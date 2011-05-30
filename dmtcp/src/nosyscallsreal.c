@@ -192,10 +192,6 @@ int _dmtcp_unsetenv( const char *name ) {
   REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
 }
 
-off_t _real_lseek(int fd, off_t offset, int whence) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd,offset,whence );
-}
-
 #ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void){
   REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
@@ -337,22 +333,6 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 #ifdef RECORD_REPLAY
-int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
-}
-
-int _real_fflush(FILE *stream) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
-}
-
-int _real_closedir(DIR *dirp) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
-}
-
-DIR * _real_opendir(const char *name) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
-}
-
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);

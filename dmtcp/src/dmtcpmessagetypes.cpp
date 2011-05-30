@@ -47,8 +47,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
-    ,keyLen ( 0 )
-    ,valLen ( 0 )
     ,theCheckpointInterval ( 0 )
     ,extraBytes ( 0 )
 {
@@ -90,10 +88,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 #ifdef EXTERNAL_SOCKET_HANDLING
       OSHIFTPRINTF ( PEER_LOOKUP_COMPLETE )
 #endif
-#ifdef IBV
-      OSHIFTPRINTF ( NAME_SERVICE_DATA_REGISTERED)
-      OSHIFTPRINTF ( DONE_QUERYING)
-#endif
       OSHIFTPRINTF ( DRAINED )
       OSHIFTPRINTF ( RESTARTING )
       OSHIFTPRINTF ( CHECKPOINTED )
@@ -113,10 +107,6 @@ const char* dmtcp::WorkerState::toString() const{
   case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
 #ifdef EXTERNAL_SOCKET_HANDLING
   case PEER_LOOKUP_COMPLETE:  return "PEER_LOOKUP_COMPLETE";
-#endif
-#ifdef IBV
-  case NAME_SERVICE_DATA_REGISTERED: return "NAME_SERVICE_DATA_REGISTERED";
-  case DONE_QUERYING: return "DONE_QUERYING";
 #endif
   case DRAINED:      return "DRAINED";
   case RESTARTING:   return "RESTARTING";
@@ -160,11 +150,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_UNKNOWN_PEER )
       OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
 #endif
-//#ifdef IBV
-      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
-      OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
-//#endif
 
       OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
       OSHIFTPRINTF ( DMT_RESTORE_WAITING )

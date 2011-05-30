@@ -615,12 +615,9 @@ HAS_GCL
 HAS_ZSH
 HAS_TCSH
 HAS_DASH
-HAS_PYTHON
 HAS_READLINE
-PID_VIRTUALIZATION
-HBICT_DELTACOMP
-FAST_CKPT_RESTART
 PTRACE_SUPPORT
+PID_VIRTUALIZATION
 subdirs
 ac_ct_CXX
 CXXFLAGS
@@ -679,18 +676,13 @@ enable_option_checking
 enable_debug
 enable_quiet
 enable_timing
-enable_condor_support
 enable_unique_checkpoint_filenames
-enable_ptrace_support
-enable_forked_checkpointing
-enable_fast_ckpt_restart
-enable_delta_compression
-enable_experts_only_space1
-enable_experts_only
-enable_experts_only_after
 enable_pid_virtualization
+enable_ptrace_support
+enable_condor_support
 enable_external_socket_handling
 enable_stale_socket_handling
+enable_forked_checkpointing
 enable_allocator
 with_record_replay
 with_mpich
@@ -1325,33 +1317,18 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
-  --enable-condor-support set configure options to support Condor.
   --enable-unique-checkpoint-filenames
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
-  --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
-                          (EXPERIMENTAL)
-  --enable-forked-checkpointing
-                          fork a child process to do checkpointing, so that
-                          parent sees only minor delay during checkpoint.
-                          (EXPERIMENTAL)
-  --enable-fast-ckpt-restart
-                          uses tricks to mmap from checkpoint image file
-                          (EXPERIMENTAL)
-  --enable-delta-compression
-                          enable incremental/differential checkpointing using
-                          HBICT (hash-based incremental checkpointing) tool;
-                          disables default gzip compression (EXPERIMENTAL)
-
-                 === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
-                          (Use at your own risk!!)
-
   --disable-pid-virtualization
                           disable pid virtualization. Pid virtualization is
-                          _required_ for checkpointing shells and for many
-                          programs using fork(). Disable it only for
-                          performance reasons or for diagnosis of bugs.
+                          needed for checkpointing shells and certain other
+                          programs. Disable it for performance reasons or for
+                          diagnosis of bugs.
+  --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
+                          (EXPERIMENTAL)
+  --enable-condor-support set configure options to support Condor.
   --enable-external-socket-handling
                           wait for connection to external peer to close;
                           expensive if stale-socket-handling also enabled.
@@ -1359,7 +1336,10 @@ Optional Features:
                           disable stale socket handling; unknown peer assumed
                           to be external; follow poicy of
                           external-socket-handling configure option.
-                          (OBSOLETE: Do not use)
+  --enable-forked-checkpointing
+                          fork a child process to do checkpointing, so that
+                          parent sees only minor delay during checkpoint
+                          (experimental)
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
@@ -3286,14 +3266,12 @@ else
   use_jassert=no
 fi
 
-
 # Check whether --enable-quiet was given.
 if test "${enable_quiet+set}" = set; then :
   enableval=$enable_quiet; use_quiet=$enableval
 else
   use_quiet=no
 fi
-
 
 # Check whether --enable-timing was given.
 if test "${enable_timing+set}" = set; then :
@@ -3302,93 +3280,12 @@ else
   use_jtiming=no
 fi
 
-
-# Check whether --enable-condor_support was given.
-if test "${enable_condor_support+set}" = set; then :
-  enableval=$enable_condor_support; use_condor_support=$enableval
-else
-  use_condor_support=no
-fi
-
-
 # Check whether --enable-unique_checkpoint_filenames was given.
 if test "${enable_unique_checkpoint_filenames+set}" = set; then :
   enableval=$enable_unique_checkpoint_filenames; use_unique_checkpoint_filenames=$enableval
 else
   use_unique_checkpoint_filenames=no
 fi
-
-
-# Check whether --enable-ptrace_support was given.
-if test "${enable_ptrace_support+set}" = set; then :
-  enableval=$enable_ptrace_support; use_ptrace_support=$enableval
-else
-  use_ptrace_support=no
-fi
-
-
-if test "$use_ptrace_support" = "yes"; then
-  PTRACE_SUPPORT=yes
-
-else
-  PTRACE_SUPPORT=no
-
-fi
-
-# Check whether --enable-forked_checkpointing was given.
-if test "${enable_forked_checkpointing+set}" = set; then :
-  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
-else
-  use_forked_ckpt=no
-fi
-
-
-# Check whether --enable-fast_ckpt_restart was given.
-if test "${enable_fast_ckpt_restart+set}" = set; then :
-  enableval=$enable_fast_ckpt_restart; use_fast_ckpt_restart=$enableval
-else
-  use_fast_ckpt_restart=default
-fi
-
-if test "$use_fast_ckpt_restart" = "yes"; then
-  FAST_CKPT_RESTART=yes
-
-else
-  FAST_CKPT_RESTART=no
-
-fi
-
-# Check whether --enable-delta_compression was given.
-if test "${enable_delta_compression+set}" = set; then :
-  enableval=$enable_delta_compression; use_deltacomp=$enableval
-else
-  use_deltacomp=no
-fi
-
-
-if test "$use_deltacomp" = "yes"; then
-  HBICT_DELTACOMP=yes
-
-else
-  HBICT_DELTACOMP=no
-
-fi
-
-# Check whether --enable-experts_only_space1 was given.
-if test "${enable_experts_only_space1+set}" = set; then :
-  enableval=$enable_experts_only_space1;
-fi
-
-# Check whether --enable-experts_only was given.
-if test "${enable_experts_only+set}" = set; then :
-  enableval=$enable_experts_only;
-fi
-
-# Check whether --enable-experts_only_after was given.
-if test "${enable_experts_only_after+set}" = set; then :
-  enableval=$enable_experts_only_after;
-fi
-
 
 # Check whether --enable-pid_virtualization was given.
 if test "${enable_pid_virtualization+set}" = set; then :
@@ -3406,6 +3303,27 @@ else
 
 fi
 
+# Check whether --enable-ptrace_support was given.
+if test "${enable_ptrace_support+set}" = set; then :
+  enableval=$enable_ptrace_support; use_ptrace_support=$enableval
+else
+  use_ptrace_support=no
+fi
+
+if test "$use_ptrace_support" = "yes"; then
+  PTRACE_SUPPORT=yes
+
+else
+  PTRACE_SUPPORT=no
+
+fi
+# Check whether --enable-condor_support was given.
+if test "${enable_condor_support+set}" = set; then :
+  enableval=$enable_condor_support; use_condor_support=$enableval
+else
+  use_condor_support=no
+fi
+
 # Check whether --enable-external_socket_handling was given.
 if test "${enable_external_socket_handling+set}" = set; then :
   enableval=$enable_external_socket_handling; use_external_socket_handling=$enableval
@@ -3420,6 +3338,18 @@ else
   use_stale_socket_handling=yes
 fi
 
+#Force other config options for Condor
+if test "$use_condor_support=" = "yes"; then
+  use_external_socket_handling = yes
+  use_stale_socket_handling = no
+fi
+
+# Check whether --enable-forked_checkpointing was given.
+if test "${enable_forked_checkpointing+set}" = set; then :
+  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
+else
+  use_forked_ckpt=no
+fi
 
 # Check whether --enable-allocator was given.
 if test "${enable_allocator+set}" = set; then :
@@ -3484,53 +3414,49 @@ fi
 # Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
 # Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
 #  and AC_MSG_FAILURE in future version.
-#AC_MSG_CHECKING([if 'gcc -static' works])
-#AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
-#$CC -static -o conftest$ac_exeext conftest.$ac_ext
-#AC_CHECK_FILE([conftest$ac_exeext], [], [static_gcc=no])
-#if test x"$static_gcc" = xno; then
-#  AC_MSG_ERROR(['gcc -static hello.c' failed.
-#fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if 'gcc -static' works" >&5
+$as_echo_n "checking if 'gcc -static' works... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
 
-#check for python
-# Extract the first word of "python", so it can be a program name with args.
-set dummy python; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_prog_HAS_PYTHON+set}" = set; then :
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+$CC -static -o conftest$ac_exeext conftest.$ac_ext
+as_ac_File=`$as_echo "ac_cv_file_conftest$ac_exeext" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for conftest$ac_exeext" >&5
+$as_echo_n "checking for conftest$ac_exeext... " >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then :
   $as_echo_n "(cached) " >&6
 else
-  if test -n "$HAS_PYTHON"; then
-  ac_cv_prog_HAS_PYTHON="$HAS_PYTHON" # Let the user override the test.
+  test "$cross_compiling" = yes &&
+  as_fn_error "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "conftest$ac_exeext"; then
+  eval "$as_ac_File=yes"
 else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /usr/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_PYTHON="yes"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+eval as_val=\$$as_ac_File
+   if test "x$as_val" = x""yes; then :
 
-  test -z "$ac_cv_prog_HAS_PYTHON" && ac_cv_prog_HAS_PYTHON="no"
-fi
-fi
-HAS_PYTHON=$ac_cv_prog_HAS_PYTHON
-if test -n "$HAS_PYTHON"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_PYTHON" >&5
-$as_echo "$HAS_PYTHON" >&6; }
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
+  static_libc=no
 fi
 
-
+if test x"$static_libc" = xno; then
+  as_fn_error "'gcc -static hello.c' failed.  No static libc.a found?
+  On some distros (e.g. Fedora 11, 12, 13), libc.a is not present
+    in default system, and must be added via the glibc-static package." "$LINENO" 5
+fi
 
 #check for dash
 # Extract the first word of "dash", so it can be a program name with args.
@@ -4448,6 +4374,8 @@ fi
 done
 
 
+#Add check for libc.a next.  MTCP uses it in build.
+
 #check for gzip utility
 # Extract the first word of "gzip", so it can be a program name with args.
 set dummy gzip; ac_word=$2
@@ -4492,8 +4420,7 @@ fi
 #check for record-replay capability
 # REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
 #            [AS_HELP_STRING([--with-record-replay],
-#                            [support record replay (EXPERIMENTAL)
-#			      forces fast_ckpt_restart unless --disable-fast-ckpt-restart specified])],
+#                            [support record replay (experimental)])],
 
 # Check whether --with-record-replay was given.
 if test "${with_record_replay+set}" = set; then :
@@ -4512,13 +4439,6 @@ $as_echo "#define PTRACE /**/" >>confdefs.h
 
   PTRACE_SUPPORT=yes
 
-  if test "$use_fast_ckpt_restart" != "no"; then
-        FAST_CKPT_RESTART=yes
-
-  else
-    FAST_CKPT_RESTART=no
-
-  fi
 
 $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
 
@@ -4526,7 +4446,6 @@ else
   RECORD_REPLAY=no
 
 fi
-echo "use_fast_ckpt_restart": $use_fast_ckpt_restart
 
 #check for mpich2
 

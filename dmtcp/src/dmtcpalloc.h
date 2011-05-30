@@ -33,7 +33,6 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <cstddef>
 
 #define DMTCPSTRING    dmtcp::string
 #define DMTCPVECTOR(T) dmtcp::vector<T>
@@ -99,14 +98,6 @@ public:
         // placement new operator
         new( reinterpret_cast<void*>(p) ) T(c);
     }
-
-    // In-place construction
-    template<typename X>
-      void construct( X* p, const X& c )
-      {
-        // placement new operator
-        new( reinterpret_cast<void*>(p) ) X(c);
-      }
 
     // In-place destruction
     void destroy( pointer p )

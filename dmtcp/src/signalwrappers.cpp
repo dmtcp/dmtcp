@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
@@ -47,7 +46,8 @@ static __thread bool checkpointSignalBlockedForThread = false;
 
 
 static int bannedSignalNumber(){
-  const int cache = dmtcp::DmtcpWorker::determineMtcpSignal();
+  int _determineMtcpSignal(); // from signalwrappers.cpp
+  const int cache = _determineMtcpSignal();
   return cache;
 }
 
@@ -116,7 +116,6 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
 #ifdef RECORD_REPLAY
 static void sig_handler_wrapper(int sig)
 {
-  // FIXME: Why is the following  commented out?
   /*void *return_addr = GET_RETURN_ADDRESS();
 if (!shouldSynchronize(return_addr)) {
     kill(getpid(), SIGSEGV);
@@ -126,14 +125,21 @@ if (!shouldSynchronize(return_addr)) {
     JASSERT ( false ) .Text("don't want this");
     return (*user_sig_handlers[sig]) (sig);
   }
-  int retval = 0;
   log_entry_t my_entry = create_signal_handler_entry(my_clone_id, signal_handler_event, sig);
+  log_entry_t my_return_entry = create_signal_handler_entry(my_clone_id, signal_handler_event_return, sig);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(signal_handler);
+    waitForTurn(my_entry, &signal_handler_turn_check);
+    getNextLogEntry();
+    // Call user's signal handler:
     (*user_sig_handlers[sig]) (sig);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_return_entry, &signal_handler_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    // Call user's signal handler:
     (*user_sig_handlers[sig]) (sig);
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    addNextLogEntry(my_return_entry);
   }
 }
 #endif
@@ -144,11 +150,16 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler){
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
-  WRAPPER_HEADER_RAW(sighandler_t, signal, _real_signal, signum, handler);
-  // We don't need to log and replay this call, we just need to note the user's
-  // signal handler so that our signal handler wrapper can call that function.
-  user_sig_handlers[signum] = handler;
-  return _real_signal( signum, sig_handler_wrapper );
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr) || jalib::Filesystem::GetProgramName() == "gdb") {
+    // Don't use our wrapper for non-user signal() calls:
+    return _real_signal (signum, handler);
+  } else {
+    // We don't need to log and replay this call, we just need to note the user's
+    // signal handler so that our signal handler wrapper can call that function.
+    user_sig_handlers[signum] = handler;
+    return _real_signal( signum, sig_handler_wrapper );
+  }
 #else
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
@@ -284,68 +295,6 @@ EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 //  return ret;
 }
 
-EXTERNC int sigsuspend(const sigset_t *mask)
-{
-  const sigset_t *orig = mask;
-  if (mask != NULL) {
-    sigset_t tmp = patchPOSIXMask(mask);
-    mask = &tmp;
-  }
-
-  int ret = _real_sigsuspend(mask);
-  return ret;
-}
-
-/* FIXME: Reverify the logic of the following four wrappers:
- *          sighold, sigignore, sigrelse, sigpause
- *        These are deprecated according to manpage.
- */
-EXTERNC int sighold(int sig)
-{
-  if (sig == bannedSignalNumber()) {
-    return 0;
-  }
-  return _real_sighold(sig);
-}
-
-EXTERNC int sigignore(int sig)
-{
-  if (sig == bannedSignalNumber()) {
-    return 0;
-  }
-  return _real_sigignore(sig);
-}
-
-EXTERNC int sigrelse(int sig)
-{
-  if (sig == bannedSignalNumber()) {
-    return 0;
-  }
-  return _real_sigrelse(sig);
-}
-
-// signal.h can define sigpause as a macro expanding into __sigpause
-// That takes an extra arg to handle sigmask (BSD) or signal (System V)
-// So, we wrap both version.
-EXTERNC int __sigpause(int __sig_or_mask, int __is_sig)
-{
-  JWARNING(false)
-    .Text("This function is deprecated. Use sigsuspend instead." \
-          "  The DMTCP wrappers for this function may not be fully tested");
-  return _real__sigpause(__sig_or_mask, __is_sig);
-}
-
-// Remove any possible macro expansion from signal.h
-// sigpause must not be invoked after this in this file.
-#undef sigpause
-EXTERNC int sigpause(int sig)
-{
-  JWARNING(false)
-    .Text("This function is deprecated. Use sigsuspend instead." \
-          "  The DMTCP wrappers for this function may not be fully tested");
-  return _real_sigpause(sig);
-}
-
 /*
  * This wrapper should be thread safe so we use the multithreaded version of
  * patchPOSIXUserMask function. This will declare the static variables with
@@ -370,7 +319,7 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
 /*
  * TODO: man page says that sigwait is implemented via sigtimedwait, however
  * sigtimedwait can return EINTR (acc. to man page) whereas sigwait won't.
- * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
+ * Should we make the wrappers for sigwait/sigtimedwait homogenious??
  *                                                          -- Kapil
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig) {
@@ -379,19 +328,36 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
   }
-  WRAPPER_HEADER(int, sigwait, _real_sigwait, set, sig);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_sigwait(set, sig);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_sigwait(set, sig);
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_sigwait_entry(my_clone_id, sigwait_event,
+      (unsigned long int)set, (unsigned long int)sig);
+  log_entry_t my_return_entry = create_sigwait_entry(my_clone_id, sigwait_event_return,
+      (unsigned long int)set, (unsigned long int)sig);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(sigwait);
-    if (sig != NULL) {
-      *sig = GET_FIELD(currentLogEntry, sigwait, sig);
-    }
-    WRAPPER_REPLAY_END(sigwait);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &sigwait_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &sigwait_turn_check);
+    // Report what signal woke the sigwait up on record:
+    *sig = GET_FIELD(currentLogEntry, sigwait, sig);
+    retval = GET_COMMON(currentLogEntry,retval);
+    if (retval != 0) errno = GET_COMMON(currentLogEntry,my_errno);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     retval = _real_sigwait(set, sig);
-    if (sig != NULL) {
-      SET_FIELD2(my_entry, sigwait, sig, *sig);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    // Record which signal woke this call up:
+    SET_FIELD2(my_return_entry, sigwait, sig, *sig);
+    SET_COMMON(my_return_entry, retval);
+    if (retval != 0) SET_COMMON2(my_return_entry, my_errno, errno);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 #else
@@ -409,7 +375,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
 /* 
  * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
  * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
- * that might have occurred while executing the system call. These system call
+ * that might have occured while executing the system call. These system call
  * will return -1 with errno set to EINTR.
  * To deal with the situation, we do not remove the MTCP_SIGCKPT from the
  * signal set (if it is present); instead, we check the return value and if it

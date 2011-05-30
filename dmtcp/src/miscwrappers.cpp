@@ -185,7 +185,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
   JASSERT(currentShmid != -1);
   int ret = _real_shmctl(currentShmid, cmd, buf);
-  // Change the creator-pid of the shm object to the original so that if
+  // Change the creater-pid of the shm object to the original so that if
   // calling thread wants to use it, pid-virtualization layer can take care of
   // the original to current conversion.
   // TODO: Need to update uid/gid fields to support uid/gid virtualization.
@@ -485,7 +485,6 @@ extern "C" long int syscall(long int sys_num, ... )
       break;
     }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9))
     case SYS_waitid:
     {
       //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
@@ -493,7 +492,6 @@ extern "C" long int syscall(long int sys_num, ... )
       ret = waitid((idtype_t)idtype, id, infop, options);
       break;
     }
-#endif
     case SYS_wait4:
     {
       SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,

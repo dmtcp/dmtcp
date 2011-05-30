@@ -79,22 +79,15 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   _procname = jalib::Filesystem::GetProgramName();
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _inhostname = jalib::Filesystem::GetCurrentHostname();
-  _upid = UniquePid::ThisProcess();
-  _uppid = UniquePid::ParentProcess();
+  _pid = UniquePid::ThisProcess();
+  _ppid = UniquePid::ParentProcess();
 
-  for ( size_t i=0; i<fds.size(); ++i ) {
+  for ( size_t i=0; i<fds.size(); ++i )
+  {
     if ( _isBadFd ( fds[i] ) ) continue;
     if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
-
-#ifdef IBV
-    dmtcp::string device = dmtcp::KernelDeviceToConnection::instance().fdToDevice(fds[i]);
-
-    if(!Util::strStartsWith(device, "/dev/infiniband/") && !Util::strStartsWith(device, "infinibandevent:"))
-#endif
-    {
-      Connection* con = &source.retrieve ( fds[i] );
-      _table[con->id() ].push_back ( fds[i] );
-    }
+    Connection* con = &source.retrieve ( fds[i] );
+    _table[con->id() ].push_back ( fds[i] );
   }
 }
 
@@ -169,18 +162,11 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   bool isPtmx  = (device.compare("/dev/ptmx") == 0);
   bool isPts   = Util::strStartsWith(device, "/dev/pts/");
 
-  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") &&
+  bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") && 
                        device.compare("/dev/pty") != 0);
   bool isBSDSlave   = (Util::strStartsWith(device, "/dev/tty") &&
                        device.compare("/dev/tty")) != 0;
-#ifdef IBV
-  bool isInfinibandDevice   = Util::strStartsWith(device, "/dev/infiniband/");
-  bool isInfinibandConnection   = Util::strStartsWith(device, "infinibandevent:");
 
-  if ( isInfinibandDevice || isInfinibandConnection ) {
-    return device;
-  } else
-#endif
   if ( isTty ) {
     dmtcp::string deviceName = "tty:" + device;
 
@@ -319,7 +305,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       }
 
       return deviceName;
-    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) ||
+    } else if (S_ISREG(buf.st_mode) || S_ISCHR(buf.st_mode) || 
                S_ISDIR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
       /* /dev/null is a character special file (non-regular file) */
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
@@ -360,7 +346,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
-  //JWARNING(false) (device) .Text("Unimplemented Connection Type.");
+  //JWARNING(false) (device) .Text("UnImplemented Connection Type.");
   return device;
 }
 
@@ -395,7 +381,7 @@ void dmtcp::KernelDeviceToConnection::erase( const ConnectionIdentifier& con )
   JTRACE("WARNING:: failed to find connection in table to erase it")(con);
 }
 
-dmtcp::string
+dmtcp::string 
 dmtcp::KernelDeviceToConnection::getDevice( const ConnectionIdentifier& con )
 {
   for(iterator i = _table.begin(); i!=_table.end(); ++i){
@@ -572,17 +558,16 @@ void dmtcp::ConnectionList::scanForPreExisting()
 void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
 {
   //this has the side effect of on-demand creating everything except sockets
-  dmtcp::string device =
-    KernelDeviceToConnection::instance().fdToDevice ( fd, true );
+  dmtcp::string device = KernelDeviceToConnection::instance().fdToDevice ( fd, true );
 
   JTRACE ( "scanning pre-existing device" ) ( fd ) ( device );
 
   //so if it doesn't exist it must be a socket
   if ( _table.find ( device ) == _table.end() )
   {
-    if ( Util::strStartsWith(device, "file"))
+    if ( fd <= 2 )
     {
-      device = KernelDeviceToConnection::instance().fdToDevice (fd);
+      create(fd, new StdioConnection(fd));
     }
     else if ( device.compare("/dev/tty") == 0 )
     {
@@ -595,11 +580,10 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else if ( Util::strStartsWith(device, "/dev/pts/"))
+    else if ( Util::strStartsWith(device, "/dev/pts/")) 
     {
       dmtcp::string deviceName = "pts["+jalib::XToString ( fd ) +"]:" + device;
-      JNOTE ( "Found pre-existing PTY connection, "
-              "will be restored as current TTY" )
+      JNOTE ( "Found pre-existing PTY connection, will be restored as current TTY" )
         ( fd ) ( deviceName );
 
       int type = dmtcp::PtyConnection::PTY_CTTY;
@@ -607,14 +591,9 @@ void dmtcp::KernelDeviceToConnection::handlePreExistingFd ( int fd )
       PtyConnection *con = new PtyConnection ( device, device, type );
       create ( fd, con );
     }
-    else if (fd <= 2)
-    {
-      create(fd, new StdioConnection(fd));
-    }
     else
     {
-      JNOTE ( "found pre-existing socket... will not be restored" )
-        ( fd ) ( device );
+      JNOTE ( "found pre-existing socket... will not be restored" ) ( fd ) ( device );
       TcpConnection* con = new TcpConnection ( 0, 0, 0 );
       con->markPreExisting();
       create ( fd, con );
@@ -641,7 +620,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
   // Current process information
-  o & _procname & _inhostname & _upid & _uppid;
+  o & _procname & _inhostname & _pid & _ppid;
 
   size_t numCons = _table.size();
   o & numCons;
@@ -650,8 +629,7 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   {
     _hostname = jalib::Filesystem::GetCurrentHostname();
     o & _hostname;
-    JTRACE("Writing hostname to checkpoint file")
-      (_hostname) (_inhostname) (_procname) (_uppid);
+    JTRACE("Writing hostname to checkpoint file")(_hostname)(_inhostname)(_procname)(_ppid);
 
     // Save connections
     for ( iterator i=_table.begin(); i!=_table.end(); ++i )
@@ -876,18 +854,18 @@ bool dmtcp::PtsToSymlink::exists( dmtcp::string device )
 }
 */
 
-pid_t dmtcp::ConnectionToFds::ext_decomp_pid = -1;
+pid_t dmtcp::ConnectionToFds::gzip_child_pid = -1;
 static void close_ckpt_to_read(const int fd)
 {
     int status;
     int rc;
     while (-1 == (rc = close(fd)) && errno == EINTR) ;
     JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
-    if (dmtcp::ConnectionToFds::ext_decomp_pid != -1) {
-      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::ext_decomp_pid,
+    if (dmtcp::ConnectionToFds::gzip_child_pid != -1) {
+      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::gzip_child_pid,
 			         &status, 0)) && errno == EINTR) ;
       JASSERT (rc != -1) ("waitpid:") (JASSERT_ERRNO);
-      dmtcp::ConnectionToFds::ext_decomp_pid = -1;
+      dmtcp::ConnectionToFds::gzip_child_pid = -1;
     }
 }
 
@@ -897,11 +875,6 @@ static void close_ckpt_to_read(const int fd)
 // Copied from mtcp/mtcp_restart.c.
 #define DMTCP_MAGIC_FIRST 'D'
 #define GZIP_FIRST 037
-#ifdef HBICT_DELTACOMP
-#define HBICT_FIRST 'H'
-#endif
-
-
 char *mtcp_executable_path(char *filename);
 static char first_char(const char *filename)
 {
@@ -923,20 +896,14 @@ static char first_char(const char *filename)
 // MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
 // A previous version tried to replace this with popen, causing a regression:
 //   (no call to pclose, and possibility of using a wrong fd).
-// Returns fd; sets dmtcp::ext_decomp_pid::ConnectionToFds, if checkpoint was compressed.
+// Returns fd; sets dmtcp::gzip_child_pid::ConnectionToFds, if gzip compression.
 static int open_ckpt_to_read(const char *filename)
 {
     int fd;
     int fds[2];
     char fc;
-    const char *decomp_path;
-    const char **decomp_args;
     const char *gzip_path = "gzip";
     static const char * gzip_args[] = { "gzip", "-d", "-", NULL };
-#ifdef HBICT_DELTACOMP
-    const char *hbict_path = "hbict";
-    static const char *hbict_args[] = { "hbict", "-r", NULL };
-#endif
     pid_t cpid;
 
     fc = first_char(filename);
@@ -945,38 +912,24 @@ static int open_ckpt_to_read(const char *filename)
 
     if(fc == DMTCP_MAGIC_FIRST) /* no compression */
         return fd;
-#ifdef HBICT_DELTACOMP
-    else if (fc == GZIP_FIRST || fc == HBICT_FIRST){ /* External compression */
-#else
-    else if(fc == GZIP_FIRST){ /* gzip */
-#endif
-        if( fc == GZIP_FIRST ){
-          decomp_path = gzip_path;
-          decomp_args = gzip_args;
-        }
-#ifdef HBICT_DELTACOMP
-        else{
-          decomp_path = hbict_path;
-          decomp_args = hbict_args;
-        }
-#endif
-
-        JASSERT(pipe(fds) != -1)(filename).Text("Cannot create pipe to execute gunzip to decompress checkpoint file!");
+    else if(fc == GZIP_FIRST) /* gzip */
+    {
+        JASSERT(pipe(fds) != -1)(filename).Text("Cannote create pipe to execute gunzip to decompress checkpoint file!");
 
         cpid = _real_fork();
 
         JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
         if(cpid > 0) /* parent process */
         {
-           JTRACE ( "created child process to uncompress checkpoint file")(cpid);
-            dmtcp::ConnectionToFds::ext_decomp_pid = cpid;
+           JTRACE ( "created gzip child process to uncompress checkpoint file")(cpid);
+            dmtcp::ConnectionToFds::gzip_child_pid = cpid;
             close(fd);
             close(fds[1]);
             return fds[0];
         }
         else /* child process */
         {
-           JTRACE ( "child process, will exec into external de-compressor");
+           JTRACE ( "child process, will exec into gzip");
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
@@ -985,13 +938,14 @@ static int open_ckpt_to_read(const char *filename)
             close(fd);
             JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
             close(fds[1]);
-            _real_execvp(decomp_path, (char **)decomp_args);
-            JASSERT(decomp_path!=NULL)(decomp_path).Text("Failed to launch gzip.");
+            _real_execvp(gzip_path, (char **)gzip_args);
+            JASSERT(gzip_path!=NULL)(gzip_path).Text("Failed to launch gzip.");
             /* should not get here */
             JASSERT(false)("ERROR: Decompression failed!  No restoration will be performed!  Cancelling now!");
             abort();
         }
-    } else /* invalid magic number */
+    }
+    else /* invalid magic number */
         JASSERT(false).Text("ERROR: Invalid magic number in this checkpoint file!");
     // NOT_REACHED
     return -1;
@@ -999,7 +953,7 @@ static int open_ckpt_to_read(const char *filename)
 
 // See comments above for open_ckpt_to_read()
 int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
-  // Function also sets dmtcp::ext_decomp_pid::ConnectionToFds
+  // Function also sets dmtcp::gzip_child_pid::ConnectionToFds
   int fd = open_ckpt_to_read( path.c_str() );
   // The rest of this function is for compatibility with original definition.
   JASSERT(fd>=0)(path).Text("Failed to open file.");

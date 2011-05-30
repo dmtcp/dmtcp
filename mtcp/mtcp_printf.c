@@ -21,12 +21,13 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/*****************************************************************************
- *  Print on stderr without using any malloc stuff
- *
- *  We can't use vsnprintf or anything like that as it calls malloc.
- *  This routine supports only simple %c, %d, %o, %p, %s, %u, %x (or %X)
- *****************************************************************************/
+/********************************************************************************************************************************/
+/*																*/
+/*  Print on stderr without using any malloc stuff										*/
+/*  We can't use vsnprintf or anything like that as it calls malloc								*/
+/*  This routine supports only simple %c, %d, %o, %p, %s, %u, %x (or %X)							*/
+/*																*/
+/********************************************************************************************************************************/
 
 #include <stdarg.h>
 #include <string.h>
@@ -39,7 +40,6 @@
 
 #include "mtcp_internal.h"
 
-pid_t saved_pid = 0;
 int dmtcp_info_stderr_fd = 2;
 /* For the default value of -1, mtcp_printf() should not go to jassertlogs */
 int dmtcp_info_jassertlog_fd = -1;

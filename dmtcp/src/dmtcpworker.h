@@ -51,9 +51,9 @@ namespace dmtcp
 #ifdef EXTERNAL_SOCKET_HANDLING
   class TcpConnectionInfo {
     public:
-      TcpConnectionInfo (const ConnectionIdentifier& id,
-                       socklen_t& len,
-                       struct sockaddr_storage& remote,
+      TcpConnectionInfo (const ConnectionIdentifier& id, 
+                       socklen_t& len, 
+                       struct sockaddr_storage& remote, 
                        struct sockaddr_storage& local) {
         _conId      = id;
         _addrlen    = len;
@@ -83,10 +83,9 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       static DmtcpWorker& instance();
-      static const unsigned int ld_preload_c_len = 1024;
+      static const unsigned int ld_preload_c_len = 256;
       static char ld_preload_c[ld_preload_c_len];
       const dmtcp::UniquePid& coordinatorId() const;
-      jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
       void waitForCoordinatorMsg(dmtcp::string signalStr,
                                  DmtcpMessageType type);
@@ -103,8 +102,14 @@ namespace dmtcp
       void waitForStage3Refill(bool isRestart);
       void waitForStage4Resume();
       void restoreVirtualPidTable();
+      void restoreSockets(ConnectionState& coordinator,
+                          UniquePid compGroup,
+                          int numPeers,
+                          int &coordTstamp);
       void postRestart();
       void updateCoordinatorHostAndPortEnv();
+
+
 
       static void resetOnFork();
       void cleanupWorker();
@@ -112,7 +117,10 @@ namespace dmtcp
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
 
-      static int determineMtcpSignal();
+      void connectAndSendUserCommand(char c, int* result = NULL);
+
+      void useAlternateCoordinatorFd();
+
       static size_t argvSize() {return _argvSize;};
       static size_t envSize() {return _envSize;};
 
@@ -129,14 +137,43 @@ namespace dmtcp
       static bool exitInProgress() { return _exitInProgress; };
       void interruptCkpthread();
 
+      bool connectToCoordinator(bool dieOnError=true);
+      bool tryConnectToCoordinator();
+      void connectToCoordinatorWithoutHandshake();
+      void connectToCoordinatorWithHandshake();
+      // np > -1  means it is restarting a process that have np processes in its
+      //           computation group
+      // np == -1 means it is a new pure process, so coordinator needs to
+      //           generate compGroup ID for it
+      // np == -2 means it is a service connection from dmtcp_restart
+      //           - ignore it
+      void sendCoordinatorHandshake(const dmtcp::string& procName, 
+                                    UniquePid compGroup = UniquePid(),
+                                    int np = -1, 
+                                    DmtcpMessageType msgType = DMT_HELLO_COORDINATOR);
+      void recvCoordinatorHandshake(int *param1 = NULL);
+
       void writeCheckpointPrefix(int fd);
       void writeTidMaps();
+
+      enum {
+        COORD_JOIN      = 0x0001,
+        COORD_NEW       = 0x0002,
+        COORD_FORCE_NEW = 0x0004,
+        COORD_BATCH     = 0x0008,
+        COORD_ANY       = COORD_JOIN | COORD_NEW 
+      };
+      static void startCoordinatorIfNeeded(int modes, int isRestart=0);
+      static void startNewCoordinator(int modes, int isRestart=0);
 
     protected:
       void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
     private:
+      jalib::JSocket _coordinatorSocket;
+      UniquePid      _coordinatorId;
+      jalib::JSocket _restoreSocket;
       static size_t _argvSize;
       static size_t _envSize;
       static bool _exitInProgress;

@@ -143,6 +143,7 @@ jalib::string jalib::Filesystem::GetProgramPath()
   return value;
 }
 
+
 jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
   struct stat statBuf;
@@ -150,7 +151,7 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   if (lstat(path.c_str(), &statBuf) == 0
       && ! S_ISLNK(statBuf.st_mode))
     return path;
-  char buf [PATH_MAX]; // This could be passed on via call to readlink()
+  char buf [1024]; // This could be passed on via call to readlink()
   bzero ( buf, sizeof buf );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
   if ( len <= 0 )
@@ -167,69 +168,59 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
   }else {
     return false;
   } 
+  /* Old variant. If file is write-only we fail but this is wrong 
+  FILE* fp = fopen ( str.c_str(),"r" );
+  if ( fp != NULL ) fclose ( fp );
+  return fp != NULL;
+   */
 }
+
+#define FHU_TRY_DIR(expr) {\
+    jalib::string pth = expr; \
+    if(FileExists(pth)) \
+        return pth;}
+
 
 jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, bool dieOnError /*= true*/ )
 {
   const char* d = NULL;
-  const char *p1[] = {
-    "/",
-    "/mtcp/",
-    "/../mtcp/",
-    "/../../mtcp/",
-    "/../../../mtcp/",
-    "/../",
-    "/../../",
-    "/../../../",
-    "/../lib/dmtcp/",
-    "/../lib64/dmtcp/"
-  };
-
-  const char *p2[] = {
-    "./",
-    "../",
-    "../../",
-    "../../../",
-    "/bin/",
-    "/usr/bin/",
-    "/lib/",
-    "/lib64/",
-    "/usr/lib/",
-    "/usr/lib64/"
-  };
-
-  jalib::string pth; 
-  jalib::string udir; 
-  size_t i = 0;
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL )
   {
-    udir = d;
-    for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-      pth = udir + p1[i] + file;
-      if (FileExists(pth)) {
-        return pth;
-      }
-    }
+    jalib::string udir = d;
+    FHU_TRY_DIR ( udir + "/" + file );
+    FHU_TRY_DIR ( udir + "/mtcp/" + file );
+    FHU_TRY_DIR ( udir + "/../mtcp/" + file );
+    FHU_TRY_DIR ( udir + "/../../mtcp/" + file );
+    FHU_TRY_DIR ( udir + "/../../../mtcp/" + file );
+    FHU_TRY_DIR ( udir + "/../" + file );
+    FHU_TRY_DIR ( udir + "/../../" + file );
+    FHU_TRY_DIR ( udir + "/../../../" + file );
+    FHU_TRY_DIR ( udir + "/../lib/dmtcp/" + file );
   }
-
-  udir = GetProgramDir();
-  for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-    pth = udir + p1[i] + file;
-    if (FileExists(pth)) {
-      return pth;
-    }
-  }
-
-  for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-    pth = p2[i] + file;
-    if (FileExists(pth)) {
-      return pth;
-    }
-  }
+  FHU_TRY_DIR ( GetProgramDir() + "/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/mtcp/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../mtcp/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../mtcp/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../../mtcp/" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../../../" + file );
+  FHU_TRY_DIR ( GetProgramDir() + "/../lib/dmtcp/" + file );
+  FHU_TRY_DIR ( "./" + file );
+  FHU_TRY_DIR ( "../" + file );
+  FHU_TRY_DIR ( "../../" + file );
+  FHU_TRY_DIR ( "../../../" + file );
+  FHU_TRY_DIR ( "/bin/" + file );
+  FHU_TRY_DIR ( "/usr/bin/" + file );
+  FHU_TRY_DIR ( "/lib/" + file );
+  FHU_TRY_DIR ( "/lib64/" + file );
+  FHU_TRY_DIR ( "/usr/lib/" + file );
+  FHU_TRY_DIR ( "/usr/lib64/" + file );
   JASSERT ( !dieOnError ) ( file ) ( GetProgramDir() ) ( d )
     .Text ( "failed to find needed file" );
   return file;
 }
+
 
 jalib::StringVector jalib::Filesystem::GetProgramArgs()
 {
@@ -255,6 +246,8 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
   return rv;
 }
 
+#define MALLOC_SAFE_LISTOPENFDS
+#ifdef MALLOC_SAFE_LISTOPENFDS
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
   int fd = _real_open ("/proc/self/fd", O_RDONLY | O_NDELAY |
@@ -292,6 +285,31 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   JALLOC_HELPER_FREE(buf);
   return fdVec;
 }
+#else
+jalib::IntVector jalib::Filesystem::ListOpenFds()
+{
+  jalib::string dir = "/proc/self/fd";
+  IntVector rv;
+  struct dirent **namelist;
+  char* p;
+  int nents = scandir ( dir.c_str(), &namelist, NULL, versionsort );
+  JASSERT ( nents >= 0 ) ( dir ) ( JASSERT_ERRNO ).Text ( "failed to open directory" );
+
+  for ( int i = 0; i < nents; i ++ )
+  {
+    struct dirent * de = namelist[i];
+    int fdnum = strtol ( de -> d_name, &p, 10 );
+    if ( *p == 0 && fdnum >= 0 )
+    {
+      rv.push_back ( fdnum );
+    }
+    free ( de );
+  }
+  free ( namelist );
+
+  return rv;
+}
+#endif
 
 jalib::string jalib::Filesystem::GetCurrentHostname()
 {
@@ -311,7 +329,7 @@ jalib::string jalib::Filesystem::GetCurrentHostname()
 jalib::string jalib::Filesystem::GetControllingTerm()
 {
   char sbuf[1024];
-  char ttyName[64];
+  jalib::ostringstream ttyName;
   char *tmp;
   char *S;
   char state;
@@ -344,9 +362,10 @@ jalib::string jalib::Filesystem::GetControllingTerm()
 
   /* /dev/pts/ * has major numbers in the range 136 - 143 */
   if ( maj >= 136 && maj <= 143) 
-    sprintf(ttyName, "/dev/pts/%d", min+(maj-136)*256);
+    ttyName << "/dev/pts/" << min+(maj-136)*256;
   else
-    ttyName[0] = '\0';
+    ttyName << "";
 
-  return ttyName;
+  return ttyName.str();
 }
+

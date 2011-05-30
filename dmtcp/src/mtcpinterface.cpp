@@ -47,7 +47,6 @@
 
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
-#include "log.h"
 #endif
 
 
@@ -137,15 +136,15 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
-  typedef int ( *mtcp_init_t ) ( char const *checkpointFilename,
+  typedef int ( *t_mtcp_init ) ( char const *checkpointFilename,
                                  int interval,
                                  int clonenabledefault );
-  typedef void ( *mtcp_set_callbacks_t ) (
+  typedef void ( *t_mtcp_set_callbacks ) (
           void ( *sleep_between_ckpt ) ( int sec ),
           void ( *pre_ckpt ) ( char ** ckptFilename ),
           void ( *post_ckpt ) ( int isRestarting,
                                 char* mtcpRestoreArgvStartAddr),
-          int  ( *should_ckpt_fd ) ( int fd ),
+          int  ( *ckpt_fd ) ( int fd ),
           void ( *write_ckpt_prefix ) ( int fd ),
           void ( *restore_virtual_pid_table) ()
 #ifdef PTRACE
@@ -155,8 +154,8 @@ extern "C"
           int (*ptrace_info_list_size)()
 #endif
   );
-  typedef int ( *mtcp_ok_t ) ( void );
-  typedef void ( *mtcp_kill_ckpthread_t ) ( void );
+  typedef int ( *t_mtcp_ok ) ( void );
+  typedef void ( *t_mtcp_kill_ckpthread ) ( void );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -223,7 +222,6 @@ static void callbackPreCheckpoint( char ** ckptFilename )
     *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
 #endif
   }
-  JTRACE ( "MTCP is about to write checkpoint image." );
 }
 
 
@@ -248,7 +246,7 @@ static void callbackPostCheckpoint ( int isRestart,
      *      verifying the _dataSockets, this socket is closed and the
      *      corresponding entry in _dataSockets is freed.
      *
-     *      The problem occurs when some other worker sends a status messages
+     *      The problem occurrs when some other worker sends a status messages
      *      which should take the computation to the next barrier, but since
      *      the _to_be_disconnected socket is present, the minimum state is not
      *      reached unanimously and hence the coordinator doesn't raise the
@@ -303,13 +301,6 @@ static void callbackRestoreVirtualPidTable ( )
   //now everything but threads are restored
   dmtcp::userHookTrampoline_postCkpt(true);
 
-#ifndef RECORD_REPLAY
-  /* This calls setenv() which calls malloc. Since this is only executed on
-     restart, that means it there is an extra malloc on replay. Commenting this
-     out for SOSP 11 deadline until we have time to fix it. */
-  dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
-#endif
-
   // After this point, the user threads will be unlocked in mtcp.c and will
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
@@ -357,11 +348,11 @@ void dmtcp::initializeMtcpEngine()
   else
     *dmtcp_info_restore_working_directory = 0;
 
-  mtcp_set_callbacks_t mtcp_set_callbacks =
-    ( mtcp_set_callbacks_t ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+  t_mtcp_set_callbacks setCallbks =
+    ( t_mtcp_set_callbacks ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
 
-  mtcp_init_t init = ( mtcp_init_t ) _get_mtcp_symbol ( "mtcp_init" );
-  mtcp_ok_t okFn = ( mtcp_ok_t ) _get_mtcp_symbol ( "mtcp_ok" );
+  t_mtcp_init init = ( t_mtcp_init ) _get_mtcp_symbol ( "mtcp_init" );
+  t_mtcp_ok okFn = ( t_mtcp_ok ) _get_mtcp_symbol ( "mtcp_ok" );
 
 #ifdef PTRACE
   sigemptyset (&signals_set);
@@ -378,7 +369,7 @@ void dmtcp::initializeMtcpEngine()
     _get_mtcp_symbol ( "ptracing" );
 #endif
 
-  ( *mtcp_set_callbacks )( &callbackSleepBetweenCheckpoint
+  ( *setCallbks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
                  , &callbackPostCheckpoint
                  , &callbackShouldCkptFD
@@ -490,18 +481,11 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 static void unmapRestoreArgv()
 {
   if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     char *endAddr = MTCP_RESTORE_STACK_BASE;
     size_t len = endAddr - _mtcpRestoreArgvStartAddr;
-#ifdef RECORD_REPLAY
-    JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
-      (_mtcpRestoreArgvStartAddr) (len)
-      .Text ("Failed to munmap extra pages that were mapped during restart");
-#else
     JASSERT(munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
-#endif
   }
 }
 
@@ -511,7 +495,7 @@ struct ThreadArg {
   void *arg;
   pid_t original_tid;
 #ifdef RECORD_REPLAY
-  clone_id_t clone_id;
+  long long int clone_id;
 #endif
 };
 
@@ -534,13 +518,7 @@ int thread_start(void *arg)
 #ifdef RECORD_REPLAY
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
     my_clone_id = threadArg->clone_id;
-    my_log = new dmtcp::SynchronizationLog();
-    if (SYNC_IS_RECORD || SYNC_IS_REPLAY) {
-      my_log->initOnThreadCreation();
-    }
     clone_id_to_tid_table[my_clone_id] = pthread_self();
-    tid_to_clone_id_table[pthread_self()] = my_clone_id;
-    clone_id_to_log_table[my_clone_id] = my_log;
   } else {
     JASSERT ( my_clone_id != 0 );
   }
@@ -559,13 +537,6 @@ int thread_start(void *arg)
   
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
-#ifdef RECORD_REPLAY
-    my_log->destroy();
-    delete my_log;
-    clone_id_to_tid_table.erase(my_clone_id);
-    tid_to_clone_id_table.erase(pthread_self());
-    clone_id_to_log_table.erase(my_clone_id);
-#endif
     return 0;
   }
 
@@ -680,8 +651,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     originalTid = mtcpRestartThreadArg -> original_tid;
   }
 
-  // We have to use DMTCP-specific memory allocator because using glibc:malloc
-  // can interfere with user threads.
+  // We have to use DMTCP specific memory allocator because using glibc:malloc
+  // can interfere with user theads
   struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
@@ -787,10 +758,18 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   }
 
   int retval = 0;
+  size_t stack_size;
+  void *stack_addr;
+  pthread_attr_t attr;
   log_entry_t my_entry = create_pthread_join_entry(my_clone_id,
-      pthread_join_event, thread, value_ptr);
+      pthread_join_event, (unsigned long int)thread,
+      (unsigned long int)value_ptr);
+  log_entry_t my_return_entry = create_pthread_join_entry(my_clone_id,
+      pthread_join_event_return, (unsigned long int)thread,
+      (unsigned long int)value_ptr);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_join);
+    waitForTurn(my_entry, &pthread_join_turn_check);
+    getNextLogEntry();
     while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
       usleep(100);
     }
@@ -808,9 +787,11 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
     } else {
       JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
     }
-    WRAPPER_REPLAY_END(pthread_join);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_return_entry, &pthread_join_turn_check);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
       usleep(100);
     }
@@ -828,7 +809,7 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
     } else {
       JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
     }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 #else
@@ -844,35 +825,6 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   return retval;
 #endif
 }
-
-#ifdef PTRACE
-# ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign wrapper. 
-   // So, we won't interfere with it here.
-#  include <malloc.h>
-// This is needed to fix what is arguably a bug in libdl-2.10.so
-//   (and probably extending from versions 2.4 at least through 2.11).
-// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
-//    but dl-tls.c:dl_update_slotinfo just calls free .
-// So, TLS is allocated by libc malloc and can be freed by a malloc library
-//    defined by user.  This is a bug.
-// This happens only in a multi-threaded programs for which TLS is allocated.
-// So, we intercept __libc_memalign and point it to memalign to have a match.
-// We do the same for __libc_free.  libdl.so doesn't currently define
-//    __libc_free, but the code must be prepared to accept this.
-// An alternative to defining __libc_memalign would have been using
-//    the glibc __memalign_hook() function.
-extern "C"
-void *__libc_memalign(size_t boundary, size_t size) {
-  return memalign(boundary, size);
-}
-// libdl.so doesn't define __libc_free, but in case it does in the future ...
-extern "C"
-void __libc_free(void * ptr) {
-  free(ptr);
-}
-# endif
-#endif
 
 // FIXME
 // Starting here, we can continue with files for mtcpinterface.cpp - Gene
@@ -907,11 +859,11 @@ void __libc_free(void * ptr) {
   //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
+  int _determineMtcpSignal(); // from signalwrappers.cpp
   // Remove our signal handler from our SIG_CKPT
   errno = 0;
-  JWARNING (SIG_ERR != _real_signal(dmtcp::DmtcpWorker::determineMtcpSignal(),
-                                    SIG_DFL))
-           (dmtcp::DmtcpWorker::determineMtcpSignal())
+  JWARNING (SIG_ERR != _real_signal(_determineMtcpSignal(), SIG_DFL))
+           (_determineMtcpSignal())
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
   _get_mtcp_symbol ( REOPEN_MTCP );
@@ -919,7 +871,7 @@ void dmtcp::shutdownMtcpEngineOnFork()
 
 void dmtcp::killCkpthread()
 {
-  mtcp_kill_ckpthread_t kill_ckpthread =
-    (mtcp_kill_ckpthread_t) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
+  t_mtcp_kill_ckpthread kill_ckpthread =
+    (t_mtcp_kill_ckpthread) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
   kill_ckpthread();
 }

@@ -32,14 +32,6 @@ DEFAULT_S=0.3
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
-#In the case of gdb, even if both gdb and the inferior are running after
-#ckpt or restart, this does not guarantee that the ptrace related work
-#(that is needed at resume or restart) is over. The ptrace related work happens
-#in the signal handler. Proceeding while still being inside the signal handler,
-#can lead to bad consquences. To play it on the safe side, GDB_SLEEP was
-#set at 2 seconds.
-if testconfig.PTRACE_SUPPORT == "yes":
-  GDB_SLEEP=2 
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -53,8 +45,8 @@ BUFFER_SIZE=4096*8
 #False redirects process stderr
 VERBOSE=False
 
-#Run (most) tests with user default (usually with gzip enable)
-GZIP=os.getenv('DMTCP_GZIP') or "1"
+#Run (most) tests with gzip enable 
+GZIP="1"
 
 #Warn cant create a file of size:
 REQUIRE_MB=50
@@ -131,7 +123,7 @@ if os.system("test -d bin") is not 0:
 assert os.system("test -d bin") is 0
 
 #make sure dmtcp is built
-if os.system("make -s --no-print-directory tests") != 0:
+if os.system("make -s --no-print-directory all tests") != 0:
   print "`make all tests` FAILED"
   sys.exit(1)
 
@@ -362,8 +354,7 @@ def runTest(name, numProcs, cmds):
     #run restart and test if it worked
     procs.append(launch(cmd))
     WAITFOR(lambda: status==getStatus(), wfMsg("restart error"))
-    if testconfig.HBICT_DELTACOMP == "no":
-      clearCkptDir()
+    clearCkptDir()
 
   try:
     printFixed(name,15)
@@ -389,8 +380,6 @@ def runTest(name, numProcs, cmds):
       printFixed("ckpt:")
       testCheckpoint()
       printFixed("PASSED ")
-      if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
-        sleep(GDB_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -398,8 +387,6 @@ def runTest(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
-          if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
-            sleep(GDB_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
@@ -478,7 +465,7 @@ runTest("shared-memory", 2, ["./test/shared-memory"])
 
 runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
-runTest("stale-fd",      2, ["./test/stale-fd"])
+#runTest("stale-fd",      2, ["./test/stale-fd"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
@@ -501,8 +488,7 @@ runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 runTest("perl",          1, ["/usr/bin/perl"])
 
-if testconfig.HAS_PYTHON == "yes":
-  runTest("python",        1, ["/usr/bin/python"])
+runTest("python",        1, ["/usr/bin/python"])
 
 if testconfig.PID_VIRTUALIZATION == "yes":
   os.environ['DMTCP_GZIP'] = "0"
@@ -525,8 +511,7 @@ if testconfig.HAS_ZSH == "yes":
   runTest("zsh",          2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-# runTest("dlopen",          1, ["./test/dlopen"])
-
+# *** Works manually, but not yet in autotest ***
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=2
   if sys.version_info[0:2] >= (2,6):
@@ -588,5 +573,3 @@ except CheckFailed, e:
   print "Error in SHUTDOWN():", e.value
 except:
   print "Error in SHUTDOWN()"
-
-sys.exit( stats[1] - stats[0] )  # Return code is number of failing tests.

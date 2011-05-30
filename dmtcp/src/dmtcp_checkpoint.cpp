@@ -23,14 +23,14 @@
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
-#include <ctype.h>
 #include  "../jalib/jassert.h"
+#include <ctype.h>
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
+#include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
-#include "dmtcpcoordinatorapi.h"
 #include "util.h"
 #include <errno.h>
 #include <sys/types.h>
@@ -49,6 +49,7 @@ bool testSetuid(const char *filename);
 void testStaticallyLinked(const char *filename);
 bool testScreen(char **argv, char ***newArgv);
 void adjust_rlimit_stack();
+int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -63,17 +64,13 @@ static const char* theUsage =
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"
-#ifdef HBICT_DELTACOMP
-  "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01]):\n"
-  "      Enable/disable compression of checkpoint images (default: 1)\n"
-#endif
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store checkpoint images (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
-  "      Join an existing coordinator, raise error if one doesn't already exist\n"
+  "      Join an existing coordinator, raise error if one already exists\n"
   "  --new, -n:\n"
   "      Create a new coordinator, raise error if one already exists\n"
   "  --new-coordinator:\n"
@@ -91,9 +88,6 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --with-module (environment variable DMTCP_MODULE):\n"
-  "      Colon-separated list of DMTCP modules to be preloaded with DMTCP.\n"
-  "      (Absolute pathnames are required.)\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
   "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
   "See http://dmtcp.sf.net/ for more information.\n"
@@ -132,10 +126,13 @@ static void *get_libc_symbol ( const char* name )
   }
 
   void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL ) {
-    JTRACE("ERROR finding symbol using dlsym.\n" \
-           "      Will fail if user-app tries to call this symbol.")
-      (name) (dlerror());
+  if ( tmp == NULL )
+  {
+    JASSERT_STDERR
+      << "dmtcp: get_libc_symbol: ERROR finding symbol "
+      << name << " using dlsym: " << dlerror() << " \n"
+      << "       Will fail if user-app tries to call this symbol.\n";
+    //abort();
   }
   return tmp;
 }
@@ -154,7 +151,7 @@ static void *get_libpthread_symbol ( const char* name )
   void* tmp = dlsym ( handle, name );
   if ( tmp==NULL )
   {
-    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
+    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n"
               dlerror() );
     abort();
   }
@@ -225,7 +222,7 @@ static void prepareDmtcpWrappers()
     fprintf(stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n", dlerror());
     abort();
   }
-  tmp1 = (void *)&LIBDL_BASE_FUNC;
+  tmp1 = (void *)&dlopen;
   tmp2 = (void *)&dlsym;
   tmp3 = (char *)tmp2 - (char *)tmp1;
   char str[21] = {0} ;
@@ -235,6 +232,7 @@ static void prepareDmtcpWrappers()
 #endif
 }
 
+
 //shift args
 #define shift argc--,argv++
 int main ( int argc, char** argv )
@@ -242,7 +240,7 @@ int main ( int argc, char** argv )
   bool isSSHSlave=false;
   bool autoStartCoordinator=true;
   bool checkpointOpenFiles=false;
-  int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
+  int allowedModes = dmtcp::DmtcpWorker::COORD_ANY;
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
@@ -262,7 +260,7 @@ int main ( int argc, char** argv )
       autoStartCoordinator = false;
       shift;
     }else if(s == "-j" || s == "--join"){
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
+      allowedModes = dmtcp::DmtcpWorker::COORD_JOIN;
       shift;
     }else if(s == "--gzip"){
       setenv(ENV_VAR_COMPRESSION, "1", 1);
@@ -270,37 +268,20 @@ int main ( int argc, char** argv )
     }else if(s == "--no-gzip"){
       setenv(ENV_VAR_COMPRESSION, "0", 1);
       shift;
-    }
-#ifdef HBICT_DELTACOMP
-    else if(s == "--hbict"){
-      setenv(ENV_VAR_DELTACOMPRESSION, "1", 1);
-      shift;
-    }else if(s == "--no-hbict"){
-      setenv(ENV_VAR_DELTACOMPRESSION, "0", 1);
-      shift;
-    }
-#endif
-    else if(s == "-n" || s == "--new"){
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
+    }else if(s == "-n" || s == "--new"){
+      allowedModes = dmtcp::DmtcpWorker::COORD_NEW;
       shift;
     }else if(s == "--new-coordinator"){
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
+      allowedModes = dmtcp::DmtcpWorker::COORD_FORCE_NEW;
       shift;
     }else if(s == "-b" || s == "--batch"){
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
+      allowedModes = dmtcp::DmtcpWorker::COORD_BATCH;
       shift;
-    }else if(s == "-i" || s == "--interval" ||
-             (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-              isdigit(s.c_str()[2]) ) ){
-      if (isdigit(s.c_str()[2])) { // if -i5, for example
-        setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
-        shift;
-      } else { // else -i 5
-        setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
-        shift; shift;
-      }
+    }else if(s == "-i" || s == "--interval"){
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
     }else if(argc>1 && (s == "-h" || s == "--host")){
-      setenv(ENV_VAR_NAME_HOST, argv[1], 1);
+      setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
@@ -317,9 +298,6 @@ int main ( int argc, char** argv )
     }else if(s == "--checkpoint-open-files"){
       checkpointOpenFiles = true;
       shift;
-    }else if(s == "--with-module"){
-      setenv(ENV_VAR_MODULE, argv[1], 1);
-      shift; shift;
     }else if(s == "-q" || s == "--quiet"){
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
       // Just in case a non-standard version of setenv is being used:
@@ -339,8 +317,8 @@ int main ( int argc, char** argv )
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcp::UniquePid::ThisProcess(true);
-  Util::initializeLogFile();
+
+  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -353,18 +331,6 @@ int main ( int argc, char** argv )
 
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
-
-  dmtcp::string dmtcphjk = "";
-  // FIXME:  If the colon-separated elements of ENV_VAR_MODULE are not
-  //     absolute pathnames, then they must be expanded to absolute pathnames.
-  //     Warn user if an absolute pathname is not valid.
-  if ( getenv(ENV_VAR_MODULE) != NULL ) {
-    dmtcphjk += getenv(ENV_VAR_MODULE);
-    dmtcphjk += ":";
-  }
-  dmtcphjk += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
-
-  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
@@ -383,7 +349,7 @@ int main ( int argc, char** argv )
   // until finding region of memory segment with many zeroes.
   // Then mark as CS_ZERO_PAGES in MTCP instead of CS_RESTORE (or mark
   // entire segment as CS_ZERO_PAGES and then overwrite with CS_RESTORE
-  // region for portion to be read back from checkpoint image.
+  // region for portion to be read back fom checkpoint image.
   // For CS_ZERO_PAGES region, mmap // on restart, but don't write in zeroes.
   // Also, after checkpointing segment, munmap zero pages, and mmap them again.
   // Don't try to find all pages.  The above strategy may increase
@@ -402,6 +368,20 @@ int main ( int argc, char** argv )
     Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
   };
+
+  prepareDmtcpWrappers();
+
+  if(autoStartCoordinator)
+     dmtcp::DmtcpWorker::startCoordinatorIfNeeded(allowedModes);
+
+  dmtcp::string dmtcphjk =
+    jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
+
+  // Initialize JASSERT library here
+  dmtcp::ostringstream o;
+  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << dmtcp::UniquePid(getpid());
+  JASSERT_INIT(o.str());
 
   if (argc > 0) {
     JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
@@ -433,6 +413,14 @@ int main ( int argc, char** argv )
   else// if( isSSHSlave )
     setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
+  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
+  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
+  if (getenv("LD_PRELOAD"))
+    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
+  setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
+  setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
+  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
   if ( getenv(ENV_VAR_SIGCKPT) != NULL )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
   else
@@ -454,7 +442,7 @@ int main ( int argc, char** argv )
     //         unless we're sure that the executable is not readable.
     JASSERT_STDERR <<
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n"
-      << argv[0] << "\n";
+      << argv[0];
     exit(1);
   } else {
 #if defined(__x86_64__) && !defined(CONFIG_M32)
@@ -475,20 +463,6 @@ int main ( int argc, char** argv )
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
   adjust_rlimit_stack();
-
-  prepareDmtcpWrappers();
-
-  if (autoStartCoordinator)
-     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
-
-  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
-  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
-  if (getenv("LD_PRELOAD"))
-    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
-  setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
-  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
-  setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
-  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
   //run the user program
   char **newArgv = NULL;
@@ -615,4 +589,65 @@ bool testScreen(char **argv, char ***newArgv)
   }
   return false;
 
+#if 0
+  struct stat st;
+  // If screen has setuid or segid bits set, ...
+  dmtcp::string pathname_base = jalib::Filesystem::BaseName((*argvPtr)[0]);
+  char pathname[1024];
+  if ((*argvPtr)[0] == NULL)
+    return -1;
+  if (Util::expandPathname((*argvPtr)[0], pathname, sizeof(pathname)) != 0)
+    return -1;
+  if ( pathname_base == "screen"
+       && stat(pathname, &st) == 0
+       && (st.st_mode & S_ISUID || st.st_mode & S_ISGID) ) {
+    dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
+    Util::safeMkdir(tmpdir.c_str(), 0700);
+    setenv("SCREENDIR", tmpdir.c_str(), 1);
+
+    static char cmdBuf[1024];
+    char ** oldArgv = *argvPtr; // Initialize oldArgv with argument passed here
+    *(char **)(cmdBuf+sizeof(cmdBuf)-sizeof(char *)) = NULL;
+    Util::expandPathname(oldArgv[0], cmdBuf, sizeof(cmdBuf));
+#define COPY_SCREEN
+#ifdef COPY_SCREEN
+    // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
+    char *newArgv0 = cmdBuf + strlen(cmdBuf) + 1;
+    snprintf(newArgv0, sizeof(cmdBuf)-(newArgv0-cmdBuf), "%s/%s",
+	    dmtcp::UniquePid::getTmpDir().c_str(), pathname_base.c_str());
+    unlink(newArgv0);  // Remove any stale copy, just in case it's not right.
+    char *cpCmd = newArgv0 + strlen(newArgv0) + 1;
+    snprintf(cpCmd, sizeof(cmdBuf)-(cpCmd-cmdBuf), "cp %s %s",
+	     pathname, newArgv0);
+    Util::safeSystem(cpCmd);
+    JASSERT (access(newArgv0, X_OK) == 0) (newArgv0) (JASSERT_ERRNO);
+    (*argvPtr)[0] = newArgv0;
+    return 0;
+#else
+    // Translate: screen   to: /lib/ld-linux.so /usr/bin/screen
+    // This version is more general, but has a bug on restart:
+    //    memory layout is altered on restart, and so brk() doesn't match.
+    // Switch argvPtr from ptr to input to ptr to output now.
+    *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
+    // Use /lib64 if 64-bit O/S and not 32-bit app:
+# if defined(__x86_64__) && !defined(CONFIG_M32)
+    bool isElf, is32bitElf;
+    Util::elfType(cmdBuf, &isElf, &is32bitElf);
+    if (is32bitElf)
+      (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
+    else
+      (*argvPtr)[0] = (char *)"/lib64/ld-linux-x86-64.so.2";
+# else
+    (*argvPtr)[0] = (char *)"/lib/ld-linux.so.2";
+# endif
+    (*argvPtr)[1] = cmdBuf;
+    for (int i = 1; oldArgv[i] != NULL; i++)
+      *argvPtr[i+1] = oldArgv[i];
+    JASSERT ((char *)cmdBuf[sizeof(cmdBuf)-sizeof(char *)] == NULL)
+      (sizeof(cmdBuf)) .Text("Expanded command longer than sizeof(cmdBuf");
+    return 0;
+#endif
+  } else
+    return -1;
+#endif
 }

@@ -26,7 +26,6 @@
 #include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
-#include "dmtcpalloc.h"
 #include <string>
 #include <unistd.h>
 #include <time.h>
@@ -37,7 +36,6 @@
 #include <sys/wait.h>
 #include  "../jalib/jfilesystem.h"
 #include "synchronizationlogging.h"
-#include "log.h"
 #endif
 
 #ifndef EXTERNC
@@ -53,10 +51,6 @@ static DmtcpFunctionPointer userHookPreCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostCheckpoint = NULL;
 static DmtcpFunctionPointer userHookPostRestart = NULL;
 
-#ifdef RECORD_REPLAY
-static bool remap_logs = false;
-#endif
-
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
@@ -70,10 +64,7 @@ static inline void _runCoordinatorCmd(char c, int* result){
   {
     dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
     coordinatorAPI.useAlternateCoordinatorFd();
-
-    dmtcp::DmtcpWorker::delayCheckpointsLock();
     coordinatorAPI.connectAndSendUserCommand(c, result);
-    dmtcp::DmtcpWorker::delayCheckpointsUnlock();
   }
   _dmtcp_unlock();
 }
@@ -95,18 +86,6 @@ static inline void _runCoordinatorCmd(char c, int* result){
 int __real_dmtcp_userSynchronizedEvent()
 {
   userSynchronizedEvent();
-  return 1;
-}
-
-EXTERNC int dmtcp_userSynchronizedEventBegin()
-{
-  userSynchronizedEventBegin();
-  return 1;
-}
-
-EXTERNC int dmtcp_userSynchronizedEventEnd()
-{
-  userSynchronizedEventEnd();
   return 1;
 }
 #endif
@@ -140,15 +119,15 @@ int __real_dmtcpCheckpoint(){
 }
 
 int __real_dmtcpRunCommand(char command){
-  int result[DMTCPMESSAGE_NUM_PARAMS];
+  int result[sizeof(exampleMessage->params)/sizeof(int)];
   int i = 0;
   while (i < 100) {
     _runCoordinatorCmd(command, result);
   // if we got error result - check it
-	// There is possibility that checkpoint thread
+	// There is posibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (result[0] == dmtcp::DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
+    if (result[0] == dmtcp::DmtcpCoordinator::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;
@@ -164,7 +143,7 @@ int __real_dmtcpRunCommand(char command){
 }
 
 const DmtcpCoordinatorStatus* __real_dmtcpGetCoordinatorStatus(){
-  int result[DMTCPMESSAGE_NUM_PARAMS];
+  int result[sizeof(exampleMessage->params)/sizeof(int)];
   _runCoordinatorCmd('s',result);
 
   //must be static so memory is not deleted.
@@ -214,29 +193,14 @@ int __real_dmtcpDelayCheckpointsUnlock(){
 
 void dmtcp::userHookTrampoline_preCkpt() {
 #ifdef RECORD_REPLAY
-  if (SYNC_IS_REPLAY) {
-    /* Checkpointing during replay -- we will truncate the log to the current
-       position, and begin recording again. */
-    truncate_all_logs();
-  }
-  set_sync_mode(SYNC_NOOP);
-  log_all_allocs = 0;
-  // Write the logs to disk, if any are in memory, and unmap them.
-  close_all_logs();
-  // Remove the threads which aren't alive anymore.
-  {
-    dmtcp::map<clone_id_t, pthread_t>::iterator it;
-    dmtcp::vector<clone_id_t> stale_clone_ids;
-    for (it = clone_id_to_tid_table.begin(); it != clone_id_to_tid_table.end(); it++) {
-      if (_real_pthread_kill(it->second, 0) != 0) {
-        stale_clone_ids.push_back(it->first);
-      }
-    }
-    for (size_t i = 0; i < stale_clone_ids.size(); i++) {
-      clone_id_to_tid_table.erase(stale_clone_ids[i]);
-      clone_id_to_log_table.erase(stale_clone_ids[i]);
-    }
-  }
+  // Write the logs to disk, if any are in memory.
+  JTRACE ( "preCkpt, about to writeLogsToDisk." );
+  char *x = getenv(ENV_VAR_LOG_REPLAY);
+  // Don't call setenv() here to avoid malloc()
+  x[0] = '0';
+  x[1] = '\0';
+  writeLogsToDisk();
+  close(record_log_fd);
 #endif
   if(userHookPreCheckpoint != NULL)
     (*userHookPreCheckpoint)();
@@ -249,8 +213,25 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
 #endif
   if(isRestart){
 #ifdef RECORD_REPLAY
-    set_sync_mode(SYNC_REPLAY);
-    initLogsForRecordReplay();
+    writeLogsToDisk(); // Write to disk any log entries that were recorded
+                       // before we re-open and seek to the beginning.
+    while ((record_log_fd = open(RECORD_LOG_PATH, 
+                                          O_RDONLY)) == -1
+        && errno == EINTR) ;
+    // Keep it open so the wrappers may read from it without opening.
+    if (record_log_fd >= 0) {
+      lseek(record_log_fd, 0, SEEK_SET);
+      char *x = getenv(ENV_VAR_LOG_REPLAY);
+      // Don't call setenv() here to avoid malloc()
+      x[0] = '2';
+      x[1] = '\0';
+      SET_SYNC_REPLAY();
+    } else {
+      JTRACE ( "problem opening synchronization log file on restart" ) 
+        ( RECORD_LOG_PATH ) ( errno );
+    }
+    /* Eager log patching. */
+    //primeLog();
     log_all_allocs = 1;
 #endif
     numRestarts++;
@@ -258,9 +239,17 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart) {
       (*userHookPostRestart)();
   }else{
 #ifdef RECORD_REPLAY
-    set_sync_mode(SYNC_RECORD);
-    initLogsForRecordReplay();
+    while ( (record_log_fd = open(RECORD_LOG_PATH, 
+                O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1 
+        && errno == EINTR ) ;
+    JASSERT ( record_log_fd >= 0 ) ( record_log_fd )
+      ( RECORD_LOG_PATH ).Text("problem opening sync log on resume");
+    char *x = getenv(ENV_VAR_LOG_REPLAY);
+    // Don't call setenv() here to avoid malloc()
+    x[0] = '1';
+    x[1] = '\0';
     log_all_allocs = 1;
+    SET_SYNC_LOG();
 #endif
     numCheckpoints++;
     if(userHookPostCheckpoint != NULL)
@@ -278,16 +267,6 @@ extern "C" int __dynamic_dmtcpIsEnabled(){
 EXTERNC int __dyn_dmtcp_userSynchronizedEvent()
 {
   return __real_dmtcp_userSynchronizedEvent();
-}
-
-EXTERNC int __dyn_dmtcp_userSynchronizedEventBegin()
-{
-  return dmtcp_userSynchronizedEventBegin();
-}
-
-EXTERNC int __dyn_dmtcp_userSynchronizedEventEnd()
-{
-  return dmtcp_userSynchronizedEventEnd();
 }
 #endif
 EXTERNC int __dyn_dmtcpIsEnabled(){

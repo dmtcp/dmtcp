@@ -4,8 +4,6 @@ MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
-FAST_CKPT_RESTART=@FAST_CKPT_RESTART@
-HBICT_DELTACOMP=@HBICT_DELTACOMP@
 PACKAGE=@PACKAGE_TARNAME@
 VERSION=@PACKAGE_VERSION@
 prefix=@prefix@
@@ -27,15 +25,6 @@ ifeq ($(PTRACE_SUPPORT),yes)
   MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
 endif
 
-ifeq ($(FAST_CKPT_RESTART),yes)
-  MTCP_MAKE_FLAGS += FAST_CKPT_RESTART=1
-endif
-
-ifeq ($(HBICT_DELTACOMP),yes)
-  MTCP_MAKE_FLAGS += HBICT_DELTACOMP=1
-endif
-
-
 libdir_dir := ${shell dirname ${libdir}}
 bindir_dir := ${shell dirname ${bindir}}
 ifeq ($(libdir_dir),$(bindir_dir))
@@ -47,28 +36,8 @@ endif
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: display-build-env mtcp dmtcp
-	$(MKDIR_P) bin
+default: mtcp dmtcp
 	($(MAKE) bin)
-	($(MAKE) dmtcpaware)
-
-display-build-env: display-release
-	@ if test -r ./config.log ; then \
-	    echo -n config.log: ; \
-	    grep '\$$ ' ./config.log | grep configure ; \
-	  fi || true
-	@ uname -a
-	@ ${CC} --version || true
-	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 2> /dev/null || true
-	@ ls -ld /var/*/nscd/* 2> /dev/null || true
-	@ echo ""
-
-display-release:
-	@ lsb_release -dc 2> /dev/null || \
-	    grep -i SUSE /etc/SuSE-release 2> /dev/null || \
-	    cat /etc/redhat-release 2> /dev/null || \
-	    cat /etc/debian-version 2> /dev/null || true
-	@ cat /etc/rocks-release 2> /dev/null || true
 
 all: default tests
 
@@ -78,20 +47,16 @@ mtcp:
 dmtcp:
 	(cd dmtcp/src && $(MAKE))
 
-tests: mtcp dmtcp
+tests: default
 	(cd test && $(MAKE) $(MTCP_MAKE_FLAGS))
 
 #prevent mtcp_restart from flying out of control
 LIMIT=ulimit -v 1048576
 
-check: tests
-	@+ if which python > /dev/null; then \
-	   bash -c "$(LIMIT) && ./test/autotest.py $*"; \
-	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
-	  fi
+check:  all
+	+bash -c "$(LIMIT) && ./test/autotest.py $*"
 
-check-%: tests
+check-%: all
 	+bash -c "$(LIMIT) && ./test/autotest.py '$*'"
 
 check1: icheck-dmtcp1
@@ -135,7 +100,6 @@ clean: tidy
 	-(cd mtcp  && $(MAKE) clean)
 	-(cd dmtcp && $(MAKE) clean)
 	-(cd test  && $(MAKE) clean)
-	-(cd module  && $(MAKE) clean)
 	-if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
 	     DMTCP_TMPDIR=/tmp; \
@@ -148,8 +112,7 @@ clean: tidy
 distclean: clean
 	-(cd mtcp  && $(MAKE) distclean)
 	-(cd dmtcp && $(MAKE) distclean)  
-	-(cd module && $(MAKE) distclean)  
-	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/* dmtcpaware/*dmtcpaware*
+	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/*
 
 svndist:
 	if test "`svn info`"; then \
@@ -161,9 +124,6 @@ svndist:
 	else \
 	  echo "svn info failed"; \
 	fi
-
-dist_exclude.txt:
-	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
 
 dist: distclean dist_exclude.txt
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
@@ -180,11 +140,6 @@ bin/% : mtcp/%
 	(cd bin && $(LN_S) ../$< $*)
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart bin/dmtcphijack.so bin/libmtcp.so bin/mtcp_restart bin/dmtcp_command bin/dmtcp_nocheckpoint
-
-dmtcpaware/% : dmtcp/src/%
-	(cd dmtcpaware && $(LN_S) ../$< $*)
-
-dmtcpaware: dmtcpaware/dmtcpaware.c dmtcpaware/dmtcpaware.h dmtcpaware/libdmtcpaware.a
 
 install: all 
 	if test -z "$(prefix)"; then \
@@ -217,7 +172,6 @@ uninstall:
 	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
-#	rm -Rf "$(DESTDIR)$(include)/dmtcp"
+	#rm -Rf "$(DESTDIR)$(include/dmtcp"
  
-.PHONY: all display-build-env display-release mtcp dmtcp clean distclean bin \
-	dmtcpaware examples dmtcp_noexamples
+.PHONY: all mtcp dmtcp clean distclean bin examples dmtcp_noexamples

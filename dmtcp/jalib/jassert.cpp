@@ -52,16 +52,7 @@
 #  define DECORATE_FN(fn) ::_real_ ## fn
 #endif
 
-#ifdef RECORD_REPLAY
-#define pthread_mutex_lock _real_pthread_mutex_lock
-#define pthread_mutex_unlock _real_pthread_mutex_unlock
-#endif
-
 int jassert_quiet = 0;
-
-static int theLogFileFd = -1;
-static int errConsoleFd = -1;
-
 
 #define DUP_STDERR_FD PROTECTED_STDERR_FD
 #define DUP_LOG_FD    PROTECTED_JASSERTLOG_FD
@@ -89,11 +80,6 @@ int jassert_internal::jassert_console_fd()
   //make sure stream is open
   jassert_safe_print ( "" );
   return DUP_STDERR_FD;
-}
-
-void jassert_internal::jassert_set_console_fd(int fd)
-{
-  errConsoleFd = fd;
 }
 
 jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
@@ -169,9 +155,7 @@ static int _open_log_safe ( const char* filename, int protectedFd )
   if (tfd == -1) return -1;
   //change fd to 827 (DUP_LOG_FD -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
-  if (tfd != nfd) {
-    close ( tfd );
-  }
+  close ( tfd );
 
   return nfd;
 }
@@ -180,6 +164,10 @@ static int _open_log_safe ( const jalib::string& s, int protectedFd )
 {
   return _open_log_safe ( s.c_str(), protectedFd );
 }
+
+
+static int theLogFileFd = -1;
+static int errConsoleFd = -1;
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
@@ -192,30 +180,33 @@ void jassert_internal::jassert_init ( const jalib::string& f )
 }
 
 const jalib::string writeJbacktraceMsg() {
-  dmtcp::ostringstream o;
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
     "   Execute:  utils/dmtcp_backtrace.py  [found in DMTCP_ROOT]\n" \
     "   For usage:  utils/dmtcp_backtrace.py --help\n" \
     "   Files saved: ";
-  o << msg << dmtcp::UniquePid::getTmpDir() << "/backtrace."
-    << dmtcp::UniquePid::ThisProcess(true) << "\n                "
-    << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
-    << dmtcp::UniquePid::ThisProcess(true) << "\n";
-  return o.str();
+  msg += dmtcp::UniquePid::getTmpDir()
+                          + "/backtrace." + jalib::XToString ( getpid() );
+  msg += "\n                ";
+  msg += dmtcp::UniquePid::getTmpDir()
+                          + "/proc-maps." + jalib::XToString ( getpid() );
+  msg += "\n";
+  return msg;
 }
 
 void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/backtrace."
-    << dmtcp::UniquePid::ThisProcess(true);
-  int fd = _real_open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
-                      S_IRUSR|S_IWUSR);
+  jalib::string backtrace = dmtcp::UniquePid::getTmpDir()
+                          + "/backtrace." + jalib::XToString ( getpid() );
+  int fd = _real_open(backtrace.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
     close(fd);
+    jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/backtrace";
+    unlink(lnk.c_str());  // just in case it had previously been created.
+    if (symlink(backtrace.c_str(), lnk.c_str()) == -1)
+      {}  // Too late to issue a user warning here.
   }
 }
 
@@ -228,14 +219,16 @@ void writeProcMaps() {
   if (fd == -1) return;
   count = Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
-
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
-    << dmtcp::UniquePid::ThisProcess(true);
-  fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
+  jalib::string procMaps = dmtcp::UniquePid::getTmpDir()
+                          + "/proc-maps." + jalib::XToString ( getpid() );
+  fd = open(procMaps.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = Util::writeAll(fd, mapsBuf, count);
   close(fd);
+  jalib::string lnk = dmtcp::UniquePid::getTmpDir() + "/proc-maps";
+  unlink(lnk.c_str());  // just in case it had previously been created.
+  if (symlink(procMaps.c_str(), lnk.c_str()) == -1)
+  {}  // Too late to issue a user warning here.
   JALLOC_HELPER_FREE(mapsBuf);
 }
 

@@ -35,19 +35,10 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 
-static dmtcp::string& ckptDirName()
-{
-  static dmtcp::string str;
-  return str;
-}
-static dmtcp::string& ckptFileName()
-{
-  static dmtcp::string str;
-  return str;
-}
+static dmtcp::string checkpointFilename_str;
+static dmtcp::string ckptFilesDirName_str;
 
-inline static long theUniqueHostId()
-{
+inline static long theUniqueHostId(){
 #ifdef USE_GETHOSTID
   return ::gethostid()
 #else
@@ -116,18 +107,27 @@ dmtcp::UniquePid::UniquePid()
     ,_hostid ( 0 )
 {
   memset ( &_time,0,sizeof ( _time ) );
-  setPrefix();
 }
+
+dmtcp::UniquePid::UniquePid(pid_t pid)
+    :_pid ( pid )
+{
+  _hostid = theUniqueHostId();
+  memset ( &_time,0,sizeof ( _time ) );
+}
+
 
 long  dmtcp::UniquePid::hostid() const
 {
   return _hostid;
 }
 
+
 pid_t  dmtcp::UniquePid::pid() const
 {
   return _pid;
 }
+
 
 time_t  dmtcp::UniquePid::time() const
 {
@@ -138,28 +138,15 @@ int  dmtcp::UniquePid::generation() const
 {
   return _generation;
 }
-
-const char* dmtcp::UniquePid::prefix() const
-{
-  return _prefix;
-}
-
-void dmtcp::UniquePid::setPrefix()
-{
-  memset(_prefix, 0, sizeof(_prefix));
-  if (getenv(ENV_VAR_PREFIX_ID) != NULL) {
-    strncpy(_prefix, getenv(ENV_VAR_PREFIX_ID), sizeof(_prefix) - 1);
-  }
-}
-
 void  dmtcp::UniquePid::incrementGeneration()
 {
   _generation++;
 }
 
+
 const char* dmtcp::UniquePid::checkpointFilename()
 {
-  if ( ckptFileName().empty() )
+  if ( checkpointFilename_str.empty() )
   {
     dmtcp::ostringstream os;
 
@@ -176,30 +163,31 @@ const char* dmtcp::UniquePid::checkpointFilename()
 #endif
        << CKPT_FILE_SUFFIX;
 
-    ckptFileName() = os.str();
+    checkpointFilename_str = os.str();
   }
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
   // Include 5-digit generation number in filename, which changes
   //   after each checkpoint, during same process
-  JASSERT( Util::strEndsWith(ckptFileName(), CKPT_FILE_SUFFIX) )
-	 ( ckptFileName() )
-	 .Text ( "ckptFileName() doesn't end in .dmtcp" );
-  sprintf((char *)ckptFileName().c_str()
-	  + ckptFileName().length() - strlen("XXXXX" CKPT_FILE_SUFFIX),
+  JASSERT( Util::strEndsWith(checkpointFilename_str, CKPT_FILE_SUFFIX) )
+	 ( checkpointFilename_str )
+	 .Text ( "checkpointFilename_str doesn't end in .dmtcp" );
+  sprintf((char *)checkpointFilename_str.c_str()
+	  + checkpointFilename_str.length() - strlen("XXXXX" CKPT_FILE_SUFFIX),
 	  "%5.5d%s", ThisProcess().generation(), CKPT_FILE_SUFFIX);
 #endif
-  return ckptFileName().c_str();
+  return checkpointFilename_str.c_str();
 }
 
 dmtcp::string dmtcp::UniquePid::checkpointFilesDirName()
 {
-  if ( ckptDirName().empty() ) {
-    ckptDirName() = jalib::Filesystem::BaseName(checkpointFilename());
-    ckptDirName().erase(ckptDirName().length() - strlen(CKPT_FILE_SUFFIX));
-    ckptDirName() += CKPT_FILES_SUBDIR_SUFFIX;
+  if ( ckptFilesDirName_str.empty() ) {
+    ckptFilesDirName_str = jalib::Filesystem::BaseName(checkpointFilename());
+    ckptFilesDirName_str.erase(ckptFilesDirName_str.length() - 
+                                   strlen(CKPT_FILE_SUFFIX));
+    ckptFilesDirName_str += CKPT_FILES_SUBDIR_SUFFIX;
   }
-  return ckptDirName();
+  return ckptFilesDirName_str;
 }
 
 dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
@@ -223,6 +211,20 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   return os.str();
 }
 #endif
+
+const char* dmtcp::UniquePid::ptsSymlinkFilename ( char *ptsname )
+{
+  char *devicename = ptsname + strlen ( "/dev/pts/" );
+
+  //this must be static so dmtcp::string isn't destructed
+  static dmtcp::string ptsSymlinkFilename_str;
+
+  ptsSymlinkFilename_str = getTmpDir();
+  ptsSymlinkFilename_str += "/pts_" + ThisProcess().toString() + '_';
+  ptsSymlinkFilename_str += devicename;
+
+  return ptsSymlinkFilename_str.c_str();
+}
 
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {
@@ -310,15 +312,11 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 {
   return _hostid==that.hostid()
          && _pid==that.pid()
-         && _time==that.time()
-         && strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
+         && _time==that.time();
 }
 
 dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
 {
-  if (strlen(id.prefix()) != 0) {
-    o << id.prefix() << "-";
-  }
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }
@@ -336,8 +334,8 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  ckptFileName().clear();
-  ckptDirName().clear();
+  checkpointFilename_str.clear();
+  ckptFilesDirName_str.clear();
 }
 
 bool dmtcp::UniquePid::isNull() const
@@ -347,7 +345,6 @@ bool dmtcp::UniquePid::isNull() const
 
 void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
 {
-  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
   if ( o.isWriter() )
@@ -364,3 +361,4 @@ void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
     parentProcess() = theParentProcess;
   }
 }
+

@@ -61,14 +61,13 @@ static pid_t forkChild ( long child_host, time_t child_time )
       /* child process */
 
       JALIB_RESET_ON_FORK ();
-
-      dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(),
-                                                  child_time );
-      //update ThisProcess()
-      dmtcp::UniquePid::resetOnFork ( child );
-
-      Util::initializeLogFile(jalib::Filesystem::GetProgramName()
-                              + " (forked)");
+#ifdef DEBUG
+      dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(), child_time );
+      //child should get new logfile
+      dmtcp::ostringstream o;
+      o << dmtcp::UniquePid::getTmpDir() << "/jassertlog." << child.toString();
+      JASSERT_INIT (o.str());
+#endif
 
 #ifdef PID_VIRTUALIZATION
       if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
@@ -110,12 +109,19 @@ static pid_t fork_work()
     return child_pid;
   }
 
+
   if ( child_pid == 0 ) {
-    dmtcp::UniquePid child = dmtcp::UniquePid::ThisProcess();
+    child_pid = _real_getpid();
+
+    dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, child_pid, child_time );
+
     JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent );
 
     //fix the mutex
     _dmtcp_remutex_on_fork();
+
+    //update ThisProcess()
+    dmtcp::UniquePid::resetOnFork ( child );
 
 #ifdef PID_VIRTUALIZATION
     dmtcp::VirtualPidTable::instance().resetOnFork( );

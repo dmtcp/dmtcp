@@ -39,7 +39,6 @@
 #include "dmtcpworker.h"
 #include "protectedfds.h"
 #include "synchronizationlogging.h"
-#include "log.h"
 #include "syscallwrappers.h"
 #include "virtualpidtable.h"
 
@@ -54,8 +53,9 @@ static volatile pthread_t attributes_were_read = 0;
 static volatile pthread_t arguments_were_decoded = 0;
 static pthread_mutex_t attributes_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t arguments_decode_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t pthread_create_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t create_destroy_guard = PTHREAD_MUTEX_INITIALIZER;
-//static pthread_mutex_t read_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t read_mutex = PTHREAD_MUTEX_INITIALIZER;
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 struct create_arg
 {
@@ -166,6 +166,7 @@ static void setupThreadStack(pthread_attr_t *attr_out,
 {
   size_t stack_size;
   void *stack_addr;
+  struct rlimit rl;
   int userStack = 0;
   // If the user's attributes have specified a stack size, use that.
   if (user_attr != NULL) {
@@ -186,7 +187,7 @@ static void setupThreadStack(pthread_attr_t *attr_out,
   void *s = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
   if (s == MAP_FAILED)  {
     JTRACE ( "Failed to map thread stack." ) ( mmap_size )
-      ( strerror(errno) ) (unified_log.currentEntryIndex());
+      ( strerror(errno) ) ( log_entry_index );
     JASSERT ( false );
   }
   pthread_attr_setstack(attr_out, s, mmap_size);
@@ -217,21 +218,16 @@ static void disableDetachState(pthread_attr_t *attr)
 static int internal_pthread_mutex_lock(pthread_mutex_t *mutex)
 {
   int retval = 0;
-  log_entry_t my_entry = create_pthread_mutex_lock_entry(my_clone_id,
-                                                         pthread_mutex_lock_event, 
-                                                         mutex);
+  log_entry_t my_entry = create_pthread_mutex_lock_entry(my_clone_id, pthread_mutex_lock_event, 
+      (unsigned long int)mutex);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_mutex_lock);
-    if (retval == 0) {
-      *mutex = GET_FIELD(currentLogEntry, pthread_mutex_lock, mutex);
-    }
-    WRAPPER_REPLAY_END(pthread_mutex_lock);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_mutex_lock_turn_check);
     retval = _real_pthread_mutex_lock(mutex);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_mutex_lock, mutex, *mutex);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_mutex_lock(mutex);
   }
   return retval;
 }
@@ -243,22 +239,15 @@ static int internal_pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
   int retval = 0;
   log_entry_t my_entry = create_pthread_mutex_unlock_entry(my_clone_id,
-                                                           pthread_mutex_unlock_event,
-                                                           mutex);
-
+      pthread_mutex_unlock_event, (unsigned long int)mutex);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_mutex_unlock);
-    if (retval == 0) {
-      *mutex = GET_FIELD(currentLogEntry, pthread_mutex_lock, mutex);
-    }
-    WRAPPER_REPLAY_END(pthread_mutex_unlock);
-  } else if (SYNC_IS_RECORD) {
-    WRAPPER_LOG_SET_LOG_ID(my_entry);
+    waitForTurn(my_entry, &pthread_mutex_unlock_turn_check);
     retval = _real_pthread_mutex_unlock(mutex);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_mutex_unlock, mutex, *mutex);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_mutex_unlock(mutex);
   }
   return retval;
 }
@@ -270,20 +259,21 @@ static int internal_pthread_cond_signal(pthread_cond_t *cond)
 {
   int retval = 0;
   log_entry_t my_entry = create_pthread_cond_signal_entry(my_clone_id,
-                                                          pthread_cond_signal_event,
-                                                          cond);
+      pthread_cond_signal_event, (unsigned long int)cond);
+  log_entry_t my_return_entry = create_pthread_cond_signal_entry(my_clone_id,
+      pthread_cond_signal_event_return, (unsigned long int)cond);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_cond_signal);
-    if (retval == 0) {
-      *cond = GET_FIELD(my_entry, pthread_cond_signal, cond);
-    }
-    WRAPPER_REPLAY_END(pthread_cond_signal);
-  } else  if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_cond_signal_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_cond_signal_turn_check);
+    retval = GET_COMMON(currentLogEntry,retval);
+    getNextLogEntry();    
+  } else  if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     retval = _real_pthread_cond_signal(cond);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_cond_signal, cond, *cond);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    SET_COMMON(my_return_entry, retval);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
@@ -292,45 +282,31 @@ static int internal_pthread_cond_signal(pthread_cond_t *cond)
    shouldSynchronize() and shouldn't be called directly unless you know what
    you're doing. */
 static int internal_pthread_cond_wait(pthread_cond_t *cond,
-                                      pthread_mutex_t *mutex)
+    pthread_mutex_t *mutex)
 {
   int retval = 0;
   log_entry_t my_entry = create_pthread_cond_wait_entry(my_clone_id,
-                                                        pthread_cond_wait_event, 
-                                                        cond, mutex);
+      pthread_cond_wait_event, 
+      (unsigned long int)mutex, (unsigned long int)cond);
+  log_entry_t my_return_entry = create_pthread_cond_wait_entry(my_clone_id,
+      pthread_cond_wait_event_return, 
+      (unsigned long int)mutex, (unsigned long int)cond);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_cond_wait);
-    if (retval == 0) {
-      *cond = GET_FIELD(my_entry, pthread_cond_wait, cond);
-      *mutex = GET_FIELD(my_entry, pthread_cond_wait, mutex);
-    }
-    WRAPPER_REPLAY_END(pthread_cond_wait);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_cond_wait_turn_check);
+    _real_pthread_mutex_unlock(mutex);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_cond_wait_turn_check);
+    retval = GET_COMMON(currentLogEntry,retval);
+    _real_pthread_mutex_lock(mutex);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     retval = _real_pthread_cond_wait(cond, mutex);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_cond_wait, cond, *cond);
-      SET_FIELD2(my_entry, pthread_cond_wait, mutex, *mutex);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    SET_COMMON(my_return_entry, retval);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
-}
-
-static inline void waitForChildThreadToInitialize()
-{
-  /* Wait for the newly created thread to decode his arguments (createArg).
-     We must ensure that's been done before we return from this
-     pthread_create wrapper and the createArg struct goes out of scope. */
-  while (1) {
-    _real_pthread_mutex_lock(&arguments_decode_mutex);
-    if (arguments_were_decoded == 1) { 
-      arguments_were_decoded = 0;
-      _real_pthread_mutex_unlock(&arguments_decode_mutex);
-      break;
-    }
-    _real_pthread_mutex_unlock(&arguments_decode_mutex);
-    usleep(100);
-  }
 }
 
 /* Performs the _real version with log and replay. Does NOT check
@@ -346,66 +322,88 @@ static int internal_pthread_create(pthread_t *thread,
   struct create_arg createArg;
   createArg.fn = start_routine;
   createArg.thread_arg = arg;
-  log_entry_t my_entry = create_pthread_create_entry(my_clone_id,
-                                                     pthread_create_event,
-                                                     thread, attr,
-                                                     start_routine, arg);
+  log_entry_t my_entry = create_pthread_create_entry(my_clone_id, 
+      pthread_create_event, (unsigned long int)thread, 
+      (unsigned long int)attr, (unsigned long int)start_routine,
+      (unsigned long int)arg);
+  log_entry_t my_return_entry = create_pthread_create_entry(my_clone_id, 
+      pthread_create_event_return, (unsigned long int)thread,
+      (unsigned long int)attr, (unsigned long int)start_routine,
+      (unsigned long int)arg);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_create);
+    waitForTurn(my_entry, &pthread_create_turn_check);
     stack_addr = (void *)GET_FIELD(currentLogEntry, pthread_create, stack_addr);
     stack_size = GET_FIELD(currentLogEntry, pthread_create, stack_size);
-    WRAPPER_REPLAY_END(pthread_create);
-
+    getNextLogEntry();
     ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
     // Set up thread stacks to how they were at record time.
     pthread_attr_init(&the_attr);
-
     setupThreadStack(&the_attr, attr, stack_size);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
     retval = _real_pthread_create(thread, &the_attr, 
                                   start_wrapper, (void *)&createArg);
-    waitForChildThreadToInitialize();
-
+    /* Wait for the newly created thread to decode his arguments (createArg).
+       We must ensure that's been done before we return from this
+       pthread_create wrapper and the createArg struct goes out of scope. */
+    while (1) {
+      _real_pthread_mutex_lock(&arguments_decode_mutex);
+      if (arguments_were_decoded == 1) { 
+        arguments_were_decoded = 0;
+        _real_pthread_mutex_unlock(&arguments_decode_mutex);
+        break;
+      }
+      _real_pthread_mutex_unlock(&arguments_decode_mutex);
+      usleep(100);
+    }
     RELEASE_THREAD_CREATE_DESTROY_LOCK();
     pthread_attr_destroy(&the_attr);
-
-  } else  if (SYNC_IS_RECORD) {
-    // Log annotation on the fly.
-    size_t savedOffset = my_log->dataSize();
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-
+    waitForTurn(my_return_entry, &pthread_create_turn_check);
+    getNextLogEntry();
+  } else  if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
     pthread_attr_init(&the_attr);
+    // start_wrapper() will unlock the mutex when it is done setup:
     // Possibly create a thread stack if the user has not provided one:
     setupThreadStack(&the_attr, attr, 0);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
-
     retval = _real_pthread_create(thread, &the_attr,
                                   start_wrapper, (void *)&createArg);
-    SET_COMMON2(my_entry, retval, (void*)retval);
-    SET_COMMON2(my_entry, my_errno, errno);
-
-    waitForChildThreadToInitialize();
-
+    /* Wait for the newly created thread to decode his arguments (createArg).
+       We must ensure that's been done before we return from this
+       pthread_create wrapper and the createArg struct goes out of scope. */
+    while (1) {
+      _real_pthread_mutex_lock(&arguments_decode_mutex);
+      if (arguments_were_decoded == 1) { 
+        arguments_were_decoded = 0;
+        _real_pthread_mutex_unlock(&arguments_decode_mutex);
+        break;
+      }
+      _real_pthread_mutex_unlock(&arguments_decode_mutex);
+      usleep(100);
+    }
     RELEASE_THREAD_CREATE_DESTROY_LOCK();
     // Log whatever stack we ended up using:
     pthread_attr_getstack(&the_attr, &stack_addr, &stack_size);
     pthread_attr_destroy(&the_attr);
-    SET_FIELD(my_entry, pthread_create, stack_addr);
-    SET_FIELD(my_entry, pthread_create, stack_size);
-    // Log annotation on the fly.
-    my_log->replaceEntryAtOffset(my_entry, savedOffset);
+    SET_FIELD2(my_return_entry, pthread_create, stack_addr,
+              (unsigned long int)stack_addr);
+    SET_FIELD(my_return_entry, pthread_create, stack_size);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
 
 extern "C" int pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-  WRAPPER_HEADER_RAW(int, pthread_mutex_lock, _real_pthread_mutex_lock,
-                     mutex);
-
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_mutex_lock(mutex);
+    return retval;
+  }
   /* NOTE: Don't call JTRACE (or anything that calls JTRACE) before
     this point. */
   int retval = internal_pthread_mutex_lock(mutex);
@@ -414,30 +412,40 @@ extern "C" int pthread_mutex_lock(pthread_mutex_t *mutex)
 
 extern "C" int pthread_mutex_trylock(pthread_mutex_t *mutex)
 {
-  WRAPPER_HEADER(int, pthread_mutex_trylock, _real_pthread_mutex_trylock,
-                 mutex);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_mutex_trylock(mutex);
+    return retval;
+  }
   /* NOTE: Don't call JTRACE (or anything that calls JTRACE) before
     this point. */
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_mutex_trylock_entry(my_clone_id, 
+      pthread_mutex_trylock_event, (unsigned long int)mutex);
+  log_entry_t my_return_entry = create_pthread_mutex_trylock_entry(my_clone_id, 
+      pthread_mutex_trylock_event_return, (unsigned long int)mutex);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_mutex_trylock);
-    if (retval == 0) {
-      *mutex = GET_FIELD(my_entry, pthread_mutex_trylock, mutex);
-    }
-    WRAPPER_REPLAY_END(pthread_mutex_trylock);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_mutex_trylock_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_mutex_trylock_turn_check);
     retval = _real_pthread_mutex_trylock(mutex);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_mutex_trylock, mutex, *mutex);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_mutex_trylock(mutex);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
 
 extern "C" int pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
-  WRAPPER_HEADER_RAW(int, pthread_mutex_unlock, _real_pthread_mutex_unlock,
-                     mutex);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_mutex_unlock(mutex);
+    return retval;
+  }
   /* NOTE: Don't call JTRACE (or anything that calls JTRACE) before
     this point. */
   int retval = internal_pthread_mutex_unlock(mutex);
@@ -446,36 +454,60 @@ extern "C" int pthread_mutex_unlock(pthread_mutex_t *mutex)
 
 extern "C" int pthread_cond_signal(pthread_cond_t *cond)
 {
-  WRAPPER_HEADER_RAW(int, pthread_cond_signal, _real_pthread_cond_signal,
-                     cond);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_cond_signal(cond);
+    return retval;
+  }
   int retval = internal_pthread_cond_signal(cond);
   return retval;
 }
 
 extern "C" int pthread_cond_broadcast(pthread_cond_t *cond)
 {
-  WRAPPER_HEADER(int, pthread_cond_broadcast, _real_pthread_cond_broadcast,
-                 cond);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_cond_broadcast);
-    if (retval == 0) {
-      *cond = GET_FIELD(my_entry, pthread_cond_broadcast, cond);
-    }
-    WRAPPER_REPLAY_END(pthread_cond_broadcast);
-  } else if (SYNC_IS_RECORD) {
-    retval = _real_pthread_cond_broadcast(cond);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_cond_broadcast, cond, *cond);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_cond_broadcast(cond);
+    return retval;
   }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_cond_broadcast_entry(my_clone_id,
+    pthread_cond_broadcast_event,
+    (unsigned long int)cond);
+  log_entry_t my_return_entry = create_pthread_cond_broadcast_entry(my_clone_id,
+    pthread_cond_broadcast_event_return,
+    (unsigned long int)cond);
+  /* Hack for MySQL (or any program which does a lot of cond_broadcasts.
+     Without this, the annotation algorithm for detecting anomalous broadcasts
+     is unbearably slow for large logs. The hack is to call every broadcast
+     anomalous until we can fix the annotation algorithm. */
+  /*log_entry_t my_entry = create_pthread_cond_broadcast_entry(my_clone_id,
+      pthread_cond_broadcast_anomalous_event, 
+      (unsigned long int)cond);*/
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &pthread_cond_broadcast_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_cond_broadcast_turn_check);
+    retval = GET_COMMON(currentLogEntry,retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_cond_broadcast(cond);
+    SET_COMMON(my_return_entry, retval);
+    addNextLogEntry(my_return_entry);
+  }
+
   return retval;
 }
 
 extern "C" int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
-  WRAPPER_HEADER_RAW(int, pthread_cond_wait, _real_pthread_cond_wait,
-                     cond, mutex);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_cond_wait(cond, mutex);
+    return retval;
+  }
   int retval = internal_pthread_cond_wait(cond, mutex);
   return retval;
 }
@@ -483,87 +515,115 @@ extern "C" int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 extern "C" int pthread_cond_timedwait(pthread_cond_t *cond,
     pthread_mutex_t *mutex, const struct timespec *abstime)
 {
-  JASSERT(abstime != NULL)
-    .Text("We just want to know what happens if abstime is NULL :-)");
-  // FIXME: Why are pthread_cond_wait and pthread_cond_timedwait handled differently?
-  WRAPPER_HEADER(int, pthread_cond_timedwait, _real_pthread_cond_timedwait,
-                 cond, mutex, abstime);
-
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_cond_timedwait(cond, mutex, abstime);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_cond_timedwait_entry(my_clone_id, 
+      pthread_cond_timedwait_event, (unsigned long int)mutex,
+      (unsigned long int)cond, (unsigned long int)abstime);
+  log_entry_t my_return_entry = create_pthread_cond_timedwait_entry(my_clone_id,
+      pthread_cond_timedwait_event_return, (unsigned long int)mutex,
+      (unsigned long int)cond, (unsigned long int)abstime);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_cond_timedwait);
-    if (retval == 0) {
-      *cond = GET_FIELD(my_entry, pthread_cond_timedwait, cond);
-      *mutex = GET_FIELD(my_entry, pthread_cond_timedwait, mutex);
-    }
-    WRAPPER_REPLAY_END(pthread_cond_timedwait);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_cond_timedwait_turn_check);
+    _real_pthread_mutex_unlock(mutex);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_cond_timedwait_turn_check);
+    retval = GET_COMMON(currentLogEntry,retval);
+    _real_pthread_mutex_lock(mutex);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     retval = _real_pthread_cond_timedwait(cond, mutex, abstime);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_cond_timedwait, cond, *cond);
-      SET_FIELD2(my_entry, pthread_cond_timedwait, mutex, *mutex);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    SET_COMMON(my_return_entry, retval);
+    // cond_timedwait does not set errno; on error, it returns an error #
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
 
+
 extern "C" int pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
 {
-  WRAPPER_HEADER(int, pthread_rwlock_unlock, _real_pthread_rwlock_unlock,
-                 rwlock);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_rwlock_unlock(rwlock);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_rwlock_unlock_entry(my_clone_id,
+      pthread_rwlock_unlock_event,
+      (unsigned long int)rwlock);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_rwlock_unlock);
-    if (retval == 0) {
-      *rwlock = GET_FIELD(my_entry, pthread_rwlock_unlock, rwlock);
-    }
-    WRAPPER_REPLAY_START(pthread_rwlock_unlock);
-  } else if (SYNC_IS_RECORD) {
-    WRAPPER_LOG_SET_LOG_ID(my_entry);
+    waitForTurn(my_entry, &pthread_rwlock_unlock_turn_check);
     retval = _real_pthread_rwlock_unlock(rwlock);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_rwlock_unlock, rwlock, *rwlock);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_rwlock_unlock(rwlock);
   }
   return retval;
 }
 
 extern "C" int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
 {
-  WRAPPER_HEADER(int, pthread_rwlock_rdlock, _real_pthread_rwlock_rdlock,
-                 rwlock);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_rwlock_rdlock(rwlock);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_rwlock_rdlock_entry(my_clone_id,
+      pthread_rwlock_rdlock_event,
+      (unsigned long int)rwlock);
+  log_entry_t my_return_entry = create_pthread_rwlock_rdlock_entry(my_clone_id,
+      pthread_rwlock_rdlock_event_return,
+      (unsigned long int)rwlock);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_rwlock_rdlock);
-    if (retval == 0) {
-      *rwlock = GET_FIELD(my_entry, pthread_rwlock_rdlock, rwlock);
-    }
-    WRAPPER_REPLAY_START(pthread_rwlock_rdlock);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_rwlock_rdlock_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_rwlock_rdlock_turn_check);
     retval = _real_pthread_rwlock_rdlock(rwlock);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_rwlock_rdlock, rwlock, *rwlock);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_rwlock_rdlock(rwlock);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
 
 extern "C" int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
 {
-  WRAPPER_HEADER(int, pthread_rwlock_wrlock, _real_pthread_rwlock_wrlock,
-                 rwlock);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_rwlock_wrlock(rwlock);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_rwlock_wrlock_entry(my_clone_id,
+      pthread_rwlock_wrlock_event,
+      (unsigned long int)rwlock);
+  log_entry_t my_return_entry = create_pthread_rwlock_wrlock_entry(my_clone_id,
+      pthread_rwlock_wrlock_event_return,
+      (unsigned long int)rwlock);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(pthread_rwlock_wrlock);
-    if (retval == 0) {
-      *rwlock = GET_FIELD(my_entry, pthread_rwlock_wrlock, rwlock);
-    }
-    WRAPPER_REPLAY_START(pthread_rwlock_wrlock);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &pthread_rwlock_wrlock_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &pthread_rwlock_wrlock_turn_check);
     retval = _real_pthread_rwlock_wrlock(rwlock);
-    if (retval == 0) {
-      SET_FIELD2(my_entry, pthread_rwlock_wrlock, rwlock, *rwlock);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_pthread_rwlock_wrlock(rwlock);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
@@ -596,14 +656,6 @@ static void reapThread()
   join_retval.value_ptr = value_ptr;
   pthread_join_retvals[thread_to_reap] = join_retval;
   teardownThreadStack(stack_addr, stack_size);
-  {
-    clone_id_t clone_id = tid_to_clone_id_table[thread_to_reap];
-    dmtcp::SynchronizationLog *log = clone_id_to_log_table[clone_id];
-    JASSERT(log != NULL);
-    log->destroy();
-    clone_id_to_log_table.erase(clone_id);
-    tid_to_clone_id_table.erase(thread_to_reap);
-  }
   delete_thread_fnc ( thread_to_reap );
   RELEASE_THREAD_CREATE_DESTROY_LOCK(); // End of thread destruction.
 }
@@ -625,8 +677,6 @@ static void *thread_reaper(void *arg)
     reapThread();
     internal_pthread_mutex_unlock(&reap_mutex);
   }
-  JASSERT(false) .Text("Unreachable");
-  return NULL;
 }
 
 LIB_PRIVATE void reapThisThread()
@@ -662,8 +712,12 @@ LIB_PRIVATE void reapThisThread()
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     void *(*start_routine)(void*), void *arg)
 {
-  WRAPPER_HEADER_RAW(int, pthread_create, _real_pthread_create,
-                     thread, attr, start_routine, arg);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_create(thread, attr, start_routine, arg);
+    _real_pthread_mutex_unlock(&pthread_create_mutex);
+    return retval;
+  }
   if (__builtin_expect(reaper_thread_alive == 0, 0)) {
     // Create the reaper thread
     reaper_thread_alive = 1;
@@ -675,50 +729,66 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 extern "C" void pthread_exit(void *value_ptr)
 {
-  WRAPPER_HEADER_NO_RETURN(pthread_exit, _real_pthread_exit, value_ptr);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    _real_pthread_exit(value_ptr);
+  } else {
+    log_entry_t my_entry = create_pthread_exit_entry(my_clone_id, 
+        pthread_exit_event, (unsigned long int)value_ptr);
 
-  if (SYNC_IS_REPLAY) {
-    waitForTurn(my_entry, &pthread_exit_turn_check);
-    getNextLogEntry();
-    ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
-    reapThisThread();
-    _real_pthread_exit(value_ptr);
-  } else  if (SYNC_IS_RECORD) {
-    // Not restart; we should be logging.
-    addNextLogEntry(my_entry);
-    ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
-    reapThisThread();
-    _real_pthread_exit(value_ptr);
+    if (SYNC_IS_REPLAY) {
+      waitForTurn(my_entry, &pthread_exit_turn_check);
+      getNextLogEntry();
+      ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
+      reapThisThread();
+      _real_pthread_exit(value_ptr);
+    } else  if (SYNC_IS_LOG) {
+      // Not restart; we should be logging.
+      addNextLogEntry(my_entry);
+      ACQUIRE_THREAD_CREATE_DESTROY_LOCK();
+      reapThisThread();
+      _real_pthread_exit(value_ptr);
+    }
   }
-  while(1); // to suppress compiler warning about 'noreturn' function returning
 }
 
 extern "C" int pthread_detach(pthread_t thread)
 {
-  WRAPPER_HEADER(int, pthread_detach, _real_pthread_detach, thread);
-  //FIXME: We don't need to log/replay this event.
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_detach(thread);
+    return retval;
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_detach_entry(my_clone_id, pthread_detach_event,
+      (unsigned long int)thread);
+  log_entry_t my_return_entry = create_pthread_detach_entry(my_clone_id, pthread_detach_event_return,
+      (unsigned long int)thread);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &pthread_detach_turn_check);
     getNextLogEntry();
     retval = 0;
-  } else  if (SYNC_IS_RECORD) {
+    waitForTurn(my_return_entry, &pthread_detach_turn_check);
+    getNextLogEntry();
+  } else  if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = 0;
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
 
 static void *signal_thread(void *arg)
 {
-  size_t signal_sent_on = 0;
+  int signal_sent_on = 0;
   while (1) {
     // Lock this so it doesn't change from underneath:
     _real_pthread_mutex_lock(&log_index_mutex);
     if (__builtin_expect(GET_COMMON(currentLogEntry,event) == signal_handler_event, 0)) {
-      if (signal_sent_on != unified_log.currentEntryIndex()) {
+      if (signal_sent_on != log_entry_index) {
         // Only send one signal per sig_handler entry.
-        signal_sent_on = unified_log.currentEntryIndex();
+        signal_sent_on = log_entry_index;
         _real_pthread_kill(clone_id_to_tid_table[GET_COMMON(currentLogEntry,clone_id)],
             GET_FIELD(currentLogEntry, signal_handler, sig));
       }
@@ -726,8 +796,6 @@ static void *signal_thread(void *arg)
     _real_pthread_mutex_unlock(&log_index_mutex);
     usleep(20);
   }
-  JASSERT(false) .Text("Unreachable");
-  return NULL;
 }
 
 static void createSignalThread()
@@ -738,20 +806,26 @@ static void createSignalThread()
 
 extern "C" int pthread_kill(pthread_t thread, int sig)
 {
-  WRAPPER_HEADER(int, pthread_kill, _real_pthread_kill, thread, sig);
-
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _real_pthread_kill(thread, sig);
+    return retval;
+  }
   if (__builtin_expect(signal_thread_alive == 0, 0)) {
     // Start the thread who will send signals (only on replay, but we need to
     // start it here so record has same behavior).
     signal_thread_alive = 1;
     createSignalThread();
   }
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_kill_entry(my_clone_id, pthread_kill_event,
+      (unsigned long int)thread, sig);
   if (SYNC_IS_REPLAY) {
     waitForTurn(my_entry, &pthread_kill_turn_check);
     getNextLogEntry();
     // TODO: Do something better than always returning success.
     retval = 0;//_real_pthread_kill(thread, sig);
-  } else  if (SYNC_IS_RECORD) {
+  } else  if (SYNC_IS_LOG) {
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = _real_pthread_kill(thread, sig);
@@ -759,14 +833,31 @@ extern "C" int pthread_kill(pthread_t thread, int sig)
   return retval;
 }
 
-extern "C" int rand()
+extern "C" int rand(void)
 {
-  WRAPPER_HEADER_NO_ARGS(int, rand, _real_rand);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_rand();
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_rand();
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_rand_entry(my_clone_id, rand_event);
+  log_entry_t my_return_entry = create_rand_entry(my_clone_id, rand_event_return);
+
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(rand);
-  } else if (SYNC_IS_RECORD) {
+    waitForTurn(my_entry, &rand_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &rand_turn_check);
+    retval = GET_COMMON(currentLogEntry, retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
     retval = _real_rand();
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    SET_COMMON(my_return_entry, retval);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }
@@ -775,47 +866,71 @@ extern "C" int rand()
 // have captured all random events used to provide the seed (e.g. time()).
 extern "C" void srand(unsigned int seed)
 {
-  BASIC_SYNC_WRAPPER_VOID(srand, _real_srand, seed);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_srand(seed);
+  }
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_srand(seed);
+  }
+  int retval = 0;
+  log_entry_t my_entry = create_srand_entry(my_clone_id, srand_event, seed);
+  log_entry_t my_return_entry = create_srand_entry(my_clone_id, srand_event_return, seed);
+
+  if (SYNC_IS_REPLAY) {
+    waitForTurn(my_entry, &srand_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &srand_turn_check);
+    JASSERT ( seed == GET_FIELD(currentLogEntry, srand, seed) );
+    _real_srand(seed);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    _real_srand(seed);
+    addNextLogEntry(my_return_entry);
+  }
 }
 
 extern "C" time_t time(time_t *tloc)
 {
-  WRAPPER_HEADER(time_t, time, _real_time, tloc);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(time);
-    if (retval != (time_t) -1 && tloc != NULL) {
-      *tloc = GET_FIELD(my_entry, time, time_retval);
-    }
-    WRAPPER_REPLAY_END(time);
-  } else if (SYNC_IS_RECORD) {
-    retval = _real_time(tloc);
-    SET_FIELD2(my_entry, time, time_retval, retval);
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    return _real_time(tloc);
   }
-  return retval;
-}
-
-extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-  WRAPPER_HEADER(int, gettimeofday, _real_gettimeofday, tv, tz);
+  if (jalib::Filesystem::GetProgramName() == "gdb") {
+    return _real_time(tloc);
+  }
+  time_t retval = 0;
+  log_entry_t my_entry = create_time_entry(my_clone_id, time_event,
+      (unsigned long int)tloc);
+  log_entry_t my_return_entry = create_time_entry(my_clone_id, time_event_return,
+      (unsigned long int)tloc);
+  /*
+  static int fd = -1;
+  if (fd == -1) {
+    fd = _real_open("/home/tyler/times", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  }
+  void *buffer[10];
+  int nptrs;
+  nptrs = backtrace (buffer, 10);
+  char msg[128];
+  sprintf(msg, "log_entry_index: %d\n", log_entry_index);
+  write(fd, msg, strlen(msg));
+  backtrace_symbols_fd ( buffer, nptrs, fd );
+  */
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(gettimeofday);
-    if (retval == 0 && tv != NULL) {
-      *tv = GET_FIELD(my_entry, gettimeofday, tv_val);
-    }
-    if (retval == 0 && tv != NULL) {
-      *tz = GET_FIELD(my_entry, gettimeofday, tz_val);
-    }
-    WRAPPER_REPLAY_END(time);
-  } else if (SYNC_IS_RECORD) {
-    retval = _real_gettimeofday(tv, tz);
-    if (retval == 0 && tv != NULL) {
-      SET_FIELD2(my_entry, gettimeofday, tv_val, *tv);
-    }
-    if (retval == 0 && tv != NULL) {
-      SET_FIELD2(my_entry, gettimeofday, tz_val, *tz);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    waitForTurn(my_entry, &time_turn_check);
+    getNextLogEntry();
+    waitForTurn(my_return_entry, &time_turn_check);
+    retval = GET_FIELD(currentLogEntry, time, time_retval);
+    getNextLogEntry();
+  } else if (SYNC_IS_LOG) {
+    // Not restart; we should be logging.
+    addNextLogEntry(my_entry);
+    retval = _real_time(tloc);
+    SET_FIELD2(my_return_entry, time, time_retval, retval);
+    addNextLogEntry(my_return_entry);
   }
   return retval;
 }

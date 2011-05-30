@@ -21,9 +21,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "dmtcpcoordinatorapi.h"
-#include "util.h"
+#include "dmtcp_coordinator.h"
+#include "dmtcpmessagetypes.h"
+#include "mtcpinterface.h"
 
 using namespace dmtcp;
 
@@ -44,10 +47,9 @@ static const char* theUsage =
   "      Skip copyright notice\n\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
+  "    i, -i, --interval <val> : Update checkpoint interval to <val> seconds\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
   "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
-  "    i, -i, --interval <val> : Update ckpt interval to <val> seconds"
-						   		" (0=never)\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"
   "    q, -q, --quit : Kill all nodes and quit\n\n"
@@ -61,20 +63,16 @@ static const char* theUsage =
 int main ( int argc, char** argv )
 {
   bool quiet = false;
-  dmtcp::string interval = "";
-  dmtcp::string request = "h";
-
-  Util::initializeLogFile();
 
   //process args
   shift;
-  while(argc>0){
-    dmtcp::string s = argv[0];
+  while(true){
+    dmtcp::string s = argc>0 ? argv[0] : "--help";
     if((s=="--help" || s=="-h") && argc==1){
       fprintf(stderr, theUsage, "");
       return 1;
     }else if(argc>1 && (s == "-h" || s == "--host")){
-      setenv(ENV_VAR_NAME_HOST, argv[1], 1);
+      setenv(ENV_VAR_NAME_ADDR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
@@ -82,35 +80,8 @@ int main ( int argc, char** argv )
     }else if(s == "--quiet"){
       quiet = true;
       shift;
-    }else if(s == "h" || s == "-h" || s == "--help" || s == "?"){
-      fprintf(stderr, theUsage, "");
-      return 1;
-    }else{ // else it's a request
-      char* cmd = argv[0];
-      //ignore leading dashes
-      while(*cmd == '-') cmd++;
-      s = cmd;
-
-      if(*cmd == 'b' && *(cmd+1) != 'c'){
-        // If blocking ckpt, next letter must be 'c'; else print the usage
-        fprintf(stderr, theUsage, "");
-        return 1;
-      } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b'
-		 || *cmd == 'f' || *cmd == 'k' || *cmd == 'q') {
-        request = s;
-        if (*cmd == 'i') {
-	  if (isdigit(cmd[1])) { // if -i5, for example
-	    interval = cmd+1;
-	  } else { // else -i 5
-	    interval = argv[1];
-	    shift;
-	  }
-        }
-        shift;
-      }else{
-	fprintf(stderr, theUsage, "");
-	return 1;
-      }
+    }else{
+      break;
     }
   }
 
@@ -122,67 +93,66 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  int result[DMTCPMESSAGE_NUM_PARAMS];
-  DmtcpCoordinatorAPI coordinatorAPI;
-  char *cmd = (char *)request.c_str();
-  switch (*cmd) {
-  case 'h':
-    fprintf(stderr, theUsage, "");
-    return 1;
-  case 'i':
-    setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
-    printf("Interval changed to %s\n", interval.c_str());
-    break;
-  case 'b':
-    // blocking prefix
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
-    // actual command
-    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), result);
-    break;
-  case 's':
-  case 'c':
-  case 'f':
-  case 'k':
-  case 'q':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
-    break;
-  }
+  for( ; argc>0; shift){
+    char* cmd = argv[0];
+    //ignore leading dashes
+    while(*cmd == '-') cmd++;
 
-  //check for error
-  if(result[0]<0){
-    switch(result[0]){
-    case DmtcpCoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
-      if (getenv("DMTCP_PORT"))
-        fprintf(stderr,
-	        "Coordinator not found.  Please check port and host.\n");
-      else
-        fprintf(stderr,
-	      "Coordinator not found.  Try specifying port with \'--port\'.\n");
-      break;
-    case DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND:
-      fprintf(stderr,
-	      "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
-      break;
-    case DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE:
-      fprintf(stderr, "Error, computation not in running state."
-	      "  Either a checkpoint is\n"
-	      " currently happening or there are no connected processes.\n");
-      break;
-    default:
-      fprintf(stderr, "Unknown error\n");
-      break;
+    dmtcp::string s = cmd;
+
+    if(*cmd == 'b' && *(cmd+1) != 'c')
+      *cmd = 'h';  // If blocking ckpt, next letter must be 'c'; else print usage
+
+    if(*cmd == 'h' || *cmd == '\0' || *cmd == '?'){
+      fprintf(stderr, theUsage, "");
+      return 1;
     }
-    return 2;
-  }
 
-  if(*cmd == 's'){
-    if (getenv(ENV_VAR_NAME_HOST))
-      printf("  Host: %s\n", getenv(ENV_VAR_NAME_HOST));
-    printf("  Port: %s\n", getenv(ENV_VAR_NAME_PORT));
-    printf("Status...\n");
-    printf("NUM_PEERS=%d\n", result[0]);
-    printf("RUNNING=%s\n", (result[1]?"yes":"no"));
+    int result[DMTCPMESSAGE_NUM_PARAMS];
+    DmtcpCoordinatorAPI coordinatorAPI;
+    if (s == "i" || s == "interval") {
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      cmd = (char *)s.c_str();
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+      shift;
+    } else if (*cmd == 'b') {
+      // blocking prefix
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+      // actual command
+      coordinatorAPI.connectAndSendUserCommand(*(cmd+1), result);
+    } else {
+      coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+    }
+
+    //check for error
+    if(result[0]<0){
+      switch(result[0]){
+      case DmtcpCoordinator::ERROR_COORDINATOR_NOT_FOUND:
+        fprintf(stderr,
+		"Coordinator not found. Try specifying port with \'--port\'.\n" );
+        break;
+      case DmtcpCoordinator::ERROR_INVALID_COMMAND:
+        fprintf(stderr,
+		"Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
+        break;
+      case DmtcpCoordinator::ERROR_NOT_RUNNING_STATE:
+        fprintf(stderr, "Error, computation not in running state."
+		"  Either a checkpoint is\n"
+		" currently happening or there are no connected processes.\n");
+        break;
+      default:
+        fprintf(stderr, "Unknown error\n");
+        break;
+      }
+      return 2;
+    }
+
+    if(*cmd == 's'){
+        printf("Status...\n");
+        printf("NUM_PEERS=%d\n", result[0]);
+        printf("RUNNING=%s\n", (result[1]?"yes":"no"));
+    }
+
   }
 
   return 0;

@@ -34,10 +34,6 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
-#ifdef RECORD_REPLAY
-#define read _real_read
-#endif
-
 void Util::lockFile(int fd)
 {
   struct flock fl;
@@ -353,6 +349,7 @@ bool Util::isSetuid(const char *filename)
   char pathname[PATH_MAX];
   if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
     struct stat buf;
+    int rc = stat(pathname, &buf);
     if (stat(pathname, &buf) == 0 && (buf.st_mode & S_ISUID ||
                                       buf.st_mode & S_ISGID)) {
       return true;
@@ -456,74 +453,4 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
 void Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
-}
-
-/* Begin miscellaneous/helper functions. */
-// Reads from fd until count bytes are read, or newline encountered.
-// Returns NULL at EOF.
-int Util::readLine(int fd, char *buf, int count)
-{
-  int i = 0;
-  char c;
-  while (1) {
-    if (read(fd, &c, 1) == 0) {
-      buf[i] = '\0';
-      return '\0';
-    }
-    buf[i++] = c;
-    if (c == '\n') break;
-  }
-  buf[i++] = '\0';
-  return i;
-}
-
-void Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
-{
-  dmtcp::UniquePid::ThisProcess(true);
-  int errConsoleFd = JASSERT_STDERR_FD;
-#ifdef DEBUG
-  // Initialize JASSERT library here
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess()
-    << "_";
-  if (procname.empty()) {
-    o << jalib::Filesystem::GetProgramName();
-  } else {
-    o << procname;
-  }
-
-  JASSERT_INIT(o.str());
-
-  dmtcp::ostringstream a;
-  a << "\n========================================";
-  a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
-    << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
-
-  if (!prevLogPath.empty()) {
-    a << "\nPrev JAssertLog path: " << prevLogPath;
-  }
-
-  a << "\nArgv: ";
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
-  int i;
-  for (i = 0; i < args.size(); i++) {
-    a << " " << args[i];
-  }
-
-  a << "\nEnvirnoment: ";
-  for (i = 0; environ[i] != NULL; i++) {
-    a << " " << environ[i] << ";";
-  }
-  a << "\n========================================\n";
-
-  JASSERT_SET_CONSOLE_FD(-1);
-  JTRACE("Process Information") (a.str());
-  JASSERT_SET_CONSOLE_FD(errConsoleFd);
-#endif
-  if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-  } else {
-    jassert_quiet = 0;
-  }
 }

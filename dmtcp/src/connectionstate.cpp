@@ -23,6 +23,7 @@
 #include "connectionstate.h"
 #include "dmtcpmessagetypes.h"
 #include "syslogcheckpointer.h"
+#include "dmtcpworker.h"
 #include "connectionrewirer.h"
 
 dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )
@@ -236,15 +237,15 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
   }
 }
 
-void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd,
-                                                        size_t argvSize,
-                                                        size_t envSize)
+void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd)
 {
     //write out the *.dmtcp file
   //dmtcp::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
   //JTRACE ( "Writing *.dmtcp checkpoint file" );
   jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
 
+  size_t argvSize = DmtcpWorker::argvSize();
+  size_t envSize  = DmtcpWorker::envSize();
   wr & _compGroup;
   wr & _numPeers;
   wr & argvSize;

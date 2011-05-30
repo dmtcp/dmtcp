@@ -37,6 +37,7 @@
 #include  "../jalib/jfilesystem.h"
 #include "connectionmanager.h"
 #include "constants.h"
+#include "dmtcpworker.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
@@ -71,8 +72,8 @@ namespace
         procname = conToFd.procname();
         hostname = conToFd.hostname();
         inhostname = conToFd.inhostname();
-        pid = conToFd.upid();
-        ppid = conToFd.uppid();
+        pid = conToFd.pid();
+        ppid = conToFd.ppid();
         _index = _nextIndex();
         fullinfo = finfo;
       }

@@ -74,7 +74,7 @@ typedef unsigned char byte;
 
 // From glibc-2.5/sysdeps/generic/memcopy.h:BYTE_COPY_FWD
 // From glibc-2.5/sysdeps/generic/memcopy.h:BYTE_COPY_BWD
-#define MTCP_BYTE_COPY_FWD(dst_bp, src_bp, nbytes)                            \
+#define MTCP_BYTE_COPY_FWD(dst_bp, src_bp, nbytes)                                 \
   do                                                                          \
     {                                                                         \
       size_t __nbytes = (nbytes);                                             \
@@ -255,10 +255,9 @@ extern int mtcp_sys_errno;
 // Define INLINE_SYSCALL.  In i386, need patch for 6 args
 
 // sysdep-x86_64.h:
-//   From glibc-2.5/sysdeps/unix/sysv/linux/x86_64/sysdep.h:
-//     (define INLINE_SYSCALL)
+//   From glibc-2.5/sysdeps/unix/sysv/linux/x86_64/sysdep.h :  (define INLINE_SYSCALL)
 // sysdep-i386.h:
-//   Or glibc-2.5/sysdeps/unix/sysv/linux/i386/sysdep.h: (define INLINE_SYSCALL)
+//   Or glibc-2.5/sysdeps/unix/sysv/linux/i386/sysdep.h :  (define INLINE_SYSCALL)
 // But all further includes from sysdep-XXX.h have been commented out.
 
 #ifdef __i386__
@@ -289,14 +288,12 @@ extern int mtcp_sys_errno;
 #define __set_errno(Val) mtcp_sys_errno = (Val) /* required for sysdep-XXX.h */
 
 // #include <sysdeps/unix/x86_64/sysdep.h>  is not needed.
-// translate __NR_getpid to syscall # using i386 or x86_64
-#include <asm/unistd.h>
+#include <asm/unistd.h> /* translate __NR_getpid to syscall # using i386 or x86_64 */
 
 /* getdents() fills up the buffer not with 'struct dirent's as might be
  * expected, but with custom 'struct linux_dirent's.  This structure, however,
  * must be manually defined.  This definition is taken from the getdents(2) man
- * page.
- */
+ * page. */
 struct linux_dirent {
     long 	  d_ino;
     off_t	  d_off;
@@ -314,7 +311,6 @@ struct linux_dirent {
     // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
     //   otherwise.
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
-#define mtcp_sys_ftruncate(args...) mtcp_inline_syscall(ftruncate,2,args)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
 #define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
@@ -333,20 +329,9 @@ struct linux_dirent {
 #define mtcp_sys_mremap(args...)  (void *)mtcp_inline_syscall(mremap,4,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
+#define mtcp_sys_set_tid_address(args...)  mtcp_inline_syscall(set_tid_address,1,args)
 #define mtcp_sys_brk(args...)  (void *)(mtcp_inline_syscall(brk,1,args))
-#define mtcp_sys_rt_sigaction(args...) mtcp_inline_syscall(rt_sigaction,4,args)
-#define mtcp_sys_set_tid_address(args...) \
-  mtcp_inline_syscall(set_tid_address,1,args)
-
-//#define mtcp_sys_stat(args...) mtcp_inline_syscall(stat, 2, args)
-#define mtcp_sys_getuid(args...) mtcp_inline_syscall(getuid, 0)
-#define mtcp_sys_geteuid(args...) mtcp_inline_syscall(geteuid, 0)
-
-#define mtcp_sys_personality(args...) mtcp_inline_syscall(personality, 1, args)
-#define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlink, 3, args)
-#define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
-#define mtcp_sys_setrlimit(args...) mtcp_inline_syscall(setrlimit, 2, args)
-
+#define mtcp_sys_rt_sigaction(args...) (mtcp_inline_syscall(rt_sigaction,4,args))
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
    /* Note that getdents() does not fill the buf with 'struct dirent's, but
@@ -377,40 +362,35 @@ struct linux_dirent {
    * In Linux 2.6.9, uinfo->base_addr is  incorrectly typed as
    *   unsigned int.  So, we'll just lie about the type. 
    */
-/* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
- * struct user_desc from /usr/include/.../ldt.h
- * Perhaps kernel was patched by backport.  Let's not re-define user_desc.
- */
-# if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9) && 0
+# if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
    /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
 #  define user_desc modify_ldt_ldt_s
 # endif
 
-# ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
  * This is all because get_thread_area is not implemented for x86_64.
  */
 static unsigned long int myinfo_gs;
 
-#  define mtcp_sys_get_thread_area(uinfo) \
+# define mtcp_sys_get_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
     )
-#  define mtcp_sys_set_thread_area(uinfo) \
+# define mtcp_sys_set_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
     )
-# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
-#endif /* end __x86_64__ */
+#endif
 
-/*****************************************************************************
+/* ==================================================================
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses
  * a different version than the kernel version of the function.
- * 
- * NOTE:  this calls kernel version of stat, not the glibc wrapper for stat
+ */
+
+/* NOTE:  this calls kernel version of stat, not the glibc wrapper for stat
  * Needs: glibc_kernel_stat.h = glibc-2.5/sysdeps/unix/sysv/linux/kernel_stat.h
  *			for sake of st_mode, st_def, st_inode fields.
  *   For:	int stat(const char *file_name, struct kernel_stat *buf);
@@ -418,14 +398,12 @@ static unsigned long int myinfo_gs;
  *
  * See glibc:/var/tmp/cooperma/glibc-2.5/sysdeps/unix/sysv/linux/i386/lxstat.c
  *   for other concerns about using stat in a 64-bit environment.
- *****************************************************************************/
-
-/* NOTE:  MTCP no longer needs the following two mtcp_sys_kernel_stat so
- * commenting them out.                                            --Kapil
  * 
- * #define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
- * #define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
+ * NOTE:  MTCP no longer needs the following two mtcp_sys_kernel_stat so
+ * commenting them out.                                            --Kapil
  */
+//#define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
+//#define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
 
 /* NOTE:  this calls kernel version of futex, not glibc sys_futex ("man futex")
  *   There is no library supporting futex.  Syscall is the only way to call it.
@@ -433,6 +411,7 @@ static unsigned long int myinfo_gs;
  *			 const struct timespec *timeout, int *uaddr2, int val3)
  *   "man 2 futex" and "man 4/7 futex" have limited descriptions.
  *   mtcp_internal.h has the macro defines used with futex.
+ *
  */
 #define mtcp_sys_kernel_futex(args...)  mtcp_inline_syscall(futex,6,args)
 

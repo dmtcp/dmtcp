@@ -113,8 +113,6 @@ extern "C"
 #ifdef RECORD_REPLAY
 # define GLIBC_RECORD_WRAPPERS(MACRO)\
   MACRO(access)                               \
-  MACRO(closedir)			      \
-  MACRO(opendir)			      \
   MACRO(select)                               \
   MACRO(read)                                 \
   MACRO(readdir)                              \
@@ -136,14 +134,12 @@ extern "C"
   MACRO(sigset)                               \
   MACRO(fdopen)                               \
   MACRO(fgets)                                \
-  MACRO(fflush)                               \
   MACRO(putc)                                 \
   MACRO(fputs)                                \
   MACRO(fdatasync)                            \
   MACRO(fsync)                                \
   MACRO(link)                                 \
   MACRO(getc)                                 \
-  MACRO(gettimeofday)                         \
   MACRO(fgetc)                                \
   MACRO(ungetc)                               \
   MACRO(getline)                              \
@@ -203,14 +199,12 @@ extern "C"
   MACRO(setsockopt)                         \
   MACRO(socketpair)
 
-/*
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
-   MACRO(accept4)
-#else
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)
-#endif
-*/
+//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
+//# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
+//   MACRO(accept4)
+//#else
+//# define GLIBC_ACCEPT4_WRAPPER(MACRO)
+//#endif
 
 #define GLIBC_EXEC_WRAPPERS(MACRO)          \
   MACRO(fexecve)                            \
@@ -231,13 +225,6 @@ extern "C"
   MACRO(sigsetmask)                         \
   MACRO(siggetmask)                         \
   MACRO(sigprocmask)                        \
-                                            \
-  MACRO(sigsuspend)                         \
-  MACRO(sighold)                            \
-  MACRO(sigignore)                          \
-  MACRO(__sigpause)                         \
-  MACRO(sigpause)                           \
-  MACRO(sigrelse)                           \
                                             \
   MACRO(sigwait)                            \
   MACRO(sigwaitinfo)                        \
@@ -360,8 +347,8 @@ extern "C"
   void _real_openlog ( const char *ident, int option, int facility );
   void _real_closelog ( void );
 
-  // Despite what 'man signal' says, signal.h already defines sighandler_t
-  // typedef void (*sighandler_t)(int);
+
+  typedef void (*sighandler_t)(int);
 
   //set the handler
   sighandler_t _real_signal(int signum, sighandler_t handler);
@@ -376,13 +363,6 @@ extern "C"
   int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
-
-  int _real_sigsuspend(const sigset_t *mask);
-  int _real_sighold(int sig);
-  int _real_sigignore(int sig);
-  int _real__sigpause(int __sig_or_mask, int __is_sig);
-  int _real_sigpause(int sig);
-  int _real_sigrelse(int sig);
 
   int _real_sigwait(const sigset_t *set, int *sig);
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
@@ -434,16 +414,12 @@ extern "C"
 #endif /* PID_VIRTUALIZATION */
 
 #ifdef RECORD_REPLAY
-  int _real_closedir(DIR *dirp);
-  DIR * _real_opendir(const char *name);
   int _real_mkdir(const char *pathname, mode_t mode);
   int _real_mkstemp(char *temp);
   FILE * _real_fdopen(int fd, const char *mode);
   char * _real_fgets(char *s, int size, FILE *stream);
-  int _real_fflush(FILE *stream);
   ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream);
   int _real_getc(FILE *stream);
-  int _real_gettimeofday(struct timeval *tv, struct timezone *tz);
   int _real_fgetc(FILE *stream);
   int _real_ungetc(int c, FILE *stream);
   int _real_putc(int c, FILE *stream);

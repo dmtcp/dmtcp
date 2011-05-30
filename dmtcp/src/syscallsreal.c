@@ -49,9 +49,9 @@
 #include <fcntl.h>
 #undef open
 #endif
-typedef int ( *funcptr_t ) ();
+typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
-typedef funcptr_t ( *signal_funcptr_t ) ();
+typedef funcptr ( *signal_funcptr ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
 #ifdef RECORD_REPLAY
@@ -169,23 +169,23 @@ static void computeLibcOffsetArray ()
   assert(count == numLibcWrappers);
 }
 
-static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
+static funcptr get_libc_symbol_from_array ( LibcWrapperOffset idx )
 {
   static int libcOffsetArrayComputed = 0;
   static char *libc_base_func_addr = NULL;
   if (libcOffsetArrayComputed == 0) {
     computeLibcOffsetArray();
-    // Important:  call computeLibcOffsetArray() before get_libc_base_func()
+    // Important:  call computeLibcOffsetArray() before glibc_base_func()
     libc_base_func_addr = get_libc_base_func();
     libcOffsetArrayComputed = 1;
   }
   if (libcFuncOffsetArray[idx] == -1) {
     return NULL;
   }
-  return (funcptr_t)(libc_base_func_addr + libcFuncOffsetArray[idx]);
+  return (funcptr)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
 
-static funcptr_t get_libc_symbol ( const char* name )
+static funcptr get_libc_symbol ( const char* name )
 {
   static void* handle = NULL;
   if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
@@ -207,26 +207,27 @@ static funcptr_t get_libc_symbol ( const char* name )
               dlerror() );
     abort();
   }
-  return ( funcptr_t ) tmp;
+  return ( funcptr ) tmp;
 }
 
-static funcptr_t get_libpthread_symbol ( const char* name )
+static funcptr get_libpthread_symbol ( const char* name )
 {
   static void* handle = NULL;
-  if ( handle==NULL &&
-       ( handle=dlopen ( LIBPTHREAD_FILENAME, RTLD_NOW ) ) == NULL ) {
+  if ( handle==NULL && ( handle=dlopen ( LIBPTHREAD_FILENAME,RTLD_NOW ) ) == NULL )
+  {
     fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",
               dlerror() );
     abort();
   }
 
   void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL ) {
+  if ( tmp == NULL )
+  {
     fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
               dlerror() );
     abort();
   }
-  return ( funcptr_t ) tmp;
+  return ( funcptr ) tmp;
 }
 
 #ifdef RECORD_REPLAY
@@ -250,7 +251,7 @@ static void computeLibpthreadOffsetArray ()
   assert(count == numLibpthreadWrappers);
 }
 
-static funcptr_t get_libpthread_symbol_from_array (LibPthreadWrapperOffset off)
+static funcptr get_libpthread_symbol_from_array ( LibPthreadWrapperOffset off )
 {
   static int libpthreadOffsetArrayComputed = 0;
   static char *libpthread_base_function_addr = NULL;
@@ -259,8 +260,7 @@ static funcptr_t get_libpthread_symbol_from_array (LibPthreadWrapperOffset off)
     libpthread_base_function_addr = (char *)&LIBPTHREAD_BASE_FUNC;
     libpthreadOffsetArrayComputed = 1;
   }
-  return (funcptr_t)((char*)libpthread_base_function_addr
-		     + libpthreadFuncOffsetArray[off]);
+  return (funcptr)((char*)libpthread_base_function_addr + libpthreadFuncOffsetArray[off]);
 }
 #endif //RECORD_REPLAY
 
@@ -289,7 +289,7 @@ static int use_dlsym = 0;
     } \
     return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr_t fn = NULL; \
+#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
     if (fn==NULL) { \
       if (use_dlsym) \
         fn = get_libc_symbol(#name); \
@@ -310,8 +310,7 @@ static int use_dlsym = 0;
 
 #ifdef RECORD_REPLAY
 #undef LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-    static type (*fn) () = NULL; \
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
     if (fn==NULL) { \
       if (use_dlsym) \
         fn = (void*)get_libpthread_symbol(#name); \
@@ -320,8 +319,7 @@ static int use_dlsym = 0;
     } \
     return (*fn)
 
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) \
-    static funcptr_t fn = NULL; \
+#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr fn = NULL; \
     if (fn==NULL) { \
       if (use_dlsym) \
         fn = (void*)get_libpthread_symbol(#name); \
@@ -329,12 +327,12 @@ static int use_dlsym = 0;
         fn = (void*)get_libpthread_symbol_from_array ( ENUM(name) ); \
     } \
     (*fn)
-#else // else not RECORD_REPLAY
+#else
 #define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
     static type (*fn) () = NULL; \
     if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
     return (*fn)
-#endif // end RECORD_REPLAY
+#endif // RECORD_REPLAY
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )
@@ -343,15 +341,13 @@ int _real_socket ( int domain, int type, int protocol )
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_connect ( int sockfd, const struct sockaddr *serv_addr,
-                    socklen_t addrlen )
+int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( connect ) ( sockfd,serv_addr,addrlen );
 }
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_bind ( int sockfd, const struct sockaddr *my_addr,
-                 socklen_t addrlen )
+int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( bind ) ( sockfd,my_addr,addrlen );
 }
@@ -370,8 +366,7 @@ int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 
 //#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
 /// call the libc version of this function via dlopen/dlsym
-int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen,
-                    int flags )
+int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
 {
   REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
 }
@@ -390,7 +385,7 @@ int _real_getpeername( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 #endif
 
 /// call the libc version of this function via dlopen/dlsym
-int _real_setsockopt ( int s, int level, int optname, const void *optval,
+int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                        socklen_t optlen )
 {
   REAL_FUNC_PASSTHROUGH ( setsockopt ) ( s,level,optname,optval,optlen );
@@ -499,26 +494,6 @@ int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
 //}
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
   LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
-}
-
-int _real_sigsuspend(const sigset_t *mask){
-  REAL_FUNC_PASSTHROUGH ( sigsuspend ) ( mask );
-}
-int _real_sighold(int sig){
-  REAL_FUNC_PASSTHROUGH ( sighold ) ( sig );
-}
-int _real_sigignore(int sig){
-  REAL_FUNC_PASSTHROUGH ( sigignore ) ( sig );
-}
-// See 'man sigpause':  signal.h defines two possible versions for sigpause.
-int _real__sigpause(int __sig_or_mask, int __is_sig){
-  REAL_FUNC_PASSTHROUGH ( __sigpause ) ( __sig_or_mask, __is_sig );
-}
-int _real_sigpause(int sig){
-  REAL_FUNC_PASSTHROUGH ( sigpause ) ( sig );
-}
-int _real_sigrelse(int sig){
-  REAL_FUNC_PASSTHROUGH ( sigrelse ) ( sig );
 }
 
 int _real_sigwait(const sigset_t *set, int *sig) {
@@ -669,14 +644,6 @@ FILE * _real_fopen64( const char *path, const char *mode ) {
 }
 
 #ifdef RECORD_REPLAY
-int _real_closedir(DIR *dirp) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
-}
-
-DIR * _real_opendir(const char *name) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
-}
-
 int _real_mkdir(const char *pathname, mode_t mode) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, mkdir ) ( pathname, mode );
 }
@@ -693,10 +660,6 @@ char * _real_fgets(char *s, int size, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( char *, fgets ) ( s, size, stream );
 }
 
-int _real_fflush(FILE *stream) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
-}
-
 int _real_fdatasync(int fd) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fdatasync ) ( fd );
 }
@@ -707,10 +670,6 @@ int _real_fsync(int fd) {
 
 int _real_getc(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, getc ) ( stream );
-}
-
-int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
 }
 
 int _real_fgetc(FILE *stream) {
@@ -947,11 +906,11 @@ int _munmap_no_sync(void *addr, size_t length)
 #ifdef PTRACE
 // gdb calls dlsym on td_thr_get_info.  Need wrapper for tid virtualization.
 // The fnc td_thr_get_info is in libthread_db, and not in libc.
-static funcptr_t get_libthread_db_symbol ( const char* name )
+static funcptr get_libthread_db_symbol ( const char* name )
 {
   void* tmp = NULL;
   static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB, RTLD_NOW ) ) == NULL )
+  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB ,RTLD_NOW ) ) == NULL )
   {
     fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",
               dlerror() );
@@ -964,7 +923,7 @@ static funcptr_t get_libthread_db_symbol ( const char* name )
               dlerror() );
     abort();
   }
-  return ( funcptr_t ) tmp;
+  return ( funcptr ) tmp;
 }
 // Adding the macro for calls to get_libthread_db_symbol
 #define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
@@ -995,7 +954,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   else
   {
     typedef void* ( *fncptr ) (void *handle, const char *symbol);
-    fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
+    fncptr dlsym_addr = (fncptr)((char *)&dlopen + dlsym_offset);
     return (*dlsym_addr) ( handle, symbol );
   }
 }

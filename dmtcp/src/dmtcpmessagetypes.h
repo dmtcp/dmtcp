@@ -42,27 +42,20 @@ namespace dmtcp
     DMT_HELLO_COORDINATOR,   // on connect established worker-coordinator
     DMT_HELLO_WORKER,        // on connect established coordinator-worker
 
-    DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
-    DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
+    DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator 
+    DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command          
 
-    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator
+    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator 
     DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
 
-    DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
+    DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8 
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
 #ifdef EXTERNAL_SOCKET_HANDLING
     DMT_DO_PEER_LOOKUP,      // when coordinator wants, lookup peer for all sockets
 #endif
-
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
-
-#ifdef IBV
-    DMT_DO_REGISTER_NAME_SERVICE_DATA,
-    DMT_DO_SEND_QUERIES,
-#endif
-
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -70,12 +63,6 @@ namespace dmtcp
     DMT_UNKNOWN_PEER,        // Peer not found
     DMT_EXTERNAL_SOCKETS_CLOSED,
 #endif
-
-//#ifdef IBV
-    DMT_REGISTER_NAME_SERVICE_DATA,
-    DMT_NAME_SERVICE_QUERY,
-    DMT_NAME_SERVICE_QUERY_RESPONSE,
-//#endif
 
     DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
     DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
@@ -116,10 +103,6 @@ namespace dmtcp
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
-#ifdef IBV
-        NAME_SERVICE_DATA_REGISTERED,
-        DONE_QUERYING,
-#endif
         REFILLED,
         _MAX
       };
@@ -175,11 +158,6 @@ namespace dmtcp
     struct sockaddr_storage remoteAddr;
 #endif
 
-//#ifdef IBV
-    size_t                  keyLen;
-    size_t                  valLen;
-//#endif
-
     int theCheckpointInterval;
 
     //message type specific parameters
@@ -187,7 +165,7 @@ namespace dmtcp
 
     //extraBytes are used for passing checkpoint filename to coordinator it
     //must be zero in all messages except for in DMT_CKPT_FILENAME
-    size_t extraBytes;
+    int extraBytes;
 
     static void setDefaultCoordinator ( const UniquePid& id );
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );

@@ -23,6 +23,7 @@
 #define DMTCPCONNECTION_H
 
 #include "dmtcpalloc.h"
+#include "dmtcpworker.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>
@@ -337,9 +338,8 @@ namespace dmtcp
           , _offset ( offset )
       {
         _type = type;
-        if (path != "?") {
+        if (path != "?")
           JTRACE("New File connection created")(_path);
-        }
       }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
