@@ -40,7 +40,7 @@ if pathname.find("CAN'T FIND FILE") != -1:
   print "  was really using:  " + dmtcphijack
   sys.exit(1)
 print "Examing stack for call frames from:\n  " + pathname + "\n" \
-      + "FORMAT:  FNC: ..., followed by source code line number.\n"
+      + "FORMAT:  FNC: ..., followed by file:line_number (most recent first).\n"
 
 def getOrigOffset(pathname,procMaps):
   # The text segment in memory must always start at a page boundary.
