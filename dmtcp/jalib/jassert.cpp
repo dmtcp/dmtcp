@@ -195,15 +195,14 @@ const jalib::string writeJbacktraceMsg() {
   dmtcp::ostringstream o;
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
-    "   Execute:  utils/dmtcp_backtrace.py  [found in DMTCP_ROOT]\n" \
-    "   Try:  utils/dmtcp_backtrace.py FILENAME BACKTRACE PROC-MAPS\n" \
-    "     for FILENAME=PATH/dmtcphijack.so and files saved listed below.\n" \
-    "   For further help, try:  utils/dmtcp_backtrace.py --help\n" \
-    "   Files saved: ";
+    "   Try  using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
+    "   Try the following command line:\n" \
+    "     utils/dmtcp_backtrace.py dmtcphijack.so ";
   o << msg << dmtcp::UniquePid::getTmpDir() << "/backtrace."
-    << dmtcp::UniquePid::ThisProcess(true) << "\n                "
+    << dmtcp::UniquePid::ThisProcess(true) << " "
     << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
-    << dmtcp::UniquePid::ThisProcess(true) << "\n";
+    << dmtcp::UniquePid::ThisProcess(true)
+    << "\n   (For further help, try:  utils/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
 
@@ -221,10 +220,11 @@ void writeBacktrace() {
   }
 }
 
-// DOES:  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
-// But it could be dangerous to spawn a process in fragile state of JASSERT.
+// This routine is called when JASSERT triggers.  Something failed.
+// DOES (for further diagnosis):  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
+// WITHOUT malloc or spawning process (could be dangerous in fragile state).
 void writeProcMaps() {
-  char *mapsBuf = (char*) JALLOC_HELPER_MALLOC(50000);
+  char mapsBuf[50000];
   int  count;
   int fd = _real_open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
