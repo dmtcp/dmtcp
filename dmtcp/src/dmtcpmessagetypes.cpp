@@ -90,7 +90,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
 #ifdef EXTERNAL_SOCKET_HANDLING
       OSHIFTPRINTF ( PEER_LOOKUP_COMPLETE )
 #endif
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
       OSHIFTPRINTF ( NAME_SERVICE_DATA_REGISTERED)
       OSHIFTPRINTF ( DONE_QUERYING)
 #endif
@@ -114,7 +114,7 @@ const char* dmtcp::WorkerState::toString() const{
 #ifdef EXTERNAL_SOCKET_HANDLING
   case PEER_LOOKUP_COMPLETE:  return "PEER_LOOKUP_COMPLETE";
 #endif
-#ifdef IBV
+#ifdef COORD_NAMESERVICE
   case NAME_SERVICE_DATA_REGISTERED: return "NAME_SERVICE_DATA_REGISTERED";
   case DONE_QUERYING: return "DONE_QUERYING";
 #endif
@@ -160,7 +160,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_UNKNOWN_PEER )
       OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
 #endif
-//#ifdef IBV
+//#ifdef COORD_NAMESERVICE
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
