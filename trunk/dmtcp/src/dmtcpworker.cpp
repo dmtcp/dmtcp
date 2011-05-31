@@ -1184,6 +1184,19 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
   errno = saved_errno;
 }
 
+static bool dmtcp_module_ckpt_lock;
+extern "C"
+void dmtcp_module_disable_ckpt() {
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  dmtcp_module_ckpt_lock = __wrapperExecutionLockAcquired;
+}
+extern "C"
+void dmtcp_module_enable_ckpt() {
+  bool __wrapperExecutionLockAcquired = dmtcp_module_ckpt_lock;
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+}
+
+
 void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
 {
   while (unInitializedThreadCount != 0) {
