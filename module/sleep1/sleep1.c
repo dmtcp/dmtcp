@@ -30,9 +30,11 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
-void process_dmtcp_event(DmtcpEvent_t event, void* data) {
+void process_dmtcp_event(DmtcpEvent_t event, void* data)
+{
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 
+  /* NOTE:  See warning in module/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_PRE_CHECKPOINT:
     printf("\n*** The module %s is being called before checkpointing. ***\n",

@@ -55,12 +55,12 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
-# dlopen will dlopen/dlclose dlopen-lib[12].so
-dlopen-lib1.so:
-	${CC} -shared -fPIC  -DLIB1 -o dlopen-lib1.so dlopen.c
-dlopen-lib2.so:
-	${CC} -shared -fPIC  -DLIB2 -o dlopen-lib2.so dlopen.c
-dlopen: dlopen.c dlopen-lib1.so dlopen-lib2.so
+# dlopen will dlopen/dlclose libdlopen-lib[12].so
+libdlopen-lib1.so:
+	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so dlopen.c
+libdlopen-lib2.so:
+	${CC} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so dlopen.c
+dlopen: dlopen.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
 %: %.c

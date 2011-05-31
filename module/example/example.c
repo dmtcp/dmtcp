@@ -10,6 +10,7 @@
 
 void process_dmtcp_event(DmtcpEvent_t event, void* data)
 {
+  /* NOTE:  See warning in module/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_INIT:
     printf("The module containing %s has been initialized.\n", __FILE__);
