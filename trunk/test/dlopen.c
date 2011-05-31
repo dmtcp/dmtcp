@@ -1,5 +1,5 @@
-/* To compile, use -DLIB1 to create dlopen-lib1.so, -DLIB2 for dlopen-lib2.so,
- * and define neither to create executable.
+/* To compile, use -DLIB1 to create libdlopen-lib1.so, -DLIB2 for
+ * libdlopen-lib2.so, and define neither to create executable.
  */
 
 #if !defined(LIB1) && !defined(LIB2)
@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
       dlclose(handle);
 
     if (lib == 1) {
-      handle = dlopen("./dlopen-lib1.so", RTLD_NOW);
+      handle = dlopen("./libdlopen-lib1.so", RTLD_NOW);
       if (handle == NULL) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     }
 
     if (lib == 2) {
-      handle = dlopen("./dlopen-lib2.so", RTLD_LAZY);
+      handle = dlopen("./libdlopen-lib2.so", RTLD_LAZY);
       if (handle == NULL) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
