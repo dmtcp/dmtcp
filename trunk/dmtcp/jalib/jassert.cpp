@@ -75,7 +75,7 @@ static int jwrite(int fd, const char *str)
 
   for (offs = 0; offs < size;) {
     rc = write (fd, str + offs, size - offs);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN) 
+    if (rc == -1 && errno != EINTR && errno != EAGAIN)
       return rc;
     else if (rc > 0)
       offs += rc;
@@ -138,12 +138,13 @@ jassert_internal::JAssert::~JAssert()
     Print ( " (" );
     Print ( getpid() );
     Print ( "): Terminating...\n" );
+    jassert_safe_print ( ss.str().c_str() );
+    ss.str("");
 #ifdef DEBUG
     jbacktrace();
 #endif
   }
 
-  jassert_safe_print ( ss.str().c_str() );
   if ( _logLockAcquired )
     jassert_internal::unlockLog();
 

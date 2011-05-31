@@ -684,13 +684,16 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     // The ckpt thread can receive multiple DMT_RESTORE_WAITING or
     // DMT_FORCE_RESTART messages while waiting for a DMT_DO_REFILL message, we
     // need to ignore them and wait for the DMT_DO_REFILL message to arrive.
-    if ( type != DMT_DO_REFILL ) {
+    if ( type != DMT_DO_REFILL && type != DMT_DO_REGISTER_NAME_SERVICE_DATA &&
+         type != DMT_DO_SEND_QUERIES ) {
       break;
     }
 
-  } while ( type == DMT_DO_REFILL &&
-            ( msg.type == DMT_RESTORE_WAITING ||
-              msg.type == DMT_FORCE_RESTART ) );
+  } while((type == DMT_DO_REFILL
+           || type == DMT_DO_REGISTER_NAME_SERVICE_DATA
+           || type == DMT_DO_SEND_QUERIES)
+          && (msg.type == DMT_RESTORE_WAITING ||
+              msg.type == DMT_FORCE_RESTART));
 
   JASSERT ( msg.type == type ) ( msg.type );
 
