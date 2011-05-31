@@ -169,8 +169,7 @@ dist_exclude.txt:
 dist: distclean dist_exclude.txt
 	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
 	    --exclude-from=$$dir/dist_exclude.txt \
-	    --exclude $$dir/dist_exclude.txt \
-	    --exclude='.*/.svn/*' --exclude='*/.svn' --exclude='*/.deps' \
+	    --exclude $$dir/dist_exclude.txt --exclude-vcs --exclude='*/.deps' \
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 

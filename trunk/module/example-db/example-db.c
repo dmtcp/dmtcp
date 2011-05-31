@@ -47,13 +47,15 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
      *   send_key_val_pair and send_query.  Using these functions in the wrong
      *   order risks deadlock.  Calling send_query on a non-existent key
      *   risks aborting the computation.
+     *     Currently, calling send_query without having previously called
+     *   send_key_val_pair within the same transaction also risks an abort.
      */
     /* Set max size of the buffer &(mystruct.pid) */
     sizeofPid = sizeof(mystruct_other.pid);
     send_query_to_coordinator(&(mystruct_other.key), sizeof(mystruct_other.key),
                               &(mystruct_other.pid), &sizeofPid);
-    printf("Data exchanged:  My pid is: %ld;  The other pid is:  %ld.\n",
-	   (long)mystruct.pid, (long)mystruct_other.pid);
+    printf("Data exchanged:  My (key,pid) is: (%d, %ld);  The other pid is:  "
+	  "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);
     break;
   default:
     break;

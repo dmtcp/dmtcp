@@ -52,7 +52,8 @@ distclean: clean
 	rm -f ${LIBNAME}.so *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 
 dist: distclean
-	dir=`basename $$PWD`; cd ..; tar czvf $$dir.tar.gz ./$$dir
+	dir=`basename $$PWD`; cd ..; \
+	  tar czvf $$dir.tar.gz --exclude-vcs ./$$dir
 	dir=`basename $$PWD`; ls -l ../$$dir.tar.gz
 
 .PHONY: default clean dist distclean

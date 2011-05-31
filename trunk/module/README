@@ -4,5 +4,6 @@ After killing process, try:  ./dmtcp_restart_script.sh
 
 example:  how to react to special events (init, ckpt, resume, restart, ...)
 sleep1:  wrapper around sleep() in program ../../test/dmtcp1
+         (displays seconds and microseconds, before and after sleep())
 sleep2:  second wrapper around sleep() in program ../../test/dmtcp1
 	'make check' invokes both wrappers simultaneously.
