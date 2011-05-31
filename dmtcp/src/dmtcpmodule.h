@@ -49,6 +49,8 @@ typedef enum eDmtcpEvent {
   nDmtcpEvents
 } DmtcpEvent_t;
 
+EXTERNC void dmtcp_module_disable_ckpt(void);
+EXTERNC void dmtcp_module_enable_ckpt(void);
 EXTERNC void process_dmtcp_event(DmtcpEvent_t event, void* data);
 EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
                                     const void *val, size_t val_len);
