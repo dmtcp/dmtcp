@@ -130,7 +130,7 @@ icheck-%: tests
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
 	rm -f ckpt_* dmtcp_restart_script* dmtcp-shared-memory.* core*
-	(cd module  && $(MAKE) tidy)
+	cd module && $(MAKE) tidy > /dev/null
 
 clean: tidy
 	-(cd mtcp  && $(MAKE) clean)
