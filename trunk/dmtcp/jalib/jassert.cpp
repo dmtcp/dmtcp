@@ -145,6 +145,8 @@ jassert_internal::JAssert::~JAssert()
 #endif
   }
 
+  if (!ss.str().empty())
+    jassert_safe_print ( ss.str().c_str() );
   if ( _logLockAcquired )
     jassert_internal::unlockLog();
 
