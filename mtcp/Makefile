@@ -303,7 +303,8 @@ mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}
 	dir=`pwd`; cd ..; cp -r ./`basename $$dir` /tmp/mtcpv${MTCP_VERSION}; \
-	 cd  /tmp; tar czvf mtcpv${MTCP_VERSION}.tgz ./mtcpv${MTCP_VERSION}
+	 cd  /tmp; tar czvf mtcpv${MTCP_VERSION}.tgz --exclude-vcs \
+	 ./mtcpv${MTCP_VERSION}
 	rm -rf /tmp/mtcpv${MTCP_VERSION}
 	mv /tmp/mtcpv${MTCP_VERSION}.tgz ../
 	ls -l ../mtcpv${MTCP_VERSION}.tgz
