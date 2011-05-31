@@ -525,7 +525,13 @@ if testconfig.HAS_ZSH == "yes":
   runTest("zsh",          2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-# runTest("dlopen",          1, ["./test/dlopen"])
+old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
+os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
+runTest("dlopen",          1, ["./test/dlopen"])
+if old_ld_library_path:
+  os.environ['LD_LIBRARY_PATH'] = old_ld_library_path 
+else:
+  del os.environ['LD_LIBRARY_PATH']
 
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=2

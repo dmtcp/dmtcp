@@ -130,6 +130,32 @@ extern "C" int pipe2 ( int fds[2], int flags )
 }
 #endif
 
+// TODO: Integrate NEXT_FNC() with remaining wrappers in future.
+#include <dlfcn.h>
+#define NEXT_FNC(symbol) \
+  (next_fnc ? *next_fnc : \
+   *(next_fnc = (__typeof__(next_fnc))dlsym(RTLD_NEXT, #symbol)))
+extern "C"
+void *dlopen(const char *filename, int flag)
+{
+  void *ret;
+  static void *(*next_fnc)(const char *, int) = NULL;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  ret = NEXT_FNC(dlopen)(filename, flag);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+extern "C"
+int dlclose(void *handle)
+{
+  int ret;
+  static int (*next_fnc)(void *) = NULL;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  ret = NEXT_FNC(dlclose)(handle);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+
 #ifdef PID_VIRTUALIZATION
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)

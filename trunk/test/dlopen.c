@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
       dlclose(handle);
 
     if (lib == 1) {
-      handle = dlopen("./libdlopen-lib1.so", RTLD_NOW);
+      handle = dlopen("libdlopen-lib1.so", RTLD_NOW);
       if (handle == NULL) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     }
 
     if (lib == 2) {
-      handle = dlopen("./libdlopen-lib2.so", RTLD_LAZY);
+      handle = dlopen("libdlopen-lib2.so", RTLD_LAZY);
       if (handle == NULL) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
