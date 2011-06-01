@@ -1183,7 +1183,12 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
   errno = saved_errno;
 }
 
-static bool dmtcp_module_ckpt_lock;
+// GNU g++ uses __thread.  But the C++0x standard says to use thread_local.
+//   If your compiler fails here, you can: change "__thread" to "thread_local";
+//   or delete "__thread" (but if user code calls these routines from multiple
+//   threads, it will not be thread-safe).
+//   In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
+static __thread bool dmtcp_module_ckpt_lock;
 extern "C"
 void dmtcp_module_disable_ckpt() {
   WRAPPER_EXECUTION_DISABLE_CKPT();
