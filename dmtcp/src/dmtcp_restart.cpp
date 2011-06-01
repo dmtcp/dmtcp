@@ -57,7 +57,7 @@ void unlockPidMapFile();
 static void runMtcpRestore ( const char* path, int offset,
                              size_t argvSize, size_t envSize);
 
-namespace
+namespace dmtcp
 {
 
 #ifdef PID_VIRTUALIZATION
