@@ -32,9 +32,8 @@
 #include <fstream>
 #include <execinfo.h>  /* For backtrace() */
 
-// Needed for dmtcp::UniquePid::getTmpDir()
 // Is there a cleaner way to get information from rest of DMTCP?
-#include "../src/uniquepid.h"
+#include "../src/dmtcpmodule.h"
 #include "../src/util.h"
 #include "../src/protectedfds.h"
 
@@ -52,10 +51,9 @@
 #  define DECORATE_FN(fn) ::_real_ ## fn
 #endif
 
-#ifdef RECORD_REPLAY
 #define pthread_mutex_lock _real_pthread_mutex_lock
+#define pthread_mutex_trylock _real_pthread_mutex_trylock
 #define pthread_mutex_unlock _real_pthread_mutex_unlock
-#endif
 
 int jassert_quiet = 0;
 
@@ -201,10 +199,10 @@ const jalib::string writeJbacktraceMsg() {
     "   Try  using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
     "     utils/dmtcp_backtrace.py dmtcphijack.so ";
-  o << msg << dmtcp::UniquePid::getTmpDir() << "/backtrace."
-    << dmtcp::UniquePid::ThisProcess(true) << " "
-    << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
-    << dmtcp::UniquePid::ThisProcess(true)
+  o << msg << dmtcp_get_tmpdir() << "/backtrace."
+    << dmtcp_get_uniquepid_str() << " "
+    << dmtcp_get_tmpdir() << "/proc-maps."
+    << dmtcp_get_uniquepid_str()
     << "\n   (For further help, try:  utils/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
@@ -213,8 +211,8 @@ void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
   dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/backtrace."
-    << dmtcp::UniquePid::ThisProcess(true);
+  o << dmtcp_get_tmpdir() << "/backtrace."
+    << dmtcp_get_uniquepid_str();
   int fd = _real_open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
                       S_IRUSR|S_IWUSR);
   if (fd != -1) {
@@ -235,8 +233,8 @@ void writeProcMaps() {
   close(fd);
 
   dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/proc-maps."
-    << dmtcp::UniquePid::ThisProcess(true);
+  o << dmtcp_get_tmpdir() << "/proc-maps."
+    << dmtcp_get_uniquepid_str();
   fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = Util::writeAll(fd, mapsBuf, count);

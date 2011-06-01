@@ -45,12 +45,6 @@
 #  define DECORATE_FN(fn) ::_real_ ## fn
 #endif
 
-#ifdef DMTCP
-#  ifdef RECORD_REPLAY
-#    define select _real_select
-#  endif
-#endif
-
 const jalib::JSockAddr jalib::JSockAddr::ANY ( NULL );
 
 jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
@@ -195,7 +189,7 @@ bool jalib::JSocket::close()
 
 ssize_t jalib::JSocket::read ( char* buf, size_t len )
 {
-  return ::read ( _sockfd,buf,len );
+  return DECORATE_FN(read) ( _sockfd,buf,len );
 }
 
 ssize_t jalib::JSocket::write ( const char* buf, size_t len )
@@ -224,7 +218,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     tv.tv_sec = 120;
     tv.tv_usec = 0;
 
-    retval = select ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
+    retval = DECORATE_FN(select) ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
@@ -234,7 +228,8 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
         JWARNING (false) .Text ( "Socket already closed" );
         return -1;
       } else if( errno != EINTR ){ 
-        JWARNING ( retval >= 0 ) ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
+        JWARNING ( retval >= 0 )
+          ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
         return -1;
       }
     }
@@ -288,7 +283,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     tv.tv_sec = 30;
     tv.tv_usec = 0;
 
-    retval = select ( tmp_sockfd+1, NULL, &wfds, NULL, &tv );
+    retval = DECORATE_FN(select) ( tmp_sockfd+1, NULL, &wfds, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
@@ -605,11 +600,12 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     }
 
     //this will block till we have some work to do
-    int retval = select ( maxFd+1, &rfds, &wfds, NULL, timeout );
+    int retval = DECORATE_FN(select) ( maxFd+1, &rfds, &wfds, NULL, timeout );
 
     if ( retval == -1 )
     {
-      JWARNING ( retval != -1 ) ( maxFd ) ( retval ) ( JASSERT_ERRNO ).Text ( "select failed" );
+      JWARNING ( retval != -1 )
+        ( maxFd ) ( retval ) ( JASSERT_ERRNO ).Text ( "select failed" );
       return;
     }
     else if ( retval > 0 )

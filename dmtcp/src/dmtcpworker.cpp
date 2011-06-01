@@ -59,11 +59,6 @@
 
 #ifdef RECORD_REPLAY
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-#define pthread_mutex_lock _real_pthread_mutex_lock
-#define pthread_mutex_unlock _real_pthread_mutex_unlock
-#define pthread_rwlock_rdlock _real_pthread_rwlock_rdlock
-#define pthread_rwlock_wrlock _real_pthread_rwlock_wrlock
-#define pthread_rwlock_unlock _real_pthread_rwlock_unlock
 #endif
 
 using namespace dmtcp;
@@ -441,7 +436,7 @@ void dmtcp::DmtcpWorker::interruptCkpthread()
 {
   if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
     killCkpthread();
-    JASSERT(pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
+    JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
   }
 }
 
@@ -652,7 +647,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
       pthread_exit(NULL);
     }
     if ( exitInProgress() ) {
-      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
       pthread_exit(NULL);
     }
   }
@@ -670,7 +665,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     _coordinatorSocket >> msg;
 
     if ( type == DMT_DO_SUSPEND && exitInProgress() ) {
-      JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
       pthread_exit(NULL);
     }
 
@@ -786,11 +781,11 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
 
   JTRACE ( "got SUSPEND message, waiting for lock(&theCkptCanStart)" );
-  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   JTRACE ( "got SUSPEND message,"
            " waiting for other threads to exit DMTCP-Wrappers" );
-  JASSERT(pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
   JTRACE ( "got SUSPEND message,"
            " waiting for newly created threads to finish initialization" )
          (unInitializedThreadCount);
@@ -809,15 +804,15 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "suspended" );
 
   if ( exitInProgress() ) {
-    JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+    JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
     pthread_exit(NULL);
   }
 
   JASSERT(_coordinatorSocket.isValid());
 
-  JASSERT(pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
-  JASSERT(pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   process_dmtcp_event(DMTCP_EVENT_POST_SUSPEND, NULL);
 
@@ -1138,11 +1133,11 @@ void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 }
 
 void dmtcp::DmtcpWorker::delayCheckpointsLock(){
-  JASSERT(pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
 void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
-  JASSERT(pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
 // XXX: Handle deadlock error code
@@ -1155,7 +1150,7 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    int retVal = pthread_rwlock_rdlock(&theWrapperExecutionLock);
+    int retVal = _real_pthread_rwlock_rdlock(&theWrapperExecutionLock);
     if ( retVal != 0 && retVal != EDEADLK ) {
       fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
       _exit(1);
@@ -1177,7 +1172,7 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
              "This should not be happening, something is wrong." );
     _exit(1);
   }
-  if ( pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
+  if ( _real_pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s: Failed to release lock", __PRETTY_FUNCTION__ );
     _exit(1);
     }
@@ -1209,11 +1204,11 @@ void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
     unInitializedThreadCount++;
     //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
@@ -1223,12 +1218,12 @@ void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
     JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
     unInitializedThreadCount--;
     //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
   errno = saved_errno;

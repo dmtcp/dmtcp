@@ -40,13 +40,13 @@ void jalib::JAllocDispatcher::reset_on_fork()
 
 void jalib::JAllocDispatcher::lock()
 {
-  if(pthread_mutex_lock(&allocateLock) != 0)
+  if(_real_pthread_mutex_lock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadAcquireLock");
 }
 
 void jalib::JAllocDispatcher::unlock()
 {
-  if(pthread_mutex_unlock(&allocateLock) != 0)
+  if(_real_pthread_mutex_unlock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadReleaseLock");
 }
 
