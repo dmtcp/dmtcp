@@ -38,7 +38,8 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
     printf("\nThe module is being called before checkpointing.\n");
     break;
   case DMTCP_EVENT_POST_CHECKPOINT:
-  // case DMTCP_EVENT_POST_RESTART_RESUME:
+    /* Although one process resumes late, they will still all synchronize. */
+    if (mystruct.key == 1) sleep(1);
     printf("The module is now resuming or restarting from checkpointing.\n");
     send_key_val_pair_to_coordinator(&(mystruct.key), sizeof(mystruct.key),
                                      &(mystruct.pid), sizeof(mystruct.pid));

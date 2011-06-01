@@ -67,7 +67,7 @@ void dmtcp::LookupService::respondToQuery(const dmtcp::UniquePid& upid,
   size_t keyLen = msg.keyLen;
   void *val = NULL;
   size_t valLen = 0;
-  JASSERT(query(key, msg.keyLen, &val, &valLen) != NULL);
+  JASSERT(query(key, msg.keyLen, &val, &valLen) != NULL)(key)(msg.keyLen);
 
   char *extraData = NULL;
   extraData = new char[msg.keyLen + valLen];

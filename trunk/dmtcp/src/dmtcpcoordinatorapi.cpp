@@ -279,8 +279,9 @@ void dmtcp::DmtcpCoordinatorAPI::startNewCoordinator(int modes, int isRestart)
   dmtcp::string s = coordinatorAddr;
   if(s != "localhost" && s != "127.0.0.1" &&
      s != jalib::Filesystem::GetCurrentHostname()){
-    JASSERT(false)
-      .Text("Won't automatically start coordinator because DMTCP_HOST is set to a remote host.");
+    JASSERT(false)(s)(jalib::Filesystem::GetCurrentHostname())
+      .Text("Won't automatically start coordinator because DMTCP_HOST"
+            " is set to a remote host.");
     _real_exit(1);
   }
 
