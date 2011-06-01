@@ -175,6 +175,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real__sigpause(int __sig_or_mask, int __is_sig);
   int _real_sigpause(int sig);
   int _real_sigrelse(int sig);
+  sighandler_t _real_sigset(int sig, sighandler_t disp);
 
   int _real_sigwait(const sigset_t *set, int *sig);
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
@@ -229,8 +230,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
-
-  sighandler_t _real_sigset(int sig, sighandler_t disp);
 
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
