@@ -39,12 +39,12 @@ static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static void _do_lock_tbl()
 {
-  JASSERT(pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
 static void _do_unlock_tbl()
 {
-  JASSERT(pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
 dmtcp::VirtualPidTable::VirtualPidTable()

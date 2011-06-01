@@ -104,8 +104,9 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	protectedfds.$(OBJEXT) sockettable.$(OBJEXT) \
 	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	sysvipc.$(OBJEXT) util.$(OBJEXT) jalloc.$(OBJEXT) \
-	synchronizationlogging.$(OBJEXT) log.$(OBJEXT)
+	sysvipc.$(OBJEXT) exec_util.$(OBJEXT) gen_util.$(OBJEXT) \
+	jalloc.$(OBJEXT) synchronizationlogging.$(OBJEXT) \
+	log.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
@@ -325,7 +326,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp \
-	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp util.cpp \
+	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp exec_util.cpp gen_util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
@@ -576,9 +577,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmodule.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpnohijackstubs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exec_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_read_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gen_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jassert.Po@am__quote@
@@ -608,7 +611,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/virtualpidtable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 

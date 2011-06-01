@@ -37,12 +37,12 @@
 /* Defined and allocated in mtcp.c */
 extern int dmtcp_exists;
 
-int __attribute__ ((weak))
-_real_sigaction (int sig, const struct sigaction *act, struct sigaction *oact) {
-  MTCP_PRINTF("This function should never be called when running with"
-              "DMTCP.\n");
-  mtcp_abort();
-}
+//int __attribute__ ((weak))
+//_real_sigaction (int sig, const struct sigaction *act, struct sigaction *oact) {
+//  MTCP_PRINTF("This function should never be called when running with"
+//              "DMTCP.\n");
+//  mtcp_abort();
+//}
 
 /* The difference here is that the sigaction structure used in the
    kernel is not the same as we use in the libc.  Therefore we must
@@ -59,6 +59,8 @@ struct kernel_sigaction {
 #define SA_RESTORER 0x04000000
 
 
+extern int (*sigaction_entry) (int sig, const struct sigaction *act,
+                                struct sigaction *oact);
 /* If ACT is not NULL, change the action for SIG to *ACT.
    If OACT is not NULL, put the old action for SIG in *OACT.  */
 int __attribute__ ((visibility ("hidden")))
@@ -71,7 +73,7 @@ mtcp_sigaction (int sig, const struct sigaction *act,
   /* if sig != SIGCANCEL and sig != SIGSETXID, use glibc version */
   if (sig != 32 && sig != 33) {
     if (dmtcp_exists) /* then _real_sigaction defined by DMTCP; avoid wrapper */
-      return _real_sigaction(sig, act, oact);
+      return sigaction_entry(sig, act, oact);
     else /* this will go directly to glibc */
       return sigaction(sig, act, oact);
   }

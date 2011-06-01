@@ -94,6 +94,42 @@ void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
 #endif
 
+int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
+}
+
+int _real_pthread_mutex_trylock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_trylock ) ( mutex );
+}
+
+int _real_pthread_mutex_unlock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_unlock ) ( mutex );
+}
+
+int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_unlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_rdlock ) ( rwlock );
+}
+
+int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+ssize_t _real_read(int fd, void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH ( read ) ( fd,buf,count );
+}
+
+ssize_t _real_write(int fd, const void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,write ) ( fd,buf,count );
+}
+
+int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
+                 fd_set *exceptfds, struct timeval *timeout) {
+  REAL_FUNC_PASSTHROUGH ( select ) ( nfds,readfds,writefds,exceptfds,timeout );
+}
 
 /// call the libc version of this function via dlopen/dlsym
 int _real_socket ( int domain, int type, int protocol )

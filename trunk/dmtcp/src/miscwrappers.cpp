@@ -164,7 +164,7 @@ int shmget(key_t key, size_t size, int shmflg)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   while (true) {
     ret = _real_shmget(key, size, shmflg);
-    if (ret != -1 && 
+    if (ret != -1 &&
         dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
       dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
       break;

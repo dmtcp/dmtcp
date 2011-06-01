@@ -44,8 +44,6 @@ namespace Util
   ssize_t writeAll(int fd, const void *buf, size_t count);
   ssize_t readAll(int fd, void *buf, size_t count);
 
-  //char *dmtcpBasename(char *pathname);
-  int isdir0700(const char *pathname);
   int safeMkdir(const char *pathname, mode_t mode);
   int safeSystem(const char *command);
 

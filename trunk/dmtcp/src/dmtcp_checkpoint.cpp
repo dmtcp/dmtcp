@@ -140,31 +140,9 @@ static void *get_libc_symbol ( const char* name )
   return tmp;
 }
 
-#ifdef RECORD_REPLAY
-static void *get_libpthread_symbol ( const char* name )
-{
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBPTHREAD_FILENAME, RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-  void* tmp = dlsym ( handle, name );
-  if ( tmp==NULL )
-  {
-    fprintf ( stderr,"dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return tmp;
-}
-#endif // RECORD_REPLAY
 
 static void prepareDmtcpWrappers()
 {
-#ifndef ENABLE_DLOPEN
   unsigned int wrapperOffsetArray[numLibcWrappers];
   char *glibc_base_function_addr = NULL;
 
@@ -190,30 +168,7 @@ static void prepareDmtcpWrappers()
   }
 
   setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
-#ifdef RECORD_REPLAY
-  long wrapperOffsetArrayPthread[numLibpthreadWrappers];
-  char *libpthread_base_function_addr = (char*)&LIBPTHREAD_BASE_FUNC;
 
-# define _GET_OFFSET_LIBPTHREAD(x) \
-    wrapperOffsetArrayPthread[enum_ ## x] = ((char*)get_libpthread_symbol(#x) - libpthread_base_function_addr);
-
-  FOREACH_PTHREAD_FUNC_WRAPPER(_GET_OFFSET_LIBPTHREAD);
-
-  dmtcp::ostringstream os_pthread;
-  for (int i = 0; i < numLibpthreadWrappers; i++) {
-    os_pthread << wrapperOffsetArrayPthread[i] << ";";
-  }
-
-  setenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS, os_pthread.str().c_str(), 1);
-#endif //RECORD_REPLAY
-#else
-  unsetenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-#ifdef RECORD_REPLAY
-  unsetenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
-#endif
-#endif
-
-#ifdef PTRACE
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
    * application. */
@@ -232,7 +187,6 @@ static void prepareDmtcpWrappers()
   sprintf(str, "%d", tmp3);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
   dlclose(handle);
-#endif
 }
 
 //shift args
@@ -606,7 +560,7 @@ void adjust_rlimit_stack() {
 }
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
-bool testScreen(char **argv, char ***newArgv) 
+bool testScreen(char **argv, char ***newArgv)
 {
   if (Util::isScreen(argv[0])) {
     setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);

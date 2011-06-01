@@ -37,10 +37,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#ifdef RECORD_REPLAY
-#define read _real_read
-#endif
-
 static dmtcp::string _procFDPath ( int fd )
 {
   return "/proc/self/fd/" + jalib::XToString ( fd );
@@ -911,7 +907,7 @@ static char first_char(const char *filename)
     fd = open(filename, O_RDONLY);
     JASSERT(fd >= 0)(filename).Text("ERROR: Cannot open filename");
 
-    rc = read(fd, &c, 1);
+    rc = _real_read(fd, &c, 1);
     JASSERT(rc == 1)(filename).Text("ERROR: Error reading from filename");
 
     close(fd);
@@ -1005,7 +1001,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
   JASSERT(fd>=0)(path).Text("Failed to open file.");
   char buf[512];
   const int len = strlen(DMTCP_FILE_HEADER);
-  JASSERT(read(fd, buf, len)==len)(path).Text("read() failed");
+  JASSERT(_real_read(fd, buf, len)==len)(path).Text("_real_read() failed");
   if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
     JTRACE("opened checkpoint file [uncompressed]")(path);
   }else{
@@ -1020,7 +1016,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
   JASSERT(fd>=0)(path).Text("Failed to open file.");
   char buf[512];
   const int len = strlen(DMTCP_FILE_HEADER);
-  JASSERT(read(fd, buf, len)==len)(path).Text("read() failed");
+  JASSERT(_real_read(fd, buf, len)==len)(path).Text("_real_read() failed");
   if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
     JTRACE("opened checkpoint file [uncompressed]")(path);
     return fd;
@@ -1031,7 +1027,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
     JASSERT(t!=NULL)(path)(cmd).Text("Failed to launch gzip.");
     JTRACE ( "created gzip child process to uncompress checkpoint file");
     fd = fileno(t);
-    JASSERT(read(fd, buf, len)==len)(cmd)(path).Text("Invalid checkpoint file");
+    JASSERT(_real_read(fd, buf, len)==len)(cmd)(path).Text("Invalid checkpoint file");
     JASSERT(strncmp(buf, DMTCP_FILE_HEADER, len)==0)(path).Text("Invalid checkpoint file");
     JTRACE("opened checkpoint file [compressed]")(path);
     return fd;

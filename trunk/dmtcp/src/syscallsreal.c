@@ -61,39 +61,10 @@ static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-/*
-static print_mutex(pthread_mutex_t *m,char *func)
-{
-        int i = 0;
-        printf("theMutex(%s) internals: ",func);
-        for(i=0;i<sizeof(pthread_mutex_t);i++){
-                printf("%02x ",*((char*)m + i) );
-        }
-        printf("\n");
-}
-*/
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-#ifdef RECORD_REPLAY
-// Need these prototypes for _dmtcp_lock/unlock().
-int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
-int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
 void _dmtcp_lock() { _real_pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { _real_pthread_mutex_unlock ( &theMutex ); }
-#else
-void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
-
-void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
-#endif
-
-/*
-  if( ret == EPERM ){
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE_NP);
-        pthread_mutex_init(&theMutex,&attr);
-  }
-}
-*/
 
 void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_t attr;
@@ -185,328 +156,307 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
   return (funcptr_t)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
 
-static funcptr_t get_libc_symbol ( const char* name )
-{
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-#ifdef PTRACE
-  void* tmp = _real_dlsym ( handle, name );
-#else
-  void* tmp = dlsym ( handle, name );
-#endif
-
-  if ( tmp == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return ( funcptr_t ) tmp;
-}
-
-static funcptr_t get_libpthread_symbol ( const char* name )
-{
-  static void* handle = NULL;
-  if ( handle==NULL &&
-       ( handle=dlopen ( LIBPTHREAD_FILENAME, RTLD_NOW ) ) == NULL ) {
-    fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-  void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL ) {
-    fprintf ( stderr, "dmtcp: get_libpthread_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return ( funcptr_t ) tmp;
-}
-
-#ifdef RECORD_REPLAY
-static void computeLibpthreadOffsetArray ()
-{
-  char *libpthreadFuncOffsetStr = getenv(ENV_VAR_LIBPTHREAD_FUNC_OFFSETS);
-  char *start;
-  char *next;
-  int count;
-  
-  assert(libpthreadFuncOffsetStr != NULL);
-
-  start = libpthreadFuncOffsetStr;
-  for (count = 0; count < numLibpthreadWrappers; count++) {
-    libpthreadFuncOffsetArray[count] = strtol(start, &next, 10);
-    if (*next != ';') break;
-    start = next + 1;
-  }
-  if (*start != '\0') count++;
-  
-  assert(count == numLibpthreadWrappers);
-}
-
-static funcptr_t get_libpthread_symbol_from_array (LibPthreadWrapperOffset off)
-{
-  static int libpthreadOffsetArrayComputed = 0;
-  static char *libpthread_base_function_addr = NULL;
-  if (libpthreadOffsetArrayComputed == 0) {
-    computeLibpthreadOffsetArray();
-    libpthread_base_function_addr = (char *)&LIBPTHREAD_BASE_FUNC;
-    libpthreadOffsetArrayComputed = 1;
-  }
-  return (funcptr_t)((char*)libpthread_base_function_addr
-		     + libpthreadFuncOffsetArray[off]);
-}
-#endif //RECORD_REPLAY
-
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
-#ifdef ENABLE_DLOPEN
-static int use_dlsym = 1;
-#else
-static int use_dlsym = 0;
-#endif
-
 #define REAL_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
-#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) static type (*fn) () = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = (void*)get_libc_symbol(#name); \
-      else \
-        fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
-      if (fn == NULL) { \
-        fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
-                        "           The symbol wasn't found in current glibc.\n" \
-                        "    Aborting.\n", #name); \
-      } \
+#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
+  static type (*fn) () = NULL; \
+  if (fn == NULL) fn = (type (*)())_real_dlsym(RTLD_NEXT, #name); \
+  return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_VOID(name) \
+    static void (*fn) () = NULL; \
+  if (fn == NULL) fn = (void (*)())_real_dlsym(RTLD_NEXT, #name); \
+  (*fn)
+
+
+#define REAL_LIBC_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
+
+#define REAL_LIBC_FUNC_PASSTHROUGH_TYPED(type,name) \
+  static type (*fn) () = NULL; \
+  if (fn==NULL) { \
+    fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
+    if (fn == NULL) { \
+      fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
+                      "           The symbol wasn't found in current glibc.\n" \
+                      "    Aborting.\n", #name); \
     } \
-    return (*fn)
+  } \
+  return (*fn)
 
-#define REAL_FUNC_PASSTHROUGH_VOID(name) static funcptr_t fn = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = get_libc_symbol(#name); \
-      else \
-        fn = get_libc_symbol_from_array ( ENUM(name) ); \
-      if (fn == NULL) { \
-        fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
-                        "           The symbol wasn't found in current glibc.\n" \
-                        "    Aborting.\n", #name); \
-      } \
+#define REAL_LIBC_FUNC_PASSTHROUGH_VOID(name) \
+  static funcptr_t fn = NULL; \
+  if (fn==NULL) { \
+    fn = get_libc_symbol_from_array ( ENUM(name) ); \
+    if (fn == NULL) { \
+      fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
+                      "           The symbol wasn't found in current glibc.\n" \
+                      "    Aborting.\n", #name); \
     } \
-    (*fn)
+  } \
+  (*fn)
 
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-    static type (*fn) () = NULL; \
-    if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
-    return (*fn)
+LIB_PRIVATE
+void *_real_dlsym ( void *handle, const char *symbol ) {
+  /* In the future dlsym_offset should be global variable defined in
+     dmtcpworker.cpp. For some unclear reason doing that causes a link
+     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp
+     and  dmtcpworker.cpp. Commenting out the extra definition in
+     dmtcp_coordinator.cpp sometimes caused an seg fault on
+       dmtcp_checkpoint gdb a.out
+     when user types run in gdb.
+  */
+  static int dlsym_offset = 0;
+  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
+  {
+    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
+    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
+        fails to start.
+    */
+    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
+  }
+  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
+  void *res = NULL;
+  if ( dlsym_offset == 0)
+    res = dlsym ( handle, symbol );
+  else
+  {
+    typedef void* ( *fncptr ) (void *handle, const char *symbol);
+    fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
+    res = (*dlsym_addr) ( handle, symbol );
+  }
+  return res;
+}
 
-#ifdef RECORD_REPLAY
-#undef LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-    static type (*fn) () = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = (void*)get_libpthread_symbol(#name); \
-      else \
-        fn = (void*)get_libpthread_symbol_from_array ( ENUM(name) ); \
-    } \
-    return (*fn)
+LIB_PRIVATE
+int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
+}
 
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) \
-    static funcptr_t fn = NULL; \
-    if (fn==NULL) { \
-      if (use_dlsym) \
-        fn = (void*)get_libpthread_symbol(#name); \
-      else \
-        fn = (void*)get_libpthread_symbol_from_array ( ENUM(name) ); \
-    } \
-    (*fn)
-#else // else not RECORD_REPLAY
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-    static type (*fn) () = NULL; \
-    if (fn==NULL) fn = (void *)get_libpthread_symbol(#name); \
-    return (*fn)
-#endif // end RECORD_REPLAY
+LIB_PRIVATE
+int _real_pthread_mutex_trylock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_trylock ) ( mutex );
+}
 
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
+int _real_pthread_mutex_unlock(pthread_mutex_t *mutex) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_unlock ) ( mutex );
+}
+
+LIB_PRIVATE
+int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_unlock ) ( rwlock );
+}
+
+LIB_PRIVATE
+int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_rdlock ) ( rwlock );
+}
+
+LIB_PRIVATE
+int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+LIB_PRIVATE
+ssize_t _real_read(int fd, void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH ( read ) ( fd,buf,count );
+}
+
+LIB_PRIVATE
+ssize_t _real_write(int fd, const void *buf, size_t count) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,write ) ( fd,buf,count );
+}
+
+LIB_PRIVATE
+int _real_select(int nfds, fd_set *readfds, fd_set *writefds,
+                 fd_set *exceptfds, struct timeval *timeout) {
+  REAL_FUNC_PASSTHROUGH ( select ) ( nfds,readfds,writefds,exceptfds,timeout );
+}
+
+LIB_PRIVATE
 int _real_socket ( int domain, int type, int protocol )
 {
   REAL_FUNC_PASSTHROUGH ( socket ) ( domain,type,protocol );
 }
 
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_connect ( int sockfd, const struct sockaddr *serv_addr,
                     socklen_t addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( connect ) ( sockfd,serv_addr,addrlen );
 }
 
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_bind ( int sockfd, const struct sockaddr *my_addr,
                  socklen_t addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( bind ) ( sockfd,my_addr,addrlen );
 }
 
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_listen ( int sockfd, int backlog )
 {
   REAL_FUNC_PASSTHROUGH ( listen ) ( sockfd,backlog );
 }
 
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
 {
   REAL_FUNC_PASSTHROUGH ( accept ) ( sockfd,addr,addrlen );
 }
 
-//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen,
                     int flags )
 {
   REAL_FUNC_PASSTHROUGH ( accept4 ) ( sockfd,addr,addrlen,flags );
 }
-//#endif
 
-#ifdef RECORD_REPLAY
-int _real_getsockname( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
-{
-  REAL_FUNC_PASSTHROUGH ( getsockname ) ( sockfd,addr,addrlen );
-}
-
-int _real_getpeername( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
-{
-  REAL_FUNC_PASSTHROUGH ( getpeername ) ( sockfd,addr,addrlen );
-}
-#endif
-
-/// call the libc version of this function via dlopen/dlsym
+LIB_PRIVATE
 int _real_setsockopt ( int s, int level, int optname, const void *optval,
                        socklen_t optlen )
 {
   REAL_FUNC_PASSTHROUGH ( setsockopt ) ( s,level,optname,optval,optlen );
 }
 
+LIB_PRIVATE
 int _real_fexecve ( int fd, char *const argv[], char *const envp[] )
 {
   REAL_FUNC_PASSTHROUGH ( fexecve ) ( fd,argv,envp );
 }
 
+LIB_PRIVATE
 int _real_execve ( const char *filename, char *const argv[],
                    char *const envp[] )
 {
   REAL_FUNC_PASSTHROUGH ( execve ) ( filename,argv,envp );
 }
 
+LIB_PRIVATE
 int _real_execv ( const char *path, char *const argv[] )
 {
   REAL_FUNC_PASSTHROUGH ( execv ) ( path,argv );
 }
 
+LIB_PRIVATE
 int _real_execvp ( const char *file, char *const argv[] )
 {
   REAL_FUNC_PASSTHROUGH ( execvp ) ( file,argv );
 }
 
+LIB_PRIVATE
 int _real_system ( const char *cmd )
 {
   REAL_FUNC_PASSTHROUGH ( system ) ( cmd );
 }
 
+LIB_PRIVATE
 pid_t _real_fork( void )
 {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, fork ) ();
 }
 
+LIB_PRIVATE
 int _real_close ( int fd )
 {
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+LIB_PRIVATE
 int _real_fclose ( FILE *fp )
 {
   REAL_FUNC_PASSTHROUGH ( fclose ) ( fp );
 }
 
+LIB_PRIVATE
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
 }
 
+LIB_PRIVATE
 int _real_getpt ( void )
 {
   REAL_FUNC_PASSTHROUGH ( getpt ) ( );
 }
 
+LIB_PRIVATE
 int _real_ptsname_r ( int fd, char * buf, size_t buflen )
 {
   REAL_FUNC_PASSTHROUGH ( ptsname_r ) ( fd, buf, buflen );
 }
 
+LIB_PRIVATE
 int _real_socketpair ( int d, int type, int protocol, int sv[2] )
 {
   REAL_FUNC_PASSTHROUGH ( socketpair ) ( d,type,protocol,sv );
 }
 
+LIB_PRIVATE
 void _real_openlog ( const char *ident, int option, int facility )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( openlog ) ( ident,option,facility );
 }
 
+LIB_PRIVATE
 void _real_closelog ( void )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( closelog ) ();
 }
 
 //set the handler
+LIB_PRIVATE
 sighandler_t _real_signal(int signum, sighandler_t handler){
   REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t, signal ) (signum, handler);
 }
+LIB_PRIVATE
 int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   REAL_FUNC_PASSTHROUGH ( sigaction ) ( signum, act, oldact );
 }
-//int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-//  REAL_FUNC_PASSTHROUGH ( rt_sigaction ) ( signum, act, oldact );
-//}
+LIB_PRIVATE
 int _real_sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
   REAL_FUNC_PASSTHROUGH ( sigvec ) ( signum, vec, ovec );
 }
 
 //set the mask
+LIB_PRIVATE
 int _real_sigblock(int mask){
   REAL_FUNC_PASSTHROUGH ( sigblock ) ( mask );
 }
+LIB_PRIVATE
 int _real_sigsetmask(int mask){
   REAL_FUNC_PASSTHROUGH ( sigsetmask ) ( mask );
 }
+LIB_PRIVATE
 int _real_siggetmask(void){
   REAL_FUNC_PASSTHROUGH ( siggetmask )( );
 }
+LIB_PRIVATE
 int _real_sigprocmask(int how, const sigset_t *a, sigset_t *b){
   REAL_FUNC_PASSTHROUGH ( sigprocmask ) ( how, a, b);
 }
-//int _real_rt_sigprocmask(int how, const sigset_t *a, sigset_t *b){
-//  REAL_FUNC_PASSTHROUGH ( rt_sigprocmask ) ( how, a, b);
-//}
+LIB_PRIVATE
 int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b){
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_sigmask ) ( how, a, b);
 }
 
+LIB_PRIVATE
 int _real_sigsuspend(const sigset_t *mask){
   REAL_FUNC_PASSTHROUGH ( sigsuspend ) ( mask );
 }
+LIB_PRIVATE
+sighandler_t _real_sigset(int sig, sighandler_t disp)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t, sigset ) ( sig, disp );
+}
+LIB_PRIVATE
 int _real_sighold(int sig){
   REAL_FUNC_PASSTHROUGH ( sighold ) ( sig );
 }
+LIB_PRIVATE
 int _real_sigignore(int sig){
   REAL_FUNC_PASSTHROUGH ( sigignore ) ( sig );
 }
@@ -514,19 +464,24 @@ int _real_sigignore(int sig){
 int _real__sigpause(int __sig_or_mask, int __is_sig){
   REAL_FUNC_PASSTHROUGH ( __sigpause ) ( __sig_or_mask, __is_sig );
 }
+LIB_PRIVATE
 int _real_sigpause(int sig){
   REAL_FUNC_PASSTHROUGH ( sigpause ) ( sig );
 }
+LIB_PRIVATE
 int _real_sigrelse(int sig){
   REAL_FUNC_PASSTHROUGH ( sigrelse ) ( sig );
 }
 
+LIB_PRIVATE
 int _real_sigwait(const sigset_t *set, int *sig) {
   REAL_FUNC_PASSTHROUGH ( sigwait ) ( set, sig);
 }
+LIB_PRIVATE
 int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info) {
   REAL_FUNC_PASSTHROUGH ( sigwaitinfo ) ( set, info);
 }
+LIB_PRIVATE
 int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                        const struct timespec *timeout) {
   REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
@@ -540,77 +495,101 @@ int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
  * return the process environment variable.
  * This is arguably a bug in bash-3.2.
  */
+LIB_PRIVATE
 int _dmtcp_unsetenv( const char *name ) {
   unsetenv (name);
-  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+  // FIXME: Fix this by getting the symbol address from libc.
+  // Another way to fix this would be to do a getenv() here and put a '\0' byte
+  // at the start of the returned value.
+  //REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+  char *str = (char*) getenv(name);
+  if (str != NULL) *str = '\0';
+  return 1;
 }
 
 #ifdef PID_VIRTUALIZATION
+LIB_PRIVATE
 pid_t _real_getpid(void){
   return (pid_t) _real_syscall(SYS_getpid);
 //  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
+LIB_PRIVATE
 pid_t _real_getppid(void){
   return (pid_t) _real_syscall(SYS_getppid);
 }
 
+LIB_PRIVATE
 int _real_tcsetpgrp(int fd, pid_t pgrp){
   REAL_FUNC_PASSTHROUGH ( tcsetpgrp ) ( fd, pgrp );
 }
 
+LIB_PRIVATE
 int _real_tcgetpgrp(int fd) {
   REAL_FUNC_PASSTHROUGH ( tcgetpgrp ) ( fd );
 }
 
+LIB_PRIVATE
 pid_t _real_getpgrp(void) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgrp ) ( );
 }
 
+LIB_PRIVATE
 pid_t _real_setpgrp(void) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setpgrp ) ( );
 }
 
+LIB_PRIVATE
 pid_t _real_getpgid(pid_t pid) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgid ) ( pid );
 }
 
+LIB_PRIVATE
 int   _real_setpgid(pid_t pid, pid_t pgid) {
   REAL_FUNC_PASSTHROUGH ( setpgid ) ( pid, pgid );
 }
 
+LIB_PRIVATE
 pid_t _real_getsid(pid_t pid) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getsid ) ( pid );
 }
 
+LIB_PRIVATE
 pid_t _real_setsid(void) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setsid ) ( );
 }
 
+LIB_PRIVATE
 int   _real_kill(pid_t pid, int sig) {
   REAL_FUNC_PASSTHROUGH ( kill ) ( pid, sig );
 }
 
+LIB_PRIVATE
 pid_t _real_wait(__WAIT_STATUS stat_loc) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait ) ( stat_loc );
 }
 
+LIB_PRIVATE
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, waitpid ) ( pid, stat_loc, options );
 }
 
+LIB_PRIVATE
 int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
   REAL_FUNC_PASSTHROUGH ( waitid ) ( idtype, id, infop, options );
 }
 
+LIB_PRIVATE
 pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait3 ) ( status, options, rusage );
 }
 
+LIB_PRIVATE
 pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait4 ) ( pid, status, options, rusage );
 }
 
+LIB_PRIVATE
 int _real_ioctl(int d, unsigned long int request, ...) {
   void * arg;
   va_list ap;
@@ -625,10 +604,12 @@ int _real_ioctl(int d, unsigned long int request, ...) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, ioctl ) ( d, request, arg );
 }
 
+LIB_PRIVATE
 int _real_setgid(gid_t gid) {
   REAL_FUNC_PASSTHROUGH( setgid ) (gid);
 }
 
+LIB_PRIVATE
 int _real_setuid(uid_t uid) {
   REAL_FUNC_PASSTHROUGH( setuid ) (uid);
 }
@@ -637,126 +618,299 @@ int _real_setuid(uid_t uid) {
 
 // gettid / tkill / tgkill are not defined in libc.
 // So, this is needed even if there is no PID_VIRTUALIZATION
+LIB_PRIVATE
 pid_t _real_gettid(void){
   return (pid_t) _real_syscall(SYS_gettid);
 //  REAL_FUNC_PASSTHROUGH ( pid_t, syscall(SYS_gettid) );
 }
 
+LIB_PRIVATE
 int   _real_tkill(int tid, int sig) {
   return (int) _real_syscall(SYS_tkill, tid, sig);
   //REAL_FUNC_PASSTHROUGH ( syscall(SYS_tkill) ) ( tid, sig );
 }
 
+LIB_PRIVATE
 int   _real_tgkill(int tgid, int tid, int sig) {
   return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
   //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
 }
 
+LIB_PRIVATE
 int _real_open( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
+LIB_PRIVATE
 int _real_open64( const char *pathname, int flags, mode_t mode ) {
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
+LIB_PRIVATE
 FILE * _real_fopen( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen ) ( path, mode );
 }
 
+LIB_PRIVATE
 FILE * _real_fopen64( const char *path, const char *mode ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fopen64 ) ( path, mode );
 }
 
+/* See comments for syscall wrapper */
+LIB_PRIVATE
+long int _real_syscall(long int sys_num, ... ) {
+  int i;
+  void * arg[7];
+  va_list ap;
+
+  va_start(ap, sys_num);
+  for (i = 0; i < 7; i++)
+    arg[i] = va_arg(ap, void *);
+  va_end(ap);
+
+  static long int (*fn) () = NULL;
+//  sleep(5);
+  fn = (long int (*)())dlsym(RTLD_DEFAULT, "syscall");
+  fn = (long int (*)())dlsym(RTLD_NEXT, "syscall");
+  fn = (long int (*)())dlsym(RTLD_NEXT, "syscall");
+  return (*fn) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+
+  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
+//  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+}
+
+LIB_PRIVATE
+int _real_xstat(int vers, const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
+}
+
+LIB_PRIVATE
+int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
+}
+
+LIB_PRIVATE
+int _real_lxstat(int vers, const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
+}
+
+LIB_PRIVATE
+int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __lxstat64 ) ( vers, path, buf );
+}
+
+LIB_PRIVATE
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, readlink ) ( path, buf, bufsiz );
+}
+
+LIB_PRIVATE
+int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
+{
+  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
+}
+
+LIB_PRIVATE
+int _real_pthread_join(pthread_t thread, void **value_ptr) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join ) ( thread, value_ptr );
+}
+
+
+LIB_PRIVATE
+int _real_shmget (key_t key, size_t size, int shmflg) {
+  REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
+}
+
+LIB_PRIVATE
+void* _real_shmat (int shmid, const void *shmaddr, int shmflg) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( void*, shmat ) (shmid, shmaddr, shmflg);
+}
+
+LIB_PRIVATE
+int _real_shmdt (const void *shmaddr) {
+  REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
+}
+
+LIB_PRIVATE
+int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
+  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
+}
+
+LIB_PRIVATE
+void * _real_calloc(size_t nmemb, size_t size) {
+  REAL_LIBC_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
+}
+
+LIB_PRIVATE
+void * _real_malloc(size_t size) {
+  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
+}
+
+LIB_PRIVATE
+void * _real_realloc(void *ptr, size_t size) {
+  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
+}
+
+LIB_PRIVATE
+void * _real_libc_memalign(size_t boundary, size_t size) {
+  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
+}
+
+LIB_PRIVATE
+void _real_free(void *ptr) {
+  REAL_LIBC_FUNC_PASSTHROUGH_VOID (free) (ptr);
+}
+
+LIB_PRIVATE
+void *_real_mmap(void *addr, size_t length, int prot, int flags,
+    int fd, off_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
+}
+
+LIB_PRIVATE
+void *_real_mmap64(void *addr, size_t length, int prot, int flags,
+    int fd, off64_t offset) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*,mmap64) (addr,length,prot,flags,fd,offset);
+}
+
+LIB_PRIVATE
+void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+    int flags, void *new_address) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
+    (old_address, old_size, new_size, flags, new_address);
+}
+
+LIB_PRIVATE
+int _real_munmap(void *addr, size_t length) {
+  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
+}
+
+#ifdef PTRACE
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. */
+LIB_PRIVATE
+td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
+}
+
+LIB_PRIVATE
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
+}
+#endif
+
 #ifdef RECORD_REPLAY
+LIB_PRIVATE
 int _real_closedir(DIR *dirp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
 }
 
+LIB_PRIVATE
 DIR * _real_opendir(const char *name) {
   REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
 }
 
+LIB_PRIVATE
 int _real_mkdir(const char *pathname, mode_t mode) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, mkdir ) ( pathname, mode );
 }
 
+LIB_PRIVATE
 int _real_mkstemp(char *temp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, mkstemp ) ( temp );
 }
 
+LIB_PRIVATE
 FILE * _real_fdopen(int fd, const char *mode) {
   REAL_FUNC_PASSTHROUGH_TYPED ( FILE *, fdopen ) ( fd, mode );
 }
 
+LIB_PRIVATE
 char * _real_fgets(char *s, int size, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( char *, fgets ) ( s, size, stream );
 }
 
+LIB_PRIVATE
 int _real_fflush(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
 }
 
+LIB_PRIVATE
 int _real_fdatasync(int fd) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fdatasync ) ( fd );
 }
 
+LIB_PRIVATE
 int _real_fsync(int fd) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fsync ) ( fd );
 }
 
+LIB_PRIVATE
 int _real_getc(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, getc ) ( stream );
 }
 
+LIB_PRIVATE
 int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
 }
 
+LIB_PRIVATE
 int _real_fgetc(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fgetc ) ( stream );
 }
 
+LIB_PRIVATE
 int _real_ungetc(int c, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, ungetc ) ( c, stream );
 }
 
+LIB_PRIVATE
 ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, getline ) ( lineptr, n, stream );
 }
 
+LIB_PRIVATE
 int _real_link(const char *oldpath, const char *newpath) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, link ) ( oldpath, newpath );
 }
 
+LIB_PRIVATE
 int _real_rename(const char *oldpath, const char *newpath) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, rename ) ( oldpath, newpath );
 }
 
+LIB_PRIVATE
 void _real_rewind(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_VOID ( rewind ) ( stream );
 }
 
+LIB_PRIVATE
 int _real_rmdir(const char *pathname) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, rmdir ) ( pathname );
 }
 
+LIB_PRIVATE
 long _real_ftell(FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ftell ) ( stream );
 }
 
+LIB_PRIVATE
 int _real_fputs(const char *s, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
 }
 
+LIB_PRIVATE
 int _real_putc(int c, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, putc ) ( c, stream );
 }
 
+LIB_PRIVATE
 size_t _real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( size_t, fwrite) ( ptr, size, nmemb, stream );
 }
 
+LIB_PRIVATE
 int _real_fcntl(int fd, int cmd, ...) {
   va_list ap;
   // Handling the variable number of arguments
@@ -799,340 +953,110 @@ int _real_fcntl(int fd, int cmd, ...) {
     REAL_FUNC_PASSTHROUGH_TYPED ( int, fcntl ) ( fd, cmd, arg_3_l);
   }
 }
-#endif
 
-
-int _real_pthread_join(pthread_t thread, void **value_ptr)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join )
-    ( thread, value_ptr );
-}
-
-/* See comments for syscall wrapper */
-long int _real_syscall(long int sys_num, ... ) {
-  int i;
-  void * arg[7];
-  va_list ap;
-
-  va_start(ap, sys_num);
-  for (i = 0; i < 7; i++)
-    arg[i] = va_arg(ap, void *);
-  va_end(ap);
-
-  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
-}
-
-int _real_xstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH ( __xstat ) ( vers, path, buf );
-}
-
-int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __xstat64 ) ( vers, path, buf );
-}
-
-#ifdef RECORD_REPLAY
-int _real_fxstat(int vers, int fd, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH ( __fxstat ) ( vers, fd, buf );
-}
-
-int _real_fxstat64(int vers, int fd, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __fxstat64 ) ( vers, fd, buf );
-}
-#endif
-
-int _real_lxstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH ( __lxstat ) ( vers, path, buf );
-}
-
-int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH ( __lxstat64 ) ( vers, path, buf );
-}
-
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t, readlink ) ( path, buf, bufsiz );
-}
-
-int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
-{
-  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
-}
-
-int _real_shmget (key_t key, size_t size, int shmflg) {
-  REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
-}
-
-void* _real_shmat (int shmid, const void *shmaddr, int shmflg) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( void*, shmat ) (shmid, shmaddr, shmflg);
-}
-
-int _real_shmdt (const void *shmaddr) {
-  REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
-}
-
-int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
-  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
-}
-
-#ifdef ENABLE_MALLOC_WRAPPER
-# ifdef ENABLE_DLOPEN
-#  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
-# endif
-
-void * _real_calloc(size_t nmemb, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
-}
-
-void * _real_malloc(size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
-}
-
-void * _real_realloc(void *ptr, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
-}
-
-void * _real_libc_memalign(size_t boundary, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
-}
-
-void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
-}
-
-#ifdef RECORD_REPLAY
-void *_real_mmap(void *addr, size_t length, int prot, int flags,
-    int fd, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
-}
-
-void *_real_mmap64(void *addr, size_t length, int prot, int flags,
-    int fd, off64_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*,mmap64) (addr,length,prot,flags,fd,offset);
-}
-
-void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-    int flags, void *new_address) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
-    (old_address, old_size, new_size, flags, new_address);
-}
-
-int _real_munmap(void *addr, size_t length) {
-  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
-}
-
-/* A way to call mmap to ensure it is not logged/replayed. This is primarily
-   used by jalloc.cpp to skip log/replay for its mmap calls. */
-void *_mmap_no_sync(void *addr, size_t length, int prot, int flags,
-    int fd, off_t offset)
-{
-  SET_MMAP_NO_SYNC(); // Needed to bypass trampoline
-  void *retval = _real_mmap(addr, length, prot, flags, fd, offset);
-  UNSET_MMAP_NO_SYNC();
-  return retval;
-}
-
-/* This is currently just calls _real_munmap, since we don't have an munmap
-   trampoline to worry about. */
-int _munmap_no_sync(void *addr, size_t length)
-{
-  return _real_munmap(addr, length);
-}
-
-#endif
-// int _real_vfprintf ( FILE *s, const char *format, va_list ap ) {
-//   REAL_FUNC_PASSTHROUGH ( vfprintf ) ( s, format, ap );
-// }
-#endif
-
-#ifdef PTRACE
-// gdb calls dlsym on td_thr_get_info.  Need wrapper for tid virtualization.
-// The fnc td_thr_get_info is in libthread_db, and not in libc.
-static funcptr_t get_libthread_db_symbol ( const char* name )
-{
-  void* tmp = NULL;
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBTHREAD_DB, RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-  tmp = _real_dlsym ( handle, name );
-  if ( tmp == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libthread_db_symbol: ERROR in dlsym: %s \n",
-              dlerror() );
-    abort();
-  }
-  return ( funcptr_t ) tmp;
-}
-// Adding the macro for calls to get_libthread_db_symbol
-#define REAL_FUNC_PASSTHROUGH_TD_THR(type,name) static type (*fn) () = NULL; \
-    if (fn==NULL) fn = (void *)get_libthread_db_symbol(#name); \
-    return (*fn)
-
-void *_real_dlsym ( void *handle, const char *symbol ) {
-  /* In the future dlsym_offset should be global variable defined in 
-     dmtcpworker.cpp. For some unclear reason doing that causes a link
-     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp 
-     and  dmtcpworker.cpp. Commenting out the extra definition in 
-     dmtcp_coordinator.cpp sometimes caused an seg fault on 
-       dmtcp_checkpoint gdb a.out 
-     when user types run in gdb.
-  */
-  static int dlsym_offset = 0;
-  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
-  {
-    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
-    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
-        fails to start.
-    */
-    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
-  }
-  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol); 
-  if ( dlsym_offset == 0)
-    return dlsym ( handle, symbol );
-  else
-  {
-    typedef void* ( *fncptr ) (void *handle, const char *symbol);
-    fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
-    return (*dlsym_addr) ( handle, symbol );
-  }
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. */
-td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  REAL_FUNC_PASSTHROUGH_TD_THR ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
-}
-
-long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
-}
-#endif
-
-#ifdef RECORD_REPLAY
-int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
-}
-
-int _real_pthread_mutex_trylock(pthread_mutex_t *mutex) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_trylock ) ( mutex );
-}
-
-int _real_pthread_mutex_unlock(pthread_mutex_t *mutex) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_unlock ) ( mutex );
-}
-
-int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_unlock ) ( rwlock );
-}
-
-int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_rdlock ) ( rwlock );
-}
-
-int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
-}
-
+LIB_PRIVATE
 int _real_pthread_cond_signal(pthread_cond_t *cond) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_signal ) ( cond );
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_signal ) ( cond );
 }
 
+LIB_PRIVATE
 int _real_pthread_cond_broadcast(pthread_cond_t *cond) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_broadcast ) ( cond );
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_broadcast ) ( cond );
 }
 
+LIB_PRIVATE
 int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_wait ) ( cond,mutex );
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_wait ) ( cond,mutex );
 }
 
+LIB_PRIVATE
 int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
     const struct timespec *abstime) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_timedwait ) ( cond,mutex,abstime );
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_timedwait ) ( cond,mutex,abstime );
 }
 
+LIB_PRIVATE
 int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     void *(*start_routine)(void*), void *arg) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
     (thread,attr,start_routine,arg);
 }
 
+LIB_PRIVATE
 void _real_pthread_exit(void *value_ptr) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) ( value_ptr );
+  REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) ( value_ptr );
 }
 
+LIB_PRIVATE
 int _real_pthread_detach(pthread_t thread)
 {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_detach ) ( thread );
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_detach ) ( thread );
 }
 
+LIB_PRIVATE
 int _real_pthread_kill(pthread_t thread, int sig)
 {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_kill )
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_kill )
     ( thread, sig );
 }
 
+LIB_PRIVATE
 int _real_access(const char *pathname, int mode)
 {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,access ) ( pathname,mode );
 }
 
-int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
-    fd_set *exceptfds, struct timeval *timeout) {
-  REAL_FUNC_PASSTHROUGH ( select ) ( nfds,readfds,writefds,exceptfds,timeout );
-}
-
-int _real_read(int fd, void *buf, size_t count) {
-  REAL_FUNC_PASSTHROUGH ( read ) ( fd,buf,count );
-}
-
+LIB_PRIVATE
 struct dirent *_real_readdir(DIR *dirp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( struct dirent *, readdir ) ( dirp );
 }
 
+LIB_PRIVATE
 int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, readdir_r ) ( dirp, entry, result );
 }
 
-ssize_t _real_write(int fd, const void *buf, size_t count) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,write ) ( fd,buf,count );
-}
-
+LIB_PRIVATE
 int _real_rand(void) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,rand ) ( );
 }
 
+LIB_PRIVATE
 void _real_srand(unsigned int seed) {
   REAL_FUNC_PASSTHROUGH_VOID ( srand ) ( seed );
 }
 
+LIB_PRIVATE
 time_t _real_time(time_t *tloc) {
   REAL_FUNC_PASSTHROUGH_TYPED ( time_t,time ) ( tloc );
 }
 
+LIB_PRIVATE
 int _real_dup(int oldfd) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,dup ) ( oldfd );
 }
 
+LIB_PRIVATE
 off_t _real_lseek(int fd, off_t offset, int whence) {
   REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd,offset,whence );
 }
 
+LIB_PRIVATE
 int _real_unlink(const char *pathname) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,unlink ) ( pathname );
 }
 
+LIB_PRIVATE
 ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd,buf,count,offset );
 }
 
+LIB_PRIVATE
 ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
 }
 
-
+LIB_PRIVATE
 sighandler_t _real_sigset(int sig, sighandler_t disp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t,sigset) ( sig, disp );
 }

@@ -110,8 +110,6 @@
 
 #ifdef RECORD_REPLAY
 # define ENABLE_MALLOC_WRAPPER
-# define ENV_VAR_LIBPTHREAD_FUNC_OFFSETS "DMTCP_LIBPTHREAD_FUNC_OFFSETS"
-# define LIBPTHREAD_BASE_FUNC pthread_barrier_destroy
 # define ENV_VAR_LOG_REPLAY "DMTCP_LOG_REPLAY"
 # define ENV_SYNC_LOG \
     , ENV_VAR_LOG_REPLAY
@@ -119,15 +117,8 @@
 # define ENV_SYNC_LOG
 #endif
 
-#ifdef PTRACE
 #define LIBDL_BASE_FUNC dlerror
 #define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
-
-#define ENV_PTRACE \
-    , ENV_VAR_DLSYM_OFFSET
-#else
-#define ENV_PTRACE
-#endif
 
 //this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
@@ -148,9 +139,9 @@
     ENV_VAR_ROOT_PROCESS,\
     ENV_VAR_PREFIX_ID,\
     ENV_VAR_SCREENDIR, \
+    ENV_VAR_DLSYM_OFFSET, \
     ENV_VAR_LIBC_FUNC_OFFSETS \
     ENV_SYNC_LOG \
-    ENV_PTRACE \
     ENV_DELTACOMPRESSION
 
 #define DRAINER_CHECK_FREQ 0.1

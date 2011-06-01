@@ -43,11 +43,9 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
-#ifdef RECORD_REPLAY
 #include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
-#endif
 
 #ifdef RECORD_REPLAY
 #define SET_MMAP_NO_SYNC()   (mmap_no_sync = 1)
@@ -64,123 +62,6 @@ extern "C"
 {
 #endif
 
-#ifdef PID_VIRTUALIZATION
-# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)   \
-  MACRO(getpid)                             \
-  MACRO(getppid)                            \
-  MACRO(kill)                               \
-                                            \
-  MACRO(tcgetpgrp)                          \
-  MACRO(tcsetpgrp)                          \
-  MACRO(getpgrp)                            \
-  MACRO(setpgrp)                            \
-                                            \
-  MACRO(getpgid)                            \
-  MACRO(setpgid)                            \
-  MACRO(getsid)                             \
-  MACRO(setsid)                             \
-  MACRO(setgid)                             \
-  MACRO(setuid)                             \
-                                            \
-  MACRO(wait)                               \
-  MACRO(waitpid)                            \
-  MACRO(waitid)                             \
-  MACRO(wait3)                              \
-  MACRO(wait4)				    \
-  MACRO(ioctl)
-#else
-# define GLIBC_PID_FAMILY_WRAPPERS(MACRO)
-#endif /* PID_VIRTUALIZATION */
-
-#ifdef ENABLE_MALLOC_WRAPPER
-# define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
-  MACRO(calloc)                             \
-  MACRO(malloc)                             \
-  MACRO(free)                               \
-  MACRO(__libc_memalign)                    \
-  MACRO(realloc)
-#else
-# define GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
-#endif 
-
-#ifdef PTRACE
-# define GLIBC_PTRACE_WRAPPERS(MACRO)       \
-  MACRO(ptrace)
-#else
-# define GLIBC_PTRACE_WRAPPERS(MACRO)
-#endif
-
-#ifdef RECORD_REPLAY
-# define GLIBC_RECORD_WRAPPERS(MACRO)\
-  MACRO(access)                               \
-  MACRO(closedir)			      \
-  MACRO(opendir)			      \
-  MACRO(select)                               \
-  MACRO(read)                                 \
-  MACRO(readdir)                              \
-  MACRO(readdir_r)                            \
-  MACRO(write)                                \
-  MACRO(rand)                                 \
-  MACRO(srand)                                \
-  MACRO(time)                                 \
-  MACRO(getsockname)                          \
-  MACRO(getpeername)                          \
-  MACRO(fcntl)                                \
-  MACRO(dup)                                  \
-  MACRO(lseek)                                \
-  MACRO(__fxstat)                             \
-  MACRO(__fxstat64)                           \
-  MACRO(unlink)                               \
-  MACRO(pread)                                \
-  MACRO(pwrite)                               \
-  MACRO(sigset)                               \
-  MACRO(fdopen)                               \
-  MACRO(fgets)                                \
-  MACRO(fflush)                               \
-  MACRO(putc)                                 \
-  MACRO(fputs)                                \
-  MACRO(fdatasync)                            \
-  MACRO(fsync)                                \
-  MACRO(link)                                 \
-  MACRO(getc)                                 \
-  MACRO(gettimeofday)                         \
-  MACRO(fgetc)                                \
-  MACRO(ungetc)                               \
-  MACRO(getline)                              \
-  MACRO(rename)                               \
-  MACRO(rewind)                               \
-  MACRO(rmdir)                                \
-  MACRO(ftell)                                \
-  MACRO(fwrite)                               \
-  MACRO(mkdir)                                \
-  MACRO(mkstemp)                              \
-  MACRO(mmap)                                 \
-  MACRO(mmap64)                               \
-  MACRO(mremap)                               \
-  MACRO(munmap)
-
-#define FOREACH_PTHREAD_FUNC_WRAPPER(MACRO)     \
-  MACRO(pthread_cond_wait)			\
-  MACRO(pthread_cond_timedwait)			\
-  MACRO(pthread_cond_signal)			\
-  MACRO(pthread_cond_broadcast)			\
-  MACRO(pthread_create)                         \
-  MACRO(pthread_detach)                         \
-  MACRO(pthread_exit)                           \
-  MACRO(pthread_join)                           \
-  MACRO(pthread_kill)                           \
-  MACRO(pthread_sigmask)                        \
-  MACRO(pthread_mutex_lock)			\
-  MACRO(pthread_mutex_trylock)			\
-  MACRO(pthread_mutex_unlock)			\
-  MACRO(pthread_rwlock_unlock)                  \
-  MACRO(pthread_rwlock_rdlock)                  \
-  MACRO(pthread_rwlock_wrlock)
-#else
-# define GLIBC_RECORD_WRAPPERS(MACRO)
-# define PTHREAD_RECORD_WRAPPERS(MACRO)
-#endif 
-
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
  * We can't tell which ones were already re-defined by the user executable.
  * For example, /bin/dash defines isalnum in Ubuntu 9.10.
@@ -193,102 +74,22 @@ extern "C"
   MACRO(perror)				    \
   MACRO(fscanf)
 
-#define GLIBC_SOCKET_WRAPPERS(MACRO)        \
-  MACRO(socket)                             \
-  MACRO(connect)                            \
-  MACRO(bind)                               \
-  MACRO(listen)                             \
-  MACRO(accept)                             \
-  MACRO(accept4)                             \
-  MACRO(setsockopt)                         \
-  MACRO(socketpair)
+#define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
+  MACRO(calloc)                             \
+  MACRO(malloc)                             \
+  MACRO(free)                               \
+  MACRO(__libc_memalign)                    \
+  MACRO(realloc)                            \
+  MACRO(mmap)                               \
+  MACRO(mmap64)                             \
+  MACRO(mremap)                             \
+  MACRO(munmap)
 
-/*
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)      \
-   MACRO(accept4)
-#else
-# define GLIBC_ACCEPT4_WRAPPER(MACRO)
-#endif
-*/
-
-#define GLIBC_EXEC_WRAPPERS(MACRO)          \
-  MACRO(fexecve)                            \
-  MACRO(execve)                             \
-  MACRO(execv)                              \
-  MACRO(execvp)                             \
-  MACRO(execl)                              \
-  MACRO(execlp)                             \
-  MACRO(execle)                             \
-  MACRO(system)
-
-#define GLIBC_SIGNAL_WRAPPERS(MACRO)        \
-  MACRO(signal)                             \
-  MACRO(sigaction)                          \
-  MACRO(sigvec)                             \
-                                            \
-  MACRO(sigblock)                           \
-  MACRO(sigsetmask)                         \
-  MACRO(siggetmask)                         \
-  MACRO(sigprocmask)                        \
-                                            \
-  MACRO(sigsuspend)                         \
-  MACRO(sighold)                            \
-  MACRO(sigignore)                          \
-  MACRO(__sigpause)                         \
-  MACRO(sigpause)                           \
-  MACRO(sigrelse)                           \
-                                            \
-  MACRO(sigwait)                            \
-  MACRO(sigwaitinfo)                        \
-  MACRO(sigtimedwait)
-
-#define GLIBC_MISC_WRAPPERS(MACRO)          \
-  MACRO(fork)                               \
-  MACRO(__clone)                            \
-  MACRO(open)                               \
-  MACRO(open64)                             \
-  MACRO(fopen)                              \
-  MACRO(fopen64)                            \
-  MACRO(close)                              \
-  MACRO(fclose)                             \
-  MACRO(__xstat)                            \
-  MACRO(__xstat64)                          \
-  MACRO(__lxstat)                           \
-  MACRO(__lxstat64)                         \
-  MACRO(readlink)                           \
-  MACRO(exit)                               \
-  MACRO(syscall)                            \
-  MACRO(unsetenv)                           \
-  MACRO(ptsname_r)                          \
-  MACRO(getpt)                              \
-  MACRO(openlog)                            \
-  MACRO(closelog)
-//  MACRO(creat)
-//  MACRO(openat)
-
-#define GLIBC_SYS_V_IPC_WRAPPERS(MACRO)     \
-  MACRO(shmget)                             \
-  MACRO(shmat)                              \
-  MACRO(shmdt)                              \
-  MACRO(shmctl)
 
 /* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
 #define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
   FOREACH_GLIBC_BASE_FUNC(MACRO)	    \
-                                            \
-  GLIBC_SOCKET_WRAPPERS(MACRO)              \
-  GLIBC_EXEC_WRAPPERS(MACRO)                \
-  GLIBC_SIGNAL_WRAPPERS(MACRO)              \
-  GLIBC_MISC_WRAPPERS(MACRO)                \
-  GLIBC_SYS_V_IPC_WRAPPERS(MACRO)           \
-                                            \
-  GLIBC_PID_FAMILY_WRAPPERS(MACRO)          \
-  GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)       \
-  GLIBC_PTRACE_WRAPPERS(MACRO)              \
-  GLIBC_RECORD_WRAPPERS(MACRO)
-
-//GLIBC_ACCEPT4_WRAPPER(MACRO)
+  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 
 # define ENUM(x) enum_ ## x
 # define GEN_ENUM(x) ENUM(x),
@@ -304,24 +105,12 @@ extern "C"
 
   int _dmtcp_unsetenv(const char *name);
 
-#ifdef RECORD_REPLAY
-  typedef enum {
-    FOREACH_PTHREAD_FUNC_WRAPPER(GEN_ENUM)
-    numLibpthreadWrappers
-  } LibPthreadWrapperOffset;
-#endif
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
   int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
-//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
   int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-//#endif
-#ifdef RECORD_REPLAY
-  int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-#endif
   int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
                          socklen_t optlen );
 
@@ -401,6 +190,45 @@ extern "C"
   int _real_shmdt(const void *shmaddr);
   int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
+  int _real_pthread_join(pthread_t thread, void **value_ptr);
+
+  int _real_xstat(int vers, const char *path, struct stat *buf);
+  int _real_xstat64(int vers, const char *path, struct stat64 *buf);
+  int _real_lxstat(int vers, const char *path, struct stat *buf);
+  int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
+  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+  void * _real_dlsym ( void *handle, const char *symbol );
+
+  void *_real_calloc(size_t nmemb, size_t size);
+  void *_real_malloc(size_t size);
+  void  _real_free(void *ptr);
+  void *_real_realloc(void *ptr, size_t size);
+  void *_real_libc_memalign(size_t boundary, size_t size);
+  void *_real_mmap(void *addr, size_t length, int prot, int flags,
+      int fd, off_t offset);
+  void *_real_mmap64(void *addr, size_t length, int prot, int flags,
+      int fd, off64_t offset);
+  void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+      int flags, void *new_address);
+  int _real_munmap(void *addr, size_t length);
+
+  ssize_t _real_read(int fd, void *buf, size_t count);
+  ssize_t _real_write(int fd, const void *buf, size_t count);
+  int _real_select(int nfds, fd_set *readfds, fd_set *writefds,
+                   fd_set *exceptfds, struct timeval *timeout);
+  int _real_dup(int oldfd);
+  off_t _real_lseek(int fd, off_t offset, int whence);
+  int _real_unlink(const char *pathname);
+
+  int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
+  int _real_pthread_mutex_trylock(pthread_mutex_t *mutex);
+  int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
+  int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+
+  sighandler_t _real_sigset(int sig, sighandler_t disp);
+
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
@@ -433,7 +261,16 @@ extern "C"
 
 #endif /* PID_VIRTUALIZATION */
 
+#ifdef PTRACE
+  long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
+                    void *data);
+  td_err_e  _real_td_thr_get_info ( const td_thrhandle_t  *th_p,
+                                    td_thrinfo_t *ti_p);
+#endif
+
 #ifdef RECORD_REPLAY
+  int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+  int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_closedir(DIR *dirp);
   DIR * _real_opendir(const char *name);
   int _real_mkdir(const char *pathname, mode_t mode);
@@ -461,55 +298,12 @@ extern "C"
   int _real_rmdir(const char *pathname);
   long _real_ftell(FILE *stream);
   size_t _real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
-#endif
-  int _real_xstat(int vers, const char *path, struct stat *buf);
-  int _real_xstat64(int vers, const char *path, struct stat64 *buf);
-  int _real_lxstat(int vers, const char *path, struct stat *buf);
-  int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
 
-#ifdef PTRACE
-  void * _real_dlsym ( void *handle, const char *symbol );
-  long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
-                    void *data);
-  td_err_e  _real_td_thr_get_info ( const td_thrhandle_t  *th_p,
-                                    td_thrinfo_t *ti_p);
-#endif
-  int _real_pthread_join(pthread_t thread, void **value_ptr);
-
-  int _real_xstat(int vers, const char *path, struct stat *buf);
-  int _real_xstat64(int vers, const char *path, struct stat64 *buf);
-  int _real_lxstat(int vers, const char *path, struct stat *buf);
-  int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-
-#ifdef ENABLE_MALLOC_WRAPPER
-  void *_real_calloc(size_t nmemb, size_t size);
-  void *_real_malloc(size_t size);
-  void  _real_free(void *ptr);
-  void *_real_realloc(void *ptr, size_t size);
-  void *_real_libc_memalign(size_t boundary, size_t size);
-#ifdef RECORD_REPLAY
-  void *_real_mmap(void *addr, size_t length, int prot, int flags,
-      int fd, off_t offset);
-  void *_real_mmap64(void *addr, size_t length, int prot, int flags,
-      int fd, off64_t offset);
-  void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-      int flags, void *new_address);
-  int _real_munmap(void *addr, size_t length);
   void * _mmap_no_sync(void *addr, size_t length, int prot, int flags,
       int fd, off_t offset);
   int _munmap_no_sync(void *addr, size_t length);
-#endif
   //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
-#endif
 
-#ifdef RECORD_REPLAY  
-  int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
-  int _real_pthread_mutex_trylock(pthread_mutex_t *mutex);
-  int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
-  int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
-  int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
-  int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
   int _real_pthread_cond_signal(pthread_cond_t *cond);
   int _real_pthread_cond_broadcast(pthread_cond_t *cond);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
@@ -522,21 +316,13 @@ extern "C"
   int _real_pthread_join(pthread_t thread, void **value_ptr);
   int _real_pthread_kill(pthread_t thread, int sig);
   int _real_access(const char *pathname, int mode);
-  int _real_select(int nfds, fd_set *readfds, fd_set *writefds, 
-      fd_set *exceptfds, struct timeval *timeout);
-  int _real_read(int fd, void *buf, size_t count);
   struct dirent *_real_readdir(DIR *dirp);
   int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result);
-  ssize_t        _real_write(int fd, const void *buf, size_t count);
   int _real_rand(void);
   void _real_srand(unsigned int seed);
   time_t _real_time(time_t *tloc);
-  int _real_dup(int oldfd);
-  off_t _real_lseek(int fd, off_t offset, int whence);
-  int _real_unlink(const char *pathname);
   ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset);
   ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset);
-  sighandler_t _real_sigset(int sig, sighandler_t disp);
 #endif
 
 #ifdef __cplusplus

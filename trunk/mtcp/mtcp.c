@@ -465,6 +465,9 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            struct user_desc *newtls,
                            int *child_tidptr);
 
+int (*sigaction_entry) (int sig, const struct sigaction *act,
+                        struct sigaction *oact);
+
 /* temp stack used internally by restore so we don't go outside the
  *   libmtcp.so address range for anything;
  * including "+ 1" since will set %esp/%rsp to tempstack+STACKSIZE
@@ -736,6 +739,12 @@ void mtcp_init (char const *checkpointfilename,
     }
   }
 
+  /* Setup clone_entry to point to glibc's __clone routine
+   * NOTE: This also sets up sigaction_entry to point to glibc's sigaction
+   * therefore, it must be called before setup_sig_handler();
+   */
+  setup_clone_entry ();
+
   /* Set up signal handler so we can interrupt the thread for checkpointing */
   setup_sig_handler ();
 
@@ -750,10 +759,6 @@ void mtcp_init (char const *checkpointfilename,
 		   & -MTCP_PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
-
-  /* Setup clone_entry to point to glibc's __clone routine */
-
-  setup_clone_entry ();
 
   /* Set up caller as one of our threads so we can work on it */
 
@@ -1284,6 +1289,7 @@ static void setup_clone_entry (void)
   /* Find the clone routine therein */
 
   clone_entry = mtcp_get_libc_symbol ("__clone");
+  sigaction_entry = mtcp_get_libc_symbol ("sigaction");
 }
 
 /*****************************************************************************
