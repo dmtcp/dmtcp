@@ -463,7 +463,7 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            void *arg,
                            int *parent_tidptr,
                            struct user_desc *newtls,
-                           int *child_tidptr);
+                           int *child_tidptr) = NULL;
 
 int (*sigaction_entry) (int sig, const struct sigaction *act,
                         struct sigaction *oact);
@@ -580,6 +580,8 @@ static Thread ckptThreadStorage;
  *
  *****************************************************************************/
 void mtcp_init (char const *checkpointfilename,
+                void* clone_funcptr,
+                void* sigaction_funcptr,
                 int interval,
                 int clonenabledefault)
 {
@@ -743,7 +745,10 @@ void mtcp_init (char const *checkpointfilename,
    * NOTE: This also sets up sigaction_entry to point to glibc's sigaction
    * therefore, it must be called before setup_sig_handler();
    */
-  setup_clone_entry ();
+  /* FIXME: Not calling setup_clone_entry() can cause problems */
+  //if (clone_entry == NULL) setup_clone_entry ();
+  clone_entry = clone_funcptr;
+  sigaction_entry = sigaction_funcptr;
 
   /* Set up signal handler so we can interrupt the thread for checkpointing */
   setup_sig_handler ();
@@ -2184,13 +2189,18 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
 
     // Don't load dmtcphijack.so, etc. in exec.
     unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
-    libc_unsetenv = mtcp_get_libc_symbol("unsetenv");
-    (*libc_unsetenv)("LD_PRELOAD");
+    char *ld_preload_str = (char*) getenv("LD_PRELOAD");
+    if (ld_preload_str != NULL) {
+      ld_preload_str[0] = '\0';
+    }
+    //libc_unsetenv = mtcp_get_libc_symbol("unsetenv");
+    //(*libc_unsetenv)("LD_PRELOAD");
 
     DPRINTF("open_ckpt_to_write: exec\n");
 
-    libc_execvp = mtcp_get_libc_symbol("execvp");
-    (*libc_execvp)(extcomp_args[0], extcomp_args);
+    //libc_execvp = mtcp_get_libc_symbol("execvp");
+    //(*libc_execvp)(extcomp_args[0], extcomp_args);
+    mtcp_sys_execve(extcomp_args[0], extcomp_args, NULL);
 
     /* should not arrive here */
     MTCP_PRINTF("ERROR: compression failed!  No checkpointing will be "
@@ -2625,6 +2635,17 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 
       /* We're still using proc-maps in readmapsline(); So, remap NSCD later. */
       remap_nscd_areas_array[num_remap_nscd_areas++] = area;
+    }
+
+    area.filesize = 0;
+    if (area.name[0] != '\0') {
+      int ffd = mtcp_sys_open(area.name, O_RDONLY, 0);
+      if (ffd != -1) {
+        area.filesize = mtcp_sys_lseek(ffd, 0, SEEK_END);
+        if (area.filesize == -1)
+          area.filesize = 0;
+      }
+      mtcp_sys_close(ffd);
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the

@@ -138,6 +138,8 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 extern "C"
 {
   typedef int ( *mtcp_init_t ) ( char const *checkpointFilename,
+                                 void *libc_clone_fnptr,
+                                 void *ligc_sigaction_fnptr,
                                  int interval,
                                  int clonenabledefault );
   typedef void ( *mtcp_set_callbacks_t ) (
@@ -314,14 +316,14 @@ static void callbackRestoreVirtualPidTable ( )
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-} 
+}
 
 void dmtcp::initializeMtcpEngine()
 {
 #ifdef PTRACE
   dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
   char *dmtcp_tmp_dir =
-     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );  
+     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
   sprintf(dmtcp_tmp_dir, "%s",  tmpdir.c_str());
 #endif
 
@@ -371,10 +373,10 @@ void dmtcp::initializeMtcpEngine()
   mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
     _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
 
-  mtcp_init_thread_local = ( t_mtcp_init_thread_local ) 
+  mtcp_init_thread_local = ( t_mtcp_init_thread_local )
     _get_mtcp_symbol ( "init_thread_local" );
 
-  mtcp_ptracing = ( t_mtcp_ptracing ) 
+  mtcp_ptracing = ( t_mtcp_ptracing )
     _get_mtcp_symbol ( "ptracing" );
 #endif
 
@@ -392,7 +394,12 @@ void dmtcp::initializeMtcpEngine()
 #endif
                  );
   JTRACE ("Calling mtcp_init");
-  ( *init ) ( UniquePid::checkpointFilename(),0xBadF00d,1 );
+  void *libc_clone_fptr = dlsym(RTLD_NEXT, "__clone");
+  void *libc_sigaction_fptr = dlsym(RTLD_NEXT, "sigaction");
+  JASSERT(libc_clone_fptr != NULL);
+  JASSERT(libc_sigaction_fptr != NULL);
+  ( *init ) ( UniquePid::checkpointFilename(), libc_clone_fptr,
+              libc_sigaction_fptr, 0xBadF00d, 1 );
   ( *okFn ) ();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
@@ -557,8 +564,8 @@ int thread_start(void *arg)
   fill_in_pthread_t fill_in_pthread_ptr =
     ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );
 
-  fill_in_pthread_ptr (tid, pthread_self()); 
-  
+  fill_in_pthread_ptr (tid, pthread_self());
+
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
 #ifdef RECORD_REPLAY
@@ -849,7 +856,7 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 
 #ifdef PTRACE
 # ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign wrapper. 
+   // RECORD_REPLAY defines its own __libc_memalign wrapper.
    // So, we won't interfere with it here.
 #  include <malloc.h>
 // This is needed to fix what is arguably a bug in libdl-2.10.so
