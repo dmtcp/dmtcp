@@ -37,7 +37,7 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
   case DMTCP_EVENT_PRE_CHECKPOINT:
     printf("\nThe module is being called before checkpointing.\n");
     break;
-  case DMTCP_EVENT_POST_CHECKPOINT:
+  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     /* Although one process resumes late, they will still all synchronize. */
     if (mystruct.key == 1) sleep(1);
     printf("The module is now resuming or restarting from checkpointing.\n");
@@ -45,9 +45,13 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
                                      &(mystruct.pid), sizeof(mystruct.pid));
     printf("  Data sent:  My (key, pid) is: (%d, %ld).\n",
 	   mystruct.key, (long)mystruct.pid);
-    /* NOTE: DMTCP automatically creates a barrier between all calls to
-     *   send_key_val_pair and send_query.  Using these functions in the wrong
-     *   order risks deadlock.  Calling send_query on a non-existent key
+    break;
+  case DMTCP_EVENT_SEND_QUERIES:
+    /* NOTE: DMTCP creates a barrier between
+     *   DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA and DMTCP_EVENT_SEND_QUERIES.
+     *   The calls to send_key_val_pair and send_query require this barrier.
+     *   Associating these functions with the wrong DMTCP events risks aborting
+     *   the computation.  Also, calling send_query on a non-existent key
      *   risks aborting the computation.
      *     Currently, calling send_query without having previously called
      *   send_key_val_pair within the same transaction also risks an abort.
