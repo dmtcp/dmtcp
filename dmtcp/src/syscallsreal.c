@@ -54,10 +54,6 @@ typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
 
 static unsigned int libcFuncOffsetArray[numLibcWrappers];
-#ifdef RECORD_REPLAY
-static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
-
-#endif
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -801,6 +797,16 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *da
 
 #ifdef RECORD_REPLAY
 LIB_PRIVATE
+int _real_fxstat(int vers, int fd, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH ( __fxstat ) ( vers, fd, buf );
+}
+
+LIB_PRIVATE
+int _real_fxstat64(int vers, int fd, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH ( __fxstat64 ) ( vers, fd, buf );
+}
+
+LIB_PRIVATE
 int _real_closedir(DIR *dirp) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
 }
@@ -1054,10 +1060,5 @@ ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
 LIB_PRIVATE
 ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
-}
-
-LIB_PRIVATE
-sighandler_t _real_sigset(int sig, sighandler_t disp) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( sighandler_t,sigset) ( sig, disp );
 }
 #endif // RECORD_REPLAY

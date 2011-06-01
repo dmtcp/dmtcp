@@ -43,6 +43,8 @@
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
   }
 
+extern int dmtcp_worker_initializing;
+
 namespace dmtcp
 {
 

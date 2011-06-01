@@ -97,6 +97,7 @@ static pthread_rwlock_t theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECUR
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 static dmtcp::UniquePid compGroup;
+int dmtcp_worker_initializing = 1;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
 static dmtcp::ConnectionState* theCheckpointState = NULL;
@@ -398,6 +399,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 #endif
   // define "Weak Symbols for each library module in dmtcphijack.so
   process_dmtcp_event(DMTCP_EVENT_INIT, NULL);
+  dmtcp_worker_initializing = false;
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
@@ -1151,7 +1153,7 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
-       !thread_performing_dlopen_dlsym ) {
+       !thread_performing_dlopen_dlsym && !dmtcp_worker_initializing) {
     int retVal = _real_pthread_rwlock_rdlock(&theWrapperExecutionLock);
     if ( retVal != 0 && retVal != EDEADLK ) {
       fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
