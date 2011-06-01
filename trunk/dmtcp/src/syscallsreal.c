@@ -61,8 +61,6 @@ static long libpthreadFuncOffsetArray[numLibpthreadWrappers];
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
-
 void _dmtcp_lock() { _real_pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { _real_pthread_mutex_unlock ( &theMutex ); }
 
@@ -219,6 +217,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   }
   //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
   void *res = NULL;
+  thread_performing_dlopen_dlsym = 1;
   if ( dlsym_offset == 0)
     res = dlsym ( handle, symbol );
   else
@@ -227,6 +226,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
     res = (*dlsym_addr) ( handle, symbol );
   }
+  thread_performing_dlopen_dlsym = 0;
   return res;
 }
 

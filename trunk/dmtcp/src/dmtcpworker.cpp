@@ -1140,6 +1140,7 @@ void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
+LIB_PRIVATE __thread int thread_performing_dlopen_dlsym = false;
 // XXX: Handle deadlock error code
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
@@ -1149,7 +1150,8 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
 #endif
   int saved_errno = errno;
   bool lockAcquired = false;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
+       !thread_performing_dlopen_dlsym ) {
     int retVal = _real_pthread_rwlock_rdlock(&theWrapperExecutionLock);
     if ( retVal != 0 && retVal != EDEADLK ) {
       fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );

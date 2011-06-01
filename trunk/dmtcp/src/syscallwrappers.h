@@ -62,6 +62,9 @@ extern "C"
 {
 #endif
 
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+
+LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
  * We can't tell which ones were already re-defined by the user executable.
  * For example, /bin/dash defines isalnum in Ubuntu 9.10.

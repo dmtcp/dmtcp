@@ -141,7 +141,9 @@ void *dlopen(const char *filename, int flag)
   void *ret;
   static void *(*next_fnc)(const char *, int) = NULL;
   WRAPPER_EXECUTION_DISABLE_CKPT();
+  thread_performing_dlopen_dlsym = 1;
   ret = NEXT_FNC(dlopen)(filename, flag);
+  thread_performing_dlopen_dlsym = 0;
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
@@ -151,7 +153,9 @@ int dlclose(void *handle)
   int ret;
   static int (*next_fnc)(void *) = NULL;
   WRAPPER_EXECUTION_DISABLE_CKPT();
+  thread_performing_dlopen_dlsym = 1;
   ret = NEXT_FNC(dlclose)(handle);
+  thread_performing_dlopen_dlsym = 0;
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
