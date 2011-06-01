@@ -49,7 +49,9 @@ def getOrigOffset(pathname,procMaps):
   textOffset = 0
   for segment in open(procMaps).read().splitlines():
     if segment.split()[-1].find(pathname) != -1:
-      textOffset = '0x' + segment.partition('-')[0]
+      #partition() requires Python 2.5
+      # textOffset = '0x' + segment.partition('-')[0]
+      textOffset = '0x' + segment[:segment.find('-')-1]
       break
   if textOffset == 0:
     print pathname + " not found in proc maps: " + procMaps
@@ -70,7 +72,9 @@ origOffset = getOrigOffset(pathname, tmpProcMaps)
 backtrace = open(tmpBacktrace).read().splitlines()
 for callFrame in backtrace:
   if (callFrame.find(dmtcphijack) != -1):  # CHECK THIS
-    offset = callFrame.rpartition('[')[2].partition(']')[0]
+    #partition() Requires Python 2.5
+    # offset = callFrame.rpartition('[')[2].partition(']')[0]
+    offset = callFrame[callFrame.rfind('[')+1:callFrame.find(']',callFrame.rfind('['))-1]
     hexOffset = hex( int(offset,16) - origOffset ) # returns hex str
     if hexOffset[0] == '-':
       # This happens because backtrace() can ascribe to dmtcphijack

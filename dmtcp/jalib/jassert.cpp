@@ -241,7 +241,6 @@ void writeProcMaps() {
   if (fd == -1) return;
   count = Util::writeAll(fd, mapsBuf, count);
   close(fd);
-  JALLOC_HELPER_FREE(mapsBuf);
 }
 
 jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()

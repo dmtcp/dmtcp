@@ -34,6 +34,18 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
+/* If your code wants to avoid the wrapper above, call this version */
+unsigned int real_sleep(unsigned int seconds) {
+  static unsigned int (*real_fnc)() = NULL; /* Same type signature as sleep */
+  static void *handle = NULL;
+
+  if (! handle)
+    handle = dlopen("libc.so.6", RTLD_NOW);
+  if (! real_fnc)
+    real_fnc = (__typeof__(real_fnc)) dlsym(handle, "sleep");
+  return (*real_fnc)(seconds);
+}
+
 void process_dmtcp_event(DmtcpEvent_t event, void* data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
@@ -43,6 +55,8 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
   case DMTCP_EVENT_PRE_CHECKPOINT:
     printf("*** The module %s is being called before checkpointing. ***\n",
 	   __FILE__);
+    real_sleep(1);
+    printf("*** Finished calling real_sleep() for 1 second. ***\n");
     break;
   case DMTCP_EVENT_POST_CHECKPOINT:
     printf("*** The module %s has now been checkpointed. ***\n", __FILE__);

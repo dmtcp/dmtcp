@@ -19,10 +19,6 @@ void print_time() {
 /* This macro requires a static local declaration of "next_fnc". */
 #define NEXT_FNC(symbol) \
   (next_fnc ? *next_fnc : *(next_fnc = dlsym(RTLD_NEXT, #symbol)))
-/* NOT USED (if this were C++, next_fnc would require a full type signature) */
-#define NEXT_FNC_CXX(symbol) \
-  (next_fnc ? *next_fnc : \
-   *(next_fnc = (__typeof__(next_fnc))dlsym(RTLD_NEXT, #symbol)))
 
 unsigned int sleep(unsigned int seconds) {
   static unsigned int (*next_fnc)() = NULL; /* Same type signature as sleep */
