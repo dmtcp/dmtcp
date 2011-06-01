@@ -185,6 +185,7 @@ typedef struct Jmpbuf Jmpbuf;
 
 struct Area { char *addr;   // args required for mmap to restore memory area
               size_t size;
+              off_t filesize;
               int prot;
               int flags;
               off_t offset;

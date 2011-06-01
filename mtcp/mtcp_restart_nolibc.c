@@ -91,6 +91,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
 static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
 static void lock_file(int fd, char* name, short l_type);
+static void adjust_for_smaller_file_size(Area *area, int fd);
 // These will all go away when we use a linker to reserve space.
 static VA global_vdso_addr = 0;
 
@@ -478,8 +479,6 @@ static void readmemoryareas (void)
       mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
 				 area.flags, imagefd, area.offset);
 
-      /* Close image file (fd only gets in the way) */
-      if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
       if (mmappedat == MAP_FAILED) {
         DPRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
@@ -489,6 +488,11 @@ static void readmemoryareas (void)
         MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort ();
       }
+
+      if (imagefd != -1) adjust_for_smaller_file_size(&area, imagefd);
+
+      /* Close image file (fd only gets in the way) */
+      if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
 
       /* Read saved area contents */
       mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
@@ -657,6 +661,30 @@ static void readmemoryareas (void)
         && mtcp_sys_brk(NULL) != area.addr + area.size) {
       DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
               mtcp_sys_brk(NULL), area.addr + area.size);
+    }
+  }
+}
+
+static void adjust_for_smaller_file_size(Area *area, int fd)
+{
+  off_t curr_size = mtcp_sys_lseek(fd, 0, SEEK_END);
+  if (curr_size < area->filesize && (area->offset + area->size > curr_size)) {
+    size_t diff_in_size = (area->offset + area->size) - curr_size;
+    size_t anon_area_size = (diff_in_size + MTCP_PAGE_SIZE - 1)
+                             & MTCP_PAGE_MASK;
+    VA anon_start_addr = area->addr + (area->size - anon_area_size);
+
+    VA mmappedat = mtcp_sys_mmap (anon_start_addr, anon_area_size,
+                                  area->prot | PROT_WRITE,
+                                  MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if (mmappedat == MAP_FAILED) {
+      DPRINTF("error %d mapping %p bytes at %p\n",
+              mtcp_sys_errno, anon_area_size, anon_start_addr);
+    }
+    if (mmappedat != anon_start_addr) {
+      MTCP_PRINTF("area at %p got mmapped to %p\n", anon_start_addr, mmappedat);
+      mtcp_abort ();
     }
   }
 }

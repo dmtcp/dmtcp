@@ -32,7 +32,8 @@ extern "C" {
 
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
 
-void mtcp_init (char const *checkpointfilename, int interval, int clonenabledefault);
+void mtcp_init (char const *checkpointfilename, void* clone_funcptr,
+                void* sigaction_funcptr, int interval, int clonenabledefault);
 int mtcp_wrapper_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg);
 int mtcp_ok (void);
 int mtcp_no (void);
@@ -53,7 +54,7 @@ struct ptrace_info {
 
 /* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
 struct cmd_info {
-  int option; 
+  int option;
   pid_t superior;
   pid_t inferior;
   int last_command;
