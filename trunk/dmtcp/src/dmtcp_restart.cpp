@@ -1162,6 +1162,8 @@ void ProcessGroupInfo()
     session &s = it->second;
     session::group_it g_it = s.groups.begin();
     pid_t fgid = -2;
+    if( s.sid == -1) // skip default bash session all processes will join
+      continue;
     for(; g_it!=s.groups.end();g_it++){
       group &g = g_it->second;
       for(size_t k=0; k<g.targets.size(); k++){
@@ -1180,8 +1182,10 @@ void ProcessGroupInfo()
               for(size_t m=0; m<g1.targets.size() ;m++){
                 VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
                 pid_t pid = virtualPidTable.pid();
+                pid_t ppid = virtualPidTable.ppid();
+                pid_t sid = virtualPidTable.sid();
                 pid_t cfgid = virtualPidTable.fgid();
-                printf("PID=%d <--> FGID = %d\n",pid,cfgid);
+                printf("PID=%d, PPID=%d, SID=%d <--> FGID = %d\n",pid,ppid,sid,cfgid);
               }
             }
           }
