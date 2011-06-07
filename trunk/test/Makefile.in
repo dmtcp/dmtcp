@@ -20,7 +20,11 @@ TESTS=$(basename $(wildcard *.c *.cpp))
 tests: $(TESTS)
 	${MAKE} -C credentials
 
-clean distclean:
+tidy:
+	rm -f ckpt_* dmtcp_restart_script* \
+	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
+
+clean distclean: tidy
 	rm -f $(TESTS) *.pyc *.so
 	${MAKE} -C credentials clean
 
