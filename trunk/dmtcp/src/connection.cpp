@@ -113,6 +113,27 @@ static bool _isBlacklistedFile ( dmtcp::string& path )
   return false;
 }
 
+static bool _isBlacklistedTcp ( int sockfd,
+				const sockaddr* saddr, socklen_t len )
+{
+  JASSERT( saddr != NULL );
+  if ( len >= sizeof(saddr->sa_family) && saddr->sa_family == AF_INET ) {
+    struct sockaddr_in* addr = (sockaddr_in*)saddr;
+    // Ports 389 and 636 are the well-known ports in /etc/services that
+    // are reserved for LDAP.  Bash continues to maintain a connection to
+    // LDAP, leading to problems at restart time.  So, we discover the LDAP
+    // remote addresses, and turn them into dead sockets at restart time.
+    int blacklistedRemotePorts[] = {389, 636, -1}; /* LDAP ports */
+    int i = 0;
+    while (blacklistedRemotePorts[i++] != -1)
+      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i])
+        return true;
+  }
+  // FIXME:  Consider adding configure or dmtcp_checkpoint option to disable
+  //   all remote connections.  Handy as quick test for special cases.
+  return false;
+}
+
 dmtcp::Connection::Connection ( int t )
   : _id ( ConnectionIdentifier::Create() )
   , _type ( ( ConnectionType ) t )
@@ -206,12 +227,11 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
   return *this;
 }
 
-void dmtcp::TcpConnection::onBind ( const struct sockaddr* addr, socklen_t len )
+void dmtcp::TcpConnection::onBind (const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {
     JTRACE ("Binding.") ( id() ) ( len );
   }
-
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Binding a socket in use????" );
   JASSERT ( len <= sizeof _bindAddr ) ( len ) ( sizeof _bindAddr )
@@ -226,7 +246,6 @@ void dmtcp::TcpConnection::onListen ( int backlog )
   if (really_verbose) {
     JTRACE ( "Listening." ) ( id() ) ( backlog );
   }
-
   JASSERT ( tcpType() == TCP_BIND ) ( tcpType() ) ( id() )
     .Text ( "Listening on a non-bind()ed socket????" );
   // A -1 backlog is not an error.
@@ -237,17 +256,23 @@ void dmtcp::TcpConnection::onListen ( int backlog )
   _listenBacklog = backlog;
 }
 void dmtcp::TcpConnection::onConnect( int sockfd, 
-                                      const  struct sockaddr *addr, 
+                                      const struct sockaddr *addr, 
                                       socklen_t len )
 {
   if (really_verbose) {
     JTRACE ( "Connecting." ) ( id() );
   }
-
   JASSERT ( tcpType() == TCP_CREATED ) ( tcpType() ) ( id() )
     .Text ( "Connecting with an in-use socket????" );
 
-  _type = TCP_CONNECT;
+  /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
+  if (addr != NULL && _isBlacklistedTcp(sockfd, addr, len)) {
+    _type = TCP_EXTERNAL_CONNECT;
+    _connectAddrlen = len;
+    memcpy ( &_connectAddr, addr, len );
+  } else {
+    _type = TCP_CONNECT;
+  }
 }
 
 /*onAccept*/
