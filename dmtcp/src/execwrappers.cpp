@@ -220,12 +220,20 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     execLibProcessAndExit(path);
   if (path != NULL && Util::strStartsWith(path, lib64Prefix))
     execLibProcessAndExit(path);
+  if (path != NULL &&
+      Util::strStartsWith(path, "/usr/libexec/utempter/utempter"))
+    JTRACE("Trying to exec: utempter")(path)(argv[1])(argv[2]);
+    // SHOULD DO:  execLibProcessAndExit(path, argv);
 
+  // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
   if (Util::isSetuid(path)) {
     if (Util::isScreen(path)) {
       setenv(ENV_VAR_SCREENDIR, Util::getScreenDir().c_str(), 1);
     }
+    // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
     Util::patchArgvIfSetuid(path, argv, newArgv);
+    // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING BINARY
+    //   IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
     *filename = (char*)path;
@@ -242,7 +250,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 #endif
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
-  JTRACE ( "Preparing for Exec" ) ( path ) (*filename);
+  JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);
 
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c

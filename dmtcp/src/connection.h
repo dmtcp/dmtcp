@@ -206,6 +206,7 @@ namespace dmtcp
         socklen_t               _connectAddrlen;
       };
       union {
+        /* See 'man socket.h' or POSIX for 'struct sockaddr_storage' */
         struct sockaddr_storage _bindAddr;
         struct sockaddr_storage _connectAddr;
       };

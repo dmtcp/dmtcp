@@ -51,7 +51,7 @@ def getOrigOffset(pathname,procMaps):
     if segment.split()[-1].find(pathname) != -1:
       #partition() requires Python 2.5
       # textOffset = '0x' + segment.partition('-')[0]
-      textOffset = '0x' + segment[:segment.find('-')-1]
+      textOffset = '0x' + segment[:segment.find('-')]
       break
   if textOffset == 0:
     print pathname + " not found in proc maps: " + procMaps
@@ -60,7 +60,7 @@ def getOrigOffset(pathname,procMaps):
   #   section was mapped to memory, in fact all the program header table
   #   and all the sections preceding .text were mapped in.
   #   So, now we need to include the file offset in our calculation.
-  fileOffset = subprocess.Popen("objdump -h " + pathname + " | grep .text",
+  fileOffset = subprocess.Popen("objdump -h " + pathname + " | grep '\.text'",
                               shell=True, stdout=subprocess.PIPE)
   # file offset col. of objdump outp
   fileOffset = fileOffset.stdout.read().split()[5] 
@@ -74,7 +74,7 @@ for callFrame in backtrace:
   if (callFrame.find(dmtcphijack) != -1):  # CHECK THIS
     #partition() Requires Python 2.5
     # offset = callFrame.rpartition('[')[2].partition(']')[0]
-    offset = callFrame[callFrame.rfind('[')+1:callFrame.find(']',callFrame.rfind('['))-1]
+    offset = callFrame[callFrame.rfind('[')+1:callFrame.find(']',callFrame.rfind('['))]
     hexOffset = hex( int(offset,16) - origOffset ) # returns hex str
     if hexOffset[0] == '-':
       # This happens because backtrace() can ascribe to dmtcphijack

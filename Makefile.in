@@ -59,6 +59,7 @@ display-build-env: display-release
 	  fi || true
 	@ uname -a
 	@ ${CC} --version || true
+	@ ${LD} -v || true
 	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 2> /dev/null || true
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
@@ -150,7 +151,9 @@ distclean: clean
 	-(cd mtcp  && $(MAKE) distclean)
 	-(cd dmtcp && $(MAKE) distclean)  
 	-(cd module && $(MAKE) distclean)  
-	rm -f Makefile test/Makefile test/testconfig.py config.log config.status bin/* dmtcpaware/*dmtcpaware*
+	rm -f Makefile test/Makefile test/testconfig.py \
+	  dmtcpaware/*dmtcpaware* config.log config.status config.cache bin/*
+	rm -rf autom4te.cache dmtcp/autom4te.cache
 
 svndist:
 	if test "`svn info`"; then \

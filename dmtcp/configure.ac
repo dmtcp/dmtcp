@@ -128,7 +128,7 @@ AC_ARG_ENABLE([external_socket_handling],
 AC_ARG_ENABLE([stale_socket_handling],
             [AS_HELP_STRING([--disable-stale-socket-handling],
                             [disable stale socket handling; unknown peer
-			     assumed to be external; follow poicy of
+			     assumed to be external; follow policy of
 			     external-socket-handling configure option.])],
             [use_stale_socket_handling=$enableval],
             [use_stale_socket_handling=yes])
