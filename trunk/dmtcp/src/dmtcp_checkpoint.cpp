@@ -347,12 +347,29 @@ int main ( int argc, char** argv )
 
   testMatlab(argv[0]);
 
-  // If dmtcphijack.so is in standard search path and also has setgid access,
-  //   then LD_PRELOAD will work.  Otherwise, it will only work if the
-  //   application does not use setuid and setgid access.  So, we test
-  //   if the application does not use setuid/setgid.  (See 'man ld.so')
+  // If dmtcphijack.so is in standard search path and _also_ has setgid access,
+  //   then LD_PRELOAD will work.
+  // Otherwise, it will only work if the application does not use setuid and
+  //   setgid access.  So, we test //   if the application does not use
+  //   setuid/setgid.  (See 'man ld.so')
+  // FIXME:  ALSO DO THIS FOR execwrappers.cpp:dmtcpPrepareForExec()
+  //   Should pass dmtcphijack.so path, and let testSetuid determine
+  //     if setgid is set for it.  If so, no problem:  continue.
+  //   If not, call testScreen() and adapt 'screen' to run using
+  //     Util::patchArgvIfSetuid(argv[0], argv, &newArgv) (which shouldn't
+  //     will just modify argv[0] to point to /tmp/dmtcp-USER@HOST/screen
+  //     and other modifications:  doesn't need newArgv).
+  //   If it's not 'screen' and if no setgid for dmtcphijack.so, then testSetuid
+  //    should issue the warning, unset our LD_PRELOAD, and hope for the best.
+  //    A program like /usr/libexec/utempter/utempter (Fedora path)
+  //    is short-lived and can be safely run.  Ideally, we should
+  //    disable checkpoints while utempter is running, and enable checkpoints
+  //    when utempter finishes.  See possible model at
+  //    execwrappers.cpp:execLibProcessAndExit(), since the same applies
+  //    to running /lib/libXXX.so for running libraries as executables.
   if (testSetuid(argv[0])) {
     char **newArgv;
+    // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
     Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
   };
@@ -379,8 +396,9 @@ int main ( int argc, char** argv )
 
   //TODO:
   // When stderr is a pseudo terminal for IPC between parent/child processes,
-  // this logic fails and JASSERT may write data to FD 2 (stderr)
-  // this will cause problems in programs that use FD 2 (stderr) for algorithmic things...
+  //  this logic fails and JASSERT may write data to FD 2 (stderr).
+  // This will cause problems in programs that use FD 2 (stderr) for
+  //  algorithmic things ...
   if ( stderrDevice.length() > 0
           && jalib::Filesystem::FileExists ( stderrDevice ) )
     setenv ( ENV_VAR_STDERR_PATH,stderrDevice.c_str(), 0 );

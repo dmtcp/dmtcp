@@ -196,7 +196,7 @@ const jalib::string writeJbacktraceMsg() {
   dmtcp::ostringstream o;
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
-    "   Try  using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
+    "   Try using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
     "     utils/dmtcp_backtrace.py dmtcphijack.so ";
   o << msg << dmtcp_get_tmpdir() << "/backtrace."

@@ -231,7 +231,8 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   // Remove any stale copy, just in case it's not right.
   JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);  
 
-  safeSystem(cpCmdBuf);
+  JASSERT (safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
+    .Text("call to system(cpCmdBuf) failed");
 
   JASSERT (access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
 
