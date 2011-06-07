@@ -24,7 +24,7 @@
 #ifndef _PTRACE_H
 #define _PTRACE_H
 
-#include "mtcp_internal.h" 
+#include "mtcp_internal.h"
 #include <sys/ptrace.h>
 #include <semaphore.h>
 
@@ -60,7 +60,7 @@ enum {
 /* Must match the enum from dmtcp/src/ptracewrapper.h. */
 /* These are values for singlestep_waited_on field of struct ptrace_info.
  * We only read singlestep_waited_on if last_command is
- * PTRACE_SINGLESTEP_COMMAND. */ 
+ * PTRACE_SINGLESTEP_COMMAND. */
 enum {
   FALSE = 0,
   TRUE
@@ -173,5 +173,5 @@ extern void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
 
 void read_ptrace_setoptions_file (int record_to_file, int rc);
 char retrieve_inferior_state(pid_t tid);
-#endif 
+#endif
 #endif

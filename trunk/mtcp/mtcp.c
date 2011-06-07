@@ -385,8 +385,8 @@ Area mtcp_libc_area;               // some area of that libc.so
 int dmtcp_exists = 0; /* Are we running under DMTCP? */
 int dmtcp_info_pid_virtualization_enabled = 0;
 /* The following two DMTCP Info variables are defined in mtcp_printf.c */
-//int dmtcp_info_stderr_fd = 2;
-//int dmtcp_info_jassertlog_fd = -1;
+extern int dmtcp_info_stderr_fd;
+extern int dmtcp_info_jassertlog_fd;
 int dmtcp_info_restore_working_directory = -1;
 
 char* mtcp_restore_argv_start_addr = NULL;
@@ -561,6 +561,27 @@ static Thread ckptThreadStorage;
 
 /*****************************************************************************
  *
+ *  This routine must be called before mtcp_init if running under DMTCP
+ *
+ *****************************************************************************/
+void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
+                           int stderr_fd,
+                           int jassertlog_fd,
+                           int restore_working_directory,
+                           void *libc_clone_fnptr,
+                           void *libc_sigaction_fnptr)
+{
+  dmtcp_exists = 1;
+  dmtcp_info_pid_virtualization_enabled = pid_virtualization_enabled;
+  dmtcp_info_stderr_fd = stderr_fd;
+  dmtcp_info_jassertlog_fd = jassertlog_fd;
+  dmtcp_info_restore_working_directory = restore_working_directory;
+  clone_entry = libc_clone_fnptr;
+  sigaction_entry = libc_sigaction_fnptr;
+}
+
+/*****************************************************************************
+ *
  *  This routine must be called at startup time to initiate checkpointing
  *
  *    Input:
@@ -580,8 +601,6 @@ static Thread ckptThreadStorage;
  *
  *****************************************************************************/
 void mtcp_init (char const *checkpointfilename,
-                void* clone_funcptr,
-                void* sigaction_funcptr,
                 int interval,
                 int clonenabledefault)
 {
@@ -745,10 +764,7 @@ void mtcp_init (char const *checkpointfilename,
    * NOTE: This also sets up sigaction_entry to point to glibc's sigaction
    * therefore, it must be called before setup_sig_handler();
    */
-  /* FIXME: Not calling setup_clone_entry() can cause problems */
-  //if (clone_entry == NULL) setup_clone_entry ();
-  clone_entry = clone_funcptr;
-  sigaction_entry = sigaction_funcptr;
+  if (clone_entry == NULL) setup_clone_entry ();
 
   /* Set up signal handler so we can interrupt the thread for checkpointing */
   setup_sig_handler ();
@@ -1254,6 +1270,11 @@ static void setup_clone_entry (void)
 {
   char *p, *tmp;
   int mapsfd;
+
+  if (dmtcp_exists) {
+    MTCP_PRINTF("Error: NOT REACHED!\n");
+    mtcp_abort();
+  }
 
   /* Get name of whatever concoction we have for a libc shareable image */
   /* This is used by the wrapper routines                               */
