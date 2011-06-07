@@ -137,9 +137,14 @@ extern "C" void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
+  typedef int ( *mtcp_init_dmtcp_info_t ) ( int pid_virtualization_enabled,
+                                            int stderr_fd,
+                                            int jassertlog_fd,
+                                            int restore_working_directory,
+                                            void *libc_clone_fnptr,
+                                            void *libc_sigaction_fnptr );
+
   typedef int ( *mtcp_init_t ) ( char const *checkpointFilename,
-                                 void *libc_clone_fnptr,
-                                 void *ligc_sigaction_fnptr,
                                  int interval,
                                  int clonenabledefault );
   typedef void ( *mtcp_set_callbacks_t ) (
@@ -318,57 +323,38 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 }
 
-void dmtcp::initializeMtcpEngine()
+static void initializeDmtcpInfoInMtcp()
 {
-#ifdef PTRACE
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  char *dmtcp_tmp_dir =
-     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
-  sprintf(dmtcp_tmp_dir, "%s",  tmpdir.c_str());
-#endif
+  int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
 
-  int *dmtcp_exists_ptr =
-    (int*) _get_mtcp_symbol( "dmtcp_exists" );
-  *dmtcp_exists_ptr = 1;
-
-  int *dmtcp_info_pid_virtualization_enabled_ptr =
-    (int*) _get_mtcp_symbol( "dmtcp_info_pid_virtualization_enabled" );
-
-#ifdef PID_VIRTUALIZATION
-  *dmtcp_info_pid_virtualization_enabled_ptr = 1;
-#else
-  *dmtcp_info_pid_virtualization_enabled_ptr = 0;
-#endif
-
-  int *dmtcp_info_stderr_fd =
-    (int*) _get_mtcp_symbol( "dmtcp_info_stderr_fd" );
-  *dmtcp_info_stderr_fd = PROTECTED_STDERR_FD;
-
-#ifdef DEBUG
-  int *dmtcp_info_jassertlog_fd =
-    (int*) _get_mtcp_symbol( "dmtcp_info_jassertlog_fd" );
-  *dmtcp_info_jassertlog_fd = PROTECTED_JASSERTLOG_FD;
-#endif
-
-  int *dmtcp_info_restore_working_directory =
-    (int*) _get_mtcp_symbol( "dmtcp_info_restore_working_directory" );
   // DMTCP restores working dir only if --checkpoint-open-files invoked.
   // Later, we may offer the user a separate command line option for this.
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES))
-    *dmtcp_info_restore_working_directory = 1;
-  else
-    *dmtcp_info_restore_working_directory = 0;
+  int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
 
-  mtcp_set_callbacks_t mtcp_set_callbacks =
-    ( mtcp_set_callbacks_t ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+  void *libc_clone_fptr = dlsym(RTLD_NEXT, "__clone");
+  void *libc_sigaction_fptr = dlsym(RTLD_NEXT, "sigaction");
+  JASSERT(libc_clone_fptr != NULL);
+  JASSERT(libc_sigaction_fptr != NULL);
 
-  mtcp_init_t init = ( mtcp_init_t ) _get_mtcp_symbol ( "mtcp_init" );
-  mtcp_ok_t okFn = ( mtcp_ok_t ) _get_mtcp_symbol ( "mtcp_ok" );
+  mtcp_init_dmtcp_info_t init_dmtcp_info =
+    (mtcp_init_dmtcp_info_t) _get_mtcp_symbol("mtcp_init_dmtcp_info");
+
+  (*init_dmtcp_info) (PROTECTED_STDERR_FD,
+                      jassertlog_fd,
+                      pidVirtualizationEnabled,
+                      restore_working_directory,
+                      libc_clone_fptr,
+                      libc_sigaction_fptr);
 
 #ifdef PTRACE
+  // FIXME: Do we need this anymore?
   sigemptyset (&signals_set);
   // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
   sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
+
+  char *dmtcp_tmp_dir =
+     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
+  sprintf(dmtcp_tmp_dir, "%s", dmtcp::UniquePid::getTmpDir().c_str());
 
   mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
     _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
@@ -379,6 +365,17 @@ void dmtcp::initializeMtcpEngine()
   mtcp_ptracing = ( t_mtcp_ptracing )
     _get_mtcp_symbol ( "ptracing" );
 #endif
+}
+
+void dmtcp::initializeMtcpEngine()
+{
+  initializeDmtcpInfoInMtcp();
+
+  mtcp_set_callbacks_t mtcp_set_callbacks =
+    ( mtcp_set_callbacks_t ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
+
+  mtcp_init_t init = ( mtcp_init_t ) _get_mtcp_symbol ( "mtcp_init" );
+  mtcp_ok_t okFn = ( mtcp_ok_t ) _get_mtcp_symbol ( "mtcp_ok" );
 
   ( *mtcp_set_callbacks )( &callbackSleepBetweenCheckpoint
                  , &callbackPreCheckpoint
@@ -398,8 +395,7 @@ void dmtcp::initializeMtcpEngine()
   void *libc_sigaction_fptr = dlsym(RTLD_NEXT, "sigaction");
   JASSERT(libc_clone_fptr != NULL);
   JASSERT(libc_sigaction_fptr != NULL);
-  ( *init ) ( UniquePid::checkpointFilename(), libc_clone_fptr,
-              libc_sigaction_fptr, 0xBadF00d, 1 );
+  ( *init ) ( UniquePid::checkpointFilename(), 0xBadF00d, 1 );
   ( *okFn ) ();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );

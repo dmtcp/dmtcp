@@ -32,8 +32,15 @@ extern "C" {
 
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
 
-void mtcp_init (char const *checkpointfilename, void* clone_funcptr,
-                void* sigaction_funcptr, int interval, int clonenabledefault);
+void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
+                           int stderr_fd,
+                           int jassertlog_fd,
+                           int restore_working_directory,
+                           void *libc_clone_fnptr,
+                           void *libc_sigaction_fnptr);
+void mtcp_init (char const *checkpointfilename,
+                int interval,
+                int clonenabledefault);
 int mtcp_wrapper_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg);
 int mtcp_ok (void);
 int mtcp_no (void);
