@@ -474,6 +474,8 @@ runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
                              "./test/frisbee "+p3+" localhost "+p1+" starter"])
 os.environ['DMTCP_GZIP'] = "0"
 
+runTest("client-server", 2, ["./test/client-server"])
+
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
 runTest("sysv-shm",      2, ["./test/sysv-shm"])
