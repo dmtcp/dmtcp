@@ -124,10 +124,14 @@ static bool _isBlacklistedTcp ( int sockfd,
     // LDAP, leading to problems at restart time.  So, we discover the LDAP
     // remote addresses, and turn them into dead sockets at restart time.
     int blacklistedRemotePorts[] = {389, 636, -1}; /* LDAP ports */
-    int i = 0;
-    while (blacklistedRemotePorts[i++] != -1)
-      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i])
+    int i = -1;
+    while (blacklistedRemotePorts[++i] != -1) {
+      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
+        JTRACE("LDAP port found")(ntohs(addr->sin_port))
+              (blacklistedRemotePorts[0])(blacklistedRemotePorts[1]);
         return true;
+      }
+    }
   }
   // FIXME:  Consider adding configure or dmtcp_checkpoint option to disable
   //   all remote connections.  Handy as quick test for special cases.
