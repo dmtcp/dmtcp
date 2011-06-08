@@ -156,7 +156,7 @@ namespace dmtcp
                                      dmtcp::vector<TcpConnectionInfo>& conInfoTable);
 #endif
 
-      //basic commands for updating state as a from wrappers
+      //basic commands for updating state from wrappers
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
       void onBind ( const struct sockaddr* addr, socklen_t len );
       void onListen ( int backlog );
