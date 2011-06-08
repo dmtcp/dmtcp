@@ -26,6 +26,7 @@
 // #define GNU_SRC
 // #define __USE_UNIX98
 
+#include <malloc.h>
 #include <pthread.h>
 #include "syscallwrappers.h"
 #include <dlfcn.h>
@@ -192,6 +193,24 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
   } \
   (*fn)
 
+/* Variable to save original malloc hook. */
+static void *(*old_malloc_hook)(size_t, const void *);
+
+ /* Prototypes for our hooks.  */
+ static void my_init_hook (void);
+ static void *my_malloc_hook (size_t, const void *);
+     
+static void * my_malloc_hook (size_t size, const void *caller) {
+  void *result;
+  /* Restore all old hooks */
+  __malloc_hook = old_malloc_hook;
+  /* Call recursively */
+  result = malloc (size);
+  /* Restore our own hooks */
+  __malloc_hook = my_malloc_hook;
+  return result;
+}
+
 LIB_PRIVATE
 void *_real_dlsym ( void *handle, const char *symbol ) {
   /* In the future dlsym_offset should be global variable defined in
@@ -214,6 +233,8 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
   void *res = NULL;
   thread_performing_dlopen_dlsym = 1;
+  old_malloc_hook = __malloc_hook;
+  __malloc_hook = my_malloc_hook;
   if ( dlsym_offset == 0)
     res = dlsym ( handle, symbol );
   else
@@ -222,6 +243,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
     res = (*dlsym_addr) ( handle, symbol );
   }
+  __malloc_hook = old_malloc_hook;
   thread_performing_dlopen_dlsym = 0;
   return res;
 }
@@ -665,10 +687,9 @@ long int _real_syscall(long int sys_num, ... ) {
   va_end(ap);
 
   static long int (*fn) () = NULL;
-//  sleep(5);
-  fn = (long int (*)())dlsym(RTLD_DEFAULT, "syscall");
-  fn = (long int (*)())dlsym(RTLD_NEXT, "syscall");
-  fn = (long int (*)())dlsym(RTLD_NEXT, "syscall");
+  fn = (long int (*)())_real_dlsym(RTLD_DEFAULT, "syscall");
+  fn = (long int (*)())_real_dlsym(RTLD_NEXT, "syscall");
+  fn = (long int (*)())_real_dlsym(RTLD_NEXT, "syscall");
   return (*fn) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
