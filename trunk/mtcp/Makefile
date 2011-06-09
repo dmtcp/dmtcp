@@ -119,7 +119,8 @@ else
 endif
 
 build: libmtcp.so mtcp_restart
-tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest bigtestmtcp
+# Don't do bigtestmtcp by default; Good for stress testing, but slow.
+tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
 
 # Test programs
 
