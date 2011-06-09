@@ -44,7 +44,7 @@ endif
 
 ifdef M32
 # HIGHEST_VA is [vdso] (just above [stack])
-CC = gcc -m32 -Wa,--32 -DHIGHEST_VA=0xffffe000
+CC = gcc -m32 -Wa,--32 -DHIGHEST_VA='(VA)0xffffe000'
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
 LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
