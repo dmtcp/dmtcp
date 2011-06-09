@@ -2217,8 +2217,6 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     //libc_unsetenv = mtcp_get_libc_symbol("unsetenv");
     //(*libc_unsetenv)("LD_PRELOAD");
 
-    DPRINTF("open_ckpt_to_write: exec\n");
-
     //libc_execvp = mtcp_get_libc_symbol("execvp");
     //(*libc_execvp)(extcomp_args[0], extcomp_args);
     mtcp_sys_execve(extcomp_args[0], extcomp_args, NULL);
