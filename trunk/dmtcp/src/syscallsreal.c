@@ -202,7 +202,7 @@ static void *(*old_malloc_hook)(size_t, const void *);
      
 static void * my_malloc_hook (size_t size, const void *caller) {
   void *result;
-  /* Restore all old hooks */
+  /* Restore all old hooks - this will prevent an infinite loop. */
   __malloc_hook = old_malloc_hook;
   /* Call recursively */
   result = malloc (size);
@@ -210,6 +210,18 @@ static void * my_malloc_hook (size_t size, const void *caller) {
   __malloc_hook = my_malloc_hook;
   return result;
 }
+
+int memhook_is_initialized = 0;
+
+#define MEMHOOK_OFF() \
+  __malloc_hook = old_malloc_hook
+
+#define MEMHOOK_ON() \
+  if (!memhook_is_initialized) { \
+    old_malloc_hook = __malloc_hook; \
+    memhook_is_initialized = 1; \
+  } \
+  __malloc_hook = my_malloc_hook
 
 LIB_PRIVATE
 void *_real_dlsym ( void *handle, const char *symbol ) {
@@ -233,8 +245,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
   void *res = NULL;
   thread_performing_dlopen_dlsym = 1;
-  old_malloc_hook = __malloc_hook;
-  __malloc_hook = my_malloc_hook;
+  MEMHOOK_ON();
   if ( dlsym_offset == 0)
     res = dlsym ( handle, symbol );
   else
@@ -243,7 +254,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
     res = (*dlsym_addr) ( handle, symbol );
   }
-  __malloc_hook = old_malloc_hook;
+  MEMHOOK_OFF();
   thread_performing_dlopen_dlsym = 0;
   return res;
 }
