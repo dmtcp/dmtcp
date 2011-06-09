@@ -463,11 +463,11 @@ static void readmemoryareas (void)
 #ifdef FAST_CKPT_RST_VIA_MMAP
       fastckpt_restore_mem_region(mtcp_restore_cpfd, &area);
 #else
-      imagefd = 0;
+      imagefd = -1;
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
         imagefd = mtcp_sys_open (area.name, O_RDONLY, 0);
-        if (imagefd < 0) imagefd = 0;
-        else area.flags ^= MAP_ANONYMOUS;
+        if (imagefd >= 0)
+          area.flags ^= MAP_ANONYMOUS;
       }
 
       /* Create the memory area */
@@ -489,7 +489,8 @@ static void readmemoryareas (void)
         mtcp_abort ();
       }
 
-      if (imagefd != -1) adjust_for_smaller_file_size(&area, imagefd);
+      if (imagefd >= 0)
+        adjust_for_smaller_file_size(&area, imagefd);
 
       /* Close image file (fd only gets in the way) */
       if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
@@ -668,15 +669,20 @@ static void readmemoryareas (void)
 static void adjust_for_smaller_file_size(Area *area, int fd)
 {
   off_t curr_size = mtcp_sys_lseek(fd, 0, SEEK_END);
+  if (curr_size == -1) return;
   if (curr_size < area->filesize && (area->offset + area->size > curr_size)) {
     size_t diff_in_size = (area->offset + area->size) - curr_size;
     size_t anon_area_size = (diff_in_size + MTCP_PAGE_SIZE - 1)
                              & MTCP_PAGE_MASK;
     VA anon_start_addr = area->addr + (area->size - anon_area_size);
 
+    DPRINTF("For %s, current size (%ld) smaller than original (%ld).\n"
+            "mmap()'ng the difference as anonymous.\n",
+            area->name, curr_size, area->size);
     VA mmappedat = mtcp_sys_mmap (anon_start_addr, anon_area_size,
                                   area->prot | PROT_WRITE,
-                                  MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+                                  MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
+                                  -1, 0);
 
     if (mmappedat == MAP_FAILED) {
       DPRINTF("error %d mapping %p bytes at %p\n",

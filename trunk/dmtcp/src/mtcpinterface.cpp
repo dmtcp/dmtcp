@@ -77,7 +77,8 @@ namespace
   {
     dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
     void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load libmtcp.so" );
+    JASSERT ( handle != NULL ) ( mtcpso ) (dlerror())
+      .Text ( "failed to load libmtcp.so" );
     return handle;
   }
 
