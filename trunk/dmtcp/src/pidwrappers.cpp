@@ -332,12 +332,14 @@ int   tgkill(int tgid, int tid, int sig)
 #define TRUE 1
 #define FALSE 0
 
+void *td_thr_get_info_handle;
+
 extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
                                                td_thrinfo_t *ti_p)
 {
   td_err_e td_err;
 
-  td_err = _real_td_thr_get_info ( th_p, ti_p);
+  td_err = _real_td_thr_get_info ( td_thr_get_info_handle, th_p, ti_p);
   ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
   ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
   return td_err;
@@ -349,8 +351,10 @@ extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
 */
 extern "C" void *dlsym ( void *handle, const char *symbol)
 {
-  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 )
+  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 ) {
+    td_thr_get_info_handle = handle;
     return (void *) &_dmtcp_td_thr_get_info;
+  }
   else
     return _real_dlsym ( handle, symbol );
 }

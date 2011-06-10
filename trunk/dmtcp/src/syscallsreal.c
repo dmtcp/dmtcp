@@ -817,8 +817,10 @@ int _real_munmap(void *addr, size_t length) {
 /* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
    tid virtualization. */
 LIB_PRIVATE
-td_err_e _real_td_thr_get_info ( const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( td_err_e, td_thr_get_info ) ( th_p, ti_p );
+td_err_e _real_td_thr_get_info ( void *handle, const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
+  static td_err_e (*fn) () = NULL;
+  if (fn == NULL) fn = (td_err_e (*)())_real_dlsym(handle, "td_thr_get_info");
+  return (*fn) ( th_p, ti_p );
 }
 
 LIB_PRIVATE
