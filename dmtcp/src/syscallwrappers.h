@@ -266,7 +266,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 #ifdef PTRACE
   long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
                     void *data);
-  td_err_e  _real_td_thr_get_info ( const td_thrhandle_t  *th_p,
+  td_err_e  _real_td_thr_get_info ( void *handle, const td_thrhandle_t  *th_p,
                                     td_thrinfo_t *ti_p);
 #endif
 
