@@ -185,7 +185,11 @@ extern "C" pid_t vfork()
   return fork();
 }
 
-static void execLibProcessAndExit(const char *path, char *const argv[])
+// Special short-lived processes from executables like /lib/libc.so.6
+//   and man setuid/setgid executables cannot be loaded with LD_PRELOAD.
+// Since they're short-lived, we execute them while holding a lock
+//   delaying checkpointing.
+static void execShortLivedProcessAndExit(const char *path, char *const argv[])
 {
   unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
@@ -225,15 +229,18 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
   if (path != NULL && Util::strStartsWith(path, libPrefix))
-    execLibProcessAndExit(path, argv);
+    execShortLivedProcessAndExit(path, argv);
   if (path != NULL && Util::strStartsWith(path, lib64Prefix))
-    execLibProcessAndExit(path, argv);
+    execShortLivedProcessAndExit(path, argv);
   // Needed for /usr/libexec/utempter/utempter and other short-lived
   //  setuid/setgid processes.
+  // FIXME:  USE THIS FOR ALL setuid/setgid PROCESSES EXCEPT ONES THAT
+  //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
+  //         execScreenProcess() ??)
   if (path != NULL &&
       Util::strStartsWith(path, "/usr/libexec/utempter/utempter"))
-    execLibProcessAndExit(path, argv);
-  JASSERT(!  Util::strStartsWith(path, "/usr/libexec/utempter/utempter"));
+    execShortLivedProcessAndExit(path, argv);
+    JTRACE("Trying to exec: utempter")(path)(argv[1])(argv[2]);
 
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
   if (Util::isSetuid(path)) {

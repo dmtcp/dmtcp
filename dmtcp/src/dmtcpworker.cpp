@@ -117,6 +117,10 @@ void processDmtcpCommands(dmtcp::string programName,
 static void processSshCommand(dmtcp::string programName,
                               dmtcp::vector<dmtcp::string>& args);
 
+// To allow linking without mtcpinterface;  Weak symbol undefined, is set to 0
+void __attribute__ ((weak)) dmtcp::initializeMtcpEngine();
+void __attribute__ ((weak)) dmtcp::killCkpthread();
+
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
 
@@ -404,9 +408,13 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  initializeMtcpEngine();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  if (initializeMtcpEngine) { // if strong symbol defined elsewhere
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    initializeMtcpEngine();
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+  } else { // else trying to call weak symbol, which is undefined
+    JASSERT(false).Text("initializeMtcpEngine should not be called");
+  }
 
   /* Now wait for Checkpoint Thread to finish initialization
    * NOTE: This should be the last thing in this constructor
@@ -437,7 +445,10 @@ void dmtcp::DmtcpWorker::cleanupWorker()
 void dmtcp::DmtcpWorker::interruptCkpthread()
 {
   if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
-    killCkpthread();
+    if (killCkpthread) // if strong symbol defined elsewhere
+      killCkpthread();
+    else // else trying to call weak symbol, which is undefined
+      JASSERT(false).Text("killCkpthread should not be called");
     JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
   }
 }
@@ -1236,15 +1247,4 @@ void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
-}
-
-//to allow linking without mtcpinterface
-void __attribute__ ((weak)) dmtcp::initializeMtcpEngine()
-{
-  JASSERT(false).Text("should not be called");
-}
-
-void __attribute__ ((weak)) dmtcp::killCkpthread()
-{
-  JASSERT(false).Text("should not be called");
 }
