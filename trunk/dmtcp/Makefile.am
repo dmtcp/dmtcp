@@ -3,3 +3,5 @@
 AUTOMAKE_OPTIONS = foreign
 
 SUBDIRS = src
+
+dist_noinst_SCRIPTS = autogen.sh
