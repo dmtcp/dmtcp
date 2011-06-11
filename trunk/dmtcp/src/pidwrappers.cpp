@@ -51,7 +51,7 @@ static pid_t originalToCurrentPid( pid_t originalPid )
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
      this function. */
   pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
-  
+
   if (currentPid == -1)
     currentPid = originalPid;
 
@@ -64,7 +64,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
      this function. */
   pid_t originalPid = dmtcp::VirtualPidTable::instance().currentToOriginalPid( currentPid );
-  
+
   if (originalPid == -1)
     originalPid = currentPid;
 
@@ -262,7 +262,7 @@ extern "C" int   kill(pid_t pid, int sig)
    *       <RESTORE_SIGNAL_MASK>
    *     }
    *     return retVal;
-   * 
+   *
    *
    * This longjmp trouble can happen with any wrapper, whose execution my
    * end up in a call to user-code i.e. if the call frame looks sth like:
@@ -273,7 +273,7 @@ extern "C" int   kill(pid_t pid, int sig)
    *        ...
    *        user_func2(...)
    *        ...
-   * 
+   *
    * Another potential way would be to put a wrapper around longjmp() in
    * which the calling thread should release all the DMTCP-locks being
    * held at the moment. This would require us to keep a count of lock()
@@ -281,8 +281,8 @@ extern "C" int   kill(pid_t pid, int sig)
    * call, one need to make sure that an unlock() call is requested only
    * if there is a corresponding lock, because it might happen that
    * longjmp() was harmless in the sense that, it didn't cause a
-   * callframe like the one mentioned above. 
-   * 
+   * callframe like the one mentioned above.
+   *
    */
 //  WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -332,14 +332,16 @@ int   tgkill(int tgid, int tid, int sig)
 #define TRUE 1
 #define FALSE 0
 
-void *td_thr_get_info_handle;
-
-extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
-                                               td_thrinfo_t *ti_p)
+typedef td_err_e (*td_thr_get_info_funcptr_t)(const td_thrhandle_t *,
+                                              td_thrinfo_t *);
+static td_thr_get_info_funcptr_t _td_thr_get_info_funcptr = NULL;
+static td_err_e  _dmtcp_td_thr_get_info (const td_thrhandle_t  *th_p,
+                                         td_thrinfo_t *ti_p)
 {
   td_err_e td_err;
 
-  td_err = _real_td_thr_get_info ( td_thr_get_info_handle, th_p, ti_p);
+  td_err = (*_td_thr_get_info_funcptr)(th_p, ti_p);
+
   ti_p->ti_lid  =  ( lwpid_t ) currentToOriginalPid ( ( int ) ti_p->ti_lid );
   ti_p->ti_tid =  ( thread_t ) currentToOriginalPid ( (int ) ti_p->ti_tid );
   return td_err;
@@ -352,15 +354,20 @@ extern "C" td_err_e   _dmtcp_td_thr_get_info ( const td_thrhandle_t  *th_p,
 extern "C" void *dlsym ( void *handle, const char *symbol)
 {
   if ( strcmp ( symbol, "td_thr_get_info" ) == 0 ) {
-    td_thr_get_info_handle = handle;
-    return (void *) &_dmtcp_td_thr_get_info;
+    _td_thr_get_info_funcptr = (td_thr_get_info_funcptr_t) _real_dlsym(handle,
+                                                                       symbol);
+    if (_td_thr_get_info_funcptr != NULL) {
+      return (void *) &_dmtcp_td_thr_get_info;
+    } else {
+      return NULL;
+    }
   }
   else
     return _real_dlsym ( handle, symbol );
 }
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-                                             int singlestep_waited_on); 
+                                             int singlestep_waited_on);
 
 typedef struct ptrace_waitpid_info ( *t_mtcp_get_ptrace_waitpid_info) ( );
 extern "C" t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info;
@@ -439,7 +446,7 @@ pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
 
     /* Verify there was no checkpoint/restart between currpid and _real_waitpid.
-     * Note:  A checkpoint/restart after _real_waitpid does not need a verify. 
+     * Note:  A checkpoint/restart after _real_waitpid does not need a verify.
      * TODO: There is a possible bug -- if by conincidence the currentPid
      *       becomes equal to curPid, this will cause the if condition to go
      *       false, which is wrong.
@@ -500,7 +507,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 #endif
     }
   }
-#else 
+#else
   retval = safe_real_waitpid(pid, stat_loc, options);
 #endif
 
