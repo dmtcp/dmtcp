@@ -199,7 +199,7 @@ static void *(*old_malloc_hook)(size_t, const void *);
  /* Prototypes for our hooks.  */
  static void my_init_hook (void);
  static void *my_malloc_hook (size_t, const void *);
-     
+
 static void * my_malloc_hook (size_t size, const void *caller) {
   void *result;
   /* Restore all old hooks - this will prevent an infinite loop. */
@@ -814,15 +814,6 @@ int _real_munmap(void *addr, size_t length) {
 }
 
 #ifdef PTRACE
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. */
-LIB_PRIVATE
-td_err_e _real_td_thr_get_info ( void *handle, const td_thrhandle_t *th_p, td_thrinfo_t *ti_p) {
-  static td_err_e (*fn) () = NULL;
-  if (fn == NULL) fn = (td_err_e (*)())_real_dlsym(handle, "td_thr_get_info");
-  return (*fn) ( th_p, ti_p );
-}
-
 LIB_PRIVATE
 long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
