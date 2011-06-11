@@ -185,13 +185,21 @@ extern "C" pid_t vfork()
   return fork();
 }
 
-static void execLibProcessAndExit(const char *path)
+static void execLibProcessAndExit(const char *path, char *const argv[])
 {
   unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
   char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
   memset(buf, 0, bufSize);
-  FILE *output = popen(path, "r");
+  FILE *output;
+  if (argv[0] == NULL) {
+    output = popen(path, "r");
+  } else {
+    dmtcp::string command = path;
+    for (int i = 1; argv[i] != NULL; i++)
+      command = command + " " + argv[i];
+    output = popen(command.c_str(), "r");
+  }
   int numRead = fread(buf, 1, bufSize, output);
   numRead++, numRead--; // suppress unused-var warning
 
@@ -217,13 +225,15 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
   if (path != NULL && Util::strStartsWith(path, libPrefix))
-    execLibProcessAndExit(path);
+    execLibProcessAndExit(path, argv);
   if (path != NULL && Util::strStartsWith(path, lib64Prefix))
-    execLibProcessAndExit(path);
+    execLibProcessAndExit(path, argv);
+  // Needed for /usr/libexec/utempter/utempter and other short-lived
+  //  setuid/setgid processes.
   if (path != NULL &&
       Util::strStartsWith(path, "/usr/libexec/utempter/utempter"))
-    JTRACE("Trying to exec: utempter")(path)(argv[1])(argv[2]);
-    // SHOULD DO:  execLibProcessAndExit(path, argv);
+    execLibProcessAndExit(path, argv);
+  JASSERT(!  Util::strStartsWith(path, "/usr/libexec/utempter/utempter"));
 
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
   if (Util::isSetuid(path)) {

@@ -59,7 +59,7 @@ all: default tests
 display-build-env: display-config display-release
 	@- uname -a
 	@- echo 'Compiler:  ${CC}'
-	@- ${CC} -v
+	@- ${CC} -v 2>&1
 	@- ${LD} -v
 	@- ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 2> /dev/null
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
@@ -68,8 +68,8 @@ display-build-env: display-config display-release
 display-release: check-m32
 	@ lsb_release -dc 2> /dev/null || \
 	    grep -i SUSE /etc/SuSE-release 2> /dev/null || \
-	    cat /etc/redhat-release 2> /dev/null || \
-	    cat /etc/debian-version 2> /dev/null || true
+	    cat /etc/redhat-release 2> /dev/null || true
+	@ cat /etc/debian-version 2> /dev/null && echo '  (Debian)' || true
 	@ cat /etc/rocks-release 2> /dev/null || true
 display-config: check-m32
 	@- echo DMTCP version:\
