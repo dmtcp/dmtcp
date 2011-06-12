@@ -33,6 +33,7 @@
 #endif
 
 typedef enum eDmtcpEvent {
+  //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
   DMTCP_EVENT_PRE_EXIT,
   DMTCP_EVENT_RESET_ON_FORK,

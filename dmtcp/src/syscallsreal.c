@@ -151,19 +151,47 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
   return (funcptr_t)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
 
+
+static void *_real_func_addr[numLibcWrappers];
+#define GET_FUNC_ADDR(name) \
+  _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
+
+void initialize_wrappers()
+{
+  FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
+}
+
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
 #define REAL_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-  static type (*fn) () = NULL; \
-  if (fn == NULL) fn = (type (*)())_real_dlsym(RTLD_NEXT, #name); \
+  static type (*fn)() = NULL; \
+  if (fn == NULL) { \
+    fn = _real_func_addr[ENUM(name)]; \
+    if (fn == NULL) { \
+      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
+                      "           The symbol wasn't found in current library" \
+                      " loading sequence.\n" \
+                      "    Aborting.\n", #name); \
+      abort(); \
+    } \
+  } \
   return (*fn)
 
 #define REAL_FUNC_PASSTHROUGH_VOID(name) \
-    static void (*fn) () = NULL; \
-  if (fn == NULL) fn = (void (*)())_real_dlsym(RTLD_NEXT, #name); \
+  static void (*fn)() = NULL; \
+  if (fn == NULL) { \
+    fn = _real_func_addr[ENUM(name)]; \
+    if (fn == NULL) { \
+      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
+                      "           The symbol wasn't found in current library" \
+                      " loading sequence.\n" \
+                      "    Aborting.\n", #name); \
+      abort(); \
+    } \
+  } \
   (*fn)
 
 
@@ -193,6 +221,7 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
   } \
   (*fn)
 
+#if 0
 /* Variable to save original malloc hook. */
 static void *(*old_malloc_hook)(size_t, const void *);
 
@@ -222,6 +251,7 @@ int memhook_is_initialized = 0;
     memhook_is_initialized = 1; \
   } \
   __malloc_hook = my_malloc_hook
+#endif
 
 LIB_PRIVATE
 void *_real_dlsym ( void *handle, const char *symbol ) {
@@ -245,7 +275,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
   void *res = NULL;
   thread_performing_dlopen_dlsym = 1;
-  MEMHOOK_ON();
+  //MEMHOOK_ON();
   if ( dlsym_offset == 0)
     res = dlsym ( handle, symbol );
   else
@@ -254,7 +284,7 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
     res = (*dlsym_addr) ( handle, symbol );
   }
-  MEMHOOK_OFF();
+  //MEMHOOK_OFF();
   thread_performing_dlopen_dlsym = 0;
   return res;
 }

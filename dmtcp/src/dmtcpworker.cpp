@@ -52,6 +52,7 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <netdb.h>
+#include <malloc.h>
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
 #include "log.h"
@@ -190,6 +191,64 @@ int dmtcp::DmtcpWorker::determineMtcpSignal()
         sig = MTCP_DEFAULT_SIGNAL;
   }
   return sig;
+}
+
+#ifdef USE_MALLOC_HOOKS
+void *(*old_malloc_hook)(size_t, const void *);
+void (*old_free_hook)(void *, const void *);
+static void *_dmtcp_malloc_hook(size_t size, const void *caller);
+static void _dmtcp_free_hook(void *ptr, const void *caller);
+
+#define _ALLOC_HOOKS_UNDEF() do {      \
+  __malloc_hook  = old_malloc_hook;    \
+  __free_hook    = old_free_hook;      \
+  } while (0)
+
+#define _ALLOC_HOOKS_DEF() do {         \
+  __malloc_hook  = _dmtcp_malloc_hook;  \
+  __free_hook    = _dmtcp_free_hook;    \
+  } while (0)
+
+#ifdef JALIB_ALLOCATOR
+static void *_dmtcp_malloc_hook(size_t size, const void *caller)
+{
+  void *result = JALLOC_HELPER_MALLOC (size);
+  return result;
+}
+
+static void _dmtcp_free_hook(void *ptr, const void *caller)
+{
+  JALLOC_HELPER_FREE(ptr);
+}
+#else
+// May not work with malloc() wrappers
+static void *_dmtcp_malloc_hook(size_t size, const void *caller)
+{
+  _ALLOC_HOOKS_UNDEF();
+  void *result = malloc (size);
+  _ALLOC_HOOKS_DEF();
+  return result;
+}
+
+static void _dmtcp_free_hook(void *ptr, const void *caller)
+{
+  _ALLOC_HOOKS_UNDEF();
+  free(ptr);
+  _ALLOC_HOOKS_DEF();
+}
+#endif
+#endif
+
+static void prepareWrappers()
+{
+  JALLOC_HELPER_DISABLE_LOCKS();
+  //_ALLOC_HOOKS_DEF();
+
+  initialize_wrappers();
+  //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
+
+  //_ALLOC_HOOKS_UNDEF();
+  JALLOC_HELPER_ENABLE_LOCKS();
 }
 
 static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
@@ -358,9 +417,8 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 {
   if ( !enableCheckpointing ) return;
   else {
-    //open("", -1, 0);
-    //initialize_wrappers();
     WorkerState::setCurrentState( WorkerState::UNKNOWN);
+    prepareWrappers();
     prepareLogAndProcessdDataFromSerialFile();
   }
 
