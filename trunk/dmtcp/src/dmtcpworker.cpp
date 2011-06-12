@@ -239,7 +239,8 @@ static void _dmtcp_free_hook(void *ptr, const void *caller)
 #endif
 #endif
 
-static void prepareWrappers()
+
+extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
 {
   JALLOC_HELPER_DISABLE_LOCKS();
   //_ALLOC_HOOKS_DEF();
@@ -418,7 +419,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   if ( !enableCheckpointing ) return;
   else {
     WorkerState::setCurrentState( WorkerState::UNKNOWN);
-    prepareWrappers();
+    prepareDmtcpWrappers();
     prepareLogAndProcessdDataFromSerialFile();
   }
 
