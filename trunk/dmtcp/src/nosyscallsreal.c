@@ -94,6 +94,10 @@ void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
 #endif
 
+void initialize_wrappers() {
+  return;
+}
+
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }

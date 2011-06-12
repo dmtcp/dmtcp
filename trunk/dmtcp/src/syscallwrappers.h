@@ -71,10 +71,10 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
  * Note that a system call can't be a base fnc if we are already wrapping it.
  */
 #define FOREACH_GLIBC_BASE_FUNC(MACRO)      \
-  MACRO(isalnum)			    \
-  MACRO(clearerr)			    \
-  MACRO(getopt)				    \
-  MACRO(perror)				    \
+  MACRO(isalnum)                            \
+  MACRO(clearerr)                           \
+  MACRO(getopt)                             \
+  MACRO(perror)                             \
   MACRO(fscanf)
 
 #define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
@@ -88,16 +88,181 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(mremap)                             \
   MACRO(munmap)
 
+#define FOREACH_GLIBC_WRAPPERS(MACRO)       \
+  MACRO(getpid)                             \
+  MACRO(getppid)                            \
+  MACRO(kill)                               \
+                                            \
+  MACRO(tcgetpgrp)                          \
+  MACRO(tcsetpgrp)                          \
+  MACRO(getpgrp)                            \
+  MACRO(setpgrp)                            \
+                                            \
+  MACRO(getpgid)                            \
+  MACRO(setpgid)                            \
+  MACRO(getsid)                             \
+  MACRO(setsid)                             \
+  MACRO(setgid)                             \
+  MACRO(setuid)                             \
+                                            \
+  MACRO(wait)                               \
+  MACRO(waitpid)                            \
+  MACRO(waitid)                             \
+  MACRO(wait3)                              \
+  MACRO(wait4)                              \
+  MACRO(ioctl)                              \
+  MACRO(ptrace)                             \
+                                            \
+  MACRO(socket)                             \
+  MACRO(connect)                            \
+  MACRO(bind)                               \
+  MACRO(listen)                             \
+  MACRO(accept)                             \
+  MACRO(accept4)                            \
+  MACRO(setsockopt)                         \
+  MACRO(socketpair)                         \
+                                            \
+  MACRO(fexecve)                            \
+  MACRO(execve)                             \
+  MACRO(execv)                              \
+  MACRO(execvp)                             \
+  MACRO(execl)                              \
+  MACRO(execlp)                             \
+  MACRO(execle)                             \
+  MACRO(system)                             \
+                                            \
+  MACRO(signal)                             \
+  MACRO(sigaction)                          \
+  MACRO(sigvec)                             \
+                                            \
+  MACRO(sigset)                             \
+  MACRO(sigblock)                           \
+  MACRO(sigsetmask)                         \
+  MACRO(siggetmask)                         \
+  MACRO(sigprocmask)                        \
+                                            \
+  MACRO(sigsuspend)                         \
+  MACRO(sighold)                            \
+  MACRO(sigignore)                          \
+  MACRO(__sigpause)                         \
+  MACRO(sigpause)                           \
+  MACRO(sigrelse)                           \
+                                            \
+  MACRO(sigwait)                            \
+  MACRO(sigwaitinfo)                        \
+  MACRO(sigtimedwait)                       \
+                                            \
+  MACRO(fork)                               \
+  MACRO(__clone)                            \
+  MACRO(open)                               \
+  MACRO(open64)                             \
+  MACRO(fopen)                              \
+  MACRO(fopen64)                            \
+  MACRO(close)                              \
+  MACRO(fclose)                             \
+  MACRO(__xstat)                            \
+  MACRO(__xstat64)                          \
+  MACRO(__lxstat)                           \
+  MACRO(__lxstat64)                         \
+  MACRO(readlink)                           \
+  MACRO(exit)                               \
+  MACRO(syscall)                            \
+  MACRO(unsetenv)                           \
+  MACRO(ptsname_r)                          \
+  MACRO(getpt)                              \
+  MACRO(openlog)                            \
+  MACRO(closelog)                           \
+                                            \
+  MACRO(shmget)                             \
+  MACRO(shmat)                              \
+  MACRO(shmdt)                              \
+  MACRO(shmctl)                             \
+                                            \
+  MACRO(select)                             \
+  MACRO(read)                               \
+  MACRO(write)                              \
+                                            \
+  MACRO(pthread_join)                       \
+  MACRO(pthread_sigmask)                    \
+  MACRO(pthread_mutex_lock)                 \
+  MACRO(pthread_mutex_trylock)              \
+  MACRO(pthread_mutex_unlock)               \
+  MACRO(pthread_rwlock_unlock)              \
+  MACRO(pthread_rwlock_rdlock)              \
+  MACRO(pthread_rwlock_wrlock)
+//  MACRO(creat)
+//  MACRO(openat)
+
+
+
+#ifdef RECORD_REPLAY
+# define FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)\
+  MACRO(access)                               \
+  MACRO(closedir)                             \
+  MACRO(opendir)                              \
+  MACRO(readdir)                              \
+  MACRO(readdir_r)                            \
+  MACRO(rand)                                 \
+  MACRO(srand)                                \
+  MACRO(time)                                 \
+  MACRO(getsockname)                          \
+  MACRO(getpeername)                          \
+  MACRO(fcntl)                                \
+  MACRO(dup)                                  \
+  MACRO(lseek)                                \
+  MACRO(__fxstat)                             \
+  MACRO(__fxstat64)                           \
+  MACRO(unlink)                               \
+  MACRO(pread)                                \
+  MACRO(pwrite)                               \
+  MACRO(fdopen)                               \
+  MACRO(fgets)                                \
+  MACRO(fflush)                               \
+  MACRO(putc)                                 \
+  MACRO(fputs)                                \
+  MACRO(fdatasync)                            \
+  MACRO(fsync)                                \
+  MACRO(link)                                 \
+  MACRO(getc)                                 \
+  MACRO(gettimeofday)                         \
+  MACRO(fgetc)                                \
+  MACRO(ungetc)                               \
+  MACRO(getline)                              \
+  MACRO(rename)                               \
+  MACRO(rewind)                               \
+  MACRO(rmdir)                                \
+  MACRO(ftell)                                \
+  MACRO(fwrite)                               \
+  MACRO(mkdir)                                \
+  MACRO(mkstemp)                              \
+                                              \
+  MACRO(pthread_cond_wait)                    \
+  MACRO(pthread_cond_timedwait)               \
+  MACRO(pthread_cond_signal)                  \
+  MACRO(pthread_cond_broadcast)               \
+  MACRO(pthread_create)                       \
+  MACRO(pthread_detach)                       \
+  MACRO(pthread_exit)                         \
+  MACRO(pthread_kill)
+#else
+# define FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)
+#endif
+
 
 /* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
-#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)   \
-  FOREACH_GLIBC_BASE_FUNC(MACRO)	    \
-  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
+#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)       \
+  FOREACH_GLIBC_BASE_FUNC(MACRO)                \
+  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
+
+#define FOREACH_DMTCP_WRAPPER(MACRO)            \
+  FOREACH_GLIBC_WRAPPERS(MACRO)                 \
+  FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)
 
 # define ENUM(x) enum_ ## x
 # define GEN_ENUM(x) ENUM(x),
   typedef enum {
     FOREACH_GLIBC_FUNC_WRAPPER(GEN_ENUM)
+    FOREACH_DMTCP_WRAPPER(GEN_ENUM)
     numLibcWrappers
   } LibcWrapperOffset;
 
@@ -107,6 +272,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void _dmtcp_remutex_on_fork();
 
   int _dmtcp_unsetenv(const char *name);
+  void initialize_wrappers();
 
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );

@@ -31,6 +31,7 @@
 #endif
 
 static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
+static bool _enable_locks = true;
 
 void jalib::JAllocDispatcher::reset_on_fork()
 {
@@ -40,16 +41,25 @@ void jalib::JAllocDispatcher::reset_on_fork()
 
 void jalib::JAllocDispatcher::lock()
 {
-  if(_real_pthread_mutex_lock(&allocateLock) != 0)
+  if(_enable_locks && _real_pthread_mutex_lock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadAcquireLock");
 }
 
 void jalib::JAllocDispatcher::unlock()
 {
-  if(_real_pthread_mutex_unlock(&allocateLock) != 0)
+  if(_enable_locks && _real_pthread_mutex_unlock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadReleaseLock");
 }
 
+void jalib::JAllocDispatcher::disable_locks()
+{
+  _enable_locks = false;
+}
+
+void jalib::JAllocDispatcher::enable_locks()
+{
+  _enable_locks = true;
+}
 
 #ifdef JALIB_ALLOCATOR
 
@@ -73,7 +83,7 @@ inline void* _alloc_raw(size_t n) {
   if (n % sysconf(_SC_PAGESIZE) != 0) {
     n = (n + sysconf(_SC_PAGESIZE) - (n % sysconf(_SC_PAGESIZE)));
   }
-  void* p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE, 
+  void* p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (p!= MAP_FAILED)
     mmapHintAddr = p + n;
@@ -138,7 +148,7 @@ protected:
       bufs[i].next=bufs+i+1;
     }
     bufs[count-1].next = _root;
-    _root=bufs; 
+    _root=bufs;
   }
 protected:
   struct FreeItem {
@@ -163,7 +173,7 @@ public:
     if(pthread_mutex_lock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
 #endif
-   
+
     void* ptr = theAlloc().allocate();
 
 #if 0
@@ -180,7 +190,7 @@ public:
     if(pthread_mutex_lock(theMutex()) != 0)
       perror("JGlobalAlloc::allocate");
 #endif
-   
+
     theAlloc().deallocate(ptr);
 
 #if 0
@@ -239,13 +249,13 @@ void JAllocDispatcher::deallocate(void* ptr, size_t n){
 
 void* jalib::JAllocDispatcher::allocate(size_t n) {
   lock();
-  void* p = malloc(n);
+  void* p = ::malloc(n);
   unlock();
   return p;
 }
 void jalib::JAllocDispatcher::deallocate(void* ptr, size_t){
   lock();
-  free(ptr);
+  ::free(ptr);
   unlock();
 }
 
