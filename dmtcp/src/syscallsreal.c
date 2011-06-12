@@ -153,12 +153,15 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
 
 
 static void *_real_func_addr[numLibcWrappers];
+static int _wrappers_initialized = 0;
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
+extern void prepareDmtcpWrappers();
 void initialize_wrappers()
 {
   FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
+  _wrappers_initialized = 1;
 }
 
 //////////////////////////
@@ -169,6 +172,7 @@ void initialize_wrappers()
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
   static type (*fn)() = NULL; \
   if (fn == NULL) { \
+    if (_real_func_addr[ENUM(name)] == NULL) prepareDmtcpWrappers(); \
     fn = _real_func_addr[ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
@@ -183,6 +187,7 @@ void initialize_wrappers()
 #define REAL_FUNC_PASSTHROUGH_VOID(name) \
   static void (*fn)() = NULL; \
   if (fn == NULL) { \
+    if (_real_func_addr[ENUM(name)] == NULL) prepareDmtcpWrappers(); \
     fn = _real_func_addr[ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
