@@ -182,14 +182,14 @@ static void prepareDmtcpWrappers()
             dlerror());
     abort();
   }
-#define _TO_STR(x) #x
+
   /* Earlier, we used to compute the offset of "dlsym" from "dlerror" by
    * computing the address of the two symbols using '&' operator. However, in
    * some distros (for ex. SLES 9), '&dlsym' might give the address of the
    * symbol defined in binary's PLT. Thus, to compute the correct offset, we
    * use dlopen/dlsym.
    */
-  tmp1 = dlsym(handle, _TO_STR(LIBDL_BASE_FUNC));
+  tmp1 = dlsym(handle, LIBDL_BASE_FUNC_STR);
   tmp2 = dlsym(handle, "dlsym");
   tmp3 = (char *)tmp2 - (char *)tmp1;
   char str[21] = {0} ;
