@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-# Here are some gdb commands written in python using the gdb Python API described here:
-#    http://sourceware.org/gdb/current/onlinedocs/gdb/Python-API.html#Python-API
+# Here are some gdb commands written in python using the gdb Python API
+# described here:
+#   http://sourceware.org/gdb/current/onlinedocs/gdb/Python-API.html#Python-API
 
 from __future__ import with_statement
 import subprocess
