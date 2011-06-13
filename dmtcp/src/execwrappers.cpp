@@ -238,7 +238,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
   if (path != NULL &&
-      Util::strStartsWith(path, "/usr/libexec/utempter/utempter")) {
+      Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     execShortLivedProcessAndExit(path, argv);
   }
