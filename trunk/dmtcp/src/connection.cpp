@@ -92,7 +92,7 @@ static bool _isVimApp ( )
   if (isVimApp == -1) {
     dmtcp::string progName = jalib::Filesystem::GetProgramName();
 
-    if (progName == "vi" || progName == "vim" || progName == "vim-normal" || 
+    if (progName == "vi" || progName == "vim" || progName == "vim-normal" ||
         progName == "vim.basic"  || progName == "vim.tiny" ||
         progName == "vim.gtk" || progName == "vim.gnome" ) {
       isVimApp = 1;
@@ -189,7 +189,7 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
   //  The correct fix would be to restore the fcntlowner after we have the
   // original->current pid mappings.
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, ORIGINAL_TO_CURRENT_PID(_fcntlOwner) ) == 0 ) 
+  JASSERT ( fcntl ( fds[0], F_SETOWN, ORIGINAL_TO_CURRENT_PID(_fcntlOwner) ) == 0 )
     ( fds[0] ) ( _fcntlOwner ) ( JASSERT_ERRNO );
 
   // This JASSERT will almost always trigger until we fix the above mentioned
@@ -203,7 +203,7 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 void dmtcp::Connection::doLocking ( const dmtcp::vector<int>& fds )
 {
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, _real_getpid() ) == 0 ) 
+  JASSERT ( fcntl ( fds[0], F_SETOWN, _real_getpid() ) == 0 )
     ( fds[0] ) ( JASSERT_ERRNO );
 }
 
@@ -262,8 +262,8 @@ void dmtcp::TcpConnection::onListen ( int backlog )
   _type = TCP_LISTEN;
   _listenBacklog = backlog;
 }
-void dmtcp::TcpConnection::onConnect( int sockfd, 
-                                      const struct sockaddr *addr, 
+void dmtcp::TcpConnection::onConnect( int sockfd,
+                                      const struct sockaddr *addr,
                                       socklen_t len )
 {
   if (really_verbose) {
@@ -461,8 +461,8 @@ void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool 
   {
     if (really_verbose) {
       JTRACE ( "Re-adding O_ASYNC flag." ) ( fds[0] ) ( id() );
-    restoreOptions ( fds );
     }
+    restoreOptions ( fds );
   }
 }
 void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
@@ -1040,7 +1040,7 @@ void dmtcp::FileConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 }
 
 
-void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds, 
+void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
                                       ConnectionRewirer& rewirer )
 {
   struct stat buf;
@@ -1065,7 +1065,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
   } else if (jalib::Filesystem::FileExists(_path)) {
 
     if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-      if (buf.st_size > _stat.st_size && 
+      if (buf.st_size > _stat.st_size &&
           (_fcntlFlags & (O_WRONLY|O_RDWR)) != 0) {
         errno = 0;
         JASSERT ( truncate ( _path.c_str(), _stat.st_size ) ==  0 )
@@ -1133,7 +1133,7 @@ int dmtcp::FileConnection::openFile()
   int fd;
   JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
 
-  /* 
+  /*
    * This file was not checkpointed by this process so it won't be restored by
    * this process. Thus, we wait while some other process restores this file
    */
@@ -1221,11 +1221,11 @@ void dmtcp::FileConnection::saveFile(int fd)
     int readBytes, writtenBytes;
     while(1) {
       readBytes = Util::readAll(fd, buf, bufSize);
-      JASSERT(readBytes != -1) 
+      JASSERT(readBytes != -1)
         (_path) (JASSERT_ERRNO) .Text("Read Failed");
       if (readBytes == 0) break;
       writtenBytes = Util::writeAll(destFd, buf, readBytes);
-      JASSERT(writtenBytes != -1) 
+      JASSERT(writtenBytes != -1)
         (savedFilePath) (JASSERT_ERRNO) .Text("Write failed.");
     }
 
@@ -1249,7 +1249,7 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   JASSERT (!_ckptFilesDir.empty());
 
   dmtcp::ostringstream os;
-  os << cwd 
+  os << cwd
      << "/" << _ckptFilesDir
      << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
 
