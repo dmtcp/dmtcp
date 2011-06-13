@@ -123,6 +123,9 @@ static bool _isBlacklistedTcp ( int sockfd,
     // are reserved for LDAP.  Bash continues to maintain a connection to
     // LDAP, leading to problems at restart time.  So, we discover the LDAP
     // remote addresses, and turn them into dead sockets at restart time.
+    //However, libc.so:getpwuid() can call libnss_ldap.so which calls
+    // libldap-2.4.so to create the LDAP socket while evading our connect
+    // wrapper.
     int blacklistedRemotePorts[] = {389, 636, -1}; /* LDAP ports */
     int i;
     for (i = 0; blacklistedRemotePorts[i] != -1; i++) {

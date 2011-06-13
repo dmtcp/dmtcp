@@ -108,6 +108,16 @@ dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve ( int fd )
   dmtcp::string device = fdToDevice ( fd );
   JASSERT ( device.length() > 0 ) ( fd ).Text ( "invalid fd" );
   iterator i = _table.find ( device );
+
+  if (i == _table.end() && Util::strStartsWith(device, "socket:[")) {
+    JWARNING ( false ) ( fd ) ( device ) ( _table.size() )
+      .Text ( "failed to find connection for fd. Assuming External Socket." );
+    TcpConnection *con = new TcpConnection(-1, -1, -1);
+    con->markExternalConnect();
+    create(fd, con);
+    i = _table.find ( device );
+  }
+ 
   JASSERT ( i != _table.end() ) ( fd ) ( device ) ( _table.size() ).Text ( "failed to find connection for fd" );
   return ConnectionList::instance() [i->second];
 }
