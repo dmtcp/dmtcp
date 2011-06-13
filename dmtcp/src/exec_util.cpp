@@ -214,7 +214,7 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
   bzero (buf, newArgvSize + 2 + PATH_MAX);
 
-  *newArgv = (char**) buf; 
+  *newArgv = (char**) buf;
   char *newFilename = (char*)buf + newArgvSize + 1;
 
 #define COPY_BINARY
@@ -229,7 +229,7 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   snprintf(cpCmdBuf, sizeof(cpCmdBuf), "cp %s %s", realFilename, newFilename);
 
   // Remove any stale copy, just in case it's not right.
-  JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);  
+  JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
 
   JASSERT (safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
     .Text("call to system(cpCmdBuf) failed");
@@ -292,7 +292,6 @@ void Util::freePatchedArgv(char **newArgv)
 void Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
   dmtcp::UniquePid::ThisProcess(true);
-  int errConsoleFd = JASSERT_STDERR_FD;
 #ifdef DEBUG
   // Initialize JASSERT library here
   dmtcp::ostringstream o;
@@ -331,7 +330,7 @@ void Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 
   JASSERT_SET_CONSOLE_FD(-1);
   JTRACE("Process Information") (a.str());
-  JASSERT_SET_CONSOLE_FD(errConsoleFd);
+  JASSERT_SET_CONSOLE_FD(PROTECTED_STDERR_FD);
 #endif
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
