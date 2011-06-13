@@ -155,6 +155,7 @@ namespace dmtcp
       void preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
                                      dmtcp::vector<TcpConnectionInfo>& conInfoTable);
 #endif
+      void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
 
       //basic commands for updating state from wrappers
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
