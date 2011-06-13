@@ -238,9 +238,10 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
   if (path != NULL &&
-      Util::strStartsWith(path, "/usr/libexec/utempter/utempter"))
+      Util::strStartsWith(path, "/usr/libexec/utempter/utempter")) {
+    JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     execShortLivedProcessAndExit(path, argv);
-    JTRACE("Trying to exec: utempter")(path)(argv[1])(argv[2]);
+  }
 
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
   if (Util::isSetuid(path)) {
