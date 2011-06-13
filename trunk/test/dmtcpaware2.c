@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "../dmtcp/src/dmtcpaware.h"
+/* Be sure to compile with -I<path>; see Makefile in this directory. */
+#include "dmtcpaware.h"
 
 // this example tests dmtcpCheckpointBlocking()
 

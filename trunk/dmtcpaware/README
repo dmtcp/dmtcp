@@ -1,1 +1,2 @@
 There are examples of dmtcpaware programs in ../test
+See dmtcpaware.h (this directory) for some functions provided by dmtcpaware.

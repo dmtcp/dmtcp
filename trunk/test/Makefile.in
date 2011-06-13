@@ -44,8 +44,8 @@ endif
 
 DMTCPAWARELIB=../dmtcpaware/libdmtcpaware.a
 
-dmtcpaware%: dmtcpaware%.c
-	-$(CC) -o $@ $< $(CFLAGS) $(DMTCPAWARELIB)
+dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
+	-$(CC) -o $@ -I../dmtcpaware $< $(CFLAGS) $(DMTCPAWARELIB)
 	# One can also do dynamic linking to libdmtcpaware.so as follows:
 	# (cd ../dmtcp/src && ln -s libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
 	# -$(CC) -o $@ $< $(CFLAGS) -L../dmtcp/src/ -ldmtcpaware

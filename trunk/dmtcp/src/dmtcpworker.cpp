@@ -1279,6 +1279,7 @@ void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
 {
   while (unInitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
+    JTRACE("sleeping")(sleepTime.tv_nsec);
     nanosleep(&sleepTime, NULL);
   }
 }
