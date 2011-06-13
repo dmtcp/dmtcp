@@ -18,6 +18,7 @@ PWD=$(shell pwd)
 TESTS=$(basename $(wildcard *.c *.cpp))
 
 tests: $(TESTS)
+	cd ../module && ${MAKE}
 	${MAKE} -C credentials
 
 tidy:

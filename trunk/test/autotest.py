@@ -546,7 +546,7 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=2
+  S=1
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
@@ -584,6 +584,20 @@ if testconfig.HAS_MPICH == "yes":
   runTest("mpdboot",     1, [testconfig.MPICH_MPDBOOT+" -n 1"])
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
+
+runTest("module-sleep2", 1, ["--with-module "+
+			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+
+			     "$PWD/module/sleep2/dmtcp_sleep2hijack.so "+
+			     "./test/dmtcp1"])
+
+runTest("module-example-db", 2, ["--with-module "+
+			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
+			     "./test/dmtcp1",
+			         "--with-module "+
+			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
+			     "./test/dmtcp1"])
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
