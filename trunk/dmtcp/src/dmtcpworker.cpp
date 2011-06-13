@@ -243,12 +243,16 @@ static void _dmtcp_free_hook(void *ptr, const void *caller)
 extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
 {
   JALLOC_HELPER_DISABLE_LOCKS();
-  //_ALLOC_HOOKS_DEF();
+#ifdef USE_MALLOC_HOOKS
+  _ALLOC_HOOKS_DEF();
+#endif
 
   initialize_wrappers();
   //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
 
-  //_ALLOC_HOOKS_UNDEF();
+#ifdef USE_MALLOC_HOOKS
+  _ALLOC_HOOKS_UNDEF();
+#endif
   JALLOC_HELPER_ENABLE_LOCKS();
 }
 
