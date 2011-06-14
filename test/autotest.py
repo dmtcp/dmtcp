@@ -585,11 +585,9 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
-if testconfig.HAS_OPENMPI == "yes" and False:
-  runTest("helloOpenMPI-n1", 2, [testconfig.OPENMPI_MPIRUN+
-			     " ./test/helloOpenMPI -np 1"])
-  runTest("helloOpenMPI-n2", 2, [testconfig.OPENMPI_MPIRUN+
-			     " ./test/helloOpenMPI -np 2"])
+if testconfig.HAS_OPENMPI == "yes":
+  runTest("helloOpenMPI", 5, [testconfig.OPENMPI_MPIRUN+
+			     " -np 4 ./test/helloOpenMPI"])
 
 runTest("module-sleep2", 1, ["--with-module "+
 			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+
