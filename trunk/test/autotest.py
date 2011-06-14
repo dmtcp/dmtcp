@@ -559,9 +559,9 @@ if testconfig.HAS_GCL == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  S=5
+  S=3
   if sys.version_info[0:2] >= (2,6):
-    runTest("matlab -nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+    runTest("matlab-nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=DEFAULT_S
 
 if testconfig.PTRACE_SUPPORT == "yes":

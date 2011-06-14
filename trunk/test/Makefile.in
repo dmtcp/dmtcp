@@ -19,7 +19,8 @@ OPENMPI_MPICC=@OPENMPI_MPICC@
 
 PWD=$(shell pwd)
 
-TESTS=$(shell ls *.c *.cpp | grep -vi '^hello.*MPI') hellompich helloOpenMPI
+TESTS=${basename ${shell ls *.c *.cpp | grep -v '^hellompi.c'}} \
+	hellompich helloOpenMPI
 
 tests: $(TESTS)
 	cd ../module && ${MAKE}
