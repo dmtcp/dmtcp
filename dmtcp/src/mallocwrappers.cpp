@@ -301,37 +301,39 @@ static void my_free_hook (void *ptr, const void *caller)
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-  if (dmtcp_worker_initializing)
-    return _real_calloc ( nmemb, size );
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  if (dmtcp_wrappers_initializing) {
+    void *ret = JALLOC_HELPER_MALLOC ( nmemb * size );
+    memset(ret, 0, nmemb * size);
+    return ret;
+  }
 #ifdef RECORD_REPLAY
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, calloc, nmemb, size);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_calloc ( nmemb, size );
 #endif
-  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" void *malloc(size_t size)
 {
-  if (dmtcp_worker_initializing)
-    return _real_malloc ( size );
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  if (dmtcp_wrappers_initializing) {
+    return JALLOC_HELPER_MALLOC ( size );
+  }
 #ifdef RECORD_REPLAY
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, malloc, size);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_malloc ( size );
 #endif
-  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
 #ifdef RECORD_REPLAY
 extern "C" void *__libc_memalign(size_t boundary, size_t size)
 {
-  if (dmtcp_worker_initializing)
-    return _real_libc_memalign ( boundary, size );
   WRAPPER_EXECUTION_DISABLE_CKPT();
   JASSERT (my_clone_id != 0);
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, libc_memalign, boundary, size);
@@ -347,8 +349,8 @@ extern "C" void *valloc(size_t size)
 
 extern "C" void free(void *ptr)
 {
-  if (dmtcp_worker_initializing) {
-    _real_free(ptr);
+  if (dmtcp_wrappers_initializing) {
+    JALLOC_HELPER_FREE ( ptr );
     return;
   }
 #ifdef RECORD_REPLAY
@@ -389,15 +391,15 @@ extern "C" void free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
-  if (dmtcp_worker_initializing)
-    return _real_realloc ( ptr, size );
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  JASSERT (!dmtcp_wrappers_initializing)
+    .Text ("This is a rather unusual path. Please inform DMTCP developers");
 #ifdef RECORD_REPLAY
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, realloc, ptr, size);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_realloc ( ptr, size );
 #endif
-  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
@@ -405,8 +407,6 @@ extern "C" void *realloc(void *ptr, size_t size)
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
-  if (dmtcp_worker_initializing)
-    return _real_mmap (addr, length, prot, flags, fd, offset);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
   MMAP_WRAPPER_HEADER(mmap, addr, length, prot, flags, fd, offset);
@@ -432,8 +432,6 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
 extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
     int fd, off64_t offset)
 {
-  if (dmtcp_worker_initializing)
-    return _real_mmap64 (addr, length, prot, flags, fd, offset);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
   MMAP_WRAPPER_HEADER(mmap64, addr, length, prot, flags, fd, offset);
@@ -458,8 +456,6 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
 
 extern "C" int munmap(void *addr, size_t length)
 {
-  if (dmtcp_worker_initializing)
-    return _real_munmap (addr, length);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   MALLOC_FAMILY_WRAPPER_HEADER_TYPED(int, munmap, addr, length);
   if (SYNC_IS_REPLAY) {
@@ -487,9 +483,6 @@ extern "C" void *mremap(void *old_address, size_t old_size,
   va_start( ap, flags );
   void *new_address = va_arg ( ap, void * );
   va_end ( ap );
-
-  if (dmtcp_worker_initializing)
-    return _real_mremap (old_address, old_size, new_size, flags, new_address);
 
   MALLOC_FAMILY_WRAPPER_HEADER(mremap, old_address, old_size, new_size, flags,
                                new_address);

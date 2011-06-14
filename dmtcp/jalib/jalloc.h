@@ -65,26 +65,7 @@ public:
 #define JALLOC_HELPER_NEW(nbytes) return jalib::JAllocDispatcher::malloc(nbytes)
 #define JALLOC_HELPER_DELETE(p) return jalib::JAllocDispatcher::free(p)
 
-/*
-#define JALLOC_HELPER_NEW(nbytes) {\
-  size_t* p = (size_t*) jalib::JAllocDispatcher::allocate(nbytes+sizeof(size_t));\
-  *p = nbytes;\
-  p+=1;\
-  return p;}
-
-#define JALLOC_HELPER_DELETE(p) {\
-  size_t* _p = (size_t*) p;\
-  _p-=1;\
-  jalib::JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));}
-*/
-
 #define JALLOC_HELPER_MALLOC(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
 #define JALLOC_HELPER_FREE(p) jalib::JAllocDispatcher::free(p)
-
-#define JALLOC_HELPER_MALLOC_NO_LOCKS(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
-#define JALLOC_HELPER_FREE_NO_LOCKS(p) jalib::JAllocDispatcher::free(p)
-
-//#define JALLOC_HELPER_MALLOC(nbytes) JALLOC_HELPER_NEW(nbytes)
-//#define JALLOC_HELPER_FREE(nbytes) JALLOC_HELPER_DELETE(nbytes)
 
 #endif

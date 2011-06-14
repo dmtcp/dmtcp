@@ -79,8 +79,7 @@ static int pidVirtualizationEnabled = 0;
 #define RESTORE_PORT_START 9777
 #define RESTORE_PORT_STOP 9977
 
-//#define ENABLE_DLOPEN
-//#define ENABLE_MALLOC_WRAPPER
+#define ENABLE_MALLOC_WRAPPER
 
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"

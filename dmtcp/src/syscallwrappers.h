@@ -65,6 +65,8 @@ extern "C"
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
+
+#if 0
 /* First group below is candidates for glibc_base_func_addr in syscallsreal.c
  * We can't tell which ones were already re-defined by the user executable.
  * For example, /bin/dash defines isalnum in Ubuntu 9.10.
@@ -76,6 +78,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(getopt)                             \
   MACRO(perror)                             \
   MACRO(fscanf)
+#endif
 
 #define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
   MACRO(calloc)                             \
@@ -89,6 +92,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(munmap)
 
 #define FOREACH_GLIBC_WRAPPERS(MACRO)       \
+  MACRO(dlopen)                             \
+  MACRO(dlclose)                            \
   MACRO(getpid)                             \
   MACRO(getppid)                            \
   MACRO(kill)                               \
@@ -250,18 +255,18 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
 
 /* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
-#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)       \
-  FOREACH_GLIBC_BASE_FUNC(MACRO)                \
-  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
+//#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)       \
+  //FOREACH_GLIBC_BASE_FUNC(MACRO)                \
+  //FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
 
 #define FOREACH_DMTCP_WRAPPER(MACRO)            \
   FOREACH_GLIBC_WRAPPERS(MACRO)                 \
+  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
   FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)
 
 # define ENUM(x) enum_ ## x
 # define GEN_ENUM(x) ENUM(x),
   typedef enum {
-    FOREACH_GLIBC_FUNC_WRAPPER(GEN_ENUM)
     FOREACH_DMTCP_WRAPPER(GEN_ENUM)
     numLibcWrappers
   } LibcWrapperOffset;
@@ -368,6 +373,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
   void * _real_dlsym ( void *handle, const char *symbol );
+
+  void *_real_dlopen(const char *filename, int flag);
+  int _real_dlclose(void *handle);
 
   void *_real_calloc(size_t nmemb, size_t size);
   void *_real_malloc(size_t size);
