@@ -143,6 +143,7 @@ static void *get_libc_symbol ( const char* name )
 
 static void prepareDmtcpWrappers()
 {
+#if 0
   unsigned int wrapperOffsetArray[numLibcWrappers];
   char *glibc_base_function_addr = NULL;
 
@@ -168,6 +169,7 @@ static void prepareDmtcpWrappers()
   }
 
   setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
+#endif
 
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user

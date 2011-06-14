@@ -54,7 +54,7 @@ typedef int ( *funcptr_t ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
 
-static unsigned int libcFuncOffsetArray[numLibcWrappers];
+//static unsigned int libcFuncOffsetArray[numLibcWrappers];
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -69,6 +69,7 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutexattr_destroy(&attr);
 }
 
+#if 0
 // Any single glibc function could have been re-defined.
 // For example, isalnum is wrapped by /bin/dash.  So, find a function
 //   closest to the average, and it's probably in glibc.
@@ -150,6 +151,7 @@ static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
   }
   return (funcptr_t)(libc_base_func_addr + libcFuncOffsetArray[idx]);
 }
+#endif
 
 
 static void *_real_func_addr[numLibcWrappers];
@@ -160,8 +162,10 @@ static int _wrappers_initialized = 0;
 extern void prepareDmtcpWrappers();
 void initialize_wrappers()
 {
-  FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
-  _wrappers_initialized = 1;
+  if (!_wrappers_initialized) {
+    FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
+    _wrappers_initialized = 1;
+  }
 }
 
 //////////////////////////
@@ -203,7 +207,8 @@ void initialize_wrappers()
 #define REAL_LIBC_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
 #define REAL_LIBC_FUNC_PASSTHROUGH_TYPED(type,name) \
-  static type (*fn) () = NULL; \
+  REAL_FUNC_PASSTHROUGH_TYPED(type,name)
+  //static type (*fn) () = NULL; \
   if (fn==NULL) { \
     fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
     if (fn == NULL) { \
@@ -215,7 +220,8 @@ void initialize_wrappers()
   return (*fn)
 
 #define REAL_LIBC_FUNC_PASSTHROUGH_VOID(name) \
-  static funcptr_t fn = NULL; \
+  REAL_FUNC_PASSTHROUGH_VOID(name)
+  //static funcptr_t fn = NULL; \
   if (fn==NULL) { \
     fn = get_libc_symbol_from_array ( ENUM(name) ); \
     if (fn == NULL) { \
@@ -293,6 +299,17 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   thread_performing_dlopen_dlsym = 0;
   return res;
 }
+
+LIB_PRIVATE
+void *_real_dlopen(const char *filename, int flag){
+  REAL_FUNC_PASSTHROUGH_TYPED ( void*, dlopen ) ( filename, flag );
+}
+
+LIB_PRIVATE
+int _real_dlclose(void *handle){
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, dlclose ) ( handle );
+}
+
 
 LIB_PRIVATE
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
