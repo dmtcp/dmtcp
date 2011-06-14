@@ -285,7 +285,7 @@ AC_CHECK_PROG(HAS_OPENMPI_MPICC, [mpicc.openmpi], [yes], [no], [/usr/bin])
 AC_PATH_PROG([OPENMPI_MPICC],  [mpicc.openmpi],        [no], [/usr/bin])
 AC_CHECK_PROG(HAS_OPENMPI_MPIRUN, [mpirun.openmpi], [yes], [no], [/usr/bin])
 AC_PATH_PROG([OPENMPI_MPIRUN],  [mpirun.openmpi],        [no], [/usr/bin])
-if test -z "$OPENMPI_MPICC" -o -z "OPENMPI_MPIRUN"; then
+if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
   AC_SUBST(HAS_OPENMPI, [yes])

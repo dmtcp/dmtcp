@@ -4967,7 +4967,7 @@ $as_echo "no" >&6; }
 fi
 
 
-if test -z "$OPENMPI_MPICC" -o -z "OPENMPI_MPIRUN"; then
+if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
   HAS_OPENMPI=no
 
 else
