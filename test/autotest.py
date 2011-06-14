@@ -575,15 +575,21 @@ if testconfig.PTRACE_SUPPORT == "yes":
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
 
-  runTest("hellompi-n1", 4, [testconfig.MPICH_MPD,
-                             testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompi"])
+  runTest("hellompich-n1", 4, [testconfig.MPICH_MPD,
+                           testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompich"])
 
-  runTest("hellompi-n2", 6, [testconfig.MPICH_MPD,
-                             testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompi"])
+  runTest("hellompich-n2", 6, [testconfig.MPICH_MPD,
+                           testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompich"])
 
   runTest("mpdboot",     1, [testconfig.MPICH_MPDBOOT+" -n 1"])
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
+
+if testconfig.HAS_OPENMPI == "yes" and False:
+  runTest("helloOpenMPI-n1", 2, [testconfig.OPENMPI_MPIRUN+
+			     " ./test/helloOpenMPI -np 1"])
+  runTest("helloOpenMPI-n2", 2, [testconfig.OPENMPI_MPIRUN+
+			     " ./test/helloOpenMPI -np 2"])
 
 runTest("module-sleep2", 1, ["--with-module "+
 			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+

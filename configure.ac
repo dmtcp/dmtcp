@@ -266,7 +266,6 @@ if test "$mpich" != "no"; then
   AC_PATH_PROG([MPICH_MPDCLEANUP], [mpdcleanup], [no], [$mpich_path])
   AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
   AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
-
   if test "$MPICH_MPD" = "no"        ||\
      test "$MPICH_MPDBOOT" = "no"    ||\
      test "$MPICH_MPDALLEXIT" = "no" ||\
@@ -276,11 +275,20 @@ if test "$mpich" != "no"; then
   then
     AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<path>])
   fi
-
   AC_SUBST(HAS_MPICH, [yes])
-
 else
   AC_SUBST(HAS_MPICH,[no])
+fi
+
+#check for OpenMPI
+AC_CHECK_PROG(HAS_OPENMPI_MPICC, [mpicc.openmpi], [yes], [no], [/usr/bin])
+AC_PATH_PROG([OPENMPI_MPICC],  [mpicc.openmpi],        [no], [/usr/bin])
+AC_CHECK_PROG(HAS_OPENMPI_MPIRUN, [mpirun.openmpi], [yes], [no], [/usr/bin])
+AC_PATH_PROG([OPENMPI_MPIRUN],  [mpirun.openmpi],        [no], [/usr/bin])
+if test -z "$OPENMPI_MPICC" -o -z "OPENMPI_MPIRUN"; then
+  AC_SUBST(HAS_OPENMPI, [no])
+else
+  AC_SUBST(HAS_OPENMPI, [yes])
 fi
 
 AC_ARG_ENABLE([m32],

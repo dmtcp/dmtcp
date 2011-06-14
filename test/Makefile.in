@@ -9,13 +9,18 @@ else
 CFLAGS=@CFLAGS@
 CXXFLAGS=@CXXFLAGS@
 endif
+
 HAS_READLINE=@HAS_READLINE@
+READLINE_LIBS=-lreadline -lhistory -lcurses
 HAS_MPICH=@HAS_MPICH@
 MPICH_MPICC=@MPICH_MPICC@
-READLINE_LIBS=-lreadline -lhistory -lcurses
+HAS_OPENMPI=@HAS_OPENMPI@
+OPENMPI_MPICC=@OPENMPI_MPICC@
+
 PWD=$(shell pwd)
 
-TESTS=$(basename $(wildcard *.c *.cpp))
+# TESTS=$(basename $(wildcard *.c *.cpp)) hellompich helloOpenMPI
+TESTS=$(shell ls *.c *.cpp | grep -v ^hello) hellompich helloOpenMPI
 
 tests: $(TESTS)
 	cd ../module && ${MAKE}
@@ -36,9 +41,16 @@ else
 	#$<: required libraries missing, skipping test
 endif
 
-hellompi: hellompi.c
+hellompich: hellompi.c
 ifeq ($(HAS_MPICH),yes)
 	$(MPICH_MPICC) -o $@ $< $(CFLAGS) 
+else
+	#$<: required libraries missing, skipping test
+endif
+
+helloOpenMPI: hellompi.c
+ifeq ($(HAS_OPENMPI),yes)
+	$(OPENMPI_MPICC) -o $@ $< $(CFLAGS) 
 else
 	#$<: required libraries missing, skipping test
 endif
