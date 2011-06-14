@@ -383,9 +383,7 @@ extern "C" void free(void *ptr)
   }
   WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
-  WRAPPER_EXECUTION_DISABLE_CKPT();
   _real_free ( ptr );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
 #endif
 }
 
