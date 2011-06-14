@@ -221,6 +221,7 @@ install: all
 	cd dmtcp && make install
 	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
 	cp mtcp/mtcp_restart $(DESTDIR)$(libdir)/dmtcp
+	cp mtcp/mtcp.h $(DESTDIR)$(includedir)
 	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_coordinator
@@ -244,6 +245,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.so*"
 	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
+	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 #	rm -Rf "$(DESTDIR)$(include)/dmtcp"
 
