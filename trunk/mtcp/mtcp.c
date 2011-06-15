@@ -3022,7 +3022,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * Maybe it's not needed if we use ((optimize(0))) .
  *****************************************************************************/
 static volatile unsigned int growstackValue = 0;
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 1)
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 3)
 static void __attribute__ ((optimize(0))) growstack (int kbStack)
 #else
 static void growstack (int kbStack) /* opimize attribute not implemented */
