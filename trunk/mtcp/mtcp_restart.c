@@ -292,34 +292,47 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
 #ifdef LIBC_STATIC_AVAILABLE
-#if defined(DEBUG) &&  !defined(DMTCP_DEBUG)
-    char *p, symbolbuff[256];
-    FILE *symbolfile;
-    long textbase; /* offset */
+/********************************************************************
+ * Apparently, there is no consistent way to define LBIC_STATIC_AVAILABLE.
+ * The purpose of the code below is to be able to use a symbolic debugger
+ * like gdb when dmtcp_restart calls MTCP.  It would print a command that
+ * you can paste into gdb to allow debugging inside the function restore_start.
+ * When "ifdef LIBC_STATIC_AVAILABLE" was added, mtcp/Makefile was modified
+ * to forbid using functions from libc.a like popen.  If you want to debug
+ * restore_start(), you should read the code below and manually calculate
+ * by hand what this used to automatically calculate.  For a semi-automated
+ * substitute, when you reach restore_start(), call it with (gdb) si
+ * Then try:  (gdb) shell ../utils/gdb-add-libmtcp-symbol-file.py
+ * where ADDR will be restore_start or an arb. address in restore_start()
+ ********************************************************************/
+#if defined(DEBUG) || defined(DMTCP_DEBUG)
+  char *p, symbolbuff[256];
+  FILE *symbolfile;
+  long textbase; /* offset */
 
-    MTCP_PRINTF("restore_begin=%p, restore_start=%p\n",
-		restore_begin, restore_start);
-    textbase = 0;
+  MTCP_PRINTF("restore_begin=%p, restore_start=%p\n",
+      	restore_begin, restore_start);
+  textbase = 0;
 
-    symbolfile = popen ("readelf -S libmtcp.so", "r");
-    if (symbolfile != NULL) {
-      while (fgets (symbolbuff, sizeof symbolbuff, symbolfile) != NULL) {
-        if (memcmp (symbolbuff + 5, "] .text ", 8) == 0) {
-          textbase = strtoul (symbolbuff + 41, &p, 16);
-        }
-      }
-      pclose (symbolfile);
-      if (textbase != 0) {
-	mtcp_printf("\n**********\nmtcp_restart*: The symbol table of the"
-		 " checkpointed file can be\nmade available to gdb."
-		 "  Just type the command below in gdb:\n");
-        mtcp_printf("     add-symbol-file libmtcp.so %p\n",
-                 restore_begin + textbase);
-        mtcp_printf("Then type \"continue\" to continue debugging.\n");
-	mtcp_printf("**********\n");
+  symbolfile = popen ("readelf -S libmtcp.so", "r");
+  if (symbolfile != NULL) {
+    while (fgets (symbolbuff, sizeof symbolbuff, symbolfile) != NULL) {
+      if (memcmp (symbolbuff + 5, "] .text ", 8) == 0) {
+        textbase = strtoul (symbolbuff + 41, &p, 16);
       }
     }
-    mtcp_maybebpt ();
+    pclose (symbolfile);
+    if (textbase != 0) {
+      mtcp_printf("\n**********\nmtcp_restart*: The symbol table of the"
+      	 " checkpointed file can be\nmade available to gdb."
+      	 "  Just type the command below in gdb:\n");
+      mtcp_printf("     add-symbol-file libmtcp.so %p\n",
+               restore_begin + textbase);
+      mtcp_printf("Then type \"continue\" to continue debugging.\n");
+      mtcp_printf("**********\n");
+    }
+  }
+  mtcp_maybebpt ();
 #endif
 #endif
 
