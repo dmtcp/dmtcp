@@ -4180,7 +4180,7 @@ else
   CONFIG_M32_FALSE=
 fi
 
-if test "$use_quiet" = "yes"; then
+if test "$use_m32" = "yes"; then
 
 $as_echo "#define CONFIG_M32 /**/" >>confdefs.h
 

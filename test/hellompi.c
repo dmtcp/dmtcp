@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 
   printf("Hello, world, I am %d of %d\n", rank, size);
 
-  for (i = 1; i < (int)1e9; i++)
+  for (i = 1; i < (int)1e8; i++)
   { int buf;
     MPI_Status status;
 

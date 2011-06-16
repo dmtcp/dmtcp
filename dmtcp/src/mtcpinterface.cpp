@@ -55,10 +55,11 @@
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 #endif
 
-#ifdef __x86_64
-# define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L);
+#ifdef __x86_64__
+# define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
 #else
-# define MTCP_RESTORE_STACK_BASE ((char*)0xC0000000L);
+# define MTCP_RESTORE_STACK_BASE \
+    (strcmp("#CONFIG_M32","yes") == 0 ? ((char *)NULL) : ((char*)0xC0000000L))
 #endif
 
 static char prctlPrgName[22] = {0};
@@ -439,15 +440,17 @@ void prctlRestoreProcessName()
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 {
   /*
-   * The addresses where argv of mtcp_restart process start. /proc/pid/cmdline
+   * The addresses where argv of mtcp_restart process starts. /proc/pid/cmdline
    * information is looked up from these addresses.  We observed that the
    * stack-base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
    * 0xc0000000 in case of 32-bit system.  Once we restore the checkpointed
-   * process' memory, we will map the pages ending in these address into
-   * process' memory if they are unused i.e. not mapped by the process (which
+   * process's memory, we will map the pages ending in these address into the
+   * process's memory if they are unused i.e. not mapped by the process (which
    * is true for most processes running with ASLR).  Once we map them, we can
    * put the argv of the checkpointed process in there so that
    * /proc/self/cmdline show the correct values.
+   * Note that if compiled in 32-bit mode '-m32', the stack base address
+   * is in still a different location, and so this logic is not valid.
    */
   JASSERT(mtcpRestoreArgvStartAddr != NULL);
 
@@ -456,6 +459,9 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
   char *endAddr = MTCP_RESTORE_STACK_BASE;
   size_t len = endAddr - startAddr;
+#ifdef CONFIG_M32
+  return;
+#endif
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if

@@ -281,10 +281,13 @@ else
 fi
 
 #check for OpenMPI
-AC_CHECK_PROG(HAS_OPENMPI_MPICC, [mpicc.openmpi], [yes], [no], [/usr/bin])
-AC_PATH_PROG([OPENMPI_MPICC],  [mpicc.openmpi],        [no], [/usr/bin])
-AC_CHECK_PROG(HAS_OPENMPI_MPIRUN, [mpirun.openmpi], [yes], [no], [/usr/bin])
-AC_PATH_PROG([OPENMPI_MPIRUN],  [mpirun.openmpi],        [no], [/usr/bin])
+#Debian uses /usr/bin/mpicc.openmpi.  Red Hat/SuSe store it elsewhere.
+MPI_PATH=/usr/bin:/opt/openmpi/bin/:/usr/lib64/openmpi/bin:/usr/lib/openmpi/bin
+MPI_PATH=$MPI_PATH:/usr/lib64/mpi/gcc/openmpi/bin:/usr/lib/mpi/gcc/openmpi/bin
+AC_CHECK_PROGS(HAS_OPENMPI_MPICC, [mpicc.openmpi mpicc], [no], [$MPI_PATH])
+AC_PATH_PROGS([OPENMPI_MPICC],  [mpicc.openmpi mpicc], [no], [$MPI_PATH])
+AC_CHECK_PROGS(HAS_OPENMPI_MPIRUN, [mpirun.openmpi mpirun], [no], [$MPI_PATH])
+AC_PATH_PROGS([OPENMPI_MPIRUN],  [mpirun.openmpi mpirun], [no], [$MPI_PATH])
 if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
@@ -293,7 +296,7 @@ fi
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32 bit mode on 64 bit linux.])],
+                            [Compile in 32 bit mode on 64 bit linux. (Works on most, but not all programs, due to restrictions of 32-bit mode.)])],
             [use_m32=$enableval],
             [use_m32=no])
 
