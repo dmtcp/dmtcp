@@ -1367,7 +1367,9 @@ Optional Features:
                           (OBSOLETE: Do not use)
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
-  --enable-m32            Compile in 32 bit mode on 64 bit linux.
+  --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
+                          most, but not all programs, due to restrictions of
+                          32-bit mode.)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -4809,8 +4811,13 @@ else
 fi
 
 #check for OpenMPI
-# Extract the first word of "mpicc.openmpi", so it can be a program name with args.
-set dummy mpicc.openmpi; ac_word=$2
+#Debian uses /usr/bin/mpicc.openmpi.  Red Hat/SuSe store it elsewhere.
+MPI_PATH=/usr/bin:/opt/openmpi/bin/:/usr/lib64/openmpi/bin:/usr/lib/openmpi/bin
+MPI_PATH=$MPI_PATH:/usr/lib64/mpi/gcc/openmpi/bin:/usr/lib/mpi/gcc/openmpi/bin
+for ac_prog in mpicc.openmpi mpicc
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_prog_HAS_OPENMPI_MPICC+set}" = set; then :
@@ -4820,13 +4827,13 @@ else
   ac_cv_prog_HAS_OPENMPI_MPICC="$HAS_OPENMPI_MPICC" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /usr/bin
+for as_dir in $MPI_PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_OPENMPI_MPICC="yes"
+    ac_cv_prog_HAS_OPENMPI_MPICC="$ac_prog"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -4834,7 +4841,6 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_prog_HAS_OPENMPI_MPICC" && ac_cv_prog_HAS_OPENMPI_MPICC="no"
 fi
 fi
 HAS_OPENMPI_MPICC=$ac_cv_prog_HAS_OPENMPI_MPICC
@@ -4847,8 +4853,14 @@ $as_echo "no" >&6; }
 fi
 
 
-# Extract the first word of "mpicc.openmpi", so it can be a program name with args.
-set dummy mpicc.openmpi; ac_word=$2
+  test -n "$HAS_OPENMPI_MPICC" && break
+done
+test -n "$HAS_OPENMPI_MPICC" || HAS_OPENMPI_MPICC="no"
+
+for ac_prog in mpicc.openmpi mpicc
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_path_OPENMPI_MPICC+set}" = set; then :
@@ -4860,7 +4872,7 @@ else
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /usr/bin
+for as_dir in $MPI_PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
@@ -4874,7 +4886,6 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_path_OPENMPI_MPICC" && ac_cv_path_OPENMPI_MPICC="no"
   ;;
 esac
 fi
@@ -4888,8 +4899,14 @@ $as_echo "no" >&6; }
 fi
 
 
-# Extract the first word of "mpirun.openmpi", so it can be a program name with args.
-set dummy mpirun.openmpi; ac_word=$2
+  test -n "$OPENMPI_MPICC" && break
+done
+test -n "$OPENMPI_MPICC" || OPENMPI_MPICC="no"
+
+for ac_prog in mpirun.openmpi mpirun
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_prog_HAS_OPENMPI_MPIRUN+set}" = set; then :
@@ -4899,13 +4916,13 @@ else
   ac_cv_prog_HAS_OPENMPI_MPIRUN="$HAS_OPENMPI_MPIRUN" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /usr/bin
+for as_dir in $MPI_PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_OPENMPI_MPIRUN="yes"
+    ac_cv_prog_HAS_OPENMPI_MPIRUN="$ac_prog"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -4913,7 +4930,6 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_prog_HAS_OPENMPI_MPIRUN" && ac_cv_prog_HAS_OPENMPI_MPIRUN="no"
 fi
 fi
 HAS_OPENMPI_MPIRUN=$ac_cv_prog_HAS_OPENMPI_MPIRUN
@@ -4926,8 +4942,14 @@ $as_echo "no" >&6; }
 fi
 
 
-# Extract the first word of "mpirun.openmpi", so it can be a program name with args.
-set dummy mpirun.openmpi; ac_word=$2
+  test -n "$HAS_OPENMPI_MPIRUN" && break
+done
+test -n "$HAS_OPENMPI_MPIRUN" || HAS_OPENMPI_MPIRUN="no"
+
+for ac_prog in mpirun.openmpi mpirun
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_path_OPENMPI_MPIRUN+set}" = set; then :
@@ -4939,7 +4961,7 @@ else
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in /usr/bin
+for as_dir in $MPI_PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
@@ -4953,7 +4975,6 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_path_OPENMPI_MPIRUN" && ac_cv_path_OPENMPI_MPIRUN="no"
   ;;
 esac
 fi
@@ -4966,6 +4987,10 @@ else
 $as_echo "no" >&6; }
 fi
 
+
+  test -n "$OPENMPI_MPIRUN" && break
+done
+test -n "$OPENMPI_MPIRUN" || OPENMPI_MPIRUN="no"
 
 if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
   HAS_OPENMPI=no

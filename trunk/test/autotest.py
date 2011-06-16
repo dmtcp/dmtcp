@@ -316,6 +316,11 @@ def getNumCkptFiles(dir):
 #test a given list of commands to see if they checkpoint
 def runTest(name, numProcs, cmds):
   #the expected/correct running status
+  if testconfig.USE_M32 == "1":
+    def forall(fnc, lst):
+      return reduce(lambda x, y: x and y, map(fnc, lst))
+    if not forall(lambda x: x.startswith("./test/"), cmds):
+      return
   status=(numProcs, True)
   procs=[]
 
@@ -326,7 +331,14 @@ def runTest(name, numProcs, cmds):
   def testKill():
     #kill all processes
     coordinatorCmd('k')
-    WAITFOR(lambda: getStatus()==(0, False), lambda:"coordinator kill command failed")
+    try:
+      WAITFOR(lambda: getStatus()==(0, False),
+	      lambda:"coordinator kill command failed")
+    except CheckFailed:
+      global coordinator
+      coordinatorCmd('q')
+      os.system("kill -9 %d" % coordinator.pid)
+      coordinator = launch(BIN+"dmtcp_coordinator")
     for x in procs:
       #cleanup proc
       try:
@@ -336,7 +348,13 @@ def runTest(name, numProcs, cmds):
           x.stdout.close()
         if x.stderr:
           x.stderr.close()
-        os.waitpid(x.pid, os.WNOHANG)
+	try:
+          os.waitpid(x.pid, os.WNOHANG)
+	except OSError, e:
+	  print e.errno
+	  if e.errno == errno.ECHILD:
+	    print e.strerror
+	  raise e
       except:
         None
       procs.remove(x)
@@ -387,6 +405,8 @@ def runTest(name, numProcs, cmds):
         print #newline
         printFixed("",15)
       printFixed("ckpt:")
+      # NOTE:  If this faile, it will throw an exception to CheckFailed
+      #  of this function:  testRestart
       testCheckpoint()
       printFixed("PASSED ")
       if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
