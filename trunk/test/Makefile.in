@@ -57,9 +57,10 @@ else
 	#$<: required libraries missing, skipping test
 endif
 
+DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
 DMTCPAWARELIB=../dmtcpaware/libdmtcpaware.a
 
-dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
+${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
 	-$(CC) -o $@ -I../dmtcpaware $< $(CFLAGS) $(DMTCPAWARELIB)
 	# One can also do dynamic linking to libdmtcpaware.so as follows:
 	# (cd ../dmtcp/src && ln -s libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
