@@ -153,8 +153,9 @@ AC_ARG_ENABLE([allocator],
 
 #checkfor -lreadline -lhistory v5, does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
-AC_CHECK_HEADERS([readline/readline.h readline/history.h], [includeReadline=no], [AC_MSG_ERROR(
-     [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
+AC_CHECK_HEADERS([readline/readline.h readline/history.h], [includeReadline=no], [AC_MSG_WARN(
+     [#include: <readline/readline.h> or <readline/history.h> not found:
+      consider adding libreadline-dev pkg]
     )])
 if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
   AC_SUBST([HAS_READLINE], [yes])

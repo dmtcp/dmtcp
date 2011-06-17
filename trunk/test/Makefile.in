@@ -45,14 +45,14 @@ endif
 
 hellompich: hellompi.c
 ifeq ($(HAS_MPICH),yes)
-	$(MPICH_MPICC) -o $@ $< $(CFLAGS) 
+	- $(MPICH_MPICC) -o $@ $< $(CFLAGS) 
 else
 	#$<: required libraries missing, skipping test
 endif
 
 helloOpenMPI: hellompi.c
 ifeq ($(HAS_OPENMPI),yes)
-	$(OPENMPI_MPICC) -o $@ $< $(CFLAGS) 
+	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS) 
 else
 	#$<: required libraries missing, skipping test
 endif
