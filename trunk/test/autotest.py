@@ -7,6 +7,7 @@ import pty
 import socket
 import os
 import sys
+import errno
 import resource
 import stat
 import re
@@ -342,21 +343,25 @@ def runTest(name, numProcs, cmds):
     for x in procs:
       #cleanup proc
       try:
-        if x.stdin:
-	  x.stdin.close()
-        if x.stdout:
+        if isinstance(x.stdin,int):
+          os.close(x.stdin)
+        elif x.stdin:
+          x.stdin.close()
+        if isinstance(x.stdout,int):
+          os.close(x.stdout)
+        elif x.stdout:
           x.stdout.close()
-        if x.stderr:
+        if isinstance(x.stderr,int):
+          os.close(x.stderr)
+        elif x.stderr:
           x.stderr.close()
-	try:
-          os.waitpid(x.pid, os.WNOHANG)
-	except OSError, e:
-	  print e.errno
-	  if e.errno == errno.ECHILD:
-	    print e.strerror
-	  raise e
       except:
         None
+      try:
+        os.waitpid(x.pid, os.WNOHANG)
+      except OSError, e:
+	if e.errno != errno.ECHILD:
+	  raise e
       procs.remove(x)
 
   def testCheckpoint():
