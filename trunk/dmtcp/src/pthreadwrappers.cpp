@@ -175,7 +175,11 @@ static void setupThreadStack(pthread_attr_t *attr_out,
     // Copy the user's attributes:
     *attr_out = *user_attr;
   }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
   int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK;
+#else
+  int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+#endif
   size_t mmap_size;
   if (userStack) {
     mmap_size = stack_size;

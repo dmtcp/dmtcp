@@ -243,7 +243,6 @@ int fastckpt_get_next_area_dscr(Area *area)
   return 1;
 }
 
-__attribute__ ((visibility ("hidden")))
 static int fastckpt_restore_without_mmap(int fd, const Area *area)
 {
   int imagefd = mtcp_sys_open (area->name, O_RDONLY, 0);
