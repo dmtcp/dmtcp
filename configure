@@ -3889,13 +3889,6 @@ eval as_val=\$$as_ac_Header
 #define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
  includeReadline=no
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: #include: <readline/readline.h> or <readline/history.h> not found:
-      consider adding libreadline-dev pkg
-    " >&5
-$as_echo "$as_me: WARNING: #include: <readline/readline.h> or <readline/history.h> not found:
-      consider adding libreadline-dev pkg
-    " >&2;}
 fi
 
 done
