@@ -3890,8 +3890,12 @@ eval as_val=\$$as_ac_Header
 _ACEOF
  includeReadline=no
 else
-  as_fn_error "#include: <linux/version.h> not found: consider adding linux-libc-dev pkg
-    " "$LINENO" 5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: #include: <readline/readline.h> or <readline/history.h> not found:
+      consider adding libreadline-dev pkg
+    " >&5
+$as_echo "$as_me: WARNING: #include: <readline/readline.h> or <readline/history.h> not found:
+      consider adding libreadline-dev pkg
+    " >&2;}
 fi
 
 done
