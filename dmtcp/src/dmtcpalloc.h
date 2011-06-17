@@ -115,6 +115,17 @@ public:
         (p)->~T();
     }
 
+#if __GNUC__ == 4 && __GNUC_MINOR__ == 0
+    // In-place destruction
+    //   This is a workaround for a bug in gcc-4.0.
+    template<typename X>
+    void destroy( X* p )
+    {
+        // call destructor directly
+        (p)->~X();
+    }
+#endif
+
     // Rebind to allocators of other types
     template <typename U>
     struct rebind

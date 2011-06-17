@@ -401,7 +401,8 @@ void ptrace_attach_threads(int isRestart)
                 }
               }
               eflags |= 0x0100;
-              if (mtcp_ptrace(PTRACE_POKEDATA, inferior, (void *)addr, eflags)
+              if (mtcp_ptrace(PTRACE_POKEDATA, inferior, (void *)addr,
+			      (void *)eflags)
 			      < 0) {
                 MTCP_PRINTF("%d failed while calling PTRACE_POKEDATA for %d\n",
                             superior, inferior);
