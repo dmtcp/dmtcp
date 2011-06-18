@@ -74,9 +74,11 @@ int open_ptrace_related_file (int file_option) {
     case PTRACE_SHARED_FILE_OPTION:
       sprintf(file, "%s/ptrace_shared.txt", tmpdir.c_str());
       break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
     case PTRACE_SETOPTIONS_FILE_OPTION:
       sprintf(file, "%s/ptrace_setoptions.txt", tmpdir.c_str());
       break;
+#endif
     case PTRACE_CHECKPOINT_THREADS_FILE_OPTION:
       sprintf(file, "%s/ptrace_ckpthreads.txt", tmpdir.c_str());
       break;
@@ -263,11 +265,13 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
      else ptrace_ret = _real_ptrace(request, pid, addr, data);
      break;
     }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
     case PTRACE_SETOPTIONS: {
       write_ptrace_pair_to_given_file(PTRACE_SETOPTIONS_FILE_OPTION,
                                       superior, inferior);
       break;
     }
+#endif
     default: {
       break;
     }

@@ -25,7 +25,7 @@
 namespace dmtcp
 {
 
-  void initializeMtcpEngine();
+  void __attribute__ ((weak)) initializeMtcpEngine();
   void killCkpthread();
 
   void shutdownMtcpEngineOnFork();
