@@ -207,8 +207,6 @@ bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
 
 dmtcpaware/% : dmtcp/src/%
 	(cd dmtcpaware && $(LN_S) ../$< $*)
-dmtcpaware/libdmtcpaware.%: dmtcp/src/libdmtcpaware.% 
-	(cd dmtcpaware && $(LN_S) ../$< $*)
 
 dmtcpaware: dmtcpaware/dmtcpaware.h \
 	dmtcpaware/libdmtcpaware.a dmtcpaware/libdmtcpaware.so.1.0.0

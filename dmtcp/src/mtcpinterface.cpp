@@ -407,7 +407,7 @@ void prctlGetProcessName()
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
   if (prctlPrgName[0] == '\0') {
-    bzero((void*) prctlPrgName, 22);
+    memset(prctlPrgName, 0, sizeof(prctlPrgName));
     strcpy(prctlPrgName, DMTCP_PRGNAME_PREFIX);
     int ret = prctl(PR_GET_NAME, &prctlPrgName[strlen(DMTCP_PRGNAME_PREFIX)]);
     if (ret != -1) {

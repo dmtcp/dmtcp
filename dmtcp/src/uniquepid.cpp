@@ -256,13 +256,12 @@ dmtcp::string dmtcp::UniquePid::getTmpDir()
  */
 void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
   dmtcp::string tmpDir;
-#define HOSTNAME_MAX_CHARS 255
 
-  char hostname[HOSTNAME_MAX_CHARS + 1];
-  bzero(hostname, HOSTNAME_MAX_CHARS + 1);
+  char hostname[256];
+  memset(hostname, 0, sizeof(hostname));
 
-  JASSERT ( gethostname(hostname, HOSTNAME_MAX_CHARS) == 0 || errno == ENAMETOOLONG)
-    .Text ( "gethostname() failed" );
+  JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
+	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
 
   dmtcp::ostringstream o;
 

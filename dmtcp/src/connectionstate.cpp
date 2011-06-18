@@ -240,7 +240,7 @@ void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd,
                                                         size_t argvSize,
                                                         size_t envSize)
 {
-    //write out the *.dmtcp file
+  //write out the *.dmtcp file
   //dmtcp::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
   //JTRACE ( "Writing *.dmtcp checkpoint file" );
   jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
