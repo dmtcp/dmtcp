@@ -47,14 +47,13 @@ namespace
     jalib::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
     // Bug fix for Linux 2.6.19
-    char *deleted = NULL;
-    deleted = strstr(exeRes.c_str(), " (deleted)");
+    const char *deleted = strstr(exeRes.c_str(), " (deleted)");
     if ((deleted != NULL) && (strlen(deleted) == strlen(" (deleted)"))) {
       char substring[256];
       strncpy(substring, exeRes.c_str(), sizeof(substring));
       JASSERT(strlen(substring) < sizeof(substring)) (substring);;
-      deleted = strstr(substring, " (deleted)");
-      *deleted = '\0';
+      char *deleted2 = strstr(substring, " (deleted)");
+      *deleted2 = '\0';
       exeRes = substring;
     }
     return exeRes;
