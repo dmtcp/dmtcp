@@ -35,11 +35,28 @@
 
 namespace
 {
+  // In Red Hat Enterprise Linux Server 5.4 (Linux kernel 2.6.18)
+  // For tests like dmtcp5, forkexec (tests with child processes),
+  //   the child process may have a name "NAME (deleted)".
+  // This is arguably a bug in the kernel.
   jalib::string _GetProgramExe()
   {
     jalib::string exe = "/proc/self/exe";
+    // NOTE: ResolveSymlink is returning string on stack.  Hopefully
+    //   C++ jalib::string is smart enough to copy it.
     jalib::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
+    // Bug fix for Linux 2.6.19
+    char *deleted = NULL;
+    deleted = strstr(exeRes.c_str(), " (deleted)");
+    if ((deleted != NULL) && (strlen(deleted) == strlen(" (deleted)"))) {
+      char substring[256];
+      strncpy(substring, exeRes.c_str(), sizeof(substring));
+      JASSERT(strlen(substring) < sizeof(substring)) (substring);;
+      deleted = strstr(substring, " (deleted)");
+      *deleted = '\0';
+      exeRes = substring;
+    }
     return exeRes;
   }
 
@@ -143,6 +160,9 @@ jalib::string jalib::Filesystem::GetProgramPath()
   return value;
 }
 
+// NOTE: ResolveSymlink returns a string, buf, allocated on the stack.
+//   While this is dangerous, it avoids the use of malloc or 'new'.
+//   Finish using the result before you call a different function.
 jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 {
   struct stat statBuf;
@@ -151,7 +171,7 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
       && ! S_ISLNK(statBuf.st_mode))
     return path;
   char buf [PATH_MAX]; // This could be passed on via call to readlink()
-  bzero ( buf, sizeof buf );
+  memset ( buf, 0, sizeof buf );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
   if ( len <= 0 )
     return "";

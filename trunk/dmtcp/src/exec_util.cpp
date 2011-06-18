@@ -200,7 +200,7 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   //sleep(20);
 
   char realFilename[PATH_MAX];
-  bzero(realFilename, sizeof(realFilename));
+  memset(realFilename, 0, sizeof(realFilename));
   expandPathname(filename, realFilename, sizeof (realFilename));
   //char expandedFilename[PATH_MAX];
 //  expandPathname(filename, expandedFilename, sizeof (expandedFilename));
@@ -213,7 +213,7 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   size_t newArgvSize = newArgc * sizeof(char*);
 
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
-  bzero (buf, newArgvSize + 2 + PATH_MAX);
+  memset(buf, 0, newArgvSize + 2 + PATH_MAX);
 
   *newArgv = (char**) buf;
   char *newFilename = (char*)buf + newArgvSize + 1;
