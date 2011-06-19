@@ -490,6 +490,9 @@ extern "C" int closedir(DIR *dirp)
   return retval;
 }
 
+// WARNING:  Early versions of glibc (e.g. glibc 2.3) define this
+//  function in stdio.h as inline.  This wrapper won't work in that case.
+# if __GLIBC_PREREQ (2,4)
 extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 {
   WRAPPER_HEADER(ssize_t, getline, _real_getline, lineptr, n, stream);
@@ -514,6 +517,9 @@ extern "C" ssize_t getline(char **lineptr, size_t *n, FILE *stream)
   }
   return retval;
 }
+# else
+#  error getline() is already defined as inline in <stdio.h>.  Wrapper fails.
+# endif
 
 /* The list of strings: each string is a format, like for example %d or %lf.
  * This function deals with the following possible formats:
@@ -796,10 +802,16 @@ extern "C" int _IO_putc(int c, FILE *stream)
   BASIC_SYNC_WRAPPER(int, putc, _real_putc, c, stream);
 }
 
+// WARNING:  Early versions of glibc (e.g. glibc 2.3) define this
+//  function in stdio.h as inline.  This wrapper won't work in that case.
+# if __GLIBC_PREREQ (2,4)
 extern "C" int putchar(int c)
 {
   return _IO_putc(c, stdout);
 }
+# else
+#  error getline() is already defined as inline in <stdio.h>.  Wrapper fails.
+# endif
 
 extern "C" size_t fwrite(const void *ptr, size_t size, size_t nmemb,
     FILE *stream)

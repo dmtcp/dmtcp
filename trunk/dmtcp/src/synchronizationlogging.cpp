@@ -105,6 +105,14 @@ static volatile log_id_t next_log_id = 0;
 
 static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 
+# ifndef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4
+// gcc-4.1 and later has __sync_fetch_and_add, __sync_fetch_and_xor, etc.
+// We need it for atomic_increment and atomic_decrement
+// We could implement a very slow version using mutexes.
+// We could also copy and adjust the assembly language
+#  error __sync_fetch_and_add not defined by this gcc.  \
+	We need to implement a slow version.
+# endif
 
 void atomic_increment(volatile int *ptr)
 {
