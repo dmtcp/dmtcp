@@ -1537,6 +1537,11 @@ LIB_PRIVATE int    validAddress(void *addr);
 LIB_PRIVATE ssize_t writeAll(int fd, const void *buf, size_t count);
 LIB_PRIVATE void   writeLogsToDisk();
 
+// THESE DECLARATIONS SEEM TO BE USED ONLY IN synchronizationlogging.cpp.
+// IF THAT IS TRUE, THEY SHOULD BE 'static' AND NOT LIB_PRIVATE.
+// IMPLYING HERE THAT THEY ARE USED BY MULTIPLE LIBRARY FILES (LIB_PRIVATE)
+//   JUST CONFUSES THE READER.  -- Gene
+
 LIB_PRIVATE log_entry_t create_accept_entry(clone_id_t clone_id, int event, int sockfd,
     struct sockaddr *addr, socklen_t *addrlen);
 LIB_PRIVATE log_entry_t create_accept4_entry(clone_id_t clone_id, int event, int sockfd,

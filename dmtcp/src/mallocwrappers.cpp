@@ -473,6 +473,9 @@ extern "C" int munmap(void *addr, size_t length)
   return retval;
 }
 
+// When exactly did the declaration of /usr/include/sys/mman.h change?
+// (The extra parameter was created for the sake of MREMAP_FIXED.)
+# if __GLIBC_PREREQ (2,4)
 extern "C" void *mremap(void *old_address, size_t old_size,
     size_t new_size, int flags, ...)
 {
@@ -500,6 +503,31 @@ extern "C" void *mremap(void *old_address, size_t old_size,
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
+# else
+extern "C" void *mremap(void *old_address, size_t old_size,
+    size_t new_size, int flags)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  MALLOC_FAMILY_WRAPPER_HEADER(mremap, old_address, old_size, new_size, flags,
+			       NULL);
+  if (SYNC_IS_REPLAY) {
+    MALLOC_FAMILY_WRAPPER_REPLAY_START(mremap);
+    void *addr = GET_COMMON(currentLogEntry, retval);
+    flags |= MREMAP_MAYMOVE;
+    retval = _real_mremap (old_address, old_size, new_size, flags, addr);
+    JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
+    MALLOC_FAMILY_WRAPPER_REPLAY_END(mremap);
+  } else if (SYNC_IS_RECORD) {
+    _real_pthread_mutex_lock(&mmap_lock);
+    retval = _real_mremap (old_address, old_size, new_size, flags, 0);
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    _real_pthread_mutex_unlock(&mmap_lock);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+# endif
 
 /*
 extern "C" void *mmap2(void *addr, size_t length, int prot,

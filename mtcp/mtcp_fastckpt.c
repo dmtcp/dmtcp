@@ -2,6 +2,8 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <errno.h>
+
+#define MTCP_SYS_STRCPY
 #include "mtcp_internal.h"
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
@@ -134,7 +136,7 @@ void fastckpt_save_restore_image(int fd, VA restore_begin, size_t restore_size)
   area.prot = PROT_READ | PROT_WRITE | PROT_EXEC;
   area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
   area.offset = 0;
-  strcpy(area.name, "[libmtcp.so]");
+  mtcp_sys_strcpy(area.name, "[libmtcp.so]");
 
   fastckpt_write_mem_region(fd, &area);
 }
