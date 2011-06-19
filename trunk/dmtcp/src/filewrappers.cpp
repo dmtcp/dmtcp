@@ -228,7 +228,7 @@ static void updateProcPath ( const char *path, char *newpath )
     return;
   }
 
-  if ( Util::strStartsWith ( path, "/proc/" ) )
+  if ( dmtcp::Util::strStartsWith ( path, "/proc/" ) )
   {
     index = 6;
     tempIndex = 0;
@@ -362,7 +362,7 @@ static int _open_open64_work(int (*fn)(const char *path, int flags, mode_t mode)
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
@@ -374,7 +374,7 @@ static int _open_open64_work(int (*fn)(const char *path, int flags, mode_t mode)
 
   if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -584,8 +584,8 @@ static int get_how_many_characters (const char *str)
   return atoi(tmp);
 }
 
-/* TODO: not all formats are mapped. 
- * This function parses the given argument list and logs the values of the 
+/* TODO: not all formats are mapped.
+ * This function parses the given argument list and logs the values of the
  * arguments in the list to read_data_fd. Returns the number of bytes written. */
 static int parse_va_list_and_log (va_list arg, const char *format)
 {
@@ -626,7 +626,7 @@ static int parse_va_list_and_log (va_list arg, const char *format)
   return bytes;
 }
 
-/* Parses the format string and reads into the given va_list of arguments. 
+/* Parses the format string and reads into the given va_list of arguments.
   */
 static void read_data_from_log_into_va_list (va_list arg, const char *format)
 {
@@ -670,7 +670,7 @@ static void read_data_from_log_into_va_list (va_list arg, const char *format)
       /* We want to copy \0 at the end. */
       memcpy((void *)val, tmp, offset + i + 1);
       /* We want to be located one position to the right of \0. */
-      _real_lseek(read_data_fd, i - 128 - 1, SEEK_CUR); 
+      _real_lseek(read_data_fd, i - 128 - 1, SEEK_CUR);
     }
     else {
       JASSERT (false).Text("format not added.");
@@ -837,7 +837,7 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
 
   char newpath [ PATH_MAX ] = {0} ;
 
-  if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
@@ -851,7 +851,7 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
     int fd = fileno(file);
     if ( strcmp(path, "/dev/ptmx") == 0 ) {
       processDevPtmxConnection(fd);
-    } else if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
       processDevPtsConnection(fd, path, newpath);
     }
   }
@@ -918,7 +918,7 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
 #endif
 }
 
-#ifdef RECORD_REPLAY 
+#ifdef RECORD_REPLAY
 static int _almost_real_fcntl(int fd, int cmd, long arg_3_l, struct flock *arg_3_f)
 {
   if (arg_3_l == -1 && arg_3_f == NULL) {
@@ -974,7 +974,7 @@ static void updateStatPath(const char *path, char *newpath)
 {
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
     strncpy(newpath, path, PATH_MAX);
-  } else if ( Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -982,7 +982,7 @@ static void updateStatPath(const char *path, char *newpath)
   }
 }
 
-#ifdef RECORD_REPLAY 
+#ifdef RECORD_REPLAY
 #define _XSTAT_COMMON_SYNC_WRAPPER(name, ...)                               \
   do {                                                                      \
     if (SYNC_IS_REPLAY) {                                                   \
@@ -1000,7 +1000,7 @@ static void updateStatPath(const char *path, char *newpath)
   }  while(0)
 #endif
 
-extern "C" 
+extern "C"
 int __xstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -1017,7 +1017,7 @@ int __xstat(int vers, const char *path, struct stat *buf)
   return retval;
 }
 
-extern "C" 
+extern "C"
 int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0};
@@ -1035,7 +1035,7 @@ int __xstat64(int vers, const char *path, struct stat64 *buf)
 }
 
 #ifdef RECORD_REPLAY
-extern "C" 
+extern "C"
 int __fxstat(int vers, int fd, struct stat *buf)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -1045,7 +1045,7 @@ int __fxstat(int vers, int fd, struct stat *buf)
   return retval;
 }
 
-extern "C" 
+extern "C"
 int __fxstat64(int vers, int fd, struct stat64 *buf)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -1056,7 +1056,7 @@ int __fxstat64(int vers, int fd, struct stat64 *buf)
 }
 #endif // RECORD_REPLAY
 
-extern "C" 
+extern "C"
 int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -1073,7 +1073,7 @@ int __lxstat(int vers, const char *path, struct stat *buf)
   return retval;
 }
 
-extern "C" 
+extern "C"
 int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -1125,7 +1125,7 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz
 }
 
 #ifdef RECORD_REPLAY
-extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds, 
+extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds,
                       fd_set *exceptfds, struct timeval *timeout)
 {
   WRAPPER_HEADER(int, select, _real_select, nfds, readfds, writefds, exceptfds, timeout);

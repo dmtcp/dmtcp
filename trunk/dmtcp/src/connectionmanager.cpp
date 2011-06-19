@@ -85,7 +85,8 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 #ifdef IBV
     dmtcp::string device = dmtcp::KernelDeviceToConnection::instance().fdToDevice(fds[i]);
 
-    if(!Util::strStartsWith(device, "/dev/infiniband/") && !Util::strStartsWith(device, "infinibandevent:"))
+    if(!Util::strStartsWith(device, "/dev/infiniband/") &&
+       !Util::strStartsWith(device, "infinibandevent:"))
 #endif
     {
       Connection* con = &source.retrieve ( fds[i] );
@@ -117,7 +118,7 @@ dmtcp::Connection& dmtcp::KernelDeviceToConnection::retrieve ( int fd )
     create(fd, con);
     i = _table.find ( device );
   }
- 
+
   JASSERT ( i != _table.end() ) ( fd ) ( device ) ( _table.size() ).Text ( "failed to find connection for fd" );
   return ConnectionList::instance() [i->second];
 }

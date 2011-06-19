@@ -67,7 +67,7 @@ static pid_t forkChild ( long child_host, time_t child_time )
       //update ThisProcess()
       dmtcp::UniquePid::resetOnFork ( child );
 
-      Util::initializeLogFile(jalib::Filesystem::GetProgramName()
+      dmtcp::Util::initializeLogFile(jalib::Filesystem::GetProgramName()
                               + " (forked)");
 
 #ifdef PID_VIRTUALIZATION
@@ -228,9 +228,9 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && Util::strStartsWith(path, libPrefix))
+  if (path != NULL && dmtcp::Util::strStartsWith(path, libPrefix))
     execShortLivedProcessAndExit(path, argv);
-  if (path != NULL && Util::strStartsWith(path, lib64Prefix))
+  if (path != NULL && dmtcp::Util::strStartsWith(path, lib64Prefix))
     execShortLivedProcessAndExit(path, argv);
   // Needed for /usr/libexec/utempter/utempter and other short-lived
   //  setuid/setgid processes.
@@ -238,19 +238,19 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
   if (path != NULL &&
-      Util::strEndsWith(path, "/utempter")) {
+      dmtcp::Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     execShortLivedProcessAndExit(path, argv);
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
-  if (Util::isSetuid(path)) {
-    if (Util::isScreen(path)) {
-      setenv(ENV_VAR_SCREENDIR, Util::getScreenDir().c_str(), 1);
+  if (dmtcp::Util::isSetuid(path)) {
+    if (dmtcp::Util::isScreen(path)) {
+      setenv(ENV_VAR_SCREENDIR, dmtcp::Util::getScreenDir().c_str(), 1);
     }
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    Util::patchArgvIfSetuid(path, argv, newArgv);
-    // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING BINARY
+    dmtcp::Util::patchArgvIfSetuid(path, argv, newArgv);
+    // BUG:  dmtcp::Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING BINARY
     //   IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
@@ -314,14 +314,15 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 {
   int saved_errno = errno;
 
-  if (Util::isSetuid(path)) {
-    Util::freePatchedArgv(newArgv);
+  if (dmtcp::Util::isSetuid(path)) {
+    dmtcp::Util::freePatchedArgv(newArgv);
   }
 
   const char* str = getenv("LD_PRELOAD");
   JASSERT(str != NULL );
   dmtcp::string preload = getenv("LD_PRELOAD");
-  JASSERT(Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c));
+  JASSERT(dmtcp::Util::strStartsWith(preload,
+                                     dmtcp::DmtcpWorker::ld_preload_c));
 
   preload.erase(0, strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1);
 
@@ -357,12 +358,12 @@ static dmtcp::list<dmtcp::string>& copyUserEnv ( char *const envp[] )
   out << "non-DMTCP env vars:\n";
   for ( ; *envp != NULL; ++envp ) {
     if ( isImportantEnv ( *envp ) ) {
-      if(dbg) 
+      if(dbg)
         out << "     skipping: " << *envp << '\n';
       continue;
     }
     strStorage.push_back ( *envp );
-    if(dbg) 
+    if(dbg)
       out << "     addenv[user]:" << strStorage.back() << '\n';
   }
   JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
@@ -374,7 +375,7 @@ static char** patchUserEnv ( dmtcp::list<dmtcp::string> &envList )
 {
   static dmtcp::vector<char*> envVect;
   envVect.clear();
-  
+
   dmtcp::list<dmtcp::string>::iterator i;
   for ( i = envList.begin() ; i != envList.end(); ++i ) {
     JASSERT ( !isImportantEnv ( *i ) );
@@ -390,7 +391,7 @@ static char** patchUserEnv ( dmtcp::list<dmtcp::string> &envList )
     if ( v != NULL ) {
       envList.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
       envVect.push_back ( &envList.back() [0] );
-      if(dbg) 
+      if(dbg)
         out << "     addenv[dmtcp]:" << envList.back() << '\n';
     }
   }

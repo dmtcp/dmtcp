@@ -103,7 +103,7 @@ bool jalib::JBinarySerializeReaderRaw::isEOF()
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = Util::writeAll(_fd, buffer, len);
+  size_t ret = dmtcp::Util::writeAll(_fd, buffer, len);
   JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO)
     .Text( "write() failed" );
   _bytes += len;
@@ -111,7 +111,7 @@ void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = Util::readAll(_fd, buffer, len);
+  size_t ret = dmtcp::Util::readAll(_fd, buffer, len);
   JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
     .Text("read() failed");
   _bytes += len;

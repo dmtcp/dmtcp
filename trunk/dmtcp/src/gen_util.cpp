@@ -33,7 +33,7 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
-void Util::lockFile(int fd)
+void dmtcp::Util::lockFile(int fd)
 {
   struct flock fl;
 
@@ -52,7 +52,7 @@ void Util::lockFile(int fd)
     .Text("Unable to lock the PID MAP file");
 }
 
-void Util::unlockFile(int fd)
+void dmtcp::Util::unlockFile(int fd)
 {
   struct flock fl;
   int result;
@@ -67,7 +67,7 @@ void Util::unlockFile(int fd)
     .Text("Unlock Failed");
 }
 
-bool Util::strStartsWith(const char *str, const char *pattern)
+bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
 {
   int len1 = strlen(str);
   int len2 = strlen(pattern);
@@ -77,7 +77,7 @@ bool Util::strStartsWith(const char *str, const char *pattern)
   return false;
 }
 
-bool Util::strEndsWith(const char *str, const char *pattern)
+bool dmtcp::Util::strEndsWith(const char *str, const char *pattern)
 {
   int len1 = strlen(str);
   int len2 = strlen(pattern);
@@ -88,18 +88,18 @@ bool Util::strEndsWith(const char *str, const char *pattern)
   return false;
 }
 
-bool Util::strStartsWith(const dmtcp::string& str, const char *pattern)
+bool dmtcp::Util::strStartsWith(const dmtcp::string& str, const char *pattern)
 {
   return strStartsWith(str.c_str(), pattern);
 }
 
-bool Util::strEndsWith(const dmtcp::string& str, const char *pattern)
+bool dmtcp::Util::strEndsWith(const dmtcp::string& str, const char *pattern)
 {
   return strEndsWith(str.c_str(), pattern);
 }
 
 // Fails or does entire write (returns count)
-ssize_t Util::writeAll(int fd, const void *buf, size_t count)
+ssize_t dmtcp::Util::writeAll(int fd, const void *buf, size_t count)
 {
   const char *ptr = (const char *) buf;
   size_t num_written = 0;
@@ -107,7 +107,7 @@ ssize_t Util::writeAll(int fd, const void *buf, size_t count)
   do {
     ssize_t rc = _real_write (fd, ptr + num_written, count - num_written);
     if (rc == -1) {
-      if (errno == EINTR || errno == EAGAIN) 
+      if (errno == EINTR || errno == EAGAIN)
 	continue;
       else
         return rc;
@@ -125,7 +125,7 @@ ssize_t Util::writeAll(int fd, const void *buf, size_t count)
 // return value:
 //    -1: unrecoverable error
 //   <n>: number of bytes read
-ssize_t Util::readAll(int fd, void *buf, size_t count)
+ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
 {
   ssize_t rc;
   char *ptr = (char *) buf;
@@ -149,7 +149,7 @@ ssize_t Util::readAll(int fd, void *buf, size_t count)
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.
-int Util::readLine(int fd, char *buf, int count)
+int dmtcp::Util::readLine(int fd, char *buf, int count)
 {
   int i = 0;
   char c;
