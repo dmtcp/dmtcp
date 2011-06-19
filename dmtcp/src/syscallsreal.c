@@ -54,10 +54,9 @@ typedef int ( *funcptr_t ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
 
-//static unsigned int libcFuncOffsetArray[numLibcWrappers];
-
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+// FIXME: Are these primitives (_dmtcp_lock, _dmtcp_unlock) required anymore?
 void _dmtcp_lock() { _real_pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { _real_pthread_mutex_unlock ( &theMutex ); }
 
@@ -68,100 +67,129 @@ void _dmtcp_remutex_on_fork() {
   pthread_mutex_init ( &theMutex, &attr);
   pthread_mutexattr_destroy(&attr);
 }
+/*
+ * DMTCP puts wrappers around several libc (also libpthread, libdl etc.)
+ * functions in order to work. In these wrappers, DMTCP has to do some work
+ * before and after the real function is called in libc.
+ *
+ * In order to call the real function in libc, DMTCP calculates the address of
+ * the function in libc and calls that address directly. There are several
+ * techniques of calculating the address of the libc function. In this
+ * document, we briefly discuss the techniques that DMTCP has used in past and
+ * how it evolved into the current design.
+ *
+ * History:
+ * 1. dlopen/dlsym: Once upon a time :-), DMTCP used to dlopen "libc.so" and
+ *    then call dlsym() on the libc handle to find the addresses of the libc
+ *    functions wrapped by DMTCP.
+ *
+ * This work great for a while until we needed wrappers for malloc/calloc/free
+ * etc. The reason was the fact that dlopen/dlsym/dlerror internally call
+ * calloc to allocate a small buffer. As can be seen, dlopen calls calloc which
+ * goes to the DMTCP wrapper for calloc, which in turn needs to call dlopn() to
+ * find the address of libc calloc and so this goes into an infinite recursion.
+ *
+ * 2a. Libc-offsets - take 1: To counter the problems related to malloc/calloc
+ *     wrappers, DMTCP was modified to not use dlopen/dlsym. Instead, a new
+ *     mechanism was implemented.
+ *
+ *     While executing dmtcp_checkpoint, for each function wrapped by DMTCP, we
+ *     calculated it's offset, in libc, from a known base-function (toupper, a
+ *     function not wrapped by DMTCP) in libc, i.e. we do:
+ *       open_offset = &open - &toupper;
+ *     The offsets were passed along to dmtcphijack.so in an environment
+ *     variable. To calculate the address of libc function now becomes very
+ *     easy -- calculate the address of base-function, and add to it the offset
+ *     of the required function i.e.
+ *       open_libc_address = &toupper + open_offset;
+ *
+ *     The environment variable holding the offsets was made available to each
+ *     and every new process created via fork/exec.
+ *
+ * This worked fine until we discovered that some applications put a wrapper
+ * around toupper as well :(.
+ *
+ * 2b. Libc-offsets - take 2:2b. Libc-offsets - take 2: In the next iteration,
+ *     we decided to use a heuristic based approach of using a pool of libc
+ *     base-functions instead of just one. An average address of base-functions
+ *     was calculated and that was used in offset calculations.
+ *
+ * This approach was fine until we decided to support process migration. If a
+ * process is migrated to a different machine with a different version of libc,
+ * the offsets that are stored in memory aren't correct anymore and so if the
+ * migrated process creates a child process, the offsets won't work.
+ *
+ * 3. dlsym(RTLD_NEXT, symbol): This is the current approach. In the _real_XYZ
+ *    function, we call dlsym(RTLD_NEXT, "XYZ") to calculate the address of
+ *    function in the libraries that come after the current library in the
+ *    search order (see man dlsym for more details).
+ *
+ * There are two problem with this scheme:
+ * a) As with scheme 1 (dlopen/dlsym) -- if there are wrappers around
+ *    calloc/free, it goes into an infinite recursion, and
+ * b). Even if we don't have wrappers around calloc, there can be a problem if
+ *     some application uses the malloc_hooks.
+ *     (see http://www.gnu.org/s/hello/manual/libc/Hooks-for-Malloc.html).
+ *     One notable example is libopen-pal.so (part of OpenMPI) which uses
+ *     malloc_hooks and in the malloc hook, it called xstat() which landed in
+ *     the DMTCP wrapper for xstat() and hence an infinite recursive loop.
+ *
+ * The work around to these problems is described in the following section.
+ *
+ * ***************************************************************************
+ *
+ * Current Workaround:
+ *
+ * In order to deal with the situation where we have malloc/calloc wrappers and
+ * a potential application with malloc_hooks, we need to do the following:
+ *
+ * 0. Initialize all wrappers (calculate libc addr) before DMTCP does anything
+ *    else i.e. do it at the beginning of the DmtcpWorker constructor.
+ * 1. Define a variable dmtcp_wrappers_initializing, which is set to '1' while
+ *    it is initializing and '0' after the * initialization has completed.
+ * 2. Always have wrappers for malloc/calloc/free.
+ * 3. In the wrappers for malloc/calloc/free, make sure that malloc hooks are
+ *    never called. One way to do this is to disable malloc_hooks, but since
+ *    they are not thread-safe, this is not a desired solution. Also note that
+ *    malloc hooks have been deprecated in glibc 2.14 and will be removed in
+ *    glibc 2.15.
+ *
+ *    Another way to avoid malloc hooks is to allocate memory using JALLOC to
+ *    avoid calling libc:malloc. But we don't want to do this for all
+ *    malloc/calloc calls, and so the call to JALLOC should be made only if
+ *    dmtcp_wrappers_initializing is set to '1'.
+ *
+ *    There is a problem with the JALLOC approach too when using RECORD_REPLAY.
+ *    RECORD_REPLAY puts wrappers around mmap() etc. and JALLOC uses mmap() to
+ *    allocate memory :-( and as one can guess, it gets into a infinite
+ *    recursion.
+ * 4. The solution is to use static buffer when dlsym() calls calloc() during
+ *    wrapper-initialization. It was noted that, calloc() is called only once
+ *    with buf-size of 32, during dlsym() execution and thus it is safe to keep
+ *    a small static buffer and pass on its address to the caller. The
+ *    subsequent call to free() is ignored.
+ */
 
-#if 0
-// Any single glibc function could have been re-defined.
-// For example, isalnum is wrapped by /bin/dash.  So, find a function
-//   closest to the average, and it's probably in glibc.
-static char * get_libc_base_func ()
-{
-  static char * base_addr = NULL;
-  void *base_func_addresses[100];
-  unsigned long int average, minDist;
-  int minIndex;
-  int count, index;
-  if (base_addr != NULL)
-    return base_addr;
-
-  count = 0;
-# define _COUNT(name) count++;
-  FOREACH_GLIBC_BASE_FUNC(_COUNT)
-  assert(count <= 100);
-  index = 0;
-# define _GET_ADDR(name) base_func_addresses[index++] = &name;
-  FOREACH_GLIBC_BASE_FUNC(_GET_ADDR)
-
-# define SHIFT_RIGHT(x) (long int)((unsigned long int)(x) >> 10)
-  // Of all the addresses in base_func_addresses, we choose the one
-  //  closest to the average as the one that really is in glibc.
-  for (average = 0, index = 0; index < count; index++)
-    average += SHIFT_RIGHT(base_func_addresses[index]);
-  average /= count;
-
-  minIndex = 0;
-  /* Shift right to guard against overflow */
-  minDist = labs(average - SHIFT_RIGHT(base_func_addresses[0]));
-  for (index = 0; index < count; index++) {
-    unsigned int tmp = labs(average - SHIFT_RIGHT(base_func_addresses[index]));
-    if (tmp < minDist) {
-      minIndex = index;
-      minDist = tmp;
-    }
-  }
-
-  base_addr = base_func_addresses[minIndex] - libcFuncOffsetArray[minIndex];
-  /* FIXME:  Should verify that base_addr is in libc seg of /proc/self/maps */
-  assert(base_addr + libcFuncOffsetArray[minIndex]
-         == base_func_addresses[minIndex]);
-  return base_addr;
-}
-
-static void computeLibcOffsetArray ()
-{
-  char* libcFuncOffsetStr = getenv(ENV_VAR_LIBC_FUNC_OFFSETS);
-  char *start;
-  char *next;
-  int count;
-
-  assert(libcFuncOffsetStr != NULL);
-
-  start = libcFuncOffsetStr;
-  for (count = 0; count < numLibcWrappers; count++) {
-    libcFuncOffsetArray[count] = strtoul(start, &next, 16);
-    if (*next != ';') break;
-    start = next + 1;
-  }
-  if (*start != '\0') count++;
-
-  assert(count == numLibcWrappers);
-}
-
-static funcptr_t get_libc_symbol_from_array ( LibcWrapperOffset idx )
-{
-  static int libcOffsetArrayComputed = 0;
-  static char *libc_base_func_addr = NULL;
-  if (libcOffsetArrayComputed == 0) {
-    computeLibcOffsetArray();
-    // Important:  call computeLibcOffsetArray() before get_libc_base_func()
-    libc_base_func_addr = get_libc_base_func();
-    libcOffsetArrayComputed = 1;
-  }
-  if (libcFuncOffsetArray[idx] == -1) {
-    return NULL;
-  }
-  return (funcptr_t)(libc_base_func_addr + libcFuncOffsetArray[idx]);
-}
-#endif
-
-
+extern void prepareDmtcpWrappers();
+extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
 static int _wrappers_initialized = 0;
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
-extern void prepareDmtcpWrappers();
 void initialize_wrappers()
 {
+  const char *warn_msg =
+    "WARNING: dmtcp_wrappers_initializing is set to '0' in the call to\n"
+    "         initialize_wrappers(). This may not be a good sign. \n"
+    "         Please inform dmtcp-developers if you see this message.\n\n";
+
+  if (dmtcp_wrappers_initializing == 0) {
+    _real_write(STDERR_FILENO, warn_msg, strlen(warn_msg));
+    sleep(1);
+    abort();
+  }
+
   if (!_wrappers_initialized) {
     FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
     _wrappers_initialized = 1;
@@ -204,66 +232,6 @@ void initialize_wrappers()
   (*fn)
 
 
-#define REAL_LIBC_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
-
-#define REAL_LIBC_FUNC_PASSTHROUGH_TYPED(type,name) \
-  REAL_FUNC_PASSTHROUGH_TYPED(type,name)
-  //static type (*fn) () = NULL; \
-  if (fn==NULL) { \
-    fn = (void*)get_libc_symbol_from_array ( ENUM(name) ); \
-    if (fn == NULL) { \
-      fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
-                      "           The symbol wasn't found in current glibc.\n" \
-                      "    Aborting.\n", #name); \
-    } \
-  } \
-  return (*fn)
-
-#define REAL_LIBC_FUNC_PASSTHROUGH_VOID(name) \
-  REAL_FUNC_PASSTHROUGH_VOID(name)
-  //static funcptr_t fn = NULL; \
-  if (fn==NULL) { \
-    fn = get_libc_symbol_from_array ( ENUM(name) ); \
-    if (fn == NULL) { \
-      fprintf(stderr, "*** DMTCP: Error: glibc symbol lookup failed for %s.\n" \
-                      "           The symbol wasn't found in current glibc.\n" \
-                      "    Aborting.\n", #name); \
-    } \
-  } \
-  (*fn)
-
-#if 0
-/* Variable to save original malloc hook. */
-static void *(*old_malloc_hook)(size_t, const void *);
-
- /* Prototypes for our hooks.  */
- static void my_init_hook (void);
- static void *my_malloc_hook (size_t, const void *);
-
-static void * my_malloc_hook (size_t size, const void *caller) {
-  void *result;
-  /* Restore all old hooks - this will prevent an infinite loop. */
-  __malloc_hook = old_malloc_hook;
-  /* Call recursively */
-  result = malloc (size);
-  /* Restore our own hooks */
-  __malloc_hook = my_malloc_hook;
-  return result;
-}
-
-int memhook_is_initialized = 0;
-
-#define MEMHOOK_OFF() \
-  __malloc_hook = old_malloc_hook
-
-#define MEMHOOK_ON() \
-  if (!memhook_is_initialized) { \
-    old_malloc_hook = __malloc_hook; \
-    memhook_is_initialized = 1; \
-  } \
-  __malloc_hook = my_malloc_hook
-#endif
-
 LIB_PRIVATE
 void *_real_dlsym ( void *handle, const char *symbol ) {
   /* In the future dlsym_offset should be global variable defined in
@@ -283,10 +251,10 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     */
     //unsetenv ( ENV_VAR_DLSYM_OFFSET );
   }
-  //printf ( "_real_dlsym : Inside the _real_dlsym wrapper symbol = %s \n",symbol);
   void *res = NULL;
+  // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
+  // comment in miscwrappers for more details.
   thread_performing_dlopen_dlsym = 1;
-  //MEMHOOK_ON();
   if ( dlsym_offset == 0)
     res = dlsym ( handle, symbol );
   else
@@ -295,9 +263,28 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
     res = (*dlsym_addr) ( handle, symbol );
   }
-  //MEMHOOK_OFF();
   thread_performing_dlopen_dlsym = 0;
   return res;
+}
+
+/* In dmtcphijack.so code always use this function instead of unsetenv.
+ * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
+ * environment equivalent to its shell variables. If DMTCP uses the bash
+ * unsetenv, bash will unset its internal environment variable but won't remove
+ * the process environment variable and yet on the next getenv, bash will
+ * return the process environment variable.
+ * This is arguably a bug in bash-3.2.
+ */
+LIB_PRIVATE
+int _dmtcp_unsetenv( const char *name ) {
+  unsetenv (name);
+  // FIXME: Fix this by getting the symbol address from libc.
+  // Another way to fix this would be to do a getenv() here and put a '\0' byte
+  // at the start of the returned value.
+  //REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
+  char *str = (char*) getenv(name);
+  if (str != NULL) *str = '\0';
+  return 1;
 }
 
 LIB_PRIVATE
@@ -309,7 +296,6 @@ LIB_PRIVATE
 int _real_dlclose(void *handle){
   REAL_FUNC_PASSTHROUGH_TYPED ( int, dlclose ) ( handle );
 }
-
 
 LIB_PRIVATE
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
@@ -568,35 +554,18 @@ int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
   REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
 }
 
-/* In dmtcphijack.so code always use this function instead of unsetenv.
- * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
- * environment equivalent to its shell variables. If DMTCP uses the bash
- * unsetenv, bash will unset its internal environment variable but won't remove
- * the process environment variable and yet on the next getenv, bash will
- * return the process environment variable.
- * This is arguably a bug in bash-3.2.
- */
-LIB_PRIVATE
-int _dmtcp_unsetenv( const char *name ) {
-  unsetenv (name);
-  // FIXME: Fix this by getting the symbol address from libc.
-  // Another way to fix this would be to do a getenv() here and put a '\0' byte
-  // at the start of the returned value.
-  //REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
-  char *str = (char*) getenv(name);
-  if (str != NULL) *str = '\0';
-  return 1;
-}
-
 #ifdef PID_VIRTUALIZATION
 LIB_PRIVATE
 pid_t _real_getpid(void){
+  // libc caches pid of the process and hence after restart, libc:getpid()
+  // returns the pre-ckpt value.
   return (pid_t) _real_syscall(SYS_getpid);
-//  REAL_FUNC_PASSTHROUGH_PID_T ( getpid ) ( );
 }
 
 LIB_PRIVATE
 pid_t _real_getppid(void){
+  // libc caches ppid of the process and hence after restart, libc:getppid()
+  // returns the pre-ckpt value.
   return (pid_t) _real_syscall(SYS_getppid);
 }
 
@@ -701,20 +670,23 @@ int _real_setuid(uid_t uid) {
 // So, this is needed even if there is no PID_VIRTUALIZATION
 LIB_PRIVATE
 pid_t _real_gettid(void){
+  // No glibc wrapper for gettid, although even if it had one, we would have
+  // the issues similar to getpid/getppid().
   return (pid_t) _real_syscall(SYS_gettid);
-//  REAL_FUNC_PASSTHROUGH ( pid_t, syscall(SYS_gettid) );
 }
 
 LIB_PRIVATE
 int   _real_tkill(int tid, int sig) {
+  // No glibc wrapper for tkill, although even if it had one, we would have
+  // the issues similar to getpid/getppid().
   return (int) _real_syscall(SYS_tkill, tid, sig);
-  //REAL_FUNC_PASSTHROUGH ( syscall(SYS_tkill) ) ( tid, sig );
 }
 
 LIB_PRIVATE
 int   _real_tgkill(int tgid, int tid, int sig) {
+  // No glibc wrapper for tgkill, although even if it had one, we would have
+  // the issues similar to getpid/getppid().
   return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
-  //REAL_FUNC_PASSTHROUGH ( tgkill ) ( tgid, tid, sig );
 }
 
 LIB_PRIVATE
@@ -749,14 +721,10 @@ long int _real_syscall(long int sys_num, ... ) {
     arg[i] = va_arg(ap, void *);
   va_end(ap);
 
-  static long int (*fn) () = NULL;
-  fn = (long int (*)())_real_dlsym(RTLD_DEFAULT, "syscall");
-  fn = (long int (*)())_real_dlsym(RTLD_NEXT, "syscall");
-  fn = (long int (*)())_real_dlsym(RTLD_NEXT, "syscall");
-  return (*fn) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
-
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-//  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
+  REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1],
+                                                      arg[2], arg[3], arg[4],
+                                                      arg[5], arg[6] );
 }
 
 LIB_PRIVATE
@@ -787,7 +755,8 @@ ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
 LIB_PRIVATE
 int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
-  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr );
+  REAL_FUNC_PASSTHROUGH ( __clone ) ( function, child_stack, flags, arg,
+                                      parent_tidptr, newtls, child_tidptr );
 }
 
 LIB_PRIVATE
@@ -818,27 +787,27 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 
 LIB_PRIVATE
 void * _real_calloc(size_t nmemb, size_t size) {
-  REAL_LIBC_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
+  REAL_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
 }
 
 LIB_PRIVATE
 void * _real_malloc(size_t size) {
-  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
 }
 
 LIB_PRIVATE
 void * _real_realloc(void *ptr, size_t size) {
-  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
 }
 
 LIB_PRIVATE
 void * _real_libc_memalign(size_t boundary, size_t size) {
-  REAL_LIBC_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
 }
 
 LIB_PRIVATE
 void _real_free(void *ptr) {
-  REAL_LIBC_FUNC_PASSTHROUGH_VOID (free) (ptr);
+  REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
 }
 
 LIB_PRIVATE
@@ -867,7 +836,8 @@ int _real_munmap(void *addr, size_t length) {
 
 #ifdef PTRACE
 LIB_PRIVATE
-long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
+                  void *data) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
 }
 #endif
@@ -1121,7 +1091,7 @@ int _real_dup(int oldfd) {
 
 LIB_PRIVATE
 off_t _real_lseek(int fd, off_t offset, int whence) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd,offset,whence );
+  REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd, offset, whence );
 }
 
 LIB_PRIVATE
@@ -1131,11 +1101,11 @@ int _real_unlink(const char *pathname) {
 
 LIB_PRIVATE
 ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd,buf,count,offset );
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd, buf, count, offset );
 }
 
 LIB_PRIVATE
 ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
+  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd, buf, count, offset );
 }
 #endif // RECORD_REPLAY

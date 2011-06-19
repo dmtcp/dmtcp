@@ -299,12 +299,22 @@ static void my_free_hook (void *ptr, const void *caller)
 
 #endif // RECORD_REPLAY
 
+
+/* This buffer (wrapper_init_buf) is used to pass on to dlsym() while it is
+ * initializing the dmtcp wrappers. See comments in syscallsreal.c for more
+ * details.
+ */
+static char wrapper_init_buf[1024];
+static bool mem_allocated_for_initializing_wrappers = false;
+
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
   if (dmtcp_wrappers_initializing) {
-    void *ret = JALLOC_HELPER_MALLOC ( nmemb * size );
-    memset(ret, 0, nmemb * size);
-    return ret;
+    JASSERT(!mem_allocated_for_initializing_wrappers);
+    memset(wrapper_init_buf, 0, sizeof (wrapper_init_buf));
+    //void *ret = JALLOC_HELPER_MALLOC ( nmemb * size );
+    mem_allocated_for_initializing_wrappers = true;
+    return (void*) wrapper_init_buf;
   }
 #ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -319,7 +329,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 extern "C" void *malloc(size_t size)
 {
   if (dmtcp_wrappers_initializing) {
-    return JALLOC_HELPER_MALLOC ( size );
+    return calloc(1, size);
   }
 #ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -350,7 +360,8 @@ extern "C" void *valloc(size_t size)
 extern "C" void free(void *ptr)
 {
   if (dmtcp_wrappers_initializing) {
-    JALLOC_HELPER_FREE ( ptr );
+    JASSERT(mem_allocated_for_initializing_wrappers);
+    JASSERT(ptr == wrapper_init_buf);
     return;
   }
 #ifdef RECORD_REPLAY
@@ -391,6 +402,7 @@ extern "C" void *realloc(void *ptr, size_t size)
 {
   JASSERT (!dmtcp_wrappers_initializing)
     .Text ("This is a rather unusual path. Please inform DMTCP developers");
+
 #ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, realloc, ptr, size);
@@ -403,7 +415,7 @@ extern "C" void *realloc(void *ptr, size_t size)
 
 #ifdef RECORD_REPLAY
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
-    int fd, off_t offset)
+                      int fd, off_t offset)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
@@ -428,7 +440,7 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
 }
 
 extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
-    int fd, off64_t offset)
+                         int fd, off64_t offset)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   SET_IN_MMAP_WRAPPER();
@@ -460,7 +472,7 @@ extern "C" int munmap(void *addr, size_t length)
     WRAPPER_REPLAY_START(munmap);
     _real_pthread_mutex_lock(&allocation_lock);
     retval = _real_munmap (addr, length);
-    JASSERT ( retval == (int)(unsigned long)GET_COMMON(currentLogEntry, retval) );
+    JASSERT (retval == (int)(unsigned long)GET_COMMON(currentLogEntry, retval));
     _real_pthread_mutex_unlock(&allocation_lock);
     WRAPPER_REPLAY_END(munmap);
   } else if (SYNC_IS_RECORD) {
@@ -477,7 +489,7 @@ extern "C" int munmap(void *addr, size_t length)
 // (The extra parameter was created for the sake of MREMAP_FIXED.)
 # if __GLIBC_PREREQ (2,4)
 extern "C" void *mremap(void *old_address, size_t old_size,
-    size_t new_size, int flags, ...)
+                        size_t new_size, int flags, ...)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   va_list ap;

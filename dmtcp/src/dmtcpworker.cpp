@@ -94,7 +94,8 @@ static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
  * XXX: Currently this security is provided only for the clone wrapper; this
  * should be extended to other calls as well.           -- KAPIL
  */
-static pthread_rwlock_t theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+static pthread_rwlock_t
+  theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 static dmtcp::UniquePid compGroup;
@@ -193,68 +194,19 @@ int dmtcp::DmtcpWorker::determineMtcpSignal()
   return sig;
 }
 
-#ifdef USE_MALLOC_HOOKS
-void *(*old_malloc_hook)(size_t, const void *);
-void (*old_free_hook)(void *, const void *);
-static void *_dmtcp_malloc_hook(size_t size, const void *caller);
-static void _dmtcp_free_hook(void *ptr, const void *caller);
-
-#define _ALLOC_HOOKS_UNDEF() do {      \
-  __malloc_hook  = old_malloc_hook;    \
-  __free_hook    = old_free_hook;      \
-  } while (0)
-
-#define _ALLOC_HOOKS_DEF() do {         \
-  __malloc_hook  = _dmtcp_malloc_hook;  \
-  __free_hook    = _dmtcp_free_hook;    \
-  } while (0)
-
-#ifdef JALIB_ALLOCATOR
-static void *_dmtcp_malloc_hook(size_t size, const void *caller)
-{
-  void *result = JALLOC_HELPER_MALLOC (size);
-  return result;
-}
-
-static void _dmtcp_free_hook(void *ptr, const void *caller)
-{
-  JALLOC_HELPER_FREE(ptr);
-}
-#else
-// May not work with malloc() wrappers
-static void *_dmtcp_malloc_hook(size_t size, const void *caller)
-{
-  _ALLOC_HOOKS_UNDEF();
-  void *result = malloc (size);
-  _ALLOC_HOOKS_DEF();
-  return result;
-}
-
-static void _dmtcp_free_hook(void *ptr, const void *caller)
-{
-  _ALLOC_HOOKS_UNDEF();
-  free(ptr);
-  _ALLOC_HOOKS_DEF();
-}
-#endif
-#endif
-
-
+/* This function is called at the very beginning of the DmtcpWorker constructor
+ * to do some initialization work so that DMTCP can later use _real_XXX
+ * functions reliably. Read the comment at the top of syscallsreal.c for more
+ * details.
+ */
 extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
 {
+  // FIXME: Remove JALLOC_HELPER_... after the release.
   JALLOC_HELPER_DISABLE_LOCKS();
-#ifdef USE_MALLOC_HOOKS
-  _ALLOC_HOOKS_DEF();
-#endif
-
   dmtcp_wrappers_initializing = 1;
   initialize_wrappers();
   //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
   dmtcp_wrappers_initializing = 0;
-
-#ifdef USE_MALLOC_HOOKS
-  _ALLOC_HOOKS_UNDEF();
-#endif
   JALLOC_HELPER_ENABLE_LOCKS();
 }
 

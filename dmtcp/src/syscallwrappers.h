@@ -55,6 +55,8 @@
 __attribute__ ((visibility ("hidden"))) extern __thread int mmap_no_sync;
 #endif
 
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+
 void _dmtcp_setup_trampolines();
 
 #ifdef __cplusplus
@@ -62,23 +64,8 @@ extern "C"
 {
 #endif
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
-
-#if 0
-/* First group below is candidates for glibc_base_func_addr in syscallsreal.c
- * We can't tell which ones were already re-defined by the user executable.
- * For example, /bin/dash defines isalnum in Ubuntu 9.10.
- * Note that a system call can't be a base fnc if we are already wrapping it.
- */
-#define FOREACH_GLIBC_BASE_FUNC(MACRO)      \
-  MACRO(isalnum)                            \
-  MACRO(clearerr)                           \
-  MACRO(getopt)                             \
-  MACRO(perror)                             \
-  MACRO(fscanf)
-#endif
 
 #define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\
   MACRO(calloc)                             \
@@ -254,11 +241,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 #endif
 
 
-/* FOREACH_GLIBC_BASE_FUNC (MACRO) must appear first. */
-//#define FOREACH_GLIBC_FUNC_WRAPPER(MACRO)       \
-  //FOREACH_GLIBC_BASE_FUNC(MACRO)                \
-  //FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
-
 #define FOREACH_DMTCP_WRAPPER(MACRO)            \
   FOREACH_GLIBC_WRAPPERS(MACRO)                 \
   FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
@@ -280,12 +262,15 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void initialize_wrappers();
 
   int _real_socket ( int domain, int type, int protocol );
-  int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
-  int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
+  int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr,
+                      socklen_t addrlen );
+  int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,
+                   socklen_t addrlen );
   int _real_listen ( int sockfd, int backlog );
   int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
-  int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
-  int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
+  int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen,
+                      int flags );
+  int _real_setsockopt ( int s, int level, int optname, const void *optval,
                          socklen_t optlen );
 
 
@@ -328,8 +313,10 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
   //set the handler
   sighandler_t _real_signal(int signum, sighandler_t handler);
-  int _real_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
-  int _real_rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+  int _real_sigaction(int signum, const struct sigaction *act,
+                      struct sigaction *oldact);
+  int _real_rt_sigaction(int signum, const struct sigaction *act,
+                         struct sigaction *oldact);
   int _real_sigvec(int sig, const struct sigvec *vec, struct sigvec *ovec);
 
   //set the mask
@@ -338,7 +325,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_siggetmask(void);
   int _real_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
-  int _real_pthread_sigmask(int how, const sigset_t *newmask, sigset_t *oldmask);
+  int _real_pthread_sigmask(int how, const sigset_t *newmask,
+                            sigset_t *oldmask);
 
   int _real_sigsuspend(const sigset_t *mask);
   int _real_sighold(int sig);
@@ -427,8 +415,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 
-  pid_t _real_wait3(__WAIT_STATUS status, int options,      struct rusage *rusage);
-  pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,      struct rusage *rusage);
+  pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
+  pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
+                    struct rusage *rusage);
   extern int send_sigwinch;
   int _real_ioctl(int d,  unsigned long int request, ...) __THROW;
 
@@ -462,8 +451,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_fdatasync(int fd);
   int _real_fsync(int fd);
   int _real_fputs(const char *s, FILE *stream);
-//int _real_fcntl(int fd, int cmd, long arg_3);
-//int _real_fcntl(int fd, int cmd, struct flock *arg_3);
   int _real_fxstat(int vers, int fd, struct stat *buf);
   int _real_fxstat64(int vers, int fd, struct stat64 *buf);
   int _real_link(const char *oldpath, const char *newpath);
