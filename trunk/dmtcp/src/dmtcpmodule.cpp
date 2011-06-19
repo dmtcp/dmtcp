@@ -4,7 +4,7 @@
 
 using namespace dmtcp;
 
-EXTERNC void process_dmtcp_event(DmtcpEvent_t id, void* data)
+EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
   return;
 }
@@ -37,8 +37,10 @@ EXTERNC int  dmtcp_is_running_state()
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
 
-EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
-                                             const void *val, size_t val_len)
+EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
+                                                   size_t key_len,
+                                                   const void *val,
+                                                   size_t val_len)
 {
   char *extraData = new char[key_len + val_len];
   memcpy(extraData, key, key_len);
@@ -60,8 +62,8 @@ EXTERNC int send_key_val_pair_to_coordinator(const void *key, size_t key_len,
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size
 //   (to the size of the data that we copied to the user buffer).
-EXTERNC int send_query_to_coordinator(const void *key, size_t key_len,
-                                      void *val, size_t *val_len)
+EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
+                                            void *val, size_t *val_len)
 {
   /* THE USER JUST GAVE US A BUFFER, val.  WHY ARE WE ALLOCATING
    * EXTRA MEMORY HERE?  ALLOCATING MEMORY IS DANGEROUS.  WE ARE A GUEST
