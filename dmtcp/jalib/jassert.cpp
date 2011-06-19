@@ -66,7 +66,7 @@ static int errConsoleFd = -1;
 
 static int jwrite(int fd, const char *str)
 {
-  return Util::writeAll(fd, str, strlen(str));
+  return dmtcp::Util::writeAll(fd, str, strlen(str));
 #if 0
   ssize_t offs, rc;
   ssize_t size = strlen(str);
@@ -229,7 +229,7 @@ void writeProcMaps() {
   int  count;
   int fd = _real_open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
-  count = Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
+  count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
 
   dmtcp::ostringstream o;
@@ -237,7 +237,7 @@ void writeProcMaps() {
     << dmtcp_get_uniquepid_str();
   fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
-  count = Util::writeAll(fd, mapsBuf, count);
+  count = dmtcp::Util::writeAll(fd, mapsBuf, count);
   close(fd);
 }
 

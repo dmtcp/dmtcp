@@ -305,7 +305,7 @@ int main ( int argc, char** argv )
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
   dmtcp::UniquePid::ThisProcess(true);
-  Util::initializeLogFile();
+  dmtcp::Util::initializeLogFile();
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -381,7 +381,7 @@ int main ( int argc, char** argv )
   if (testSetuid(argv[0])) {
     char **newArgv;
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
+    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
   };
 
@@ -431,7 +431,7 @@ int main ( int argc, char** argv )
 #endif
 
   bool isElf, is32bitElf;
-  if  (Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
+  if  (dmtcp::Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
@@ -520,7 +520,7 @@ int testMatlab(const char *filename) {
 
 bool testSetuid(const char *filename)
 {
-  if (Util::isSetuid(filename) &&
+  if (dmtcp::Util::isSetuid(filename) &&
       strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
 
     static const char* theSetuidWarning =
@@ -538,7 +538,7 @@ bool testSetuid(const char *filename)
 }
 
 void testStaticallyLinked(const char *pathname) {
-  if (Util::isStaticallyLinked(pathname)) {
+  if (dmtcp::Util::isStaticallyLinked(pathname)) {
     JASSERT_STDERR <<
       "*** WARNING:  /lib/ld-2.10.1.so --verify " << pathname << " returns\n"
       << "***  nonzero status.  This often means that " << pathname << " is\n"
@@ -591,9 +591,9 @@ void adjust_rlimit_stack() {
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 bool testScreen(char **argv, char ***newArgv)
 {
-  if (Util::isScreen(argv[0])) {
-    setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);
-    Util::patchArgvIfSetuid(argv[0], argv, newArgv);
+  if (dmtcp::Util::isScreen(argv[0])) {
+    setenv("SCREENDIR", dmtcp::Util::getScreenDir().c_str(), 1);
+    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, newArgv);
     return true;
   }
   return false;

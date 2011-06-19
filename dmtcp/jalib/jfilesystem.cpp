@@ -66,7 +66,7 @@ namespace
     int rc;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
-    rc = Util::readAll(fd, buf, size);
+    rc = dmtcp::Util::readAll(fd, buf, size);
     _real_close(fd);
     return rc;
   }
@@ -180,12 +180,12 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
 bool jalib::Filesystem::FileExists ( const jalib::string& str )
 {
   struct stat st;
-  
+
   if( !stat(str.c_str(),&st) ){
     return true;
   }else {
     return false;
-  } 
+  }
 }
 
 jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, bool dieOnError /*= true*/ )
@@ -217,8 +217,8 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/usr/lib64/"
   };
 
-  jalib::string pth; 
-  jalib::string udir; 
+  jalib::string pth;
+  jalib::string udir;
   size_t i = 0;
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL )
   {
@@ -362,7 +362,7 @@ jalib::string jalib::Filesystem::GetControllingTerm()
   int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
 
   /* /dev/pts/ * has major numbers in the range 136 - 143 */
-  if ( maj >= 136 && maj <= 143) 
+  if ( maj >= 136 && maj <= 143)
     sprintf(ttyName, "/dev/pts/%d", min+(maj-136)*256);
   else
     ttyName[0] = '\0';

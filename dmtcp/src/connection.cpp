@@ -105,9 +105,9 @@ static bool _isVimApp ( )
 
 static bool _isBlacklistedFile ( dmtcp::string& path )
 {
-  if ((Util::strStartsWith(path, "/dev/") &&
-       !Util::strStartsWith(path, "/dev/shm/")) ||
-      Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
+  if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
+       !dmtcp::Util::strStartsWith(path, "/dev/shm/")) ||
+      dmtcp::Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
     return true;
   }
   return false;

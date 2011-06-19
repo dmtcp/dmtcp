@@ -1453,7 +1453,7 @@ int main ( int argc, char** argv )
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  Util::initializeLogFile();
+  dmtcp::Util::initializeLogFile();
 
   JTRACE ( "New DMTCP coordinator starting." )
     ( dmtcp::UniquePid::ThisProcess() );

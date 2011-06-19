@@ -47,7 +47,7 @@ static int isdir0700(const char *pathname)
          );
 }
 
-int Util::safeMkdir(const char *pathname, mode_t mode)
+int dmtcp::Util::safeMkdir(const char *pathname, mode_t mode)
 {
   // If it exists and we can give it the right permissions, do it.
   chmod(pathname, 0700);
@@ -60,7 +60,7 @@ int Util::safeMkdir(const char *pathname, mode_t mode)
   return isdir0700(pathname);
 }
 
-int Util::safeSystem(const char *command)
+int dmtcp::Util::safeSystem(const char *command)
 {
   char *str = getenv("LD_PRELOAD");
   dmtcp::string dmtcphjk;
@@ -73,7 +73,7 @@ int Util::safeSystem(const char *command)
   return rc;
 }
 
-int Util::expandPathname(const char *inpath, char * const outpath, size_t size)
+int dmtcp::Util::expandPathname(const char *inpath, char * const outpath, size_t size)
 {
   bool success = false;
   if (*inpath == '/' || strstr(inpath, "/") != NULL) {
@@ -127,7 +127,7 @@ int Util::expandPathname(const char *inpath, char * const outpath, size_t size)
   return (success ? 0 : -1);
 }
 
-int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
+int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
   const char *magic_elf = "\177ELF"; // Magic number for ELF
   const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
   // Magic number for ELF 64-bit is "\177ELF\002"
@@ -145,11 +145,11 @@ int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
   return 0;
 }
 
-bool Util::isStaticallyLinked(const char *filename)
+bool dmtcp::Util::isStaticallyLinked(const char *filename)
 {
   bool isElf, is32bitElf;
   char pathname[PATH_MAX];
-  Util::expandPathname(filename, pathname, sizeof(pathname));
+  expandPathname(filename, pathname, sizeof(pathname));
   elfType(pathname, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
   dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
@@ -166,20 +166,20 @@ bool Util::isStaticallyLinked(const char *filename)
   return false;
 }
 
-bool Util::isScreen(const char *filename)
+bool dmtcp::Util::isScreen(const char *filename)
 {
   return jalib::Filesystem::BaseName(filename) == "screen" &&
          isSetuid(filename);
 }
 
-dmtcp::string Util::getScreenDir()
+dmtcp::string dmtcp::Util::getScreenDir()
 {
   dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
   safeMkdir(tmpdir.c_str(), 0700);
   return tmpdir;
 }
 
-bool Util::isSetuid(const char *filename)
+bool dmtcp::Util::isSetuid(const char *filename)
 {
   char pathname[PATH_MAX];
   if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
@@ -192,7 +192,7 @@ bool Util::isSetuid(const char *filename)
   return false;
 }
 
-void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
+void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
                              char ***newArgv)
 {
   if (isSetuid(filename) == false) return;
@@ -286,12 +286,12 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   return;
 }
 
-void Util::freePatchedArgv(char **newArgv)
+void dmtcp::Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
 }
 
-void Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
+void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
   dmtcp::UniquePid::ThisProcess(true);
 #ifdef DEBUG

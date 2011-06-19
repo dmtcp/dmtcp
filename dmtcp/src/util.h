@@ -31,39 +31,42 @@
 #include "constants.h"
 #include "dmtcpalloc.h"
 
-namespace Util
+namespace dmtcp
 {
-  void lockFile(int fd);
-  void unlockFile(int fd);
+  namespace Util
+  {
+    void lockFile(int fd);
+    void unlockFile(int fd);
 
-  bool strStartsWith(const char *str, const char *pattern);
-  bool strEndsWith(const char *str, const char *pattern);
-  bool strStartsWith(const dmtcp::string& str, const char *pattern);
-  bool strEndsWith(const dmtcp::string& str, const char *pattern);
+    bool strStartsWith(const char *str, const char *pattern);
+    bool strEndsWith(const char *str, const char *pattern);
+    bool strStartsWith(const dmtcp::string& str, const char *pattern);
+    bool strEndsWith(const dmtcp::string& str, const char *pattern);
 
-  ssize_t writeAll(int fd, const void *buf, size_t count);
-  ssize_t readAll(int fd, void *buf, size_t count);
+    ssize_t writeAll(int fd, const void *buf, size_t count);
+    ssize_t readAll(int fd, void *buf, size_t count);
 
-  int safeMkdir(const char *pathname, mode_t mode);
-  int safeSystem(const char *command);
+    int safeMkdir(const char *pathname, mode_t mode);
+    int safeSystem(const char *command);
 
-  int expandPathname(const char *inpath, char * const outpath, size_t size);
-  int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
+    int expandPathname(const char *inpath, char * const outpath, size_t size);
+    int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
-  bool isStaticallyLinked(const char *filename);
+    bool isStaticallyLinked(const char *filename);
 
 
-  bool isScreen(const char *filename);
-  dmtcp::string getScreenDir();
-  bool isSetuid(const char *filename);
-  void freePatchedArgv(char **newArgv);
-  void patchArgvIfSetuid(const char* filename, char *const origArgv[],
-                         char **newArgv[]);
+    bool isScreen(const char *filename);
+    dmtcp::string getScreenDir();
+    bool isSetuid(const char *filename);
+    void freePatchedArgv(char **newArgv);
+    void patchArgvIfSetuid(const char* filename, char *const origArgv[],
+                           char **newArgv[]);
 
-  int readLine(int fd, char *buf, int count);
+    int readLine(int fd, char *buf, int count);
 
-  void initializeLogFile(dmtcp::string procname = "",
-                         dmtcp::string preLogPath = "");
+    void initializeLogFile(dmtcp::string procname = "",
+                           dmtcp::string preLogPath = "");
+  }
 }
 
 #endif
