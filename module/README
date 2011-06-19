@@ -6,7 +6,7 @@ RESTRICTIONS:
     GNU glibc uses libc-low-level-lock to manage thread safety, since multiple
 threads could call printf(), malloc(), etc., at the same time.  If the
 target program is being checkpointed when glibc holds this lock in the
-middle of printing or allocating, and if process_dmtcp_event() tries to
+middle of printing or allocating, and if dmtcp_process_event() tries to
 call printf(), malloc(), etc., then deadlock will ensue.  A similar issue
 can affect the C++ runtime library.
     If this issue affects you, then:

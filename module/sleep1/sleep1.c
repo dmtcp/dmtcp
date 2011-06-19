@@ -30,7 +30,7 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
-void process_dmtcp_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 
@@ -46,5 +46,5 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
   }
 
   /* Call this next line in order to pass DMTCP events to later modules. */
-  NEXT_FNC(process_dmtcp_event)(event, data);
+  NEXT_FNC(dmtcp_process_event)(event, data);
 }

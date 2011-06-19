@@ -15,7 +15,7 @@ struct keyPid {
   pid_t pid;
 } mystruct, mystruct_other;
 
-void process_dmtcp_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   size_t sizeofPid;
 
@@ -58,7 +58,7 @@ void process_dmtcp_event(DmtcpEvent_t event, void* data)
      */
     /* Set max size of the buffer &(mystruct.pid) */
     sizeofPid = sizeof(mystruct_other.pid);
-    send_query_to_coordinator(&(mystruct_other.key), sizeof(mystruct_other.key),
+    dmtcp_send_query_to_coordinator(&(mystruct_other.key), sizeof(mystruct_other.key),
                               &(mystruct_other.pid), &sizeofPid);
     printf("Data exchanged:  My (key,pid) is: (%d, %ld);  The other pid is:  "
 	  "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);

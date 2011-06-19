@@ -8,7 +8,7 @@
 #include "dmtcpmodule.h"
 
 
-void process_dmtcp_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   /* NOTE:  See warning in module/README about calls to printf here. */
   switch (event) {

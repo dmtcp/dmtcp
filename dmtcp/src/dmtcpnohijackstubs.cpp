@@ -18,7 +18,7 @@
 // dmtcphijack.so defines this differently
 void _dmtcp_setup_trampolines() {}
 
-void process_dmtcp_event(DmtcpEvent_t id, void* data)
+void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
   return;
 }
