@@ -130,6 +130,22 @@ extern "C" int pipe2 ( int fds[2], int flags )
 }
 #endif
 
+/* Reson for using thread_performing_dlopen_dlsym:
+ *
+ * dlsym/dlopen/dlclose make a call to calloc() internally. We do not want to
+ * checkpoint while we are in the midst of dlopen etc. as it can lead to
+ * undesired behavior. To do so, we use WRAPPER_EXECUTION_DISABLE_CKPT() at the
+ * beginning of the funtion. However, if a checkpoint request is received right
+ * after WRAPPER_EXECUTION_DISABLE_CKPT(), the ckpt-thread is queued for wrlock
+ * on the pthread-rwlock and any subsequent request for rdlock by other threads
+ * will have to wait until the ckpt-thread releases the lock. However, in this
+ * scenario, dlopen calls calloc, which then calls
+ * WRAPPER_EXECUTION_DISABLE_CKPT() and hence resulting in a deadlock.
+ *
+ * We set this variable to true, once we are inside the dlopen/dlsym/dlerror
+ * wrapper, so that the calling thread won't try to acquire the lock later on.
+ */
+
 // TODO: Integrate NEXT_FNC() with remaining wrappers in future.
 #include <dlfcn.h>
 #define NEXT_FNC(symbol) \

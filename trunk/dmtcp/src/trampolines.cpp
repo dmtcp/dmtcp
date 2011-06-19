@@ -9,13 +9,15 @@
 #endif
 #include "syscallwrappers.h"
 
-// Defines void _dmtcp_setup_trampolines()
-//   (used in constructor in dmtcpworker.cpp)
+// FIXME: Can we call syscall(fn, ...) here directly instead of going through
+// the UNINSTALL/fn_wrapper/INSTALL sequence?
+// TODO: remove the above fixme and replace the fn_trampoline with a better
+// (and correct?) one :).
 
 #ifdef __x86_64__
 static char asm_jump[] = {
     // mov    $0x1234567812345678,%rax
-    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12, 
+    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12,
     // jmpq   *%rax
     0xff, 0xe0
 };
@@ -93,7 +95,7 @@ static void *sbrk_wrapper(intptr_t increment)
     /* The man page says syscall returns int, but unistd.h says long int. */
     long int retval = syscall(SYS_brk, NULL);
     curbrk = (void *)retval;
-  } 
+  }
   oldbrk = curbrk;
   curbrk = (void *)((char *)curbrk + increment);
   if (increment > 0) {
