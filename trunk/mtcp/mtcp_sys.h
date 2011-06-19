@@ -379,9 +379,13 @@ struct linux_dirent {
    */
 /* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
  * struct user_desc from /usr/include/.../ldt.h
- * Perhaps kernel was patched by backport.  Let's not re-define user_desc.
  */
-# if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9) && 0
+/* RHEL 4 (Update 3) / Rocks 4.1.1-2.0 has <linux/version.h> saying
+ *  LINUX_VERSION_CODE is 2.4.20 (and UTS_RELEASE=2.4.20)
+ *  while uname -r says 2.6.9-34.ELsmp.  Here, it acts like a version earlier
+ *  than the above 2.6.9.  So, we conditionalize on its 2.4.20 version.
+ */
+# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
    /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
 #  define user_desc modify_ldt_ldt_s
 # endif
