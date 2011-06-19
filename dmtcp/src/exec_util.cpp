@@ -227,7 +227,8 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
                                   dmtcp::UniquePid::getTmpDir().c_str(),
                                   jalib::Filesystem::BaseName(realFilename).c_str());
 
-  snprintf(cpCmdBuf, sizeof(cpCmdBuf), "cp %s %s", realFilename, newFilename);
+  snprintf(cpCmdBuf, sizeof(cpCmdBuf),
+           "/bin/cp %s %s", realFilename, newFilename);
 
   // Remove any stale copy, just in case it's not right.
   JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
