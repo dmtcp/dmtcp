@@ -49,9 +49,9 @@ static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
-bool really_verbose = true;
+static bool really_verbose = true;
 #else
-bool really_verbose = false;
+static bool really_verbose = false;
 #endif
 
 static dmtcp::string _procFDPath ( int fd )

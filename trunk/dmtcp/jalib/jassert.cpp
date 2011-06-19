@@ -67,19 +67,6 @@ static int errConsoleFd = -1;
 static int jwrite(int fd, const char *str)
 {
   return dmtcp::Util::writeAll(fd, str, strlen(str));
-#if 0
-  ssize_t offs, rc;
-  ssize_t size = strlen(str);
-
-  for (offs = 0; offs < size;) {
-    rc = write (fd, str + offs, size - offs);
-    if (rc == -1 && errno != EINTR && errno != EAGAIN)
-      return rc;
-    else if (rc > 0)
-      offs += rc;
-  }
-  return size;
-#endif
 }
 
 int jassert_internal::jassert_console_fd()
@@ -192,7 +179,7 @@ void jassert_internal::jassert_init ( const jalib::string& f )
   jassert_safe_print("");
 }
 
-const jalib::string writeJbacktraceMsg() {
+static const jalib::string writeJbacktraceMsg() {
   dmtcp::ostringstream o;
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
@@ -207,7 +194,7 @@ const jalib::string writeJbacktraceMsg() {
   return o.str();
 }
 
-void writeBacktrace() {
+static void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
   dmtcp::ostringstream o;
@@ -224,7 +211,7 @@ void writeBacktrace() {
 // This routine is called when JASSERT triggers.  Something failed.
 // DOES (for further diagnosis):  cp /proc/self/maps $DMTCP_TMPDIR/proc-maps
 // WITHOUT malloc or spawning process (could be dangerous in fragile state).
-void writeProcMaps() {
+static void writeProcMaps() {
   char mapsBuf[50000];
   int  count;
   int fd = _real_open("/proc/self/maps", O_RDONLY, 0);

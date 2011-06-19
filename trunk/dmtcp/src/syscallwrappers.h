@@ -47,15 +47,16 @@
 #include <dirent.h>
 #include <unistd.h>
 
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+
 #ifdef RECORD_REPLAY
 #define SET_MMAP_NO_SYNC()   (mmap_no_sync = 1)
 #define UNSET_MMAP_NO_SYNC() (mmap_no_sync = 0)
 #define MMAP_NO_SYNC         (mmap_no_sync == 1)
 // Defined in dmtcpworker.cpp:
-__attribute__ ((visibility ("hidden"))) extern __thread int mmap_no_sync;
+LIB_PRIVATE extern __thread int mmap_no_sync;
 #endif
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 void _dmtcp_setup_trampolines();
 
@@ -418,7 +419,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
                     struct rusage *rusage);
-  extern int send_sigwinch;
+  LIB_PRIVATE extern int send_sigwinch;
   int _real_ioctl(int d,  unsigned long int request, ...) __THROW;
 
   int _real_setgid(gid_t gid);
