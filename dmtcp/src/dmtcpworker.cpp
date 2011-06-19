@@ -99,14 +99,14 @@ static pthread_rwlock_t
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 static dmtcp::UniquePid compGroup;
-int dmtcp_wrappers_initializing = 0;
+LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
 static dmtcp::ConnectionState* theCheckpointState = NULL;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static dmtcp::vector <dmtcp::TcpConnectionInfo> theTcpConnections;
-dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
+LIB_PRIVATE dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
 static bool _waitingForExternalSocketsToClose = false;
 #endif
 
@@ -114,8 +114,8 @@ bool dmtcp::DmtcpWorker::_exitInProgress = false;
 size_t dmtcp::DmtcpWorker::_argvSize = 0;
 size_t dmtcp::DmtcpWorker::_envSize = 0;
 
-void processDmtcpCommands(dmtcp::string programName,
-                          dmtcp::vector<dmtcp::string>& args);
+static void processDmtcpCommands(dmtcp::string programName,
+                                 dmtcp::vector<dmtcp::string>& args);
 static void processSshCommand(dmtcp::string programName,
                               dmtcp::vector<dmtcp::string>& args);
 
@@ -126,7 +126,8 @@ void __attribute__ ((weak)) dmtcp::killCkpthread();
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
 
-bool _checkpointThreadInitialized = false;
+LIB_PRIVATE bool _checkpointThreadInitialized = false;
+
 void restoreUserLDPRELOAD()
 {
   // We have now successfully used LD_PRELOAD to execute prior to main()
@@ -500,8 +501,8 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
-void processDmtcpCommands(dmtcp::string programName,
-                          dmtcp::vector<dmtcp::string>& args)
+static void processDmtcpCommands(dmtcp::string programName,
+                                 dmtcp::vector<dmtcp::string>& args)
 {
   JASSERT (programName == "dmtcp_coordinator" ||
            programName == "dmtcp_checkpoint"  ||

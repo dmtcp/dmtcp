@@ -70,32 +70,22 @@ static char *_mtcpRestoreArgvStartAddr = NULL;
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 static void unmapRestoreArgv();
 
-namespace
+static const char* REOPEN_MTCP = ( char* ) 0x1;
+
+static void* find_and_open_mtcp_so()
 {
-  static const char* REOPEN_MTCP = ( char* ) 0x1;
-
-  static void* find_and_open_mtcp_so()
-  {
-    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
-    void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-    JASSERT ( handle != NULL ) ( mtcpso ) (dlerror())
-      .Text ( "failed to load libmtcp.so" );
-    return handle;
-  }
-
+  dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
+  void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
+  JASSERT ( handle != NULL ) ( mtcpso ) (dlerror())
+    .Text ( "failed to load libmtcp.so" );
+  return handle;
 }
 
 #ifdef PTRACE
-__attribute__ ((visibility ("hidden"))) t_mtcp_get_ptrace_waitpid_info
-  mtcp_get_ptrace_waitpid_info = NULL;
-
-__attribute__ ((visibility ("hidden"))) t_mtcp_init_thread_local
-  mtcp_init_thread_local = NULL;
-
-__attribute__ ((visibility ("hidden"))) t_mtcp_ptracing
-  mtcp_ptracing = NULL;
-
-__attribute__ ((visibility ("hidden"))) sigset_t signals_set;
+LIB_PRIVATE t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info = NULL;
+LIB_PRIVATE t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
+LIB_PRIVATE t_mtcp_ptracing mtcp_ptracing = NULL;
+LIB_PRIVATE sigset_t signals_set;
 #endif
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -105,7 +95,8 @@ static bool delayedCheckpoint = false;
 // Note that mtcp.so is closed and re-opened (maybe in a different
 //   location) at the time of fork.  Do not statically save the
 //   return value of _get_mtcp_symbol across a fork.
-extern "C" void* _get_mtcp_symbol ( const char* name )
+LIB_PRIVATE
+void* _get_mtcp_symbol ( const char* name )
 {
   static void* theMtcpHandle = find_and_open_mtcp_so();
 
@@ -540,6 +531,7 @@ struct ThreadArg {
 //   return true;
 // }
 
+LIB_PRIVATE
 int thread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;

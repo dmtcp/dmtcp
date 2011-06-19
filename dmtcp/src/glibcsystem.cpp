@@ -59,6 +59,7 @@ __libc_lock_define_initialized (static, lock);
 
 
 /* Execute LINE as a shell command, returning its status.  */
+__attribute__ ((visibility ("hidden")))
 int do_system (const char *line)
 {
   int status, save;

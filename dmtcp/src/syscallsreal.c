@@ -177,6 +177,7 @@ static int _wrappers_initialized = 0;
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
+LIB_PRIVATE
 void initialize_wrappers()
 {
   const char *warn_msg =
@@ -528,6 +529,7 @@ int _real_sigignore(int sig){
   REAL_FUNC_PASSTHROUGH ( sigignore ) ( sig );
 }
 // See 'man sigpause':  signal.h defines two possible versions for sigpause.
+LIB_PRIVATE
 int _real__sigpause(int __sig_or_mask, int __is_sig){
   REAL_FUNC_PASSTHROUGH ( __sigpause ) ( __sig_or_mask, __is_sig );
 }

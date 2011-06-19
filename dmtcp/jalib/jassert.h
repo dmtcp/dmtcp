@@ -38,7 +38,7 @@
 #endif
 #include "jalloc.h"
 
-extern int jassert_quiet;
+__attribute__ ((visibility ("hidden"))) extern int jassert_quiet;
 
 /**  USAGE EXAMPLE:
  *
@@ -144,7 +144,7 @@ namespace jassert_internal
 #endif
     return *this;
   }
-  
+
   template < typename T >
   inline JAssert& JAssert::Print ( const dmtcp::vector<T>& t )
   {

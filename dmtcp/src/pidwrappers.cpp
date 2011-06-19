@@ -71,6 +71,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
   return originalPid;
 }
 
+LIB_PRIVATE
 pid_t gettid()
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -89,8 +90,6 @@ pid_t gettid()
 
   return origTid;
 }
-
-
 
 extern "C" pid_t getpid()
 {
@@ -295,7 +294,8 @@ extern "C" int   kill(pid_t pid, int sig)
   return retVal;
 }
 
-int   tkill(int tid, int sig)
+LIB_PRIVATE
+int tkill(int tid, int sig)
 {
   // FIXME: Check the comments in kill()
 //  WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -309,7 +309,8 @@ int   tkill(int tid, int sig)
   return retVal;
 }
 
-int   tgkill(int tgid, int tid, int sig)
+LIB_PRIVATE
+int tgkill(int tgid, int tid, int sig)
 {
   // FIXME: Check the comments in kill()
 //  WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -424,7 +425,7 @@ static int get_sigckpt() {
 }
 */
 
-extern "C"
+LIB_PRIVATE
 pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
   // Note that if the action for SIGCHLD is set to SIG_IGN, then waitpid fails
   //  with errno set to ECHLD (as if the child process was not really our child)

@@ -29,6 +29,7 @@
 #include "uniquepid.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
+#include "syscallwrappers.h"
 
 #define WRAPPER_EXECUTION_DISABLE_CKPT() \
   /*JTRACE("Acquiring wrapperExecutionLock");*/ \
@@ -43,7 +44,7 @@
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
   }
 
-extern int dmtcp_wrappers_initializing;
+LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 
 namespace dmtcp
 {
