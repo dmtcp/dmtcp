@@ -121,56 +121,8 @@ static dmtcp::string _stderrProcPath()
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
 }
 
-static void *get_libc_symbol ( const char* name )
-{
-  static void* handle = NULL;
-  if ( handle==NULL && ( handle=dlopen ( LIBC_FILENAME,RTLD_NOW ) ) == NULL )
-  {
-    fprintf ( stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-              dlerror() );
-    abort();
-  }
-
-  void* tmp = dlsym ( handle, name );
-  if ( tmp == NULL ) {
-    JTRACE("ERROR finding symbol using dlsym.\n" \
-           "      Will fail if user-app tries to call this symbol.")
-      (name) (dlerror());
-  }
-  return tmp;
-}
-
-
 static void prepareDmtcpWrappers()
 {
-#if 0
-  unsigned int wrapperOffsetArray[numLibcWrappers];
-  char *glibc_base_function_addr = NULL;
-
-# define _FIRST_BASE_ADDR(name) if (glibc_base_function_addr == NULL) \
-				  glibc_base_function_addr = (char *)&name;
-  FOREACH_GLIBC_BASE_FUNC(_FIRST_BASE_ADDR);
-
-# define _GET_OFFSET(x) do { \
-    char *addr = (char*)get_libc_symbol(#x); \
-    int offset = (addr == NULL) ? -1 : (addr - glibc_base_function_addr); \
-    if (addr == NULL) \
-      offset = -1; \
-    else \
-      offset = addr - glibc_base_function_addr; \
-    wrapperOffsetArray[enum_ ## x] = offset; \
-  } while(0);
-
-  FOREACH_GLIBC_FUNC_WRAPPER(_GET_OFFSET);
-
-  dmtcp::ostringstream os;
-  for (int i = 0; i < numLibcWrappers; i++) {
-    os << std::hex << wrapperOffsetArray[i] << ";";
-  }
-
-  setenv(ENV_VAR_LIBC_FUNC_OFFSETS, os.str().c_str(), 1);
-#endif
-
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
    * application. */

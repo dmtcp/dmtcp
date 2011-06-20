@@ -180,7 +180,7 @@ EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction 
     act = NULL;
   }
   void *return_addr = GET_RETURN_ADDRESS();
-  if (act != NULL && shouldSynchronize(return_addr) && 
+  if (act != NULL && shouldSynchronize(return_addr) &&
       jalib::Filesystem::GetProgramName() != "gdb") {
     struct sigaction newact;
     memset(&newact, 0, sizeof(struct sigaction));
@@ -286,7 +286,6 @@ EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 
 EXTERNC int sigsuspend(const sigset_t *mask)
 {
-  const sigset_t *orig = mask;
   if (mask != NULL) {
     sigset_t tmp = patchPOSIXMask(mask);
     mask = &tmp;
@@ -406,7 +405,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
 #endif
 }
 
-/* 
+/*
  * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
  * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
  * that might have occurred while executing the system call. These system call
@@ -420,7 +419,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
  * obvious reasons so I believe it is safe to call _real_gettid() here.
  *                                                              -- Kapil
  *
- * Update: 
+ * Update:
  * Another way to write this wrapper would be to remove the STOPSIGNAL from the
  * user supplied 'set' and then call sigwaitinfo and then we won't need to
  * raise the STOPSIGNAL ourselves. However, there is a catch. sigwaitinfo will

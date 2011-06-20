@@ -41,8 +41,10 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
     /* Although one process resumes late, they will still all synchronize. */
     if (mystruct.key == 1) sleep(1);
     printf("The module is now resuming or restarting from checkpointing.\n");
-    send_key_val_pair_to_coordinator(&(mystruct.key), sizeof(mystruct.key),
-                                     &(mystruct.pid), sizeof(mystruct.pid));
+    dmtcp_send_key_val_pair_to_coordinator(&(mystruct.key),
+                                           sizeof(mystruct.key),
+                                           &(mystruct.pid),
+                                           sizeof(mystruct.pid));
     printf("  Data sent:  My (key, pid) is: (%d, %ld).\n",
 	   mystruct.key, (long)mystruct.pid);
     break;
@@ -58,8 +60,10 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
      */
     /* Set max size of the buffer &(mystruct.pid) */
     sizeofPid = sizeof(mystruct_other.pid);
-    dmtcp_send_query_to_coordinator(&(mystruct_other.key), sizeof(mystruct_other.key),
-                              &(mystruct_other.pid), &sizeofPid);
+    dmtcp_send_query_to_coordinator(&(mystruct_other.key),
+                                    sizeof(mystruct_other.key),
+                                    &(mystruct_other.pid),
+                                    &sizeofPid);
     printf("Data exchanged:  My (key,pid) is: (%d, %ld);  The other pid is:  "
 	  "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);
     break;

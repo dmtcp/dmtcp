@@ -62,6 +62,18 @@ static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
     (strcmp("#CONFIG_M32","yes") == 0 ? ((char *)NULL) : ((char*)0xC0000000L))
 #endif
 
+#ifdef DEBUG
+static int debugEnabled = 1;
+#else
+static int debugEnabled = 0;
+#endif
+
+#ifdef PID_VIRTUALIZATION
+static int pidVirtualizationEnabled = 1;
+#else
+static int pidVirtualizationEnabled = 0;
+#endif
+
 static char prctlPrgName[22] = {0};
 static void prctlGetProcessName();
 static void prctlRestoreProcessName();

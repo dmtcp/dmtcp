@@ -83,7 +83,7 @@ jalib::string jalib::Filesystem::GetCWD()
   return cwd;
 }
 
-jalib::string jalib::Filesystem::BaseName ( const jalib::string str )
+jalib::string jalib::Filesystem::BaseName ( const jalib::string& str )
 {
   size_t len = str.length();
 
@@ -92,19 +92,18 @@ jalib::string jalib::Filesystem::BaseName ( const jalib::string str )
 
   // Remove trailing slashes
   while (len > 0 && str[len - 1] == '/') {
-    str[len - 1] == '\0';
     len--;
   }
 
   size_t lastSlash = str.find_last_of('/', len);
 
   if (lastSlash == string::npos)
-    return str;
+    return str.substr(0, len);
 
-  return str.substr(lastSlash + 1);
+  return str.substr(lastSlash + 1, len - lastSlash);
 }
 
-jalib::string jalib::Filesystem::DirName ( const jalib::string str )
+jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
 {
   size_t len = str.length();
 
@@ -116,7 +115,6 @@ jalib::string jalib::Filesystem::DirName ( const jalib::string str )
 
   // Remove trailing slashes
   while (len > 0 && str[len - 1] == '/') {
-    str[len - 1] == '\0';
     len--;
   }
 

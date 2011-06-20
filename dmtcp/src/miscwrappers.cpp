@@ -155,7 +155,6 @@ extern "C"
 void *dlopen(const char *filename, int flag)
 {
   void *ret;
-  static void *(*next_fnc)(const char *, int) = NULL;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   thread_performing_dlopen_dlsym = 1;
   ret = _real_dlopen(filename, flag);
@@ -168,7 +167,6 @@ extern "C"
 int dlclose(void *handle)
 {
   int ret;
-  static int (*next_fnc)(void *) = NULL;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   thread_performing_dlopen_dlsym = 1;
   ret = _real_dlclose(handle);
