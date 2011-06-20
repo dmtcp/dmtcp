@@ -27,18 +27,6 @@
 #endif
 #include "linux/version.h"
 
-#ifdef DEBUG
-static int debugEnabled = 1;
-#else
-static int debugEnabled = 0;
-#endif
-
-#ifdef PID_VIRTUALIZATION
-static int pidVirtualizationEnabled = 1;
-#else
-static int pidVirtualizationEnabled = 0;
-#endif
-
 // IBV is for the Infiniband module. The overhead in DMTCP is essentially zero.
 // Undefine this if for some reason it should interfere.
 #define IBV
