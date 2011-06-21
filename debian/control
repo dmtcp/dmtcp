@@ -3,8 +3,8 @@ Section: utils
 Priority: optional
 Maintainer: Kapil Arya <kapil@ccs.neu.edu>
 Uploaders: Yaroslav Halchenko <debian@onerussian.com>
-Build-Depends: debhelper (>= 7)
-Standards-Version: 3.9.1
+Build-Depends: debhelper (>= 7), python
+Standards-Version: 3.9.2
 Vcs-svn: https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
 Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
 Homepage: http://dmtcp.sourceforge.net
