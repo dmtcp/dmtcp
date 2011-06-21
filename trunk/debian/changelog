@@ -1,3 +1,16 @@
+dmtcp (1.2.1-2) unstable; urgency=low
+
+  * Fixing compilation errors for gcc/g++ 4.6.
+  * Fixing compilation errors related to PAGE_SIZE and PAGE_MASK macros.
+  * Call "make check" towards the end of build-stamp.
+  * Add python to build-deps.
+  * Standards Version boosted to 3.9.2.
+  * Templates removed from debian/watch.
+  * Leading "./" removed from lintian-overrides.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Tue, 31 May 2011 00:17:42 -0400
+
 dmtcp (1.2.1-1) unstable; urgency=low
 
   * Preparing for upstream release 1.2.1. 
