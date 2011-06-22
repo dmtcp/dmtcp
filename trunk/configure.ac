@@ -28,6 +28,12 @@ AC_ARG_ENABLE([debug],
             [use_jassert=$enableval],
             [use_jassert=no])
 
+if test "$use_jassert" = "yes"; then
+  AC_SUBST([DEBUG], [yes])
+else
+  AC_SUBST([DEBUG], [no])
+fi
+
 AC_ARG_ENABLE([quiet],
             [AS_HELP_STRING([--enable-quiet],
                             [disable NOTE and WARNING (default is
