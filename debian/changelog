@@ -1,3 +1,10 @@
+dmtcp (1.2.2-1) unstable; urgency=low
+
+  * Preparing for upstream release 1.2.2.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 22 Jun 2011 02:01:23 -0400
+
 dmtcp (1.2.1-2) unstable; urgency=low
 
   * Fixing compilation errors for gcc/g++ 4.6.
