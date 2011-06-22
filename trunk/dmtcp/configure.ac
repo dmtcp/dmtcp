@@ -1,4 +1,4 @@
-AC_INIT([DMTCP],[1.2.1],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.2.2],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
