@@ -9,6 +9,7 @@ import os
 import sys
 import errno
 import resource
+import pwd
 import stat
 import re
 
@@ -80,7 +81,6 @@ for i in sys.argv:
 
 stats = [0, 0]
 
-# NOTE:  This might be replaced by shell=True in call to subprocess.Popen
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
 
@@ -197,6 +197,7 @@ def launch(cmd):
         os.close(childStdoutDevNull)
       childStdout = os.open(os.devnull, os.O_WRONLY)
       childStdoutDevNull = childStdout
+    # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=childStdout,
 		 stderr=childStderr, close_fds=True)
@@ -631,6 +632,15 @@ runTest("module-example-db", 2, ["--with-module "+
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
+
+if testconfig.DEBUG == "yes":
+  host = socket.getfqdn()
+  if re.search("^nmi-.*.cs.wisc.edu$", host) or \
+     re.search("^nmi-.*.cs.wisconsin.edu$", host):
+    cmd = "tar zcvf ../results.tar.gz --directory=/tmp ./dmtcp-" + \
+          pwd.getpwuid(os.getuid()).pw_name + "@" + socket.gethostname()
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
+    print "\n*** results.tar.gz written to DMTCP_ROOT"
 
 try:
   SHUTDOWN()

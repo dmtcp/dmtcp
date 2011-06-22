@@ -197,8 +197,6 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
 {
   if (isSetuid(filename) == false) return;
 
-  //sleep(20);
-
   char realFilename[PATH_MAX];
   memset(realFilename, 0, sizeof(realFilename));
   expandPathname(filename, realFilename, sizeof (realFilename));
@@ -212,6 +210,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   newArgc += 2;
   size_t newArgvSize = newArgc * sizeof(char*);
 
+  // IS THIS A MEMORY LEAK?  WHEN DO WE FREE buf?  - Gene
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
   memset(buf, 0, newArgvSize + 2 + PATH_MAX);
 
@@ -242,7 +241,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   int i;
   for (i = 1; origArgv[i] != NULL; i++)
     (*newArgv)[i] = (char*)origArgv[i];
-  (*newArgv)[i] = NULL;
+  (*newArgv)[i] = origArgv[i];  // copy final NULL pointer.
 
   return;
 #else
@@ -278,10 +277,12 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   JASSERT(newArgvLen >= origArgvLen + 1) (origArgvLen) (newArgvLen)
     .Text ("newArgv not large enough to hold the expanded argv");
 
+  // ISN'T THIS A BUG?  newArgv WAS DECLARED 'char ***'.
   newArgv[0] = ldStrPtr;
   newArgv[1] = newArgv0;
   for (int i = 1; origArgv[i] != NULL; i++)
     newArgv[i+1] = origArgv[i];
+  newArgv[i+1] = origArgv[i]; // Copy final NULL pointer.
 #endif
   return;
 }
