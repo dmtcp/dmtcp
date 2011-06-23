@@ -201,7 +201,7 @@ namespace dmtcp { class SynchronizationLog; }
     JASSERT ( read_data_fd != -1 );                                 \
     lseek(read_data_fd,                                             \
           GET_FIELD(currentLogEntry, name, data_offset), SEEK_SET); \
-    Util::readAll(read_data_fd, ptr, len);                          \
+    dmtcp::Util::readAll(read_data_fd, ptr, len);                          \
   } while (0)
 
 #define WRAPPER_LOG_WRITE_INTO_READ_LOG(name, ptr, len)             \
