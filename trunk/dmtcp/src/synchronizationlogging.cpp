@@ -108,10 +108,24 @@ static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
 # ifndef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4
 // gcc-4.1 and later has __sync_fetch_and_add, __sync_fetch_and_xor, etc.
 // We need it for atomic_increment and atomic_decrement
-// We could implement a very slow version using mutexes.
-// We could also copy and adjust the assembly language
-#  error __sync_fetch_and_add not defined by this gcc.  \
-	We need to implement a slow version.
+// The version below is slow, but works.  It uses GNU extensions.
+#define __sync_fetch_and_add(ptr,val) \
+  ({ __typeof__(*(ptr)) tmp; \
+    _real_pthread_mutex_lock(&log_index_mutex); \
+    tmp = *(ptr); *(ptr) += (val); \
+    _real_pthread_mutex_unlock(&log_index_mutex); \
+    tmp; \
+  })
+#define __sync_fetch_and_xor(ptr,val) \
+  ({ __typeof__(*(ptr)) tmp; \
+    _real_pthread_mutex_lock(&log_index_mutex); \
+    tmp = *(ptr); *(ptr) ^= (val); \
+    _real_pthread_mutex_unlock(&log_index_mutex); \
+    tmp; \
+  })
+#warning __sync_fetch_and_add not supported -- This will execute more slowly.
+// Alternatively, we could copy and adjust some assembly language that we
+// generate elsewhere.
 # endif
 
 void atomic_increment(volatile int *ptr)
@@ -128,6 +142,9 @@ void atomic_decrement(volatile int *ptr)
   __sync_fetch_and_add(ptr, -1);
 }
 
+// THIS FUNCTION EITHER HAS A BUG OR IS POORLY DOCUMENTED.
+// CURRENTLY, IT'S NOT INVOKED.  FIX IT BEFORE INVOKING.
+// WAS '__sync_fetch_and_xor(*ptr, *ptr)' INTENDED?  - Gene
 void atomic_set(volatile int *ptr, int val)
 {
   // This isn't atomic just because we call two atomic functions...
@@ -195,7 +212,7 @@ void register_in_global_log_list(clone_id_t clone_id)
     JASSERT(global_log_list_fd != -1) (JASSERT_ERRNO);
   }
 
-  Util::writeAll(global_log_list_fd, &clone_id, sizeof(clone_id));
+  dmtcp::Util::writeAll(global_log_list_fd, &clone_id, sizeof(clone_id));
   _real_close(global_log_list_fd);
   global_log_list_fd = -1;
   _real_pthread_mutex_unlock(&global_log_list_fd_mutex);
@@ -209,7 +226,7 @@ dmtcp::vector<clone_id_t> get_log_list()
     return clone_ids;
   }
   clone_id_t id;
-  while (Util::readAll(fd, &id, sizeof(id)) != 0) {
+  while (dmtcp::Util::readAll(fd, &id, sizeof(id)) != 0) {
     clone_ids.push_back(id);
   }
   _real_close(fd);
@@ -419,7 +436,7 @@ LIB_PRIVATE void recordDataStackLocations()
     perror("open");
     exit(1);
   }
-  while (Util::readLine(maps_file, line, 199) != 0) {
+  while (dmtcp::Util::readLine(maps_file, line, 199) != 0) {
     if (strstr(line, "r-xp") != NULL && strstr(line, progname.c_str()) != NULL) {
       // beginning of .text segment
       strncpy(code_line, line, 199);
