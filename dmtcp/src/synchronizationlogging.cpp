@@ -123,7 +123,10 @@ static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
     _real_pthread_mutex_unlock(&log_index_mutex); \
     tmp; \
   })
-#warning __sync_fetch_and_add not supported -- This will execute more slowly.
+#warning **********************************************************************
+#warning * __sync_fetch_and_add not supported -- This will execute more slowly.
+#warning * THIS CODE HAS NOT YET BEEN TESTED.  BEWARE.
+#warning **********************************************************************
 // Alternatively, we could copy and adjust some assembly language that we
 // generate elsewhere.
 # endif

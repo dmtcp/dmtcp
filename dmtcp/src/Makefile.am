@@ -1,5 +1,5 @@
 # We should disable AM_MAINTAINER_MODE since otherwise a re-build by the
-#  end-user #  may require local tools, which may be missing or whose version is
+#  end-user may require local tools, which may be missing or whose version is
 #  incompatible with these tools (e.g. autoheader).  Instead, we run NMI and
 #  openSUSE build services to test compatibility with end-user machines.
 #  The developers should run autoconf, automake, etc., as needed, but
@@ -25,6 +25,10 @@ include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
 if RECORD_REPLAY
+if HAS_I486
+# This -march=i486 is needed to compile synchronizationlogging.cpp
+CXXFLAGS += -march=i486
+endif
 pkglib_PROGRAMS += fred_read_log
 fred_read_log_SOURCES = fred_read_log.cpp
 fred_read_log_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
