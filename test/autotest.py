@@ -637,10 +637,18 @@ if testconfig.DEBUG == "yes":
   host = socket.getfqdn()
   if re.search("^nmi-.*.cs.wisc.edu$", host) or \
      re.search("^nmi-.*.cs.wisconsin.edu$", host):
-    cmd = "tar zcvf ../results.tar.gz --directory=/tmp ./dmtcp-" + \
-          pwd.getpwuid(os.getuid()).pw_name + "@" + socket.gethostname()
-    subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
-    print "\n*** results.tar.gz written to DMTCP_ROOT"
+    tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
+    # DEBUGGING
+    print subprocess.Popen("ls "+tmpdir, shell=True, \
+      stdout=subprocess.PIPE).communicate()[0]
+    target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
+             "@" + socket.gethostname()
+    cmd = "tar zcvf ../results.tar.gz --directory=" + tmpdir + " " + target
+    # DELETE "print" WHEN DONE DEBUGGING.
+    print subprocess.Popen(cmd, shell=True,
+      stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
+    print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
+					      ") written to DMTCP_ROOT/.. ***"
 
 try:
   SHUTDOWN()
