@@ -175,12 +175,12 @@ if test "$record_replay" != "no"; then
   AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
-  AM_CONDITIONAL(HAS_I486,
-        [test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486])
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi
 AM_CONDITIONAL(RECORD_REPLAY, [test "$record_replay" = "yes"])
+AM_CONDITIONAL(HAS_I486,
+  [test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486])
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],

@@ -556,11 +556,11 @@ LTLIBOBJS
 LIBOBJS
 CONFIG_M32_FALSE
 CONFIG_M32_TRUE
+HAS_I486_FALSE
+HAS_I486_TRUE
 RECORD_REPLAY_FALSE
 RECORD_REPLAY_TRUE
 RECORD_REPLAY
-HAS_I486_FALSE
-HAS_I486_TRUE
 RANLIB
 am__fastdepCXX_FALSE
 am__fastdepCXX_TRUE
@@ -4153,14 +4153,6 @@ $as_echo "#define PTRACE /**/" >>confdefs.h
 
 $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
 
-   if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
-  HAS_I486_TRUE=
-  HAS_I486_FALSE='#'
-else
-  HAS_I486_TRUE='#'
-  HAS_I486_FALSE=
-fi
-
 else
   RECORD_REPLAY=no
 
@@ -4171,6 +4163,14 @@ fi
 else
   RECORD_REPLAY_TRUE='#'
   RECORD_REPLAY_FALSE=
+fi
+
+ if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
+  HAS_I486_TRUE=
+  HAS_I486_FALSE='#'
+else
+  HAS_I486_TRUE='#'
+  HAS_I486_FALSE=
 fi
 
 
@@ -4324,12 +4324,12 @@ if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error "conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${HAS_I486_TRUE}" && test -z "${HAS_I486_FALSE}"; then
-  as_fn_error "conditional \"HAS_I486\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
 if test -z "${RECORD_REPLAY_TRUE}" && test -z "${RECORD_REPLAY_FALSE}"; then
   as_fn_error "conditional \"RECORD_REPLAY\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAS_I486_TRUE}" && test -z "${HAS_I486_FALSE}"; then
+  as_fn_error "conditional \"HAS_I486\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
