@@ -325,7 +325,7 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
     a << " " << args[i];
   }
 
-  a << "\nEnvirnoment: ";
+  a << "\nEnvironment: ";
   for (i = 0; environ[i] != NULL; i++) {
     a << " " << environ[i] << ";";
   }

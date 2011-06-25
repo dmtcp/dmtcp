@@ -11,7 +11,7 @@
 
 // FIXME: Can we call syscall(fn, ...) here directly instead of going through
 // the UNINSTALL/fn_wrapper/INSTALL sequence?
-// TODO: remove the above fixme and replace the fn_trampoline with a better
+// TODO: remove the above FIXME and replace the fn_trampoline with a better
 // (and correct?) one :).
 
 #ifdef __x86_64__
