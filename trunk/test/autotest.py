@@ -574,7 +574,13 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
+    host = socket.getfqdn()
+    if re.search("^nmi-.*.cs.wisc.edu$", host) or \
+       re.search("^nmi-.*.cs.wisconsin.edu$", host):
+      runTest("screen",      3,  ["env TERM=vt100 " + testconfig.SCREEN +
+                                " -c /dev/null -s /bin/sh"])
+    else:
+      runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
@@ -638,14 +644,10 @@ if testconfig.DEBUG == "yes":
   if re.search("^nmi-.*.cs.wisc.edu$", host) or \
      re.search("^nmi-.*.cs.wisconsin.edu$", host):
     tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
-    # DEBUGGING
-    print subprocess.Popen("ls "+tmpdir, shell=True, \
-      stdout=subprocess.PIPE).communicate()[0]
     target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
              "@" + socket.gethostname()
     cmd = "tar zcvf ../results.tar.gz --directory=" + tmpdir + " " + target
-    # DELETE "print" WHEN DONE DEBUGGING.
-    print subprocess.Popen(cmd, shell=True,
+    subprocess.Popen(cmd, shell=True,
       stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
 					      ") written to DMTCP_ROOT/.. ***"

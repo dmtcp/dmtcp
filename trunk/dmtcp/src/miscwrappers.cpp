@@ -130,7 +130,7 @@ extern "C" int pipe2 ( int fds[2], int flags )
 }
 #endif
 
-/* Reson for using thread_performing_dlopen_dlsym:
+/* Reason for using thread_performing_dlopen_dlsym:
  *
  * dlsym/dlopen/dlclose make a call to calloc() internally. We do not want to
  * checkpoint while we are in the midst of dlopen etc. as it can lead to
