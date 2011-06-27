@@ -457,9 +457,6 @@ extern "C" int execve ( const char *filename, char *const argv[],
 
   dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
 
-  JTRACE("ASDF");
-  //sleep(8);
-
   int retVal = _real_execve ( newFilename, newArgv, (char* const*)&envVect[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
@@ -489,6 +486,33 @@ extern "C" int execvp ( const char *filename, char *const argv[] )
   setenv("LD_PRELOAD", getUpdatedLdPreload().c_str(), 1);
 
   int retVal = _real_execvp ( newFilename, newArgv );
+
+  dmtcpProcessFailedExec(filename, newArgv);
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return retVal;
+}
+
+// This function first appeared in glibc 2.11
+extern "C" int execvpe ( const char *filename, char *const argv[],
+                         char *const envp[] )
+{
+  JTRACE ( "execvpe() wrapper" ) ( filename );
+  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
+   * processing this system call.
+   */
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv( envp );
+
+  char *newFilename;
+  char **newArgv;
+  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
+
+  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
+
+  int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&envVect[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
