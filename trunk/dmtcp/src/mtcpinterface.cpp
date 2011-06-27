@@ -344,9 +344,9 @@ static void initializeDmtcpInfoInMtcp()
   mtcp_init_dmtcp_info_t init_dmtcp_info =
     (mtcp_init_dmtcp_info_t) _get_mtcp_symbol("mtcp_init_dmtcp_info");
 
-  (*init_dmtcp_info) (PROTECTED_STDERR_FD,
+  (*init_dmtcp_info) (pidVirtualizationEnabled,
+                      PROTECTED_STDERR_FD,
                       jassertlog_fd,
-                      pidVirtualizationEnabled,
                       restore_working_directory,
                       libc_clone_fptr,
                       libc_sigaction_fptr);
