@@ -105,13 +105,13 @@ LIMIT=ulimit -v 1048576
 
 check: tests
 	@+ if which python > /dev/null; then \
-	   bash -c "$(LIMIT) && ./test/autotest.py $*"; \
+	   bash -c "$(LIMIT) && ./test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
 	   ' python to path or build Python 2.x for x >= 3.'; \
 	  fi
 
 check-%: tests
-	+bash -c "$(LIMIT) && ./test/autotest.py '$*'"
+	+bash -c "$(LIMIT) && ./test/autotest.py ${AUTOTEST} '$*'"
 
 check1: icheck-dmtcp1
 

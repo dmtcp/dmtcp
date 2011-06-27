@@ -609,11 +609,14 @@ HAS_CPP
 HAS_PATCH
 MATLAB
 HAS_MATLAB
+GCL
+HAS_GCL
+HAS_STRACE
 SCREEN
 HAS_SCREEN
 HAS_SCRIPT
-GCL
-HAS_GCL
+HAS_EMACS
+HAS_VIM
 HAS_ZSH
 HAS_TCSH
 HAS_DASH
@@ -4081,26 +4084,25 @@ fi
 
 
 
-#check for gcl
-# Extract the first word of "gcl", so it can be a program name with args.
-set dummy gcl; ac_word=$2
+#check for vim
+# Extract the first word of "vim", so it can be a program name with args.
+set dummy vim; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_prog_HAS_GCL+set}" = set; then :
+if test "${ac_cv_prog_HAS_VIM+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
-  if test -n "$HAS_GCL"; then
-  ac_cv_prog_HAS_GCL="$HAS_GCL" # Let the user override the test.
+  if test -n "$HAS_VIM"; then
+  ac_cv_prog_HAS_VIM="$HAS_VIM" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy="$PATH:/usr/bin"
-for as_dir in $as_dummy
+for as_dir in /usr/bin
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_GCL="yes"
+    ac_cv_prog_HAS_VIM="yes"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -4108,41 +4110,39 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_prog_HAS_GCL" && ac_cv_prog_HAS_GCL="no"
+  test -z "$ac_cv_prog_HAS_VIM" && ac_cv_prog_HAS_VIM="no"
 fi
 fi
-HAS_GCL=$ac_cv_prog_HAS_GCL
-if test -n "$HAS_GCL"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_GCL" >&5
-$as_echo "$HAS_GCL" >&6; }
+HAS_VIM=$ac_cv_prog_HAS_VIM
+if test -n "$HAS_VIM"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_VIM" >&5
+$as_echo "$HAS_VIM" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 fi
 
 
-if test "$HAS_GCL" != "no"; then
-  # Extract the first word of "gcl", so it can be a program name with args.
-set dummy gcl; ac_word=$2
+
+#check for emacs
+# Extract the first word of "emacs", so it can be a program name with args.
+set dummy emacs; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_path_GCL+set}" = set; then :
+if test "${ac_cv_prog_HAS_EMACS+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
-  case $GCL in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_GCL="$GCL" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy="$PATH:/usr/bin"
-for as_dir in $as_dummy
+  if test -n "$HAS_EMACS"; then
+  ac_cv_prog_HAS_EMACS="$HAS_EMACS" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_GCL="$as_dir/$ac_word$ac_exec_ext"
+    ac_cv_prog_HAS_EMACS="yes"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -4150,21 +4150,19 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_path_GCL" && ac_cv_path_GCL="no"
-  ;;
-esac
+  test -z "$ac_cv_prog_HAS_EMACS" && ac_cv_prog_HAS_EMACS="no"
 fi
-GCL=$ac_cv_path_GCL
-if test -n "$GCL"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $GCL" >&5
-$as_echo "$GCL" >&6; }
+fi
+HAS_EMACS=$ac_cv_prog_HAS_EMACS
+if test -n "$HAS_EMACS"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_EMACS" >&5
+$as_echo "$HAS_EMACS" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 fi
 
 
-fi
 
 #check for script
 # Extract the first word of "script", so it can be a program name with args.
@@ -4286,6 +4284,131 @@ $as_echo "no" >&6; }
 fi
 
 
+
+#check for strace
+# Extract the first word of "strace", so it can be a program name with args.
+set dummy strace; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_STRACE+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_STRACE"; then
+  ac_cv_prog_HAS_STRACE="$HAS_STRACE" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_STRACE="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_STRACE" && ac_cv_prog_HAS_STRACE="no"
+fi
+fi
+HAS_STRACE=$ac_cv_prog_HAS_STRACE
+if test -n "$HAS_STRACE"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_STRACE" >&5
+$as_echo "$HAS_STRACE" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check for gcl
+# Extract the first word of "gcl", so it can be a program name with args.
+set dummy gcl; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_GCL+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_GCL"; then
+  ac_cv_prog_HAS_GCL="$HAS_GCL" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="$PATH:/usr/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_GCL="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_GCL" && ac_cv_prog_HAS_GCL="no"
+fi
+fi
+HAS_GCL=$ac_cv_prog_HAS_GCL
+if test -n "$HAS_GCL"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_GCL" >&5
+$as_echo "$HAS_GCL" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+if test "$HAS_GCL" != "no"; then
+  # Extract the first word of "gcl", so it can be a program name with args.
+set dummy gcl; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_GCL+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $GCL in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_GCL="$GCL" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="$PATH:/usr/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_GCL="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_GCL" && ac_cv_path_GCL="no"
+  ;;
+esac
+fi
+GCL=$ac_cv_path_GCL
+if test -n "$GCL"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $GCL" >&5
+$as_echo "$GCL" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
 
 #check for matlab
 # Extract the first word of "matlab", so it can be a program name with args.
