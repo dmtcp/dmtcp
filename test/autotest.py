@@ -302,12 +302,17 @@ def getStatus():
     print "STATUS: peers=%s, running=%s" % (peers,running)
   return (int(peers), (running=="yes"))
 
-#delete all files in ckpDir
+#delete all files in ckptDir
 def clearCkptDir():
+  for TRIES in range(2):  # Try twice in case ckpt_*_dmtcp.temp is renamed.
     #clear checkpoint dir
     for root, dirs, files in os.walk(ckptDir, topdown=False):
       for name in files:
-        os.remove(os.path.join(root, name))
+        try:
+          os.remove(os.path.join(root, name))
+        except OSError, e:
+	  if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
+	    raise e
       for name in dirs:
         os.rmdir(os.path.join(root, name))
 
@@ -570,17 +575,25 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
+if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+  S=1
+  if sys.version_info[0:2] >= (2,6):
+    runTest("vim",      1,  ["/usr/bin/vim /etc/passwd"])
+  S=DEFAULT_S
+
+if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+  S=1
+  if sys.version_info[0:2] >= (2,6):
+    runTest("emacs",      1,  ["/usr/bin/emacs -nw /etc/passwd"])
+  S=DEFAULT_S
+
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
     host = socket.getfqdn()
-    if re.search("^nmi-.*.cs.wisc.edu$", host) or \
-       re.search("^nmi-.*.cs.wisconsin.edu$", host):
-      runTest("screen",      3,  ["env TERM=vt100 " + testconfig.SCREEN +
+    runTest("screen",      3,  ["env TERM=vt100 " + testconfig.SCREEN +
                                 " -c /dev/null -s /bin/sh"])
-    else:
-      runTest("screen",      3,  [testconfig.SCREEN + " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
@@ -594,6 +607,12 @@ if testconfig.HAS_MATLAB == "yes":
   S=3
   if sys.version_info[0:2] >= (2,6):
     runTest("matlab-nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  S=DEFAULT_S
+
+if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
+  S=1
+  if sys.version_info[0:2] >= (2,6):
+    runTest("strace", 2,  ["strace test/dmtcp2"])
   S=DEFAULT_S
 
 if testconfig.PTRACE_SUPPORT == "yes":
