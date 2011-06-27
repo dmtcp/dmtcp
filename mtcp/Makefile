@@ -60,6 +60,8 @@ endif
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
 #CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
+# Use this for debugging with DMTCP.
+# -DDMTCP_DEBUG causes debug info to appear in jassertlog, but not on-screen.
 #CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.

@@ -593,9 +593,7 @@ LIBOBJS
 M32
 HAS_OPENMPI
 OPENMPI_MPIRUN
-HAS_OPENMPI_MPIRUN
 OPENMPI_MPICC
-HAS_OPENMPI_MPICC
 HAS_MPICH
 MPICH_MPIEXEC
 MPICH_MPICC
@@ -4966,49 +4964,6 @@ do
 set dummy $ac_prog; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_prog_HAS_OPENMPI_MPICC+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$HAS_OPENMPI_MPICC"; then
-  ac_cv_prog_HAS_OPENMPI_MPICC="$HAS_OPENMPI_MPICC" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $MPI_PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_OPENMPI_MPICC="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-HAS_OPENMPI_MPICC=$ac_cv_prog_HAS_OPENMPI_MPICC
-if test -n "$HAS_OPENMPI_MPICC"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_OPENMPI_MPICC" >&5
-$as_echo "$HAS_OPENMPI_MPICC" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$HAS_OPENMPI_MPICC" && break
-done
-test -n "$HAS_OPENMPI_MPICC" || HAS_OPENMPI_MPICC="no"
-
-for ac_prog in mpicc.openmpi mpicc
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_path_OPENMPI_MPICC+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
@@ -5048,49 +5003,6 @@ fi
   test -n "$OPENMPI_MPICC" && break
 done
 test -n "$OPENMPI_MPICC" || OPENMPI_MPICC="no"
-
-for ac_prog in mpirun.openmpi mpirun
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_prog_HAS_OPENMPI_MPIRUN+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$HAS_OPENMPI_MPIRUN"; then
-  ac_cv_prog_HAS_OPENMPI_MPIRUN="$HAS_OPENMPI_MPIRUN" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $MPI_PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_HAS_OPENMPI_MPIRUN="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-HAS_OPENMPI_MPIRUN=$ac_cv_prog_HAS_OPENMPI_MPIRUN
-if test -n "$HAS_OPENMPI_MPIRUN"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_OPENMPI_MPIRUN" >&5
-$as_echo "$HAS_OPENMPI_MPIRUN" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$HAS_OPENMPI_MPIRUN" && break
-done
-test -n "$HAS_OPENMPI_MPIRUN" || HAS_OPENMPI_MPIRUN="no"
 
 for ac_prog in mpirun.openmpi mpirun
 do
@@ -5138,12 +5050,24 @@ fi
 done
 test -n "$OPENMPI_MPIRUN" || OPENMPI_MPIRUN="no"
 
-if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
+if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   HAS_OPENMPI=no
 
 else
-  HAS_OPENMPI=yes
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether mpicc works for OpenMPI" >&5
+$as_echo_n "checking whether mpicc works for OpenMPI... " >&6; }
+  if $OPENMPI_MPICC -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2; then
+    HAS_OPENMPI=yes
 
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  else
+    HAS_OPENMPI=no
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  fi
+  rm -f ./test_openmpi
 fi
 
 # Check whether --enable-m32 was given.

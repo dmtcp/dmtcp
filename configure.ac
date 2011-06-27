@@ -300,14 +300,20 @@ fi
 #Debian uses /usr/bin/mpicc.openmpi.  Red Hat/SuSe store it elsewhere.
 MPI_PATH=/usr/bin:/opt/openmpi/bin/:/usr/lib64/openmpi/bin:/usr/lib/openmpi/bin
 MPI_PATH=$MPI_PATH:/usr/lib64/mpi/gcc/openmpi/bin:/usr/lib/mpi/gcc/openmpi/bin
-AC_CHECK_PROGS(HAS_OPENMPI_MPICC, [mpicc.openmpi mpicc], [no], [$MPI_PATH])
 AC_PATH_PROGS([OPENMPI_MPICC],  [mpicc.openmpi mpicc], [no], [$MPI_PATH])
-AC_CHECK_PROGS(HAS_OPENMPI_MPIRUN, [mpirun.openmpi mpirun], [no], [$MPI_PATH])
 AC_PATH_PROGS([OPENMPI_MPIRUN],  [mpirun.openmpi mpirun], [no], [$MPI_PATH])
-if test "$HAS_OPENMPI_MPICC" = "no" -o "$HAS_OPENMPI_MPIRUN" = "no"; then
+if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
-  AC_SUBST(HAS_OPENMPI, [yes])
+  AC_MSG_CHECKING([whether mpicc works for OpenMPI])
+  if $OPENMPI_MPICC -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2; then
+    AC_SUBST(HAS_OPENMPI, [yes])
+    AC_MSG_RESULT([yes])
+  else
+    AC_SUBST(HAS_OPENMPI, [no])
+    AC_MSG_RESULT([no])
+  fi
+  rm -f ./test_openmpi
 fi
 
 AC_ARG_ENABLE([m32],

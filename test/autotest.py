@@ -166,7 +166,7 @@ def launch(cmd):
   # Example cmd:  dmtcp_checkpoint screen ...
   ptyMode = False
   for str in cmd:
-    if re.search("(_|/|^)(screen|script)(_|$)", str):
+    if re.search("(_|/|^)(screen|script|vim|emacs|pty)(_|$)", str):
       ptyMode = True
   try:
     os.stat(cmd[0])
@@ -496,20 +496,23 @@ resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
+runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
+
+runTest("module-sleep2", 1, ["--with-module "+
+			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+
+			     "$PWD/module/sleep2/dmtcp_sleep2hijack.so "+
+			     "./test/dmtcp1"])
+
+runTest("module-example-db", 2, ["--with-module "+
+			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
+			     "./test/dmtcp1",
+			         "--with-module "+
+			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
+			     "./test/dmtcp1"])
+
 runTest("shared-fd",     2, ["./test/shared-fd"])
-
-# frisbee creates three processes, each with 14 MB, if no gzip is used
-os.environ['DMTCP_GZIP'] = "1"
-runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
-                             "./test/frisbee "+p2+" localhost "+p3,
-                             "./test/frisbee "+p3+" localhost "+p1+" starter"])
-os.environ['DMTCP_GZIP'] = "0"
-
-runTest("client-server", 2, ["./test/client-server"])
-
-runTest("shared-memory", 2, ["./test/shared-memory"])
-
-runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
 
@@ -520,71 +523,82 @@ if testconfig.PID_VIRTUALIZATION == "yes":
 
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
-if testconfig.HAS_READLINE == "yes":
-  runTest("readline",    1,  ["./test/readline"])
+runTest("client-server", 2, ["./test/client-server"])
 
+# frisbee creates three processes, each with 14 MB, if no gzip is used
 os.environ['DMTCP_GZIP'] = "1"
-runTest("gzip",          1, ["./test/dmtcp1"])
-os.environ['DMTCP_GZIP'] = GZIP
+runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
+                             "./test/frisbee "+p2+" localhost "+p3,
+                             "./test/frisbee "+p3+" localhost "+p1+" starter"])
+os.environ['DMTCP_GZIP'] = "0"
 
-runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
+runTest("shared-memory", 2, ["./test/shared-memory"])
+
+runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])
 
-runTest("perl",          1, ["/usr/bin/perl"])
-
-if testconfig.HAS_PYTHON == "yes":
-  runTest("python",        1, ["/usr/bin/python"])
-
-if testconfig.PID_VIRTUALIZATION == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  runTest("bash",          2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
-
-if testconfig.HAS_DASH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  os.unsetenv('ENV')  # Delete reference to dash initialization file
-  runTest("dash",          2, ["/bin/dash -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
-
-if testconfig.HAS_TCSH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  runTest("tcsh",          2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
-
-if testconfig.HAS_ZSH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  runTest("zsh",          2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
-
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
-runTest("dlopen",          1, ["./test/dlopen"])
+runTest("dlopen",        1, ["./test/dlopen"])
 if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
 else:
   del os.environ['LD_LIBRARY_PATH']
 
-if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=2
-  if sys.version_info[0:2] >= (2,6):
-    runTest("script",      4,  ["/usr/bin/script -f" +
-    			      " -c 'bash -c \"ls; sleep 30\"'" +
-    			      " dmtcp-test-typescript.tmp"])
-  os.system("rm -f dmtcp-test-typescript.tmp")
-  S=DEFAULT_S
+os.environ['DMTCP_GZIP'] = "1"
+runTest("gzip",          1, ["./test/dmtcp1"])
+os.environ['DMTCP_GZIP'] = GZIP
+
+if testconfig.HAS_READLINE == "yes":
+  runTest("readline",    1,  ["./test/readline"])
+
+runTest("perl",          1, ["/usr/bin/perl"])
+
+if testconfig.HAS_PYTHON == "yes":
+  runTest("python",      1, ["/usr/bin/python"])
+
+if testconfig.PID_VIRTUALIZATION == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
+
+if testconfig.HAS_DASH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  os.unsetenv('ENV')  # Delete reference to dash initialization file
+  runTest("dash",        2, ["/bin/dash -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
+
+if testconfig.HAS_TCSH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("tcsh",        2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
+
+if testconfig.HAS_ZSH == "yes":
+  os.environ['DMTCP_GZIP'] = "0"
+  runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
+  os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    runTest("vim",      1,  ["/usr/bin/vim /etc/passwd"])
+    runTest("vim",       1,  ["/usr/bin/vim /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    runTest("emacs",      1,  ["/usr/bin/emacs -nw /etc/passwd"])
+    runTest("emacs",     1,  ["/usr/bin/emacs -nw /etc/passwd"])
+  S=DEFAULT_S
+
+if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+  S=2
+  if sys.version_info[0:2] >= (2,6):
+    runTest("script",    4,  ["/usr/bin/script -f" +
+    			      " -c 'bash -c \"ls; sleep 30\"'" +
+    			      " dmtcp-test-typescript.tmp"])
+  os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
@@ -592,9 +606,23 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
     host = socket.getfqdn()
-    runTest("screen",      3,  ["env TERM=vt100 " + testconfig.SCREEN +
+    runTest("screen",    3,  ["env TERM=vt100 " + testconfig.SCREEN +
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
+
+if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
+  S=1
+  if sys.version_info[0:2] >= (2,6):
+    runTest("strace",    2,  ["strace test/dmtcp2"])
+  S=DEFAULT_S
+
+if testconfig.PTRACE_SUPPORT == "yes":
+  os.system("echo 'run' > dmtcp-gdbinit.tmp")
+  S=2
+  if sys.version_info[0:2] >= (2,6):
+    runTest("gdb",       2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
+  S=DEFAULT_S
+  os.system("rm -f dmtcp-gdbinit.tmp")
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
@@ -608,20 +636,6 @@ if testconfig.HAS_MATLAB == "yes":
   if sys.version_info[0:2] >= (2,6):
     runTest("matlab-nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=DEFAULT_S
-
-if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
-  S=1
-  if sys.version_info[0:2] >= (2,6):
-    runTest("strace", 2,  ["strace test/dmtcp2"])
-  S=DEFAULT_S
-
-if testconfig.PTRACE_SUPPORT == "yes":
-  os.system("echo 'run' > dmtcp-gdbinit.tmp")
-  S=2
-  if sys.version_info[0:2] >= (2,6):
-    runTest("gdb", 2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  S=DEFAULT_S
-  os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_MPICH == "yes":
   runTest("mpd",         1, [testconfig.MPICH_MPD])
@@ -640,20 +654,6 @@ if testconfig.HAS_MPICH == "yes":
 if False and testconfig.HAS_OPENMPI == "yes":
   runTest("helloOpenMPI", 5, [testconfig.OPENMPI_MPIRUN+
 			     " -np 4 ./test/helloOpenMPI"])
-
-runTest("module-sleep2", 1, ["--with-module "+
-			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+
-			     "$PWD/module/sleep2/dmtcp_sleep2hijack.so "+
-			     "./test/dmtcp1"])
-
-runTest("module-example-db", 2, ["--with-module "+
-			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
-			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
-			     "./test/dmtcp1",
-			         "--with-module "+
-			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
-			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
-			     "./test/dmtcp1"])
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
