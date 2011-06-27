@@ -46,16 +46,12 @@ namespace
     //   C++ jalib::string is smart enough to copy it.
     jalib::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
+
     // Bug fix for Linux 2.6.19
-    const char *deleted = strstr(exeRes.c_str(), " (deleted)");
-    if ((deleted != NULL) && (strlen(deleted) == strlen(" (deleted)"))) {
-      char substring[256];
-      strncpy(substring, exeRes.c_str(), sizeof(substring));
-      JASSERT(strlen(substring) < sizeof(substring)) (substring);;
-      char *deleted2 = strstr(substring, " (deleted)");
-      *deleted2 = '\0';
-      exeRes = substring;
+    if (dmtcp::Util::strEndsWith(exeRes, DELETED_FILE_SUFFIX)) {
+      exeRes.erase(exeRes.length() - strlen(DELETED_FILE_SUFFIX));
     }
+
     return exeRes;
   }
 
