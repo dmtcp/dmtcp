@@ -69,6 +69,7 @@ void dmtcp::Util::unlockFile(int fd)
 
 bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
 {
+  JASSERT(str != NULL && pattern != NULL);
   int len1 = strlen(str);
   int len2 = strlen(pattern);
   if (len1 >= len2) {
@@ -79,6 +80,7 @@ bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
 
 bool dmtcp::Util::strEndsWith(const char *str, const char *pattern)
 {
+  JASSERT(str != NULL && pattern != NULL);
   int len1 = strlen(str);
   int len2 = strlen(pattern);
   if (len1 >= len2) {
@@ -149,11 +151,12 @@ ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.
+// FIXME: count is unused. Buffer-overrun possible
 int dmtcp::Util::readLine(int fd, char *buf, int count)
 {
   int i = 0;
   char c;
-  while (1) {
+  while (i < count) {
     if (_real_read(fd, &c, 1) == 0) {
       buf[i] = '\0';
       return '\0';
