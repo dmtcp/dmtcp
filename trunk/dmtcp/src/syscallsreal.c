@@ -414,6 +414,10 @@ int _real_execvp ( const char *file, char *const argv[] )
 {
   REAL_FUNC_PASSTHROUGH ( execvp ) ( file,argv );
 }
+LIB_PRIVATE
+int _real_execvpe(const char *file, char *const argv[], char *const envp[]) {
+  REAL_FUNC_PASSTHROUGH ( execvpe ) ( file, argv, envp );
+}
 
 LIB_PRIVATE
 int _real_system ( const char *cmd )

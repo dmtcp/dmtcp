@@ -119,6 +119,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(execve)                             \
   MACRO(execv)                              \
   MACRO(execvp)                             \
+  MACRO(execvpe)                            \
   MACRO(execl)                              \
   MACRO(execlp)                             \
   MACRO(execle)                             \
@@ -279,6 +280,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_execve ( const char *filename, char *const argv[], char *const envp[] );
   int _real_execv ( const char *path, char *const argv[] );
   int _real_execvp ( const char *file, char *const argv[] );
+  int _real_execvpe(const char *file, char *const argv[], char *const envp[]);
 // int _real_execl(const char *path, const char *arg, ...);
 // int _real_execlp(const char *file, const char *arg, ...);
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
