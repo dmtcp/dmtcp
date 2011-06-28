@@ -247,10 +247,19 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
   if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
   {
     dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
-    /*  Couldn't unset the environment. If we try to unset it dmtcp_checkpoint
-        fails to start.
-    */
-    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
+#ifndef PTRACE
+    /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
+     * by dmtcp_checkpoint to execvp fails without this call to unsetenv.
+     * Possibly, execvp is calling dlsym even before dmtcphijack.so gets
+     * loaded.  But, our dlsym wrapper is defined _only_
+     * with --enable-ptrace-support .  So, it's still a mystery why
+     * this call to unsetenv is needed.
+     *    This code interacts badly with PTRACE, since that condition
+     * defines a dlsym wrapper, and presumably, libc:execve() can call
+     * dlsym even before dmtcphijack.so is loaded.
+     */
+    unsetenv ( ENV_VAR_DLSYM_OFFSET );
+#endif
   }
   void *res = NULL;
   // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
