@@ -661,16 +661,15 @@ print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 if testconfig.DEBUG == "yes":
   host = socket.getfqdn()
   if re.search("^nmi-.*.cs.wisc.edu$", host) or \
-True or \
      re.search("^nmi-.*.cs.wisconsin.edu$", host):
     tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
     target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
              "@" + socket.gethostname()
-    cmd = "tar zcvf ../results.tar.gz --directory=" + tmpdir + " " + target + \
-          " --directory=" + os.getenv("PWD") + " ./dmtcp/src/dmtcphijack.so" + \
-	  " ./mtcp/libmtcp.so"
-    subprocess.Popen(cmd, shell=True,
-      stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
+    cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
+	     " ./dmtcp/src/dmtcphijack.so" + " ./mtcp/libmtcp.so" + " results/"
+    os.system("cmd")
+    cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
+    os.system("cmd")
     print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
 					      ") written to DMTCP_ROOT/.. ***"
 
