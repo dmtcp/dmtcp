@@ -981,7 +981,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
          minimumState() != WorkerState::CHECKPOINTED ) {
       JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
 	     "  Reject incoming restarting computation process.")
-        ( curCompGroup ) ( hello_remote.compGroup );
+        ( curCompGroup ) ( hello_remote.compGroup ) ( minimumState() );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();
@@ -1028,7 +1028,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
          ( s.minimumState != WorkerState::RUNNING ||
            s.minimumStateUnanimous == false       ||
            workersRunningAndSuspendMsgSent == true) ) {
-      JNOTE  ( "Current Computation not in RUNNING state."
+      JNOTE  ( "Current computation not in RUNNING state."
 	       "  Refusing to accept new connections.")
         ( curCompGroup ) ( hello_remote.from.pid() );
       hello_local.type = dmtcp::DMT_REJECT;
@@ -1037,7 +1037,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
       return false;
     } else if ( hello_remote.compGroup != UniquePid() ) {
       // New Process trying to connect to Coordinator but already has compGroup
-      JNOTE  ( "New Process, but already has computation group,\n"
+      JNOTE  ( "New process, but already has computation group,\n"
                "OR perhaps a different DMTCP_PREFIX_ID.  Rejecting." )
         (hello_remote.compGroup);
 
@@ -1055,7 +1055,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
         JTRACE ( "First process connected.  Creating new computation group" )
 	       (curCompGroup );
       } else {
-        JTRACE ( "New Process Connected" ) ( hello_remote.from.pid() );
+        JTRACE ( "New process Connected" ) ( hello_remote.from.pid() );
       }
       remote << hello_local;
     }
