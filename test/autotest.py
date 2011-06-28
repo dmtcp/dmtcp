@@ -512,6 +512,8 @@ runTest("module-example-db", 2, ["--with-module "+
 			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
 			     "./test/dmtcp1"])
 
+runTest("gettimeofday",  1, ["./test/gettimeofday"])
+
 runTest("shared-fd",     2, ["./test/shared-fd"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
@@ -520,8 +522,6 @@ runTest("forkexec",      2, ["./test/forkexec"])
 
 if testconfig.PID_VIRTUALIZATION == "yes":
   runTest("waitpid",      2, ["./test/waitpid"])
-
-runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
 runTest("client-server", 2, ["./test/client-server"])
 
@@ -661,11 +661,14 @@ print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 if testconfig.DEBUG == "yes":
   host = socket.getfqdn()
   if re.search("^nmi-.*.cs.wisc.edu$", host) or \
+True or \
      re.search("^nmi-.*.cs.wisconsin.edu$", host):
     tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
     target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
              "@" + socket.gethostname()
-    cmd = "tar zcvf ../results.tar.gz --directory=" + tmpdir + " " + target
+    cmd = "tar zcvf ../results.tar.gz --directory=" + tmpdir + " " + target + \
+          " --directory=" + os.getenv("PWD") + " ./dmtcp/src/dmtcphijack.so" + \
+	  " ./mtcp/libmtcp.so"
     subprocess.Popen(cmd, shell=True,
       stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
