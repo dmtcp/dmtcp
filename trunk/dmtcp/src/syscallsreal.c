@@ -850,6 +850,16 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
 
 #ifdef RECORD_REPLAY
 LIB_PRIVATE
+int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, getsockname ) ( sockfd, addr, addrlen );
+}
+
+LIB_PRIVATE
+int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, getpeername ) ( sockfd, addr, addrlen );
+}
+
+LIB_PRIVATE
 int _real_fxstat(int vers, int fd, struct stat *buf) {
   REAL_FUNC_PASSTHROUGH ( __fxstat ) ( vers, fd, buf );
 }
