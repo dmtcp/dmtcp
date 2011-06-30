@@ -667,9 +667,9 @@ if testconfig.DEBUG == "yes":
              "@" + socket.gethostname()
     cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
 	     " ./dmtcp/src/dmtcphijack.so" + " ./mtcp/libmtcp.so" + " results/"
-    os.system("cmd")
+    os.system(cmd)
     cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
-    os.system("cmd")
+    os.system(cmd)
     print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
 					      ") written to DMTCP_ROOT/.. ***"
 
