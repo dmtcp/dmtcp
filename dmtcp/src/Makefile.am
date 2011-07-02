@@ -102,7 +102,7 @@ dmtcphijack_so_LDFLAGS = -shared -module
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o log.o \
 	libdmtcpinternal.a libsyscallsreal.a  -ldl -lpthread
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
 dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread

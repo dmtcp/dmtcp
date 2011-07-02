@@ -42,13 +42,11 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <string.h>
-#include <dlfcn.h>
 
 int testMatlab(const char *filename);
 bool testSetuid(const char *filename);
 void testStaticallyLinked(const char *filename);
 bool testScreen(char **argv, char ***newArgv);
-void adjust_rlimit_stack();
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -119,37 +117,6 @@ static const char* theBanner =
 static dmtcp::string _stderrProcPath()
 {
   return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
-}
-
-static void prepareDmtcpWrappers()
-{
-  /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
-   * adding dlsym_offset to the address of dlopen after the exec into the user
-   * application. */
-  void* tmp1 = NULL;
-  void* tmp2 = NULL;
-  int tmp3;
-  void* handle = NULL;
-  handle = dlopen("libdl.so", RTLD_NOW);
-  if (handle == NULL) {
-    fprintf(stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-            dlerror());
-    abort();
-  }
-
-  /* Earlier, we used to compute the offset of "dlsym" from "dlerror" by
-   * computing the address of the two symbols using '&' operator. However, in
-   * some distros (for ex. SLES 9), '&dlsym' might give the address of the
-   * symbol defined in binary's PLT. Thus, to compute the correct offset, we
-   * use dlopen/dlsym.
-   */
-  tmp1 = dlsym(handle, LIBDL_BASE_FUNC_STR);
-  tmp2 = dlsym(handle, "dlsym");
-  tmp3 = (char *)tmp2 - (char *)tmp1;
-  char str[21] = {0} ;
-  sprintf(str, "%d", tmp3);
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
-  dlclose(handle);
 }
 
 //shift args
@@ -409,9 +376,10 @@ int main ( int argc, char** argv )
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-  adjust_rlimit_stack();
+  dmtcp::Util::adjustRlimitStack();
 
-  prepareDmtcpWrappers();
+  // FIXME: This call should be moved closer to call to execvp().
+  dmtcp::Util::prepareDlsymWrapper();
 
   if (autoStartCoordinator)
      dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
@@ -504,40 +472,6 @@ void testStaticallyLinked(const char *pathname) {
       << "*** Proceeding for now, and hoping for the best.\n\n";
   }
   return;
-}
-
-void adjust_rlimit_stack() {
-#ifdef __i386__
-  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
-  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
-  //   but there's currently a bug on restart in the sequence:
-  //   checkpoint -> restart -> checkpoint -> restart
-# if 0
-  { unsigned long oldPersonality = personality(0xffffffffL);
-    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
-      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
-      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
-      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
-    }
-  }
-# else
-  { struct rlimit rlim;
-    getrlimit(RLIMIT_STACK, &rlim);
-    if (rlim.rlim_cur != RLIM_INFINITY) {
-      char buf[100];
-      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
-      setenv("DMTCP_RLIMIT_STACK", buf, 1);
-      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
-      rlim.rlim_cur = rlim.rlim_max;
-      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
-      setrlimit(RLIMIT_STACK, &rlim);
-      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
-    }
-  }
-# endif
-#endif
 }
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
