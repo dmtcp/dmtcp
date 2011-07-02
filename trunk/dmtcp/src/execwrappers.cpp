@@ -270,37 +270,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);
 
-#ifdef __i386__
-  // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
-  // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
-  //   but there's currently a bug on restart in the sequence:
-  //   checkpoint -> restart -> checkpoint -> restart
-# if 0
-  { unsigned long oldPersonality = personality(0xffffffffL);
-    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
-      // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
-      personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
-      setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
-    }
-  }
-# else
-  { struct rlimit rlim;
-    getrlimit(RLIMIT_STACK, &rlim);
-    if (rlim.rlim_cur != RLIM_INFINITY) {
-      char buf[100];
-      sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
-      setenv("DMTCP_RLIMIT_STACK", buf, 1);
-      // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
-      rlim.rlim_cur = rlim.rlim_max;
-      // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
-      setrlimit(RLIMIT_STACK, &rlim);
-      // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
-    }
-  }
-# endif
-#endif
+  dmtcp::Util::adjustRlimitStack();
 
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }

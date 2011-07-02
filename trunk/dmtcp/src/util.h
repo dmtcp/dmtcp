@@ -66,6 +66,9 @@ namespace dmtcp
 
     void initializeLogFile(dmtcp::string procname = "",
                            dmtcp::string preLogPath = "");
+
+    void prepareDlsymWrapper();
+    void adjustRlimitStack();
   }
 }
 
