@@ -122,7 +122,10 @@ int main (int argc, char *argv[], char *envp[])
       mtcp_strncpy(ckpt_newname, argv[1], PATH_MAX);
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--stderr-fd") == 0 && argc >= 2) {
+#ifdef DMTCP_DEBUG
+      // If using with DMTCP/jassert, Pass in non-standard stderr
       dmtcp_info_stderr_fd = mtcp_atoi(argv[1]);
+#endif
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--") == 0 && argc == 2) {
       restorename = argv[1];
@@ -293,7 +296,7 @@ int main (int argc, char *argv[], char *envp[])
 
 #ifdef LIBC_STATIC_AVAILABLE
 /********************************************************************
- * Apparently, there is no consistent way to define LBIC_STATIC_AVAILABLE.
+ * Apparently, there is no consistent way to define LIBC_STATIC_AVAILABLE.
  * The purpose of the code below is to be able to use a symbolic debugger
  * like gdb when dmtcp_restart calls MTCP.  It would print a command that
  * you can paste into gdb to allow debugging inside the function restore_start.

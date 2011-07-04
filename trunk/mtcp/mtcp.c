@@ -576,8 +576,8 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
 #ifdef DMTCP_DEBUG
   /* DMTCP may _not_ overwrite dmtcp_info_stderr_fd if DMTCP_DEBUG is not on. */
   dmtcp_info_stderr_fd = stderr_fd;
-#endif
   dmtcp_info_jassertlog_fd = jassertlog_fd;
+#endif
   dmtcp_info_restore_working_directory = restore_working_directory;
   clone_entry = libc_clone_fnptr;
   sigaction_entry = libc_sigaction_fnptr;

@@ -59,6 +59,8 @@ endif
 
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
+# Use this for standalone MTCP debugging, or DMTCP debugging to stderr
+#   (independently of ./configure --enable-debug)
 #CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
 # Use this for debugging with DMTCP.
 # -DDMTCP_DEBUG causes debug info to appear in jassertlog, but not on-screen.
