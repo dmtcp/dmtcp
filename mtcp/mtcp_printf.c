@@ -220,11 +220,12 @@ static void rwrite (char const *buff, int size)
       if (rc <= 0) break;
     }
   }
-
+#ifdef DMTCP_DEBUG
   if (dmtcp_info_jassertlog_fd != -1) {
     for (offs = 0; offs < size; offs += rc) {
       rc = mtcp_sys_write (dmtcp_info_jassertlog_fd, buff + offs, size - offs);
       if (rc <= 0) break;
     }
   }
+#endif
 }
