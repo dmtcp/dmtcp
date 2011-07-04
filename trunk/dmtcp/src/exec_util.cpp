@@ -293,57 +293,6 @@ void dmtcp::Util::freePatchedArgv(char **newArgv)
   JALLOC_HELPER_FREE(*newArgv);
 }
 
-void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
-{
-  dmtcp::UniquePid::ThisProcess(true);
-#ifdef DEBUG
-  // Initialize JASSERT library here
-  dmtcp::ostringstream o;
-  o << dmtcp::UniquePid::getTmpDir() << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess()
-    << "_";
-  if (procname.empty()) {
-    o << jalib::Filesystem::GetProgramName();
-  } else {
-    o << procname;
-  }
-
-  JASSERT_INIT(o.str());
-
-  dmtcp::ostringstream a;
-  a << "\n========================================";
-  a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
-    << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
-
-  if (!prevLogPath.empty()) {
-    a << "\nPrev JAssertLog path: " << prevLogPath;
-  }
-
-  a << "\nArgv: ";
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
-  int i;
-  for (i = 0; i < args.size(); i++) {
-    a << " " << args[i];
-  }
-
-  a << "\nEnvironment: ";
-  for (i = 0; environ[i] != NULL; i++) {
-    a << " " << environ[i] << ";";
-  }
-  a << "\n========================================\n";
-
-  JASSERT_SET_CONSOLE_FD(-1);
-  JTRACE("Process Information") (a.str());
-  JASSERT_SET_CONSOLE_FD(PROTECTED_STDERR_FD);
-#endif
-  if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-  } else {
-    jassert_quiet = 0;
-  }
-}
-
-
 // FIXME: ENV_VAR_DLSYM_OFFSET should be reset in _real_dlsym and it should be
 // recalculated/reset right before returning from prepareForExec to support
 // process migration (the offset might have changed after the process had
