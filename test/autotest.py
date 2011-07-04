@@ -35,13 +35,14 @@ S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
 #In the case of gdb, even if both gdb and the inferior are running after
-#ckpt or restart, this does not guarantee that the ptrace related work
+#ckpt or restart, this does not guarantee that the ptrace-related work
 #(that is needed at resume or restart) is over. The ptrace related work happens
 #in the signal handler. Proceeding while still being inside the signal handler,
-#can lead to bad consquences. To play it on the safe side, GDB_SLEEP was
-#set at 2 seconds.
+#can lead to bad consquences. To play it on the safe side, PTRACE_SLEEP was
+#set at 2 seconds.  (Until this is fixed, --enable-ptrace-support will
+#remain experimental.)
 if testconfig.PTRACE_SUPPORT == "yes":
-  GDB_SLEEP=2
+  PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -233,6 +234,16 @@ os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
 
+# Temporary hack until DMTCP cleans up when using --enable-ptrace-support
+def deletePtraceFiles():
+  tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
+  tmpdir += "/dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
+            "@" + socket.gethostname()
+  os.system("cd "+tmpdir+"; "+
+	    "rm -f ptrace_shared.txt ptrace_setoptions.txt \
+	     ptrace_ckpthreads.txt ptrace_shared.txt ptrace_setoptions.txt \
+	     ptrace_ckpthreads.txt new_ptrace_shared.txt ckpt_leader_file.txt")
+
 #launch the coordinator
 coordinator = launch(BIN+"dmtcp_coordinator")
 
@@ -420,8 +431,8 @@ def runTest(name, numProcs, cmds):
       #  of this function:  testRestart
       testCheckpoint()
       printFixed("PASSED ")
-      if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
-        sleep(GDB_SLEEP)
+      if testconfig.PTRACE_SUPPORT == "yes":
+        sleep(PTRACE_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -429,8 +440,8 @@ def runTest(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
-          if name == "gdb" and testconfig.PTRACE_SUPPORT == "yes":
-            sleep(GDB_SLEEP)
+          if testconfig.PTRACE_SUPPORT == "yes":
+            sleep(PTRACE_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
@@ -610,6 +621,10 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
+if testconfig.PTRACE_SUPPORT == "yes":
+  print "  Deleting files in /tmp/dmtcp-USER@HOST before ptrace tests.  (Until"
+  print "  this is fixed, --enable-ptrace-support will remain experimental.)"
+  deletePtraceFiles()
 if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
