@@ -4068,17 +4068,12 @@ static int restarthread (void *threadv)
     /* If running under DMTCP */
     pid_t tid;
     if (dmtcp_info_pid_virtualization_enabled == 1) {
-      /* NOTE:  Last parameter passes MTCP wrapper of __clone to DMTCP.
-       *        Also, the value of SYS_DMTCP_clone must correspond
-       *        to the value in dmtcp/src/mtcpinterface.h
-       */
-      long int SYS_DMTCP_clone = SYS_clone + 1000;
-      tid = syscall(SYS_DMTCP_clone, restarthread,
+      tid = syscall(SYS_clone, restarthread,
                     (void*)(child -> savctx.SAVEDSP - 128), // -128 for red zone
                     ((child -> clone_flags & ~CLONE_SETTLS) |
                      CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID),
                     clone_arg, child -> parent_tidptr, NULL,
-                    child -> actual_tidptr, &__clone);
+                    child -> actual_tidptr);
     } else {
       tid = ((*clone_entry)(restarthread,
                             // -128 for red zone
