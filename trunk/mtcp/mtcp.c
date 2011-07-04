@@ -2401,7 +2401,10 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
     if (use_deltacompression) { /* fork a hbict process */
 #ifdef HBICT_DELTACOMP
       *use_compression = 1;
-      fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
+      if ( use_gzip_compression ) // We may want hbict compression only
+        fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
+      else
+        fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, NULL);
 #endif
     } else if (use_gzip_compression) {/* fork a gzip process */
       *use_compression = 1;

@@ -30,6 +30,7 @@
 #include  "uniquepid.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+#include "protectedfds.h"
 
 void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
