@@ -573,7 +573,10 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
 {
   dmtcp_exists = 1;
   dmtcp_info_pid_virtualization_enabled = pid_virtualization_enabled;
+#ifdef DMTCP_DEBUG
+  /* DMTCP may _not_ overwrite dmtcp_info_stderr_fd if DMTCP_DEBUG is not on. */
   dmtcp_info_stderr_fd = stderr_fd;
+#endif
   dmtcp_info_jassertlog_fd = jassertlog_fd;
   dmtcp_info_restore_working_directory = restore_working_directory;
   clone_entry = libc_clone_fnptr;
@@ -4065,12 +4068,17 @@ static int restarthread (void *threadv)
     /* If running under DMTCP */
     pid_t tid;
     if (dmtcp_info_pid_virtualization_enabled == 1) {
-      tid = syscall(SYS_clone, restarthread,
+      /* NOTE:  Last parameter passes MTCP wrapper of __clone to DMTCP.
+       *        Also, the value of SYS_DMTCP_clone must correspond
+       *        to the value in dmtcp/src/mtcpinterface.h
+       */
+      long int SYS_DMTCP_clone = SYS_clone + 1000;
+      tid = syscall(SYS_DMTCP_clone, restarthread,
                     (void*)(child -> savctx.SAVEDSP - 128), // -128 for red zone
                     ((child -> clone_flags & ~CLONE_SETTLS) |
                      CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID),
                     clone_arg, child -> parent_tidptr, NULL,
-                    child -> actual_tidptr);
+                    child -> actual_tidptr, &__clone);
     } else {
       tid = ((*clone_entry)(restarthread,
                             // -128 for red zone
