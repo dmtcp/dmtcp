@@ -108,8 +108,8 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
 	sysvipc.$(OBJEXT) exec_util.$(OBJEXT) gen_util.$(OBJEXT) \
-	jalloc.$(OBJEXT) synchronizationlogging.$(OBJEXT) \
-	log.$(OBJEXT)
+	init_util.$(OBJEXT) jalloc.$(OBJEXT) \
+	synchronizationlogging.$(OBJEXT) log.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
@@ -331,7 +331,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
-	exec_util.cpp gen_util.cpp \
+	exec_util.cpp gen_util.cpp init_util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
@@ -365,10 +365,10 @@ dmtcphijack_so_LDFLAGS = -shared -module
 dmtcphijack_so_LDADD = pthreadwrappers.o synchronizationlogging.o log.o \
 	libdmtcpinternal.a libsyscallsreal.a  -ldl -lpthread
 
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
-dmtcp_restart_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
-dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_restart_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_inspector_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
@@ -588,6 +588,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_read_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gen_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jassert.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jbuffer.Po@am__quote@

@@ -63,7 +63,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp \
 	syslogcheckpointer.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
-	exec_util.cpp gen_util.cpp \
+	exec_util.cpp gen_util.cpp init_util.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
@@ -102,10 +102,10 @@ dmtcphijack_so_LDFLAGS = -shared -module
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 dmtcphijack_so_LDADD    = pthreadwrappers.o synchronizationlogging.o log.o \
 	libdmtcpinternal.a libsyscallsreal.a  -ldl -lpthread
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libnohijack.a -ldl -lpthread
-dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
-dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -ldl -lpthread
+dmtcp_restart_LDADD     = libdmtcpinternal.a libnohijack.a -lpthread
+dmtcp_command_LDADD     = libdmtcpinternal.a libnohijack.a -lpthread
 dmtcp_inspector_LDADD   = libdmtcpinternal.a libnohijack.a -lpthread
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
