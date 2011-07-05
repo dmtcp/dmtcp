@@ -174,7 +174,7 @@ def launch(cmd):
   except:
     raise CheckFailed(cmd[0] + " not found")
   if ptyMode:
-    (pid, fd) = os.forkpty()
+    (pid, fd) = pty.fork()
     if pid == 0:
       # replace stdout; child might otherwise block on writing to stdout
       os.close(1)
@@ -182,8 +182,7 @@ def launch(cmd):
       os.close(2)
       os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
       os.execvp(cmd[0], cmd)
-      # os.system( reduce(lambda x,y:x+y, cmd) )
-      # os.exit(0)
+      # sys.exit(0)
     else:
       return MySubprocess(pid)
   else:
@@ -600,7 +599,10 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    runTest("emacs",     1,  ["/usr/bin/emacs -nw /etc/passwd"])
+    # Under emacs23, it opens /dev/tty directly in a new fd.
+    # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
+    # ... or else a better pty wrapper to capture emacs output to /dev/tty.
+    runTest("emacs",     1,  ["/usr/bin/emacs -nw --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
