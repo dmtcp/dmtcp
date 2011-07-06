@@ -805,10 +805,10 @@ extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_START(gettimeofday);
     if (retval == 0 && tv != NULL) {
-      *tv = GET_FIELD(my_entry, gettimeofday, tv_val);
+      *tv = GET_FIELD(currentLogEntry, gettimeofday, tv_val);
     }
-    if (retval == 0 && tv != NULL) {
-      *tz = GET_FIELD(my_entry, gettimeofday, tz_val);
+    if (retval == 0 && tz != NULL) {
+      *tz = GET_FIELD(currentLogEntry, gettimeofday, tz_val);
     }
     WRAPPER_REPLAY_END(time);
   } else if (SYNC_IS_RECORD) {
@@ -816,7 +816,7 @@ extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
     if (retval == 0 && tv != NULL) {
       SET_FIELD2(my_entry, gettimeofday, tv_val, *tv);
     }
-    if (retval == 0 && tv != NULL) {
+    if (retval == 0 && tz != NULL) {
       SET_FIELD2(my_entry, gettimeofday, tz_val, *tz);
     }
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
