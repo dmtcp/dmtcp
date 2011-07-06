@@ -2369,7 +2369,7 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
 # ifdef HBICT_DELTACOMP
   char *hbict_cmd = "hbict";
   char hbict_path[PATH_MAX];
-  MTCP_PRINTF("NOTICE: hbict compression is enabled\n");
+  DPRINTF("NOTICE: hbict compression is enabled\n");
 
   use_deltacompression = test_use_compression("HBICT", hbict_cmd, hbict_path, 1);
 # endif

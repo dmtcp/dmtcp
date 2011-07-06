@@ -511,7 +511,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 
   setTimeoutInterval ( dblTimeout );
 
-  timeoutBuf=timeoutInterval;
+  timeoutBuf = timeoutInterval;
   timeout = timeoutEnabled ? &timeoutBuf : NULL;
 
   IntSet closedFds;
@@ -525,6 +525,13 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     maxFd = -1;
     FD_ZERO ( &rfds );
     FD_ZERO ( &wfds );
+
+    if( timeout == NULL && timeoutEnabled){
+      timeoutBuf=timeoutInterval;
+      timeout = &timeoutBuf;
+    }else if( timeout != NULL && !timeoutEnabled){
+      timeout = NULL;
+    }
 
     //collect listen fds in rfds, cleanup dead sockets
     for ( i=0; i<_listenSockets.size(); ++i )
