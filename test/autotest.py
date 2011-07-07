@@ -156,11 +156,16 @@ class MySubprocess:
     self.stdout = os.open(os.devnull, os.O_WRONLY)
     self.stderr = os.open(os.devnull, os.O_WRONLY)
 
+def master_read(fd):
+  os.read(fd, 4096)
+  return ''
+
 #launch a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
 childStdoutDevNull = False
 def launch(cmd):
   global childStdoutDevNull
+  global master_read
   if VERBOSE:
     print "Launching... ", cmd
   cmd = splitWithQuotes(cmd);
@@ -176,13 +181,8 @@ def launch(cmd):
   if ptyMode:
     (pid, fd) = pty.fork()
     if pid == 0:
-      # replace stdout; child might otherwise block on writing to stdout
-      os.close(1)
-      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
-      os.close(2)
-      os.open(os.devnull, os.O_WRONLY | os.O_APPEND)
-      os.execvp(cmd[0], cmd)
-      # sys.exit(0)
+      pty.spawn(cmd, master_read)
+      sys.exit(0)
     else:
       return MySubprocess(pid)
   else:
@@ -591,13 +591,15 @@ if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=1
+  # Wait to checkpoint until vim finishes reading its initialization files
+  S=3
   if sys.version_info[0:2] >= (2,6):
     runTest("vim",       1,  ["/usr/bin/vim /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=1
+  # Wait to checkpoint until emacs finishes reading its initialization files
+  S=4
   if sys.version_info[0:2] >= (2,6):
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
@@ -668,7 +670,7 @@ if testconfig.HAS_MPICH == "yes":
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
-if False and testconfig.HAS_OPENMPI == "yes":
+if testconfig.HAS_OPENMPI == "yes":
   runTest("helloOpenMPI", 5, [testconfig.OPENMPI_MPIRUN+
 			     " -np 4 ./test/helloOpenMPI"])
 
