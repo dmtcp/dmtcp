@@ -122,10 +122,8 @@ int main (int argc, char *argv[], char *envp[])
       mtcp_strncpy(ckpt_newname, argv[1], PATH_MAX);
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--stderr-fd") == 0 && argc >= 2) {
-#ifdef DMTCP_DEBUG
-      // If using with DMTCP/jassert, Pass in non-standard stderr
+      // If using with DMTCP/jassert, Pass in a non-standard stderr
       dmtcp_info_stderr_fd = mtcp_atoi(argv[1]);
-#endif
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--") == 0 && argc == 2) {
       restorename = argv[1];

@@ -788,6 +788,12 @@ int main ( int argc, char** argv )
 
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
+  else
+#ifndef DEBUG
+    // This is a temporary hack to fix the forkexec test in rev. 1178.
+    // It will be replaced by cleaner code.
+    jassert_internal::jassert_safe_print("");
+#endif
 
   if (autoStartCoordinator)
     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
