@@ -309,6 +309,20 @@ else
   if $OPENMPI_MPICC -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2; then
     AC_SUBST(HAS_OPENMPI, [yes])
     AC_MSG_RESULT([yes])
+    AC_MSG_CHECKING([whether mpirun invokes orted for OpenMPI])
+    rm -f ./uses_openmpi_orted
+    /bin/sh -c "$OPENMPI_MPIRUN -np 4 ./test_openmpi 2>/dev/null 1>&2 & \
+      ps auxw | grep $USER | grep -v grep | grep -q orted && \
+      touch ./uses_openmpi_orted" 2>/dev/null
+    /bin/kill -9 `ps -eo pid,comm | grep test_openmpi | sed -e 's% .*$%%'`
+    if test -r ./uses_openmpi_orted; then
+      rm -f ./uses_openmpi_orted
+      AC_SUBST(USES_OPENMPI_ORTED, [yes])
+      AC_MSG_RESULT([yes])
+    else
+      AC_SUBST(USES_OPENMPI_ORTED, [no])
+      AC_MSG_RESULT([no])
+    fi
   else
     AC_SUBST(HAS_OPENMPI, [no])
     AC_MSG_RESULT([no])

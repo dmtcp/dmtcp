@@ -591,6 +591,7 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 M32
+USES_OPENMPI_ORTED
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
@@ -5061,6 +5062,25 @@ $as_echo_n "checking whether mpicc works for OpenMPI... " >&6; }
 
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether mpirun invokes orted for OpenMPI" >&5
+$as_echo_n "checking whether mpirun invokes orted for OpenMPI... " >&6; }
+    rm -f ./uses_openmpi_orted
+    /bin/sh -c "$OPENMPI_MPIRUN -np 4 ./test_openmpi 2>/dev/null 1>&2 & \
+      ps auxw | grep $USER | grep -v grep | grep -q orted && \
+      touch ./uses_openmpi_orted" 2>/dev/null
+    /bin/kill -9 `ps -eo pid,comm | grep test_openmpi | sed -e 's% .*$%%'`
+    if test -r ./uses_openmpi_orted; then
+      rm -f ./uses_openmpi_orted
+      USES_OPENMPI_ORTED=yes
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+    else
+      USES_OPENMPI_ORTED=no
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
   else
     HAS_OPENMPI=no
 

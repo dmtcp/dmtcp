@@ -522,7 +522,10 @@ runTest("module-example-db", 2, ["--with-module "+
 			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
 			     "./test/dmtcp1"])
 
+# Test special case:  gettimeofday can be handled within VDSO segment.
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
+
+runTest("sigchild",      1, ["./test/sigchild"])
 
 runTest("shared-fd",     2, ["./test/shared-fd"])
 
@@ -671,8 +674,9 @@ if testconfig.HAS_MPICH == "yes":
 
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
 if testconfig.HAS_OPENMPI == "yes":
-  runTest("helloOpenMPI", 5, [testconfig.OPENMPI_MPIRUN+
-			     " -np 4 ./test/helloOpenMPI"])
+  numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
+  runTest("helloOpenMPI", numProcesses, [testconfig.OPENMPI_MPIRUN + " -np 4" +
+			     " --launch-agent 'orted' ./test/helloOpenMPI"])
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
