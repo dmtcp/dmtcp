@@ -2377,9 +2377,13 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
   */
 
   if (use_deltacompression || use_gzip_compression) { /* fork a hbict process */
-    /* 3a. Set SIGCHLD to default; user handling is restored after gzip finishes */
+    /* 3a. Set SIGCHLD to ignore; user handling is restored after gzip finishes.
+     *
+     * NOTE: Although the default action for SIGCHLD is supposedly ignore,
+     * SIGCHLD appears to be delivered when the handler is set to SIG_DFL, and
+     * not when it is set to SIG_IGN. */
     struct sigaction default_sigchld_action;
-    default_sigchld_action.sa_handler = SIG_DFL;
+    default_sigchld_action.sa_handler = SIG_IGN;
     sigaction(SIGCHLD, &default_sigchld_action, NULL);
 
     /* 3b. Open pipe */
