@@ -255,7 +255,7 @@ static void my_free_hook (void *ptr, const void *caller)
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||               \
       jalib::Filesystem::GetProgramName() == "gdb") {                       \
     _real_pthread_mutex_lock(&allocation_lock);                             \
-    ret_type retval = _real_ ## name (__VA_ARGS__);                            \
+    ret_type retval = _real_ ## name (__VA_ARGS__);                         \
     _real_pthread_mutex_unlock(&allocation_lock);                           \
     WRAPPER_EXECUTION_ENABLE_CKPT();                                        \
     return retval;                                                          \
@@ -281,19 +281,24 @@ static void my_free_hook (void *ptr, const void *caller)
   do {                                                                      \
     if (SYNC_IS_REPLAY) {                                                   \
       MALLOC_FAMILY_WRAPPER_REPLAY_START(name);                             \
+      void *saved_retval = GET_COMMON(currentLogEntry, retval);             \
+      MALLOC_FAMILY_WRAPPER_REPLAY_END(name);                               \
       retval = _real_ ## name(__VA_ARGS__);                                 \
-      if (retval != GET_COMMON(currentLogEntry, retval)) {                  \
+      if (retval != saved_retval) {                                         \
         JTRACE ( #name " returned wrong address on replay" )                \
           ( retval ) ( GET_COMMON(currentLogEntry, retval) )                \
           (unified_log.currentEntryIndex());                                \
         kill(getpid(), SIGSEGV);                                            \
       }                                                                     \
-      MALLOC_FAMILY_WRAPPER_REPLAY_END(name);                               \
-    } else if (SYNC_IS_RECORD) {                                               \
+    } else if (SYNC_IS_RECORD) {                                            \
       _real_pthread_mutex_lock(&allocation_lock);                           \
-      retval = _real_ ## name(__VA_ARGS__);                                 \
+      size_t savedOffset = my_log->dataSize();                              \
       WRAPPER_LOG_WRITE_ENTRY(my_entry);                                    \
+      retval = _real_ ## name(__VA_ARGS__);                                 \
       _real_pthread_mutex_unlock(&allocation_lock);                         \
+      SET_COMMON2(my_entry, retval, (void*)retval);                         \
+      SET_COMMON2(my_entry, my_errno, errno);                               \
+      my_log->replaceEntryAtOffset(my_entry, savedOffset);                  \
     }                                                                       \
   } while(0)
 
