@@ -266,7 +266,7 @@ void dmtcp::SynchronizationLog::replaceEntryAtOffset(const log_entry_t& entry,
                                                     size_t index)
 {
   // only allow it for pthread_create call
-  JASSERT(GET_COMMON(entry, event) == pthread_create_event);
+/*  JASSERT(GET_COMMON(entry, event) == pthread_create_event);
 
   log_entry_t old_entry = EMPTY_LOG_ENTRY;
   JASSERT(getEntryAtOffset(old_entry, index) != 0);
@@ -277,7 +277,7 @@ void dmtcp::SynchronizationLog::replaceEntryAtOffset(const log_entry_t& entry,
           IS_EQUAL_FIELD(entry, old_entry, pthread_create, start_routine) &&
           IS_EQUAL_FIELD(entry, old_entry, pthread_create, attr) &&
           IS_EQUAL_FIELD(entry, old_entry, pthread_create, arg));
-
+*/
   writeEntryAtOffset(entry, index);
 }
 
