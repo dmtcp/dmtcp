@@ -172,6 +172,12 @@ int _real_setsockopt ( int s, int  level,  int  optname,  const  void  *optval,
   REAL_FUNC_PASSTHROUGH ( setsockopt ) ( s,level,optname,optval,optlen );
 }
 
+int _real_getsockopt ( int s, int  level,  int  optname,  void  *optval,
+                       socklen_t* optlen )
+{
+  REAL_FUNC_PASSTHROUGH ( getsockopt ) ( s,level,optname,optval,optlen );
+}
+
 int _real_execve ( const char *filename, char *const argv[],
                    char *const envp[] )
 {

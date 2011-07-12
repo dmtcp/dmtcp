@@ -572,6 +572,15 @@ void print_log_entry_setsockopt(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, setsockopt, optval));
 }
 
+void print_log_entry_getsockopt(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", sockfd=%d, level=%d, optname=%d, optval=%p\n",
+         GET_FIELD_PTR(entry, getsockopt, sockfd),
+         GET_FIELD_PTR(entry, getsockopt, level),
+         GET_FIELD_PTR(entry, getsockopt, optname),
+         GET_FIELD_PTR(entry, getsockopt, optval));
+}
+
 void print_log_entry_srand(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
   printf(", seed=%d\n", GET_FIELD_PTR(entry, srand, seed));

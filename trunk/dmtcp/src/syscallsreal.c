@@ -400,6 +400,13 @@ int _real_setsockopt ( int s, int level, int optname, const void *optval,
 }
 
 LIB_PRIVATE
+int _real_getsockopt ( int s, int level, int optname, void *optval,
+                       socklen_t *optlen )
+{
+  REAL_FUNC_PASSTHROUGH ( getsockopt ) ( s,level,optname,optval,optlen );
+}
+
+LIB_PRIVATE
 int _real_fexecve ( int fd, char *const argv[], char *const envp[] )
 {
   REAL_FUNC_PASSTHROUGH ( fexecve ) ( fd,argv,envp );

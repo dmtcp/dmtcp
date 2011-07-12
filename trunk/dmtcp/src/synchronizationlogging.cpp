@@ -1430,6 +1430,18 @@ log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event, int sockfd,
   return e;
 }
 
+log_entry_t create_getsockopt_entry(clone_id_t clone_id, int event, int sockfd,
+    int level, int optname, void *optval, socklen_t* optlen) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getsockopt, sockfd);
+  SET_FIELD(e, getsockopt, level);
+  SET_FIELD(e, getsockopt, optname);
+  SET_FIELD2(e, getsockopt, optval, (void*) optval);
+  SET_FIELD2(e, getsockopt, optlen, (socklen_t*) optlen);
+  return e;
+}
+
 log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event, int sig)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1856,6 +1868,19 @@ TURN_CHECK_P(setsockopt_turn_check)
       GET_FIELD_PTR(e2, setsockopt, optval) &&
     GET_FIELD_PTR(e1, setsockopt, optlen) ==
       GET_FIELD_PTR(e2, setsockopt, optlen);
+}
+
+TURN_CHECK_P(getsockopt_turn_check)
+{
+  return base_turn_check(e1,e2) && 
+    GET_FIELD_PTR(e1, getsockopt, level) ==
+      GET_FIELD_PTR(e2, getsockopt, level) &&
+    GET_FIELD_PTR(e1, getsockopt, optname) ==
+      GET_FIELD_PTR(e2, getsockopt, optname) &&
+    GET_FIELD_PTR(e1, getsockopt, optval) ==
+      GET_FIELD_PTR(e2, getsockopt, optval) &&
+    GET_FIELD_PTR(e1, getsockopt, optlen) ==
+      GET_FIELD_PTR(e2, getsockopt, optlen);
 }
 
 TURN_CHECK_P(signal_handler_turn_check)

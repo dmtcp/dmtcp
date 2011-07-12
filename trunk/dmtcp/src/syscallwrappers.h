@@ -113,6 +113,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(accept)                             \
   MACRO(accept4)                            \
   MACRO(setsockopt)                         \
+  MACRO(getsockopt)                         \
   MACRO(socketpair)                         \
                                             \
   MACRO(fexecve)                            \
@@ -274,7 +275,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                       int flags );
   int _real_setsockopt ( int s, int level, int optname, const void *optval,
                          socklen_t optlen );
-
+  int _real_getsockopt ( int s, int level, int optname, void *optval,
+                         socklen_t *optlen );
 
   int _real_fexecve ( int fd, char *const argv[], char *const envp[] );
   int _real_execve ( const char *filename, char *const argv[], char *const envp[] );
