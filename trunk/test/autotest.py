@@ -597,7 +597,7 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=3
   if sys.version_info[0:2] >= (2,6):
-    runTest("vim",       1,  ["/usr/bin/vim /etc/passwd"])
+    runTest("vim",       1,  ["env TERM=vt100 /usr/bin/vim /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
@@ -607,7 +607,10 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
     # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-    runTest("emacs",     1,  ["/usr/bin/emacs -nw --no-init-file /etc/passwd"])
+    runTest("emacs",     1,  ["/usr/bin/emacs -nw" +
+                              " --no-init-file /etc/passwd"])
+    runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
+                              " --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
