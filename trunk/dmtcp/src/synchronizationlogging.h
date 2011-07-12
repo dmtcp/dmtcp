@@ -224,13 +224,16 @@ namespace dmtcp { class SynchronizationLog; }
   do {                                                              \
     SET_COMMON2(my_entry, retval, (void*)retval);                   \
     SET_COMMON2(my_entry, my_errno, errno);                         \
+    SET_COMMON2(my_entry, isOptional, isOptionalEvent);             \
     addNextLogEntry(my_entry);                                      \
     errno = GET_COMMON(my_entry, my_errno);                         \
   } while (0)
 
 #define WRAPPER_LOG(real_func, ...)                                 \
   do {                                                              \
+    isOptionalEvent = true;                                         \
     retval = real_func(__VA_ARGS__);                                \
+    isOptionalEvent = false;                                        \
     WRAPPER_LOG_WRITE_ENTRY(my_entry);                              \
   } while (0)
 
