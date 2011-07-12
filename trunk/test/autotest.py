@@ -607,8 +607,6 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
     # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-    runTest("emacs",     1,  ["/usr/bin/emacs -nw" +
-                              " --no-init-file /etc/passwd"])
     runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                               " --no-init-file /etc/passwd"])
   S=DEFAULT_S
