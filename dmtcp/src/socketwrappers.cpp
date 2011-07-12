@@ -165,6 +165,12 @@ static int _almost_real_setsockopt(int sockfd, int level, int optname,
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
 }
 
+static int _almost_real_getsockopt(int sockfd, int level, int optname,
+    void *optval, socklen_t *optlen)
+{
+  PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
+}
+
 extern "C"
 {
 int socket ( int domain, int type, int protocol )
@@ -262,7 +268,18 @@ int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
   BASIC_SYNC_WRAPPER_WITH_CKPT_LOCK(int, setsockopt, _almost_real_setsockopt,
                                     sockfd, level, optname, optval, optlen);
 #else
-  return _almost_real_setsockopt(sockfd,level,optname,optval,optlen );
+  return _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
+#endif
+}
+
+int getsockopt ( int sockfd, int  level,  int  optname,  void  *optval,
+                 socklen_t *optlen )
+{
+#ifdef RECORD_REPLAY
+  BASIC_SYNC_WRAPPER_WITH_CKPT_LOCK(int, getsockopt, _almost_real_getsockopt,
+                                    sockfd, level, optname, optval, optlen);
+#else
+  return _almost_real_getsockopt(sockfd,level,optname,optval,optlen);
 #endif
 }
 

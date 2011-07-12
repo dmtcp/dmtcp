@@ -45,6 +45,7 @@ EXTERNC int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, sockl
 //#endif
 EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno );
 EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen );
+EXTERNC int dmtcp_on_getsockopt ( int ret, int sockfd, int  level,  int  optname,  void  *optval, socklen_t *optlen );
 
 
 

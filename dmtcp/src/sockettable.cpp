@@ -207,3 +207,12 @@ extern "C" int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optn
 
   return ret;
 }
+
+extern "C" int dmtcp_on_getsockopt ( int ret, int sockfd, int  level,
+                                     int  optname, void  *optval,
+                                     socklen_t* optlen )
+{
+  JTRACE ( "getsockopt" ) ( ret ) ( sockfd ) ( optname );
+
+  return ret;
+}

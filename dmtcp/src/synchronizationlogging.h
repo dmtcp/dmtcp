@@ -371,6 +371,7 @@ namespace dmtcp { class SynchronizationLog; }
     MACRO(signal_handler, __VA_ARGS__);                                        \
     MACRO(sigwait, __VA_ARGS__);                                               \
     MACRO(setsockopt, __VA_ARGS__);                                            \
+    MACRO(getsockopt, __VA_ARGS__);                                            \
     MACRO(srand, __VA_ARGS__);                                                 \
     MACRO(socket, __VA_ARGS__);                                                \
     MACRO(time, __VA_ARGS__);                                                  \
@@ -465,6 +466,7 @@ typedef enum {
   signal_handler_event,
   sigwait_event,
   setsockopt_event,
+  getsockopt_event,
   socket_event,
   srand_event,
   time_event,
@@ -758,6 +760,17 @@ typedef struct {
 } log_event_setsockopt_t;
 
 static const int log_event_setsockopt_size = sizeof(log_event_setsockopt_t);
+
+typedef struct {
+  // For getsockopt():
+  int sockfd;
+  int level;
+  int optname;
+  void *optval;
+  socklen_t *optlen;
+} log_event_getsockopt_t;
+
+static const int log_event_getsockopt_size = sizeof(log_event_getsockopt_t);
 
 typedef struct {
   // For pthread_create():
@@ -1283,6 +1296,7 @@ typedef struct {
     log_event_getpeername_t                      log_event_getpeername;
     log_event_getsockname_t                      log_event_getsockname;
     log_event_setsockopt_t                       log_event_setsockopt;
+    log_event_getsockopt_t                       log_event_getsockopt;
     log_event_pthread_create_t                   log_event_pthread_create;
     log_event_libc_memalign_t                    log_event_libc_memalign;
     log_event_fclose_t                           log_event_fclose;
@@ -1698,6 +1712,8 @@ LIB_PRIVATE log_entry_t create_select_entry(clone_id_t clone_id, int event, int 
     struct timeval *timeout);
 LIB_PRIVATE log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event,
     int sockfd, int level, int optname, const void* optval, socklen_t optlen);
+LIB_PRIVATE log_entry_t create_getsockopt_entry(clone_id_t clone_id, int event,
+    int sockfd, int level, int optname, void* optval, socklen_t* optlen);
 LIB_PRIVATE log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event,
     int sig);
 LIB_PRIVATE log_entry_t create_sigwait_entry(clone_id_t clone_id, int event,
@@ -1800,6 +1816,7 @@ LIB_PRIVATE TURN_CHECK_P(rewind_turn_check);
 LIB_PRIVATE TURN_CHECK_P(rmdir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(select_turn_check);
 LIB_PRIVATE TURN_CHECK_P(setsockopt_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getsockopt_turn_check);
 LIB_PRIVATE TURN_CHECK_P(signal_handler_turn_check);
 LIB_PRIVATE TURN_CHECK_P(sigwait_turn_check);
 LIB_PRIVATE TURN_CHECK_P(srand_turn_check);
