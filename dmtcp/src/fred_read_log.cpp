@@ -581,6 +581,14 @@ void print_log_entry_getsockopt(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, getsockopt, optval));
 }
 
+void print_log_entry_ioctl(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", d=%d, request=%d, arg=%p\n",
+         GET_FIELD_PTR(entry, ioctl, d),
+         GET_FIELD_PTR(entry, ioctl, request),
+         GET_FIELD_PTR(entry, ioctl, arg));
+}
+
 void print_log_entry_srand(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
   printf(", seed=%d\n", GET_FIELD_PTR(entry, srand, seed));
