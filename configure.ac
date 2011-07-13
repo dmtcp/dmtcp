@@ -205,6 +205,9 @@ AC_PATH_PROG([SCREEN],  [screen],        [no], [/usr/bin])
 #check for strace
 AC_CHECK_PROG(HAS_STRACE, [strace], [yes], [no], [/usr/bin])
 
+#check for gdb
+AC_CHECK_PROG(HAS_GDB, [gdb], [yes], [no], [/usr/bin])
+
 #check for gcl
 AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
 if test "$HAS_GCL" != "no"; then

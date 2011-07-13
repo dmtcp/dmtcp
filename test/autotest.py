@@ -8,10 +8,13 @@ import socket
 import os
 import sys
 import errno
+import signal
 import resource
 import pwd
 import stat
 import re
+
+signal.alarm(900)
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
@@ -633,19 +636,20 @@ if testconfig.PTRACE_SUPPORT == "yes":
   print "  Deleting files in /tmp/dmtcp-USER@HOST before ptrace tests.  (Until"
   print "  this is fixed, --enable-ptrace-support will remain experimental.)"
   deletePtraceFiles()
-if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
-  S=1
-  if sys.version_info[0:2] >= (2,6):
-    runTest("strace",    2,  ["strace test/dmtcp2"])
-  S=DEFAULT_S
+  if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
+    S=1
+    if sys.version_info[0:2] >= (2,6):
+      runTest("strace",    2,  ["strace test/dmtcp2"])
+    S=DEFAULT_S
 
-if testconfig.PTRACE_SUPPORT == "yes":
-  os.system("echo 'run' > dmtcp-gdbinit.tmp")
-  S=2
-  if sys.version_info[0:2] >= (2,6):
-    runTest("gdb",       2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  S=DEFAULT_S
-  os.system("rm -f dmtcp-gdbinit.tmp")
+  deletePtraceFiles()
+  if testconfig.HAS_GDB and testconfig.PTRACE_SUPPORT == "yes":
+    os.system("echo 'run' > dmtcp-gdbinit.tmp")
+    S=2
+    if sys.version_info[0:2] >= (2,6):
+      runTest("gdb",       2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
+    S=DEFAULT_S
+    os.system("rm -f dmtcp-gdbinit.tmp")
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":

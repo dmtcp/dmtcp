@@ -610,6 +610,7 @@ MATLAB
 HAS_MATLAB
 GCL
 HAS_GCL
+HAS_GDB
 HAS_STRACE
 SCREEN
 HAS_SCREEN
@@ -4317,6 +4318,46 @@ HAS_STRACE=$ac_cv_prog_HAS_STRACE
 if test -n "$HAS_STRACE"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_STRACE" >&5
 $as_echo "$HAS_STRACE" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check for gdb
+# Extract the first word of "gdb", so it can be a program name with args.
+set dummy gdb; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_HAS_GDB+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_GDB"; then
+  ac_cv_prog_HAS_GDB="$HAS_GDB" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_GDB="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_GDB" && ac_cv_prog_HAS_GDB="no"
+fi
+fi
+HAS_GDB=$ac_cv_prog_HAS_GDB
+if test -n "$HAS_GDB"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_GDB" >&5
+$as_echo "$HAS_GDB" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
