@@ -632,18 +632,19 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if testconfig.PTRACE_SUPPORT == "yes":
+if testconfig.PTRACE_SUPPORT == "yes" and \
+   (testconfig.HAS_STRACE == "yes" or testconfig.HAS_GDB == "yes"):
   print "  Deleting files in /tmp/dmtcp-USER@HOST before ptrace tests.  (Until"
   print "  this is fixed, --enable-ptrace-support will remain experimental.)"
   deletePtraceFiles()
-  if testconfig.HAS_STRACE and testconfig.PTRACE_SUPPORT == "yes":
+  if testconfig.HAS_STRACE == "yes" and testconfig.PTRACE_SUPPORT == "yes":
     S=1
     if sys.version_info[0:2] >= (2,6):
       runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
   deletePtraceFiles()
-  if testconfig.HAS_GDB and testconfig.PTRACE_SUPPORT == "yes":
+  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
     os.system("echo 'run' > dmtcp-gdbinit.tmp")
     S=2
     if sys.version_info[0:2] >= (2,6):
