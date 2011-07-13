@@ -35,6 +35,9 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include "dmtcpalloc.h"
+// Needed for ioctl:
+#include <sys/ioctl.h>
+#include <net/if.h>
 
 // 'long int' IS 32 bits ON 32-bit ARCH AND 64 bits ON A 64-bit ARCH.
 // 'sizeof(long long int)==sizeof(long int)' on 64-bit arch. 
@@ -318,12 +321,14 @@ namespace dmtcp { class SynchronizationLog; }
     MACRO(fxstat, __VA_ARGS__);                                                \
     MACRO(fxstat64, __VA_ARGS__);                                              \
     MACRO(getc, __VA_ARGS__);                                                  \
+    MACRO(getsockopt, __VA_ARGS__);                                            \
     MACRO(gettimeofday, __VA_ARGS__);                                          \
     MACRO(fgetc, __VA_ARGS__);                                                 \
     MACRO(ungetc, __VA_ARGS__);                                                \
     MACRO(getline, __VA_ARGS__);                                               \
     MACRO(getpeername, __VA_ARGS__);                                           \
     MACRO(getsockname, __VA_ARGS__);                                           \
+    MACRO(ioctl, __VA_ARGS__);                                           \
     MACRO(libc_memalign, __VA_ARGS__);                                         \
     MACRO(lseek, __VA_ARGS__);                                                 \
     MACRO(link, __VA_ARGS__);                                                  \
@@ -371,7 +376,6 @@ namespace dmtcp { class SynchronizationLog; }
     MACRO(signal_handler, __VA_ARGS__);                                        \
     MACRO(sigwait, __VA_ARGS__);                                               \
     MACRO(setsockopt, __VA_ARGS__);                                            \
-    MACRO(getsockopt, __VA_ARGS__);                                            \
     MACRO(srand, __VA_ARGS__);                                                 \
     MACRO(socket, __VA_ARGS__);                                                \
     MACRO(time, __VA_ARGS__);                                                  \
@@ -414,11 +418,13 @@ typedef enum {
   fxstat64_event,
   getc_event,
   gettimeofday_event,
+  ioctl_event,
   fgetc_event,
   ungetc_event,
   getline_event,
   getpeername_event,
   getsockname_event,
+  getsockopt_event,
   libc_memalign_event,
   link_event,
   listen_event,
@@ -466,7 +472,6 @@ typedef enum {
   signal_handler_event,
   sigwait_event,
   setsockopt_event,
-  getsockopt_event,
   socket_event,
   srand_event,
   time_event,
@@ -771,6 +776,17 @@ typedef struct {
 } log_event_getsockopt_t;
 
 static const int log_event_getsockopt_size = sizeof(log_event_getsockopt_t);
+
+typedef struct {
+  // For ioctl():
+  int d;
+  int request;
+  void *arg;
+  struct winsize win_val;
+  struct ifconf ifconf_val;
+} log_event_ioctl_t;
+
+static const int log_event_ioctl_size = sizeof(log_event_ioctl_t);
 
 typedef struct {
   // For pthread_create():
@@ -1297,6 +1313,7 @@ typedef struct {
     log_event_getsockname_t                      log_event_getsockname;
     log_event_setsockopt_t                       log_event_setsockopt;
     log_event_getsockopt_t                       log_event_getsockopt;
+    log_event_ioctl_t                            log_event_ioctl;
     log_event_pthread_create_t                   log_event_pthread_create;
     log_event_libc_memalign_t                    log_event_libc_memalign;
     log_event_fclose_t                           log_event_fclose;
@@ -1714,6 +1731,8 @@ LIB_PRIVATE log_entry_t create_setsockopt_entry(clone_id_t clone_id, int event,
     int sockfd, int level, int optname, const void* optval, socklen_t optlen);
 LIB_PRIVATE log_entry_t create_getsockopt_entry(clone_id_t clone_id, int event,
     int sockfd, int level, int optname, void* optval, socklen_t* optlen);
+LIB_PRIVATE log_entry_t create_ioctl_entry(clone_id_t clone_id, int event,
+    int d, int request, void* arg);
 LIB_PRIVATE log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event,
     int sig);
 LIB_PRIVATE log_entry_t create_sigwait_entry(clone_id_t clone_id, int event,
@@ -1817,6 +1836,7 @@ LIB_PRIVATE TURN_CHECK_P(rmdir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(select_turn_check);
 LIB_PRIVATE TURN_CHECK_P(setsockopt_turn_check);
 LIB_PRIVATE TURN_CHECK_P(getsockopt_turn_check);
+LIB_PRIVATE TURN_CHECK_P(ioctl_turn_check);
 LIB_PRIVATE TURN_CHECK_P(signal_handler_turn_check);
 LIB_PRIVATE TURN_CHECK_P(sigwait_turn_check);
 LIB_PRIVATE TURN_CHECK_P(srand_turn_check);

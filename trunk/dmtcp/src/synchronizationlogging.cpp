@@ -1442,6 +1442,16 @@ log_entry_t create_getsockopt_entry(clone_id_t clone_id, int event, int sockfd,
   return e;
 }
 
+log_entry_t create_ioctl_entry(clone_id_t clone_id, int event, int d,
+    int request, void *arg) {
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, ioctl, d);
+  SET_FIELD(e, ioctl, request);
+  SET_FIELD(e, ioctl, arg);
+  return e;
+}
+
 log_entry_t create_signal_handler_entry(clone_id_t clone_id, int event, int sig)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1881,6 +1891,17 @@ TURN_CHECK_P(getsockopt_turn_check)
       GET_FIELD_PTR(e2, getsockopt, optval) &&
     GET_FIELD_PTR(e1, getsockopt, optlen) ==
       GET_FIELD_PTR(e2, getsockopt, optlen);
+}
+
+TURN_CHECK_P(ioctl_turn_check)
+{
+  return base_turn_check(e1,e2) && 
+    GET_FIELD_PTR(e1, ioctl, d) ==
+      GET_FIELD_PTR(e2, ioctl, d) &&
+    GET_FIELD_PTR(e1, ioctl, request) ==
+      GET_FIELD_PTR(e2, ioctl, request) &&
+    GET_FIELD_PTR(e1, ioctl, arg) ==
+      GET_FIELD_PTR(e2, ioctl, arg);
 }
 
 TURN_CHECK_P(signal_handler_turn_check)

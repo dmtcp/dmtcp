@@ -43,6 +43,10 @@
 // FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
+#ifdef RECORD_REPLAY
+#include "synchronizationlogging.h"
+#endif
+
 #ifdef PID_VIRTUALIZATION
 
 static pid_t originalToCurrentPid( pid_t originalPid )
@@ -581,9 +585,41 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
 extern "C" {
 int send_sigwinch = 0;
 }
+
+#ifdef RECORD_REPLAY
+#define IOCTL_HELPER(d, request, arg)                                          \
+  WRAPPER_HEADER(int, ioctl, _real_ioctl, d, request, arg);                    \
+  if (SYNC_IS_REPLAY) {                                                        \
+    WRAPPER_REPLAY(ioctl);                                                     \
+    switch (request) {                                                         \
+      case SIOCGIFCONF:                                                        \
+        *((struct ifconf *)arg) = GET_FIELD(currentLogEntry,ioctl,ifconf_val); \
+        break;                                                                 \
+      case TIOCGWINSZ:                                                         \
+        *((struct winsize *)arg) = GET_FIELD(currentLogEntry,ioctl,win_val);   \
+        break;                                                                 \
+      default:                                                                 \
+        break;                                                                 \
+    }                                                                          \
+  } else if (SYNC_IS_RECORD) {                                                 \
+    retval = _real_ioctl(d, request, arg);                                     \
+    switch (request) {                                                         \
+      case SIOCGIFCONF:                                                        \
+        SET_FIELD2(my_entry, ioctl, ifconf_val, *((struct ifconf *)arg));      \
+        break;                                                                 \
+      case TIOCGWINSZ:                                                         \
+        SET_FIELD2(my_entry, ioctl, win_val, *((struct winsize *)arg));        \
+        break;                                                                 \
+      default:                                                                 \
+        break;                                                                 \
+    }                                                                          \
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);                                         \
+  }                                                                            
+#endif
+
 extern "C" int ioctl(int d,  unsigned long int request, ...)
 { va_list ap;
-  int rc;
+  int retval;
 
   if (send_sigwinch && request == TIOCGWINSZ) {
     send_sigwinch = 0;
@@ -592,7 +628,11 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     va_start(local_ap, request);
     struct winsize * win = va_arg(local_ap, struct winsize *);
     va_end(local_ap);
-    rc = _real_ioctl(d, request, win);  // This fills in win
+#ifdef RECORD_REPLAY
+    IOCTL_HELPER(d, request, win);
+#else
+    retval = _real_ioctl(d, request, win);  // This fills in win
+#endif
     win->ws_col--; // Lie to application, and force it to resize window,
 		   //  reset any scroll regions, etc.
     kill(getpid(), SIGWINCH); // Tell application to look up true winsize
@@ -602,10 +642,14 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     va_start(ap, request);
     arg = va_arg(ap, void *);
     va_end(ap);
-    rc = _real_ioctl(d, request, arg);
+#ifdef RECORD_REPLAY
+    IOCTL_HELPER(d, request, arg);
+#else
+    retval = _real_ioctl(d, request, arg);
+#endif
   }
 
-  return rc;
+  return retval;
 }
 
 /*
