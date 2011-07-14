@@ -45,6 +45,8 @@
 
 #ifdef RECORD_REPLAY
 #include "synchronizationlogging.h"
+#include <fcntl.h>
+#include <util.h>
 #endif
 
 #ifdef PID_VIRTUALIZATION
@@ -587,34 +589,44 @@ int send_sigwinch = 0;
 }
 
 #ifdef RECORD_REPLAY
-#define IOCTL_HELPER(d, request, arg)                                          \
-  WRAPPER_HEADER(int, ioctl, _real_ioctl, d, request, arg);                    \
-  if (SYNC_IS_REPLAY) {                                                        \
-    WRAPPER_REPLAY(ioctl);                                                     \
-    switch (request) {                                                         \
-      case SIOCGIFCONF:                                                        \
-        *((struct ifconf *)arg) = GET_FIELD(currentLogEntry,ioctl,ifconf_val); \
-        break;                                                                 \
-      case TIOCGWINSZ:                                                         \
-        *((struct winsize *)arg) = GET_FIELD(currentLogEntry,ioctl,win_val);   \
-        break;                                                                 \
-      default:                                                                 \
-        break;                                                                 \
-    }                                                                          \
-  } else if (SYNC_IS_RECORD) {                                                 \
-    retval = _real_ioctl(d, request, arg);                                     \
-    switch (request) {                                                         \
-      case SIOCGIFCONF:                                                        \
-        SET_FIELD2(my_entry, ioctl, ifconf_val, *((struct ifconf *)arg));      \
-        break;                                                                 \
-      case TIOCGWINSZ:                                                         \
-        SET_FIELD2(my_entry, ioctl, win_val, *((struct winsize *)arg));        \
-        break;                                                                 \
-      default:                                                                 \
-        break;                                                                 \
-    }                                                                          \
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);                                         \
-  }                                                                            
+void ioctl_helper(log_entry_t &my_entry, int &retval, int d, int request,
+                  void *arg) {
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY(ioctl);
+    switch (request) {
+      case SIOCGIFCONF: {
+        *((struct ifconf *)arg) = GET_FIELD(currentLogEntry,ioctl,ifconf_val);
+        struct ifconf *i = (struct ifconf *)arg;
+        WRAPPER_REPLAY_READ_FROM_READ_LOG(ioctl, i->ifc_buf, i->ifc_len);
+        break;
+      }
+      case TIOCGWINSZ: {
+        *((struct winsize *)arg) = GET_FIELD(currentLogEntry,ioctl,win_val);
+        break;
+      }
+      default:
+        break;
+    }
+  } else if (SYNC_IS_RECORD) {
+    retval = _real_ioctl(d, request, arg);
+    switch (request) {
+      case SIOCGIFCONF: {
+        SET_FIELD2(my_entry, ioctl, ifconf_val, *((struct ifconf *)arg));
+        struct ifconf *i = (struct ifconf *)arg;
+        WRAPPER_LOG_WRITE_INTO_READ_LOG(ioctl, i->ifc_buf, i->ifc_len);
+        break;
+      }
+      case TIOCGWINSZ: { 
+        SET_FIELD2(my_entry, ioctl, win_val, *((struct winsize *)arg));
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+}
 #endif
 
 extern "C" int ioctl(int d,  unsigned long int request, ...)
@@ -629,7 +641,8 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     struct winsize * win = va_arg(local_ap, struct winsize *);
     va_end(local_ap);
 #ifdef RECORD_REPLAY
-    IOCTL_HELPER(d, request, win);
+    WRAPPER_HEADER(int, ioctl, _real_ioctl, d, request, win);
+    ioctl_helper(my_entry, retval, d, request, win);
 #else
     retval = _real_ioctl(d, request, win);  // This fills in win
 #endif
@@ -643,12 +656,12 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     arg = va_arg(ap, void *);
     va_end(ap);
 #ifdef RECORD_REPLAY
-    IOCTL_HELPER(d, request, arg);
+    WRAPPER_HEADER(int, ioctl, _real_ioctl, d, request, arg);
+    ioctl_helper(my_entry, retval, d, request, arg);
 #else
     retval = _real_ioctl(d, request, arg);
 #endif
   }
-
   return retval;
 }
 

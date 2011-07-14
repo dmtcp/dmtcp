@@ -53,6 +53,8 @@ typedef unsigned long int log_id_t;
 
 namespace dmtcp { class SynchronizationLog; }
 
+static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 #define MAX_LOG_LENGTH ((size_t)50 * 1024 * 1024) // = 4096*4096. For what reason?
@@ -784,6 +786,7 @@ typedef struct {
   void *arg;
   struct winsize win_val;
   struct ifconf ifconf_val;
+  off_t data_offset;
 } log_event_ioctl_t;
 
 static const int log_event_ioctl_size = sizeof(log_event_ioctl_t);
