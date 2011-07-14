@@ -310,7 +310,9 @@ static int internal_pthread_cond_wait(pthread_cond_t *cond,
     }
     WRAPPER_REPLAY_END(pthread_cond_wait);
   } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
     retval = _real_pthread_cond_wait(cond, mutex);
+    isOptionalEvent = false;
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_wait, cond, *cond);
       SET_FIELD2(my_entry, pthread_cond_wait, mutex, *mutex);

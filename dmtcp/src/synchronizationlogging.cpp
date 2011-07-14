@@ -2393,6 +2393,8 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
     opt_events[0] = malloc_event;
   } else if (event_num == closedir_event) {
     opt_events[0] = free_event;
+  } else if (event_num == pthread_cond_wait_event) {
+    opt_events[0] = calloc_event;
   }
   // TODO: Some error checking that we do not accidently assign above
   // the index MAX_OPTIONAL_EVENTS
@@ -2428,6 +2430,11 @@ static void execute_optional_event(int opt_event_num)
     void *ptr = (void *)GET_FIELD(currentLogEntry, free, ptr);
     _real_pthread_mutex_unlock(&log_index_mutex);
     free(ptr);
+  } else if (opt_event_num == calloc_event) {
+    size_t size = GET_FIELD(currentLogEntry, calloc, size);
+    size_t nmemb = GET_FIELD(currentLogEntry, calloc, nmemb);
+    _real_pthread_mutex_unlock(&log_index_mutex);
+    JASSERT(calloc(nmemb, size) != NULL);
   } else {
     JASSERT (false)(opt_event_num).Text("No action known for optional event.");
   }
