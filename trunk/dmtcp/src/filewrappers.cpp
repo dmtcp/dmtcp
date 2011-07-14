@@ -61,7 +61,6 @@
 #undef open64
 #undef read
 
-static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 //#ifdef RECORD_REPLAY
