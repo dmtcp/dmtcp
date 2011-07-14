@@ -276,6 +276,10 @@ static void my_free_hook (void *ptr, const void *caller)
   _real_pthread_mutex_unlock(&allocation_lock);                             \
   WRAPPER_REPLAY_END(name);
 
+/* XXX Revision 1183 introduces a race here. It is not safe to call
+ * MALLOC_FAMILY_WRAPPER_REPLAY_END before calling _real_XXX. The replay end
+ * macro calls getNextLogEntry(), which we should not do before we have called
+ * the _real_XXX function. We will need to fix this eventually. */
 #define MALLOC_FAMILY_BASIC_SYNC_WRAPPER(ret_type, name, ...)               \
   MALLOC_FAMILY_WRAPPER_HEADER_TYPED(ret_type, name, __VA_ARGS__);          \
   do {                                                                      \
