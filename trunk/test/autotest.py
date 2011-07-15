@@ -195,6 +195,7 @@ def launch(cmd):
       childStderr = subprocess.PIPE  # Don't mix stderr in; need to read stdout
     elif VERBOSE:
       childStdout=None  # Inherit child stdout from parent
+      childStderr=None  # Inherit child stderr from parent
     else:
       if childStdoutDevNull:
         os.close(childStdoutDevNull)
@@ -358,6 +359,7 @@ def runTest(name, numProcs, cmds):
       global coordinator
       coordinatorCmd('q')
       os.system("kill -9 %d" % coordinator.pid)
+      print "Trying to kill old coordinator, and launch new one on same port"
       coordinator = launch(BIN+"dmtcp_coordinator")
     for x in procs:
       #cleanup proc
