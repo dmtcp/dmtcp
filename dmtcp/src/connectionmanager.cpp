@@ -888,14 +888,16 @@ static void close_ckpt_to_read(const int fd)
 {
     int status;
     int rc;
-    while (-1 == (rc = close(fd)) && errno == EINTR) ;
-    JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
     if (dmtcp::ConnectionToFds::ext_decomp_pid != -1) {
+      JASSERT (kill(dmtcp::ConnectionToFds::ext_decomp_pid, SIGKILL) != -1)
+              ("kill:") (JASSERT_ERRNO);
       while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::ext_decomp_pid,
 			         &status, 0)) && errno == EINTR) ;
       JASSERT (rc != -1) ("waitpid:") (JASSERT_ERRNO);
       dmtcp::ConnectionToFds::ext_decomp_pid = -1;
     }
+    while (-1 == (rc = close(fd)) && errno == EINTR) ;
+    JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
 }
 
 // Define DMTCP_OLD_PCLOSE to get back the old buggy version.
