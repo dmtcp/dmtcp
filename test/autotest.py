@@ -165,9 +165,9 @@ def master_read(fd):
 
 #launch a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
-childStdoutDevNull = False
+devnullFd = os.open(os.devnull, os.O_WRONLY)
 def launch(cmd):
-  global childStdoutDevNull
+  global devnullFd
   global master_read
   if VERBOSE:
     print "Launching... ", cmd
@@ -189,18 +189,19 @@ def launch(cmd):
     else:
       return MySubprocess(pid)
   else:
-    childStderr = subprocess.STDOUT # Mix stderr into stdout file object
     if cmd[0] == BIN+"dmtcp_coordinator":
       childStdout = subprocess.PIPE
-      childStderr = subprocess.PIPE  # Don't mix stderr in; need to read stdout
+      # Don't mix stderr in with childStdout; need to read stdout
+      if VERBOSE:
+        childStderr = None
+      else:
+        childStderr = devnullFd
     elif VERBOSE:
       childStdout=None  # Inherit child stdout from parent
       childStderr=None  # Inherit child stderr from parent
     else:
-      if childStdoutDevNull:
-        os.close(childStdoutDevNull)
-      childStdout = os.open(os.devnull, os.O_WRONLY)
-      childStdoutDevNull = childStdout
+      childStdout = devnullFd
+      childStderr = subprocess.STDOUT # Mix stderr into stdout file object
     # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=childStdout,
@@ -269,6 +270,7 @@ def SHUTDOWN():
     print "SHUTDOWN() failed"
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
+  os.close(devnullFd)
 
 #make sure val is true
 def CHECK(val, msg):

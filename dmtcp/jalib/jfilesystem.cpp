@@ -194,21 +194,25 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/../",
     "/../../",
     "/../../../",
-    "/../lib/dmtcp/",
     "/../lib64/dmtcp/"
+    "/../lib/dmtcp/",
   };
+  // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
 
   const char *p2[] = {
     "./",
     "../",
     "../../",
     "../../../",
-    "/bin/",
+    "/usr/local/bin/",
     "/usr/bin/",
-    "/lib/",
-    "/lib64/",
+    "/bin/",
+    "/usr/local/lib64/",
+    "/usr/local/lib/",
+    "/usr/lib64/",
     "/usr/lib/",
-    "/usr/lib64/"
+    "/lib64/"
+    "/lib/",
   };
 
   jalib::string pth;
@@ -233,7 +237,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     }
   }
 
-  for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
+  for (i = 0; i < sizeof(p2) / sizeof(char*); i++) {
     pth = p2[i] + file;
     if (FileExists(pth)) {
       return pth;

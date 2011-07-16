@@ -12,3 +12,4 @@ usr/bin/dmtcp_checkpoint
 usr/bin/dmtcp_nocheckpoint
 usr/bin/dmtcp_restart
 usr/bin/dmtcp_command
+usr/bin/mtcp_restart

@@ -460,8 +460,9 @@ bool testSetuid(const char *filename)
 void testStaticallyLinked(const char *pathname) {
   if (dmtcp::Util::isStaticallyLinked(pathname)) {
     JASSERT_STDERR <<
-      "*** WARNING:  /lib/ld-2.10.1.so --verify " << pathname << " returns\n"
-      << "***  nonzero status.  This often means that " << pathname << " is\n"
+      "*** WARNING:  /lib/ld-linux.so --verify " << pathname << " returns\n"
+      << "***  nonzero status.  (Some distros use /lib64/ld-linux-x86-64.so .)"
+      << "*** This often means that " << pathname << " is\n"
       << "*** a statically linked target.  If so, you can confirm this with\n"
       << "*** the 'file' command.\n"
       << "***  The standard DMTCP only supports dynamically"
