@@ -246,8 +246,8 @@ uninstall:
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(bindir)/mtcp_restart"
 	rm -f "$(DESTDIR)$(libdir)/libmtcp.so"
+	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
-#	rm -Rf "$(DESTDIR)$(include)/dmtcp"
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build mtcp dmtcp \
