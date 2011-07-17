@@ -306,7 +306,7 @@ int main (int argc, char *argv[], char *envp[])
  * Then try:  (gdb) shell ../utils/gdb-add-libmtcp-symbol-file.py
  * where ADDR will be restore_start or an arb. address in restore_start()
  ********************************************************************/
-#if defined(DEBUG) || defined(DMTCP_DEBUG)
+#if defined(DEBUG)
   char *p, symbolbuff[256];
   FILE *symbolfile;
   long textbase; /* offset */
@@ -449,7 +449,7 @@ static int open_ckpt_to_read(char *filename, char *envp[])
 #ifdef HBICT_DELTACOMP
     if( fc == HBICT_FIRST ){
       decomp_args = hbict_args;
-      if( mtcp_find_executable(hbict_cmd, getenv("PATH"), 
+      if( mtcp_find_executable(hbict_cmd, getenv("PATH"),
                               decomp_path) == NULL ) {
         MTCP_PRINTF("ERROR: Cannot find hbict to decompress ckpt file!\n");
         mtcp_abort();

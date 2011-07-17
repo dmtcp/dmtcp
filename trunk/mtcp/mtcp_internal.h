@@ -57,10 +57,6 @@
 #  define FUTEX_WAKE 1
 #endif
 
-#ifdef DMTCP_DEBUG
-#  define DEBUG
-#endif
-
 extern pid_t saved_pid;
 
 #define MTCP_STR_ERRNO strerror(mtcp_sys_errno)
