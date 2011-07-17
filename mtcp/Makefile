@@ -62,9 +62,6 @@ CFLAGS += -O0 -g
 # Use this for standalone MTCP debugging, or DMTCP debugging to stderr
 #   (independently of ./configure --enable-debug)
 #CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
-# Use this for debugging with DMTCP.
-# -DDMTCP_DEBUG causes debug info to appear in jassertlog, but not on-screen.
-#CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally

@@ -213,9 +213,7 @@ static void rwrite (char const *buff, int size)
   if (dmtcp_info_stderr_fd != -1) {
     mtcp_write_all(dmtcp_info_stderr_fd, buff, size);
   }
-#ifdef DMTCP_DEBUG
   if (dmtcp_info_jassertlog_fd != -1) {
     mtcp_write_all(dmtcp_info_jassertlog_fd, buff, size);
   }
-#endif
 }
