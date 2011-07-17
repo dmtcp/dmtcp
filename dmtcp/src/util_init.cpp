@@ -74,6 +74,8 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
   JASSERT_SET_CONSOLE_FD(-1);
   JTRACE("Process Information") (a.str());
   JASSERT_SET_CONSOLE_FD(PROTECTED_STDERR_FD);
+#else
+  JASSERT_INIT("");
 #endif
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
