@@ -309,6 +309,8 @@ void mtcp_readcs(int fd, char cs)
   }
 }
 
+// NOTE: This functions is called by mtcp_printf() so do not invoke
+// mtcp_printf() from within this function.
 __attribute__ ((visibility ("hidden")))
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
 {

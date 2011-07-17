@@ -209,23 +209,13 @@ gofish:
 }
 
 static void rwrite (char const *buff, int size)
-
 {
-  int offs;
-  unsigned int rc;
-
   if (dmtcp_info_stderr_fd != -1) {
-    for (offs = 0; offs < size; offs += rc) {
-      rc = mtcp_sys_write (dmtcp_info_stderr_fd, buff + offs, size - offs);
-      if (rc <= 0) break;
-    }
+    mtcp_write_all(dmtcp_info_stderr_fd, buff, size);
   }
 #ifdef DMTCP_DEBUG
   if (dmtcp_info_jassertlog_fd != -1) {
-    for (offs = 0; offs < size; offs += rc) {
-      rc = mtcp_sys_write (dmtcp_info_jassertlog_fd, buff + offs, size - offs);
-      if (rc <= 0) break;
-    }
+    mtcp_write_all(dmtcp_info_jassertlog_fd, buff, size);
   }
 #endif
 }
