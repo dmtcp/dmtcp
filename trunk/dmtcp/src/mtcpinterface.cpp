@@ -443,7 +443,7 @@ void prctlRestoreProcessName()
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 {
   /*
-   * The addresses where argv of mtcp_restart process starts. /proc/pid/cmdline
+   * The addresses where argv of mtcp_restart process starts. /proc/PID/cmdline
    * information is looked up from these addresses.  We observed that the
    * stack-base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
    * 0xc0000000 in case of 32-bit system.  Once we restore the checkpointed
@@ -451,7 +451,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
    * process's memory if they are unused i.e. not mapped by the process (which
    * is true for most processes running with ASLR).  Once we map them, we can
    * put the argv of the checkpointed process in there so that
-   * /proc/self/cmdline show the correct values.
+   * /proc/self/cmdline shows the correct values.
    * Note that if compiled in 32-bit mode '-m32', the stack base address
    * is in still a different location, and so this logic is not valid.
    */
@@ -491,8 +491,8 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
     for ( size_t i=0; i< args.size(); ++i ) {
       if (addr + args[i].length() >= endAddr)
         break;
-      strcpy(addr, args[0].c_str());
-      addr += args[0].length() + 1;
+      strcpy(addr, args[i].c_str());
+      addr += args[i].length() + 1;
     }
     _mtcpRestoreArgvStartAddr = startAddr;
   } else {
