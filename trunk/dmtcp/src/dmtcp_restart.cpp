@@ -786,21 +786,15 @@ int main ( int argc, char** argv )
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
+  //make sure JASSERT initializes now, rather than during restart
+  Util::initializeLogFile();
+
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
-  else
-#ifndef DEBUG
-    // This is a temporary hack to fix the forkexec test in rev. 1178.
-    // It will be replaced by cleaner code.
-    jassert_internal::jassert_safe_print("");
-#endif
 
   if (autoStartCoordinator)
     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
                                                          isRestart);
-
-  //make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile();
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
