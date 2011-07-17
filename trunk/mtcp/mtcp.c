@@ -2199,8 +2199,8 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
       MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
     fd=pipe_fds[1];//change return value
   } else { /* child process */
-    static int (*libc_unsetenv) (const char *name);
-    static int (*libc_execvp) (const char *path, char *const argv[]);
+    //static int (*libc_unsetenv) (const char *name);
+    //static int (*libc_execvp) (const char *path, char *const argv[]);
 
     mtcp_sys_close(pipe_fds[1]);
     dup2(pipe_fds[0], STDIN_FILENO);
