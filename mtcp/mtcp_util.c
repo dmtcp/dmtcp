@@ -374,8 +374,7 @@ char *mtcp_find_executable(char *executable, const char* path_env, char exec_pat
   int len;
 
   if (path_env == NULL) {
-    *exec_path = 0;
-    return NULL;
+    path_env = ""; // Will try stdpath later in this function
   }
 
   while (*path_env != '\0') {
@@ -392,6 +391,13 @@ char *mtcp_find_executable(char *executable, const char* path_env, char exec_pat
     if (mtcp_is_executable(exec_path))
       return exec_path;
   }
-  return NULL;
+
+  // In case we're running with PATH environment variable unset:
+  const char * stdpath = "/usr/local/bin:/usr/bin:/bin";
+  if (mtcp_strcmp(path_env, stdpath) == 0) {
+    return NULL;  // Already tried stdpath
+  } else {
+    return mtcp_find_executable(executable, stdpath, exec_path);
+  }
 }
 

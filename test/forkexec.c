@@ -17,7 +17,7 @@ int main ( int argc, char** argv )
 {
   FILE* fp = NULL;
 
-  if ( argc == 1 )
+  if ( argc == 1 ) // child will have argc == 2, argv[1] == "slave"
   {
     //coordinator
 
@@ -31,9 +31,10 @@ int main ( int argc, char** argv )
 //         printf("%s\n",buf);
 
 
-    if ( fork() == 0 )
+    if ( fork() == 0 )  // if child
     {
-      //oops... the user forgot to close a unused socket!!!
+printf("child created\n");
+      //oops... the user forgot to close an unused socket!!!
       //close(fd[1]);
       dup2 ( fd[0], WELL_KNOWN_FD );
       char* t[] = { argv[0] , "slave", 0};
@@ -53,7 +54,7 @@ int main ( int argc, char** argv )
       die ( "exec failed" );
 
     }
-    else
+    else  // else parent
     {
       close ( fd[0] );
       dup2 ( fd[1],WELL_KNOWN_FD );
