@@ -175,7 +175,8 @@ def launch(cmd):
   # Example cmd:  dmtcp_checkpoint screen ...
   ptyMode = False
   for str in cmd:
-    if re.search("(_|/|^)(screen|script|vim|emacs|pty)(_|$)", str):
+    # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
+    if re.search("(_|/|^)(screen|script|vim|emacs.*|pty)(_|$)", str):
       ptyMode = True
   try:
     os.stat(cmd[0])
@@ -184,6 +185,10 @@ def launch(cmd):
   if ptyMode:
     (pid, fd) = pty.fork()
     if pid == 0:
+      # FIXME: KEEP THIS COMMENTED FOR ONE RUN OF NMI TO SEE WHAT THE BUG IS:
+      # This if statement is needed for emacs.  Why?
+      #if cmd[0] == BIN+"dmtcp_restart":
+      #  os.environ['PATH'] = "/usr/local/bin:/usr/bin:/bin"
       pty.spawn(cmd, master_read)
       sys.exit(0)
     else:
