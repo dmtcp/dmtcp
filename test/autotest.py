@@ -185,10 +185,6 @@ def launch(cmd):
   if ptyMode:
     (pid, fd) = pty.fork()
     if pid == 0:
-      # FIXME: KEEP THIS COMMENTED FOR ONE RUN OF NMI TO SEE WHAT THE BUG IS:
-      # This if statement is needed for emacs.  Why?
-      #if cmd[0] == BIN+"dmtcp_restart":
-      #  os.environ['PATH'] = "/usr/local/bin:/usr/bin:/bin"
       pty.spawn(cmd, master_read)
       sys.exit(0)
     else:
