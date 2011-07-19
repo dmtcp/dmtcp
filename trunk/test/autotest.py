@@ -185,6 +185,7 @@ def launch(cmd):
   if ptyMode:
     (pid, fd) = pty.fork()
     if pid == 0:
+      signal.alarm(300) # pending alarm inherited across an exec, but not a fork
       pty.spawn(cmd, master_read)
       sys.exit(0)
     else:
@@ -204,6 +205,8 @@ def launch(cmd):
       childStdout = devnullFd
       childStderr = subprocess.STDOUT # Mix stderr into stdout file object
     # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
+    # FIXME:  Should call signal.alarm(300), but it would be reset on fork().
+    #         We could rewrite Popen in terms of fork() and exec().
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=childStdout,
 		 stderr=childStderr, close_fds=True)
