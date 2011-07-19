@@ -629,7 +629,6 @@ namespace dmtcp
 #endif
   };
 
-
 } // end namespace
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -1354,11 +1353,11 @@ static void runMtcpRestore ( const char* path, int offset,
 #ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
-  sprintf(buf, "%d", fd);
   char buf2[64];
+
+  sprintf(buf, "%d", fd);
   // gzip_child_pid set by openMtcpCheckpointFile() above.
   sprintf(buf2, "%d", dmtcp::ConnectionToFds::gzip_child_pid);
-
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
     ( char* ) "--stderr-fd",
@@ -1371,12 +1370,11 @@ static void runMtcpRestore ( const char* path, int offset,
   };
   if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
     newArgs[3] = NULL;
-
   JTRACE ( "launching mtcp_restart --fd" )(fd)(path);
 #else
   char buf[64];
-  sprintf(buf, "%d", offset);
 
+  sprintf(buf, "%d", offset);
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
     ( char* ) "--stderr-fd",
@@ -1386,47 +1384,39 @@ static void runMtcpRestore ( const char* path, int offset,
     (char*) path,
     NULL
   };
-
   JTRACE ( "launching mtcp_restart --offset" )(path)(offset);
-
 #endif
 
   // Create the placeholder for "MTCP_OLDPERS" environment.
-  //setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
-
+  // setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
   // FIXME: Put an explanation of the logic below.   -- Kapil
 #define ENV_PTR(x) ((char*)(getenv(x) - strlen(x) - 1))
-
   char* dummyEnviron = NULL;
-
-  char* newEnv[] = {
-    ENV_PTR("PATH"),
-   // ENV_PTR("MTCP_OLDPERS"),
-    (char*) dummyEnviron,
-    NULL
-  };
+  const int dummyEnvironIndex = 0; // index in newEnv[]
+  const int pathIndex = 1; // index in newEnv[]
+  // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
+  char* newEnv[3] = {NULL, NULL, NULL};
+  // Will put ENV_PTR("MTCP_OLDPERS") here.
+  newEnv[dummyEnvironIndex] = (char*) dummyEnviron;
+  newEnv[pathIndex] = (getenv("PATH") ? ENV_PTR("PATH") : NULL);
 
   size_t newArgsSize = 0;
   for (int i = 0; newArgs[i] != 0; i++) {
     newArgsSize += strlen(newArgs[i]) + 1;
   }
-
   size_t newEnvSize = 0;
   for (int i = 0; newEnv[i] != 0; i++) {
     newEnvSize += strlen(newEnv[i]) + 1;
   }
-
   size_t originalArgvEnvSize = argvSize + envSize;
   size_t newArgvEnvSize = newArgsSize + newEnvSize + strlen(newArgs[0]);
   size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
-
   dummyEnviron = (char*) malloc(argvSizeDiff);
-  memset(dummyEnviron, '0', argvSizeDiff - 1);
+  memset(dummyEnviron, '0', (argvSizeDiff >= 1 ? argvSizeDiff - 1 : 0));
   strncpy(dummyEnviron, ENV_VAR_DMTCP_DUMMY "=0", strlen(ENV_VAR_DMTCP_DUMMY "="));
   dummyEnviron[argvSizeDiff - 1] = '\0';
 
-  newEnv[1] = dummyEnviron;
-
+  newEnv[dummyEnvironIndex] = dummyEnviron;
   JTRACE("Args/Env Sizes") (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
 
   execve ( newArgs[0], newArgs, newEnv );
