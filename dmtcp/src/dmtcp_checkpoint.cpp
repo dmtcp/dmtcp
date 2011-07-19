@@ -475,14 +475,27 @@ void testStaticallyLinked(const char *pathname) {
   return;
 }
 
+void setScreenDir() {
+  if (getenv("SCREENDIR") == NULL)
+    // This will flash by, but the user will see it again on exiting screen.
+    JASSERT_STDERR <<"*** WARNING: Environment variable SCREENDIR is not set!\n"
+                   << "***  Set this to a safe location, and if restarting on\n"
+		   << "***  a new host, copy your SCREENDIR directory there.\n"
+		   << "***  DMTCP will use $DMTCP_TMPDIR/uscreens for now,\n"
+		   << "***  but this directory may not survive a re-boot!\n"
+		   << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
+		   << "***  inside screen.  Please use emacs22 for now.  This\n"
+		   << "***  will be fixed in a future version of DMTCP.\n\n";
+    setenv("SCREENDIR", dmtcp::Util::getScreenDir().c_str(), 1);
+}
+
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 bool testScreen(char **argv, char ***newArgv)
 {
   if (dmtcp::Util::isScreen(argv[0])) {
-    setenv("SCREENDIR", dmtcp::Util::getScreenDir().c_str(), 1);
+    setScreenDir();
     dmtcp::Util::patchArgvIfSetuid(argv[0], argv, newArgv);
     return true;
   }
   return false;
-
 }
