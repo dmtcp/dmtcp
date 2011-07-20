@@ -246,12 +246,12 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
   if (dmtcp::Util::isSetuid(path)) {
     if (dmtcp::Util::isScreen(path)) {
-      setenv(ENV_VAR_SCREENDIR, dmtcp::Util::getScreenDir().c_str(), 1);
+      dmtcp::Util::setScreenDir();
     }
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
     dmtcp::Util::patchArgvIfSetuid(path, argv, newArgv);
-    // BUG:  dmtcp::Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING BINARY
-    //   IN CODE RE-FACTORING FROM REVISION 911.
+    // BUG:  dmtcp::Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
+    //   BINARY IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
     *filename = (char*)path;

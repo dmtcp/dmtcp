@@ -56,6 +56,7 @@ namespace dmtcp
 
 
     bool isScreen(const char *filename);
+    void setScreenDir();
     dmtcp::string getScreenDir();
     bool isSetuid(const char *filename);
     void freePatchedArgv(char **newArgv);

@@ -22,7 +22,7 @@ endif
 PWD=$(shell pwd)
 
 TESTS=${basename ${shell ls *.c *.cpp | grep -v '^hellompi.c'}} \
-	hellompich helloOpenMPI
+	hellompich openmpi
 
 tests: $(TESTS)
 	cd ../module && ${MAKE}
@@ -50,7 +50,7 @@ else
 	#$<: required libraries missing, skipping test
 endif
 
-helloOpenMPI: hellompi.c
+openmpi: hellompi.c
 ifeq ($(HAS_OPENMPI),yes)
 	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS) 
 else

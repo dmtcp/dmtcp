@@ -317,7 +317,9 @@ else
     /bin/sh -c "$OPENMPI_MPIRUN -np 4 ./test_openmpi 2>/dev/null 1>&2 & \
       ps auxw | grep $USER | grep -v grep | grep -q orted && \
       touch ./uses_openmpi_orted" 2>/dev/null
-    /bin/kill -9 `ps -eo pid,comm | grep test_openmpi | sed -e 's% .*$%%'`
+    dnl Extra [...] needed to protect inner [...] from m4
+    /bin/kill -9 [`ps -eo pid,comm | grep test_openmpi | \
+      sed -e 's%\([0-9]\) .*$%\1%'`]
     if test -r ./uses_openmpi_orted; then
       rm -f ./uses_openmpi_orted
       AC_SUBST(USES_OPENMPI_ORTED, [yes])

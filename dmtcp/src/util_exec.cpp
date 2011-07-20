@@ -169,8 +169,36 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
 
 bool dmtcp::Util::isScreen(const char *filename)
 {
+JASSERT_STDERR << jalib::Filesystem::BaseName(filename);
   return jalib::Filesystem::BaseName(filename) == "screen" &&
          isSetuid(filename);
+}
+
+//NOTE:  This routine is called only is 'screen' is setuid.
+// In Ubuntu 9.10, an unprivileged 'screen' (no setuid) will ckpt and restart
+// fine if SCREENDIR is set to the file $USER/tmp4 when $USER/tmp4 doesn't exist
+// Arguably this is a bug in screen-4.0.  Should we take advantage of it?
+void dmtcp::Util::setScreenDir() {
+  if (getenv("SCREENDIR") == NULL) {
+    // This will flash by, but the user will see it again on exiting screen.
+    JASSERT_STDERR <<"*** WARNING: Environment variable SCREENDIR is not set!\n"
+                   << "***  Set this to a safe location, and if restarting on\n"
+                   << "***  a new host, copy your SCREENDIR directory there.\n"
+                   << "***  DMTCP will use $DMTCP_TMPDIR/uscreens for now,\n"
+                   << "***  but this directory may not survive a re-boot!\n"
+                   << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
+                   << "***  inside screen.  Please use emacs22 for now.  This\n"
+                   << "***  will be fixed in a future version of DMTCP.\n\n";
+    setenv("SCREENDIR", dmtcp::Util::getScreenDir().c_str(), 1);
+  } else {
+    if (access(getenv("SCREENDIR"), R_OK|W_OK|X_OK) != 0)
+      JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
+                     << "***  to directory with improper permissions.\n"
+                     << "***  Please use a SCREENDIR with permission 700."
+                     << "  [ SCREENDIR = " << getenv("SCREENDIR") << " ]\n"
+                     << "***  Continuing anyway, and hoping for the best.\n";
+  }
+
 }
 
 dmtcp::string dmtcp::Util::getScreenDir()

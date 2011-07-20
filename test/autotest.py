@@ -176,7 +176,8 @@ def launch(cmd):
   ptyMode = False
   for str in cmd:
     # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
-    if re.search("(_|/|^)(screen|script|vim|emacs.*|pty)(_|$)", str):
+    # vim can be vim.gnome, etc.
+    if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty)(_|$)", str):
       ptyMode = True
   try:
     os.stat(cmd[0])
@@ -351,6 +352,15 @@ def runTest(name, numProcs, cmds):
   status=(numProcs, True)
   procs=[]
 
+  def doesStatusSatisfy(newStatus,requiredStatus):
+    if isinstance(requiredStatus[0], int):
+      statRange = [requiredStatus[0]]
+    elif isinstance(requiredStatus[0], str):
+      statRange = eval(requiredStatus[0])
+    else:
+      raise NotImplementedError
+    return newStatus[0] in statRange and newStatus[1] == requiredStatus[1]
+
   def wfMsg(msg):
     #return function to generate error message
     return lambda: msg+", "+str(status[0])+" expected, %d found, running=%d" % getStatus()
@@ -396,12 +406,15 @@ def runTest(name, numProcs, cmds):
     coordinatorCmd('c')
 
     #wait for files to appear and status to return to original
-    WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and status==getStatus(),
+    WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
+                    doesStatusSatisfy(getStatus(), status),
             wfMsg("checkpoint error"))
 
     #make sure the right files are there
     numFiles=getNumCkptFiles(ckptDir) # len(listdir(ckptDir))
-    CHECK(numFiles==status[0], "unexpected number of checkpoint files, %d procs, %d files" % (status[0], numFiles))
+    CHECK(doesStatusSatisfy((numFiles,True),status),
+          "unexpected number of checkpoint files, %s procs, %d files"
+          % (str(status[0]), numFiles))
 
   def testRestart():
     #build restart command
@@ -411,7 +424,8 @@ def runTest(name, numProcs, cmds):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(launch(cmd))
-    WAITFOR(lambda: status==getStatus(), wfMsg("restart error"))
+    WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
+            wfMsg("restart error"))
     if testconfig.HBICT_DELTACOMP == "no":
       clearCkptDir()
 
@@ -430,7 +444,8 @@ def runTest(name, numProcs, cmds):
       procs.append(launch(BIN+"dmtcp_checkpoint "+cmd))
       sleep(S*SLOW)
 
-    WAITFOR(lambda: status==getStatus(), wfMsg("user program startup error"))
+    WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
+            wfMsg("user program startup error"))
 
     for i in range(CYCLES):
       if i!=0 and i%2==0:
@@ -689,8 +704,9 @@ if testconfig.HAS_MPICH == "yes":
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
 if testconfig.HAS_OPENMPI == "yes":
   numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
-  runTest("helloOpenMPI", numProcesses, [testconfig.OPENMPI_MPIRUN + " -np 4" +
-			     " --launch-agent 'orted' ./test/helloOpenMPI"])
+  # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
+  runTest("openmpi", "[5,6]", [testconfig.OPENMPI_MPIRUN + " -np 4" +
+			     " ./test/openmpi"])
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
