@@ -1613,7 +1613,7 @@ static bool ptmxTestPacketMode(int masterFd) {
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
   JWARNING ((rc = write(slave_fd, tmp_buf, 1)) == 1) (rc) .Text("write failed");
-  tcdrain(slave_fd);
+  //tcdrain(slave_fd);
   _real_close(slave_fd);
 
   /* Read the 'x':  If we also see a command byte, it's packet mode */
