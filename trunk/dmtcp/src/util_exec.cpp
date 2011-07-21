@@ -169,7 +169,6 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
 
 bool dmtcp::Util::isScreen(const char *filename)
 {
-JASSERT_STDERR << jalib::Filesystem::BaseName(filename);
   return jalib::Filesystem::BaseName(filename) == "screen" &&
          isSetuid(filename);
 }
