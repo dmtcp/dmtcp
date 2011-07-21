@@ -1,4 +1,4 @@
-AC_INIT([DMTCP],[1.2.2],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.2.3],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
