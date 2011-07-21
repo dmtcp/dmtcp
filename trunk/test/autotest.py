@@ -48,6 +48,8 @@ if testconfig.PTRACE_SUPPORT == "yes":
   PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
+# Consider raising this value when /usr/lib/locale/locale-archive is 100MB.
+# This can happen on Red Hat-derived distros.
 TIMEOUT=10
 
 #Interval between checks for ckpt/restart complete
@@ -284,7 +286,7 @@ def CHECK(val, msg):
 
 #wait TIMEOUT for test() to be true, or throw error
 def WAITFOR(test, msg):
-  left=TIMEOUT/INTERVAL
+  left=TIMEOUT*(S/DEFAULT_S)/INTERVAL
   while not test():
     if left <= 0:
       CHECK(False, msg())
@@ -640,6 +642,12 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=2
   if sys.version_info[0:2] >= (2,6):
+    # NOTE:  If 'script' fails, try raising value of S, above, to larger number.
+    #   Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
+    #   For example, in Fedora 13 (and other recent Red Hat-derived distros?),
+    #   /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
+    #   only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
+    #   to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     runTest("script",    4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +
     			      " dmtcp-test-typescript.tmp"])
