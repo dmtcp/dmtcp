@@ -2618,7 +2618,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 
     // If the process has an area labelled as "/dev/zero (deleted)", we mark
     //   the area as Anonymous and save the contents to the ckpt image file.
-    // IF this area has a MAP_SHARED attribute, it should be replaced with
+    // If this area has a MAP_SHARED attribute, it should be replaced with
     //   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is an
     //   absolute source and sink. Anything written to it will be discarded and
     //   anything read from it will be all zeros.
