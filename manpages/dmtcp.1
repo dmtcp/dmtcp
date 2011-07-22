@@ -43,7 +43,7 @@ does not modify the user's program nor the operating system.
 \fBMTCP\fP is a standalone component of DMTCP available as a checkpointing
 library for a single process.
 .SH "OPTIONS"
-For each command, the --help or -h flag will show the command-line options.
+For each command, the \-\-help or \-h flag will show the command-line options.
 Most command line options can also be controlled through environment variables.
 These can be set in bash with "export NAME=value"
 or in tcsh with "setenv NAME value".
@@ -79,7 +79,7 @@ or allow one to be started implicitly in background by either dmtcp_checkpoint
 or dmtcp_restart to operate.
 The address of the unique coordinator should be specified by
 dmtcp_checkpoint, dmtcp_restart, and dmtcp_command either through
-the --host and --port command-line flags or through the
+the \-\-host and \-\-port command-line flags or through the
 the DMTCP_HOST and DMTCP_PORT environment variables.  If neither is
 given, the host-port pair defaults to localhost-7779.
 The host-port pair associated with a particular coordinator is
@@ -166,7 +166,7 @@ dmtcpaware/dmtcpaware.h for the functions available.
 See test/dmtcpaware[123].c for three example applications.
 For an example of its usage, try:
 
- cd test; rm dmtcpaware1; make dmtcpaware1; ./autotest -v dmtcpaware1
+ cd test; rm dmtcpaware1; make dmtcpaware1; ./autotest \-v dmtcpaware1
 
 The user application should link with libdmtcpaware.so (\-ldmtcpaware)
 and use the header file dmtcp/dmtcpaware.h.
@@ -189,7 +189,7 @@ of the events available with the dmtcpaware interface.)
 One or more modules are invoked via a list of colon-separated
 absolute pathnames.
 
-  dmtcp_checkpoint --with-module MODULE1[:MODULE2]...
+  dmtcp_checkpoint \-\-with\-module MODULE1[:MODULE2]...
 
 .SH "SEE ALSO"
 Full documentation is available from http://dmtcp.sourceforge.net/
