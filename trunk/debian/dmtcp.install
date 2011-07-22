@@ -6,7 +6,6 @@ usr/lib/dmtcp/dmtcp_inspector
 usr/lib/dmtcp/dmtcp_nocheckpoint
 usr/lib/dmtcp/dmtcp_restart
 usr/lib/dmtcp/libmtcp.so
-usr/lib/dmtcp/mtcp_restart
 usr/bin/dmtcp_coordinator
 usr/bin/dmtcp_checkpoint
 usr/bin/dmtcp_nocheckpoint

@@ -216,12 +216,14 @@ install: all
 	  echo ERROR: prefix must be defined; \
 	  exit 1; \
 	fi
+	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
+	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	cd dmtcp && make install
 	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
 	cp mtcp/mtcp_restart $(DESTDIR)$(bindir)
 	cp mtcp/mtcp.h $(DESTDIR)$(includedir)
 	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
-	$(MKDIR_P) $(DESTDIR)$(bindir)
 	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_coordinator
 	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_checkpoint
 	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_nocheckpoint
