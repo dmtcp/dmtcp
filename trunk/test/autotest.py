@@ -345,8 +345,9 @@ def getNumCkptFiles(dir):
   return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"), listdir(dir)))
 
 
-#test a given list of commands to see if they checkpoint
-def runTest(name, numProcs, cmds):
+# Test a given list of commands to see if they checkpoint
+# runTest() sets up a keyboard interrupt handler, and then calls this function.
+def runTestRaw(name, numProcs, cmds):
   #the expected/correct running status
   if testconfig.USE_M32 == "1":
     def forall(fnc, lst):
@@ -367,7 +368,8 @@ def runTest(name, numProcs, cmds):
 
   def wfMsg(msg):
     #return function to generate error message
-    return lambda: msg+", "+str(status[0])+" expected, %d found, running=%d" % getStatus()
+    return lambda: msg+", "+str(status[0])+ \
+                   " expected, %d found, running=%d" % getStatus()
 
   def testKill():
     #kill all processes
@@ -497,6 +499,23 @@ def runTest(name, numProcs, cmds):
       sys.exit(1)
 
   clearCkptDir()
+
+def getProcessChildren(pid):
+    p = subprocess.Popen("ps --no-headers -o pid --ppid %d" % pid, shell = True,
+                         stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    return [int(pid) for pid in stdout.split()]
+
+# If the user types ^C, then kill all child processes.
+def runTest(name, numProcs, cmds):
+  try:
+    runTestRaw(name, numProcs, cmds)
+  except KeyboardInterrupt:
+    for pid in getProcessChildren(os.getpid()):
+      try:
+        os.kill(pid, signal.SIGKILL)
+      except OSError: # This happens if pid already died.
+        pass
 
 print "== Tests =="
 
