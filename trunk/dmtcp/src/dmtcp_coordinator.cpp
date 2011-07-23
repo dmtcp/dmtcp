@@ -1030,7 +1030,9 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
            workersRunningAndSuspendMsgSent == true) ) {
       JNOTE  ( "Current computation not in RUNNING state."
 	       "  Refusing to accept new connections.")
-        ( curCompGroup ) ( hello_remote.from.pid() );
+        ( curCompGroup ) ( hello_remote.from.pid() )
+        ( s.numPeers ) ( s.minimumState ) 
+        ( s.minimumStateUnanimous ) ( workersRunningAndSuspendMsgSent );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
       remote.close();

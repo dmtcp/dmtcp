@@ -48,9 +48,12 @@ if testconfig.PTRACE_SUPPORT == "yes":
   PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
-# Consider raising this value when /usr/lib/locale/locale-archive is 100MB.
-# This can happen on Red Hat-derived distros.
 TIMEOUT=10
+# Raise this value when /usr/lib/locale/locale-archive is 100MB.
+# This can happen on Red Hat-derived distros.
+if os.path.exists("/usr/lib/locale/locale-archive") and \
+   os.path.getsize("/usr/lib/locale/locale-archive") > 10e6:
+  TIMEOUT *= int( os.path.getsize("/usr/lib/locale/locale-archive") / 10e6 )
 
 #Interval between checks for ckpt/restart complete
 INTERVAL=0.1
@@ -188,7 +191,8 @@ def launch(cmd):
   if ptyMode:
     (pid, fd) = pty.fork()
     if pid == 0:
-      signal.alarm(300) # pending alarm inherited across an exec, but not a fork
+      signal.alarm(300) # pending alarm inherited across exec, but not a fork
+      # Problem:  pty.spawn invokes fork.  alarm() will have no effect.
       pty.spawn(cmd, master_read)
       sys.exit(0)
     else:
@@ -208,8 +212,6 @@ def launch(cmd):
       childStdout = devnullFd
       childStderr = subprocess.STDOUT # Mix stderr into stdout file object
     # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
-    # FIXME:  Should call signal.alarm(300), but it would be reset on fork().
-    #         We could rewrite Popen in terms of fork() and exec().
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
 		 stdin=subprocess.PIPE, stdout=childStdout,
 		 stderr=childStderr, close_fds=True)
@@ -357,8 +359,8 @@ def runTest(name, numProcs, cmds):
   def doesStatusSatisfy(newStatus,requiredStatus):
     if isinstance(requiredStatus[0], int):
       statRange = [requiredStatus[0]]
-    elif isinstance(requiredStatus[0], str):
-      statRange = eval(requiredStatus[0])
+    elif isinstance(requiredStatus[0], list):
+      statRange = requiredStatus[0]
     else:
       raise NotImplementedError
     return newStatus[0] in statRange and newStatus[1] == requiredStatus[1]
@@ -642,12 +644,12 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=2
   if sys.version_info[0:2] >= (2,6):
-    # NOTE:  If 'script' fails, try raising value of S, above, to larger number.
-    #   Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
-    #   For example, in Fedora 13 (and other recent Red Hat-derived distros?),
-    #   /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
-    #   only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
-    #   to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
+    # NOTE: If 'script' fails, try raising value of S, above, to larger number.
+    #  Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
+    #  For example, in Fedora 13 (and other recent Red Hat-derived distros?),
+    #  /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
+    #  only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
+    #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     runTest("script",    4,  ["/usr/bin/script -f" +
     			      " -c 'bash -c \"ls; sleep 30\"'" +
     			      " dmtcp-test-typescript.tmp"])
@@ -713,7 +715,7 @@ if testconfig.HAS_MPICH == "yes":
 if testconfig.HAS_OPENMPI == "yes":
   numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
-  runTest("openmpi", "[5,6]", [testconfig.OPENMPI_MPIRUN + " -np 4" +
+  runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
 
 print "== Summary =="
