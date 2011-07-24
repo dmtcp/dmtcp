@@ -276,7 +276,7 @@ static void my_free_hook (void *ptr, const void *caller)
   _real_pthread_mutex_unlock(&allocation_lock);                             \
   WRAPPER_REPLAY_END(name);
 
-/* XXX Revision 1183 introduces a race here. It is not safe to call
+/* XXX Possible race here. It is not safe to call
  * MALLOC_FAMILY_WRAPPER_REPLAY_END before calling _real_XXX. The replay end
  * macro calls getNextLogEntry(), which we should not do before we have called
  * the _real_XXX function. We will need to fix this eventually. */
@@ -285,24 +285,33 @@ static void my_free_hook (void *ptr, const void *caller)
   do {                                                                      \
     if (SYNC_IS_REPLAY) {                                                   \
       MALLOC_FAMILY_WRAPPER_REPLAY_START(name);                             \
-      void *saved_retval = GET_COMMON(currentLogEntry, retval);             \
+      void *savedRetval = GET_COMMON(currentLogEntry, retval);              \
+      /* We have to end it immediately because there may be an mmap. */     \
       MALLOC_FAMILY_WRAPPER_REPLAY_END(name);                               \
+      _real_pthread_mutex_lock(&allocation_lock);                           \
       retval = _real_ ## name(__VA_ARGS__);                                 \
-      if (retval != saved_retval) {                                         \
+      if (retval != savedRetval) {                                          \
         JTRACE ( #name " returned wrong address on replay" )                \
           ( retval ) ( GET_COMMON(currentLogEntry, retval) )                \
           (unified_log.currentEntryIndex());                                \
-        kill(getpid(), SIGSEGV);                                            \
+    while (1);                                                              \
       }                                                                     \
+      _real_pthread_mutex_unlock(&allocation_lock);                         \
     } else if (SYNC_IS_RECORD) {                                            \
       _real_pthread_mutex_lock(&allocation_lock);                           \
-      size_t savedOffset = my_log->dataSize();                              \
+      size_t savedOffset = my_log->dataSize();				    \
+      /* We write the *alloc entry before calling _real_XXX because         \
+	 they may be internally promoted to mmap by libc. This way,         \
+	 the malloc entry appears before the mmap entry in the log and      \
+	 replay can proceed as normal. On replay, _real_alloc will be       \
+	 called again, and it will again be promoted to mmap. */            \
       WRAPPER_LOG_WRITE_ENTRY(my_entry);                                    \
       retval = _real_ ## name(__VA_ARGS__);                                 \
+      SET_COMMON2(my_entry, retval, (void *)retval);			    \
+      SET_COMMON2(my_entry, my_errno, errno);				    \
+      /* Patch in the real return value. */				    \
+      my_log->replaceEntryAtOffset(my_entry, savedOffset);		    \
       _real_pthread_mutex_unlock(&allocation_lock);                         \
-      SET_COMMON2(my_entry, retval, (void*)retval);                         \
-      SET_COMMON2(my_entry, my_errno, errno);                               \
-      my_log->replaceEntryAtOffset(my_entry, savedOffset);                  \
     }                                                                       \
   } while(0)
 
@@ -391,9 +400,11 @@ extern "C" void free(void *ptr)
   void *retval = NULL;
 
   if (SYNC_IS_REPLAY) {
-    MALLOC_FAMILY_WRAPPER_REPLAY_START(free);
+    waitForTurn(my_entry, &free_turn_check);
+    _real_pthread_mutex_lock(&allocation_lock);
     _real_free(ptr);
-    MALLOC_FAMILY_WRAPPER_REPLAY_END(free);
+    _real_pthread_mutex_unlock(&allocation_lock);
+    WRAPPER_REPLAY_END(free);
   } else if (SYNC_IS_RECORD) {
     // Not restart; we should be logging.
     _real_pthread_mutex_lock(&allocation_lock);

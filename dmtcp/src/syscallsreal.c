@@ -891,6 +891,16 @@ int _real_closedir(DIR *dirp) {
 }
 
 LIB_PRIVATE
+int _real_openat(int dirfd, const char *pathname, int flags) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, openat ) ( dirfd, pathname, flags );
+}
+
+LIB_PRIVATE
+DIR * _real_fdopendir(int fd) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, fdopendir ) ( fd );
+}
+
+LIB_PRIVATE
 DIR * _real_opendir(const char *name) {
   REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
 }
@@ -983,6 +993,11 @@ long _real_ftell(FILE *stream) {
 LIB_PRIVATE
 int _real_fputs(const char *s, FILE *stream) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, fputs ) ( s, stream );
+}
+
+LIB_PRIVATE
+int _real_fputc(int c, FILE *stream) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, fputc ) ( c, stream );
 }
 
 LIB_PRIVATE

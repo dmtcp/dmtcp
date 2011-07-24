@@ -195,6 +195,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(access)                               \
   MACRO(closedir)                             \
   MACRO(opendir)                              \
+  MACRO(fdopendir)			      \
+  MACRO(openat)				      \
   MACRO(readdir)                              \
   MACRO(readdir_r)                            \
   MACRO(rand)                                 \
@@ -214,6 +216,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(fgets)                                \
   MACRO(fflush)                               \
   MACRO(putc)                                 \
+  MACRO(fputc)                                \
   MACRO(fputs)                                \
   MACRO(fdatasync)                            \
   MACRO(fsync)                                \
@@ -440,6 +443,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int _real_closedir(DIR *dirp);
+  int _real_openat(int dirfd, const char *pathname, int flags);
+  DIR * _real_fdopendir(int fd);
   DIR * _real_opendir(const char *name);
   int _real_mkdir(const char *pathname, mode_t mode);
   int _real_mkstemp(char *temp);
@@ -450,6 +455,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_getc(FILE *stream);
   int _real_gettimeofday(struct timeval *tv, struct timezone *tz);
   int _real_fgetc(FILE *stream);
+  int _real_fputc(int, FILE *stream);
   int _real_ungetc(int c, FILE *stream);
   int _real_putc(int c, FILE *stream);
   int _real_fcntl(int fd, int cmd, ...);

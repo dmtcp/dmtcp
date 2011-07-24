@@ -25,14 +25,24 @@
 #include "dmtcpalloc.h"
 #include "../jalib/jassert.h"
 #include "synchronizationlogging.h"
+#include <unistd.h>
 
 #ifdef RECORD_REPLAY
+
+#define DMTCP_PAGE_SIZE sysconf(_SC_PAGESIZE)
 
 #define LOG_IS_UNIFIED_VALUE 1
 #define LOG_IS_UNIFIED_TYPE char
 #define LOG_IS_UNIFIED_SIZE sizeof(LOG_IS_UNIFIED_TYPE)
 
-#define LOG_OFFSET_FROM_START 64
+/* This offset is how far from the beginning of the mmapped region the actual
+   log starts. I.e. the LogMetadata struct lives within the first
+   LOG_OFFSET_FROM_START bytes of the log. Making this a full page so that
+   later we can reuse some smaller mmapped region for the log, and simply
+   recycle over the same memory region. For that, it is helpful to have a
+   page-aligned offset for the start of the log contents. */
+
+#define LOG_OFFSET_FROM_START DMTCP_PAGE_SIZE
 
 namespace dmtcp
 {
@@ -41,6 +51,7 @@ namespace dmtcp
     size_t size;
     size_t dataSize;
     size_t numEntries;
+    void * recordedStartAddr;
   } LogMetadata;
 
   class SynchronizationLog
@@ -55,6 +66,7 @@ namespace dmtcp
         : _path ("")
         , _cloneId(-1)
         , _startAddr (NULL)
+        , _recordedStartAddr (NULL)
         , _log (NULL)
         , _index (0)
         , _entryIndex (0)
@@ -72,15 +84,15 @@ namespace dmtcp
 
     private:
       void init2(clone_id_t clone_id, size_t size, bool mapWithNoReserveFlag);
-      void init3(const char *path, size_t size, bool mapWithNoReserveFlag);
+      void init3(clone_id_t clone_id, const char *path, size_t size, bool mapWithNoReserveFlag);
 
       void init_common(size_t size);
 
     public:
       void   destroy();
       void   unmap();
-      void   map_in(const char *path, size_t size,
-                        bool mapWithNoReserveFlag);
+      void   map_in(clone_id_t clone_id, const char *path, size_t size,
+		    bool mapWithNoReserveFlag);
       void   map_in();
       void   truncate();
       size_t currentIndex() { return _index; }
@@ -89,6 +101,7 @@ namespace dmtcp
       size_t dataSize() { return _dataSize == NULL ? 0 : *_dataSize; }
       size_t numEntries() { return _numEntries == NULL ? 0 : *_numEntries; }
       bool   isUnified() { return _isUnified == NULL ? false : *_isUnified; }
+      void * getRecordedStartAddr() { return _recordedStartAddr == NULL ? NULL : *_recordedStartAddr; }
       void   setUnified(bool b) { *_isUnified = b; }
       bool   isMappedIn() { return _startAddr != NULL; }
       string getPath() { return _path; }
@@ -121,6 +134,7 @@ namespace dmtcp
       size_t *_dataSize;
       size_t *_numEntries;
       bool   *_isUnified;
+      void ** _recordedStartAddr;
   };
 
 }

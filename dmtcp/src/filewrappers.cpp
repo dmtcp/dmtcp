@@ -56,11 +56,14 @@
 // TODO: hack to be able to compile this (fcntl wrapper).
 #define open _libc_open
 #define open64 _libc_open64
+#define openat _libc_openat
 #include <fcntl.h>
 #undef open
 #undef open64
+#undef openat
 #undef read
 
+static __thread bool ok_to_log_readdir = false;
 #endif
 
 //#ifdef RECORD_REPLAY
@@ -158,7 +161,16 @@ static int _almost_real_fclose(FILE *fp)
 extern "C" int fclose(FILE *fp)
 {
 #ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, fclose, _almost_real_fclose, fp);
+  WRAPPER_HEADER(int, fclose, _almost_real_fclose, fp);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_TYPED(int, fclose);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _almost_real_fclose(fp);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 #else
   return _almost_real_fclose(fp);
 #endif
@@ -460,6 +472,18 @@ extern "C" FILE *fdopen(int fd, const char *mode)
   return retval;
 }
 
+#if 0
+/* Until we fix the readdir() bug for tar, this is commented out.  If
+   we don't comment this out (and fdopendir also), readdir() does not
+   function properly in tar.  This is a "special case hack" for tar
+   1.26 + ASPLOS11 deadline. */
+// TODO: handle the variable argument here.
+extern "C" int openat(int dirfd, const char *pathname, int flags, ...)
+{
+  BASIC_SYNC_WRAPPER(int, openat, _real_openat, dirfd, pathname, flags);
+}
+#endif
+
 extern "C" DIR *opendir(const char *name)
 {
   WRAPPER_HEADER(DIR*, opendir, _real_opendir, name);
@@ -474,6 +498,27 @@ extern "C" DIR *opendir(const char *name)
   }
   return retval;
 }
+
+#if 0
+/* Until we fix the readdir() bug for tar, this is commented out.  If
+   we don't comment this out (and openat also), readdir() does not
+   function properly in tar.  This is a "special case hack" for tar
+   1.26 + ASPLOS11 deadline. */
+extern "C" DIR *fdopendir(int fd)
+{
+  WRAPPER_HEADER(DIR*, fdopendir, _real_fdopendir, fd);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_TYPED(DIR*, fdopendir);
+    //TODO: May be we should restore data in *retval;
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _real_fdopendir(fd);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
+}
+#endif
 
 extern "C" int closedir(DIR *dirp)
 {
@@ -729,7 +774,9 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
     }
     WRAPPER_REPLAY_END(fgets);
   } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
     retval = _real_fgets(s, size, stream);
+    isOptionalEvent = false;
     if (retval != NULL) {
       WRAPPER_LOG_WRITE_INTO_READ_LOG(fgets, s, size);
     }
@@ -740,22 +787,7 @@ extern "C" char *fgets(char *s, int size, FILE *stream)
 
 static int _almost_real_fprintf(FILE *stream, const char *format, va_list arg)
 {
-  WRAPPER_HEADER(int, fprintf, vfprintf, stream, format, arg);
-
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(fprintf);
-    /* If we're writing to stdout, we want to see the data to screen.
-     * Thus execute the real system call. */
-    if (stream == stdout || stream == stderr) {
-      retval = vfprintf(stream, format, arg);
-    }
-  } else if (SYNC_IS_RECORD) {
-    isOptionalEvent = true;
-    retval = vfprintf(stream, format, arg);
-    isOptionalEvent = false;
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
+  return vfprintf(stream, format, arg);
 }
 
 /* TODO: I think fprintf() is an inline function, so we can't wrap it directly.
@@ -766,14 +798,54 @@ extern "C" int __fprintf_chk (FILE *stream, int flag, const char *format, ...)
 {
   va_list arg;
   va_start (arg, format);
-  return _almost_real_fprintf(stream, format, arg);
+  WRAPPER_HEADER(int, fprintf, _almost_real_fprintf, stream, format, arg);
+
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY(fprintf);
+    /* If we're writing to stdout, we want to see the data to screen.
+     * Thus execute the real system call. */
+    // XXX We can't do this so easily. If we make the _real_printf call here,
+    // it can call mmap() on replay at a different time as on record, since
+    // the other FILE related syscalls are NOT made on replay.
+    /*if (stream == stdout || stream == stderr) {
+      retval = _almost_real_fprintf(stream, format, arg);
+      }*/
+    retval = (int)(unsigned long)GET_COMMON(currentLogEntry,
+					    retval);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _almost_real_fprintf(stream, format, arg);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 }
 
 extern "C" int fprintf (FILE *stream, const char *format, ...)
 {
   va_list arg;
   va_start (arg, format);
-  return _almost_real_fprintf(stream, format, arg);
+  WRAPPER_HEADER(int, fprintf, _almost_real_fprintf, stream, format, arg);
+
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY(fprintf);
+    /* If we're writing to stdout, we want to see the data to screen.
+     * Thus execute the real system call. */
+    // XXX We can't do this so easily. If we make the _real_printf call here,
+    // it can call mmap() on replay at a different time as on record, since
+    // the other FILE related syscalls are NOT made on replay.
+    /*if (stream == stdout || stream == stderr) {
+      retval = _almost_real_fprintf(stream, format, arg);
+      }*/
+    retval = (int)(unsigned long)GET_COMMON(currentLogEntry,
+					    retval);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _almost_real_fprintf(stream, format, arg);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 }
 
 extern "C" int _IO_getc(FILE *stream)
@@ -793,7 +865,30 @@ extern "C" int ungetc(int c, FILE *stream)
 
 extern "C" int fputs(const char *s, FILE *stream)
 {
-  BASIC_SYNC_WRAPPER(int, fputs, _real_fputs, s, stream);
+  WRAPPER_HEADER(int, fputs, _real_fputs, s, stream);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_TYPED(int, fputs);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _real_fputs(s, stream);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
+}
+
+extern "C" int fputc(int c, FILE *stream)
+{
+  WRAPPER_HEADER(int, fputc, _real_fputc, c, stream);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_TYPED(int, fputc);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _real_fputc(c, stream);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 }
 
 extern "C" int _IO_putc(int c, FILE *stream)
@@ -985,11 +1080,16 @@ static void updateStatPath(const char *path, char *newpath)
 #define _XSTAT_COMMON_SYNC_WRAPPER(name, ...)                               \
   do {                                                                      \
     if (SYNC_IS_REPLAY) {                                                   \
-      WRAPPER_REPLAY(name);                                                 \
+      WRAPPER_REPLAY_START(name);                                           \
+      int saved_errno = GET_COMMON(currentLogEntry, my_errno);              \
       if (retval == 0 && buf != NULL) {                                     \
         *buf = GET_FIELD(currentLogEntry, name, buf);                       \
       }                                                                     \
-    } else if (SYNC_IS_RECORD) {                                               \
+      getNextLogEntry();                                                    \
+      if (saved_errno != 0) {                                               \
+        errno = saved_errno;                                                \
+      }                                                                     \
+    } else if (SYNC_IS_RECORD) {                                            \
       retval = _real_ ## name(__VA_ARGS__);                                 \
       if (retval != -1 && buf != NULL) {                                    \
         SET_FIELD2(my_entry, name, buf, *buf);                              \
@@ -1007,7 +1107,7 @@ int __xstat(int vers, const char *path, struct stat *buf)
   updateStatPath(path, newpath);
 #ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, xstat, _real_xstat, vers, newpath, buf);
-  SET_FIELD2(currentLogEntry, xstat, path, (char*)path);
+  SET_FIELD2(my_entry, xstat, path, (char*)path);
   _XSTAT_COMMON_SYNC_WRAPPER(xstat, vers, path, buf);
 #else
   int retval = _real_xstat( vers, newpath, buf );
@@ -1024,7 +1124,7 @@ int __xstat64(int vers, const char *path, struct stat64 *buf)
   updateStatPath(path, newpath);
 #ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, xstat64, _real_xstat64, vers, newpath, buf);
-  SET_FIELD2(currentLogEntry, xstat64, path, (char*)path);
+  SET_FIELD2(my_entry, xstat64, path, (char*)path);
   _XSTAT_COMMON_SYNC_WRAPPER(xstat64, vers, path, buf);
 #else
   int retval = _real_xstat64( vers, newpath, buf );
@@ -1063,7 +1163,7 @@ int __lxstat(int vers, const char *path, struct stat *buf)
   updateStatPath(path, newpath);
 #ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, lxstat, _real_lxstat, vers, newpath, buf);
-  SET_FIELD2(currentLogEntry, lxstat, path, (char*)path);
+  SET_FIELD2(my_entry, lxstat, path, (char*)path);
   _XSTAT_COMMON_SYNC_WRAPPER(lxstat, vers, path, buf);
 #else
   int retval = _real_lxstat( vers, newpath, buf );
@@ -1080,7 +1180,7 @@ int __lxstat64(int vers, const char *path, struct stat64 *buf)
   updateStatPath(path, newpath);
 #ifdef RECORD_REPLAY
   WRAPPER_HEADER(int, lxstat64, _real_lxstat64, vers, newpath, buf);
-  SET_FIELD2(currentLogEntry, lxstat64, path, (char*)path);
+  SET_FIELD2(my_entry, lxstat64, path, (char*)path);
   _XSTAT_COMMON_SYNC_WRAPPER(lxstat64, vers, path, buf);
 #else
   int retval = _real_lxstat64( vers, newpath, buf );
@@ -1102,7 +1202,7 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz
   updateProcPath(path, newpath);
 #ifdef RECORD_REPLAY
   WRAPPER_HEADER(READLINK_RET_TYPE, readlink, _real_readlink, newpath, buf, bufsiz);
-  SET_FIELD2(currentLogEntry, readlink, path, (char*)path);
+  SET_FIELD2(my_entry, readlink, path, (char*)path);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_TYPED(READLINK_RET_TYPE, readlink);
     if (retval == 0 && buf != NULL) {
@@ -1273,11 +1373,37 @@ extern "C" int mkdir(const char *pathname, mode_t mode)
   BASIC_SYNC_WRAPPER(int, mkdir, _real_mkdir, pathname, mode);
 }
 
-extern "C" struct dirent *readdir(DIR *dirp)
+extern "C" struct dirent * /*__attribute__ ((optimize(0)))*/ readdir(DIR *dirp)
 {
   static __thread struct dirent buf;
+  struct dirent *ptr;
+  int res = 0;
 
-  WRAPPER_HEADER(struct dirent*, readdir, _real_readdir, dirp);
+  //ok_to_log_readdir = true;
+  res = readdir_r(dirp, &buf, &ptr);
+  //ok_to_log_readdir = false;
+
+  if (res == 0) {
+    return ptr;
+  }
+
+  return NULL;
+}
+#if 0
+
+
+
+  //WRAPPER_HEADER(struct dirent*, readdir, _real_readdir, dirp);
+  void *return_addr = GET_RETURN_ADDRESS();
+  do {
+    if (!shouldSynchronize(return_addr) ||
+        jalib::Filesystem::GetProgramName() == "gdb") {
+      return _real_readdir(dirp);
+    }
+  } while(0);
+  struct dirent* retval = NULL;
+  log_entry_t my_entry = create_readdir_entry(my_clone_id,
+                                              readdir_event, dirp);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_TYPED(struct dirent*, readdir);
     if (retval != NULL) {
@@ -1289,15 +1415,31 @@ extern "C" struct dirent *readdir(DIR *dirp)
       buf = *retval;
       SET_FIELD2(my_entry, readdir, retval, buf);
     }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    //WRAPPER_LOG_WRITE_ENTRY(my_entry);
+    do {
+      SET_COMMON2(my_entry, retval, (void*)retval);
+      SET_COMMON2(my_entry, my_errno, errno);
+      SET_COMMON2(my_entry, isOptional, isOptionalEvent);
+      addNextLogEntry(my_entry);
+      errno = GET_COMMON(my_entry, my_errno);
+    } while (0);
   }
-  return &buf;
+  return retval == NULL ? retval : &buf;
 }
+#endif // if 0
 
 extern "C" int readdir_r(DIR *dirp, struct dirent *entry,
                          struct dirent **result)
 {
-  WRAPPER_HEADER(int, readdir_r, _real_readdir_r, dirp, entry, result);
+  void *return_addr = GET_RETURN_ADDRESS();
+  if ((!shouldSynchronize(return_addr) ||
+       jalib::Filesystem::GetProgramName() == "gdb") &&
+      !ok_to_log_readdir) {
+    return _real_readdir_r(dirp, entry, result);
+  }
+  int retval;
+  log_entry_t my_entry = create_readdir_r_entry(my_clone_id,
+      readdir_r_event, dirp, entry, result);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY(readdir_r);
     if (retval == 0 && entry != NULL) {
@@ -1334,9 +1476,12 @@ extern "C" int fflush(FILE *stream)
     WRAPPER_REPLAY(fflush);
     /* If the stream is stdout, we want to see the data to screen.
      * Thus execute the real system call. */
-    if (stream == stdout || stream == stderr) {
+    // XXX We can't do this so easily. If we make the _real_fflush call here,
+    // it can call mmap() on replay at a different time as on record, since
+    // the other FILE related syscalls are NOT made on replay.
+    /*if (stream == stdout || stream == stderr) {
       retval = _real_fflush(stream);
-    }
+      }*/
   } else if (SYNC_IS_RECORD) {
     retval = _real_fflush(stream);
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
