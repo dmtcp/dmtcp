@@ -260,12 +260,17 @@ if test "$record_replay" != "no"; then
   AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
   AC_SUBST([PTRACE_SUPPORT], [yes])
-  if test "$use_fast_ckpt_restart" != "no"; then
-    dnl FAST_CKPT_RESTART is based on mmap
-    AC_SUBST([FAST_CKPT_RESTART], [yes])
-  else
-    AC_SUBST([FAST_CKPT_RESTART], [no])
-  fi
+  dnl *** THIS CODE WOULD --enable-fast-ckpt-restart IF --with-record-replay
+  dnl *** THIS WORKED WHEN FReD LOOKED ONLY AT libc.so IN /proc/*/mmap
+  dnl *** FReD NOW WANTS TO SEE test_list IN /proc/*/mmap
+  dnl *** IN FUTURE, FReD WILL GET THOSE ADDRSSES AT CKPT TIME (NOT RESTART),
+  dnl ***    AND WE CAN THEN RE-ENABLE THIS SECTION.
+  dnl if test "$use_fast_ckpt_restart" != "no"; then
+  dnl   dnl FAST_CKPT_RESTART is based on mmap
+  dnl   AC_SUBST([FAST_CKPT_RESTART], [yes])
+  dnl else
+  dnl   AC_SUBST([FAST_CKPT_RESTART], [no])
+  dnl fi
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   AC_SUBST([RECORD_REPLAY], [no])
