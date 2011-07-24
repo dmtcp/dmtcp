@@ -45,7 +45,7 @@
 void dmtcp::SynchronizationLog::initGlobalLog(const char *path, size_t size)
 {
   bool mapWithNoReserveFlag = SYNC_IS_RECORD;
-  init3(path, size, mapWithNoReserveFlag);
+  init3(0, path, size, mapWithNoReserveFlag);
   JTRACE ("Initialized global synchronization log path to" )
     (_path) (*_size) (mapWithNoReserveFlag);
 }
@@ -85,12 +85,12 @@ void dmtcp::SynchronizationLog::init2(clone_id_t clone_id, size_t size,
 #else
   snprintf(buf, RECORD_LOG_PATH_MAX, "%s_%ld", RECORD_LOG_PATH, clone_id);
 #endif
-  init3(buf, size, mapWithNoReserveFlag);
+  init3(clone_id, buf, size, mapWithNoReserveFlag);
   _cloneId = clone_id;
 }
 
-void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
-                                      bool mapWithNoReserveFlag)
+void dmtcp::SynchronizationLog::init3(clone_id_t clone_id, const char *path,
+                                      size_t size, bool mapWithNoReserveFlag)
 {
   JASSERT(_startAddr == NULL);
   JASSERT(_log == NULL);
@@ -101,7 +101,7 @@ void dmtcp::SynchronizationLog::init3(const char *path, size_t size,
   JASSERT(_numEntries == NULL);
   JASSERT(_isUnified == NULL);
   /* map_in calls init_common if appropriate. */
-  map_in(path, size, mapWithNoReserveFlag);
+  map_in(clone_id, path, size, mapWithNoReserveFlag);
 }
 
 void dmtcp::SynchronizationLog::init_common(size_t size)
@@ -114,9 +114,16 @@ void dmtcp::SynchronizationLog::init_common(size_t size)
   _numEntries = &(metadata->numEntries);
   _dataSize = &(metadata->dataSize);
   _size = &(metadata->size);
+  _recordedStartAddr = &(metadata->recordedStartAddr);
 
   *_size = size;
   _log = _startAddr + LOG_OFFSET_FROM_START;
+
+  if (SYNC_IS_RECORD) {
+    JASSERT(_startAddr != NULL && _startAddr != MAP_FAILED);
+    JTRACE("RECORD; filling in _recordedStartAddr.") ((long)_startAddr);
+    *_recordedStartAddr = _startAddr;
+  }
 }
 
 void dmtcp::SynchronizationLog::destroy()
@@ -144,7 +151,8 @@ void dmtcp::SynchronizationLog::unmap()
   JASSERT(_real_munmap(_startAddr, *_size) == 0) (JASSERT_ERRNO) (*_size) (_startAddr);
 }
 
-void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
+void dmtcp::SynchronizationLog::map_in(clone_id_t clone_id,
+				       const char *path, size_t size,
                                        bool mapWithNoReserveFlag)
 {
 #if 0
@@ -161,12 +169,16 @@ void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
 #endif
   int fd = _real_open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
   JASSERT(path==NULL || fd != -1);
-  JASSERT(fd == -1 || _real_lseek(fd, size, SEEK_SET) == (off_t)size);
-  if (fd != -1) Util::writeAll(fd, "", 1);
+  if (SYNC_IS_RECORD) {
+    JASSERT(fd == -1 || _real_lseek(fd, size, SEEK_SET) == (off_t)size);
+    if (fd != -1) Util::writeAll(fd, "", 1);
+  }
   // FIXME: Instead of MAP_NORESERVE, we may also choose to back it with
   // /dev/null which would also _not_ allocate pages until needed.
   int mmapProt = PROT_READ | PROT_WRITE;
   int mmapFlags;
+  void *mmapAddr = NULL;
+
   if (fd != -1) {
     mmapFlags = MAP_SHARED;
   } else {
@@ -175,11 +187,23 @@ void dmtcp::SynchronizationLog::map_in(const char *path, size_t size,
   if (mapWithNoReserveFlag) {
     mmapFlags |= MAP_NORESERVE;
   }
+  if (SYNC_IS_REPLAY && clone_id != 0 &&
+      clone_id_to_recorded_addr_table.find(clone_id) != clone_id_to_recorded_addr_table.end()) {
+    /* This branch will be true on replay, post-merge. */
+    JTRACE("mapping thread private log in with MAP_FIXED.");
+    mmapFlags |= MAP_FIXED;
+    JASSERT(clone_id_to_recorded_addr_table[clone_id] != NULL);
+    mmapAddr = clone_id_to_recorded_addr_table[clone_id];
+    JTRACE("address with MAP_FIXED is") (mmapAddr);
+  }
+
   SET_IN_MMAP_WRAPPER();
   /* _startAddr may not be null if this is not the first checkpoint. */
   if (_startAddr == NULL) {
-    _startAddr = (char*) _real_mmap(0, size, mmapProt, mmapFlags, fd, 0);
+    _startAddr = (char*) _real_mmap(mmapAddr, size, mmapProt, mmapFlags, fd, 0);
   } else {
+    // XXX: Is there any bad interaction between mmapAddr being set above,
+    // and this branch?
     void *retval = (char*) _real_mmap(_startAddr, size, mmapProt,
                                       mmapFlags | MAP_FIXED, fd, 0);
     JASSERT ( retval == (void *)_startAddr );
@@ -204,7 +228,7 @@ void dmtcp::SynchronizationLog::map_in()
   strncpy(path_copy, _path.c_str(), RECORD_LOG_PATH_MAX);
   /* We don't want to pass a pointer to _path, because that could be reset
      as part of a subsequent call to destroy(). */
-  map_in(path_copy, _savedSize, false);
+  map_in(my_clone_id, path_copy, _savedSize, false);
 }
 
 /* Truncate the log to the current position. */
@@ -238,6 +262,7 @@ int dmtcp::SynchronizationLog::getEntryAtOffset(log_entry_t& entry, size_t index
   }
 
   size_t event_size;
+  JASSERT(GET_COMMON(entry, event) > 0);
   GET_EVENT_SIZE(GET_COMMON(entry, event), event_size);
 
   JASSERT ((index + log_event_common_size + event_size) <= *_dataSize)
@@ -265,19 +290,28 @@ int dmtcp::SynchronizationLog::appendEntry(const log_entry_t& entry)
 void dmtcp::SynchronizationLog::replaceEntryAtOffset(const log_entry_t& entry,
                                                     size_t index)
 {
-  // only allow it for pthread_create call
-/*  JASSERT(GET_COMMON(entry, event) == pthread_create_event);
+  // only allow it for pthread_create and malloc calls
+  JASSERT(GET_COMMON(entry, event) == pthread_create_event ||
+	  GET_COMMON(entry, event) == malloc_event ||
+	  GET_COMMON(entry, event) == libc_memalign_event ||
+	  GET_COMMON(entry, event) == calloc_event ||
+	  GET_COMMON(entry, event) == realloc_event);
 
   log_entry_t old_entry = EMPTY_LOG_ENTRY;
   JASSERT(getEntryAtOffset(old_entry, index) != 0);
 
-  JASSERT(GET_COMMON(entry, log_id) == GET_COMMON(old_entry, log_id) &&
-          IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
-          IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
-          IS_EQUAL_FIELD(entry, old_entry, pthread_create, start_routine) &&
-          IS_EQUAL_FIELD(entry, old_entry, pthread_create, attr) &&
-          IS_EQUAL_FIELD(entry, old_entry, pthread_create, arg));
-*/
+  if (GET_COMMON(entry, event) == pthread_create_event) {
+    JASSERT(GET_COMMON(entry, log_id) == GET_COMMON(old_entry, log_id) &&
+	    IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
+	    IS_EQUAL_FIELD(entry, old_entry, pthread_create, thread) &&
+	    IS_EQUAL_FIELD(entry, old_entry, pthread_create, start_routine) &&
+	    IS_EQUAL_FIELD(entry, old_entry, pthread_create, attr) &&
+	    IS_EQUAL_FIELD(entry, old_entry, pthread_create, arg));
+  } else if (GET_COMMON(entry, event) == malloc_event) {
+    JASSERT(GET_COMMON(entry, log_id) == GET_COMMON(old_entry, log_id) &&
+	    IS_EQUAL_FIELD(entry, old_entry, malloc, size));
+  }
+    
   writeEntryAtOffset(entry, index);
 }
 
@@ -298,8 +332,8 @@ int dmtcp::SynchronizationLog::writeEntryAtOffset(const log_entry_t& entry,
   int event_size;
   GET_EVENT_SIZE(GET_COMMON(entry, event), event_size);
 
-  JASSERT ((_index + log_event_common_size + event_size) < *_size)
-    .Text ("Log size too large");
+  JASSERT ((index + log_event_common_size + event_size) < *_size)
+    ( *_size ) .Text ("Log size too small");
 
   writeEntryHeaderAtOffset(entry, index);
 
@@ -391,6 +425,8 @@ void dmtcp::SynchronizationLog::mergeLogs(dmtcp::vector<clone_id_t> clone_ids)
       slog = new dmtcp::SynchronizationLog();
       slog->initForCloneId(clone_ids[i], true);
     }
+    clone_id_to_recorded_addr_table[clone_ids[i]] =
+      slog->getRecordedStartAddr();
     JTRACE("Entries for this thread") (clone_ids[i]) (slog->numEntries());
     slog->getNextEntry(entry);
     num_entries += slog->numEntries();

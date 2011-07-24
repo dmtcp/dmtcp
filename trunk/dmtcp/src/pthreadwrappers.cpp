@@ -283,7 +283,9 @@ static int internal_pthread_cond_signal(pthread_cond_t *cond)
     }
     WRAPPER_REPLAY_END(pthread_cond_signal);
   } else  if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
     retval = _real_pthread_cond_signal(cond);
+    isOptionalEvent = false;
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_signal, cond, *cond);
     }
@@ -503,7 +505,9 @@ extern "C" int pthread_cond_timedwait(pthread_cond_t *cond,
     }
     WRAPPER_REPLAY_END(pthread_cond_timedwait);
   } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
     retval = _real_pthread_cond_timedwait(cond, mutex, abstime);
+    isOptionalEvent = false;
     if (retval == 0) {
       SET_FIELD2(my_entry, pthread_cond_timedwait, cond, *cond);
       SET_FIELD2(my_entry, pthread_cond_timedwait, mutex, *mutex);

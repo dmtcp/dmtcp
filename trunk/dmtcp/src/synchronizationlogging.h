@@ -57,7 +57,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-#define MAX_LOG_LENGTH ((size_t)50 * 1024 * 1024) // = 4096*4096. For what reason?
+#define MAX_LOG_LENGTH ((size_t)50 * 1024 * 1024)
 #define MAX_PATCH_LIST_LENGTH MAX_LOG_LENGTH
 #define READLINK_MAX_LENGTH 256
 #define WAKE_ALL_THREADS -1
@@ -236,9 +236,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define WRAPPER_LOG(real_func, ...)                                 \
   do {                                                              \
-    isOptionalEvent = true;                                         \
     retval = real_func(__VA_ARGS__);                                \
-    isOptionalEvent = false;                                        \
     WRAPPER_LOG_WRITE_ENTRY(my_entry);                              \
   } while (0)
 
@@ -309,6 +307,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(fcntl, __VA_ARGS__);                                                 \
     MACRO(fdatasync, __VA_ARGS__);                                             \
     MACRO(fdopen, __VA_ARGS__);                                                \
+    MACRO(fdopendir, __VA_ARGS__);					       \
     MACRO(fgets, __VA_ARGS__);                                                 \
     MACRO(fflush, __VA_ARGS__);                                                \
     MACRO(fopen, __VA_ARGS__);                                                 \
@@ -316,6 +315,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(fprintf, __VA_ARGS__);                                               \
     MACRO(fscanf, __VA_ARGS__);                                                \
     MACRO(fputs, __VA_ARGS__);                                                 \
+    MACRO(fputc, __VA_ARGS__);                                                 \
     MACRO(free, __VA_ARGS__);                                                  \
     MACRO(fsync, __VA_ARGS__);                                                 \
     MACRO(ftell, __VA_ARGS__);                                                 \
@@ -346,6 +346,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(munmap, __VA_ARGS__);                                                \
     MACRO(open, __VA_ARGS__);                                                  \
     MACRO(open64, __VA_ARGS__);                                                \
+    MACRO(openat, __VA_ARGS__);						       \
     MACRO(opendir, __VA_ARGS__);					       \
     MACRO(pread, __VA_ARGS__);                                                 \
     MACRO(putc, __VA_ARGS__);                                                  \
@@ -405,6 +406,7 @@ typedef enum {
   fcntl_event,
   fdatasync_event,
   fdopen_event,
+  fdopendir_event,
   fgets_event,
   fflush_event,
   fopen_event,
@@ -412,6 +414,7 @@ typedef enum {
   fprintf_event,
   fscanf_event,
   fputs_event,
+  fputc_event,
   free_event,
   fsync_event,
   ftell_event,
@@ -442,6 +445,7 @@ typedef enum {
   munmap_event,
   open_event,
   open64_event,
+  openat_event,
   opendir_event,
   pread_event,
   putc_event,
@@ -854,6 +858,13 @@ typedef struct {
 static const int log_event_fdopen_size = sizeof(log_event_fdopen_t);
 
 typedef struct {
+  // For fdopendir():
+  int fd;
+} log_event_fdopendir_t;
+
+static const int log_event_fdopendir_size = sizeof(log_event_fdopendir_t);
+
+typedef struct {
   // For fgets():
   char *s;
   int size;
@@ -916,6 +927,14 @@ typedef struct {
 } log_event_fputs_t;
 
 static const int log_event_fputs_size = sizeof(log_event_fputs_t);
+
+typedef struct {
+  // For fputc():
+  int c;
+  FILE *stream;
+} log_event_fputc_t;
+
+static const int log_event_fputc_size = sizeof(log_event_fputc_t);
 
 typedef struct {
   // For getc():
@@ -1093,6 +1112,15 @@ typedef struct {
 } log_event_opendir_t;
 
 static const int log_event_opendir_size = sizeof(log_event_opendir_t);
+
+typedef struct {
+  // For openat():
+  int dirfd;
+  char *pathname;
+  int flags;
+} log_event_openat_t;
+
+static const int log_event_openat_size = sizeof(log_event_openat_t);
 
 typedef struct {
   // For pread():
@@ -1323,6 +1351,7 @@ typedef struct {
     log_event_fcntl_t                            log_event_fcntl;
     log_event_fdatasync_t                        log_event_fdatasync;
     log_event_fdopen_t                           log_event_fdopen;
+    log_event_fdopendir_t                        log_event_fdopendir;
     log_event_fgets_t                            log_event_fgets;
     log_event_fflush_t                           log_event_fflush;
     log_event_fopen_t                            log_event_fopen;
@@ -1330,6 +1359,7 @@ typedef struct {
     log_event_fprintf_t                          log_event_fprintf;
     log_event_fscanf_t                           log_event_fscanf;
     log_event_fputs_t                            log_event_fputs;
+    log_event_fputc_t                            log_event_fputc;
     log_event_getc_t                             log_event_getc;
     log_event_gettimeofday_t                     log_event_gettimeofday;
     log_event_fgetc_t                            log_event_fgetc;
@@ -1337,6 +1367,7 @@ typedef struct {
     log_event_getline_t                          log_event_getline;
     log_event_open_t                             log_event_open;
     log_event_open64_t                           log_event_open64;
+    log_event_openat_t                           log_event_openat;
     log_event_opendir_t                          log_event_opendir;
     log_event_pread_t                            log_event_pread;
     log_event_putc_t                             log_event_putc;
@@ -1437,6 +1468,7 @@ typedef struct {
              log_event_##name##_size);                                     \
     }                                                                   \
   } while(0)
+
 #else
 #define IFNAME_GET_EVENT_SIZE(name, event, event_size)                  \
   do {                                                                  \
@@ -1504,6 +1536,7 @@ LIB_PRIVATE extern pthread_mutex_t global_log_list_fd_mutex;
 LIB_PRIVATE extern dmtcp::map<clone_id_t, pthread_t> clone_id_to_tid_table;
 LIB_PRIVATE extern dmtcp::map<pthread_t, clone_id_t> tid_to_clone_id_table;
 LIB_PRIVATE extern dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*> clone_id_to_log_table;
+LIB_PRIVATE extern dmtcp::map<clone_id_t, void *> clone_id_to_recorded_addr_table;
 LIB_PRIVATE extern void* unified_log_addr;
 LIB_PRIVATE extern dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE extern log_entry_t     currentLogEntry;
@@ -1606,6 +1639,7 @@ LIB_PRIVATE log_entry_t create_fclose_entry(clone_id_t clone_id, int event,
 LIB_PRIVATE log_entry_t create_fdatasync_entry(clone_id_t clone_id, int event, int fd);
 LIB_PRIVATE log_entry_t create_fdopen_entry(clone_id_t clone_id, int event, int fd,
     const char *mode);
+LIB_PRIVATE log_entry_t create_fdopendir_entry(clone_id_t clone_id, int event, int fd);
 LIB_PRIVATE log_entry_t create_fgets_entry(clone_id_t clone_id, int event, char *s,
     int size, FILE *stream);
 LIB_PRIVATE log_entry_t create_fflush_entry(clone_id_t clone_id, int event,
@@ -1620,6 +1654,8 @@ LIB_PRIVATE log_entry_t create_fscanf_entry(clone_id_t clone_id, int event,
     FILE *stream, const char *format, va_list ap);
 LIB_PRIVATE log_entry_t create_fputs_entry(clone_id_t clone_id, int event,
     const char *s, FILE *stream);
+LIB_PRIVATE log_entry_t create_fputc_entry(clone_id_t clone_id, int event,
+    int c, FILE *stream);
 LIB_PRIVATE log_entry_t create_free_entry(clone_id_t clone_id, int event,
     void *ptr);
 LIB_PRIVATE log_entry_t create_fsync_entry(clone_id_t clone_id, int event, int fd);
@@ -1671,6 +1707,8 @@ LIB_PRIVATE log_entry_t create_open_entry(clone_id_t clone_id, int event,
     const char *path, int flags, mode_t mode);
 LIB_PRIVATE log_entry_t create_open64_entry(clone_id_t clone_id, int event,
     const char *path, int flags, mode_t mode);
+LIB_PRIVATE log_entry_t create_openat_entry(clone_id_t clone_id, int event,
+    int dirfd, const char *pathname, int flags);
 LIB_PRIVATE log_entry_t create_opendir_entry(clone_id_t clone_id, int event,
     const char *name);
 LIB_PRIVATE log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd,
@@ -1773,6 +1811,7 @@ LIB_PRIVATE TURN_CHECK_P(fclose_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fcntl_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdatasync_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdopen_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fdopendir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fgets_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fflush_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fopen_turn_check);
@@ -1780,6 +1819,7 @@ LIB_PRIVATE TURN_CHECK_P(fopen64_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fprintf_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fscanf_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fputs_turn_check);
+LIB_PRIVATE TURN_CHECK_P(fputc_turn_check);
 LIB_PRIVATE TURN_CHECK_P(free_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fsync_turn_check);
 LIB_PRIVATE TURN_CHECK_P(ftell_turn_check);
@@ -1808,6 +1848,7 @@ LIB_PRIVATE TURN_CHECK_P(mremap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(munmap_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open_turn_check);
 LIB_PRIVATE TURN_CHECK_P(open64_turn_check);
+LIB_PRIVATE TURN_CHECK_P(openat_turn_check);
 LIB_PRIVATE TURN_CHECK_P(opendir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(pread_turn_check);
 LIB_PRIVATE TURN_CHECK_P(putc_turn_check);

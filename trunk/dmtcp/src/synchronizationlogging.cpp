@@ -54,6 +54,7 @@ char* map_file_to_memory(const char* path, size_t size, int flags, int mode);
 LIB_PRIVATE dmtcp::map<clone_id_t, pthread_t> clone_id_to_tid_table;
 LIB_PRIVATE dmtcp::map<pthread_t, clone_id_t> tid_to_clone_id_table;
 LIB_PRIVATE dmtcp::map<clone_id_t, dmtcp::SynchronizationLog*> clone_id_to_log_table;
+LIB_PRIVATE dmtcp::map<clone_id_t, void *> clone_id_to_recorded_addr_table;
 LIB_PRIVATE void* unified_log_addr = NULL;
 LIB_PRIVATE dmtcp::map<pthread_t, pthread_join_retval_t> pthread_join_retvals;
 LIB_PRIVATE log_entry_t     currentLogEntry = EMPTY_LOG_ENTRY;
@@ -356,6 +357,7 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == getline_event_return ||
     GET_COMMON(e,event) == getpeername_event_return ||
     GET_COMMON(e,event) == fdopen_event_return ||
+    GET_COMMON(e,event) == fdopendir_event_return ||
     GET_COMMON(e,event) == fdatasync_event_return ||
     GET_COMMON(e,event) == link_event_return ||
     GET_COMMON(e,event) == rename_event_return ||
@@ -379,6 +381,7 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == mkdir_event_return ||
     GET_COMMON(e,event) == fprintf_event_return ||
     GET_COMMON(e,event) == fputs_event_return ||
+    GET_COMMON(e,event) == fputc_event_return ||
     GET_COMMON(e,event) == fscanf_event_return ||
     GET_COMMON(e,event) == fwrite_event_return ||
     GET_COMMON(e,event) == putc_event_return ||
@@ -386,6 +389,7 @@ int isUnlock(log_entry_t e)
     GET_COMMON(e,event) == mmap64_event_return ||
     GET_COMMON(e,event) == munmap_event_return ||
     GET_COMMON(e,event) == mremap_event_return ||
+    GET_COMMON(e,event) == openat_event_return ||
     GET_COMMON(e,event) == opendir_event_return ||
     GET_COMMON(e,event) == closedir_event_return ||
     GET_COMMON(e,event) == user_event_return;
@@ -782,6 +786,14 @@ log_entry_t create_fdopen_entry(clone_id_t clone_id, int event, int fd,
   return e;
 }
 
+log_entry_t create_fdopendir_entry(clone_id_t clone_id, int event, int fd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, fdopendir, fd);
+  return e;
+}
+
 log_entry_t create_fgets_entry(clone_id_t clone_id, int event, char *s, int size,
     FILE *stream)
 {
@@ -848,6 +860,16 @@ log_entry_t create_fputs_entry(clone_id_t clone_id, int event,
   setupCommonFields(&e, clone_id, event);
   SET_FIELD2(e, fputs, s, (char*)s);
   SET_FIELD2(e, fputs, stream, stream);
+  return e;
+}
+
+log_entry_t create_fputc_entry(clone_id_t clone_id, int event,
+    int c, FILE *stream)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD2(e, fputc, c, c);
+  SET_FIELD2(e, fputc, stream, stream);
   return e;
 }
 
@@ -1134,6 +1156,16 @@ log_entry_t create_open64_entry(clone_id_t clone_id, int event, const char *path
   SET_FIELD2(e, open64, path, (char*)path);
   SET_FIELD(e, open64, flags);
   SET_FIELD(e, open64, open_mode);
+  return e;
+}
+
+log_entry_t create_openat_entry(clone_id_t clone_id, int event, int dirfd, const char *pathname, int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, openat, dirfd);
+  SET_FIELD2(e, openat, pathname, (char*)pathname);
+  SET_FIELD(e, openat, flags);
   return e;
 }
 
@@ -1952,6 +1984,13 @@ TURN_CHECK_P(fdopen_turn_check)
       GET_FIELD_PTR(e2, fdopen, mode);
 }
 
+TURN_CHECK_P(fdopendir_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fdopendir, fd) ==
+      GET_FIELD_PTR(e2, fdopendir, fd);
+}
+
 TURN_CHECK_P(fgets_turn_check)
 {
   return base_turn_check(e1,e2) &&
@@ -2056,6 +2095,15 @@ TURN_CHECK_P(fputs_turn_check)
       GET_FIELD_PTR(e2, fputs, s) &&
     GET_FIELD_PTR(e1, fputs, stream) ==
       GET_FIELD_PTR(e2, fputs, stream);
+}
+
+TURN_CHECK_P(fputc_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    GET_FIELD_PTR(e1, fputc, c) ==
+      GET_FIELD_PTR(e2, fputc, c) &&
+    GET_FIELD_PTR(e1, fputc, stream) ==
+      GET_FIELD_PTR(e2, fputc, stream);
 }
 
 TURN_CHECK_P(calloc_turn_check)
@@ -2219,6 +2267,18 @@ TURN_CHECK_P(open64_turn_check)
       GET_FIELD_PTR(e2, open64, open_mode);
 }
 
+TURN_CHECK_P(openat_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    GET_FIELD_PTR(e1, openat, dirfd) ==
+      GET_FIELD_PTR(e2, openat, dirfd) &&
+    GET_FIELD_PTR(e1, openat, pathname) ==
+      GET_FIELD_PTR(e2, openat, pathname) &&
+    GET_FIELD_PTR(e1, openat, flags) ==
+      GET_FIELD_PTR(e2, openat, flags);
+
+}
+
 TURN_CHECK_P(opendir_turn_check)
 {
   return base_turn_check(e1, e2) &&
@@ -2376,6 +2436,8 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
   event_code_t event_num = (event_code_t) GET_COMMON_PTR(e, event);
   if (event_num == fscanf_event ||
       event_num == fgets_event ||
+      event_num == fputs_event ||
+      event_num == fputc_event ||
       event_num == getc_event ||
       //event_num == fgetc_event ||
       event_num == fprintf_event ||
@@ -2389,12 +2451,20 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
     opt_events[2] = mmap_event;
   } else if (event_num == fclose_event) {
     opt_events[0] = free_event;
-  } else if (event_num == opendir_event) {
+  } else if (event_num == opendir_event ||
+	     event_num == fdopendir_event) {
     opt_events[0] = malloc_event;
   } else if (event_num == closedir_event) {
     opt_events[0] = free_event;
-  } else if (event_num == pthread_cond_wait_event) {
+  } else if (event_num == pthread_cond_wait_event ||
+	     event_num == pthread_cond_timedwait_event ||
+	     event_num == pthread_cond_signal_event) {
     opt_events[0] = calloc_event;
+  } else if (event_num == fopen_event ||
+	     event_num == fopen64_event) {
+    opt_events[0] = mmap_event;
+    opt_events[1] = malloc_event;
+    opt_events[2] = free_event;
   }
   // TODO: Some error checking that we do not accidently assign above
   // the index MAX_OPTIONAL_EVENTS
@@ -2486,13 +2556,15 @@ void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
     waitForTurnWithOptional(&my_entry, pred);
   } else {
     while (1) {
+    _real_pthread_mutex_lock(&log_index_mutex);
       if ((*pred)(&currentLogEntry, &my_entry))
         break;
-      
+      _real_pthread_mutex_unlock(&log_index_mutex);
       memfence();
       usleep(15);
     }
   }
+  _real_pthread_mutex_unlock(&log_index_mutex);
 }
 
 void waitForExecBarrier()

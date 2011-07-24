@@ -53,10 +53,11 @@ void print_log_entry_common(int idx, log_entry_t *entry) {
   //char *event_type;
   std::string event_type;
   EVENT_TO_STRING(event_type, GET_COMMON_PTR(entry, event));
-  printf("%d: clone_id=%lld, [%s]: retval=%lu, log_id=%lld, my_errno=%d",
+  printf("%d: clone_id=%lld, [%s]: retval=%lu, log_id=%lld, my_errno=%d, isOptional=%d",
          idx, GET_COMMON_PTR(entry, clone_id), event_type.c_str(),
          (unsigned long) GET_COMMON_PTR(entry, retval),
-         GET_COMMON_PTR(entry, log_id), GET_COMMON_PTR(entry, my_errno));
+         GET_COMMON_PTR(entry, log_id), GET_COMMON_PTR(entry, my_errno),
+         GET_COMMON_PTR(entry, isOptional));
 }
 
 void print_log_entry_accept(int idx, log_entry_t *entry) {
@@ -155,6 +156,12 @@ void print_log_entry_fdopen(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, fdopen, mode));
 }
 
+void print_log_entry_fdopendir(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", fd=%d\n",
+         GET_FIELD_PTR(entry, fdopendir, fd));
+}
+
 void print_log_entry_fgets(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
   printf(", s=%p, size=%d, stream=%p\n",
@@ -182,6 +189,13 @@ void print_log_entry_fputs(int idx, log_entry_t *entry) {
   printf(", s=%p, stream=%p\n",
       GET_FIELD_PTR(entry, fputs, s),
       GET_FIELD_PTR(entry, fputs, stream));
+}
+
+void print_log_entry_fputc(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", c=%d, stream=%p\n",
+      GET_FIELD_PTR(entry, fputc, c),
+      GET_FIELD_PTR(entry, fputc, stream));
 }
 
 void print_log_entry_free(int idx, log_entry_t *entry) {
@@ -248,7 +262,7 @@ void print_log_entry_libc_memalign(int idx, log_entry_t *entry) {
 
 void print_log_entry_lseek(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
-  printf(", fd=%d, offset=%ld, whence=%d\n",
+  printf(", fd=%d, offset=%Zu, whence=%d\n",
          GET_FIELD_PTR(entry, lseek, fd),
          GET_FIELD_PTR(entry, lseek, offset),
          GET_FIELD_PTR(entry, lseek, whence));
@@ -353,6 +367,14 @@ void print_log_entry_open64(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, open64, path),
          GET_FIELD_PTR(entry, open64, flags),
          GET_FIELD_PTR(entry, open64, open_mode));
+}
+
+void print_log_entry_openat(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", dirfd=%d, pathname=%p, flags=%d\n",
+         GET_FIELD_PTR(entry, openat, dirfd),
+         GET_FIELD_PTR(entry, openat, pathname),
+         GET_FIELD_PTR(entry, openat, flags));
 }
 
 void print_log_entry_opendir(int idx, log_entry_t *entry) {
@@ -700,11 +722,13 @@ void printEntry(int idx, log_entry_t *entry)
 void rewriteLog(char *log_path)
 {
   dmtcp::SynchronizationLog log;
-  log.initGlobalLog(log_path, 4096);
+  /* Only need enough room for the metadata. */
+  log.initGlobalLog(log_path, LOG_OFFSET_FROM_START);
   size_t logSize = log.dataSize();
   log.destroy();
-  log.initGlobalLog(log_path, logSize + 4096);
-
+  log.initGlobalLog(log_path, logSize + LOG_OFFSET_FROM_START + 1);
+  printf("Metadata: isUnified=%d, dataSize=%Zu, numEntries=%Zu\n",
+         log.isUnified(), log.dataSize(), log.numEntries());
   log_entry_t entry = EMPTY_LOG_ENTRY;
   for (size_t i = 0; i < log.numEntries(); i++) {
     if (log.getNextEntry(entry) == 0) {
