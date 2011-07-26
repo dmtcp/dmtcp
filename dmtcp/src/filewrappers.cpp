@@ -1323,14 +1323,19 @@ extern "C" int access(const char *pathname, int mode)
   BASIC_SYNC_WRAPPER(int, access, _real_access, pathname, mode);
 }
 
-/*extern "C" int dup2(int oldfd, int newfd)
-{
-// TODO
-}*/
-
 extern "C" int dup(int oldfd)
 {
   BASIC_SYNC_WRAPPER(int, dup, _real_dup, oldfd);
+}
+
+extern "C" int dup2(int oldfd, int newfd)
+{
+  BASIC_SYNC_WRAPPER(int, dup2, _real_dup2, oldfd, newfd);
+}
+
+extern "C" int dup3(int oldfd, int newfd, int flags)
+{
+  BASIC_SYNC_WRAPPER(int, dup3, _real_dup3, oldfd, newfd, flags);
 }
 
 extern "C" off_t lseek(int fd, off_t offset, int whence)

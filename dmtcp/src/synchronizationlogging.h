@@ -205,7 +205,7 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
   do {                                                              \
     if (__builtin_expect(read_data_fd == -1, 0)) {                  \
       int fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);  \
-      read_data_fd = dup2(fd, PROTECTED_READLOG_FD);                \
+      read_data_fd = _real_dup2(fd, PROTECTED_READLOG_FD);          \
       _real_close(fd);                                              \
     }                                                               \
     JASSERT ( read_data_fd != -1 );                                 \
@@ -312,6 +312,8 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(closedir, __VA_ARGS__);                                              \
     MACRO(connect, __VA_ARGS__);                                               \
     MACRO(dup, __VA_ARGS__);                                                   \
+    MACRO(dup2, __VA_ARGS__);                                                  \
+    MACRO(dup3, __VA_ARGS__);                                                  \
     MACRO(exec_barrier, __VA_ARGS__);                                          \
     MACRO(fclose, __VA_ARGS__);                                                \
     MACRO(fcntl, __VA_ARGS__);                                                 \
@@ -411,6 +413,8 @@ typedef enum {
   closedir_event,
   connect_event,
   dup_event,
+  dup2_event,
+  dup3_event,
   exec_barrier_event,
   fclose_event,
   fcntl_event,
@@ -1204,6 +1208,23 @@ typedef struct {
 static const int log_event_dup_size = sizeof(log_event_dup_t);
 
 typedef struct {
+  // For dup2():
+  int oldfd;
+  int newfd;
+} log_event_dup2_t;
+
+static const int log_event_dup2_size = sizeof(log_event_dup2_t);
+
+typedef struct {
+  // For dup3():
+  int oldfd;
+  int newfd;
+  int flags;
+} log_event_dup3_t;
+
+static const int log_event_dup3_size = sizeof(log_event_dup3_t);
+
+typedef struct {
   // For exec_barrier: special case.
 } log_event_exec_barrier_t;
 
@@ -1351,6 +1372,8 @@ typedef struct {
     log_event_closedir_t                         log_event_closedir;
     log_event_connect_t                          log_event_connect;
     log_event_dup_t                              log_event_dup;
+    log_event_dup2_t                             log_event_dup2;
+    log_event_dup3_t                             log_event_dup3;
     log_event_exec_barrier_t                     log_event_exec_barrier;
     log_event_accept_t                           log_event_accept;
     log_event_accept4_t                          log_event_accept4;
@@ -1647,6 +1670,10 @@ LIB_PRIVATE log_entry_t create_closedir_entry(clone_id_t clone_id, int event, DI
 LIB_PRIVATE log_entry_t create_connect_entry(clone_id_t clone_id, int event, int sockfd,
     const struct sockaddr *serv_addr, socklen_t addrlen);
 LIB_PRIVATE log_entry_t create_dup_entry(clone_id_t clone_id, int event, int oldfd);
+LIB_PRIVATE log_entry_t create_dup2_entry(clone_id_t clone_id, int event,
+                                          int oldfd, int newfd);
+LIB_PRIVATE log_entry_t create_dup3_entry(clone_id_t clone_id, int event,
+                                          int oldfd, int newfd, int flags);
 LIB_PRIVATE log_entry_t create_exec_barrier_entry();
 LIB_PRIVATE log_entry_t create_fcntl_entry(clone_id_t clone_id, int event, int fd,
     int cmd, long arg_3_l, struct flock *arg_3_f);
@@ -1823,6 +1850,8 @@ LIB_PRIVATE TURN_CHECK_P(close_turn_check);
 LIB_PRIVATE TURN_CHECK_P(closedir_turn_check);
 LIB_PRIVATE TURN_CHECK_P(connect_turn_check);
 LIB_PRIVATE TURN_CHECK_P(dup_turn_check);
+LIB_PRIVATE TURN_CHECK_P(dup2_turn_check);
+LIB_PRIVATE TURN_CHECK_P(dup3_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fclose_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fcntl_turn_check);
 LIB_PRIVATE TURN_CHECK_P(fdatasync_turn_check);

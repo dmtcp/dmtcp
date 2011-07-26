@@ -122,6 +122,21 @@ void print_log_entry_dup(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, dup, oldfd));
 }
 
+void print_log_entry_dup2(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", oldfd=%d, newfd:%d\n",
+         GET_FIELD_PTR(entry, dup2, oldfd),
+         GET_FIELD_PTR(entry, dup2, newfd));
+}
+
+void print_log_entry_dup3(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", oldfd=%d, newfd:%d, flags:0x%x\n",
+         GET_FIELD_PTR(entry, dup3, oldfd),
+         GET_FIELD_PTR(entry, dup3, newfd),
+         GET_FIELD_PTR(entry, dup3, flags));
+}
+
 void print_log_entry_close(int idx, log_entry_t *entry) {
   print_log_entry_common(idx, entry);
   printf(", fd=%d\n", GET_FIELD_PTR(entry, close, fd));
