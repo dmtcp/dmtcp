@@ -40,6 +40,7 @@
 #define PROTECTED_TMPDIR_FD        PFD(11)
 #define PROTECTED_SHMIDLIST_FD     PFD(12)
 #define PROTECTED_SHMIDMAP_FD      PFD(13)
+#define PROTECTED_READLOG_FD       PFD(14)
 
 namespace dmtcp
 {

@@ -34,10 +34,14 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/select.h>
-#include "dmtcpalloc.h"
 // Needed for ioctl:
 #include <sys/ioctl.h>
 #include <net/if.h>
+
+#include "constants.h"
+#include "dmtcpalloc.h"
+#include "protectedfds.h"
+#include "util.h"
 
 // 'long int' IS 32 bits ON 32-bit ARCH AND 64 bits ON A 64-bit ARCH.
 // 'sizeof(long long int)==sizeof(long int)' on 64-bit arch. 
@@ -200,13 +204,14 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define WRAPPER_REPLAY_READ_FROM_READ_LOG(name, ptr, len)           \
   do {                                                              \
     if (__builtin_expect(read_data_fd == -1, 0)) {                  \
-      read_data_fd = _real_open(RECORD_READ_DATA_LOG_PATH,          \
-                                O_RDONLY, 0);                       \
+      int fd = _real_open(RECORD_READ_DATA_LOG_PATH, O_RDONLY, 0);  \
+      read_data_fd = dup2(fd, PROTECTED_READLOG_FD);                \
+      _real_close(fd);                                              \
     }                                                               \
     JASSERT ( read_data_fd != -1 );                                 \
     lseek(read_data_fd,                                             \
           GET_FIELD(currentLogEntry, name, data_offset), SEEK_SET); \
-    dmtcp::Util::readAll(read_data_fd, ptr, len);                          \
+    dmtcp::Util::readAll(read_data_fd, ptr, len);                   \
   } while (0)
 
 #define WRAPPER_LOG_WRITE_INTO_READ_LOG(name, ptr, len)             \
@@ -225,13 +230,18 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     prepareNextLogEntry(my_entry);                                  \
   } while(0)
 
-#define WRAPPER_LOG_WRITE_ENTRY(my_entry)                           \
+#define WRAPPER_LOG_WRITE_ENTRY_VOID(my_entry)                      \
   do {                                                              \
-    SET_COMMON2(my_entry, retval, (void*)retval);                   \
     SET_COMMON2(my_entry, my_errno, errno);                         \
     SET_COMMON2(my_entry, isOptional, isOptionalEvent);             \
     addNextLogEntry(my_entry);                                      \
     errno = GET_COMMON(my_entry, my_errno);                         \
+  } while (0)
+
+#define WRAPPER_LOG_WRITE_ENTRY(my_entry)                           \
+  do {                                                              \
+    SET_COMMON2(my_entry, retval, (void*)retval);                   \
+    WRAPPER_LOG_WRITE_ENTRY_VOID(my_entry);                         \
   } while (0)
 
 #define WRAPPER_LOG(real_func, ...)                                 \
@@ -1444,6 +1454,8 @@ typedef struct {
   (GET_COMMON(e1, field) == GET_COMMON(e2, field))
 #define IS_EQUAL_FIELD(e1, e2, event, field) \
   (GET_FIELD(e1, event, field) == GET_FIELD(e2, event, field))
+#define IS_EQUAL_FIELD_PTR(e1, e2, event, field) \
+  (GET_FIELD_PTR(e1, event, field) == GET_FIELD_PTR(e2, event, field))
 
 
 #if 1

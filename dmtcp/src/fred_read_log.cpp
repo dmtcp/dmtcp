@@ -53,9 +53,18 @@ void print_log_entry_common(int idx, log_entry_t *entry) {
   //char *event_type;
   std::string event_type;
   EVENT_TO_STRING(event_type, GET_COMMON_PTR(entry, event));
-  printf("%d: clone_id=%lld, [%s]: retval=%lu, log_id=%lld, my_errno=%d, isOptional=%d",
-         idx, GET_COMMON_PTR(entry, clone_id), event_type.c_str(),
-         (unsigned long) GET_COMMON_PTR(entry, retval),
+  printf("%2d: clone_id=%lld, [%-20.20s]: ",
+         idx, GET_COMMON_PTR(entry, clone_id), event_type.c_str());
+
+  switch ((long) (unsigned long) GET_COMMON_PTR(entry, retval)) {
+    case 0:
+      printf("retval=  0     , "); break;
+    case -1:
+      printf("retval= -1     , "); break;
+    default:
+      printf("retval=%p, ", GET_COMMON_PTR(entry, retval)); break;
+  }
+  printf("log_id=%2lld, my_errno=%d, isOptional=%d",
          GET_COMMON_PTR(entry, log_id), GET_COMMON_PTR(entry, my_errno),
          GET_COMMON_PTR(entry, isOptional));
 }
