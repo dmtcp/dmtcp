@@ -789,6 +789,8 @@ typedef struct {
   int optname;
   void *optval;
   socklen_t *optlen;
+  socklen_t ret_optlen;
+  off_t data_offset;
 } log_event_getsockopt_t;
 
 static const int log_event_getsockopt_size = sizeof(log_event_getsockopt_t);
