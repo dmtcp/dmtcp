@@ -2518,7 +2518,7 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
       event_num == accept4_event ||
       event_num == fdopen_event) {
     opt_events[0] = mmap_event;
-  } else if (event_num == setsockopt_event) {
+  } else if (event_num == setsockopt_event || event_num == getsockopt_event) {
     opt_events[0] = malloc_event;
     opt_events[1] = free_event;
     opt_events[2] = mmap_event;

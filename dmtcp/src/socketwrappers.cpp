@@ -265,8 +265,17 @@ int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
                  socklen_t optlen )
 {
 #ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER_WITH_CKPT_LOCK(int, setsockopt, _almost_real_setsockopt,
-                                    sockfd, level, optname, optval, optlen);
+  WRAPPER_HEADER(int, setsockopt, _almost_real_setsockopt,
+                 sockfd, level, optname, optval, optlen);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY(setsockopt);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _almost_real_setsockopt(sockfd, level, optname, optval, optlen);
+    isOptionalEvent = false;
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 #else
   return _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
 #endif
@@ -276,8 +285,26 @@ int getsockopt ( int sockfd, int  level,  int  optname,  void  *optval,
                  socklen_t *optlen )
 {
 #ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER_WITH_CKPT_LOCK(int, getsockopt, _almost_real_getsockopt,
-                                    sockfd, level, optname, optval, optlen);
+  WRAPPER_HEADER(int, getsockopt, _almost_real_getsockopt,
+                 sockfd, level, optname, optval, optlen);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_START(getsockopt);
+    if (retval == 0 && optval != NULL) {
+      *optlen = GET_FIELD(currentLogEntry, getsockopt, ret_optlen);
+      WRAPPER_REPLAY_READ_FROM_READ_LOG(getsockopt, optval, *optlen);
+    }
+    WRAPPER_REPLAY_END(getsockopt);
+  } else if (SYNC_IS_RECORD) {
+    isOptionalEvent = true;
+    retval = _almost_real_getsockopt(sockfd, level, optname, optval, optlen);
+    isOptionalEvent = false;
+    if (retval == 0 && optval != NULL) {
+      WRAPPER_LOG_WRITE_INTO_READ_LOG(getsockopt, optval, *optlen);
+      SET_FIELD2(my_entry, getsockopt, ret_optlen, *optlen);
+    }
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
 #else
   return _almost_real_getsockopt(sockfd,level,optname,optval,optlen);
 #endif
