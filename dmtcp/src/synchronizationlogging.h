@@ -1064,6 +1064,7 @@ typedef struct {
   int flags;
   int fd;
   off_t offset;
+  off_t data_offset; // offset into read saved data file
 } log_event_mmap_t;
 
 static const int log_event_mmap_size = sizeof(log_event_mmap_t);
@@ -1076,6 +1077,7 @@ typedef struct {
   int flags;
   int fd;
   off64_t offset;
+  off_t data_offset; // offset into read saved data file
 } log_event_mmap64_t;
 
 static const int log_event_mmap64_size = sizeof(log_event_mmap64_t);

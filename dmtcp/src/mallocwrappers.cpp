@@ -434,6 +434,11 @@ extern "C" void *realloc(void *ptr, size_t size)
 }
 
 #ifdef RECORD_REPLAY
+/* mmap/mmap64
+ * TODO: Remove the PROT_WRITE flag on REPLAY phase if it was not part of
+ *       original flags.
+ * FIXME: MAP_SHARED areas are restored as MAP_PRIVATE, check for correctness.
+ */
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
                       int fd, off_t offset)
 {
@@ -441,16 +446,38 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
   SET_IN_MMAP_WRAPPER();
   MMAP_WRAPPER_HEADER(mmap, addr, length, prot, flags, fd, offset);
   if (SYNC_IS_REPLAY) {
+    bool mmap_read_from_readlog = false;
     MMAP_WRAPPER_REPLAY_START(mmap);
     JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
     addr = GET_COMMON(currentLogEntry, retval);
+    if (retval != MAP_FAILED && fd != -1 &&
+        ((flags & MAP_PRIVATE) != 0 || (flags & MAP_SHARED) != 0)) {
+      flags &= ~MAP_SHARED;
+      flags |= MAP_PRIVATE;
+      flags |= MAP_ANONYMOUS;
+      fd = -1;
+      offset = 0;
+      size_t page_size = sysconf(_SC_PAGESIZE);
+      size_t page_mask = ~(page_size - 1);
+      length = (length + page_size - 1) & PAGE_MASK ;
+      mmap_read_from_readlog = true;
+    }
     flags |= MAP_FIXED;
-    retval = _real_mmap (addr, length, prot, flags, fd, offset);
-    JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
+    retval = _real_mmap (addr, length, prot | PROT_WRITE, flags, fd, offset);
+    if (retval != GET_COMMON(currentLogEntry, retval)) sleep(20);
+    JASSERT ( retval == GET_COMMON(currentLogEntry, retval) ) (retval)
+      (GET_COMMON(currentLogEntry, retval)) (JASSERT_ERRNO);
+    if (mmap_read_from_readlog) {
+      WRAPPER_REPLAY_READ_FROM_READ_LOG(mmap, retval, length);
+    }
     MMAP_WRAPPER_REPLAY_END(mmap);
   } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap (addr, length, prot, flags, fd, offset);
+    if (retval != MAP_FAILED && fd != -1 &&
+        ((flags & MAP_PRIVATE) != 0 || (flags & MAP_SHARED) != 0)) {
+      WRAPPER_LOG_WRITE_INTO_READ_LOG(mmap, retval, length);
+    }
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
     _real_pthread_mutex_unlock(&mmap_lock);
   }
@@ -466,16 +493,36 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
   SET_IN_MMAP_WRAPPER();
   MMAP_WRAPPER_HEADER(mmap64, addr, length, prot, flags, fd, offset);
   if (SYNC_IS_REPLAY) {
+    bool mmap_read_from_readlog = false;
     MMAP_WRAPPER_REPLAY_START(mmap64);
     JASSERT ( addr == NULL ).Text("Unimplemented to have non-null addr.");
     addr = GET_COMMON(currentLogEntry, retval);
+    if (retval != MAP_FAILED && fd != -1 &&
+        ((flags & MAP_PRIVATE) != 0 || (flags & MAP_SHARED) != 0)) {
+      flags &= ~MAP_SHARED;
+      flags |= MAP_PRIVATE;
+      flags |= MAP_ANONYMOUS;
+      fd = -1;
+      offset = 0;
+      size_t page_size = sysconf(_SC_PAGESIZE);
+      size_t page_mask = ~(page_size - 1);
+      length = (length + page_size - 1) & PAGE_MASK ;
+      mmap_read_from_readlog = true;
+    }
     flags |= MAP_FIXED;
-    retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    retval = _real_mmap64 (addr, length, prot | PROT_WRITE, flags, fd, offset);
     JASSERT ( retval == GET_COMMON(currentLogEntry, retval) );
+    if (mmap_read_from_readlog) {
+      WRAPPER_REPLAY_READ_FROM_READ_LOG(mmap64, retval, length);
+    }
     MMAP_WRAPPER_REPLAY_END(mmap64);
   } else if (SYNC_IS_RECORD) {
     _real_pthread_mutex_lock(&mmap_lock);
     retval = _real_mmap64 (addr, length, prot, flags, fd, offset);
+    if (retval != MAP_FAILED && fd != -1 &&
+        ((flags & MAP_PRIVATE) != 0 || (flags & MAP_SHARED) != 0)) {
+      WRAPPER_LOG_WRITE_INTO_READ_LOG(mmap64, retval, length);
+    }
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
     _real_pthread_mutex_unlock(&mmap_lock);
   }
