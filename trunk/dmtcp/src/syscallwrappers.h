@@ -206,6 +206,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(getpeername)                          \
   MACRO(fcntl)                                \
   MACRO(dup)                                  \
+  MACRO(dup2)                                 \
+  MACRO(dup3)                                 \
   MACRO(lseek)                                \
   MACRO(__fxstat)                             \
   MACRO(__fxstat64)                           \
@@ -304,7 +306,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
 //we no longer wrap dup
 //#define _real_dup  dup
-#define _real_dup2 dup2
+//#define _real_dup2 dup2
 //int _real_dup(int oldfd);
 //int _real_dup2(int oldfd, int newfd);
 
@@ -391,6 +393,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_select(int nfds, fd_set *readfds, fd_set *writefds,
                    fd_set *exceptfds, struct timeval *timeout);
   int _real_dup(int oldfd);
+  int _real_dup2(int oldfd, int newfd);
+  int _real_dup3(int oldfd, int newfd, int flags);
   off_t _real_lseek(int fd, off_t offset, int whence);
   int _real_unlink(const char *pathname);
 

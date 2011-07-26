@@ -1137,6 +1137,16 @@ int _real_dup(int oldfd) {
 }
 
 LIB_PRIVATE
+int _real_dup2(int oldfd, int newfd) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,dup2 ) ( oldfd, newfd );
+}
+
+LIB_PRIVATE
+int _real_dup3(int oldfd, int newfd, int flags) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,dup3 ) ( oldfd, newfd, flags );
+}
+
+LIB_PRIVATE
 off_t _real_lseek(int fd, off_t offset, int whence) {
   REAL_FUNC_PASSTHROUGH_TYPED ( off_t,lseek) ( fd, offset, whence );
 }

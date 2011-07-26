@@ -687,7 +687,7 @@ void logReadData(void *buf, int count)
   if (read_data_fd == -1) {
     int fd = _real_open(RECORD_READ_DATA_LOG_PATH,
         O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
-    read_data_fd = dup2(fd, PROTECTED_READLOG_FD);
+    read_data_fd = _real_dup2(fd, PROTECTED_READLOG_FD);
     _real_close(fd);
   }
   int written = _real_write(read_data_fd, buf, count);
@@ -811,6 +811,27 @@ log_entry_t create_dup_entry(clone_id_t clone_id, int event, int oldfd)
   log_entry_t e = EMPTY_LOG_ENTRY;
   setupCommonFields(&e, clone_id, event);
   SET_FIELD(e, dup, oldfd);
+  return e;
+}
+
+log_entry_t create_dup2_entry(clone_id_t clone_id, int event,
+                              int oldfd, int newfd)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, dup2, oldfd);
+  SET_FIELD(e, dup2, newfd);
+  return e;
+}
+
+log_entry_t create_dup3_entry(clone_id_t clone_id, int event,
+                              int oldfd, int newfd, int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, dup3, oldfd);
+  SET_FIELD(e, dup3, newfd);
+  SET_FIELD(e, dup3, flags);
   return e;
 }
 
@@ -1856,7 +1877,23 @@ TURN_CHECK_P(connect_turn_check)
 
 TURN_CHECK_P(dup_turn_check)
 {
-  return base_turn_check(e1, e2);// && e1->fd == e2->fd;
+  return base_turn_check(e1, e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup, oldfd);
+}
+
+TURN_CHECK_P(dup2_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup2, oldfd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup2, newfd);
+}
+
+TURN_CHECK_P(dup3_turn_check)
+{
+  return base_turn_check(e1, e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup3, oldfd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup3, newfd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, dup3, flags);
 }
 
 TURN_CHECK_P(rand_turn_check)

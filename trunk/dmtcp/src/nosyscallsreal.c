@@ -209,6 +209,11 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+int _real_dup2 ( int oldfd, int newfd )
+{
+  REAL_FUNC_PASSTHROUGH ( dup2 ) ( oldfd, newfd );
+}
+
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
