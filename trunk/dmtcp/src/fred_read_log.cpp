@@ -768,6 +768,75 @@ void print_log_entry_epoll_wait(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, epoll_wait, timeout));
 }
 
+void print_log_entry_getpwnam_r(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", name=%p, pwd=%p, buf:%p, buflen:%zu, result:%p\n",
+         GET_FIELD_PTR(entry, getpwnam_r, name),
+         GET_FIELD_PTR(entry, getpwnam_r, pwd),
+         GET_FIELD_PTR(entry, getpwnam_r, buf),
+         GET_FIELD_PTR(entry, getpwnam_r, buflen),
+         GET_FIELD_PTR(entry, getpwnam_r, result));
+}
+
+void print_log_entry_getpwuid_r(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", uid=%d, pwd=%p, buf:%p, buflen:%zu, result:%p\n",
+         GET_FIELD_PTR(entry, getpwuid_r, uid),
+         GET_FIELD_PTR(entry, getpwuid_r, pwd),
+         GET_FIELD_PTR(entry, getpwuid_r, buf),
+         GET_FIELD_PTR(entry, getpwuid_r, buflen),
+         GET_FIELD_PTR(entry, getpwuid_r, result));
+}
+
+void print_log_entry_getgrnam_r(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", name=%p, grp=%p, buf:%p, buflen:%zu, result:%p\n",
+         GET_FIELD_PTR(entry, getgrnam_r, name),
+         GET_FIELD_PTR(entry, getgrnam_r, grp),
+         GET_FIELD_PTR(entry, getgrnam_r, buf),
+         GET_FIELD_PTR(entry, getgrnam_r, buflen),
+         GET_FIELD_PTR(entry, getgrnam_r, result));
+}
+
+void print_log_entry_getgrgid_r(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", gid=%d, grp=%p, buf:%p, buflen:%zu, result:%p\n",
+         GET_FIELD_PTR(entry, getgrgid_r, gid),
+         GET_FIELD_PTR(entry, getgrgid_r, grp),
+         GET_FIELD_PTR(entry, getgrgid_r, buf),
+         GET_FIELD_PTR(entry, getgrgid_r, buflen),
+         GET_FIELD_PTR(entry, getgrgid_r, result));
+}
+
+void print_log_entry_getaddrinfo(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", node=%p, service=%p, hints:%p, res:%p, num_res:%d\n",
+         GET_FIELD_PTR(entry, getaddrinfo, node),
+         GET_FIELD_PTR(entry, getaddrinfo, service),
+         GET_FIELD_PTR(entry, getaddrinfo, hints),
+         GET_FIELD_PTR(entry, getaddrinfo, res),
+         GET_FIELD_PTR(entry, getaddrinfo, num_res));
+}
+
+void print_log_entry_freeaddrinfo(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", res:%p\n",
+         GET_FIELD_PTR(entry, freeaddrinfo, res));
+}
+
+void print_log_entry_getnameinfo(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", sa:%p, salen:%d, host:%p, hostlen:%d, serv:%p, servlen:%d,"
+         " flags:%d\n",
+         GET_FIELD_PTR(entry, getnameinfo, sa),
+         GET_FIELD_PTR(entry, getnameinfo, salen),
+         GET_FIELD_PTR(entry, getnameinfo, host),
+         GET_FIELD_PTR(entry, getnameinfo, hostlen),
+         GET_FIELD_PTR(entry, getnameinfo, serv),
+         GET_FIELD_PTR(entry, getnameinfo, servlen),
+         GET_FIELD_PTR(entry, getnameinfo, flags));
+}
+
 void printEntry(int idx, log_entry_t *entry)
 {
   PRINT_ENTRIES(idx, entry);
