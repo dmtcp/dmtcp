@@ -167,3 +167,153 @@ int dmtcp::Util::readLine(int fd, char *buf, int count)
   buf[i++] = '\0';
   return i;
 }
+
+/* Read decimal number, return value and terminating character */
+
+char dmtcp::Util::readDec (int fd, VA *value)
+{
+  char c;
+  unsigned long int v;
+
+  v = 0;
+  while (1) {
+    c = readChar (fd);
+    if ((c >= '0') && (c <= '9')) c -= '0';
+    else break;
+    v = v * 10 + c;
+  }
+  *value = (VA)v;
+  return (c);
+}
+
+/* Read decimal number, return value and terminating character */
+
+char dmtcp::Util::readHex (int fd, VA *value)
+{
+  char c;
+  unsigned long int v;
+
+  v = 0;
+  while (1) {
+    c = readChar (fd);
+         if ((c >= '0') && (c <= '9')) c -= '0';
+    else if ((c >= 'a') && (c <= 'f')) c -= 'a' - 10;
+    else if ((c >= 'A') && (c <= 'F')) c -= 'A' - 10;
+    else break;
+    v = v * 16 + c;
+  }
+  *value = (VA)v;
+  return (c);
+}
+
+/* Read non-null character, return null if EOF */
+
+char dmtcp::Util::readChar (int fd)
+{
+  char c;
+  int rc;
+
+  do {
+    rc = _real_read (fd, &c, 1);
+  } while ( rc == -1 && errno == EINTR );
+  if (rc <= 0) return (0);
+  return (c);
+}
+
+
+int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
+{
+  char c, rflag, sflag, wflag, xflag;
+  int i, rc;
+  struct stat statbuf;
+  unsigned int long devmajor, devminor, devnum, inodenum;
+  VA startaddr, endaddr;
+
+  c = readHex (mapsfd, &startaddr);
+  if (c != '-') {
+    if ((c == 0) && (startaddr == 0)) return (0);
+    goto skipeol;
+  }
+  c = readHex (mapsfd, &endaddr);
+  if (c != ' ') goto skipeol;
+  if (endaddr < startaddr) goto skipeol;
+
+  rflag = c = readChar (mapsfd);
+  if ((c != 'r') && (c != '-')) goto skipeol;
+  wflag = c = readChar (mapsfd);
+  if ((c != 'w') && (c != '-')) goto skipeol;
+  xflag = c = readChar (mapsfd);
+  if ((c != 'x') && (c != '-')) goto skipeol;
+  sflag = c = readChar (mapsfd);
+  if ((c != 's') && (c != 'p')) goto skipeol;
+
+  c = readChar (mapsfd);
+  if (c != ' ') goto skipeol;
+
+  c = readHex (mapsfd, (VA *)&devmajor);
+  if (c != ' ') goto skipeol;
+  area -> offset = (off_t)devmajor;
+
+  c = readHex (mapsfd, (VA *)&devmajor);
+  if (c != ':') goto skipeol;
+  c = readHex (mapsfd, (VA *)&devminor);
+  if (c != ' ') goto skipeol;
+  c = readDec (mapsfd, (VA *)&inodenum);
+  area -> name[0] = '\0';
+  while (c == ' ') c = readChar (mapsfd);
+  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
+    i = 0;
+    do {
+      area -> name[i++] = c;
+      if (i == sizeof area -> name) goto skipeol;
+      c = readChar (mapsfd);
+    } while (c != '\n');
+    area -> name[i] = '\0';
+  }
+#if 0
+  if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
+    /* if nscd is active */
+  } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
+    /* System V Shared-Memory segments are handled by DMTCP. */
+  } else if ( mtcp_strendswith(area -> name, DELETED_FILE_SUFFIX) ) {
+    /* Deleted File */
+  } else if (area -> name[0] == '/') {  /* if an absolute pathname */
+    rc = stat (area -> name, &statbuf);
+    if (rc < 0) {
+      MTCP_PRINTF("ERROR: error %d statting %s\n", -rc, area -> name);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
+    }
+    devnum = makedev (devmajor, devminor);
+    if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
+      MTCP_PRINTF("ERROR: image %s dev:inode %X:%u not eq maps %X:%u\n",
+                   area -> name, statbuf.st_dev, statbuf.st_ino,
+		   devnum, inodenum);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
+    }
+  } else {
+    /* Special area like [heap] or anonymous area. */
+  }
+#endif
+
+  if (c != '\n') goto skipeol;
+
+  area -> addr = startaddr;
+  area -> size = endaddr - startaddr;
+  area -> endAddr = endaddr;
+  area -> prot = 0;
+  if (rflag == 'r') area -> prot |= PROT_READ;
+  if (wflag == 'w') area -> prot |= PROT_WRITE;
+  if (xflag == 'x') area -> prot |= PROT_EXEC;
+  area -> flags = MAP_FIXED;
+  if (sflag == 's') area -> flags |= MAP_SHARED;
+  if (sflag == 'p') area -> flags |= MAP_PRIVATE;
+  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
+
+  return (1);
+
+skipeol:
+  JASSERT(false) .Text("Not Reached");
+  return (0);  /* NOTREACHED : stop compiler warning */
+}

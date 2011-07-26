@@ -200,6 +200,9 @@ int shouldSynchronize(void *return_addr)
   if (state != dmtcp::WorkerState::RUNNING) {
     return 0;
   }
+  if (SYNC_IS_NOOP) {
+    return 0;
+  }
   if (!validAddress(return_addr)) {
     return 0;
   }
@@ -452,7 +455,7 @@ LIB_PRIVATE void recordDataStackLocations()
       strncpy(stack_line, line, 199);
     }
   }
-  close(maps_file);
+  _real_close(maps_file);
   char addrs[32];
   char addr_lower[16];
   char addr_upper[16];
@@ -507,15 +510,83 @@ LIB_PRIVATE void recordDataStackLocations()
     (rl.rlim_cur == RLIM_INFINITY) ? arch_default_stack_size : rl.rlim_cur;
 }
 
+#define MAX_PROC_MAPS_AREAS 512
+dmtcp::Util::ProcMapsArea procMapsAreasToLog[MAX_PROC_MAPS_AREAS];
+dmtcp::Util::ProcMapsArea procMapsAreasToNotLog[MAX_PROC_MAPS_AREAS];
+static size_t procMapsAreasToLogLen = 0;
+static size_t procMapsAreasToNotLogLen = 0;
+
+LIB_PRIVATE pthread_mutex_t procMapsAreasMutex = PTHREAD_MUTEX_INITIALIZER;
+
+const char *logLibraryPattern = "/home/kapil/usr/";
+
+void initSyncAddresses()
+{
+  int mapsFd = -1;
+  dmtcp::Util::ProcMapsArea area;
+
+  _real_pthread_mutex_lock(&procMapsAreasMutex);
+
+  procMapsAreasToLogLen = 0;
+  procMapsAreasToNotLogLen = 0;
+
+  if ((mapsFd = _real_open("/proc/self/maps", O_RDONLY, S_IRUSR)) == -1) {
+    perror("open");
+    exit(1);
+  }
+
+  while (dmtcp::Util::readProcMapsLine(mapsFd, &area)) {
+    if ((area.prot & PROT_EXEC) != 0 && strlen(area.name) != 0) {
+      if (dmtcp::Util::strStartsWith(area.name, logLibraryPattern)) {
+        JASSERT(procMapsAreasToLogLen < MAX_PROC_MAPS_AREAS);
+        procMapsAreasToLog[procMapsAreasToLogLen++] = area;
+      } else {
+        JASSERT(procMapsAreasToNotLogLen < MAX_PROC_MAPS_AREAS);
+        procMapsAreasToNotLog[procMapsAreasToNotLogLen++] = area;
+      }
+    }
+  }
+  _real_close(mapsFd);
+  _real_pthread_mutex_unlock(&procMapsAreasMutex);
+}
+
+bool searchAddrInRange(char *addr, dmtcp::Util::ProcMapsArea areas[],
+                       size_t len)
+{
+  for (int i = 0; i < len; i++) {
+    if (addr >= areas[i].addr && addr < areas[i].endAddr) {
+      return true;
+    }
+  }
+  return false;
+}
+
 int validAddress(void *addr)
 {
   // This code assumes the user's segments .text through .data are contiguous.
   if ((addr >= code_lower && addr < data_break) ||
       (addr >= stack_lower && addr < stack_upper)) {
     return 1;
-  } else {
+  }
+
+  if (searchAddrInRange((char*) addr,
+                        procMapsAreasToLog, procMapsAreasToLogLen)) {
+    return 1;
+  }
+
+  if (searchAddrInRange((char*) addr,
+                        procMapsAreasToNotLog, procMapsAreasToNotLogLen)) {
     return 0;
   }
+
+  initSyncAddresses();
+
+  if (searchAddrInRange((char*) addr,
+                        procMapsAreasToLog, procMapsAreasToLogLen)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 void copyFdSet(fd_set *src, fd_set *dest)
@@ -619,7 +690,7 @@ void logReadData(void *buf, int count)
     read_data_fd = dup2(fd, PROTECTED_READLOG_FD);
     _real_close(fd);
   }
-  int written = write(read_data_fd, buf, count);
+  int written = _real_write(read_data_fd, buf, count);
   JASSERT ( written == count );
   read_log_pos += written;
 }
