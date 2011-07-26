@@ -1441,7 +1441,7 @@ extern "C" int readdir_r(DIR *dirp, struct dirent *entry,
   log_entry_t my_entry = create_readdir_r_entry(my_clone_id,
       readdir_r_event, dirp, entry, result);
   if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(readdir_r);
+    WRAPPER_REPLAY_START(readdir_r);
     if (retval == 0 && entry != NULL) {
       *entry = GET_FIELD(currentLogEntry, readdir_r, ret_entry);
     }
@@ -1451,6 +1451,7 @@ extern "C" int readdir_r(DIR *dirp, struct dirent *entry,
     if (retval != 0) {
       *result = NULL;
     }
+    WRAPPER_REPLAY_END(readdir_r);
   } else if (SYNC_IS_RECORD) {
     retval = _real_readdir_r(dirp, entry, result);
     if (retval == 0 && entry != NULL) {
