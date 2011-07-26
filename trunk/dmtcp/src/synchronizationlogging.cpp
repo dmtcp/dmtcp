@@ -614,8 +614,10 @@ void logReadData(void *buf, int count)
         "This is probably not intended.");
   }
   if (read_data_fd == -1) {
-    read_data_fd = open(RECORD_READ_DATA_LOG_PATH,
+    int fd = _real_open(RECORD_READ_DATA_LOG_PATH,
         O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    read_data_fd = dup2(fd, PROTECTED_READLOG_FD);
+    _real_close(fd);
   }
   int written = write(read_data_fd, buf, count);
   JASSERT ( written == count );
@@ -2549,6 +2551,9 @@ static void waitForTurnWithOptional(log_entry_t *my_entry, turn_pred_t pred)
   }
 }
 
+// FIXME: REDO the logic to get rid of mutex
+// FIXME: update my_entry <- currentLogEntry so that we do _not_ refer
+//        currentLogEntry in the wrappers.
 void waitForTurn(log_entry_t my_entry, turn_pred_t pred)
 {
   memfence();
