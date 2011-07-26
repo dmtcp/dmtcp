@@ -385,8 +385,8 @@ namespace dmtcp
 
       if( gid != fgid ){
 	if( !(pid = fork()) ){ // fork subversive process
-	  // This process moves itself to current foreground group
-	  // and then changes foreground group to what we need
+	  // This process moves itself to current foreground Group
+	  // and then changes foreground Group to what we need
 	  // so it works as a spy, saboteur or wrecker :)
 	  // -- Artem
 	  JTRACE("Change current GID to foreground GID.");
@@ -426,8 +426,8 @@ namespace dmtcp
     void restoreGroup( SlidingFdTable& slidingFd )
     {
       if( isGroupLeader() ){
-	// create new group where this process becomes a leader
-	JTRACE("Create new group.");
+	// create new Group where this process becomes a leader
+	JTRACE("Create new Group.");
 	setpgid(0, 0);
 	bringToForeground(slidingFd);
       }
@@ -453,7 +453,7 @@ namespace dmtcp
 
       if( !isSessionLeader() ){
 
-	// Restore group information
+	// Restore Group information
 	restoreGroup(slidingFd);
 
 	// If process is not session leader, restore it and all children.
@@ -504,7 +504,7 @@ namespace dmtcp
 	pid_t nsid = setsid();
 	JTRACE("change SID")(nsid);
 
-	// Restore group information
+	// Restore Group information
 	restoreGroup(slidingFd);
 
 	for(t_iterator it = _children.begin(); it != _children.end(); it++) {
@@ -838,7 +838,7 @@ int main ( int argc, char** argv )
     exit(1);
   }
 
-  // Check that all targets belongs to one computation group
+  // Check that all targets belongs to one computation Group
   // If not - abort
   compGroup = targets[0]._compGroup;
   numPeers = targets[0]._numPeers;
@@ -916,7 +916,7 @@ int main ( int argc, char** argv )
   BuildProcessTree();
 
   // Process all checkpoints to find one of them that can switch
-  // needed group to foreground.
+  // needed Group to foreground.
   ProcessGroupInfo();
   // Create session meta-information in each node of the process tree.
   // Node contains info about all sessions which exists at lower levels.
@@ -1085,9 +1085,9 @@ void BuildProcessTree()
  *
  */
 
-class group {
+class ProcessGroup {
 public:
-  group(){
+  ProcessGroup(){
     gid = -2;
   }
   pid_t gid;
@@ -1102,8 +1102,8 @@ public:
   }
   pid_t sid;
   pid_t fgid;
-  map<pid_t,group> groups;
-  typedef map<pid_t,group>::iterator group_it;
+  map<pid_t,ProcessGroup> groups;
+  typedef map<pid_t,ProcessGroup>::iterator group_it;
   UniquePid upid;
 };
 
@@ -1126,14 +1126,14 @@ void ProcessGroupInfo()
     //pid_t fgid = virtualPidTable.fgid();
 
     /*
-    // If group ID doesn't belong to known PIDs, indicate that fact
+    // If Group ID doesn't belong to known PIDs, indicate that fact
     //   using -1 value.
     if( !virtualPidTable.pidExists(gid) ){
     JTRACE("DROP gid")(gid);
     virtualPidTable.setgid(-1);
     gid = -1;
     }
-    // If foreground group ID not belongs to known PIDs,
+    // If foreground Group ID not belongs to known PIDs,
     //   indicate that fact using -1 value.
     if( !virtualPidTable.pidExists(fgid) ){
     JTRACE("DROP fgid")(fgid);
@@ -1147,8 +1147,8 @@ void ProcessGroupInfo()
     if( s.sid == -2 ){
       s.sid = sid;
     }
-    group &g = smap[sid].groups[gid];
-    // if this is first element of group gid
+    ProcessGroup &g = smap[sid].groups[gid];
+    // if this is first element of Group gid
     if( g.gid == -2 ){
       g.gid = gid;
     }
@@ -1164,7 +1164,7 @@ void ProcessGroupInfo()
     if( s.sid == -1) // skip default bash session all processes will join
       continue;
     for(; g_it!=s.groups.end();g_it++){
-      group &g = g_it->second;
+      ProcessGroup &g = g_it->second;
       for(size_t k=0; k<g.targets.size(); k++){
         VirtualPidTable& virtualPidTable = g.targets[k]->getVirtualPidTable();
         pid_t cfgid = virtualPidTable.fgid();
@@ -1172,12 +1172,12 @@ void ProcessGroupInfo()
           fgid = cfgid;
         }else if( fgid != -1 && cfgid != -1 && fgid != cfgid ){
           printf("Error: process from same session stores different"
-              " foreground group ID: %d, %d\n", fgid, cfgid);
+              " foreground Group ID: %d, %d\n", fgid, cfgid);
           // DEBUG PRINTOUT:
           {
             session::group_it g_it1 = s.groups.begin();
             for(; g_it1!=s.groups.end();g_it1++){
-              group &g1 = g_it1->second;
+              ProcessGroup &g1 = g_it1->second;
               for(size_t m=0; m<g1.targets.size() ;m++){
                 VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
                 pid_t pid = virtualPidTable.pid();
@@ -1195,14 +1195,14 @@ void ProcessGroupInfo()
     }
     s.fgid = fgid;
     if( s.groups.find(s.fgid) == s.groups.end() ){
-      // foreground group is missing, don't need to change foreground group
+      // foreground Group is missing, don't need to change foreground Group
       s.fgid = -1;
     }
 
     {
       session::group_it g_it1 = s.groups.begin();
       for(; g_it1!=s.groups.end();g_it1++){
-        group &g1 = g_it1->second;
+        ProcessGroup &g1 = g_it1->second;
         for(size_t m=0; m<g1.targets.size(); m++){
           VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
           pid_t pid = virtualPidTable.pid();
@@ -1221,7 +1221,7 @@ void ProcessGroupInfo()
     JTRACE("Session printout:")(s.sid)(s.fgid)(s.upid.toString().c_str());
     session::group_it g_it = s.groups.begin();
     for(; g_it!=s.groups.end();g_it++){
-      group &g = g_it->second;
+      ProcessGroup &g = g_it->second;
       JTRACE("\tGroup ID: ")(g.gid);
       /*
          for(k=0; k<g.targets.size() ;k++){
