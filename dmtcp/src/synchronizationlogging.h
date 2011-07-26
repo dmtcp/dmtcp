@@ -34,9 +34,12 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/select.h>
+#include <pwd.h>
+#include <grp.h>
 // Needed for ioctl:
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <netdb.h>
 
 #include "constants.h"
 #include "dmtcpalloc.h"
@@ -403,6 +406,13 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(epoll_create1, __VA_ARGS__);                                         \
     MACRO(epoll_ctl, __VA_ARGS__);                                             \
     MACRO(epoll_wait, __VA_ARGS__);                                            \
+    MACRO(getpwnam_r, __VA_ARGS__);                                            \
+    MACRO(getpwuid_r, __VA_ARGS__);                                            \
+    MACRO(getgrnam_r, __VA_ARGS__);                                            \
+    MACRO(getgrgid_r, __VA_ARGS__);                                            \
+    MACRO(getaddrinfo, __VA_ARGS__);                                           \
+    MACRO(freeaddrinfo, __VA_ARGS__);                                          \
+    MACRO(getnameinfo, __VA_ARGS__);                                           \
   } while(0)
 
 /* Event codes: */
@@ -507,7 +517,14 @@ typedef enum {
   epoll_create_event,
   epoll_create1_event,
   epoll_ctl_event,
-  epoll_wait_event
+  epoll_wait_event,
+  getpwnam_r_event,
+  getpwuid_r_event,
+  getgrnam_r_event,
+  getgrgid_r_event,
+  getaddrinfo_event,
+  freeaddrinfo_event,
+  getnameinfo_event
 } event_code_t;
 /* end event codes */
 
@@ -1374,6 +1391,99 @@ typedef struct {
 static const int log_event_epoll_wait_size = sizeof(log_event_epoll_wait_t);
 
 typedef struct {
+  // For getpwnam_r():
+  const char *name;
+  struct passwd *pwd;
+  char *buf;
+  size_t buflen;
+  struct passwd **result;
+  struct passwd ret_pwd;
+  struct passwd *ret_result;
+  off_t data_offset; // offset into read saved data file
+} log_event_getpwnam_r_t;
+
+static const int log_event_getpwnam_r_size = sizeof(log_event_getpwnam_r_t);
+
+typedef struct {
+  // For getpwuid_r():
+  uid_t uid;
+  struct passwd *pwd;
+  char *buf;
+  size_t buflen;
+  struct passwd **result;
+  struct passwd ret_pwd;
+  struct passwd *ret_result;
+  off_t data_offset; // offset into read saved data file
+} log_event_getpwuid_r_t;
+
+static const int log_event_getpwuid_r_size = sizeof(log_event_getpwuid_r_t);
+
+typedef struct {
+  // For getgrnam_r():
+  const char *name;
+  struct group *grp;
+  char *buf;
+  size_t buflen;
+  struct group **result;
+  struct group ret_grp;
+  struct group *ret_result;
+  off_t data_offset; // offset into read saved data file
+} log_event_getgrnam_r_t;
+
+static const int log_event_getgrnam_r_size = sizeof(log_event_getgrnam_r_t);
+
+typedef struct {
+  // For getgrgid_r():
+  gid_t gid;
+  struct group *grp;
+  char *buf;
+  size_t buflen;
+  struct group **result;
+  struct group ret_grp;
+  struct group *ret_result;
+  off_t data_offset; // offset into read saved data file
+} log_event_getgrgid_r_t;
+
+static const int log_event_getgrgid_r_size = sizeof(log_event_getgrgid_r_t);
+
+typedef struct {
+  // For getaddrinfo():
+  const char *node;
+  const char *service;
+  const struct addrinfo *hints;
+  struct addrinfo **res;
+  struct addrinfo *ret_res;
+  off_t data_offset; // offset into read saved data file
+  int num_res;
+} log_event_getaddrinfo_t;
+
+static const int log_event_getaddrinfo_size = sizeof(log_event_getaddrinfo_t);
+
+typedef struct {
+  // For freeaddrinfo():
+  struct addrinfo *res;
+} log_event_freeaddrinfo_t;
+
+static const int log_event_freeaddrinfo_size = sizeof(log_event_freeaddrinfo_t);
+
+typedef struct {
+  // For getnameinfo():
+  const struct sockaddr *sa;
+  socklen_t salen;
+  char *host;
+  socklen_t hostlen;
+  char *serv;
+  socklen_t servlen;
+  unsigned int flags;
+  char ret_host[NI_MAXHOST];
+  char ret_serv[NI_MAXSERV];
+} log_event_getnameinfo_t;
+
+static const int log_event_getnameinfo_size = sizeof(log_event_getnameinfo_t);
+
+
+
+typedef struct {
   // FIXME:
   //event_code_t event;
   unsigned char event;
@@ -1494,6 +1604,13 @@ typedef struct {
     log_event_epoll_create1_t                    log_event_epoll_create1;
     log_event_epoll_ctl_t                        log_event_epoll_ctl;
     log_event_epoll_wait_t                       log_event_epoll_wait;
+    log_event_getpwnam_r_t                       log_event_getpwnam_r;
+    log_event_getpwuid_r_t                       log_event_getpwuid_r;
+    log_event_getgrnam_r_t                       log_event_getgrnam_r;
+    log_event_getgrgid_r_t                       log_event_getgrgid_r;
+    log_event_getaddrinfo_t                      log_event_getaddrinfo;
+    log_event_freeaddrinfo_t                     log_event_freeaddrinfo;
+    log_event_getnameinfo_t                     log_event_getnameinfo;
   } event_data;
 } log_entry_t;
 
@@ -1897,6 +2014,45 @@ LIB_PRIVATE log_entry_t create_epoll_wait_entry(clone_id_t clone_id, int event,
                                                 struct epoll_event *events,
                                                 int maxevents, int timeout);
 
+LIB_PRIVATE log_entry_t create_getpwnam_r_entry(clone_id_t clone_id, int event,
+                                                const char *name,
+                                                struct passwd *pwd,
+                                                char *buf, size_t buflen,
+                                                struct passwd **result);
+
+LIB_PRIVATE log_entry_t create_getpwuid_r_entry(clone_id_t clone_id, int event,
+                                                uid_t uid, struct passwd *pwd,
+                                                char *buf, size_t buflen,
+                                                struct passwd **result);
+
+LIB_PRIVATE log_entry_t create_getgrnam_r_entry(clone_id_t clone_id, int event,
+                                                const char *name,
+                                                struct group *grp,
+                                                char *buf, size_t buflen,
+                                                struct group **result);
+
+LIB_PRIVATE log_entry_t create_getgrgid_r_entry(clone_id_t clone_id, int event,
+                                                gid_t gid, struct group *grp,
+                                                char *buf, size_t buflen,
+                                                struct group **result);
+
+LIB_PRIVATE log_entry_t create_getaddrinfo_entry(clone_id_t clone_id, int event,
+                                                 const char *node,
+                                                 const char *service,
+                                                 const struct addrinfo *hints,
+                                                 struct addrinfo **res);
+
+LIB_PRIVATE log_entry_t create_freeaddrinfo_entry(clone_id_t clone_id,
+                                                  int event,
+                                                  struct addrinfo *res);
+
+LIB_PRIVATE log_entry_t create_getnameinfo_entry(clone_id_t clone_id, int event,
+                                                 const struct sockaddr *sa,
+                                                 socklen_t salen,
+                                                 char *host, socklen_t hostlen,
+                                                 char *serv, socklen_t servlen,
+                                                 unsigned int flags);
+
 LIB_PRIVATE void waitForTurn(log_entry_t my_entry, turn_pred_t pred);
 LIB_PRIVATE void waitForExecBarrier();
 
@@ -2000,6 +2156,13 @@ LIB_PRIVATE TURN_CHECK_P(epoll_create_turn_check);
 LIB_PRIVATE TURN_CHECK_P(epoll_create1_turn_check);
 LIB_PRIVATE TURN_CHECK_P(epoll_ctl_turn_check);
 LIB_PRIVATE TURN_CHECK_P(epoll_wait_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getpwnam_r_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getpwuid_r_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getgrnam_r_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getgrgid_r_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getaddrinfo_turn_check);
+LIB_PRIVATE TURN_CHECK_P(freeaddrinfo_turn_check);
+LIB_PRIVATE TURN_CHECK_P(getnameinfo_turn_check);
 
 #endif // RECORD_REPLAY
 #endif // pthread_WRAPPERS_H

@@ -83,7 +83,8 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
-	socketwrappers.cpp workerhijack.cpp epollwrappers.cpp \
+	socketwrappers.cpp workerhijack.cpp \
+	epollwrappers.cpp netwrappers.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
 	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp dmtcpmodule.cpp
 # This should be a superset of all optional files.

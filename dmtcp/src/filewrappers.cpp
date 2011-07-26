@@ -64,6 +64,10 @@
 #undef read
 
 static __thread bool ok_to_log_readdir = false;
+static __thread bool ok_to_log_getpwnam = false;
+static __thread bool ok_to_log_getpwuid = false;
+static __thread bool ok_to_log_getgrnam = false;
+static __thread bool ok_to_log_getgrgid = false;
 #endif
 
 //#ifdef RECORD_REPLAY

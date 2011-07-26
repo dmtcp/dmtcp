@@ -1193,4 +1193,46 @@ LIB_PRIVATE
 ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd, buf, count, offset );
 }
+
+LIB_PRIVATE
+int _real_getpwnam_r(const char *name, struct passwd *pwd,
+                     char *buf, size_t buflen, struct passwd **result) {
+  REAL_FUNC_PASSTHROUGH (getpwnam_r) (name, pwd, buf, buflen, result);
+}
+
+LIB_PRIVATE
+int _real_getpwuid_r(uid_t uid, struct passwd *pwd,
+                     char *buf, size_t buflen, struct passwd **result) {
+  REAL_FUNC_PASSTHROUGH (getpwuid_r) (uid, pwd, buf, buflen, result);
+}
+
+LIB_PRIVATE
+int _real_getgrnam_r(const char *name, struct group *grp,
+                     char *buf, size_t buflen, struct group **result) {
+  REAL_FUNC_PASSTHROUGH (getgrnam_r) (name, grp, buf, buflen, result);
+}
+
+LIB_PRIVATE
+int _real_getgrgid_r(gid_t gid, struct group *grp, char *buf, size_t buflen,
+                     struct group **result) {
+  REAL_FUNC_PASSTHROUGH (getgrgid_r) (gid, grp, buf, buflen, result);
+}
+
+LIB_PRIVATE
+int _real_getaddrinfo(const char *node, const char *service,
+                      const struct addrinfo *hints, struct addrinfo **res) {
+  REAL_FUNC_PASSTHROUGH (getaddrinfo) (node, service, hints, res);
+}
+LIB_PRIVATE
+void _real_freeaddrinfo(struct addrinfo *res) {
+  REAL_FUNC_PASSTHROUGH_VOID (freeaddrinfo) (res);
+}
+
+LIB_PRIVATE
+int _real_getnameinfo(const struct sockaddr *sa, socklen_t salen,
+                      char *host, socklen_t hostlen,
+                      char *serv, socklen_t servlen, unsigned int flags) {
+  REAL_FUNC_PASSTHROUGH (getnameinfo) (sa, salen, host, hostlen, serv, servlen,
+                                       flags);
+}
 #endif // RECORD_REPLAY

@@ -47,6 +47,9 @@
 #include <sys/epoll.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
+#include <netdb.h>
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
@@ -242,6 +245,14 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(fwrite)                               \
   MACRO(mkdir)                                \
   MACRO(mkstemp)                              \
+                                              \
+  MACRO(getpwnam_r)                           \
+  MACRO(getpwuid_r)                           \
+  MACRO(getgrnam_r)                           \
+  MACRO(getgrgid_r)                           \
+  MACRO(getaddrinfo)                          \
+  MACRO(freeaddrinfo)                         \
+  MACRO(getnameinfo)                          \
                                               \
   MACRO(pthread_cond_wait)                    \
   MACRO(pthread_cond_timedwait)               \
@@ -514,6 +525,24 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   time_t _real_time(time_t *tloc);
   ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset);
   ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset);
+
+  struct passwd *_real_getpwnam(const char *name);
+ // struct passwd *_real_getpwuid(uid_t uid);
+  int _real_getpwnam_r(const char *name, struct passwd *pwd,
+                       char *buf, size_t buflen, struct passwd **result);
+  int _real_getpwuid_r(uid_t uid, struct passwd *pwd,
+                       char *buf, size_t buflen, struct passwd **result);
+  int _real_getgrnam_r(const char *name, struct group *grp,
+                       char *buf, size_t buflen, struct group **result);
+  int _real_getgrgid_r(gid_t gid, struct group *grp, char *buf, size_t buflen,
+                       struct group **result);
+  int _real_getaddrinfo(const char *node, const char *service,
+                        const struct addrinfo *hints, struct addrinfo **res);
+  void _real_freeaddrinfo(struct addrinfo *res);
+
+  int _real_getnameinfo(const struct sockaddr *sa, socklen_t salen,
+                        char *host, socklen_t hostlen,
+                        char *serv, socklen_t servlen, unsigned int flags);
 #endif
 
 #ifdef __cplusplus

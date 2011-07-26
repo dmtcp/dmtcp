@@ -1715,6 +1715,107 @@ log_entry_t create_epoll_wait_entry(clone_id_t clone_id, int event,
   return e;
 }
 
+log_entry_t create_getpwnam_r_entry(clone_id_t clone_id, int event,
+                                    const char *name, struct passwd *pwd,
+                                    char *buf, size_t buflen,
+                                    struct passwd **result)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getpwnam_r, name);
+  SET_FIELD(e, getpwnam_r, pwd);
+  SET_FIELD(e, getpwnam_r, buf);
+  SET_FIELD(e, getpwnam_r, buflen);
+  SET_FIELD(e, getpwnam_r, result);
+  return e;
+}
+
+log_entry_t create_getpwuid_r_entry(clone_id_t clone_id, int event,
+                                    uid_t uid, struct passwd *pwd,
+                                    char *buf, size_t buflen,
+                                    struct passwd **result)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getpwuid_r, uid);
+  SET_FIELD(e, getpwuid_r, pwd);
+  SET_FIELD(e, getpwuid_r, buf);
+  SET_FIELD(e, getpwuid_r, buflen);
+  SET_FIELD(e, getpwuid_r, result);
+  return e;
+}
+
+log_entry_t create_getgrnam_r_entry(clone_id_t clone_id, int event,
+                                    const char *name, struct group *grp,
+                                    char *buf, size_t buflen,
+                                    struct group **result)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getgrnam_r, name);
+  SET_FIELD(e, getgrnam_r, grp);
+  SET_FIELD(e, getgrnam_r, buf);
+  SET_FIELD(e, getgrnam_r, buflen);
+  SET_FIELD(e, getgrnam_r, result);
+  return e;
+}
+
+log_entry_t create_getgrgid_r_entry(clone_id_t clone_id, int event,
+                                    gid_t gid, struct group *grp,
+                                    char *buf, size_t buflen,
+                                    struct group **result)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getgrgid_r, gid);
+  SET_FIELD(e, getgrgid_r, grp);
+  SET_FIELD(e, getgrgid_r, buf);
+  SET_FIELD(e, getgrgid_r, buflen);
+  SET_FIELD(e, getgrgid_r, result);
+  return e;
+}
+
+log_entry_t create_getaddrinfo_entry(clone_id_t clone_id, int event,
+                                     const char *node, const char *service,
+                                     const struct addrinfo *hints,
+                                     struct addrinfo **res)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getaddrinfo, node);
+  SET_FIELD(e, getaddrinfo, service);
+  SET_FIELD(e, getaddrinfo, hints);
+  SET_FIELD(e, getaddrinfo, res);
+  return e;
+}
+
+log_entry_t create_freeaddrinfo_entry(clone_id_t clone_id, int event,
+                                      struct addrinfo *res)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, freeaddrinfo, res);
+  return e;
+}
+
+log_entry_t create_getnameinfo_entry(clone_id_t clone_id, int event,
+                                     const struct sockaddr *sa, socklen_t salen,
+                                     char *host, socklen_t hostlen,
+                                     char *serv, socklen_t servlen,
+                                     unsigned int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, getnameinfo, sa);
+  SET_FIELD(e, getnameinfo, salen);
+  SET_FIELD(e, getnameinfo, host);
+  SET_FIELD(e, getnameinfo, hostlen);
+  SET_FIELD(e, getnameinfo, serv);
+  SET_FIELD(e, getnameinfo, servlen);
+  SET_FIELD(e, getnameinfo, flags);
+  return e;
+}
+
 static TURN_CHECK_P(base_turn_check)
 {
   // Predicate function for a basic check -- event # and clone id.
@@ -2612,6 +2713,72 @@ TURN_CHECK_P(epoll_wait_turn_check)
     IS_EQUAL_FIELD_PTR(e1, e2, epoll_wait, timeout);
 }
 
+TURN_CHECK_P(getpwnam_r_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwnam_r, name) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwnam_r, pwd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwnam_r, buf) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwnam_r, buflen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwnam_r, result);
+}
+
+TURN_CHECK_P(getpwuid_r_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwuid_r, uid) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwuid_r, pwd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwuid_r, buf) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwuid_r, buflen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getpwuid_r, result);
+}
+
+TURN_CHECK_P(getgrnam_r_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrnam_r, name) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrnam_r, grp) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrnam_r, buf) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrnam_r, buflen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrnam_r, result);
+}
+TURN_CHECK_P(getgrgid_r_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrgid_r, gid) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrgid_r, grp) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrgid_r, buf) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrgid_r, buflen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getgrgid_r, result);
+}
+
+TURN_CHECK_P(getaddrinfo_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getaddrinfo, node) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getaddrinfo, service) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getaddrinfo, hints) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getaddrinfo, res);
+}
+
+TURN_CHECK_P(freeaddrinfo_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, freeaddrinfo, res);
+}
+
+TURN_CHECK_P(getnameinfo_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, sa) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, salen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, host) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, hostlen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, serv) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, servlen) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, getnameinfo, flags);
+}
+
 /* Populates the given array with any optional events associated with
    the given event. */
 static void get_optional_events(log_entry_t *e, int *opt_events)
@@ -2648,6 +2815,15 @@ static void get_optional_events(log_entry_t *e, int *opt_events)
     opt_events[0] = mmap_event;
     opt_events[1] = malloc_event;
     opt_events[2] = free_event;
+  } else if (event_num == getpwnam_r_event || event_num == getpwuid_r_event ||
+             event_num == getgrnam_r_event || event_num == getgrgid_r_event ||
+             event_num == getaddrinfo_event ||
+             event_num == freeaddrinfo_event ||
+             event_num == getnameinfo_event) {
+    opt_events[0] = mmap_event;
+    opt_events[1] = malloc_event;
+    opt_events[2] = free_event;
+    opt_events[3] = calloc_event;
   }
   // TODO: Some error checking that we do not accidently assign above
   // the index MAX_OPTIONAL_EVENTS
