@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/epoll.h>
 #include <linux/version.h>
 #include <limits.h>
 #include "uniquepid.h"
@@ -57,36 +58,6 @@ extern "C" void exit ( int status )
   for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
-/* epoll is currently not supported by DMTCP */
-extern "C" int epoll_create(int size)
-{
-  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
-  errno = EPERM;
-  return -1;
-}
-
-extern "C" int epoll_create1(int flags)
-{
-  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
-  errno = EPERM;
-  return -1;
-}
-
-/* inotify is currently not supported by DMTCP */
-extern "C" int inotify_init()
-{
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
-}
-
-/* inotify1 is currently not supported by DMTCP */
-extern "C" int inotify_init1(int flags)
-{
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
-}
 
 extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {

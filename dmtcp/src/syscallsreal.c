@@ -856,6 +856,34 @@ int _real_munmap(void *addr, size_t length) {
   REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
 }
 
+
+LIB_PRIVATE
+int _real_epoll_create(int size) {
+  REAL_FUNC_PASSTHROUGH (epoll_create) (size);
+}
+
+LIB_PRIVATE
+int _real_epoll_create1(int flags) {
+  REAL_FUNC_PASSTHROUGH (epoll_create1) (flags);
+}
+
+LIB_PRIVATE
+int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+  REAL_FUNC_PASSTHROUGH (epoll_ctl) (epfd, op, fd, event);
+}
+
+LIB_PRIVATE
+int _real_epoll_wait(int epfd, struct epoll_event *events,
+                     int maxevents, int timeout) {
+  REAL_FUNC_PASSTHROUGH (epoll_wait) (epfd, events, maxevents, timeout);
+}
+
+LIB_PRIVATE
+int _real_epoll_pwait(int epfd, struct epoll_event *events,
+                      int maxevents, int timeout, const sigset_t *sigmask) {
+  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
+}
+
 #ifdef PTRACE
 LIB_PRIVATE
 long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
