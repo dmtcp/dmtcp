@@ -44,6 +44,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/epoll.h>
 #include <dirent.h>
 #include <unistd.h>
 
@@ -176,6 +177,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(select)                             \
   MACRO(read)                               \
   MACRO(write)                              \
+                                            \
+  MACRO(epoll_create)                       \
+  MACRO(epoll_create1)                      \
+  MACRO(epoll_ctl)                          \
+  MACRO(epoll_wait)                         \
+  MACRO(epoll_pwait)                        \
                                             \
   MACRO(pthread_join)                       \
   MACRO(pthread_sigmask)                    \
@@ -404,6 +411,14 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+
+  int _real_epoll_create(int size);
+  int _real_epoll_create1(int flags);
+  int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+  int _real_epoll_wait(int epfd, struct epoll_event *events,
+                       int maxevents, int timeout);
+  int _real_epoll_pwait(int epfd, struct epoll_event *events,
+                        int maxevents, int timeout, const sigset_t *sigmask);
 
 #ifdef PID_VIRTUALIZATION
   pid_t _real_getpid(void);

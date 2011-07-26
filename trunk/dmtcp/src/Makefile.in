@@ -146,10 +146,11 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) dmtcpcoordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) socketwrappers.$(OBJEXT) \
-	workerhijack.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) \
-	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	ptracewrapper.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	workerhijack.$(OBJEXT) epollwrappers.$(OBJEXT) \
+	pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) filewrappers.$(OBJEXT) \
+	mallocwrappers.$(OBJEXT) ptracewrapper.$(OBJEXT) \
+	dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
 	synchronizationlogging.o log.o libdmtcpinternal.a \
@@ -346,7 +347,7 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	dmtcpcoordinatorapi.cpp \
 	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
-	socketwrappers.cpp workerhijack.cpp \
+	socketwrappers.cpp workerhijack.cpp epollwrappers.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
 	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp dmtcpmodule.cpp
 
@@ -582,6 +583,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmodule.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpnohijackstubs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/epollwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_read_log.Po@am__quote@

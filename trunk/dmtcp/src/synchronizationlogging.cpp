@@ -246,11 +246,11 @@ void initializeLogNames()
 {
   pid_t pid = getpid();
   dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
-  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX, 
+  snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX,
       "%s/synchronization-log-%d", tmpdir.c_str(), pid);
-  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX, 
+  snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX,
       "%s/synchronization-log-%d-patched", tmpdir.c_str(), pid);
-  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX, 
+  snprintf(RECORD_READ_DATA_LOG_PATH, RECORD_LOG_PATH_MAX,
       "%s/synchronization-read-log-%d", tmpdir.c_str(), pid);
   snprintf(GLOBAL_LOG_LIST_PATH, RECORD_LOG_PATH_MAX,
       "%s/synchronization-global_log_list-%d", tmpdir.c_str(), pid);
@@ -1271,7 +1271,7 @@ log_entry_t create_opendir_entry(clone_id_t clone_id, int event, const char *nam
   return e;
 }
 
-log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd, 
+log_entry_t create_pread_entry(clone_id_t clone_id, int event, int fd,
     void* buf, size_t count, off_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1293,7 +1293,7 @@ log_entry_t create_putc_entry(clone_id_t clone_id, int event, int c,
   return e;
 }
 
-log_entry_t create_pwrite_entry(clone_id_t clone_id, int event, int fd, 
+log_entry_t create_pwrite_entry(clone_id_t clone_id, int event, int fd,
     const void* buf, size_t count, off_t offset)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1373,7 +1373,7 @@ log_entry_t create_pthread_rwlock_wrlock_entry(clone_id_t clone_id, int event,
 }
 
 log_entry_t create_pthread_create_entry(clone_id_t clone_id, int event,
-    pthread_t *thread, const pthread_attr_t *attr, 
+    pthread_t *thread, const pthread_attr_t *attr,
     void *(*start_routine)(void*), void *arg)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1492,7 +1492,7 @@ log_entry_t create_readlink_entry(clone_id_t clone_id, int event,
   return e;
 }
 
-log_entry_t create_realloc_entry(clone_id_t clone_id, int event, 
+log_entry_t create_realloc_entry(clone_id_t clone_id, int event,
     void *ptr, size_t size)
 {
   log_entry_t e = EMPTY_LOG_ENTRY;
@@ -1669,6 +1669,49 @@ log_entry_t create_write_entry(clone_id_t clone_id, int event, int writefd,
   SET_FIELD(e, write, writefd);
   SET_FIELD2(e, write, buf_addr, (void*)buf_addr);
   SET_FIELD(e, write, count);
+  return e;
+}
+
+log_entry_t create_epoll_create_entry(clone_id_t clone_id, int event, int size)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, epoll_create, size);
+  return e;
+}
+
+log_entry_t create_epoll_create1_entry(clone_id_t clone_id, int event,
+                                       int flags)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, epoll_create1, flags);
+  return e;
+}
+
+log_entry_t create_epoll_ctl_entry(clone_id_t clone_id, int event,
+                                   int epfd, int op, int fd,
+                                   struct epoll_event *_event)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, epoll_ctl, epfd);
+  SET_FIELD(e, epoll_ctl, op);
+  SET_FIELD(e, epoll_ctl, fd);
+  SET_FIELD(e, epoll_ctl, _event);
+  return e;
+}
+
+log_entry_t create_epoll_wait_entry(clone_id_t clone_id, int event,
+                                    int epfd, struct epoll_event *events,
+                                    int maxevents, int timeout)
+{
+  log_entry_t e = EMPTY_LOG_ENTRY;
+  setupCommonFields(&e, clone_id, event);
+  SET_FIELD(e, epoll_wait, epfd);
+  SET_FIELD(e, epoll_wait, events);
+  SET_FIELD(e, epoll_wait, maxevents);
+  SET_FIELD(e, epoll_wait, timeout);
   return e;
 }
 
@@ -2011,7 +2054,7 @@ TURN_CHECK_P(getsockname_turn_check)
 
 TURN_CHECK_P(setsockopt_turn_check)
 {
-  return base_turn_check(e1,e2) && 
+  return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, setsockopt, level) ==
       GET_FIELD_PTR(e2, setsockopt, level) &&
     GET_FIELD_PTR(e1, setsockopt, optname) ==
@@ -2024,7 +2067,7 @@ TURN_CHECK_P(setsockopt_turn_check)
 
 TURN_CHECK_P(getsockopt_turn_check)
 {
-  return base_turn_check(e1,e2) && 
+  return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, getsockopt, level) ==
       GET_FIELD_PTR(e2, getsockopt, level) &&
     GET_FIELD_PTR(e1, getsockopt, optname) ==
@@ -2037,7 +2080,7 @@ TURN_CHECK_P(getsockopt_turn_check)
 
 TURN_CHECK_P(ioctl_turn_check)
 {
-  return base_turn_check(e1,e2) && 
+  return base_turn_check(e1,e2) &&
     GET_FIELD_PTR(e1, ioctl, d) ==
       GET_FIELD_PTR(e2, ioctl, d) &&
     GET_FIELD_PTR(e1, ioctl, request) ==
@@ -2539,6 +2582,36 @@ TURN_CHECK_P(select_turn_check)
       GET_FIELD_PTR(e2, select, timeout);
 }
 
+TURN_CHECK_P(epoll_create_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_create, size);
+}
+
+TURN_CHECK_P(epoll_create1_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_create1, flags);
+}
+
+TURN_CHECK_P(epoll_ctl_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_ctl, epfd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_ctl, op) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_ctl, fd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_ctl, _event);
+}
+
+TURN_CHECK_P(epoll_wait_turn_check)
+{
+  return base_turn_check(e1,e2) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_wait, epfd) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_wait, events) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_wait, maxevents) &&
+    IS_EQUAL_FIELD_PTR(e1, e2, epoll_wait, timeout);
+}
+
 /* Populates the given array with any optional events associated with
    the given event. */
 static void get_optional_events(log_entry_t *e, int *opt_events)
@@ -2636,7 +2709,7 @@ static int opt_events_contains(const int opt_events[MAX_OPTIONAL_EVENTS],
    optional event if it occurs before the regular fscanf_event. If it never
    occurs, this function will also return when the regular fscanf_event is
    encountered.
-   
+
    This function is useful for fscanf and others since they are NOT called on
    replay. If we don't call _real_fscanf, for example, libc is never able to
    call mmap. So we must do it manually. */

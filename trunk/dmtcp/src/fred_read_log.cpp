@@ -738,6 +738,36 @@ void print_log_entry_fopen64(int idx, log_entry_t *entry) {
          GET_FIELD_PTR(entry, fopen64, mode));
 }
 
+void print_log_entry_epoll_create(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", size=%d\n",
+         GET_FIELD_PTR(entry, epoll_create, size));
+}
+
+void print_log_entry_epoll_create1(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", flags=%d\n",
+         GET_FIELD_PTR(entry, epoll_create1, flags));
+}
+
+void print_log_entry_epoll_ctl(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", epfd=%d, op=%d, fd=%d, event=%p\n",
+         GET_FIELD_PTR(entry, epoll_ctl, epfd),
+         GET_FIELD_PTR(entry, epoll_ctl, op),
+         GET_FIELD_PTR(entry, epoll_ctl, fd),
+         GET_FIELD_PTR(entry, epoll_ctl, _event));
+}
+
+void print_log_entry_epoll_wait(int idx, log_entry_t *entry) {
+  print_log_entry_common(idx, entry);
+  printf(", epfd=%d, events=%p, maxevents:%d, timeout=%d\n",
+         GET_FIELD_PTR(entry, epoll_wait, epfd),
+         GET_FIELD_PTR(entry, epoll_wait, events),
+         GET_FIELD_PTR(entry, epoll_wait, maxevents),
+         GET_FIELD_PTR(entry, epoll_wait, timeout));
+}
+
 void printEntry(int idx, log_entry_t *entry)
 {
   PRINT_ENTRIES(idx, entry);

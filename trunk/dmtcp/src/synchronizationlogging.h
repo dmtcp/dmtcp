@@ -44,7 +44,7 @@
 #include "util.h"
 
 // 'long int' IS 32 bits ON 32-bit ARCH AND 64 bits ON A 64-bit ARCH.
-// 'sizeof(long long int)==sizeof(long int)' on 64-bit arch. 
+// 'sizeof(long long int)==sizeof(long int)' on 64-bit arch.
 // SHOULDN'T WE JUST MAKE THESE TYPES ALWAYS 'long int', AND
 //   SIMPLIFY PRINTING THEM IN printf (USING "%ld")?  - Gene
 #ifdef __x86_64__
@@ -399,6 +399,10 @@ static pthread_mutex_t read_data_mutex = PTHREAD_MUTEX_INITIALIZER;
     MACRO(xstat, __VA_ARGS__);                                                 \
     MACRO(xstat64, __VA_ARGS__);                                               \
     MACRO(user, __VA_ARGS__);                                                  \
+    MACRO(epoll_create, __VA_ARGS__);                                          \
+    MACRO(epoll_create1, __VA_ARGS__);                                         \
+    MACRO(epoll_ctl, __VA_ARGS__);                                             \
+    MACRO(epoll_wait, __VA_ARGS__);                                            \
   } while(0)
 
 /* Event codes: */
@@ -499,7 +503,11 @@ typedef enum {
   user_event,
   write_event,
   xstat_event,
-  xstat64_event
+  xstat64_event,
+  epoll_create_event,
+  epoll_create1_event,
+  epoll_ctl_event,
+  epoll_wait_event
 } event_code_t;
 /* end event codes */
 
@@ -1330,6 +1338,42 @@ typedef struct {
 static const int log_event_xstat64_size = sizeof(log_event_xstat64_t);
 
 typedef struct {
+  // For epoll_create():
+  int size;
+} log_event_epoll_create_t;
+
+static const int log_event_epoll_create_size = sizeof(log_event_epoll_create_t);
+
+typedef struct {
+  // For epoll_create1():
+  int flags;
+} log_event_epoll_create1_t;
+
+static const int log_event_epoll_create1_size =
+  sizeof(log_event_epoll_create1_t);
+
+typedef struct {
+  // For epoll_ctl():
+  int epfd;
+  int op;
+  int fd;
+  struct epoll_event *_event;
+} log_event_epoll_ctl_t;
+
+static const int log_event_epoll_ctl_size = sizeof(log_event_epoll_ctl_t);
+
+typedef struct {
+  // For epoll_wait():
+  int epfd;
+  struct epoll_event *events;
+  int maxevents;
+  int timeout;
+  off_t data_offset; // offset into read saved data file
+} log_event_epoll_wait_t;
+
+static const int log_event_epoll_wait_size = sizeof(log_event_epoll_wait_t);
+
+typedef struct {
   // FIXME:
   //event_code_t event;
   unsigned char event;
@@ -1446,6 +1490,10 @@ typedef struct {
     log_event_sigwait_t                          log_event_sigwait;
     log_event_xstat_t                            log_event_xstat;
     log_event_xstat64_t                          log_event_xstat64;
+    log_event_epoll_create_t                     log_event_epoll_create;
+    log_event_epoll_create1_t                    log_event_epoll_create1;
+    log_event_epoll_ctl_t                        log_event_epoll_ctl;
+    log_event_epoll_wait_t                       log_event_epoll_wait;
   } event_data;
 } log_entry_t;
 
@@ -1837,6 +1885,18 @@ LIB_PRIVATE log_entry_t create_user_entry(clone_id_t clone_id, int event);
 LIB_PRIVATE log_entry_t create_write_entry(clone_id_t clone_id, int event,
     int writefd, const void* buf_addr, size_t count);
 
+LIB_PRIVATE log_entry_t create_epoll_create_entry(clone_id_t clone_id,
+                                                  int event, int size);
+LIB_PRIVATE log_entry_t create_epoll_create1_entry(clone_id_t clone_id,
+                                                   int event, int flags);
+LIB_PRIVATE log_entry_t create_epoll_ctl_entry(clone_id_t clone_id, int event,
+                                               int epfd, int op, int fd,
+                                               struct epoll_event *_event);
+LIB_PRIVATE log_entry_t create_epoll_wait_entry(clone_id_t clone_id, int event,
+                                                int epfd,
+                                                struct epoll_event *events,
+                                                int maxevents, int timeout);
+
 LIB_PRIVATE void waitForTurn(log_entry_t my_entry, turn_pred_t pred);
 LIB_PRIVATE void waitForExecBarrier();
 
@@ -1936,6 +1996,10 @@ LIB_PRIVATE TURN_CHECK_P(user_turn_check);
 LIB_PRIVATE TURN_CHECK_P(write_turn_check);
 LIB_PRIVATE TURN_CHECK_P(xstat_turn_check);
 LIB_PRIVATE TURN_CHECK_P(xstat64_turn_check);
+LIB_PRIVATE TURN_CHECK_P(epoll_create_turn_check);
+LIB_PRIVATE TURN_CHECK_P(epoll_create1_turn_check);
+LIB_PRIVATE TURN_CHECK_P(epoll_ctl_turn_check);
+LIB_PRIVATE TURN_CHECK_P(epoll_wait_turn_check);
 
 #endif // RECORD_REPLAY
 #endif // pthread_WRAPPERS_H
