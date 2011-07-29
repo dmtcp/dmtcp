@@ -322,11 +322,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_fclose ( FILE *fp );
   void _real_exit ( int status );
 
-//we no longer wrap dup
-//#define _real_dup  dup
-//#define _real_dup2 dup2
-//int _real_dup(int oldfd);
-//int _real_dup2(int oldfd, int newfd);
+#ifndef RECORD_REPLAY
+//we no longer wrap dup in non record-replay mode
+#define _real_dup  dup
+#define _real_dup2 dup2
+#endif
 
   int _real_ptsname_r ( int fd, char * buf, size_t buflen );
   int _real_getpt ( void );
