@@ -7,7 +7,7 @@
   SECTIONS
   {
 +   .the.begin : {
-+ 	*(__shareable_begin)
++ 	KEEP(*(__shareable_begin))
 + 	}
     /* Read-only sections, merged into text segment: */
     . = 0 + SIZEOF_HEADERS;
@@ -19,7 +19,7 @@
       . = ALIGN(. != 0 ? 64 / 8 : 1);
     }
 +   .the.end : {
-+ 	*(__shareable_end)
++ 	KEEP(*(__shareable_end))
 + 	}
     . = ALIGN(64 / 8);
     _end = .; PROVIDE (end = .);

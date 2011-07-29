@@ -59,8 +59,8 @@ endif
 
 #Currently sometimes can't link libmtcp.so without CFLAGS=-O0
 CFLAGS += -O0 -g
-# Use this for standalone MTCP debugging, or DMTCP debugging to stderr
-#   (independently of ./configure --enable-debug)
+# Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
+#   stderr (and to jassertlog.* , if configured with --enable-debug)
 #CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
@@ -241,11 +241,15 @@ LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 
 libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
-	#   this gets a default .t file so it can be chopped up
+	#   this gets a default .t file so it can be chopped up.
+	# mtcp.t adds two sections to mark begin/end of libmtcp.so text/data.
+	#   --no-gc-sections, --no-strip-discarded in case default options
+	#   want to garbage collection the MTCP sections, and strip its symbols
 	echo LD $(LD)
 	echo LDFLAGS $(LDFLAGS)
-	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map -o libmtcp.so \
-	  ${LIBRARY_OBJS} -ldl -lpthread
+	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
+	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
+	  -o libmtcp.so ${LIBRARY_OBJS} -ldl -lpthread
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
