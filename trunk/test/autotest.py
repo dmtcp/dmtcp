@@ -646,7 +646,7 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=3
   if sys.version_info[0:2] >= (2,6):
-    runTest("vim",       1,  ["env TERM=vt100 /usr/bin/vim /etc/passwd"])
+    runTest("vim",       1,  ["env TERM=vt100 "+testconfig.VIM+" /etc/passwd"])
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
