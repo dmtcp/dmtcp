@@ -7,7 +7,7 @@ int main ( int argc, char** argv )
 {
     int childpid = fork();
     if ( childpid == 0 ) { /* if child */
-      char *newargv[2];
+      char *newargv[3];
       /* sleep for a long time */
       newargv[0] = "sleep";
       newargv[1] = "100";

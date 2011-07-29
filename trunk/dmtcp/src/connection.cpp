@@ -1669,7 +1669,7 @@ static ssize_t writeOnePacket(int fd, const void *origBuf, bool isPacketMode) {
   typedef int hdr;
   int count = *(hdr *)origBuf;
   int cum_count = 0;
-  int rc;
+  int rc = 0; // Trigger JASSERT if not modified below.
   if (count == 0)
     return sizeof(hdr);  // count of zero means we're done, hdr consumed
   // FIXME:  It would be nice to restore packet mode (flow control, etc.)
@@ -1779,7 +1779,7 @@ void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, Connection
       JTRACE("Skipping restore of STDIO, just inherit from parent")(fd);
       continue;
     }
-    int oldFd;
+    int oldFd = -1;
     switch(_type){
       case STDIO_IN:
         JTRACE("Restoring STDIN")(fd);

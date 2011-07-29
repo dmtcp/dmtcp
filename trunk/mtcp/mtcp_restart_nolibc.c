@@ -936,9 +936,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
 static void mmapfile(void *buf, size_t size, int prot, int flags)
 {
   void *addr;
-  off_t rc;
-  size_t ar;
-  ar = 0;
+  int rc;
 
   /* Use mmap for this portion of checkpoint image. */
   addr = mtcp_sys_mmap(buf, size, prot, flags, mtcp_restore_cpfd, 0);
@@ -952,6 +950,10 @@ static void mmapfile(void *buf, size_t size, int prot, int flags)
   }
   /* Now update mtcp_restore_cpfd so as to work the same way as readfile() */
   rc = mtcp_sys_lseek(mtcp_restore_cpfd, size, SEEK_CUR);
+  if (rc == -1) {
+    MTCP_PRINTF("mtcp_sys_lseek failed with errno %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
 }
 
 static void skipfile(size_t size)

@@ -43,6 +43,8 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
   case DMTCP_EVENT_POST_CHECKPOINT:
     printf("*** The module %s has now been checkpointed. ***\n", __FILE__);
     break;
+  default:
+    ;
   }
 
   /* Call this next line in order to pass DMTCP events to later modules. */
