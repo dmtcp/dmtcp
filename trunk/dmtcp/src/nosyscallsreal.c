@@ -209,11 +209,6 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
-int _real_dup2 ( int oldfd, int newfd )
-{
-  REAL_FUNC_PASSTHROUGH ( dup2 ) ( oldfd, newfd );
-}
-
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
@@ -416,6 +411,10 @@ int _real_epoll_pwait(int epfd, struct epoll_event *events,
 }
 
 #ifdef RECORD_REPLAY
+int _real_dup2 ( int oldfd, int newfd ) {
+  REAL_FUNC_PASSTHROUGH ( dup2 ) ( oldfd, newfd );
+}
+
 int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
 }
