@@ -192,7 +192,8 @@ AC_CHECK_PROG(HAS_TCSH, [tcsh], [yes], [no], [/bin])
 AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
 
 #check for vim
-AC_CHECK_PROG(HAS_VIM, [vim], [yes], [no], [/usr/bin])
+AC_CHECK_PROG(HAS_VIM, [vim], [yes], [no], [/usr/bin:/bin])
+AC_PATH_PROG([VIM],    [vim],        [no], [/usr/bin:/bin])
 
 #check for emacs
 AC_CHECK_PROG(HAS_EMACS, [emacs], [yes], [no], [/usr/bin])
@@ -202,7 +203,7 @@ AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
 
 #check for screen
 AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
-AC_PATH_PROG([SCREEN],  [screen],        [no], [/usr/bin])
+AC_PATH_PROG([SCREEN],    [screen],        [no], [/usr/bin])
 
 #check for strace
 AC_CHECK_PROG(HAS_STRACE, [strace], [yes], [no], [/usr/bin])
@@ -212,15 +213,11 @@ AC_CHECK_PROG(HAS_GDB, [gdb], [yes], [no], [/usr/bin])
 
 #check for gcl
 AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
-if test "$HAS_GCL" != "no"; then
-  AC_PATH_PROG([GCL],  [gcl],        [no], [$PATH:/usr/bin])
-fi
+AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/bin])
 
 #check for matlab
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])
-if test "$HAS_MATLAB" != "no"; then
-  AC_PATH_PROG([MATLAB],  [matlab],        [no], [$PATH:/usr/bin])
-fi
+AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/bin])
 
 #check for patch utility
 AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])
