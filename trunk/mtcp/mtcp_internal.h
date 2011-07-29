@@ -367,9 +367,6 @@ int mtcp_get_controlling_term(char* ttyName, size_t len);
 const char* mtcp_getenv(const char* name);
 
 int readmapsline (int mapsfd, Area *area);
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
-                         char *ckpt_newname, char *cmd_file,
-                         char *argv[], char *envp[]);
 __attribute__ ((visibility ("hidden")))
    void mtcp_restoreverything (void);
 __attribute__ ((visibility ("hidden")))

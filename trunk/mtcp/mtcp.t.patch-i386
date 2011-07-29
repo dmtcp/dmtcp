@@ -7,7 +7,7 @@
   SECTIONS
   {
 +   .the.begin : {
-+ 	*(__shareable_begin)
++ 	KEEP(*(__shareable_begin))
 + 	}
     /* Read-only sections, merged into text segment: */
     . = 0 + SIZEOF_HEADERS;
@@ -19,7 +19,7 @@
     _end = .; PROVIDE (end = .);
     . = DATA_SEGMENT_END (.);
 +   .the.end : {
-+ 	*(__shareable_end)
++ 	KEEP(*(__shareable_end))
 + 	}
     /* Stabs debugging sections.  */
     .stab          0 : { *(.stab) }

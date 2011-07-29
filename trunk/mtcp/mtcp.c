@@ -428,7 +428,10 @@ static Thread *threads = NULL;
 struct sigaction sigactions[NSIG];  /* signal handlers */
 static size_t restore_size;
 static VA restore_begin, restore_end;
-static void *restore_start; /* will be bound to fnc, mtcp_restore_start */
+static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
+static void mtcp_restore_start(int fd, int verify, pid_t gzip_child_pid,
+                               char *ckpt_newname, char *cmd_file,
+                               char *argv[], char *envp[]);
 static void *saved_sysinfo;
 static VA saved_heap_start = NULL;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
@@ -3035,12 +3038,16 @@ static void __attribute__ ((optimize(0))) growstack (int kbStack)
 static void growstack (int kbStack) /* opimize attribute not implemented */
 #endif
 {
-  const int kBincrement = 1024;
-  char array[kBincrement * 1024] __attribute__ ((unused));
+  /* With the split stack option (-fsplit-stack in gcc-4.6.0 and later),
+   * we can only hope for 64 KB of free stack.  (Also, some users will use:
+   * ld --stack XXX.)  We'll use half of the 64 KB here.
+   */
+  const int kbIncrement = 16; /* half the size of kbStack */
+  char array[kbIncrement * 1024] __attribute__ ((unused));
   /* Again, try to prevent compiler optimization */
   volatile int dummy_value __attribute__ ((unused)) = 1;
   if (kbStack > 0)
-    growstack(kbStack - kBincrement);
+    growstack(kbStack - kbIncrement);
   else
     growstackValue++;
 }
@@ -3089,7 +3096,10 @@ static void stopthisthread (int signum)
      */
     if (thread == motherofall) {
       static char *orig_stack_ptr;
-      int kbStack = 2048;
+      /* Some apps will use "ld --stack XXX" with a small stack.  This
+       * trend will become more common with the introduction of split stacks.
+       */
+      int kbStack = 32; /* double the size of kbIncrement in growstack */
       if (is_first_checkpoint) {
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
@@ -3806,7 +3816,7 @@ skipeol:
 
 #define STRINGS_LEN 10000
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
-void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[] )
 {
