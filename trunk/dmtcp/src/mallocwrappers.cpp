@@ -334,13 +334,13 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     mem_allocated_for_initializing_wrappers = true;
     return (void*) wrapper_init_buf;
   }
-#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
+#ifdef RECORD_REPLAY
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, calloc, nmemb, size);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_calloc ( nmemb, size );
 #endif
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
@@ -349,22 +349,25 @@ extern "C" void *malloc(size_t size)
   if (dmtcp_wrappers_initializing) {
     return calloc(1, size);
   }
-#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
+#ifdef RECORD_REPLAY
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, malloc, size);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_malloc ( size );
 #endif
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
-#ifdef RECORD_REPLAY
 extern "C" void *__libc_memalign(size_t boundary, size_t size)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
+#ifdef RECORD_REPLAY
   JASSERT (my_clone_id != 0);
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, libc_memalign, boundary, size);
+#else
+  void *retval = _real_libc_memalign(boundary, size);
+#endif
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
@@ -373,7 +376,9 @@ extern "C" void *valloc(size_t size)
 {
   return __libc_memalign(sysconf(_SC_PAGESIZE), size);
 }
-#endif
+
+// FIXME:  Add wrapper for alloca(), posix_memalign(), etc.,
+//    using WRAPPER_EXECUTION_DISABLE_CKPT(), etc.
 
 extern "C" void free(void *ptr)
 {
@@ -382,9 +387,9 @@ extern "C" void free(void *ptr)
     JASSERT(ptr == wrapper_init_buf);
     return;
   }
-#ifdef RECORD_REPLAY
-  WRAPPER_EXECUTION_DISABLE_CKPT();
 
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+#ifdef RECORD_REPLAY
   void *return_addr = GET_RETURN_ADDRESS();
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||
       ptr == NULL ||
@@ -412,10 +417,10 @@ extern "C" void free(void *ptr)
     WRAPPER_LOG_WRITE_ENTRY(my_entry);
     _real_pthread_mutex_unlock(&allocation_lock);
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   _real_free ( ptr );
 #endif
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 }
 
 extern "C" void *realloc(void *ptr, size_t size)
@@ -423,13 +428,13 @@ extern "C" void *realloc(void *ptr, size_t size)
   JASSERT (!dmtcp_wrappers_initializing)
     .Text ("This is a rather unusual path. Please inform DMTCP developers");
 
-#ifdef RECORD_REPLAY
   WRAPPER_EXECUTION_DISABLE_CKPT();
+#ifdef RECORD_REPLAY
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, realloc, ptr, size);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
 #else
   void *retval = _real_realloc ( ptr, size );
 #endif
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
