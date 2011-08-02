@@ -224,9 +224,8 @@ char dmtcp::Util::readChar (int fd)
 int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
 {
   char c, rflag, sflag, wflag, xflag;
-  int i, rc;
-  struct stat statbuf;
-  unsigned int long devmajor, devminor, devnum, inodenum;
+  int i;
+  unsigned int long devmajor, devminor, inodenum;
   VA startaddr, endaddr;
 
   c = readHex (mapsfd, &startaddr);
@@ -271,6 +270,10 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
     area -> name[i] = '\0';
   }
 #if 0
+  int rc;
+  struct stat statbuf;
+  unsigned int long devnum;
+
   if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
       mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
       mtcp_strstartswith(area -> name, nscd_mmap_str3)) {

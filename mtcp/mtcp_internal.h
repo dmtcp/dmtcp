@@ -176,8 +176,6 @@ typedef unsigned int mtcp_segreg_t;
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
-int STOPSIGNAL;             // signal to use to signal other threads to stop for
-                            //   checkpointing
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
 //#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
@@ -366,11 +364,11 @@ int mtcp_atoi(const char *nptr);
 int mtcp_get_controlling_term(char* ttyName, size_t len);
 const char* mtcp_getenv(const char* name);
 
-int readmapsline (int mapsfd, Area *area);
+int mtcp_readmapsline (int mapsfd, Area *area);
 __attribute__ ((visibility ("hidden")))
-   void mtcp_restoreverything (void);
+void mtcp_restoreverything (void);
 __attribute__ ((visibility ("hidden")))
-   void mtcp_printf (char const *format, ...);
+void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
 __attribute__ ((visibility ("hidden")))
 void *mtcp_safemmap(void *start, size_t length, int prot, int flags, int fd,

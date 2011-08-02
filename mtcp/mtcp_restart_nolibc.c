@@ -1081,7 +1081,7 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
   }
 
   *vdso_addr = NULL; /* Default to NULL if not found. */
-  while (readmapsline (mapsfd, &area)) {
+  while (mtcp_readmapsline (mapsfd, &area)) {
     /* Gcc expands strstr() inline, but it's safer to use our own function. */
     p = mtcp_strstr (area.name, "[stack]");
     if (p != NULL)

@@ -609,6 +609,8 @@ if old_ld_library_path:
 else:
   del os.environ['LD_LIBRARY_PATH']
 
+runTest("pthread1",      1, ["./test/pthread1"])
+
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = GZIP
