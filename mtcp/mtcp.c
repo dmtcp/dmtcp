@@ -1093,7 +1093,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   return (rc);
 }
 
-void fill_in_pthread (pid_t tid, pthread_t pth) {
+void mtcp_fill_in_pthread_id (pid_t tid, pthread_t pth)
+{
   struct Thread *thread;
   for (thread = threads; thread != NULL; thread = thread -> next) {
     if (thread -> tid == tid) {
@@ -1103,7 +1104,8 @@ void fill_in_pthread (pid_t tid, pthread_t pth) {
   }
 }
 
-void delete_thread_on_pthread_join (pthread_t pth) {
+void mtcp_process_pthread_join (pthread_t pth)
+{
   struct Thread *thread;
   for (thread = threads; thread != NULL; thread = thread -> next) {
     if (thread -> pth == pth) {

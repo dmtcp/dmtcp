@@ -215,9 +215,6 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 #endif // PID_VIRTUALIZATION
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
-pid_t gettid();
-int tkill(int tid, int sig);
-int tgkill(int tgid, int tid, int sig);
 
 #define SYSCALL_VA_START()                                              \
   va_list ap;                                                           \
