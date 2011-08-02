@@ -80,21 +80,17 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 LIB_PRIVATE
 pid_t gettid()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  /*
-   * We might want to cache the tid of all threads to avoid redundant calls
-   *  to _real_gettid() and currentToOriginalPid().
-   * To cache, we must make sure that this function is invoked by each thread
-   *  at least once prior to checkpoint.
-   * __thread can be used along with static storage class to make this cached
-   *  value specific to each thread
+  /* mtcpinterface.cpp:thread_start calls gettid() before calling
+   * DmtcpWorker::decrementUninitializedThreadCount() and so the value is
+   * cached before it is accessed by some other DMTCP code.
    */
-  pid_t currentTid = _real_gettid();
-  pid_t origTid =  currentToOriginalPid ( currentTid );
+  static __thread pid_t tid = -1;
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  if (tid == -1) {
+    tid = _real_gettid();
+  }
 
-  return origTid;
+  return tid;
 }
 
 extern "C" pid_t getpid()
@@ -616,7 +612,7 @@ void ioctl_helper(log_entry_t &my_entry, int &retval, int d, int request,
         WRAPPER_LOG_WRITE_INTO_READ_LOG(ioctl, i->ifc_buf, i->ifc_len);
         break;
       }
-      case TIOCGWINSZ: { 
+      case TIOCGWINSZ: {
         SET_FIELD2(my_entry, ioctl, win_val, *((struct winsize *)arg));
         break;
       }

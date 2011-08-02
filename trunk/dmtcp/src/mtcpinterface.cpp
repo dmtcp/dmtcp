@@ -84,6 +84,30 @@ static void unmapRestoreArgv();
 
 static const char* REOPEN_MTCP = ( char* ) 0x1;
 
+static void callbackSleepBetweenCheckpoint(int sec);
+static void callbackPreCheckpoint(char **ckptFilename);
+static void callbackPostCheckpoint(int isRestart,
+                                   char* mtcpRestoreArgvStartAddr);
+static int callbackShouldCkptFD(int /*fd*/);
+static void callbackWriteCkptPrefix(int fd);
+static void callbackRestoreVirtualPidTable();
+
+#ifdef PTRACE
+LIB_PRIVATE t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info = NULL;
+LIB_PRIVATE t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
+LIB_PRIVATE t_mtcp_ptracing mtcp_ptracing = NULL;
+LIB_PRIVATE sigset_t signals_set;
+
+static struct ptrace_info callbackGetNextPtraceInfo (int index);
+static void callbackPtraceInfoListCommand (struct cmd_info cmd);
+static void callbackJalibCkptUnlock ();
+static int callbackPtraceInfoListSize ();
+#endif
+
+#ifdef EXTERNAL_SOCKET_HANDLING
+static bool delayedCheckpoint = false;
+#endif
+
 static void* find_and_open_mtcp_so()
 {
   dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
@@ -92,17 +116,6 @@ static void* find_and_open_mtcp_so()
     .Text ( "failed to load libmtcp.so" );
   return handle;
 }
-
-#ifdef PTRACE
-LIB_PRIVATE t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info = NULL;
-LIB_PRIVATE t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
-LIB_PRIVATE t_mtcp_ptracing mtcp_ptracing = NULL;
-LIB_PRIVATE sigset_t signals_set;
-#endif
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-static bool delayedCheckpoint = false;
-#endif
 
 // Note that mtcp.so is closed and re-opened (maybe in a different
 //   location) at the time of fork.  Do not statically save the
@@ -130,7 +143,7 @@ void* _get_mtcp_symbol ( const char* name )
     return 0;
   }
 
-  void* tmp = dlsym ( theMtcpHandle, name );
+  void* tmp = _real_dlsym ( theMtcpHandle, name );
   JASSERT ( tmp != NULL ) ( name )
     .Text ( "failed to find libmtcp.so symbol for 'name'\n"
             "Maybe try re-compiling MTCP:   (cd mtcp; make clean); make" );
@@ -142,33 +155,136 @@ void* _get_mtcp_symbol ( const char* name )
 
 extern "C"
 {
-  typedef int ( *mtcp_init_dmtcp_info_t ) ( int pid_virtualization_enabled,
-                                            int stderr_fd,
-                                            int jassertlog_fd,
-                                            int restore_working_directory,
-                                            void *libc_clone_fnptr,
-                                            void *libc_sigaction_fnptr );
-
-  typedef int ( *mtcp_init_t ) ( char const *checkpointFilename,
-                                 int interval,
-                                 int clonenabledefault );
-  typedef void ( *mtcp_set_callbacks_t ) (
-          void ( *sleep_between_ckpt ) ( int sec ),
-          void ( *pre_ckpt ) ( char ** ckptFilename ),
-          void ( *post_ckpt ) ( int isRestarting,
-                                char* mtcpRestoreArgvStartAddr),
-          int  ( *should_ckpt_fd ) ( int fd ),
-          void ( *write_ckpt_prefix ) ( int fd ),
-          void ( *restore_virtual_pid_table) ()
+  typedef void (*mtcp_set_callbacks_t)
+    (void (*sleep_between_ckpt)(int sec),
+     void (*pre_ckpt)(char ** ckptFilename),
+     void (*post_ckpt)(int isRestarting,
+                       char* mtcpRestoreArgvStartAddr),
+     int  (*should_ckpt_fd ) ( int fd ),
+     void (*write_ckpt_prefix ) ( int fd ),
+     void (*restore_virtual_pid_table) ()
 #ifdef PTRACE
-        , struct ptrace_info (*get_next_ptrace_info)(int index),
-          void (*ptrace_info_list_command)(struct cmd_info cmd),
-          void (*jalib_ckpt_unlock)(),
-          int (*ptrace_info_list_size)()
+     ,
+     struct ptrace_info (*get_next_ptrace_info)(int index),
+     void (*ptrace_info_list_command)(struct cmd_info cmd),
+     void (*jalib_ckpt_unlock)(),
+     int  (*ptrace_info_list_size)()
 #endif
-  );
-  typedef int ( *mtcp_ok_t ) ( void );
-  typedef void ( *mtcp_kill_ckpthread_t ) ( void );
+    );
+
+  typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
+                                         int stderr_fd,
+                                         int jassertlog_fd,
+                                         int restore_working_directory,
+                                         void *libc_clone_fnptr,
+                                         void *libc_sigaction_fnptr);
+
+  typedef int  (*mtcp_init_t) (char const *checkpointFilename,
+                               int interval,
+                               int clonenabledefault);
+  typedef int  (*mtcp_ok_t)(void);
+  typedef void (*mtcp_kill_ckpthread_t)(void);
+  typedef void (*mtcp_fill_in_pthread_id_t)(pid_t tid, pthread_t pthread_id);
+  typedef int  (*mtcp_clone_t)(int (*)(void*), void*, int, void*, int*,
+                               user_desc*, int*);
+  typedef void (*mtcp_process_pthread_join_t)(pthread_t);
+
+  typedef struct MtcpFuncPtrs {
+    mtcp_set_callbacks_t        set_callbacks;
+    mtcp_init_dmtcp_info_t      init_dmtcp_info;
+    mtcp_init_t                 init;
+    mtcp_ok_t                   ok;
+    mtcp_clone_t                clone;
+    mtcp_kill_ckpthread_t       kill_ckpthread;
+    mtcp_fill_in_pthread_id_t   fill_in_pthread_id;
+    mtcp_process_pthread_join_t process_pthread_join;
+  } MtcpFuncPtrs_t;
+
+  MtcpFuncPtrs_t mtcpFuncPtrs;
+}
+
+static void initializeMtcpFuncPtrs()
+{
+  mtcpFuncPtrs.init = (mtcp_init_t) _get_mtcp_symbol("mtcp_init");
+  mtcpFuncPtrs.ok = (mtcp_ok_t) _get_mtcp_symbol("mtcp_ok");
+  mtcpFuncPtrs.clone = (mtcp_clone_t) _get_mtcp_symbol("__clone");
+  mtcpFuncPtrs.fill_in_pthread_id =
+    (mtcp_fill_in_pthread_id_t) _get_mtcp_symbol("mtcp_fill_in_pthread_id");
+  mtcpFuncPtrs.kill_ckpthread =
+    (mtcp_kill_ckpthread_t) _get_mtcp_symbol("mtcp_kill_ckpthread");
+  mtcpFuncPtrs.process_pthread_join =
+    (mtcp_process_pthread_join_t) _get_mtcp_symbol("mtcp_process_pthread_join");
+  mtcpFuncPtrs.init_dmtcp_info =
+    (mtcp_init_dmtcp_info_t) _get_mtcp_symbol("mtcp_init_dmtcp_info");
+  mtcpFuncPtrs.set_callbacks =
+    (mtcp_set_callbacks_t) _get_mtcp_symbol("mtcp_set_callbacks");
+}
+
+static void initializeDmtcpInfoInMtcp()
+{
+  int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
+
+  // DMTCP restores working dir only if --checkpoint-open-files invoked.
+  // Later, we may offer the user a separate command line option for this.
+  int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
+
+  void *libc_clone_fptr = (void*) _real_clone;
+  void *libc_sigaction_fptr = (void*) _real_sigaction;
+  JASSERT(libc_clone_fptr != NULL);
+  JASSERT(libc_sigaction_fptr != NULL);
+
+
+  (*mtcpFuncPtrs.init_dmtcp_info) (pidVirtualizationEnabled,
+                                   PROTECTED_STDERR_FD,
+                                   jassertlog_fd,
+                                   restore_working_directory,
+                                   libc_clone_fptr,
+                                   libc_sigaction_fptr);
+
+#ifdef PTRACE
+  // FIXME: Do we need this anymore?
+  sigemptyset (&signals_set);
+  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
+  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
+
+  char *dmtcp_tmp_dir =
+     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
+  sprintf(dmtcp_tmp_dir, "%s", dmtcp::UniquePid::getTmpDir().c_str());
+
+  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
+    _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
+
+  mtcp_init_thread_local = ( t_mtcp_init_thread_local )
+    _get_mtcp_symbol ( "init_thread_local" );
+
+  mtcp_ptracing = ( t_mtcp_ptracing )
+    _get_mtcp_symbol ( "ptracing" );
+#endif
+}
+
+void dmtcp::initializeMtcpEngine()
+{
+  initializeMtcpFuncPtrs();
+  initializeDmtcpInfoInMtcp();
+
+  (*mtcpFuncPtrs.set_callbacks)(&callbackSleepBetweenCheckpoint
+                                , &callbackPreCheckpoint
+                                , &callbackPostCheckpoint
+                                , &callbackShouldCkptFD
+                                , &callbackWriteCkptPrefix
+                                , &callbackRestoreVirtualPidTable
+#ifdef PTRACE
+                                , &callbackGetNextPtraceInfo
+                                , &callbackPtraceInfoListCommand
+                                , &callbackJalibCkptUnlock
+                                , &callbackPtraceInfoListSize
+#endif
+                 );
+  JTRACE ("Calling mtcp_init");
+  mtcpFuncPtrs.init(UniquePid::checkpointFilename(), 0xBadF00d, 1);
+  mtcpFuncPtrs.ok();
+
+  JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -183,29 +299,6 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   // process can deadlock.
   JALIB_CKPT_LOCK();
 }
-
-#ifdef PTRACE
-static struct ptrace_info callbackGetNextPtraceInfo (int index)
-{
-  return get_next_ptrace_info(index);
-}
-
-static void callbackPtraceInfoListCommand (struct cmd_info cmd)
-{
-  ptrace_info_list_command(cmd);
-}
-
-static void callbackJalibCkptUnlock ()
-{
-  JALIB_CKPT_UNLOCK();
-}
-
-static int callbackPtraceInfoListSize ()
-{
-  return ptrace_info_list_size();
-}
-
-#endif
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
@@ -328,83 +421,28 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
 }
 
-static void initializeDmtcpInfoInMtcp()
-{
-  int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
-
-  // DMTCP restores working dir only if --checkpoint-open-files invoked.
-  // Later, we may offer the user a separate command line option for this.
-  int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
-
-  void *libc_clone_fptr = dlsym(RTLD_NEXT, "__clone");
-  void *libc_sigaction_fptr = dlsym(RTLD_NEXT, "sigaction");
-  JASSERT(libc_clone_fptr != NULL);
-  JASSERT(libc_sigaction_fptr != NULL);
-
-  mtcp_init_dmtcp_info_t init_dmtcp_info =
-    (mtcp_init_dmtcp_info_t) _get_mtcp_symbol("mtcp_init_dmtcp_info");
-
-  (*init_dmtcp_info) (pidVirtualizationEnabled,
-                      PROTECTED_STDERR_FD,
-                      jassertlog_fd,
-                      restore_working_directory,
-                      libc_clone_fptr,
-                      libc_sigaction_fptr);
-
 #ifdef PTRACE
-  // FIXME: Do we need this anymore?
-  sigemptyset (&signals_set);
-  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
-  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
-
-  char *dmtcp_tmp_dir =
-     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
-  sprintf(dmtcp_tmp_dir, "%s", dmtcp::UniquePid::getTmpDir().c_str());
-
-  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
-    _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
-
-  mtcp_init_thread_local = ( t_mtcp_init_thread_local )
-    _get_mtcp_symbol ( "init_thread_local" );
-
-  mtcp_ptracing = ( t_mtcp_ptracing )
-    _get_mtcp_symbol ( "ptracing" );
-#endif
+static struct ptrace_info callbackGetNextPtraceInfo (int index)
+{
+  return get_next_ptrace_info(index);
 }
 
-void dmtcp::initializeMtcpEngine()
+static void callbackPtraceInfoListCommand (struct cmd_info cmd)
 {
-  initializeDmtcpInfoInMtcp();
-
-  mtcp_set_callbacks_t mtcp_set_callbacks =
-    ( mtcp_set_callbacks_t ) _get_mtcp_symbol ( "mtcp_set_callbacks" );
-
-  mtcp_init_t init = ( mtcp_init_t ) _get_mtcp_symbol ( "mtcp_init" );
-  mtcp_ok_t okFn = ( mtcp_ok_t ) _get_mtcp_symbol ( "mtcp_ok" );
-
-  ( *mtcp_set_callbacks )( &callbackSleepBetweenCheckpoint
-                 , &callbackPreCheckpoint
-                 , &callbackPostCheckpoint
-                 , &callbackShouldCkptFD
-                 , &callbackWriteCkptPrefix
-                 , &callbackRestoreVirtualPidTable
-#ifdef PTRACE
-                 , &callbackGetNextPtraceInfo
-                 , &callbackPtraceInfoListCommand
-                 , &callbackJalibCkptUnlock
-                 , &callbackPtraceInfoListSize
-#endif
-                 );
-  JTRACE ("Calling mtcp_init");
-  void *libc_clone_fptr = dlsym(RTLD_NEXT, "__clone");
-  void *libc_sigaction_fptr = dlsym(RTLD_NEXT, "sigaction");
-  JASSERT(libc_clone_fptr != NULL);
-  JASSERT(libc_sigaction_fptr != NULL);
-  ( *init ) ( UniquePid::checkpointFilename(), 0xBadF00d, 1 );
-  ( *okFn ) ();
-
-  JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
+  ptrace_info_list_command(cmd);
 }
+
+static void callbackJalibCkptUnlock ()
+{
+  JALIB_CKPT_UNLOCK();
+}
+
+static int callbackPtraceInfoListSize ()
+{
+  return ptrace_info_list_size();
+}
+
+#endif
 
 void prctlGetProcessName()
 {
@@ -564,14 +602,8 @@ int thread_start(void *arg)
   pid_t tid = _real_gettid();
   JTRACE ("In thread_start");
 
-  typedef void ( *fill_in_pthread_t ) ( pid_t tid, pthread_t pth );
-  // Don't make fill_in_pthread_ptr statically initialized.  After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  fill_in_pthread_t fill_in_pthread_ptr =
-    ( fill_in_pthread_t ) _get_mtcp_symbol ( "fill_in_pthread" );
-
-  fill_in_pthread_ptr (tid, pthread_self());
+  // FIXME: Why not do this in the mtcp.c::__clone?
+  mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid Conflict detected. Exiting Thread");
@@ -599,8 +631,11 @@ int thread_start(void *arg)
     /*
      * original tid is not known, which means this thread never existed before
      * checkpoint, so will insert the original_tid into virtualpidtable
+     *
+     * No danger in calling gettid() because it will call _real_gettid() only
+     * _once_ and then cache the return value.
      */
-    original_tid = syscall(SYS_gettid);
+    original_tid = gettid();
     JASSERT ( tid == original_tid ) (tid) (original_tid)
       .Text ( "syscall(SYS_gettid) and _real_gettid() returning different values for the newly created thread!" );
     dmtcp::VirtualPidTable::instance().insertTid ( original_tid );
@@ -659,12 +694,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     pid_t original_tid;
   } *mtcpRestartThreadArg;
 
-  typedef int ( *cloneptr ) ( int ( * ) ( void* ), void*, int, void*, int*, user_desc*, int* );
-  // Don't make _mtcp_clone_ptr statically initialized.  After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  cloneptr _mtcp_clone_ptr = ( cloneptr ) _get_mtcp_symbol ( "__clone" );
-
   //JTRACE ( "forwarding user's clone call to mtcp" );
 
 #ifndef PID_VIRTUALIZATION
@@ -722,7 +751,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     if (originalTid == -1) {
       /* First time thread creation */
       JTRACE ( "forwarding user's clone call to mtcp" );
-      tid = ( *_mtcp_clone_ptr ) ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
+      tid = mtcpFuncPtrs.clone(thread_start, child_stack, flags, threadArg,
+                               parent_tidptr, newtls, child_tidptr );
     } else {
       /* Recreating thread during restart */
       JTRACE ( "calling libc:__clone" );
@@ -769,22 +799,16 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-#ifdef RECORD_REPLAY
 static int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
 {
   /* Wrap the call to _real_pthread_join() to make sure we call
      delete_thread_on_pthread_join(). */
-  typedef void ( *delete_thread_fnc_t ) ( pthread_t );
-  // Don't make delete_thread_fnc statically initialized.  After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  delete_thread_fnc_t delete_thread_fnc =
-    (delete_thread_fnc_t) _get_mtcp_symbol("delete_thread_on_pthread_join");
   int retval = _real_pthread_join (thread, value_ptr);
-  delete_thread_fnc (thread);
+  if (retval == 0) {
+    mtcpFuncPtrs.process_pthread_join(thread);
+  }
   return retval;
 }
-#endif // RECORD_REPLAY
 
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 {
@@ -848,16 +872,7 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   }
   return retval;
 #else
-  typedef void ( *delete_thread_on_pthread_join_t) ( pthread_t pth );
-  // Don't make delete_thread_on_pthread_join_ptr statically initialized.
-  // After a fork, some
-  // loaders will relocate libmtcp.so on REOPEN_MTCP.  And we must then
-  // call _get_mtcp_symbol again on the newly relocated libmtcp.so .
-  delete_thread_on_pthread_join_t delete_thread_on_pthread_join_ptr =
-    ( delete_thread_on_pthread_join_t ) _get_mtcp_symbol ( "delete_thread_on_pthread_join" );
-  int retval = _real_pthread_join (thread, value_ptr);
-  delete_thread_on_pthread_join_ptr (thread);
-  return retval;
+  return _almost_real_pthread_join(thread, value_ptr);
 #endif
 }
 
@@ -935,7 +950,5 @@ void dmtcp::shutdownMtcpEngineOnFork()
 
 void dmtcp::killCkpthread()
 {
-  mtcp_kill_ckpthread_t kill_ckpthread =
-    (mtcp_kill_ckpthread_t) _get_mtcp_symbol( "mtcp_kill_ckpthread" );
-  kill_ckpthread();
+  mtcpFuncPtrs.kill_ckpthread();
 }
