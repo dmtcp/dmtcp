@@ -250,6 +250,10 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so ${LIBRARY_OBJS} -ldl -lpthread
+	nm -D libmtcp.so | grep ' [TD] ' | grep -v ' d\?mtcp_' | \
+	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' && \
+	  echo '*** WARNING: libmtcp.so: MTCP symbols polluting user namespace'\
+	  || true
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c

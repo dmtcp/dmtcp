@@ -156,7 +156,7 @@ if (DEBUG_RESTARTING) \
 #endif
 
 // Calculate offsets of pid/tid in pthread 'struct user_desc'
-int STATIC_TLS_TID_OFFSET()
+static int STATIC_TLS_TID_OFFSET()
 {
   static int offset = -1;
   if (offset != -1)
@@ -393,6 +393,8 @@ char* mtcp_restore_argv_start_addr = NULL;
 
 	/* Static data */
 
+static int STOPSIGNAL;     // signal to use to signal other threads to stop for
+                           //   checkpointing
 static sigset_t sigpending_global;  // pending signals for the process
 static char const *nscd_mmap_str1 = "/var/run/nscd/";   // OpenSUSE
 static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
@@ -510,7 +512,7 @@ static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
 static void lock_threads (void);
 static void unlk_threads (void);
-//static int readmapsline (int mapsfd, Area *area);
+//static int mtcp_readmapsline (int mapsfd, Area *area);
 static void restore_heap(void);
 static void finishrestore (void);
 static int restarthread (void *threadv);
@@ -528,10 +530,12 @@ static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
 #endif
 static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
 
-int perform_callback_write_dmtcp_header();
-int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
-int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk);
-void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk);
+static int perform_callback_write_dmtcp_header();
+static int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
+static int perform_open_ckpt_image_fd(int *use_compression,
+				      int *fdCkptFileOnDisk);
+static void write_ckpt_to_file(int fd,
+			       int tmpDMTCPHeaderFd, int fdCkptFileOnDisk);
 
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
@@ -1298,7 +1302,7 @@ static void setup_clone_entry (void)
       mtcp_abort ();
     }
     p = NULL;
-    while (readmapsline (mapsfd, &mtcp_libc_area)) {
+    while (mtcp_readmapsline (mapsfd, &mtcp_libc_area)) {
       p = strstr (mtcp_libc_area.name, "/libc");
       /* We can't do a dlopen on the debug version of libc. */
       if (((p != NULL) && ((p[5] == '-') || (p[5] == '.'))) &&
@@ -1555,7 +1559,7 @@ static void save_term_settings() {
   if (saved_termios_exists)
     ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &win);
 }
-int safe_tcsetattr(int fd, int optional_actions,
+static int safe_tcsetattr(int fd, int optional_actions,
 		   const struct termios *termios_p) {
   struct termios old_termios, new_termios;
   /* We will compare old and new, and we don't want uninitialized data */
@@ -2469,7 +2473,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
 }
 
 /* FIXME:
- * We should read /proc/self/maps into temporary array and readmapsline
+ * We should read /proc/self/maps into temporary array and mtcp_readmapsline
  * should then read from it.  this ic cleaner than this hack here.
  * Then this body can go back to replacing:
  *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
@@ -2580,7 +2584,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 
   int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
-  while (readmapsline (mapsfd, &area)) {
+  while (mtcp_readmapsline (mapsfd, &area)) {
     VA area_begin = area.addr;
     VA area_end   = area_begin + area.size;
 
@@ -2664,7 +2668,9 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
       area.prot = PROT_READ | PROT_WRITE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
-      /* We're still using proc-maps in readmapsline(); So, remap NSCD later. */
+      /* We're still using proc-maps in mtcp_readmapsline();
+       * So, remap NSCD later.
+       */
       remap_nscd_areas_array[num_remap_nscd_areas++] = area;
     }
 
@@ -2744,7 +2750,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
     }
   }
 
-  /* It's now safe to do this, since we're done using readmapsline() */
+  /* It's now safe to do this, since we're done using mtcp_readmapsline() */
   remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
 
   close (mapsfd);
@@ -2969,7 +2975,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
     mtcp_abort ();
   }
 
-  while (readmapsline (mapsfd, &area)) {
+  while (mtcp_readmapsline (mapsfd, &area)) {
     if (0 == strcmp(area.name, "[vsyscall]")) {
       /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
        * [vdso] will be saved and restored.
@@ -3670,21 +3676,13 @@ static void unlk_threads (void)
 /*****************************************************************************
  *
  *  Read /proc/self/maps line, converting it to an Area descriptor struct
- *
  *    Input:
- *
  *	mapsfd = /proc/self/maps file, positioned to beginning of a line
- *
  *    Output:
- *
- *	readmapsline = 0 : was at end-of-file, nothing read
- *	               1 : read and processed one line
+ *	mtcp_readmapsline = 0 : was at end-of-file, nothing read
  *	*area = filled in
- *
  *    Note:
- *
  *	Line from /procs/self/maps is in form:
- *
  *	<startaddr>-<endaddrexclusive> rwxs <fileoffset> <devmaj>:<devmin>
  *	    <inode>    <filename>\n
  *	all numbers in hexadecimal except inode is in decimal
@@ -3693,7 +3691,7 @@ static void unlk_threads (void)
  *
  *****************************************************************************/
 
-int readmapsline (int mapsfd, Area *area)
+int mtcp_readmapsline (int mapsfd, Area *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i, rc;
@@ -4256,7 +4254,7 @@ static void sync_shared_mem(void)
     mtcp_abort ();
   }
 
-  while (readmapsline (mapsfd, &area)) {
+  while (mtcp_readmapsline (mapsfd, &area)) {
     /* Skip anything that has no read or execute permission.  This occurs on one
      * page in a Linux 2.6.9 installation.  No idea why.  This code would also
      * take care of kernel sections since we don't have read/execute permission
