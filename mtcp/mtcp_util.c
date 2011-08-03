@@ -370,22 +370,24 @@ int mtcp_is_executable(const char *exec_path)
 }
 
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
-char *mtcp_find_executable(char *executable, const char* path_env, char exec_path[PATH_MAX])
+char *mtcp_find_executable(char *executable, const char* path_env,
+    char exec_path[PATH_MAX])
 {
-  char *path;
+  char *path, *_env;
   int len;
 
   if (path_env == NULL) {
     path_env = ""; // Will try stdpath later in this function
   }
+  _env = path_env;
 
-  while (*path_env != '\0') {
+  while (*_env != '\0') {
     path = exec_path;
     len = 0;
-    while (*path_env != ':' && *path_env != '\0' && ++len < PATH_MAX - 1)
-      *path++ = *path_env++;
-    if (*path_env == ':') /* but if *path_env == '\0', will exit while loop */
-      path_env++;
+    while (*_env != ':' && *_env != '\0' && ++len < PATH_MAX - 1)
+      *path++ = *_env++;
+    if (*_env == ':') /* but if *path_env == '\0', will exit while loop */
+      _env++;
     *path++ = '/'; /* '...//... is same as .../... in POSIX */
     len++;
     *path++ = '\0';
