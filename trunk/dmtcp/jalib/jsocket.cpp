@@ -50,14 +50,21 @@ const jalib::JSockAddr jalib::JSockAddr::ANY ( NULL );
 jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
                               int port /* == -1*/ )
 {
-  memset ( &_addr, 0, sizeof ( _addr ) );
-  _addr.sin_family = AF_INET;
+  // Initialization for any case
+  memset( (void*)&bad_addr, 0, sizeof( bad_addr ) );
+  bad_addr.sin_family = AF_INET;
+  _count = 0;
+
   if ( hostname == NULL ) {
-    _addr.sin_addr.s_addr = INADDR_ANY;
-    if (port != -1) _addr.sin_port = htons (port);
+    _addr = new struct sockaddr_in[1];
+    _count = 1;
+    _addr->sin_addr.s_addr = INADDR_ANY;
+    if (port != -1)
+      _addr->sin_port = htons (port);
     return;
   }
-#if 1
+
+#if 0
   struct hostent ret, *result;
   char buf[1024];
   int h_errnop;
@@ -100,13 +107,44 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
    * This would require some sort of redesign of JSockAddr and JSocket classes.
    */
   int e = getaddrinfo(hostname, NULL, &hints, &res);
+  if( e == EAI_NONAME ){
+    /*
+     * If the AI_ADDRCONFIG flag is passed to getaddrinfo() with AF_INET or
+     * AF_INET6 address families,
+     * addresses in /etc/hosts are not resolved properly.
+     * According to following bug reports:
+     * https://bugs.launchpad.net/ubuntu/+source/glibc/+bug/583278
+     * https://bugzilla.mozilla.org/show_bug.cgi?id=467497#c10
+     *
+     * As a temporary workaround, just call it without AI_ADDRCONFIG again
+     */
+    hints.ai_flags = 0;
+    e = getaddrinfo( hostname, NULL, &hints, &res);
+  }
+
   JWARNING (e == 0) (e) (gai_strerror(e)) (hostname) .Text ("No such host");
   if (e == 0) {
-    JASSERT(sizeof _addr >= res->ai_addrlen) (sizeof _addr) (res->ai_addrlen);
-    memcpy(&_addr, res->ai_addr, res->ai_addrlen);
-    if (port != -1) _addr.sin_port = htons (port);
+    JASSERT(sizeof(*_addr) >= res->ai_addrlen)(sizeof(*_addr))(res->ai_addrlen);
+
+    // 1. count number of addresses returned
+    struct addrinfo *r;
+    for(r = res, _count = 0; r != NULL; r = r->ai_next, _count++);
+
+    // 2. array for storing all nesessary addresses
+    _addr = new struct sockaddr_in[_count];
+    memset ( _addr, 0, sizeof( _addr[0] )*_count );
+    int i;
+    for(r = res, i = 0; r != NULL; r = r->ai_next, i++) {
+      _addr[i].sin_family = AF_INET;
+      memcpy(_addr+i, r->ai_addr, r->ai_addrlen);
+      if (port != -1)
+        _addr[i].sin_port = htons (port);
+    }
+
   } else { // else (hostname, port) not valid; poison the port number
-    _addr.sin_port = -2;
+    _addr = new struct sockaddr_in[1];
+    _addr->sin_port = -2;
+  }
 
   freeaddrinfo(res);
 #endif
@@ -120,29 +158,46 @@ jalib::JSocket::JSocket()
 
 bool jalib::JSocket::connect ( const JSockAddr& addr, int port )
 {
+  bool ret = false;
   // jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
-  if (addr._addr.sin_port == (unsigned short)-2)
+  if (addr._addr->sin_port == (unsigned short)-2)
     return false;
-  return JSocket::connect ( ( sockaddr* ) &addr._addr, sizeof ( addr._addr ), port );
+  for(int i=0; i< addr._count; i++){
+    if( ret = JSocket::connect( (sockaddr*)(addr._addr + i),
+                                sizeof(addr._addr[0]), port ) ){
+      break;
+    }else{
+      if( errno != ECONNREFUSED)
+        break;
+    }
+  }
+  return ret;
 }
 
 
-bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,  socklen_t addrlen, int port )
+bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
+                               socklen_t addrlen, int port )
 {
   struct sockaddr_storage addrbuf;
   memset ( &addrbuf,0,sizeof ( addrbuf ) );
   JASSERT ( addrlen <= sizeof ( addrbuf ) ) ( addrlen ) ( sizeof ( addrbuf ) );
   memcpy ( &addrbuf,addr,addrlen );
-  JWARNING ( addrlen == sizeof ( sockaddr_in ) ) ( addrlen ) ( sizeof ( sockaddr_in ) ).Text ( "may not be correct socket type" );
-  ( ( sockaddr_in* ) &addrbuf )->sin_port = htons ( port );
-  return DECORATE_FN ( connect ) ( _sockfd, ( sockaddr* ) &addrbuf, addrlen ) == 0;
+  JWARNING ( addrlen == sizeof ( sockaddr_in ) ) ( addrlen )
+          ( sizeof ( sockaddr_in ) ).Text ( "may not be correct socket type" );
+  ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
+  return DECORATE_FN(connect)( _sockfd, (sockaddr*)&addrbuf, addrlen ) == 0;
 }
 
 bool jalib::JSocket::bind ( const JSockAddr& addr, int port )
 {
-  struct sockaddr_in addrbuf = addr._addr;
-  addrbuf.sin_port = htons ( port );
-  return bind ( ( sockaddr* ) &addrbuf, sizeof ( addrbuf ) );
+  bool ret = false;
+  for( int i=0; i<addr._count; i++){
+    struct sockaddr_in addrbuf = addr._addr[i];
+    addrbuf.sin_port = htons ( port );
+    int retval = bind( (sockaddr*)&addrbuf, sizeof(addrbuf) );
+    ret = ret || retval;
+  }
+  return ret;
 }
 
 bool jalib::JSocket::bind ( const  struct  sockaddr  *addr,  socklen_t addrlen )
