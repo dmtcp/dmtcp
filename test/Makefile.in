@@ -84,7 +84,7 @@ dlopen: dlopen.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
 %: %.c
-	$(CC) -o $@ $< $(CFLAGS)
+	$(CC) -o $@ -lpthread $< $(CFLAGS)
 
 %: %.cpp
-	$(CXX) -o $@ $< $(CXXFLAGS)
+	$(CXX) -o $@  -lpthread  $< $(CXXFLAGS)
