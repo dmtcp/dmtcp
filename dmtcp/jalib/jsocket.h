@@ -48,19 +48,22 @@ namespace jalib
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       JSockAddr ( const char* hostname = NULL, int port = -1 );
-      ~JSockAddr(){ delete [] _addr; }
+      ~JSockAddr(){ }
       static const JSockAddr ANY;
 
       const struct sockaddr_in* addr(int index = 0) const {
         if( index >= _count )
-          return &bad_addr;
+          return &_addr[max_count];
         else
           return (_addr + index);
       }
       unsigned int addrcnt() const{ return _count; }
       socklen_t addrlen() const{ return sizeof ( sockaddr_in );}
     private:
-      struct sockaddr_in *_addr, bad_addr;
+      const static unsigned int max_count = 32;
+      // Allocate max_count + 1 to be able to return 
+      // zeroed socket structure if wrong addres index requested
+      struct sockaddr_in _addr[max_count+1];
       unsigned int _count;
   };
 

@@ -51,16 +51,17 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
                               int port /* == -1*/ )
 {
   // Initialization for any case
-  memset( (void*)&bad_addr, 0, sizeof( bad_addr ) );
-  bad_addr.sin_family = AF_INET;
+  memset( (void*)&_addr, 0, sizeof( _addr ) );
+  for(int i=0; i < (max_count + 1); i++){
+    _addr[i].sin_family = AF_INET;
+  }
   _count = 0;
 
   if ( hostname == NULL ) {
-    _addr = new struct sockaddr_in[1];
     _count = 1;
-    _addr->sin_addr.s_addr = INADDR_ANY;
+    _addr[0].sin_addr.s_addr = INADDR_ANY;
     if (port != -1)
-      _addr->sin_port = htons (port);
+      _addr[0].sin_port = htons (port);
     return;
   }
 
@@ -129,21 +130,19 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
     // 1. count number of addresses returned
     struct addrinfo *r;
     for(r = res, _count = 0; r != NULL; r = r->ai_next, _count++);
+    if( _count > max_count)
+      _count = max_count;
 
     // 2. array for storing all nesessary addresses
-    _addr = new struct sockaddr_in[_count];
-    memset ( _addr, 0, sizeof( _addr[0] )*_count );
     int i;
     for(r = res, i = 0; r != NULL; r = r->ai_next, i++) {
-      _addr[i].sin_family = AF_INET;
-      memcpy(_addr+i, r->ai_addr, r->ai_addrlen);
+      memcpy(_addr + i, r->ai_addr, r->ai_addrlen);
       if (port != -1)
         _addr[i].sin_port = htons (port);
     }
 
   } else { // else (hostname, port) not valid; poison the port number
-    _addr = new struct sockaddr_in[1];
-    _addr->sin_port = -2;
+    _addr[0].sin_port = -2;
   }
 
   freeaddrinfo(res);
