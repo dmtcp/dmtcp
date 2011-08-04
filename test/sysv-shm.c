@@ -21,7 +21,7 @@ void parent(int shmid)
     printf("Server: %d\n", i);
     fflush(stdout);
     *ptr = i;
-    while(*ptr != -i) 
+    while(*ptr != -i)
       sleep(1);
   }
   *ptr = 0;

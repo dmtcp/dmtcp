@@ -45,14 +45,14 @@ endif
 
 hellompich: hellompi.c
 ifeq ($(HAS_MPICH),yes)
-	- $(MPICH_MPICC) -o $@ $< $(CFLAGS) 
+	- $(MPICH_MPICC) -o $@ $< $(CFLAGS)
 else
 	#$<: required libraries missing, skipping test
 endif
 
 openmpi: hellompi.c
 ifeq ($(HAS_OPENMPI),yes)
-	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS) 
+	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS)
 else
 	#$<: required libraries missing, skipping test
 endif
@@ -75,6 +75,9 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+pthread1: pthread1.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so:
 	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so dlopen.c
@@ -84,7 +87,7 @@ dlopen: dlopen.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
 %: %.c
-	$(CC) -o $@ -lpthread $< $(CFLAGS)
+	$(CC) -o $@ $< $(CFLAGS)
 
 %: %.cpp
-	$(CXX) -o $@  -lpthread  $< $(CXXFLAGS)
+	$(CXX) -o $@ $< $(CXXFLAGS)
