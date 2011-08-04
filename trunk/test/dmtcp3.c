@@ -39,7 +39,7 @@ static void *threadMain (void *_n)
     pthread_mutex_lock(&mutex);
     if(numWaiting > N/2)
       pthread_cond_signal(&cond);
-    
+
     numWaiting++;
     pthread_cond_wait(&cond, &mutex);
     numWaiting--;

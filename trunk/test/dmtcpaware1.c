@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     fflush(stdout);
     ls = dmtcpGetLocalStatus();
     assert(ls!=NULL);
-    printf("{\n\t %d,\n\t %d,\n\t %s,\n\t %s}\n", 
+    printf("{\n\t %d,\n\t %d,\n\t %s,\n\t %s}\n",
         ls->numCheckpoints, ls->numRestarts, ls->checkpointFilename, ls->uniquePidStr);
 
     printf("dmtcpGetCoordinatorStatus()=");
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     printf("{%d,%d}\n", cs->numProcesses, cs->isRunning);
     assert(cs->numProcesses>0);
 
-    //lock should be recursive 
+    //lock should be recursive
     dmtcpDelayCheckpointsLock();
     dmtcpDelayCheckpointsLock();
     dmtcpDelayCheckpointsLock();
