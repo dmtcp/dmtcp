@@ -22,7 +22,7 @@
 #include "constants.h"
 #include "connectionstate.h"
 #include "dmtcpmessagetypes.h"
-#include "syslogcheckpointer.h"
+#include "syslogwrappers.h"
 #include "connectionrewirer.h"
 
 dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )

@@ -22,7 +22,7 @@
 #include "constants.h"
 #include "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
-#include "ptracewrapper.h"
+#include "ptracewrappers.h"
 #include "virtualpidtable.h"
 #include "syscallwrappers.h"
 #include <dlfcn.h>

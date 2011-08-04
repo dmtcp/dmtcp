@@ -42,9 +42,9 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
-	sockettable.h syscallwrappers.h syslogcheckpointer.h \
+	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrapper.h log.h dmtcpmodule.h \
+	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
 	lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -60,8 +60,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
-	protectedfds.cpp sockettable.cpp \
-	syslogcheckpointer.cpp uniquepid.cpp \
+	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
 	util_exec.cpp util_gen.cpp util_init.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
@@ -86,7 +85,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	epollwrappers.cpp netwrappers.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp dmtcpmodule.cpp
+	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
 
