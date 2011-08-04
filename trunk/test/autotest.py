@@ -189,6 +189,8 @@ def launch(cmd):
   except:
     raise CheckFailed(cmd[0] + " not found")
   if ptyMode:
+    # FOR DEBUGGING:  This can mysteriously fail, causing pty.fork() to fail
+    (fd1, fd2) = os.openpty(); os.close(fd1); os.close(fd2)
     (pid, fd) = pty.fork()
     if pid == 0:
       signal.alarm(300) # pending alarm inherited across exec, but not a fork

@@ -110,12 +110,13 @@ endif
 
 all default: build tests readmtcp
 
+ifdef FAST_CKPT_RESTART
 readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
 	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
-ifdef FAST_CKPT_RESTART
 	${CC} ${CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
 else
+readmtcp: readmtcp.c mtcp_internal.h
 	${CC} ${CFLAGS} -o readmtcp readmtcp.c
 endif
 
