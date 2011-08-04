@@ -386,7 +386,7 @@ char *mtcp_find_executable(char *executable, const char* path_env,
     len = 0;
     while (*_env != ':' && *_env != '\0' && ++len < PATH_MAX - 1)
       *path++ = *_env++;
-    if (*_env == ':') /* but if *path_env == '\0', will exit while loop */
+    if (*_env == ':') /* but if *_env == '\0', will exit while loop */
       _env++;
     *path++ = '/'; /* '...//... is same as .../... in POSIX */
     len++;
