@@ -32,7 +32,6 @@
 #include "protectedfds.h"
 #include "connectionmanager.h"
 #include "connectionidentifier.h"
-#include "syslogcheckpointer.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
 #include <sys/ioctl.h>

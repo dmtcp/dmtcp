@@ -105,7 +105,7 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	jsocket.$(OBJEXT) jtimer.$(OBJEXT) \
 	kernelbufferdrainer.$(OBJEXT) nodetable.$(OBJEXT) \
 	protectedfds.$(OBJEXT) sockettable.$(OBJEXT) \
-	syslogcheckpointer.$(OBJEXT) uniquepid.$(OBJEXT) \
+	syslogwrappers.$(OBJEXT) uniquepid.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
 	sysvipc.$(OBJEXT) util_exec.$(OBJEXT) util_gen.$(OBJEXT) \
 	util_init.$(OBJEXT) jalloc.$(OBJEXT) \
@@ -150,7 +150,7 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	netwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) \
 	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	ptracewrapper.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	ptracewrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
 	synchronizationlogging.o log.o libdmtcpinternal.a \
@@ -329,8 +329,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
-	protectedfds.cpp sockettable.cpp \
-	syslogcheckpointer.cpp uniquepid.cpp \
+	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
 	util_exec.cpp util_gen.cpp util_init.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
@@ -350,7 +349,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	epollwrappers.cpp netwrappers.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp ptracewrapper.cpp dmtcpmodule.cpp
+	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp
 
 # This should be a superset of all optional files.
 EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
@@ -608,13 +607,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pthreadwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/synchronizationlogging.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogcheckpointer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
@@ -973,9 +972,9 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLIBRARIES \
 	uninstall-libLIBRARIES uninstall-pkglibPROGRAMS
 
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
-	sockettable.h syscallwrappers.h syslogcheckpointer.h \
+	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrapper.h log.h dmtcpmodule.h \
+	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
 	lookup_service.h trampolines.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

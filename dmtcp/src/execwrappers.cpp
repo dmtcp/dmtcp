@@ -32,7 +32,7 @@
 #include "virtualpidtable.h"
 #include "sysvipc.h"
 #include "syscallwrappers.h"
-#include "syslogcheckpointer.h"
+#include "syslogwrappers.h"
 #include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"

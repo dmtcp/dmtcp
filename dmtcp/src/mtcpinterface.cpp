@@ -37,7 +37,7 @@
 #include "virtualpidtable.h"
 #include "protectedfds.h"
 #include "sockettable.h"
-#include "ptracewrapper.h"
+#include "ptracewrappers.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"

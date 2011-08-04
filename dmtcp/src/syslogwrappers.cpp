@@ -19,20 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "syslogcheckpointer.h"
+#include "syslogwrappers.h"
 #include "syscallwrappers.h"
 #include <string>
 #include  "../jalib/jassert.h"
 #include <syslog.h>
 
-namespace
-{
-  bool         _isSuspended = false;
-  bool         _syslogEnabled = false;
-  dmtcp::string& _ident() {static dmtcp::string t; return t;}
-  int          _option = -1;
-  int          _facility = -1;
-}
+static bool         _isSuspended = false;
+static bool         _syslogEnabled = false;
+static bool         _identIsNotNULL = false;
+static dmtcp::string& _ident() {static dmtcp::string t; return t;}
+static int          _option = -1;
+static int          _facility = -1;
 
 void dmtcp::SyslogCheckpointer::stopService()
 {
@@ -50,7 +48,8 @@ void dmtcp::SyslogCheckpointer::restoreService()
   {
     _isSuspended = false;
     JASSERT ( _option>=0 && _facility>=0 ) ( _option ) ( _facility );
-    openlog ( _ident().c_str(),_option,_facility );
+    openlog ( ( _identIsNotNULL ? _ident().c_str() : NULL),
+              _option, _facility );
   }
 }
 
@@ -61,13 +60,15 @@ void dmtcp::SyslogCheckpointer::resetOnFork()
 
 extern "C" void openlog ( const char *ident, int option, int facility )
 {
-  JASSERT ( ident != NULL );
   JASSERT ( !_isSuspended );
   JTRACE ( "openlog" ) ( ident );
   _real_openlog ( ident, option, facility );
   _syslogEnabled = true;
 
-  _ident() = ident;
+  _identIsNotNULL = (ident != NULL);
+  if (ident != NULL) {
+    _ident() = ident;
+  }
   _option = option;
   _facility = facility;
 }
@@ -80,4 +81,11 @@ extern "C" void closelog ( void )
   _syslogEnabled = false;
 }
 
-
+// FIXME:  Need to add wrappers for vsyslog() and setlogmask()
+//  NOTE:  openlog() is optional.  Its purpose is primarily to set default
+//         parameters.  If syslog() or vsyslog() is called without it,
+//         it will still open the log.  Hence, we need a wrapper for them
+//         that will set _syslogEnabled = true.
+//  NOTE:  We also need to save and restore the mask of setlogmask()
+//  NOTE:  Need a test/syslog.c to test this code.  How can we verify that
+//         it continues to log on restart in an automatic fashion?
