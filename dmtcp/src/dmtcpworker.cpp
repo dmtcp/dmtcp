@@ -52,15 +52,6 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <netdb.h>
-#include <malloc.h>
-#ifdef RECORD_REPLAY
-#include "synchronizationlogging.h"
-#include "log.h"
-#endif
-
-#ifdef RECORD_REPLAY
-static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-#endif
 
 using namespace dmtcp;
 
@@ -329,48 +320,6 @@ static void processRlimit()
 #endif
 }
 
-#ifdef RECORD_REPLAY
-static void recordReplayInit()
-{
-  // As of rev. 816, this line caused DMTCP with standard ./configure
-  //   (no command line flags) to segfault.
-  // To see bug, do:  gdb --args bin/dmtcp_checkpoint ls
-  // NOTe: This comment may not be true anymore.
-  _dmtcp_setup_trampolines();
-
-  /* This is called only on exec(). We reset the global clone counter for this
-     process, assign the first thread (this one) clone_id 1, and increment the
-     counter. */
-  JTRACE ( "resetting global clone counter." );
-  global_clone_counter = GLOBAL_CLONE_COUNTER_INIT;
-  my_clone_id = global_clone_counter;
-  global_clone_counter++;
-
-  my_log = new dmtcp::SynchronizationLog();
-  clone_id_to_tid_table[my_clone_id] = pthread_self();
-  clone_id_to_log_table[my_clone_id] = my_log;
-
-  /* Other initialization for sync log/replay specific to this process. */
-  initializeLogNames();
-  if (getenv(ENV_VAR_LOG_REPLAY) == NULL) {
-    /* If it is NULL, this is the very first exec. We unset => set to 0
-       (meaning no logging, no replay) */
-    // FIXME: setenv is known to cause issues when interacting with bash.
-    setenv(ENV_VAR_LOG_REPLAY, "0", 1);
-  }
-  sync_logging_branch = atoi(getenv(ENV_VAR_LOG_REPLAY));
-  /* Synchronize this constructor, if this is not the very first exec. */
-  log_entry_t my_entry = create_exec_barrier_entry();
-  if (SYNC_IS_REPLAY) {
-    memfence();
-    waitForExecBarrier();
-    getNextLogEntry();
-  } else if (SYNC_IS_RECORD) {
-    addNextLogEntry(my_entry);
-  }
-}
-#endif
-
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
@@ -416,9 +365,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   connectToCoordinatorWithHandshake();
 
-#ifdef RECORD_REPLAY
-  recordReplayInit();
-#endif
   // define "Weak Symbols for each library module in dmtcphijack.so
   dmtcp_process_event(DMTCP_EVENT_INIT, NULL);
 
