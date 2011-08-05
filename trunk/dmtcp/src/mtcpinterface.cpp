@@ -176,8 +176,10 @@ extern "C"
                                          int stderr_fd,
                                          int jassertlog_fd,
                                          int restore_working_directory,
-                                         void *libc_clone_fnptr,
-                                         void *libc_sigaction_fnptr);
+                                         void *clone_fnptr,
+                                         void *sigaction_fnptr,
+                                         void *malloc_fnptr,
+                                         void *free_fnptr);
 
   typedef int  (*mtcp_init_t) (char const *checkpointFilename,
                                int interval,
@@ -228,18 +230,25 @@ static void initializeDmtcpInfoInMtcp()
   // Later, we may offer the user a separate command line option for this.
   int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
 
-  void *libc_clone_fptr = (void*) _real_clone;
-  void *libc_sigaction_fptr = (void*) _real_sigaction;
-  JASSERT(libc_clone_fptr != NULL);
-  JASSERT(libc_sigaction_fptr != NULL);
+  void *clone_fptr = (void*) _real_clone;
+  void *sigaction_fptr = (void*) _real_sigaction;
+  // FIXME: What if jalib::JAllocDispatcher is undefined?
+  void *malloc_fptr = (void*) jalib::JAllocDispatcher::malloc;
+  void *free_fptr = (void*) jalib::JAllocDispatcher::free;
+  JASSERT(clone_fptr != NULL);
+  JASSERT(sigaction_fptr != NULL);
+  JASSERT(malloc_fptr != NULL);
+  JASSERT(free_fptr != NULL);
 
 
   (*mtcpFuncPtrs.init_dmtcp_info) (pidVirtualizationEnabled,
                                    PROTECTED_STDERR_FD,
                                    jassertlog_fd,
                                    restore_working_directory,
-                                   libc_clone_fptr,
-                                   libc_sigaction_fptr);
+                                   clone_fptr,
+                                   sigaction_fptr,
+                                   malloc_fptr,
+                                   free_fptr);
 
 #ifdef PTRACE
   // FIXME: Do we need this anymore?

@@ -473,6 +473,9 @@ static int (*clone_entry) (int (*fn) (void *arg),
 int (*sigaction_entry) (int sig, const struct sigaction *act,
                         struct sigaction *oact);
 
+void *(*malloc_entry) (size_t size) = NULL;
+void (*free_entry) (void *ptr) = NULL;
+
 /* temp stack used internally by restore so we don't go outside the
  *   libmtcp.so address range for anything;
  * including "+ 1" since will set %esp/%rsp to tempstack+STACKSIZE
@@ -519,6 +522,9 @@ static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
 static void sync_shared_mem(void);
+
+static void *mtcp_safe_malloc(size_t size);
+static void mtcp_safe_free(void *ptr);
 
 #define FORKED_CKPT_FAILED 0
 #define FORKED_CKPT_MASTER 1
@@ -575,16 +581,20 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
                            int stderr_fd,
                            int jassertlog_fd,
                            int restore_working_directory,
-                           void *libc_clone_fnptr,
-                           void *libc_sigaction_fnptr)
+                           void *clone_fnptr,
+                           void *sigaction_fnptr,
+                           void *malloc_fnptr,
+                           void *free_fnptr)
 {
   dmtcp_exists = 1;
   dmtcp_info_pid_virtualization_enabled = pid_virtualization_enabled;
   dmtcp_info_stderr_fd = stderr_fd;
   dmtcp_info_jassertlog_fd = jassertlog_fd;
   dmtcp_info_restore_working_directory = restore_working_directory;
-  clone_entry = libc_clone_fnptr;
-  sigaction_entry = libc_sigaction_fnptr;
+  clone_entry = clone_fnptr;
+  sigaction_entry = sigaction_fnptr;
+  malloc_entry = malloc_fnptr;
+  free_entry = free_fnptr;
 }
 
 /*****************************************************************************
@@ -1014,7 +1024,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
      * So we are going to track this thread.
      */
 
-    thread = malloc (sizeof *thread);
+    thread = mtcp_safe_malloc (sizeof *thread);
     memset (thread, 0, sizeof *thread);
     thread -> fn     = fn;   // this is the user's function
     thread -> arg    = arg;  // ... and the parameter
@@ -1394,7 +1404,7 @@ static void threadisdead (Thread *thread)
 
   mtcp_state_destroy( &(thread -> state) );
 
-  free (thread);
+  mtcp_safe_free (thread);
 }
 
 void *mtcp_get_libc_symbol (char const *name)
@@ -1540,6 +1550,34 @@ void mtcp_kill_ckpthread (void)
     }
   }
   unlk_threads ();
+}
+
+/*************************************************************************
+ *
+ *  MTCP should use DMTCP Allocator for doing malloc/free.
+ *
+ *************************************************************************/
+
+/* MTCP can now use the DMTCP allocator for creating and destroying threads.
+ * This ensures that when creating and destroying elements of type Thread (for
+ * each thread created or exited), we will not use the user's malloc arena.
+ * Otherwise, there could be deadlock between the ckpt thread inside MTCP, and
+ * a user thread inside malloc or free.
+*/
+static void *mtcp_safe_malloc(size_t size)
+{
+  if (malloc_entry == NULL) {
+    malloc_entry = malloc;
+  }
+  return malloc_entry(size);
+}
+
+static void mtcp_safe_free(void *ptr)
+{
+  if (free_entry == NULL) {
+    free_entry = free;
+  }
+  free_entry(ptr);
 }
 
 

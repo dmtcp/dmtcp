@@ -36,8 +36,10 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
                            int stderr_fd,
                            int jassertlog_fd,
                            int restore_working_directory,
-                           void *libc_clone_fnptr,
-                           void *libc_sigaction_fnptr);
+                           void *clone_fnptr,
+                           void *sigaction_fnptr,
+                           void *malloc_fnptr,
+                           void *free_fnptr);
 void mtcp_init (char const *checkpointfilename,
                 int interval,
                 int clonenabledefault);
