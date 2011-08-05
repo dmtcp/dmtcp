@@ -4,8 +4,15 @@
 
 using namespace dmtcp;
 
+#ifdef RECORD_REPLAY
+EXTERNC void fred_process_dmtcp_event(DmtcpEvent_t event, void* data);
+#endif
+
 EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
+#ifdef RECORD_REPLAY
+  fred_process_dmtcp_event(id, data);
+#endif
   return;
 }
 
