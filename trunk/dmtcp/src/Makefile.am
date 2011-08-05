@@ -63,7 +63,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
 	util_exec.cpp util_gen.cpp util_init.cpp \
-	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp
+	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp fred_trampolines.cpp
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
@@ -87,7 +87,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
 	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp
 # This should be a superset of all optional files.
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp
+EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp fred_trampolines.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
