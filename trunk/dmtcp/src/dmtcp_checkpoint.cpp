@@ -238,18 +238,6 @@ int main ( int argc, char** argv )
   if (jassert_quiet == 0)
     JASSERT_STDERR << theBanner;
 
-  dmtcp::string dmtcphjk = "";
-  // FIXME:  If the colon-separated elements of ENV_VAR_MODULE are not
-  //     absolute pathnames, then they must be expanded to absolute pathnames.
-  //     Warn user if an absolute pathname is not valid.
-  if ( getenv(ENV_VAR_MODULE) != NULL ) {
-    dmtcphjk += getenv(ENV_VAR_MODULE);
-    dmtcphjk += ":";
-  }
-  dmtcphjk += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
-
-  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
-
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
@@ -384,14 +372,27 @@ int main ( int argc, char** argv )
   if (autoStartCoordinator)
      dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
 
+  // preloadLibs are to set LD_PRELOAD:
+  //   LD_PRELOAD=MODULE_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
+  dmtcp::string preloadLibs = "";
+  // FIXME:  If the colon-separated elements of ENV_VAR_MODULE are not
+  //     absolute pathnames, then they must be expanded to absolute pathnames.
+  //     Warn user if an absolute pathname is not valid.
+  if ( getenv(ENV_VAR_MODULE) != NULL ) {
+    preloadLibs += getenv(ENV_VAR_MODULE);
+    preloadLibs += ":";
+  }
+  // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
+  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
+  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
   //   if dmtcp_checkpoint survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD"))
-    dmtcphjk = dmtcphjk + ":" + getenv("LD_PRELOAD");
-  setenv ( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+    preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
+  setenv ( "LD_PRELOAD", preloadLibs.c_str(), 1 );
   JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
-  setenv ( ENV_VAR_HIJACK_LIB, dmtcphjk.c_str(), 0 );
-  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
+  setenv ( ENV_VAR_HIJACK_LIB, preloadLibs.c_str(), 0 );
 
   //run the user program
   char **newArgv = NULL;
