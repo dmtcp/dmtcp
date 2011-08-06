@@ -7,12 +7,14 @@ PTRACE_SUPPORT=@PTRACE_SUPPORT@
 FAST_CKPT_RESTART=@FAST_CKPT_RESTART@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
 PACKAGE=@PACKAGE_TARNAME@
+PACKAGE_TARNAME=@PACKAGE_TARNAME@
 VERSION=@PACKAGE_VERSION@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
 bindir=@bindir@
 libdir=@libdir@
+docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
@@ -224,17 +226,13 @@ install: all
 	cp mtcp/mtcp_restart $(DESTDIR)$(bindir)
 	cp mtcp/mtcp.h $(DESTDIR)$(includedir)
 	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
-	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_coordinator
-	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_checkpoint
-	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_nocheckpoint
-	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_restart
-	cd $(DESTDIR)$(bindir) && $(LN_S) $(rel_libdir)/dmtcp/dmtcp_command
 	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
 	cd $(DESTDIR)$(libdir) && \
 	  $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
 	cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
-	$(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp/examples
-	cp test/dmtcpaware*.c $(DESTDIR)$(libdir)/dmtcp/examples
+	echo "${docdir}" | grep -q /dmtcp || false
+	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
+	cp test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_coordinator"
@@ -250,6 +248,8 @@ uninstall:
 	rm -f "$(DESTDIR)$(libdir)/libmtcp.so"
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
+	echo "${docdir}" | grep -q /dmtcp || false
+	rm -Rf "$(DESTDIR)$(docdir)
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build mtcp dmtcp \
