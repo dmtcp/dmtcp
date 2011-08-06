@@ -194,7 +194,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/../",
     "/../../",
     "/../../../",
-    "/../lib64/dmtcp/"
+    "/../lib64/dmtcp/",
     "/../lib/dmtcp/",
   };
   // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
@@ -207,9 +207,13 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/usr/local/bin/",
     "/usr/bin/",
     "/bin/",
+    "/usr/local/lib64/dmtcp/",
     "/usr/local/lib64/",
+    "/usr/local/lib/dmtcp/",
     "/usr/local/lib/",
+    "/usr/lib64/dmtcp/",
     "/usr/lib64/",
+    "/usr/lib/dmtcp/",
     "/usr/lib/",
     "/lib64/"
     "/lib/",
@@ -218,8 +222,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
   jalib::string pth;
   jalib::string udir;
   size_t i = 0;
-  if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL )
-  {
+  if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL ) {
     udir = d;
     for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
       pth = udir + p1[i] + file;
@@ -227,6 +230,8 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
         return pth;
       }
     }
+  } else {
+    JWARNING( false ).Text("JALIB_UTILITY_DIR was not set");
   }
 
   udir = GetProgramDir();
