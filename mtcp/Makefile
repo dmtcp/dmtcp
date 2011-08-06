@@ -86,6 +86,7 @@ ifdef FAST_CKPT_RESTART
 endif
 
 LD = ${CC}
+OBJCOPY = objcopy
 ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
@@ -251,7 +252,15 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so ${LIBRARY_OBJS} -ldl -lpthread
-	nm -D libmtcp.so | grep ' [TD] ' | grep -v ' d\?mtcp_' | \
+	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
+	# section on Red Hat-based machines w/ debuginfo repository.
+	# Redirect stderr to suppress warning that section is not in a segment.
+	# (Warning caused by ALLOC section outside of normal .data section.)
+	${OBJCOPY} --set-section-flags=.the.begin=LOAD,ALLOC,CONTENTS,DATA \
+	  ./libmtcp.so 2>/dev/null
+	${OBJCOPY} --set-section-flags=.the.end=LOAD,ALLOC,CONTENTS,DATA \
+	  ./libmtcp.so 2>/dev/null
+	@nm -D libmtcp.so | grep ' [TD] ' | grep -v ' d\?mtcp_' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' && \
 	  echo '*** WARNING: libmtcp.so: MTCP symbols polluting user namespace'\
 	  || true

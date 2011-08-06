@@ -51,7 +51,7 @@ namespace jalib
       ~JSockAddr(){ }
       static const JSockAddr ANY;
 
-      const struct sockaddr_in* addr(int index = 0) const {
+      const struct sockaddr_in* addr(unsigned int index = 0) const {
         if( index >= _count )
           return &_addr[max_count];
         else

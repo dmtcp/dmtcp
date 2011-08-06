@@ -52,7 +52,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
 {
   // Initialization for any case
   memset( (void*)&_addr, 0, sizeof( _addr ) );
-  for(int i=0; i < (max_count + 1); i++){
+  for(unsigned int i=0; i < (max_count + 1); i++){
     _addr[i].sin_family = AF_INET;
   }
   _count = 0;
@@ -161,7 +161,7 @@ bool jalib::JSocket::connect ( const JSockAddr& addr, int port )
   // jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
   if (addr._addr->sin_port == (unsigned short)-2)
     return false;
-  for(int i=0; i< addr._count; i++){
+  for(unsigned int i=0; i< addr._count; i++){
     if( ret = JSocket::connect( (sockaddr*)(addr._addr + i),
                                 sizeof(addr._addr[0]), port ) ){
       break;
@@ -190,7 +190,7 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
 bool jalib::JSocket::bind ( const JSockAddr& addr, int port )
 {
   bool ret = false;
-  for( int i=0; i<addr._count; i++){
+  for( unsigned int i=0; i<addr._count; i++){
     struct sockaddr_in addrbuf = addr._addr[i];
     addrbuf.sin_port = htons ( port );
     int retval = bind( (sockaddr*)&addrbuf, sizeof(addrbuf) );
