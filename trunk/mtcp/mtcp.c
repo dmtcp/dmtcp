@@ -1806,11 +1806,22 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
-      if (*(thread -> actual_tidptr) == 0) {
+      if (thread->tid == -1) {
+        continue;
+      } else if (*(thread -> actual_tidptr) == 0) {
         DPRINTF("thread %d disappeared\n", thread -> tid);
-        unlk_threads ();
-        threadisdead (thread);
-        goto rescan;
+        //unlk_threads ();
+        //threadisdead (thread);
+        thread->tid = -1;
+        //goto rescan;
+        continue;
+      } else if (mtcp_sys_kernel_tkill(thread -> tid, 0) == -1) {
+        if (mtcp_sys_errno != ESRCH) {
+          MTCP_PRINTF ("error signalling thread %d: %s\n",
+                       thread -> tid, strerror (mtcp_sys_errno));
+        }
+        thread->tid = -1;
+        continue;
       }
 
       /* Do various things based on thread's state */
@@ -1890,13 +1901,8 @@ again:
             if (inferior_st == 'N') {
               /* If the state is unknown, send a stop signal to inferior. */
               if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
-                if (mtcp_sys_errno != ESRCH) {
-                  MTCP_PRINTF("error signalling thread %d: %s\n",
-                              thread -> tid, strerror (mtcp_sys_errno));
-                }
-                unlk_threads();
-                threadisdead(thread);
-                goto rescan;
+                MTCP_PRINTF("NOT REACHED!\n");
+                mtcp_abort();
               }
             } else {
               DPRINTF("%c %d\n", inferior_st, thread -> original_tid);
@@ -1904,37 +1910,26 @@ again:
                * the inferior. */
               if (inferior_st != 'T') {
                 if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
-                  if (mtcp_sys_errno != ESRCH) {
-                    MTCP_PRINTF("error signalling thread %d: %s\n",
-                                thread -> tid, strerror(mtcp_sys_errno));
-                  }
-                  unlk_threads();
-                  threadisdead(thread);
-                  goto rescan;
+                  MTCP_PRINTF("NOT REACHED!\n");
+                  mtcp_abort();
                 }
               }
               create_file(thread -> original_tid);
             }
           } else {
             if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-              if (mtcp_sys_errno != ESRCH) {
-                MTCP_PRINTF ("error signalling thread %d:  %s\n",
-                             thread -> tid, strerror (mtcp_sys_errno));
+              if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
+                MTCP_PRINTF("NOT REACHED!\n");
+                mtcp_abort();
               }
-              unlk_threads ();
-              threadisdead (thread);
-              goto rescan;
             }
           }
 #else
           if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_errno != ESRCH) {
-              MTCP_PRINTF ("error signalling thread %d: %s\n",
-                           thread -> tid, strerror (mtcp_sys_errno));
+            if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
+              MTCP_PRINTF("NOT REACHED!\n");
+              mtcp_abort();
             }
-            unlk_threads ();
-            threadisdead (thread);
-            goto rescan;
           }
 #endif
           needrescan = 1;
@@ -2071,6 +2066,16 @@ again:
         mtcp_sys_strcpy(perm_checkpointfilename, dmtcp_checkpoint_filename);
         DPRINTF("Checkpoint filename changed to %s\n", perm_checkpointfilename);
       }
+    }
+
+    thread = threads;
+    while (thread != NULL) {
+      if (thread->tid == -1) {
+        threadisdead(thread);
+        thread = threads;
+        continue;
+      }
+      thread = thread -> next;
     }
 
     // kernel returns mm->brk when passed zero
