@@ -7,7 +7,7 @@ PTRACE_SUPPORT=@PTRACE_SUPPORT@
 FAST_CKPT_RESTART=@FAST_CKPT_RESTART@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
 PACKAGE=@PACKAGE_TARNAME@
-PACKAGE_TARNAME=@PACKAGE_TARNAME@
+PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -18,6 +18,10 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
+MANPAGES=dmtcp_coordinator.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
+	dmtcp_restart.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
+	mtcp.1.gz mtcp_restart.1.gz
+
 
 ifeq ($(M32),1)
   MTCP_MAKE_FLAGS = M32=1
@@ -176,16 +180,18 @@ distclean: clean
 	  dmtcpaware/*dmtcpaware* config.log config.status config.cache bin/*
 	rm -rf autom4te.cache dmtcp/autom4te.cache
 
-svndist:
-	if test "`svn info`"; then \
+distsvn:
+	if test "${DISTNAME}"; then \
+	  dirname=${DISTNAME}; \
+	elif test "`svn info`"; then \
 	  dirname=$(PACKAGE)-$(VERSION)+svn`svnversion`; \
-	  svn export . $$dirname; \
-	  tar czf $$dirname.tar.gz $$dirname; \
-	  rm -rf $$dirname 2&>/dev/null; \
-	  ls -l $$dirname.tar.gz; \
 	else \
-	  echo "svn info failed"; \
-	fi
+	  echo "svn info failed"; exit 1; \
+	fi; \
+	svn export . $$dirname; \
+	tar czf $$dirname.tar.gz $$dirname; \
+	rm -rf $$dirname 2&>/dev/null; \
+	ls -l $$dirname.tar.gz;
 
 dist_exclude.txt:
 	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
@@ -233,6 +239,10 @@ install: all
 	echo "${docdir}" | grep -q /dmtcp || false
 	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
 	cp test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
+	$(MKDIR_P) $(DESTDIR)$(mandir)/man1
+	cp manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
+	cd $(DESTDIR)$(mandir)/man1; \
+	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_coordinator"
@@ -250,6 +260,8 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 	echo "${docdir}" | grep -q /dmtcp || false
 	rm -Rf "$(DESTDIR)$(docdir)
+	cd $(DESTDIR)$(mandir) && \
+	  rm -f dmtcp.1 ${MANPAGES}
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build mtcp dmtcp \
