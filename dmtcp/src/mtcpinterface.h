@@ -22,6 +22,8 @@
 #ifndef DMTCPMTCPINTERFACE_H
 #define DMTCPMTCPINTERFACE_H
 
+#include <sys/types.h>
+#include <pthread.h>
 namespace dmtcp
 {
 
@@ -34,5 +36,56 @@ namespace dmtcp
   void userHookTrampoline_preCkpt();
   void userHookTrampoline_postCkpt(bool isRestart);
 }
+
+extern "C"
+{
+  typedef void (*mtcp_set_callbacks_t)
+    (void (*sleep_between_ckpt)(int sec),
+     void (*pre_ckpt)(char ** ckptFilename),
+     void (*post_ckpt)(int isRestarting,
+                       char* mtcpRestoreArgvStartAddr),
+     int  (*should_ckpt_fd ) ( int fd ),
+     void (*write_ckpt_prefix ) ( int fd ),
+     void (*restore_virtual_pid_table) ()
+#ifdef PTRACE
+     ,
+     struct ptrace_info (*get_next_ptrace_info)(int index),
+     void (*ptrace_info_list_command)(struct cmd_info cmd),
+     void (*jalib_ckpt_unlock)(),
+     int  (*ptrace_info_list_size)()
+#endif
+    );
+
+  typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
+                                         int stderr_fd,
+                                         int jassertlog_fd,
+                                         int restore_working_directory,
+                                         void *clone_fnptr,
+                                         void *sigaction_fnptr,
+                                         void *malloc_fnptr,
+                                         void *free_fnptr);
+
+  typedef int  (*mtcp_init_t) (char const *checkpointFilename,
+                               int interval,
+                               int clonenabledefault);
+  typedef int  (*mtcp_ok_t)(void);
+  typedef void (*mtcp_kill_ckpthread_t)(void);
+  typedef void (*mtcp_fill_in_pthread_id_t)(pid_t tid, pthread_t pthread_id);
+  typedef int  (*mtcp_clone_t)(int (*)(void*), void*, int, void*, int*,
+                               struct user_desc*, int*);
+  typedef void (*mtcp_process_pthread_join_t)(pthread_t);
+
+  typedef struct MtcpFuncPtrs {
+    mtcp_set_callbacks_t        set_callbacks;
+    mtcp_init_dmtcp_info_t      init_dmtcp_info;
+    mtcp_init_t                 init;
+    mtcp_ok_t                   ok;
+    mtcp_clone_t                clone;
+    mtcp_kill_ckpthread_t       kill_ckpthread;
+    mtcp_fill_in_pthread_id_t   fill_in_pthread_id;
+    mtcp_process_pthread_join_t process_pthread_join;
+  } MtcpFuncPtrs_t;
+}
+
 
 #endif

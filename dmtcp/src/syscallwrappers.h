@@ -61,18 +61,18 @@
 LIB_PRIVATE extern __thread int mmap_no_sync;
 #endif
 
-/* The following function are defined in pidwrappers.cpp */
-pid_t gettid();
-int tkill(int tid, int sig);
-int tgkill(int tgid, int tid, int sig);
-
-
 void _dmtcp_setup_trampolines();
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+/* The following function are defined in pidwrappers.cpp */
+pid_t gettid();
+int tkill(int tid, int sig);
+int tgkill(int tgid, int tid, int sig);
+
 
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;

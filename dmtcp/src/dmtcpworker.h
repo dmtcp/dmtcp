@@ -45,6 +45,7 @@
   }
 
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
+LIB_PRIVATE extern __thread pid_t dmtcp_thread_tid;
 
 namespace dmtcp
 {
