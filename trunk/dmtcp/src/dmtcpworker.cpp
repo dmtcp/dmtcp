@@ -91,6 +91,7 @@ static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
 static dmtcp::UniquePid compGroup;
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
+LIB_PRIVATE __thread pid_t dmtcp_thread_tid = -1;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
 static dmtcp::ConnectionState* theCheckpointState = NULL;

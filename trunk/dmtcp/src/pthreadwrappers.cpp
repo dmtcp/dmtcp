@@ -41,6 +41,7 @@
 #include "synchronizationlogging.h"
 #include "log.h"
 #include "syscallwrappers.h"
+#include "mtcpinterface.h"
 #include "virtualpidtable.h"
 
 #ifdef RECORD_REPLAY
@@ -65,49 +66,7 @@ struct create_arg
 static int internal_pthread_mutex_lock(pthread_mutex_t *);
 static int internal_pthread_mutex_unlock(pthread_mutex_t *);
 
-/* Yanking this from mtcpinterface.cpp. It is needed by reapThread() to set up
-   the pointer to the mtcp function delete_thread_on_pthread_join(). */
-namespace
-{
-  static const char* REOPEN_MTCP = ( char* ) 0x1;
-
-  static void* find_and_open_mtcp_so()
-  {
-    dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so" );
-    void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-    JASSERT ( handle != NULL ) ( mtcpso ).Text ( "failed to load libmtcp.so" );
-    return handle;
-  }
-
-}
-
-/* Had to rename it to avoid collision with the one defined in
-   mtcpinterface.cpp */
-extern "C" void* _my_get_mtcp_symbol ( const char* name )
-{
-  static void* theMtcpHandle = find_and_open_mtcp_so();
-  if ( name == REOPEN_MTCP )
-  {
-    JTRACE ( "reopening libmtcp.so" ) ( theMtcpHandle );
-    //must get ref count down to 0 so it is really unloaded
-    for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
-      if(dlclose(theMtcpHandle) != 0){
-        //failed call means it is unloaded
-        JTRACE("dlclose(libmtcp.so) worked");
-        break;
-      }else{
-        JTRACE("dlclose(libmtcp.so) decremented refcount");
-      }
-    }
-    theMtcpHandle = find_and_open_mtcp_so();
-    JTRACE ( "reopening libmtcp.so DONE" ) ( theMtcpHandle );
-    return 0;
-  }
-  void* tmp = dlsym ( theMtcpHandle, name );
-  JASSERT ( tmp != NULL ) ( name ).Text ( "failed to find libmtcp.so symbol" );
-  //JTRACE("looking up libmtcp.so symbol")(name);
-  return tmp;
-}
+extern MtcpFuncPtrs_t mtcpFuncPtrs;
 
 #define ACQUIRE_THREAD_CREATE_DESTROY_LOCK() \
   int ready = 0;                                                \
@@ -152,16 +111,16 @@ static void *start_wrapper(void *arg)
   return retval;
 }
 
-/* 
+/*
    Create a thread stack via mmap() if one is not specified in the user
    attributes.
-   
+
    Parameters:
    attr_out - (output) The final attributes caller should use.
    user_attr - User provided attributes; defer to these.
    size - If non-0, force new stack to this size.
 */
-static void setupThreadStack(pthread_attr_t *attr_out, 
+static void setupThreadStack(pthread_attr_t *attr_out,
     const pthread_attr_t *user_attr, size_t size)
 {
   size_t stack_size;
@@ -222,7 +181,7 @@ static int internal_pthread_mutex_lock(pthread_mutex_t *mutex)
 {
   int retval = 0;
   log_entry_t my_entry = create_pthread_mutex_lock_entry(my_clone_id,
-                                                         pthread_mutex_lock_event, 
+                                                         pthread_mutex_lock_event,
                                                          mutex);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_START(pthread_mutex_lock);
@@ -302,7 +261,7 @@ static int internal_pthread_cond_wait(pthread_cond_t *cond,
 {
   int retval = 0;
   log_entry_t my_entry = create_pthread_cond_wait_entry(my_clone_id,
-                                                        pthread_cond_wait_event, 
+                                                        pthread_cond_wait_event,
                                                         cond, mutex);
   if (SYNC_IS_REPLAY) {
     WRAPPER_REPLAY_START(pthread_cond_wait);
@@ -331,7 +290,7 @@ static inline void waitForChildThreadToInitialize()
      pthread_create wrapper and the createArg struct goes out of scope. */
   while (1) {
     _real_pthread_mutex_lock(&arguments_decode_mutex);
-    if (arguments_were_decoded == 1) { 
+    if (arguments_were_decoded == 1) {
       arguments_were_decoded = 0;
       _real_pthread_mutex_unlock(&arguments_decode_mutex);
       break;
@@ -371,7 +330,7 @@ static int internal_pthread_create(pthread_t *thread,
     setupThreadStack(&the_attr, attr, stack_size);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
-    retval = _real_pthread_create(thread, &the_attr, 
+    retval = _real_pthread_create(thread, &the_attr,
                                   start_wrapper, (void *)&createArg);
     waitForChildThreadToInitialize();
 
@@ -578,14 +537,10 @@ extern "C" int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
   return retval;
 }
 
-/* Function to perform cleanup tasks for a user thread exit. 
+/* Function to perform cleanup tasks for a user thread exit.
    Caller is responsible for acquiring reap_mutex. */
 static void reapThread()
 {
-  typedef void ( *delete_thread_fnc_t ) ( pthread_t );
-  static delete_thread_fnc_t delete_thread_fnc =
-    (delete_thread_fnc_t) _my_get_mtcp_symbol("delete_thread_on_pthread_join");
-
   pthread_attr_t attr;
   pthread_join_retval_t join_retval;
   void *value_ptr = NULL;
@@ -614,7 +569,7 @@ static void reapThread()
     clone_id_to_log_table.erase(clone_id);
     tid_to_clone_id_table.erase(thread_to_reap);
   }
-  delete_thread_fnc ( thread_to_reap );
+  mtcpFuncPtrs.process_pthread_join ( thread_to_reap );
   RELEASE_THREAD_CREATE_DESTROY_LOCK(); // End of thread destruction.
 }
 
