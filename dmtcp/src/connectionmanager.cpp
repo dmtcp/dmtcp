@@ -888,16 +888,38 @@ static void close_ckpt_to_read(const int fd)
 {
     int status;
     int rc;
-    if (dmtcp::ConnectionToFds::ext_decomp_pid != -1) {
-      JASSERT (kill(dmtcp::ConnectionToFds::ext_decomp_pid, SIGKILL) != -1)
-              ("kill:") (JASSERT_ERRNO);
-      while (-1 == (rc = waitpid(dmtcp::ConnectionToFds::ext_decomp_pid,
-			         &status, 0)) && errno == EINTR) ;
-      JASSERT (rc != -1) ("waitpid:") (JASSERT_ERRNO);
+    int pid = dmtcp::ConnectionToFds::ext_decomp_pid;
+    if( pid != -1 ) {
+      // First close fd to let decompressor know that we want to close it
+      while (-1 == (rc = close(fd)) && errno == EINTR) ;
+      JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
+
+      // Kill the decompressor process
+      // 1. Send SIGTERM to give the decompressor a chance to clean up
+      JASSERT (kill(pid, SIGTERM) != -1)("kill:") (JASSERT_ERRNO);
+      // 2. Wait 3 seconds for decompressor termination
+      rc = 0;
+      for(int i = 0; (i < 3000 && rc != pid); i++){
+        struct timespec sleepTime = {0, 1*1000*1000};
+        nanosleep(&sleepTime, NULL);
+        rc = waitpid(pid, &status, WNOHANG);
+      }
+      // 3. If the decompressor process still exists
+      if( rc != pid ){
+        if( (rc = kill(pid, SIGKILL)) == -1 && errno != ESRCH ){
+          // process exists but we failed to kill it
+          JASSERT (rc != -1)("kill:") (JASSERT_ERRNO);
+        }else{
+          // process exists and it was SIGKILL'ed. Endless wait for exit.
+          while(0 == (rc = waitpid(pid,&status, WNOHANG))){
+            struct timespec sleepTime = {0, 1*1000*1000};
+            nanosleep(&sleepTime, NULL);
+          }
+        }
+        JASSERT (rc == pid) ("waitpid:") (JASSERT_ERRNO);
+      }
       dmtcp::ConnectionToFds::ext_decomp_pid = -1;
     }
-    while (-1 == (rc = close(fd)) && errno == EINTR) ;
-    JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
 }
 
 // Define DMTCP_OLD_PCLOSE to get back the old buggy version.
