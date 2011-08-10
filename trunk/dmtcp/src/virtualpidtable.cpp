@@ -522,7 +522,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
 
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
   pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
-  JASSERT ( pidMapFile.length() > 0 || pidMapCountFile.length() > 0 )
+  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 )
     ( pidMapFile )( pidMapCountFile ).Text("Failed to resolve symlink.");
 
   // Create Serializers
