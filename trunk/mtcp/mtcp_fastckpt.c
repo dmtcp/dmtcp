@@ -3,10 +3,10 @@
 #include <sys/resource.h>
 #include <errno.h>
 
-#define MTCP_SYS_STRCPY
-#include "mtcp_internal.h"
-
 #ifdef FAST_CKPT_RST_VIA_MMAP
+# define MTCP_SYS_STRCPY
+# include "mtcp_internal.h"
+
 static mtcp_ckpt_image_header_t *ckpt_image_header = NULL;
 static int curr_area_idx = 0;
 static Area *area_array = NULL;

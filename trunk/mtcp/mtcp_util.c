@@ -373,7 +373,8 @@ int mtcp_is_executable(const char *exec_path)
 char *mtcp_find_executable(char *executable, const char* path_env,
     char exec_path[PATH_MAX])
 {
-  char *path, *tmp_env;
+  char *path;
+  const char *tmp_env;
   int len;
 
   if (path_env == NULL) {
