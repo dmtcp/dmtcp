@@ -343,7 +343,8 @@ int main ( int argc, char** argv )
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
     JASSERT_STDERR <<
-      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable.\n\n"
+      "*** ERROR:  Executable to run w/ DMTCP appears not to be readable,\n"
+      "***         or no such executable in path.\n\n"
       << argv[0] << "\n";
     exit(1);
   } else {
