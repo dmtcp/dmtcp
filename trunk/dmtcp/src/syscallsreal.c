@@ -786,6 +786,12 @@ int _real_pthread_join(pthread_t thread, void **value_ptr) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join ) ( thread, value_ptr );
 }
 
+LIB_PRIVATE
+int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+    void *(*start_routine)(void*), void *arg) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
+    (thread,attr,start_routine,arg);
+}
 
 LIB_PRIVATE
 int _real_shmget (key_t key, size_t size, int shmflg) {
@@ -1101,13 +1107,6 @@ LIB_PRIVATE
 int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
     const struct timespec *abstime) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_timedwait ) ( cond,mutex,abstime );
-}
-
-LIB_PRIVATE
-int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-    void *(*start_routine)(void*), void *arg) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
-    (thread,attr,start_routine,arg);
 }
 
 LIB_PRIVATE

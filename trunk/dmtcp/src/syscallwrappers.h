@@ -192,6 +192,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_wait)                         \
   MACRO(epoll_pwait)                        \
                                             \
+  MACRO(pthread_create)                     \
   MACRO(pthread_join)                       \
   MACRO(pthread_sigmask)                    \
   MACRO(pthread_mutex_lock)                 \
@@ -263,7 +264,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_cond_timedwait)               \
   MACRO(pthread_cond_signal)                  \
   MACRO(pthread_cond_broadcast)               \
-  MACRO(pthread_create)                       \
   MACRO(pthread_detach)                       \
   MACRO(pthread_exit)                         \
   MACRO(pthread_kill)
@@ -387,6 +387,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
   int _real_pthread_join(pthread_t thread, void **value_ptr);
+  int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+      void *(*start_routine)(void*), void *arg);
 
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
@@ -516,11 +518,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
   int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
       const struct timespec *abstime);
-  int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-      void *(*start_routine)(void*), void *arg);
   void _real_pthread_exit(void *value_ptr);
   int _real_pthread_detach(pthread_t thread);
-  int _real_pthread_join(pthread_t thread, void **value_ptr);
   int _real_pthread_kill(pthread_t thread, int sig);
   int _real_access(const char *pathname, int mode);
   struct dirent *_real_readdir(DIR *dirp);

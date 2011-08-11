@@ -629,6 +629,18 @@ int thread_start(void *arg)
 }
 #endif
 
+#ifndef RECORD_REPLAY
+extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+    void *(*start_routine)(void*), void *arg)
+{
+  int retval;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  retval = _real_pthread_create(thread, attr, start_routine, arg);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return retval;
+}
+#endif
+
 //need to forward user clone
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr )
 {
