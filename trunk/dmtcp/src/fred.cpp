@@ -167,13 +167,7 @@ EXTERNC void fred_process_dmtcp_event(DmtcpEvent_t event, void* data)
       break;
   }
 
-  typedef void (*fnptr_t) (DmtcpEvent_t, void*);
-  static fnptr_t fn = NULL;
-  if (fn == NULL) {
-    fn = (fnptr_t) _real_dlsym(RTLD_NEXT, "process_dmtcp_event");
-  } else {
-    (*fn) (event, data);
-  }
+  DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT();
   return;
 }
 

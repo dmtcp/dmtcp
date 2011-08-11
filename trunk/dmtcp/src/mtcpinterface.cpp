@@ -38,6 +38,7 @@
 #include "protectedfds.h"
 #include "sockettable.h"
 #include "ptracewrappers.h"
+#include "dmtcpmodule.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
@@ -336,6 +337,7 @@ static void callbackPostCheckpoint ( int isRestart,
       dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
       dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
       dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+      dmtcp_process_event(DMTCP_EVENT_POST_CHECKPOINT_RESUME, NULL);
     }
 
     //now everything but threads are restored
@@ -364,8 +366,6 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
   dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 
-  //now everything but threads are restored
-  dmtcp::userHookTrampoline_postCkpt(true);
 
 #ifndef RECORD_REPLAY
   /* This calls setenv() which calls malloc. Since this is only executed on
@@ -374,10 +374,15 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
 #endif
 
+  dmtcp_process_event(DMTCP_EVENT_POST_RESTART_RESUME, NULL);
+
   // After this point, the user threads will be unlocked in mtcp.c and will
   // resume their computation and so it is OK to set the process state to
   // RUNNING.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+
+  //now everything but threads are restored
+  dmtcp::userHookTrampoline_postCkpt(true);
 }
 
 #ifdef PTRACE
