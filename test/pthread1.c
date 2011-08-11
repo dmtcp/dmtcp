@@ -12,9 +12,17 @@ int main() {
 
   while (1) {
     arg = malloc(10);
-    pthread_create(&thread, NULL, start_routine, arg);
+    int res = pthread_create(&thread, NULL, start_routine, arg);
+    if (res != 0) {
+      fprintf (stderr, "error creating thread: %s\n", strerror (res));
+      return (-1);
+    }
     /* thead will free arg, and pass back to us a different arg */
-    pthread_join(thread, &arg);
+    res = pthread_join(thread, &arg);
+    if (res != 0) {
+      fprintf (stderr, "pthread_join() failed: %s\n", strerror (res));
+      return (-1);
+    }
     free(arg);
   }
 }
