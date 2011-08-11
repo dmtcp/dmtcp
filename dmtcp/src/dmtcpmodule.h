@@ -65,4 +65,17 @@ EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC const char* dmtcp_get_uniquepid_str();
 EXTERNC int  dmtcp_is_running_state();
 
+#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT()                           \
+  do {                                                                  \
+    typedef void (*fnptr_t) (DmtcpEvent_t, void*);                      \
+    static fnptr_t fn = NULL;                                           \
+    static bool fn_initialized = false;                                 \
+    if (!fn_initialized) {                                              \
+      fn = (fnptr_t) _real_dlsym(RTLD_NEXT, "process_dmtcp_event");     \
+      fn_initialized = true;                                            \
+    } else if (fn != NULL) {                                            \
+      (*fn) (event, data);                                              \
+    }                                                                   \
+  } while (0)
+
 #endif
