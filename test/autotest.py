@@ -618,6 +618,7 @@ else:
   del os.environ['LD_LIBRARY_PATH']
 
 runTest("pthread1",      1, ["./test/pthread1"])
+runTest("pthread2",      1, ["./test/pthread2"])
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
