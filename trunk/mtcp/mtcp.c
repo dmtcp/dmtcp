@@ -1548,7 +1548,7 @@ void mtcp_kill_ckpthread (void)
     if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
       unlk_threads ();
       DPRINTF("Kill checkpinthread, tid=%d\n",thread->tid);
-      mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL);
+      mtcp_sys_kernel_tgkill(motherpid, thread->tid, STOPSIGNAL);
       return;
     }
   }
@@ -1818,7 +1818,7 @@ again:
         thread->tid = -1;
         //goto rescan;
         continue;
-      } else if (mtcp_sys_kernel_tkill(thread -> tid, 0) == -1) {
+      } else if (mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0) < 0) {
         if (mtcp_sys_errno != ESRCH) {
           MTCP_PRINTF ("error signalling thread %d: %s\n",
                        thread -> tid, strerror (mtcp_sys_errno));
@@ -1903,7 +1903,8 @@ again:
             DPRINTF("%d %c\n", GETTID(), inferior_st);
             if (inferior_st == 'N') {
               /* If the state is unknown, send a stop signal to inferior. */
-              if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
+              if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
+                                         STOPSIGNAL) < 0) {
                 MTCP_PRINTF("NOT REACHED!\n");
                 mtcp_abort();
               }
@@ -1912,7 +1913,8 @@ again:
               /* If the state is not stopped, then send a stop signal to
                * the inferior. */
               if (inferior_st != 'T') {
-                if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
+                if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
+                                           STOPSIGNAL) < 0) {
                   MTCP_PRINTF("NOT REACHED!\n");
                   mtcp_abort();
                 }
@@ -1920,19 +1922,16 @@ again:
               create_file(thread -> original_tid);
             }
           } else {
-            if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-              if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
-                MTCP_PRINTF("NOT REACHED!\n");
-                mtcp_abort();
-              }
-            }
-          }
-#else
-          if (mtcp_sys_kernel_tkill (thread -> tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_kernel_tkill(thread -> tid, STOPSIGNAL) < 0) {
+            if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
+                                       STOPSIGNAL) < 0) {
               MTCP_PRINTF("NOT REACHED!\n");
               mtcp_abort();
             }
+          }
+#else
+          if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, STOPSIGNAL) < 0) {
+            MTCP_PRINTF("NOT REACHED!\n");
+            mtcp_abort();
           }
 #endif
           needrescan = 1;

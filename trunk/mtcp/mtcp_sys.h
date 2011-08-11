@@ -203,7 +203,7 @@ mtcp_sys_memcmp (s1, s2, len)
 #  define _MTCP_STRCHR_
 //   The  strchr() function from earlier C library returns a ptr to the first
 //   occurrence  of  c  (converted  to a  char) in string s, or a
-//   null pointer  if  c  does  not  occur  in  the  string. 
+//   null pointer  if  c  does  not  occur  in  the  string.
 static char *mtcp_sys_strchr(const char *s, int c) {
   for (; *s != (char)'\0'; s++)
     if (*s == (char)c)
@@ -216,7 +216,7 @@ static char *mtcp_sys_strchr(const char *s, int c) {
 #ifdef MTCP_SYS_STRLEN
 # ifndef _MTCP_STRLEN_
 #  define _MTCP_STRLEN_
-//   The  strlen() function from earlier C library calculates  the  length 
+//   The  strlen() function from earlier C library calculates  the  length
 //     of  the string s, not including the terminating `\0' character.
 __attribute__ ((unused))  /* Not used in every file where included. */
 static size_t mtcp_sys_strlen(const char *s) {
@@ -375,7 +375,7 @@ struct linux_dirent {
   /* In Linux 2.6.9 for i386, uinfo->base_addr is
    *   correctly typed as unsigned long int.
    * In Linux 2.6.9, uinfo->base_addr is  incorrectly typed as
-   *   unsigned int.  So, we'll just lie about the type. 
+   *   unsigned int.  So, we'll just lie about the type.
    */
 /* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
  * struct user_desc from /usr/include/.../ldt.h
@@ -413,7 +413,7 @@ static unsigned long int myinfo_gs;
 /*****************************************************************************
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses
  * a different version than the kernel version of the function.
- * 
+ *
  * NOTE:  this calls kernel version of stat, not the glibc wrapper for stat
  * Needs: glibc_kernel_stat.h = glibc-2.5/sysdeps/unix/sysv/linux/kernel_stat.h
  *			for sake of st_mode, st_def, st_inode fields.
@@ -426,7 +426,7 @@ static unsigned long int myinfo_gs;
 
 /* NOTE:  MTCP no longer needs the following two mtcp_sys_kernel_stat so
  * commenting them out.                                            --Kapil
- * 
+ *
  * #define mtcp_sys_kernel_stat(args...)  mtcp_inline_syscall(stat,2,args)
  * #define mtcp_sys_kernel_lstat(args...)  mtcp_inline_syscall(lstat,2,args)
  */
@@ -451,6 +451,7 @@ static unsigned long int myinfo_gs;
  *   For:	pid_t tkill(void);
  */
 #define mtcp_sys_kernel_tkill(args...)  mtcp_inline_syscall(tkill,2,args)
+#define mtcp_sys_kernel_tgkill(args...)  mtcp_inline_syscall(tgkill,3,args)
 
 //==================================================================
 
