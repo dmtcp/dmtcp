@@ -301,7 +301,7 @@ sem_t sem_start;
 typedef struct Thread Thread;
 
 struct Thread { Thread *next;         // next thread in 'threads' list
-                Thread **prev;        // prev thread in 'threads' list
+                Thread *prev;        // prev thread in 'threads' list
                 int tid;              // this thread's id as returned by
                                       //   mtcp_sys_kernel_gettid ()
                 int original_tid;     // this is the thread's "original" tid
@@ -426,6 +426,7 @@ static int DEBUG_RESTARTING = 0;
 static Thread *motherofall = NULL;
 static Thread *ckpthread = NULL;
 static Thread *threads = NULL;
+static Thread *threads_freelist = NULL;
 /* NOTE:  NSIG == SIGRTMAX+1 == 65 on Linux; NSIG is const, SIGRTMAX isn't */
 struct sigaction sigactions[NSIG];  /* signal handlers */
 static size_t restore_size;
@@ -522,6 +523,10 @@ static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (void);
 static void sync_shared_mem(void);
+
+static Thread *mtcp_get_thread_from_freelist();
+static void mtcp_put_thread_on_freelist(Thread *thread);
+static void mtcp_empty_threads_freelist();
 
 static void *mtcp_safe_malloc(size_t size);
 static void mtcp_safe_free(void *ptr);
@@ -1024,7 +1029,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
      * So we are going to track this thread.
      */
 
-    thread = mtcp_safe_malloc (sizeof *thread);
+    thread = mtcp_get_thread_from_freelist();
     memset (thread, 0, sizeof *thread);
     thread -> fn     = fn;   // this is the user's function
     thread -> arg    = arg;  // ... and the parameter
@@ -1263,9 +1268,9 @@ static void setupthread (Thread *thread)
   lock_threads ();
 
   if ((thread -> next = threads) != NULL) {
-    thread -> next -> prev = &(thread -> next);
+    threads -> prev = thread;
   }
-  thread -> prev = &threads;
+  thread -> prev = NULL;
   threads = thread;
 
   parent = thread -> parent;
@@ -1342,6 +1347,79 @@ static void setup_clone_entry (void)
 
 /*****************************************************************************
  *
+ *  Thread has exited, put the struct on free list
+ *
+ *  threadisdead() used to free() the Thread struct before returning. However,
+ *  if we do that while in the middle of a checkpoint, the call to free() might
+ *  deadlock in JAllocator. For this reason, we put the to-be-removed threads
+ *  on this threads_freelist and call free() only when it is safe to do so.
+ *
+ *  This has an added benefit of reduced number of calls to malloc() as the
+ *  Thread structs in the freelist can be recycled.
+ *
+ *****************************************************************************/
+
+static void mtcp_put_thread_on_freelist(Thread *thread)
+{
+  lock_threads ();
+
+  if (thread == NULL) {
+    MTCP_PRINTF("Internal Error: Not Reached\n");
+    mtcp_abort();
+  }
+  thread->next = threads_freelist;
+  threads_freelist = thread;
+
+  unlk_threads ();
+}
+
+/*****************************************************************************
+ *
+ *  Return thread from freelist.
+ *
+ *****************************************************************************/
+
+static Thread *mtcp_get_thread_from_freelist()
+{
+  Thread *thread;
+
+  lock_threads ();
+  if (threads_freelist == NULL) {
+    thread = (Thread*) mtcp_safe_malloc(sizeof(Thread));
+    if (thread == NULL) {
+      MTCP_PRINTF("Error allocating thread struct\n");
+      mtcp_abort();
+    }
+  } else {
+    thread = threads_freelist;
+    threads_freelist = threads_freelist->next;
+    thread->next = thread->prev = NULL;
+  }
+  unlk_threads ();
+  return thread;
+}
+
+/*****************************************************************************
+ *
+ *  call free() on all threads_freelist items
+ *
+ *****************************************************************************/
+
+static void mtcp_empty_threads_freelist()
+{
+  lock_threads ();
+
+  while (threads_freelist != NULL) {
+    Thread *thread = threads_freelist;
+    threads_freelist = threads_freelist->next;
+    mtcp_safe_free(thread);
+  }
+
+  unlk_threads ();
+}
+
+/*****************************************************************************
+ *
  *  Thread has exited - unlink it from lists and free struct
  *
  *    Input:
@@ -1350,7 +1428,8 @@ static void setup_clone_entry (void)
  *
  *    Output:
  *
- *	thread removed from 'threads' list and motherofall tree
+ *	thread removed from 'threads' list and motherofall tree and placed on
+ *	freelist
  *	thread pointer no longer valid
  *	checkpointer woken if waiting for this thread
  *
@@ -1367,8 +1446,16 @@ static void threadisdead (Thread *thread)
 
   /* Remove thread block from 'threads' list */
 
-  if ((*(thread -> prev) = thread -> next) != NULL) {
+  if (thread -> prev != NULL) {
+    thread -> prev -> next = thread -> next;
+  }
+
+  if (thread -> next != NULL) {
     thread -> next -> prev = thread -> prev;
+  }
+
+  if (thread == threads) {
+    threads = threads->next;
   }
 
   /* Remove thread block from parent's list of children */
@@ -1407,7 +1494,7 @@ static void threadisdead (Thread *thread)
 
   mtcp_state_destroy( &(thread -> state) );
 
-  mtcp_safe_free (thread);
+  mtcp_put_thread_on_freelist(thread);
 }
 
 void *mtcp_get_libc_symbol (char const *name)
@@ -1747,6 +1834,7 @@ static void *checkpointhread (void *dummy)
     pid_t ckpt_leader = 0;
     if (ptracing()) {
       /* One of the threads is the ckpt thread. Don't count that in. */
+      // FIXME: Take care of invalid threads
       nthreads = -1;
       for (thread = threads; thread != NULL; thread = thread -> next) {
         nthreads++;
@@ -1809,22 +1897,11 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
-      if (thread->tid == -1) {
-        continue;
-      } else if (*(thread -> actual_tidptr) == 0) {
+      if (*(thread -> actual_tidptr) == 0) {
         DPRINTF("thread %d disappeared\n", thread -> tid);
-        //unlk_threads ();
-        //threadisdead (thread);
-        thread->tid = -1;
-        //goto rescan;
-        continue;
-      } else if (mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0) < 0) {
-        if (mtcp_sys_errno != ESRCH) {
-          MTCP_PRINTF ("error signalling thread %d: %s\n",
-                       thread -> tid, strerror (mtcp_sys_errno));
-        }
-        thread->tid = -1;
-        continue;
+        unlk_threads ();
+        threadisdead (thread);
+        goto rescan;
       }
 
       /* Do various things based on thread's state */
@@ -1905,8 +1982,13 @@ again:
               /* If the state is unknown, send a stop signal to inferior. */
               if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                          STOPSIGNAL) < 0) {
-                MTCP_PRINTF("NOT REACHED!\n");
-                mtcp_abort();
+                if (mtcp_sys_errno != ESRCH) {
+                  MTCP_PRINTF ("error signalling thread %d: %s\n",
+                               thread -> tid, strerror (mtcp_sys_errno));
+                }
+                unlk_threads();
+                threadisdead(thread);
+                goto rescan;
               }
             } else {
               DPRINTF("%c %d\n", inferior_st, thread -> original_tid);
@@ -1915,8 +1997,13 @@ again:
               if (inferior_st != 'T') {
                 if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                            STOPSIGNAL) < 0) {
-                  MTCP_PRINTF("NOT REACHED!\n");
-                  mtcp_abort();
+                  if (mtcp_sys_errno != ESRCH) {
+                    MTCP_PRINTF ("error signalling thread %d: %s\n",
+                                 thread -> tid, strerror (mtcp_sys_errno));
+                  }
+                  unlk_threads();
+                  threadisdead(thread);
+                  goto rescan;
                 }
               }
               create_file(thread -> original_tid);
@@ -1924,14 +2011,24 @@ again:
           } else {
             if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                        STOPSIGNAL) < 0) {
-              MTCP_PRINTF("NOT REACHED!\n");
-              mtcp_abort();
+              if (mtcp_sys_errno != ESRCH) {
+                MTCP_PRINTF ("error signalling thread %d: %s\n",
+                             thread -> tid, strerror (mtcp_sys_errno));
+              }
+              unlk_threads();
+              threadisdead(thread);
+              goto rescan;
             }
           }
 #else
           if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, STOPSIGNAL) < 0) {
-            MTCP_PRINTF("NOT REACHED!\n");
-            mtcp_abort();
+            if (mtcp_sys_errno != ESRCH) {
+              MTCP_PRINTF ("error signalling thread %d: %s\n",
+                           thread -> tid, strerror (mtcp_sys_errno));
+            }
+            unlk_threads();
+            threadisdead(thread);
+            goto rescan;
           }
 #endif
           needrescan = 1;
@@ -2070,15 +2167,7 @@ again:
       }
     }
 
-    thread = threads;
-    while (thread != NULL) {
-      if (thread->tid == -1) {
-        threadisdead(thread);
-        thread = threads;
-        continue;
-      }
-      thread = thread -> next;
-    }
+    mtcp_empty_threads_freelist();
 
     // kernel returns mm->brk when passed zero
     mtcp_saved_break = (void*) mtcp_sys_brk(NULL);
