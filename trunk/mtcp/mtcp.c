@@ -1122,7 +1122,7 @@ void mtcp_process_pthread_join (pthread_t pth)
 {
   struct Thread *thread;
   for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (thread -> pth == pth) {
+    if (pthread_equal(thread -> pth, pth)) {
       threadisdead (thread);
       break;
     }
@@ -1149,24 +1149,27 @@ static int threadcloned (void *threadv)
 
   DPRINTF("starting thread %p\n", thread);
 
-  setupthread (thread);
-
-  /* The new TLS should have the process ID in place at TLS_PID_OFFSET() */
-  /* This is a verification step and is therefore optional as such     */
+  /*
+   * libpthread may recycle the thread stacks after the thread exits (due to
+   * return, pthread_exit, or pthread_cancel) by reusing them for a different
+   * thread created by a subsequent call to pthread_create().
+   *
+   * Part of thread-stack also contains the "struct pthread" with pid and tid
+   * as member fields. While reusing the stack for the new thread, the tid
+   * field is reset but the pid field is left unchanged (under the assumption
+   * that pid never changes). This causes a problem if the thread exited before
+   * checkpoint and the new thread is created after restart and hence the pid
+   * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
+   *
+   * The solution is to put the motherpid in the tid slot everytime a new
+   * thread is created to make sure the correct value in struct pthread.
+   */
   {
-    pid_t  tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());
-    if ((tls_pid != motherpid) && (tls_pid != (pid_t)-1)) {
-      MTCP_PRINTF ("getpid %d, tls pid %d at offset %d, must match\n",
-                    motherpid, tls_pid, TLS_PID_OFFSET());
-      mtcp_printf ("      %X\n", motherpid);
-      for (rc = 0; rc <= TLS_PID_OFFSET(); rc += 4) {
-        tls_pid = *(pid_t *) (mtcp_get_tls_base_addr() + rc);
-        mtcp_printf ("   %d: %X", rc, tls_pid);
-        if ((rc & 31) == 28) mtcp_printf ("\n");
-      }
-      mtcp_abort ();
-    }
+    pid_t  *tls_pid = (pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());
+    *tls_pid = motherpid;
   }
+
+  setupthread (thread);
 
   /* If the caller wants the child tid but didn't have CLEARTID, pass the tid
    * back to it
