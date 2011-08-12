@@ -223,6 +223,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
   jalib::string udir;
   size_t i = 0;
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL ) {
+    JTRACE("JALIB_UTILITY_DIR was set:  using it");
     udir = d;
     for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
       pth = udir + p1[i] + file;
@@ -230,8 +231,6 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
         return pth;
       }
     }
-  } else {
-    JWARNING( false ).Text("JALIB_UTILITY_DIR was not set");
   }
 
   udir = GetProgramDir();

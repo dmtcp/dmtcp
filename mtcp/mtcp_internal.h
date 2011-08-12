@@ -46,15 +46,15 @@
 #include <linux/limits.h>
 
 #if USE_FUTEX
-#  ifndef __user
+# ifndef __user
 // this is needed to compile futex.h on LXR/Suse10.2
-#    define __user
-#  endif
-#  define u32 unsigned int
-#  include <linux/futex.h>
+#  define __user
+# endif
+# define u32 unsigned int
+# include <linux/futex.h>
 #else
-#  define FUTEX_WAIT 0
-#  define FUTEX_WAKE 1
+# define FUTEX_WAIT 0
+# define FUTEX_WAKE 1
 #endif
 
 extern pid_t saved_pid;
@@ -74,15 +74,15 @@ extern pid_t saved_pid;
   }
 
 #ifdef DEBUG
-#define DPRINTF(args...) MTCP_PRINTF(args)
+# define DPRINTF(args...) MTCP_PRINTF(args)
 #else
-#define DPRINTF(args...) // debugging printing
+# define DPRINTF(args...) // debugging printing
 #endif
 
 #ifdef TIMING
-#define TPRINTF(x) mtcp_printf x  // timing printing
+# define TPRINTF(x) mtcp_printf x  // timing printing
 #else
-#define TPRINTF(x) // timing printing
+# define TPRINTF(x) // timing printing
 #endif
 
 #if 0
@@ -195,7 +195,7 @@ struct Area { char *addr;   // args required for mmap to restore memory area
             };
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
-#define MTCP_CKPT_IMAGE_VERSION 1.3
+# define MTCP_CKPT_IMAGE_VERSION 1.3
 typedef struct mtcp_ckpt_image_header {
   float ckpt_image_version;
 

@@ -306,7 +306,7 @@ int main (int argc, char *argv[], char *envp[])
  * Then try:  (gdb) shell ../utils/gdb-add-libmtcp-symbol-file.py
  * where ADDR will be restore_start or an arb. address in restore_start()
  ********************************************************************/
-#if defined(DEBUG)
+# ifdef DEBUG
   char *p, symbolbuff[256];
   FILE *symbolfile;
   long textbase; /* offset */
@@ -334,7 +334,7 @@ int main (int argc, char *argv[], char *envp[])
     }
   }
   mtcp_maybebpt ();
-#endif
+# endif
 #endif
 
   /* Now call it - it shouldn't return */
