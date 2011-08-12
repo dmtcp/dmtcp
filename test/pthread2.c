@@ -27,7 +27,7 @@ int main ()
 
       int res = pthread_create(&pthread_id, &attr, &threadMain, id);
       if (res != 0) {
-        fprintf (stderr, "error creating thread: %s\n", strerror (res));
+        fprintf(stderr, "error creating thread: %s\n", strerror(res));
         return (-1);
       } else {
         numWorkers++;
@@ -49,8 +49,8 @@ static void *threadMain (void *data)
     pthread_mutex_lock(&mutex);
     if (numWorkers > 5) {
       numWorkers--;
-      printf("Worker: %d (%d) exiting: numWorkers: %d\n",
-             id, syscall(SYS_gettid), numWorkers);
+      printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
+             id, (long) syscall(SYS_gettid), numWorkers);
       pthread_mutex_unlock(&mutex);
       free(data);
       pthread_exit(NULL);

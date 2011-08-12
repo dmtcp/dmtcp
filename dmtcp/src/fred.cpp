@@ -167,7 +167,7 @@ EXTERNC void fred_process_dmtcp_event(DmtcpEvent_t event, void* data)
       break;
   }
 
-  DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT();
+  DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data);
   return;
 }
 
