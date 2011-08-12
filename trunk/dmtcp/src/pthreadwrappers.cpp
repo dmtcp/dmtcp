@@ -45,6 +45,8 @@
 #include "virtualpidtable.h"
 
 #ifdef RECORD_REPLAY
+#include "fred_wrappers.h"
+
 static void *thread_reaper(void *arg);
 static pthread_t reaperThread;
 static int reaper_thread_alive = 0;
@@ -330,7 +332,7 @@ static int internal_pthread_create(pthread_t *thread,
     setupThreadStack(&the_attr, attr, stack_size);
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
-    retval = _real_pthread_create(thread, &the_attr,
+    retval = _almost_real_pthread_create(thread, &the_attr,
                                   start_wrapper, (void *)&createArg);
     waitForChildThreadToInitialize();
 
@@ -349,7 +351,7 @@ static int internal_pthread_create(pthread_t *thread,
     // Never let the user create a detached thread:
     disableDetachState(&the_attr);
 
-    retval = _real_pthread_create(thread, &the_attr,
+    retval = _almost_real_pthread_create(thread, &the_attr,
                                   start_wrapper, (void *)&createArg);
     SET_COMMON2(my_entry, retval, (void*)retval);
     SET_COMMON2(my_entry, my_errno, errno);
@@ -627,7 +629,7 @@ LIB_PRIVATE void reapThisThread()
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     void *(*start_routine)(void*), void *arg)
 {
-  WRAPPER_HEADER_RAW(int, pthread_create, _real_pthread_create,
+  WRAPPER_HEADER_RAW(int, pthread_create, _almost_real_pthread_create,
                      thread, attr, start_routine, arg);
   if (__builtin_expect(reaper_thread_alive == 0, 0)) {
     // Create the reaper thread
@@ -720,6 +722,69 @@ extern "C" int pthread_kill(pthread_t thread, int sig)
     // Not restart; we should be logging.
     addNextLogEntry(my_entry);
     retval = _real_pthread_kill(thread, sig);
+  }
+  return retval;
+}
+
+
+extern "C" int pthread_join (pthread_t thread, void **value_ptr)
+{
+  /* We change things up a bit here. Since we don't allow the user's
+     pthread_join() to have an effect, we don't call the mtcp
+     "delete_thread_on_pthread_join()" function here unless we decide not to
+     synchronize this call to pthread_join().
+
+     We DO need to call it from the thread reaper reapThread(), however, which
+     is in pthreadwrappers.cpp. */
+  void *return_addr = GET_RETURN_ADDRESS();
+  if (!shouldSynchronize(return_addr)) {
+    int retval = _almost_real_pthread_join(thread, value_ptr);
+    return retval;
+  }
+
+  int retval = 0;
+  log_entry_t my_entry = create_pthread_join_entry(my_clone_id,
+      pthread_join_event, thread, value_ptr);
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_START(pthread_join);
+    while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
+      usleep(100);
+    }
+    if (pthread_join_retvals.find(thread) != pthread_join_retvals.end()) {
+      // We joined it as part of the thread reaping.
+      if (value_ptr != NULL) {
+        // If the user cares about the return value.
+        retval = pthread_join_retvals[thread].retval;
+        *value_ptr = pthread_join_retvals[thread].value_ptr;
+        if (retval == -1) {
+          errno = pthread_join_retvals[thread].my_errno;
+        }
+      }
+      pthread_join_retvals.erase(thread);
+    } else {
+      JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
+    }
+    WRAPPER_REPLAY_END(pthread_join);
+  } else if (SYNC_IS_RECORD) {
+    // Not restart; we should be logging.
+    while (pthread_join_retvals.find(thread) == pthread_join_retvals.end()) {
+      usleep(100);
+    }
+    if (pthread_join_retvals.find(thread) != pthread_join_retvals.end()) {
+      // We joined it as part of the thread reaping.
+      if (value_ptr != NULL) {
+        // If the user cares about the return value.
+        retval = pthread_join_retvals[thread].retval;
+        *value_ptr = pthread_join_retvals[thread].value_ptr;
+        if (retval == -1) {
+          errno = pthread_join_retvals[thread].my_errno;
+        }
+      }
+      pthread_join_retvals.erase(thread);
+    } else {
+      JASSERT ( false ) .Text("A thread was not joined by reaper thread.");
+    }
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
   }
   return retval;
 }

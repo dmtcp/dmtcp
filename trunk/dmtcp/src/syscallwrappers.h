@@ -68,6 +68,12 @@ extern "C"
 {
 #endif
 
+#if __GLIBC_PREREQ(2,5)
+# define READLINK_RET_TYPE ssize_t
+#else
+# define READLINK_RET_TYPE int
+#endif
+
 /* The following function are defined in pidwrappers.cpp */
 pid_t gettid();
 int tkill(int tid, int sig);

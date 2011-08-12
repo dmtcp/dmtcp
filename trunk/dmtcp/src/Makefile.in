@@ -151,7 +151,10 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	netwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) \
 	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	ptracewrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	ptracewrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT) \
+	fred_mallocwrappers.$(OBJEXT) fred_filewrappers.$(OBJEXT) \
+	fred_socketwrappers.$(OBJEXT) fred_signalwrappers.$(OBJEXT) \
+	fred_epollwrappers.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
 	synchronizationlogging.o log.o libdmtcpinternal.a \
@@ -333,7 +336,8 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
 	util_exec.cpp util_gen.cpp util_init.cpp \
-	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp fred.cpp fred_trampolines.cpp
+	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp fred.cpp \
+	fred_trampolines.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
@@ -350,10 +354,14 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 	socketwrappers.cpp workerhijack.cpp \
 	epollwrappers.cpp netwrappers.cpp \
 	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp
+	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp \
+	fred_mallocwrappers.cpp fred_filewrappers.cpp fred_socketwrappers.cpp \
+	fred_signalwrappers.cpp fred_epollwrappers.cpp
 
 # This should be a superset of all optional files.
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp log.cpp fred.cpp fred_trampolines.cpp
+EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp \
+			       log.cpp fred.cpp fred_trampolines.cpp
+
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -module
 
@@ -625,7 +633,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_epollwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_filewrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_mallocwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_read_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_signalwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_socketwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fred_trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@
@@ -1018,7 +1031,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
 	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
-	lookup_service.h trampolines.h
+	lookup_service.h trampolines.h fred_wrappers.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
