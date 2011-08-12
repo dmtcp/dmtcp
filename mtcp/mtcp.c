@@ -1104,7 +1104,8 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   if (is_ptrace_setoptions == TRUE) {
     mtcp_ptrace_info_list_insert(setoptions_superior, rc,
                                  PTRACE_UNSPECIFIED_COMMAND,
-                                 FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
+                                 FALSE, PTRACE_INFERIOR_UNKNOWN_STATE,
+                                 PTRACE_SHARED_FILE_OPTION);
   }
   else read_ptrace_setoptions_file(TRUE, rc);
 #endif
@@ -1761,7 +1762,8 @@ static void *checkpointhread (void *dummy)
 
   mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
                                PTRACE_UNSPECIFIED_COMMAND, FALSE,
-                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
+                               PTRACE_INFERIOR_UNKNOWN_STATE,
+                               PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
 #endif
 
   /* We put a timeout in case the thread being waited for exits whilst we are
@@ -1931,7 +1933,7 @@ again:
           if (ptracing()) {
             has_new_ptrace_shared_file = 0;
 
-            char inferior_st;
+            PtraceInferiorState inferior_st;
             int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
             if (ptrace_fd == -1) {
               /* There is no ptrace_shared_file. All ptrace pairs are in memory.
@@ -1960,7 +1962,7 @@ again:
                     MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
                     mtcp_abort();
                   }
-                  if (write(new_ptrace_fd, &inf_st, sizeof(char)) == -1) {
+                  if (write(new_ptrace_fd, &inf_st, sizeof(inf_st)) == -1) {
                     MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
                     mtcp_abort();
                   }
@@ -1978,7 +1980,7 @@ again:
               }
             }
             DPRINTF("%d %c\n", GETTID(), inferior_st);
-            if (inferior_st == 'N') {
+            if (inferior_st == PTRACE_INFERIOR_UNKNOWN_STATE) {
               /* If the state is unknown, send a stop signal to inferior. */
               if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                          STOPSIGNAL) < 0) {
@@ -1994,7 +1996,7 @@ again:
               DPRINTF("%c %d\n", inferior_st, thread -> original_tid);
               /* If the state is not stopped, then send a stop signal to
                * the inferior. */
-              if (inferior_st != 'T') {
+              if (inferior_st != PTRACE_INFERIOR_STOPPED) {
                 if (mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                            STOPSIGNAL) < 0) {
                   if (mtcp_sys_errno != ESRCH) {
