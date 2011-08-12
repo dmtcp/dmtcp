@@ -229,7 +229,7 @@ dmtcp::string dmtcp::UniquePid::getTmpDir()
   dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
                            + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
   if ( device.empty() ) {
-    JWARNING ( false ) .Text ("Unable to determine DMTCP TMPDIR, retrying.");
+    JWARNING ( false ) .Text ("Unable to determine DMTCP_TMPDIR, retrying.");
     setTmpDir(getenv(ENV_VAR_TMPDIR));
     device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
                + jalib::XToString ( PROTECTED_TMPDIR_FD ) );

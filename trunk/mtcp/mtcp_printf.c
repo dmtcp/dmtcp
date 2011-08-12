@@ -51,7 +51,6 @@ static void rwrite (char const *buff, int size);
 
 __attribute__ ((visibility ("hidden")))
 void mtcp_printf (char const *format, ...)
-
 {
   char const *p, *q;
   va_list ap;
@@ -213,6 +212,11 @@ static void rwrite (char const *buff, int size)
   if (dmtcp_info_stderr_fd != -1) {
     mtcp_write_all(dmtcp_info_stderr_fd, buff, size);
   }
+#ifdef DEBUG
+  else { /* else no --enable-debug, but DEBUG still requested */
+    mtcp_write_all(2, buff, size);
+  }
+#endif
   if (dmtcp_info_jassertlog_fd != -1) {
     mtcp_write_all(dmtcp_info_jassertlog_fd, buff, size);
   }

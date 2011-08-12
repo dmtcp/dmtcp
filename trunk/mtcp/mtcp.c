@@ -2340,7 +2340,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     mtcp_ckpt_extcomp_child_pid = cpid;
     if (mtcp_sys_close(pipe_fds[0]) == -1)
       MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
-    fd=pipe_fds[1];//change return value
+    fd = pipe_fds[1]; //change return value
   } else { /* child process */
     //static int (*libc_unsetenv) (const char *name);
     //static int (*libc_execvp) (const char *path, char *const argv[]);
@@ -2415,7 +2415,7 @@ static void checkpointeverything (void)
      *  and rename tmp ckpt file to permanent even while gzip is still writing.
      */
     if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
-      DPRINTF("(compression): waitpid: %s\n", strerror(errno));
+      DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
     }
     mtcp_ckpt_extcomp_child_pid = -1;
     sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
@@ -2573,12 +2573,6 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
     return 0;
   }
 
-  int fds[2];
-  if (mtcp_sys_pipe(fds) == -1) {
-    MTCP_PRINTF("Error creating pipe :%s\n", MTCP_STR_ERRNO);
-    mtcp_abort();
-  }
-
   pid_t forked_cpid = mtcp_sys_fork();
   if (forked_cpid == -1) {
     MTCP_PRINTF("WARNING: Failed to do forked checkpointing,"
@@ -2591,6 +2585,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
       DPRINTF("error mtcp_sys_wait4: errno: %d", mtcp_sys_errno);
     }
     DPRINTF("checkpoint complete\n");
+    close(tmpDMTCPHeaderFd);
     return FORKED_CKPT_MASTER;
   } else {
     pid_t grandchild_pid = mtcp_sys_fork();
