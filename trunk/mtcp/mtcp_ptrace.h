@@ -58,6 +58,15 @@ enum {
 };
 
 /* Must match the enum from dmtcp/src/ptracewrapper.h. */
+typedef enum {
+  PTRACE_INFERIOR_NOT_FOUND = 0,
+  PTRACE_INFERIOR_UNKNOWN_STATE = 'U',    // Code refers to 'N' as well ?
+  PTRACE_INFERIOR_RUNNING = 'R',
+  PTRACE_INFERIOR_STOPPED = 'T',
+  PTRACE_INFERIOR_SLEEPING = 'S'
+} PtraceInferiorState;
+
+/* Must match the enum from dmtcp/src/ptracewrapper.h. */
 /* These are values for singlestep_waited_on field of struct ptrace_info.
  * We only read singlestep_waited_on if last_command is
  * PTRACE_SINGLESTEP_COMMAND. */
@@ -116,7 +125,7 @@ extern void have_file(pid_t pid);
 
 extern pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt);
 
-extern char procfs_state(int tid);
+extern PtraceInferiorState procfs_state(int tid);
 
 extern int possible_ckpt_leader(pid_t tid);
 
@@ -169,9 +178,12 @@ extern void mtcp_ptrace_info_list_save_threads_state();
 extern void mtcp_ptrace_info_list_print();
 
 extern void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
-  int last_command, int singlestep_waited_on, char inf_st, int file_option);
+                                         int last_command,
+                                         int singlestep_waited_on,
+                                         PtraceInferiorState inf_st,
+                                         int file_option);
 
 void read_ptrace_setoptions_file (int record_to_file, int rc);
-char retrieve_inferior_state(pid_t tid);
+PtraceInferiorState retrieve_inferior_state(pid_t tid);
 #endif
 #endif

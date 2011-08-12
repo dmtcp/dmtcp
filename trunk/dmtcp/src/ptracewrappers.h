@@ -54,6 +54,14 @@ enum {
 };
 
 /* Must match the enum from mtcp/mtcp_ptrace.h. */
+typedef enum {
+  PTRACE_INFERIOR_NOT_FOUND = 0,
+  PTRACE_INFERIOR_UNKNOWN_STATE = 'U',    // Code refers to 'N' as well ?
+  PTRACE_INFERIOR_RUNNING = 'R',
+  PTRACE_INFERIOR_STOPPED = 'T'
+} PtraceInferiorState;
+
+/* Must match the enum from mtcp/mtcp_ptrace.h. */
 enum {
   FALSE = 0,
   TRUE
@@ -66,7 +74,7 @@ enum {
 struct ptrace_info {
   pid_t superior;
   pid_t inferior;
-  char inferior_st;
+  PtraceInferiorState inferior_st;
   int inferior_is_ckpthread;
   int last_command;
   int singlestep_waited_on;
@@ -77,7 +85,7 @@ struct ptrace_info {
 
   bool operator!= (const struct ptrace_info& a) {
     return this->superior != a.superior || this->inferior != a.inferior;
-  } 
+  }
 };
 
 /* Must match the structure declaration in mtcp/mtcp.h. */
@@ -87,7 +95,7 @@ struct cmd_info {
   pid_t inferior;
   int last_command;
   int singlestep_waited_on;
-  char inferior_st;
+  PtraceInferiorState inferior_st;
   int file_option;
 };
 
@@ -101,30 +109,32 @@ struct ptrace_waitpid_info {
   int has_status_and_pid;
 };
 
-static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
+static const struct ptrace_info EMPTY_PTRACE_INFO
+  = {0, 0, PTRACE_INFERIOR_UNKNOWN_STATE, 0, 0, 0};
 
-static const struct cmd_info EMPTY_CMD_INFO = {0, 0, 0, 0, 0, 0, 0};
+static const struct cmd_info EMPTY_CMD_INFO
+  = {0, 0, 0, 0, 0, PTRACE_INFERIOR_UNKNOWN_STATE, 0};
 
 extern dmtcp::list<struct ptrace_info> ptrace_info_list;
 
 typedef struct ptrace_waitpid_info ( *t_mtcp_get_ptrace_waitpid_info ) ();
-__attribute__ ((visibility ("hidden"))) extern t_mtcp_get_ptrace_waitpid_info 
+__attribute__ ((visibility ("hidden"))) extern t_mtcp_get_ptrace_waitpid_info
   mtcp_get_ptrace_waitpid_info;
 
 typedef void ( *t_mtcp_init_thread_local ) ();
 __attribute__ ((visibility ("hidden"))) extern t_mtcp_init_thread_local
-  mtcp_init_thread_local; 
+  mtcp_init_thread_local;
 
 typedef int ( *t_mtcp_ptracing) ();
 __attribute__ ((visibility ("hidden"))) extern t_mtcp_ptracing
-  mtcp_ptracing; 
+  mtcp_ptracing;
 
 __attribute__ ((visibility ("hidden"))) extern sigset_t signals_set;
 
 void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
-  int singlestep_waited_on, char inferior_st, int file_option);
+  int singlestep_waited_on, PtraceInferiorState inferior_st, int file_option);
 
-char procfs_state(int tid);
+PtraceInferiorState procfs_state(int tid);
 
 extern "C" struct ptrace_info get_next_ptrace_info(int index);
 
@@ -133,7 +143,7 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd);
 extern "C" int ptrace_info_list_size();
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-  int singlestep_waited_on); 
+  int singlestep_waited_on);
 
 #endif
 #endif

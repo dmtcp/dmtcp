@@ -208,7 +208,7 @@ void ptrace_attach_threads(int isRestart)
   pid_t inferior;
   int last_command;
   int singlestep_waited_on;
-  char inferior_st;
+  PtraceInferiorState inferior_st;
   int inferior_is_ckpthread;
   struct user_regs_struct regs;
   long peekdata;
@@ -258,7 +258,7 @@ void ptrace_attach_threads(int isRestart)
           MTCP_PRINTF("ckpthread is dead because of signal %d\n",
                       WTERMSIG(status));
         }
-        if (inferior_st != 'T') {
+        if (inferior_st != PTRACE_INFERIOR_STOPPED) {
           if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
             perror("ptrace_attach_threads: PTRACE_CONT failed");
             mtcp_abort();
@@ -336,7 +336,7 @@ void ptrace_attach_threads(int isRestart)
                 mtcp_abort();
               }
             }
-            else if (inferior_st != 'T' ) {
+            else if (inferior_st != PTRACE_INFERIOR_STOPPED) {
               /* TODO: remove in future as GROUP restore becames stable
                *                                                    - Artem */
               if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
@@ -347,7 +347,7 @@ void ptrace_attach_threads(int isRestart)
               }
             }
           } else { /* Resume time. */
-            if (inferior_st != 'T') {
+            if (inferior_st != PTRACE_INFERIOR_STOPPED) {
               ptrace_set_controlling_term(superior, inferior);
               if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 MTCP_PRINTF("%d failed while calling PTRACE_CONT on %d\n",
@@ -360,7 +360,7 @@ void ptrace_attach_threads(int isRestart)
 
           /* In case we have checkpointed at a breakpoint, we don't want to
            * hit the same breakpoint twice. Thus this code. */
-          if (inferior_st == 'T') {
+          if (inferior_st == PTRACE_INFERIOR_STOPPED) {
             if (mtcp_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
               MTCP_PRINTF("%d failed while calling PTRACE_SINGLESTEP on %d\n",
                           superior, inferior);
@@ -409,7 +409,7 @@ void ptrace_attach_threads(int isRestart)
                 perror("ptrace_attach_threads: PTRACE_POKEDATA failed");
                 mtcp_abort();
               }
-            } else if (inferior_st != 'T') {
+            } else if (inferior_st != PTRACE_INFERIOR_STOPPED) {
               ptrace_set_controlling_term(superior, inferior);
               if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 MTCP_PRINTF("%d failed while calling PTRACE_CONT on %d\n",
@@ -419,7 +419,7 @@ void ptrace_attach_threads(int isRestart)
               }
             }
           } else { /* Resume time. */
-            if (inferior_st != 'T') {
+            if (inferior_st != PTRACE_INFERIOR_STOPPED) {
               ptrace_set_controlling_term(superior, inferior);
               if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
                 MTCP_PRINTF("%d failed while calling PTRACE_CONT on %d\n",
@@ -432,7 +432,7 @@ void ptrace_attach_threads(int isRestart)
 
           /* In case we have checkpointed at a breakpoint, we don't want to
            * hit the same breakpoint twice. Thus this code. */
-          if (inferior_st == 'T') {
+          if (inferior_st == PTRACE_INFERIOR_STOPPED) {
             if (mtcp_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) < 0) {
               MTCP_PRINTF("%d failed while calling PTRACE_SINGLESTEP on %d\n",
                           superior, inferior);
@@ -503,7 +503,7 @@ void ptrace_detach_user_threads ()
   int status = 0;
   int index = 0;
   int tpid;
-  char pstate;
+  PtraceInferiorState pstate;
   struct ptrace_info pt_info;
 
   while (empty_ptrace_info(
@@ -514,10 +514,11 @@ void ptrace_detach_user_threads ()
       /* All UTs must receive a MTCP_DEFAULT_SIGNAL from their CT.
        * Was the status of this thread already read by the debugger? */
       pstate = procfs_state(pt_info.inferior);
-      if (pstate == 0) { /* The thread does not exist. */
+      if (pstate == PTRACE_INFERIOR_NOT_FOUND) {
+        /* The thread does not exist. */
         MTCP_PRINTF("process not exist %d\n", pt_info.inferior);
         mtcp_abort();
-      } else if (pstate == 'T') {
+      } else if (pstate == PTRACE_INFERIOR_STOPPED) {
         /* This is a stopped thread. It is possible for gdb or another thread
          * to read the status of this thread before us. Consequently we will
          * block. Thus we need to read without hanging. */
@@ -679,13 +680,15 @@ static int is_alive (pid_t pid)
   return 0;
 }
 
-char procfs_state(int tid) {
+// TODO: Use /proc/pid/status contains the status in less encrypted way, we
+// should use it.
+PtraceInferiorState procfs_state(int tid) {
   char name[64];
   sprintf(name, "/proc/%d/stat", tid);
   int fd = open(name, O_RDONLY, 0);
   if (fd < 0) {
     DPRINTF("cannot open %s\n",name);
-    return 0;
+    return PTRACE_INFERIOR_NOT_FOUND;
   }
 
   /* The format of /proc/pid/stat is: tid (name_of_executable) state.
@@ -709,12 +712,14 @@ char procfs_state(int tid) {
   sbuf[num_read] = '\0';
   char *state, *tmp;
   state = strchr(sbuf, '(') + 1;
-  if (!state) return 'u';
+  if (!state) return PTRACE_INFERIOR_UNKNOWN_STATE;
   tmp = strrchr(state, ')');
-  if (!tmp || (tmp + 2 - sbuf) > 255) return 'u';
+  if (!tmp || (tmp + 2 - sbuf) > 255) return PTRACE_INFERIOR_UNKNOWN_STATE;
   state = tmp + 2;
 
-  return state[0];
+  if (state[0] == 't' || state[0] == 'T') return PTRACE_INFERIOR_STOPPED;
+  if (state[0] == 'r' || state[0] == 'R') return PTRACE_INFERIOR_RUNNING;
+  return PTRACE_INFERIOR_UNKNOWN_STATE;
 }
 
 pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt) {
@@ -755,7 +760,8 @@ void read_ptrace_setoptions_file (int record_to_file, int rc) {
       is_ptrace_setoptions = TRUE;
       if (record_to_file) {
         mtcp_ptrace_info_list_insert(setoptions_superior, rc,
-                                     PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
+                                     PTRACE_UNSPECIFIED_COMMAND, FALSE,
+                                     PTRACE_INFERIOR_UNKNOWN_STATE,
                                      PTRACE_SHARED_FILE_OPTION);
       }
     }
@@ -774,10 +780,10 @@ void read_new_ptrace_shared_file () {
   }
 
   pid_t superior, inferior;
-  char inferior_st;
+  PtraceInferiorState inferior_st;
   while (read_no_error(fd, &superior, sizeof(pid_t)) > 0) {
     read_no_error(fd, &inferior, sizeof(pid_t));
-    read_no_error(fd, &inferior_st, sizeof(char));
+    read_no_error(fd, &inferior_st, sizeof(inferior_st));
     mtcp_ptrace_info_list_insert(superior, inferior,
       PTRACE_UNSPECIFIED_COMMAND, FALSE, inferior_st, PTRACE_NO_FILE_OPTION);
   }
@@ -812,10 +818,10 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
   int status;
   pid_t tpid;
 
-  char pstate = procfs_state(inferior);
-  if (pstate == 0) { /* This process does not exist. */
+  PtraceInferiorState pstate = procfs_state(inferior);
+  if (pstate == PTRACE_INFERIOR_NOT_FOUND) { /* This process does not exist. */
     return -ENOENT;
-  } else if (pstate == 'T') {
+  } else if (pstate == PTRACE_INFERIOR_STOPPED) {
     /* This is a stopped thread. It might happen that gdb or another thread
      * reads the status of this thread before us. Consequently we will block.
      * Thus we need to read without hanging. */
@@ -915,7 +921,8 @@ void mtcp_ptrace_info_list_print() {
 }
 
 void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
-  int last_command, int singlestep_waited_on, char inf_st, int file_option) {
+                                  int last_command, int singlestep_waited_on,
+                                  PtraceInferiorState inf_st, int file_option) {
   if (!callback_ptrace_info_list_command) return;
 
   struct cmd_info cmd;
@@ -940,7 +947,7 @@ void mtcp_ptrace_info_list_update_info(int singlestep_waited_on) {
   (*callback_ptrace_info_list_command)(cmd);
 }
 
-char retrieve_inferior_state(pid_t tid) {
+PtraceInferiorState retrieve_inferior_state(pid_t tid) {
   if (!callback_ptrace_info_list_command) return;
 
   int index = 0;
@@ -949,7 +956,7 @@ char retrieve_inferior_state(pid_t tid) {
            pt_info = (*callback_get_next_ptrace_info)(index++))) {
     if (pt_info.inferior == tid) return procfs_state(pt_info.inferior);
   }
-  return 'u';
+  return PTRACE_INFERIOR_UNKNOWN_STATE;
 }
 
 /* The checkpoint leader can only be the checkpoint thread of the superior. If
