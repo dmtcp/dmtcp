@@ -49,44 +49,56 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
-/* inotify is currently not supported by DMTCP */
-extern "C" int inotify_init()
-{
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
-}
-
-/* inotify1 is currently not supported by DMTCP */
-extern "C" int inotify_init1(int flags)
-{
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
-}
+#ifdef RECORD_REPLAY
+#include "fred_wrappers.h"
+#include "synchronizationlogging.h"
+#include <sys/mman.h>
 
 /* epoll is currently not supported by DMTCP */
-#ifdef RECORD_REPLAY
-int _almost_real_epoll_create(int size)
-#else
 extern "C" int epoll_create(int size)
-#endif
 {
-  /* epoll is currently not supported by DMTCP */
-  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
-  errno = EPERM;
-  return -1;
+  BASIC_SYNC_WRAPPER(int, epoll_create, _almost_real_epoll_create, size);
 }
 
 /* epoll is currently not supported by DMTCP */
-#ifdef RECORD_REPLAY
-int _almost_real_epoll_create1(int flags)
-#else
 extern "C" int epoll_create1(int flags)
-#endif
 {
-  JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
-  errno = EPERM;
-  return -1;
+  BASIC_SYNC_WRAPPER(int, epoll_create1, _almost_real_epoll_create1, flags);
 }
 
+extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+  BASIC_SYNC_WRAPPER(int, epoll_ctl, _real_epoll_ctl, epfd, op, fd, event);
+}
+
+extern "C" int epoll_wait(int epfd, struct epoll_event *events,
+                          int maxevents, int timeout)
+{
+  WRAPPER_HEADER(int, epoll_wait, _real_epoll_wait, epfd, events, maxevents,
+                 timeout);
+
+  if (SYNC_IS_REPLAY) {
+    WRAPPER_REPLAY_START_TYPED(int, epoll_wait);
+    if (retval > 0) {
+      size_t size = retval * sizeof(struct epoll_event);
+      WRAPPER_REPLAY_READ_FROM_READ_LOG(epoll_wait, (void*) events, size);
+    }
+    WRAPPER_REPLAY_END(epoll_wait);
+  } else if (SYNC_IS_RECORD) {
+    retval = _real_epoll_wait(epfd, events, maxevents, timeout);
+    if (retval > 0) {
+      size_t size = retval * sizeof(struct epoll_event);
+      WRAPPER_LOG_WRITE_INTO_READ_LOG(epoll_wait, (void*) events, size);
+    }
+    WRAPPER_LOG_WRITE_ENTRY(my_entry);
+  }
+  return retval;
+}
+
+extern "C" int epoll_pwait(int epfd, struct epoll_event *events,
+                           int maxevents, int timeout, const sigset_t *sigmask)
+{
+  JASSERT(false) .Text("NOT IMPLEMENTED");
+  return 0;
+}
+#endif

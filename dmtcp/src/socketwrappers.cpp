@@ -38,11 +38,6 @@
 #include <errno.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
-#ifdef RECORD_REPLAY
-#include <fcntl.h>
-#include "dmtcpworker.h"
-#include "synchronizationlogging.h"
-#endif
 
 /*
  * XXX: TODO: Add wrapper protection for socket() family of system calls
@@ -73,14 +68,23 @@ static int in_dmtcp_on_helper_fnc = 0;
     errno =saved_errno; \
     return ret;}
 
-static int _almost_real_socket(int domain, int type, int protocol)
+#ifdef RECORD_REPLAY
+int _almost_real_socket(int domain, int type, int protocol)
+#else
+extern "C" int socket(int domain, int type, int protocol)
+#endif
 {
   static int sockfd = -1;
   PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
 }
 
-static int _almost_real_connect(int sockfd, const struct sockaddr *serv_addr,
-    socklen_t addrlen)
+#ifdef RECORD_REPLAY
+int _almost_real_connect(int sockfd, const struct sockaddr *serv_addr,
+                                socklen_t addrlen)
+#else
+extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
+                       socklen_t addrlen)
+#endif
 {
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
   int saved_errno = errno;
@@ -118,19 +122,33 @@ static int _almost_real_connect(int sockfd, const struct sockaddr *serv_addr,
   PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
 }
 
-static int _almost_real_bind (int sockfd, const struct sockaddr *my_addr,
-    socklen_t addrlen)
+#ifdef RECORD_REPLAY
+int _almost_real_bind (int sockfd, const struct sockaddr *my_addr,
+                              socklen_t addrlen)
+#else
+extern "C" int bind (int sockfd, const struct sockaddr *my_addr,
+                     socklen_t addrlen)
+#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
 }
 
-static int _almost_real_listen ( int sockfd, int backlog )
+#ifdef RECORD_REPLAY
+int _almost_real_listen ( int sockfd, int backlog )
+#else
+extern "C" int listen ( int sockfd, int backlog )
+#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
 }
 
-static int _almost_real_accept(int sockfd, struct sockaddr *addr,
-    socklen_t *addrlen)
+#ifdef RECORD_REPLAY
+int _almost_real_accept(int sockfd, struct sockaddr *addr,
+                               socklen_t *addrlen)
+#else
+extern "C" int accept(int sockfd, struct sockaddr *addr,
+                      socklen_t *addrlen)
+#endif
 {
   if ( addr == NULL || addrlen == NULL )
   {
@@ -144,8 +162,13 @@ static int _almost_real_accept(int sockfd, struct sockaddr *addr,
     PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
 }
 
-static int _almost_real_accept4 ( int sockfd, struct sockaddr *addr,
-                           socklen_t *addrlen, int flags )
+#ifdef RECORD_REPLAY
+int _almost_real_accept4 ( int sockfd, struct sockaddr *addr,
+                                  socklen_t *addrlen, int flags )
+#else
+extern "C" int accept4 ( int sockfd, struct sockaddr *addr,
+                         socklen_t *addrlen, int flags )
+#endif
 {
   if ( addr == NULL || addrlen == NULL )
   {
@@ -159,155 +182,24 @@ static int _almost_real_accept4 ( int sockfd, struct sockaddr *addr,
     PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, addr, addrlen, flags );
 }
 
-static int _almost_real_setsockopt(int sockfd, int level, int optname,
-    const void *optval, socklen_t optlen)
+#ifdef RECORD_REPLAY
+int _almost_real_setsockopt(int sockfd, int level, int optname,
+                                   const void *optval, socklen_t optlen)
+#else
+extern "C" int setsockopt(int sockfd, int level, int optname,
+                          const void *optval, socklen_t optlen)
+#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
 }
 
-static int _almost_real_getsockopt(int sockfd, int level, int optname,
-    void *optval, socklen_t *optlen)
+#ifdef RECORD_REPLAY
+int _almost_real_getsockopt(int sockfd, int level, int optname,
+                                   void *optval, socklen_t *optlen)
+#else
+extern "C" int getsockopt(int sockfd, int level, int optname,
+                          void *optval, socklen_t *optlen)
+#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
-}
-
-extern "C"
-{
-int socket ( int domain, int type, int protocol )
-{
-#ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, socket, _almost_real_socket, domain, type, protocol);
-#else
-  return _almost_real_socket(domain, type, protocol);
-#endif
-}
-
-int connect ( int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen )
-{
-#ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, connect, _almost_real_connect, sockfd, serv_addr, addrlen);
-#else
-  return _almost_real_connect(sockfd, serv_addr, addrlen);
-#endif
-}
-
-int bind ( int sockfd,  const struct  sockaddr  *addr,  socklen_t addrlen )
-{
-#ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, bind, _almost_real_bind, sockfd, addr, addrlen);
-#else
-  return _almost_real_bind(sockfd, addr, addrlen);
-#endif
-}
-
-int listen ( int sockfd, int backlog )
-{
-#ifdef RECORD_REPLAY
-  BASIC_SYNC_WRAPPER(int, listen, _almost_real_listen, sockfd, backlog);
-#else
-  return _almost_real_listen(sockfd, backlog );
-#endif
-}
-
-int accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen )
-{
-#ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, accept, _almost_real_accept, sockfd, addr, addrlen);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(accept);
-    if (retval != -1) {
-      *addr = GET_FIELD(currentLogEntry, accept, ret_addr);
-      *addrlen = GET_FIELD(currentLogEntry, accept, ret_addrlen);
-    }
-    WRAPPER_REPLAY_END(accept);
-  } else if (SYNC_IS_RECORD) {
-    retval = _almost_real_accept(sockfd, addr, addrlen);
-    if (retval != -1) {
-      SET_FIELD2(my_entry, accept, ret_addr, *addr);
-      SET_FIELD2(my_entry, accept, ret_addrlen, *addrlen);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
-#else
-  return _almost_real_accept(sockfd, addr, addrlen);
-#endif
-}
-
-//#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-int accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags )
-{
-#ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, accept4, _almost_real_accept4, sockfd, addr, addrlen, flags);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(accept4);
-    if (retval != -1) {
-      *addr = GET_FIELD(currentLogEntry, accept4, ret_addr);
-      *addrlen = GET_FIELD(currentLogEntry, accept4, ret_addrlen);
-    }
-    WRAPPER_REPLAY_END(accept4);
-  } else if (SYNC_IS_RECORD) {
-    retval = _almost_real_accept4(sockfd, addr, addrlen, flags);
-    if (retval != -1) {
-      SET_FIELD2(my_entry, accept4, ret_addr, *addr);
-      SET_FIELD2(my_entry, accept4, ret_addrlen, *addrlen);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
-#else
-  return _almost_real_accept4(sockfd, addr, addrlen, flags);
-#endif
-}
-//#endif
-
-int setsockopt ( int sockfd, int  level,  int  optname,  const  void  *optval,
-                 socklen_t optlen )
-{
-#ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, setsockopt, _almost_real_setsockopt,
-                 sockfd, level, optname, optval, optlen);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(setsockopt);
-  } else if (SYNC_IS_RECORD) {
-    isOptionalEvent = true;
-    retval = _almost_real_setsockopt(sockfd, level, optname, optval, optlen);
-    isOptionalEvent = false;
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
-#else
-  return _almost_real_setsockopt(sockfd,level,optname,optval,optlen);
-#endif
-}
-
-int getsockopt ( int sockfd, int  level,  int  optname,  void  *optval,
-                 socklen_t *optlen )
-{
-#ifdef RECORD_REPLAY
-  WRAPPER_HEADER(int, getsockopt, _almost_real_getsockopt,
-                 sockfd, level, optname, optval, optlen);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(getsockopt);
-    if (retval == 0 && optval != NULL) {
-      *optlen = GET_FIELD(currentLogEntry, getsockopt, ret_optlen);
-      WRAPPER_REPLAY_READ_FROM_READ_LOG(getsockopt, optval, *optlen);
-    }
-    WRAPPER_REPLAY_END(getsockopt);
-  } else if (SYNC_IS_RECORD) {
-    isOptionalEvent = true;
-    retval = _almost_real_getsockopt(sockfd, level, optname, optval, optlen);
-    isOptionalEvent = false;
-    if (retval == 0 && optval != NULL) {
-      WRAPPER_LOG_WRITE_INTO_READ_LOG(getsockopt, optval, *optlen);
-      SET_FIELD2(my_entry, getsockopt, ret_optlen, *optlen);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
-#else
-  return _almost_real_getsockopt(sockfd,level,optname,optval,optlen);
-#endif
-}
-
 }

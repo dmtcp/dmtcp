@@ -27,17 +27,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#ifdef RECORD_REPLAY
-#include "synchronizationlogging.h"
-#include "../jalib/jfilesystem.h"
-#endif
 
 #ifndef EXTERNC
 #define EXTERNC extern "C"
-#endif
-
-#ifdef RECORD_REPLAY
-static dmtcp::map<int, sighandler_t> user_sig_handlers;
 #endif
 
 //gah!!! signals API is redundant
@@ -113,107 +105,35 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
   patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
 }
 
-#ifdef RECORD_REPLAY
-static void sig_handler_wrapper(int sig)
-{
-  // FIXME: Why is the following  commented out?
-  /*void *return_addr = GET_RETURN_ADDRESS();
-if (!shouldSynchronize(return_addr)) {
-    kill(getpid(), SIGSEGV);
-    return (*user_sig_handlers[sig]) (sig);
-    }*/
-  if (jalib::Filesystem::GetProgramName() == "gdb") {
-    JASSERT ( false ) .Text("don't want this");
-    return (*user_sig_handlers[sig]) (sig);
-  }
-  int retval = 0;
-  log_entry_t my_entry = create_signal_handler_entry(my_clone_id, signal_handler_event, sig);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY(signal_handler);
-    (*user_sig_handlers[sig]) (sig);
-  } else if (SYNC_IS_RECORD) {
-    (*user_sig_handlers[sig]) (sig);
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-}
-#endif
 
 //set the handler
-EXTERNC sighandler_t signal(int signum, sighandler_t handler){
 #ifdef RECORD_REPLAY
-  if(signum == bannedSignalNumber()){
-    return SIG_IGN;
-  }
-  WRAPPER_HEADER_RAW(sighandler_t, signal, _real_signal, signum, handler);
-  // We don't need to log and replay this call, we just need to note the user's
-  // signal handler so that our signal handler wrapper can call that function.
-  user_sig_handlers[signum] = handler;
-  return _real_signal( signum, sig_handler_wrapper );
+sighandler_t _almost_real_signal(int signum, sighandler_t handler)
 #else
+EXTERNC sighandler_t signal(int signum, sighandler_t handler)
+#endif
+{
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
   }
   return _real_signal( signum, handler );
-#endif
 }
 
 
 #ifdef RECORD_REPLAY
-EXTERNC sighandler_t sigset(int sig, sighandler_t disp) {
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (!shouldSynchronize(return_addr) ||
-      jalib::Filesystem::GetProgramName() == "gdb") {
-    // Don't use our wrapper for non-user signal() calls:
-    return _real_sigset (sig, disp);
-  } else {
-    // We don't need to log and replay this call, we just need to note the user's
-    // signal handler so that our signal handler wrapper can call that function.
-    user_sig_handlers[sig] = disp;
-    return _real_sigset( sig, sig_handler_wrapper );
-  }
-}
-#endif
-
-EXTERNC int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-#ifdef RECORD_REPLAY
-  if(signum == bannedSignalNumber()){
-    act = NULL;
-  }
-  void *return_addr = GET_RETURN_ADDRESS();
-  if (act != NULL && shouldSynchronize(return_addr) &&
-      jalib::Filesystem::GetProgramName() != "gdb") {
-    struct sigaction newact;
-    memset(&newact, 0, sizeof(struct sigaction));
-    if (act->sa_handler == SIG_DFL || act->sa_handler == SIG_IGN) {
-      // Remove it from our map.
-      user_sig_handlers.erase(signum);
-    } else {
-      // Save user's signal handler
-      if (act->sa_flags & SA_SIGINFO) {
-        JASSERT ( false ).Text("Unimplemented.");
-        //user_sig_handlers[signum] = act->sa_sigaction;
-        //newact.sa_sigaction = act->sa_sigaction;
-      } else {
-        user_sig_handlers[signum] = act->sa_handler;
-        newact.sa_handler = &sig_handler_wrapper;
-      }
-      // Create our own action with our own signal handler, but copy user's
-      // other fields.
-      newact.sa_mask = act->sa_mask;
-      newact.sa_flags = act->sa_flags;
-      newact.sa_restorer = act->sa_restorer;
-    }
-    return _real_sigaction( signum, &newact, oldact);
-  } else {
-    return _real_sigaction( signum, act, oldact);
-  }
+int _almost_real_sigaction(int signum, const struct sigaction *act,
+                           struct sigaction *oldact)
 #else
+EXTERNC int sigaction(int signum, const struct sigaction *act,
+                      struct sigaction *oldact)
+#endif
+{
   if(signum == bannedSignalNumber()){
     act = NULL;
   }
   return _real_sigaction( signum, act, oldact);
-#endif
 }
+
 EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
   return sigaction (signum, act, oldact);
   //if(signum == bannedSignalNumber()){
@@ -372,28 +292,12 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
  * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
  *                                                          -- Kapil
  */
-EXTERNC int sigwait(const sigset_t *set, int *sig) {
 #ifdef RECORD_REPLAY
-  if (set != NULL) {
-    sigset_t tmp = patchPOSIXMask(set);
-    set = &tmp;
-  }
-  WRAPPER_HEADER(int, sigwait, _real_sigwait, set, sig);
-  if (SYNC_IS_REPLAY) {
-    WRAPPER_REPLAY_START(sigwait);
-    if (sig != NULL) {
-      *sig = GET_FIELD(currentLogEntry, sigwait, sig);
-    }
-    WRAPPER_REPLAY_END(sigwait);
-  } else if (SYNC_IS_RECORD) {
-    retval = _real_sigwait(set, sig);
-    if (sig != NULL) {
-      SET_FIELD2(my_entry, sigwait, sig, *sig);
-    }
-    WRAPPER_LOG_WRITE_ENTRY(my_entry);
-  }
-  return retval;
+int _almost_real_sigwait(const sigset_t *set, int *sig)
 #else
+EXTERNC int sigwait(const sigset_t *set, int *sig)
+#endif
+{
   if (set != NULL) {
     sigset_t tmp = patchPOSIXMask(set);
     set = &tmp;
@@ -402,7 +306,6 @@ EXTERNC int sigwait(const sigset_t *set, int *sig) {
   int ret = _real_sigwait( set, sig );
 
   return ret;
-#endif
 }
 
 /*
