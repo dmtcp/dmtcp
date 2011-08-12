@@ -65,7 +65,7 @@ EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC const char* dmtcp_get_uniquepid_str();
 EXTERNC int  dmtcp_is_running_state();
 
-#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT()                           \
+#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                \
   do {                                                                  \
     typedef void (*fnptr_t) (DmtcpEvent_t, void*);                      \
     static fnptr_t fn = NULL;                                           \

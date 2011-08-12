@@ -1167,7 +1167,7 @@ static int threadcloned (void *threadv)
    * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
    *
    * The solution is to put the motherpid in the tid slot everytime a new
-   * thread is created to make sure the correct value in struct pthread.
+   * thread is created to make sure that struct pthread has the correct value.
    */
   {
     pid_t  *tls_pid = (pid_t *) (mtcp_get_tls_base_addr() + TLS_PID_OFFSET());

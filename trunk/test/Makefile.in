@@ -75,10 +75,7 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
-pthread1: pthread1.c
-	-$(CC) -o $@ $< $(CFLAGS) -lpthread
-
-pthread2: pthread2.c
+pthread%: pthread%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
