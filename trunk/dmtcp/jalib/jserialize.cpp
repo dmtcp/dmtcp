@@ -19,14 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "jserialize.h"
-#include "jassert.h"
-#include "../src/util.h"
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "syscallwrappers.h"
+#include "jalib.h"
+#include "jserialize.h"
+#include "jassert.h"
 
 jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::string& path, int fd )
     : JBinarySerializer ( path )
@@ -36,7 +35,7 @@ jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::strin
 }
 
 jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const jalib::string& path )
-  : JBinarySerializeWriterRaw ( path , _real_open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
+  : JBinarySerializeWriterRaw ( path , jalib::open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
 {}
 
 jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::string& path, int fd )
@@ -47,7 +46,7 @@ jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::strin
 }
 
 jalib::JBinarySerializeReader::JBinarySerializeReader ( const jalib::string& path )
-  : JBinarySerializeReaderRaw ( path , _real_open ( path.c_str(), O_RDONLY, 0 ) )
+  : JBinarySerializeReaderRaw ( path , jalib::open ( path.c_str(), O_RDONLY, 0 ) )
 {}
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()
@@ -103,7 +102,7 @@ bool jalib::JBinarySerializeReaderRaw::isEOF()
 
 void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = dmtcp::Util::writeAll(_fd, buffer, len);
+  size_t ret = jalib::writeAll(_fd, buffer, len);
   JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO)
     .Text( "write() failed" );
   _bytes += len;
@@ -111,7 +110,7 @@ void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
 
 void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
 {
-  size_t ret = dmtcp::Util::readAll(_fd, buffer, len);
+  size_t ret = jalib::readAll(_fd, buffer, len);
   JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
     .Text("read() failed");
   _bytes += len;

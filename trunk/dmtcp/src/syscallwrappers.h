@@ -297,6 +297,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
   int _dmtcp_unsetenv(const char *name);
   void initialize_wrappers();
+  void initializeJalib();
 
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr,
@@ -325,8 +326,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   pid_t _real_fork();
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
-  int _real_open(const char *pathname, int flags, mode_t mode);
-  int _real_open64(const char *pathname, int flags, mode_t mode);
+  int _real_open(const char *pathname, int flags, ...);
+  int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
   int _real_close ( int fd );

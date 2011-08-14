@@ -328,6 +328,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   if ( !enableCheckpointing ) return;
   else {
     WorkerState::setCurrentState( WorkerState::UNKNOWN);
+    initializeJalib();
     prepareDmtcpWrappers();
     prepareLogAndProcessdDataFromSerialFile();
   }

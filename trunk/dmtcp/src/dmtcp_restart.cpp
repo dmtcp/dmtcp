@@ -717,6 +717,8 @@ int main ( int argc, char** argv )
   bool isRestart = true;
   int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
 
+  initializeJalib();
+
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
 

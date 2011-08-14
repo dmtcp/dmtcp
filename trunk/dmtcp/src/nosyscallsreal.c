@@ -209,6 +209,11 @@ int _real_close ( int fd )
   REAL_FUNC_PASSTHROUGH ( close ) ( fd );
 }
 
+int _real_fclose ( FILE *fp )
+{
+  REAL_FUNC_PASSTHROUGH ( fclose ) ( fp );
+}
+
 void _real_exit ( int status )
 {
   REAL_FUNC_PASSTHROUGH_VOID ( exit ) ( status );
@@ -350,11 +355,27 @@ pid_t _real_gettid(void){
 #endif
 }
 
-int _real_open ( const char *pathname, int flags, mode_t mode ) {
+int _real_open ( const char *pathname, int flags, ... ) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
-int _real_open64 ( const char *pathname, int flags, mode_t mode ) {
+int _real_open64 ( const char *pathname, int flags, ... ) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 

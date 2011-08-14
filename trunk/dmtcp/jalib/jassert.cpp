@@ -19,11 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "jassert.h"
-#include "jfilesystem.h"
 #include <sys/types.h>
 #include <unistd.h>
-#include "jconvert.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -32,10 +29,10 @@
 #include <fstream>
 #include <execinfo.h>  /* For backtrace() */
 
-// Is there a cleaner way to get information from rest of DMTCP?
-#include "../src/dmtcpmodule.h"
-#include "../src/util.h"
-#include "../src/protectedfds.h"
+#include "jalib.h"
+#include "jconvert.h"
+#include "jassert.h"
+#include "jfilesystem.h"
 
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
@@ -44,36 +41,22 @@
 // in sync with that.
 #define LIBC_FILENAME "libc.so.6"
 
-#ifndef DMTCP
-#  define DECORATE_FN(fn) ::fn
-#else
-#  include "syscallwrappers.h"
-#  define DECORATE_FN(fn) ::_real_ ## fn
-#endif
-
-#define pthread_mutex_lock _real_pthread_mutex_lock
-#define pthread_mutex_trylock _real_pthread_mutex_trylock
-#define pthread_mutex_unlock _real_pthread_mutex_unlock
-
 int jassert_quiet = 0;
 
 static int theLogFileFd = -1;
 static int errConsoleFd = -1;
 
-
-#define DUP_STDERR_FD PROTECTED_STDERR_FD
-#define DUP_LOG_FD    PROTECTED_JASSERTLOG_FD
-
 static int jwrite(int fd, const char *str)
 {
-  return dmtcp::Util::writeAll(fd, str, strlen(str));
+  jalib::writeAll(fd, str, strlen(str));
+  return strlen(str);
 }
 
 int jassert_internal::jassert_console_fd()
 {
   //make sure stream is open
   jassert_safe_print ( "" );
-  return DUP_STDERR_FD;
+  return jalib::stderrFd;
 }
 
 void jassert_internal::jassert_set_console_fd(int fd)
@@ -93,7 +76,7 @@ static pthread_mutex_t logLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 
 bool jassert_internal::lockLog()
 {
-  int retVal = pthread_mutex_lock(&logLock);
+  int retVal = jalib::pthread_mutex_lock(&logLock);
   if (retVal != 0) {
     perror ( "jassert_internal::lockLog: Error acquiring mutex");
   }
@@ -102,7 +85,7 @@ bool jassert_internal::lockLog()
 
 void jassert_internal::unlockLog()
 {
-  int retVal = pthread_mutex_unlock(&logLock);
+  int retVal = jalib::pthread_mutex_unlock(&logLock);
   if (retVal != 0) {
     perror ( "jassert_internal::unlockLog: Error releasing mutex");
   }
@@ -152,10 +135,10 @@ const char* jassert_internal::jassert_basename ( const char* str )
 static int _open_log_safe ( const char* filename, int protectedFd )
 {
   //open file
-  int tfd = _real_open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
+  int tfd = jalib::open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
                                    S_IRUSR | S_IWUSR );
   if (tfd == -1) return -1;
-  //change fd to 827 (DUP_LOG_FD -- PFD(6))
+  //change fd to 827 (jalib::logFd -- PFD(6))
   int nfd = dup2 ( tfd, protectedFd );
   if (tfd != nfd) {
     close ( tfd );
@@ -186,10 +169,10 @@ static const jalib::string writeJbacktraceMsg() {
     "   Try using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
     "     utils/dmtcp_backtrace.py dmtcphijack.so ";
-  o << msg << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str() << " "
-    << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str()
+  o << msg << jalib::dmtcp_get_tmpdir() << "/backtrace."
+    << jalib::dmtcp_get_uniquepid_str() << " "
+    << jalib::dmtcp_get_tmpdir() << "/proc-maps."
+    << jalib::dmtcp_get_uniquepid_str()
     << "\n   (For further help, try:  utils/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
@@ -198,9 +181,9 @@ static void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
   dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str();
-  int fd = _real_open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
+  o << jalib::dmtcp_get_tmpdir() << "/backtrace."
+    << jalib::dmtcp_get_uniquepid_str();
+  int fd = jalib::open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
                       S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
@@ -214,17 +197,17 @@ static void writeBacktrace() {
 static void writeProcMaps() {
   char mapsBuf[50000];
   int  count;
-  int fd = _real_open("/proc/self/maps", O_RDONLY, 0);
+  int fd = jalib::open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
-  count = dmtcp::Util::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
+  count = jalib::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   close(fd);
 
   dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str();
+  o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
+    << jalib::dmtcp_get_uniquepid_str();
   fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
-  count = dmtcp::Util::writeAll(fd, mapsBuf, count);
+  count = jalib::writeAll(fd, mapsBuf, count);
   close(fd);
 }
 
@@ -232,7 +215,7 @@ jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
 {
   writeBacktrace();
   writeProcMaps();
-  // This goes to stdout.  Could also print to DUP_LOG_FD
+  // This goes to stdout.  Could also print to jalib::logFd
   Print( writeJbacktraceMsg() );
   return *this;  // Needed as part of JASSERT macro
 }
@@ -250,15 +233,15 @@ void jassert_internal::set_log_file ( const jalib::string& path )
   theLogFileFd = -1;
   if ( path.length() > 0 )
   {
-    theLogFileFd = _open_log_safe ( path, DUP_LOG_FD );
+    theLogFileFd = _open_log_safe ( path, jalib::logFd );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_2", DUP_LOG_FD );
+      theLogFileFd = _open_log_safe ( path + "_2", jalib::logFd );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_3", DUP_LOG_FD );
+      theLogFileFd = _open_log_safe ( path + "_3", jalib::logFd );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_4", DUP_LOG_FD );
+      theLogFileFd = _open_log_safe ( path + "_4", jalib::logFd );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_5", DUP_LOG_FD );
+      theLogFileFd = _open_log_safe ( path + "_5", jalib::logFd );
   }
 }
 
@@ -277,9 +260,9 @@ static int _initJassertOutputDevices()
 #endif
 
   if ( errpath != NULL )
-    errConsoleFd = _open_log_safe ( errpath, DUP_STDERR_FD );
+    errConsoleFd = _open_log_safe ( errpath, jalib::stderrFd );
   else
-    errConsoleFd = dup2 ( fileno ( stderr ), DUP_STDERR_FD );
+    errConsoleFd = dup2 ( fileno ( stderr ), jalib::stderrFd );
 
   if( errConsoleFd == -1 ) {
     jwrite ( fileno (stderr ), "dmtcp: cannot open output channel for error logging\n");

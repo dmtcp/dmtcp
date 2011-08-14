@@ -52,6 +52,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpcoordinatorapi.h"
 #include "lookup_service.h"
+#include "syscallwrappers.h"
 #include "util.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jtimer.h"
@@ -1031,7 +1032,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
       JNOTE  ( "Current computation not in RUNNING state."
 	       "  Refusing to accept new connections.")
         ( curCompGroup ) ( hello_remote.from.pid() )
-        ( s.numPeers ) ( s.minimumState ) 
+        ( s.numPeers ) ( s.minimumState )
         ( s.minimumStateUnanimous ) ( workersRunningAndSuspendMsgSent );
       hello_local.type = dmtcp::DMT_REJECT;
       remote << hello_local;
@@ -1397,6 +1398,7 @@ static void setupSIGINTHandler()
 
 int main ( int argc, char** argv )
 {
+  initializeJalib();
   dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
 
   //parse port
