@@ -562,7 +562,7 @@ int thread_start(void *arg)
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-    JTRACE ("Tid Conflict detected. Exiting Thread");
+    JTRACE ("Tid conflict detected. Exiting thread");
 #ifdef RECORD_REPLAY
     my_log->destroy();
     delete my_log;
@@ -745,9 +745,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     //if ( isConflictingTid ( tid ) ) {
       /* Issue a waittid for the newly created thread (if required.) */
-      JTRACE ( "TID Conflict detected, creating a new child thread" ) ( tid );
+      JTRACE ( "TID conflict detected, creating a new child thread" ) ( tid );
     } else {
-      JTRACE ("New Thread Created") (tid);
+      JTRACE ("New thread created") (tid);
       if (originalTid != -1)
       {
         /* creating thread while restarting, we need to notify other processes */

@@ -165,12 +165,12 @@ clean: tidy
 	- cd module  && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
-	     DMTCP_TMPDIR=/tmp; \
+	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \
 	   else \
-	     DMTCP_TMPDIR=$$TMPDIR; \
+	     DMTCP_TMPDIR=$$TMPDIR/dmtcp-$$USER@`/bin/hostname`; \
 	   fi; \
 	 fi; \
-	 rm -rf $$DMTCP_TMPDIR/dmtcp-$$USER@$$HOSTNAME
+	 rm -rf $$DMTCP_TMPDIR
 
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean

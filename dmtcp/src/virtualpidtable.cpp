@@ -186,7 +186,8 @@ void dmtcp::VirtualPidTable::resetOnFork()
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
-{
+{ pid_t retVal = 0;
+
   /* This code is called from MTCP while the checkpoint thread is holding
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
      this function. */
@@ -197,8 +198,10 @@ pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
     return originalPid;
   }
 
+  // retVal required: in TID conflict, first and second clone call can interfere
+  retVal = i->second;
   _do_unlock_tbl();
-  return i->second;
+  return retVal;
 }
 
 pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
