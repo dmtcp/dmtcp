@@ -52,10 +52,6 @@
 #endif
 
 
-#ifdef RECORD_REPLAY
-static inline void memfence() {  asm volatile ("mfence" ::: "memory"); }
-#endif
-
 #ifdef __x86_64__
 # define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
 #else
@@ -519,9 +515,6 @@ struct ThreadArg {
   int ( *fn ) ( void *arg );
   void *arg;
   pid_t original_tid;
-#ifdef RECORD_REPLAY
-  clone_id_t clone_id;
-#endif
 };
 
 // bool isConflictingTid( pid_t tid )
@@ -540,21 +533,9 @@ struct ThreadArg {
 LIB_PRIVATE
 int thread_start(void *arg)
 {
+  dmtcp_process_event(DMTCP_EVENT_THREAD_START, NULL);
+
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-#ifdef RECORD_REPLAY
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    my_clone_id = threadArg->clone_id;
-    my_log = new dmtcp::SynchronizationLog();
-    if (SYNC_IS_RECORD || SYNC_IS_REPLAY) {
-      my_log->initOnThreadCreation();
-    }
-    clone_id_to_tid_table[my_clone_id] = pthread_self();
-    tid_to_clone_id_table[pthread_self()] = my_clone_id;
-    clone_id_to_log_table[my_clone_id] = my_log;
-  } else {
-    JASSERT ( my_clone_id != 0 );
-  }
-#endif
   pid_t tid = _real_gettid();
   JTRACE ("In thread_start");
 
@@ -563,13 +544,6 @@ int thread_start(void *arg)
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("Tid conflict detected. Exiting thread");
-#ifdef RECORD_REPLAY
-    my_log->destroy();
-    delete my_log;
-    clone_id_to_tid_table.erase(my_clone_id);
-    tid_to_clone_id_table.erase(pthread_self());
-    clone_id_to_log_table.erase(my_clone_id);
-#endif
     return 0;
   }
 
@@ -616,11 +590,10 @@ int thread_start(void *arg)
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
    */
-#ifdef RECORD_REPLAY
-  reapThisThread();
-#endif
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
   dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
+
+  dmtcp_process_event(DMTCP_EVENT_THREAD_EXIT, NULL);
 
   return result;
 }
@@ -702,14 +675,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
-#ifdef RECORD_REPLAY
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    memfence();
-    JTRACE ( "global_clone_counter" ) ( global_clone_counter );
-    threadArg->clone_id = global_clone_counter;
-    global_clone_counter++;
-  }
-#endif
 
   int tid;
 
