@@ -21,7 +21,6 @@
 
 #define _BSD_SOURCE
 
-#include "jsocket.h"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -32,18 +31,14 @@
 #include <strings.h>
 #include <string.h>
 #include <unistd.h>
-#include "jassert.h"
 #include <errno.h>
 #include <algorithm>
 #include <set>
 #include <typeinfo>
 
-#ifndef DMTCP
-#  define DECORATE_FN(fn) ::fn
-#else
-#  include "syscallwrappers.h"
-#  define DECORATE_FN(fn) ::_real_ ## fn
-#endif
+#include "jsocket.h"
+#include "jalib.h"
+#include "jassert.h"
 
 const jalib::JSockAddr jalib::JSockAddr::ANY ( NULL );
 
@@ -69,7 +64,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
   struct hostent ret, *result;
   char buf[1024];
   int h_errnop;
-  
+
   int res = gethostbyname_r(hostname, &ret, buf, sizeof buf, &result, &h_errnop);
 
   // Fall back to gethostbyname on error
@@ -102,7 +97,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
   /* FIXME: Ulrich Drepper states the following about getaddrinfo():
    *   The most important thing when using getaddrinfo is to make sure that all
    *   results are used in order. To stress the important words again: all and
-   *   order. Too many (incorrect) programs only use the first result. 
+   *   order. Too many (incorrect) programs only use the first result.
    * Source: http://www.akkadia.org/drepper/userapi-ipv6.html
    *
    * This would require some sort of redesign of JSockAddr and JSocket classes.
@@ -151,7 +146,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
 
 jalib::JSocket::JSocket()
 {
-  _sockfd = DECORATE_FN ( socket ) ( AF_INET, SOCK_STREAM, 0 );
+  _sockfd = jalib::socket ( AF_INET, SOCK_STREAM, 0 );
 }
 
 
@@ -184,7 +179,7 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
   JWARNING ( addrlen == sizeof ( sockaddr_in ) ) ( addrlen )
           ( sizeof ( sockaddr_in ) ).Text ( "may not be correct socket type" );
   ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
-  return DECORATE_FN(connect)( _sockfd, (sockaddr*)&addrbuf, addrlen ) == 0;
+  return jalib::connect( _sockfd, (sockaddr*)&addrbuf, addrlen ) == 0;
 }
 
 bool jalib::JSocket::bind ( const JSockAddr& addr, int port )
@@ -201,20 +196,20 @@ bool jalib::JSocket::bind ( const JSockAddr& addr, int port )
 
 bool jalib::JSocket::bind ( const  struct  sockaddr  *addr,  socklen_t addrlen )
 {
-  return DECORATE_FN ( bind ) ( _sockfd, addr, addrlen ) == 0;
+  return jalib::bind ( _sockfd, addr, addrlen ) == 0;
 }
 
 bool jalib::JSocket::listen ( int backlog/* = 32*/ )
 {
-  return DECORATE_FN ( listen ) ( _sockfd, backlog ) == 0;
+  return jalib::listen  ( _sockfd, backlog ) == 0;
 }
 
 jalib::JSocket jalib::JSocket::accept ( struct sockaddr_storage* remoteAddr,socklen_t* remoteLen )
 {
   if ( remoteAddr == NULL || remoteLen == NULL )
-    return JSocket ( DECORATE_FN ( accept ) ( _sockfd,NULL,NULL ) );
+    return JSocket ( jalib::accept ( _sockfd,NULL,NULL ) );
   else
-    return JSocket ( DECORATE_FN ( accept ) ( _sockfd, ( sockaddr* ) remoteAddr, remoteLen ) );
+    return JSocket ( jalib::accept ( _sockfd, ( sockaddr* ) remoteAddr, remoteLen ) );
 }
 
 void jalib::JSocket::enablePortReuse()
@@ -236,14 +231,14 @@ void jalib::JSocket::enablePortReuse()
 bool jalib::JSocket::close()
 {
   if ( !isValid() ) return false;
-  int ret = DECORATE_FN(close) ( _sockfd );
+  int ret = jalib::close ( _sockfd );
   _sockfd = -1;
   return ret==0;
 }
 
 ssize_t jalib::JSocket::read ( char* buf, size_t len )
 {
-  return DECORATE_FN(read) ( _sockfd,buf,len );
+  return jalib::read ( _sockfd,buf,len );
 }
 
 ssize_t jalib::JSocket::write ( const char* buf, size_t len )
@@ -272,7 +267,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     tv.tv_sec = 120;
     tv.tv_usec = 0;
 
-    retval = DECORATE_FN(select) ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
+    retval = jalib::select ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
@@ -281,7 +276,7 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
       if ( errno == EBADF ) {
         JWARNING (false) .Text ( "Socket already closed" );
         return -1;
-      } else if( errno != EINTR ){ 
+      } else if( errno != EINTR ){
         JWARNING ( retval >= 0 )
           ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
         return -1;
@@ -337,7 +332,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     tv.tv_sec = 30;
     tv.tv_usec = 0;
 
-    retval = DECORATE_FN(select) ( tmp_sockfd+1, NULL, &wfds, NULL, &tv );
+    retval = jalib::select ( tmp_sockfd+1, NULL, &wfds, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
 
@@ -346,7 +341,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
       if ( errno == EBADF ) {
         JWARNING (false) .Text ( "Socket already closed" );
         return -1;
-      } 
+      }
       JWARNING ( retval >= 0 ) ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
       return -1;
     }
@@ -510,7 +505,7 @@ jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 void jalib::JSocket::changeFd ( int newFd )
 {
   if ( _sockfd == newFd ) return;
-  JASSERT ( newFd == DECORATE_FN(dup2) ( _sockfd, newFd ) )
+  JASSERT ( newFd == dup2 ( _sockfd, newFd ) )
       ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
   close();
   _sockfd = newFd;
@@ -661,7 +656,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     }
 
     //this will block till we have some work to do
-    int retval = DECORATE_FN(select) ( maxFd+1, &rfds, &wfds, NULL, timeout );
+    int retval = jalib::select ( maxFd+1, &rfds, &wfds, NULL, timeout );
 
     if ( retval == -1 )
     {

@@ -417,6 +417,7 @@ static const char* theUsage =
 int main ( int argc, char** argv )
 {
 
+  initializeJalib();
   // Process command line options
   int c;
 

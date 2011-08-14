@@ -325,7 +325,7 @@ extern "C" int getpt()
   return fd;
 }
 
-static int _open_open64_work(int (*fn)(const char *path, int flags, mode_t mode),
+static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
   char newpath [ 1024 ] = {0} ;

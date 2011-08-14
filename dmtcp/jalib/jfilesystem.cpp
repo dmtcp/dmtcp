@@ -30,8 +30,8 @@
 #include <sys/syscall.h>
 #include "jfilesystem.h"
 #include "jconvert.h"
-#include "syscallwrappers.h"
-#include "util.h"
+#include "jalib.h"
+#include "../src/constants.h"
 
 namespace
 {
@@ -48,7 +48,7 @@ namespace
     JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
 
     // Bug fix for Linux 2.6.19
-    if (dmtcp::Util::strEndsWith(exeRes, DELETED_FILE_SUFFIX)) {
+    if (jalib::strEndsWith(exeRes.c_str(), DELETED_FILE_SUFFIX)) {
       exeRes.erase(exeRes.length() - strlen(DELETED_FILE_SUFFIX));
     }
 
@@ -58,12 +58,12 @@ namespace
   // Set buf, and return length read (including all null characters)
   int _GetProgramCmdline(char *buf, int size)
   {
-    int fd = _real_open("/proc/self/cmdline", O_RDONLY, 0);
+    int fd = jalib::open("/proc/self/cmdline", O_RDONLY, 0);
     int rc;
     JASSERT(fd >= 0);
     // rc == 0 means EOF, or else it means buf is full (size chars read)
-    rc = dmtcp::Util::readAll(fd, buf, size);
-    _real_close(fd);
+    rc = jalib::readAll(fd, buf, size);
+    jalib::close(fd);
     return rc;
   }
 
@@ -258,7 +258,7 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
   if (rv.empty()) {
     jalib::string path = "/proc/self/cmdline";
-    FILE* args = _real_fopen ( path.c_str(),"r" );
+    FILE* args = jalib::fopen ( path.c_str(),"r" );
 
     JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
 
@@ -270,7 +270,7 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
     }
 
     free ( lineptr );
-    fclose(args);
+    jalib::fclose(args);
   }
 
   return rv;
@@ -278,7 +278,7 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
 jalib::IntVector jalib::Filesystem::ListOpenFds()
 {
-  int fd = _real_open ("/proc/self/fd", O_RDONLY | O_NDELAY |
+  int fd = jalib::open ("/proc/self/fd", O_RDONLY | O_NDELAY |
                                         O_LARGEFILE | O_DIRECTORY, 0);
   JASSERT(fd>=0);
 
@@ -289,7 +289,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   IntVector fdVec;
 
   while (true) {
-    int nread = _real_syscall(SYS_getdents, fd, buf, allocation);
+    int nread = jalib::syscall(SYS_getdents, fd, buf, allocation);
     if (nread == 0) {
       break;
     }
@@ -307,7 +307,7 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
     }
   }
 
-  _real_close(fd);
+  jalib::close(fd);
 
   std::sort(fdVec.begin(), fdVec.end());
   JALLOC_HELPER_FREE(buf);
@@ -340,7 +340,7 @@ jalib::string jalib::Filesystem::GetControllingTerm()
 
   int fd, num_read;
 
-  fd = _real_open("/proc/self/stat", O_RDONLY, 0);
+  fd = jalib::open("/proc/self/stat", O_RDONLY, 0);
   JASSERT( fd >= 0 ) (strerror(errno))
     .Text ("Unable to open /proc/self/stat\n");
 

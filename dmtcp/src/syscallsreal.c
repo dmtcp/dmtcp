@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 #include "constants.h"
 #include "sockettable.h"
 #include <sys/select.h>
@@ -712,12 +713,28 @@ int   _real_tgkill(int tgid, int tid, int sig) {
 }
 
 LIB_PRIVATE
-int _real_open( const char *pathname, int flags, mode_t mode ) {
+int _real_open( const char *pathname, int flags, ...) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 
 LIB_PRIVATE
-int _real_open64( const char *pathname, int flags, mode_t mode ) {
+int _real_open64( const char *pathname, int flags, ...) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
 }
 

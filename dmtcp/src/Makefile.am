@@ -45,7 +45,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
 	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
-	lookup_service.h trampolines.h fred_wrappers.h
+	lookup_service.h trampolines.h fred_wrappers.h ../jalib/jalib.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -57,14 +57,14 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 #  Also eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
-	dmtcpmessagetypes.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
+	dmtcpmessagetypes.cpp  ../jalib/jalib.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
 	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
 	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
 	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
 	util_exec.cpp util_gen.cpp util_init.cpp \
 	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp fred.cpp \
-	fred_trampolines.cpp
+	fred_trampolines.cpp jalibinterface.cpp
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp

@@ -23,8 +23,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "syscallwrappers.h"
 #include "constants.h"
+#include "jalib.h"
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -41,13 +41,13 @@ void jalib::JAllocDispatcher::reset_on_fork()
 
 void jalib::JAllocDispatcher::lock()
 {
-  if(_enable_locks && _real_pthread_mutex_lock(&allocateLock) != 0)
+  if(_enable_locks && jalib::pthread_mutex_lock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadAcquireLock");
 }
 
 void jalib::JAllocDispatcher::unlock()
 {
-  if(_enable_locks && _real_pthread_mutex_unlock(&allocateLock) != 0)
+  if(_enable_locks && jalib::pthread_mutex_unlock(&allocateLock) != 0)
     perror("JGlobalAlloc::ckptThreadReleaseLock");
 }
 
@@ -137,8 +137,8 @@ protected:
       // TODO: why is expand being called? If you see this message, raise lvl2
       // allocation level.
       char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
-      _real_write(2, expand_msg, sizeof(expand_msg));
-      _real_fflush(stderr);
+      jalib::write(2, expand_msg, sizeof(expand_msg));
+      //jalib::fflush(stderr);
       abort();
     }
 #endif
