@@ -340,13 +340,12 @@ static void callbackPostCheckpoint ( int isRestart,
       dmtcp_process_event(DMTCP_EVENT_POST_CHECKPOINT_RESUME, NULL);
     }
 
-    //now everything but threads are restored
-    dmtcp::userHookTrampoline_postCkpt(isRestart);
-
-    // After this point, the user threads will be unlocked in mtcp.c and will
-    // resume their computation and so it is OK to set the process state to
-    // RUNNING.
+    // Set the process state to RUNNING now, in case a dmtcpaware hook
+    //  calls pthread_create, thereby invoking our virtualization.
     dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+    // Now everything but user threads are restored.  Call the user hook.
+    dmtcp::userHookTrampoline_postCkpt(isRestart);
+    // After this, the user threads will be unlocked in mtcp.c and will resume.
   }
 }
 
@@ -376,13 +375,12 @@ static void callbackRestoreVirtualPidTable ( )
 
   dmtcp_process_event(DMTCP_EVENT_POST_RESTART_RESUME, NULL);
 
-  // After this point, the user threads will be unlocked in mtcp.c and will
-  // resume their computation and so it is OK to set the process state to
-  // RUNNING.
+  // Set the process state to RUNNING now, in case a dmtcpaware hook
+  //  calls pthread_create, thereby invoking our virtualization.
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-
-  //now everything but threads are restored
+  // Now everything but user threads are restored.  Call the user hook.
   dmtcp::userHookTrampoline_postCkpt(true);
+  // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
 #ifdef PTRACE
