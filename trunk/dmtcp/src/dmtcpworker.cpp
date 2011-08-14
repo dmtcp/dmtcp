@@ -85,6 +85,7 @@ static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
  * XXX: Currently this security is provided only for the clone wrapper; this
  * should be extended to other calls as well.           -- KAPIL
  */
+// NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
 static pthread_rwlock_t
   theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
