@@ -137,6 +137,34 @@ void fred_reset_on_fork()
   initializeLogNames();
 }
 
+/* This event happens as the *first* task in a new thread. Specifically, this
+   event is called by the new thread, before the user's thread function
+   starts. */
+void fred_thread_start()
+{
+  if (dmtcp_is_running_state()) {
+    // XXX: Should make global_clone_counter atomic increment like log ids.
+    my_clone_id = global_clone_counter++;
+    my_log = new dmtcp::SynchronizationLog();
+    if (SYNC_IS_RECORD || SYNC_IS_REPLAY) {
+      my_log->initOnThreadCreation();
+    }
+    clone_id_to_tid_table[my_clone_id] = pthread_self();
+    tid_to_clone_id_table[pthread_self()] = my_clone_id;
+    clone_id_to_log_table[my_clone_id] = my_log;
+  } else {
+    JASSERT ( my_clone_id != 0 );
+  }
+}
+
+/* This event happens just after the user's thread function returns, but before
+   the thread actually dies. */
+void fred_thread_exit()
+{
+  /* User function returns; reap the thread. */
+  reapThisThread();
+}
+
 EXTERNC void fred_process_dmtcp_event(DmtcpEvent_t event, void* data)
 {
   switch (event) {
@@ -149,14 +177,18 @@ EXTERNC void fred_process_dmtcp_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_POST_SUSPEND:
       fred_post_suspend();
       break;
-
     case DMTCP_EVENT_POST_CHECKPOINT_RESUME:
       fred_post_checkpoint_resume();
       break;
     case DMTCP_EVENT_POST_RESTART_RESUME:
       fred_post_restart_resume();
       break;
-
+    case DMTCP_EVENT_THREAD_START:
+      fred_thread_start();
+      break;
+    case DMTCP_EVENT_THREAD_EXIT:
+      fred_thread_exit();
+      break;
     case DMTCP_EVENT_PRE_EXIT:
     case DMTCP_EVENT_PRE_CHECKPOINT:
     case DMTCP_EVENT_POST_LEADER_ELECTION:
