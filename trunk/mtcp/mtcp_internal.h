@@ -59,7 +59,6 @@
 
 extern pid_t saved_pid;
 
-#define MTCP_STR_ERRNO strerror(mtcp_sys_errno)
 #define MTCP_PRINTF(args...) \
   do { \
     mtcp_printf("[%d] %s:%d %s:\n  ", \
@@ -76,7 +75,7 @@ extern pid_t saved_pid;
 #ifdef DEBUG
 # define DPRINTF(args...) MTCP_PRINTF(args)
 #else
-# define DPRINTF(args...) // debugging printing
+# define DPRINTF(args...) // debug printing
 #endif
 
 #ifdef TIMING

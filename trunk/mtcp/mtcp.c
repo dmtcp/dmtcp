@@ -532,8 +532,8 @@ static void *mtcp_safe_malloc(size_t size);
 static void mtcp_safe_free(void *ptr);
 
 #define FORKED_CKPT_FAILED 0
-#define FORKED_CKPT_MASTER 1
-#define FORKED_CKPT_WORKER 2
+#define FORKED_CKPT_PARENT 1
+#define FORKED_CKPT_CHILD 2
 
 #ifdef HBICT_DELTACOMP
 static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
@@ -1317,7 +1317,8 @@ static void setup_clone_entry (void)
   } else {
     mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
     if (mapsfd < 0) {
-      MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
+      MTCP_PRINTF("error opening /proc/self/maps: %s\n",
+                  strerror(mtcp_sys_errno));
       mtcp_abort ();
     }
     p = NULL;
@@ -1986,7 +1987,7 @@ again:
                                          STOPSIGNAL) < 0) {
                 if (mtcp_sys_errno != ESRCH) {
                   MTCP_PRINTF ("error signalling thread %d: %s\n",
-                               thread -> tid, strerror (mtcp_sys_errno));
+                               thread -> tid, strerror(mtcp_sys_errno));
                 }
                 unlk_threads();
                 threadisdead(thread);
@@ -2001,7 +2002,7 @@ again:
                                            STOPSIGNAL) < 0) {
                   if (mtcp_sys_errno != ESRCH) {
                     MTCP_PRINTF ("error signalling thread %d: %s\n",
-                                 thread -> tid, strerror (mtcp_sys_errno));
+                                 thread -> tid, strerror(mtcp_sys_errno));
                   }
                   unlk_threads();
                   threadisdead(thread);
@@ -2015,7 +2016,7 @@ again:
                                        STOPSIGNAL) < 0) {
               if (mtcp_sys_errno != ESRCH) {
                 MTCP_PRINTF ("error signalling thread %d: %s\n",
-                             thread -> tid, strerror (mtcp_sys_errno));
+                             thread -> tid, strerror(mtcp_sys_errno));
               }
               unlk_threads();
               threadisdead(thread);
@@ -2026,7 +2027,7 @@ again:
           if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, STOPSIGNAL) < 0) {
             if (mtcp_sys_errno != ESRCH) {
               MTCP_PRINTF ("error signalling thread %d: %s\n",
-                           thread -> tid, strerror (mtcp_sys_errno));
+                           thread -> tid, strerror(mtcp_sys_errno));
             }
             unlk_threads();
             threadisdead(thread);
@@ -2341,7 +2342,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     // See revision log 342 for details concerning bash.
     mtcp_ckpt_extcomp_child_pid = cpid;
     if (mtcp_sys_close(pipe_fds[0]) == -1)
-      MTCP_PRINTF("WARNING: close failed: %s\n", MTCP_STR_ERRNO);
+      MTCP_PRINTF("WARNING: close failed: %s\n", strerror(mtcp_sys_errno));
     fd = pipe_fds[1]; //change return value
   } else { /* child process */
     //static int (*libc_unsetenv) (const char *name);
@@ -2391,7 +2392,8 @@ static void checkpointeverything (void)
   int tmpDMTCPHeaderFd = perform_callback_write_dmtcp_header();
 
   int forked_ckpt_status = test_and_prepare_for_forked_ckpt(tmpDMTCPHeaderFd);
-  if (forked_ckpt_status == FORKED_CKPT_MASTER) {
+  if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+    DPRINTF("*** Using forked checkpointing.\n");
     return;
   }
 
@@ -2449,7 +2451,7 @@ static void checkpointeverything (void)
 
   else renametempoverperm ();
 
-  if (forked_ckpt_status == FORKED_CKPT_WORKER)
+  if (forked_ckpt_status == FORKED_CKPT_CHILD)
     mtcp_sys_exit (0); /* grandchild exits */
 
   DPRINTF("checkpoint complete\n");
@@ -2457,8 +2459,21 @@ static void checkpointeverything (void)
 
 int perform_callback_write_dmtcp_header()
 {
-  char tmpDMTCPHeaderBuf[] = "/tmp/dmtcp.XXXXXX";
+  char tmpDMTCPHeaderBuf[PATH_MAX];
+  char pattern[] = "/dmtcp.XXXXXX";
+  char *tmpStr;
   char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
+  tmpDMTCPHeaderBuf[sizeof(tmpDMTCPHeaderBuf)-1] = '\0'; // create canary
+  tmpStr = getenv("DMTCP_TMPDIR");
+  if (tmpStr == NULL) tmpStr = getenv("TMPDIR");
+  if (tmpStr == NULL) tmpStr = "/tmp";
+  strncpy(tmpDMTCPHeaderBuf, tmpStr, sizeof(tmpDMTCPHeaderBuf)-sizeof(pattern));
+  strncpy(tmpDMTCPHeaderBuf+strlen(tmpDMTCPHeaderBuf), pattern,sizeof(pattern));
+  if (tmpDMTCPHeaderBuf[sizeof(tmpDMTCPHeaderBuf)-1] != '\0') {
+    MTCP_PRINTF("*** Path of DMTCP_TMPDIR or TMPDIR is too long."
+                "*** Increase size of tmpDMTCPHeaderBuf, and re-compile.\n");
+    mtcp_abort();
+  }
 
   int tmpfd = -1;
   if (callback_write_dmtcp_header != 0) {
@@ -2588,7 +2603,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
     }
     DPRINTF("checkpoint complete\n");
     close(tmpDMTCPHeaderFd);
-    return FORKED_CKPT_MASTER;
+    return FORKED_CKPT_PARENT;
   } else {
     pid_t grandchild_pid = mtcp_sys_fork();
     if (grandchild_pid == -1) {
@@ -2600,7 +2615,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
     /* grandchild continues; no need now to mtcp_sys_wait4() on grandchild */
     DPRINTF("inside grandchild process\n");
   }
-  return FORKED_CKPT_WORKER;
+  return FORKED_CKPT_CHILD;
 }
 
 /* FIXME:
@@ -2934,7 +2949,8 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
 
   fddir = mtcp_sys_open ("/proc/self/fd", O_RDONLY, 0);
   if (fddir < 0) {
-    MTCP_PRINTF("error opening directory /proc/self/fd: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error opening directory /proc/self/fd: %s\n",
+                strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
 
@@ -2984,7 +3000,7 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
           rc = lstat (procfdname, &lstatbuf);
           if (rc < 0) {
             MTCP_PRINTF("error statting %s -> %s: %s\n",
-	                 procfdname, linkbuf, strerror (-rc));
+	                 procfdname, linkbuf, strerror(-rc));
             mtcp_abort ();
           }
 
@@ -2993,7 +3009,7 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
           rc = stat (linkbuf, &statbuf);
           if (rc < 0) {
             MTCP_PRINTF("error statting %s -> %s: %s\n",
-	                 procfdname, linkbuf, strerror (-rc));
+	                 procfdname, linkbuf, strerror(-rc));
           }
 
           /* Write state information to checkpoint file.
@@ -3671,7 +3687,7 @@ static void save_tls_state (Thread *thisthread)
     rc = mtcp_sys_get_thread_area(&(thisthread -> gdtentrytls[offset]));
     if (rc < 0) {
       MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
-                  i, strerror (mtcp_sys_errno));
+                  i, strerror(mtcp_sys_errno));
       mtcp_abort ();
     }
   }
@@ -3687,7 +3703,7 @@ static void save_tls_state (Thread *thisthread)
   rc = mtcp_sys_get_thread_area (&(thisthread -> gdtentrytls[0]));
   if (rc < 0) {
     MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
-                i, strerror (mtcp_sys_errno));
+                i, strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
 #endif
@@ -4381,7 +4397,7 @@ static void sync_shared_mem(void)
 
   mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps: %s\n", MTCP_STR_ERRNO);
+    MTCP_PRINTF("error opening /proc/self/maps: %s\n",strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
 
