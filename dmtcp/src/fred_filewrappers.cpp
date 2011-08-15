@@ -143,8 +143,7 @@ extern "C" FILE *fdopen(int fd, const char *mode)
 #if 0
 /* Until we fix the readdir() bug for tar, this is commented out.  If
    we don't comment this out (and fdopendir also), readdir() does not
-   function properly in tar.  This is a "special case hack" for tar
-   1.26 + ASPLOS11 deadline. */
+   function properly in tar.  This is a "special case hack" for tar 1.26. */
 // TODO: handle the variable argument here.
 extern "C" int openat(int dirfd, const char *pathname, int flags, ...)
 {
@@ -170,8 +169,7 @@ extern "C" DIR *opendir(const char *name)
 #if 0
 /* Until we fix the readdir() bug for tar, this is commented out.  If
    we don't comment this out (and openat also), readdir() does not
-   function properly in tar.  This is a "special case hack" for tar
-   1.26 + ASPLOS11 deadline. */
+   function properly in tar.  This is a "special case hack" for tar 1.26. */
 extern "C" DIR *fdopendir(int fd)
 {
   WRAPPER_HEADER(DIR*, fdopendir, _real_fdopendir, fd);

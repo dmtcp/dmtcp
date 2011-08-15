@@ -365,7 +365,7 @@ static void callbackRestoreVirtualPidTable ( )
 #ifndef RECORD_REPLAY
   /* This calls setenv() which calls malloc. Since this is only executed on
      restart, that means it there is an extra malloc on replay. Commenting this
-     out for SOSP 11 deadline until we have time to fix it. */
+     until we have time to fix it. */
   dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
 #endif
 
