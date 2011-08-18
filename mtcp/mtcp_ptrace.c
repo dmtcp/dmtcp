@@ -714,6 +714,9 @@ char procfs_state(int tid) {
   if (!tmp || (tmp + 2 - sbuf) > 255) return 'u';
   state = tmp + 2;
 
+  if (islower(state[0])) {
+    return toupper(state[0]);
+  }
   return state[0];
 }
 
