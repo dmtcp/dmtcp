@@ -91,7 +91,7 @@ int open_ptrace_related_file (int file_option) {
               file_option);
       return -1;
   }
-  return open(file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
+  return open(file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644); 
 }
 
 void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
@@ -146,7 +146,7 @@ void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
 }
 
 void ptrace_info_list_update_inferior_st (pid_t superior, pid_t inferior,
-                                          PtraceInferiorState inferior_st) {
+                                          char inferior_st) {
   dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
     if (it->superior == superior && it->inferior == inferior) {
@@ -212,8 +212,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
     case PTRACE_ATTACH: {
       if (!pwi.is_ptrace_local) {
         struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                               PTRACE_UNSPECIFIED_COMMAND, FALSE,
-                               PTRACE_INFERIOR_UNKNOWN_STATE,
+                               PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
                                PTRACE_SHARED_FILE_OPTION};
         ptrace_info_list_command(cmd);
       }
@@ -223,8 +222,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
       superior = getppid();
       inferior = syscall(SYS_gettid);
       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                             PTRACE_UNSPECIFIED_COMMAND, FALSE,
-                             PTRACE_INFERIOR_UNKNOWN_STATE,
+                             PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
                              PTRACE_SHARED_FILE_OPTION};
       ptrace_info_list_command(cmd);
       break;
@@ -241,8 +239,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
        /* The ptrace_info pair was already recorded. The superior is just
         * issuing commands. */
        struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_CONTINUE_COMMAND, FALSE,
-                              PTRACE_INFERIOR_UNKNOWN_STATE,
+                              PTRACE_CONTINUE_COMMAND, FALSE, 'u',
                               PTRACE_NO_FILE_OPTION};
        ptrace_info_list_command(cmd);
      }
@@ -260,8 +257,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
        /* The ptrace_info pair was already recorded. The superior is just
         * issuing commands. */
        struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_SINGLESTEP_COMMAND, FALSE,
-                              PTRACE_INFERIOR_UNKNOWN_STATE,
+                              PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
                               PTRACE_NO_FILE_OPTION};
        ptrace_info_list_command(cmd);
        ptrace_ret =  _real_ptrace (request, pid, addr, data);
@@ -337,7 +333,7 @@ void ptrace_info_list_sort () {
   tmp_ckpths_list.sort(ptrace_info_compare);
 
   /* Add the temporary list of ckpt threads at the end of ptrace_info_list. */
-  for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) {
+  for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) { 
     ptrace_info_list.push_back(*it);
   }
 }
@@ -370,14 +366,13 @@ void ptrace_info_list_print () {
 }
 
 void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
-                              int singlestep_waited_on,
-                              PtraceInferiorState inferior_st,
+                              int singlestep_waited_on, char inferior_st,
                               int file_option) {
   if (file_option != PTRACE_NO_FILE_OPTION) {
     write_ptrace_pair_to_given_file(file_option, superior, inferior);
     /* In this case, superior is the pid and inferior is the tid and also the
      * checkpoint thread. We're recording that for process pid, tid is the
-     * checkpoint thread. */
+     * checkpoint thread. */ 
     if (file_option == PTRACE_CHECKPOINT_THREADS_FILE_OPTION) return;
   }
 
@@ -430,7 +425,7 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
       ptrace_info_list_print();
       break;
     case PTRACE_INFO_LIST_INSERT:
-      ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command,
+      ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command, 
                               cmd.singlestep_waited_on, cmd.inferior_st,
                               cmd.file_option);
       break;
@@ -443,13 +438,13 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
   }
 }
 
-PtraceInferiorState procfs_state(int tid) {
+char procfs_state(int tid) {
   char name[64];
   sprintf(name, "/proc/%d/stat", tid);
   int fd = open(name, O_RDONLY, 0);
   if (fd < 0) {
     //JNOTE("procfs_state: cannot open")(name);
-    return PTRACE_INFERIOR_NOT_FOUND;
+    return 0;
   }
 
   /* The format of /proc/pid/stat is: tid (name_of_executable) state.
@@ -468,19 +463,17 @@ PtraceInferiorState procfs_state(int tid) {
     JWARNING("procfs_state: error closing file")(strerror(errno));
     JASSERT(0);
   }
-  if (num_read <= 0) return PTRACE_INFERIOR_NOT_FOUND;
+  if (num_read <= 0) return 0;
 
   sbuf[num_read] = '\0';
   char *state, *tmp;
   state = strchr(sbuf, '(') + 1;
-  if (!state) return PTRACE_INFERIOR_UNKNOWN_STATE;
+  if (!state) return 'u';
   tmp = strrchr(state, ')');
-  if (!tmp || (tmp + 2 - sbuf) > 255) return PTRACE_INFERIOR_UNKNOWN_STATE;
+  if (!tmp || (tmp + 2 - sbuf) > 255) return 'u';
   state = tmp + 2;
 
-  if (state[0] == 't' || state[0] == 'T') return PTRACE_INFERIOR_STOPPED;
-  if (state[0] == 'r' || state[0] == 'R') return PTRACE_INFERIOR_RUNNING;
-  return PTRACE_INFERIOR_UNKNOWN_STATE;
+  return state[0];
 }
 
 #endif
