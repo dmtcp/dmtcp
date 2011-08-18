@@ -160,7 +160,6 @@ void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
 
 void dmtcp::VirtualPidTable::printPidMaps()
 {
-#ifdef DEBUG
   ostringstream out;
   out << "Pid mappings\n";
   out << "      original" << "  ->  " << "current" << "\n";
@@ -170,7 +169,6 @@ void dmtcp::VirtualPidTable::printPidMaps()
     out << "\t" << originalPid << "\t->   " << currentPid << "\n";
   }
   JTRACE("Original To Current Pid Mappings:") (_pidMapTable.size()) (out.str());
-#endif
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
