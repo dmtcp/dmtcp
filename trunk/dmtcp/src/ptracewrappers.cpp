@@ -91,7 +91,7 @@ int open_ptrace_related_file (int file_option) {
               file_option);
       return -1;
   }
-  return open(file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644); 
+  return open(file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
 }
 
 void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
@@ -333,7 +333,7 @@ void ptrace_info_list_sort () {
   tmp_ckpths_list.sort(ptrace_info_compare);
 
   /* Add the temporary list of ckpt threads at the end of ptrace_info_list. */
-  for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) { 
+  for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) {
     ptrace_info_list.push_back(*it);
   }
 }
@@ -372,7 +372,7 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
     write_ptrace_pair_to_given_file(file_option, superior, inferior);
     /* In this case, superior is the pid and inferior is the tid and also the
      * checkpoint thread. We're recording that for process pid, tid is the
-     * checkpoint thread. */ 
+     * checkpoint thread. */
     if (file_option == PTRACE_CHECKPOINT_THREADS_FILE_OPTION) return;
   }
 
@@ -425,7 +425,7 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
       ptrace_info_list_print();
       break;
     case PTRACE_INFO_LIST_INSERT:
-      ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command, 
+      ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command,
                               cmd.singlestep_waited_on, cmd.inferior_st,
                               cmd.file_option);
       break;
@@ -473,6 +473,9 @@ char procfs_state(int tid) {
   if (!tmp || (tmp + 2 - sbuf) > 255) return 'u';
   state = tmp + 2;
 
+  if (islower(state[0])) {
+    return toupper(state[0]);
+  }
   return state[0];
 }
 
