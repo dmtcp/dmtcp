@@ -511,10 +511,12 @@ static void unmapRestoreArgv()
 }
 
 #ifdef PID_VIRTUALIZATION
+enum cloneSucceed {CLONE_UNINITIALIZED, CLONE_FAIL, CLONE_SUCCEED};
 struct ThreadArg {
   int ( *fn ) ( void *arg );
   void *arg;
   pid_t original_tid;
+  enum cloneSucceed clone_success; // Child will set to FAIL or SUCCEED
 };
 
 // bool isConflictingTid( pid_t tid )
@@ -543,8 +545,11 @@ int thread_start(void *arg)
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
+    threadArg->clone_success = CLONE_FAIL;
     JTRACE ("Tid conflict detected. Exiting thread");
     return 0;
+  } else {
+    threadArg->clone_success = CLONE_SUCCEED;
   }
 
   pid_t original_tid = threadArg -> original_tid;
@@ -675,6 +680,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
+  threadArg->clone_success = CLONE_UNINITIALIZED;
 
   int tid;
 
@@ -708,9 +714,12 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-    //if ( isConflictingTid ( tid ) ) {
-      /* Issue a waittid for the newly created thread (if required.) */
       JTRACE ( "TID conflict detected, creating a new child thread" ) ( tid );
+      // Wait for child thread to acknowledge failure and quiesce itself.
+      const struct timespec busywait = {(time_t) 0, (long)1000*1000};
+      while (threadArg->clone_success != CLONE_FAIL) {
+         nanosleep(&busywait, NULL);
+      } // Will now continue again around while loop.
     } else {
       JTRACE ("New thread created") (tid);
       if (originalTid != -1)
