@@ -1,0 +1,89 @@
+			PID/TID virtualization in DMTCP
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+This document is about pid and tid virtualization.  The fundamental
+issue is that processes and threads receive a pid and tid when they
+are created.  But after checkpoint and restart, the kernel creates
+new versions with new pids and tids.  So, the kernel knows them by
+their current pid/tid.  In a naive implementation, if the application code 
+asks for the pid/tid from the kernel, it will see their current pid/tid.
+If the application saves that value in a variable prior to checkpoint,
+and re-uses it after restart, then the application will know the pid/tid
+according their original value.
+
+To get around this problem, DMTCP maintains 'class dmtcp::VirtualPidTable'
+in virtualpidtable.cpp.  One can print it via:
+dmtcp::VirtualPidTable::instance().printPidMaps()
+or in gdb as:
+(gdb) p dmtcp::VirtualPidTable.printPidMaps(dmtcp::VirtualPidTable::instance())
+
+This allows most programs to work fine.  But we still have to worry about
+id collisions.  If a new pid or tid is created, and its pid/tid corresponds
+to an original pid/tid in the table, then we will have two pids or tids
+with the same original id.
+
+To avoid this situation, a DMTCP wrapper is placed around such
+calls as fork() (execwrappers.cpp) and _clone() (pidwrappers.cpp).
+We will describe the processing of _clone.  From this, it will be
+easy to observe the same pattern (in a simpler form) for fork().
+
+Currently, MTCP also places a wrapper around clone(), in addition to DMTCP.
+MTCP does this to find out the current threads and tids of a process.
+MTCP might also do that by inspecting /proc/self/task, although there
+could be dangers of a race in that scheme.
+
+So, when an application calls pthread_create(), libc will then
+call clone() or __clone().  The file mtcpinterface.cpp intercepts this
+through its clone() wrapper (in dmtcphijack.so, which was preloaded).
+
+If this is a new thread, __clone() will call mtcpFuncPtrs.clone(),
+which is the mtcp definition of clone().  If DMTCP is restarting,
+then __clone() will instead call __real_clone(), which will call
+libc.so:clone().  Note that DMTCP will calls clone() on a DMTCP
+function, mtcpinterface.cpp:thread_start().  The function thread_start()
+acts as a wrapper around the end user's thread start function.
+In particular, thread_start() will process tid conflicts (see below)
+and threads exiting, while still calling the user's original thread
+start function.
+
+In the case of a new thread, we now find ourselves inside mtcp.c:clone().
+The function mtcp.c:__clone() then calls clone_entry, which is a pointer
+to libc:__clone().  We then return to MTCP:__clone(), which then returns
+to DMTCP:__clone().
+
+If DMTCP:__clone() discovers that the tid of the newly created thread is
+the same as the original thread of a different thread, then this is declared
+a TID conflict.  (This can happen if the different thread was created
+prior to the last checkpoint/restart and now has a new current tid.)
+In the case of a TID conflict, DMTCP has called MTCP:clone() and is now
+in the last part of DMTCP:__clone().  The newly created thread is
+in DMTCP:thread_start().  Both the parent that called clone() and the
+new thread in thread_start() are aware of the thread conflict.  This is because
+the new thread can call isConflictingTid(gettid()), while the parent
+discovers the child tid from the clone call and can also call
+isConflictingTid() on it.
+
+In this case of a TID conflict, the child does not call the user thread
+function.  Instead it returns, allowing the thread to exit.  At the same
+time, DMTCP:__clone() calls __clone() again (eventually reaching libc.so)
+and receives a new thread with a new tid.  If the new tid is not in conflict,
+this thread is accepted, and execution continues.
+
+(However, on restart, mtcp.c calls a special version that will execute
+an initial function mtcp.c:restarthread.)
+
+===
+On restart, the TLS of the newly recreated thread must be set to
+the original tid so that libc.so continues to work with the current
+tid.  Our wrappers around libc.so will continue to make translations
+between the original tid (potentially stored in the user's application)
+and the current tid (stored in libc.so and the kernel).  DMTCP guarantees
+that original tids are always unique, as described above.
+
+The DMTCP wrapper, gettid(), maintains a thread-local variable
+dmtcp_thread_pid to save the original tid of each thread.
