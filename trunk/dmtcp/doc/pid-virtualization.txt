@@ -42,9 +42,9 @@ call clone() or __clone().  The file mtcpinterface.cpp intercepts this
 through its clone() wrapper (in dmtcphijack.so, which was preloaded).
 
 If this is a new thread, __clone() will call mtcpFuncPtrs.clone(),
-which is the mtcp definition of clone().  If DMTCP is restarting,
+which is the MTCP definition of clone().  (If DMTCP is restarting,
 then __clone() will instead call __real_clone(), which will call
-libc.so:clone().  Note that DMTCP will calls clone() on a DMTCP
+libc.so:clone().)  Note that DMTCP will call clone() on a DMTCP
 function, mtcpinterface.cpp:thread_start().  The function thread_start()
 acts as a wrapper around the end user's thread start function.
 In particular, thread_start() will process tid conflicts (see below)
@@ -53,8 +53,14 @@ start function.
 
 In the case of a new thread, we now find ourselves inside mtcp.c:clone().
 The function mtcp.c:__clone() then calls clone_entry, which is a pointer
-to libc:__clone().  We then return to MTCP:__clone(), which then returns
-to DMTCP:__clone().
+to libc:__clone().  The MTCP call to libc:__clone() calls it on the MTCP
+function mtcp.c:threadcloned(), which records the new thread for MTCP,
+calls the original user's function passed in clone(), and then records the
+exiting of that thread for MTCP.  We then return to MTCP:__clone(), which
+then returns to DMTCP:__clone().  (However, since DMTCP has inserted its
+own mtcpinterface.cpp:thread_start() as the argument to DMTCP:__clone(),
+in fact, mtcp.c:threadcloned() will call mtcpinterface.cpp:thread_start(),
+which will finally call the end user's thread start function.)
 
 If DMTCP:__clone() discovers that the tid of the newly created thread is
 the same as the original thread of a different thread, then this is declared
