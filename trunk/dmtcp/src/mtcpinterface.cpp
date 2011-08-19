@@ -546,7 +546,7 @@ int thread_start(void *arg)
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     threadArg->clone_success = CLONE_FAIL;
-    JTRACE ("Tid conflict detected. Exiting thread");
+    JTRACE ("TID conflict detected. Exiting thread");
     return 0;
   } else {
     threadArg->clone_success = CLONE_SUCCEED;
@@ -701,14 +701,16 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
     }
 
-    if (tid == -1) {
+    if (tid == -1) { // if the call to clone failed
       // Free the memory which was previously allocated by calling
       // JALLOC_HELPER_MALLOC
+// FIXME:  We free the threadArg here, and then if originalTid == -1 (still), we use uninitialized memory
       JALLOC_HELPER_FREE ( threadArg );
 
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
+// FIXME:  We decrement even though we will try to do this again!
       dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
       break;
     }

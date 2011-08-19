@@ -4198,7 +4198,7 @@ static int restarthread (void *threadv)
     void *clone_arg = child;
 
     /*
-     * DMTCP needs to know original_tid of the thread being created by the
+     * DMTCP needs to know original_tid of the thread being recreated by the
      *  following clone() call.
      *
      * Threads are created by using syscall which is intercepted by DMTCP and
