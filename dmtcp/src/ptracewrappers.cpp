@@ -50,6 +50,11 @@ static pthread_mutex_t ptrace_info_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 dmtcp::list<struct ptrace_info> ptrace_info_list;
 
+// FIXME:  This macro is used in exactly one place.  Why do we want
+//    to hide the implementation.  Shouldn't the reader of GETTID()
+//    be told inline what is the implementation?
+//    Is there any particular reason for choosing syscall instead
+//    of gettid() or _real_syscall (to get the current tid)?  A comment helps.
 #define GETTID() (int)syscall(SYS_gettid)
 
 extern "C" int ptrace_info_list_size() {

@@ -185,25 +185,24 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
 jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, bool dieOnError /*= true*/ )
 {
   const char* d = NULL;
+  // search relative to dir of dmtcp_checkpoint
+  // (intended for private install by end user)
   const char *p1[] = {
     "/",
     "/mtcp/",
     "/../mtcp/",
     "/../../mtcp/",
-    "/../../../mtcp/",
     "/../",
     "/../../",
-    "/../../../",
+    "/../../bin/",
     "/../lib64/dmtcp/",
-    "/../lib/dmtcp/",
+    "/../lib/dmtcp/"
   };
   // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
 
+  // Search in standard path, and if we fail, in our current and parent dir
+  // (intended for system-wide install by end user)
   const char *p2[] = {
-    "./",
-    "../",
-    "../../",
-    "../../../",
     "/usr/local/bin/",
     "/usr/bin/",
     "/bin/",
@@ -215,13 +214,18 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/usr/lib64/",
     "/usr/lib/dmtcp/",
     "/usr/lib/",
-    "/lib64/"
+    "/lib64/",
     "/lib/",
+    "./",
+    "../"
   };
 
   jalib::string pth;
   jalib::string udir;
   size_t i = 0;
+  // 1. Search relative to JALIB_UTILITY_DIR (using p1).
+  //    Note that this is needed, since program dir may refer to target app's
+  //    program dir instead of dir of dmtcp_checkpoint.
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL ) {
     JTRACE("JALIB_UTILITY_DIR was set:  using it");
     udir = d;
@@ -233,6 +237,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     }
   }
 
+  // 2. Search relative to dir of this command (dmtcp_checkpoint), (using p1).
   udir = GetProgramDir();
   for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
     pth = udir + p1[i] + file;
@@ -241,6 +246,7 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     }
   }
 
+  // 3. Search in standard libraries for system-wide installed DMTCP (using p2).
   for (i = 0; i < sizeof(p2) / sizeof(char*); i++) {
     pth = p2[i] + file;
     if (FileExists(pth)) {

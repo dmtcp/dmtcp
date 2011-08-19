@@ -469,6 +469,8 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
     stat_loc = &status;
 
 #ifdef PTRACE
+  // FIXME:  syscall(SYS_gettid) just calls gettid().  Use _real_syscall() if
+  //   it matters.  Else gettid().  Add a comment here explaining why syscall().
   pid_t superior = syscall(SYS_gettid);
   pid_t inferior = pid;
   struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
