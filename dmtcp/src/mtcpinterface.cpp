@@ -547,7 +547,11 @@ int thread_start(void *arg)
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     threadArg->clone_success = CLONE_FAIL;
     JTRACE ("TID conflict detected. Exiting thread");
-    return 0;
+    // If we return to clone(), clone will call __GI_exit(), and process exits.
+    // We emulate glibc pthread_create.c:start_thread(), which makes
+    //   call below in order to kill this thread only.
+    _real_syscall(SYS_exit, 0);
+    return 0; // Not reached.  Done to avoid compiler warnings.
   } else {
     threadArg->clone_success = CLONE_SUCCEED;
   }
@@ -580,8 +584,8 @@ int thread_start(void *arg)
 
   JTRACE ( "Calling user function" ) (original_tid);
 
-  /* Thread finished initialization, its now safe for this thread to
-   * participate in checkpoint. Decrement the uninitializedThreadCount in
+  /* Thread finished initialization.  It's now safe for this thread to
+   * participate in checkpoint.  Decrement the uninitializedThreadCount in
    * DmtcpWorker.
    */
   dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
@@ -704,13 +708,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     if (tid == -1) { // if the call to clone failed
       // Free the memory which was previously allocated by calling
       // JALLOC_HELPER_MALLOC
-// FIXME:  We free the threadArg here, and then if originalTid == -1 (still), we use uninitialized memory
+      // FIXME:  We free the threadArg here, and then if originalTid == -1
+      //         (still), we use uninitialized memory.  WHY?
       JALLOC_HELPER_FREE ( threadArg );
 
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
-// FIXME:  We decrement even though we will try to do this again!
+      // FIXME:  We decrement even though we will try to do this again!  WHY?
       dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
       break;
     }
