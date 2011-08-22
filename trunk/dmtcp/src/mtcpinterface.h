@@ -26,7 +26,6 @@
 #include <pthread.h>
 namespace dmtcp
 {
-
   void __attribute__ ((weak)) initializeMtcpEngine();
   void killCkpthread();
 
@@ -86,6 +85,5 @@ extern "C"
     mtcp_process_pthread_join_t process_pthread_join;
   } MtcpFuncPtrs_t;
 }
-
 
 #endif
