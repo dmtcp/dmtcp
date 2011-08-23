@@ -70,13 +70,17 @@ static pid_t currentToOriginalPid( pid_t currentPid )
   return originalPid;
 }
 
+static __thread pid_t dmtcp_thread_tid = -1;
+LIB_PRIVATE
+void dmtcp_reset_gettid() {
+  dmtcp_thread_tid = _real_gettid();
+}
 extern "C" pid_t gettid()
 {
   /* mtcpinterface.cpp:thread_start calls gettid() before calling
    * DmtcpWorker::decrementUninitializedThreadCount() and so the value is
    * cached before it is accessed by some other DMTCP code.
    */
-
   if (dmtcp_thread_tid == -1) {
     dmtcp_thread_tid = _real_gettid();
   }
