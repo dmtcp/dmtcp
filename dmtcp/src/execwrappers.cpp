@@ -62,7 +62,7 @@ static pid_t forkChild ( long child_host, time_t child_time )
 
       // Reset __thread_tid on fork. This should be the first thing to do in
       // the child process.
-      dmtcp_thread_tid = _real_gettid();
+      dmtcp_reset_gettid();
 
       JALIB_RESET_ON_FORK ();
 

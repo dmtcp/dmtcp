@@ -541,6 +541,10 @@ int thread_start(void *arg)
   pid_t tid = _real_gettid();
   JTRACE ("In thread_start");
 
+  // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
+  // gettid() just caches value of _real_gettid().
+  dmtcp_reset_gettid();
+
   // FIXME: Why not do this in the mtcp.c::__clone?
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
@@ -563,7 +567,7 @@ int thread_start(void *arg)
   mtcp_init_thread_local();
 #endif
 
-  // Free the memory which was previously allocated by calling JALLOC_HELPER_MALLOC
+  // Free the memory was previously allocated through JALLOC_HELPER_MALLOC
   JALLOC_HELPER_FREE(threadArg);
 
   if (original_tid == -1) {
@@ -656,7 +660,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     arg                  = mtcpRestartThreadArg -> arg;
   }
 
-  JTRACE ( "forwarding user's clone call to mtcp" );
+  JTRACE ( "Forwarding user's clone call to mtcp" );
   return ( *_mtcp_clone_ptr ) ( fn,child_stack,flags,arg,parent_tidptr,newtls,child_tidptr );
 
 #else
@@ -680,7 +684,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
   // can interfere with user threads.
-  struct ThreadArg *threadArg = (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
+  struct ThreadArg *threadArg =
+    (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
@@ -696,16 +701,18 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   while (1) {
     if (originalTid == -1) {
       /* First time thread creation */
-      JTRACE ( "forwarding user's clone call to mtcp" );
+      JTRACE ( "Forwarding user's clone call to mtcp" );
       tid = mtcpFuncPtrs.clone(thread_start, child_stack, flags, threadArg,
                                parent_tidptr, newtls, child_tidptr );
     } else {
       /* Recreating thread during restart */
-      JTRACE ( "calling libc:__clone" );
-      tid = _real_clone ( thread_start,child_stack,flags,threadArg,parent_tidptr,newtls,child_tidptr );
+      JTRACE ( "Calling libc:__clone" );
+      tid = _real_clone ( thread_start, child_stack, flags, threadArg,
+			  parent_tidptr, newtls, child_tidptr );
     }
 
     if (tid == -1) { // if the call to clone failed
+      JTRACE("Clone call failed")(JASSERT_ERRNO);
       // Free the memory which was previously allocated by calling
       // JALLOC_HELPER_MALLOC
       // FIXME:  We free the threadArg here, and then if originalTid == -1
@@ -726,7 +733,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       const struct timespec busywait = {(time_t) 0, (long)1000*1000};
       while (threadArg->clone_success != CLONE_FAIL) {
          nanosleep(&busywait, NULL);
-      } // Will now continue again around while loop.
+      } // Will now continue again around the while loop.
     } else {
       JTRACE ("New thread created") (tid);
       if (originalTid != -1)
