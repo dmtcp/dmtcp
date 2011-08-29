@@ -76,7 +76,7 @@ static pid_t forkChild ( long child_host, time_t child_time )
 
 #ifdef PID_VIRTUALIZATION
       if ( dmtcp::VirtualPidTable::isConflictingPid ( _real_getpid() ) ) {
-        _exit(1);
+        _exit(DMTCP_FAIL_RC);
       } else {
         return child_pid;
       }

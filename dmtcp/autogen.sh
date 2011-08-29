@@ -6,3 +6,5 @@
 # OUTPUT:  config.h.in, Makefile.in, configure, etc.
 
 autoreconf --force --install --verbose
+(cd ..; aclocal)
+(cd ..; autoconf)

@@ -191,6 +191,12 @@ absolute pathnames.
 
   dmtcp_checkpoint \-\-with\-module MODULE1[:MODULE2]...
 
+.SH "RETURN CODE"
+A target program under DMTCP control normally returns the same return code
+as if executed without DMTCP.  However, if DMTCP fails (as opposed to the
+target program failing), DMTCP returns the DMTCP-specific return code
+of 99 (or 99+1, 99+2 for two special cases).  Change DMTCP_FAIL_RC in
+constants.h to return a different number.
 .SH "SEE ALSO"
 Full documentation is available from http://dmtcp.sourceforge.net/
 .SH "AUTHORS"

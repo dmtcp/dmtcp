@@ -493,7 +493,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 #if BLOCK_CKPT_ON_WAIT
       if (_real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL) != 0) {
         perror ("waitpid wrapper");
-        exit(-1);
+        exit(DMTCP_FAIL_RC);
       }
 #endif
       ptrace_info_list_update_info(superior, inferior, TRUE);
@@ -501,7 +501,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 #if BLOCK_CKPT_ON_WAIT
       if (_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) != 0) {
         perror("waitpid wrapper");
-        exit(-1);
+        exit(DMTCP_FAIL_RC);
       }
 #endif
     }
