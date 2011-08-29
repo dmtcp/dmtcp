@@ -3210,9 +3210,6 @@ static void stopthisthread (int signum)
 {
   int rc;
   Thread *thread;
-#define BT_SIZE 1024
-#define STDERR_FD 826
-#define LOG_FD 826
 
   DPRINTF("tid %d returns to %p\n",
           mtcp_sys_kernel_gettid (), __builtin_return_address (0));
@@ -3225,6 +3222,9 @@ static void stopthisthread (int signum)
   }
 
 #if 0
+#define BT_SIZE 1024
+#define STDERR_FD 826
+#define LOG_FD 826
   if (0 && thread == motherofall) {
 #include <execinfo.h>
     void *buffer[BT_SIZE];

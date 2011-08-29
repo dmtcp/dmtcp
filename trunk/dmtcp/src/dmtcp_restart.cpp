@@ -27,6 +27,7 @@
 #include <ctype.h>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+#include "constants.h"
 #include "connectionmanager.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
@@ -592,7 +593,7 @@ namespace dmtcp
 
 	if ( childPid == 0 ) { /* child process */
 	  if ( originalPidTable.isConflictingChildPid ( getpid() ) )
-	    _exit(1);
+	    _exit(DMTCP_FAIL_RC);
 	  else
 	    return 0;
 	}
@@ -729,7 +730,7 @@ int main ( int argc, char** argv )
     if(s=="--help" || (s=="-h" && argc==1)){
       JASSERT_STDERR << theUsage;
       //fprintf(stderr, theUsage, "");
-      return 1;
+      return DMTCP_FAIL_RC;
     }else if(s == "--no-check"){
       autoStartCoordinator = false;
       shift;
@@ -773,7 +774,7 @@ int main ( int argc, char** argv )
               (s.length()>1 && s.substr(0, 1)=="-" ) ) {
       JASSERT_STDERR << "Invalid Argument\n";
       JASSERT_STDERR << theUsage;
-      return 1;
+      return DMTCP_FAIL_RC;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -827,7 +828,7 @@ int main ( int argc, char** argv )
       doAbort = true;
     }
     if (doAbort) {
-      exit(1);
+      exit(DMTCP_FAIL_RC);
     }
 
     JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
@@ -837,7 +838,7 @@ int main ( int argc, char** argv )
   if (targets.size() <= 0) {
     JNOTE("ERROR: No DMTCP checkpoint image(s) found. Check Usage.");
     JASSERT_STDERR << theUsage;
-    exit(1);
+    exit(DMTCP_FAIL_RC);
   }
 
   // Check that all targets belongs to one computation Group

@@ -140,7 +140,7 @@ int main ( int argc, char** argv )
     if((s=="--help" || s=="-h") && argc==1){
       JASSERT_STDERR << theUsage;
       //fprintf(stderr, theUsage, "");
-      return 1;
+      return DMTCP_FAIL_RC;
     }else if(s=="--ssh-slave"){
       isSSHSlave = true;
       shift;
@@ -215,7 +215,7 @@ int main ( int argc, char** argv )
               (s.length()>1 && s.substr(0,1)=="-" ) ) {
       JASSERT_STDERR << "Invalid Argument\n";
       JASSERT_STDERR << theUsage;
-      return 1;
+      return DMTCP_FAIL_RC;
     }else if(argc>1 && s=="--"){
       shift;
       break;
@@ -348,7 +348,7 @@ int main ( int argc, char** argv )
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable,\n"
       "***         or no such executable in path.\n\n"
       << argv[0] << "\n";
-    exit(1);
+    exit(DMTCP_FAIL_RC);
   } else {
 #if defined(__x86_64__) && !defined(CONFIG_M32)
     if (is32bitElf)

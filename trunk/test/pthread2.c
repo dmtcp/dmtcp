@@ -43,14 +43,14 @@ static void *threadMain (void *data)
   int id = *(int*) data;
 
   while (1) {
-    printf("Worker: %d (%d) alive. numWorkers: %d\n",
-           id, syscall(SYS_gettid), numWorkers);
+    printf("Worker: %d (%ld) alive. numWorkers: %d\n",
+           id, (long)syscall(SYS_gettid), numWorkers);
     usleep(100*1000);
     pthread_mutex_lock(&mutex);
     if (numWorkers > 5) {
       numWorkers--;
       printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
-             id, (long) syscall(SYS_gettid), numWorkers);
+             id, (long)syscall(SYS_gettid), numWorkers);
       pthread_mutex_unlock(&mutex);
       free(data);
       pthread_exit(NULL);

@@ -270,7 +270,6 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     retval = jalib::select ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
     /* Don't rely on the value of tv now! */
 
-
     if ( retval == -1 )
     {
       if ( errno == EBADF ) {
@@ -655,6 +654,13 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       return;
     }
 
+    //NOTE:  The top level routine of dmtcp_coordinator calls monitorSockets(),
+    //  which then waits on activity from clients connecting to the coordinator.
+    //  Depending on the result of this selection, this rountine,
+    //  monitorSockets() will in turn call onData(), onConnect(),
+    //  onTimeoutInterval(), etc.  Those routines do their work, and on
+    //  completion, they then return to monitorSockets() to wait for more
+    //  work to do.  dmtcp_coordinator.cpp also describes some of this logic.
     //this will block till we have some work to do
     int retval = jalib::select ( maxFd+1, &rfds, &wfds, NULL, timeout );
 
@@ -666,7 +672,6 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     }
     else if ( retval > 0 )
     {
-
       //write all data
       for ( i=0; i<_writes.size(); ++i )
       {
@@ -716,9 +721,6 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
           }
         }
       }
-
-
-
     }
 
     if ( timeoutEnabled )

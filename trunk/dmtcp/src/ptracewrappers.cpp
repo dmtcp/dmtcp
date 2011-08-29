@@ -255,7 +255,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
      if (!pwi.is_ptrace_local) {
        if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
          perror ("waitpid wrapper");
-         exit(-1);
+         exit(DMTCP_FAIL_RC);
        }
        ptrace_info_update_last_command(superior, inferior,
                                        PTRACE_SINGLESTEP_COMMAND);
@@ -268,7 +268,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
        ptrace_ret =  _real_ptrace (request, pid, addr, data);
        if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
          perror ("waitpid wrapper");
-         exit(-1);
+         exit(DMTCP_FAIL_RC);
        }
      }
      else ptrace_ret = _real_ptrace(request, pid, addr, data);

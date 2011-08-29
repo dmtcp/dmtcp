@@ -199,8 +199,8 @@ void dmtcp::DmtcpCoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
 void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
                                                           int isRestart)
 {
-  const static int CS_OK = 91;
-  const static int CS_NO = 92;
+  const static int CS_OK = DMTCP_FAIL_RC+1;
+  const static int CS_NO = DMTCP_FAIL_RC+2;
   int coordinatorStatus = -1;
 
   if (modes & COORD_BATCH) {
@@ -217,7 +217,7 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
     {
       if ( coordinatorAPI.tryConnectToCoordinator() == false ) {
         JTRACE("Coordinator not found.  Will try to start a new one.");
-        _real_exit(1);
+        _real_exit(DMTCP_FAIL_RC);
       }
     }
 
@@ -282,7 +282,7 @@ void dmtcp::DmtcpCoordinatorAPI::startNewCoordinator(int modes, int isRestart)
     JASSERT(false)(s)(jalib::Filesystem::GetCurrentHostname())
       .Text("Won't automatically start coordinator because DMTCP_HOST"
             " is set to a remote host.");
-    _real_exit(1);
+    _real_exit(DMTCP_FAIL_RC);
   }
 
   if ( modes & COORD_BATCH || modes & COORD_FORCE_NEW ) {
