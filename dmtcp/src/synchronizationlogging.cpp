@@ -26,10 +26,10 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
-#include "dmtcpworker.h"
-#include "protectedfds.h"
+//#include "dmtcpworker.h"
+//#include "protectedfds.h"
 #include "syscallwrappers.h"
-#include "dmtcpmessagetypes.h"
+#include "dmtcpmodule.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jtimer.h"
@@ -196,8 +196,7 @@ int shouldSynchronize(void *return_addr)
 {
   // Returns 1 if we should synchronize this call, instead of calling _real
   // version. 0 if we should not.
-  dmtcp::WorkerState state = dmtcp::WorkerState::currentState();
-  if (state != dmtcp::WorkerState::RUNNING) {
+  if (!dmtcp_is_running_state()) {
     return 0;
   }
   if (SYNC_IS_NOOP) {
@@ -245,7 +244,7 @@ dmtcp::vector<clone_id_t> get_log_list()
 void initializeLogNames()
 {
   pid_t pid = getpid();
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  dmtcp::string tmpdir = dmtcp_get_tmpdir();
   snprintf(RECORD_LOG_PATH, RECORD_LOG_PATH_MAX,
       "%s/synchronization-log-%d", tmpdir.c_str(), pid);
   snprintf(RECORD_PATCHED_LOG_PATH, RECORD_LOG_PATH_MAX,
@@ -687,7 +686,7 @@ void logReadData(void *buf, int count)
   if (read_data_fd == -1) {
     int fd = _real_open(RECORD_READ_DATA_LOG_PATH,
         O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
-    read_data_fd = _real_dup2(fd, PROTECTED_READLOG_FD);
+    read_data_fd = _real_dup2(fd, dmtcp_get_readlog_fd());
     _real_close(fd);
   }
   int written = _real_write(read_data_fd, buf, count);

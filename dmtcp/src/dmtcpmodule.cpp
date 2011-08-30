@@ -1,4 +1,5 @@
 #include "dmtcpmodule.h"
+#include "protectedfds.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 
@@ -42,6 +43,21 @@ EXTERNC const char* dmtcp_get_uniquepid_str()
 EXTERNC int  dmtcp_is_running_state()
 {
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
+}
+
+EXTERNC int  dmtcp_is_protected_fd(int fd)
+{
+  return dmtcp::ProtectedFDs::isProtected(fd);
+}
+
+EXTERNC int dmtcp_get_readlog_fd()
+{
+  return PROTECTED_READLOG_FD;
+}
+
+EXTERNC void *dmtcp_get_real_dlsym_addr()
+{
+  return (void*) &_real_dlsym;
 }
 
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,

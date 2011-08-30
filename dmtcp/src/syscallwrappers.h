@@ -81,6 +81,8 @@ int tgkill(int tgid, int tid, int sig);
 
 
 
+extern int dmtcp_wrappers_initializing;
+
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
 #define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)\

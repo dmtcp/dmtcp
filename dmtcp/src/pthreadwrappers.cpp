@@ -34,15 +34,9 @@
 #include <time.h>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
-#include  "../jalib/jtimer.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpworker.h"
-#include "protectedfds.h"
 #include "synchronizationlogging.h"
 #include "log.h"
 #include "syscallwrappers.h"
-#include "mtcpinterface.h"
-#include "virtualpidtable.h"
 
 #ifdef RECORD_REPLAY
 #include "fred_wrappers.h"
@@ -68,7 +62,7 @@ struct create_arg
 static int internal_pthread_mutex_lock(pthread_mutex_t *);
 static int internal_pthread_mutex_unlock(pthread_mutex_t *);
 
-extern MtcpFuncPtrs_t mtcpFuncPtrs;
+//extern MtcpFuncPtrs_t mtcpFuncPtrs;
 
 #define ACQUIRE_THREAD_CREATE_DESTROY_LOCK() \
   int ready = 0;                                                \
@@ -571,7 +565,7 @@ static void reapThread()
     clone_id_to_log_table.erase(clone_id);
     tid_to_clone_id_table.erase(thread_to_reap);
   }
-  mtcpFuncPtrs.process_pthread_join ( thread_to_reap );
+  //mtcpFuncPtrs.process_pthread_join ( thread_to_reap );
   RELEASE_THREAD_CREATE_DESTROY_LOCK(); // End of thread destruction.
 }
 

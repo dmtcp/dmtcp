@@ -45,7 +45,12 @@
 #include "dmtcpalloc.h"
 #include "protectedfds.h"
 #include "util.h"
+#include "dmtcpmodule.h"
 
+#undef WRAPPER_EXECUTION_ENABLE_CKPT
+#undef WRAPPER_EXECUTION_DISABLE_CKPT
+#define WRAPPER_EXECUTION_ENABLE_CKPT dmtcp_module_enable_ckpt
+#define WRAPPER_EXECUTION_DISABLE_CKPT dmtcp_module_disable_ckpt
 // 'long int' IS 32 bits ON 32-bit ARCH AND 64 bits ON A 64-bit ARCH.
 // 'sizeof(long long int)==sizeof(long int)' on 64-bit arch.
 // SHOULDN'T WE JUST MAKE THESE TYPES ALWAYS 'long int', AND

@@ -37,17 +37,11 @@
 #include <sys/syscall.h>
 #include <linux/version.h>
 #include <limits.h>
-#include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "protectedfds.h"
 #include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 
 #ifdef RECORD_REPLAY
 #include "fred_wrappers.h"
@@ -804,7 +798,7 @@ extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds,
 
 extern "C" ssize_t read(int fd, void *buf, size_t count)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     return _real_read(fd, buf, count);
   }
 
@@ -834,7 +828,7 @@ extern "C" ssize_t read(int fd, void *buf, size_t count)
 
 extern "C" ssize_t write(int fd, const void *buf, size_t count)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     return _real_write(fd, buf, count);
   }
   BASIC_SYNC_WRAPPER(ssize_t, write, _real_write, fd, buf, count);
@@ -842,7 +836,7 @@ extern "C" ssize_t write(int fd, const void *buf, size_t count)
 
 extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     return _real_pread(fd, buf, count, offset);
   }
   WRAPPER_HEADER(ssize_t, pread, _real_pread, fd, buf, count, offset);
@@ -864,7 +858,7 @@ extern "C" ssize_t pread(int fd, void *buf, size_t count, off_t offset)
 
 extern "C" ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     return _real_pwrite(fd, buf, count, offset);
   }
   BASIC_SYNC_WRAPPER(ssize_t, pwrite, _real_pwrite, fd, buf, count, offset);
@@ -1048,8 +1042,9 @@ extern "C" int fflush(FILE *stream)
 }
 
 // FIXME: Ask Ana to write this wrapper.
+#if 0
 #ifdef PID_VIRTUALIZATION
-extern int send_sigwinch;
+int send_sigwinch;
 
 void ioctl_helper(log_entry_t &my_entry, int &retval, int d, int request,
                   void *arg) {
@@ -1118,5 +1113,6 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
   }
   return retval;
 }
+#endif
 #endif
 #endif
