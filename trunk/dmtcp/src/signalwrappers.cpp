@@ -107,11 +107,7 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
 
 
 //set the handler
-#ifdef RECORD_REPLAY
-sighandler_t _almost_real_signal(int signum, sighandler_t handler)
-#else
 EXTERNC sighandler_t signal(int signum, sighandler_t handler)
-#endif
 {
   if(signum == bannedSignalNumber()){
     return SIG_IGN;
@@ -120,13 +116,8 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler)
 }
 
 
-#ifdef RECORD_REPLAY
-int _almost_real_sigaction(int signum, const struct sigaction *act,
-                           struct sigaction *oldact)
-#else
 EXTERNC int sigaction(int signum, const struct sigaction *act,
                       struct sigaction *oldact)
-#endif
 {
   if(signum == bannedSignalNumber()){
     act = NULL;
@@ -292,11 +283,7 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
  * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
  *                                                          -- Kapil
  */
-#ifdef RECORD_REPLAY
-int _almost_real_sigwait(const sigset_t *set, int *sig)
-#else
 EXTERNC int sigwait(const sigset_t *set, int *sig)
-#endif
 {
   if (set != NULL) {
     sigset_t tmp = patchPOSIXMask(set);

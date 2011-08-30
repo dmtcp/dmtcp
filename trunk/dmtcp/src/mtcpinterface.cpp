@@ -46,12 +46,6 @@
 #include "../jalib/jalloc.h"
 
 
-#ifdef RECORD_REPLAY
-#include "synchronizationlogging.h"
-#include "log.h"
-#endif
-
-
 #ifdef __x86_64__
 # define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
 #else
@@ -612,13 +606,8 @@ int thread_start(void *arg)
 }
 #endif
 
-#ifdef RECORD_REPLAY
-int _almost_real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-                                void *(*start_routine)(void*), void *arg)
-#else
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                               void *(*start_routine)(void*), void *arg)
-#endif
 {
   int retval;
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -758,11 +747,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 #endif
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_pthread_join (pthread_t thread, void **value_ptr)
-#else
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
-#endif
 {
   /* Wrap the call to _real_pthread_join() to make sure we call
      delete_thread_on_pthread_join(). */
@@ -790,15 +775,15 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 //    __libc_free, but the code must be prepared to accept this.
 // An alternative to defining __libc_memalign would have been using
 //    the glibc __memalign_hook() function.
-extern "C"
-void *__libc_memalign(size_t boundary, size_t size) {
-  return memalign(boundary, size);
-}
-// libdl.so doesn't define __libc_free, but in case it does in the future ...
-extern "C"
-void __libc_free(void * ptr) {
-  free(ptr);
-}
+//extern "C"
+//void *__libc_memalign(size_t boundary, size_t size) {
+//  return memalign(boundary, size);
+//}
+//// libdl.so doesn't define __libc_free, but in case it does in the future ...
+//extern "C"
+//void __libc_free(void * ptr) {
+//  free(ptr);
+//}
 # endif
 #endif
 

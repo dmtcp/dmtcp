@@ -53,6 +53,7 @@
 # ifdef ENABLE_DLOPEN
 #  error "ENABLE_MALLOC_WRAPPER can't work with ENABLE_DLOPEN"
 # endif
+#endif
 
 
 /* This buffer (wrapper_init_buf) is used to pass on to dlsym() while it is
@@ -62,11 +63,7 @@
 static char wrapper_init_buf[1024];
 static bool mem_allocated_for_initializing_wrappers = false;
 
-#ifdef RECORD_REPLAY
-void *_almost_real_calloc(size_t nmemb, size_t size)
-#else
 extern "C" void *calloc(size_t nmemb, size_t size)
-#endif
 {
   if (dmtcp_wrappers_initializing) {
     JASSERT(!mem_allocated_for_initializing_wrappers);
@@ -81,11 +78,7 @@ extern "C" void *calloc(size_t nmemb, size_t size)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-void *_almost_real_malloc(size_t size)
-#else
 extern "C" void *malloc(size_t size)
-#endif
 {
   if (dmtcp_wrappers_initializing) {
     return calloc(1, size);
@@ -96,11 +89,7 @@ extern "C" void *malloc(size_t size)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-void *_almost_real_libc_memalign(size_t boundary, size_t size)
-#else
 extern "C" void *__libc_memalign(size_t boundary, size_t size)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_libc_memalign(boundary, size);
@@ -108,12 +97,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-extern "C" void *__libc_memalign(size_t boundary, size_t size);
-void *_almost_real_valloc(size_t size)
-#else
 extern "C" void *valloc(size_t size)
-#endif
 {
   return __libc_memalign(sysconf(_SC_PAGESIZE), size);
 }
@@ -121,11 +105,7 @@ extern "C" void *valloc(size_t size)
 // FIXME:  Add wrapper for alloca(), posix_memalign(), etc.,
 //    using WRAPPER_EXECUTION_DISABLE_CKPT(), etc.
 
-#ifdef RECORD_REPLAY
-void _almost_real_free(void *ptr)
-#else
 extern "C" void free(void *ptr)
-#endif
 {
   if (dmtcp_wrappers_initializing) {
     JASSERT(mem_allocated_for_initializing_wrappers);
@@ -138,11 +118,7 @@ extern "C" void free(void *ptr)
   WRAPPER_EXECUTION_ENABLE_CKPT();
 }
 
-#ifdef RECORD_REPLAY
-void *_almost_real_realloc(void *ptr, size_t size)
-#else
 extern "C" void *realloc(void *ptr, size_t size)
-#endif
 {
   JASSERT (!dmtcp_wrappers_initializing)
     .Text ("This is a rather unusual path. Please inform DMTCP developers");
@@ -152,15 +128,9 @@ extern "C" void *realloc(void *ptr, size_t size)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
-#endif
 
-#ifdef RECORD_REPLAY
-void *_almost_real_mmap(void *addr, size_t length, int prot, int flags,
-                        int fd, off_t offset)
-#else
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
                       int fd, off_t offset)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_mmap(addr, length, prot, flags, fd, offset);
@@ -168,13 +138,8 @@ extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-void *_almost_real_mmap64 (void *addr, size_t length, int prot, int flags,
-                         int fd, off64_t offset)
-#else
 extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
                          int fd, off64_t offset)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_mmap64(addr, length, prot, flags, fd, offset);
@@ -182,11 +147,7 @@ extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_munmap(void *addr, size_t length)
-#else
 extern "C" int munmap(void *addr, size_t length)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int retval = _real_munmap(addr, length);
@@ -195,13 +156,8 @@ extern "C" int munmap(void *addr, size_t length)
 }
 
 # if __GLIBC_PREREQ (2,4)
-#ifdef RECORD_REPLAY
-void *_almost_real_mremap(void *old_address, size_t old_size,
-                          size_t new_size, int flags, ...)
-#else
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags, ...)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   va_list ap;
@@ -213,13 +169,8 @@ extern "C" void *mremap(void *old_address, size_t old_size,
   return retval;
 }
 # else
-#ifdef RECORD_REPLAY
-void *_almost_real_mremap(void *old_address, size_t old_size,
-                          size_t new_size, int flags)
-#else
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_mremap(old_address, old_size, new_size, flags);

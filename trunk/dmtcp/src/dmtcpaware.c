@@ -39,11 +39,6 @@
 // static linked,  dmtcp     -- this stub called, dispatches DMTCP (through __dyn_XXX)
 // dynamic linked, dmtcp     -- DMTCP called directly
 
-#ifdef RECORD_REPLAY
-extern int   __dyn_dmtcp_userSynchronizedEvent() WEAK;
-extern int   __dyn_dmtcp_userSynchronizedEventBegin() WEAK;
-extern int   __dyn_dmtcp_userSynchronizedEventEnd() WEAK;
-#endif
 extern int   __dyn_dmtcpIsEnabled() WEAK;
 extern int   __dyn_dmtcpCheckpoint() WEAK;
 extern int   __dyn_dmtcpRunCommand(char command) WEAK;
@@ -73,33 +68,6 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
 //   __dyn_), they now call the _real_XXX function. The _real_XXX version
 //   actually does the real work.
 
-#ifdef RECORD_REPLAY
-int dmtcp_userSynchronizedEvent() {
-  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
-     there's no DMTCP, we just want a no-op. */
-  if (__dyn_dmtcp_userSynchronizedEvent)
-    return __dyn_dmtcp_userSynchronizedEvent();
-  return 0;
-}
-
-__attribute__ ((visibility ("hidden")))
-int dmtcp_userSynchronizedEventBegin() {
-  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
-     there's no DMTCP, we just want a no-op. */
-  if (__dyn_dmtcp_userSynchronizedEventBegin)
-    return __dyn_dmtcp_userSynchronizedEventBegin();
-  return 0;
-}
-
-__attribute__ ((visibility ("hidden")))
-int dmtcp_userSynchronizedEventEnd() {
-  /* Don't use DMTCPAWARE_STUB because we don't want to warn if
-     there's no DMTCP, we just want a no-op. */
-  if (__dyn_dmtcp_userSynchronizedEventEnd)
-    return __dyn_dmtcp_userSynchronizedEventEnd();
-  return 0;
-}
-#endif
 
 int dmtcpIsEnabled() {
   DMTCPAWARE_STUB( dmtcpIsEnabled, (), 0 );

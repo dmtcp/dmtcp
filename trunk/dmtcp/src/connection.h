@@ -22,6 +22,7 @@
 #ifndef DMTCPCONNECTION_H
 #define DMTCPCONNECTION_H
 
+#include "constants.h"
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include <vector>
@@ -82,7 +83,7 @@ namespace dmtcp
                                     bool isRestart = false) = 0;
       virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
 
-      virtual bool isDupConnection ( const Connection& _that, 
+      virtual bool isDupConnection ( const Connection& _that,
                                      dmtcp::ConnectionToFds& conToFds ) { return false; };
       virtual void doLocking ( const dmtcp::vector<int>& fds );
       virtual void saveOptions ( const dmtcp::vector<int>& fds );
@@ -144,13 +145,13 @@ namespace dmtcp
 
       enum PeerType peerType() const { return _peerType; }
 
-      void markInternal() { 
-        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
-          _peerType = PEER_INTERNAL; 
+      void markInternal() {
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
+          _peerType = PEER_INTERNAL;
       }
-      void markExternal() { 
-        if (_type == TCP_ACCEPT || _type == TCP_CONNECT) 
-          _peerType = PEER_EXTERNAL; 
+      void markExternal() {
+        if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
+          _peerType = PEER_EXTERNAL;
       }
       void preCheckpointPeerLookup ( const dmtcp::vector<int>& fds,
                                      dmtcp::vector<TcpConnectionInfo>& conInfoTable);
@@ -333,7 +334,7 @@ namespace dmtcp
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
-      inline FileConnection ( const dmtcp::string& path, off_t offset=-1, 
+      inline FileConnection ( const dmtcp::string& path, off_t offset=-1,
                               int type = FILE_REGULAR )
           : Connection ( FILE )
           , _path ( path )

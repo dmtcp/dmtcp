@@ -101,7 +101,7 @@ mtcp: check-m32-compat
 	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
 dmtcp: check-m32-compat
-	cd dmtcp/src && $(MAKE)
+	cd dmtcp && $(MAKE)
 
 tests: build
 	cd test && $(MAKE) $(MTCP_MAKE_FLAGS)

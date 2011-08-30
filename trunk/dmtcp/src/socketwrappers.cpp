@@ -68,23 +68,14 @@ static int in_dmtcp_on_helper_fnc = 0;
     errno =saved_errno; \
     return ret;}
 
-#ifdef RECORD_REPLAY
-int _almost_real_socket(int domain, int type, int protocol)
-#else
 extern "C" int socket(int domain, int type, int protocol)
-#endif
 {
   static int sockfd = -1;
   PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_connect(int sockfd, const struct sockaddr *serv_addr,
-                                socklen_t addrlen)
-#else
 extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
                        socklen_t addrlen)
-#endif
 {
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
   int saved_errno = errno;
@@ -122,33 +113,19 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   PASSTHROUGH_DMTCP_HELPER2 ( connect,sockfd,serv_addr,addrlen );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_bind (int sockfd, const struct sockaddr *my_addr,
-                              socklen_t addrlen)
-#else
 extern "C" int bind (int sockfd, const struct sockaddr *my_addr,
                      socklen_t addrlen)
-#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_listen ( int sockfd, int backlog )
-#else
 extern "C" int listen ( int sockfd, int backlog )
-#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_accept(int sockfd, struct sockaddr *addr,
-                               socklen_t *addrlen)
-#else
 extern "C" int accept(int sockfd, struct sockaddr *addr,
                       socklen_t *addrlen)
-#endif
 {
   if ( addr == NULL || addrlen == NULL )
   {
@@ -162,13 +139,8 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
     PASSTHROUGH_DMTCP_HELPER ( accept, sockfd, addr, addrlen );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_accept4 ( int sockfd, struct sockaddr *addr,
-                                  socklen_t *addrlen, int flags )
-#else
 extern "C" int accept4 ( int sockfd, struct sockaddr *addr,
                          socklen_t *addrlen, int flags )
-#endif
 {
   if ( addr == NULL || addrlen == NULL )
   {
@@ -182,24 +154,14 @@ extern "C" int accept4 ( int sockfd, struct sockaddr *addr,
     PASSTHROUGH_DMTCP_HELPER ( accept4, sockfd, addr, addrlen, flags );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_setsockopt(int sockfd, int level, int optname,
-                                   const void *optval, socklen_t optlen)
-#else
 extern "C" int setsockopt(int sockfd, int level, int optname,
                           const void *optval, socklen_t optlen)
-#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_getsockopt(int sockfd, int level, int optname,
-                                   void *optval, socklen_t *optlen)
-#else
 extern "C" int getsockopt(int sockfd, int level, int optname,
                           void *optval, socklen_t *optlen)
-#endif
 {
   PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
 }

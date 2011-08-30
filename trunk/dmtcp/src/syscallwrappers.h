@@ -53,14 +53,6 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-#ifdef RECORD_REPLAY
-#define SET_MMAP_NO_SYNC()   (mmap_no_sync = 1)
-#define UNSET_MMAP_NO_SYNC() (mmap_no_sync = 0)
-#define MMAP_NO_SYNC         (mmap_no_sync == 1)
-// Defined in dmtcpworker.cpp:
-LIB_PRIVATE extern __thread int mmap_no_sync;
-#endif
-
 void _dmtcp_setup_trampolines();
 
 #ifdef __cplusplus
@@ -214,76 +206,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
 
 
-#ifdef RECORD_REPLAY
-# define FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)\
-  MACRO(access)                               \
-  MACRO(closedir)                             \
-  MACRO(opendir)                              \
-  MACRO(fdopendir)			      \
-  MACRO(openat)				      \
-  MACRO(readdir)                              \
-  MACRO(readdir_r)                            \
-  MACRO(rand)                                 \
-  MACRO(srand)                                \
-  MACRO(time)                                 \
-  MACRO(getsockname)                          \
-  MACRO(getpeername)                          \
-  MACRO(fcntl)                                \
-  MACRO(dup)                                  \
-  MACRO(dup2)                                 \
-  MACRO(dup3)                                 \
-  MACRO(lseek)                                \
-  MACRO(__fxstat)                             \
-  MACRO(__fxstat64)                           \
-  MACRO(unlink)                               \
-  MACRO(pread)                                \
-  MACRO(pwrite)                               \
-  MACRO(fdopen)                               \
-  MACRO(fgets)                                \
-  MACRO(fflush)                               \
-  MACRO(putc)                                 \
-  MACRO(fputc)                                \
-  MACRO(fputs)                                \
-  MACRO(fdatasync)                            \
-  MACRO(fsync)                                \
-  MACRO(link)                                 \
-  MACRO(getc)                                 \
-  MACRO(gettimeofday)                         \
-  MACRO(fgetc)                                \
-  MACRO(ungetc)                               \
-  MACRO(getline)                              \
-  MACRO(rename)                               \
-  MACRO(rewind)                               \
-  MACRO(rmdir)                                \
-  MACRO(ftell)                                \
-  MACRO(fwrite)                               \
-  MACRO(mkdir)                                \
-  MACRO(mkstemp)                              \
-                                              \
-  MACRO(getpwnam_r)                           \
-  MACRO(getpwuid_r)                           \
-  MACRO(getgrnam_r)                           \
-  MACRO(getgrgid_r)                           \
-  MACRO(getaddrinfo)                          \
-  MACRO(freeaddrinfo)                         \
-  MACRO(getnameinfo)                          \
-                                              \
-  MACRO(pthread_cond_wait)                    \
-  MACRO(pthread_cond_timedwait)               \
-  MACRO(pthread_cond_signal)                  \
-  MACRO(pthread_cond_broadcast)               \
-  MACRO(pthread_detach)                       \
-  MACRO(pthread_exit)                         \
-  MACRO(pthread_kill)
-#else
-# define FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)
-#endif
-
-
 #define FOREACH_DMTCP_WRAPPER(MACRO)            \
   FOREACH_GLIBC_WRAPPERS(MACRO)                 \
-  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)   \
-  FOREACH_RECORD_REPLAY_WRAPPERS(MACRO)
+  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 
 # define ENUM(x) enum_ ## x
 # define GEN_ENUM(x) ENUM(x),
@@ -336,11 +261,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_fclose ( FILE *fp );
   void _real_exit ( int status );
 
-#ifndef RECORD_REPLAY
-//we no longer wrap dup in non record-replay mode
 #define _real_dup  dup
 #define _real_dup2 dup2
-#endif
 
   int _real_ptsname_r ( int fd, char * buf, size_t buflen );
   int _real_getpt ( void );
@@ -483,79 +405,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 #ifdef PTRACE
   long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
                     void *data);
-#endif
-
-#ifdef RECORD_REPLAY
-  int _real_getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int _real_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int _real_closedir(DIR *dirp);
-  int _real_openat(int dirfd, const char *pathname, int flags);
-  DIR * _real_fdopendir(int fd);
-  DIR * _real_opendir(const char *name);
-  int _real_mkdir(const char *pathname, mode_t mode);
-  int _real_mkstemp(char *temp);
-  FILE * _real_fdopen(int fd, const char *mode);
-  char * _real_fgets(char *s, int size, FILE *stream);
-  int _real_fflush(FILE *stream);
-  ssize_t _real_getline(char **lineptr, size_t *n, FILE *stream);
-  int _real_getc(FILE *stream);
-  int _real_gettimeofday(struct timeval *tv, struct timezone *tz);
-  int _real_fgetc(FILE *stream);
-  int _real_fputc(int, FILE *stream);
-  int _real_ungetc(int c, FILE *stream);
-  int _real_putc(int c, FILE *stream);
-  int _real_fcntl(int fd, int cmd, ...);
-  int _real_fdatasync(int fd);
-  int _real_fsync(int fd);
-  int _real_fputs(const char *s, FILE *stream);
-  int _real_fxstat(int vers, int fd, struct stat *buf);
-  int _real_fxstat64(int vers, int fd, struct stat64 *buf);
-  int _real_link(const char *oldpath, const char *newpath);
-  int _real_rename(const char *oldpath, const char *newpath);
-  void _real_rewind(FILE *stream);
-  int _real_rmdir(const char *pathname);
-  long _real_ftell(FILE *stream);
-  size_t _real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
-
-  void * _mmap_no_sync(void *addr, size_t length, int prot, int flags,
-      int fd, off_t offset);
-  int _munmap_no_sync(void *addr, size_t length);
-  //int _real_vfprintf ( FILE *s, const char *format, va_list ap );
-
-  int _real_pthread_cond_signal(pthread_cond_t *cond);
-  int _real_pthread_cond_broadcast(pthread_cond_t *cond);
-  int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
-  int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
-      const struct timespec *abstime);
-  void _real_pthread_exit(void *value_ptr);
-  int _real_pthread_detach(pthread_t thread);
-  int _real_pthread_kill(pthread_t thread, int sig);
-  int _real_access(const char *pathname, int mode);
-  struct dirent *_real_readdir(DIR *dirp);
-  int _real_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result);
-  int _real_rand(void);
-  void _real_srand(unsigned int seed);
-  time_t _real_time(time_t *tloc);
-  ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset);
-  ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset);
-
-  struct passwd *_real_getpwnam(const char *name);
- // struct passwd *_real_getpwuid(uid_t uid);
-  int _real_getpwnam_r(const char *name, struct passwd *pwd,
-                       char *buf, size_t buflen, struct passwd **result);
-  int _real_getpwuid_r(uid_t uid, struct passwd *pwd,
-                       char *buf, size_t buflen, struct passwd **result);
-  int _real_getgrnam_r(const char *name, struct group *grp,
-                       char *buf, size_t buflen, struct group **result);
-  int _real_getgrgid_r(gid_t gid, struct group *grp, char *buf, size_t buflen,
-                       struct group **result);
-  int _real_getaddrinfo(const char *node, const char *service,
-                        const struct addrinfo *hints, struct addrinfo **res);
-  void _real_freeaddrinfo(struct addrinfo *res);
-
-  int _real_getnameinfo(const struct sockaddr *sa, socklen_t salen,
-                        char *host, socklen_t hostlen,
-                        char *serv, socklen_t servlen, unsigned int flags);
 #endif
 
 #ifdef __cplusplus

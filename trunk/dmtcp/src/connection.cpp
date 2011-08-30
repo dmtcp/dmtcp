@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "constants.h"
+#include "syscallwrappers.h"
 #include "connection.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
