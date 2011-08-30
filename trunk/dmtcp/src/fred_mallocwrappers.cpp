@@ -41,17 +41,11 @@
 #include <sys/syscall.h>
 #include <malloc.h>
 #include <execinfo.h>
-#include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "protectedfds.h"
 #include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 
 #ifdef RECORD_REPLAY
 #include "fred_wrappers.h"
@@ -217,9 +211,7 @@ static void my_free_hook (void *ptr, const void *caller)
   void *return_addr = GET_RETURN_ADDRESS();                             \
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||           \
       jalib::Filesystem::GetProgramName() == "gdb") {                   \
-    _real_pthread_mutex_lock(&mmap_lock);                               \
     void *retval = _almost_real_ ## name (__VA_ARGS__);                        \
-    _real_pthread_mutex_unlock(&mmap_lock);                             \
     UNSET_IN_MMAP_WRAPPER();                                            \
     return retval;                                                      \
   }                                                                     \
@@ -240,9 +232,7 @@ static void my_free_hook (void *ptr, const void *caller)
   void *return_addr = GET_RETURN_ADDRESS();                                 \
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||               \
       jalib::Filesystem::GetProgramName() == "gdb") {                       \
-    _real_pthread_mutex_lock(&allocation_lock);                             \
     ret_type retval = _almost_real_ ## name (__VA_ARGS__);                         \
-    _real_pthread_mutex_unlock(&allocation_lock);                           \
     return retval;                                                          \
   }                                                                         \
   log_entry_t my_entry = create_ ## name ## _entry(my_clone_id,             \
@@ -310,22 +300,12 @@ static bool mem_allocated_for_initializing_wrappers = false;
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-  if (dmtcp_wrappers_initializing) {
-    JASSERT(!mem_allocated_for_initializing_wrappers);
-    memset(wrapper_init_buf, 0, sizeof (wrapper_init_buf));
-    //void *ret = JALLOC_HELPER_MALLOC ( nmemb * size );
-    mem_allocated_for_initializing_wrappers = true;
-    return (void*) wrapper_init_buf;
-  }
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, calloc, nmemb, size);
   return retval;
 }
 
 extern "C" void *malloc(size_t size)
 {
-  if (dmtcp_wrappers_initializing) {
-    return calloc(1, size);
-  }
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, malloc, size);
   return retval;
 }
@@ -346,12 +326,6 @@ extern "C" void *valloc(size_t size)
 
 extern "C" void free(void *ptr)
 {
-  if (dmtcp_wrappers_initializing) {
-    JASSERT(mem_allocated_for_initializing_wrappers);
-    JASSERT(ptr == wrapper_init_buf);
-    return;
-  }
-
   void *return_addr = GET_RETURN_ADDRESS();
   if ((!shouldSynchronize(return_addr) && !log_all_allocs) ||
       ptr == NULL ||
@@ -382,9 +356,6 @@ extern "C" void free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
-  JASSERT (!dmtcp_wrappers_initializing)
-    .Text ("This is a rather unusual path. Please inform DMTCP developers");
-
   MALLOC_FAMILY_BASIC_SYNC_WRAPPER(void*, realloc, ptr, size);
   return retval;
 }

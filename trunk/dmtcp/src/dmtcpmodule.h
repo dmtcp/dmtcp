@@ -66,6 +66,10 @@ EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC const char* dmtcp_get_uniquepid_str();
 EXTERNC int  dmtcp_is_running_state();
+EXTERNC int  dmtcp_is_protected_fd(int fd);
+
+EXTERNC int dmtcp_get_readlog_fd();
+EXTERNC void *dmtcp_get_real_dlsym_addr();
 
 #define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                \
   do {                                                                  \

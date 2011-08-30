@@ -37,17 +37,11 @@
 #include <sys/syscall.h>
 #include <linux/version.h>
 #include <limits.h>
-#include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "protectedfds.h"
 #include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 
 #ifdef RECORD_REPLAY
 #include "fred_wrappers.h"

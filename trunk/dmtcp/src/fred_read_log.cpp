@@ -17,7 +17,8 @@
 
 //namespace dmtcp = std;
 //using namespace dmtcp;
-#ifdef RECORD_REPLAY
+int main(){}
+#ifdef KRECORD_REPLAY
 #include "synchronizationlogging.h"
 #include "log.h"
 

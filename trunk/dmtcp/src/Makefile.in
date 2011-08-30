@@ -100,18 +100,32 @@ libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	connection.$(OBJEXT) connectionidentifier.$(OBJEXT) \
 	connectionmanager.$(OBJEXT) connectionrewirer.$(OBJEXT) \
-	dmtcpmessagetypes.$(OBJEXT) jalib.$(OBJEXT) jassert.$(OBJEXT) \
-	jbuffer.$(OBJEXT) jfilesystem.$(OBJEXT) jserialize.$(OBJEXT) \
-	jsocket.$(OBJEXT) jtimer.$(OBJEXT) \
-	kernelbufferdrainer.$(OBJEXT) nodetable.$(OBJEXT) \
-	protectedfds.$(OBJEXT) sockettable.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT) uniquepid.$(OBJEXT) \
+	dmtcpmessagetypes.$(OBJEXT) kernelbufferdrainer.$(OBJEXT) \
+	nodetable.$(OBJEXT) protectedfds.$(OBJEXT) \
+	sockettable.$(OBJEXT) syslogwrappers.$(OBJEXT) \
+	uniquepid.$(OBJEXT) sysvipc.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	sysvipc.$(OBJEXT) util_exec.$(OBJEXT) util_gen.$(OBJEXT) \
-	util_init.$(OBJEXT) jalloc.$(OBJEXT) \
-	synchronizationlogging.$(OBJEXT) log.$(OBJEXT) fred.$(OBJEXT) \
-	fred_trampolines.$(OBJEXT) jalibinterface.$(OBJEXT)
+	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
+	jalibinterface.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
+libfredhijack_a_AR = $(AR) $(ARFLAGS)
+libfredhijack_a_LIBADD =
+am_libfredhijack_a_OBJECTS = netwrappers.$(OBJEXT) \
+	pthreadwrappers.$(OBJEXT) fred_socketwrappers.$(OBJEXT) \
+	fred_signalwrappers.$(OBJEXT) fred_epollwrappers.$(OBJEXT) \
+	fred_mallocwrappers.$(OBJEXT) fred_filewrappers.$(OBJEXT)
+libfredhijack_a_OBJECTS = $(am_libfredhijack_a_OBJECTS)
+libfredinternal_a_AR = $(AR) $(ARFLAGS)
+libfredinternal_a_LIBADD =
+am_libfredinternal_a_OBJECTS = synchronizationlogging.$(OBJEXT) \
+	log.$(OBJEXT) fred.$(OBJEXT) fred_trampolines.$(OBJEXT)
+libfredinternal_a_OBJECTS = $(am_libfredinternal_a_OBJECTS)
+libjalib_a_AR = $(AR) $(ARFLAGS)
+libjalib_a_LIBADD =
+am_libjalib_a_OBJECTS = jalib.$(OBJEXT) jassert.$(OBJEXT) \
+	jbuffer.$(OBJEXT) jfilesystem.$(OBJEXT) jserialize.$(OBJEXT) \
+	jsocket.$(OBJEXT) jtimer.$(OBJEXT) jalloc.$(OBJEXT)
+libjalib_a_OBJECTS = $(am_libjalib_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
 am_libnohijack_a_OBJECTS = nosyscallsreal.$(OBJEXT) \
@@ -126,46 +140,48 @@ libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
 PROGRAMS = $(bin_PROGRAMS) $(pkglib_PROGRAMS)
 am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT)
 dmtcp_checkpoint_OBJECTS = $(am_dmtcp_checkpoint_OBJECTS)
-dmtcp_checkpoint_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
+dmtcp_checkpoint_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
 dmtcp_command_OBJECTS = $(am_dmtcp_command_OBJECTS)
-dmtcp_command_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
+dmtcp_command_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_dmtcp_coordinator_OBJECTS = dmtcp_coordinator.$(OBJEXT) \
 	lookup_service.$(OBJEXT)
 dmtcp_coordinator_OBJECTS = $(am_dmtcp_coordinator_OBJECTS)
-dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
+dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_dmtcp_inspector_OBJECTS = dmtcp_inspector.$(OBJEXT)
 dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
-dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
+dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
 am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
-dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libnohijack.a
+dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) dmtcpcoordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) socketwrappers.$(OBJEXT) \
 	workerhijack.$(OBJEXT) epollwrappers.$(OBJEXT) \
-	netwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) \
-	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	ptracewrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT) \
-	fred_mallocwrappers.$(OBJEXT) fred_filewrappers.$(OBJEXT) \
-	fred_socketwrappers.$(OBJEXT) fred_signalwrappers.$(OBJEXT) \
-	fred_epollwrappers.$(OBJEXT)
+	pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) sysvipc.$(OBJEXT) filewrappers.$(OBJEXT) \
+	mallocwrappers.$(OBJEXT) ptracewrappers.$(OBJEXT) \
+	dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
-dmtcphijack_so_DEPENDENCIES = pthreadwrappers.o \
-	synchronizationlogging.o log.o libdmtcpinternal.a \
-	libsyscallsreal.a
+dmtcphijack_so_DEPENDENCIES = libfredhijack.a libfredinternal.a \
+	libdmtcpinternal.a libjalib.a libsyscallsreal.a
 dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(dmtcphijack_so_LDFLAGS) $(LDFLAGS) -o $@
 am__fred_read_log_SOURCES_DIST = fred_read_log.cpp
 @RECORD_REPLAY_TRUE@am_fred_read_log_OBJECTS =  \
 @RECORD_REPLAY_TRUE@	fred_read_log.$(OBJEXT)
 fred_read_log_OBJECTS = $(am_fred_read_log_OBJECTS)
-@RECORD_REPLAY_TRUE@fred_read_log_DEPENDENCIES = libdmtcpinternal.a \
+@RECORD_REPLAY_TRUE@fred_read_log_DEPENDENCIES = libfredinternal.a \
+@RECORD_REPLAY_TRUE@	libdmtcpinternal.a libjalib.a \
 @RECORD_REPLAY_TRUE@	libnohijack.a
 am_libdmtcpaware_so_1_0_0_OBJECTS = dmtcpaware.$(OBJEXT)
 libdmtcpaware_so_1_0_0_OBJECTS = $(am_libdmtcpaware_so_1_0_0_OBJECTS)
@@ -186,20 +202,21 @@ CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
 SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
-	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
-	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
-	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(EXTRA_dmtcphijack_so_SOURCES) \
-	$(fred_read_log_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
-DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
-	$(libdmtcpinternal_a_SOURCES) $(libnohijack_a_SOURCES) \
+	$(libfredhijack_a_SOURCES) $(libfredinternal_a_SOURCES) \
+	$(libjalib_a_SOURCES) $(libnohijack_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
 	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
 	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
-	$(EXTRA_dmtcphijack_so_SOURCES) \
-	$(am__fred_read_log_SOURCES_DIST) \
+	$(fred_read_log_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
+	$(libdmtcpinternal_a_SOURCES) $(libfredhijack_a_SOURCES) \
+	$(libfredinternal_a_SOURCES) $(libjalib_a_SOURCES) \
+	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
+	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
+	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
+	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
+	$(dmtcphijack_so_SOURCES) $(am__fred_read_log_SOURCES_DIST) \
 	$(libdmtcpaware_so_1_0_0_SOURCES)
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
@@ -305,19 +322,29 @@ AUTOMAKE_OPTIONS = foreign
 INCLUDES = $(all_includes)
 
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a
+noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
+		   libjalib.a libfredhijack.a libfredinternal.a
+
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 @RECORD_REPLAY_TRUE@fred_read_log_SOURCES = fred_read_log.cpp
-@RECORD_REPLAY_TRUE@fred_read_log_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+@RECORD_REPLAY_TRUE@fred_read_log_LDADD = libfredinternal.a libdmtcpinternal.a libjalib.a \
+@RECORD_REPLAY_TRUE@		       libnohijack.a -lpthread
+
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	connectionmanager.h connectionrewirer.h constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
-	dmtcpworker.h dmtcpcoordinatorapi.h ../jalib/jassert.h \
+	dmtcpworker.h dmtcpcoordinatorapi.h \
+	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
-	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h
+	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
+	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
+	sockettable.h syscallwrappers.h syslogwrappers.h \
+	uniquepid.h virtualpidtable.h util.h sysvipc.h \
+	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
+	lookup_service.h trampolines.h fred_wrappers.h
 
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -329,15 +356,28 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 #   and others(?) to dmtcphijack.so or dmtcp_restart.  Stop the replication.
 #  Also eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so
 libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
-	connectionidentifier.cpp connectionmanager.cpp connectionrewirer.cpp \
-	dmtcpmessagetypes.cpp  ../jalib/jalib.cpp ../jalib/jassert.cpp ../jalib/jbuffer.cpp \
-	../jalib/jfilesystem.cpp ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
-	../jalib/jtimer.cpp kernelbufferdrainer.cpp nodetable.cpp \
-	protectedfds.cpp sockettable.cpp syslogwrappers.cpp uniquepid.cpp \
-	dmtcpcoordinatorapi.cpp virtualpidtable.cpp sysvipc.cpp \
-	util_exec.cpp util_gen.cpp util_init.cpp \
-	../jalib/jalloc.cpp synchronizationlogging.cpp log.cpp fred.cpp \
-	fred_trampolines.cpp jalibinterface.cpp
+			     connectionidentifier.cpp connectionmanager.cpp \
+			     connectionrewirer.cpp dmtcpmessagetypes.cpp \
+			     kernelbufferdrainer.cpp nodetable.cpp \
+			     protectedfds.cpp sockettable.cpp \
+			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
+			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
+			     util_exec.cpp util_gen.cpp util_init.cpp \
+			     jalibinterface.cpp
+
+libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
+		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
+		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
+		     ../jalib/jtimer.cpp ../jalib/jalloc.cpp
+
+libfredinternal_a_SOURCES = synchronizationlogging.cpp log.cpp fred.cpp \
+			    fred_trampolines.cpp
+
+libfredhijack_a_SOURCES = netwrappers.cpp pthreadwrappers.cpp \
+			  fred_socketwrappers.cpp \
+			  fred_signalwrappers.cpp fred_epollwrappers.cpp \
+			  fred_mallocwrappers.cpp fred_filewrappers.cpp
+
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
@@ -349,18 +389,14 @@ dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
-	dmtcpcoordinatorapi.cpp \
-	execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
-	socketwrappers.cpp workerhijack.cpp \
-	epollwrappers.cpp netwrappers.cpp \
-	pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp sysvipc.cpp \
-	filewrappers.cpp mallocwrappers.cpp ptracewrappers.cpp dmtcpmodule.cpp \
-	fred_mallocwrappers.cpp fred_filewrappers.cpp fred_socketwrappers.cpp \
-	fred_signalwrappers.cpp fred_epollwrappers.cpp
-
-# This should be a superset of all optional files.
-EXTRA_dmtcphijack_so_SOURCES = pthreadwrappers.cpp synchronizationlogging.cpp \
-			       log.cpp fred.cpp fred_trampolines.cpp
+			 dmtcpcoordinatorapi.cpp \
+			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
+			 socketwrappers.cpp workerhijack.cpp \
+			 epollwrappers.cpp \
+			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
+			 sysvipc.cpp \
+			 filewrappers.cpp mallocwrappers.cpp \
+			 ptracewrappers.cpp dmtcpmodule.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -module
@@ -372,27 +408,20 @@ dmtcphijack_so_LDFLAGS = -shared -module
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD = pthreadwrappers.o synchronizationlogging.o log.o \
-	libdmtcpinternal.a libsyscallsreal.a  -ldl -lpthread
+dmtcphijack_so_LDADD = libfredhijack.a libfredinternal.a \
+			  libdmtcpinternal.a libjalib.a libsyscallsreal.a \
+			  -ldl -lpthread
 
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
-dmtcp_checkpoint_LDADD = libdmtcpinternal.a libnohijack.a -ldl -lpthread
-dmtcp_restart_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
-dmtcp_command_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
-dmtcp_inspector_LDADD = libdmtcpinternal.a libnohijack.a -lpthread
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_checkpoint_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a \
+			  -ldl -lpthread
+
+dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_inspector_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
-
-# dmtcpaware
-#pkglib_HEADERS = dmtcpaware.h dmtcpaware.c
-#pkglib_LIBRARIES = libdmtcpaware.a
-#libdmtcpaware_a_LDFLAGS = -avoid-version -module
-#libdmtcpaware_a_LDFLAGS = -avoid-version
-
-#libdmtcpaware_so_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.0
-#libdmtcpaware_so_SOURCES = dmtcpaware.c
-#libdmtcpaware_a_SOURCES  = dmtcpaware.c
 PICFLAGS = -fPIC
 @CONFIG_M32_FALSE@AM_CFLAGS = $(PICFLAGS)
 @CONFIG_M32_TRUE@AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)
@@ -495,6 +524,18 @@ libdmtcpinternal.a: $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_DEPENDENC
 	-rm -f libdmtcpinternal.a
 	$(libdmtcpinternal_a_AR) libdmtcpinternal.a $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_LIBADD)
 	$(RANLIB) libdmtcpinternal.a
+libfredhijack.a: $(libfredhijack_a_OBJECTS) $(libfredhijack_a_DEPENDENCIES) 
+	-rm -f libfredhijack.a
+	$(libfredhijack_a_AR) libfredhijack.a $(libfredhijack_a_OBJECTS) $(libfredhijack_a_LIBADD)
+	$(RANLIB) libfredhijack.a
+libfredinternal.a: $(libfredinternal_a_OBJECTS) $(libfredinternal_a_DEPENDENCIES) 
+	-rm -f libfredinternal.a
+	$(libfredinternal_a_AR) libfredinternal.a $(libfredinternal_a_OBJECTS) $(libfredinternal_a_LIBADD)
+	$(RANLIB) libfredinternal.a
+libjalib.a: $(libjalib_a_OBJECTS) $(libjalib_a_DEPENDENCIES) 
+	-rm -f libjalib.a
+	$(libjalib_a_AR) libjalib.a $(libjalib_a_OBJECTS) $(libjalib_a_LIBADD)
+	$(RANLIB) libjalib.a
 libnohijack.a: $(libnohijack_a_OBJECTS) $(libnohijack_a_DEPENDENCIES) 
 	-rm -f libnohijack.a
 	$(libnohijack_a_AR) libnohijack.a $(libnohijack_a_OBJECTS) $(libnohijack_a_LIBADD)
@@ -1043,11 +1084,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
 	uninstall-includeHEADERS uninstall-libLIBRARIES \
 	uninstall-pkglibPROGRAMS
 
-	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
-	sockettable.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h virtualpidtable.h util.h sysvipc.h ../jalib/jalloc.h \
-	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
-	lookup_service.h trampolines.h fred_wrappers.h ../jalib/jalib.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

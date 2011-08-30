@@ -29,7 +29,6 @@
 #include <linux/limits.h>
 #include <dlfcn.h>
 #include "constants.h"
-#include "protectedfds.h"
 #include  "util.h"
 #include  "syscallwrappers.h"
 #include  "uniquepid.h"
