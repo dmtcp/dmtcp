@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "connectionidentifier.h"
 #include "constants.h"
+#include "connectionidentifier.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 

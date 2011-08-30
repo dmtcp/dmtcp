@@ -22,10 +22,10 @@
 #ifndef DMTCPCONNECTIONIDENTIFIER_H
 #define DMTCPCONNECTIONIDENTIFIER_H
 
+#include "constants.h"
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include "../jalib/jalloc.h"
- 
 // #include <vector>
 // #include <map>
 

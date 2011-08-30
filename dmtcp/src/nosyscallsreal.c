@@ -84,15 +84,8 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 // No return statement for functions returning void:
 #define REAL_FUNC_PASSTHROUGH_VOID(name) name
 
-#ifdef RECORD_REPLAY
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED(type,name) return name
-#define LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID(name) name
-void _dmtcp_lock() { REAL_FUNC_PASSTHROUGH_VOID ( pthread_mutex_lock ) ( &theMutex ); }
-void _dmtcp_unlock() { REAL_FUNC_PASSTHROUGH_VOID ( pthread_mutex_unlock ) ( &theMutex ); }
-#else
 void _dmtcp_lock() { pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { pthread_mutex_unlock ( &theMutex ); }
-#endif
 
 void initialize_wrappers() {
   return;
@@ -434,101 +427,6 @@ int _real_epoll_pwait(int epfd, struct epoll_event *events,
   REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
 }
 #endif
-
-#ifdef RECORD_REPLAY
-int _real_dup2 ( int oldfd, int newfd ) {
-  REAL_FUNC_PASSTHROUGH ( dup2 ) ( oldfd, newfd );
-}
-
-int _real_gettimeofday(struct timeval *tv, struct timezone *tz) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, gettimeofday ) ( tv, tz );
-}
-
-int _real_fflush(FILE *stream) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, fflush ) ( stream );
-}
-
-int _real_closedir(DIR *dirp) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, closedir ) ( dirp );
-}
-
-DIR * _real_opendir(const char *name) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( DIR *, opendir ) ( name );
-}
-
-void *_real_mmap(void *addr, size_t length, int prot, int flags,
-    int fd, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
-}
-
-int _real_munmap(void *addr, size_t length) {
-  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
-}
-
-void *_mmap_no_sync(void *addr, size_t length, int prot, int flags,
-    int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, mmap) (addr,length,prot,flags,fd,offset);
-}
-
-int _munmap_no_sync(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
-}
-
-int _real_pthread_cond_signal(pthread_cond_t *cond) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_signal ) ( cond );
-}
-
-int _real_pthread_cond_broadcast(pthread_cond_t *cond) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_broadcast ) ( cond );
-}
-
-int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_cond_wait ) ( cond,mutex );
-}
-
-int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-    void *(*start_routine)(void*), void *arg) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
-    (thread,attr,start_routine,arg);
-}
-
-void _real_pthread_exit(void *value_ptr) {
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) ( value_ptr );
-}
-
-int _real_pthread_detach(pthread_t thread)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_detach ) ( thread );
-}
-
-int _real_pthread_join(pthread_t thread, void **value_ptr)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_join )
-    ( thread, value_ptr );
-}
-
-int _real_pthread_kill(pthread_t thread, int sig)
-{
-  LIBPTHREAD_REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_kill )
-    ( thread, sig );
-}
-
-int _real_access(const char *pathname, int mode)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED ( int,access ) ( pathname,mode );
-}
-
-ssize_t _real_pread(int fd, void *buf, size_t count, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pread ) ( fd,buf,count,offset );
-}
-
-ssize_t _real_pwrite(int fd, const void *buf, size_t count, off_t offset) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( ssize_t,pwrite ) ( fd,buf,count,offset );
-}
-
-#endif // RECORD_REPLAY
 
 // Used for wrappers for mmap, sbrk
 void _dmtcp_setup_trampolines() {}

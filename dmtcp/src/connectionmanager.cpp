@@ -19,13 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "constants.h"
+#include "syscallwrappers.h"
 #include "connectionmanager.h"
 
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include "protectedfds.h"
-#include "syscallwrappers.h"
 #include "util.h"
 
 #include <sys/types.h>

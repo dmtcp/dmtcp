@@ -33,13 +33,13 @@
 #include <iostream>
 #include <sstream>
 // Local includes
+#include "constants.h"
+#include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include "connectionmanager.h"
-#include "constants.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
-#include "syscallwrappers.h"
 #include  "../jalib/jtimer.h"
 
 bool fullout = false;

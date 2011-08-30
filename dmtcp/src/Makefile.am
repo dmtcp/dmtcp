@@ -18,23 +18,12 @@ INCLUDES= $(all_includes)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
-		   libjalib.a libfredhijack.a libfredinternal.a
+		   libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint
 pkglib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
-
-if RECORD_REPLAY
-if HAS_I486
-# This -march=i486 is needed to compile synchronizationlogging.cpp
-CXXFLAGS += -march=i486
-endif
-pkglib_PROGRAMS += fred_read_log
-fred_read_log_SOURCES = fred_read_log.cpp
-fred_read_log_LDADD   =libfredinternal.a libdmtcpinternal.a libjalib.a \
-		       libnohijack.a -lpthread
-endif
 
 # headers:
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
@@ -47,8 +36,8 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h \
-	synchronizationlogging.h ptracewrappers.h log.h dmtcpmodule.h \
-	lookup_service.h trampolines.h fred_wrappers.h
+	ptracewrappers.h dmtcpmodule.h \
+	lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -72,14 +61,6 @@ libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
 		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 		     ../jalib/jtimer.cpp ../jalib/jalloc.cpp
-
-libfredinternal_a_SOURCES = synchronizationlogging.cpp log.cpp fred.cpp \
-			    fred_trampolines.cpp
-
-libfredhijack_a_SOURCES = netwrappers.cpp pthreadwrappers.cpp \
-			  fred_socketwrappers.cpp \
-			  fred_signalwrappers.cpp fred_epollwrappers.cpp \
-			  fred_mallocwrappers.cpp fred_filewrappers.cpp
 
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
@@ -117,8 +98,7 @@ dmtcphijack_so_LDFLAGS = -shared -module
 #  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD    = libfredhijack.a libfredinternal.a \
-			  libdmtcpinternal.a libjalib.a libsyscallsreal.a \
+dmtcphijack_so_LDADD    = libdmtcpinternal.a libjalib.a libsyscallsreal.a \
 			  -ldl -lpthread
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a libnohijack.a \

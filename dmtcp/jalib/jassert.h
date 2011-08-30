@@ -38,7 +38,7 @@
 #endif
 #include "jalloc.h"
 
-__attribute__ ((visibility ("hidden"))) extern int jassert_quiet;
+extern int jassert_quiet;
 
 /**  USAGE EXAMPLE:
  *

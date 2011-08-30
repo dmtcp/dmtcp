@@ -67,11 +67,7 @@ static void processClose(dmtcp::ConnectionIdentifier conId)
 }
 #endif
 
-#ifdef RECORD_REPLAY
-int _almost_real_close ( int fd )
-#else
 extern "C" int close ( int fd )
-#endif
 {
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
   {
@@ -100,11 +96,7 @@ extern "C" int close ( int fd )
   return rv;
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_fclose(FILE *fp)
-#else
 extern "C" int fclose(FILE *fp)
-#endif
 {
   int fd = fileno(fp);
   if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
@@ -355,10 +347,6 @@ static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
 
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
-#ifdef RECORD_REPLAY
-int _almost_real_open(const char *path, int flags, mode_t mode)
-{
-#else
 extern "C" int open (const char *path, int flags, ... )
 {
   mode_t mode = 0;
@@ -369,7 +357,6 @@ extern "C" int open (const char *path, int flags, ... )
     mode = va_arg (arg, int);
     va_end (arg);
   }
-#endif
   return _open_open64_work(_real_open, path, flags, mode);
 }
 
@@ -381,10 +368,6 @@ extern "C" int open (const char *path, int flags, ... )
 // properly.
 
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
-#ifdef RECORD_REPLAY
-int _almost_real_open64(const char *path, int flags, mode_t mode)
-{
-#else
 extern "C" int open64 (const char *path, int flags, ... )
 {
   mode_t mode;
@@ -395,7 +378,6 @@ extern "C" int open64 (const char *path, int flags, ... )
     mode = va_arg (arg, int);
     va_end (arg);
   }
-#endif
   return _open_open64_work(_real_open64, path, flags, mode);
 }
 
@@ -431,20 +413,12 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
   return file;
 }
 
-#ifdef RECORD_REPLAY
-FILE *_almost_real_fopen(const char *path, const char *mode)
-#else
 extern "C" FILE *fopen (const char* path, const char* mode)
-#endif
 {
   return _fopen_fopen64_work(_real_fopen, path, mode);
 }
 
-#ifdef RECORD_REPLAY
-FILE *_almost_real_fopen64(const char *path, const char *mode)
-#else
 extern "C" FILE *fopen64 (const char* path, const char* mode)
-#endif
 {
   return _fopen_fopen64_work(_real_fopen64, path, mode);
 }
@@ -462,11 +436,7 @@ static void updateStatPath(const char *path, char *newpath)
   }
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_xstat(int vers, const char *path, struct stat *buf)
-#else
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
-#endif
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -476,11 +446,7 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_xstat64(int vers, const char *path, struct stat64 *buf)
-#else
 extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
-#endif
 {
   char newpath [ PATH_MAX ] = {0};
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -491,11 +457,7 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 }
 
 #if 0
-#ifdef RECORD_REPLAY
-int _almost_real_fxstat(int vers, int fd, struct stat *buf)
-#else
 extern "C" int __fxstat(int vers, int fd, struct stat *buf)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int retval = _real_fxstat(vers, fd, buf);
@@ -503,11 +465,7 @@ extern "C" int __fxstat(int vers, int fd, struct stat *buf)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_fxstat64(int vers, int fd, struct stat64 *buf)
-#else
 extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
-#endif
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int retval = _real_fxstat64(vers, fd, buf);
@@ -516,11 +474,7 @@ extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 }
 #endif
 
-#ifdef RECORD_REPLAY
-int _almost_real_lxstat(int vers, const char *path, struct stat *buf)
-#else
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
-#endif
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -530,11 +484,7 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-int _almost_real_lxstat64(int vers, const char *path, struct stat64 *buf)
-#else
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
-#endif
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -544,13 +494,8 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   return retval;
 }
 
-#ifdef RECORD_REPLAY
-READLINK_RET_TYPE _almost_real_readlink(const char *path, char *buf,
-                                               size_t bufsiz)
-#else
 extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
-#endif
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -570,11 +515,7 @@ int send_sigwinch = 0;
 }
 
 
-#ifdef RECORD_REPLAY
-int _almost_real_ioctl(int d,  unsigned long int request, ...)
-#else
 extern "C" int ioctl(int d,  unsigned long int request, ...)
-#endif
 {
   va_list ap;
   int retval;

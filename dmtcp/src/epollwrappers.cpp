@@ -66,11 +66,7 @@ extern "C" int inotify_init1(int flags)
 }
 
 /* epoll is currently not supported by DMTCP */
-#ifdef RECORD_REPLAY
-int _almost_real_epoll_create(int size)
-#else
 extern "C" int epoll_create(int size)
-#endif
 {
   /* epoll is currently not supported by DMTCP */
   JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
@@ -79,11 +75,7 @@ extern "C" int epoll_create(int size)
 }
 
 /* epoll is currently not supported by DMTCP */
-#ifdef RECORD_REPLAY
-int _almost_real_epoll_create1(int flags)
-#else
 extern "C" int epoll_create1(int flags)
-#endif
 {
   JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
   errno = EPERM;
