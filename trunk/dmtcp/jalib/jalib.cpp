@@ -45,7 +45,7 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
   jalib::stderrFd = stderrFd;
   jalib::logFd = jassertLogFd;
   jalib::jalib_funcptrs_initialized = 1;
-  jalib::dmtcp_fail_rc = dmtcp_rail_rc;
+  jalib::dmtcp_fail_rc = dmtcp_fail_rc;
 }
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
