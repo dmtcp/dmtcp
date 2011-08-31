@@ -56,7 +56,10 @@
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 #define DELETED_FILE_SUFFIX " (deleted)"
-#define DMTCP_FAIL_RC 99  /* dmtcp_checkpoint, dmtcp_restart return unique rc */
+/* dmtcp_checkpoint, dmtcp_restart return a unique rc (default: 99) */
+#define DMTCP_FAIL_RC \
+        (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
+	 atoi(getenv("DMTCP_FAIL_RC")) : 99)
 
 #define DMTCP_PRGNAME_PREFIX "DMTCP:"
 

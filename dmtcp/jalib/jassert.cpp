@@ -119,7 +119,7 @@ jassert_internal::JAssert::~JAssert()
     jassert_internal::unlockLog();
 
   if ( _exitWhenDone ) {
-    _exit ( 1 );
+    _exit ( jalib::dmtcp_fail_rc );
   }
 }
 

@@ -194,9 +194,10 @@ absolute pathnames.
 .SH "RETURN CODE"
 A target program under DMTCP control normally returns the same return code
 as if executed without DMTCP.  However, if DMTCP fails (as opposed to the
-target program failing), DMTCP returns the DMTCP-specific return code
-of 99 (or 99+1, 99+2 for two special cases).  Change DMTCP_FAIL_RC in
-constants.h to return a different number.
+target program failing), DMTCP returns a DMTCP-specific return code,
+rc (or rc+1, rc+2 for two special cases), where rc is the integer value
+of the environment variable DMTCP_FAIL_RC if set, or else the default
+value, 99.
 .SH "SEE ALSO"
 Full documentation is available from http://dmtcp.sourceforge.net/
 .SH "AUTHORS"

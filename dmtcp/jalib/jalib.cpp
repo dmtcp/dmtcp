@@ -36,15 +36,16 @@ jalib::JalibFuncPtrs jalib::jalibFuncPtrs;
 int jalib::jalib_funcptrs_initialized = 0;
 int jalib::stderrFd = -1;
 int jalib::logFd = -1;
+int jalib::dmtcp_fail_rc = -1;
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
-                      int stderrFd,
-                      int jassertLogFd)
+                      int stderrFd, int jassertLogFd, int dmtcp_fail_rc)
 {
   jalib::jalibFuncPtrs = jalibFuncPtrs;
   jalib::stderrFd = stderrFd;
   jalib::logFd = jassertLogFd;
   jalib::jalib_funcptrs_initialized = 1;
+  jalib::dmtcp_fail_rc = dmtcp_rail_rc;
 }
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
