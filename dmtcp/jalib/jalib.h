@@ -64,6 +64,7 @@ namespace jalib {
   extern int jalib_funcptrs_initialized;
   extern int stderrFd;
   extern int logFd;
+  extern int dmtcp_fail_rc;
 
   const char* dmtcp_get_tmpdir();
   const char* dmtcp_get_uniquepid_str();
