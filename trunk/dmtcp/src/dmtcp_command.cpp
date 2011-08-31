@@ -24,6 +24,7 @@
 
 #include "dmtcpcoordinatorapi.h"
 #include "util.h"
+#include "syscallwrappers.h"
 
 using namespace dmtcp;
 
@@ -63,6 +64,8 @@ int main ( int argc, char** argv )
   bool quiet = false;
   dmtcp::string interval = "";
   dmtcp::string request = "h";
+
+  initializeJalib();
 
   Util::initializeLogFile();
 
