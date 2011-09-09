@@ -3195,7 +3195,7 @@ static void growstack (int kbStack) /* opimize attribute not implemented */
    * we can only hope for 64 KB of free stack.  (Also, some users will use:
    * ld --stack XXX.)  We'll use half of the 64 KB here.
    */
-  const int kbIncrement = 16; /* half the size of kbStack */
+  const int kbIncrement = 1024; /* half the size of kbStack */
   char array[kbIncrement * 1024] __attribute__ ((unused));
   /* Again, try to prevent compiler optimization */
   volatile int dummy_value __attribute__ ((unused)) = 1;
@@ -3249,10 +3249,15 @@ static void stopthisthread (int signum)
      */
     if (thread == motherofall) {
       static char *orig_stack_ptr;
-      /* Some apps will use "ld --stack XXX" with a small stack.  This
+      /* FIXME:
+       * Some apps will use "ld --stack XXX" with a small stack.  This
        * trend will become more common with the introduction of split stacks.
+       * BUT NOTE PROBLEM PREV. COMMENT ON KERNEL NOT GROWING STACK ON RESTART
+       * Grow the stack by kbStack*1024 so that large stack is allocated oni
+       * restart.  The kernel won't do it automatically for us any more,
+       * since it thinks the stack is in a different place after restart.
        */
-      int kbStack = 32; /* double the size of kbIncrement in growstack */
+      int kbStack = 2048; /* double the size of kbIncrement in growstack */
       if (is_first_checkpoint) {
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
