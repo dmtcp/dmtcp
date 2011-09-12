@@ -5,9 +5,10 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "constants.h"
-#include "syscallwrappers.h"
-#include "../jalib/jassert.h"
 
 #ifdef __x86_64__
 static char asm_jump[] = {
@@ -57,7 +58,11 @@ static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
   /* Give that whole page RWX permissions. */
   int retval = mprotect(page_base, pagesize,
                         PROT_READ | PROT_WRITE | PROT_EXEC);
-  JASSERT ( retval != -1 ) ( errno );
+  if (retval == -1) {
+    fprintf(stderr, "*** %s:%d DMTCP Internal Error: mprotect() failed.\n",
+            __FILE__, __LINE__);
+    abort();
+  }
   /************ Set up trampoline injection code. ***********/
   /* Trick to get "free" conversion of a long value to the
      character-array representation of that value. Different sizes of
