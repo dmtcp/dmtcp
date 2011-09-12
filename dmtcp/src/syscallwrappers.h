@@ -222,6 +222,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
   void _dmtcp_remutex_on_fork();
 
+  LIB_PRIVATE void *_dmtcp_get_libc_dlsym_addr();
+
   int _dmtcp_unsetenv(const char *name);
   void initialize_wrappers();
   void initializeJalib();

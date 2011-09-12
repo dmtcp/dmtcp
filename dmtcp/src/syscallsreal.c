@@ -225,21 +225,26 @@ void initialize_wrappers()
   } \
   (*fn)
 
+typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 
 LIB_PRIVATE
-void *_real_dlsym ( void *handle, const char *symbol ) {
-  /* In the future dlsym_offset should be global variable defined in
-     dmtcpworker.cpp. For some unclear reason doing that causes a link
-     error DmtcpWorker::coordinatorId defined twice in dmtcp_coordinator.cpp
-     and  dmtcpworker.cpp. Commenting out the extra definition in
-     dmtcp_coordinator.cpp sometimes caused an seg fault on
-       dmtcp_checkpoint gdb a.out
-     when user types run in gdb.
-  */
-  static int dlsym_offset = 0;
-  if (dlsym_offset == 0 && getenv(ENV_VAR_DLSYM_OFFSET))
-  {
-    dlsym_offset = ( int ) strtol ( getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10 );
+void *_dmtcp_get_libc_dlsym_addr()
+{
+  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
+
+  if (_libc_dlsym_fnptr == NULL) {
+    long dlsym_offset = 0;
+    if (getenv(ENV_VAR_DLSYM_OFFSET) == NULL) {
+      fprintf(stderr,
+              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
+              "      Aborting.\n\n",
+              __FILE__, __LINE__);
+      abort();
+    }
+
+    dlsym_offset = (long) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
+    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
+
 #ifndef PTRACE
     /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
      * by dmtcp_checkpoint to execvp fails without this call to unsetenv.
@@ -251,21 +256,25 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
      * defines a dlsym wrapper, and presumably, libc:execve() can call
      * dlsym even before dmtcphijack.so is loaded.
      */
-    unsetenv ( ENV_VAR_DLSYM_OFFSET );
+    //unsetenv ( ENV_VAR_DLSYM_OFFSET );
 #endif
+    unsetenv ( ENV_VAR_DLSYM_OFFSET );
   }
-  void *res = NULL;
+
+  return (void*) _libc_dlsym_fnptr;
+}
+
+LIB_PRIVATE
+void *_real_dlsym ( void *handle, const char *symbol ) {
+  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
+  if (_libc_dlsym_fnptr == NULL) {
+    _libc_dlsym_fnptr = _dmtcp_get_libc_dlsym_addr();
+  }
+
   // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
   // comment in miscwrappers for more details.
   thread_performing_dlopen_dlsym = 1;
-  if ( dlsym_offset == 0)
-    res = dlsym ( handle, symbol );
-  else
-  {
-    typedef void* ( *fncptr ) (void *handle, const char *symbol);
-    fncptr dlsym_addr = (fncptr)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
-    res = (*dlsym_addr) ( handle, symbol );
-  }
+  void *res = (*_libc_dlsym_fnptr) ( handle, symbol );
   thread_performing_dlopen_dlsym = 0;
   return res;
 }

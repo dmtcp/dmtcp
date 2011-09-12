@@ -350,7 +350,7 @@ void dmtcp::Util::prepareDlsymWrapper()
   diff = (char *)dlsym_addr - (char *)base_addr;
   char str[21] = {0};
   sprintf(str, "%d", diff);
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 0);
+  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
   dlclose(handle);
 }
 

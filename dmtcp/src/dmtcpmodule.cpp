@@ -54,9 +54,9 @@ EXTERNC int dmtcp_get_readlog_fd()
   return PROTECTED_READLOG_FD;
 }
 
-EXTERNC void *dmtcp_get_real_dlsym_addr()
+EXTERNC void *dmtcp_get_libc_dlsym_addr()
 {
-  return (void*) &_real_dlsym;
+  return _dmtcp_get_libc_dlsym_addr();
 }
 
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
