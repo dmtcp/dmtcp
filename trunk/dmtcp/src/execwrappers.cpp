@@ -276,6 +276,8 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   dmtcp::Util::adjustRlimitStack();
 
+  dmtcp::Util::prepareDlsymWrapper();
+
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }
 
@@ -294,6 +296,8 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
            preload + strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1,
            1);
   }
+
+  unsetenv(ENV_VAR_DLSYM_OFFSET);
 
   JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
   errno = saved_errno;

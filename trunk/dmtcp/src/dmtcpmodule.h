@@ -70,19 +70,21 @@ EXTERNC int  dmtcp_is_initializing_wrappers();
 EXTERNC int  dmtcp_is_protected_fd(int fd);
 
 EXTERNC int dmtcp_get_readlog_fd();
-EXTERNC void *dmtcp_get_real_dlsym_addr();
+EXTERNC void *dmtcp_get_libc_dlsym_addr();
 
-#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                \
-  do {                                                                  \
-    typedef void (*fnptr_t) (DmtcpEvent_t, void*);                      \
-    static fnptr_t fn = NULL;                                           \
-    static bool fn_initialized = false;                                 \
-    if (!fn_initialized) {                                              \
-      fn = (fnptr_t) _real_dlsym(RTLD_NEXT, "process_dmtcp_event");     \
-      fn_initialized = true;                                            \
-    } else if (fn != NULL) {                                            \
-      (*fn) (event, data);                                              \
-    }                                                                   \
+#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                         \
+  do {                                                                           \
+    typedef void (*fnptr_t) (DmtcpEvent_t, void*);                               \
+    static fnptr_t fn = NULL;                                                    \
+    static bool fn_initialized = false;                                          \
+    if (!fn_initialized) {                                                       \
+      typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);          \
+      dlsym_fnptr_t dlsym_fnptr = (dlsym_fnptr_t) dmtcp_get_libc_dlsym_addr(); \
+      fn = (fnptr_t) (*dlsym_fnptr) (RTLD_NEXT, "process_dmtcp_event");          \
+      fn_initialized = true;                                                     \
+    } else if (fn != NULL) {                                                     \
+      (*fn) (event, data);                                                       \
+    }                                                                            \
   } while (0)
 
 #endif
