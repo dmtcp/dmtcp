@@ -71,6 +71,8 @@ EXTERNC int  dmtcp_is_protected_fd(int fd);
 
 EXTERNC int dmtcp_get_readlog_fd();
 EXTERNC void *dmtcp_get_libc_dlsym_addr();
+EXTERNC void dmtcp_block_ckpt_signal();
+EXTERNC void dmtcp_unblock_ckpt_signal();
 
 #define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                         \
   do {                                                                           \
@@ -78,11 +80,12 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr();
     static fnptr_t fn = NULL;                                                    \
     static bool fn_initialized = false;                                          \
     if (!fn_initialized) {                                                       \
-      typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);          \
-      dlsym_fnptr_t dlsym_fnptr = (dlsym_fnptr_t) dmtcp_get_libc_dlsym_addr(); \
-      fn = (fnptr_t) (*dlsym_fnptr) (RTLD_NEXT, "process_dmtcp_event");          \
+      typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);         \
+      dlsym_fnptr_t dlsym_fnptr = (dlsym_fnptr_t) dmtcp_get_libc_dlsym_addr();   \
+      fn = (fnptr_t) (*dlsym_fnptr) (RTLD_NEXT, "dmtcp_process_event");          \
       fn_initialized = true;                                                     \
-    } else if (fn != NULL) {                                                     \
+    }                                                                            \
+    if (fn != NULL) {                                                            \
       (*fn) (event, data);                                                       \
     }                                                                            \
   } while (0)
