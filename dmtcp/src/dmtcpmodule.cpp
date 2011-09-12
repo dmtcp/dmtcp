@@ -59,6 +59,32 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr()
   return _dmtcp_get_libc_dlsym_addr();
 }
 
+EXTERNC void dmtcp_block_ckpt_signal()
+{
+  static sigset_t signals_set;
+  static bool initialized = false;
+  if (!initialized) {
+    sigemptyset (&signals_set);
+    sigaddset (&signals_set, dmtcp_get_ckpt_signal());
+    initialized = true;
+  }
+
+  JASSERT(_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) == 0);
+}
+
+EXTERNC void dmtcp_unblock_ckpt_signal()
+{
+  static sigset_t signals_set;
+  static bool initialized = false;
+  if (!initialized) {
+    sigemptyset (&signals_set);
+    sigaddset (&signals_set, dmtcp_get_ckpt_signal());
+    initialized = true;
+  }
+
+  JASSERT(_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) == 0);
+}
+
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t key_len,
                                                    const void *val,
