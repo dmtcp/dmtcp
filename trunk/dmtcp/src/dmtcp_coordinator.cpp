@@ -1060,6 +1060,7 @@ bool dmtcp::DmtcpCoordinator::validateWorkerProcess
       } else {
         JTRACE ( "New process Connected" ) ( hello_remote.from.pid() );
       }
+      hello_local.compGroup = curCompGroup;
       remote << hello_local;
     }
   } else {

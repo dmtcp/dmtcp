@@ -676,6 +676,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
     JASSERT ( theCheckpointState != NULL );
     theCheckpointState->numPeers(msg.params[0]);
+    JASSERT(UniquePid::ComputationId() == msg.compGroup);
     UniquePid::ComputationId() = msg.compGroup;
     theCheckpointState->compGroup(msg.compGroup);
   }
