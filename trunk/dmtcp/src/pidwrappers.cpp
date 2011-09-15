@@ -39,11 +39,6 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-#ifdef PTRACE
-#include "ptrace.h"
-#include "mtcp_ptrace.h"
-#endif
-
 // FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
 #include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
 
@@ -329,8 +324,6 @@ int tgkill(int tgid, int tid, int sig)
 
 //long sys_tgkill (int tgid, int pid, int sig)
 
-#ifdef PTRACE
-
 typedef td_err_e (*td_thr_get_info_funcptr_t)(const td_thrhandle_t *,
                                               td_thrinfo_t *);
 static td_thr_get_info_funcptr_t _td_thr_get_info_funcptr = NULL;
@@ -365,16 +358,6 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
     return _real_dlsym ( handle, symbol );
 }
 
-extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-                                             int singlestep_waited_on);
-
-typedef int ( *fill_in_pthread_t) ();
-extern "C" fill_in_pthread_t fill_in_pthread_ptr;
-
-typedef int ( *delete_thread_on_pthread_join_t) ();
-
-#endif
-
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
  *       It wouldn't be a straight forward process, we need to take care of the
@@ -397,26 +380,6 @@ extern "C" pid_t wait (__WAIT_STATUS stat_loc)
   }
   return retVal;
 }
-
-/* UNUSED FUNCTION
-extern "C" {
-static int get_sigckpt() {
-  static char *nptr = getenv(ENV_VAR_SIGCKPT);
-  static int sigckpt = -1;
-  if (sigckpt == -1) {
-    char *endptr;
-    if (nptr == NULL)
-      sigckpt = MTCP_DEFAULT_SIGNAL;
-    else {
-      sigckpt = strtol(nptr, &endptr, 0);
-      if (endptr != '\0')
-        sigckpt = MTCP_DEFAULT_SIGNAL;
-    }
-  }
-  return sigckpt;
-}
-}
-*/
 
 LIB_PRIVATE
 pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
@@ -459,8 +422,11 @@ pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
   }
 }
 
-
+#ifdef PTRACE
+extern "C" pid_t _almost_real_waitpid(pid_t pid, int *stat_loc, int options)
+#else
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+#endif
 {
   int status;
   pid_t originalPid;
@@ -469,43 +435,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
   if ( stat_loc == NULL )
     stat_loc = &status;
 
-#ifdef PTRACE
-  // FIXME:  syscall(SYS_gettid) just calls gettid().  Use _real_syscall() if
-  //   it matters.  Else gettid().  Add a comment here explaining why syscall().
-  pid_t superior = syscall(SYS_gettid);
-  pid_t inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
-
-  if (pwi.is_waitpid_local) {
-    retval = safe_real_waitpid (pid, stat_loc, options);
-  } else {
-    /* Where was status and pid saved?  Can we remove this code?  - Gene */
-    if (pwi.has_status_and_pid) {
-      *stat_loc = pwi.saved_status;
-      retval = pwi.saved_pid;
-    } else {
-// Please remove this comment and all code related to BLOCK_CKPT_ON_WAIT
-//  when satisfied waitpid wrapper work.  - Gene
-#undef BLOCK_CKPT_ON_WAIT
-#if BLOCK_CKPT_ON_WAIT
-      if (_real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL) != 0) {
-        perror ("waitpid wrapper");
-        exit(DMTCP_FAIL_RC);
-      }
-#endif
-      ptrace_info_list_update_info(superior, inferior, TRUE);
-      retval = safe_real_waitpid(pid, stat_loc, options);
-#if BLOCK_CKPT_ON_WAIT
-      if (_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) != 0) {
-        perror("waitpid wrapper");
-        exit(DMTCP_FAIL_RC);
-      }
-#endif
-    }
-  }
-#else
   retval = safe_real_waitpid(pid, stat_loc, options);
-#endif
 
   if (retval > 0) {
     originalPid = currentToOriginalPid(retval);
@@ -569,6 +499,44 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
     dmtcp::VirtualPidTable::instance().erase ( originalPid );
 
   return originalPid;
+}
+
+#ifdef PTRACE
+extern "C" long _almost_real_ptrace (enum __ptrace_request request, ...)
+#else
+extern "C" long ptrace (enum __ptrace_request request, ...)
+#endif
+{
+  va_list ap;
+  pid_t pid;
+  void *addr;
+  void *data;
+
+  va_start(ap, request);
+  pid = va_arg(ap, pid_t);
+  addr = va_arg(ap, void *);
+  data = va_arg(ap, void *);
+  va_end(ap);
+
+  pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
+  long ptrace_ret =  _real_ptrace(request, pid, addr, data);
+  /*
+   * PTRACE_GETEVENTMSG (since Linux 2.5.46)
+   *          Retrieve  a message (as an unsigned long) about the ptrace event
+   *          that just happened, placing it in the location data in the
+   *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
+   *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
+   *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
+   *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
+   *          (addr is ignored.)
+   */
+
+  if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
+    unsigned long *ldata = (unsigned long*) data;
+    *ldata = (unsigned long) currentToOriginalPid((pid_t) *ldata);
+  }
+
+  return ptrace_ret;
 }
 
 /*

@@ -19,12 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "constants.h"
 #include "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include "ptracewrappers.h"
-#include "virtualpidtable.h"
-#include "syscallwrappers.h"
+#include "dmtcpmodule.h"
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
@@ -78,7 +76,7 @@ extern "C" struct ptrace_info get_next_ptrace_info(int index) {
 int open_ptrace_related_file (int file_option) {
   char file[256];
   memset(file, 0, 256);
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir();
+  dmtcp::string tmpdir = dmtcp_get_tmpdir();
 
   switch (file_option) {
     case PTRACE_SHARED_FILE_OPTION:
@@ -192,6 +190,9 @@ void ptrace_info_update_last_command (pid_t superior, pid_t inferior,
   }
 }
 
+extern "C" long _almost_real_ptrace (enum __ptrace_request request, ...);
+extern "C" pid_t _almost_real_waitpid(pid_t pid, int *stat_loc, int options);
+
 extern "C" long ptrace (enum __ptrace_request request, ...)
 {
   va_list ap;
@@ -252,12 +253,8 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
      break;
     }
     case PTRACE_SINGLESTEP: {
-     pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
      if (!pwi.is_ptrace_local) {
-       if (_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) != 0) {
-         perror ("waitpid wrapper");
-         exit(DMTCP_FAIL_RC);
-       }
+       dmtcp_block_ckpt_signal();
        ptrace_info_update_last_command(superior, inferior,
                                        PTRACE_SINGLESTEP_COMMAND);
        /* The ptrace_info pair was already recorded. The superior is just
@@ -266,13 +263,10 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
                               PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
                               PTRACE_NO_FILE_OPTION};
        ptrace_info_list_command(cmd);
-       ptrace_ret =  _real_ptrace (request, pid, addr, data);
-       if (_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) != 0) {
-         perror ("waitpid wrapper");
-         exit(DMTCP_FAIL_RC);
-       }
+       ptrace_ret =  _almost_real_ptrace (request, pid, addr, data);
+       dmtcp_unblock_ckpt_signal();
      }
-     else ptrace_ret = _real_ptrace(request, pid, addr, data);
+     else ptrace_ret = _almost_real_ptrace(request, pid, addr, data);
      break;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
@@ -290,8 +284,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   /* TODO: We might want to check the return value in certain cases */
 
   if (request != PTRACE_SINGLESTEP) {
-    pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
-    ptrace_ret =  _real_ptrace(request, pid, addr, data);
+    ptrace_ret =  _almost_real_ptrace(request, pid, addr, data);
   }
 
   return ptrace_ret;
@@ -444,4 +437,43 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
   }
 }
 
+extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+{
+  int status;
+  pid_t originalPid;
+  pid_t retval;
+
+  if ( stat_loc == NULL )
+    stat_loc = &status;
+
+  // FIXME:  syscall(SYS_gettid) just calls gettid().  Use _real_syscall() if
+  //   it matters.  Else gettid().  Add a comment here explaining why syscall().
+  pid_t superior = syscall(SYS_gettid);
+  pid_t inferior = pid;
+  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
+
+  if (pwi.is_waitpid_local) {
+    retval = _almost_real_waitpid (pid, stat_loc, options);
+  } else {
+    /* Where was status and pid saved?  Can we remove this code?  - Gene */
+    if (pwi.has_status_and_pid) {
+      *stat_loc = pwi.saved_status;
+      retval = pwi.saved_pid;
+    } else {
+// Please remove this comment and all code related to BLOCK_CKPT_ON_WAIT
+//  when satisfied waitpid wrapper work.  - Gene
+#undef BLOCK_CKPT_ON_WAIT
+#if BLOCK_CKPT_ON_WAIT
+      dmtcp_block_ckpt_signal();
+#endif
+      ptrace_info_list_update_info(superior, inferior, TRUE);
+      retval = _almost_real_waitpid(pid, stat_loc, options);
+#if BLOCK_CKPT_ON_WAIT
+      dmtcp_unblock_ckpt_signal();
+#endif
+    }
+  }
+
+  return retval;
+}
 #endif
