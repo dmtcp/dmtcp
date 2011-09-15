@@ -63,7 +63,6 @@ typedef enum eDmtcpEvent {
 
 typedef struct DmtcpSendStopSignalInfo {
   pid_t tid;
-  pid_t original_tid;
   pid_t ckpt_leader;
   int *retry_signalling;
   int *retval;

@@ -88,8 +88,7 @@ static void callbackRestoreVirtualPidTable();
 
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
-void callbackSendStopSignal(pid_t tid, pid_t original_tid,
-                            int *retry_signalling, int *retval);
+void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval);
 
 void callbackCkptThreadStart();
 MtcpFuncPtrs_t mtcpFuncPtrs;
@@ -227,20 +226,13 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.
   JALIB_CKPT_LOCK();
-  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG, NULL);
+  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG,
+                      (void*) dmtcp::VirtualPidTable::instance().numThreads());
 }
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
   dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
-/* In the case of PTRACE, we have already called JALIB_CKPT_UNLOCK. */
-#if 0
-# ifdef PTRACE
-  ptraceCallbackPreCheckpoint();
-# else
-  JALIB_CKPT_UNLOCK();
-# endif
-#endif
 
   // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
   // serves the purpose without having a callback.
@@ -374,12 +366,10 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
 }
 
-void callbackSendStopSignal(pid_t tid, pid_t original_tid,
-                           int *retry_signalling, int *retval)
+void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
 {
   DmtcpSendStopSignalInfo info;
   info.tid = tid;
-  info.original_tid = original_tid;
   info.retry_signalling = retry_signalling;
   info.retval = retval;
 
@@ -557,9 +547,6 @@ int thread_start(void *arg)
   pid_t original_tid = threadArg -> original_tid;
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
-//#ifdef PTRACE
-//  ptraceProcessCloneStartFn();
-//#endif
 
   // Free the memory was previously allocated through JALLOC_HELPER_MALLOC
   JALLOC_HELPER_FREE(threadArg);

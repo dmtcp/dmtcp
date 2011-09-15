@@ -1,21 +1,17 @@
 #include <sys/types.h>
 #include <dlfcn.h>
-#include "uniquepid.h"
 #include "../jalib/jalloc.h"
-#include "constants.h"
+#include "../jalib/jassert.h"
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
-#include "virtualpidtable.h"
 #ifdef PTRACE
 
 static struct ptrace_info callbackGetNextPtraceInfo (int index);
 static void callbackPtraceInfoListCommand (struct cmd_info cmd);
 static void callbackJalibCkptUnlock ();
 static int callbackPtraceInfoListSize ();
-
-sigset_t signals_set;
 
 static int originalStartup = 1;
 
@@ -30,26 +26,9 @@ void ptraceProcessThreadCreation(void *data)
   mtcp_ptrace_process_thread_creation(tid);
 }
 
-//void ptraceCallbackPreCheckpoint()
-//{
-//  if (!mtcp_is_ptracing()) {
-//    JALIB_CKPT_UNLOCK();
-//  }
-//}
-
-//static struct ptrace_info callbackGetNextPtraceInfo (int index)
-//{
-//  return get_next_ptrace_info(index);
-//}
-
-//static void callbackPtraceInfoListCommand (struct cmd_info cmd)
-//{
-//  ptrace_info_list_command(cmd);
-//}
-
 extern "C" void jalib_ckpt_unlock()
 {
-  JALIB_CKPT_UNLOCK();
+  //JALIB_CKPT_UNLOCK();
 }
 
 static int callbackPtraceInfoListSize ()
@@ -86,11 +65,6 @@ static int callbackPtraceInfoListSize ()
 
 void ptraceInit()
 {
-  // FIXME: Do we need this anymore?
-  sigemptyset (&signals_set);
-  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
-  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
-
   mtcp_init_ptrace();
 }
 
@@ -99,8 +73,7 @@ void mtcp_process_stop_signal_event(void *data)
   JASSERT(data != NULL);
   DmtcpSendStopSignalInfo *info = (DmtcpSendStopSignalInfo*) data;
 
-  mtcp_ptrace_send_stop_signal(_real_getpid(), info->tid, info->original_tid,
-                               info->retry_signalling, info->retval);
+  mtcp_ptrace_send_stop_signal(info->tid, info->retry_signalling, info->retval);
 }
 void ptraceProcessWaitForSuspendMsg()
 {
@@ -117,14 +90,11 @@ void ptraceProcessWaitForSuspendMsg()
   mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
 }
 
-void ptraceProcessGotSuspendMsg()
+void ptraceProcessGotSuspendMsg(void *data)
 {
   /* One of the threads is the ckpt thread. Don't count that in. */
   // FIXME: Take care of invalid threads
-  nthreads = dmtcp::VirtualPidTable::instance().numThreads() - 1;
-  //for (thread = threads; thread != NULL; thread = thread -> next) {
-  //  nthreads++;
-  //}
+  nthreads = (unsigned long) data - 1;
   mtcp_ptrace_process_pre_suspend_ckpt_thread();
 }
 
@@ -149,7 +119,7 @@ extern "C" void ptrace_dmtcp_process_event(DmtcpEvent_t event, void* data)
       ptraceProcessWaitForSuspendMsg();
       break;
     case DMTCP_EVENT_GOT_SUSPEND_MSG:
-      ptraceProcessGotSuspendMsg();
+      ptraceProcessGotSuspendMsg(data);
       break;
     case DMTCP_EVENT_START_PRE_CKPT_CB:
       ptraceProcessStartPreCkptCB();

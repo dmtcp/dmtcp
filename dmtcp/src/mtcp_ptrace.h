@@ -150,9 +150,7 @@ void mtcp_ptrace_process_ckpt_thread_creation();
 void mtcp_ptrace_process_thread_creation(pid_t clone_id);
 void mtcp_ptrace_process_pre_suspend_ckpt_thread();
 void mtcp_ptrace_process_pre_suspend_user_thread();
-void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
-                                  pid_t original_tid,
-                                  int *retry_signalling, int *retval);
+void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval);
 void mtcp_ptrace_process_post_suspend_ckpt_thread();
 void mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread();
