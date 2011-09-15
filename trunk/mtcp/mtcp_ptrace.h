@@ -108,11 +108,26 @@ extern __thread int is_ptrace_setoptions;
 
 extern int proceed_to_checkpoint;
 extern pthread_mutex_t proceed_to_checkpoint_lock;
+extern int has_new_ptrace_shared_file;
+extern int jalib_ckpt_unlock_ready;
+extern pthread_mutex_t jalib_ckpt_unlock_lock;
+extern int nthreads;
+extern pthread_mutex_t nthreads_lock;
+extern int motherofall_done_reading;
 
 extern void mtcp_init_thread_local(void);
 void mtcp_ptrace_process_ckpt_thread_creation();
 void mtcp_ptrace_process_thread_creation(pid_t clone_id);
-pid_t mtcp_ptrace_process_pre_suspend();
+pid_t mtcp_ptrace_process_pre_suspend_ckpt_thread();
+pid_t mtcp_ptrace_process_pre_suspend_user_thread();
+int mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid, pid_t original_tid,
+                                 pid_t ckpt_leader);
+void mtcp_ptrace_process_post_suspend_ckpt_thread();
+void mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
+void mtcp_ptrace_process_post_restart_resume_ckpt_thread();
+void mtcp_ptrace_process_post_ckpt_resume_user_thread();
+void mtcp_ptrace_process_post_restart_resume_user_thread();
+void mtcp_ptrace_process_pre_resume_user_thread();
 
 extern int empty_ptrace_info(struct ptrace_info pt_info);
 

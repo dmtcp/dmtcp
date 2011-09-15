@@ -58,6 +58,7 @@
 #endif
 
 extern pid_t saved_pid;
+extern int STOPSIGNAL;     // signal to use to signal other threads to stop for
 
 #define MTCP_PRINTF(args...) \
   do { \
