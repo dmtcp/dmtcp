@@ -90,7 +90,6 @@ static pthread_rwlock_t
   theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int unInitializedThreadCount = 0;
-static dmtcp::UniquePid compGroup;
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
@@ -676,8 +675,8 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
     JASSERT ( theCheckpointState != NULL );
     theCheckpointState->numPeers(msg.params[0]);
+    UniquePid::ComputationId() = msg.compGroup;
     theCheckpointState->compGroup(msg.compGroup);
-    compGroup = msg.compGroup;
   }
 }
 
@@ -706,9 +705,9 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
   // Create signature file which could then be used by an outside process to
   // check if the process restarted successfully.
-  if ( 0 && compGroup != UniquePid() ) {
+  if ( 0 && UniquePid::ComputationId() != UniquePid() ) {
     dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
-                                + compGroup.toString() + "-"
+                                + UniquePid::ComputationId().toString() + "-"
 #ifdef PID_VIRTUALIZATION
                                 + jalib::XToString ( _real_getppid() );
 #else

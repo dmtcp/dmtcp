@@ -42,6 +42,15 @@ EXTERNC const char* dmtcp_get_uniquepid_str()
   return uniquepid_str->c_str();
 }
 
+EXTERNC const char* dmtcp_get_computation_id_str()
+{
+  static dmtcp::string *compid_str = NULL;
+  if (compid_str == NULL)
+    compid_str =
+      new dmtcp::string(dmtcp::UniquePid::ComputationId().toString());
+  return compid_str->c_str();
+}
+
 EXTERNC int  dmtcp_is_running_state()
 {
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;

@@ -86,6 +86,14 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
+static dmtcp::UniquePid& computationId()
+{
+  static char buf[sizeof(dmtcp::UniquePid)];
+  static dmtcp::UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  return *t;
+}
+
 // _generation field of return value may later have to be modified.
 // So, it can't return a const dmtcp::UniquePid
 dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
@@ -106,6 +114,11 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 dmtcp::UniquePid& dmtcp::UniquePid::ParentProcess()
 {
   return parentProcess();
+}
+
+dmtcp::UniquePid& dmtcp::UniquePid::ComputationId()
+{
+  return computationId();
 }
 
 /*!
