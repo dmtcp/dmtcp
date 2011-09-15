@@ -47,7 +47,14 @@
 
 static pthread_mutex_t ptrace_info_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-dmtcp::list<struct ptrace_info> ptrace_info_list;
+dmtcp::list<struct ptrace_info> *ptrace_info_list = NULL;
+
+void ptrace_init_data_structures()
+{
+  if (ptrace_info_list == NULL) {
+    ptrace_info_list = new dmtcp::list<struct ptrace_info>;
+  }
+}
 
 // FIXME:  This macro is used in exactly one place.  Why do we want
 //    to hide the implementation.  Shouldn't the reader of GETTID()
@@ -57,16 +64,16 @@ dmtcp::list<struct ptrace_info> ptrace_info_list;
 #define GETTID() (int)syscall(SYS_gettid)
 
 extern "C" int ptrace_info_list_size() {
-  return ptrace_info_list.size();
+  return ptrace_info_list->size();
 }
 
 extern "C" struct ptrace_info get_next_ptrace_info(int index) {
-  if ((unsigned int)index >= ptrace_info_list.size())
+  if ((unsigned int)index >= ptrace_info_list->size())
     return EMPTY_PTRACE_INFO;
 
   dmtcp::list<struct ptrace_info>::iterator it;
   int local_index = 0;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (local_index == index) return *it;
     local_index++;
   }
@@ -152,7 +159,7 @@ void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
 void ptrace_info_list_update_inferior_st (pid_t superior, pid_t inferior,
                                           char inferior_st) {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->superior == superior && it->inferior == inferior) {
       it->inferior_st = inferior_st;
       break;
@@ -162,7 +169,7 @@ void ptrace_info_list_update_inferior_st (pid_t superior, pid_t inferior,
 
 static ptrace_info ptrace_info_list_has_pair (pid_t superior, pid_t inferior) {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->superior == superior && it->inferior == inferior)
       return *it;
   }
@@ -173,14 +180,14 @@ void ptrace_info_list_remove_pair (pid_t superior, pid_t inferior) {
   struct ptrace_info pt_info = ptrace_info_list_has_pair(superior, inferior);
   if (pt_info == EMPTY_PTRACE_INFO) return;
   pthread_mutex_lock(&ptrace_info_list_mutex);
-  ptrace_info_list.remove(pt_info);
+  ptrace_info_list->remove(pt_info);
   pthread_mutex_unlock(&ptrace_info_list_mutex);
 }
 
 void ptrace_info_update_last_command (pid_t superior, pid_t inferior,
   int last_command) {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->superior == superior && it->inferior == inferior) {
       it->last_command = last_command;
       if (last_command == PTRACE_SINGLESTEP_COMMAND)
@@ -292,7 +299,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
 void ptrace_info_list_update_is_inferior_ckpthread(pid_t pid, pid_t tid) {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (tid == it->inferior) {
       it->inferior_is_ckpthread = 1;
       break;
@@ -318,30 +325,30 @@ void ptrace_info_list_sort () {
   dmtcp::list<struct ptrace_info>::iterator it;
 
   /* Temporarily remove checkpoint threads from ptrace_info_list. */
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->inferior_is_ckpthread) {
       tmp_ckpths_list.push_back(*it);
-      ptrace_info_list.remove(*it);
+      ptrace_info_list->remove(*it);
       it--;
     }
   }
 
   /* Sort the two lists: first by superior and if there's a tie on superior,
    * then sort by inferior. */
-  ptrace_info_list.sort(ptrace_info_compare);
+  ptrace_info_list->sort(ptrace_info_compare);
   tmp_ckpths_list.sort(ptrace_info_compare);
 
   /* Add the temporary list of ckpt threads at the end of ptrace_info_list. */
   for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) {
-    ptrace_info_list.push_back(*it);
+    ptrace_info_list->push_back(*it);
   }
 }
 
 void ptrace_info_list_remove_pairs_with_dead_tids () {
   dmtcp::list<ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (!procfs_state(it->inferior)) {
-      ptrace_info_list.remove(*it);
+      ptrace_info_list->remove(*it);
       it--;
     }
   }
@@ -349,14 +356,14 @@ void ptrace_info_list_remove_pairs_with_dead_tids () {
 
 void ptrace_info_list_save_threads_state () {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for(it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for(it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
       it->inferior_st = procfs_state(it->inferior);
   }
 }
 
 void ptrace_info_list_print () {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     fprintf(stdout, "GETTID = %d superior = %d inferior = %d state =  %c "
             "inferior_is_ckpthread = %d\n",
             GETTID(), it->superior, it->inferior, it->inferior_st,
@@ -389,14 +396,14 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
   new_ptrace_info.inferior_is_ckpthread = 0;
 
   pthread_mutex_lock(&ptrace_info_list_mutex);
-  ptrace_info_list.push_back(new_ptrace_info);
+  ptrace_info_list->push_back(new_ptrace_info);
   pthread_mutex_unlock(&ptrace_info_list_mutex);
 }
 
 extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
                                              int singlestep_waited_on) {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list.begin(); it != ptrace_info_list.end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->superior == superior && it->inferior == inferior) {
       if (it->last_command == PTRACE_SINGLESTEP_COMMAND)
         it->singlestep_waited_on = singlestep_waited_on;

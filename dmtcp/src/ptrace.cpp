@@ -66,6 +66,7 @@ static int callbackPtraceInfoListSize ()
 void ptraceInit()
 {
   mtcp_init_ptrace();
+  ptrace_init_data_structures();
 }
 
 void mtcp_process_stop_signal_event(void *data)
