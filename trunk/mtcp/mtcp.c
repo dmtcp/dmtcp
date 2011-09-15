@@ -442,8 +442,7 @@ static void (*callback_restore_virtual_pid_table)() = NULL;
 
 void (*callback_pre_suspend_user_thread)();
 void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart);
-void (*callback_send_stop_signal)(pid_t tid, pid_t original_tid,
-                                  int *retry_signalling, int *retval);
+void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling, int *retval);
 void (*callback_ckpt_thread_start)();
 
 static int (*clone_entry) (int (*fn) (void *arg),
@@ -848,7 +847,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_suspend_user_thread)(),
                         void (*pre_resume_user_thread)(int is_ckpt,
                                                        int is_restart),
-                        void (*send_stop_signal)(pid_t tid, pid_t original_tid,
+                        void (*send_stop_signal)(pid_t tid,
                                                  int *retry_signalling,
                                                  int *retval),
                         void (*ckpt_thread_start)())
@@ -1818,7 +1817,7 @@ again:
             goto again;
           int retry_signalling = 1;
           int retval = 0;
-          callback_send_stop_signal(thread->tid, thread->original_tid,
+          callback_send_stop_signal(thread->original_tid,
                                     &retry_signalling, &retval);
           if (retry_signalling) {
             retval = mtcp_sys_kernel_tgkill(motherpid, thread->tid,

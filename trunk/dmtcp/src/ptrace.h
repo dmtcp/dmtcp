@@ -4,8 +4,6 @@
 #include "constants.h"
 
 #ifdef PTRACE
-#include "syscallwrappers.h"
-
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"

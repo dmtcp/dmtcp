@@ -40,9 +40,14 @@
 #include <sys/syscall.h>
 
 #include "constants.h"
-
 #ifdef PTRACE
-#define DPRINTF printf
+
+#ifdef DEBUG
+# define DPRINTF printf
+#else
+# define DPRINTF
+#endif
+
 #define MTCP_PRINTF printf
 #include "mtcp_ptrace.h"
 #include "ptrace.h"
@@ -50,6 +55,7 @@
 
 
 #define GETTID() (int)syscall(SYS_gettid)
+#define TGKILL(pid, tid, sig) (int)syscall(SYS_tgkill, pid, tid, sig)
 
 const unsigned char DMTCP_SYS_sigreturn =  0x77;
 const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
@@ -365,9 +371,7 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
   }
 }
 
-void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
-                                  pid_t original_tid,
-                                  int *retry_signalling, int *retval)
+void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
 {
   *retry_signalling = 0;
   if (mtcp_is_ptracing()) {
@@ -379,7 +383,7 @@ void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
       /* There is no ptrace_shared_file. All ptrace pairs are in memory.
        * Thus we only need to update the ptrace pairs. */
       mtcp_ptrace_info_list_save_threads_state();
-      inferior_st = retrieve_inferior_state(original_tid);
+      inferior_st = retrieve_inferior_state(tid);
     } else {
       has_new_ptrace_shared_file = 1;
       int new_ptrace_fd = -1;
@@ -392,7 +396,7 @@ void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
       while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
         read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
         inf_st = procfs_state(inferior);
-        if (inferior == original_tid) inferior_st = inf_st;
+        if (inferior == tid) inferior_st = inf_st;
         if (ckpt_leader && new_ptrace_fd != -1) {
           if (write(new_ptrace_fd, &superior, sizeof(pid_t)) == -1) {
             MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
@@ -422,7 +426,7 @@ void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
     DPRINTF("%d %c\n", GETTID(), inferior_st);
     if (inferior_st == 'N') {
       /* If the state is unknown, send a stop signal to inferior. */
-      if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+      if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
         if (errno != ESRCH) {
           MTCP_PRINTF ("error signalling thread %d: %s\n",
                        tid, strerror(errno));
@@ -431,11 +435,11 @@ void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
         return;
       }
     } else {
-      DPRINTF("%c %d\n", inferior_st, original_tid);
+      DPRINTF("%c %d\n", inferior_st, tid);
       /* If the state is not stopped, then send a stop signal to
        * the inferior. */
       if (inferior_st != 'T') {
-        if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+        if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
           if (errno != ESRCH) {
             MTCP_PRINTF ("error signalling thread %d: %s\n",
                          tid, strerror(errno));
@@ -444,10 +448,10 @@ void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
           return;
         }
       }
-      create_file(original_tid);
+      create_file(tid);
     }
   } else {
-    if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+    if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
       if (errno != ESRCH) {
         MTCP_PRINTF ("error signalling thread %d: %s\n",
                      tid, strerror(errno));

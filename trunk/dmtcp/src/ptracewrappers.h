@@ -28,30 +28,8 @@
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
 
-//enum {
-//  PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD = 1,
-//  PTRACE_INFO_LIST_SORT,
-//  PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS,
-//  PTRACE_INFO_LIST_SAVE_THREADS_STATE,
-//  PTRACE_INFO_LIST_PRINT,
-//  PTRACE_INFO_LIST_INSERT,
-//  PTRACE_INFO_LIST_UPDATE_INFO
-//};
 
-#define MTCP_DEFAULT_SIGNAL SIGUSR2
-
-/* Must match the structure declaration in mtcp/mtcp.h, without the operator
- * overloading feature. */
-//struct ptrace_info {
-//  pid_t superior;
-//  pid_t inferior;
-//  char inferior_st;
-//  int inferior_is_ckpthread;
-//  int last_command;
-//  int singlestep_waited_on;
-//
-//};
-
+#ifdef __cplusplus
 static inline bool operator==(const struct ptrace_info& a, const struct ptrace_info& b) {
   return b.superior == a.superior && b.inferior == a.inferior;
 }
@@ -59,39 +37,31 @@ static inline bool operator==(const struct ptrace_info& a, const struct ptrace_i
 static inline bool operator!= (const struct ptrace_info& a, const struct ptrace_info& b) {
   return b.superior != a.superior || b.inferior != a.inferior;
 }
+#endif
 
 static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
 
 static const struct cmd_info EMPTY_CMD_INFO = {0, 0, 0, 0, 0, 0, 0};
 
-//extern dmtcp::list<struct ptrace_info> ptrace_info_list;
+EXTERNC void ptrace_info_list_insert (pid_t superior, pid_t inferior,
+                                      int last_command, int singlestep_waited_on,
+                                      char inferior_st, int file_option);
 
-#if 0
-__attribute__ ((visibility ("hidden"))) extern t_mtcp_get_ptrace_waitpid_info
-  mtcp_get_ptrace_waitpid_info;
+EXTERNC char procfs_state(int tid);
 
-__attribute__ ((visibility ("hidden"))) extern t_mtcp_init_thread_local
-  mtcp_init_thread_local;
+EXTERNC struct ptrace_info get_next_ptrace_info(int index);
 
-__attribute__ ((visibility ("hidden"))) extern t_mtcp_ptracing
-  mtcp_ptracing;
+EXTERNC void ptrace_info_list_command(struct cmd_info cmd);
 
-__attribute__ ((visibility ("hidden"))) extern sigset_t signals_set;
-#endif
+EXTERNC int ptrace_info_list_size();
 
-void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
-  int singlestep_waited_on, char inferior_st, int file_option);
+EXTERNC void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
+                                          int singlestep_waited_on);
 
-char procfs_state(int tid);
+EXTERNC long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
+                          void *data);
+EXTERNC pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
 
-extern "C" struct ptrace_info get_next_ptrace_info(int index);
-
-extern "C" void ptrace_info_list_command(struct cmd_info cmd);
-
-extern "C" int ptrace_info_list_size();
-
-extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-  int singlestep_waited_on);
-
+EXTERNC void ptrace_init_data_structures();
 #endif
 #endif
