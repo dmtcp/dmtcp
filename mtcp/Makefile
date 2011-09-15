@@ -67,13 +67,6 @@ CFLAGS += -O0 -g
 # Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
 #  install a copy of libmtcp.so for others to use.
 
-# If ./configure --enable-ptrace-support defined, DMTCP 'make' will set this.
-# If calling 'make' from mtcp subdir, you may want to unconditionally set this.
-ifdef PTRACE_SUPPORT
-  CFLAGS += -DPTRACE
-endif
-
-# If ./configure --enable-ptrace-support defined, DMTCP 'make' will set this.
 # If calling 'make' from mtcp subdir, you may want to unconditionally set this.
 ifdef HBICT_DELTACOMP
   CFLAGS += -DHBICT_DELTACOMP
@@ -234,8 +227,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_ptrace.o \
-	mtcp_fastckpt.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_fastckpt.o
 
 # for libtools -- not used
 %.lo : %.c
@@ -265,7 +257,7 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  echo '*** WARNING: libmtcp.so: MTCP symbols polluting user namespace'\
 	  || true
 
-mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_ptrace.h mtcp_ptrace.o
+mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
@@ -313,9 +305,6 @@ extractobjectmodule: extractobjectmodule.c
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
 	${CC} $(CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
-
-mtcp_ptrace.o: mtcp_ptrace.c mtcp_internal.h mtcp_ptrace.h
-	${CC} $(CFLAGS) -c -o mtcp_ptrace.o mtcp_ptrace.c
 
 mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c

@@ -1,9 +1,13 @@
 #include <sys/types.h>
+#include <dlfcn.h>
 #include "uniquepid.h"
 #include "../jalib/jalloc.h"
 #include "constants.h"
 #include "ptrace.h"
+#include "mtcp_ptrace.h"
 #include "ptracewrappers.h"
+#include "dmtcpmodule.h"
+#include "virtualpidtable.h"
 #ifdef PTRACE
 
 static struct ptrace_info callbackGetNextPtraceInfo (int index);
@@ -13,66 +17,37 @@ static int callbackPtraceInfoListSize ();
 
 sigset_t signals_set;
 
-MtcpPtraceFuncPtrs_t mtcpPtraceFuncPtrs;
-
-static void initializeMtcpPtraceFuncPtrs()
-{
-  mtcpPtraceFuncPtrs.init_thread_local =
-    (mtcp_init_thread_local_t) get_mtcp_symbol("mtcp_init_thread_local");
-  mtcpPtraceFuncPtrs.init_ptrace =
-    (mtcp_init_ptrace_t) get_mtcp_symbol("mtcp_init_ptrace");
-  mtcpPtraceFuncPtrs.set_ptrace_callbacks =
-    (mtcp_set_ptrace_callbacks_t) get_mtcp_symbol("mtcp_set_ptrace_callbacks");
-
-  mtcpPtraceFuncPtrs.get_ptrace_waitpid_info =
-    (mtcp_get_ptrace_waitpid_info_t)
-      get_mtcp_symbol("mtcp_get_ptrace_waitpid_info");
-
-  mtcpPtraceFuncPtrs.is_ptracing =
-    (mtcp_is_ptracing_t) get_mtcp_symbol("mtcp_is_ptracing");
-}
-
-void initializeMtcpPtraceEngine()
-{
-  // FIXME: Do we need this anymore?
-  sigemptyset (&signals_set);
-  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
-  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
-
-  initializeMtcpPtraceFuncPtrs();
-
-  (*mtcpPtraceFuncPtrs.init_ptrace)(dmtcp::UniquePid::getTmpDir().c_str());
-
-  (*mtcpPtraceFuncPtrs.set_ptrace_callbacks)(&callbackGetNextPtraceInfo,
-                                       &callbackPtraceInfoListCommand,
-                                       &callbackJalibCkptUnlock,
-                                       &callbackPtraceInfoListSize
-                                      );
-}
+static int originalStartup = 1;
 
 void ptraceProcessCloneStartFn()
 {
-  mtcpPtraceFuncPtrs.init_thread_local();
+  mtcp_init_thread_local();
 }
 
-void ptraceCallbackPreCheckpoint()
+void ptraceProcessThreadCreation(void *data)
 {
-  if (!mtcpPtraceFuncPtrs.is_ptracing()) {
-    JALIB_CKPT_UNLOCK();
-  }
+  pid_t tid = (pid_t) (unsigned long) data;
+  mtcp_ptrace_process_thread_creation(tid);
 }
 
-static struct ptrace_info callbackGetNextPtraceInfo (int index)
-{
-  return get_next_ptrace_info(index);
-}
+//void ptraceCallbackPreCheckpoint()
+//{
+//  if (!mtcp_is_ptracing()) {
+//    JALIB_CKPT_UNLOCK();
+//  }
+//}
 
-static void callbackPtraceInfoListCommand (struct cmd_info cmd)
-{
-  ptrace_info_list_command(cmd);
-}
+//static struct ptrace_info callbackGetNextPtraceInfo (int index)
+//{
+//  return get_next_ptrace_info(index);
+//}
 
-static void callbackJalibCkptUnlock ()
+//static void callbackPtraceInfoListCommand (struct cmd_info cmd)
+//{
+//  ptrace_info_list_command(cmd);
+//}
+
+extern "C" void jalib_ckpt_unlock()
 {
   JALIB_CKPT_UNLOCK();
 }
@@ -108,5 +83,108 @@ static int callbackPtraceInfoListSize ()
 //  free(ptr);
 //}
 # endif
+
+void ptraceInit()
+{
+  // FIXME: Do we need this anymore?
+  sigemptyset (&signals_set);
+  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
+  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
+
+  mtcp_init_ptrace();
+}
+
+void mtcp_process_stop_signal_event(void *data)
+{
+  JASSERT(data != NULL);
+  DmtcpSendStopSignalInfo *info = (DmtcpSendStopSignalInfo*) data;
+
+  mtcp_ptrace_send_stop_signal(_real_getpid(), info->tid, info->original_tid,
+                               info->retry_signalling, info->retval);
+}
+void ptraceProcessWaitForSuspendMsg()
+{
+  if (originalStartup) {
+    originalStartup = 0;
+  } else {
+    mtcp_ptrace_process_post_restart_resume_ckpt_thread();
+  }
+
+  if (mtcp_is_ptracing()) {
+    /* No need for a mutex. We're before the barrier. */
+    jalib_ckpt_unlock_ready = 0;
+  }
+  mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
+}
+
+void ptraceProcessGotSuspendMsg()
+{
+  /* One of the threads is the ckpt thread. Don't count that in. */
+  // FIXME: Take care of invalid threads
+  nthreads = dmtcp::VirtualPidTable::instance().numThreads() - 1;
+  //for (thread = threads; thread != NULL; thread = thread -> next) {
+  //  nthreads++;
+  //}
+  mtcp_ptrace_process_pre_suspend_ckpt_thread();
+}
+
+void ptraceProcessStartPreCkptCB()
+{
+  mtcp_ptrace_process_post_suspend_ckpt_thread();
+}
+
+void ptraceProcessResumeUserThread(void *data)
+{
+  DmtcpResumeUserThreadInfo *info = (DmtcpResumeUserThreadInfo*) data;
+  mtcp_ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
+}
+
+extern "C" void ptrace_dmtcp_process_event(DmtcpEvent_t event, void* data)
+{
+  switch (event) {
+    case DMTCP_EVENT_INIT:
+      ptraceInit();
+      break;
+    case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
+      ptraceProcessWaitForSuspendMsg();
+      break;
+    case DMTCP_EVENT_GOT_SUSPEND_MSG:
+      ptraceProcessGotSuspendMsg();
+      break;
+    case DMTCP_EVENT_START_PRE_CKPT_CB:
+      ptraceProcessStartPreCkptCB();
+      break;
+    case DMTCP_EVENT_THREAD_CREATED:
+      ptraceProcessThreadCreation(data);
+      break;
+    case DMTCP_EVENT_CKPT_THREAD_START:
+      mtcp_ptrace_process_ckpt_thread_creation();
+      break;
+    case DMTCP_EVENT_THREAD_START:
+      ptraceProcessCloneStartFn();
+      break;
+    case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
+      mtcp_ptrace_process_pre_suspend_user_thread();
+      break;
+    case DMTCP_EVENT_RESUME_USER_THREAD:
+      ptraceProcessResumeUserThread(data);
+      break;
+    case DMTCP_EVENT_SEND_STOP_SIGNAL:
+      mtcp_process_stop_signal_event(data);
+      break;
+
+    case DMTCP_EVENT_PRE_EXIT:
+    case DMTCP_EVENT_PRE_CHECKPOINT:
+    case DMTCP_EVENT_POST_LEADER_ELECTION:
+    case DMTCP_EVENT_POST_DRAIN:
+    case DMTCP_EVENT_POST_CHECKPOINT:
+    case DMTCP_EVENT_POST_RESTART:
+    default:
+      break;
+  }
+
+  DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data);
+  return;
+}
 
 #endif

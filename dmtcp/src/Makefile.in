@@ -152,8 +152,9 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	workerhijack.$(OBJEXT) epollwrappers.$(OBJEXT) \
 	sysvipc.$(OBJEXT) pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) filewrappers.$(OBJEXT) \
-	mallocwrappers.$(OBJEXT) ptrace.$(OBJEXT) \
-	ptracewrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	mallocwrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT) \
+	mtcp_ptrace.$(OBJEXT) ptrace.$(OBJEXT) \
+	ptracewrappers.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -312,7 +313,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h virtualpidtable.h util.h sysvipc.h \
-	ptrace.h ptracewrappers.h dmtcpmodule.h \
+	mtcp_ptrace.h ptrace.h ptracewrappers.h dmtcpmodule.h \
 	lookup_service.h trampolines.h
 
 
@@ -356,7 +357,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 			 epollwrappers.cpp  sysvipc.cpp \
 			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
 			 filewrappers.cpp mallocwrappers.cpp \
-			 ptrace.cpp ptracewrappers.cpp dmtcpmodule.cpp
+			 dmtcpmodule.cpp \
+			 mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcphijack_so_LDFLAGS = -shared -module
@@ -635,6 +637,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mallocwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcp_ptrace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@

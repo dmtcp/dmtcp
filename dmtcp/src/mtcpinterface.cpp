@@ -86,6 +86,12 @@ static int callbackShouldCkptFD(int /*fd*/);
 static void callbackWriteCkptPrefix(int fd);
 static void callbackRestoreVirtualPidTable();
 
+void callbackPreSuspendUserThread();
+void callbackPreResumeUserThread(int is_ckpt, int is_restart);
+void callbackSendStopSignal(pid_t tid, pid_t original_tid,
+                            int *retry_signalling, int *retval);
+
+void callbackCkptThreadStart();
 MtcpFuncPtrs_t mtcpFuncPtrs;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -194,12 +200,13 @@ void dmtcp::initializeMtcpEngine()
                                 &callbackPostCheckpoint,
                                 &callbackShouldCkptFD,
                                 &callbackWriteCkptPrefix,
-                                &callbackRestoreVirtualPidTable
-                               );
+                                &callbackRestoreVirtualPidTable,
 
-#ifdef PTRACE
-  initializeMtcpPtraceEngine();
-#endif
+                                &callbackPreSuspendUserThread,
+                                &callbackPreResumeUserThread,
+                                &callbackSendStopSignal,
+                                &callbackCkptThreadStart
+                               );
 
   JTRACE ("Calling mtcp_init");
   mtcpFuncPtrs.init(UniquePid::checkpointFilename(), 0xBadF00d, 1);
@@ -210,6 +217,7 @@ void dmtcp::initializeMtcpEngine()
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
+  dmtcp_process_event(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   prctlGetProcessName();
@@ -219,16 +227,25 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.
   JALIB_CKPT_LOCK();
+  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG, NULL);
 }
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
+  dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
 /* In the case of PTRACE, we have already called JALIB_CKPT_UNLOCK. */
-#ifdef PTRACE
+#if 0
+# ifdef PTRACE
   ptraceCallbackPreCheckpoint();
-#else
+# else
   JALIB_CKPT_UNLOCK();
+# endif
 #endif
+
+  // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
+  // serves the purpose without having a callback.
+  // TODO: Check for correctness.
+  JALIB_RESET_ON_FORK();
 
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
@@ -342,6 +359,38 @@ static void callbackRestoreVirtualPidTable ( )
   // Now everything but user threads are restored.  Call the user hook.
   dmtcp::userHookTrampoline_postCkpt(true);
   // After this, the user threads will be unlocked in mtcp.c and will resume.
+}
+
+void callbackPreSuspendUserThread()
+{
+  dmtcp_process_event(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+}
+
+void callbackPreResumeUserThread(int is_ckpt, int is_restart)
+{
+  DmtcpResumeUserThreadInfo info;
+  info.is_ckpt = is_ckpt;
+  info.is_restart = is_restart;
+  dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
+}
+
+void callbackSendStopSignal(pid_t tid, pid_t original_tid,
+                           int *retry_signalling, int *retval)
+{
+  DmtcpSendStopSignalInfo info;
+  info.tid = tid;
+  info.original_tid = original_tid;
+  info.retry_signalling = retry_signalling;
+  info.retval = retval;
+
+  *retry_signalling = 1;
+  *retval = 0;
+  dmtcp_process_event(DMTCP_EVENT_SEND_STOP_SIGNAL, &info);
+}
+
+void callbackCkptThreadStart()
+{
+  dmtcp_process_event(DMTCP_EVENT_CKPT_THREAD_START, NULL);
 }
 
 void prctlGetProcessName()
@@ -508,9 +557,9 @@ int thread_start(void *arg)
   pid_t original_tid = threadArg -> original_tid;
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
-#ifdef PTRACE
-  ptraceProcessCloneStartFn();
-#endif
+//#ifdef PTRACE
+//  ptraceProcessCloneStartFn();
+//#endif
 
   // Free the memory was previously allocated through JALLOC_HELPER_MALLOC
   JALLOC_HELPER_FREE(threadArg);
@@ -644,6 +693,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       JTRACE ( "Forwarding user's clone call to mtcp" );
       tid = mtcpFuncPtrs.clone(thread_start, child_stack, flags, threadArg,
                                parent_tidptr, newtls, child_tidptr );
+      dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED,
+                          (void*) (unsigned long) tid);
     } else {
       /* Recreating thread during restart */
       JTRACE ( "Calling libc:__clone" );

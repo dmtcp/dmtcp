@@ -49,53 +49,21 @@ int mtcp_no (void);
 
 __attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
 
-#ifdef PTRACE
-
-/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
-struct ptrace_info {
-  pid_t superior;
-  pid_t inferior;
-  char inferior_st;
-  int inferior_is_ckpthread;
-  int last_command;
-  int singlestep_waited_on;
-};
-
-/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
-struct cmd_info {
-  int option;
-  pid_t superior;
-  pid_t inferior;
-  int last_command;
-  int singlestep_waited_on;
-  char inferior_st;
-  int file_option;
-};
-
-/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
-/* Default values: 0, 0, -1, -1, 0. */
-struct ptrace_waitpid_info {
-  int is_waitpid_local; /* 1 = waitpid called by DMTCP */
-  int is_ptrace_local;  /* 1 = ptrace called by DMTCP */
-  pid_t saved_pid;
-  int saved_status;
-  int has_status_and_pid;
-};
-
-void mtcp_set_ptrace_callbacks(struct ptrace_info (*get_next_ptrace_info)(),
-                               void (*ptrace_info_list_command)(struct cmd_info
-                                                                cmd),
-                               void (*jalib_ckpt_unlock)(),
-                               int (*ptrace_info_list_size)());
-#endif
 
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*pre_ckpt)(),
                         void (*post_ckpt)(int is_restarting,
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_ckpt_prefix)(int fd),
-                        void (*write_tid_maps)());
+                        void (*write_dmtcp_header)(int fd),
+                        void (*restore_virtual_pid_table)(),
+                        void (*pre_suspend_user_thread)(),
+                        void (*pre_resume_user_thread)(int is_ckpt,
+                                                       int is_restart),
+                        void (*send_stop_signal)(pid_t tid, pid_t original_tid,
+                                                 int *retry_signalling,
+                                                 int *retval),
+                        void (*ckpt_thread_start)());
 
 #ifdef __cplusplus
 }

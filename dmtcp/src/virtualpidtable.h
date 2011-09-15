@@ -42,7 +42,7 @@
 #else
 # define CURRENT_TO_ORIGINAL_PID(pid) (pid)
 # define ORIGINAL_TO_CURRENT_PID(pid) (pid)
-#endif 
+#endif
 
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
@@ -78,6 +78,7 @@ namespace dmtcp
       void  erase(pid_t originalPid);
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
+      size_t numThreads() { return _tidVector.size(); }
 
       void  postExec();
 
@@ -94,12 +95,12 @@ namespace dmtcp
       static void serializePidMapEntry ( jalib::JBinarySerializer& o,
                                          pid_t& originalPid,
                                          pid_t& currentPid );
-      static void serializeEntryCount( jalib::JBinarySerializer& o,         
+      static void serializeEntryCount( jalib::JBinarySerializer& o,
                                        size_t& count );
       static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
       void readPidMapsFromFile();
-      
-      
+
+
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
       void updateRootOfProcessTree();
