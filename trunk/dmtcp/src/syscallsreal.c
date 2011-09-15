@@ -688,6 +688,11 @@ int _real_setuid(uid_t uid) {
   REAL_FUNC_PASSTHROUGH( setuid ) (uid);
 }
 
+LIB_PRIVATE
+long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
+                  void *data) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
+}
 #endif
 
 // gettid / tkill / tgkill are not defined in libc.
@@ -907,11 +912,3 @@ int _real_epoll_pwait(int epfd, struct epoll_event *events,
                       int maxevents, int timeout, const sigset_t *sigmask) {
   REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
 }
-
-#ifdef PTRACE
-LIB_PRIVATE
-long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
-                  void *data) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
-}
-#endif

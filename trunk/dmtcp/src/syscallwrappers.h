@@ -400,12 +400,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_setgid(gid_t gid);
   int _real_setuid(uid_t uid);
 
-#endif /* PID_VIRTUALIZATION */
-
-#ifdef PTRACE
   long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
                     void *data);
-#endif
+#endif /* PID_VIRTUALIZATION */
 
 #ifdef __cplusplus
 }
