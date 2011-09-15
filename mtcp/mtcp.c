@@ -1084,20 +1084,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   }
 
 #ifdef PTRACE
-  /* Initialize the following semaphore needed by superior to wait for inferior
-   * to be created on restart. */
-  if (!__init_does_inferior_exist_sem) {
-    sem_init(&__does_inferior_exist_sem, 0, 1);
-    __init_does_inferior_exist_sem = 1;
-  }
-  /* Record new pairs to files: newly traced threads to ptrace_shared_file;
-   * also, write the checkpoint thread to checkpoint_threads_file. */
-  if (is_ptrace_setoptions == TRUE) {
-    mtcp_ptrace_info_list_insert(setoptions_superior, rc,
-                                 PTRACE_UNSPECIFIED_COMMAND,
-                                 FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
-  }
-  else read_ptrace_setoptions_file(TRUE, rc);
+  mtcp_ptrace_process_thread_creation(rc);
 #endif
 
   return (rc);
@@ -1748,12 +1735,13 @@ static void *checkpointhread (void *dummy)
   static int originalstartup = 1;
 
 #ifdef PTRACE
+# if 0
+  // mtcp_init_thread_local() has already been called for this thread from DMTCP:__clone
   DPRINTF("begin init_thread_local\n");
   mtcp_init_thread_local();
+# endif
 
-  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
-                               PTRACE_UNSPECIFIED_COMMAND, FALSE,
-                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
+  mtcp_ptrace_process_ckpt_thread_creation();
 #endif
 
   /* We put a timeout in case the thread being waited for exits whilst we are
@@ -1823,57 +1811,13 @@ static void *checkpointhread (void *dummy)
     checkpointsize = 0;
 
 #ifdef PTRACE
-    pid_t ckpt_leader = 0;
-    if (mtcp_is_ptracing()) {
-      /* One of the threads is the ckpt thread. Don't count that in. */
-      // FIXME: Take care of invalid threads
-      nthreads = -1;
-      for (thread = threads; thread != NULL; thread = thread -> next) {
-        nthreads++;
-      }
-      proceed_to_checkpoint = 0;
-
-      read_ptrace_setoptions_file(FALSE, 0);
-
-      int ckpt_leader_fd = -1;
-
-      if (possible_ckpt_leader(GETTID())) {
-        ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY, 0644);
-        if (ckpt_leader_fd != -1) {
-          ckpt_leader = 1;
-          close(ckpt_leader_fd);
-        }
-      }
-
-      /* Is the checkpoint thread being traced? If yes, wait for the superior
-       * to arrive at stopthisthread. */
-      if (callback_get_next_ptrace_info) {
-        int ckpt_ptraced_by = 0;
-        int index = 0;
-        struct ptrace_info pt_info;
-        while (empty_ptrace_info(
-                 pt_info = (*callback_get_next_ptrace_info)(index++))) {
-          if (pt_info.inferior == GETTID()) {
-            ckpt_ptraced_by = pt_info.superior;
-            break;
-          }
-        }
-        /* The checkpoint thread might not be in the list of threads yet.
-         * However, we have one more chance of finding it, by reading
-         * ptrace_shared_file. */
-        if (!ckpt_ptraced_by) {
-          ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());
-        }
-        if (ckpt_ptraced_by) {
-          DPRINTF("ckpt %d is being traced by %d.\n",
-                  GETTID(), ckpt_ptraced_by);
-          ptrace_wait4(ckpt_ptraced_by);
-          DPRINTF("ckpt %d is done waiting for its "
-                  "superior %d: superior is in stopthisthread.\n",
-                  GETTID(), ckpt_ptraced_by);
-        } else DPRINTF("ckpt %d not being traced.\n", GETTID());
-      }
+    /* One of the threads is the ckpt thread. Don't count that in. */
+    // FIXME: Take care of invalid threads
+    nthreads = -1;
+    for (thread = threads; thread != NULL; thread = thread -> next) {
+      nthreads++;
     }
+    pid_t ckpt_leader = mtcp_ptrace_process_pre_suspend();
 #endif
 
     /* Halt all other threads - force them to call stopthisthread
