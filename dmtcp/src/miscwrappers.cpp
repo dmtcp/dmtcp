@@ -607,6 +607,57 @@ extern "C" long int syscall(long int sys_num, ... )
   return ret;
 }
 
+// TODO: Move these to a separate pthreadwrappers.cpp file.
+extern "C" int
+pthread_cond_broadcast(pthread_cond_t *cond)
+{
+  return _real_pthread_cond_broadcast(cond);
+}
+
+extern "C" int
+pthread_cond_destroy(pthread_cond_t *cond)
+{
+  return _real_pthread_cond_destroy(cond);
+}
+
+extern "C" int
+pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
+{
+  return _real_pthread_cond_init(cond, attr);
+}
+
+extern "C" int
+pthread_cond_signal(pthread_cond_t *cond)
+{
+  return _real_pthread_cond_signal(cond);
+}
+
+extern "C" int
+pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+                       const struct timespec *abstime)
+{
+  return _real_pthread_cond_timedwait(cond, mutex, abstime);
+}
+
+extern "C" int
+pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+{
+  return _real_pthread_cond_wait(cond, mutex);
+}
+
+
+extern "C" int
+pthread_mutex_lock(pthread_mutex_t *mutex)
+{
+  return _real_pthread_mutex_lock(mutex);
+}
+
+extern "C" int
+pthread_mutex_unlock(pthread_mutex_t *mutex)
+{
+  return _real_pthread_mutex_unlock(mutex);
+}
+
 /*
 extern "C" int
 printf (const char *format, ...)

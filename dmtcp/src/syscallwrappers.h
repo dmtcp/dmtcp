@@ -189,7 +189,10 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_ctl)                          \
   MACRO(epoll_wait)                         \
   MACRO(epoll_pwait)                        \
-                                            \
+//  MACRO(creat)
+//  MACRO(openat)
+
+#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO)  \
   MACRO(pthread_create)                     \
   MACRO(pthread_join)                       \
   MACRO(pthread_sigmask)                    \
@@ -198,11 +201,13 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_mutex_unlock)               \
   MACRO(pthread_rwlock_unlock)              \
   MACRO(pthread_rwlock_rdlock)              \
-  MACRO(pthread_rwlock_wrlock)
-//  MACRO(creat)
-//  MACRO(openat)
-
-
+  MACRO(pthread_rwlock_wrlock)              \
+  MACRO(pthread_cond_broadcast)             \
+  MACRO(pthread_cond_destroy)               \
+  MACRO(pthread_cond_init)                  \
+  MACRO(pthread_cond_signal)                \
+  MACRO(pthread_cond_timedwait)             \
+  MACRO(pthread_cond_wait)
 
 #define FOREACH_DMTCP_WRAPPER(MACRO)            \
   FOREACH_GLIBC_WRAPPERS(MACRO)                 \
@@ -212,6 +217,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 # define GEN_ENUM(x) ENUM(x),
   typedef enum {
     FOREACH_DMTCP_WRAPPER(GEN_ENUM)
+    FOREACH_LIBPTHREAD_WRAPPERS(GEN_ENUM)
     numLibcWrappers
   } LibcWrapperOffset;
 
@@ -223,7 +229,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   LIB_PRIVATE void *_dmtcp_get_libc_dlsym_addr();
 
   int _dmtcp_unsetenv(const char *name);
-  void initialize_wrappers();
+  void initialize_libc_wrappers();
+  void initialize_libpthread_wrappers();
   void initializeJalib();
 
   int _real_socket ( int domain, int type, int protocol );
@@ -360,6 +367,14 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_cond_broadcast(pthread_cond_t *cond);
+  int _real_pthread_cond_destroy(pthread_cond_t *cond);
+  int _real_pthread_cond_init(pthread_cond_t *cond,
+                              const pthread_condattr_t *attr);
+  int _real_pthread_cond_signal(pthread_cond_t *cond);
+  int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+                                   const struct timespec *abstime);
+  int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 
   int _real_epoll_create(int size);
   int _real_epoll_create1(int flags);

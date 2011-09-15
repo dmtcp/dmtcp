@@ -196,9 +196,10 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
   // FIXME: Remove JALLOC_HELPER_... after the release.
   JALLOC_HELPER_DISABLE_LOCKS();
   dmtcp_wrappers_initializing = 1;
-  initialize_wrappers();
+  initialize_libc_wrappers();
   //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
   dmtcp_wrappers_initializing = 0;
+  initialize_libpthread_wrappers();
   JALLOC_HELPER_ENABLE_LOCKS();
 }
 
