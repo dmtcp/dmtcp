@@ -156,6 +156,7 @@ void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
 
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
+  UniquePid::ComputationId() = hello_remote.compGroup;
   if( param1 ){
     *param1 = hello_remote.params[0];
   }
