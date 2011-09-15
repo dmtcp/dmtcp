@@ -37,6 +37,7 @@ namespace dmtcp
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
+    static dmtcp::UniquePid& ComputationId();
     static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
 
