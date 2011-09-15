@@ -39,6 +39,7 @@
 #include <list>
 
 #ifdef PTRACE
+#include "ptrace.h"
 /* ptrace cannot work without pid virtualization.  If we're not using
  * pid virtualization, then disable this wrapper around ptrace, and
  * let the application call ptrace from libc. */
@@ -211,7 +212,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
   superior = syscall(SYS_gettid);
   inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
+  struct ptrace_waitpid_info pwi = mtcpPtraceFuncPtrs.get_ptrace_waitpid_info();
 
   switch (request) {
     case PTRACE_ATTACH: {

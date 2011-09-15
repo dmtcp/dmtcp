@@ -24,6 +24,8 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include "constants.h"
+
 namespace dmtcp
 {
   void __attribute__ ((weak)) initializeMtcpEngine();
@@ -45,15 +47,7 @@ extern "C"
                        char* mtcpRestoreArgvStartAddr),
      int  (*should_ckpt_fd ) ( int fd ),
      void (*write_ckpt_prefix ) ( int fd ),
-     void (*restore_virtual_pid_table) ()
-#ifdef PTRACE
-     ,
-     struct ptrace_info (*get_next_ptrace_info)(int index),
-     void (*ptrace_info_list_command)(struct cmd_info cmd),
-     void (*jalib_ckpt_unlock)(),
-     int  (*ptrace_info_list_size)()
-#endif
-    );
+     void (*restore_virtual_pid_table) ());
 
   typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
                                          int stderr_fd,
@@ -85,5 +79,6 @@ extern "C"
     mtcp_process_pthread_join_t process_pthread_join;
   } MtcpFuncPtrs_t;
 }
+LIB_PRIVATE void* get_mtcp_symbol ( const char* name );
 
 #endif

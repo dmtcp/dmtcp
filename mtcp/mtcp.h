@@ -81,6 +81,12 @@ struct ptrace_waitpid_info {
   int saved_status;
   int has_status_and_pid;
 };
+
+void mtcp_set_ptrace_callbacks(struct ptrace_info (*get_next_ptrace_info)(),
+                               void (*ptrace_info_list_command)(struct cmd_info
+                                                                cmd),
+                               void (*jalib_ckpt_unlock)(),
+                               int (*ptrace_info_list_size)());
 #endif
 
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
@@ -89,14 +95,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
                         void (*write_ckpt_prefix)(int fd),
-                        void (*write_tid_maps)()
-#ifdef PTRACE
-                      , struct ptrace_info (*get_next_ptrace_info)(int index),
-                        void (*ptrace_info_list_command)(struct cmd_info cmd),
-                        void (*jalib_ckpt_unlock)(),
-                        int (*ptrace_info_list_size)()
-#endif
-);
+                        void (*write_tid_maps)());
 
 #ifdef __cplusplus
 }

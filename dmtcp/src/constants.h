@@ -40,6 +40,9 @@
 // coordinator before it can do a query.
 #define COORD_NAMESERVICE
 
+#define TRUE 1
+#define FALSE 0
+
 #ifdef PTRACE
 # define LIBTHREAD_DB "libthread_db.so.1"
 # define LIBPTHREAD_FILENAME "libpthread.so.0"
@@ -176,6 +179,8 @@
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
 #define user_desc modify_ldt_ldt_s
 #endif
+
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 #endif
 

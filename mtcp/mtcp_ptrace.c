@@ -116,7 +116,7 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
 
 /* We're ptracing when the size of ptrace_info_list is greater than zero or
  * we have a file with the ptrace_info pairs. */
-int ptracing() {
+int mtcp_is_ptracing() {
   if (!callback_ptrace_info_list_size) return 0;
   struct stat buf;
   return ((*callback_ptrace_info_list_size)() > 0) ||
@@ -149,7 +149,7 @@ int empty_ptrace_info(struct ptrace_info pt_info) {
   return pt_info.superior && pt_info.inferior;
 }
 
-void init_thread_local()
+void mtcp_init_thread_local()
 {
   __ptrace_waitpid.is_waitpid_local = 0;    // no crash on pre-access
   __ptrace_waitpid.is_ptrace_local = 0;     // no crash on pre-access
@@ -159,6 +159,43 @@ void init_thread_local()
 
   setoptions_superior = -1;
   is_ptrace_setoptions = FALSE;
+}
+
+void mtcp_init_ptrace(const char *tmp_dir)
+{
+  DPRINTF("begin init_thread_local\n");
+  mtcp_init_thread_local();
+
+  if (mtcp_strlen(tmp_dir) >= sizeof(dmtcp_tmp_dir)) {
+    MTCP_PRINTF("Error: dmtcp tmp dir path too long\n");
+    mtcp_abort();
+  }
+  mtcp_strncpy(dmtcp_tmp_dir, tmp_dir, sizeof(dmtcp_tmp_dir));
+
+#if 0
+  strcpy(ptrace_shared_file, dmtcp_tmp_dir);
+  strcpy(ptrace_setoptions_file, dmtcp_tmp_dir);
+  strcpy(checkpoint_threads_file, dmtcp_tmp_dir);
+  strcpy(new_ptrace_shared_file, dmtcp_tmp_dir);
+  strcpy(ckpt_leader_file, dmtcp_tmp_dir);
+
+  strcat(ptrace_shared_file, "/ptrace_shared.txt");
+  strcat(ptrace_setoptions_file, "/ptrace_setoptions.txt");
+  strcat(checkpoint_threads_file, "/ptrace_ckpthreads.txt");
+  strcat(new_ptrace_shared_file, "/new_ptrace_shared.txt");
+  strcat(ckpt_leader_file, "/ckpt_leader_file.txt");
+#else
+  memset(ptrace_shared_file, '\0', PATH_MAX);
+  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
+  memset(ptrace_setoptions_file, '\0', PATH_MAX);
+  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dmtcp_tmp_dir);
+  memset(checkpoint_threads_file, '\0', PATH_MAX);
+  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dmtcp_tmp_dir);
+  memset(new_ptrace_shared_file, '\0', PATH_MAX);
+  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dmtcp_tmp_dir);
+  memset(ckpt_leader_file, '\0', PATH_MAX);
+  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
+#endif
 }
 
 ssize_t read_no_error(int fd, void *buf, size_t count)
@@ -201,7 +238,7 @@ void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
 
 void ptrace_attach_threads(int isRestart)
 {
-  if (!ptracing()) return;
+  if (!mtcp_is_ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   pid_t superior;
@@ -473,7 +510,7 @@ void ptrace_attach_threads(int isRestart)
  * can process the checkpoint message from the coordinator. */
 void ptrace_detach_checkpoint_threads ()
 {
-  if (!ptracing()) return;
+  if (!mtcp_is_ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   int ret;
@@ -497,7 +534,7 @@ void ptrace_detach_checkpoint_threads ()
 /* This function detaches the user threads. */
 void ptrace_detach_user_threads ()
 {
-  if (!ptracing()) return;
+  if (!mtcp_is_ptracing()) return;
   if (!callback_get_next_ptrace_info) return;
 
   int status = 0;
@@ -570,7 +607,7 @@ void ptrace_detach_user_threads ()
 
 void ptrace_lock_inferiors()
 {
-    if (!ptracing()) return;
+    if (!mtcp_is_ptracing()) return;
 
     char file[RECORDPATHLEN];
     snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
@@ -580,7 +617,7 @@ void ptrace_lock_inferiors()
 
 void ptrace_unlock_inferiors()
 {
-    if (!ptracing()) return;
+    if (!mtcp_is_ptracing()) return;
 
     char file[RECORDPATHLEN];
     int fd;
@@ -655,7 +692,7 @@ void ptrace_wait4(pid_t pid)
   wait_for_file(file);
 }
 
-struct ptrace_waitpid_info get_ptrace_waitpid_info ()
+struct ptrace_waitpid_info mtcp_get_ptrace_waitpid_info ()
 {
   return __ptrace_waitpid;
 }

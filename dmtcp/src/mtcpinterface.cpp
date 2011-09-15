@@ -45,6 +45,9 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
+#ifdef PTRACE
+#include "ptrace.h"
+#endif
 
 #ifdef __x86_64__
 # define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
@@ -85,18 +88,6 @@ static void callbackRestoreVirtualPidTable();
 
 MtcpFuncPtrs_t mtcpFuncPtrs;
 
-#ifdef PTRACE
-LIB_PRIVATE t_mtcp_get_ptrace_waitpid_info mtcp_get_ptrace_waitpid_info = NULL;
-LIB_PRIVATE t_mtcp_init_thread_local mtcp_init_thread_local = NULL;
-LIB_PRIVATE t_mtcp_ptracing mtcp_ptracing = NULL;
-LIB_PRIVATE sigset_t signals_set;
-
-static struct ptrace_info callbackGetNextPtraceInfo (int index);
-static void callbackPtraceInfoListCommand (struct cmd_info cmd);
-static void callbackJalibCkptUnlock ();
-static int callbackPtraceInfoListSize ();
-#endif
-
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
@@ -112,9 +103,9 @@ static void* find_and_open_mtcp_so()
 
 // Note that mtcp.so is closed and re-opened (maybe in a different
 //   location) at the time of fork.  Do not statically save the
-//   return value of _get_mtcp_symbol across a fork.
+//   return value of get_mtcp_symbol across a fork.
 LIB_PRIVATE
-void* _get_mtcp_symbol ( const char* name )
+void* get_mtcp_symbol ( const char* name )
 {
   static void* theMtcpHandle = find_and_open_mtcp_so();
 
@@ -148,19 +139,19 @@ void* _get_mtcp_symbol ( const char* name )
 
 static void initializeMtcpFuncPtrs()
 {
-  mtcpFuncPtrs.init = (mtcp_init_t) _get_mtcp_symbol("mtcp_init");
-  mtcpFuncPtrs.ok = (mtcp_ok_t) _get_mtcp_symbol("mtcp_ok");
-  mtcpFuncPtrs.clone = (mtcp_clone_t) _get_mtcp_symbol("__clone");
+  mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
+  mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
+  mtcpFuncPtrs.clone = (mtcp_clone_t) get_mtcp_symbol("__clone");
   mtcpFuncPtrs.fill_in_pthread_id =
-    (mtcp_fill_in_pthread_id_t) _get_mtcp_symbol("mtcp_fill_in_pthread_id");
+    (mtcp_fill_in_pthread_id_t) get_mtcp_symbol("mtcp_fill_in_pthread_id");
   mtcpFuncPtrs.kill_ckpthread =
-    (mtcp_kill_ckpthread_t) _get_mtcp_symbol("mtcp_kill_ckpthread");
+    (mtcp_kill_ckpthread_t) get_mtcp_symbol("mtcp_kill_ckpthread");
   mtcpFuncPtrs.process_pthread_join =
-    (mtcp_process_pthread_join_t) _get_mtcp_symbol("mtcp_process_pthread_join");
+    (mtcp_process_pthread_join_t) get_mtcp_symbol("mtcp_process_pthread_join");
   mtcpFuncPtrs.init_dmtcp_info =
-    (mtcp_init_dmtcp_info_t) _get_mtcp_symbol("mtcp_init_dmtcp_info");
+    (mtcp_init_dmtcp_info_t) get_mtcp_symbol("mtcp_init_dmtcp_info");
   mtcpFuncPtrs.set_callbacks =
-    (mtcp_set_callbacks_t) _get_mtcp_symbol("mtcp_set_callbacks");
+    (mtcp_set_callbacks_t) get_mtcp_symbol("mtcp_set_callbacks");
 }
 
 static void initializeDmtcpInfoInMtcp()
@@ -191,25 +182,6 @@ static void initializeDmtcpInfoInMtcp()
                                    malloc_fptr,
                                    free_fptr);
 
-#ifdef PTRACE
-  // FIXME: Do we need this anymore?
-  sigemptyset (&signals_set);
-  // FIXME: Suppose the user did:  dmtcp_checkpoint --mtcp-checkpoint-signal ..
-  sigaddset (&signals_set, MTCP_DEFAULT_SIGNAL);
-
-  char *dmtcp_tmp_dir =
-     (char*) _get_mtcp_symbol( "dmtcp_tmp_dir" );
-  sprintf(dmtcp_tmp_dir, "%s", dmtcp::UniquePid::getTmpDir().c_str());
-
-  mtcp_get_ptrace_waitpid_info = ( t_mtcp_get_ptrace_waitpid_info )
-    _get_mtcp_symbol ( "get_ptrace_waitpid_info" );
-
-  mtcp_init_thread_local = ( t_mtcp_init_thread_local )
-    _get_mtcp_symbol ( "init_thread_local" );
-
-  mtcp_ptracing = ( t_mtcp_ptracing )
-    _get_mtcp_symbol ( "ptracing" );
-#endif
 }
 
 void dmtcp::initializeMtcpEngine()
@@ -217,19 +189,18 @@ void dmtcp::initializeMtcpEngine()
   initializeMtcpFuncPtrs();
   initializeDmtcpInfoInMtcp();
 
-  (*mtcpFuncPtrs.set_callbacks)(&callbackSleepBetweenCheckpoint
-                                , &callbackPreCheckpoint
-                                , &callbackPostCheckpoint
-                                , &callbackShouldCkptFD
-                                , &callbackWriteCkptPrefix
-                                , &callbackRestoreVirtualPidTable
+  (*mtcpFuncPtrs.set_callbacks)(&callbackSleepBetweenCheckpoint,
+                                &callbackPreCheckpoint,
+                                &callbackPostCheckpoint,
+                                &callbackShouldCkptFD,
+                                &callbackWriteCkptPrefix,
+                                &callbackRestoreVirtualPidTable
+                               );
+
 #ifdef PTRACE
-                                , &callbackGetNextPtraceInfo
-                                , &callbackPtraceInfoListCommand
-                                , &callbackJalibCkptUnlock
-                                , &callbackPtraceInfoListSize
+  initializeMtcpPtraceEngine();
 #endif
-                 );
+
   JTRACE ("Calling mtcp_init");
   mtcpFuncPtrs.init(UniquePid::checkpointFilename(), 0xBadF00d, 1);
   mtcpFuncPtrs.ok();
@@ -254,7 +225,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 {
 /* In the case of PTRACE, we have already called JALIB_CKPT_UNLOCK. */
 #ifdef PTRACE
-  if (!mtcp_ptracing()) JALIB_CKPT_UNLOCK();
+  ptraceCallbackPreCheckpoint();
 #else
   JALIB_CKPT_UNLOCK();
 #endif
@@ -372,29 +343,6 @@ static void callbackRestoreVirtualPidTable ( )
   dmtcp::userHookTrampoline_postCkpt(true);
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
-
-#ifdef PTRACE
-static struct ptrace_info callbackGetNextPtraceInfo (int index)
-{
-  return get_next_ptrace_info(index);
-}
-
-static void callbackPtraceInfoListCommand (struct cmd_info cmd)
-{
-  ptrace_info_list_command(cmd);
-}
-
-static void callbackJalibCkptUnlock ()
-{
-  JALIB_CKPT_UNLOCK();
-}
-
-static int callbackPtraceInfoListSize ()
-{
-  return ptrace_info_list_size();
-}
-
-#endif
 
 void prctlGetProcessName()
 {
@@ -561,7 +509,7 @@ int thread_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 #ifdef PTRACE
-  mtcp_init_thread_local();
+  ptraceProcessCloneStartFn();
 #endif
 
   // Free the memory was previously allocated through JALLOC_HELPER_MALLOC
@@ -761,35 +709,6 @@ extern "C" int pthread_join (pthread_t thread, void **value_ptr)
   return retval;
 }
 
-#ifdef PTRACE
-# ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign wrapper.
-   // So, we won't interfere with it here.
-#  include <malloc.h>
-// This is needed to fix what is arguably a bug in libdl-2.10.so
-//   (and probably extending from versions 2.4 at least through 2.11).
-// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
-//    but dl-tls.c:dl_update_slotinfo just calls free .
-// So, TLS is allocated by libc malloc and can be freed by a malloc library
-//    defined by user.  This is a bug.
-// This happens only in a multi-threaded programs for which TLS is allocated.
-// So, we intercept __libc_memalign and point it to memalign to have a match.
-// We do the same for __libc_free.  libdl.so doesn't currently define
-//    __libc_free, but the code must be prepared to accept this.
-// An alternative to defining __libc_memalign would have been using
-//    the glibc __memalign_hook() function.
-//extern "C"
-//void *__libc_memalign(size_t boundary, size_t size) {
-//  return memalign(boundary, size);
-//}
-//// libdl.so doesn't define __libc_free, but in case it does in the future ...
-//extern "C"
-//void __libc_free(void * ptr) {
-//  free(ptr);
-//}
-# endif
-#endif
-
 // FIXME
 // Starting here, we can continue with files for mtcpinterface.cpp - Gene
 
@@ -830,7 +749,7 @@ void dmtcp::shutdownMtcpEngineOnFork()
            (dmtcp::DmtcpWorker::determineMtcpSignal())
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
-  _get_mtcp_symbol ( REOPEN_MTCP );
+  get_mtcp_symbol ( REOPEN_MTCP );
 }
 
 void dmtcp::killCkpthread()
