@@ -117,7 +117,7 @@ void _dmtcp_remutex_on_fork() {
  *    function in the libraries that come after the current library in the
  *    search order (see man dlsym for more details).
  *
- * There are two problem with this scheme:
+ * There are three problems with this scheme:
  * a) As with scheme 1 (dlopen/dlsym) -- if there are wrappers around
  *    calloc/free, it goes into an infinite recursion, and
  * b). Even if we don't have wrappers around calloc, there can be a problem if
@@ -126,6 +126,12 @@ void _dmtcp_remutex_on_fork() {
  *     One notable example is libopen-pal.so (part of OpenMPI) which uses
  *     malloc_hooks and in the malloc hook, it called xstat() which landed in
  *     the DMTCP wrapper for xstat() and hence an infinite recursive loop.
+ * c) Certain libpthread symbols are also defined in libc. For example, 'nm
+ *    libc.so' reveals that 'pthread_cond_broadcast', 'pthread_cond_signal',
+ *    and others are defined in libc.so. Thus, depending on the library load
+ *    order, RTLD_NEXT might instead resolve to the libc version, which has
+ *    been shown to cause problems (e.g. in the FReD module, which has wrappers
+ *    around those functions).
  *
  * The work around to these problems is described in the following section.
  *
@@ -161,17 +167,29 @@ void _dmtcp_remutex_on_fork() {
  *    with buf-size of 32, during dlsym() execution and thus it is safe to keep
  *    a small static buffer and pass on its address to the caller. The
  *    subsequent call to free() is ignored.
+ *
+ * In order to deal with the fact that libc.so contains some definition of
+ * several pthread_* functions, we do the following. In initializing the
+ * libpthread wrappers, we explicitly call dlopen() on libpthread.so. Then we
+ * are guaranteed to resolve the symbol to the correct libpthread symbol.
+ *
+ * This solution is imperfect: if the user program also defines wrappers for
+ * these functions, then using dlopen()/dlsym() explicitly on libpthread will
+ * cause the user wrappers to be skipped. We have not yet run into a program
+ * which does this, but it may occur in the future.
  */
 
 extern void prepareDmtcpWrappers();
 extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
-static int _wrappers_initialized = 0;
+static int _libc_wrappers_initialized = 0;
+static int _libpthread_wrappers_initialized = 0;
+
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
 LIB_PRIVATE
-void initialize_wrappers()
+void initialize_libc_wrappers()
 {
   const char *warn_msg =
     "WARNING: dmtcp_wrappers_initializing is set to '0' in the call to\n"
@@ -184,9 +202,38 @@ void initialize_wrappers()
     abort();
   }
 
-  if (!_wrappers_initialized) {
+  if (!_libc_wrappers_initialized) {
     FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
-    _wrappers_initialized = 1;
+    _libc_wrappers_initialized = 1;
+  }
+}
+
+#define GET_LIBPTHREAD_FUNC_ADDR(name) \
+  _real_func_addr[ENUM(name)] = _real_dlsym(pthread_handle, #name);
+
+/*
+ * WARNING: By using this method to initialize libpthread wrappers (direct
+ * dlopen()/dlsym()) we are are overriding any user wrappers for these
+ * functions. If this is a problem in the future we need to think of a new way
+ * to do this.
+ */
+LIB_PRIVATE
+void initialize_libpthread_wrappers()
+{
+  if (!_libpthread_wrappers_initialized) {
+    thread_performing_dlopen_dlsym = 1;
+    void *pthread_handle = _real_dlopen(LIBPTHREAD_FILENAME, RTLD_NOW);
+    thread_performing_dlopen_dlsym = 0;
+
+    if (pthread_handle == NULL) {
+      fprintf(stderr, "*** DMTCP: Error: could not open libpthread shared "
+                      "library. Aborting.\n");
+      abort();
+    }
+    FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
+    _real_dlclose(pthread_handle);
+
+    _libpthread_wrappers_initialized = 1;
   }
 }
 
@@ -195,8 +242,7 @@ void initialize_wrappers()
 
 #define REAL_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
-#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-  static type (*fn)() = NULL; \
+#define REAL_FUNC_PASSTHROUGH_WORK(name) \
   if (fn == NULL) { \
     if (_real_func_addr[ENUM(name)] == NULL) prepareDmtcpWrappers(); \
     fn = _real_func_addr[ENUM(name)]; \
@@ -207,22 +253,16 @@ void initialize_wrappers()
                       "    Aborting.\n", #name); \
       abort(); \
     } \
-  } \
+  }
+
+#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
+  static type (*fn)() = NULL;                  \
+  REAL_FUNC_PASSTHROUGH_WORK(name)             \
   return (*fn)
 
 #define REAL_FUNC_PASSTHROUGH_VOID(name) \
-  static void (*fn)() = NULL; \
-  if (fn == NULL) { \
-    if (_real_func_addr[ENUM(name)] == NULL) prepareDmtcpWrappers(); \
-    fn = _real_func_addr[ENUM(name)]; \
-    if (fn == NULL) { \
-      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
-                      "           The symbol wasn't found in current library" \
-                      " loading sequence.\n" \
-                      "    Aborting.\n", #name); \
-      abort(); \
-    } \
-  } \
+  static void (*fn)() = NULL;            \
+  REAL_FUNC_PASSTHROUGH_WORK(name)       \
   (*fn)
 
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
@@ -337,6 +377,44 @@ int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
 LIB_PRIVATE
 int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_broadcast(pthread_cond_t *cond)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_broadcast) (cond);
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_destroy(pthread_cond_t *cond)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_destroy) (cond);
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_init(pthread_cond_t *cond,
+                            const pthread_condattr_t *attr)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_init) (cond,attr);
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_signal(pthread_cond_t *cond)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_signal) (cond);
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+                                 const struct timespec *abstime)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_timedwait) (cond,mutex,abstime);
+}
+
+LIB_PRIVATE
+int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_wait) (cond,mutex);
 }
 
 LIB_PRIVATE
