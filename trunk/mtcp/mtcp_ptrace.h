@@ -106,7 +106,7 @@ extern char ckpt_leader_file[PATH_MAX];
 extern __thread pid_t setoptions_superior;
 extern __thread int is_ptrace_setoptions;
 
-extern void init_thread_local(void);
+extern void mtcp_init_thread_local(void);
 
 extern int empty_ptrace_info(struct ptrace_info pt_info);
 
@@ -120,7 +120,7 @@ extern char procfs_state(int tid);
 
 extern int possible_ckpt_leader(pid_t tid);
 
-extern int ptracing();
+extern int mtcp_is_ptracing();
 
 extern void ptrace_attach_threads(int isRestart);
 

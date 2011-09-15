@@ -51,8 +51,6 @@
 #include <grp.h>
 #include <netdb.h>
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
-
 void _dmtcp_setup_trampolines();
 
 #ifdef __cplusplus

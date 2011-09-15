@@ -633,10 +633,7 @@ void mtcp_init (char const *checkpointfilename,
   saved_pid = mtcp_sys_getpid ();
 
   //mtcp_segreg_t TLSSEGREG;
-#ifdef PTRACE
-  DPRINTF("begin init_thread_local\n");
-  init_thread_local();
-#endif
+
   /* Initialize the static curbrk variable in sbrk wrapper. */
   sbrk(0);
 
@@ -693,19 +690,6 @@ void mtcp_init (char const *checkpointfilename,
   len = strlen (perm_checkpointfilename);
   memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
   strncpy(temp_checkpointfilename + len, ".temp",PATH_MAX-len);
-
-#ifdef PTRACE
-  memset(ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
-  memset(ptrace_setoptions_file, '\0', PATH_MAX);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dmtcp_tmp_dir);
-  memset(checkpoint_threads_file, '\0', PATH_MAX);
-  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dmtcp_tmp_dir);
-  memset(new_ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dmtcp_tmp_dir);
-  memset(ckpt_leader_file, '\0', PATH_MAX);
-  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
-#endif
 
   DPRINTF("main tid %d\n", mtcp_sys_kernel_gettid ());
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
@@ -878,12 +862,6 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         int  (*ckpt_fd)(int fd),
                         void (*write_dmtcp_header)(int fd),
                         void (*restore_virtual_pid_table)()
-#ifdef PTRACE
-                      , struct ptrace_info (*get_next_ptrace_info)(),
-                        void (*ptrace_info_list_command)(struct cmd_info cmd),
-                        void (*jalib_ckpt_unlock)(),
-                        int (*ptrace_info_list_size)()
-#endif
                        )
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
@@ -892,13 +870,26 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_ckpt_fd = ckpt_fd;
     callback_write_dmtcp_header = write_dmtcp_header;
     callback_restore_virtual_pid_table = restore_virtual_pid_table;
+}
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
+
 #ifdef PTRACE
+void mtcp_set_ptrace_callbacks(struct ptrace_info (*get_next_ptrace_info)(),
+                               void (*ptrace_info_list_command)(struct cmd_info
+                                                                cmd),
+                               void (*jalib_ckpt_unlock)(),
+                               int (*ptrace_info_list_size)()
+                       )
+{
     callback_get_next_ptrace_info = get_next_ptrace_info;
     callback_ptrace_info_list_command = ptrace_info_list_command;
     callback_jalib_ckpt_unlock = jalib_ckpt_unlock;
     callback_ptrace_info_list_size = ptrace_info_list_size;
-#endif
 }
+#endif
 
 /*************************************************************************
  *
@@ -1758,7 +1749,7 @@ static void *checkpointhread (void *dummy)
 
 #ifdef PTRACE
   DPRINTF("begin init_thread_local\n");
-  init_thread_local();
+  mtcp_init_thread_local();
 
   mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
                                PTRACE_UNSPECIFIED_COMMAND, FALSE,
@@ -1833,7 +1824,7 @@ static void *checkpointhread (void *dummy)
 
 #ifdef PTRACE
     pid_t ckpt_leader = 0;
-    if (ptracing()) {
+    if (mtcp_is_ptracing()) {
       /* One of the threads is the ckpt thread. Don't count that in. */
       // FIXME: Take care of invalid threads
       nthreads = -1;
@@ -1929,7 +1920,7 @@ again:
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
             goto again;
 #ifdef PTRACE
-          if (ptracing()) {
+          if (mtcp_is_ptracing()) {
             has_new_ptrace_shared_file = 0;
 
             char inferior_st;
@@ -2097,7 +2088,7 @@ again:
 
     if (needrescan) goto rescan;
 #ifdef PTRACE
-    if (ptracing())
+    if (mtcp_is_ptracing())
       /* No need for a mutex. We're before the barrier. */
       jalib_ckpt_unlock_ready = 0;
 #endif
@@ -2113,7 +2104,7 @@ again:
 
 #ifdef PTRACE
     int cont = 1;
-    if (ptracing()) {
+    if (mtcp_is_ptracing()) {
       if (callback_jalib_ckpt_unlock) (*callback_jalib_ckpt_unlock)();
       else {
         MTCP_PRINTF("invalid callback_jalib_ckpt_unlock.\n");
@@ -3294,7 +3285,7 @@ static void stopthisthread (int signum)
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
 #ifdef PTRACE
   int cont = 1;
-  if (ptracing()) {
+  if (mtcp_is_ptracing()) {
 
     /* Wait for JALIB_CKPT_UNLOCK to have been called. */
     while (cont) {
@@ -3355,7 +3346,7 @@ static void stopthisthread (int signum)
   ptrace_detach_checkpoint_threads();
   ptrace_detach_user_threads();
 
-  if (ptracing()) {
+  if (mtcp_is_ptracing()) {
     pthread_mutex_lock(&nthreads_lock);
     nthreads--;
     pthread_mutex_unlock(&nthreads_lock);
