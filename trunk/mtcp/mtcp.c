@@ -76,10 +76,6 @@
 #define MTCP_SYS_GET_SET_THREAD_AREA
 #include "mtcp_internal.h"
 
-/* required for ptrace sake */
-#include <sys/user.h>
-#include "mtcp_ptrace.h"
-
 // static int WAIT=1;
 // static int WAIT=0;
 
@@ -443,6 +439,12 @@ static void (*callback_post_ckpt)(int is_restarting, char* argv_start) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_dmtcp_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
+
+void (*callback_pre_suspend_user_thread)();
+void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart);
+void (*callback_send_stop_signal)(pid_t tid, pid_t original_tid,
+                                  int *retry_signalling, int *retval);
+void (*callback_ckpt_thread_start)();
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -842,8 +844,14 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
                         void (*write_dmtcp_header)(int fd),
-                        void (*restore_virtual_pid_table)()
-                       )
+                        void (*restore_virtual_pid_table)(),
+                        void (*pre_suspend_user_thread)(),
+                        void (*pre_resume_user_thread)(int is_ckpt,
+                                                       int is_restart),
+                        void (*send_stop_signal)(pid_t tid, pid_t original_tid,
+                                                 int *retry_signalling,
+                                                 int *retval),
+                        void (*ckpt_thread_start)())
 {
     callback_sleep_between_ckpt = sleep_between_ckpt;
     callback_pre_ckpt = pre_ckpt;
@@ -851,6 +859,11 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
     callback_ckpt_fd = ckpt_fd;
     callback_write_dmtcp_header = write_dmtcp_header;
     callback_restore_virtual_pid_table = restore_virtual_pid_table;
+
+    callback_pre_suspend_user_thread = pre_suspend_user_thread;
+    callback_pre_resume_user_thread = pre_resume_user_thread;
+    callback_send_stop_signal = send_stop_signal;
+    callback_ckpt_thread_start = ckpt_thread_start;
 }
 
 /*************************************************************************
@@ -1044,10 +1057,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   } else {
     DPRINTF("clone rc=%d\n", rc);
   }
-
-#ifdef PTRACE
-  mtcp_ptrace_process_thread_creation(rc);
-#endif
 
   return (rc);
 }
@@ -1696,15 +1705,9 @@ static void *checkpointhread (void *dummy)
    */
   static int originalstartup = 1;
 
-#ifdef PTRACE
-# if 0
-  // mtcp_init_thread_local() has already been called for this thread from DMTCP:__clone
-  DPRINTF("begin init_thread_local\n");
-  mtcp_init_thread_local();
-# endif
-
-  mtcp_ptrace_process_ckpt_thread_creation();
-#endif
+  if (callback_ckpt_thread_start) {
+    (*callback_ckpt_thread_start)();
+  }
 
   /* We put a timeout in case the thread being waited for exits whilst we are
    * waiting
@@ -1727,6 +1730,7 @@ static void *checkpointhread (void *dummy)
 
   DPRINTF("after getcontext. current_tid %d, original_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->original_tid);
+
   if (originalstartup)
     originalstartup = 0;
   else {
@@ -1737,9 +1741,6 @@ static void *checkpointhread (void *dummy)
 
     DPRINTF("waiting for other threads after restore\n");
     wait_for_all_restored ();
-#ifdef PTRACE
-    mtcp_ptrace_process_post_restart_resume_ckpt_thread();
-#endif
     DPRINTF("resuming after restore\n");
   }
 
@@ -1771,16 +1772,6 @@ static void *checkpointhread (void *dummy)
 
     mtcp_sys_gettimeofday (&started, NULL);
     checkpointsize = 0;
-
-#ifdef PTRACE
-    /* One of the threads is the ckpt thread. Don't count that in. */
-    // FIXME: Take care of invalid threads
-    nthreads = -1;
-    for (thread = threads; thread != NULL; thread = thread -> next) {
-      nthreads++;
-    }
-    pid_t ckpt_leader = mtcp_ptrace_process_pre_suspend_ckpt_thread();
-#endif
 
     /* Halt all other threads - force them to call stopthisthread
      * If any have blocked checkpointing, wait for them to unblock before
@@ -1825,26 +1816,25 @@ again:
         case ST_RUNENABLED: {
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
             goto again;
-#ifdef PTRACE
-          int pret = mtcp_ptrace_send_stop_signal(motherpid, thread->tid,
-                                                  thread->original_tid,
-                                                  ckpt_leader);
-          if (pret < 0) {
-            unlk_threads();
-            threadisdead(thread);
-            goto rescan;
-          }
-#else
-          if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, STOPSIGNAL) < 0) {
-            if (mtcp_sys_errno != ESRCH) {
+          int retry_signalling = 1;
+          int retval = 0;
+          callback_send_stop_signal(thread->tid, thread->original_tid,
+                                    &retry_signalling, &retval);
+          if (retry_signalling) {
+            retval = mtcp_sys_kernel_tgkill(motherpid, thread->tid,
+                                            STOPSIGNAL);
+            if (retval < 0 && mtcp_sys_errno != ESRCH) {
               MTCP_PRINTF ("error signalling thread %d: %s\n",
                            thread -> tid, strerror(mtcp_sys_errno));
             }
+          }
+
+          if (retval < 0) {
             unlk_threads();
             threadisdead(thread);
             goto rescan;
           }
-#endif
+
           needrescan = 1;
           break;
         }
@@ -1909,12 +1899,6 @@ again:
      */
 
     if (needrescan) goto rescan;
-#ifdef PTRACE
-    if (mtcp_is_ptracing()) {
-      /* No need for a mutex. We're before the barrier. */
-      jalib_ckpt_unlock_ready = 0;
-    }
-#endif
     RMB; // matched by WMB in stopthisthread
     DPRINTF("everything suspended\n");
 
@@ -1924,10 +1908,6 @@ again:
       DPRINTF("exiting (no threads)\n");
       return (NULL);
     }
-
-#ifdef PTRACE
-    mtcp_ptrace_process_post_suspend_ckpt_thread();
-#endif
 
     /* Call weak symbol of this file, possibly overridden by user's strong
      * symbol. User must compile his/her code with -Wl,-export-dynamic to make
@@ -2022,9 +2002,6 @@ again:
     /* But if we're doing a restore verify, just exit.  The main thread is doing
      * the exec to start the restore.
      */
-#ifdef PTRACE
-    mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
-#endif
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
 }
@@ -2997,6 +2974,8 @@ static void stopthisthread (int signum)
 {
   int rc;
   Thread *thread;
+  int is_ckpt = 0;
+  int is_restart = 0;
 
   DPRINTF("tid %d returns to %p\n",
           mtcp_sys_kernel_gettid (), __builtin_return_address (0));
@@ -3065,6 +3044,7 @@ static void stopthisthread (int signum)
     }
     DPRINTF("after getcontext\n");
     if (mtcp_state_value(&restoreinprog) == 0) {
+      is_ckpt = 1;
 
       /* We are the original process and all context is saved
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
@@ -3079,9 +3059,8 @@ static void stopthisthread (int signum)
 
       // wake checkpoint thread if it's waiting for me
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
-#ifdef PTRACE
-      mtcp_ptrace_process_pre_suspend_user_thread();
-#endif
+
+      callback_pre_suspend_user_thread();
 
       /* Then we wait for the checkpoint thread to write the checkpoint file
        * then wake us up
@@ -3091,10 +3070,6 @@ static void stopthisthread (int signum)
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
-
-#ifdef PTRACE
-      mtcp_ptrace_process_post_ckpt_resume_user_thread();
-#endif
 
       /* Maybe there is to be a checkpoint verification.  If so, and we're the
        * main thread, exec the restore program.  If so and we're not the main
@@ -3132,6 +3107,7 @@ static void stopthisthread (int signum)
     /* Else restoreinprog >= 1;  This stuff executes to do a restart */
 
     else {
+      is_restart = 1;
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
 	mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
       wait_for_all_restored ();
@@ -3146,16 +3122,12 @@ static void stopthisthread (int signum)
         if (mtcp_restore_verify) renametempoverperm ();
       }
 
-#ifdef PTRACE
-      mtcp_ptrace_process_post_restart_resume_user_thread();
-#endif
     }
   }
   DPRINTF("tid %d returning to %p\n",
           mtcp_sys_kernel_gettid (), __builtin_return_address (0));
-#ifdef PTRACE
-  mtcp_ptrace_process_pre_resume_user_thread();
-#endif
+
+  callback_pre_resume_user_thread(is_ckpt, is_restart);
 }
 
 /*****************************************************************************

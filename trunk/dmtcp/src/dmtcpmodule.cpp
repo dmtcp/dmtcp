@@ -6,8 +6,16 @@
 
 using namespace dmtcp;
 
+extern "C" void ptrace_dmtcp_process_event(DmtcpEvent_t event, void* data);
 EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
+#ifdef PTRACE
+  /* Once the ptracemodule has been created, this call will be removed and the
+   * function ptrace_dmtcp_process_event() would be renamed to
+   * dmtcp_process_event().
+   */
+  ptrace_dmtcp_process_event(id, data);
+#endif
   return;
 }
 

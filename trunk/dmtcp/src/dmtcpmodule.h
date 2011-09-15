@@ -35,6 +35,9 @@
 typedef enum eDmtcpEvent {
   //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
+  DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG,
+  DMTCP_EVENT_GOT_SUSPEND_MSG,
+  DMTCP_EVENT_START_PRE_CKPT_CB,
   DMTCP_EVENT_PRE_EXIT,
   DMTCP_EVENT_RESET_ON_FORK,
   DMTCP_EVENT_POST_SUSPEND,
@@ -47,10 +50,29 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_POST_CHECKPOINT_RESUME,
   DMTCP_EVENT_POST_RESTART,
   DMTCP_EVENT_POST_RESTART_RESUME,
+  DMTCP_EVENT_THREAD_CREATED,
+  DMTCP_EVENT_CKPT_THREAD_START,
   DMTCP_EVENT_THREAD_START,
   DMTCP_EVENT_THREAD_EXIT,
+  DMTCP_EVENT_PRE_SUSPEND_USER_THREAD,
+  DMTCP_EVENT_PRE_RESUME_USER_THREAD,
+  DMTCP_EVENT_SEND_STOP_SIGNAL,
+  DMTCP_EVENT_RESUME_USER_THREAD,
   nDmtcpEvents
 } DmtcpEvent_t;
+
+typedef struct DmtcpSendStopSignalInfo {
+  pid_t tid;
+  pid_t original_tid;
+  pid_t ckpt_leader;
+  int *retry_signalling;
+  int *retval;
+} DmtcpSendStopSignalInfo;
+
+typedef struct DmtcpResumeUserThreadInfo {
+  int is_ckpt;
+  int is_restart;
+} DmtcpResumeUserThreadInfo;
 
 EXTERNC void dmtcp_module_disable_ckpt(void);
 EXTERNC void dmtcp_module_enable_ckpt(void);

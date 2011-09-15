@@ -25,13 +25,10 @@
 # define _GNU_SOURCE /* Needed for syscall declaration */
 #endif
 #define _XOPEN_SOURCE 500 /* _XOPEN_SOURCE >= 500 needed for getsid */
-#include "mtcp_ptrace.h"
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
-
-#ifdef PTRACE
-
+#include <sys/syscall.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -41,6 +38,16 @@
 #include <sched.h>
 #include <sys/user.h>
 #include <sys/syscall.h>
+
+#include "constants.h"
+
+#ifdef PTRACE
+#define DPRINTF printf
+#define MTCP_PRINTF printf
+#include "mtcp_ptrace.h"
+#include "ptrace.h"
+#include "dmtcpmodule.h"
+
 
 #define GETTID() (int)syscall(SYS_gettid)
 
@@ -58,21 +65,12 @@ sem_t __does_inferior_exist_sem;
 int __init_does_inferior_exist_sem = 0;
 int __check_once_does_inferior_exist = 0;
 
-char dmtcp_tmp_dir[PATH_MAX] = "";  /* Can test this to see if uninitialized */
 char new_ptrace_shared_file[PATH_MAX];
 char ptrace_shared_file[PATH_MAX];
 char ptrace_setoptions_file[PATH_MAX];
 char checkpoint_threads_file[PATH_MAX];
 char ckpt_leader_file[PATH_MAX];
 
-__attribute__ ((visibility ("hidden"))) struct ptrace_info
-  (*callback_get_next_ptrace_info)(int index) = NULL;
-__attribute__ ((visibility ("hidden"))) void
-  (*callback_ptrace_info_list_command)(struct cmd_info cmd) = NULL;
-__attribute__ ((visibility ("hidden"))) void
-  (*callback_jalib_ckpt_unlock)() = NULL;
-__attribute__ ((visibility ("hidden"))) int
-  (*callback_ptrace_info_list_size)() = NULL;
 int motherofall_done_reading = 0;
 pthread_mutex_t motherofall_done_reading_lock = PTHREAD_MUTEX_INITIALIZER;
 int has_new_ptrace_shared_file = 0;
@@ -85,6 +83,7 @@ pthread_mutex_t nthreads_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void mtcp_ptrace_info_list_update_info(int singlestep_waited_on);
 
+pid_t ckpt_leader = 0;
 // Return Value
 // 0 : succeeded
 // -1: failed
@@ -102,10 +101,10 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
     return -1;
   ttyname[0] = '\0';
 
-  fd = mtcp_sys_open("/proc/self/stat", O_RDONLY, 0);
+  fd = open("/proc/self/stat", O_RDONLY, 0);
   if (fd == -1) return -1;
 
-  num_read = mtcp_sys_read(fd, sbuf, sizeof sbuf - 1);
+  num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);
   if(num_read<=0) return -1;
   sbuf[num_read] = '\0';
@@ -134,9 +133,8 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
 /* We're ptracing when the size of ptrace_info_list is greater than zero or
  * we have a file with the ptrace_info pairs. */
 int mtcp_is_ptracing() {
-  if (!callback_ptrace_info_list_size) return 0;
   struct stat buf;
-  return ((*callback_ptrace_info_list_size)() > 0) ||
+  return (ptrace_info_list_size() > 0) ||
          (stat(ptrace_shared_file, &buf) == 0);
 }
 
@@ -178,23 +176,18 @@ void mtcp_init_thread_local()
   is_ptrace_setoptions = FALSE;
 }
 
-void mtcp_init_ptrace(const char *tmp_dir)
+//const char* dmtcp_get_tmpdir();
+void mtcp_init_ptrace()
 {
   DPRINTF("begin init_thread_local\n");
   mtcp_init_thread_local();
 
-  if (mtcp_strlen(tmp_dir) >= sizeof(dmtcp_tmp_dir)) {
-    MTCP_PRINTF("Error: dmtcp tmp dir path too long\n");
-    mtcp_abort();
-  }
-  mtcp_strncpy(dmtcp_tmp_dir, tmp_dir, sizeof(dmtcp_tmp_dir));
-
 #if 1
-  strcpy(ptrace_shared_file, dmtcp_tmp_dir);
-  strcpy(ptrace_setoptions_file, dmtcp_tmp_dir);
-  strcpy(checkpoint_threads_file, dmtcp_tmp_dir);
-  strcpy(new_ptrace_shared_file, dmtcp_tmp_dir);
-  strcpy(ckpt_leader_file, dmtcp_tmp_dir);
+  strcpy(ptrace_shared_file, dmtcp_get_tmpdir());
+  strcpy(ptrace_setoptions_file, dmtcp_get_tmpdir());
+  strcpy(checkpoint_threads_file, dmtcp_get_tmpdir());
+  strcpy(new_ptrace_shared_file, dmtcp_get_tmpdir());
+  strcpy(ckpt_leader_file, dmtcp_get_tmpdir());
 
   strcat(ptrace_shared_file, "/ptrace_shared.txt");
   strcat(ptrace_setoptions_file, "/ptrace_setoptions.txt");
@@ -204,15 +197,18 @@ void mtcp_init_ptrace(const char *tmp_dir)
 #else
   // Remove this code once Ana verifies that the other code would work fine.
   memset(ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
+  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_get_tmpdir());
   memset(ptrace_setoptions_file, '\0', PATH_MAX);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt", dmtcp_tmp_dir);
+  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt",
+          dmtcp_get_tmpdir());
   memset(checkpoint_threads_file, '\0', PATH_MAX);
-  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt", dmtcp_tmp_dir);
+  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt",
+          dmtcp_get_tmpdir());
   memset(new_ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt", dmtcp_tmp_dir);
+  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt",
+          dmtcp_get_tmpdir());
   memset(ckpt_leader_file, '\0', PATH_MAX);
-  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
+  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_get_tmpdir());
 #endif
 
   /* Initialize the following semaphore needed by superior to wait for inferior
@@ -223,21 +219,9 @@ void mtcp_init_ptrace(const char *tmp_dir)
   }
 }
 
-void mtcp_set_ptrace_callbacks(struct ptrace_info (*get_next_ptrace_info)(),
-                               void (*ptrace_info_list_command)(struct cmd_info
-                                                                cmd),
-                               void (*jalib_ckpt_unlock)(),
-                               int (*ptrace_info_list_size)())
-{
-    callback_get_next_ptrace_info = get_next_ptrace_info;
-    callback_ptrace_info_list_command = ptrace_info_list_command;
-    callback_jalib_ckpt_unlock = jalib_ckpt_unlock;
-    callback_ptrace_info_list_size = ptrace_info_list_size;
-}
-
 void mtcp_ptrace_process_ckpt_thread_creation()
 {
-  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
+  mtcp_ptrace_info_list_insert(getpid(), GETTID(),
                                PTRACE_UNSPECIFIED_COMMAND, FALSE,
                                'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
 }
@@ -254,9 +238,8 @@ void mtcp_ptrace_process_thread_creation(pid_t clone_id)
   else read_ptrace_setoptions_file(TRUE, clone_id);
 }
 
-pid_t mtcp_ptrace_process_pre_suspend_ckpt_thread()
+void mtcp_ptrace_process_pre_suspend_ckpt_thread()
 {
-  pid_t ckpt_leader = 0;
   if (mtcp_is_ptracing()) {
     proceed_to_checkpoint = 0;
 
@@ -274,37 +257,33 @@ pid_t mtcp_ptrace_process_pre_suspend_ckpt_thread()
 
     /* Is the checkpoint thread being traced? If yes, wait for the superior
      * to arrive at stopthisthread. */
-    if (callback_get_next_ptrace_info) {
-      int ckpt_ptraced_by = 0;
-      int index = 0;
-      struct ptrace_info pt_info;
-      while (empty_ptrace_info(
-                               pt_info = (*callback_get_next_ptrace_info)(index++))) {
-        if (pt_info.inferior == GETTID()) {
-          ckpt_ptraced_by = pt_info.superior;
-          break;
-        }
+    int ckpt_ptraced_by = 0;
+    int index = 0;
+    struct ptrace_info pt_info;
+    while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
+      if (pt_info.inferior == GETTID()) {
+        ckpt_ptraced_by = pt_info.superior;
+        break;
       }
-      /* The checkpoint thread might not be in the list of threads yet.
-       * However, we have one more chance of finding it, by reading
-       * ptrace_shared_file. */
-      if (!ckpt_ptraced_by) {
-        ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());
-      }
-      if (ckpt_ptraced_by) {
-        DPRINTF("ckpt %d is being traced by %d.\n",
-                GETTID(), ckpt_ptraced_by);
-        ptrace_wait4(ckpt_ptraced_by);
-        DPRINTF("ckpt %d is done waiting for its "
-                "superior %d: superior is in stopthisthread.\n",
-                GETTID(), ckpt_ptraced_by);
-      } else DPRINTF("ckpt %d not being traced.\n", GETTID());
     }
+    /* The checkpoint thread might not be in the list of threads yet.
+     * However, we have one more chance of finding it, by reading
+     * ptrace_shared_file. */
+    if (!ckpt_ptraced_by) {
+      ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());
+    }
+    if (ckpt_ptraced_by) {
+      DPRINTF("ckpt %d is being traced by %d.\n",
+              GETTID(), ckpt_ptraced_by);
+      ptrace_wait4(ckpt_ptraced_by);
+      DPRINTF("ckpt %d is done waiting for its "
+              "superior %d: superior is in stopthisthread.\n",
+              GETTID(), ckpt_ptraced_by);
+    } else DPRINTF("ckpt %d not being traced.\n", GETTID());
   }
-  return ckpt_leader;
 }
 
-pid_t mtcp_ptrace_process_pre_suspend_user_thread()
+void mtcp_ptrace_process_pre_suspend_user_thread()
 {
   int cont = 1;
   if (mtcp_is_ptracing()) {
@@ -329,7 +308,7 @@ pid_t mtcp_ptrace_process_pre_suspend_user_thread()
         ts.tv_nsec = 100000000;
         if (errno != ENOENT) {
           MTCP_PRINTF("Unexpected error in stat: %s\n",
-                      strerror(mtcp_sys_errno));
+                      strerror(errno));
           mtcp_abort();
         }
         nanosleep(&ts,NULL);
@@ -386,9 +365,11 @@ pid_t mtcp_ptrace_process_pre_suspend_user_thread()
   }
 }
 
-int mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid, pid_t original_tid,
-                                 pid_t ckpt_leader)
+void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
+                                  pid_t original_tid,
+                                  int *retry_signalling, int *retval)
 {
+  *retry_signalling = 0;
   if (mtcp_is_ptracing()) {
     has_new_ptrace_shared_file = 0;
 
@@ -441,38 +422,38 @@ int mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid, pid_t original_tid,
     DPRINTF("%d %c\n", GETTID(), inferior_st);
     if (inferior_st == 'N') {
       /* If the state is unknown, send a stop signal to inferior. */
-      if (mtcp_sys_kernel_tgkill(motherpid, tid,
-                                 STOPSIGNAL) < 0) {
-        if (mtcp_sys_errno != ESRCH) {
+      if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+        if (errno != ESRCH) {
           MTCP_PRINTF ("error signalling thread %d: %s\n",
-                       tid, strerror(mtcp_sys_errno));
+                       tid, strerror(errno));
         }
-        return -1;
+        *retval = -1;
+        return;
       }
     } else {
       DPRINTF("%c %d\n", inferior_st, original_tid);
       /* If the state is not stopped, then send a stop signal to
        * the inferior. */
       if (inferior_st != 'T') {
-        if (mtcp_sys_kernel_tgkill(motherpid, tid,
-                                   STOPSIGNAL) < 0) {
-          if (mtcp_sys_errno != ESRCH) {
+        if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+          if (errno != ESRCH) {
             MTCP_PRINTF ("error signalling thread %d: %s\n",
-                         tid, strerror(mtcp_sys_errno));
+                         tid, strerror(errno));
           }
-          return -1;
+          *retval = -1;
+          return;
         }
       }
       create_file(original_tid);
     }
   } else {
-    if (mtcp_sys_kernel_tgkill(motherpid, tid,
-                               STOPSIGNAL) < 0) {
-      if (mtcp_sys_errno != ESRCH) {
+    if (_real_tgkill(motherpid, tid, dmtcp_get_ckpt_signal()) < 0) {
+      if (errno != ESRCH) {
         MTCP_PRINTF ("error signalling thread %d: %s\n",
-                     tid, strerror(mtcp_sys_errno));
+                     tid, strerror(errno));
       }
-      return -1;
+      *retval = -1;
+      return;
     }
   }
 }
@@ -481,11 +462,7 @@ void mtcp_ptrace_process_post_suspend_ckpt_thread()
 {
   int cont = 1;
   if (mtcp_is_ptracing()) {
-    if (callback_jalib_ckpt_unlock) (*callback_jalib_ckpt_unlock)();
-    else {
-      MTCP_PRINTF("invalid callback_jalib_ckpt_unlock.\n");
-      mtcp_abort();
-    }
+    jalib_ckpt_unlock();
     /* Allow user threads to process new_ptrace_shared_file. */
     pthread_mutex_lock(&jalib_ckpt_unlock_lock);
     jalib_ckpt_unlock_ready = 1;
@@ -539,6 +516,25 @@ void mtcp_ptrace_process_post_restart_resume_user_thread()
   ptrace_attach_threads(1);
 }
 
+void mtcp_ptrace_process_resume_user_thread(int is_ckpt, int is_restart)
+{
+  if (is_ckpt || is_restart) {
+    ptrace_attach_threads(is_restart);
+  }
+  if (!is_restart) {
+    /* All user threads will try to delete these files. It doesn't matter if
+     * unlink fails. The sole purpose of these unlinks is to prevent these
+     * files to become too big. Big files imply an increased processing time
+     * of the ptrace pairs. */
+    unlink(ptrace_shared_file);
+    unlink(ptrace_setoptions_file);
+    unlink(checkpoint_threads_file);
+    unlink(new_ptrace_shared_file);
+    unlink(ckpt_leader_file);
+  }
+  ptrace_lock_inferiors();
+}
+
 void mtcp_ptrace_process_pre_resume_user_thread()
 {
   ptrace_lock_inferiors();
@@ -585,7 +581,6 @@ void ptrace_set_controlling_term(pid_t superior, pid_t inferior)
 void ptrace_attach_threads(int isRestart)
 {
   if (!mtcp_is_ptracing()) return;
-  if (!callback_get_next_ptrace_info) return;
 
   pid_t superior;
   pid_t inferior;
@@ -605,8 +600,7 @@ void ptrace_attach_threads(int isRestart)
   DPRINTF("%d started.\n", GETTID());
 
   int index = 0;
-  while (empty_ptrace_info(
-           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     superior = pt_info.superior;
     inferior = pt_info.inferior;
     last_command = pt_info.last_command;
@@ -693,9 +687,13 @@ void ptrace_attach_threads(int isRestart)
         if (low == 0xf && upp == 0x05 && regs.rax == 0xf) {
           if (isRestart) { /* Restart time. */
             if (last_command == PTRACE_SINGLESTEP_COMMAND) {
-              if (regs.eax != DMTCP_SYS_rt_sigreturn) addr = regs.esp;
+              // FIXME: I had to change the eax to rax and esp to rsp as the
+              // compiler was complaining about the fields missing from regs. I
+              // do not understand why it would compile fine when it was under
+              // mtcp.
+              if (regs.rax != DMTCP_SYS_rt_sigreturn) addr = regs.rsp;
               else {
-                addr = regs.esp + 8;
+                addr = regs.rsp + 8;
                 addr = mtcp_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
                 addr += 20;
               }
@@ -857,14 +855,12 @@ void ptrace_attach_threads(int isRestart)
 void ptrace_detach_checkpoint_threads ()
 {
   if (!mtcp_is_ptracing()) return;
-  if (!callback_get_next_ptrace_info) return;
 
   int ret;
   struct ptrace_info pt_info;
   int index = 0;
 
-  while (empty_ptrace_info(
-           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     if ((pt_info.superior == GETTID()) && pt_info.inferior_is_ckpthread) {
       if ((ret = ptrace_detach_ckpthread(pt_info.inferior,
                                          pt_info.superior)) != 0) {
@@ -881,7 +877,6 @@ void ptrace_detach_checkpoint_threads ()
 void ptrace_detach_user_threads ()
 {
   if (!mtcp_is_ptracing()) return;
-  if (!callback_get_next_ptrace_info) return;
 
   int status = 0;
   int index = 0;
@@ -889,8 +884,7 @@ void ptrace_detach_user_threads ()
   char pstate;
   struct ptrace_info pt_info;
 
-  while (empty_ptrace_info(
-           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     if (pt_info.inferior_is_ckpthread) continue;
 
     if (pt_info.superior == GETTID()) {
@@ -923,7 +917,7 @@ void ptrace_detach_user_threads ()
           }
         }
         if (WIFSTOPPED(status)) {
-          if (WSTOPSIG(status) == MTCP_DEFAULT_SIGNAL)
+          if (WSTOPSIG(status) == dmtcp_get_ckpt_signal())
             DPRINTF("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
                     pt_info.inferior);
           else /* We should never get here. */
@@ -942,7 +936,7 @@ void ptrace_detach_user_threads ()
 
       have_file (pt_info.inferior);
       if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
-                 (void*) MTCP_DEFAULT_SIGNAL) == -1) {
+                      (void*) (unsigned long) dmtcp_get_ckpt_signal()) == -1) {
         MTCP_PRINTF("parent = %d child = %d PTRACE_DETACH failed, error = %d\n",
                     (int)pt_info.superior, (int)pt_info.inferior, errno);
       }
@@ -957,7 +951,7 @@ void ptrace_lock_inferiors()
 
     char file[RECORDPATHLEN];
     snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
-             dmtcp_tmp_dir, GETTID());
+             dmtcp_get_tmpdir(), GETTID());
     unlink(file);
 }
 
@@ -967,7 +961,7 @@ void ptrace_unlock_inferiors()
 
     char file[RECORDPATHLEN];
     int fd;
-    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_tmp_dir,
+    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_get_tmpdir(),
              GETTID());
     fd = creat(file, 0644);
     if (fd < 0) {
@@ -982,19 +976,11 @@ void create_file(pid_t pid)
   char str[RECORDPATHLEN];
   char default_tmpdir[sizeof("/tmp")] = "/tmp";
   memset(str, 0, RECORDPATHLEN);
-  if (dmtcp_tmp_dir[0] == '\0') {
-    char *new_tmpdir =
-      ( getenv("DMTCP_TMPDIR") ? getenv("DMTCP_TMPDIR") :
-                                 ( getenv("TMDPIR") ? getenv("TMDPIR") :
-                                                      default_tmpdir));
-    strncpy(dmtcp_tmp_dir, new_tmpdir, sizeof(dmtcp_tmp_dir));
-  }
-  sprintf(str, "%s/%d", dmtcp_tmp_dir, pid);
+  sprintf(str, "%s/%d", dmtcp_get_tmpdir(), pid);
 
   int fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
     MTCP_PRINTF("Error opening file %s\n: %s\n", str, strerror(errno));
-while(1);
     mtcp_abort();
   }
   if (close(fd) != 0) {
@@ -1021,7 +1007,7 @@ void wait_for_file(char *file)
 void have_file(pid_t pid)
 {
   char file[RECORDPATHLEN];
-  snprintf(file, RECORDPATHLEN, "%s/%d", dmtcp_tmp_dir, pid);
+  snprintf(file, RECORDPATHLEN, "%s/%d", dmtcp_get_tmpdir(), pid);
 
   wait_for_file(file);
   if (unlink(file) == -1) {
@@ -1034,7 +1020,7 @@ void ptrace_wait4(pid_t pid)
 {
   char file[RECORDPATHLEN];
   snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
-           dmtcp_tmp_dir, pid);
+           dmtcp_get_tmpdir(), pid);
   wait_for_file(file);
 }
 
@@ -1254,56 +1240,44 @@ void init_empty_cmd_info(struct cmd_info *cmd) {
 }
 
 void mtcp_ptrace_info_list_update_is_inferior_ckpthread(pid_t pid, pid_t tid) {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD;
   cmd.superior = pid;
   cmd.inferior = tid;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_sort() {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_SORT;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_remove_pairs_with_dead_tids() {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_save_threads_state() {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_SAVE_THREADS_STATE;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_print() {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_PRINT;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
   int last_command, int singlestep_waited_on, char inf_st, int file_option) {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_INSERT;
@@ -1313,26 +1287,21 @@ void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
   cmd.singlestep_waited_on = singlestep_waited_on;
   cmd.inferior_st = inf_st;
   cmd.file_option = file_option;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 void mtcp_ptrace_info_list_update_info(int singlestep_waited_on) {
-  if (!callback_ptrace_info_list_command) return;
-
   struct cmd_info cmd;
   init_empty_cmd_info(&cmd);
   cmd.option = PTRACE_INFO_LIST_UPDATE_INFO;
   cmd.singlestep_waited_on = singlestep_waited_on;
-  (*callback_ptrace_info_list_command)(cmd);
+  ptrace_info_list_command(cmd);
 }
 
 char retrieve_inferior_state(pid_t tid) {
-  if (!callback_ptrace_info_list_command) return;
-
   int index = 0;
   struct ptrace_info pt_info;
-  while (empty_ptrace_info(
-           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     if (pt_info.inferior == tid) return procfs_state(pt_info.inferior);
   }
   return 'u';
@@ -1364,12 +1333,9 @@ int possible_ckpt_leader(pid_t tid) {
     }
   }
 
-  if (!callback_get_next_ptrace_info) return 0;
-
   int index = 0;
   struct ptrace_info pt_info;
-  while (empty_ptrace_info(
-           pt_info = (*callback_get_next_ptrace_info)(index++))) {
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     if (pt_info.inferior == tid) return 0;
   }
   return 1;

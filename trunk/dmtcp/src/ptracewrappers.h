@@ -26,75 +26,39 @@
 #include <unistd.h>
 #include <signal.h>
 #include "ptrace.h"
+#include "mtcp_ptrace.h"
 
-/* Must match the enum from mtcp/mtcp_ptrace.h. */
-enum {
-  PTRACE_UNSPECIFIED_COMMAND = 0,
-  PTRACE_SINGLESTEP_COMMAND,
-  PTRACE_CONTINUE_COMMAND
-};
-
-/* Must match the enum from mtcp/mtcp_ptrace.h. */
-enum {
-  PTRACE_NO_FILE_OPTION = 0,
-  PTRACE_SHARED_FILE_OPTION,
-  PTRACE_SETOPTIONS_FILE_OPTION,
-  PTRACE_CHECKPOINT_THREADS_FILE_OPTION,
-  PTRACE_NEW_SHARED_FILE_OPTION
-};
-
-/* Must match the enum from mtcp/mtcp_ptrace.h. */
-enum {
-  PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD = 1,
-  PTRACE_INFO_LIST_SORT,
-  PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS,
-  PTRACE_INFO_LIST_SAVE_THREADS_STATE,
-  PTRACE_INFO_LIST_PRINT,
-  PTRACE_INFO_LIST_INSERT,
-  PTRACE_INFO_LIST_UPDATE_INFO
-};
+//enum {
+//  PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD = 1,
+//  PTRACE_INFO_LIST_SORT,
+//  PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS,
+//  PTRACE_INFO_LIST_SAVE_THREADS_STATE,
+//  PTRACE_INFO_LIST_PRINT,
+//  PTRACE_INFO_LIST_INSERT,
+//  PTRACE_INFO_LIST_UPDATE_INFO
+//};
 
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
 
 /* Must match the structure declaration in mtcp/mtcp.h, without the operator
  * overloading feature. */
-struct ptrace_info {
-  pid_t superior;
-  pid_t inferior;
-  char inferior_st;
-  int inferior_is_ckpthread;
-  int last_command;
-  int singlestep_waited_on;
+//struct ptrace_info {
+//  pid_t superior;
+//  pid_t inferior;
+//  char inferior_st;
+//  int inferior_is_ckpthread;
+//  int last_command;
+//  int singlestep_waited_on;
+//
+//};
 
-  bool operator==(const struct ptrace_info& a) {
-    return this->superior == a.superior && this->inferior == a.inferior;
-  }
+static inline bool operator==(const struct ptrace_info& a, const struct ptrace_info& b) {
+  return b.superior == a.superior && b.inferior == a.inferior;
+}
 
-  bool operator!= (const struct ptrace_info& a) {
-    return this->superior != a.superior || this->inferior != a.inferior;
-  }
-};
-
-/* Must match the structure declaration in mtcp/mtcp.h. */
-struct cmd_info {
-  int option;
-  pid_t superior;
-  pid_t inferior;
-  int last_command;
-  int singlestep_waited_on;
-  char inferior_st;
-  int file_option;
-};
-
-/* Must match the structure declaration in mtcp/mtcp.h. */
-/* Default values: 0, 0, -1, -1, 0. */
-struct ptrace_waitpid_info {
-  int is_waitpid_local; /* 1 = waitpid called by DMTCP */
-  int is_ptrace_local;  /* 1 = ptrace called by DMTCP */
-  pid_t saved_pid;
-  int saved_status;
-  int has_status_and_pid;
-};
+static inline bool operator!= (const struct ptrace_info& a, const struct ptrace_info& b) {
+  return b.superior != a.superior || b.inferior != a.inferior;
+}
 
 static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
 

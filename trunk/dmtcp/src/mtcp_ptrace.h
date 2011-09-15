@@ -23,12 +23,50 @@
 
 #ifndef _PTRACE_H
 #define _PTRACE_H
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <limits.h>
 
-#include "mtcp_internal.h"
 #include <sys/ptrace.h>
 #include <semaphore.h>
+#include "constants.h"
 
 #ifdef PTRACE
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
+struct ptrace_info {
+  pid_t superior;
+  pid_t inferior;
+  char inferior_st;
+  int inferior_is_ckpthread;
+  int last_command;
+  int singlestep_waited_on;
+};
+
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
+struct cmd_info {
+  int option;
+  pid_t superior;
+  pid_t inferior;
+  int last_command;
+  int singlestep_waited_on;
+  char inferior_st;
+  int file_option;
+};
+
+/* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
+/* Default values: 0, 0, -1, -1, 0. */
+struct ptrace_waitpid_info {
+  int is_waitpid_local; /* 1 = waitpid called by DMTCP */
+  int is_ptrace_local;  /* 1 = ptrace called by DMTCP */
+  pid_t saved_pid;
+  int saved_status;
+  int has_status_and_pid;
+};
 
 /* Must match the enum from dmtcp/src/ptracewrapper.h. */
 enum {
@@ -57,14 +95,6 @@ enum {
   PTRACE_INFO_LIST_UPDATE_INFO
 };
 
-/* Must match the enum from dmtcp/src/ptracewrapper.h. */
-/* These are values for singlestep_waited_on field of struct ptrace_info.
- * We only read singlestep_waited_on if last_command is
- * PTRACE_SINGLESTEP_COMMAND. */
-enum {
-  FALSE = 0,
-  TRUE
-};
 
 #define EFLAGS_OFFSET (64)
 #define RECORDPATHLEN (PATH_MAX + 128)
@@ -118,16 +148,22 @@ extern int motherofall_done_reading;
 extern void mtcp_init_thread_local(void);
 void mtcp_ptrace_process_ckpt_thread_creation();
 void mtcp_ptrace_process_thread_creation(pid_t clone_id);
-pid_t mtcp_ptrace_process_pre_suspend_ckpt_thread();
-pid_t mtcp_ptrace_process_pre_suspend_user_thread();
-int mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid, pid_t original_tid,
-                                 pid_t ckpt_leader);
+void mtcp_ptrace_process_pre_suspend_ckpt_thread();
+void mtcp_ptrace_process_pre_suspend_user_thread();
+void mtcp_ptrace_send_stop_signal(pid_t motherpid, pid_t tid,
+                                  pid_t original_tid,
+                                  int *retry_signalling, int *retval);
 void mtcp_ptrace_process_post_suspend_ckpt_thread();
 void mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread();
 void mtcp_ptrace_process_post_ckpt_resume_user_thread();
 void mtcp_ptrace_process_post_restart_resume_user_thread();
 void mtcp_ptrace_process_pre_resume_user_thread();
+
+struct ptrace_waitpid_info mtcp_get_ptrace_waitpid_info ();
+void mtcp_init_ptrace();
+
+void mtcp_ptrace_process_resume_user_thread(int is_ckpt, int is_restart);
 
 extern int empty_ptrace_info(struct ptrace_info pt_info);
 
@@ -194,5 +230,9 @@ extern void mtcp_ptrace_info_list_insert(pid_t superior, pid_t inferior,
 
 void read_ptrace_setoptions_file (int record_to_file, int rc);
 char retrieve_inferior_state(pid_t tid);
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 #endif

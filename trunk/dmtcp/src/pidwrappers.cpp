@@ -41,6 +41,7 @@
 
 #ifdef PTRACE
 #include "ptrace.h"
+#include "mtcp_ptrace.h"
 #endif
 
 // FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
@@ -372,7 +373,6 @@ extern "C" fill_in_pthread_t fill_in_pthread_ptr;
 
 typedef int ( *delete_thread_on_pthread_join_t) ();
 
-extern "C" sigset_t signals_set;
 #endif
 
 /*
@@ -474,7 +474,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
   //   it matters.  Else gettid().  Add a comment here explaining why syscall().
   pid_t superior = syscall(SYS_gettid);
   pid_t inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcpPtraceFuncPtrs.get_ptrace_waitpid_info();
+  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
 
   if (pwi.is_waitpid_local) {
     retval = safe_real_waitpid (pid, stat_loc, options);

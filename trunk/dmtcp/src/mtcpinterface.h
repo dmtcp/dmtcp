@@ -47,7 +47,12 @@ extern "C"
                        char* mtcpRestoreArgvStartAddr),
      int  (*should_ckpt_fd ) ( int fd ),
      void (*write_ckpt_prefix ) ( int fd ),
-     void (*restore_virtual_pid_table) ());
+     void (*restore_virtual_pid_table) (),
+     void (*pre_suspend_user_thread)(),
+     void (*pre_resume_user_thread)(int is_ckpt, int is_restart),
+     void (*send_stop_signal)(pid_t tid, pid_t original_tid,
+                              int *retry_signalling, int *retval),
+     void (*ckpt_thread_start)());
 
   typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
                                          int stderr_fd,
