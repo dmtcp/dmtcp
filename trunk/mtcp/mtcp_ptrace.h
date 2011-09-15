@@ -106,7 +106,13 @@ extern char ckpt_leader_file[PATH_MAX];
 extern __thread pid_t setoptions_superior;
 extern __thread int is_ptrace_setoptions;
 
+extern int proceed_to_checkpoint;
+extern pthread_mutex_t proceed_to_checkpoint_lock;
+
 extern void mtcp_init_thread_local(void);
+void mtcp_ptrace_process_ckpt_thread_creation();
+void mtcp_ptrace_process_thread_creation(pid_t clone_id);
+pid_t mtcp_ptrace_process_pre_suspend();
 
 extern int empty_ptrace_info(struct ptrace_info pt_info);
 

@@ -172,7 +172,7 @@ void mtcp_init_ptrace(const char *tmp_dir)
   }
   mtcp_strncpy(dmtcp_tmp_dir, tmp_dir, sizeof(dmtcp_tmp_dir));
 
-#if 0
+#if 1
   strcpy(ptrace_shared_file, dmtcp_tmp_dir);
   strcpy(ptrace_setoptions_file, dmtcp_tmp_dir);
   strcpy(checkpoint_threads_file, dmtcp_tmp_dir);
@@ -185,6 +185,7 @@ void mtcp_init_ptrace(const char *tmp_dir)
   strcat(new_ptrace_shared_file, "/new_ptrace_shared.txt");
   strcat(ckpt_leader_file, "/ckpt_leader_file.txt");
 #else
+  // Remove this code once Ana verifies that the other code would work fine.
   memset(ptrace_shared_file, '\0', PATH_MAX);
   sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_tmp_dir);
   memset(ptrace_setoptions_file, '\0', PATH_MAX);
@@ -196,6 +197,82 @@ void mtcp_init_ptrace(const char *tmp_dir)
   memset(ckpt_leader_file, '\0', PATH_MAX);
   sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_tmp_dir);
 #endif
+
+  /* Initialize the following semaphore needed by superior to wait for inferior
+   * to be created on restart. */
+  if (!__init_does_inferior_exist_sem) {
+    sem_init(&__does_inferior_exist_sem, 0, 1);
+    __init_does_inferior_exist_sem = 1;
+  }
+}
+
+void mtcp_ptrace_process_ckpt_thread_creation()
+{
+  mtcp_ptrace_info_list_insert(getpid(), mtcp_sys_kernel_gettid(),
+                               PTRACE_UNSPECIFIED_COMMAND, FALSE,
+                               'u', PTRACE_CHECKPOINT_THREADS_FILE_OPTION);
+}
+
+void mtcp_ptrace_process_thread_creation(pid_t clone_id)
+{
+  /* Record new pairs to files: newly traced threads to ptrace_shared_file;
+   * also, write the checkpoint thread to checkpoint_threads_file. */
+  if (is_ptrace_setoptions == TRUE) {
+    mtcp_ptrace_info_list_insert(setoptions_superior, clone_id,
+                                 PTRACE_UNSPECIFIED_COMMAND,
+                                 FALSE, 'u', PTRACE_SHARED_FILE_OPTION);
+  }
+  else read_ptrace_setoptions_file(TRUE, clone_id);
+}
+
+pid_t mtcp_ptrace_process_pre_suspend()
+{
+  pid_t ckpt_leader = 0;
+  if (mtcp_is_ptracing()) {
+    proceed_to_checkpoint = 0;
+
+    read_ptrace_setoptions_file(FALSE, 0);
+
+    int ckpt_leader_fd = -1;
+
+    if (possible_ckpt_leader(GETTID())) {
+      ckpt_leader_fd = open(ckpt_leader_file, O_CREAT|O_EXCL|O_WRONLY, 0644);
+      if (ckpt_leader_fd != -1) {
+        ckpt_leader = 1;
+        close(ckpt_leader_fd);
+      }
+    }
+
+    /* Is the checkpoint thread being traced? If yes, wait for the superior
+     * to arrive at stopthisthread. */
+    if (callback_get_next_ptrace_info) {
+      int ckpt_ptraced_by = 0;
+      int index = 0;
+      struct ptrace_info pt_info;
+      while (empty_ptrace_info(
+                               pt_info = (*callback_get_next_ptrace_info)(index++))) {
+        if (pt_info.inferior == GETTID()) {
+          ckpt_ptraced_by = pt_info.superior;
+          break;
+        }
+      }
+      /* The checkpoint thread might not be in the list of threads yet.
+       * However, we have one more chance of finding it, by reading
+       * ptrace_shared_file. */
+      if (!ckpt_ptraced_by) {
+        ckpt_ptraced_by = is_ckpt_in_ptrace_shared_file(GETTID());
+      }
+      if (ckpt_ptraced_by) {
+        DPRINTF("ckpt %d is being traced by %d.\n",
+                GETTID(), ckpt_ptraced_by);
+        ptrace_wait4(ckpt_ptraced_by);
+        DPRINTF("ckpt %d is done waiting for its "
+                "superior %d: superior is in stopthisthread.\n",
+                GETTID(), ckpt_ptraced_by);
+      } else DPRINTF("ckpt %d not being traced.\n", GETTID());
+    }
+  }
+  return ckpt_leader;
 }
 
 ssize_t read_no_error(int fd, void *buf, size_t count)
