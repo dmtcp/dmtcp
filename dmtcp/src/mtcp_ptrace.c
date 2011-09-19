@@ -182,24 +182,23 @@ void mtcp_init_thread_local()
   is_ptrace_setoptions = FALSE;
 }
 
-//const char* dmtcp_get_tmpdir();
 void mtcp_init_ptrace()
 {
   DPRINTF("begin init_thread_local\n");
   mtcp_init_thread_local();
 
 #if 1
-  strcpy(ptrace_shared_file, dmtcp_get_tmpdir());
-  strcpy(ptrace_setoptions_file, dmtcp_get_tmpdir());
-  strcpy(checkpoint_threads_file, dmtcp_get_tmpdir());
-  strcpy(new_ptrace_shared_file, dmtcp_get_tmpdir());
-  strcpy(ckpt_leader_file, dmtcp_get_tmpdir());
+  strcpy(ptrace_shared_file, ptrace_get_tmpdir());
+  strcpy(ptrace_setoptions_file, ptrace_get_tmpdir());
+  strcpy(checkpoint_threads_file, ptrace_get_tmpdir());
+  strcpy(new_ptrace_shared_file, ptrace_get_tmpdir());
+  strcpy(ckpt_leader_file, ptrace_get_tmpdir());
 
-  strcat(ptrace_shared_file, "/ptrace_shared.txt");
-  strcat(ptrace_setoptions_file, "/ptrace_setoptions.txt");
-  strcat(checkpoint_threads_file, "/ptrace_ckpthreads.txt");
-  strcat(new_ptrace_shared_file, "/new_ptrace_shared.txt");
-  strcat(ckpt_leader_file, "/ckpt_leader_file.txt");
+  strcat(ptrace_shared_file, "/ptrace_shared");
+  strcat(ptrace_setoptions_file, "/ptrace_setoptions");
+  strcat(checkpoint_threads_file, "/ptrace_ckpthreads");
+  strcat(new_ptrace_shared_file, "/new_ptrace_shared");
+  strcat(ckpt_leader_file, "/ckpt_leader_file");
 #else
   // Remove this code once Ana verifies that the other code would work fine.
   memset(ptrace_shared_file, '\0', PATH_MAX);
@@ -949,13 +948,20 @@ void ptrace_detach_user_threads ()
   DPRINTF("%d done.\n", GETTID());
 }
 
+static void form_file(char *file, char *root, pid_t pid)
+{
+  char tmp[20];
+  sprintf(tmp, "%d", pid);
+  strcpy(file, ptrace_get_tmpdir());
+  strcat(file, root);
+  strcat(file, tmp);
+}
+
 void ptrace_lock_inferiors()
 {
     if (!mtcp_is_ptracing()) return;
-
     char file[RECORDPATHLEN];
-    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
-             dmtcp_get_tmpdir(), GETTID());
+    form_file(file, "/dmtcp_ptrace_unlocked.", GETTID());
     unlink(file);
 }
 
@@ -964,10 +970,8 @@ void ptrace_unlock_inferiors()
     if (!mtcp_is_ptracing()) return;
 
     char file[RECORDPATHLEN];
-    int fd;
-    snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d", dmtcp_get_tmpdir(),
-             GETTID());
-    fd = creat(file, 0644);
+    form_file(file, "/dmtcp_ptrace_unlocked.", GETTID());
+    int fd = creat(file, 0644);
     if (fd < 0) {
         MTCP_PRINTF("Error creating lock file: %s\n", strerror(errno));
         mtcp_abort();
@@ -977,14 +981,11 @@ void ptrace_unlock_inferiors()
 
 void create_file(pid_t pid)
 {
-  char str[RECORDPATHLEN];
-  char default_tmpdir[sizeof("/tmp")] = "/tmp";
-  memset(str, 0, RECORDPATHLEN);
-  sprintf(str, "%s/%d", dmtcp_get_tmpdir(), pid);
-
-  int fd = open(str, O_CREAT|O_APPEND|O_WRONLY, 0644);
+  char file[RECORDPATHLEN];
+  form_file(file, "/", pid);
+  int fd = open(file, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
-    MTCP_PRINTF("Error opening file %s\n: %s\n", str, strerror(errno));
+    MTCP_PRINTF("Error opening file %s\n: %s\n", file, strerror(errno));
     mtcp_abort();
   }
   if (close(fd) != 0) {
@@ -1011,8 +1012,7 @@ void wait_for_file(char *file)
 void have_file(pid_t pid)
 {
   char file[RECORDPATHLEN];
-  snprintf(file, RECORDPATHLEN, "%s/%d", dmtcp_get_tmpdir(), pid);
-
+  form_file(file, "/", pid);
   wait_for_file(file);
   if (unlink(file) == -1) {
     MTCP_PRINTF("unlink failed: %s\n", strerror(errno));
@@ -1023,8 +1023,7 @@ void have_file(pid_t pid)
 void ptrace_wait4(pid_t pid)
 {
   char file[RECORDPATHLEN];
-  snprintf(file, RECORDPATHLEN, "%s/dmtcp_ptrace_unlocked.%d",
-           dmtcp_get_tmpdir(), pid);
+  form_file(file, "/dmtcp_ptrace_unlocked.", pid);
   wait_for_file(file);
 }
 

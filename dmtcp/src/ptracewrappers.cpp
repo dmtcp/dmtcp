@@ -83,19 +83,19 @@ extern "C" struct ptrace_info get_next_ptrace_info(int index) {
 int open_ptrace_related_file (int file_option) {
   char file[256];
   memset(file, 0, 256);
-  dmtcp::string tmpdir = dmtcp_get_tmpdir();
+  strcpy(file, ptrace_get_tmpdir());
 
   switch (file_option) {
     case PTRACE_SHARED_FILE_OPTION:
-      sprintf(file, "%s/ptrace_shared.txt", tmpdir.c_str());
+      strcat(file, "/ptrace_shared");
       break;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
     case PTRACE_SETOPTIONS_FILE_OPTION:
-      sprintf(file, "%s/ptrace_setoptions.txt", tmpdir.c_str());
+      strcat(file, "/ptrace_setoptions");
       break;
 #endif
     case PTRACE_CHECKPOINT_THREADS_FILE_OPTION:
-      sprintf(file, "%s/ptrace_ckpthreads.txt", tmpdir.c_str());
+      strcat(file, "/ptrace_ckpthreads");
       break;
     default:
       printf("open_ptrace_related_file: unknown file_option, %d\n",
@@ -111,8 +111,8 @@ void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
   struct flock lock;
 
   if ((fd = open_ptrace_related_file(file)) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error opening file\n: %s\n",
-            strerror(errno));
+    printf("write_ptrace_pair_to_given_file: Error opening file\n: %s %d\n",
+            strerror(errno), file);
     abort();
   }
 

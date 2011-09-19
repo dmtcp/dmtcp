@@ -6,6 +6,7 @@
 #include "mtcp_ptrace.h"
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
+#include <sys/stat.h>
 #ifdef PTRACE
 
 static struct ptrace_info callbackGetNextPtraceInfo (int index);
@@ -156,6 +157,24 @@ extern "C" void ptrace_dmtcp_process_event(DmtcpEvent_t event, void* data)
 
   DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data);
   return;
+}
+
+extern "C" const char* ptrace_get_tmpdir()
+{
+  char ptrace_tmpdir[256];
+  strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
+  strcat(ptrace_tmpdir, "/");
+  strcat(ptrace_tmpdir, dmtcp_get_computation_id_str());
+
+  struct stat buf;
+  if (stat(ptrace_tmpdir, &buf)) {
+    if (mkdir(ptrace_tmpdir, S_IRWXU)) {
+      printf("Error creating tmp directory %s, error: \n",
+             ptrace_tmpdir, strerror(errno));
+      abort();
+    }
+  }
+  return ptrace_tmpdir;
 }
 
 #endif
