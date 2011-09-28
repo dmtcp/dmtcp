@@ -34,6 +34,13 @@ dmtcp \- Distributed MultiThreaded Checkpointing
 .B dmtcp_command
 .RI coordinatorCommand
 
+.B dmtcp_inspector
+.RI [-o <ofile>]
+.RI [-t <tool>]
+.RI [-cdaznh]
+.RI <ckpt1.dmtcp>
+.RI [ckpt2.dmtcp...]
+
 .B mtcp_restart
 .RI FILE.mtcp
 .SH "DESCRIPTION"
@@ -117,6 +124,39 @@ Each command should be followed by the <return> key.  The commands are:
   ? : Show this message
 
 Coordinator commands can also be issued remotely using \fBdmtcp_command\fR.
+
+.SH "DMTCP_INSPECTOR"
+dmtcp_inspector is a tool for offline checkpoint analysis. It provides information 
+about socket connections and parent-child relations between processes of a distributed
+program. The output is in graphviz package format and can be rendered using graphviz tools
+like dot, neato, twopi, circo, fdp and sfdp.
+Command line options are following:
+.TP
+\fB\-o\fR, \fB\-\-out <file>\fR
+Write output to <file>
+.TP
+\fB\-t\fR, \fB\-\-tool\fR
+Graphviz tool to use. By default no graphviz and output is in dot-like format
+.TP
+\fB\-c\fR, \fB\-\-cred\fR
+Add information about parent-child relations on the graph
+.TP
+\fB\-d\fR, \fB\-\-no\-sock\fR
+Remove information about socket connections
+.TP
+\fB\-a\fR, \fB\-\-sock\-all\fR
+Add verbose information about socket connections
+.TP
+\fB\-z\fR, \fB\-\-sock\-half\fR
+Also represent half-connections (when some *.dmtcp files are missed
+.TP
+\fB\-n\fR, \fB\-\-node\fR
+Verbose node names indication
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display this help\n
+
+
 .SH "EXAMPLE USAGE"
 .TP  
 1. In a separate terminal window, start the dmtcp_coodinator.
