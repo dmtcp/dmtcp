@@ -557,7 +557,7 @@ int main(int argc, char** argv)
 int process_input(int argc, char** argv)
 {
   static const char* theUsage =
-          "USAGE: dmtcp_inspector [-o<ofile>] [-d<ofile>] [-f] <ckpt1.mtcp> [ckpt2.mtcp...]\n"
+          "USAGE: dmtcp_inspector [-o <file>] [-t <tool>] [-cdaznh] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n"
           "  -o, --out <file> - Write output to <file>\n"
           "  -t, --tool       - Graphviz tool to use. By default output is in dot-like format.\n"
           "  -c, --cred       - Add  information about parent-child relations\n"
