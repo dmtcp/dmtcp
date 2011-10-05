@@ -14,7 +14,7 @@ AC_PROG_RANLIB
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [enable (very) verbose debug output
-                             and write log files to \$DMTCP_TMPDIR (default is
+                             and write log files to $DMTCP_TMPDIR (default is
                              disabled)])],
             [use_jassert=$enableval],
             [use_jassert=no])
