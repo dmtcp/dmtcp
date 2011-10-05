@@ -6,15 +6,16 @@ and algorithms.  These documents are snapshots in time, and they
 may become somewhat out-of-date over time (and hopefully also refreshed
 to re-sync them with the code again).
 
-This document is about pid and tid virtualization.  The fundamental
-issue is that processes and threads receive a pid and tid when they
-are created.  But after checkpoint and restart, the kernel creates
-new versions with new pids and tids.  So, the kernel knows them by
-their current pid/tid.  In a naive implementation, if the application code 
-asks for the pid/tid from the kernel, it will see their current pid/tid.
-If the application saves that value in a variable prior to checkpoint,
-and re-uses it after restart, then the application will know the pid/tid
-according their original value.
+This document is about pid and tid virtualization.  A closely related
+document is thread-creation.txt.  The fundamental issue here is that
+processes and threads receive a pid and tid when they are created.
+But after checkpoint and restart, the kernel creates new versions with
+new pids and tids.  So, the kernel knows them by their current pid/tid.
+In a naive implementation, if the application code asks for the pid/tid
+from the kernel, it will see their current pid/tid.  If the application
+saves that value in a variable prior to checkpoint, and re-uses it
+after restart, then the application will know the pid/tid according
+their original value.
 
 To get around this problem, DMTCP maintains 'class dmtcp::VirtualPidTable'
 in virtualpidtable.cpp.  One can print it via:
@@ -62,6 +63,8 @@ own mtcpinterface.cpp:thread_start() as the argument to DMTCP:__clone(),
 in fact, mtcp.c:threadcloned() will call mtcpinterface.cpp:thread_start(),
 which will finally call the end user's thread start function.)
 
+NOTE:  SOME OF THE LOGIC DESCRIBED IN THIS NEXT PARAGRAPH IS NOW OBSOLETE.
+PLEASE SEE thread-creation.txt FOR A MORE UP-TO-DATE EXPLANATION.
 In fact, the full story is a little more complicated.  If the target
 program called pthread_create, then glibc:pthread_create will call
 clone on its own wrapper function around the user's thread start function.
