@@ -23,9 +23,9 @@ concerning thread creation and exit:
   In such cases, DMTCP will inspect the tid of a new thread and cause
   that thread to exit, and then create still another thread, if there is a
   tid conflict.
-       This is done by DMTCP:thread_start, described below.  The mechanism
+       This is done by DMTCP:clone_start, described below.  The mechanism
   for determining a thread conflict is that one field of the struct passed
-  to DMTCP:thread_start is set to CLONE_UNINITIALIZED.  The new thread
+  to DMTCP:clone_start is set to CLONE_UNINITIALIZED.  The new thread
   checks its own thread id (tid) and decides if there is a conflict.  It
   then sets that field to CLONE_FAIL (conflict) or CLONE_SUCCEED.  The
   creator of the thread has meanwhile also checked for a conflict, since
@@ -36,7 +36,7 @@ concerning thread creation and exit:
   each running thread.  This is how MTCP maintains state information about
   that thread.  MTCP must create and delete these thread descriptors.
   This is done by MTCP:threadcloned (to create the descriptor) and
-  DMTCP:thread_return (to delete the thread descriptor).  DMTCP:thread_return
+  DMTCP:pthread_start (to delete the thread descriptor).  DMTCP:pthread_start
   does this through a call to MTCP:threadiszombie().  (In the case that
   the user called clone() instead of pthread_create(), the thread
   will also return to MTCP:threadcloned(), which will call threadisdead().)
@@ -53,45 +53,44 @@ thread start function that is called.  The timeline also shows what
 other start functions will be called by that initial start function.
 
 DMTCP:pthread_create(user_start_fn) ->
-  glibc:pthread_create(DMTCP:thread_return->user_start_fn) ->
-    DMTCP:__clone(glibc:start_thread->DMTCP:thread_return->user_start_fn) ->
-      MTCP:clone(DMTCP:thread_start->glibc:start_thread->DMTCP:thread_return->user_start_fn) ->
-        glibc:clone(MTCP:threadcloned->DMTCP:thread_start->glibc:start_thread->DMTCP:thread_return->user_start_fn) ->
+  glibc:pthread_create(DMTCP:pthread_start->user_start_fn) ->
+    DMTCP:__clone(glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
+      MTCP:clone(DMTCP:clone_start->glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
+        glibc:clone(MTCP:threadcloned->DMTCP:clone_start->glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
           MTCP:threadcloned ->
-            DMTCP:thread_start -> [and retry if bad tid:
-      	       exit to DMTCP:__clone and try again] ->
+            DMTCP:clone_start -> [and retry if bad tid: exit to DMTCP:__clone and try again]
               glibc:start_thread ->
-                DMTCP:thread_return
+                DMTCP:pthread_start
                   user_start_fnc
-                <- DMTCP:thread_return [and change MTCP:Thread state to Zombie] [ and deletes from thread virt. pid table ]
+                <- DMTCP:pthread_start [and change MTCP:Thread state to Zombie  -- and deletes from thread virt. pid table ]
               <- glibc:start_thread [will thread_exit here if thread is joined]
 
             <- MTCP:threadcloned [executes threadisdead to remove Thread descriptor]
-          <- DMTCP:thread_start [ and deletes from virt. pid table ]
+          <- DMTCP:clone_start [ and deletes from virt. pid table ]
         <- glibc:clone(...) NOT_REACHED [kernel killed thread]
 
 glibc creates one wrapper around the start function.
-DMTCP creates one wrapper around the start function.
-MTCP creates two wrapper around the start function.
+DMTCP creates two wrappers around the start function.
+MTCP creates one wrapper around the start function.
 
-DMTCP:thread_start():w
-  This is an extra thread_start function set up by DMTCP:__clone().
+DMTCP:clone_start():
+  This is an extra start_routine function set up by DMTCP:__clone().
   On entry, it checks if there is a TID conflict.  If there is a TID conflict,
     it returns, and forces DMTCP:__clone() to create a new thread.
   On exit, it calls threadiszombie??? and deletes items from pid virt.
     table (erase/eratsTid), and also issues thread_exit event for modules
 
 MTCP:threadcloned():
-  This is an extra thread_start function set up by MTCP:__clone().
+  This is an extra start_routine function set up by MTCP:__clone().
   On entry, it creates a Thread descriptor.
   On exit, it calls threadisdead() to delete Thread descriptor
     NOTE:  If clone() was called through pthread_create, glibc:start_thread may
 	exit before reaching exit within this function.  So, threadisdead
-	may not be called.  Hence, DMTCP:thread_start will set Thread to
+	may not be called.  Hence, DMTCP:clone_start will set Thread to
 	Zombie state on exit, in case this is never reached.
   
-DMTCP:thread_return():
-  This is an extra thread_start function set up by DMTCP:pthread_create()
+DMTCP:pthread_start():
+  This is an extra start_routine function set up by DMTCP:pthread_create()
   On entry, it does nothing (besides pass on its arguments).
   On exit, it deletes items from virt. pid table (erase/eraseTid), and
 	 also issues thread_exit event for modules
@@ -115,4 +114,6 @@ NOTE:
     a thread exits early instead of returning through our MTCP:threadcloned()
     wrapper. : should do threadiszombie()
 
- * Remvoe MTCP:pthread_join  (not needed now)
+NOTE TO MYSELF TO FIX IN FINAL VERSION:
+ * Remove MTCP:pthread_join  (not needed now)
+ * Remove DMTCP:dmtcp_reset_gettid (threadiszombie should be enough)

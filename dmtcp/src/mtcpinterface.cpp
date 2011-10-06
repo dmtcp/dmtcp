@@ -146,6 +146,8 @@ static void initializeMtcpFuncPtrs()
 {
   mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
   mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
+  /* mtcpFuncPtrs.threadiszombie =
+    (mtcp_threadiszombie) get_mtcp_symbol("threadiszombie"); */
   mtcpFuncPtrs.clone = (mtcp_clone_t) get_mtcp_symbol("__clone");
   mtcpFuncPtrs.fill_in_pthread_id =
     (mtcp_fill_in_pthread_id_t) get_mtcp_symbol("mtcp_fill_in_pthread_id");
@@ -494,7 +496,8 @@ static void unmapRestoreArgv()
 #ifdef PID_VIRTUALIZATION
 enum cloneSucceed {CLONE_UNINITIALIZED, CLONE_FAIL, CLONE_SUCCEED};
 struct ThreadArg {
-  int ( *fn ) ( void *arg );
+  int ( *fn ) ( void *arg );  // clone() calls fn that returns int
+  void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
   void *arg;
   pid_t original_tid;
   enum cloneSucceed clone_success; // Child will set to FAIL or SUCCEED
@@ -513,14 +516,31 @@ struct ThreadArg {
 //   return true;
 // }
 
+// Invoked via pthread_create as start_routine
+// On return, it calls threadiszombie()
 LIB_PRIVATE
-int thread_start(void *arg)
+void * pthread_start(void *arg)
+{
+  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
+  void *thread_arg = threadArg->arg;
+  void * (*pthread_fn) (void *) = threadArg->pthread_fn;
+  JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
+  void *result = (*pthread_fn) ( thread_arg );
+  // FIXME:  Add this AND REMOVE dmtcp_reset_gettid() function.
+  // FIXME:  Add wrapper for pthread_exit()
+  // mtcpFuncPtrs.threadiszombie();
+  return result;
+}
+
+// Invoked via __clone
+LIB_PRIVATE
+int clone_start(void *arg)
 {
   dmtcp_process_event(DMTCP_EVENT_THREAD_START, NULL);
 
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
-  JTRACE ("In thread_start");
+  JTRACE ("In clone_start");
 
 #ifndef PTRACE
   // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
@@ -548,7 +568,7 @@ int thread_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 
-  // Free the memory was previously allocated through JALLOC_HELPER_MALLOC
+  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
   JALLOC_HELPER_FREE(threadArg);
 
   if (original_tid == -1) {
@@ -593,12 +613,27 @@ int thread_start(void *arg)
 }
 #endif
 
+static __thread void * pthread_threadArg;
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                               void *(*start_routine)(void*), void *arg)
 {
   int retval;
+  // We have to use DMTCP-specific memory allocator because using glibc:malloc
+  // can interfere with user threads.
+  // We use JALLOC_HELPER_FREE to free this memory in three places:
+  // 1. near the beginning of pthread_start (wrapper for start_routine),
+  //     providing that the __clone call succeeds with no tid conflict.
+  // 2. if the call to __clone fails, the __clone wrapper will free it
+  //     using the thread-local pointer, pthread_threadArg.
+  // 3. if the thread exits due to a tid conflict, the __clone() wrapper
+  //     will free it using the thread-local pointer, pthread_threadArg.
+  struct ThreadArg *threadArg =
+    (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
+  pthread_threadArg = threadArg; // to allow __clone() to free this memory.
+  threadArg->pthread_fn = start_routine;
+  threadArg->arg = arg;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  retval = _real_pthread_create(thread, attr, start_routine, arg);
+  retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
@@ -660,6 +695,9 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
   // can interfere with user threads.
+  // We use JALLOC_HELPER_FREE to free this memory in two places:
+  //   1.  later in this function in case of failure on call to __clone; and
+  //   2.  near the beginnging of clone_start (wrapper for start_routine).
   struct ThreadArg *threadArg =
     (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   threadArg->fn = fn;
@@ -678,24 +716,28 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     if (originalTid == -1) {
       /* First time thread creation */
       JTRACE ( "Forwarding user's clone call to mtcp" );
-      tid = mtcpFuncPtrs.clone(thread_start, child_stack, flags, threadArg,
+      tid = mtcpFuncPtrs.clone(clone_start, child_stack, flags, threadArg,
                                parent_tidptr, newtls, child_tidptr );
       dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED,
                           (void*) (unsigned long) tid);
     } else {
       /* Recreating thread during restart */
       JTRACE ( "Calling libc:__clone" );
-      tid = _real_clone ( thread_start, child_stack, flags, threadArg,
+      tid = _real_clone ( clone_start, child_stack, flags, threadArg,
 			  parent_tidptr, newtls, child_tidptr );
     }
 
     if (tid == -1) { // if the call to clone failed
       JTRACE("Clone call failed")(JASSERT_ERRNO);
       // Free the memory which was previously allocated by calling
-      // JALLOC_HELPER_MALLOC
+      // JALLOC_HELPER_MALLOC inside __clone wrapper
       // FIXME:  We free the threadArg here, and then if originalTid == -1
       //         (still), we use uninitialized memory.  WHY?
       JALLOC_HELPER_FREE ( threadArg );
+
+      // Was allocated in pthread_create wrapper in this thread.
+      // (pthread_create_wrapper called pthread_create which called this fnc.)
+      JALLOC_HELPER_FREE(pthread_threadArg);
 
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
@@ -706,6 +748,10 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
+      // Was allocated in pthread_create wrapper in this thread.
+      // (pthread_create_wrapper called pthread_create which called this fnc.)
+      JALLOC_HELPER_FREE(pthread_threadArg);
+
       JTRACE ( "TID conflict detected, creating a new child thread" ) ( tid );
       // Wait for child thread to acknowledge failure and quiesce itself.
       const struct timespec busywait = {(time_t) 0, (long)1000*1000};
