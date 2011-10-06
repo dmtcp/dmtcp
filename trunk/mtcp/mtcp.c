@@ -368,9 +368,10 @@ struct MtcpRestartThreadArg {
 #define ST_SUSPENDED 5       // suspended waiting for checkpoint to complete
 #define ST_CKPNTHREAD 6      // checkpointing thread (special state just for
                              //   that thread)
+#define ST_ZOMBIE 7          // zombie state - state about to exit.  If MTCP
+			     //   sees this state, it should call threadisdead()
 
-	/* Global data */
-
+/* Global data */
 void *mtcp_libc_dl_handle = NULL;  // dlopen handle for whatever libc.so is
                                    //   loaded with application program
 Area mtcp_libc_area;               // some area of that libc.so
@@ -476,6 +477,7 @@ static void *mtcp_get_tls_base_addr(void);
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
+static void threadiszombie (Thread *thread);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
 static int test_use_compression(char *compressor, char *command, char *path,
@@ -1384,31 +1386,38 @@ static void mtcp_empty_threads_freelist()
  *
  *****************************************************************************/
 
-static void threadisdead (Thread *thread)
+#if 0
+/* Declare current thread to be zombie. */
+/* MUST DELETE pthread_join WRAPPER WHEN THIS IS USED. */
+static void threadiszombie ()
+{
+  /* WARNING:  If there are many threads, getcurrenthread can be slow.
+   * At least, we should modify getcurrenthread() to delete zombie threads
+   * while scanning the list of all threads.
+   */
+  getcurrenthread()->state = ST_ZOMBIE;
+}
+#endif
 
+static void threadisdead (Thread *thread)
 {
   Thread **lthread, *parent, *xthread;
 
   lock_threads ();
-
   DPRINTF("thread %p -> tid %d\n", thread, thread -> tid);
 
   /* Remove thread block from 'threads' list */
-
   if (thread -> prev != NULL) {
     thread -> prev -> next = thread -> next;
   }
-
   if (thread -> next != NULL) {
     thread -> next -> prev = thread -> prev;
   }
-
   if (thread == threads) {
     threads = threads->next;
   }
 
   /* Remove thread block from parent's list of children */
-
   parent = thread -> parent;
   if (parent != NULL) {
     for (lthread = &(parent -> children);
@@ -1418,7 +1427,6 @@ static void threadisdead (Thread *thread)
   }
 
   /* If this thread has children, give them to its parent */
-
   if (parent != NULL) {
     while ((xthread = thread -> children) != NULL) {
       thread -> children = xthread -> siblings;
@@ -1432,17 +1440,13 @@ static void threadisdead (Thread *thread)
       motherofall = xthread;
     }
   }
-
   unlk_threads ();
 
-  /* If checkpointer is waiting for us, wake it to see this thread no longer in
-   * list
+  /* If checkpoint thread is waiting for us, wake it to let it see
+   * that this thread is no longer in list
    */
-
   mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
-
   mtcp_state_destroy( &(thread -> state) );
-
   mtcp_put_thread_on_freelist(thread);
 }
 
@@ -3456,17 +3460,29 @@ static Thread *getcurrenthread (void)
 {
   int tid;
   Thread *thread;
+  Thread *next_thread;
 
-  tid = mtcp_sys_kernel_gettid ();
-  lock_threads ();
-  for (thread = threads; thread != NULL; thread = thread -> next) {
+  tid = mtcp_sys_kernel_gettid();
+  lock_threads();
+  for (thread = threads; thread != NULL; thread = next_thread) {
+    next_thread = thread -> next;
     if (thread -> tid == tid) {
       unlk_threads ();
       return (thread);
     }
+#if 0
+    if (thread -> state == ST_ZOMBIE) {
+      /* If tkill sends to wrong tgid, we don't kill zombie now.  But, ok. */
+      if (-1 == tkill(thread -> tid, 0) { /* if no thread with this tid */
+        unlk_threads();
+        threadisdead(thread);
+        lock_threads ();
+      }
+    }
+#endif
   }
   MTCP_PRINTF("can't find thread id %d\n", tid);
-  mtcp_abort ();
+  mtcp_abort();
   return thread; /* NOTREACHED : stop compiler warning */
 }
 
