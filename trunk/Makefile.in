@@ -259,7 +259,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 	echo "${docdir}" | grep -q /dmtcp || false
-	rm -Rf "$(DESTDIR)$(docdir)
+	rm -Rf "$(DESTDIR)$(docdir)"
 	cd $(DESTDIR)$(mandir) && \
 	  rm -f dmtcp.1 ${MANPAGES}
 
