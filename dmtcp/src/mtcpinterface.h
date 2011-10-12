@@ -66,21 +66,21 @@ extern "C"
                                int interval,
                                int clonenabledefault);
   typedef int  (*mtcp_ok_t)(void);
+  typedef void (*mtcp_threadiszombie)(void);
   typedef void (*mtcp_kill_ckpthread_t)(void);
   typedef void (*mtcp_fill_in_pthread_id_t)(pid_t tid, pthread_t pthread_id);
   typedef int  (*mtcp_clone_t)(int (*)(void*), void*, int, void*, int*,
                                struct user_desc*, int*);
-  typedef void (*mtcp_process_pthread_join_t)(pthread_t);
 
   typedef struct MtcpFuncPtrs {
     mtcp_set_callbacks_t        set_callbacks;
     mtcp_init_dmtcp_info_t      init_dmtcp_info;
     mtcp_init_t                 init;
     mtcp_ok_t                   ok;
+    mtcp_threadiszombie         threadiszombie;
     mtcp_clone_t                clone;
     mtcp_kill_ckpthread_t       kill_ckpthread;
     mtcp_fill_in_pthread_id_t   fill_in_pthread_id;
-    mtcp_process_pthread_join_t process_pthread_join;
   } MtcpFuncPtrs_t;
 }
 LIB_PRIVATE void* get_mtcp_symbol ( const char* name );
