@@ -477,7 +477,7 @@ static void *mtcp_get_tls_base_addr(void);
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
-static void threadiszombie (Thread *thread);
+void mtcp_threadiszombie (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
 static int test_use_compression(char *compressor, char *command, char *path,
@@ -1073,17 +1073,6 @@ void mtcp_fill_in_pthread_id (pid_t tid, pthread_t pth)
   }
 }
 
-void mtcp_process_pthread_join (pthread_t pth)
-{
-  struct Thread *thread;
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (pthread_equal(thread -> pth, pth)) {
-      threadisdead (thread);
-      break;
-    }
-  }
-}
-
 asm (".global clone ; .type clone,@function ; clone = __clone");
 
 /*****************************************************************************
@@ -1386,18 +1375,15 @@ static void mtcp_empty_threads_freelist()
  *
  *****************************************************************************/
 
-#if 0
 /* Declare current thread to be zombie. */
-/* MUST DELETE pthread_join WRAPPER WHEN THIS IS USED. */
-static void threadiszombie ()
+void mtcp_threadiszombie(void)
 {
   /* WARNING:  If there are many threads, getcurrenthread can be slow.
    * At least, we should modify getcurrenthread() to delete zombie threads
    * while scanning the list of all threads.
    */
-  getcurrenthread()->state = ST_ZOMBIE;
+  getcurrenthread()->state.value = ST_ZOMBIE;
 }
-#endif
 
 static void threadisdead (Thread *thread)
 {
@@ -3470,16 +3456,14 @@ static Thread *getcurrenthread (void)
       unlk_threads ();
       return (thread);
     }
-#if 0
-    if (thread -> state == ST_ZOMBIE) {
-      /* If tkill sends to wrong tgid, we don't kill zombie now.  But, ok. */
-      if (-1 == tkill(thread -> tid, 0) { /* if no thread with this tid */
+    if (thread -> state.value == ST_ZOMBIE) {
+      /* if no thread with this tid, then we can remove zombie descriptor */
+      if (-1 == mtcp_sys_kernel_tgkill(-1, thread -> tid, 0)) {
         unlk_threads();
         threadisdead(thread);
         lock_threads ();
       }
     }
-#endif
   }
   MTCP_PRINTF("can't find thread id %d\n", tid);
   mtcp_abort();

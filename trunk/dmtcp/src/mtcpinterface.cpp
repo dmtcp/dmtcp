@@ -146,15 +146,13 @@ static void initializeMtcpFuncPtrs()
 {
   mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
   mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
-  /* mtcpFuncPtrs.threadiszombie =
-    (mtcp_threadiszombie) get_mtcp_symbol("threadiszombie"); */
+  mtcpFuncPtrs.threadiszombie =
+    (mtcp_threadiszombie) get_mtcp_symbol("mtcp_threadiszombie");
   mtcpFuncPtrs.clone = (mtcp_clone_t) get_mtcp_symbol("__clone");
   mtcpFuncPtrs.fill_in_pthread_id =
     (mtcp_fill_in_pthread_id_t) get_mtcp_symbol("mtcp_fill_in_pthread_id");
   mtcpFuncPtrs.kill_ckpthread =
     (mtcp_kill_ckpthread_t) get_mtcp_symbol("mtcp_kill_ckpthread");
-  mtcpFuncPtrs.process_pthread_join =
-    (mtcp_process_pthread_join_t) get_mtcp_symbol("mtcp_process_pthread_join");
   mtcpFuncPtrs.init_dmtcp_info =
     (mtcp_init_dmtcp_info_t) get_mtcp_symbol("mtcp_init_dmtcp_info");
   mtcpFuncPtrs.set_callbacks =
@@ -517,7 +515,7 @@ struct ThreadArg {
 // }
 
 // Invoked via pthread_create as start_routine
-// On return, it calls threadiszombie()
+// On return, it calls mtcp_threadiszombie()
 LIB_PRIVATE
 void * pthread_start(void *arg)
 {
@@ -526,9 +524,8 @@ void * pthread_start(void *arg)
   void * (*pthread_fn) (void *) = threadArg->pthread_fn;
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   void *result = (*pthread_fn) ( thread_arg );
-  // FIXME:  Add this AND REMOVE dmtcp_reset_gettid() function.
   // FIXME:  Add wrapper for pthread_exit()
-  // mtcpFuncPtrs.threadiszombie();
+  mtcpFuncPtrs.threadiszombie();
   return result;
 }
 
@@ -541,13 +538,6 @@ int clone_start(void *arg)
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
   JTRACE ("In clone_start");
-
-#ifndef PTRACE
-  // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
-  // gettid() just caches value of _real_gettid().
-  // EDIT: This call interacts badly with PTRACE, so compiling it out for now.  KA
-  dmtcp_reset_gettid();
-#endif
 
   // FIXME: Why not do this in the mtcp.c::__clone?
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
@@ -780,17 +770,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return tid;
 
 #endif
-}
-
-extern "C" int pthread_join (pthread_t thread, void **value_ptr)
-{
-  /* Wrap the call to _real_pthread_join() to make sure we call
-     delete_thread_on_pthread_join(). */
-  int retval = _real_pthread_join (thread, value_ptr);
-  if (retval == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-  return retval;
 }
 
 // FIXME
