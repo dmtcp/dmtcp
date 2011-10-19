@@ -153,6 +153,8 @@ static void initializeMtcpFuncPtrs()
     (mtcp_fill_in_pthread_id_t) get_mtcp_symbol("mtcp_fill_in_pthread_id");
   mtcpFuncPtrs.kill_ckpthread =
     (mtcp_kill_ckpthread_t) get_mtcp_symbol("mtcp_kill_ckpthread");
+  mtcpFuncPtrs.process_pthread_join =
+    (mtcp_process_pthread_join_t) get_mtcp_symbol("mtcp_process_pthread_join");
   mtcpFuncPtrs.init_dmtcp_info =
     (mtcp_init_dmtcp_info_t) get_mtcp_symbol("mtcp_init_dmtcp_info");
   mtcpFuncPtrs.set_callbacks =
@@ -770,6 +772,17 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return tid;
 
 #endif
+}
+
+extern "C" int pthread_join (pthread_t thread, void **value_ptr)
+{
+  /* Wrap the call to _real_pthread_join() to make sure we call
+     delete_thread_on_pthread_join(). */
+  int retval = _real_pthread_join (thread, value_ptr);
+  if (retval == 0) {
+    mtcpFuncPtrs.process_pthread_join(thread);
+  }
+  return retval;
 }
 
 // FIXME
