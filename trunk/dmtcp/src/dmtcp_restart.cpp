@@ -853,7 +853,7 @@ int main ( int argc, char** argv )
 	.Text("ERROR: Restored programs belongs to different computation IDs");
     }else if( numPeers != targets[i]._numPeers ){
       JASSERT(false)(numPeers)(targets[i]._numPeers)
-	.Text("ERROR: Different numpber of processes saved in checkpoint images");
+	.Text("ERROR: Different number of processes saved in checkpoint images");
     }
   }
 

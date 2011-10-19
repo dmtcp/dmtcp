@@ -1073,6 +1073,17 @@ void mtcp_fill_in_pthread_id (pid_t tid, pthread_t pth)
   }
 }
 
+void mtcp_process_pthread_join (pthread_t pth)
+{
+  struct Thread *thread;
+  for (thread = threads; thread != NULL; thread = thread -> next) {
+    if (pthread_equal(thread -> pth, pth)) {
+      threadisdead (thread);
+      break;
+    }
+  }
+}
+
 asm (".global clone ; .type clone,@function ; clone = __clone");
 
 /*****************************************************************************
@@ -1872,6 +1883,14 @@ again:
 
         case ST_CKPNTHREAD: {
           break;
+        }
+
+        case ST_ZOMBIE: {
+          /* Thread should be at end of mtcpinterface.cpp:pthread_start wrapper.
+           * On restart, we'll recreate this thread and let pthread_start
+           *   exit naturally, after which the thread will exit.
+           */
+          continue;
         }
 
         /* Who knows? */
