@@ -715,6 +715,15 @@ if testconfig.PTRACE_SUPPORT == "yes" and \
     S=DEFAULT_S
     os.system("rm -f dmtcp-gdbinit.tmp")
 
+  deletePtraceFiles()
+  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+    os.system("echo 'run' > dmtcp-gdbinit.tmp")
+    S=2
+    if sys.version_info[0:2] >= (2,6):
+      runTest("gdb-pthread",2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+    S=DEFAULT_S
+    os.system("rm -f dmtcp-gdbinit.tmp")
+
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
   S=1
