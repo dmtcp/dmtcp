@@ -541,6 +541,15 @@ int clone_start(void *arg)
   pid_t tid = _real_gettid();
   JTRACE ("In clone_start");
 
+// FIXME:  Can we delete this portion now?  It was originally needed to handle
+//   tid wraparound for test/pthread1 and test/pthread2.
+#ifndef PTRACE
+  // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
+  // gettid() just caches value of _real_gettid().
+  // EDIT: This call interacts badly with PTRACE, so compiling it out for now.  KA
+  dmtcp_reset_gettid();
+#endif
+
   // FIXME: Why not do this in the mtcp.c::__clone?
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 

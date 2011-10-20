@@ -60,6 +60,10 @@ static pid_t forkChild ( long child_host, time_t child_time )
     } else if ( child_pid == 0 ) {
       /* child process */
 
+      // Reset __thread_tid on fork. This should be the first thing to do in
+      // the child process.
+      dmtcp_reset_gettid();
+
       JALIB_RESET_ON_FORK ();
 
       dmtcp::UniquePid child = dmtcp::UniquePid ( child_host, _real_getpid(),
