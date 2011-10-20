@@ -374,6 +374,8 @@ void ptrace_info_list_print () {
 void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
                               int singlestep_waited_on, char inferior_st,
                               int file_option) {
+  if (superior == inferior) return;
+
   if (file_option != PTRACE_NO_FILE_OPTION) {
     write_ptrace_pair_to_given_file(file_option, superior, inferior);
     /* In this case, superior is the pid and inferior is the tid and also the

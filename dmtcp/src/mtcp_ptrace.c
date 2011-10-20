@@ -320,8 +320,6 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
       }
     }
 
-    motherofall_done_reading = 0;
-
     /* Motherofall reads in new_ptrace_shared_file and
      * checkpoint_threads_file. */
     if (getpid() == GETTID()) {
@@ -512,6 +510,7 @@ void mtcp_ptrace_process_post_ckpt_resume_user_thread()
   unlink(checkpoint_threads_file);
   unlink(new_ptrace_shared_file);
   unlink(ckpt_leader_file);
+  motherofall_done_reading = 0;
 }
 
 void mtcp_ptrace_process_post_restart_resume_user_thread()
@@ -1126,6 +1125,9 @@ void read_ptrace_setoptions_file (int record_to_file, int rc) {
   while (read_no_error(fd, &superior, sizeof(pid_t)) > 0) {
     read_no_error(fd, &inferior, sizeof(pid_t));
     if (inferior == GETTID()) {
+      mtcp_ptrace_info_list_insert(superior, inferior,
+                                   PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
+                                   PTRACE_NO_FILE_OPTION);
       setoptions_superior = superior;
       is_ptrace_setoptions = TRUE;
       if (record_to_file) {

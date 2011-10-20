@@ -29,7 +29,7 @@ void ptraceProcessThreadCreation(void *data)
 
 extern "C" void jalib_ckpt_unlock()
 {
-  //JALIB_CKPT_UNLOCK();
+  JALIB_CKPT_UNLOCK();
 }
 
 static int callbackPtraceInfoListSize ()
@@ -96,7 +96,7 @@ void ptraceProcessGotSuspendMsg(void *data)
 {
   /* One of the threads is the ckpt thread. Don't count that in. */
   // FIXME: Take care of invalid threads
-  nthreads = (unsigned long) data - 1;
+  nthreads = (unsigned long) data;
   mtcp_ptrace_process_pre_suspend_ckpt_thread();
 }
 
