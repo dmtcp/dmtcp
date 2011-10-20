@@ -419,6 +419,8 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
         MTCP_PRINTF("error while closing file, %s\n", strerror(errno));
         mtcp_abort();
       }
+      /* Update the pairs that are already in memory. */
+      mtcp_ptrace_info_list_save_threads_state();
     }
     DPRINTF("%d %c\n", GETTID(), inferior_st);
     if (inferior_st == 'N') {
