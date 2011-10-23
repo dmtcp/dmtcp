@@ -8,7 +8,7 @@ AC_PROG_MKDIR_P
 AC_PROG_CC
 AC_PROG_CXX
 AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
-AC_CONFIG_SUBDIRS([dmtcp])
+AC_CONFIG_SUBDIRS([dmtcp modules])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
 dnl  by default.  But it's actually set to "no".
