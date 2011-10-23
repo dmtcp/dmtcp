@@ -22,12 +22,10 @@
 #ifndef PTRACEWRAPPER_H
 #define PTRACEWRAPPER_H
 
-#ifdef PTRACE
 #include <unistd.h>
 #include <signal.h>
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
-
 
 #ifdef __cplusplus
 static inline bool operator==(const struct ptrace_info& a, const struct ptrace_info& b) {
@@ -42,6 +40,10 @@ static inline bool operator!= (const struct ptrace_info& a, const struct ptrace_
 static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
 
 static const struct cmd_info EMPTY_CMD_INFO = {0, 0, 0, 0, 0, 0, 0};
+
+EXTERNC void ptrace_info_list_insert (pid_t superior, pid_t inferior,
+                                      int last_command, int singlestep_waited_on,
+                                      char inferior_st, int file_option);
 
 EXTERNC void ptrace_info_list_insert (pid_t superior, pid_t inferior,
                                       int last_command, int singlestep_waited_on,
@@ -63,5 +65,4 @@ EXTERNC long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
 EXTERNC pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
 
 EXTERNC void ptrace_init_data_structures();
-#endif
 #endif

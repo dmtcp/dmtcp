@@ -388,6 +388,12 @@ int main ( int argc, char** argv )
   // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
+
+#ifdef PTRACE
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "ptracehijack.so" );
+  preloadLibs += ":";
+#endif
+
   preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
   //   if dmtcp_checkpoint survived the experience, then pass it back to user.

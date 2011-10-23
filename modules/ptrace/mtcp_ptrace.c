@@ -39,9 +39,6 @@
 #include <sys/user.h>
 #include <sys/syscall.h>
 
-#include "constants.h"
-#ifdef PTRACE
-
 #ifdef DEBUG
 # define DPRINTF printf
 #else
@@ -1347,4 +1344,3 @@ int possible_ckpt_leader(pid_t tid) {
   }
   return 1;
 }
-#endif

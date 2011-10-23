@@ -1,13 +1,11 @@
 #include <sys/types.h>
 #include <dlfcn.h>
-#include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
+#include "jalloc.h"
+#include "jassert.h"
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
-#include <sys/stat.h>
-#ifdef PTRACE
 
 static struct ptrace_info callbackGetNextPtraceInfo (int index);
 static void callbackPtraceInfoListCommand (struct cmd_info cmd);
@@ -111,7 +109,7 @@ void ptraceProcessResumeUserThread(void *data)
   mtcp_ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
 }
 
-extern "C" void ptrace_dmtcp_process_event(DmtcpEvent_t event, void* data)
+extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -176,5 +174,3 @@ extern "C" const char* ptrace_get_tmpdir()
   }
   return ptrace_tmpdir;
 }
-
-#endif

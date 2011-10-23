@@ -19,13 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include "jassert.h"
+#include "jfilesystem.h"
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
+#include <linux/version.h>
 // This was needed for:  SUSE LINUX 10.0 (i586) OSS
 #ifndef PTRACE_SETOPTIONS
 # include <linux/ptrace.h>
@@ -36,14 +37,7 @@
 #include <fcntl.h>
 #include <list>
 
-#ifdef PTRACE
 #include "ptrace.h"
-/* ptrace cannot work without pid virtualization.  If we're not using
- * pid virtualization, then disable this wrapper around ptrace, and
- * let the application call ptrace from libc. */
-#ifndef PID_VIRTUALIZATION
-#error "PTRACE can not be used without enabling PID-Virtualization"
-#endif
 
 static pthread_mutex_t ptrace_info_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -195,106 +189,6 @@ void ptrace_info_update_last_command (pid_t superior, pid_t inferior,
       break;
     }
   }
-}
-
-extern "C" long _almost_real_ptrace (enum __ptrace_request request, ...);
-extern "C" pid_t _almost_real_waitpid(pid_t pid, int *stat_loc, int options);
-
-extern "C" long ptrace (enum __ptrace_request request, ...)
-{
-  va_list ap;
-  pid_t pid;
-  void *addr;
-  void *data;
-
-  pid_t superior;
-  pid_t inferior;
-
-  long ptrace_ret;
-
-  va_start(ap, request);
-  pid = va_arg(ap, pid_t);
-  addr = va_arg(ap, void *);
-  data = va_arg(ap, void *);
-  va_end(ap);
-
-  superior = syscall(SYS_gettid);
-  inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
-
-  switch (request) {
-    case PTRACE_ATTACH: {
-      if (!pwi.is_ptrace_local) {
-        struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                               PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
-                               PTRACE_SHARED_FILE_OPTION};
-        ptrace_info_list_command(cmd);
-      }
-      break;
-    }
-    case PTRACE_TRACEME: {
-      superior = getppid();
-      inferior = syscall(SYS_gettid);
-      struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                             PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
-                             PTRACE_SHARED_FILE_OPTION};
-      ptrace_info_list_command(cmd);
-      break;
-    }
-    case PTRACE_DETACH: {
-     if (!pwi.is_ptrace_local)
-       ptrace_info_list_remove_pair(superior, inferior);
-     break;
-    }
-    case PTRACE_CONT: {
-     if (!pwi.is_ptrace_local) {
-       ptrace_info_update_last_command(superior, inferior,
-                                       PTRACE_CONTINUE_COMMAND);
-       /* The ptrace_info pair was already recorded. The superior is just
-        * issuing commands. */
-       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_CONTINUE_COMMAND, FALSE, 'u',
-                              PTRACE_NO_FILE_OPTION};
-       ptrace_info_list_command(cmd);
-     }
-     break;
-    }
-    case PTRACE_SINGLESTEP: {
-     if (!pwi.is_ptrace_local) {
-       dmtcp_block_ckpt_signal();
-       ptrace_info_update_last_command(superior, inferior,
-                                       PTRACE_SINGLESTEP_COMMAND);
-       /* The ptrace_info pair was already recorded. The superior is just
-        * issuing commands. */
-       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
-                              PTRACE_NO_FILE_OPTION};
-       ptrace_info_list_command(cmd);
-       ptrace_ret =  _almost_real_ptrace (request, pid, addr, data);
-       dmtcp_unblock_ckpt_signal();
-     }
-     else ptrace_ret = _almost_real_ptrace(request, pid, addr, data);
-     break;
-    }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
-    case PTRACE_SETOPTIONS: {
-      write_ptrace_pair_to_given_file(PTRACE_SETOPTIONS_FILE_OPTION,
-                                      superior, inferior);
-      break;
-    }
-#endif
-    default: {
-      break;
-    }
-  }
-
-  /* TODO: We might want to check the return value in certain cases */
-
-  if (request != PTRACE_SINGLESTEP) {
-    ptrace_ret =  _almost_real_ptrace(request, pid, addr, data);
-  }
-
-  return ptrace_ret;
 }
 
 void ptrace_info_list_update_is_inferior_ckpthread(pid_t pid, pid_t tid) {
@@ -449,11 +343,14 @@ extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
   int status;
-  pid_t originalPid;
   pid_t retval;
 
   if ( stat_loc == NULL )
     stat_loc = &status;
+
+  if (ptrace_info_list == NULL) {
+    ptrace_init_data_structures();
+  }
 
   // FIXME:  syscall(SYS_gettid) just calls gettid().  Use _real_syscall() if
   //   it matters.  Else gettid().  Add a comment here explaining why syscall().
@@ -462,7 +359,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
   struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
 
   if (pwi.is_waitpid_local) {
-    retval = _almost_real_waitpid (pid, stat_loc, options);
+    retval = _real_waitpid (pid, stat_loc, options);
   } else {
     /* Where was status and pid saved?  Can we remove this code?  - Gene */
     if (pwi.has_status_and_pid) {
@@ -476,7 +373,7 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
       dmtcp_block_ckpt_signal();
 #endif
       ptrace_info_list_update_info(superior, inferior, TRUE);
-      retval = _almost_real_waitpid(pid, stat_loc, options);
+      retval = _real_waitpid(pid, stat_loc, options);
 #if BLOCK_CKPT_ON_WAIT
       dmtcp_unblock_ckpt_signal();
 #endif
@@ -485,4 +382,100 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   return retval;
 }
+
+extern "C" long ptrace (enum __ptrace_request request, ...)
+{
+  va_list ap;
+  pid_t pid;
+  void *addr;
+  void *data;
+
+  pid_t superior;
+  pid_t inferior;
+
+  long ptrace_ret;
+
+  va_start(ap, request);
+  pid = va_arg(ap, pid_t);
+  addr = va_arg(ap, void *);
+  data = va_arg(ap, void *);
+  va_end(ap);
+
+  superior = syscall(SYS_gettid);
+  inferior = pid;
+  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
+
+  switch (request) {
+    case PTRACE_ATTACH: {
+      if (!pwi.is_ptrace_local) {
+        struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
+                               PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
+                               PTRACE_SHARED_FILE_OPTION};
+        ptrace_info_list_command(cmd);
+      }
+      break;
+    }
+    case PTRACE_TRACEME: {
+      superior = getppid();
+      inferior = syscall(SYS_gettid);
+      struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
+                             PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
+                             PTRACE_SHARED_FILE_OPTION};
+      ptrace_info_list_command(cmd);
+      break;
+    }
+    case PTRACE_DETACH: {
+     if (!pwi.is_ptrace_local)
+       ptrace_info_list_remove_pair(superior, inferior);
+     break;
+    }
+    case PTRACE_CONT: {
+     if (!pwi.is_ptrace_local) {
+       ptrace_info_update_last_command(superior, inferior,
+                                       PTRACE_CONTINUE_COMMAND);
+       /* The ptrace_info pair was already recorded. The superior is just
+        * issuing commands. */
+       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
+                              PTRACE_CONTINUE_COMMAND, FALSE, 'u',
+                              PTRACE_NO_FILE_OPTION};
+       ptrace_info_list_command(cmd);
+     }
+     break;
+    }
+    case PTRACE_SINGLESTEP: {
+     if (!pwi.is_ptrace_local) {
+       dmtcp_block_ckpt_signal();
+       ptrace_info_update_last_command(superior, inferior,
+                                       PTRACE_SINGLESTEP_COMMAND);
+       /* The ptrace_info pair was already recorded. The superior is just
+        * issuing commands. */
+       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
+                              PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
+                              PTRACE_NO_FILE_OPTION};
+       ptrace_info_list_command(cmd);
+       ptrace_ret =  _real_ptrace (request, pid, addr, data);
+       dmtcp_unblock_ckpt_signal();
+     }
+     else ptrace_ret = _real_ptrace(request, pid, addr, data);
+     break;
+    }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
+    case PTRACE_SETOPTIONS: {
+      write_ptrace_pair_to_given_file(PTRACE_SETOPTIONS_FILE_OPTION,
+                                      superior, inferior);
+      break;
+    }
 #endif
+    default: {
+      break;
+    }
+  }
+
+  /* TODO: We might want to check the return value in certain cases */
+
+  if (request != PTRACE_SINGLESTEP) {
+    ptrace_ret =  _real_ptrace(request, pid, addr, data);
+  }
+
+  return ptrace_ret;
+}

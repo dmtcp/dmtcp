@@ -39,9 +39,6 @@
 #include <thread_db.h>
 #include <sys/procfs.h>
 
-// FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
-#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
-
 #ifdef PID_VIRTUALIZATION
 
 static pid_t originalToCurrentPid( pid_t originalPid )
@@ -422,11 +419,7 @@ pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
   }
 }
 
-#ifdef PTRACE
-extern "C" pid_t _almost_real_waitpid(pid_t pid, int *stat_loc, int options)
-#else
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
-#endif
 {
   int status;
   pid_t originalPid;
@@ -501,11 +494,7 @@ extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusa
   return originalPid;
 }
 
-#ifdef PTRACE
-extern "C" long _almost_real_ptrace (enum __ptrace_request request, ...)
-#else
 extern "C" long ptrace (enum __ptrace_request request, ...)
-#endif
 {
   va_list ap;
   pid_t pid;
@@ -520,6 +509,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
   pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
   long ptrace_ret =  _real_ptrace(request, pid, addr, data);
+
   /*
    * PTRACE_GETEVENTMSG (since Linux 2.5.46)
    *          Retrieve  a message (as an unsigned long) about the ptrace event

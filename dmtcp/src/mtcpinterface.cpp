@@ -37,17 +37,12 @@
 #include "virtualpidtable.h"
 #include "protectedfds.h"
 #include "sockettable.h"
-#include "ptracewrappers.h"
 #include "dmtcpmodule.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
-
-#ifdef PTRACE
-#include "ptrace.h"
-#endif
 
 #ifdef __x86_64__
 # define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)

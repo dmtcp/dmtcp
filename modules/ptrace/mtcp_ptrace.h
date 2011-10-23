@@ -30,9 +30,6 @@
 
 #include <sys/ptrace.h>
 #include <semaphore.h>
-#include "constants.h"
-
-#ifdef PTRACE
 
 #ifdef __cplusplus
 extern "C" {
@@ -232,5 +229,4 @@ char retrieve_inferior_state(pid_t tid);
 }
 #endif
 
-#endif
 #endif
