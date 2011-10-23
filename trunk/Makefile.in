@@ -156,13 +156,11 @@ tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
 	rm -f ckpt_* dmtcp_restart_script* \
 	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
-	cd module && $(MAKE) tidy > /dev/null
 
 clean: tidy
 	- cd mtcp  && $(MAKE) clean
 	- cd dmtcp && $(MAKE) clean
 	- cd test  && $(MAKE) clean
-	- cd module  && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
 	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \
@@ -175,7 +173,6 @@ clean: tidy
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp && $(MAKE) distclean
-	- cd module && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/testconfig.py \
 	  dmtcpaware/*dmtcpaware* config.log config.status config.cache bin/*
 	rm -rf autom4te.cache dmtcp/autom4te.cache
