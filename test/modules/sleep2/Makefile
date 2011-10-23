@@ -1,3 +1,4 @@
+# MOST Makefile's IN ../module/* ARE IDENTICAL.  THIS ONE IS SLIGHTLY ALTERED.
 # To demonstrate, do:  make check    [Checkpoints every 5 seconds]
 
 # The name will be the same as the current directory name.
@@ -11,7 +12,7 @@ LIBOBJS = ${NAME}.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../..
+  DMTCP_ROOT=../../..
 endif
 DMTCP_SRC=${DMTCP_ROOT}/dmtcp/src
 
@@ -24,9 +25,13 @@ default: ${LIBNAME}.so
 
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
-check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+../sleep1/dmtcp_sleep1hijack.so: ../sleep1
+	cd ../sleep1; make dmtcp_sleep1hijack.so
+check: ${LIBNAME}.so ../sleep1/dmtcp_sleep1hijack.so ${DMTCP_ROOT}/test/dmtcp1
 	${DMTCP_ROOT}/bin/dmtcp_checkpoint --port ${DEMO_PORT} -i 5 \
-	  --with-module $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+	  --with-module \
+		$$PWD/../sleep1/dmtcp_sleep1hijack.so:$$PWD/${LIBNAME}.so \
+	  ${DMTCP_ROOT}/test/dmtcp1
 
 # We link the library using C++ for compatibility with the main dmtcphijack.so
 ${LIBNAME}.so: ${LIBOBJS}
