@@ -134,7 +134,7 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
    void mtcpHookRestart(void);
 
  User-defined plugin modules may be added to DMTCP.  For examples,
-   see the top-level "module" directory of the source distribution.
+   see the "test/modules" directory of the source distribution.
 
 ============================================
 
