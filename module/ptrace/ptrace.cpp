@@ -159,7 +159,7 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
 
 extern "C" const char* ptrace_get_tmpdir()
 {
-  char ptrace_tmpdir[256];
+  static char ptrace_tmpdir[256];
   strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
   strcat(ptrace_tmpdir, "/");
   strcat(ptrace_tmpdir, dmtcp_get_computation_id_str());
