@@ -25,18 +25,18 @@ TESTS=${basename ${shell ls *.c *.cpp | grep -v '^hellompi.c'}} \
 	hellompich openmpi
 
 tests: $(TESTS)
-	cd modules && ${MAKE}
+	cd module && ${MAKE}
 	${MAKE} -C credentials
 
 tidy:
 	rm -f ckpt_* dmtcp_restart_script* \
 	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
-	cd modules && $(MAKE) tidy > /dev/null
+	cd module && $(MAKE) tidy > /dev/null
 
 clean distclean: tidy
 	rm -f $(TESTS) *.pyc *.so
 	${MAKE} -C credentials clean
-	cd modules  && $(MAKE) clean
+	cd module  && $(MAKE) clean
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
