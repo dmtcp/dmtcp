@@ -55,7 +55,7 @@ endif
 
 default: display-build-env build
 
-build: mtcp dmtcp modules
+build: mtcp dmtcp module
 	$(MKDIR_P) bin
 	$(MAKE) bin
 	$(MAKE) dmtcpaware
@@ -103,8 +103,8 @@ mtcp: check-m32-compat
 dmtcp: check-m32-compat
 	cd dmtcp && $(MAKE)
 
-modules: check-m32-compat
-	cd modules && $(MAKE)
+module: check-m32-compat
+	cd module && $(MAKE)
 
 tests: build
 	cd test && $(MAKE) $(MTCP_MAKE_FLAGS)
@@ -163,7 +163,7 @@ tidy:
 clean: tidy
 	- cd mtcp  && $(MAKE) clean
 	- cd dmtcp && $(MAKE) clean
-	- cd modules && $(MAKE) clean
+	- cd module && $(MAKE) clean
 	- cd test  && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
@@ -177,7 +177,7 @@ clean: tidy
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp && $(MAKE) distclean
-	- cd modules && $(MAKE) clean
+	- cd module && $(MAKE) clean
 	rm -f Makefile test/Makefile test/testconfig.py \
 	  dmtcpaware/*dmtcpaware* config.log config.status config.cache bin/*
 	rm -rf autom4te.cache dmtcp/autom4te.cache
@@ -211,7 +211,7 @@ bin/% : dmtcp/src/%
 bin/% : mtcp/%
 	cd bin && $(LN_S) ../$< $*
 
-bin/% : modules/ptrace/%
+bin/% : module/ptrace/%
 	cd bin && $(LN_S) ../$< $*
 
 bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
@@ -233,7 +233,7 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	cd dmtcp && make install
-	cd modules && make install
+	cd module && make install
 	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
 	cp mtcp/mtcp_restart $(DESTDIR)$(bindir)
 	cp mtcp/mtcp.h $(DESTDIR)$(includedir)
@@ -270,5 +270,5 @@ uninstall:
 	  rm -f dmtcp.1 ${MANPAGES}
 
 .PHONY: default all check-m32-compat tests \
-	display-build-env display-release display-config build mtcp dmtcp modules\
+	display-build-env display-release display-config build mtcp dmtcp module\
 	clean distclean bin dmtcpaware examples dmtcp_noexamples
