@@ -40,11 +40,12 @@
 #include <sys/syscall.h>
 
 #ifdef DEBUG
-# define DPRINTF printf
+# define DPRINTF(...) printf(__VA_ARGS__)
 #else
-# define DPRINTF
+# define DPRINTF(...)
 #endif
 
+#define mtcp_abort abort
 #define MTCP_PRINTF printf
 #include "mtcp_ptrace.h"
 #include "ptrace.h"
