@@ -77,13 +77,17 @@ char ckpt_leader_file[PATH_MAX];
 
 int motherofall_done_reading = 0;
 pthread_mutex_t motherofall_done_reading_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t motherofall_done_reading_cv = PTHREAD_COND_INITIALIZER;
 int has_new_ptrace_shared_file = 0;
 int jalib_ckpt_unlock_ready = 0;
 pthread_mutex_t jalib_ckpt_unlock_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t jalib_ckpt_unlock_cv = PTHREAD_COND_INITIALIZER;
 int proceed_to_checkpoint = 0;
 pthread_mutex_t proceed_to_checkpoint_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t proceed_to_checkpoint_cv = PTHREAD_COND_INITIALIZER;
 int nthreads = 0;
 pthread_mutex_t nthreads_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t nthreads_cv = PTHREAD_COND_INITIALIZER;
 
 void mtcp_ptrace_info_list_update_info(int singlestep_waited_on);
 
@@ -292,17 +296,13 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
   if (mtcp_is_ptracing()) {
 
     /* Wait for JALIB_CKPT_UNLOCK to have been called. */
-    while (cont) {
-      pthread_mutex_lock(&jalib_ckpt_unlock_lock);
-      if (jalib_ckpt_unlock_ready) cont = 0;
-      pthread_mutex_unlock(&jalib_ckpt_unlock_lock);
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100000000;
-      nanosleep(&ts, NULL);
-    }
+    pthread_mutex_lock(&jalib_ckpt_unlock_lock);
+    if (!jalib_ckpt_unlock_ready) pthread_cond_wait(&jalib_ckpt_unlock_cv,
+                                                    &jalib_ckpt_unlock_lock);
+    pthread_mutex_unlock(&jalib_ckpt_unlock_lock);
 
-    /* Wait for new_ptrace_shared_file to have been written, if there is one. */
+    /* Wait for new_ptrace_shared_file to have been written, if there is one.
+       The ckpt leader writes it: the other process needs to wait for it. */
     if (has_new_ptrace_shared_file) {
       struct stat buf;
       while (stat(new_ptrace_shared_file, &buf)) {
@@ -327,23 +327,19 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
       mtcp_ptrace_info_list_sort();
       pthread_mutex_lock(&motherofall_done_reading_lock);
       motherofall_done_reading = 1;
+      pthread_cond_broadcast(&motherofall_done_reading_cv);
       pthread_mutex_unlock(&motherofall_done_reading_lock);
     }
 
     /* Wait for motherofall to have read in the ptrace related files. */
-    cont = 1;
-    while (cont) {
-      pthread_mutex_lock(&motherofall_done_reading_lock);
-      if (motherofall_done_reading) cont = 0;
-      pthread_mutex_unlock(&motherofall_done_reading_lock);
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100000000;
-      nanosleep(&ts, NULL);
-    }
+    pthread_mutex_lock(&motherofall_done_reading_lock);
+    if (!motherofall_done_reading)
+      pthread_cond_wait(&motherofall_done_reading_cv,
+                        &motherofall_done_reading_lock);
+    pthread_mutex_unlock(&motherofall_done_reading_lock);
   }
 
-  /* Save to detach - we have all the information in memory. */
+  /* Safe to detach - we have all the information in memory. */
   ptrace_unlock_inferiors();
   ptrace_detach_checkpoint_threads();
   ptrace_detach_user_threads();
@@ -351,18 +347,13 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
   if (mtcp_is_ptracing()) {
     pthread_mutex_lock(&nthreads_lock);
     nthreads--;
+    if (nthreads == 0) pthread_cond_broadcast(&nthreads_cv);
     pthread_mutex_unlock(&nthreads_lock);
 
-    cont = 1;
-    while(cont) {
-      pthread_mutex_lock(&proceed_to_checkpoint_lock);
-      if (proceed_to_checkpoint) cont = 0;
-      pthread_mutex_unlock(&proceed_to_checkpoint_lock);
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100000000;
-      nanosleep(&ts, NULL);
-    }
+    pthread_mutex_lock(&proceed_to_checkpoint_lock);
+    if (!proceed_to_checkpoint) pthread_cond_wait(&proceed_to_checkpoint_cv,
+                                                  &proceed_to_checkpoint_lock);
+    pthread_mutex_unlock(&proceed_to_checkpoint_lock);
   }
 }
 
@@ -463,30 +454,24 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
 
 void mtcp_ptrace_process_post_suspend_ckpt_thread()
 {
-  int cont = 1;
   if (mtcp_is_ptracing()) {
     jalib_ckpt_unlock();
     /* Allow user threads to process new_ptrace_shared_file. */
     pthread_mutex_lock(&jalib_ckpt_unlock_lock);
     jalib_ckpt_unlock_ready = 1;
+    pthread_cond_broadcast(&jalib_ckpt_unlock_cv);
     pthread_mutex_unlock(&jalib_ckpt_unlock_lock);
 
-    /* Wait for new_ptrace_shared_file to be read by motherofall. Detach. */
-    while (cont) {
-      pthread_mutex_lock(&nthreads_lock);
-      if (nthreads == 0) {
-        pthread_mutex_lock(&proceed_to_checkpoint_lock);
-        proceed_to_checkpoint = 1;
-        pthread_mutex_unlock(&proceed_to_checkpoint_lock);
-        cont = 0;
-      }
-      pthread_mutex_unlock(&nthreads_lock);
-      // FIXME: Do we really need this sleep here? Isn't the mutex a blocking one?
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 100 * 1000 * 1000;
-      nanosleep(&ts, NULL);
-    }
+    /* Wait for all the threads to have been detached. */
+    pthread_mutex_lock(&nthreads_lock);
+    if (nthreads) pthread_cond_wait(&nthreads_cv, &nthreads_lock);
+    pthread_mutex_unlock(&nthreads_lock);
+
+    /* It is now safe to proceed to checkpoint. */
+    pthread_mutex_lock(&proceed_to_checkpoint_lock);
+    proceed_to_checkpoint = 1;
+    pthread_cond_broadcast(&proceed_to_checkpoint_cv);
+    pthread_mutex_unlock(&proceed_to_checkpoint_lock);
   }
 }
 
@@ -995,6 +980,7 @@ void create_file(pid_t pid)
   }
 }
 
+/* Files are used for IPC. */
 void wait_for_file(char *file)
 {
   struct stat buf;
