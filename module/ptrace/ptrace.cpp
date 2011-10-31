@@ -159,13 +159,17 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
 
 extern "C" const char* ptrace_get_tmpdir()
 {
-  static char ptrace_tmpdir[256];
-  strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
-  strcat(ptrace_tmpdir, "/");
-  strcat(ptrace_tmpdir, dmtcp_get_computation_id_str());
+  static char ptrace_tmpdir[256] = "\0";
+  static char init = 0; 
+  if (!init) {
+    strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
+    strcat(ptrace_tmpdir, "/");
+    strcat(ptrace_tmpdir, dmtcp_get_computation_id_str());
+    init = 1;
+  }
 
   struct stat buf;
-  if (stat(ptrace_tmpdir, &buf)) {
+  if (stat(ptrace_tmpdir, &buf) == -1) {
     if (mkdir(ptrace_tmpdir, S_IRWXU)) {
       printf("Error creating tmp directory %s, error: \n",
              ptrace_tmpdir, strerror(errno));
