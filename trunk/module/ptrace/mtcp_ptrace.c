@@ -372,7 +372,7 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
   if (mtcp_is_ptracing()) {
     has_new_ptrace_shared_file = 0;
 
-    char inferior_st;
+    char inferior_st = 'u';
     int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
     if (ptrace_fd == -1) {
       /* There is no ptrace_shared_file. All ptrace pairs are in memory.
@@ -387,7 +387,7 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
         new_ptrace_fd = open(new_ptrace_shared_file,
                              O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
       pid_t superior, inferior;
-      char inf_st;
+      char inf_st = 'u';
       while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
         read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
         inf_st = procfs_state(inferior);
@@ -419,6 +419,8 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
       }
       /* Update the pairs that are already in memory. */
       mtcp_ptrace_info_list_save_threads_state();
+      if (inferior_st == 'u')
+        inferior_st = retrieve_inferior_state(tid);
     }
     DPRINTF("%d %c\n", GETTID(), inferior_st);
     if (inferior_st == 'N') {
