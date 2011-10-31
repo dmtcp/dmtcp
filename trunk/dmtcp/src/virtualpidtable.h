@@ -78,7 +78,7 @@ namespace dmtcp
       void  erase(pid_t originalPid);
       void  eraseTid(pid_t tid);
       void  eraseInferior(pid_t tid);
-      size_t numThreads() { return _tidVector.size(); }
+      size_t numThreads() { refreshTidVector(); return _tidVector.size(); }
 
       void  postExec();
 
