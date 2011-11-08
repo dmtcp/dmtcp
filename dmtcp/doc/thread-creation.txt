@@ -1,3 +1,5 @@
+// MUST STILL EXPLAIN original_tid
+
 		   Thread Creation and Thread Exit
 
 This is intended as one of a series of informal documents to describe
@@ -57,6 +59,7 @@ DMTCP:pthread_create(user_start_fn) ->
     DMTCP:__clone(glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
       MTCP:clone(DMTCP:clone_start->glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
         glibc:clone(MTCP:threadcloned->DMTCP:clone_start->glibc:start_thread->DMTCP:pthread_start->user_start_fn) ->
+          [ NEW THREAD BEGINNING ]
           MTCP:threadcloned ->
             DMTCP:clone_start -> [and retry if bad tid: exit to DMTCP:__clone and try again]
               glibc:start_thread ->
@@ -67,6 +70,7 @@ DMTCP:pthread_create(user_start_fn) ->
 
             <- MTCP:threadcloned [executes threadisdead to remove Thread descriptor]
           <- DMTCP:clone_start [ and deletes from virt. pid table ]
+          [ NEW THREAD EXITS ]
         <- glibc:clone(...) NOT_REACHED [kernel killed thread]
 
 glibc creates one wrapper around the start function.
@@ -116,4 +120,5 @@ NOTE:
 
 NOTE TO MYSELF TO FIX IN FINAL VERSION:
  * Remove MTCP:pthread_join  (not needed now)
- * Remove DMTCP:dmtcp_reset_gettid (threadiszombie should be enough)
+ * Remove DMTCP:dmtcp_reset_gettid in one place, where threadiszombie
+	 should be enough
