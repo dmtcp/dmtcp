@@ -338,8 +338,8 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 /*
  * struct MtcpRestartThreadArg
  *
- * DMTCP requires the original_tids  of the threads being created during
- *  the RESTARTING phase. We use MtcpRestartThreadArg structure is to pass
+ * DMTCP requires the original_tids of the threads being created during
+ *  the RESTARTING phase.  We use a MtcpRestartThreadArg struct to pass
  *  the original_tid of the thread being created from MTCP to DMTCP.
  *
  * actual clone call: clone (fn, child_stack, flags, void *, ... )
@@ -349,8 +349,8 @@ struct Thread { Thread *next;         // next thread in 'threads' list
  * DMTCP automatically extracts arg from this structure and passes that
  * to the _real_clone call.
  *
- * IMPORTANT NOTE: While updating, this structure must be kept in sync
- * with the structure defined with the same name in mtcpinterface.cpp
+ * IMPORTANT NOTE: While updating, this struct must be kept in sync
+ * with the struct of the same name in mtcpinterface.cpp
  */
 struct MtcpRestartThreadArg {
   void *arg;

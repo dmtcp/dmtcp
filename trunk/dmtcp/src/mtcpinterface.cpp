@@ -513,12 +513,12 @@ struct ThreadArg {
 
 // Invoked via pthread_create as start_routine
 // On return, it calls mtcp_threadiszombie()
-LIB_PRIVATE
-void * pthread_start(void *arg)
+static void * pthread_start(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   void *thread_arg = threadArg->arg;
   void * (*pthread_fn) (void *) = threadArg->pthread_fn;
+  JASSERT ( pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   void *result = (*pthread_fn) ( thread_arg );
   // FIXME:  Add wrapper for pthread_exit()
@@ -550,7 +550,7 @@ int clone_start(void *arg)
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     threadArg->clone_success = CLONE_FAIL;
-    JTRACE ("TID conflict detected. Exiting thread");
+    JTRACE ("TID conflict detected.  Exiting thread.");
     // If we return to clone(), clone will call __GI_exit(), and process exits.
     // We emulate glibc pthread_create.c:start_thread(), which makes
     //   call below in order to kill this thread only.
@@ -616,13 +616,14 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   int retval;
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
   // can interfere with user threads.
-  // We use JALLOC_HELPER_FREE to free this memory in three places:
+  // We use JALLOC_HELPER_FREE to free this memory in two places:
   // 1. near the beginning of pthread_start (wrapper for start_routine),
   //     providing that the __clone call succeeds with no tid conflict.
   // 2. if the call to __clone fails, the __clone wrapper will free it
-  //     using the thread-local pointer, pthread_threadArg.
-  // 3. if the thread exits due to a tid conflict, the __clone() wrapper
-  //     will free it using the thread-local pointer, pthread_threadArg.
+  //     using the thread-local pointer, pthread_threadArg.  We know that
+  //     pthread_threadArg will not be re-assigned until __clone completes.
+  // We use MALLOC/FREE so that pthread_create() can be called again, without
+  // waiting for the new thread to give up the buffer in pthread_start().
   struct ThreadArg *threadArg =
     (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
   pthread_threadArg = threadArg; // to allow __clone() to free this memory.
@@ -640,8 +641,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   /*
    * struct MtcpRestartThreadArg
    *
-   * DMTCP requires the original_tids  of the threads being created during
-   *  the RESTARTING phase. We use MtcpRestartThreadArg structure to pass
+   * DMTCP requires the original_tids of the threads being created during
+   *  the RESTARTING phase.  We use an MtcpRestartThreadArg structure to pass
    *  the original_tid of the thread being created from MTCP to DMTCP.
    *
    * actual clone call: clone (fn, child_stack, flags, void *, ... )
@@ -650,8 +651,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    * DMTCP automatically extracts arg from this structure and passes that
    * to the _real_clone call.
    *
-   * IMPORTANT NOTE: While updating, this structure must be kept in sync
-   * with the structure defined with the same name in mtcp.c
+   * IMPORTANT NOTE: While updating, this struct must be kept in sync
+   * with the struct of the same name in mtcp.c
    */
   struct MtcpRestartThreadArg {
     void * arg;
@@ -678,7 +679,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
    */
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
-
 
   pid_t originalTid = -1;
 
@@ -713,7 +713,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       /* First time thread creation */
       JTRACE ( "Forwarding user's clone call to mtcp" );
       tid = mtcpFuncPtrs.clone(clone_start, child_stack, flags, threadArg,
-                               parent_tidptr, newtls, child_tidptr );
+                               parent_tidptr, newtls, child_tidptr);
+      // FIXME:  What happens here if tid confliCT happens?
       dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED,
                           (void*) (unsigned long) tid);
     } else {
@@ -734,6 +735,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       // Was allocated in pthread_create wrapper in this thread.
       // (pthread_create_wrapper called pthread_create which called this fnc.)
       JALLOC_HELPER_FREE(pthread_threadArg);
+      pthread_threadArg = NULL;
 
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
@@ -744,9 +746,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-      // Was allocated in pthread_create wrapper in this thread.
-      // (pthread_create_wrapper called pthread_create which called this fnc.)
-      JALLOC_HELPER_FREE(pthread_threadArg);
+      // We will clone a new thread.  So, we
+      //   don't free threadArg or pthread_threadArg.  We will re-use them.
 
       JTRACE ( "TID conflict detected, creating a new child thread" ) ( tid );
       // Wait for child thread to acknowledge failure and quiesce itself.
