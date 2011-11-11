@@ -88,8 +88,8 @@ static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
 // NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
 static pthread_rwlock_t
   theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-static pthread_mutex_t unInitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
-static int unInitializedThreadCount = 0;
+static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
+static int uninitializedThreadCount = 0;
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
@@ -396,12 +396,12 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   theWrapperExecutionLock = newLock;
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
-  unInitializedThreadCountLock = newCountLock;
+  uninitializedThreadCountLock = newCountLock;
 
   pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
   destroyDmtcpWorker = newDestroyDmtcpWorker;
 
-  unInitializedThreadCount = 0;
+  uninitializedThreadCount = 0;
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
@@ -767,7 +767,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JASSERT(_real_pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
   JTRACE ( "got SUSPEND message,"
            " waiting for newly created threads to finish initialization" )
-         (unInitializedThreadCount);
+         (uninitializedThreadCount);
   waitForThreadsToFinishInitialization();
 
   JTRACE ( "Starting checkpoint, suspending..." );
@@ -1180,7 +1180,7 @@ void dmtcp_module_enable_ckpt() {
 
 void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
 {
-  while (unInitializedThreadCount != 0) {
+  while (uninitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
     JTRACE("sleeping")(sleepTime.tv_nsec);
     nanosleep(&sleepTime, NULL);
@@ -1191,11 +1191,11 @@ void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(_real_pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
-    unInitializedThreadCount++;
-    //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(_real_pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
+    uninitializedThreadCount++;
+    //JTRACE(":") (uninitializedThreadCount);
+    JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
@@ -1205,12 +1205,12 @@ void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(_real_pthread_mutex_lock(&unInitializedThreadCountLock) == 0)
+    JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
-    JASSERT(unInitializedThreadCount > 0) (unInitializedThreadCount);
-    unInitializedThreadCount--;
-    //JTRACE(":") (unInitializedThreadCount);
-    JASSERT(_real_pthread_mutex_unlock(&unInitializedThreadCountLock) == 0)
+    JASSERT(uninitializedThreadCount > 0) (uninitializedThreadCount);
+    uninitializedThreadCount--;
+    //JTRACE(":") (uninitializedThreadCount);
+    JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
