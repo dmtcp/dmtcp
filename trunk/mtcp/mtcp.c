@@ -500,6 +500,7 @@ static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
 static void lock_threads (void);
 static void unlk_threads (void);
+static int is_thread_locked (void);
 //static int mtcp_readmapsline (int mapsfd, Area *area);
 static void restore_heap(void);
 static void finishrestore (void);
@@ -1078,7 +1079,9 @@ void mtcp_process_pthread_join (pthread_t pth)
   struct Thread *thread;
   for (thread = threads; thread != NULL; thread = thread -> next) {
     if (pthread_equal(thread -> pth, pth)) {
-      threadisdead (thread);
+      lock_threads();
+      threadisdead(thread);
+      unlk_threads();
       break;
     }
   }
@@ -1151,8 +1154,9 @@ static int threadcloned (void *threadv)
   mtcp_no ();
 
   /* Do whatever to unlink and free thread block */
-
-  threadisdead (thread);
+  lock_threads();
+  threadisdead(thread);
+  unlk_threads();
 
   /* Return the user's status as the exit code */
 
@@ -1312,7 +1316,10 @@ static void setup_clone_entry (void)
 
 static void mtcp_put_thread_on_freelist(Thread *thread)
 {
-  lock_threads ();
+  if (! is_thread_locked()) {
+    DPRINTF("MTCP: Internal error: threadisdead called without thread lock\n");
+    mtcp_abort ();
+  }
 
   if (thread == NULL) {
     MTCP_PRINTF("Internal Error: Not Reached\n");
@@ -1320,8 +1327,6 @@ static void mtcp_put_thread_on_freelist(Thread *thread)
   }
   thread->next = threads_freelist;
   threads_freelist = thread;
-
-  unlk_threads ();
 }
 
 /*****************************************************************************
@@ -1393,6 +1398,7 @@ void mtcp_threadiszombie(void)
    * At least, we should modify getcurrenthread() to delete zombie threads
    * while scanning the list of all threads.
    */
+  /* Would use mtcp_state_set(), except we don't know previous, old state. */
   getcurrenthread()->state.value = ST_ZOMBIE;
 }
 
@@ -1400,7 +1406,10 @@ static void threadisdead (Thread *thread)
 {
   Thread **lthread, *parent, *xthread;
 
-  lock_threads ();
+  if (! is_thread_locked()) {
+    DPRINTF("MTCP: Internal error: threadisdead called without thread lock\n");
+    mtcp_abort ();
+  }
   DPRINTF("thread %p -> tid %d\n", thread, thread -> tid);
 
   /* Remove thread block from 'threads' list */
@@ -1437,7 +1446,6 @@ static void threadisdead (Thread *thread)
       motherofall = xthread;
     }
   }
-  unlk_threads ();
 
   /* If checkpoint thread is waiting for us, wake it to let it see
    * that this thread is no longer in list
@@ -1788,8 +1796,8 @@ rescan:
 again:
       if (*(thread -> actual_tidptr) == 0) {
         DPRINTF("thread %d disappeared\n", thread -> tid);
-        unlk_threads ();
         threadisdead (thread);
+        unlk_threads ();
         goto rescan;
       }
 
@@ -1830,8 +1838,8 @@ again:
           }
 
           if (retval < 0) {
-            unlk_threads();
             threadisdead(thread);
+            unlk_threads();
             goto rescan;
           }
 
@@ -3475,12 +3483,12 @@ static Thread *getcurrenthread (void)
       unlk_threads ();
       return (thread);
     }
-    if (thread -> state.value == ST_ZOMBIE) {
+    if (mtcp_state_value (&thread -> state) == ST_ZOMBIE) {
       /* if no thread with this tid, then we can remove zombie descriptor */
-      if (-1 == mtcp_sys_kernel_tgkill(-1, thread -> tid, 0)) {
-        unlk_threads();
+      if (-1 == mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0)) {
+        DPRINTF("Killing zombie thread: motherpid, thread->tid: %d, %d\n",
+	        motherpid, thread->tid);
         threadisdead(thread);
-        lock_threads ();
       }
     }
   }
@@ -3496,7 +3504,6 @@ static Thread *getcurrenthread (void)
  *****************************************************************************/
 
 static void lock_threads (void)
-
 {
   while (!mtcp_state_set (&threadslocked, 1, 0)) {
     mtcp_state_futex (&threadslocked, FUTEX_WAIT, 1, NULL);
@@ -3505,13 +3512,17 @@ static void lock_threads (void)
 }
 
 static void unlk_threads (void)
-
 {
   WMB; // flush data written before unlocking
   // FIXME: Should we be checking return value of mtcp_state_set? Can it ever
   //        fail?
   mtcp_state_set(&threadslocked , 0, 1);
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
+}
+
+static int is_thread_locked (void)
+{
+  return mtcp_state_value(&threadslocked);
 }
 
 /*****************************************************************************
