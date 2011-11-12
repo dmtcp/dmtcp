@@ -1394,9 +1394,8 @@ static void mtcp_empty_threads_freelist()
 /* Declare current thread to be zombie. */
 void mtcp_threadiszombie(void)
 {
-  /* WARNING:  If there are many threads, getcurrenthread can be slow.
-   * At least, we should modify getcurrenthread() to delete zombie threads
-   * while scanning the list of all threads.
+  /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  See further
+   *   comment in getcurrenthread().
    */
   /* Would use mtcp_state_set(), except we don't know previous, old state. */
   getcurrenthread()->state.value = ST_ZOMBIE;
@@ -3483,6 +3482,11 @@ static Thread *getcurrenthread (void)
       unlk_threads ();
       return (thread);
     }
+    /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
+     *   test threads in state ST_ZOMBIE using tgkill to remove them
+     *   early (before reaching a checkpoint) so that the MTCP
+     *   thread descriptor list does not grow too long.
+     */
     if (mtcp_state_value (&thread -> state) == ST_ZOMBIE) {
       /* if no thread with this tid, then we can remove zombie descriptor */
       if (-1 == mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0)) {
