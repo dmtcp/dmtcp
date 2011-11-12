@@ -609,7 +609,6 @@ int clone_start(void *arg)
 }
 #endif
 
-static __thread void * pthread_threadArg;
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                               void *(*start_routine)(void*), void *arg)
 {
@@ -619,19 +618,20 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   // We use JALLOC_HELPER_FREE to free this memory in two places:
   // 1. near the beginning of pthread_start (wrapper for start_routine),
   //     providing that the __clone call succeeds with no tid conflict.
-  // 2. if the call to __clone fails, the __clone wrapper will free it
-  //     using the thread-local pointer, pthread_threadArg.  We know that
-  //     pthread_threadArg will not be re-assigned until __clone completes.
+  // 2. if the call to _real_pthread_create fails, then free memory
+  //     near the end of this function.
   // We use MALLOC/FREE so that pthread_create() can be called again, without
   // waiting for the new thread to give up the buffer in pthread_start().
   struct ThreadArg *threadArg =
     (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
-  pthread_threadArg = threadArg; // to allow __clone() to free this memory.
   threadArg->pthread_fn = start_routine;
   threadArg->arg = arg;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
   WRAPPER_EXECUTION_ENABLE_CKPT();
+  if (retval != 0) { // if we failed to create new pthread
+    JALLOC_HELPER_FREE(threadArg);
+  }
   return retval;
 }
 
@@ -732,11 +732,6 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
       //         (still), we use uninitialized memory.  WHY?
       JALLOC_HELPER_FREE ( threadArg );
 
-      // Was allocated in pthread_create wrapper in this thread.
-      // (pthread_create_wrapper called pthread_create which called this fnc.)
-      JALLOC_HELPER_FREE(pthread_threadArg);
-      pthread_threadArg = NULL;
-
       /* If clone() failed, decrement the uninitialized thread count, since
        * there is none
        */
@@ -746,8 +741,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
     }
 
     if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-      // We will clone a new thread.  So, we
-      //   don't free threadArg or pthread_threadArg.  We will re-use them.
+      // We will clone a new thread.  So, we don't free threadArg.
+      // We will re-use it.
 
       JTRACE ( "TID conflict detected, creating a new child thread" ) ( tid );
       // Wait for child thread to acknowledge failure and quiesce itself.
