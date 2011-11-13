@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "syscallwrappers.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +35,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include "syscallwrappers.h"
+#include "dmtcpworker.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 
@@ -49,34 +50,39 @@
 /* Prevent recursive calls to dmtcp_on_XXX() */
 static int in_dmtcp_on_helper_fnc = 0;
 
-#define PASSTHROUGH_DMTCP_HELPER(func, ...) {\
-    int ret = _real_ ## func (__VA_ARGS__); \
-    int saved_errno; \
-    saved_errno = errno; \
-      PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__); \
+#define PASSTHROUGH_DMTCP_HELPER(func, ...) {       \
+    int ret = _real_ ## func (__VA_ARGS__);         \
+    int saved_errno;                                \
+    saved_errno = errno;                            \
+    PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__);    \
     }
 
-#define PASSTHROUGH_DMTCP_HELPER2(func, ...) {\
-    _dmtcp_lock();\
-    if (in_dmtcp_on_helper_fnc == 0) { \
-      in_dmtcp_on_helper_fnc = 1; \
-      if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func, saved_errno); \
-      else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);\
-      in_dmtcp_on_helper_fnc = 0; \
-    } \
-    _dmtcp_unlock();\
-    errno =saved_errno; \
-    return ret;}
+#define PASSTHROUGH_DMTCP_HELPER2(func, ...) {                              \
+    _dmtcp_lock();                                                          \
+    if (in_dmtcp_on_helper_fnc == 0) {                                      \
+      in_dmtcp_on_helper_fnc = 1;                                           \
+      if(ret < 0) ret = dmtcp_on_error(ret, sockfd, #func, saved_errno);    \
+      else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);                      \
+      in_dmtcp_on_helper_fnc = 0;                                           \
+    }                                                                       \
+    _dmtcp_unlock();                                                        \
+    errno =saved_errno;                                                     \
+    /* If the wrapper-execution lock was acquired earlier, release it now*/ \
+    WRAPPER_EXECUTION_ENABLE_CKPT()                                         \
+    return ret;                                                             \
+  }
 
 extern "C" int socket(int domain, int type, int protocol)
 {
   static int sockfd = -1;
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   PASSTHROUGH_DMTCP_HELPER ( socket, domain, type, protocol );
 }
 
 extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
                        socklen_t addrlen)
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_connect ( sockfd,serv_addr,addrlen );
   int saved_errno = errno;
 
@@ -116,17 +122,29 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
 extern "C" int bind (int sockfd, const struct sockaddr *my_addr,
                      socklen_t addrlen)
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   PASSTHROUGH_DMTCP_HELPER ( bind, sockfd, my_addr, addrlen );
 }
 
 extern "C" int listen ( int sockfd, int backlog )
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   PASSTHROUGH_DMTCP_HELPER ( listen, sockfd, backlog );
 }
 
 extern "C" int accept(int sockfd, struct sockaddr *addr,
                       socklen_t *addrlen)
 {
+  /* FIXME: accept() is a blocking call that can alter the process state (by
+   * creating a new socket-fd). This can cause problems if it happens at a time
+   * when some other thread is processing inside a fork() or exec() wrapper.
+   * For more details, please look at the comment in
+   * dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl().
+   *
+   * Since it's a blocking call, we cannot grab the actual wrapper-execution
+   * lock here.
+   */
+  DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT();
   if ( addr == NULL || addrlen == NULL )
   {
     struct sockaddr_storage tmp_addr;
@@ -142,6 +160,8 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
 extern "C" int accept4 ( int sockfd, struct sockaddr *addr,
                          socklen_t *addrlen, int flags )
 {
+  // FIXME: Look at the comment for accept()
+  DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT();
   if ( addr == NULL || addrlen == NULL )
   {
     struct sockaddr_storage tmp_addr;
@@ -157,11 +177,13 @@ extern "C" int accept4 ( int sockfd, struct sockaddr *addr,
 extern "C" int setsockopt(int sockfd, int level, int optname,
                           const void *optval, socklen_t optlen)
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   PASSTHROUGH_DMTCP_HELPER ( setsockopt,sockfd,level,optname,optval,optlen );
 }
 
 extern "C" int getsockopt(int sockfd, int level, int optname,
                           void *optval, socklen_t *optlen)
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
 }

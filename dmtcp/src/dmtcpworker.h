@@ -45,6 +45,9 @@
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock();   \
   }
 
+#define DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT()          \
+  bool __wrapperExecutionLockAcquired = false;
+
 #define WRAPPER_EXECUTION_GET_EXCL_LOCK()               \
   bool __wrapperExecutionLockAcquired                   \
     = dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl();
