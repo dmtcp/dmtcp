@@ -181,6 +181,8 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _inferiorVector.clear();
   //_pidMapTable[_pid] = _pid;
   printPidMaps();
+  pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
+  tblLock = newlock;
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
@@ -516,9 +518,9 @@ void dmtcp::VirtualPidTable::serializeEntryCount ( jalib::JBinarySerializer& o,
 void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid)
 {
 
-  dmtcp::string pidMapFile = "/proc/self/fd/" 
+  dmtcp::string pidMapFile = "/proc/self/fd/"
                              + jalib::XToString ( PROTECTED_PIDMAP_FD );
-  dmtcp::string pidMapCountFile = "/proc/self/fd/" 
+  dmtcp::string pidMapCountFile = "/proc/self/fd/"
                                   + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
 
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
@@ -553,7 +555,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t curr
 
 void dmtcp::VirtualPidTable::readPidMapsFromFile()
 {
-  dmtcp::string pidMapFile = "/proc/self/fd/" 
+  dmtcp::string pidMapFile = "/proc/self/fd/"
                              + jalib::XToString ( PROTECTED_PIDMAP_FD );
   pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
   dmtcp::string pidMapCountFile = "/proc/self/fd/"
