@@ -485,12 +485,10 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         if ( oldState == WorkerState::RUNNING
                 && newState == WorkerState::SUSPENDED )
         {
-          // All the workers are in SUSPENDED state, now it is safe to reset
-          // this flag.
-          workersRunningAndSuspendMsgSent = false;
-
           JNOTE ( "locking all nodes" );
-          broadcastMessage ( DMT_DO_FD_LEADER_ELECTION );
+          broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
+                           UniquePid::ComputationId(),
+                           getStatus().numPeers );
         }
 #ifdef EXTERNAL_SOCKET_HANDLING
         if ( oldState == WorkerState::SUSPENDED
@@ -760,10 +758,23 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
         handleUserCommand('q');
       }
     }
+  }
+}
 
-//         int clientNumber = ((NamedChunkReader*)sock)->clientNumber();
-//         JASSERT(clientNumber >= 0)(clientNumber);
-//         _table.removeClient(clientNumber);
+void dmtcp::DmtcpCoordinator::processPostDisconnect()
+{
+  CoordinatorStatus s = getStatus();
+  // Some process exited without getting into the SUSPENDED state. We should
+  // proceed to the next barrier if all the remaining processes are already in
+  // SUSPENDED state.
+  if (s.numPeers > 0 &&
+      s.minimumState == WorkerState::SUSPENDED &&
+      s.minimumStateUnanimous == true &&
+      workersRunningAndSuspendMsgSent) {
+    JNOTE("locking all nodes");
+    broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
+                     UniquePid::ComputationId(),
+                     getStatus().numPeers );
   }
 }
 
@@ -825,7 +836,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     JNOTE ( "CheckpointInterval Updated" ) ( oldInterval )
 	  ( theCheckpointInterval );
   }
-//     _table[hello_remote.from.pid()].setState(hello_remote.state);
 
   NamedChunkReader * ds = new NamedChunkReader (
       sock
@@ -844,7 +854,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     ds->hostname(hostname);
     delete [] extraData;
   }
-
 
   //add this client as a chunk reader
   // in this case a 'chunk' is sizeof(DmtcpMessage)
@@ -869,26 +878,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   JTRACE( "END" )
   ( _dataSockets.size() ) ( _dataSockets[0]->socket().sockfd() == STDIN_FD );
 }
-
-//     WorkerNode& node = _table[hello_remote.from.pid()];
-//     node.setClientNumer( ds->clientNumber() );
-  /*
-      if(hello_remote.state == WorkerState::RESTARTING)
-      {
-          node.setAddr(remoteAddr, remoteLen);
-          node.setRestorePort(hello_remote.restorePort);
-
-          JASSERT(node.addrlen() > 0)(node.addrlen());
-          JASSERT(node.restorePort() > 0)(node.restorePort());
-          DmtcpMessage msg;
-          msg.type = DMT_RESTORE_WAITING;
-          memcpy(&msg.restoreAddr,node.addr(),node.addrlen());
-          msg.restoreAddrlen = node.addrlen();
-          msg.restorePid.id = node.id();
-          msg.restorePort = node.restorePort();
-          broadcastMessage( msg );
-      }*/
-//}
 
 void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
 						 jalib::JSocket& remote )
@@ -1108,10 +1097,17 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
 {
   DmtcpMessage msg;
   msg.type = type;
-  if( param1 > 0 ){
+  if (param1 > 0) {
     msg.params[0] = param1;
     msg.compGroup = compGroup;
   }
+
+  if (type == DMT_DO_FD_LEADER_ELECTION) {
+    // All the workers are in SUSPENDED state, now it is safe to reset
+    // this flag.
+    workersRunningAndSuspendMsgSent = false;
+  }
+
   broadcastMessage ( msg );
   JTRACE ("sending message")( type );
 }

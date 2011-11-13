@@ -672,7 +672,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  if ( type == DMT_DO_SUSPEND ) {
+  if ( type == DMT_DO_FD_LEADER_ELECTION ) {
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
     JASSERT ( theCheckpointState != NULL );
     theCheckpointState->numPeers(msg.params[0]);
