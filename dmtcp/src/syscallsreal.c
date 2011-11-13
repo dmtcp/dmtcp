@@ -890,8 +890,13 @@ int _real_pthread_join(pthread_t thread, void **value_ptr) {
 LIB_PRIVATE
 int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     void *(*start_routine)(void*), void *arg) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_create )
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_create )
     (thread,attr,start_routine,arg);
+}
+
+LIB_PRIVATE
+void _real_pthread_exit(void *retval) {
+  REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) (retval);
 }
 
 LIB_PRIVATE

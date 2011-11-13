@@ -521,7 +521,6 @@ static void * pthread_start(void *arg)
   JASSERT ( pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   void *result = (*pthread_fn) ( thread_arg );
-  // FIXME:  Add wrapper for pthread_exit()
   mtcpFuncPtrs.threadiszombie();
   return result;
 }
@@ -772,6 +771,12 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
   return tid;
 
 #endif
+}
+
+extern "C" void pthread_exit (void * retval)
+{
+  mtcpFuncPtrs.threadiszombie();
+  _real_pthread_exit (retval);
 }
 
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
