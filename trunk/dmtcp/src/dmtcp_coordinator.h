@@ -37,8 +37,9 @@ namespace dmtcp
       virtual void onData ( jalib::JReaderInterface* sock );
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
       virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      virtual void processPostDisconnect();
       virtual void onTimeoutInterval();
-      
+
 #ifdef EXTERNAL_SOCKET_HANDLING
       void sendUnidentifiedPeerNotifications();
 #endif

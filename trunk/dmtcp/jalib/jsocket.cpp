@@ -623,6 +623,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
         _dataSockets[i] = _dataSockets[_dataSockets.size()-1];
         _dataSockets.pop_back();
         i--;
+        processPostDisconnect();
       }
     }
 

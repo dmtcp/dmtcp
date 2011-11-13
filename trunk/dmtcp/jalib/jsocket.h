@@ -256,6 +256,7 @@ namespace jalib
       virtual void onData ( JReaderInterface* sock ) = 0;
       virtual void onConnect ( const JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen ) = 0;
       virtual void onDisconnect ( JReaderInterface* sock ) {};
+      virtual void processPostDisconnect () {};
       void setTimeoutInterval ( double dblTimeout );
       virtual void onTimeoutInterval() {};
       void addWrite ( JWriterInterface* write );
