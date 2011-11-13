@@ -31,18 +31,26 @@
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
 
-#define WRAPPER_EXECUTION_DISABLE_CKPT() \
-  /*JTRACE("Acquiring wrapperExecutionLock");*/ \
-  bool __wrapperExecutionLockAcquired = dmtcp::DmtcpWorker::wrapperExecutionLockLock(); \
-  if ( __wrapperExecutionLockAcquired ) { \
-    /*JTRACE("Acquired wrapperExecutionLock");*/ \
+#define WRAPPER_EXECUTION_DISABLE_CKPT()                \
+  /*JTRACE("Acquiring wrapperExecutionLock");*/         \
+  bool __wrapperExecutionLockAcquired =                 \
+    dmtcp::DmtcpWorker::wrapperExecutionLockLock();     \
+  if ( __wrapperExecutionLockAcquired ) {               \
+    /*JTRACE("Acquired wrapperExecutionLock");*/        \
   }
 
-#define WRAPPER_EXECUTION_ENABLE_CKPT() \
-  if ( __wrapperExecutionLockAcquired ) { \
-    /*JTRACE("Releasing wrapperExecutionLock");*/ \
-    dmtcp::DmtcpWorker::wrapperExecutionLockUnlock(); \
+#define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
+  if ( __wrapperExecutionLockAcquired ) {               \
+    /*JTRACE("Releasing wrapperExecutionLock");*/       \
+    dmtcp::DmtcpWorker::wrapperExecutionLockUnlock();   \
   }
+
+#define WRAPPER_EXECUTION_GET_EXCL_LOCK()               \
+  bool __wrapperExecutionLockAcquired                   \
+    = dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl();
+
+#define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK()           \
+  WRAPPER_EXECUTION_ENABLE_CKPT()
 
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 LIB_PRIVATE void dmtcp_reset_gettid();
@@ -125,6 +133,7 @@ namespace dmtcp
 
       static bool wrapperExecutionLockLock();
       static void wrapperExecutionLockUnlock();
+      static bool wrapperExecutionLockLockExcl();
 
       static void waitForThreadsToFinishInitialization();
       static void incrementUninitializedThreadCount();

@@ -1143,6 +1143,48 @@ bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
   return lockAcquired;
 }
 
+/*
+ * Execute fork() and exec() wrappers in exclusive mode
+ *
+ * fork() and exec() wrappers pass on the state/information about the current
+ * process/program to the to-be-created process/program.
+ *
+ * There can be a potential race in the wrappers if this information gets
+ * changed between the point where it was acquired and the point where the
+ * process/program is created. An example of this situation would be a
+ * different thread executing an open() call in parallel creating a
+ * file-descriptor, which is not a part of the information/state gathered
+ * earlier. This can result in unexpected behavior and can cause the
+ * program/process to fail.
+ *
+ * This patch fixes this by acquiring the Wrapper-protection-lock in exclusive
+ * mode (write-lock) when executing these wrappers. This guarantees that no
+ * other thread would be executing inside a wrapper that can change the process
+ * state/information.
+ *
+ * NOTE:
+ * 1. Currently, we do not have WRAPPER_EXECUTION_LOCK/UNLOCK for socket()
+ * family of wrapper. That would be fixed in a later commit.
+ * 2. We need to comeup with a strategy for certain blocking system calls that
+ * can change the state of the process (e.g. accept).
+ */
+bool dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl()
+{
+  int saved_errno = errno;
+  bool lockAcquired = false;
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
+    int retVal = _real_pthread_rwlock_wrlock(&theWrapperExecutionLock);
+    if (retVal != 0 && retVal != EDEADLK) {
+      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__);
+      _exit(1);
+    }
+    // retVal should always be 0 (success) here.
+    lockAcquired = retVal == 0 ? true : false;
+  }
+  errno = saved_errno;
+  return lockAcquired;
+}
+
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
 void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
 {
