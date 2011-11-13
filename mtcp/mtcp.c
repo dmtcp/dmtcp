@@ -1820,7 +1820,12 @@ again:
         /* Send it a signal so it will call stopthisthread                 */
         /* We will need to rescan (hopefully it will be suspended by then) */
 
-        case ST_RUNENABLED: {
+        case ST_RUNENABLED:
+        case ST_ZOMBIE: {
+          /* If zombie (thread near end of life), set state to ST_RUNENABLED.
+           * If this fails, it was already ST_RUNENABLED, which we want.
+           */
+          mtcp_state_set(&(thread -> state), ST_RUNENABLED, ST_ZOMBIE);
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
             goto again;
           int retry_signalling = 1;
@@ -1890,14 +1895,6 @@ again:
 
         case ST_CKPNTHREAD: {
           break;
-        }
-
-        case ST_ZOMBIE: {
-          /* Thread should be at end of mtcpinterface.cpp:pthread_start wrapper.
-           * On restart, we'll recreate this thread and let pthread_start
-           *   exit naturally, after which the thread will exit.
-           */
-          continue;
         }
 
         /* Who knows? */
@@ -2007,8 +2004,11 @@ again:
     lock_threads();
     for (thread = threads; thread != NULL; thread = thread -> next) {
       if (mtcp_state_value(&(thread -> state)) != ST_CKPNTHREAD) {
-        if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
-	  mtcp_abort();
+        if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED)) {
+          MTCP_PRINTF("DMTCP:  Internal error: thread->state.value: %d\n",
+                      thread->state.value);
+          mtcp_abort();
+        }
         mtcp_state_futex(&(thread -> state), FUTEX_WAKE, 1, NULL);
       }
     }
