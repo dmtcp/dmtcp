@@ -441,10 +441,11 @@ static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_dmtcp_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
 
-void (*callback_pre_suspend_user_thread)();
-void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart);
-void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling, int *retval);
-void (*callback_ckpt_thread_start)();
+void (*callback_pre_suspend_user_thread)() = NULL;
+void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
+void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
+                                  int *retval) = NULL;
+void (*callback_ckpt_thread_start)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -1830,8 +1831,11 @@ again:
             goto again;
           int retry_signalling = 1;
           int retval = 0;
-          callback_send_stop_signal(thread->original_tid,
-                                    &retry_signalling, &retval);
+          if (callback_send_stop_signal != NULL) {
+            DPRINTF("Before callback_send_stop_signal\n");
+            callback_send_stop_signal(thread->original_tid, &retry_signalling,
+                                      &retval);
+          }
           if (retry_signalling) {
             retval = mtcp_sys_kernel_tgkill(motherpid, thread->tid,
                                             STOPSIGNAL);
@@ -2253,7 +2257,7 @@ int perform_callback_write_dmtcp_header()
   }
 
   int tmpfd = -1;
-  if (callback_write_dmtcp_header != 0) {
+  if (callback_write_dmtcp_header != NULL) {
     /* Temp file for DMTCP header; will be written into the checkpoint file. */
     tmpfd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpfd < 0) {
@@ -2696,12 +2700,11 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 static int should_ckpt_fd (int fd)
 {
    /* DMTCP policy is to never let MTCP checkpoint fd; DMTCP will do it. */
-   if ( callback_ckpt_fd!=NULL )
+   if (callback_ckpt_fd != NULL) {
      return (*callback_ckpt_fd)(fd); //delegate to callback
-   else if (fd > 2)
+   } else if (fd > 2) {
      return 1;
-   else
-   {
+   } else {
      /* stdin/stdout/stderr */
      /* we only want to checkpoint these if they are from a file */
      struct stat statbuf;
@@ -3075,7 +3078,9 @@ static void stopthisthread (int signum)
       // wake checkpoint thread if it's waiting for me
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
 
-      callback_pre_suspend_user_thread();
+      if (callback_pre_suspend_user_thread != NULL) {
+        callback_pre_suspend_user_thread();
+      }
 
       /* Then we wait for the checkpoint thread to write the checkpoint file
        * then wake us up
@@ -3142,7 +3147,9 @@ static void stopthisthread (int signum)
   DPRINTF("tid %d returning to %p\n",
           mtcp_sys_kernel_gettid (), __builtin_return_address (0));
 
-  callback_pre_resume_user_thread(is_ckpt, is_restart);
+  if (callback_pre_resume_user_thread != NULL) {
+    callback_pre_resume_user_thread(is_ckpt, is_restart);
+  }
 }
 
 /*****************************************************************************
