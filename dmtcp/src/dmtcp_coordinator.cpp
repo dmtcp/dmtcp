@@ -819,8 +819,13 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
       return;
     isRestarting = true;
-  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR ) {
-    if ( validateWorkerProcess ( hello_remote, remote ) == false )
+  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
+              hello_remote.state == WorkerState::RESTARTING) {
+    if ( validateRestartingWorkerProcess ( hello_remote, remote ) == false )
+      return;
+  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
+              hello_remote.state == WorkerState::RUNNING) {
+    if ( validateNewWorkerProcess ( hello_remote, remote ) == false )
       return;
   } else {
     JASSERT ( false )
@@ -960,102 +965,122 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
   return true;
 }
 
-bool dmtcp::DmtcpCoordinator::validateWorkerProcess
+bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
 
-  if ( hello_remote.state == WorkerState::RESTARTING ) {
-    if ( minimumState() != WorkerState::RESTARTING &&
-         minimumState() != WorkerState::CHECKPOINTED ) {
-      JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
-	     "  Reject incoming restarting computation process.")
-        ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
-      hello_local.type = dmtcp::DMT_REJECT;
-      remote << hello_local;
-      remote.close();
-      return false;
-    } else if ( hello_remote.compGroup != UniquePid::ComputationId()) {
-      JNOTE ("Reject incoming restarting computation process"
-	     " since it is not from current computation")
-        ( UniquePid::ComputationId() ) ( hello_remote.compGroup );
-      hello_local.type = dmtcp::DMT_REJECT;
-      remote << hello_local;
-      remote.close();
-      return false;
-    }
-    // dmtcp_restart already connected and compGroup created.
-    // Computation process connection
-    JASSERT ( curTimeStamp != 0 );
+  JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
-    JTRACE("Connection from (restarting) computation process")
-      ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
-
+  if ( minimumState() != WorkerState::RESTARTING &&
+       minimumState() != WorkerState::CHECKPOINTED ) {
+    JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
+           "  Reject incoming restarting computation process.")
+      (UniquePid::ComputationId()) (hello_remote.compGroup) (minimumState());
+    hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
-
-    // NOTE: Sending the same message twice. We want to make sure that the
-    // worker process receives/processes the first messages as soon as it
-    // connects to the coordinator. The second message will be processed in
-    // postRestart routine in DmtcpWorker.
-    //
-    // The reason to do this is the following. The dmtcp_restart process
-    // connects to the coordinator at a very early stage. Later on, before
-    // exec()'ing into mtcp_restart, it reconnects to the coordinator using
-    // it's original UniquiePid and closes the earlier socket connection.
-    // However, the coordinator might process the disconnect() before it
-    // processes the connect() which would lead to a situation where the
-    // coordinator is not connected to any worker processes. The coordinator
-    // would now process the connect() and may reject the worker because the
-    // worker state is RESTARTING, but the minimumState() is UNKNOWN.
+    remote.close();
+    return false;
+  } else if ( hello_remote.compGroup != UniquePid::ComputationId()) {
+    JNOTE ("Reject incoming restarting computation process"
+           " since it is not from current computation")
+      ( UniquePid::ComputationId() ) ( hello_remote.compGroup );
+    hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
-
-  } else if ( hello_remote.state == WorkerState::RUNNING ) {
-    CoordinatorStatus s = getStatus();
-    // If some of the processes are not in RUNNING state OR if the SUSPEND
-    // message has been sent, REJECT.
-    if ( s.numPeers > 0 &&
-         ( s.minimumState != WorkerState::RUNNING ||
-           s.minimumStateUnanimous == false       ||
-           workersRunningAndSuspendMsgSent == true) ) {
-      JNOTE  ( "Current computation not in RUNNING state."
-	       "  Refusing to accept new connections.")
-        ( UniquePid::ComputationId() ) ( hello_remote.from.pid() )
-        ( s.numPeers ) ( s.minimumState )
-        ( s.minimumStateUnanimous ) ( workersRunningAndSuspendMsgSent );
-      hello_local.type = dmtcp::DMT_REJECT;
-      remote << hello_local;
-      remote.close();
-      return false;
-    } else if ( hello_remote.compGroup != UniquePid() ) {
-      // New Process trying to connect to Coordinator but already has compGroup
-      JNOTE  ( "New process, but already has computation group,\n"
-               "OR perhaps a different DMTCP_PREFIX_ID.  Rejecting." )
-        (hello_remote.compGroup);
-
-      hello_local.type = dmtcp::DMT_REJECT;
-      remote << hello_local;
-      remote.close();
-      return false;
-    } else {
-      // If first process, create the new computation group
-      if ( UniquePid::ComputationId() == UniquePid(0,0,0) ) {
-        // Connection of new computation.
-        UniquePid::ComputationId() = hello_remote.from.pid();
-        curTimeStamp = 0;
-        numPeers = -1;
-        JTRACE ( "First process connected.  Creating new computation group" )
-	       (UniquePid::ComputationId() );
-      } else {
-        JTRACE ( "New process Connected" ) ( hello_remote.from.pid() );
-      }
-      hello_local.compGroup = UniquePid::ComputationId();
-      remote << hello_local;
-    }
-  } else {
-    JASSERT ( false ) .Text ( "Invalid Worker Type" );
+    remote.close();
     return false;
   }
+  // dmtcp_restart already connected and compGroup created.
+  // Computation process connection
+  JASSERT ( curTimeStamp != 0 );
 
+  JTRACE("Connection from (restarting) computation process")
+    ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
+
+  remote << hello_local;
+
+  // NOTE: Sending the same message twice. We want to make sure that the
+  // worker process receives/processes the first messages as soon as it
+  // connects to the coordinator. The second message will be processed in
+  // postRestart routine in DmtcpWorker.
+  //
+  // The reason to do this is the following. The dmtcp_restart process
+  // connects to the coordinator at a very early stage. Later on, before
+  // exec()'ing into mtcp_restart, it reconnects to the coordinator using
+  // it's original UniquiePid and closes the earlier socket connection.
+  // However, the coordinator might process the disconnect() before it
+  // processes the connect() which would lead to a situation where the
+  // coordinator is not connected to any worker processes. The coordinator
+  // would now process the connect() and may reject the worker because the
+  // worker state is RESTARTING, but the minimumState() is UNKNOWN.
+  remote << hello_local;
+
+  return true;
+}
+
+bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
+	 (DmtcpMessage& hello_remote, jalib::JSocket& remote)
+{
+  dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
+  CoordinatorStatus s = getStatus();
+
+  JASSERT(hello_remote.state == WorkerState::RUNNING) (hello_remote.state);
+
+  if (workersRunningAndSuspendMsgSent == true) {
+    /* Worker trying to connect after SUSPEND message has been sent.
+     * This happens if the worker process is executing a fork() system call
+     * when the DMT_DO_SUSPEND is broadcasted. We need to make sure that the
+     * child process is allowed to participate in the current checkpoint.
+     */
+    JASSERT(s.numPeers > 0) (s.numPeers);
+    JASSERT(s.minimumState != WorkerState::SUSPENDED) (s.minimumState);
+
+    // Handshake
+    hello_local.compGroup = UniquePid::ComputationId();
+    remote << hello_local;
+
+    // Now send DMT_DO_SUSPEND message so that this process can also
+    // participate in the current checkpoint
+    DmtcpMessage suspendMsg (dmtcp::DMT_DO_SUSPEND);
+    remote << suspendMsg;
+
+  } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING) {
+    // If some of the processes are not in RUNNING state
+    JNOTE("Current computation not in RUNNING state."
+          "  Refusing to accept new connections.")
+      (UniquePid::ComputationId()) (hello_remote.from.pid())
+      (s.numPeers) (s.minimumState);
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+
+  } else if (hello_remote.compGroup != UniquePid()) {
+    // New Process trying to connect to Coordinator but already has compGroup
+    JNOTE  ( "New process, but already has computation group,\n"
+             "OR perhaps a different DMTCP_PREFIX_ID.  Rejecting." )
+      (hello_remote.compGroup);
+
+    hello_local.type = dmtcp::DMT_REJECT;
+    remote << hello_local;
+    remote.close();
+    return false;
+
+  } else {
+    // If first process, create the new computation group
+    if (UniquePid::ComputationId() == UniquePid(0,0,0)) {
+      // Connection of new computation.
+      UniquePid::ComputationId() = hello_remote.from.pid();
+      curTimeStamp = 0;
+      numPeers = -1;
+      JTRACE("First process connected.  Creating new computation group")
+        (UniquePid::ComputationId());
+    } else {
+      JTRACE("New process Connected") (hello_remote.from.pid());
+    }
+    hello_local.compGroup = UniquePid::ComputationId();
+    remote << hello_local;
+  }
   return true;
 }
 
@@ -1076,7 +1101,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     // Pass number of connected peers to all clients
-    broadcastMessage ( DMT_DO_SUSPEND , UniquePid::ComputationId(), getStatus().numPeers );
+    broadcastMessage(DMT_DO_SUSPEND);
 
     // Suspend Message has been sent but the workers are still in running
     // state.  If the coordinator receives another checkpoint request from user
