@@ -1822,12 +1822,13 @@ again:
         /* Send it a signal so it will call stopthisthread                 */
         /* We will need to rescan (hopefully it will be suspended by then) */
 
-        case ST_RUNENABLED:
-        case ST_ZOMBIE: {
+        case ST_ZOMBIE:
           /* If zombie (thread near end of life), set state to ST_RUNENABLED.
            * If this fails, it was already ST_RUNENABLED, which we want.
            */
           mtcp_state_set(&(thread -> state), ST_RUNENABLED, ST_ZOMBIE);
+
+        case ST_RUNENABLED: {
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
             goto again;
           int retry_signalling = 1;
