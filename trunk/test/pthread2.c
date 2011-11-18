@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+#define THREAD_CNT 5
+
 int numWorkers = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -17,7 +19,7 @@ int main ()
 
   while (1) {
     pthread_mutex_lock(&mutex);
-    if (numWorkers < 6) {
+    if (numWorkers < THREAD_CNT+1) {
       pthread_t pthread_id;
       pthread_attr_t attr;
       pthread_attr_init(&attr);
@@ -47,7 +49,7 @@ static void *threadMain (void *data)
            id, (long)syscall(SYS_gettid), numWorkers);
     usleep(100*1000);
     pthread_mutex_lock(&mutex);
-    if (numWorkers > 5) {
+    if (numWorkers > THREAD_CNT) {
       numWorkers--;
       printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
              id, (long)syscall(SYS_gettid), numWorkers);
