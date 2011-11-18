@@ -1057,6 +1057,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
                        child_tidptr);
   if (rc < 0) {
     DPRINTF("clone rc=%d, errno=%d\n", rc, errno);
+    mtcp_put_thread_on_freelist(thread);
   } else {
     DPRINTF("clone rc=%d\n", rc);
   }
