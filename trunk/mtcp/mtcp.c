@@ -417,6 +417,7 @@ static pid_t mtcp_ckpt_extcomp_child_pid = -1;
 static int volatile checkpointhreadstarting = 0;
 static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
 static MtcpState threadslocked = MTCP_STATE_INITIALIZER;
+static pid_t threads_lock_owner = -1;
 static pthread_t checkpointhreadid;
 static struct timeval restorestarted;
 static int DEBUG_RESTARTING = 0;
@@ -3203,6 +3204,7 @@ static void wait_for_all_restored (void)
               mtcp_sys_kernel_gettid());
     }
 
+    lock_threads ();
     // if this was last of all, wake everyone up
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);
 
@@ -3522,20 +3524,32 @@ static void lock_threads (void)
     mtcp_state_futex (&threadslocked, FUTEX_WAIT, 1, NULL);
   }
   RMB; // don't prefetch anything until we have the lock
+  if (threads_lock_owner != -1) {
+    MTCP_PRINTF("Internal Error: Not Reached! \n");
+    mtcp_abort();
+  }
+  threads_lock_owner = mtcp_sys_kernel_gettid();
 }
 
 static void unlk_threads (void)
 {
   WMB; // flush data written before unlocking
-  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever
-  //        fail?
-  mtcp_state_set(&threadslocked , 0, 1);
+  if (threads_lock_owner != mtcp_sys_kernel_gettid()) {
+    MTCP_PRINTF("Error: Thread not holding lock, yet trying to unlock it! \n");
+    mtcp_abort();
+  }
+  threads_lock_owner = -1;
+  if (mtcp_state_set(&threadslocked , 0, 1) == 0) {
+    MTCP_PRINTF("Error releasing threads lock! \n");
+    mtcp_abort();
+  }
   mtcp_state_futex (&threadslocked, FUTEX_WAKE, 1, NULL);
 }
 
 static int is_thread_locked (void)
 {
-  return mtcp_state_value(&threadslocked);
+  return mtcp_state_value(&threadslocked) &&
+         threads_lock_owner == mtcp_sys_kernel_gettid();
 }
 
 /*****************************************************************************
