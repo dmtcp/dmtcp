@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
@@ -126,6 +127,14 @@ namespace jalib {
     // page)
     REAL_FUNC_PASSTHROUGH(long int, syscall) (sys_num, arg[0], arg[1], arg[2],
                                               arg[3], arg[4], arg[5], arg[6]);
+  }
+
+  void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+    REAL_FUNC_PASSTHROUGH(void*, mmap) (addr, length, prot, flags, fd, offset);
+  }
+
+  int munmap(void *addr, size_t length) {
+    REAL_FUNC_PASSTHROUGH(int, munmap) (addr, length);
   }
 
   ssize_t read(int fd, void *buf, size_t count) {
