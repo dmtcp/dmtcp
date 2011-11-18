@@ -215,11 +215,13 @@ private:
    at different times for record vs. replay. */
 typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*1024*128 > > lvl2;
-typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*16 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*32 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<2048, 1024*32 > > lvl4;
 #else
 typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*16 > > lvl2;
-typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*16 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*32 > > lvl3;
+typedef JGlobalAlloc< JFixedAllocStack<2048, 1024*32 > > lvl4;
 #endif
 
 void* JAllocDispatcher::allocate(size_t n) {
@@ -228,6 +230,7 @@ void* JAllocDispatcher::allocate(size_t n) {
   if(n <= lvl1::N) retVal = lvl1::allocate(); else
   if(n <= lvl2::N) retVal = lvl2::allocate(); else
   if(n <= lvl3::N) retVal = lvl3::allocate(); else
+  if(n <= lvl4::N) retVal = lvl4::allocate(); else
   retVal = _alloc_raw(n);
   unlock();
   return retVal;
@@ -237,6 +240,7 @@ void JAllocDispatcher::deallocate(void* ptr, size_t n){
   if(n <= lvl1::N) lvl1::deallocate(ptr); else
   if(n <= lvl2::N) lvl2::deallocate(ptr); else
   if(n <= lvl3::N) lvl3::deallocate(ptr); else
+  if(n <= lvl4::N) lvl4::deallocate(ptr); else
   _dealloc_raw(ptr, n);
   unlock();
 }

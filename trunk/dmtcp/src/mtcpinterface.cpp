@@ -777,6 +777,7 @@ extern "C" void pthread_exit (void * retval)
 {
   mtcpFuncPtrs.threadiszombie();
   _real_pthread_exit (retval);
+  for(;;); // To hide compiler warning about "noreturn" function
 }
 
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
