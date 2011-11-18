@@ -327,7 +327,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
   int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
       void *(*start_routine)(void*), void *arg);
-  void _real_pthread_exit(void *retval);
+  void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
   int _real_pthread_join(pthread_t thread, void **value_ptr);
 
   int _real_xstat(int vers, const char *path, struct stat *buf);

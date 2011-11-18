@@ -265,6 +265,11 @@ void initialize_libpthread_wrappers()
   REAL_FUNC_PASSTHROUGH_WORK(name)       \
   (*fn)
 
+#define REAL_FUNC_PASSTHROUGH_NORETURN(name)                 \
+  static void (*fn)() __attribute__ ((__noreturn__)) = NULL; \
+  REAL_FUNC_PASSTHROUGH_WORK(name)                           \
+  (*fn)
+
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 
 LIB_PRIVATE
@@ -894,9 +899,10 @@ int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     (thread,attr,start_routine,arg);
 }
 
+void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
 LIB_PRIVATE
 void _real_pthread_exit(void *retval) {
-  REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) (retval);
+  REAL_FUNC_PASSTHROUGH_NORETURN ( pthread_exit ) (retval);
 }
 
 LIB_PRIVATE
