@@ -518,10 +518,17 @@ static void * pthread_start(void *arg)
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   void *thread_arg = threadArg->arg;
   void * (*pthread_fn) (void *) = threadArg->pthread_fn;
+  pid_t orig_tid = threadArg->original_tid;
   JASSERT ( pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   void *result = (*pthread_fn) ( thread_arg );
   mtcpFuncPtrs.threadiszombie();
+  /*
+   * This thread has finished its execution, do some cleanup on our part.
+   *  erasing the original_tid entry from virtualpidtable
+   */
+  dmtcp::VirtualPidTable::instance().erase ( orig_tid );
+  dmtcp::VirtualPidTable::instance().eraseTid ( orig_tid );
   return result;
 }
 
@@ -776,6 +783,8 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
 extern "C" void pthread_exit (void * retval)
 {
   mtcpFuncPtrs.threadiszombie();
+  dmtcp::VirtualPidTable::instance().erase ( gettid() );
+  dmtcp::VirtualPidTable::instance().eraseTid ( gettid() );
   _real_pthread_exit (retval);
   for(;;); // To hide compiler warning about "noreturn" function
 }
