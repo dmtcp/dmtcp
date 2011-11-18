@@ -392,8 +392,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 void dmtcp::DmtcpWorker::cleanupWorker()
 {
-  pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-  theWrapperExecutionLock = newLock;
+  resetWrapperExecutionLock();
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   uninitializedThreadCountLock = newCountLock;
@@ -1201,6 +1200,13 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
     }
   errno = saved_errno;
 }
+
+void dmtcp::DmtcpWorker::resetWrapperExecutionLock()
+{
+  pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+  theWrapperExecutionLock = newLock;
+}
+
 
 // GNU g++ uses __thread.  But the C++0x standard says to use thread_local.
 //   If your compiler fails here, you can: change "__thread" to "thread_local";

@@ -71,6 +71,7 @@ static pid_t fork_work(void)
       JALIB_RESET_ON_FORK ();
       _dmtcp_remutex_on_fork();
       dmtcp::SyslogCheckpointer::resetOnFork();
+      dmtcp::DmtcpWorker::resetWrapperExecutionLock();
 
       child = dmtcp::UniquePid(host, _real_getpid(), child_time);
       dmtcp::UniquePid::resetOnFork ( child );

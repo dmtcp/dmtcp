@@ -137,6 +137,7 @@ namespace dmtcp
       static bool wrapperExecutionLockLock();
       static void wrapperExecutionLockUnlock();
       static bool wrapperExecutionLockLockExcl();
+      static void resetWrapperExecutionLock();
 
       static void waitForThreadsToFinishInitialization();
       static void incrementUninitializedThreadCount();
