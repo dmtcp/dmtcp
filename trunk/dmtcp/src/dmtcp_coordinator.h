@@ -50,10 +50,12 @@ namespace dmtcp
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
 
       void processDmtUserCmd ( DmtcpMessage& hello_remote, jalib::JSocket& remote );
-      bool validateDmtRestartProcess ( DmtcpMessage& hello_remote, 
+      bool validateDmtRestartProcess ( DmtcpMessage& hello_remote,
                                        jalib::JSocket& remote );
-      bool validateWorkerProcess ( DmtcpMessage& hello_remote, 
-                                   jalib::JSocket& remote );
+      bool validateNewWorkerProcess ( DmtcpMessage& hello_remote,
+                                      jalib::JSocket& remote );
+      bool validateRestartingWorkerProcess ( DmtcpMessage& hello_remote,
+                                             jalib::JSocket& remote );
 
       CoordinatorStatus getStatus() const;
       dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }
