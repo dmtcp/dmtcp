@@ -13,16 +13,25 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void *threadMain (void *_n);
 
-int main ()
+static int maxWorkers = THREAD_CNT;
+
+int main (int argc, char* argv[])
 {
   int count = 0;
+  if (argc > 1) {
+    int c = atoi(argv[1]);
+    if (c > 1) {
+      maxWorkers = c;
+    }
+  }
 
   while (1) {
     pthread_mutex_lock(&mutex);
-    if (numWorkers < THREAD_CNT+1) {
+    if (numWorkers < maxWorkers+1) {
       pthread_t pthread_id;
       pthread_attr_t attr;
       pthread_attr_init(&attr);
+      pthread_attr_setstacksize(&attr, 1024 * 1024);
       pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
       int *id = malloc(sizeof(int));
       *id = count++;
@@ -49,7 +58,7 @@ static void *threadMain (void *data)
            id, (long)syscall(SYS_gettid), numWorkers);
     usleep(100*1000);
     pthread_mutex_lock(&mutex);
-    if (numWorkers > THREAD_CNT) {
+    if (numWorkers > maxWorkers) {
       numWorkers--;
       printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
              id, (long)syscall(SYS_gettid), numWorkers);

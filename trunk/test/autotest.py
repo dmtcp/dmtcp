@@ -619,6 +619,9 @@ else:
 
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
+S=3
+runTest("pthread3",      1, ["./test/pthread2 80"])
+S=DEFAULT_S
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
