@@ -514,6 +514,7 @@ static void sync_shared_mem(void);
 static Thread *mtcp_get_thread_from_freelist();
 static void mtcp_put_thread_on_freelist(Thread *thread);
 static void mtcp_empty_threads_freelist();
+static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread);
 
 static void *mtcp_safe_malloc(size_t size);
 static void mtcp_safe_free(void *ptr);
@@ -1132,6 +1133,10 @@ static int threadcloned (void *threadv)
 
   setupthread (thread);
 
+  // Check and remove any thread descriptor which has the same tid as ours.
+  // Also, remove any dead threads from the list.
+  mtcp_remove_duplicate_thread_descriptors(thread);
+
   /* If the caller wants the child tid but didn't have CLEARTID, pass the tid
    * back to it
    */
@@ -1303,6 +1308,47 @@ static void setup_clone_entry (void)
   sigaction_entry = mtcp_get_libc_symbol ("sigaction");
 }
 
+
+static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread)
+{
+  int tid;
+  Thread *thread;
+  Thread *next_thread;
+
+  lock_threads();
+
+  tid = cur_thread->tid;
+  if (tid == 0) {
+    MTCP_PRINTF("MTCP Internal Error!\n");
+    mtcp_abort();
+  }
+  for (thread = threads; thread != NULL; thread = next_thread) {
+    next_thread = thread->next;
+    if (thread != cur_thread && thread->tid == tid) {
+      DPRINTF("Removing duplicate thread descriptor: tid:%d, orig_tid:%d\n",
+              thread->tid, thread->original_tid);
+      // There will be atmost one duplicate descriptor.
+      threadisdead(thread);
+    }
+    /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
+     *   test threads in state ST_ZOMBIE using tgkill to remove them
+     *   early (before reaching a checkpoint) so that the MTCP
+     *   threadrdescriptor list does not grow too long.
+     */
+    if (mtcp_state_value (&thread -> state) == ST_ZOMBIE) {
+      /* if no thread with this tid, then we can remove zombie descriptor */
+      if (-1 == mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0)) {
+        DPRINTF("Killing zombie thread: motherpid, thread->tid: %d, %d\n",
+	        motherpid, thread->tid);
+        threadisdead(thread);
+      }
+    }
+  }
+
+  unlk_threads();
+  return;
+}
+
 /*****************************************************************************
  *
  *  Thread has exited, put the struct on free list
@@ -3485,26 +3531,14 @@ static Thread *getcurrenthread (void)
   Thread *thread;
   Thread *next_thread;
 
-  tid = mtcp_sys_kernel_gettid();
   lock_threads();
+
+  tid = mtcp_sys_kernel_gettid();
   for (thread = threads; thread != NULL; thread = next_thread) {
     next_thread = thread -> next;
     if (thread -> tid == tid) {
       unlk_threads ();
       return (thread);
-    }
-    /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
-     *   test threads in state ST_ZOMBIE using tgkill to remove them
-     *   early (before reaching a checkpoint) so that the MTCP
-     *   thread descriptor list does not grow too long.
-     */
-    if (mtcp_state_value (&thread -> state) == ST_ZOMBIE) {
-      /* if no thread with this tid, then we can remove zombie descriptor */
-      if (-1 == mtcp_sys_kernel_tgkill(motherpid, thread -> tid, 0)) {
-        DPRINTF("Killing zombie thread: motherpid, thread->tid: %d, %d\n",
-	        motherpid, thread->tid);
-        threadisdead(thread);
-      }
     }
   }
   MTCP_PRINTF("can't find thread id %d\n", tid);
