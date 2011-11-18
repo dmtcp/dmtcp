@@ -2597,9 +2597,44 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
      * on one page in a Linux 2.6.9 installation.  No idea why.  This code
      * would also take care of kernel sections since we don't have read/execute
      * permission there.
+     *
+     * EDIT: We should only skip the "---p" section for the shared libraries.
+     * Anonymous memory areas with no rwx permission should be saved regardless
+     * as the process might have removed the permissions temporarily and might
+     * want to use it later.
+     *
+     * This happens, for example, with libpthread where the pthread library
+     * tries to recycle thread stacks. When a thread exits, libpthread will
+     * remove the access permissions from the thread stack and later, when a
+     * new thread is created, it will provide the proper permission to this
+     * area and use it as the thread stack.
+     *
+     * If we do not restore this area on restart, the area might be returned by
+     * some mmap() call. Later on, when pthread wants to use this area, it will
+     * just try to use this area which now belongs to some other object. Even
+     * worse, the other object can then call munmap() on that area after
+     * libpthread started using it as thread stack causing the parts of thread
+     * stack getting munmap()'d from the memory resulting in a SIGSEGV.
+     *
+     * We suspect that libpthread is using mmap() instead of mprotect to change
+     * the permission from "---p" to "rw-p".
      */
 
-    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
+    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE)) &&
+        area.name != '\0') {
+      continue;
+    }
+
+    /* Now give read permission to the anonymous pages that do not have read
+     * permission
+     */
+    if (!(area.prot & PROT_READ) && area.name == '\0') {
+      if (mtcp_sys_mprotect (area.addr, area.size, PROT_READ) < 0) {
+        MTCP_PRINTF("error %d adding PROT_READ to %p bytes at %p\n",
+                    mtcp_sys_errno, area.size, area.addr);
+        mtcp_abort ();
+      }
+    }
 
     // If the process has an area labelled as "/dev/zero (deleted)", we mark
     //   the area as Anonymous and save the contents to the ckpt image file.
