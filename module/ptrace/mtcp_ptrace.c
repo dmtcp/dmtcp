@@ -654,7 +654,7 @@ void ptrace_attach_threads(int isRestart)
         if (WIFEXITED(status)) {
           DPRINTF("%d is dead because %d\n", inferior, WEXITSTATUS(status));
         } else if(WIFSIGNALED(status)) {
-          DPRINTF("%d is dead because of signal %d\n", WTERMSIG(status));
+          DPRINTF("%d is dead because it was terminated by signal\n");
         }
 
         if (mtcp_ptrace(PTRACE_GETREGS, inferior, 0, &regs) < 0) {
