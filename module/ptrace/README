@@ -109,5 +109,18 @@ memory and we can just go ahead and update the statuses of the inferiors.
 
 4. Modifications in existing code.
 
-The most interesting changes are within checkpointhread and stopthisthread. All
-the changes are between #ifdef PTRACE #endif.
+All the ptrace code resides in the ptrace module: ~/dmtcp/module/ptrace. DMTCP
+communicates with the ptrace module via events (see dmtcp_process_event).
+
+5. Status as of this writing.
+
+The number of threads can change between two consecutive checkpoints. This case
+is supported.
+
+We may deadlock in the case of an inferior traced by GDB, if one or more of the
+UT's of the inferior process are holding theWrapperExecutionLock. Fix is in
+progress.
+
+Another known problem: if we checkpoint too frequently and the post-checkpoint
+work isn't finished, then we'll hang. Solution: less frequent checkpoints, for
+now.
