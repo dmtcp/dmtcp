@@ -44,6 +44,7 @@
 #include <string.h>
 
 int testMatlab(const char *filename);
+int testJava(char **argv);
 bool testSetuid(const char *filename);
 void testStaticallyLinked(const char *filename);
 bool testScreen(char **argv, char ***newArgv);
@@ -266,6 +267,7 @@ int main ( int argc, char** argv )
   // - Gene
 
   testMatlab(argv[0]);
+  testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
   // If dmtcphijack.so is in standard search path and _also_ has setgid access,
   //   then LD_PRELOAD will work.
@@ -439,12 +441,36 @@ int testMatlab(const char *filename) {
 	    " executing.)\n\n" ;
 
   // FIXME:  should expand filename and "matlab" before checking
-  if ( strcmp(filename, "matlab") == 0 ) {
+  if ( strcmp(filename, "matlab") == 0 && getenv(ENV_VAR_QUIET) == NULL) {
     JASSERT_STDERR << theMatlabWarning;
     return -1;
   }
 # endif
 #endif
+  return 0;
+}
+
+// FIXME:  Remove this when DMTCP supports zero-mapped pages
+int testJava(char **argv) {
+  static const char* theJavaWarning =
+    "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
+    "****  on startup.  As of DMTCP version 1.2.3, DMTCP does not handle\n"
+    "****  manygigabytes of zero-mapped virtual memory.  This will be fixed\n"
+    "****  in a future version of DMTCP.  In the meantime, if this is\n"
+    "****  Sun/Oracle Java with the -Xmx flag:  e.g.  java -Xmx64M javaApp\n"
+    "****  (Invoke dmtcp_checkpoint with --quiet to avoid this msg.)\n\n" ;
+
+  if ( strcmp(argv[0], "java") == 0 ) {
+    while (*(++argv) != NULL) {
+      if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
+        return 0; // The user called java with -Xmx.  No need for warning.
+    }
+    if (getenv(ENV_VAR_QUIET) == NULL
+        || strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
+      JASSERT_STDERR << theJavaWarning;
+      return -1;
+    }
+  }
   return 0;
 }
 

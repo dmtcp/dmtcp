@@ -17,11 +17,14 @@ HAS_MPICH=@HAS_MPICH@
 MPICH_MPICC=@MPICH_MPICC@
 HAS_OPENMPI=@HAS_OPENMPI@
 OPENMPI_MPICC=@OPENMPI_MPICC@
+HAS_JAVA=@HAS_JAVA@
+HAS_JAVAC=@HAS_JAVAC@
 endif
 
 PWD=$(shell pwd)
 
 TESTS=${basename ${shell ls *.c *.cpp | grep -v '^hellompi.c'}} \
+	${addsuffix .class,${basename ${shell ls java*.java}}} \
 	hellompich openmpi
 
 tests: $(TESTS)
@@ -42,21 +45,21 @@ readline: readline.c
 ifeq ($(HAS_READLINE),yes)
 	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
 else
-	#$<: required libraries missing, skipping test
+	#$@: required libraries missing, skipping test
 endif
 
 hellompich: hellompi.c
 ifeq ($(HAS_MPICH),yes)
 	- $(MPICH_MPICC) -o $@ $< $(CFLAGS)
 else
-	#$<: required libraries missing, skipping test
+	#$@: required libraries missing, skipping test
 endif
 
 openmpi: hellompi.c
 ifeq ($(HAS_OPENMPI),yes)
 	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS)
 else
-	#$<: required libraries missing, skipping test
+	#$@: required libraries missing, skipping test
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
@@ -87,6 +90,13 @@ libdlopen-lib2.so:
 	${CC} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so dlopen.c
 dlopen: dlopen.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
+
+java%.class: java%.java
+ifeq ($(HAS_JAVAC),yes)
+	javac $<
+else
+	#$@: required 'javac' missing, skipping test
+endif
 
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)

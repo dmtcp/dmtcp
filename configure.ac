@@ -179,6 +179,27 @@ fi
 #  AC_MSG_ERROR(['gcc -static hello.c' failed.
 #fi
 
+#check for java
+AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [])
+
+#check for javac
+AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [])
+
+#check if java dialect is Sun/Oracle
+if test "$HAS_JAVA" = "yes"; then
+  AC_CACHE_CHECK([if java is Sun/Oracle Java], [ac_cv_sun_java],
+            [AC_PATH_PROGS_FEATURE_CHECK([HAS_SUN_ORACLE_JAVA], [java],
+              [[ac_cv_sun_java=no ;
+                java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes]],
+              [])])
+  AC_SUBST([HAS_SUN_ORACLE_JAVA], [$ac_cv_sun_java])
+else
+  AC_SUBST([HAS_SUN_ORACLE_JAVA], [no])
+fi
+
+#check for python
+AC_CHECK_PROG(HAS_JAVA, [python], [yes], [no], [/usr/bin])
+
 #check for python
 AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 

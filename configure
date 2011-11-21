@@ -635,6 +635,9 @@ HAS_ZSH
 HAS_TCSH
 HAS_DASH
 HAS_PYTHON
+HAS_SUN_ORACLE_JAVA
+HAS_JAVAC
+HAS_JAVA
 HAS_READLINE
 EGREP
 GREP
@@ -4789,6 +4792,169 @@ fi
 #if test x"$static_gcc" = xno; then
 #  AC_MSG_ERROR(['gcc -static hello.c' failed.
 #fi
+
+#check for java
+# Extract the first word of "java", so it can be a program name with args.
+set dummy java; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_JAVA+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_JAVA"; then
+  ac_cv_prog_HAS_JAVA="$HAS_JAVA" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_JAVA="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_JAVA" && ac_cv_prog_HAS_JAVA="no"
+fi
+fi
+HAS_JAVA=$ac_cv_prog_HAS_JAVA
+if test -n "$HAS_JAVA"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_JAVA" >&5
+$as_echo "$HAS_JAVA" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check for javac
+# Extract the first word of "javac", so it can be a program name with args.
+set dummy javac; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_JAVAC+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_JAVAC"; then
+  ac_cv_prog_HAS_JAVAC="$HAS_JAVAC" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_JAVAC="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_JAVAC" && ac_cv_prog_HAS_JAVAC="no"
+fi
+fi
+HAS_JAVAC=$ac_cv_prog_HAS_JAVAC
+if test -n "$HAS_JAVAC"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_JAVAC" >&5
+$as_echo "$HAS_JAVAC" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check if java dialect is Sun/Oracle
+if test "$HAS_JAVA" = "yes"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if java is Sun/Oracle Java" >&5
+$as_echo_n "checking if java is Sun/Oracle Java... " >&6; }
+if ${ac_cv_sun_java+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -z "$HAS_SUN_ORACLE_JAVA"; then
+  ac_path_HAS_SUN_ORACLE_JAVA_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in java; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_HAS_SUN_ORACLE_JAVA="$as_dir/$ac_prog$ac_exec_ext"
+      { test -f "$ac_path_HAS_SUN_ORACLE_JAVA" && $as_test_x "$ac_path_HAS_SUN_ORACLE_JAVA"; } || continue
+ac_cv_sun_java=no ;
+                java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes
+      $ac_path_HAS_SUN_ORACLE_JAVA_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_HAS_SUN_ORACLE_JAVA"; then
+    :
+  fi
+else
+  ac_cv_path_HAS_SUN_ORACLE_JAVA=$HAS_SUN_ORACLE_JAVA
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sun_java" >&5
+$as_echo "$ac_cv_sun_java" >&6; }
+  HAS_SUN_ORACLE_JAVA=$ac_cv_sun_java
+
+else
+  HAS_SUN_ORACLE_JAVA=no
+
+fi
+
+#check for python
+# Extract the first word of "python", so it can be a program name with args.
+set dummy python; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_JAVA+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_JAVA"; then
+  ac_cv_prog_HAS_JAVA="$HAS_JAVA" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAS_JAVA="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_JAVA" && ac_cv_prog_HAS_JAVA="no"
+fi
+fi
+HAS_JAVA=$ac_cv_prog_HAS_JAVA
+if test -n "$HAS_JAVA"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_JAVA" >&5
+$as_echo "$HAS_JAVA" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
 
 #check for python
 # Extract the first word of "python", so it can be a program name with args.
