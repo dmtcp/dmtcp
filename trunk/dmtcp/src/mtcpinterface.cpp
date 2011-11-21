@@ -544,7 +544,7 @@ int clone_start(void *arg)
 
 // FIXME:  Can we delete this portion now?  It was originally needed to handle
 //   tid wraparound for test/pthread1 and test/pthread2.
-#ifdef PTRACE
+#ifndef PTRACE
   // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
   // gettid() just caches value of _real_gettid().
   // EDIT: This call interacts badly with PTRACE, so compiling it out for now.  KA
