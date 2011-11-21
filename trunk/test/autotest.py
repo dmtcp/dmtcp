@@ -727,6 +727,16 @@ if testconfig.PTRACE_SUPPORT == "yes" and \
     S=DEFAULT_S
     os.system("rm -f dmtcp-gdbinit.tmp")
 
+if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
+  S=1
+  os.environ['CLASSPATH'] = './test'
+  if testconfig.HAS_SUN_ORACLE_JAVA == "yes":
+    runTest("java1",         1,  ["java -Xmx32M java1"])
+  else:
+    runTest("java1",         1,  ["java java1"])
+  del os.environ['CLASSPATH']
+  S=DEFAULT_S
+
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
   S=1

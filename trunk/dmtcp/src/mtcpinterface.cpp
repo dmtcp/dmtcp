@@ -544,7 +544,7 @@ int clone_start(void *arg)
 
 // FIXME:  Can we delete this portion now?  It was originally needed to handle
 //   tid wraparound for test/pthread1 and test/pthread2.
-#ifndef PTRACE
+#ifdef PTRACE
   // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
   // gettid() just caches value of _real_gettid().
   // EDIT: This call interacts badly with PTRACE, so compiling it out for now.  KA
@@ -789,6 +789,9 @@ extern "C" void pthread_exit (void * retval)
   for(;;); // To hide compiler warning about "noreturn" function
 }
 
+// FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead()
+//         THIS SHOULDN'T BE NECESSARY.
+//         DELETE THIS WRAPPER AND ASSOCIATED MTCP CODE AFTER TESTING.
 extern "C" int pthread_join (pthread_t thread, void **value_ptr)
 {
   /* Wrap the call to _real_pthread_join() to make sure we call

@@ -56,7 +56,7 @@ static void *threadMain (void *data)
   while (1) {
     printf("Worker: %d (%ld) alive. numWorkers: %d\n",
            id, (long)syscall(SYS_gettid), numWorkers);
-    usleep(100*1000);
+    // usleep(100*1000);
     pthread_mutex_lock(&mutex);
     if (numWorkers > maxWorkers) {
       numWorkers--;
