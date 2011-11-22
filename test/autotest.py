@@ -44,8 +44,8 @@ SLOW=1
 #can lead to bad consquences. To play it on the safe side, PTRACE_SLEEP was
 #set at 2 seconds.  (Until this is fixed, --enable-ptrace-support will
 #remain experimental.)
-if testconfig.PTRACE_SUPPORT == "yes":
-  PTRACE_SLEEP=2
+#if testconfig.PTRACE_SUPPORT == "yes":
+#  PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -470,8 +470,8 @@ def runTestRaw(name, numProcs, cmds):
       #  of this function:  testRestart
       testCheckpoint()
       printFixed("PASSED ")
-      if testconfig.PTRACE_SUPPORT == "yes":
-        sleep(PTRACE_SLEEP)
+      #if testconfig.PTRACE_SUPPORT == "yes":
+      #  sleep(PTRACE_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -479,8 +479,8 @@ def runTestRaw(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
-          if testconfig.PTRACE_SUPPORT == "yes":
-            sleep(PTRACE_SLEEP)
+          #if testconfig.PTRACE_SUPPORT == "yes":
+          #  sleep(PTRACE_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
