@@ -22,10 +22,6 @@
 // CAN REMOVE BOOL enableCheckpointing ARG OF DmtcpWorker WHEN WE'RE DONE.
 // DmtcpWorker CAN INHERIT THIS CLASS, DmtcpCoordinatorAPI
 
-// dmtcp::DmtcpWorker::connectToCoordinator calls this but doesn't seem to use it.
-// Can we get rid of it?
-//    dmtcp::UniquePid zeroGroup;
-
 #include "dmtcpcoordinatorapi.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
@@ -36,8 +32,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI ()
-  :_coordinatorSocket ( PROTECTED_COORD_FD )
+dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI (int sockfd)
+  :_coordinatorSocket ( sockfd )
   ,_restoreSocket ( PROTECTED_RESTORE_SOCK_FD )
 {
   return;
@@ -65,41 +61,74 @@ bool dmtcp::DmtcpCoordinatorAPI::tryConnectToCoordinator()
   return connectToCoordinator ( false );
 }
 
-// THIS ONE IS COMMON TO DmtcpWorker AND DmtcpCoordinatorAPI
-// Maybe make it a static method of DmtcpWorker so that anybody can use it,
-//   with a comment that DmtcpCoordinatorAPI also uses it.
-bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
+jalib::JSocket dmtcp::DmtcpCoordinatorAPI::createNewConnectionToCoordinator
+  (bool dieOnError)
 {
-
-  const char * coordinatorAddr = getenv ( ENV_VAR_NAME_HOST );
-  const char * coordinatorPortStr = getenv ( ENV_VAR_NAME_PORT );
+  const char * coordinatorAddr = getenv(ENV_VAR_NAME_HOST);
+  const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
 
   if ( coordinatorAddr == NULL ) coordinatorAddr = DEFAULT_HOST;
-  int coordinatorPort = coordinatorPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( coordinatorPortStr );
+  int coordinatorPort = coordinatorPortStr == NULL
+                          ? DEFAULT_PORT
+                          : jalib::StringToInt(coordinatorPortStr);
 
-  jalib::JSocket oldFd = _coordinatorSocket;
+  jalib::JSocket fd = jalib::JClientSocket(coordinatorAddr, coordinatorPort);
 
-  _coordinatorSocket = jalib::JClientSocket ( coordinatorAddr,coordinatorPort );
-
-  if ( ! _coordinatorSocket.isValid() && ! dieOnError ) {
+  if (!fd.isValid() && !dieOnError) {
     return false;
   }
 
-  JASSERT ( _coordinatorSocket.isValid() )
-    ( coordinatorAddr ) ( coordinatorPort )
-    .Text ( "Failed to connect to DMTCP coordinator" );
+  JASSERT(fd.isValid()) (coordinatorAddr) (coordinatorPort)
+    .Text("Failed to connect to DMTCP coordinator");
 
-  JTRACE ( "connected to dmtcp coordinator, no handshake" )
-    ( coordinatorAddr ) ( coordinatorPort );
+  JTRACE("connected to dmtcp coordinator, no handshake")
+    (coordinatorAddr) (coordinatorPort);
 
-  if ( oldFd.isValid() )
-  {
-    JTRACE ( "restoring old coordinatorsocket fd" )
-      ( oldFd.sockfd() ) ( _coordinatorSocket.sockfd() );
+  return fd;
+}
 
-    _coordinatorSocket.changeFd ( oldFd.sockfd() );
+bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
+{
+  jalib::JSocket oldFd = _coordinatorSocket;
+
+  _coordinatorSocket = createNewConnectionToCoordinator(dieOnError);
+
+  if (oldFd.isValid()) {
+    JTRACE("restoring old coordinatorsocket fd")
+      (oldFd.sockfd()) (_coordinatorSocket.sockfd());
+
+    _coordinatorSocket.changeFd (oldFd.sockfd());
   }
   return true;
+}
+
+jalib::JSocket dmtcp::DmtcpCoordinatorAPI::createNewConnectionBeforeFork
+  (dmtcp::string& progName)
+{
+  JTRACE("Informing coordinator of a to-be-created process/program")
+    (progName) (UniquePid::ThisProcess());
+  jalib::JSocket fd = createNewConnectionToCoordinator();
+  _coordinatorSocket = fd;
+
+  sendCoordinatorHandshake(progName);
+  recvCoordinatorHandshake();
+
+  return fd;
+}
+
+void dmtcp::DmtcpCoordinatorAPI::informCoordinatorOfNewProcessOnFork
+  (jalib::JSocket& coordSock)
+{
+  JASSERT(coordSock.isValid());
+  JASSERT(coordSock.sockfd() != PROTECTED_COORD_FD);
+  _coordinatorSocket = coordSock;
+  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
+
+  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName() + "_(forked)",
+                           UniquePid::ComputationId(),
+                           -1,
+                           DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
 }
 
 void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithHandshake()
@@ -118,13 +147,15 @@ void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithoutHandshake()
 // FIXME:
 static int theRestorePort = RESTORE_PORT_START;
 void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
-  const dmtcp::string& progname, UniquePid compGroup /*= UniquePid()*/,
-  int np /*= -1*/, DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
+  const dmtcp::string& progname,
+  UniquePid compGroup /*= UniquePid()*/,
+  int np /*= -1*/,
+  DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
 {
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
-  dmtcp::DmtcpMessage hello_local;
+  DmtcpMessage hello_local;
   hello_local.type = msgType;
   hello_local.params[0] = np;
   hello_local.compGroup = compGroup;
@@ -144,20 +175,21 @@ void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
 {
   JTRACE("receiving coordinator handshake");
 
-  dmtcp::DmtcpMessage hello_remote;
+  DmtcpMessage hello_remote;
   hello_remote.poison();
   _coordinatorSocket >> hello_remote;
   hello_remote.assertValid();
 
-  if ( param1 == NULL )
-    JASSERT ( hello_remote.type == dmtcp::DMT_HELLO_WORKER ) ( hello_remote.type );
-  else
-    JASSERT ( hello_remote.type == dmtcp::DMT_RESTART_PROCESS_REPLY ) ( hello_remote.type );
+  if ( param1 == NULL ) {
+    JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
+  } else {
+    JASSERT(hello_remote.type == DMT_RESTART_PROCESS_REPLY) (hello_remote.type);
+  }
 
   _coordinatorId = hello_remote.coordinator;
-  DmtcpMessage::setDefaultCoordinator ( _coordinatorId );
+  DmtcpMessage::setDefaultCoordinator(_coordinatorId);
   UniquePid::ComputationId() = hello_remote.compGroup;
-  if( param1 ){
+  if (param1) {
     *param1 = hello_remote.params[0];
   }
   JTRACE("Coordinator handshake RECEIVED!!!!!");
@@ -214,7 +246,7 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
     dup2(2,1);                          //copy stderr to stdout
     dup2(open("/dev/null",O_RDWR), 2);  //close stderr
     int result[DMTCPMESSAGE_NUM_PARAMS];
-    dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+    DmtcpCoordinatorAPI coordinatorAPI;
     {
       if ( coordinatorAPI.tryConnectToCoordinator() == false ) {
         JTRACE("Coordinator not found.  Will try to start a new one.");

@@ -138,6 +138,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_HELLO_PEER )
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
+      OSHIFTPRINTF ( DMT_UPDATE_PROCESS_INFO_AFTER_FORK)
 
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )

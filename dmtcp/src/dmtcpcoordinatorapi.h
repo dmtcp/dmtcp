@@ -22,11 +22,12 @@
 #ifndef DMTCPDMTCPCOMMANDAPI_H
 #define DMTCPDMTCPCOMMANDAPI_H
 
-#include  "../jalib/jsocket.h"
-#include "../jalib/jalloc.h"
+#include "constants.h"
+#include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
 #include "connectionstate.h"
-#include "constants.h"
+#include "../jalib/jsocket.h"
+#include "../jalib/jalloc.h"
 
 namespace dmtcp
 {
@@ -51,8 +52,10 @@ namespace dmtcp
         COORD_ANY       = COORD_JOIN | COORD_NEW
       };
 
-      DmtcpCoordinatorAPI ();
+      DmtcpCoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
       // Use default destructor
+
+      void closeConnection() { _coordinatorSocket.close(); }
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
@@ -65,6 +68,11 @@ namespace dmtcp
       void connectToCoordinatorWithHandshake();
       void connectToCoordinatorWithoutHandshake();
       void sendUserCommand(char c, int* result = NULL);
+
+      jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
+      jalib::JSocket createNewConnectionBeforeFork(dmtcp::string& progName);
+      void informCoordinatorOfNewProcessOnFork(jalib::JSocket& coordSock);
+
 
       // np > -1  means it is restarting a process that have np processes in its
       //           computation group

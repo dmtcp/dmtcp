@@ -121,7 +121,7 @@ namespace dmtcp
       void postRestart();
       void updateCoordinatorHostAndPortEnv();
 
-      static void resetOnFork();
+      static void resetOnFork(jalib::JSocket& coordSock);
       void cleanupWorker();
 
       DmtcpWorker ( bool shouldEnableCheckpointing );
