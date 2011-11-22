@@ -52,32 +52,34 @@ static pid_t fork_work(void)
 {
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
-  time_t child_time = time ( NULL );
+  time_t child_time = time(NULL);
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child;
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   pid_t child_pid;
+  dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
-  while ( 1 ) {
+  dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
+  JASSERT(coordinatorAPI.createNewConnectionBeforeFork(child_name));
+
+  while (1) {
     child_pid = _real_fork();
-    if ( child_pid == -1 ) { // fork() failed
+    if (child_pid == -1) { // fork() failed
       break;
     }
 
-    if ( child_pid == 0 ) { /* child process */
+    if (child_pid == 0) { /* child process */
       // Reset __thread_tid on fork. This should be the first thing to do in
       // the child process.
       dmtcp_reset_gettid();
-      JALIB_RESET_ON_FORK ();
+      JALIB_RESET_ON_FORK();
       _dmtcp_remutex_on_fork();
       dmtcp::SyslogCheckpointer::resetOnFork();
       dmtcp::DmtcpWorker::resetWrapperExecutionLock();
 
       child = dmtcp::UniquePid(host, _real_getpid(), child_time);
-      dmtcp::UniquePid::resetOnFork ( child );
-
-      dmtcp::Util::initializeLogFile(jalib::Filesystem::GetProgramName()
-                                     + "_(forked)");
+      dmtcp::UniquePid::resetOnFork(child);
+      dmtcp::Util::initializeLogFile(child_name);
 
 #ifdef PID_VIRTUALIZATION
       if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
@@ -86,23 +88,23 @@ static pid_t fork_work(void)
       dmtcp::VirtualPidTable::instance().resetOnFork();
 #endif
 
-      JTRACE ( "fork()ed [CHILD]" ) ( child ) ( parent );
-      //make new connection to coordinator
-      dmtcp::DmtcpWorker::resetOnFork();
-      JTRACE ( "fork() done [CHILD]" ) ( child ) ( parent );
+      JTRACE("fork()ed [CHILD]") (child) (parent);
+      dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+      JTRACE("fork() done [CHILD]") (child) (parent);
 
     } else { /* Parent Process */
-      child = dmtcp::UniquePid (host, child_pid, child_time);
+      coordinatorAPI.closeConnection();
+      child = dmtcp::UniquePid(host, child_pid, child_time);
 #ifdef PID_VIRTUALIZATION
-      if ( dmtcp::VirtualPidTable::isConflictingPid ( child_pid ) ) {
-        JTRACE( "PID Conflict, creating new child" ) (child_pid);
-        _real_waitpid ( child_pid, NULL, 0 );
+      if (dmtcp::VirtualPidTable::isConflictingPid(child_pid)) {
+        JTRACE("PID Conflict, creating new child") (child_pid);
+        _real_waitpid(child_pid, NULL, 0);
         continue;
       }
-      dmtcp::VirtualPidTable::instance().insert ( child_pid, child );
+      dmtcp::VirtualPidTable::instance().insert(child_pid, child);
 #endif
 
-    JTRACE ( "fork()ed [PARENT] done" ) ( child );;
+    JTRACE("fork()ed [PARENT] done") (child);;
     }
     break;
   }

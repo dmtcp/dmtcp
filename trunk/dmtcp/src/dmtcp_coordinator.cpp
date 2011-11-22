@@ -263,6 +263,7 @@ namespace
         memcpy ( &_addr, remote, len );
       }
       const dmtcp::UniquePid& identity() const { return _identity;}
+      void identity(dmtcp::UniquePid upid) { _identity = upid;}
       int clientNumber() const { return _clientNumber; }
       dmtcp::WorkerState state() const { return _state; }
       const struct sockaddr_storage* addr() const { return &_addr; }
@@ -273,6 +274,19 @@ namespace
       dmtcp::string progname(void) const { return _progname; }
       void hostname(dmtcp::string hname){ _hostname = hname; }
       dmtcp::string hostname(void) const { return _hostname; }
+
+      void readProcessInfo(dmtcp::DmtcpMessage& msg) {
+        if( msg.extraBytes > 0 ){
+          char* extraData = new char[msg.extraBytes];
+          _sock.readAll(extraData, msg.extraBytes);
+          dmtcp::string hostname = extraData;
+          dmtcp::string progname = extraData + hostname.length() + 1;
+          _progname = progname;
+          _hostname = hostname;
+          delete [] extraData;
+        }
+      }
+
     private:
       dmtcp::UniquePid _identity;
       int _clientNumber;
@@ -731,6 +745,17 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       }
       break;
 #endif
+      case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
+      {
+          dmtcp::string hostname = extraData;
+          dmtcp::string progname = extraData + hostname.length() + 1;
+          JNOTE("Updating process Information after fork()")
+            (hostname) (progname) (msg.from.pid()) (client->identity());
+          client->progname(progname);
+          client->hostname(hostname);
+          client->identity(msg.from.pid());
+      }
+          break;
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type )
 		.Text ( "unexpected message from worker" );
@@ -851,13 +876,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       ,hello_remote.restorePort );
 
   if( hello_remote.extraBytes > 0 ){
-    char* extraData = new char[hello_remote.extraBytes];
-    remote.readAll(extraData, hello_remote.extraBytes);
-    dmtcp::string hostname = extraData;
-    dmtcp::string progname = extraData + hostname.length() + 1;
-    ds->progname(progname);
-    ds->hostname(hostname);
-    delete [] extraData;
+    ds->readProcessInfo(hello_remote);
   }
 
   //add this client as a chunk reader
