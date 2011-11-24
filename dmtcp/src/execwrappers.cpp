@@ -60,7 +60,7 @@ static pid_t fork_work(void)
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
   dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
-  JASSERT(coordinatorAPI.createNewConnectionBeforeFork(child_name));
+  coordinatorAPI.createNewConnectionBeforeFork(child_name);
 
   while (1) {
     child_pid = _real_fork();

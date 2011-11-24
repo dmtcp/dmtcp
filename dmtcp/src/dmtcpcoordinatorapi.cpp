@@ -61,8 +61,8 @@ bool dmtcp::DmtcpCoordinatorAPI::tryConnectToCoordinator()
   return connectToCoordinator ( false );
 }
 
-jalib::JSocket dmtcp::DmtcpCoordinatorAPI::createNewConnectionToCoordinator
-  (bool dieOnError)
+jalib::JSocket
+  dmtcp::DmtcpCoordinatorAPI::createNewConnectionToCoordinator (bool dieOnError)
 {
   const char * coordinatorAddr = getenv(ENV_VAR_NAME_HOST);
   const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
@@ -75,7 +75,7 @@ jalib::JSocket dmtcp::DmtcpCoordinatorAPI::createNewConnectionToCoordinator
   jalib::JSocket fd = jalib::JClientSocket(coordinatorAddr, coordinatorPort);
 
   if (!fd.isValid() && !dieOnError) {
-    return false;
+    return fd;
   }
 
   JASSERT(fd.isValid()) (coordinatorAddr) (coordinatorPort)
@@ -92,6 +92,9 @@ bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/
   jalib::JSocket oldFd = _coordinatorSocket;
 
   _coordinatorSocket = createNewConnectionToCoordinator(dieOnError);
+  if (!_coordinatorSocket.isValid() && !dieOnError) {
+    return false;
+  }
 
   if (oldFd.isValid()) {
     JTRACE("restoring old coordinatorsocket fd")
@@ -102,18 +105,15 @@ bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/
   return true;
 }
 
-jalib::JSocket dmtcp::DmtcpCoordinatorAPI::createNewConnectionBeforeFork
-  (dmtcp::string& progName)
+void dmtcp::DmtcpCoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progName)
 {
   JTRACE("Informing coordinator of a to-be-created process/program")
     (progName) (UniquePid::ThisProcess());
-  jalib::JSocket fd = createNewConnectionToCoordinator();
-  _coordinatorSocket = fd;
+  _coordinatorSocket = createNewConnectionToCoordinator();
+  JASSERT(_coordinatorSocket.isValid());
 
   sendCoordinatorHandshake(progName);
   recvCoordinatorHandshake();
-
-  return fd;
 }
 
 void dmtcp::DmtcpCoordinatorAPI::informCoordinatorOfNewProcessOnFork

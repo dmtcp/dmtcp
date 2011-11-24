@@ -70,7 +70,7 @@ namespace dmtcp
       void sendUserCommand(char c, int* result = NULL);
 
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
-      jalib::JSocket createNewConnectionBeforeFork(dmtcp::string& progName);
+      void createNewConnectionBeforeFork(dmtcp::string& progName);
       void informCoordinatorOfNewProcessOnFork(jalib::JSocket& coordSock);
 
 
