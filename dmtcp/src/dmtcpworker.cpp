@@ -374,9 +374,9 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
   if (initializeMtcpEngine) { // if strong symbol defined elsewhere
-    delayCheckpointsLock();
+    WRAPPER_EXECUTION_GET_EXCL_LOCK();
     initializeMtcpEngine();
-    delayCheckpointsUnlock();
+    WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   } else { // else trying to call weak symbol, which is undefined
     JASSERT(false).Text("initializeMtcpEngine should not be called");
   }
