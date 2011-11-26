@@ -56,9 +56,9 @@ void dmtcp::DmtcpWorker::resetOnFork(jalib::JSocket& coordSock)
   instance()._coordinatorId = coordinatorId;
   instance().informCoordinatorOfNewProcessOnFork(coordSock);
 
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WRAPPER_EXECUTION_GET_EXCL_LOCK();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 }
 
 //to allow linking without mtcpinterface
