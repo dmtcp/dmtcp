@@ -743,6 +743,17 @@ if testconfig.HAS_GCL == "yes":
   runTest("gcl",         1,  [testconfig.GCL])
   S=DEFAULT_S
 
+# Enable this only for Gene and Kapil while a bug exists.
+# Don't interfere with NMI tests.
+try:
+  user = os.environ['USER']
+except KeyError:
+  user = "NO_USER"
+if (user == "gene" or user == "kapil") and testconfig.HAS_OPENMP == "yes":
+  S=5
+  runTest("openmp1",         1,  ["./test/openmp1"])
+  S=DEFAULT_S
+
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
   S=3

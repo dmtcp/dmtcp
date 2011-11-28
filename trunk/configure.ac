@@ -7,6 +7,8 @@ AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_CC
 AC_PROG_CXX
+dnl This sets OPENMP_CFLAGS
+AC_OPENMP
 AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp module])
 
