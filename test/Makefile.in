@@ -2,6 +2,7 @@
 LN_S=@LN_S@
 CC=@CC@
 CXX=@CXX@
+OPENMP_CFLAGS=@OPENMP_CFLAGS@
 ifdef M32
 CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
 CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
@@ -46,6 +47,12 @@ ifeq ($(HAS_READLINE),yes)
 	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
 else
 	#$@: required libraries missing, skipping test
+endif
+
+# Assume OpenMP exists only if OPENMP_CFLAGS is set.
+openmp%: openmp%.c
+ifneq (${OPENMP_CFLAGS},)
+	${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
 endif
 
 hellompich: hellompi.c

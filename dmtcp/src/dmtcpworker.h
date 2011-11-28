@@ -36,12 +36,12 @@
   bool __wrapperExecutionLockAcquired =                 \
     dmtcp::DmtcpWorker::wrapperExecutionLockLock();     \
   if ( __wrapperExecutionLockAcquired ) {               \
-    /*JTRACE("Acquired wrapperExecutionLock");*/        \
+    JTRACE("Acquired wrapperExecutionLock");        \
   }
 
 #define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
   if ( __wrapperExecutionLockAcquired ) {               \
-    /*JTRACE("Releasing wrapperExecutionLock");*/       \
+    JTRACE("Releasing wrapperExecutionLock");       \
     dmtcp::DmtcpWorker::wrapperExecutionLockUnlock();   \
   }
 

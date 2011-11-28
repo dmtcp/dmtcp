@@ -649,7 +649,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     msg.assertValid();
 
     if ( msg.type == DMT_KILL_PEER ) {
-      JTRACE ( "Received KILL Message from coordinator, exiting" );
+      JTRACE ( "Received KILL message from coordinator, exiting" );
       _exit ( 0 );
     }
 
@@ -895,7 +895,7 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
       msg.assertValid();
 
       if ( msg.type == DMT_KILL_PEER ) {
-        JTRACE ( "Received KILL Message from coordinator, exiting" );
+        JTRACE ( "Received KILL message from coordinator, exiting" );
         _exit ( 0 );
       }
       JTRACE ( "received message" ) (msg.type );
