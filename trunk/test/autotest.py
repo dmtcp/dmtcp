@@ -77,7 +77,7 @@ BIN="./bin/"
 args={}
 for i in sys.argv:
   args[i]=True
-  if i=="-v":
+  if i=="-v" or i=="--verbose":
     VERBOSE=True
   if i=="--stress":
     CYCLES=100000
@@ -743,16 +743,8 @@ if testconfig.HAS_GCL == "yes":
   runTest("gcl",         1,  [testconfig.GCL])
   S=DEFAULT_S
 
-# Enable this only for Gene and Kapil while a bug exists.
-# Don't interfere with NMI tests.
-try:
-  user = os.environ['USER']
-except KeyError:
-  user = "NO_USER"
-if (user == "gene" or user == "kapil") and testconfig.HAS_OPENMP == "yes":
-  S=5
+if testconfig.HAS_OPENMP == "yes":
   runTest("openmp1",         1,  ["./test/openmp1"])
-  S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":

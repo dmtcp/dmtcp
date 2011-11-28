@@ -59,6 +59,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -3050,6 +3051,21 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * growstackValue is volatile so compiler doesn't optimize away growstack
  * Maybe it's not needed if we use ((optimize(0))) .
  *****************************************************************************/
+int growstackrlimit(size_t size) {
+  struct rlimit rlim;
+  mtcp_sys_getrlimit(RLIMIT_STACK, &rlim);
+  if (rlim.rlim_cur == RLIM_INFINITY)
+    return 1;
+  if (rlim.rlim_max == RLIM_INFINITY || rlim.rlim_max - rlim.rlim_cur > size) {
+    rlim.rlim_cur += size;
+    mtcp_sys_setrlimit(RLIMIT_STACK, &rlim);
+    return 1;
+  } else {
+    mtcp_printf("MTCP:  Warning: couldn't extend stack limit for growstack.\n");
+  }
+  return 0;
+}
+
 static volatile unsigned int growstackValue = 0;
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 3)
 static void __attribute__ ((optimize(0))) growstack (int kbStack)
@@ -3130,6 +3146,7 @@ static void stopthisthread (int signum)
 	orig_stack_ptr = (char *)&kbStack;
         is_first_checkpoint = 0;
         DPRINTF("temp. grow main stack by %d kilobytes\n", kbStack);
+        growstackrlimit(kbStack);
         growstack(kbStack);
       } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
         MTCP_PRINTF("WARNING:  Stack within %d bytes of end;\n"
