@@ -33,8 +33,9 @@ tests: $(TESTS)
 	${MAKE} -C credentials
 
 tidy:
-	rm -f ckpt_* dmtcp_restart_script* \
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
 	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
+	rm -rf ckpt_*
 	cd module && $(MAKE) tidy > /dev/null
 
 clean distclean: tidy
