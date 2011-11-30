@@ -403,8 +403,6 @@ static char const *sys_v_shmem_file = "/SYSV";
 #ifdef IBV
 static char const *infiniband_shmem_file = "/dev/infiniband/uverbs";
 #endif
-//static char const *perm_checkpointfilename = NULL;
-//static char const *temp_checkpointfilename = NULL;
 static char perm_checkpointfilename[PATH_MAX];
 static char temp_checkpointfilename[PATH_MAX];
 static size_t checkpointsize;
@@ -483,6 +481,7 @@ static void setup_clone_entry (void);
 void mtcp_threadiszombie (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
+static void update_checkpoint_filename(const char *ckptfilename);
 static int test_use_compression(char *compressor, char *command, char *path,
                                 int def);
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **args);
@@ -666,19 +665,7 @@ void mtcp_init (char const *checkpointfilename,
 
   intervalsecs = interval;
 
-  if (strlen(mtcp_ckpt_newname) >= PATH_MAX) {
-    MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
-                mtcp_ckpt_newname);
-    mtcp_abort();
-  }
-  // this is what user wants the checkpoint file called
-  strncpy(perm_checkpointfilename,checkpointfilename,PATH_MAX);
-  // make up another name, same as that, with ".temp" on the end ... we use it
-  // to write to in case we crash while writing, we will leave the previous good
-  // one intact
-  len = strlen (perm_checkpointfilename);
-  memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
-  strncpy(temp_checkpointfilename + len, ".temp",PATH_MAX-len);
+  update_checkpoint_filename(checkpointfilename);
 
   DPRINTF("main tid %d\n", mtcp_sys_kernel_gettid ());
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
@@ -1996,8 +1983,7 @@ again:
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
       if (dmtcp_checkpoint_filename &&
           strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
-        mtcp_sys_strcpy(perm_checkpointfilename, dmtcp_checkpoint_filename);
-        DPRINTF("Checkpoint filename changed to %s\n", perm_checkpointfilename);
+        update_checkpoint_filename(dmtcp_checkpoint_filename);
       }
     }
 
@@ -2073,6 +2059,28 @@ again:
      */
     if ((verify_total != 0) && (verify_count == 0)) return (NULL);
   }
+}
+
+static void update_checkpoint_filename(const char *checkpointfilename)
+{
+  size_t len = strlen(checkpointfilename);
+  if (len >= PATH_MAX) {
+    MTCP_PRINTF("checkpoint filename (%s) too long (>=%d bytes)\n",
+                checkpointfilename, PATH_MAX);
+    mtcp_abort();
+  }
+  // this is what user wants the checkpoint file called
+  strncpy(perm_checkpointfilename, checkpointfilename, PATH_MAX);
+  // make up another name, same as that, with ".temp" on the end ... we use it
+  // to write to in case we crash while writing, we will leave the previous good
+  // one intact
+  memcpy(temp_checkpointfilename, perm_checkpointfilename, len);
+  if (len == PATH_MAX) {
+    MTCP_PRINTF("ckpt filename is %d bytes long, temp file will have the same name",
+                checkpointfilename, PATH_MAX);
+  }
+  strncpy(temp_checkpointfilename + len, ".temp", PATH_MAX - len);
+  DPRINTF("Checkpoint filename changed to %s\n", perm_checkpointfilename);
 }
 
 /*
@@ -3908,24 +3916,16 @@ static void restore_heap()
 static void finishrestore (void)
 {
   struct timeval stopped;
-  int nnamelen;
 
   DPRINTF("mtcp_printf works; libc should work\n");
 
   restore_heap();
 
-  if ( (nnamelen = strlen(mtcp_ckpt_newname))
-       && strcmp(mtcp_ckpt_newname,perm_checkpointfilename) ) {
+  if (strlen(mtcp_ckpt_newname) > 0 &&
+      strcmp(mtcp_ckpt_newname, perm_checkpointfilename)) {
     // we start from different place - change it!
     DPRINTF("checkpoint file name was changed\n");
-    if (strlen(mtcp_ckpt_newname) >= PATH_MAX) {
-      MTCP_PRINTF("new ckpt file name (%s) too long (>=512 bytes)\n",
-                  mtcp_ckpt_newname);
-      mtcp_abort();
-    }
-    strncpy(perm_checkpointfilename,mtcp_ckpt_newname,PATH_MAX);
-    memcpy(temp_checkpointfilename,perm_checkpointfilename,PATH_MAX);
-    strncpy(temp_checkpointfilename + nnamelen, ".temp",PATH_MAX - nnamelen);
+    update_checkpoint_filename(mtcp_ckpt_newname);
   }
 
   mtcp_sys_gettimeofday (&stopped, NULL);
