@@ -249,13 +249,13 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	# Redirect stderr to suppress warning that section is not in a segment.
 	# (Warning caused by ALLOC section outside of normal .data section.)
 	${OBJCOPY} --set-section-flags=.the.begin=LOAD,ALLOC,CONTENTS,DATA \
-	  ./libmtcp.so 2>/dev/null
+	  ./libmtcp.so 2>/dev/null || echo MTCP: Warning: "'${OBJCOPY}'" failed.
 	${OBJCOPY} --set-section-flags=.the.end=LOAD,ALLOC,CONTENTS,DATA \
-	  ./libmtcp.so 2>/dev/null
+	  ./libmtcp.so 2>/dev/null || echo MTCP: Warning: "'${OBJCOPY}'" failed.
 	@nm -D libmtcp.so | grep ' [TD] ' | grep -v ' d\?mtcp_' | \
-	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' && \
+	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' 1>&2 && \
 	  echo '*** WARNING: libmtcp.so: MTCP symbols polluting user namespace'\
-	  || true
+	   1>&2 || true
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c

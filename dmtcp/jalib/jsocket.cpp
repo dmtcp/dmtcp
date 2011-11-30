@@ -137,7 +137,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
     }
 
   } else { // else (hostname, port) not valid; poison the port number
-    _addr[0].sin_port = -2;
+    _addr[0].sin_port = (unsigned short)-2;
   }
 
   freeaddrinfo(res);

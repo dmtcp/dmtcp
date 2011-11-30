@@ -34,6 +34,10 @@
 #include <sys/wait.h>
 #include "constants.h"
 #include <sys/ptrace.h>
+// This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
+#ifndef PTRACE_GETEVENTMSG
+# include <linux/ptrace.h>
+#endif
 #include <stdarg.h>
 #include <asm/ldt.h>
 #include <stdio.h>
