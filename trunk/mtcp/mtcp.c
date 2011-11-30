@@ -3051,7 +3051,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
  * growstackValue is volatile so compiler doesn't optimize away growstack
  * Maybe it's not needed if we use ((optimize(0))) .
  *****************************************************************************/
-int growstackrlimit(size_t size) {
+static int growstackrlimit(size_t size) {
   struct rlimit rlim;
   mtcp_sys_getrlimit(RLIMIT_STACK, &rlim);
   if (rlim.rlim_cur == RLIM_INFINITY)

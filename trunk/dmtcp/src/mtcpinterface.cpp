@@ -807,9 +807,12 @@ extern "C" int pthread_join(pthread_t thread, void **value_ptr)
   /* Wrap the call to _real_pthread_join() to make sure we call
      delete_thread_on_pthread_join(). */
   int retval = _real_pthread_join(thread, value_ptr);
+// TODO:  REMOVE ENTIRE pthread_join WRAPPER WHEN NOT NEEDED for PTRACE.
+#ifdef PTRACE
   if (retval == 0) {
     mtcpFuncPtrs.process_pthread_join(thread);
   }
+#endif
   return retval;
 }
 
