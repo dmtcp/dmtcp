@@ -53,7 +53,9 @@ namespace dmtcp
     const char* prefix() const;
     void incrementGeneration();
     static const char* checkpointFilename();
-    static dmtcp::string checkpointFilesDirName();
+    static dmtcp::string checkpointFilesSubDirName();
+    static dmtcp::string checkpointDirName();
+    static void updateCheckpointDirName();
     static dmtcp::string dmtcpTableFilename();
 #ifdef PID_VIRTUALIZATION
     static dmtcp::string pidTableFilename();

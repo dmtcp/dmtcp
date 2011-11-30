@@ -54,13 +54,14 @@
 #include "lookup_service.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jtimer.h"
-#include  "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jtimer.h"
+#include "../jalib/jfilesystem.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <iomanip>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1119,6 +1120,8 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
+    UniquePid::ComputationId().incrementGeneration();
+    JNOTE("Incremented Generation") (UniquePid::ComputationId().generation());
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_SUSPEND);
 
@@ -1213,7 +1216,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   filename = o1.str();
 
   o2 << dmtcp::string(dir) << "/"
-     << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId() << RESTART_SCRIPT_EXT;
+     << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId()
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+     << "_"
+     << std::setw(5) << std::setfill('0') << UniquePid::ComputationId().generation()
+#endif
+     << RESTART_SCRIPT_EXT;
   uniqueFilename = o2.str();
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
