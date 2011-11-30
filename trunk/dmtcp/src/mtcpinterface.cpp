@@ -251,11 +251,11 @@ static void callbackPreCheckpoint( char ** ckptFilename )
     // If we don't modify *ckptFilename, then MTCP will continue to use
     //  its default filename, which was passed to it via our call to mtcp_init()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-    dmtcp::UniquePid::ThisProcess().incrementGeneration();
+    //dmtcp::UniquePid::ThisProcess().incrementGeneration();
     *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
 #endif
   }
-  JTRACE ( "MTCP is about to write checkpoint image." );
+  JNOTE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
 }
 
 

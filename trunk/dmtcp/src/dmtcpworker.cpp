@@ -671,12 +671,13 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  if ( type == DMT_DO_FD_LEADER_ELECTION ) {
+  if ( type == DMT_DO_SUSPEND ) {
+    UniquePid::ComputationId() = msg.compGroup;
+  } else if ( type == DMT_DO_FD_LEADER_ELECTION ) {
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
     JASSERT ( theCheckpointState != NULL );
     theCheckpointState->numPeers(msg.params[0]);
     JASSERT(UniquePid::ComputationId() == msg.compGroup);
-    UniquePid::ComputationId() = msg.compGroup;
     theCheckpointState->compGroup(msg.compGroup);
   }
 }
@@ -749,6 +750,9 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 #endif
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
+  UniquePid::updateCheckpointDirName();
+  JNOTE("") (UniquePid::ComputationId().generation()) (UniquePid::checkpointFilename())
+    (UniquePid::checkpointDirName());
 
   JTRACE ( "got SUSPEND message, waiting for dmtcp_lock():"
 	   " to get synchronized with _runCoordinatorCmd if we use DMTCP API" );

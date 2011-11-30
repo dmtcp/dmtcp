@@ -968,7 +968,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   calculateRelativePath();
 
-  _ckptFilesDir = UniquePid::checkpointFilesDirName();
+  _ckptFilesDir = UniquePid::checkpointFilesSubDirName();
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);
@@ -1240,19 +1240,8 @@ void dmtcp::FileConnection::saveFile(int fd)
 
 dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
 {
-  const char *cwd_env = getenv( ENV_VAR_CHECKPOINT_DIR );
-  dmtcp::string cwd;
-  if ( cwd_env == NULL ) {
-    cwd = jalib::Filesystem::GetCWD();
-  } else {
-    cwd = cwd_env;
-  }
-
-  JASSERT (!_ckptFilesDir.empty());
-
   dmtcp::ostringstream os;
-  os << cwd
-     << "/" << _ckptFilesDir
+  os << _ckptFilesDir
      << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
 
   return os.str();
