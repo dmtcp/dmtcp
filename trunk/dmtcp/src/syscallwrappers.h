@@ -353,8 +353,13 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
       int fd, off_t offset);
   void *_real_mmap64(void *addr, size_t length, int prot, int flags,
       int fd, off64_t offset);
+#if __GLIBC_PREREQ (2,4)
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-      int flags, void *new_address);
+      int flags, ... /* void *new_address */ );
+#else
+  void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+      int flags);
+#endif
   int _real_munmap(void *addr, size_t length);
 
   ssize_t _real_read(int fd, void *buf, size_t count);

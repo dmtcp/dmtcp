@@ -53,7 +53,9 @@ endif
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp%: openmp%.c
 ifneq (${OPENMP_CFLAGS},)
-	${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
+	-${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
+else
+	#$@: This ${CC} does not support OpenMP, skipping test
 endif
 
 hellompich: hellompi.c
