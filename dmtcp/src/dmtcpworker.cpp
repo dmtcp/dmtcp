@@ -751,8 +751,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
   UniquePid::updateCheckpointDirName();
-  JNOTE("") (UniquePid::ComputationId().generation()) (UniquePid::checkpointFilename())
-    (UniquePid::checkpointDirName());
 
   JTRACE ( "got SUSPEND message, waiting for dmtcp_lock():"
 	   " to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
