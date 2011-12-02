@@ -84,6 +84,8 @@ extern "C"
     mtcp_fill_in_pthread_id_t   fill_in_pthread_id;
     mtcp_process_pthread_join_t process_pthread_join;
   } MtcpFuncPtrs_t;
+
+  LIB_PRIVATE extern MtcpFuncPtrs_t mtcpFuncPtrs;
 }
 LIB_PRIVATE void* get_mtcp_symbol ( const char* name );
 
