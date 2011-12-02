@@ -332,7 +332,7 @@ void dmtcp::Util::prepareDlsymWrapper()
   void* dlsym_addr = NULL;
   int diff;
   void* handle = NULL;
-  handle = dlopen("libdl.so", RTLD_NOW);
+  handle = dlopen("libdl.so.2", RTLD_NOW);
   if (handle == NULL) {
     fprintf(stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
             dlerror());
