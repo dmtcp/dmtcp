@@ -159,12 +159,17 @@ extern "C" int munmap(void *addr, size_t length)
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags, ...)
 {
+  void *retval;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  va_list ap;
-  va_start( ap, flags );
-  void *new_addr = va_arg ( ap, void * );
-  va_end ( ap );
-  void *retval = _real_mremap(old_address, old_size, new_size, flags, new_addr);
+  if (flags == MREMAP_FIXED) {
+    va_list ap;
+    va_start( ap, flags );
+    void *new_address = va_arg ( ap, void * );
+    va_end ( ap );
+    retval = _real_mremap(old_address, old_size, new_size, flags, new_address);
+  } else {
+    retval = _real_mremap(old_address, old_size, new_size, flags);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }

@@ -40,6 +40,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
@@ -962,12 +963,30 @@ void *_real_mmap64(void *addr, size_t length, int prot, int flags,
   REAL_FUNC_PASSTHROUGH_TYPED (void*,mmap64) (addr,length,prot,flags,fd,offset);
 }
 
+#if __GLIBC_PREREQ (2,4)
 LIB_PRIVATE
 void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-    int flags, void *new_address) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
-    (old_address, old_size, new_size, flags, new_address);
+    int flags, ... /* void *new_address*/ ) {
+  if (flags == MREMAP_FIXED) {
+    va_list ap;
+    va_start( ap, flags );
+    void *new_address = va_arg ( ap, void * );
+    va_end ( ap );
+    REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
+      (old_address, old_size, new_size, flags, new_address);
+  } else {
+    REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
+      (old_address, old_size, new_size, flags);
+  }
 }
+#else
+LIB_PRIVATE
+void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
+    int flags) {
+  REAL_FUNC_PASSTHROUGH_TYPED (void*, mremap)
+    (old_address, old_size, new_size, flags);
+}
+#endif
 
 LIB_PRIVATE
 int _real_munmap(void *addr, size_t length) {
