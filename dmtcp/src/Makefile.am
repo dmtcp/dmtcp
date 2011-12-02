@@ -81,7 +81,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 			 dmtcpcoordinatorapi.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
-			 epollwrappers.cpp  sysvipc.cpp \
+			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
 			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
 			 filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp

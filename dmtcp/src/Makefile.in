@@ -150,7 +150,8 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) socketwrappers.$(OBJEXT) \
 	workerhijack.$(OBJEXT) epollwrappers.$(OBJEXT) \
-	sysvipc.$(OBJEXT) pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	sysvipc.$(OBJEXT) threadwrappers.$(OBJEXT) \
+	pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) filewrappers.$(OBJEXT) \
 	mallocwrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
@@ -351,7 +352,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
 			 dmtcpcoordinatorapi.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
-			 epollwrappers.cpp  sysvipc.cpp \
+			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
 			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
 			 filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp
@@ -644,6 +645,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
