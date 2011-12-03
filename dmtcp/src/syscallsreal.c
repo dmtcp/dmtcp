@@ -889,8 +889,8 @@ int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void
 }
 
 LIB_PRIVATE
-int _real_pthread_join(pthread_t thread, void **value_ptr) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join ) ( thread, value_ptr );
+int _real_pthread_tryjoin_np(pthread_t thread, void **retval) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_tryjoin_np ) ( thread, retval );
 }
 
 LIB_PRIVATE
