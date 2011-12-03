@@ -51,7 +51,7 @@ else
 endif
 
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
-openmp%: openmp%.c
+openmp-%: openmp-%.c
 ifneq (${OPENMP_CFLAGS},)
 	-${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
 else

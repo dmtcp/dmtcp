@@ -660,7 +660,15 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=3
   if sys.version_info[0:2] >= (2,6):
-    runTest("vim",       1,  ["env TERM=vt100 "+testconfig.VIM+" /etc/passwd"])
+    # Delete previous vim processes.  Vim behaves poorly with stale processes.
+    ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
+    		      stdout=subprocess.PIPE).communicate()[0]
+    vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
+    for row in ps.split('\n')[1:]:
+      cmd = row.split(None, 1) # maxsplit=1
+      if cmd and cmd[1] == vimCommand:
+        os.kill(cmd[0], signal.SIGKILL)
+    runTest("vim",       1,  ["env TERM=vt100 "+vimCommand])
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
@@ -744,7 +752,7 @@ if testconfig.HAS_GCL == "yes":
   S=DEFAULT_S
 
 if testconfig.HAS_OPENMP == "yes":
-  runTest("openmp1",         1,  ["./test/openmp1"])
+  runTest("openmp-1",         1,  ["./test/openmp-1"])
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
@@ -770,8 +778,21 @@ if testconfig.HAS_MPICH == "yes":
 if testconfig.HAS_OPENMPI == "yes":
   numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
+  # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
+  oldPath = ""
+  if not os.environ.has_key('PATH'):
+    oldPath = None
+    os.environ['PATH'] = os.path.dirname(testconfig.OPENMPI_MPIRUN)
+  elif (not re.search(os.path.dirname(testconfig.OPENMPI_MPIRUN),
+                     os.environ['PATH'])):
+    oldPath = os.environ['PATH']
+    os.environ += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
   runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
+  if oldPath:
+    os.environ['PATH'] = oldPath
+  if oldPath == None:
+    del os.environ['PATH']
 
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
