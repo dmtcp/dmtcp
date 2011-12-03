@@ -118,8 +118,9 @@ int main ( int argc, char** argv )
   }
 
   if (! quiet)
-    printf("DMTCP/MTCP  Copyright (C) 2006-2010  Jason Ansel, Michael Rieker,\n"
-           "                                       Kapil Arya, and Gene Cooperman\n"
+    printf(  "DMTCP-" PACKAGE_VERSION " (+ MTCP), Copyright (C) 2006-2011"
+  "  Jason Ansel, Michael Rieker,\n"
+  "                                       Kapil Arya, and Gene Cooperman\n"
            "This program comes with ABSOLUTELY NO WARRANTY.\n"
            "This is free software, and you are welcome to redistribute it\n"
            "under certain conditions; see COPYING file for details.\n"

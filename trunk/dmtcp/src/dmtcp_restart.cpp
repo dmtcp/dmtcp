@@ -666,7 +666,8 @@ static const char* theUsage =
 ;
 
 static const char* theBanner =
-  "DMTCP/MTCP  Copyright (C) 2006-2010  Jason Ansel, Michael Rieker,\n"
+  "DMTCP-" PACKAGE_VERSION " (+ MTCP), Copyright (C) 2006-2011  Jason Ansel,"
+  " Michael Rieker,\n"
   "                                       Kapil Arya, and Gene Cooperman\n"
   "This program comes with ABSOLUTELY NO WARRANTY.\n"
   "This is free software, and you are welcome to redistribute it\n"
@@ -722,6 +723,12 @@ int main ( int argc, char** argv )
 
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
+
+  if (argc == 1) {
+    JASSERT_STDERR << theBanner;
+    JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
+    return DMTCP_FAIL_RC;
+  }
 
   //process args
   shift;
