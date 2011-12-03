@@ -187,9 +187,10 @@ AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [])
 #check for javac
 AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [])
 
-#check if java dialect is Sun/Oracle
+#check if java dialect is Sun/Oracle/OpenJDK
 if test "$HAS_JAVA" = "yes"; then
-  AC_CACHE_CHECK([if java is Sun/Oracle Java], [ac_cv_sun_java],
+  AC_CACHE_CHECK([for java -Xmx flag (Sun/Oracle/OpenJDK compatible)],
+                 [ac_cv_sun_java],
             [AC_PATH_PROGS_FEATURE_CHECK([HAS_SUN_ORACLE_JAVA], [java],
               [[ac_cv_sun_java=no ;
                 java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes]],

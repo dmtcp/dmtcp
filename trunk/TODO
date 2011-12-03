@@ -1,12 +1,14 @@
 - PLANNED FOR AFTER DMTCP-1.2.4 (as time and resources permit):
-  1. Replace temporary files of $DMTCP_TMPDIR (created on restart)
-	by shared memory objects.
-  2. Modify ckpt image format to note zero-mapped pages.
+  1.  Separate real from virtual pid/tid:  user code always uses virtual
+	pid/tid, while wrappers always translate into real pid/tid.
+  2. Create MTCP ckpt module making it easy to choose the preferred
+	compression routine on fly, remote checkpoints, etc.
+  3. Modify ckpt image format to note zero-mapped pages.
 	(An intermediate solution is to replace runs of zeros
 	 by zero-mapped pages at restart time.)
-  3.  Faster checkpoint/restart:  Don't remap libs
-  4.  Separate real from virtual pid/tid:  user code always uses virtual
-	pid/tid, while wrappers always translate into real pid/tid.
+  4. Replace temporary files of $DMTCP_TMPDIR (created on restart)
+	by shared memory objects.
+  5. Faster checkpoint/restart:  Don't remap libs
 
 - When environ is not yet initialized, currently dmtcphijack.so simply returns.
   (This occurs when executing libc.so.6 .)
