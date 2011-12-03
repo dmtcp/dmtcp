@@ -297,9 +297,9 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
 
       JTRACE("TID conflict detected, creating a new child thread") (tid);
       // Wait for child thread to acknowledge failure and quiesce itself.
-      const struct timespec busywait = {(time_t) 0, (long)1000*1000};
+      const struct timespec timeout = {(time_t) 0, (long)1000*1000};
       while (threadArg->clone_success != CLONE_FAIL) {
-         nanosleep(&busywait, NULL);
+         nanosleep(&timeout, NULL);
       } // Will now continue again around the while loop.
     } else {
       JTRACE("New thread created") (tid);
@@ -341,20 +341,135 @@ extern "C" void pthread_exit(void * retval)
   for(;;); // To hide compiler warning about "noreturn" function
 }
 
-// FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead()
-//         THIS SHOULDN'T BE NECESSARY.
-//         DELETE THIS WRAPPER AND ASSOCIATED MTCP CODE AFTER TESTING.
-extern "C" int pthread_join(pthread_t thread, void **value_ptr)
+/*
+ * pthread_join() is a blocking call that waits for the given thread to exit.
+ * It examines the value of 'tid' field in 'struct pthread' of the given
+ * thread. The kernel will write '0' to this field when the thread exits.
+ *
+ * In pthread_join(), the thread makes a futex call in the following fashion:
+ *   _tid = pd->tid;
+ *   while !succeeded
+ *     futex(&pd->tid, FUTEX_WAIT, 0, _tid, ...)
+ * As we can see, if the checkpoint is issued during pthread_join(), on
+ * restart, the tid would have changed, but the call to futex would still used
+ * the previously cached tid. This causes the caller to spin with 100% cpu
+ * usage.
+ *
+ * The fix is to use the non blocking pthread_tryjoin_np function. To maintain
+ * the semantics of pthread_join(), we need to ensure that only one thread is
+ * allowed to wait on the given thread. This is done by keeping track of
+ * threads that are being waited on by some other thread.
+ *
+ * Similar measures are taken for pthread_timedjoin_np().
+ */
+extern "C" int pthread_join(pthread_t thread, void **retval)
 {
-  /* Wrap the call to _real_pthread_join() to make sure we call
-     delete_thread_on_pthread_join(). */
-  int retval = _real_pthread_join(thread, value_ptr);
-// TODO:  REMOVE ENTIRE pthread_join WRAPPER WHEN NOT NEEDED for PTRACE.
+  int ret;
+  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+    return EINVAL;
+  }
+
+  while (1) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    ret = _real_pthread_tryjoin_np(thread, retval);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+
+    if (ret != EBUSY) {
+      break;
+    }
+
+    const struct timespec timeout = {(time_t) 0, (long)100 * 1000 * 1000};
+    nanosleep(&timeout, NULL);
+  }
+
 #ifdef PTRACE
-  if (retval == 0) {
+  /* Wrap the call to pthread_join() to make sure we call
+   * delete_thread_on_pthread_join().
+   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
+   *         SHOULDN'T BE NECESSARY.
+   */
+  if (ret == 0) {
     mtcpFuncPtrs.process_pthread_join(thread);
   }
 #endif
-  return retval;
+
+  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  return ret;
 }
 
+extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
+{
+  int ret;
+  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+    return EINVAL;
+  }
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  ret = _real_pthread_tryjoin_np(thread, retval);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+#ifdef PTRACE
+  /* Wrap the call to pthread_join() to make sure we call
+   * delete_thread_on_pthread_join().
+   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
+   *         SHOULDN'T BE NECESSARY.
+   */
+  if (ret == 0) {
+    mtcpFuncPtrs.process_pthread_join(thread);
+  }
+#endif
+
+  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  return ret;
+}
+
+extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
+                                    const struct timespec *abstime)
+{
+  int ret;
+  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+    return EINVAL;
+  }
+
+  /*
+   * We continue to call pthread_tryjoin_np (and sleep) until we have gone past
+   * the abstime provided by the caller
+   */
+  while (1) {
+    struct timeval tv;
+    struct timespec ts;
+    JASSERT(gettimeofday(&tv, NULL) == 0);
+    TIMEVAL_TO_TIMESPEC(&tv, &ts);
+
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    ret = _real_pthread_tryjoin_np(thread, retval);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+
+    if (ret == 0) {
+      break;
+    }
+
+    if (ts.tv_sec > abstime->tv_sec || (ts.tv_sec == abstime->tv_sec &&
+                                        ts.tv_nsec > abstime->tv_nsec)) {
+      ret = ETIMEDOUT;
+      break;
+    }
+
+    const struct timespec timeout = {(time_t) 0, (long)100 * 1000 * 1000};
+    nanosleep(&timeout, NULL);
+  }
+
+#ifdef PTRACE
+  /* Wrap the call to pthread_join() to make sure we call
+   * delete_thread_on_pthread_join().
+   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
+   *         SHOULDN'T BE NECESSARY.
+   */
+  if (ret == 0) {
+    mtcpFuncPtrs.process_pthread_join(thread);
+  }
+#endif
+
+  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  return ret;
+}

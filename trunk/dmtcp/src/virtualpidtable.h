@@ -131,12 +131,16 @@ namespace dmtcp
 
       void resetOnFork();
 
+      bool beginPthreadJoin(pthread_t thread);
+      void endPthreadJoin(pthread_t thread);
+
     protected:
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
       dmtcp::vector< pid_t > _inferiorVector;
       dmtcp::vector< pid_t > _tidVector;
+      dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
 
       typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
       dmtcp::map< pid_t , pid_t > _pidMapTable;

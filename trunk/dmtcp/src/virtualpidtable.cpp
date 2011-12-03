@@ -57,6 +57,7 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _isRootOfProcessTree = false;
   _childTable.clear();
   _tidVector.clear();
+  _pthreadJoinId.clear();
   _inferiorVector.clear();
   _pidMapTable.clear();
   _pidMapTable[_pid] = _pid;
@@ -178,6 +179,7 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _isRootOfProcessTree = false;
   _childTable.clear();
   _tidVector.clear();
+  _pthreadJoinId.clear();
   _inferiorVector.clear();
   //_pidMapTable[_pid] = _pid;
   printPidMaps();
@@ -351,6 +353,27 @@ void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
   }
   _do_unlock_tbl();
   return;
+}
+
+bool dmtcp::VirtualPidTable::beginPthreadJoin(pthread_t thread)
+{
+  bool res = false;
+  _do_lock_tbl();
+  dmtcp::map<pthread_t, pthread_t>::iterator i = _pthreadJoinId.find(thread);
+  if (i == _pthreadJoinId.end()) {
+    _pthreadJoinId[thread] = pthread_self();
+    res = true;
+  }
+  _do_unlock_tbl();
+  return res;
+}
+
+void dmtcp::VirtualPidTable::endPthreadJoin(pthread_t thread)
+{
+  _do_lock_tbl();
+  JASSERT(pthread_equal(_pthreadJoinId[thread], pthread_self()));
+  _pthreadJoinId.erase(thread);
+  _do_unlock_tbl();
 }
 
 bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
