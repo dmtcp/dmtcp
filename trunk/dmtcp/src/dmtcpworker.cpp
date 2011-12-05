@@ -101,6 +101,10 @@ LIB_PRIVATE dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
 static bool _waitingForExternalSocketsToClose = false;
 #endif
 
+LIB_PRIVATE void pthread_atfork_prepare();
+LIB_PRIVATE void pthread_atfork_parent();
+LIB_PRIVATE void pthread_atfork_child();
+
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
 size_t dmtcp::DmtcpWorker::_argvSize = 0;
 size_t dmtcp::DmtcpWorker::_envSize = 0;
@@ -343,6 +347,20 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
+
+  /* Register pthread_atfork_child() as the first post-fork handler for the
+   * child process. This needs to be the first function that is called by
+   * libc:fork() after the child process is created.
+   *
+   * TODO: If we discover in future that someone else called pthread_atfork()
+   * before us, we should move this call to pthread_atfork() inside
+   * prepareDmtcpWrappers(). We might also solve this issue by creating a
+   * pthread_atfork() wrapper and in that, making sure that the first call to
+   * _real_pthread_create is always ours.
+   */
+  JASSERT(pthread_atfork(pthread_atfork_prepare,
+                         pthread_atfork_parent,
+                         pthread_atfork_child) == 0);
 
   processRlimit();
 

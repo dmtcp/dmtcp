@@ -48,20 +48,97 @@
   const static bool dbg = false;
 #endif
 
-static pid_t fork_work(void)
+static bool pthread_atfork_enabled = false;
+static time_t child_time;
+static dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
+
+LIB_PRIVATE void pthread_atfork_prepare()
 {
-  /* Little bit cheating here: child_time should be same for both parent and
-   * child, thus we compute it before forking the child. */
-  time_t child_time = time(NULL);
+  /* FIXME: The user process might register a fork prepare handler with
+   * pthread_atfork. That handler will be called _after_ we have acquired the
+   * wrapper-exec lock in exclusive mode. This can lead to a deadlock situation
+   * if the user process decides to do some operations that require calling a
+   * dmtcp wrapper that require the wrapper-exec lock.
+   *
+   * Also, the preparation that dmtcp needs to do for fork() should be done
+   * right before the child process is created, i.e. after all the user
+   * handlers have been invoked. Fortunately, pthread_atfork prepare handlers
+   * are called in reverse order or registration (as opposed to parent and
+   * child handlers which are called in the order of registration), thus our
+   * prepare handle will be called at the very last.
+   *
+   * FIXME: PID-conflict detection poses yet another serious problem. On a
+   * pid-conflict, _real_fork() will be called more than once, resulting in
+   * multiple calls of user-defined prepare handlers. This is undesired and can
+   * cause several issues. One solution to this problem is to call the fork
+   * system call directly whenever a tid-conflict is detected, however, it
+   * might have some other side-effects.  Another possible solution would be to
+   * have pid-virtualization module, which always assigns virtual pids, to the
+   * newly created processes, and thus avoiding the pid-conflict totally.
+   */
+  return;
+}
+
+LIB_PRIVATE void pthread_atfork_parent()
+{
+  return;
+}
+
+LIB_PRIVATE void pthread_atfork_child()
+{
+  if (!pthread_atfork_enabled) {
+    return;
+  }
+  pthread_atfork_enabled = false;
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
-  pid_t child_pid;
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  // Reset __thread_tid on fork. This should be the first thing to do in
+  // the child process.
+  dmtcp_reset_gettid();
+  JALIB_RESET_ON_FORK();
+  _dmtcp_remutex_on_fork();
+  dmtcp::SyslogCheckpointer::resetOnFork();
+  dmtcp::DmtcpWorker::resetWrapperExecutionLock();
 
-  dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
+  child = dmtcp::UniquePid(host, _real_getpid(), child_time);
+  dmtcp::UniquePid::resetOnFork(child);
+  dmtcp::Util::initializeLogFile(child_name);
+
+#ifdef PID_VIRTUALIZATION
+  if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
+    _exit(DMTCP_FAIL_RC);
+  }
+  dmtcp::VirtualPidTable::instance().resetOnFork();
+#endif
+
+  JTRACE("fork()ed [CHILD]") (child) (parent);
+  dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+
+}
+
+extern "C" pid_t fork()
+{
+  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
+   * processing this system call.
+   */
+  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
+
+  /* Little bit cheating here: child_time should be same for both parent and
+   * child, thus we compute it before forking the child. */
+  child_time = time(NULL);
+  long host = dmtcp::UniquePid::ThisProcess().hostid();
+  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
+  dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  pid_t child_pid;
+
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
 
+  //Enable the pthread_atfork child call
+  pthread_atfork_enabled = true;
   while (1) {
     child_pid = _real_fork();
     if (child_pid == -1) { // fork() failed
@@ -69,29 +146,16 @@ static pid_t fork_work(void)
     }
 
     if (child_pid == 0) { /* child process */
-      // Reset __thread_tid on fork. This should be the first thing to do in
-      // the child process.
-      dmtcp_reset_gettid();
-      JALIB_RESET_ON_FORK();
-      _dmtcp_remutex_on_fork();
-      dmtcp::SyslogCheckpointer::resetOnFork();
-      dmtcp::DmtcpWorker::resetWrapperExecutionLock();
-
-      child = dmtcp::UniquePid(host, _real_getpid(), child_time);
-      dmtcp::UniquePid::resetOnFork(child);
-      dmtcp::Util::initializeLogFile(child_name);
-
-#ifdef PID_VIRTUALIZATION
-      if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
-        _exit(DMTCP_FAIL_RC);
-      }
-      dmtcp::VirtualPidTable::instance().resetOnFork();
-#endif
-
-      JTRACE("fork()ed [CHILD]") (child) (parent);
-      dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+      /* NOTE: Any work that needs to be done for the newly created child
+       * should be put into pthread_atfork_child() function. That function is
+       * hooked to the libc:fork() and will be called right after the new
+       * process is created and before the fork() returns.
+       *
+       * pthread_atfork_child is registered by calling pthread_atfork() from
+       * within the DmtcpWorker constructor to make sure that this is the first
+       * registered handle.
+       */
       JTRACE("fork() done [CHILD]") (child) (parent);
-
     } else { /* Parent Process */
       coordinatorAPI.closeConnection();
       child = dmtcp::UniquePid(host, child_pid, child_time);
@@ -104,35 +168,17 @@ static pid_t fork_work(void)
       dmtcp::VirtualPidTable::instance().insert(child_pid, child);
 #endif
 
-    JTRACE("fork()ed [PARENT] done") (child);;
+      JTRACE("fork()ed [PARENT] done") (child);;
     }
     break;
   }
-  return child_pid;
-}
+  pthread_atfork_enabled = false;
 
-static void prepareForFork()
-{
-  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
-}
-
-extern "C" pid_t fork()
-{
-  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
-   * processing this system call.
-   */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
-
-  prepareForFork();
-  int retVal = fork_work();
-
-  if (retVal != 0) {
+  if (child_pid != 0) {
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
-
-  return retVal;
+  return child_pid;
 }
-
 
 extern "C" pid_t vfork()
 {

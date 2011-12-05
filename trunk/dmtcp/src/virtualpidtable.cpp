@@ -174,6 +174,8 @@ void dmtcp::VirtualPidTable::printPidMaps()
 
 void dmtcp::VirtualPidTable::resetOnFork()
 {
+  pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
+  tblLock = newlock;
   _pid = _real_getpid();
   _ppid = currentToOriginalPid ( _real_getppid() );
   _isRootOfProcessTree = false;
@@ -183,8 +185,6 @@ void dmtcp::VirtualPidTable::resetOnFork()
   _inferiorVector.clear();
   //_pidMapTable[_pid] = _pid;
   printPidMaps();
-  pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
-  tblLock = newlock;
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
