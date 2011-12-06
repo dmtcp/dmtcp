@@ -283,11 +283,12 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
 	 .Text ("Coordinator in a funny state.  Peers exist, not restarting," \
 		"\n but not in a running state.  Checkpointing?" \
 		"\n Or maybe restarting and running with peers existing?");
+    }else if (WEXITSTATUS(coordinatorStatus) == DMTCP_FAIL_RC) {
+      JTRACE("Coordinator not found.  Starting a new one.");
     }else{
-      JTRACE("Bad result found for coordinator.  Try a new one.");
+      JTRACE("Bad result found for coordinator.  Will try start a new one.");
     }
 
-    JTRACE("Coordinator not found.  Starting a new one.");
     startNewCoordinator ( modes, isRestart );
 
   }else{

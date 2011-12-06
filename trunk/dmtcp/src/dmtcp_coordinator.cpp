@@ -429,8 +429,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   }
   case 'k': case 'K':
     JNOTE ( "Killing all connected Peers..." );
-    //XXX: What happens if a 'k' command is followed by a 'c' command before
-    //     the *real* broadcast takes place?         --Kapil
+    //FIXME: What happens if a 'k' command is followed by a 'c' command before
+    //       the *real* broadcast takes place?         --Kapil
     broadcastMessage ( DMT_KILL_PEER );
     break;
   case 'h': case 'H': case '?':
@@ -945,7 +945,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
   if( UniquePid::ComputationId() == dmtcp::UniquePid(0,0,0) ){
     JASSERT ( minimumState() == WorkerState::UNKNOWN )
       .Text ( "Coordinator should be idle at this moment" );
-    // Coordinator is free at this moment - setup all the things
+    // Coordinator is free at this moment - set up all the things
     UniquePid::ComputationId() = hello_remote.compGroup;
     numPeers = hello_remote.params[0];
     curTimeStamp = time(NULL);
@@ -1600,7 +1600,7 @@ int main ( int argc, char** argv )
       "\n\n";
   }
 
-  /* We setup the signal handler for SIGINT so that it would send the
+  /* We set up the signal handler for SIGINT so that it would send the
    * DMT_KILL_PEER message to all the connected peers before exiting.
    */
   setupSIGINTHandler();

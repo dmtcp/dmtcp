@@ -40,7 +40,7 @@ dmtcp::ProtectedFDs::ProtectedFDs()
 {
 //    memset(_usageTable, 0, sizeof(_usageTable));
 
-  //setup out "busy" fd
+  //set up our "busy" fd
 //    _usageTable[0] = true;
   int tmp = open ( "/dev/null",O_RDONLY );
   JASSERT ( tmp > 0 ) ( tmp );

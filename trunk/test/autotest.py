@@ -661,14 +661,16 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=3
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
-    		      stdout=subprocess.PIPE).communicate()[0]
-    vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
-    for row in ps.split('\n')[1:]:
-      cmd = row.split(None, 1) # maxsplit=1
-      if cmd and cmd[1] == vimCommand:
-        os.kill(cmd[0], signal.SIGKILL)
+    def killVim(vimCommand):
+      ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
+    		            stdout=subprocess.PIPE).communicate()[0]
+      for row in ps.split('\n')[1:]:
+        cmd = row.split(None, 1) # maxsplit=1
+        if cmd and cmd[1] == vimCommand:
+          os.kill(int(cmd[0]), signal.SIGKILL)
+    killVim(testconfig.VIM + " /etc/passwd +3") # +3 makes cmd line unique
     runTest("vim",       1,  ["env TERM=vt100 "+vimCommand])
+    killVim(testconfig.VIM + " /etc/passwd +3") # +3 makes cmd line unique
   S=DEFAULT_S
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
