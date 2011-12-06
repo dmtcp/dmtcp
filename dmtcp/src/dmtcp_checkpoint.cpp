@@ -307,7 +307,7 @@ int main ( int argc, char** argv )
     JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
   }
 
-  //setup CHECKPOINT_DIR
+  //set up CHECKPOINT_DIR
   if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
     const char* ckptDir = get_current_dir_name();
     if(ckptDir != NULL ){

@@ -272,7 +272,7 @@ namespace dmtcp
       return 0;
     }
 
-    // Traverse this process subtree and setup information about sessions
+    // Traverse this process subtree and set up information about sessions
     //   and their leaders for all children.
     sidMapping &setupSessions() {
       pid_t sid = _virtualPidTable.sid();
