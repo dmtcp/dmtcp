@@ -504,6 +504,7 @@ def runTestRaw(name, numProcs, cmds):
     except CheckFailed, e:
       print "CLEANUP ERROR:", e.value
       SHUTDOWN()
+      saveResultsNMI()
       sys.exit(1)
 
   clearCkptDir()
@@ -524,6 +525,23 @@ def runTest(name, numProcs, cmds):
         os.kill(pid, signal.SIGKILL)
       except OSError: # This happens if pid already died.
         pass
+
+def saveResultsNMI():
+  if testconfig.DEBUG == "yes":
+    host = socket.getfqdn()
+    if re.search("^nmi-.*.cs.wisc.edu$", host) or \
+       re.search("^nmi-.*.cs.wisconsin.edu$", host):
+      tmpdir = os.getenv("TMPDIR", "/tmp") # if "TMPDIR" not set, return "/tmp"
+      target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
+               "@" + socket.gethostname()
+      cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
+	       " ./dmtcp/src/dmtcphijack.so" + " ./mtcp/libmtcp.so" + \
+               " results/"
+      os.system(cmd)
+      cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
+      os.system(cmd)
+      print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
+					      ") written to DMTCP_ROOT/.. ***"
 
 print "== Tests =="
 
@@ -670,7 +688,7 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
         if cmd and cmd[1] == cmdToKill:
           os.kill(int(cmd[0]), signal.SIGKILL)
     killCommand(vimCommand)
-    runTest("vim",       1,  ["env TERM=vt100 "+vimCommand])
+    runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
     killCommand(vimCommand)
   S=DEFAULT_S
 
@@ -800,20 +818,7 @@ if testconfig.HAS_OPENMPI == "yes":
 print "== Summary =="
 print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
 
-if testconfig.DEBUG == "yes":
-  host = socket.getfqdn()
-  if re.search("^nmi-.*.cs.wisc.edu$", host) or \
-     re.search("^nmi-.*.cs.wisconsin.edu$", host):
-    tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
-    target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
-             "@" + socket.gethostname()
-    cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
-	     " ./dmtcp/src/dmtcphijack.so" + " ./mtcp/libmtcp.so" + " results/"
-    os.system(cmd)
-    cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
-    os.system(cmd)
-    print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
-					      ") written to DMTCP_ROOT/.. ***"
+saveResultsNMI()
 
 try:
   SHUTDOWN()
