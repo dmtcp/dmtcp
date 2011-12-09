@@ -774,6 +774,7 @@ if testconfig.HAS_GCL == "yes":
 
 if testconfig.HAS_OPENMP == "yes":
   runTest("openmp-1",         1,  ["./test/openmp-1"])
+  runTest("openmp-2",         1,  ["./test/openmp-2"])
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":

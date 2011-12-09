@@ -88,6 +88,8 @@ static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
 // NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
 static pthread_rwlock_t
   theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+static pthread_rwlock_t
+  theThreadCreationLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int uninitializedThreadCount = 0;
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
@@ -410,13 +412,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 void dmtcp::DmtcpWorker::cleanupWorker()
 {
-  resetWrapperExecutionLock();
-
-  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
-  uninitializedThreadCountLock = newCountLock;
-
-  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
-  destroyDmtcpWorker = newDestroyDmtcpWorker;
+  resetLocks();
 
   uninitializedThreadCount = 0;
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
@@ -781,6 +777,9 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE ( "got SUSPEND message, waiting for lock(&theCkptCanStart)" );
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
+  JTRACE ( "got SUSPEND message, Waiting for threads creation lock" );
+  JASSERT(_real_pthread_rwlock_wrlock(&theThreadCreationLock) == 0)(JASSERT_ERRNO);
+
   JTRACE ( "got SUSPEND message,"
            " waiting for other threads to exit DMTCP-Wrappers" );
   JASSERT(_real_pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
@@ -810,6 +809,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
   JASSERT(_real_pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
+  JASSERT(_real_pthread_rwlock_unlock(&theThreadCreationLock) == 0)(JASSERT_ERRNO);
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 
   dmtcp_process_event(DMTCP_EVENT_POST_SUSPEND, NULL);
@@ -1209,9 +1209,11 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
   if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING ) {
-    printf ( "ERROR: DmtcpWorker::wrapperExecutionLockUnlock: This process is not in \n"
-             "RUNNING state and yet this thread managed to acquire the wrapperExecutionLock.\n"
-             "This should not be happening, something is wrong." );
+    printf ( "DMTCP INTERNAL ERROR: %s:%d:\n"
+             "       This process is not in RUNNING state and yet this thread\n"
+             "       managed to acquire the wrapperExecutionLock.\n"
+             "       This should not be happening, something is wrong.",
+             __FUNCTION__, __LINE__);
     _exit(1);
   }
   if ( _real_pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
@@ -1221,12 +1223,54 @@ void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
   errno = saved_errno;
 }
 
-void dmtcp::DmtcpWorker::resetWrapperExecutionLock()
+void dmtcp::DmtcpWorker::resetLocks()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
   theWrapperExecutionLock = newLock;
+  theThreadCreationLock = newLock;
+
+  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
+  uninitializedThreadCountLock = newCountLock;
+
+  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
+  destroyDmtcpWorker = newDestroyDmtcpWorker;
+
 }
 
+bool dmtcp::DmtcpWorker::threadCreationLockLock()
+{
+  int saved_errno = errno;
+  bool lockAcquired = false;
+  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
+    int retVal = _real_pthread_rwlock_rdlock(&theThreadCreationLock);
+    if ( retVal != 0 && retVal != EDEADLK ) {
+      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
+      _exit(1);
+    }
+    // retVal should always be 0 (success) here.
+    lockAcquired = retVal == 0 ? true : false;
+  }
+  errno = saved_errno;
+  return lockAcquired;
+}
+
+void dmtcp::DmtcpWorker::threadCreationLockUnlock()
+{
+  int saved_errno = errno;
+  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING ) {
+    printf ( "DMTCP INTERNAL ERROR: %s:%d:\n"
+             "       This process is not in RUNNING state and yet this thread\n"
+             "       managed to acquire the threadCreationLock.\n"
+             "       This should not be happening, something is wrong.",
+             __PRETTY_FUNCTION__, __LINE__);
+    _exit(1);
+  }
+  if ( _real_pthread_rwlock_unlock(&theThreadCreationLock) != 0) {
+    fprintf(stderr, "ERROR %s: Failed to release lock", __PRETTY_FUNCTION__ );
+    _exit(1);
+    }
+  errno = saved_errno;
+}
 
 // GNU g++ uses __thread.  But the C++0x standard says to use thread_local.
 //   If your compiler fails here, you can: change "__thread" to "thread_local";
