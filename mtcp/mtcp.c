@@ -2570,6 +2570,7 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
   int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (mtcp_readmapsline (mapsfd, &area)) {
+    int no_rwx_perm = 0;
     VA area_begin = area.addr;
     VA area_end   = area_begin + area.size;
 
@@ -2630,19 +2631,28 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
      */
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE)) &&
-        area.name != '\0') {
+        area.name[0] != '\0') {
       continue;
     }
 
     /* Now give read permission to the anonymous pages that do not have read
-     * permission
+     * permission. We should remove the permission as soon as we are done
+     * writing the area to the checkpoint image
+     *
+     * NOTE: Changing the permission here can results in two adjacent memory
+     * areas to become one (merged), if they have similar permissions. This can
+     * results in a modified /proc/self/maps file. We shouldn't get affected by
+     * the changes because we are going to remove the PROT_READ later in the
+     * code and that should reset the /proc/self/maps files to its original
+     * condition.
      */
-    if (!(area.prot & PROT_READ) && area.name == '\0') {
+    if (!(area.prot & PROT_READ) && area.name[0] == '\0') {
       if (mtcp_sys_mprotect (area.addr, area.size, PROT_READ) < 0) {
         MTCP_PRINTF("error %d adding PROT_READ to %p bytes at %p\n",
                     mtcp_sys_errno, area.size, area.addr);
         mtcp_abort ();
       }
+      no_rwx_perm = 1;
     }
 
     // If the process has an area labelled as "/dev/zero (deleted)", we mark
@@ -2767,6 +2777,17 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
         stack_was_seen = 1;
       // the whole thing comes after the restore image
       writememoryarea (fd, &area, stack_was_seen, vsyscall_exists);
+    }
+
+    /* Now remove the PROT_READ from the area if it didn't have it originally
+     */
+    if (no_rwx_perm == 1) {
+      if (mtcp_sys_mprotect (area.addr, area.size, 0) < 0) {
+        MTCP_PRINTF("error %d removing PROT_READ from %p bytes at %p\n",
+                    mtcp_sys_errno, area.size, area.addr);
+        mtcp_abort ();
+      }
+      no_rwx_perm = 0;
     }
   }
 

@@ -548,10 +548,11 @@ static void readmemoryareas (void)
         /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
         if (do_mmap_ckpt_image
             && mtcp_strstr(area.name, "[vdso]")
-            && mtcp_strstr(area.name, "[vsyscall]"))
+            && mtcp_strstr(area.name, "[vsyscall]")) {
           mmapfile (area.addr, area.size, area.prot | PROT_WRITE, area.flags);
-        else
+        } else {
           mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
+        }
         if (!(area.prot & PROT_WRITE))
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
             MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
