@@ -179,19 +179,30 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   threadArg->pthread_fn = start_routine;
   threadArg->arg = arg;
 
-  /* pthread_create() should acquire the wrapper-execution lock exclusively
-   * (wrlock). Not doing so can result in a deadlock in the following scenario:
+  /* pthread_create() should acquire the thread-creation lock. Not doing so can
+   * result in a deadlock in the following scenario:
    * 1. user thread: pthread_create() - acquire wrapper-execution lock
    * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exection lock
    * 3. user thread: __clone() - try to acquire wrapper-execution lock
    *
    * We also need to increment the uninitialized-thread-count so that it is
    * safe to checkpoint the newly created thread.
+   *
+   * There is another possible deadlock situation if we do not grab the thread-creation lock:
+   * 1. user thread: pthread_create(): waiting on tbl_lock inside libpthread
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
+   * 3. uset thread: a. exiting after returning from user fn.
+   *                 b. grabs tbl_lock()
+   *                 c. tries to call free() to deallocate previously allocated
+   *                 space (stack etc.). The free() wrapper requires
+   *                 wrapper-exec lock, which is not available.
    */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  bool threadCreationLockAcquired = dmtcp::DmtcpWorker::threadCreationLockLock();
   dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
   retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+  if (threadCreationLockAcquired) {
+    dmtcp::DmtcpWorker::threadCreationLockUnlock();
+  }
   if (retval != 0) { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
   }
