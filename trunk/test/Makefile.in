@@ -3,6 +3,7 @@ LN_S=@LN_S@
 CC=@CC@
 CXX=@CXX@
 OPENMP_CFLAGS=@OPENMP_CFLAGS@
+OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
 ifdef M32
 CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
 CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
@@ -56,6 +57,14 @@ ifneq (${OPENMP_CFLAGS},)
 	-${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
 else
 	#$@: This ${CC} does not support OpenMP, skipping test
+endif
+
+# Assume OpenMP exists only if OPENMP_CFLAGS is set.
+openmp-%: openmp-%.cpp
+ifneq (${OPENMP_CFLAGS},)
+	-${CXX} ${CXXFLAGS} ${OPENMP_CXXFLAGS} -o $@ $<
+else
+	#$@: This ${CXX} does not support OpenMP, skipping test
 endif
 
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
