@@ -102,6 +102,7 @@ int clone_start(void *arg)
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     threadArg->clone_success = CLONE_FAIL;
     JTRACE ("TID conflict detected.  Exiting thread.");
+    mtcpFuncPtrs.threadiszombie();
     // If we return to clone(), clone will call __GI_exit(), and process exits.
     // We emulate glibc pthread_create.c:start_thread(), which makes
     //   call below in order to kill this thread only.
