@@ -9,6 +9,10 @@ AC_PROG_CC
 AC_PROG_CXX
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
+dnl This sets OPENMP_CXXFLAGS
+AC_LANG_PUSH([C++])
+AC_OPENMP
+AC_LANG_POP([C++])
 AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp module])
 
