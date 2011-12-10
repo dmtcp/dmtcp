@@ -59,20 +59,12 @@ else
 	#$@: This ${CC} does not support OpenMP, skipping test
 endif
 
-# Assume OpenMP exists only if OPENMP_CFLAGS is set.
+# Assume OpenMP exists only if OPENMP_CXXFLAGS is set.
 openmp-%: openmp-%.cpp
 ifneq (${OPENMP_CFLAGS},)
 	-${CXX} ${CXXFLAGS} ${OPENMP_CXXFLAGS} -o $@ $<
 else
 	#$@: This ${CXX} does not support OpenMP, skipping test
-endif
-
-# Assume OpenMP exists only if OPENMP_CFLAGS is set.
-openmp-%: openmp-%.cpp
-ifneq (${OPENMP_CFLAGS},)
-	-${CXX} ${CXXFLAGS} ${OPENMP_CFLAGS} -o $@ $<
-else
-	#$@: This ${CC} does not support OpenMP, skipping test
 endif
 
 hellompich: hellompi.c
