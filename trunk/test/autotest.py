@@ -584,16 +584,16 @@ resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 runTest("module-sleep2", 1, ["--with-module "+
-			     "$PWD/module/sleep1/dmtcp_sleep1hijack.so:"+
-			     "$PWD/module/sleep2/dmtcp_sleep2hijack.so "+
+			     "$PWD/test/module/sleep1/dmtcp_sleep1hijack.so:"+
+			     "$PWD/test/module/sleep2/dmtcp_sleep2hijack.so "+
 			     "./test/dmtcp1"])
 
 runTest("module-example-db", 2, ["--with-module "+
-			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			    "$PWD/test/module/example-db/dmtcp_example-dbhijack.so "+
 			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
 			     "./test/dmtcp1",
 			         "--with-module "+
-			    "$PWD/module/example-db/dmtcp_example-dbhijack.so "+
+			    "$PWD/test/module/example-db/dmtcp_example-dbhijack.so "+
 			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
 			     "./test/dmtcp1"])
 
@@ -765,6 +765,9 @@ if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
     runTest("java1",         1,  ["java java1"])
   del os.environ['CLASSPATH']
   S=DEFAULT_S
+
+if testconfig.HAS_CILK == "yes":
+  runTest("cilk1",        1,  ["./test/cilk1 38"])
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":

@@ -21,6 +21,8 @@ HAS_OPENMPI=@HAS_OPENMPI@
 OPENMPI_MPICC=@OPENMPI_MPICC@
 HAS_JAVA=@HAS_JAVA@
 HAS_JAVAC=@HAS_JAVAC@
+HAS_CILK=@HAS_CILK@
+CILKC=@CILKC@
 endif
 
 PWD=$(shell pwd)
@@ -59,9 +61,9 @@ else
 	#$@: This ${CC} does not support OpenMP, skipping test
 endif
 
-# Assume OpenMP exists only if OPENMP_CXXFLAGS is set.
+# Assume OpenMP exists for C++ only if OPENMP_CXXFLAGS is set.
 openmp-%: openmp-%.cpp
-ifneq (${OPENMP_CFLAGS},)
+ifneq (${OPENMP_CXXFLAGS},)
 	-${CXX} ${CXXFLAGS} ${OPENMP_CXXFLAGS} -o $@ $<
 else
 	#$@: This ${CXX} does not support OpenMP, skipping test
@@ -115,6 +117,13 @@ ifeq ($(HAS_JAVAC),yes)
 	javac $<
 else
 	#$@: required 'javac' missing, skipping test
+endif
+
+cilk%: cilk%.cilk
+ifeq ($(HAS_CILK),yes)
+	${CILKC} -o $@ $<
+else
+	#$@: required '${CILKC}' missing, skipping test
 endif
 
 %: %.c
