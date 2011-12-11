@@ -185,28 +185,6 @@ fi
 #  AC_MSG_ERROR(['gcc -static hello.c' failed.
 #fi
 
-#check for java
-AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [])
-
-#check for javac
-AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [])
-
-#check if java dialect is Sun/Oracle/OpenJDK
-if test "$HAS_JAVA" = "yes"; then
-  AC_CACHE_CHECK([for java -Xmx flag (Sun/Oracle/OpenJDK compatible)],
-                 [ac_cv_sun_java],
-            [AC_PATH_PROGS_FEATURE_CHECK([HAS_SUN_ORACLE_JAVA], [java],
-              [[ac_cv_sun_java=no ;
-                java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes]],
-              [])])
-  AC_SUBST([HAS_SUN_ORACLE_JAVA], [$ac_cv_sun_java])
-else
-  AC_SUBST([HAS_SUN_ORACLE_JAVA], [no])
-fi
-
-#check for python
-AC_CHECK_PROG(HAS_JAVA, [python], [yes], [no], [/usr/bin])
-
 #check for python
 AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 
@@ -239,13 +217,36 @@ AC_CHECK_PROG(HAS_STRACE, [strace], [yes], [no], [/usr/bin])
 #check for gdb
 AC_CHECK_PROG(HAS_GDB, [gdb], [yes], [no], [/usr/bin])
 
+#check for java
+AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [/usr/local/bin:/usr/bin])
+
+#check for javac
+AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [/usr/local/bin:/usr/bin])
+
+#check if java dialect is Sun/Oracle/OpenJDK
+if test "$HAS_JAVA" = "yes"; then
+  AC_CACHE_CHECK([for java -Xmx flag (Sun/Oracle/OpenJDK compatible)],
+                 [ac_cv_sun_java],
+            [AC_PATH_PROGS_FEATURE_CHECK([HAS_SUN_ORACLE_JAVA], [java],
+              [[ac_cv_sun_java=no ;
+                java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes]],
+              [])])
+  AC_SUBST([HAS_SUN_ORACLE_JAVA], [$ac_cv_sun_java])
+else
+  AC_SUBST([HAS_SUN_ORACLE_JAVA], [no])
+fi
+
+#check for cilk
+AC_CHECK_PROG(HAS_CILK, [cilkc], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
+AC_PATH_PROG([CILKC],   [cilkc],        [no], [$PATH:/usr/bin])
+
 #check for gcl
-AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/bin])
-AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/bin])
+AC_CHECK_PROG(HAS_GCL, [gcl], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
+AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/local/bin:/usr/bin])
 
 #check for matlab
-AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/bin])
-AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/bin])
+AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
+AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/local/bin:/usr/bin])
 
 #check for patch utility
 AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])

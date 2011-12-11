@@ -1,0 +1,34 @@
+#include <cilk-lib.cilkh>
+// stdlib.h invokes waitstatus.h;  In Cilk-5.4.6, cilkc can't handle some
+//  of that syntax on Ubuntu 11.10, and many other distros.
+// atoi uses stdlib.h
+// #include <stdlib.h>
+int atoi (char *number);
+#include <stdio.h>
+
+// Usage:  THIS_FILE <number>
+
+cilk int fib(int n)
+{
+  if (n < 2)
+    return (n);
+  else {
+    int x, y;
+    x = spawn fib(n - 1);
+    y = spawn fib(n - 2);
+    sync;
+    return (x + y);
+  }
+}
+
+cilk int main(int argc, char *argv[])
+{
+   int n, result;
+
+   n = atoi(argv[1]);
+   result = spawn fib(n);
+   sync;
+
+   printf("Result: %d\n", result);
+   return 0;
+}
