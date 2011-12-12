@@ -96,20 +96,27 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr();
 EXTERNC void dmtcp_block_ckpt_signal();
 EXTERNC void dmtcp_unblock_ckpt_signal();
 
-#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                         \
-  do {                                                                           \
-    typedef void (*fnptr_t) (DmtcpEvent_t, void*);                               \
-    static fnptr_t fn = NULL;                                                    \
-    static bool fn_initialized = false;                                          \
-    if (!fn_initialized) {                                                       \
-      typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);         \
-      dlsym_fnptr_t dlsym_fnptr = (dlsym_fnptr_t) dmtcp_get_libc_dlsym_addr();   \
-      fn = (fnptr_t) (*dlsym_fnptr) (RTLD_NEXT, "dmtcp_process_event");          \
-      fn_initialized = true;                                                     \
-    }                                                                            \
-    if (fn != NULL) {                                                            \
-      (*fn) (event, data);                                                       \
-    }                                                                            \
+#define NEXT_FNC(func)                                                      \
+  ({                                                                        \
+     static __typeof__(&func) _real_##func = NULL;                          \
+     if (_real_##func == NULL) {                                            \
+       __typeof__(&dlsym) dlsym_fnptr;                                      \
+       dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
+       _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
+     }                                                                      \
+   (*_real_##func);})                                                       \
+
+#define NEXT_DMTCP_PROCESS_EVENT DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT
+
+#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                    \
+  do {                                                                      \
+    static __typeof__(&dmtcp_process_event) fn = NULL;                      \
+    if (fn == NULL) {                                                       \
+      fn = NEXT_FNC(dmtcp_process_event);                                   \
+    }                                                                       \
+    if (fn != NULL) {                                                       \
+      (*fn) (event, data);                                                  \
+    }                                                                       \
   } while (0)
 
 #endif

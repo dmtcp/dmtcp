@@ -153,14 +153,14 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
       break;
   }
 
-  DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data);
+  NEXT_DMTCP_PROCESS_EVENT(event, data);
   return;
 }
 
 extern "C" const char* ptrace_get_tmpdir()
 {
   static char ptrace_tmpdir[256] = "\0";
-  static char init = 0; 
+  static char init = 0;
   if (!init) {
     strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
     strcat(ptrace_tmpdir, "/");
