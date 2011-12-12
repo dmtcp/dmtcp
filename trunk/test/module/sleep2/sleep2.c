@@ -16,14 +16,6 @@ void print_time() {
   printf("%ld %ld", (long)val.tv_sec, (long)val.tv_usec);
 }
 
-/* This macro requires a static local declaration of "next_fnc". */
-#define NEXT_FNC(symbol) \
-  (next_fnc ? *next_fnc : *(next_fnc = dlsym(RTLD_NEXT, #symbol)))
-/* NOT USED (if this were C++, next_fnc would require a full type signature) */
-#define NEXT_FNC_CXX(symbol) \
-  (next_fnc ? *next_fnc : \
-   *(next_fnc = (__typeof__(next_fnc))dlsym(RTLD_NEXT, #symbol)))
-
 unsigned int sleep(unsigned int seconds) {
   static unsigned int (*next_fnc)() = NULL; /* Same type signature as sleep */
 
@@ -66,5 +58,5 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
   }
 
   /* Call this next line in order to pass DMTCP events to later modules. */
-  NEXT_FNC(dmtcp_process_event)(event, data);
+  NEXT_DMTCP_PROCESS_EVENT(event, data);
 }
