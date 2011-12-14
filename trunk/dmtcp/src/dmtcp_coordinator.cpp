@@ -24,21 +24,23 @@
  * main calls monitorSockets, which acts as a top level event loop.         *
  * monitorSockets calls:  onConnect, onData, onDisconnect, onTimeoutInterval*
  *   when client or dmtcp_command talks to coordinator.                     *
- * onConnect and onData receive a socket parameter reads msg and passes to: *
+ * onConnect and onData receive a socket parameter, read msg, and pass to:  *
  *   handleUserCommand, which takes single char arg ('s', 'c', 'k', 'q', ...)*
  * handleUserCommand calls broadcastMessage to send data back               *
  * any message sent by broadcastMessage takes effect only on returning      *
  *   back up to top level monitorSockets                                    *
  * Hence, even for checkpoint, handleUserCommand just changes state,        *
  *   broadcasts an initial checkpoint command, and then returns to top      *
- *   level.  Replies from clients then driver further state changes.        *
+ *   level.  Replies from clients then drive further state changes.        *
  * The prefix command 'b' (blocking) from dmtcp_command modifies behavior   *
  *   of 'c' so that the reply to dmtcp_command happens only when clients    *
  *   are back in RUNNING state.                                             *
  * The states for a worker (client) are:                                    *
  * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
- *       	  -> CHECKPOINTED -> REFILLED -> RUNNING		    *
- * Restart:    RESTARTING -> CHECKPOINTED -> REFILLED -> RUNNING	    *
+ *       	  -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED           *
+ *                -> DONE_QUERYING -> REFILLED -> RUNNING		    *
+ * Restart:    RESTARTING -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED   *
+ *                -> DONE_QUERYING -> REFILLED -> RUNNING	            *
  * If debugging, set gdb breakpoint on:					    *
  *   dmtcp::DmtcpCoordinator::onConnect					    *
  *   dmtcp::DmtcpCoordinator::onData					    *
@@ -885,7 +887,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   addDataSocket ( ds );
 
   if ( hello_remote.state == WorkerState::RESTARTING
-          &&  _restoreWaitingMessages.size() >0 )
+          &&  _restoreWaitingMessages.size() > 0 )
   {
     JTRACE ( "updating missing broadcasts for new connection" )
     ( hello_remote.from.pid() )
