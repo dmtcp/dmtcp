@@ -1,3 +1,5 @@
+// This test was contributed by Nick Hall.
+
 #include <iostream>
 using namespace std;
 
@@ -40,7 +42,13 @@ void MetaTestOptimize()
 {
 	omp_set_num_threads(1);
 
+// gcc 4.2 and 4.3 implement OpenMP 2.5. gcc 4.4 and later implement OpenMP 3.0
+// OpenMP 2.5 requires 'signed int'
+#if __GNUCC__ == 3 && __GNUC_MINOR__ >=2 && __GNUC_MINOR__ < 4
+	int j = 0;
+#else
 	unsigned int j = 0;
+#endif
 #pragma omp parallel for \
    private(j) \
    schedule(static)
@@ -60,7 +68,13 @@ void ScoreMetaCallback()
 	#pragma omp critical(ScoreMetaCallback)
 	{
 		memarray = new int*[size3];
+// gcc 4.2 and 4.3 implement OpenMP 2.5. gcc 4.4 and later implement OpenMP 3.0
+// OpenMP 2.5 requires 'signed int'
+#if __GNUCC__ == 3 && __GNUC_MINOR__ >=2 && __GNUC_MINOR__ < 4
+		int m = 0;
+#else
 		unsigned int m = 0;
+#endif
 
 		#pragma omp parallel for \
 		   private(m) \
