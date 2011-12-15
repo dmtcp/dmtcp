@@ -37,7 +37,6 @@ struct ThreadArg {
   void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
   void *arg;
   pid_t original_tid;
-  enum cloneSucceed clone_success; // Child will set to FAIL or SUCCEED
 };
 
 // bool isConflictingTid( pid_t tid )
@@ -100,7 +99,6 @@ int clone_start(void *arg)
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-    threadArg->clone_success = CLONE_FAIL;
     JTRACE ("TID conflict detected.  Exiting thread.");
     mtcpFuncPtrs.threadiszombie();
     // If we return to clone(), clone will call __GI_exit(), and process exits.
@@ -108,8 +106,6 @@ int clone_start(void *arg)
     //   call below in order to kill this thread only.
     _real_syscall(SYS_exit, 0);
     return 0; // Not reached.  Done to avoid compiler warnings.
-  } else {
-    threadArg->clone_success = CLONE_SUCCEED;
   }
 
   pid_t original_tid = threadArg -> original_tid;
@@ -273,7 +269,6 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
-  threadArg->clone_success = CLONE_UNINITIALIZED;
 
   int tid;
 
@@ -308,9 +303,29 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
       // We will re-use it.
 
       JTRACE("TID conflict detected, creating a new child thread") (tid);
-      // Wait for child thread to acknowledge failure and quiesce itself.
+
+      /*
+       * Wait for the child thread to exit. If we do _not_ wait for the the
+       * child thread to exit, it can create a race as follows:
+       *  {PT: parent thread, CT: child thread (newly created)}
+       *   * PT: __clone()
+       *     - CT1 created
+       *   * PT: detects tid-conflict, calls __clone() -- creates CT2
+       *     - CT2 created
+       *   (At this point CT1 and CT2 share the same stack, pretty bad :-()
+       *   * CT1 detects the tid-conflict, calls syscall(SYS_exit, ...) -- this
+       *     causes a messed up stack
+       *   * CT2 starts execution -- messed up stack, segfaults
+       *
+       * There are two ways to wait for the thread with conflicting tid
+       * 1. wait while tgkill(pid, tid, 0) return 0
+       * 2. wait while (*child_tidptr) is non-zero (the kernels would clear
+       *    this address when the thread exits. This is used by threading
+       *    libraries also. However, there is a danger if child_tidptr is NULL,
+       *    so we avoid this solution)
+       */
       const struct timespec timeout = {(time_t) 0, (long)1000*1000};
-      while (threadArg->clone_success != CLONE_FAIL) {
+      while (_real_tgkill(_real_getpid(), tid, 0) == 0) {
          nanosleep(&timeout, NULL);
       } // Will now continue again around the while loop.
     } else {
