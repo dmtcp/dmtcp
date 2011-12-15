@@ -64,9 +64,14 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _do_unlock_tbl();
 }
 
+static dmtcp::VirtualPidTable *inst = NULL;
 dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
 {
-  static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
+  if (inst == NULL) {
+    inst = new VirtualPidTable();
+  }
+  return *inst;
+//  static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
 }
 
 bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
@@ -80,6 +85,13 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
    *       there is not conflict because that mapping essentially is about the
    *       current pid.
    */
+#if 0
+  // Use a similar block to emulate tid-conflict. This can come handy in
+  // finding bugs related to tid-conflict.
+  if (pid >= 10000 && pid < 20000) {
+    return true;
+  }
+#endif
   if (pid == instance().originalToCurrentPid( pid ))
     return false;
 
