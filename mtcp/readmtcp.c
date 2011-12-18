@@ -140,13 +140,10 @@ int main(int argc, char **argv) {
   }
 #endif
 
-
-
-  char cstype;
-
   printf("*** memory sections\n");
   while(1) {
     Area area;
+    char cstype;
 #ifdef FAST_CKPT_RST_VIA_MMAP
     if (fastckpt_get_next_area_dscr(&area) == 0) break;
 #else
@@ -159,7 +156,9 @@ int main(int argc, char **argv) {
 
     readall(fd, &area, sizeof area);
     readcs (fd, CS_AREACONTENTS);
-    skipfile (fd, area.size);
+    if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
+      skipfile (fd, area.size);
+    }
 #endif
     printf("%p-%p %c%c%c%c %8x 00:00 0          %s\n",
 	   area.addr, area.addr + area.size,

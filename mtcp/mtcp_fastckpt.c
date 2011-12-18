@@ -24,10 +24,11 @@ void fastckpt_write_mem_region(int fd, Area *area)
   memcpy(&area_array[curr_area_idx], area, sizeof(*area));
   curr_area_idx++;
 
-  mtcp_sys_lseek(fd, area->mem_region_offset, SEEK_SET);
-  mtcp_writefile(fd, area->addr, area->size);
-
-  ckpt_image_header->VmSize += area->size;
+  if ((area->prot & MTCP_PROT_ZERO_PAGE) == 0) {
+    mtcp_sys_lseek(fd, area->mem_region_offset, SEEK_SET);
+    mtcp_writefile(fd, area->addr, area->size);
+    ckpt_image_header->VmSize += area->size;
+  }
   ckpt_image_header->num_memory_regions += 1;
 }
 
@@ -287,6 +288,7 @@ static int fastckpt_restore_without_mmap(int fd, const Area *area)
 __attribute__ ((visibility ("hidden")))
 void fastckpt_restore_mem_region(int fd, const Area *area)
 {
+  VA addr;
   if (mtcp_strstartswith(area->name, "/") &&
       mtcp_strendswith(area->name, ".so") &&
       mtcp_strstr(area->name, "libc") &&
@@ -294,9 +296,13 @@ void fastckpt_restore_mem_region(int fd, const Area *area)
     return;
   }
 
-  VA addr = (VA) mtcp_sys_mmap (area->addr, area->size, area->prot,
-                                MAP_PRIVATE | MAP_FIXED, fd,
-                                area->mem_region_offset);
+  if ((area->prot & MTCP_PROT_ZERO_PAGE) != 0) {
+    addr = (VA) mtcp_sys_mmap (area->addr, area->size, area->prot,
+                               MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+  } else {
+    addr = (VA) mtcp_sys_mmap (area->addr, area->size, area->prot,
+                               MAP_PRIVATE | MAP_FIXED, fd, area->mem_region_offset);
+  }
   if (addr == MAP_FAILED) {
     DPRINTF("error %d mapping %p bytes at %p.\n",
             mtcp_sys_errno, area->size, area->addr);

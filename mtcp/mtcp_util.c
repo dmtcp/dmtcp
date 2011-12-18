@@ -286,8 +286,8 @@ void mtcp_readfile(int fd, void *buf, size_t size)
       mtcp_abort();
     }
     else if (rc == 0) {
-      MTCP_PRINTF("only read %zu bytes instead of %zu from checkpoint file\n",
-                  ar, size);
+      MTCP_PRINTF("only read %u bytes instead of %u from checkpoint file\n",
+                  (unsigned)ar, (unsigned)size);
       if (tries++ >= 10) {
         MTCP_PRINTF(" failed to read after 10 tries in a row.\n");
         mtcp_abort();

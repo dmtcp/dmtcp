@@ -377,6 +377,7 @@ static void readfiledescrs (void)
   }
 }
 
+
 /**************************************************************************
  *
  *  Read memory area descriptors from checkpoint file
@@ -439,13 +440,35 @@ static void readmemoryareas (void)
 		  "  and MAP_SHARED.\n"
 		  "*** Turning off MAP_ANONYMOUS and hoping for best.\n\n");
 
+
+    if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
+      DPRINTF("restoring non-rwx anonymous area %p at %p\n",
+              area.size, area.addr);
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+      fastckpt_restore_mem_region(mtcp_restore_cpfd, &area);
+#else
+
+      mmappedat = mtcp_sys_mmap (area.addr, area.size,
+                                 area.prot & ~MTCP_PROT_ZERO_PAGE,
+                                 area.flags | MAP_FIXED, -1, 0);
+
+      if (mmappedat != area.addr) {
+        DPRINTF("error %d mapping %p bytes at %p\n",
+                mtcp_sys_errno, area.size, area.addr);
+        mtcp_abort ();
+      }
+      /* Read saved area contents */
+      mtcp_readcs (mtcp_restore_cpfd, CS_AREACONTENTS);
+#endif // FAST_CKPT_RST_VIA_MMAP
+    }
+
     /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
      * For anonymous areas, the checkpoint file contains the memory contents
      * directly.  So mmap an anonymous area and read the file into it.
      * If file exists, turn off MAP_ANONYMOUS: standard private map
      */
-
-    if (area.flags & MAP_ANONYMOUS) {
+    else if (area.flags & MAP_ANONYMOUS) {
 
       /* If there is a filename there, though, pretend like we're mapping
        * to it so a new /proc/self/maps will show a filename there like with
