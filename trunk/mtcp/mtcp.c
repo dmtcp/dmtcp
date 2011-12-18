@@ -631,6 +631,12 @@ void mtcp_init (char const *checkpointfilename,
     mtcp_abort ();
   }
 
+  if (((PROT_READ|PROT_WRITE|PROT_EXEC)&MTCP_PROT_ZERO_PAGE) != 0) {
+    MTCP_PRINTF("ERROR: PROT_READ|PROT_WRITE|PROT_EXEC and MTCP_PROT_ZERO_PAGE "
+                "shouldn't overlap\n");
+    mtcp_abort();
+  }
+
 #ifndef __x86_64__
   /* Nobody else has a right to preload on internal processes generated
    * by mtcp_check_XXX() -- not even DMTCP, if it's currently operating.
@@ -2570,7 +2576,6 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
   int mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
 
   while (mtcp_readmapsline (mapsfd, &area)) {
-    int no_rwx_perm = 0;
     VA area_begin = area.addr;
     VA area_end   = area_begin + area.size;
 
@@ -2635,26 +2640,6 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
       continue;
     }
 
-    /* Now give read permission to the anonymous pages that do not have read
-     * permission. We should remove the permission as soon as we are done
-     * writing the area to the checkpoint image
-     *
-     * NOTE: Changing the permission here can results in two adjacent memory
-     * areas to become one (merged), if they have similar permissions. This can
-     * results in a modified /proc/self/maps file. We shouldn't get affected by
-     * the changes because we are going to remove the PROT_READ later in the
-     * code and that should reset the /proc/self/maps files to its original
-     * condition.
-     */
-    if (!(area.prot & PROT_READ) && area.name[0] == '\0') {
-      if (mtcp_sys_mprotect (area.addr, area.size, PROT_READ) < 0) {
-        MTCP_PRINTF("error %d adding PROT_READ to %p bytes at %p\n",
-                    mtcp_sys_errno, area.size, area.addr);
-        mtcp_abort ();
-      }
-      no_rwx_perm = 1;
-    }
-
     // If the process has an area labelled as "/dev/zero (deleted)", we mark
     //   the area as Anonymous and save the contents to the ckpt image file.
     // If this area has a MAP_SHARED attribute, it should be replaced with
@@ -2681,7 +2666,8 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
 
 #ifdef IBV
     // TODO: Don't checkpoint infiniband shared area for now.
-    if (strncmp (area.name, infiniband_shmem_file, strlen(infiniband_shmem_file)) == 0) {
+    if (strncmp (area.name, infiniband_shmem_file,
+                 strlen(infiniband_shmem_file)) == 0) {
       continue;
     }
 #endif
@@ -2777,17 +2763,6 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
         stack_was_seen = 1;
       // the whole thing comes after the restore image
       writememoryarea (fd, &area, stack_was_seen, vsyscall_exists);
-    }
-
-    /* Now remove the PROT_READ from the area if it didn't have it originally
-     */
-    if (no_rwx_perm == 1) {
-      if (mtcp_sys_mprotect (area.addr, area.size, 0) < 0) {
-        MTCP_PRINTF("error %d removing PROT_READ from %p bytes at %p\n",
-                    mtcp_sys_errno, area.size, area.addr);
-        mtcp_abort ();
-      }
-      no_rwx_perm = 0;
     }
   }
 
@@ -2940,6 +2915,122 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
   mtcp_writefile (fd, &fdnum, sizeof fdnum);
 }
 
+/*
+ * This function detects if a page is a zero page or not. There is scope of
+ * improving this function using some optimizations.
+ *
+ * TODO: One can use /proc/self/pagemap to detect if the page is backed by a
+ * shared zero page.
+ */
+static int mtcp_is_zero_page(void *addr)
+{
+  long long *buf = (long long*) addr;
+  size_t i;
+  size_t end = MTCP_PAGE_SIZE / sizeof (*buf);
+  size_t incr = sizeof (*buf);
+  long long res = 0;
+  for (i = 0; i + 7 < end; i += 8) {
+    res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
+          buf[i+4] | buf[i+5] | buf[i+6] | buf[i+7];
+    if (res != 0) {
+      break;
+    }
+  }
+  return res == 0;
+}
+
+/* This function returns a range of zero or non-zero pages. If the first page
+ * is non-zero, it searches for all contiguous non-zero pages and returns them.
+ * If the first page is all-zero, it searches for contiguous zero pages and
+ * returns them.
+ */
+static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
+{
+  char *pg;
+  *size = MTCP_PAGE_SIZE;
+  *is_zero = mtcp_is_zero_page(area->addr);
+  for (pg = area->addr + MTCP_PAGE_SIZE;
+       pg < area->addr + area->size;
+       pg += MTCP_PAGE_SIZE) {
+    if (*is_zero != mtcp_is_zero_page(pg)) {
+      break;
+    }
+    *size += MTCP_PAGE_SIZE;
+  }
+}
+
+static void mtcp_write_non_rwx_pages(int fd, Area *orig_area)
+{
+  Area area = *orig_area;
+  /* Now give read permission to the anonymous pages that do not have read
+   * permission. We should remove the permission as soon as we are done
+   * writing the area to the checkpoint image
+   *
+   * NOTE: Changing the permission here can results in two adjacent memory
+   * areas to become one (merged), if they have similar permissions. This can
+   * results in a modified /proc/self/maps file. We shouldn't get affected by
+   * the changes because we are going to remove the PROT_READ later in the
+   * code and that should reset the /proc/self/maps files to its original
+   * condition.
+   */
+  if (orig_area->name[0] != '\0') {
+    MTCP_PRINTF("NOTREACHED\n");
+    mtcp_abort();
+  }
+
+  if ((orig_area->prot & PROT_READ) == 0) {
+    if (mtcp_sys_mprotect(orig_area->addr, orig_area->size,
+                          orig_area->prot | PROT_READ) < 0) {
+      MTCP_PRINTF("error %d adding PROT_READ to %p bytes at %p\n",
+                  mtcp_sys_errno, orig_area->size, orig_area->addr);
+      mtcp_abort();
+    }
+  }
+
+#ifdef FAST_CKPT_RST_VIA_MMAP
+  size_t size;
+  int is_zero;
+  mtcp_get_next_page_range(orig_area, &size, &is_zero);
+
+  if (is_zero == 1 && size == orig_area->size) {
+    area.prot |= MTCP_PROT_ZERO_PAGE;
+  }
+  fastckpt_write_mem_region(fd, &area);
+#else
+  while (area.size > 0) {
+    size_t size;
+    int is_zero;
+    Area a = area;
+
+    mtcp_get_next_page_range(&a, &size, &is_zero);
+
+    a.prot |= is_zero ? MTCP_PROT_ZERO_PAGE : 0;
+    a.size = size;
+
+    mtcp_writecs (fd, CS_AREADESCRIP);
+    mtcp_writefile (fd, &a, sizeof a);
+    mtcp_writecs(fd, CS_AREACONTENTS);
+
+    if (!is_zero) {
+      mtcp_writefile(fd, a.addr, a.size);
+    }
+
+    area.addr += size;
+    area.size -= size;
+  }
+#endif
+
+  /* Now remove the PROT_READ from the area if it didn't have it originally
+  */
+  if ((orig_area->prot & PROT_READ) == 0) {
+    if (mtcp_sys_mprotect(orig_area->addr, orig_area->size,
+                          orig_area->prot) < 0) {
+      MTCP_PRINTF("error %d removing PROT_READ from %p bytes at %p\n",
+                  mtcp_sys_errno, orig_area->size, orig_area->addr);
+      mtcp_abort ();
+    }
+  }
+}
 
 static void writememoryarea (int fd, Area *area, int stack_was_seen,
 			     int vsyscall_exists)
@@ -2976,11 +3067,20 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
       mtcp_sys_strcpy(area -> name, "[heap]");
   }
 
-  if ( 0 != strcmp(area -> name, "[vsyscall]")
-       && ( (0 != strcmp(area -> name, "[vdso]")
-             || vsyscall_exists /* which implies vdso can be overwritten */
-             || !stack_was_seen ))) /* If vdso appeared before stack, it can be
-                                       replaced */
+  if (area->prot == 0 ||
+      (area->name[0] == '\0' &&
+       ((area->flags & MAP_ANONYMOUS) != 0) &&
+       ((area->flags & MAP_PRIVATE) != 0))) {
+    /* Detect zero pages and do not write them to ckpt image.
+     * Currently, we detect zero pages in non-rwx mapping and anonymous
+     * mappings only
+     */
+    mtcp_write_non_rwx_pages(fd, area);
+  } else if ( 0 != strcmp(area -> name, "[vsyscall]")
+         && ( (0 != strcmp(area -> name, "[vdso]")
+               || vsyscall_exists /* which implies vdso can be overwritten */
+               || !stack_was_seen ))) /* If vdso appeared before stack, it can be
+                                         replaced */
   {
 #ifndef FAST_CKPT_RST_VIA_MMAP
     mtcp_writecs (fd, CS_AREADESCRIP);

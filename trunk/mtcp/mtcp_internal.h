@@ -176,6 +176,11 @@ typedef unsigned int mtcp_segreg_t;
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
+/* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
+ * This assumes: PROT_READ == 0x1, PROT_WRITE == 0x2, and PROT_EXEC == 0x4
+ */
+#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 1)
+
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
 //#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
