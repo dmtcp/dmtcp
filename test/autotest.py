@@ -14,7 +14,7 @@ import pwd
 import stat
 import re
 
-signal.alarm(900)
+signal.alarm(1800)  # half hour
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
