@@ -758,10 +758,10 @@ if testconfig.PTRACE_SUPPORT == "yes" and \
     os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
-  S=1
+  S=3
   os.environ['CLASSPATH'] = './test'
   if testconfig.HAS_SUN_ORACLE_JAVA == "yes":
-    runTest("java1",         1,  ["java -Xmx32M java1"])
+    runTest("java1",         1,  ["java -Xmx512M java1"])
   else:
     runTest("java1",         1,  ["java java1"])
   del os.environ['CLASSPATH']
