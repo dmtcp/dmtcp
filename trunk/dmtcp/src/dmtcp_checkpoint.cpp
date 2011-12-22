@@ -461,24 +461,34 @@ int testMatlab(const char *filename) {
 int testJava(char **argv) {
   static const char* theJavaWarning =
     "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
-    "****  on startup.  As of DMTCP version 1.2.3, DMTCP does not handle\n"
-    "****  manygigabytes of zero-mapped virtual memory.  This will be fixed\n"
-    "****  in a future version of DMTCP.  In the meantime, if this is\n"
-    "****  Sun/Oracle Java with the -Xmx flag:  e.g.  java -Xmx64M javaApp\n"
+    "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
+    "****  handle zero-mapped virtual memory, but it may take up to a\n"
+    "****  minute.  This will be fixed to be much faster in a future\n"
+    "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
+    "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
     "****  (Invoke dmtcp_checkpoint with --quiet to avoid this msg.)\n\n" ;
 
+  if (getenv(ENV_VAR_QUIET) != NULL
+      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0)
+    return 0;
   if ( strcmp(argv[0], "java") == 0 ) {
-    while (*(++argv) != NULL) {
+    while (*(++argv) != NULL)
       if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
         return 0; // The user called java with -Xmx.  No need for warning.
-    }
-    if (getenv(ENV_VAR_QUIET) == NULL
-        || strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
-      JASSERT_STDERR << theJavaWarning;
-      return -1;
-    }
   }
-  return 0;
+  
+  // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
+  int fd;
+  char buf[100];
+  static const char *meminfoPrefix = "MemTotal:       ";
+  if ( (fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
+    read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
+    strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix)+1) == 0 &&
+    atol(buf + sizeof(meminfoPrefix)) > 17000000) /* units of kB : mem > 4 GB */
+      JASSERT_STDERR << theJavaWarning;
+  if (fd != -1)
+    close(fd);
+  return -1;
 }
 
 bool testSetuid(const char *filename)
