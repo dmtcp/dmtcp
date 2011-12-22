@@ -229,12 +229,12 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 
 static void callbackPreCheckpoint( char ** ckptFilename )
 {
-  dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
-
   // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
   // serves the purpose without having a callback.
   // TODO: Check for correctness.
   JALIB_RESET_ON_FORK();
+
+  dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
 
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();

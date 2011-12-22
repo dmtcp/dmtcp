@@ -80,20 +80,16 @@ static void *pthread_start(void *arg)
 LIB_PRIVATE
 int clone_start(void *arg)
 {
-  dmtcp_process_event(DMTCP_EVENT_THREAD_START, NULL);
+  /* This function re-initializes the thread-local tid variable. The
+   * thread-locals are initialized during pthread_create, but if we re-spawn
+   * the thread due to tid-conflict, the thread-local storage won't be
+   * reinitialized automatically, thus we should do it here.
+   */
+  dmtcp_reset_gettid();
 
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
   JTRACE ("In clone_start");
-
-// FIXME:  Can we delete this portion now?  It was originally needed to handle
-//   tid wraparound for test/pthread1 and test/pthread2.
-#ifndef PTRACE
-  // Force gettid() to agree with _real_gettid().  Why can it be out of sync?
-  // gettid() just caches value of _real_gettid().
-  // EDIT: This call interacts badly with PTRACE, so compiling it out for now.  KA
-  dmtcp_reset_gettid();
-#endif
 
   // FIXME: Why not do this in the mtcp.c::__clone?
   mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
@@ -283,9 +279,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
       JTRACE ( "Forwarding user's clone call to mtcp" );
       tid = mtcpFuncPtrs.clone(clone_start, child_stack, flags, threadArg,
                                parent_tidptr, newtls, child_tidptr);
-      // FIXME:  What happens here if tid confliCT happens?
-      dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED,
-                          (void*) (unsigned long) tid);
+      JTRACE ( "Forwarding user's clone call to mtcp done" );
     } else {
       /* Recreating thread during restart */
       JTRACE ( "Calling libc:__clone" );
@@ -339,6 +333,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
         /* Newly created thread, insert mappings */
         dmtcp::VirtualPidTable::instance().updateMapping(tid, tid);
       }
+      dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED, NULL);
       break;
     }
   }
