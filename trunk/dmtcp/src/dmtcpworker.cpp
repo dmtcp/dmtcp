@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "dmtcpworker.h"
+#include "threadsync.h"
 #include "constants.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jalloc.h"
@@ -55,43 +56,6 @@
 
 using namespace dmtcp;
 
-static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-static pthread_mutex_t destroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
-
-/*
- * WrapperProtectionLock is used to make the checkpoint safe by making sure
- *   that no user-thread is executing any DMTCP wrapper code when it receives
- *   the checkpoint signal.
- * Working:
- *   On entering the wrapper in DMTCP, the user-thread acquires the read lock,
- *     and releases it before leaving the wrapper.
- *   When the Checkpoint-thread wants to send the SUSPEND signal to user
- *     threads, it must acquire the write lock. It is blocked until all the
- *     existing read-locks by user threads have been released. NOTE that this
- *     is a WRITER-PREFERRED lock.
- *
- * There is a corner case too -- the newly created thread that has not been
- *   initialized yet; we need to take some extra efforts for that.
- * Here are the steps to handle the newly created uninitialized thread:
- *   A counter for the number of newly created uninitialized threads is kept.
- *     The counter is made thread safe by using a mutex.
- *   The calling thread (parent) increments the counter before calling clone.
- *   The newly created child thread decrements the counter at the end of
- *     initialization in MTCP/DMTCP.
- *   After acquiring the Write lock, the checkpoint thread waits until the
- *     number of uninitialized threads is zero. At that point, no thread is
- *     executing in the clone wrapper and it is safe to do a checkpoint.
- *
- * XXX: Currently this security is provided only for the clone wrapper; this
- * should be extended to other calls as well.           -- KAPIL
- */
-// NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
-static pthread_rwlock_t
-  theWrapperExecutionLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-static pthread_rwlock_t
-  theThreadCreationLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
-static int uninitializedThreadCount = 0;
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
 
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
@@ -122,8 +86,6 @@ void __attribute__ ((weak)) dmtcp::killCkpthread();
 
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
-
-LIB_PRIVATE bool _checkpointThreadInitialized = false;
 
 void restoreUserLDPRELOAD()
 {
@@ -404,7 +366,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   /* Now wait for Checkpoint Thread to finish initialization
    * NOTE: This should be the last thing in this constructor
    */
-  while (!_checkpointThreadInitialized) {
+  while (!ThreadSync::isCheckpointThreadInitialized()) {
     struct timespec sleepTime = {0, 10*1000*1000};
     nanosleep(&sleepTime, NULL);
   }
@@ -412,9 +374,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
 void dmtcp::DmtcpWorker::cleanupWorker()
 {
-  resetLocks();
-
-  uninitializedThreadCount = 0;
+  ThreadSync::resetLocks();
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
   _coordinatorSocket.close();
@@ -422,12 +382,12 @@ void dmtcp::DmtcpWorker::cleanupWorker()
 
 void dmtcp::DmtcpWorker::interruptCkpthread()
 {
-  if (pthread_mutex_trylock(&destroyDmtcpWorker) == EBUSY) {
+  if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
     if (killCkpthread) // if strong symbol defined elsewhere
       killCkpthread();
     else // else trying to call weak symbol, which is undefined
       JASSERT(false).Text("killCkpthread should not be called");
-    JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorker) == 0) (JASSERT_ERRNO);
+    ThreadSync::destroyDmtcpWorkerLockLock();
   }
 }
 
@@ -632,13 +592,13 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
                                                DmtcpMessageType type )
 {
   if ( type == DMT_DO_SUSPEND ) {
-    if ( pthread_mutex_trylock(&destroyDmtcpWorker) != 0 ) {
+    if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
       JTRACE ( "User thread is performing exit()."
                " ckpt thread exit()ing as well" );
       pthread_exit(NULL);
     }
     if ( exitInProgress() ) {
-      JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      ThreadSync::destroyDmtcpWorkerLockUnlock();
       pthread_exit(NULL);
     }
   }
@@ -656,7 +616,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     _coordinatorSocket >> msg;
 
     if ( type == DMT_DO_SUSPEND && exitInProgress() ) {
-      JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+      ThreadSync::destroyDmtcpWorkerLockUnlock();
       pthread_exit(NULL);
     }
 
@@ -709,14 +669,14 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
    * initialization and user main(). As obvious, this is only effective when
    * the process is being initialized.
    */
-  if (!_checkpointThreadInitialized) {
+  if (!ThreadSync::isCheckpointThreadInitialized()) {
     /*
      * We should not call this function any higher in the logic because it
      * calls setenv() and if it is running under bash, then it getenv() will
      * not work between the call to setenv() and bash main().
      */
     restoreUserLDPRELOAD();
-    _checkpointThreadInitialized = true;
+    ThreadSync::setCheckpointThreadInitialized();
   }
 
   // Create signature file which could then be used by an outside process to
@@ -766,27 +726,8 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
   UniquePid::updateCheckpointDirName();
 
-  JTRACE ( "got SUSPEND message, waiting for dmtcp_lock():"
-	   " to get synchronized with _runCoordinatorCmd if we use DMTCP API" );
-  _dmtcp_lock();
-  // TODO: may be it is better to move unlock to more appropriate place.
-  // For example after suspending all threads
-  _dmtcp_unlock();
-
-
-  JTRACE ( "got SUSPEND message, waiting for lock(&theCkptCanStart)" );
-  JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
-
-  JTRACE ( "got SUSPEND message, Waiting for threads creation lock" );
-  JASSERT(_real_pthread_rwlock_wrlock(&theThreadCreationLock) == 0)(JASSERT_ERRNO);
-
-  JTRACE ( "got SUSPEND message,"
-           " waiting for other threads to exit DMTCP-Wrappers" );
-  JASSERT(_real_pthread_rwlock_wrlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JTRACE ( "got SUSPEND message,"
-           " waiting for newly created threads to finish initialization" )
-         (uninitializedThreadCount);
-  waitForThreadsToFinishInitialization();
+  JTRACE("got SUSPEND message, preparing to acquire all Thread-sync locks");
+  ThreadSync::acquireLocks();
 
   JTRACE ( "Starting checkpoint, suspending..." );
 }
@@ -801,17 +742,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "suspended" );
 
   if ( exitInProgress() ) {
-    JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
+    ThreadSync::destroyDmtcpWorkerLockUnlock();
     pthread_exit(NULL);
   }
+  ThreadSync::destroyDmtcpWorkerLockUnlock();
 
   JASSERT(_coordinatorSocket.isValid());
-
-  JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorker)==0)(JASSERT_ERRNO);
-  JASSERT(_real_pthread_rwlock_unlock(&theWrapperExecutionLock) == 0)(JASSERT_ERRNO);
-  JASSERT(_real_pthread_rwlock_unlock(&theThreadCreationLock) == 0)(JASSERT_ERRNO);
-  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
-
+  ThreadSync::releaseLocks();
   dmtcp_process_event(DMTCP_EVENT_POST_SUSPEND, NULL);
 
   theCheckpointState->preLockSaveOptions();
@@ -1128,202 +1065,4 @@ void dmtcp::DmtcpWorker::restoreVirtualPidTable()
   dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
   dmtcp::VirtualPidTable::instance().restoreProcessGroupInfo();
 #endif
-}
-
-void dmtcp::DmtcpWorker::delayCheckpointsLock(){
-  JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
-}
-
-void dmtcp::DmtcpWorker::delayCheckpointsUnlock(){
-  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
-}
-
-LIB_PRIVATE __thread int thread_performing_dlopen_dlsym = 0;
-// XXX: Handle deadlock error code
-// NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
-bool dmtcp::DmtcpWorker::wrapperExecutionLockLock()
-{
-#ifdef PTRACE
-  return false;
-#endif
-  int saved_errno = errno;
-  bool lockAcquired = false;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
-       thread_performing_dlopen_dlsym == 0 ) {
-    int retVal = _real_pthread_rwlock_rdlock(&theWrapperExecutionLock);
-    if ( retVal != 0 && retVal != EDEADLK ) {
-      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
-      _exit(1);
-    }
-    // retVal should always be 0 (success) here.
-    lockAcquired = retVal == 0 ? true : false;
-  }
-  errno = saved_errno;
-  return lockAcquired;
-}
-
-/*
- * Execute fork() and exec() wrappers in exclusive mode
- *
- * fork() and exec() wrappers pass on the state/information about the current
- * process/program to the to-be-created process/program.
- *
- * There can be a potential race in the wrappers if this information gets
- * changed between the point where it was acquired and the point where the
- * process/program is created. An example of this situation would be a
- * different thread executing an open() call in parallel creating a
- * file-descriptor, which is not a part of the information/state gathered
- * earlier. This can result in unexpected behavior and can cause the
- * program/process to fail.
- *
- * This patch fixes this by acquiring the Wrapper-protection-lock in exclusive
- * mode (write-lock) when executing these wrappers. This guarantees that no
- * other thread would be executing inside a wrapper that can change the process
- * state/information.
- *
- * NOTE:
- * 1. Currently, we do not have WRAPPER_EXECUTION_LOCK/UNLOCK for socket()
- * family of wrapper. That would be fixed in a later commit.
- * 2. We need to comeup with a strategy for certain blocking system calls that
- * can change the state of the process (e.g. accept).
- */
-bool dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl()
-{
-  int saved_errno = errno;
-  bool lockAcquired = false;
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    int retVal = _real_pthread_rwlock_wrlock(&theWrapperExecutionLock);
-    if (retVal != 0 && retVal != EDEADLK) {
-      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__);
-      _exit(1);
-    }
-    // retVal should always be 0 (success) here.
-    lockAcquired = retVal == 0 ? true : false;
-  }
-  errno = saved_errno;
-  return lockAcquired;
-}
-
-// NOTE: Don't do any fancy stuff in this wrapper which can cause the process to go into DEADLOCK
-void dmtcp::DmtcpWorker::wrapperExecutionLockUnlock()
-{
-  int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING ) {
-    printf ( "DMTCP INTERNAL ERROR: %s:%d:\n"
-             "       This process is not in RUNNING state and yet this thread\n"
-             "       managed to acquire the wrapperExecutionLock.\n"
-             "       This should not be happening, something is wrong.",
-             __FUNCTION__, __LINE__);
-    _exit(1);
-  }
-  if ( _real_pthread_rwlock_unlock(&theWrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s: Failed to release lock", __PRETTY_FUNCTION__ );
-    _exit(1);
-    }
-  errno = saved_errno;
-}
-
-void dmtcp::DmtcpWorker::resetLocks()
-{
-  pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
-  theWrapperExecutionLock = newLock;
-  theThreadCreationLock = newLock;
-
-  pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
-  uninitializedThreadCountLock = newCountLock;
-
-  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
-  destroyDmtcpWorker = newDestroyDmtcpWorker;
-
-}
-
-bool dmtcp::DmtcpWorker::threadCreationLockLock()
-{
-  int saved_errno = errno;
-  bool lockAcquired = false;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    int retVal = _real_pthread_rwlock_rdlock(&theThreadCreationLock);
-    if ( retVal != 0 && retVal != EDEADLK ) {
-      fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__ );
-      _exit(1);
-    }
-    // retVal should always be 0 (success) here.
-    lockAcquired = retVal == 0 ? true : false;
-  }
-  errno = saved_errno;
-  return lockAcquired;
-}
-
-void dmtcp::DmtcpWorker::threadCreationLockUnlock()
-{
-  int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING ) {
-    printf ( "DMTCP INTERNAL ERROR: %s:%d:\n"
-             "       This process is not in RUNNING state and yet this thread\n"
-             "       managed to acquire the threadCreationLock.\n"
-             "       This should not be happening, something is wrong.",
-             __PRETTY_FUNCTION__, __LINE__);
-    _exit(1);
-  }
-  if ( _real_pthread_rwlock_unlock(&theThreadCreationLock) != 0) {
-    fprintf(stderr, "ERROR %s: Failed to release lock", __PRETTY_FUNCTION__ );
-    _exit(1);
-    }
-  errno = saved_errno;
-}
-
-// GNU g++ uses __thread.  But the C++0x standard says to use thread_local.
-//   If your compiler fails here, you can: change "__thread" to "thread_local";
-//   or delete "__thread" (but if user code calls these routines from multiple
-//   threads, it will not be thread-safe).
-//   In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
-static __thread bool dmtcp_module_ckpt_lock;
-extern "C"
-void dmtcp_module_disable_ckpt() {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp_module_ckpt_lock = __wrapperExecutionLockAcquired;
-}
-extern "C"
-void dmtcp_module_enable_ckpt() {
-  bool __wrapperExecutionLockAcquired = dmtcp_module_ckpt_lock;
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-}
-
-
-void dmtcp::DmtcpWorker::waitForThreadsToFinishInitialization()
-{
-  while (uninitializedThreadCount != 0) {
-    struct timespec sleepTime = {0, 10*1000*1000};
-    JTRACE("sleeping")(sleepTime.tv_nsec);
-    nanosleep(&sleepTime, NULL);
-  }
-}
-
-void dmtcp::DmtcpWorker::incrementUninitializedThreadCount()
-{
-  int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
-    uninitializedThreadCount++;
-    //JTRACE(":") (uninitializedThreadCount);
-    JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
-  }
-  errno = saved_errno;
-}
-
-void dmtcp::DmtcpWorker::decrementUninitializedThreadCount()
-{
-  int saved_errno = errno;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING ) {
-    JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(uninitializedThreadCount > 0) (uninitializedThreadCount);
-    uninitializedThreadCount--;
-    //JTRACE(":") (uninitializedThreadCount);
-    JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
-      (JASSERT_ERRNO);
-  }
-  errno = saved_errno;
 }

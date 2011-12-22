@@ -62,7 +62,7 @@ static void *pthread_start(void *arg)
   pid_t orig_tid = threadArg->original_tid;
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
-  dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
+  dmtcp::ThreadSync::decrementUninitializedThreadCount();
   void *result = (*pthread_fn)(thread_arg);
   mtcpFuncPtrs.threadiszombie();
   /*
@@ -138,7 +138,7 @@ int clone_start(void *arg)
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
    * DmtcpWorker.
    */
-  dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
+  dmtcp::ThreadSync::decrementUninitializedThreadCount();
 
   // return (*(threadArg->fn)) ( threadArg->arg );
   int result = (*fn) ( thread_arg );
@@ -194,11 +194,11 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    *                 space (stack etc.). The free() wrapper requires
    *                 wrapper-exec lock, which is not available.
    */
-  bool threadCreationLockAcquired = dmtcp::DmtcpWorker::threadCreationLockLock();
-  dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
+  bool threadCreationLockAcquired = dmtcp::ThreadSync::threadCreationLockLock();
+  dmtcp::ThreadSync::incrementUninitializedThreadCount();
   retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
   if (threadCreationLockAcquired) {
-    dmtcp::DmtcpWorker::threadCreationLockUnlock();
+    dmtcp::ThreadSync::threadCreationLockUnlock();
   }
   if (retval != 0) { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
@@ -249,7 +249,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
    * Also increment the uninitialized thread count.
    */
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp::DmtcpWorker::incrementUninitializedThreadCount();
+  dmtcp::ThreadSync::incrementUninitializedThreadCount();
 
   pid_t originalTid = -1;
 
@@ -349,7 +349,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
     JALLOC_HELPER_FREE(threadArg);
 
     // If clone() failed, decrement the uninitialized thread count
-    dmtcp::DmtcpWorker::decrementUninitializedThreadCount();
+    dmtcp::ThreadSync::decrementUninitializedThreadCount();
   }
 
   /* Release the wrapperExeution lock */

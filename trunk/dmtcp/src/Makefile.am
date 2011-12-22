@@ -29,7 +29,7 @@ lib_LIBRARIES = libdmtcpaware.a
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	connectionmanager.h connectionrewirer.h constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
-	dmtcpworker.h dmtcpcoordinatorapi.h \
+	dmtcpworker.h threadsync.h dmtcpcoordinatorapi.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
@@ -77,7 +77,7 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
-dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
+dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpcoordinatorapi.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \

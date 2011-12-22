@@ -100,7 +100,7 @@ LIB_PRIVATE void pthread_atfork_child()
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();
-  dmtcp::DmtcpWorker::resetLocks();
+  dmtcp::ThreadSync::resetLocks();
 
   child = dmtcp::UniquePid(host, _real_getpid(), child_time);
   dmtcp::UniquePid::resetOnFork(child);

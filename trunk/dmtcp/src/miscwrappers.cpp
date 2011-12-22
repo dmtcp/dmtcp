@@ -37,6 +37,7 @@
 #include <limits.h>
 #include "uniquepid.h"
 #include "dmtcpworker.h"
+#include "threadsync.h"
 #include "dmtcpmessagetypes.h"
 #include "protectedfds.h"
 #include "constants.h"
@@ -127,10 +128,10 @@ void *dlopen(const char *filename, int flag)
 {
   void *ret;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  thread_performing_dlopen_dlsym = 1;
+  dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
   ret = _real_dlopen(filename, flag);
   //ret = NEXT_FNC(dlopen)(filename, flag);
-  thread_performing_dlopen_dlsym = 0;
+  dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
@@ -139,10 +140,10 @@ int dlclose(void *handle)
 {
   int ret;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  thread_performing_dlopen_dlsym = 1;
+  dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
   ret = _real_dlclose(handle);
   //ret = NEXT_FNC(dlclose)(handle);
-  thread_performing_dlopen_dlsym = 0;
+  dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }

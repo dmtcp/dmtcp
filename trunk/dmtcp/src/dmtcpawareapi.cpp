@@ -22,6 +22,7 @@
 #include "dmtcpaware.h"
 #include "dmtcpcoordinatorapi.h"
 #include "dmtcpworker.h"
+#include "threadsync.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
@@ -58,9 +59,9 @@ static inline void _runCoordinatorCmd(char c, int* result){
     dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
     coordinatorAPI.useAlternateCoordinatorFd();
 
-    dmtcp::DmtcpWorker::delayCheckpointsLock();
+    dmtcp::ThreadSync::delayCheckpointsLock();
     coordinatorAPI.connectAndSendUserCommand(c, result);
-    dmtcp::DmtcpWorker::delayCheckpointsUnlock();
+    dmtcp::ThreadSync::delayCheckpointsUnlock();
   }
   _dmtcp_unlock();
 }
@@ -170,12 +171,12 @@ int __real_dmtcpInstallHooks( DmtcpFunctionPointer preCheckpoint
 }
 
 int __real_dmtcpDelayCheckpointsLock(){
-  dmtcp::DmtcpWorker::delayCheckpointsLock();
+  dmtcp::ThreadSync::delayCheckpointsLock();
   return 1;
 }
 
 int __real_dmtcpDelayCheckpointsUnlock(){
-  dmtcp::DmtcpWorker::delayCheckpointsUnlock();
+  dmtcp::ThreadSync::delayCheckpointsUnlock();
   return 1;
 }
 
