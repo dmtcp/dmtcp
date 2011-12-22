@@ -134,6 +134,8 @@ void dmtcp::ThreadSync::resetLocks()
 
   pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
   destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
+
+  _checkpointThreadInitialized = false;
 }
 
 bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
@@ -277,7 +279,8 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
-  if (WorkerState::currentState() == WorkerState::RUNNING) {
+  if (WorkerState::currentState() == WorkerState::RUNNING &&
+      isCheckpointThreadInitialized() == true) {
     int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
     if (retVal != 0 && retVal != EDEADLK) {
       fprintf(stderr, "ERROR %s: Failed to acquire lock", __PRETTY_FUNCTION__);

@@ -40,8 +40,8 @@
 // coordinator before it can do a query.
 #define COORD_NAMESERVICE
 
-#define TRUE 1
 #define FALSE 0
+#define TRUE 1
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
