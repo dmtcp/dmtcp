@@ -535,7 +535,9 @@ def saveResultsNMI():
       target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
                "@" + socket.gethostname()
       cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
-	       " ./dmtcp/src/dmtcphijack.so" + " ./mtcp/libmtcp.so" + \
+	       " ./dmtcp/src/dmtcphijack.so" + \
+	       " ./dmtcp/src/dmtcp_coordinator" + \
+               " ./mtcp/libmtcp.so" + \
                " results/"
       os.system(cmd)
       cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"

@@ -185,8 +185,7 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_fastckpt.o
-	#\
-	 #-lpthread
+	 # -lpthread
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
