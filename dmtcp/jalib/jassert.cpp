@@ -164,14 +164,25 @@ void jassert_internal::jassert_init ( const jalib::string& f )
 
 static const jalib::string writeJbacktraceMsg() {
   dmtcp::ostringstream o;
+  jalib::string thisProgram = "dmtcphijack.so";
+  if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator")
+    thisProgram = "dmtcp_coordinator";
+  if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpint")
+    thisProgram = "dmtcp_checkpoint";
+  if (jalib::Filesystem::GetProgramName() == "dmtcp_restart")
+    thisProgram = "dmtcp_restart";
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
     "   Try using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
-    "     utils/dmtcp_backtrace.py dmtcphijack.so ";
-  o << msg << jalib::dmtcp_get_tmpdir() << "/backtrace."
-    << jalib::dmtcp_get_uniquepid_str() << " "
-    << jalib::dmtcp_get_tmpdir() << "/proc-maps."
+    "     ";
+  o << msg << "utils/dmtcp_backtrace.py" << " "
+    << thisProgram << " "
+    << jalib::dmtcp_get_tmpdir() << "/backtrace."
+    << jalib::dmtcp_get_uniquepid_str() << " ";
+  // Weird bug:  If we don't start a new statement here,
+  // then the second call to dmtcp_get_uniquepid_str() returns just 831.
+  o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
     << jalib::dmtcp_get_uniquepid_str()
     << "\n   (For further help, try:  utils/dmtcp_backtrace.py --help)\n";
   return o.str();
@@ -215,7 +226,7 @@ jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
 {
   writeBacktrace();
   writeProcMaps();
-  // This goes to stdout.  Could also print to jalib::logFd
+  // This prints to stdout and to jalib::logFd
   Print( writeJbacktraceMsg() );
   return *this;  // Needed as part of JASSERT macro
 }

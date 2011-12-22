@@ -48,13 +48,13 @@ def getOrigOffset(pathname,procMaps):
   # First, we get the start page boundary of .text as given by /proc/PID/maps
   textOffset = 0
   for segment in open(procMaps).read().splitlines():
-    if segment.split()[-1].find(pathname) != -1:
+    if segment.split()[-1].find(os.path.basename(pathname)) != -1:
       #partition() requires Python 2.5
       # textOffset = '0x' + segment.partition('-')[0]
       textOffset = '0x' + segment[:segment.find('-')]
       break
   if textOffset == 0:
-    print pathname + " not found in proc maps: " + procMaps
+    print os.path.basename(pathname) + " not found in proc maps: " + procMaps
     sys.exit(1)
   # Now we get the offset of the text section in the file.  When the text
   #   section was mapped to memory, in fact all the program header table
@@ -71,7 +71,7 @@ addr2line = "addr2line -f -C -i -j .text -e " + pathname + " " # + offeset
 origOffset = getOrigOffset(pathname, tmpProcMaps)
 backtrace = open(tmpBacktrace).read().splitlines()
 for callFrame in backtrace:
-  if (callFrame.find(dmtcphijack) != -1):  # CHECK THIS
+  if (callFrame.find(os.path.basename(pathname)) != -1):  # CHECK THIS
     #partition() Requires Python 2.5
     # offset = callFrame.rpartition('[')[2].partition(']')[0]
     offset = callFrame[callFrame.rfind('[')+1:callFrame.find(']',callFrame.rfind('['))]
