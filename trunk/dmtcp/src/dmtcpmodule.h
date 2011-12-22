@@ -104,7 +104,7 @@ EXTERNC void dmtcp_unblock_ckpt_signal();
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
      }                                                                      \
-   (*_real_##func);})                                                       \
+   _real_##func;})                                                       \
 
 #define NEXT_DMTCP_PROCESS_EVENT DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT
 
