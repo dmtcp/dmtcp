@@ -146,14 +146,15 @@ dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
 am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
-	dmtcpworker.$(OBJEXT) dmtcpcoordinatorapi.$(OBJEXT) \
-	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
-	signalwrappers.$(OBJEXT) socketwrappers.$(OBJEXT) \
-	workerhijack.$(OBJEXT) epollwrappers.$(OBJEXT) \
-	sysvipc.$(OBJEXT) threadwrappers.$(OBJEXT) \
-	pidwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) filewrappers.$(OBJEXT) \
-	mallocwrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	dmtcpworker.$(OBJEXT) threadsync.$(OBJEXT) \
+	dmtcpcoordinatorapi.$(OBJEXT) execwrappers.$(OBJEXT) \
+	mtcpinterface.$(OBJEXT) signalwrappers.$(OBJEXT) \
+	socketwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
+	epollwrappers.$(OBJEXT) sysvipc.$(OBJEXT) \
+	threadwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
+	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
+	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
+	dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -305,7 +306,7 @@ lib_LIBRARIES = libdmtcpaware.a
 nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	connectionmanager.h connectionrewirer.h constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
-	dmtcpworker.h dmtcpcoordinatorapi.h \
+	dmtcpworker.h threadsync.h dmtcpcoordinatorapi.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
@@ -348,7 +349,7 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
-dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp \
+dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpcoordinatorapi.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
@@ -645,6 +646,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@

@@ -180,6 +180,8 @@ void _dmtcp_remutex_on_fork() {
  * which does this, but it may occur in the future.
  */
 
+LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
+LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 extern void prepareDmtcpWrappers();
 extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
@@ -222,9 +224,9 @@ LIB_PRIVATE
 void initialize_libpthread_wrappers()
 {
   if (!_libpthread_wrappers_initialized) {
-    thread_performing_dlopen_dlsym = 1;
+    dmtcp_setThreadPerformingDlopenDlsym();
     void *pthread_handle = _real_dlopen(LIBPTHREAD_FILENAME, RTLD_NOW);
-    thread_performing_dlopen_dlsym = 0;
+    dmtcp_unsetThreadPerformingDlopenDlsym();
 
     if (pthread_handle == NULL) {
       fprintf(stderr, "*** DMTCP: Error: could not open libpthread shared "
@@ -319,9 +321,9 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
 
   // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
   // comment in miscwrappers for more details.
-  thread_performing_dlopen_dlsym = 1;
+  dmtcp_setThreadPerformingDlopenDlsym();
   void *res = (*_libc_dlsym_fnptr) ( handle, symbol );
-  thread_performing_dlopen_dlsym = 0;
+  dmtcp_unsetThreadPerformingDlopenDlsym();
   return res;
 }
 
