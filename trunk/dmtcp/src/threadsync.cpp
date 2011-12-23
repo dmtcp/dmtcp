@@ -31,6 +31,7 @@
 #include "constants.h"
 #include "threadsync.h"
 #include "util.h"
+#include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jalloc.h"
@@ -79,6 +80,8 @@ static bool _checkpointThreadInitialized = false;
 static __thread int _wrapperExecutionLockLockCount = 0;
 static __thread int _threadCreationLockLockCount = 0;
 static __thread bool _threadPerformingDlopenDlsym = false;
+static __thread bool _sendCkptSignalOnFinalUnlock = false;
+static __thread bool _isOkToGrabWrapperExecLock = true;
 
 
 void dmtcp::ThreadSync::acquireLocks()
@@ -145,18 +148,32 @@ bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
 
 bool dmtcp::ThreadSync::isOkToGrabLock()
 {
-  // For future use.
-  return true;
+  return _isOkToGrabWrapperExecLock;
 }
 
-bool dmtcp::ThreadSync::setOkToGrabLock()
+void dmtcp::ThreadSync::setOkToGrabLock()
 {
-  // For future use.
+  _isOkToGrabWrapperExecLock = true;
 }
 
 void dmtcp::ThreadSync::unsetOkToGrabLock()
 {
-  // For future use.
+  _isOkToGrabWrapperExecLock = false;
+}
+
+void dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock()
+{
+  JASSERT(_sendCkptSignalOnFinalUnlock == false);
+  _sendCkptSignalOnFinalUnlock = true;
+}
+
+void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
+{
+  if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
+    _sendCkptSignalOnFinalUnlock = false;
+    JASSERT(tgkill(getpid(), gettid(), DmtcpWorker::determineMtcpSignal()) == 0)
+      (getpid()) (gettid()) (JASSERT_ERRNO);
+  }
 }
 
 extern "C" LIB_PRIVATE
@@ -226,9 +243,6 @@ void dmtcp::ThreadSync::delayCheckpointsUnlock(){
 //       to go into DEADLOCK
 bool dmtcp::ThreadSync::wrapperExecutionLockLock()
 {
-#ifdef PTRACE
-  return false;
-#endif
   int saved_errno = errno;
   bool lockAcquired = false;
   if (WorkerState::currentState() == WorkerState::RUNNING &&
@@ -314,6 +328,7 @@ void dmtcp::ThreadSync::wrapperExecutionLockUnlock()
     _exit(1);
   } else {
     _wrapperExecutionLockLockCount--;
+    sendCkptSignalOnFinalUnlock();
   }
   errno = saved_errno;
 }
@@ -354,6 +369,7 @@ void dmtcp::ThreadSync::threadCreationLockUnlock()
     _exit(1);
   } else {
     _threadCreationLockLockCount--;
+    sendCkptSignalOnFinalUnlock();
   }
   errno = saved_errno;
 }
