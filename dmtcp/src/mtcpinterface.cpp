@@ -81,6 +81,7 @@ static int callbackShouldCkptFD(int /*fd*/);
 static void callbackWriteCkptPrefix(int fd);
 static void callbackRestoreVirtualPidTable();
 
+void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
 void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval);
@@ -91,6 +92,9 @@ LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
+
+//to allow linking without ptrace module
+int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
 static void* find_and_open_mtcp_so()
 {
@@ -200,6 +204,7 @@ void dmtcp::initializeMtcpEngine()
                                 &callbackWriteCkptPrefix);
 
   (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackRestoreVirtualPidTable,
+                                      &callbackHoldsAnyLocks,
                                       &callbackPreSuspendUserThread,
                                       &callbackPreResumeUserThread,
                                       &callbackSendStopSignal,
@@ -352,6 +357,29 @@ static void callbackRestoreVirtualPidTable ( )
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
+void callbackHoldsAnyLocks(int *retval)
+{
+  /* This callback is useful only for the ptrace module currently, but may be
+   * used for other stuff as well.
+   *
+   * This is invoked as the first thing in stopthisthread() routine, which is
+   * the signal handler for CKPT signal, to check if the current thread is
+   * holding any of the wrapperExecLock or threadCreationLock. If the thread is
+   * holding any of these locks, we return from the signal handler and wait for
+   * the thread to release the lock. Once the thread has release the last lock,
+   * it will send itself the CKPT signal and will return to the signal handler
+   * and will proceed normally.
+   */
+
+  dmtcp::ThreadSync::unsetOkToGrabLock();
+  *retval = dmtcp::ThreadSync::isThisThreadHoldingAnyLocks();
+  if (mtcp_is_ptracing()) {
+    dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock();
+  } else {
+    JASSERT(*retval == FALSE);
+  }
+}
+
 void callbackPreSuspendUserThread()
 {
   dmtcp_process_event(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
@@ -363,6 +391,7 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   info.is_ckpt = is_ckpt;
   info.is_restart = is_restart;
   dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
+  dmtcp::ThreadSync::setOkToGrabLock();
 }
 
 void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)

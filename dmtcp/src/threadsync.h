@@ -88,8 +88,11 @@ namespace dmtcp
     void setCheckpointThreadInitialized();
 
     bool isOkToGrabLock();
-    bool setOkToGrabLock();
+    void setOkToGrabLock();
     void unsetOkToGrabLock();
+
+    void sendCkptSignalOnFinalUnlock();
+    void setSendCkptSignalOnFinalUnlock();
 
     bool isThreadPerformingDlopenDlsym();
     void setThreadPerformingDlopenDlsym();
