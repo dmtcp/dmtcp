@@ -55,15 +55,16 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*post_ckpt)(int is_restarting,
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_dmtcp_header)(int fd),
-                        void (*restore_virtual_pid_table)(),
-                        void (*pre_suspend_user_thread)(),
-                        void (*pre_resume_user_thread)(int is_ckpt,
-                                                       int is_restart),
-                        void (*send_stop_signal)(pid_t tid,
-                                                 int *retry_signalling,
-                                                 int *retval),
-                        void (*ckpt_thread_start)());
+                        void (*write_ckpt_header)(int fd));
+
+void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
+                              void (*pre_suspend_user_thread)(),
+                              void (*pre_resume_user_thread)(int is_ckpt,
+                                                             int is_restart),
+                              void (*send_stop_signal)(pid_t tid,
+                                                       int *retry_signalling,
+                                                       int *retval),
+                              void (*ckpt_thread_start)());
 
 #ifdef __cplusplus
 }
