@@ -135,7 +135,6 @@ extern __thread int is_ptrace_setoptions;
 
 extern int proceed_to_checkpoint;
 extern pthread_mutex_t proceed_to_checkpoint_lock;
-extern int has_new_ptrace_shared_file;
 extern int jalib_ckpt_unlock_ready;
 extern pthread_mutex_t jalib_ckpt_unlock_lock;
 extern int nthreads;
@@ -146,6 +145,7 @@ extern void mtcp_init_thread_local(void);
 void mtcp_ptrace_process_ckpt_thread_creation();
 void mtcp_ptrace_process_thread_creation(pid_t clone_id);
 void mtcp_ptrace_process_pre_suspend_ckpt_thread();
+void mtcp_ptrace_process_holds_any_locks(int *retval);
 void mtcp_ptrace_process_pre_suspend_user_thread();
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval);
 void mtcp_ptrace_process_post_suspend_ckpt_thread();
