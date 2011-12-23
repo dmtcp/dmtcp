@@ -1760,10 +1760,6 @@ static void *checkpointhread (void *dummy)
    */
   static int originalstartup = 1;
 
-  if (callback_ckpt_thread_start) {
-    (*callback_ckpt_thread_start)();
-  }
-
   /* We put a timeout in case the thread being waited for exits whilst we are
    * waiting
    */
@@ -1780,6 +1776,10 @@ static void *checkpointhread (void *dummy)
   save_tls_state (ckpthread);
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
+  if (callback_ckpt_thread_start) {
+    (*callback_ckpt_thread_start)();
+  }
+
   /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
 

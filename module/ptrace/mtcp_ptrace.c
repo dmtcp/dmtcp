@@ -38,6 +38,9 @@
 #include <sched.h>
 #include <sys/user.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #ifdef DEBUG
 # define DPRINTF(...) printf(__VA_ARGS__)
@@ -78,7 +81,6 @@ char ckpt_leader_file[PATH_MAX];
 int motherofall_done_reading = 0;
 pthread_mutex_t motherofall_done_reading_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t motherofall_done_reading_cv = PTHREAD_COND_INITIALIZER;
-int has_new_ptrace_shared_file = 0;
 int jalib_ckpt_unlock_ready = 0;
 pthread_mutex_t jalib_ckpt_unlock_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t jalib_ckpt_unlock_cv = PTHREAD_COND_INITIALIZER;
@@ -142,8 +144,8 @@ int mtcp_get_controlling_term(char* ttyname, size_t len)
  * we have a file with the ptrace_info pairs. */
 int mtcp_is_ptracing() {
   struct stat buf;
-  return (ptrace_info_list_size() > 0) ||
-         (stat(ptrace_shared_file, &buf) == 0);
+  return (ptrace_info_list_size() > 0 ||
+          stat(ptrace_shared_file, &buf) == 0);
 }
 
 static pid_t mtcp_waitpid(pid_t pid, int *status, int options) {
@@ -189,7 +191,6 @@ void mtcp_init_ptrace()
   DPRINTF("begin init_thread_local\n");
   mtcp_init_thread_local();
 
-#if 1
   strcpy(ptrace_shared_file, ptrace_get_tmpdir());
   strcpy(ptrace_setoptions_file, ptrace_get_tmpdir());
   strcpy(checkpoint_threads_file, ptrace_get_tmpdir());
@@ -201,22 +202,6 @@ void mtcp_init_ptrace()
   strcat(checkpoint_threads_file, "/ptrace_ckpthreads");
   strcat(new_ptrace_shared_file, "/new_ptrace_shared");
   strcat(ckpt_leader_file, "/ckpt_leader_file");
-#else
-  // Remove this code once Ana verifies that the other code would work fine.
-  memset(ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(ptrace_shared_file, "%s/ptrace_shared.txt", dmtcp_get_tmpdir());
-  memset(ptrace_setoptions_file, '\0', PATH_MAX);
-  sprintf(ptrace_setoptions_file, "%s/ptrace_setoptions.txt",
-          dmtcp_get_tmpdir());
-  memset(checkpoint_threads_file, '\0', PATH_MAX);
-  sprintf(checkpoint_threads_file, "%s/ptrace_ckpthreads.txt",
-          dmtcp_get_tmpdir());
-  memset(new_ptrace_shared_file, '\0', PATH_MAX);
-  sprintf(new_ptrace_shared_file, "%s/new_ptrace_shared.txt",
-          dmtcp_get_tmpdir());
-  memset(ckpt_leader_file, '\0', PATH_MAX);
-  sprintf(ckpt_leader_file, "%s/ckpt_leader_file.txt", dmtcp_get_tmpdir());
-#endif
 
   /* Initialize the following semaphore needed by superior to wait for inferior
    * to be created on restart. */
@@ -301,23 +286,6 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
                                                     &jalib_ckpt_unlock_lock);
     pthread_mutex_unlock(&jalib_ckpt_unlock_lock);
 
-    /* Wait for new_ptrace_shared_file to have been written, if there is one.
-       The ckpt leader writes it: the other process needs to wait for it. */
-    if (has_new_ptrace_shared_file) {
-      struct stat buf;
-      while (stat(new_ptrace_shared_file, &buf)) {
-        struct timespec ts;
-        ts.tv_sec = 0;
-        ts.tv_nsec = 100000000;
-        if (errno != ENOENT) {
-          MTCP_PRINTF("Unexpected error in stat: %s\n",
-                      strerror(errno));
-          mtcp_abort();
-        }
-        nanosleep(&ts,NULL);
-      }
-    }
-
     /* Motherofall reads in new_ptrace_shared_file and
      * checkpoint_threads_file. */
     if (getpid() == GETTID()) {
@@ -357,90 +325,123 @@ void mtcp_ptrace_process_pre_suspend_user_thread()
   }
 }
 
+void mtcp_ptrace_write_to_new_ptrace_shared_file(int fd, int superior,
+  int inferior, char inferior_st) {
+  if (write(fd, &superior, sizeof(pid_t)) == -1) {
+    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
+    mtcp_abort();
+  }
+  if (write(fd, &inferior, sizeof(pid_t)) == -1) {
+    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
+    mtcp_abort();
+  }
+  if (write(fd, &inferior_st, sizeof(char)) == -1) {
+    MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
+    mtcp_abort();
+  }
+}
+
+char mtcp_ptrace_get_tid_from_new_ptrace_shared_file(pid_t tid) {
+  int fd = open(new_ptrace_shared_file, O_RDONLY);
+  if (fd == -1) {
+    MTCP_PRINTF("Error opening the file: %s\n", strerror(errno));
+    mtcp_abort();
+  }
+
+  pid_t superior, inferior;
+  char inferior_st = 'u';
+  while (read_no_error(fd, &superior, sizeof(pid_t)) > 0) {
+    read_no_error(fd, &inferior, sizeof(pid_t));
+    read_no_error(fd, &inferior_st, sizeof(char));
+    if (tid == inferior) break;
+  }
+  if (close(fd) != 0) {
+    MTCP_PRINTF("error closing file, %s.\n", strerror(errno));
+    mtcp_abort();
+  }
+  return inferior_st;
+}
+
+void mtcp_ptrace_info_list_write_to_new_ptrace_shared_file(int fd) {
+  struct ptrace_info pt_info;
+  pid_t superior, inferior;
+  char inf_st;
+  int index;
+
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
+    superior = pt_info.superior;
+    inferior = pt_info.inferior;
+    inf_st = pt_info.inferior_st;
+    mtcp_ptrace_write_to_new_ptrace_shared_file(fd, superior, inferior, inf_st);
+  }
+}
+
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
 {
   *retry_signalling = 0;
-  if (mtcp_is_ptracing()) {
-    has_new_ptrace_shared_file = 0;
 
-    char inferior_st = 'u';
-    int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
-    if (ptrace_fd == -1) {
-      /* There is no ptrace_shared_file. All ptrace pairs are in memory.
-       * Thus we only need to update the ptrace pairs. */
-      mtcp_ptrace_info_list_save_threads_state();
-      inferior_st = retrieve_inferior_state(tid);
-    } else {
-      has_new_ptrace_shared_file = 1;
-      int new_ptrace_fd = -1;
+  if (!mtcp_is_ptracing()) {
+    if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
+      if (errno != ESRCH) {
+        MTCP_PRINTF ("error signalling thread %d: %s\n", tid, strerror(errno));
+      }
+      *retval = -1;
+    }
+    return;
+  }
 
-      if (ckpt_leader)
-        new_ptrace_fd = open(new_ptrace_shared_file,
+  char inferior_st = 'u';
+  if (ckpt_leader) {
+    int new_ptrace_fd = open(new_ptrace_shared_file,
                              O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
+    if (new_ptrace_fd == -1) {
+      MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
+      mtcp_abort();
+    }
+    int ptrace_fd = open(ptrace_shared_file, O_RDONLY);
+    if (ptrace_fd != -1) {
       pid_t superior, inferior;
-      char inf_st = 'u';
+      char inf_st;
       while (read_no_error(ptrace_fd, &superior, sizeof(pid_t)) > 0) {
         read_no_error(ptrace_fd, &inferior, sizeof(pid_t));
         inf_st = procfs_state(inferior);
+        if (!inf_st) continue;
         if (inferior == tid) inferior_st = inf_st;
-        if (ckpt_leader && new_ptrace_fd != -1) {
-          if (write(new_ptrace_fd, &superior, sizeof(pid_t)) == -1) {
-            MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
-            mtcp_abort();
-          }
-          if (write(new_ptrace_fd, &inferior, sizeof(pid_t)) == -1) {
-            MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
-            mtcp_abort();
-          }
-          if (write(new_ptrace_fd, &inf_st, sizeof(char)) == -1) {
-            MTCP_PRINTF("Error writing to file: %s\n", strerror(errno));
-            mtcp_abort();
-          }
-        }
-      }
-      if (ckpt_leader && new_ptrace_fd != -1) {
-        if (close(new_ptrace_fd) != 0) {
-          MTCP_PRINTF("error while closing file: %s\n", strerror(errno));
-          mtcp_abort();
-        }
+        mtcp_ptrace_write_to_new_ptrace_shared_file(new_ptrace_fd, superior,
+                                                    inferior, inf_st);
       }
       if (close(ptrace_fd) != 0) {
         MTCP_PRINTF("error while closing file, %s\n", strerror(errno));
         mtcp_abort();
       }
-      /* Update the pairs that are already in memory. */
-      mtcp_ptrace_info_list_save_threads_state();
-      if (inferior_st == 'u')
-        inferior_st = retrieve_inferior_state(tid);
     }
-    DPRINTF("%d %c\n", GETTID(), inferior_st);
-    if (inferior_st == 'N') {
-      /* If the state is unknown, send a stop signal to inferior. */
-      if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
-        if (errno != ESRCH) {
-          MTCP_PRINTF ("error signalling thread %d: %s\n",
-                       tid, strerror(errno));
-        }
-        *retval = -1;
-        return;
-      }
-    } else {
-      DPRINTF("%c %d\n", inferior_st, tid);
-      /* If the state is not stopped, then send a stop signal to
-       * the inferior. */
-      if (inferior_st != 'T') {
-        if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
-          if (errno != ESRCH) {
-            MTCP_PRINTF ("error signalling thread %d: %s\n",
-                         tid, strerror(errno));
-          }
-          *retval = -1;
-          return;
-        }
-      }
-      create_file(tid);
+    /* Update the pairs that are already in memory. */
+    mtcp_ptrace_info_list_save_threads_state();
+    if (inferior_st == 'u') inferior_st = retrieve_inferior_state(tid);
+    mtcp_ptrace_info_list_write_to_new_ptrace_shared_file(new_ptrace_fd);
+    if (close(new_ptrace_fd) != 0) {
+      MTCP_PRINTF("error while closing file: %s\n", strerror(errno));
+      mtcp_abort();
     }
   } else {
+    struct stat buf;
+    while (stat(new_ptrace_shared_file, &buf)) {
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 100000000;
+      if (errno != ENOENT) {
+        MTCP_PRINTF("Unexpected error in stat: %s\n", strerror(errno));
+        mtcp_abort();
+      }
+      nanosleep(&ts,NULL);
+    }
+    /* Get the status of tid from new_ptrace_shared_file. */
+    inferior_st = mtcp_ptrace_get_tid_from_new_ptrace_shared_file(tid);
+  }
+
+  DPRINTF("%d %c\n", GETTID(), inferior_st);
+  if (inferior_st == 'N') {
+    /* If the state is unknown, send a stop signal to inferior. */
     if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
       if (errno != ESRCH) {
         MTCP_PRINTF ("error signalling thread %d: %s\n",
@@ -449,6 +450,21 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
       *retval = -1;
       return;
     }
+  } else {
+    DPRINTF("%c %d\n", inferior_st, tid);
+    /* If the state is not stopped, then send a stop signal to
+     * the inferior. */
+    if (inferior_st != 'T') {
+      if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
+        if (errno != ESRCH) {
+          MTCP_PRINTF ("error signalling thread %d: %s\n",
+                       tid, strerror(errno));
+        }
+        *retval = -1;
+        return;
+      }
+    }
+    create_file(tid);
   }
 }
 

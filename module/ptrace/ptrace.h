@@ -9,8 +9,10 @@
 # endif
 #endif
 
-#define TRUE 1
-#define FALSE 0
+enum truefalse {
+  FALSE = 0,
+  TRUE
+};
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 

@@ -58,6 +58,7 @@ void ptrace_init_data_structures()
 #define GETTID() (int)syscall(SYS_gettid)
 
 extern "C" int ptrace_info_list_size() {
+  if (ptrace_info_list == NULL) return 0;
   return ptrace_info_list->size();
 }
 
@@ -275,7 +276,9 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
     /* In this case, superior is the pid and inferior is the tid and also the
      * checkpoint thread. We're recording that for process pid, tid is the
      * checkpoint thread. */
-    if (file_option == PTRACE_CHECKPOINT_THREADS_FILE_OPTION) return;
+    if (file_option == PTRACE_CHECKPOINT_THREADS_FILE_OPTION) {
+      return;
+    }
   }
 
   if (ptrace_info_list_has_pair(superior, inferior) != EMPTY_PTRACE_INFO) {
