@@ -36,6 +36,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sched.h>
 #include <assert.h>
 #include "ptracewrappers.h"
 
@@ -79,4 +80,14 @@ LIB_PRIVATE
 long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
                   void *data) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
+}
+
+LIB_PRIVATE
+int _real_clone(int (*func) (void *arg), void *child_stack, int flags,
+                void *arg, int *parent_tidptr, struct user_desc *newtls,
+                int *child_tidptr)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, __clone ) ( func, child_stack, flags,
+                                                 arg, parent_tidptr, newtls,
+                                                 child_tidptr );
 }

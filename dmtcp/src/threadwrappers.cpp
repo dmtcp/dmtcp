@@ -148,8 +148,6 @@ int clone_start(void *arg)
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
   dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
 
-  dmtcp_process_event(DMTCP_EVENT_THREAD_EXIT, NULL);
-
   return result;
 }
 #endif
@@ -333,7 +331,6 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
         /* Newly created thread, insert mappings */
         dmtcp::VirtualPidTable::instance().updateMapping(tid, tid);
       }
-      dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED, NULL);
       break;
     }
   }

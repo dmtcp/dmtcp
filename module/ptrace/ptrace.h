@@ -14,8 +14,6 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
-void ptraceProcessCloneStartFn();
-void ptraceCallbackPreCheckpoint();
 EXTERNC struct ptrace_info get_next_ptrace_info(int index);
 EXTERNC sigset_t signals_set;
 EXTERNC void jalib_ckpt_unlock();

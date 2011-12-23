@@ -479,3 +479,64 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
   return ptrace_ret;
 }
+
+struct PtraceThreadArg {
+  int ( *fn ) ( void *arg );  // clone() calls fn that returns int
+  void *arg;
+};
+
+static int ptrace_clone_start(void *arg)
+{
+  struct PtraceThreadArg *threadArg = (struct PtraceThreadArg*) arg;
+
+  int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+
+  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
+  JALLOC_HELPER_FREE(threadArg);
+
+  mtcp_init_thread_local();
+
+  JTRACE("Calling user function") (GETTID());
+  // return (*(threadArg->fn)) ( threadArg->arg );
+  int result = (*fn) ( thread_arg );
+  JTRACE ( "Thread returned:" ) (GETTID());
+
+//  dmtcp_process_event(DMTCP_EVENT_THREAD_EXIT, NULL);
+  return result;
+}
+
+//need to forward user clone
+extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg,
+                       int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
+{
+  if (!dmtcp_is_running_state()) {
+    return _real_clone(fn, child_stack, flags, arg, parent_tidptr, newtls,
+                      child_tidptr);
+  }
+
+  // We have to use DMTCP-specific memory allocator because using glibc:malloc
+  // can interfere with user threads.
+  // We use JALLOC_HELPER_FREE to free this memory in two places:
+  //   1.  later in this function in case of failure on call to __clone; and
+  //   2.  near the beginnging of clone_start (wrapper for start_routine).
+  struct PtraceThreadArg *threadArg =
+    (struct PtraceThreadArg *) JALLOC_HELPER_MALLOC(sizeof (struct PtraceThreadArg));
+  threadArg->fn = fn;
+  threadArg->arg = arg;
+
+  JTRACE ( "Calling dmtcp:__clone" );
+  pid_t tid;
+  tid = _real_clone(ptrace_clone_start, child_stack, flags, threadArg,
+                    parent_tidptr, newtls, child_tidptr);
+
+  if (tid == -1) { // if the call to clone failed
+    JTRACE("Clone call failed")(JASSERT_ERRNO);
+    // Free the memory which was previously allocated by calling
+    // JALLOC_HELPER_MALLOC inside __clone wrapper
+    JALLOC_HELPER_FREE(threadArg);
+  } else {
+    mtcp_ptrace_process_thread_creation(tid);
+  }
+  return tid;
+}

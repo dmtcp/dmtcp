@@ -14,17 +14,6 @@ static int callbackPtraceInfoListSize ();
 
 static int originalStartup = 1;
 
-void ptraceProcessCloneStartFn()
-{
-  mtcp_init_thread_local();
-}
-
-void ptraceProcessThreadCreation(void *data)
-{
-  pid_t tid = (pid_t) (unsigned long) data;
-  mtcp_ptrace_process_thread_creation(tid);
-}
-
 extern "C" void jalib_ckpt_unlock()
 {
   JALIB_CKPT_UNLOCK();
@@ -124,14 +113,8 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_START_PRE_CKPT_CB:
       ptraceProcessStartPreCkptCB();
       break;
-    case DMTCP_EVENT_THREAD_CREATED:
-      ptraceProcessThreadCreation(data);
-      break;
     case DMTCP_EVENT_CKPT_THREAD_START:
       mtcp_ptrace_process_ckpt_thread_creation();
-      break;
-    case DMTCP_EVENT_THREAD_START:
-      ptraceProcessCloneStartFn();
       break;
     case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
       mtcp_ptrace_process_pre_suspend_user_thread();
@@ -143,7 +126,6 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
       mtcp_process_stop_signal_event(data);
       break;
 
-    case DMTCP_EVENT_PRE_EXIT:
     case DMTCP_EVENT_PRE_CHECKPOINT:
     case DMTCP_EVENT_POST_LEADER_ELECTION:
     case DMTCP_EVENT_POST_DRAIN:

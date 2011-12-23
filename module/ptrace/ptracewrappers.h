@@ -19,11 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef PTRACEWRAPPER_H
-#define PTRACEWRAPPER_H
+#ifndef PTRACEWRAPPERS_H
+#define PTRACEWRAPPERS_H
 
 #include <unistd.h>
 #include <signal.h>
+#include <sched.h>
+#include <asm/ldt.h>
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
 
@@ -63,6 +65,10 @@ EXTERNC void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
 EXTERNC long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
                           void *data);
 EXTERNC pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
+
+EXTERNC int _real_clone(int (*fn) (void *arg), void *child_stack, int flags,
+                        void *arg, int *parent_tidptr, struct user_desc *newtls,
+                        int *child_tidptr);
 
 EXTERNC void ptrace_init_data_structures();
 #endif
