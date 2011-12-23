@@ -46,8 +46,10 @@ extern "C"
      void (*post_ckpt)(int isRestarting,
                        char* mtcpRestoreArgvStartAddr),
      int  (*should_ckpt_fd ) ( int fd ),
-     void (*write_ckpt_prefix ) ( int fd ),
-     void (*restore_virtual_pid_table) (),
+     void (*write_ckpt_prefix ) ( int fd ));
+
+  typedef void (*mtcp_set_dmtcp_callbacks_t)
+    (void (*restore_virtual_pid_table) (),
      void (*pre_suspend_user_thread)(),
      void (*pre_resume_user_thread)(int is_ckpt, int is_restart),
      void (*send_stop_signal)(pid_t tid, int *retry_signalling, int *retval),
@@ -75,6 +77,7 @@ extern "C"
 
   typedef struct MtcpFuncPtrs {
     mtcp_set_callbacks_t        set_callbacks;
+    mtcp_set_dmtcp_callbacks_t  set_dmtcp_callbacks;
     mtcp_init_dmtcp_info_t      init_dmtcp_info;
     mtcp_init_t                 init;
     mtcp_ok_t                   ok;

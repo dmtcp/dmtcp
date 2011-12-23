@@ -154,6 +154,8 @@ static void initializeMtcpFuncPtrs()
     (mtcp_init_dmtcp_info_t) get_mtcp_symbol("mtcp_init_dmtcp_info");
   mtcpFuncPtrs.set_callbacks =
     (mtcp_set_callbacks_t) get_mtcp_symbol("mtcp_set_callbacks");
+  mtcpFuncPtrs.set_dmtcp_callbacks =
+    (mtcp_set_dmtcp_callbacks_t) get_mtcp_symbol("mtcp_set_dmtcp_callbacks");
 }
 
 static void initializeDmtcpInfoInMtcp()
@@ -195,14 +197,14 @@ void dmtcp::initializeMtcpEngine()
                                 &callbackPreCheckpoint,
                                 &callbackPostCheckpoint,
                                 &callbackShouldCkptFD,
-                                &callbackWriteCkptPrefix,
-                                &callbackRestoreVirtualPidTable,
+                                &callbackWriteCkptPrefix);
 
-                                &callbackPreSuspendUserThread,
-                                &callbackPreResumeUserThread,
-                                &callbackSendStopSignal,
-                                &callbackCkptThreadStart
-                               );
+  (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackRestoreVirtualPidTable,
+                                      &callbackPreSuspendUserThread,
+                                      &callbackPreResumeUserThread,
+                                      &callbackSendStopSignal,
+                                      &callbackCkptThreadStart
+                                     );
 
   JTRACE ("Calling mtcp_init");
   mtcpFuncPtrs.init(UniquePid::checkpointFilename(), 0xBadF00d, 1);

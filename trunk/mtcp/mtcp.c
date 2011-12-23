@@ -438,7 +438,7 @@ static void (*callback_sleep_between_ckpt)(int sec) = NULL;
 static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting, char* argv_start) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
-static void (*callback_write_dmtcp_header)(int fd) = NULL;
+static void (*callback_write_ckpt_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
 
 void (*callback_pre_suspend_user_thread)() = NULL;
@@ -529,7 +529,7 @@ static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
 #endif
 static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
 
-static int perform_callback_write_dmtcp_header();
+static int perform_callback_write_ckpt_header();
 static int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
 static int perform_open_ckpt_image_fd(int *use_compression,
 				      int *fdCkptFileOnDisk);
@@ -842,27 +842,29 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         void (*post_ckpt)(int is_restarting,
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
-                        void (*write_dmtcp_header)(int fd),
-                        void (*restore_virtual_pid_table)(),
-                        void (*pre_suspend_user_thread)(),
-                        void (*pre_resume_user_thread)(int is_ckpt,
-                                                       int is_restart),
-                        void (*send_stop_signal)(pid_t tid,
-                                                 int *retry_signalling,
-                                                 int *retval),
-                        void (*ckpt_thread_start)())
+                        void (*write_ckpt_header)(int fd))
 {
-    callback_sleep_between_ckpt = sleep_between_ckpt;
-    callback_pre_ckpt = pre_ckpt;
-    callback_post_ckpt = post_ckpt;
-    callback_ckpt_fd = ckpt_fd;
-    callback_write_dmtcp_header = write_dmtcp_header;
-    callback_restore_virtual_pid_table = restore_virtual_pid_table;
+  callback_sleep_between_ckpt = sleep_between_ckpt;
+  callback_pre_ckpt = pre_ckpt;
+  callback_post_ckpt = post_ckpt;
+  callback_ckpt_fd = ckpt_fd;
+  callback_write_ckpt_header = write_ckpt_header;
+}
 
-    callback_pre_suspend_user_thread = pre_suspend_user_thread;
-    callback_pre_resume_user_thread = pre_resume_user_thread;
-    callback_send_stop_signal = send_stop_signal;
-    callback_ckpt_thread_start = ckpt_thread_start;
+void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
+                              void (*pre_suspend_user_thread)(),
+                              void (*pre_resume_user_thread)(int is_ckpt,
+                                                             int is_restart),
+                              void (*send_stop_signal)(pid_t tid,
+                                                       int *retry_signalling,
+                                                       int *retval),
+                              void (*ckpt_thread_start)())
+{
+  callback_restore_virtual_pid_table = restore_virtual_pid_table;
+  callback_pre_suspend_user_thread = pre_suspend_user_thread;
+  callback_pre_resume_user_thread = pre_resume_user_thread;
+  callback_send_stop_signal = send_stop_signal;
+  callback_ckpt_thread_start = ckpt_thread_start;
 }
 
 /*************************************************************************
@@ -2234,7 +2236,7 @@ static void checkpointeverything (void)
   DPRINTF("thread:%d performing checkpoint.\n", mtcp_sys_kernel_gettid ());
 
   /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
-  int tmpDMTCPHeaderFd = perform_callback_write_dmtcp_header();
+  int tmpDMTCPHeaderFd = perform_callback_write_ckpt_header();
 
   int forked_ckpt_status = test_and_prepare_for_forked_ckpt(tmpDMTCPHeaderFd);
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
@@ -2302,7 +2304,7 @@ static void checkpointeverything (void)
   DPRINTF("checkpoint complete\n");
 }
 
-int perform_callback_write_dmtcp_header()
+int perform_callback_write_ckpt_header()
 {
   char tmpDMTCPHeaderBuf[PATH_MAX];
   char pattern[] = "/dmtcp.XXXXXX";
@@ -2321,7 +2323,7 @@ int perform_callback_write_dmtcp_header()
   }
 
   int tmpfd = -1;
-  if (callback_write_dmtcp_header != NULL) {
+  if (callback_write_ckpt_header != NULL) {
     /* Temp file for DMTCP header; will be written into the checkpoint file. */
     tmpfd = mkstemp(tmpDMTCPHeaderFileName);
     if (tmpfd < 0) {
@@ -2334,7 +2336,7 @@ int perform_callback_write_dmtcp_header()
     }
 
     /* Better to do this in parent, not child, for most accurate header info */
-    (*callback_write_dmtcp_header)(tmpfd);
+    (*callback_write_ckpt_header)(tmpfd);
   }
   return tmpfd;
 }
