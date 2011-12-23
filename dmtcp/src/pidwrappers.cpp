@@ -70,7 +70,7 @@ static pid_t currentToOriginalPid( pid_t currentPid )
 static __thread pid_t dmtcp_thread_tid = -1;
 LIB_PRIVATE
 void dmtcp_reset_gettid() {
-  dmtcp_thread_tid = _real_gettid();
+  dmtcp_thread_tid = -1;
 }
 extern "C" pid_t gettid()
 {

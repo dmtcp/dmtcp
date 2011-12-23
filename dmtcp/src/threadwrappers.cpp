@@ -84,8 +84,13 @@ int clone_start(void *arg)
    * thread-locals are initialized during pthread_create, but if we re-spawn
    * the thread due to tid-conflict, the thread-local storage won't be
    * reinitialized automatically, thus we should do it here.
+   *
+   * Of-course, we should not do this while we are recreating threads during
+   * restart.
    */
-  dmtcp_reset_gettid();
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
+    dmtcp_reset_gettid();
+  }
 
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
