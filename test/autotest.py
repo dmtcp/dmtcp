@@ -342,6 +342,11 @@ def clearCkptDir():
     for root, dirs, files in os.walk(ckptDir, topdown=False):
       for name in files:
         try:
+          # if name.endswith(".dmtcp") :
+          #   import shutil
+          #   shutil.copy(os.path.join(root, name), "/home/kapil/dmtcp/ramfs")
+          # else:
+          #   os.remove(os.path.join(root, name))
           os.remove(os.path.join(root, name))
         except OSError, e:
 	  if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
