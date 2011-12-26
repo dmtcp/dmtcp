@@ -2882,8 +2882,8 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
 
           rc = stat (linkbuf, &statbuf);
           if (rc < 0) {
-            MTCP_PRINTF("error statting %s -> %s: %s\n",
-	                 procfdname, linkbuf, strerror(-rc));
+            DPRINTF("error statting %s -> %s: %s\n",
+                    procfdname, linkbuf, strerror(-rc));
           }
 
           /* Write state information to checkpoint file.
