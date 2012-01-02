@@ -10,6 +10,17 @@
   4. Replace temporary files of $DMTCP_TMPDIR (created on restart)
 	by shared memory objects.
   5. Faster checkpoint/restart:  Don't remap libs
+  6. ELF honors a segment of type PT_LOAD.  This can be used in the future
+	to reserve address ranges to prevent conflicts with vdso, etc.
+	This will aid process migration between different Linux kernels,
+	by stopping a loader using address space randomization from
+	placing vdso, etc., in the wrong place.
+  7. dmtcp_checkpoint --disable-randomization   should be implemented,
+        which would also disable randomization on restart.
+        This can be useful for internal testing and further development,
+	but also useful for users with specialized needs.  Note that
+	gdb disables randomization of the target process by default starting
+	in GDB 7.x.
 
 - When environ is not yet initialized, currently dmtcphijack.so simply returns.
   (This occurs when executing libc.so.6 .)
