@@ -70,6 +70,7 @@ The port the cluster\-wide coordinator listens on. (default: 7779)
 .IP  DMTCP_GZIP=(1|0)
 Set to "0" to disable compression of checkpoint images.
 (default: 1, compression enabled; dmtcp_checkpoint only)
+WARNING:  gzip adds seconds.  Without gzip, ckpt/restart is often less than 1 s
 
 .IP  DMTCP_CHECKPOINT_DIR=path
 Directory to store checkpoint images in. (default: ./)

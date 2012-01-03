@@ -434,6 +434,12 @@ def runTestRaw(name, numProcs, cmds):
     CHECK(doesStatusSatisfy((numFiles,True),status),
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
+    #HACK:
+    # Ckpt w/ ptrace needs time to settle after restarting.
+    # Perhaps coordinator should not report status "RUNNING" until ready.
+    # See comment at end of trunk/module/ptrace/README
+    if testconfig.PTRACE_SUPPORT == "yes":
+	sleep(S*5)
 
   def testRestart():
     #build restart command

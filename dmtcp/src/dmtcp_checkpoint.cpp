@@ -62,6 +62,7 @@ static const char* theUsage =
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"
+  "      WARNING:  gzip adds seconds.  Without gzip, ckpt is often < 1 s\n"
 #ifdef HBICT_DELTACOMP
   "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"

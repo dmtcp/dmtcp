@@ -24,6 +24,8 @@ By default, DMTCP uses gzip to compress the checkpoint images.  This can
 be turned off (dmtcp_checkpoint --no-gzip ; or setting an
 environment variable to 0: DMTCP_GZIP=0).  This will be faster, and if
 your memory is dominated by incompressible data, this can be helpful.
+Gzip can add seconds for large checkpoint images.  Typically, checkpoint
+and restart is less than one second without gzip.
 
 A DMTCP checkpoint image includes any libraries (.so files) that it may
 have been using.  This strategy is used for greater portability of
