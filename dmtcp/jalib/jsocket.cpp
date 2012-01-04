@@ -450,7 +450,7 @@ void jalib::JChunkReader::readAll()
  */
 jalib::JChunkReader::JChunkReader ( JSocket sock, int chunkSize )
     : JReaderInterface ( sock )
-    , _buffer ( new char[chunkSize] )
+    , _buffer ( (char*) jalib::JAllocDispatcher::malloc(chunkSize) )
     , _length ( chunkSize )
     , _read ( 0 )
     , _hadError ( false )
@@ -464,7 +464,7 @@ jalib::JChunkReader::JChunkReader ( JSocket sock, int chunkSize )
  */
 jalib::JChunkReader::JChunkReader ( const JChunkReader& that )
     : JReaderInterface ( that )
-    , _buffer ( new char[that._length] )
+    , _buffer ( (char*) jalib::JAllocDispatcher::malloc(that._length) )
     , _length ( that._length )
     , _read ( that._read )
     , _hadError ( that._hadError )
@@ -478,7 +478,7 @@ jalib::JChunkReader::JChunkReader ( const JChunkReader& that )
  */
 jalib::JChunkReader::~JChunkReader()
 {
-  delete [] _buffer;
+  jalib::JAllocDispatcher::free(_buffer);
   _buffer = 0;
 }
 
@@ -489,7 +489,7 @@ jalib::JChunkReader::~JChunkReader()
 jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 {
   if ( this == &that ) return *this;;
-  delete [] _buffer;
+  jalib::JAllocDispatcher::free(_buffer);
   _buffer = 0;
   new ( this ) JChunkReader ( that );
   return *this;
@@ -752,7 +752,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
  */
 jalib::JChunkWriter::JChunkWriter ( JSocket sock, const char* buf, int len )
     :JWriterInterface ( sock )
-    ,_buffer ( new char [len] )
+    , _buffer ( (char*) jalib::JAllocDispatcher::malloc(len) )
     ,_length ( len )
     ,_sent ( 0 )
     ,_hadError ( false )
@@ -766,7 +766,7 @@ jalib::JChunkWriter::JChunkWriter ( JSocket sock, const char* buf, int len )
  */
 jalib::JChunkWriter::JChunkWriter ( const JChunkWriter& that )
     :JWriterInterface ( that )
-    ,_buffer ( new char [that._length] )
+    , _buffer ( (char*) jalib::JAllocDispatcher::malloc(that._length) )
     ,_length ( that._length )
     ,_sent ( that._sent )
     ,_hadError ( false )
@@ -780,7 +780,7 @@ jalib::JChunkWriter::JChunkWriter ( const JChunkWriter& that )
  */
 jalib::JChunkWriter::~JChunkWriter()
 {
-  delete [] _buffer;
+  jalib::JAllocDispatcher::free(_buffer);
   _buffer = 0;
 }
 
@@ -791,7 +791,7 @@ jalib::JChunkWriter::~JChunkWriter()
 jalib::JChunkWriter& jalib::JChunkWriter::operator= ( const JChunkWriter& that )
 {
   if ( this == &that ) return *this;;
-  delete [] _buffer;
+  jalib::JAllocDispatcher::free(_buffer);
   _buffer = 0;
   new ( this ) JChunkWriter ( that );
   return *this;
