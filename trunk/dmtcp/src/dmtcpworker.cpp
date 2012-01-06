@@ -172,6 +172,20 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
   dmtcp_wrappers_initializing = 0;
   initialize_libpthread_wrappers();
   JALLOC_HELPER_ENABLE_LOCKS();
+
+  /* Register pthread_atfork_child() as the first post-fork handler for the
+   * child process. This needs to be the first function that is called by
+   * libc:fork() after the child process is created.
+   *
+   * Some dmtcp module might also call pthread_atfork and so we call it right
+   * here before initializing the wrappers.
+   *
+   * NOTE: If this doesn't work and someone is able to call pthead_atfork
+   * before this call, we might want to install a pthread_atfork() wrappers.
+   */
+  JASSERT(pthread_atfork(pthread_atfork_prepare,
+                         pthread_atfork_parent,
+                         pthread_atfork_child) == 0);
 }
 
 static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
@@ -314,20 +328,6 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
           ( jalib::Filesystem::GetProgramName() );
     return;
   }
-
-  /* Register pthread_atfork_child() as the first post-fork handler for the
-   * child process. This needs to be the first function that is called by
-   * libc:fork() after the child process is created.
-   *
-   * TODO: If we discover in future that someone else called pthread_atfork()
-   * before us, we should move this call to pthread_atfork() inside
-   * prepareDmtcpWrappers(). We might also solve this issue by creating a
-   * pthread_atfork() wrapper and in that, making sure that the first call to
-   * _real_pthread_create is always ours.
-   */
-  JASSERT(pthread_atfork(pthread_atfork_prepare,
-                         pthread_atfork_parent,
-                         pthread_atfork_child) == 0);
 
   processRlimit();
 
