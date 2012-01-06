@@ -17,7 +17,7 @@ endif
 DMTCP_SRC=${DMTCP_ROOT}/dmtcp/src
 
 CFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c --std=gnu99 -g
-CPPFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
+CXXFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
 
 DEMO_PORT=7781
 
@@ -40,7 +40,7 @@ ${LIBNAME}.so: ${LIBOBJS}
 .c.o:
 	${CC} ${CFLAGS} -o $@ $<
 .cpp.o:
-	${CXX} ${CPPFLAGS} -o $@ $<
+	${CXX} ${CXXFLAGS} -o $@ $<
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
