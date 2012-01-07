@@ -57,7 +57,11 @@ default: display-build-env build
 
 build: mtcp dmtcp module
 	$(MKDIR_P) bin
+	$(MKDIR_P) lib/dmtcp
+	$(MKDIR_P) include
 	$(MAKE) bin
+	$(MAKE) lib
+	$(MAKE) include
 	$(MAKE) dmtcpaware
 
 all: default tests
@@ -212,18 +216,29 @@ bin/% : dmtcp/src/%
 bin/% : mtcp/%
 	cd bin && $(LN_S) ../$< $*
 
-bin/% : module/ptrace/%
-	cd bin && $(LN_S) ../$< $*
+bin: 	bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
+	bin/dmtcp_command bin/dmtcp_nocheckpoint bin/mtcp_restart
 
-bin: bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
-	bin/dmtcphijack.so bin/libmtcp.so bin/ptracehijack.so \
-	bin/mtcp_restart bin/dmtcp_command bin/dmtcp_nocheckpoint
+lib/% : mtcp/%
+	cd lib && $(LN_S) ../$< $*
 
-dmtcpaware/% : dmtcp/src/%
-	(cd dmtcpaware && $(LN_S) ../$< $*)
+lib/dmtcp/% : dmtcp/src/%
+	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-dmtcpaware: dmtcpaware/dmtcpaware.h \
-	dmtcpaware/libdmtcpaware.a dmtcpaware/libdmtcpaware.so.1.0.0
+lib/dmtcp/% : module/ptrace/%
+	cd lib/dmtcp && $(LN_S) ../../$< $*
+
+lib: 	lib/dmtcp/dmtcphijack.so lib/dmtcp/ptracehijack.so \
+	lib/dmtcp/libdmtcpaware.a lib/dmtcp/libdmtcpaware.so.1.0.0 \
+	lib/libmtcp.so.1
+
+include/% : mtcp/%
+	cd include && $(LN_S) ../$< $*
+
+include/% : dmtcp/src/%
+	cd include && $(LN_S) ../$< $*
+
+include: include/mtcp.h include/dmtcpaware.h
 
 install: all
 	if test -z "$(prefix)"; then \
@@ -235,9 +250,8 @@ install: all
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	cd dmtcp && make install
 	cd module && make install
-	cp mtcp/libmtcp.so $(DESTDIR)$(libdir)/dmtcp
-	cp mtcp/mtcp_restart $(DESTDIR)$(bindir)
-	cp mtcp/mtcp.h $(DESTDIR)$(includedir)
+	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
+	  includedir=$(includedir) install
 	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
 	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
 	cd $(DESTDIR)$(libdir) && \
@@ -252,18 +266,16 @@ install: all
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
 
 uninstall:
+	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
+	  includedir=$(includedir) uninstall
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_coordinator"
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_checkpoint"
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_nocheckpoint"
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_restart"
 	rm -f "$(DESTDIR)$(bindir)/dmtcp_command"
-	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.so*"
-	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
-	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
-	rm -f "$(DESTDIR)$(bindir)/mtcp_restart"
-	rm -f "$(DESTDIR)$(libdir)/libmtcp.so"
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
+	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 	echo "${docdir}" | grep -q /dmtcp || false
 	rm -Rf "$(DESTDIR)$(docdir)"
