@@ -283,8 +283,8 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} -ldl -lpthread
-	#ln -sf libmtcp.so.1.0.0 libmtcp.so.1
-	#ln -sf libmtcp.so.1 libmtcp.so
+	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
+	ln -sf libmtcp.so.1 libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.

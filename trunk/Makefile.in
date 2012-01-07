@@ -231,7 +231,7 @@ lib/dmtcp/% : module/ptrace/%
 
 lib: 	lib/dmtcp/dmtcphijack.so lib/dmtcp/ptracehijack.so \
 	lib/dmtcp/libdmtcpaware.a lib/dmtcp/libdmtcpaware.so.1.0.0 \
-	lib/libmtcp.so.1
+	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
 
 include/% : mtcp/%
 	cd include && $(LN_S) ../$< $*
