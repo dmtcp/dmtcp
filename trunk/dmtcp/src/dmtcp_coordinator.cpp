@@ -71,6 +71,7 @@
 #undef min
 #undef max
 
+#define BINARY_NAME "dmtcp_checkpoint"
 
 static int thePort = -1;
 
@@ -108,9 +109,15 @@ static const char* theUsage =
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
+  "  --help:\n"
+  "      Print this message and exit.\n"
+  "  --version:\n"
+  "      Print version information and exit.\n"
+  "\n"
   "COMMANDS:\n"
-  "  (type '?<return>' at runtime for list)\n\n"
-  "See http://dmtcp.sf.net/ for more information.\n"
+  "  (type '?<return>' at runtime for list)\n"
+  "\n"
+  "See " PACKAGE_URL " for more information.\n"
 ;
 
 
@@ -149,7 +156,8 @@ static const char* theRestartScriptUsage =
   "      Time in seconds between automatic checkpoints\n"
   "      (Default: Use pre-checkpoint value)\n"
   "  --help:\n"
-  "      Print this message\'\n\n\n"
+  "      Print this message and exit.\'\n"
+  "\n\n"
 ;
 
 static const char* theRestartScriptCmdlineArgHandler =
@@ -1463,6 +1471,9 @@ int main ( int argc, char** argv )
     dmtcp::string s = argv[0];
     if(s=="-h" || s=="--help"){
       fprintf(stderr, theUsage, DEFAULT_PORT);
+      return 1;
+    } else if ((s=="--version") && argc==1){
+      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
       return 1;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;

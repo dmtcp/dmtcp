@@ -26,6 +26,8 @@
 #include "util.h"
 #include "syscallwrappers.h"
 
+#define BINARY_NAME "dmtcp_checkpoint"
+
 using namespace dmtcp;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -42,7 +44,12 @@ static const char* theUsage =
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --quiet:\n"
-  "      Skip copyright notice\n\n"
+  "      Skip copyright notice\n"
+  "  --help:\n"
+  "      Print this message and exit.\n"
+  "  --version:\n"
+  "      Print version information and exit.\n"
+  "\n"
   "COMMANDS:\n"
   "    s, -s, --status : Print status message\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
@@ -51,8 +58,9 @@ static const char* theUsage =
 						   		" (0=never)\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
   "    k, -k, --kill : Kill all nodes\n"
-  "    q, -q, --quit : Kill all nodes and quit\n\n"
-  "See http://dmtcp.sf.net/ for more information.\n"
+  "    q, -q, --quit : Kill all nodes and quit\n"
+  "\n"
+  "See " PACKAGE_URL " for more information.\n"
 ;
 
 
@@ -75,6 +83,9 @@ int main ( int argc, char** argv )
     dmtcp::string s = argv[0];
     if((s=="--help" || s=="-h") && argc==1){
       fprintf(stderr, theUsage, "");
+      return 1;
+    } else if ((s=="--version") && argc==1){
+      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
       return 1;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);

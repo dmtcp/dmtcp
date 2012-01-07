@@ -85,6 +85,20 @@ extern int STOPSIGNAL;     // signal to use to signal other threads to stop for
 # define TPRINTF(x) // timing printing
 #endif
 
+#ifndef DMTCP_VERSION
+# define PACKAGE_VERSION ""
+#else
+# define PACKAGE_VERSION DMTCP_VERSION
+#endif
+
+#define VERSION_AND_COPYRIGHT_INFO                                              \
+  BINARY_NAME " (DMTCP + MTCP) " PACKAGE_VERSION "\n"                           \
+  "Copyright (C) 2006-2011  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
+  "                                                       Gene Cooperman\n"     \
+  "This program comes with ABSOLUTELY NO WARRANTY.\n"                           \
+  "This is free software, and you are welcome to redistribute it\n"             \
+  "under certain conditions; see COPYING file for details.\n"
+
 #if 0
 /* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.  */
 struct user_desc

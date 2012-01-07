@@ -51,6 +51,8 @@
 
 #include <sys/personality.h>
 
+#define BINARY_NAME "mtcp_restart"
+
 static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename, char *envp[]);
 
@@ -68,6 +70,9 @@ static const char* theUsage =
       " <ckeckpointfile>\n\n"
   "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>]"
       " [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
+  "  --help:      Print this message and exit.\n"
+  "  --version:   Print version information and exit.\n"
+  "\n"
 ;
 
 char **environ = NULL;
@@ -104,6 +109,9 @@ int main (int argc, char *argv[], char *envp[])
   while (1) {
     if (argc == 0 || (mtcp_strcmp(argv[0], "--help") == 0 && argc == 1)) {
       mtcp_printf("%s", theUsage);
+      return (-1);
+    } else if (mtcp_strcmp (argv[0], "--version") == 0 && argc == 1) {
+      mtcp_printf("%s", VERSION_AND_COPYRIGHT_INFO);
       return (-1);
     } else if (mtcp_strcmp (argv[0], "--verify") == 0 && argc == 2) {
       verify = 1;

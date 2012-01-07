@@ -14,4 +14,3 @@ int main(int argc, char** argv) {
   perror("execvp:");
   return 2;
 }
-
