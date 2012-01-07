@@ -43,6 +43,8 @@
 #include <sys/personality.h>
 #include <string.h>
 
+#define BINARY_NAME "dmtcp_checkpoint"
+
 int testMatlab(const char *filename);
 int testJava(char **argv);
 bool testSetuid(const char *filename);
@@ -95,18 +97,13 @@ static const char* theUsage =
   "      Colon-separated list of DMTCP modules to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
-  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
-  "See http://dmtcp.sf.net/ for more information.\n"
-;
-
-static const char* theBanner =
-  "DMTCP-" PACKAGE_VERSION " (+ MTCP), Copyright (C) 2006-2011  Jason Ansel,"
-  " Michael Rieker,\n"
-  "                                       Kapil Arya, and Gene Cooperman\n"
-  "This program comes with ABSOLUTELY NO WARRANTY.\n"
-  "This is free software, and you are welcome to redistribute it\n"
-  "under certain conditions; see COPYING file for details.\n"
-  "(Use flag \"-q\" to hide this message.)\n\n"
+  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
+  "  --help:\n"
+  "      Print this message and exit.\n"
+  "  --version:\n"
+  "      Print version information and exit.\n"
+  "\n"
+  "See " PACKAGE_URL " for more information.\n"
 ;
 
 // FIXME:  The warnings below should be collected into a single function,
@@ -137,7 +134,7 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_QUIET, "0", 0);
 
   if (argc == 1) {
-    JASSERT_STDERR << theBanner;
+    JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
     JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
     return DMTCP_FAIL_RC;
   }
@@ -146,9 +143,11 @@ int main ( int argc, char** argv )
   shift;
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
-    if((s=="--help" || s=="-h") && argc==1){
+    if((s=="--help") && argc==1){
       JASSERT_STDERR << theUsage;
-      //fprintf(stderr, theUsage, "");
+      return DMTCP_FAIL_RC;
+    } else if ((s=="--version") && argc==1){
+      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
       return DMTCP_FAIL_RC;
     }else if(s=="--ssh-slave"){
       isSSHSlave = true;
@@ -247,7 +246,7 @@ int main ( int argc, char** argv )
 #endif
 
   if (jassert_quiet == 0)
-    JASSERT_STDERR << theBanner;
+    JASSERT_STDERR << DMTCP_BANNER;
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
@@ -477,7 +476,7 @@ int testJava(char **argv) {
       if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
         return 0; // The user called java with -Xmx.  No need for warning.
   }
-  
+
   // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
   int fd;
   char buf[100];

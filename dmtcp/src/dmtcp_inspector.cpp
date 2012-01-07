@@ -42,6 +42,8 @@
 #include "mtcpinterface.h"
 #include  "../jalib/jtimer.h"
 
+#define BINARY_NAME "dmtcp_checkpoint"
+
 enum output_t {
   TEXT, DOT
 } output_type = TEXT;
@@ -236,7 +238,7 @@ void writeNode(dmtcp::ostringstream &o)
     if (!show_part_conn) {
       if (_sprocs.size() == 0 || _cprocs.size() == 0)
         return;
-    } 
+    }
 
     // If connection have no shared descriptors
     if (_sprocs.size() == _cprocs.size() && _sprocs.size() == 1) {
@@ -520,7 +522,7 @@ int main(int argc, char** argv)
       }
       o = (std::ostream*)file;
     }else
-      o = &std::cout;  
+      o = &std::cout;
     (*o) << buf.str();
 
     if( file ){
@@ -535,14 +537,14 @@ int main(int argc, char** argv)
     if( output_format.size() == 0 ){
       output_format = "pdf";
     }
-    dmtcp::string popen_str = output_tool + " -T" + output_format + 
+    dmtcp::string popen_str = output_tool + " -T" + output_format +
            " -o " + output_file;
 
     std::cerr << "Popen arg: " << popen_str
             << "\nInput len=" << buf.str().length() << "\n";
 
     output_format = "", gviz_params="";
-    
+
     FILE *fp = popen(popen_str.c_str(), "w");
     if (!fp) {
       std::cerr << "Error in popen(\"" << output_file.c_str() << "\",\"w\")\n";
@@ -557,15 +559,19 @@ int main(int argc, char** argv)
 int process_input(int argc, char** argv)
 {
   static const char* theUsage =
-          "USAGE: dmtcp_inspector [-o <file>] [-t <tool>] [-cdaznh] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n"
-          "  -o, --out <file> - Write output to <file>\n"
-          "  -t, --tool       - Graphviz tool to use. By default output is in dot-like format.\n"
-          "  -c, --cred       - Add  information about parent-child relations\n"
-          "  -d, --no-sock    - Remove information about socket connections\n"
-          "  -a, --sock-all   - Add verbose information about socket connections\n"
-          "  -z, --sock-half  - Also represent half-connections (when some *.mtcp files are missed)\n"
-          "  -n, -node        - Verbose node names indication\n"
-          "  -h, --help       - Display this help\n";
+    "USAGE: dmtcp_inspector [-o <file>] [-t <tool>] [-cdaznh] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n"
+    "  -o, --out <file> - Write output to <file>\n"
+    "  -t, --tool       - Graphviz tool to use. By default output is in dot-like format.\n"
+    "  -c, --cred       - Add  information about parent-child relations\n"
+    "  -d, --no-sock    - Remove information about socket connections\n"
+    "  -a, --sock-all   - Add verbose information about socket connections\n"
+    "  -z, --sock-half  - Also represent half-connections (when some *.mtcp files are missed)\n"
+    "  -n, -node        - Verbose node names indication\n"
+    "  -h, --help       - Display this help\n"
+    "  -v, --version    - Display this help\n"
+    "\n"
+    "See " PACKAGE_URL " for more information.\n"
+          ;
   int c;
 
   output_file.clear();
@@ -583,6 +589,7 @@ int process_input(int argc, char** argv)
     static struct option long_options[] = {
       {"out", 1, 0, 'o'},
       {"help", 0, 0, 'h'},
+      {"version", 0, 0, 'v'},
       {"cred", 0, 0, 'c'},
       {"no-sock", 0, 0, 'd'},
       {"sock-all", 0, 0, 'a'},
@@ -624,6 +631,9 @@ int process_input(int argc, char** argv)
     case 'h':
       std::cerr << theUsage;
       return 1;
+    case 'v':
+      std::cerr << DMTCP_VERSION_AND_COPYRIGHT_INFO;
+      return 1;
     case 'f':
       output_format = optarg;
       break;
@@ -650,10 +660,10 @@ int process_input(int argc, char** argv)
   }
 
   // Process input data
-  
+
   if( proc_out >= OUT_MAX )
     proc_out = SHORT;
-  
+
   if (!sockets) {
     show_all_conn = false;
   }

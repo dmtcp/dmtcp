@@ -42,6 +42,8 @@
 #include <errno.h>
 #include <vector>
 
+#define BINARY_NAME "dmtcp_checkpoint"
+
 // Some global definitions
 static dmtcp::UniquePid compGroup;
 static int numPeers;
@@ -661,18 +663,13 @@ static const char* theUsage =
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
-  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n\n"
-  "See http://dmtcp.sf.net/ for more information.\n"
-;
-
-static const char* theBanner =
-  "DMTCP-" PACKAGE_VERSION " (+ MTCP), Copyright (C) 2006-2011  Jason Ansel,"
-  " Michael Rieker,\n"
-  "                                       Kapil Arya, and Gene Cooperman\n"
-  "This program comes with ABSOLUTELY NO WARRANTY.\n"
-  "This is free software, and you are welcome to redistribute it\n"
-  "under certain conditions; see COPYING file for details.\n"
-  "(Use flag \"-q\" to hide this message.)\n\n"
+  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
+  "  --help:\n"
+  "      Print this message and exit.\n"
+  "  --version:\n"
+  "      Print version information and exit.\n"
+  "\n"
+  "See " PACKAGE_URL " for more information.\n"
 ;
 
 //shift args
@@ -725,7 +722,7 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_QUIET, "0", 0);
 
   if (argc == 1) {
-    JASSERT_STDERR << theBanner;
+    JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
     JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
     return DMTCP_FAIL_RC;
   }
@@ -734,9 +731,11 @@ int main ( int argc, char** argv )
   shift;
   while(true){
     dmtcp::string s = argc>0 ? argv[0] : "--help";
-    if(s=="--help" || (s=="-h" && argc==1)){
+    if(s=="--help" && argc==1){
       JASSERT_STDERR << theUsage;
-      //fprintf(stderr, theUsage, "");
+      return DMTCP_FAIL_RC;
+    } else if ((s=="--version") && argc==1){
+      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
       return DMTCP_FAIL_RC;
     }else if(s == "--no-check"){
       autoStartCoordinator = false;
@@ -799,7 +798,7 @@ int main ( int argc, char** argv )
   Util::initializeLogFile();
 
   if (jassert_quiet == 0)
-    JASSERT_STDERR << theBanner;
+    JASSERT_STDERR << DMTCP_BANNER;
 
   if (autoStartCoordinator)
     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
