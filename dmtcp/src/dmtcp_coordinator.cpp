@@ -209,6 +209,102 @@ static const char* theRestartScriptCmdlineArgHandler =
   "fi\n\n"
 ;
 
+static const char* theRestartScriptSingleHostProcessing =
+  "ckpt_files=\"\"\n"
+  "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+  "  for tmp in $given_ckpt_files; do\n"
+  "    ckpt_files=\"$DMTCP_RESTART_DIR/`basename $tmp` $ckpt_files\"\n"
+  "  done\n"
+  "else\n"
+  "  ckpt_files=$given_ckpt_files\n"
+  "fi\n\n"
+
+  "coordinator_info=\n"
+  "if [ -z \"$maybebatch\" ]; then\n"
+  "  coordinator_info=\"--host $coord_host --port $coord_port\"\n"
+  "fi\n\n"
+
+  "exec $DMTCP_RESTART $coordinator_info\\\n"
+  "  $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+  "  $ckpt_files\n"
+;
+
+static const char* theRestartScriptMultiHostProcessing =
+  "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
+  "worker_hosts=\\\n"
+  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
+  "restart_modes=\\\n"
+  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
+  "ckpt_files_groups=\\\n"
+  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
+  "\n"
+  "if [ ! -z \"$hostfile\" ]; then\n"
+  "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
+  "fi\n\n"
+
+  "localhost_ckpt_files_group=\n\n"
+
+  "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
+
+  "maybejoin=\n"
+  "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
+  "  maybejoin='--join'\n"
+  "fi\n\n"
+
+  "for worker_host in $worker_hosts\n"
+  "do\n\n"
+  "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+  "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
+  "\n"
+  "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
+  "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
+  "  maybexterm=\n"
+  "  maybebg=\n"
+  "  case $mode in\n"
+  "    bg) maybebg=\'bg\';;\n"
+  "    xterm) maybexterm=xterm;;\n"
+  "    fg) ;;\n"
+  "    *) echo \"WARNING: Unknown Mode\";;\n"
+  "  esac\n\n"
+  "  if [ -z \"$ckpt_files_group\" ]; then\n"
+  "    break;\n"
+  "  fi\n\n"
+
+  "  new_ckpt_files_group=\"\"\n"
+  "  for tmp in $ckpt_files_group\n"
+  "  do\n"
+  "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
+  "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
+  "      fi\n"
+  "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
+  "  done\n\n"
+
+  "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
+  "    continue\n"
+  "  fi\n\n"
+
+  "  if [ -z $maybebg ]; then\n"
+  "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
+  "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+  "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\n"
+  "  else\n"
+  "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
+  // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
+  // end of the computation until user presses enter key.
+  "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
+  "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
+  "  fi\n\n"
+  "done\n\n"
+  "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
+  "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+  "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
+  "fi\n\n"
+
+  "#wait for them all to finish\n"
+  "wait\n"
+;
+
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
@@ -1253,22 +1349,30 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
                 "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
-                "  coord_host=%s\nfi\n\n", hostname );
-  fprintf ( fp, "coord_port=$"ENV_VAR_NAME_PORT"\n"
+                "  coord_host=%s\nfi\n\n"
+                "coord_port=$"ENV_VAR_NAME_PORT"\n"
                 "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
-                "  coord_port=%d\nfi\n\n", thePort );
-  fprintf ( fp, "checkpoint_interval=$"ENV_VAR_CKPT_INTR"\n"
+                "  coord_port=%d\nfi\n\n"
+                "checkpoint_interval=$"ENV_VAR_CKPT_INTR"\n"
                 "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
-                "  checkpoint_interval=%d\nfi\n\n", theCheckpointInterval );
+                "  checkpoint_interval=%d\nfi\n\n",
+                hostname, thePort, theCheckpointInterval );
+
   if ( batchMode )
     fprintf ( fp, "maybebatch='--batch'\n\n" );
   else
     fprintf ( fp, "maybebatch=\n\n" );
 
-  fprintf ( fp, "# Number of hosts in the computation = %zd\n",
-            _restartFilenames.size() );
-  fprintf ( fp, "# Number of processes in the computation = %d\n\n",
-            getStatus().numPeers );
+  fprintf ( fp, "# Number of hosts in the computation = %zd\n"
+                "# Number of processes in the computation = %d\n\n",
+                _restartFilenames.size(), getStatus().numPeers );
+
+  fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
+
+  fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
+  fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
+                " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
+                jalib::Filesystem::GetProgramDir().c_str());
 
   if ( isSingleHost ) {
     JTRACE ( "Single HOST");
@@ -1279,146 +1383,29 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
       o << " " << *file;
     }
 
-    fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-    fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
-    fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
-                  " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
-                  jalib::Filesystem::GetProgramDir().c_str());
-    fprintf ( fp, "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-                  "  new_ckpt_names=\"\"\n"
-                  "  names=\"%s\"\n"
-                  "  for tmp in $names; do\n"
-                  "    new_ckpt_names=\"$DMTCP_RESTART_DIR/`basename $tmp` $new_ckpt_names\"\n"
-                  "  done\n"
-                  "fi\n", o.str().c_str());
+    fprintf ( fp, "given_ckpt_files=\"%s\"\n\n", o.str().c_str());
 
-    fprintf ( fp,
-              "if [ ! -z \"$maybebatch\" ]; then\n"
-              "  if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-              "    exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "       $new_ckpt_names\n"
-              "  else\n"
-              "    exec $DMTCP_RESTART $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "       %s\n"
-              "  fi\n"
-              "else\n"
-              "  if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-              "    exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-              "      $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "        $new_ckpt_names\n"
-              "  else\n"
-              "    exec $DMTCP_RESTART --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-              "      $maybejoin --interval \"$checkpoint_interval\"\\\n"
-              "        %s\n"
-              "  fi\n"
-              "fi\n", o.str().c_str(), o.str().c_str() );
+    fprintf ( fp, "%s", theRestartScriptSingleHostProcessing );
   }
   else
   {
     fprintf ( fp, "%s",
-              "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
               "# SYNTAX:\n"
               "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
               "# Host names and filenames must not include \':\'\n"
               "# At most one fg (foreground) mode allowed; it must be last.\n"
-              "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n"
-              "worker_ckpts=\'" );
+              "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n");
 
-    for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host )
-    {
+    fprintf ( fp, "%s", "worker_ckpts=\'" );
+    for ( host=_restartFilenames.begin(); host!=_restartFilenames.end(); ++host ) {
       fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
-      for ( file=host->second.begin(); file!=host->second.end(); ++file )
-      {
+      for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
         fprintf ( fp," %s", file->c_str() );
       }
     }
-
     fprintf ( fp, "%s", "\n\'\n\n\n" );
 
-
-    fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-
-    fprintf ( fp, "%s",
-              "worker_hosts=\\\n"
-              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
-              "restart_modes=\\\n"
-              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
-              "ckpt_files_groups=\\\n"
-              "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
-              "\n"
-              "if [ ! -z \"$hostfile\" ]; then\n"
-              "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
-              "fi\n\n"
-
-              "localhost_ckpt_files_group=\n\n"
-
-              "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
-
-              "maybejoin=\n"
-              "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
-              "  maybejoin='--join'\n"
-              "fi\n\n"
-
-              "for worker_host in $worker_hosts\n"
-              "do\n\n"
-              "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-              "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
-              "\n"
-              "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-              "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
-              "  maybexterm=\n"
-              "  maybebg=\n"
-              "  case $mode in\n"
-              "    bg) maybebg=\'bg\';;\n"
-              "    xterm) maybexterm=xterm;;\n"
-              "    fg) ;;\n"
-              "    *) echo \"WARNING: Unknown Mode\";;\n"
-              "  esac\n\n"
-              "  if [ -z \"$ckpt_files_group\" ]; then\n"
-              "    break;\n"
-              "  fi\n\n"
-
-              "  new_ckpt_files_group=\"\"\n"
-              "  for tmp in $ckpt_files_group\n"
-              "  do\n"
-              "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-              "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
-              "      fi\n"
-              "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
-              "  done\n\n"
-
-              "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
-              "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
-              "    continue\n"
-              "  fi\n\n"
-
-              "  if [ -z $maybebg ]; then\n"
-              "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-              "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-              "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\n"
-              "  else\n"
-              "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
-              // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
-              // end of the computation until user presses enter key.
-              "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
-              "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
-              "  fi\n\n"
-              "done\n\n");
-
-    fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
-    fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
-                  " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
-                  jalib::Filesystem::GetProgramDir().c_str());
-
-    fprintf ( fp, "%s",
-              "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
-              "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-              "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
-              "fi\n\n"
-
-
-              "#wait for them all to finish\n"
-              "wait\n");
+    fprintf ( fp, "%s", theRestartScriptMultiHostProcessing );
   }
 
   fclose ( fp );
