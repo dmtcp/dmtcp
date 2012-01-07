@@ -182,21 +182,24 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
   }
 }
 
-jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, bool dieOnError /*= true*/ )
+jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
+                                                   bool dieOnError /*= true*/)
 {
   const char* d = NULL;
   // search relative to dir of dmtcp_checkpoint
   // (intended for private install by end user)
   const char *p1[] = {
     "/",
-    "/mtcp/",
-    "/../mtcp/",
-    "/../../mtcp/",
-    "/../",
-    "/../../",
-    "/../../bin/",
+    "/../bin/",
+    "/../lib64/",
     "/../lib64/dmtcp/",
-    "/../lib/dmtcp/"
+    "/../lib/",
+    "/../lib/dmtcp/",
+
+    // The following are used if dmtcp_checkpoint is run from trunk/dmtcp/src
+    "/../../bin/",
+    "/../../lib/",
+    "/../../lib/dmtcp/"
   };
   // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
 
@@ -206,18 +209,16 @@ jalib::string jalib::Filesystem::FindHelperUtility ( const jalib::string& file, 
     "/usr/local/bin/",
     "/usr/bin/",
     "/bin/",
-    "/usr/local/lib64/dmtcp/",
     "/usr/local/lib64/",
-    "/usr/local/lib/dmtcp/",
+    "/usr/local/lib64/dmtcp/",
     "/usr/local/lib/",
-    "/usr/lib64/dmtcp/",
+    "/usr/local/lib/dmtcp/",
     "/usr/lib64/",
-    "/usr/lib/dmtcp/",
+    "/usr/lib64/dmtcp/",
     "/usr/lib/",
+    "/usr/lib/dmtcp/",
     "/lib64/",
-    "/lib/",
-    "./",
-    "../"
+    "/lib/"
   };
 
   jalib::string pth;

@@ -30,6 +30,8 @@
 ##########################################################################
 
 MTCP_VERSION = 77
+LIBMTCP_SOVERSION_MAJOR=1
+LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
@@ -64,8 +66,8 @@ CFLAGS += -O0 -g
 #CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
-# Could add something like -Wl,-soname,libmtcp.so.1 if one wants to globally
-#  install a copy of libmtcp.so for others to use.
+
+LDFLAGS += -Wl,-soname,libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
 
 # If calling 'make' from mtcp subdir, you may want to unconditionally set this.
 ifdef HBICT_DELTACOMP
@@ -102,7 +104,41 @@ ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
   CFLAGS+=-fno-stack-protector
 endif
 
+ifdef PREFIX
+  bindir=$(PREFIX)/bin
+  libdir=$(PREFIX)/lib
+  includedir=$(PREFIX)/include
+endif
+
+install-error-msg="\
+Error: PREFIX or bindir/libdir/includedir not defined \n\
+ USAGE:\n\
+\tmake [DESTDIR=<destdir>] PREFIX=<path> install\n\
+\tmake [DESTDIR=<destdir>] bindir=<path1> libdir=<path2> includedir=<path3> install\n"
+
 all default: build tests readmtcp
+
+install: build
+	# DMTCP passes bindir, libdir, and includir as make flags
+	if test -z "$(bindir)"; then echo -e $(install-error-msg); false; fi
+	if test -z "$(libdir)"; then echo -e $(install-error-msg); false; fi
+	if test -z "$(includedir)"; then echo -e $(install-error-msg); false; fi
+	test -e $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
+	test -e $(DESTDIR)$(libdir) || mkdir -p $(DESTDIR)$(libdir)
+	test -e $(DESTDIR)$(includedir) || mkdir -p $(DESTDIR)$(includedir)
+	cp mtcp_restart $(DESTDIR)$(bindir)
+	cp mtcp.h $(DESTDIR)$(includedir)
+	cp libmtcp.so.$(LIBMTCP_SOVERSION_INFO) $(DESTDIR)$(libdir)
+	cd $(DESTDIR)$(libdir) && ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	                                 libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
+	cd $(DESTDIR)$(libdir) && ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
+					 libmtcp.so
+	chmod -f 755 $(DESTDIR)$(libdir)/libmtcp.so*
+
+uninstall:
+	rm -f "$(DESTDIR)$(bindir)/mtcp_restart"
+	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
+	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
 ifdef FAST_CKPT_RESTART
 readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
@@ -242,19 +278,24 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	echo LDFLAGS $(LDFLAGS)
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
-	  -o libmtcp.so ${LIBRARY_OBJS} -ldl -lpthread
+	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} -ldl -lpthread
+	#ln -sf libmtcp.so.1.0.0 libmtcp.so.1
+	#ln -sf libmtcp.so.1 libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.
 	# (Warning caused by ALLOC section outside of normal .data section.)
 	${OBJCOPY} --set-section-flags=.the.begin=LOAD,ALLOC,CONTENTS,DATA \
-	  ./libmtcp.so 2>/dev/null || echo MTCP: Warning: "'${OBJCOPY}'" failed.
+	  ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) 2>/dev/null || \
+	  echo MTCP: Warning: "'${OBJCOPY}'" failed.
 	${OBJCOPY} --set-section-flags=.the.end=LOAD,ALLOC,CONTENTS,DATA \
-	  ./libmtcp.so 2>/dev/null || echo MTCP: Warning: "'${OBJCOPY}'" failed.
-	@nm -D libmtcp.so | grep ' [TD] ' | grep -v ' d\?mtcp_' | \
+	  ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) 2>/dev/null || \
+	  echo MTCP: Warning: "'${OBJCOPY}'" failed.
+	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [TD] ' | \
+	  grep -v ' d\?mtcp_' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' 1>&2 && \
-	  echo '*** WARNING: libmtcp.so: MTCP symbols polluting user namespace'\
-	   1>&2 || true
+	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
+	       'MTCP symbols polluting user namespace' 1>&2 || true
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
