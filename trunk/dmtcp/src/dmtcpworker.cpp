@@ -474,6 +474,7 @@ static void processDmtcpCommands(dmtcp::string programName,
 static void processSshCommand(dmtcp::string programName,
                               dmtcp::vector<dmtcp::string>& args)
 {
+  char buf[256];
   JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
   //make sure coordinator connection is closed
   _real_close ( PROTECTED_COORD_FD );
@@ -500,6 +501,10 @@ static void processSshCommand(dmtcp::string programName,
 
 
   const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
+  if (coordinatorAddr == NULL) {
+    JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
+    coordinatorAddr = buf;
+  }
   const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
   const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
   const char * compression          = getenv ( ENV_VAR_COMPRESSION );
