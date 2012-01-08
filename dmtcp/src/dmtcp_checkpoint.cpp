@@ -69,6 +69,8 @@ static const char* theUsage =
   "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01]):\n"
   "      Enable/disable compression of checkpoint images (default: 1)\n"
 #endif
+  "  --prefix <arg>:\n"
+  "      Prefix where DMTCP is installed on remote nodes.\n"
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store checkpoint images (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
@@ -116,76 +118,75 @@ static const char* theUsage =
 
 static dmtcp::string _stderrProcPath()
 {
-  return "/proc/" + jalib::XToString ( getpid() ) + "/fd/" + jalib::XToString ( fileno ( stderr ) );
+  return "/proc/" + jalib::XToString(getpid()) + "/fd/"
+         + jalib::XToString(fileno(stderr));
 }
+
+static bool isSSHSlave=false;
+static bool autoStartCoordinator=true;
+static bool checkpointOpenFiles=false;
+static int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
-int main ( int argc, char** argv )
+static void processArgs(int *orig_argc, char ***orig_argv)
 {
-  bool isSSHSlave=false;
-  bool autoStartCoordinator=true;
-  bool checkpointOpenFiles=false;
-  int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
-
-  initializeJalib();
-
-  if (! getenv(ENV_VAR_QUIET))
-    setenv(ENV_VAR_QUIET, "0", 0);
+  char argc = *orig_argc;
+  char **argv = *orig_argv;
 
   if (argc == 1) {
     JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
     JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
-    return DMTCP_FAIL_RC;
+    exit(DMTCP_FAIL_RC);
   }
 
   //process args
   shift;
-  while(true){
+  while (true) {
     dmtcp::string s = argc>0 ? argv[0] : "--help";
-    if((s=="--help") && argc==1){
+    if ((s=="--help") && argc==1) {
       JASSERT_STDERR << theUsage;
-      return DMTCP_FAIL_RC;
-    } else if ((s=="--version") && argc==1){
+      exit(DMTCP_FAIL_RC);
+    } else if ((s=="--version") && argc==1) {
       JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
-      return DMTCP_FAIL_RC;
-    }else if(s=="--ssh-slave"){
+      exit(DMTCP_FAIL_RC);
+    } else if (s=="--ssh-slave") {
       isSSHSlave = true;
       shift;
-    }else if(s == "--no-check"){
+    } else if (s == "--no-check") {
       autoStartCoordinator = false;
       shift;
-    }else if(s == "-j" || s == "--join"){
+    } else if (s == "-j" || s == "--join") {
       allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
       shift;
-    }else if(s == "--gzip"){
+    } else if (s == "--gzip") {
       setenv(ENV_VAR_COMPRESSION, "1", 1);
       shift;
-    }else if(s == "--no-gzip"){
+    } else if (s == "--no-gzip") {
       setenv(ENV_VAR_COMPRESSION, "0", 1);
       shift;
     }
 #ifdef HBICT_DELTACOMP
-    else if(s == "--hbict"){
+    else if (s == "--hbict") {
       setenv(ENV_VAR_DELTACOMPRESSION, "1", 1);
       shift;
-    }else if(s == "--no-hbict"){
+    } else if (s == "--no-hbict") {
       setenv(ENV_VAR_DELTACOMPRESSION, "0", 1);
       shift;
     }
 #endif
-    else if(s == "-n" || s == "--new"){
+    else if (s == "-n" || s == "--new") {
       allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
       shift;
-    }else if(s == "--new-coordinator"){
+    } else if (s == "--new-coordinator") {
       allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
       shift;
-    }else if(s == "-b" || s == "--batch"){
+    } else if (s == "-b" || s == "--batch") {
       allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
       shift;
-    }else if(s == "-i" || s == "--interval" ||
+    } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-              isdigit(s.c_str()[2]) ) ){
+              isdigit(s.c_str()[2]) ) ) {
       if (isdigit(s.c_str()[2])) { // if -i5, for example
         setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
         shift;
@@ -193,43 +194,69 @@ int main ( int argc, char** argv )
         setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
         shift; shift;
       }
-    }else if(argc>1 && (s == "-h" || s == "--host")){
+    } else if (argc>1 && (s == "-h" || s == "--host")) {
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && (s == "-p" || s == "--port")){
+    } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
+    } else if (argc>1 && (s == "--prefix")) {
+      setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
+      shift; shift;
+    } else if (argc>1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
+    } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && s == "--mtcp-checkpoint-signal"){
+    } else if (argc>1 && s == "--mtcp-checkpoint-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
-    }else if(s == "--checkpoint-open-files"){
+    } else if (s == "--checkpoint-open-files") {
       checkpointOpenFiles = true;
       shift;
-    }else if(s == "--with-module"){
+    } else if (s == "--with-module") {
       setenv(ENV_VAR_MODULE, argv[1], 1);
       shift; shift;
-    }else if(s == "-q" || s == "--quiet"){
+    } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    }else if( (s.length()>2 && s.substr(0,2)=="--") ||
+    } else if ( (s.length()>2 && s.substr(0,2)=="--") ||
               (s.length()>1 && s.substr(0,1)=="-" ) ) {
       JASSERT_STDERR << "Invalid Argument\n";
       JASSERT_STDERR << theUsage;
-      return DMTCP_FAIL_RC;
-    }else if(argc>1 && s=="--"){
+      exit(DMTCP_FAIL_RC);
+    } else if (argc>1 && s=="--") {
       shift;
       break;
-    }else{
+    } else {
       break;
     }
+  }
+  *orig_argv = argv;
+}
+
+int main ( int argc, char** argv )
+{
+  initializeJalib();
+
+  if (! getenv(ENV_VAR_QUIET))
+    setenv(ENV_VAR_QUIET, "0", 0);
+
+  processArgs(&argc, &argv);
+
+  // If --ssh-slave and --prefix both are present, verify that the prefix-dir
+  // of this binary (dmtcp_checkpoint) is same as the one provided with
+  // --prefix
+  if (isSSHSlave && getenv(ENV_VAR_PREFIX_PATH) != NULL) {
+    const char *str = getenv(ENV_VAR_PREFIX_PATH);
+    dmtcp::string prefixDir = jalib::Filesystem::ResolveSymlink(str);
+    dmtcp::string programPrefixDir =
+      jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+    JASSERT(prefixDir == programPrefixDir)
+      (prefixDir) (programPrefixDir);
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));

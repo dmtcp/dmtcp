@@ -155,6 +155,8 @@ void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
+  const char *prefixPathEnv = getenv(ENV_VAR_PREFIX_PATH);
+  dmtcp::string prefixDir;
   DmtcpMessage hello_local;
   hello_local.type = msgType;
   hello_local.params[0] = np;
@@ -166,9 +168,37 @@ void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
     hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
 
   hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
+
+  if (prefixPathEnv != NULL) {
+    /* If --prefix was defined then this process is either running on the local
+     * node (the home of first process in the comptation) or a remote node.
+     *
+     * If the process is running on the local node, the prefix-path-env may be
+     * different from the prefix-dir of this binary, in which case, we want to
+     * send the prefix-path of this binary to the coordinator and the
+     * coordinator will save it as the local-prefix.
+     *
+     * However, if this is running on a remote node, the prefix-path-env would
+     * be the same as the prefix-path of this binary and we should send the
+     * prefix-path-env to the coordinator and the coordinator will note this as
+     * the remote-prefix.
+     */
+    dmtcp::string utilDirPrefix =
+      jalib::Filesystem::DirName(getenv(ENV_VAR_UTILITY_DIR));
+    if (utilDirPrefix == jalib::Filesystem::ResolveSymlink(prefixPathEnv)) {
+      prefixDir = prefixPathEnv;
+    } else {
+      prefixDir = utilDirPrefix;
+    }
+    hello_local.extraBytes += prefixDir.length() + 1;
+  }
+
   _coordinatorSocket << hello_local;
   _coordinatorSocket.writeAll( hostname.c_str(),hostname.length()+1);
   _coordinatorSocket.writeAll( progname.c_str(),progname.length()+1);
+  if (!prefixDir.empty()) {
+    _coordinatorSocket.writeAll(prefixDir.c_str(), prefixDir.length()+1);
+  }
 }
 
 void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)

@@ -53,7 +53,8 @@ namespace dmtcp
       bool validateDmtRestartProcess ( DmtcpMessage& hello_remote,
                                        jalib::JSocket& remote );
       bool validateNewWorkerProcess ( DmtcpMessage& hello_remote,
-                                      jalib::JSocket& remote );
+                                      jalib::JSocket& remote,
+                                      jalib::JChunkReader *jcr);
       bool validateRestartingWorkerProcess ( DmtcpMessage& hello_remote,
                                              jalib::JSocket& remote );
 
