@@ -210,6 +210,11 @@ void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
   _coordinatorSocket >> hello_remote;
   hello_remote.assertValid();
 
+  if (hello_remote.type == DMT_KILL_PEER) {
+    JTRACE ( "Received KILL message from coordinator, exiting" );
+    _exit ( 0 );
+  }
+
   if ( param1 == NULL ) {
     JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
   } else {
