@@ -344,6 +344,8 @@ static dmtcp::DmtcpCoordinator prog;
 */
 static bool workersRunningAndSuspendMsgSent = false;
 
+static bool killInProgress = false;
+
 static int theCheckpointInterval = 0; /* Default is manual checkpoint only */
 static bool batchMode = false;
 static bool isRestarting = false;
@@ -903,11 +905,15 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
     JNOTE ( "client disconnected" ) ( client.identity() );
 
     CoordinatorStatus s = getStatus();
-    if( s.numPeers <= 1 ){
-      if(exitOnLast){
+    if (s.numPeers <= 1) {
+      if (exitOnLast) {
         JNOTE ("last client exited, shutting down..");
         handleUserCommand('q');
       }
+      // If a kill in is progress, the coordinator refuses any new connections,
+      // thus we need to reset it to false once all the processes in the
+      // computations have disconnected.
+      killInProgress = false;
     }
   }
 }
@@ -933,6 +939,16 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
                                           const struct sockaddr* remoteAddr,
                                           socklen_t remoteLen )
 {
+  jalib::JSocket remote ( sock );
+  if (killInProgress) {
+    JNOTE("Connection request received in the middle of killing computation. "
+          "Sending it the kill message.");
+    DmtcpMessage msg;
+    msg.type = DMT_KILL_PEER;
+    remote << msg;
+    remote.close();
+    return;
+  }
   // If no client is connected to Coordinator, then there can be only zero data
   // sockets OR there can be one data socket and that should be STDIN.
   if ( _dataSockets.size() == 0 ||
@@ -941,6 +957,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   {
       //this is the first connection, do some initializations
       workersRunningAndSuspendMsgSent = false;
+      killInProgress = false;
 
       setTimeoutInterval( theCheckpointInterval );
 
@@ -956,7 +973,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       JTIMER_START ( restart );
   }
 
-  jalib::JSocket remote ( sock );
   dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();
   JTRACE("Reading from incoming connection...");
@@ -1299,18 +1315,20 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
     msg.compGroup = compGroup;
   }
 
-  if (type == DMT_DO_FD_LEADER_ELECTION) {
-    // All the workers are in SUSPENDED state, now it is safe to reset
-    // this flag.
-    workersRunningAndSuspendMsgSent = false;
-  }
-
   broadcastMessage ( msg );
   JTRACE ("sending message")( type );
 }
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
 {
+  if (msg.type == DMT_KILL_PEER) {
+    killInProgress = true;
+  } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
+    // All the workers are in SUSPENDED state, now it is safe to reset
+    // this flag.
+    workersRunningAndSuspendMsgSent = false;
+  }
+
   for ( dmtcp::vector<jalib::JReaderInterface*>::iterator i
 	= _dataSockets.begin() ; i!= _dataSockets.end() ; i++ )
   {
