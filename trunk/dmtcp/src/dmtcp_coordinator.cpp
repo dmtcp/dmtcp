@@ -126,14 +126,20 @@ static const char* theRestartScriptHeader =
   "set -m # turn on job control\n\n"
   "#This script launches all the restarts in the background.\n"
   "#Suggestions for editing:\n"
-  "#  1. For those processes executing on the localhost, remove 'ssh <hostname>' from the start of the line. \n"
-  "#  2. If using ssh, verify that ssh does not require passwords or other prompts.\n"
-  "#  3. Verify that the dmtcp_restart command is in your path on all hosts.\n"
-  "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the dmtcp_coordinator.\n"
-  "#     If necessary, add 'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
+  "#  1. For those processes executing on the localhost, remove\n"
+  "#     'ssh <hostname> from the start of the line. \n"
+  "#  2. If using ssh, verify that ssh does not require passwords or other\n"
+  "#     prompts.\n"
+  "#  3. Verify that the dmtcp_restart command is in your path on all hosts,\n"
+  "#     otherwise set the remote_prefix appropriately.\n"
+  "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the\n"
+  "#     dmtcp_coordinator. If necessary, add\n"
+  "#     'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
   "#  5. Remove the '&' from a line if that process reads STDIN.\n"
-  "#     If multiple processes read STDIN then prefix the line with 'xterm -hold -e' and put '&' at the end of the line.\n"
-  "#  6. Processes on same host can be restarted with single dmtcp_restart command.\n\n\n"
+  "#     If multiple processes read STDIN then prefix the line with\n"
+  "#     'xterm -hold -e' and put '&' at the end of the line.\n"
+  "#  6. Processes on same host can be restarted with single dmtcp_restart\n"
+  "#     command.\n\n\n"
 ;
 
 static const char* theRestartScriptUsage =
@@ -213,7 +219,7 @@ static const char* theRestartScriptSingleHostProcessing =
   "ckpt_files=\"\"\n"
   "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
   "  for tmp in $given_ckpt_files; do\n"
-  "    ckpt_files=\"$DMTCP_RESTART_DIR/`basename $tmp` $ckpt_files\"\n"
+  "    ckpt_files=\"$DMTCP_RESTART_DIR/$(basename $tmp) $ckpt_files\"\n"
   "  done\n"
   "else\n"
   "  ckpt_files=$given_ckpt_files\n"
@@ -224,27 +230,30 @@ static const char* theRestartScriptSingleHostProcessing =
   "  coordinator_info=\"--host $coord_host --port $coord_port\"\n"
   "fi\n\n"
 
-  "exec $DMTCP_RESTART $coordinator_info\\\n"
+  "exec $dmt_rstr_cmd $coordinator_info\\\n"
   "  $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
   "  $ckpt_files\n"
 ;
 
 static const char* theRestartScriptMultiHostProcessing =
-  "worker_ckpts_regexp=\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
-  "worker_hosts=\\\n"
-  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\'`\n"
-  "restart_modes=\\\n"
-  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\'`\n"
-  "ckpt_files_groups=\\\n"
-  "`echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\'`\n"
+  "worker_ckpts_regexp=\\\n"
+  "\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
+
+  "worker_hosts=$(\\\n"
+  "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\')\n"
+  "restart_modes=$(\\\n"
+  "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\')\n"
+  "ckpt_files_groups=$(\\\n"
+  "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\')\n"
   "\n"
   "if [ ! -z \"$hostfile\" ]; then\n"
-  "  worker_hosts=`cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\'`\n"
+  "  worker_hosts=$(\\\n"
+  "    cat \"$hostfile\" | sed -e \'s/#.*//\' -e \'s/[ \\t\\r]*//\' -e \'/^$/ d\')\n"
   "fi\n\n"
 
   "localhost_ckpt_files_group=\n\n"
 
-  "num_worker_hosts=`echo $worker_hosts | wc -w`\n\n"
+  "num_worker_hosts=$(echo $worker_hosts | wc -w)\n\n"
 
   "maybejoin=\n"
   "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
@@ -253,11 +262,12 @@ static const char* theRestartScriptMultiHostProcessing =
 
   "for worker_host in $worker_hosts\n"
   "do\n\n"
-  "  ckpt_files_group=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-  "  ckpt_files_groups=`echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\'`\n"
+  "  ckpt_files_group=$(\\\n"
+  "    echo $ckpt_files_groups | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\')\n"
+  "  ckpt_files_groups=$(echo $ckpt_files_groups | sed -e \'s/[^:]*:[^:]*//\')\n"
   "\n"
-  "  mode=`echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\'`\n"
-  "  restart_modes=`echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\'`\n\n"
+  "  mode=$(echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\')\n"
+  "  restart_modes=$(echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\')\n\n"
   "  maybexterm=\n"
   "  maybebg=\n"
   "  case $mode in\n"
@@ -274,30 +284,32 @@ static const char* theRestartScriptMultiHostProcessing =
   "  for tmp in $ckpt_files_group\n"
   "  do\n"
   "      if  [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-  "        tmp=$DMTCP_RESTART_DIR/`basename $tmp`\n"
+  "        tmp=$DMTCP_RESTART_DIR/$(basename $tmp)\n"
   "      fi\n"
   "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
   "  done\n\n"
 
-  "  if [ `hostname` == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "  if [ $(hostname) == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
   "    continue\n"
   "  fi\n\n"
 
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-  "      "DMTCP_RESTART_CMD" --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-  "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\n"
+  "      $remote_dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
+  "      $maybebatch --join --interval \"$checkpoint_interval\"\\\n"
+  "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
-  "      \"/bin/sh -c \'"DMTCP_RESTART_CMD" --host $coord_host --port $coord_port $maybebatch\\\n"
-  "        --join --interval \"$checkpoint_interval\" $new_ckpt_files_group\'\" &\n"
+  "      \"/bin/sh -c \'$remote_dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
+  "      $maybebatch --join --interval \"$checkpoint_interval\"\\\n"
+  "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
-  "exec dmtcp_restart --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+  "exec $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
   "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
   "fi\n\n"
 
@@ -345,6 +357,9 @@ static int numPeers = -1;
 static int curTimeStamp = -1;
 
 static dmtcp::LookupService lookupService;
+static dmtcp::string localHostName;
+static dmtcp::string localPrefix;
+static dmtcp::string remotePrefix;
 
 namespace
 {
@@ -381,15 +396,18 @@ namespace
       dmtcp::string progname(void) const { return _progname; }
       void hostname(dmtcp::string hname){ _hostname = hname; }
       dmtcp::string hostname(void) const { return _hostname; }
+      void prefixDir(dmtcp::string dirname){ _prefixDir = dirname; }
+      dmtcp::string prefixDir(void) const { return _prefixDir; }
 
       void readProcessInfo(dmtcp::DmtcpMessage& msg) {
-        if( msg.extraBytes > 0 ){
+        if (msg.extraBytes > 0) {
           char* extraData = new char[msg.extraBytes];
           _sock.readAll(extraData, msg.extraBytes);
-          dmtcp::string hostname = extraData;
-          dmtcp::string progname = extraData + hostname.length() + 1;
-          _progname = progname;
-          _hostname = hostname;
+          _hostname = extraData;
+          _progname = extraData + _hostname.length() + 1;
+          if (msg.extraBytes > _hostname.length() + _progname.length() + 2) {
+            _prefixDir = extraData + _hostname.length() + _progname.length() + 2;
+          }
           delete [] extraData;
         }
       }
@@ -403,6 +421,7 @@ namespace
       int _restorePort;
       dmtcp::string _hostname;
       dmtcp::string _progname;
+      dmtcp::string _prefixDir;
   };
 }
 
@@ -944,6 +963,18 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   remote >> hello_remote;
   hello_remote.assertValid();
 
+  NamedChunkReader * ds = new NamedChunkReader (
+      sock
+      ,hello_remote.from.pid()
+      ,hello_remote.state
+      ,remoteAddr
+      ,remoteLen
+      ,hello_remote.restorePort );
+
+  if( hello_remote.extraBytes > 0 ){
+    ds->readProcessInfo(hello_remote);
+  }
+
   if ( hello_remote.type == DMT_USER_CMD ) {
     processDmtUserCmd ( hello_remote, remote );
     return;
@@ -957,7 +988,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       return;
   } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
               hello_remote.state == WorkerState::RUNNING) {
-    if ( validateNewWorkerProcess ( hello_remote, remote ) == false )
+    if ( validateNewWorkerProcess ( hello_remote, remote, ds ) == false )
       return;
   } else {
     JASSERT ( false )
@@ -972,18 +1003,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     setTimeoutInterval ( theCheckpointInterval );
     JNOTE ( "CheckpointInterval Updated" ) ( oldInterval )
 	  ( theCheckpointInterval );
-  }
-
-  NamedChunkReader * ds = new NamedChunkReader (
-      sock
-      ,hello_remote.from.pid()
-      ,hello_remote.state
-      ,remoteAddr
-      ,remoteLen
-      ,hello_remote.restorePort );
-
-  if( hello_remote.extraBytes > 0 ){
-    ds->readProcessInfo(hello_remote);
   }
 
   //add this client as a chunk reader
@@ -1145,8 +1164,9 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 }
 
 bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
-	 (DmtcpMessage& hello_remote, jalib::JSocket& remote)
+  (DmtcpMessage& hello_remote, jalib::JSocket& remote, jalib::JChunkReader *jcr)
 {
+  NamedChunkReader *ds = (NamedChunkReader*) jcr;
   dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
   CoordinatorStatus s = getStatus();
 
@@ -1197,12 +1217,36 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     if (UniquePid::ComputationId() == UniquePid(0,0,0)) {
       // Connection of new computation.
       UniquePid::ComputationId() = hello_remote.from.pid();
+      localPrefix.clear();
+      localHostName.clear();
+      remotePrefix.clear();
+      if (!ds->prefixDir().empty()) {
+        localPrefix = ds->prefixDir();
+        localHostName = ds->hostname();
+      }
       curTimeStamp = 0;
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group")
         (UniquePid::ComputationId());
     } else {
-      JTRACE("New process Connected") (hello_remote.from.pid());
+      JTRACE("New process Connected") (hello_remote.from.pid()) (ds->prefixDir());
+      if (ds->hostname() == localHostName) {
+        JASSERT(ds->prefixDir() == localPrefix) (ds->prefixDir()) (localPrefix);
+      }
+      if (!ds->prefixDir().empty() && ds->hostname() != localHostName) {
+        if (remotePrefix.empty()) {
+          JASSERT (UniquePid::ComputationId() != UniquePid(0,0,0));
+          remotePrefix = ds->prefixDir();
+        } else if (remotePrefix != ds->prefixDir()) {
+          JNOTE("This node has different prefixDir than the rest of the "
+                "remote nodes. Rejecting connection!")
+            (remotePrefix) (localPrefix) (ds->prefixDir());
+          hello_local.type = dmtcp::DMT_REJECT;
+          remote << hello_local;
+          remote.close();
+          return false;
+        }
+      }
     }
     hello_local.compGroup = UniquePid::ComputationId();
     remote << hello_local;
@@ -1363,26 +1407,32 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   else
     fprintf ( fp, "maybebatch=\n\n" );
 
+  fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
+
+  fprintf ( fp, "dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
+                "which " DMTCP_RESTART_CMD " > /dev/null \\\n"
+                " || dmt_rstr_cmd=%s/" DMTCP_RESTART_CMD "\n\n",
+                jalib::Filesystem::GetProgramDir().c_str());
+
+  fprintf ( fp, "local_prefix=%s\n", localPrefix.c_str() );
+  fprintf ( fp, "remote_prefix=%s\n", remotePrefix.c_str() );
+  fprintf ( fp, "remote_dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
+                "if ! test -z \"$remote_dmt_rstr_cmd\"; then\n"
+                "  remote_dmt_rstr_cmd=\"$remote_prefix/bin/" DMTCP_RESTART_CMD "\"\n"
+                "fi\n\n" );
+
   fprintf ( fp, "# Number of hosts in the computation = %zd\n"
                 "# Number of processes in the computation = %d\n\n",
                 _restartFilenames.size(), getStatus().numPeers );
 
-  fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
-
-  fprintf ( fp, "DMTCP_RESTART=dmtcp_restart\n" );
-  fprintf ( fp, "which dmtcp_restart > /dev/null \\\n" \
-                " || DMTCP_RESTART=%s/dmtcp_restart\n\n",
-                jalib::Filesystem::GetProgramDir().c_str());
-
   if ( isSingleHost ) {
-    JTRACE ( "Single HOST");
+    JTRACE ( "Single HOST" );
 
     host=_restartFilenames.begin();
     dmtcp::ostringstream o;
     for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
       o << " " << *file;
     }
-
     fprintf ( fp, "given_ckpt_files=\"%s\"\n\n", o.str().c_str());
 
     fprintf ( fp, "%s", theRestartScriptSingleHostProcessing );

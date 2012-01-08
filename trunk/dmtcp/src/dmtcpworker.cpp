@@ -343,7 +343,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
       programName == "dmtcp_checkpoint"  || programName == "dmtcp_restart" ||
       programName == "mtcp_restart" ) {
     processDmtcpCommands(programName, args);
-  } else if ( programName == "ssh" ) {
+  } else if (programName == "ssh") {
     processSshCommand(programName, args);
   }
   calculateArgvAndEnvSize(_argvSize, _envSize);
@@ -500,6 +500,7 @@ static void processSshCommand(dmtcp::string programName,
   dmtcp::string& cmd = args[commandStart];
 
 
+  const char * prefixPath           = getenv ( ENV_VAR_PREFIX_PATH );
   const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
   if (coordinatorAddr == NULL) {
     JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
@@ -522,10 +523,12 @@ static void processSshCommand(dmtcp::string programName,
 
   //modify the command
 
-  //dmtcp::string prefix = "env ";
+  dmtcp::string prefix = "";
 
-  dmtcp::string prefix = DMTCP_CHECKPOINT_CMD " --ssh-slave ";
-
+  if (prefixPath != NULL) {
+    prefix += dmtcp::string() + prefixPath + "/bin/";
+  }
+  prefix += DMTCP_CHECKPOINT_CMD " --ssh-slave ";
 
   if ( coordinatorAddr != NULL )
     prefix += dmtcp::string() + "--host " + coordinatorAddr    + " ";
@@ -533,6 +536,8 @@ static void processSshCommand(dmtcp::string programName,
     prefix += dmtcp::string() + "--port " + coordinatorPortStr + " ";
   if ( sigckpt != NULL )
     prefix += dmtcp::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
+  if ( prefixPath != NULL )
+    prefix += dmtcp::string() + "--prefix " + prefixPath       + " ";
   if ( ckptDir != NULL )
     prefix += dmtcp::string() + "--ckptdir " + ckptDir         + " ";
   if ( tmpDir != NULL )
