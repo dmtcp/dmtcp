@@ -84,13 +84,13 @@ else
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
-DMTCPAWARELIB=../dmtcpaware/libdmtcpaware.a
+DMTCPAWARELIB=../lib/libdmtcpaware.a
 
 ${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
-	-$(CC) -o $@ -I../dmtcpaware $< $(CFLAGS) $(DMTCPAWARELIB)
+	-$(CC) -o $@ -I../include $< $(CFLAGS) $(DMTCPAWARELIB)
 	# One can also do dynamic linking to libdmtcpaware.so as follows:
 	# (cd ../dmtcp/src && ln -s libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
-	# -$(CC) -o $@ $< $(CFLAGS) -L../dmtcp/src/ -ldmtcpaware
+	# -$(CC) -o $@ $< $(CFLAGS) -L../lib -ldmtcpaware
 
 dmtcp3: dmtcp3.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread

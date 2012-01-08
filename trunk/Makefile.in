@@ -63,7 +63,6 @@ build: mtcp dmtcp module
 	$(MAKE) bin
 	$(MAKE) lib
 	$(MAKE) include
-	$(MAKE) dmtcpaware
 
 all: default tests
 
@@ -179,13 +178,14 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
+	rm -rf include lib bin
 
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp && $(MAKE) distclean
 	- cd module && $(MAKE) clean
 	rm -f Makefile test/Makefile test/testconfig.py \
-	  dmtcpaware/*dmtcpaware* config.log config.status config.cache bin/*
+	  config.log config.status config.cache
 	rm -rf autom4te.cache dmtcp/autom4te.cache
 
 distsvn:
@@ -223,6 +223,14 @@ bin: 	bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
 lib/% : mtcp/%
 	cd lib && $(LN_S) ../$< $*
 
+lib/libdmtcpaware.so : dmtcp/src/libdmtcpaware.so.1.0.0
+	cd lib && $(LN_S) ../$< $*
+	cd lib && $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
+	cd lib && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
+
+lib/% : dmtcp/src/%
+	cd lib && $(LN_S) ../$< $*
+
 lib/dmtcp/% : dmtcp/src/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
@@ -230,7 +238,7 @@ lib/dmtcp/% : module/ptrace/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
 lib: 	lib/dmtcp/dmtcphijack.so lib/dmtcp/ptracehijack.so \
-	lib/dmtcp/libdmtcpaware.a lib/dmtcp/libdmtcpaware.so.1.0.0 \
+	lib/libdmtcpaware.a lib/libdmtcpaware.so \
 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
 
 include/% : mtcp/%
@@ -267,20 +275,15 @@ install: all
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
 
 uninstall:
+	cd dmtcp && make uninstall
+	cd module && make uninstall
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) uninstall
-	rm -f "$(DESTDIR)$(bindir)/dmtcp_coordinator"
-	rm -f "$(DESTDIR)$(bindir)/dmtcp_checkpoint"
-	rm -f "$(DESTDIR)$(bindir)/dmtcp_nocheckpoint"
-	rm -f "$(DESTDIR)$(bindir)/dmtcp_restart"
-	rm -f "$(DESTDIR)$(bindir)/dmtcp_command"
-	rm -f "$(DESTDIR)$(includedir)/dmtcpaware.h"
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
-	rm -f "$(DESTDIR)$(libdir)/libdmtcpaware.a"
 	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 	echo "${docdir}" | grep -q /dmtcp || false
 	rm -Rf "$(DESTDIR)$(docdir)"
-	cd $(DESTDIR)$(mandir) && \
+	cd $(DESTDIR)$(mandir)/man1 && \
 	  rm -f dmtcp.1 ${MANPAGES}
 
 .PHONY: default all check-m32-compat tests \
