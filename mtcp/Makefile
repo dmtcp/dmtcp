@@ -289,12 +289,18 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.
 	# (Warning caused by ALLOC section outside of normal .data section.)
+	#In SUSE LINUX 10.0 (i586) OSS, we need to back up the libmtcp.so,
+	# since objcopy fails, and also corrupts libmtcp.so.
+	cp ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ./libtmp.so
 	${OBJCOPY} --set-section-flags=.the.begin=LOAD,ALLOC,CONTENTS,DATA \
 	  ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) 2>/dev/null || \
-	  echo MTCP: Warning: "'${OBJCOPY}'" failed.
+	  echo MTCP: Warning: "'${OBJCOPY}'" failed. && \
+	  cp ./libtmp.so ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO)
 	${OBJCOPY} --set-section-flags=.the.end=LOAD,ALLOC,CONTENTS,DATA \
 	  ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) 2>/dev/null || \
-	  echo MTCP: Warning: "'${OBJCOPY}'" failed.
+	  echo MTCP: Warning: "'${OBJCOPY}'" failed. && \
+	  cp ./libtmp.so ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO)
+	rm -f ./libtmp.so
 	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
