@@ -77,6 +77,10 @@ static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int uninitializedThreadCount = 0;
 static bool _checkpointThreadInitialized = false;
 
+#define INVALID_USER_THREAD_COUNT 0
+static int preResumeThreadCount = INVALID_USER_THREAD_COUNT;
+static pthread_mutex_t preResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
+
 static __thread int _wrapperExecutionLockLockCount = 0;
 static __thread int _threadCreationLockLockCount = 0;
 static __thread bool _threadPerformingDlopenDlsym = false;
@@ -134,6 +138,8 @@ void dmtcp::ThreadSync::resetLocks()
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   uninitializedThreadCountLock = newCountLock;
+  pthread_mutex_t newPreResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
+  preResumeThreadCountLock = newPreResumeThreadCountLock;
 
   pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
   destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
@@ -171,7 +177,7 @@ void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
 {
   if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
     _sendCkptSignalOnFinalUnlock = false;
-    JASSERT(tgkill(getpid(), gettid(), DmtcpWorker::determineMtcpSignal()) == 0)
+    JASSERT(raise(DmtcpWorker::determineMtcpSignal()) == 0)
       (getpid()) (gettid()) (JASSERT_ERRNO);
   }
 }
@@ -214,22 +220,25 @@ void dmtcp::ThreadSync::setCheckpointThreadInitialized()
   _checkpointThreadInitialized = true;
 }
 
-void dmtcp::ThreadSync::destroyDmtcpWorkerLockLock() {
+void dmtcp::ThreadSync::destroyDmtcpWorkerLockLock()
+{
   JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorkerLock) == 0)
     (JASSERT_ERRNO);
 }
 
-int dmtcp::ThreadSync::destroyDmtcpWorkerLockTryLock() {
+int dmtcp::ThreadSync::destroyDmtcpWorkerLockTryLock()
+{
   return _real_pthread_mutex_trylock(&destroyDmtcpWorkerLock);
 }
 
-void dmtcp::ThreadSync::destroyDmtcpWorkerLockUnlock() {
+void dmtcp::ThreadSync::destroyDmtcpWorkerLockUnlock()
+{
   JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorkerLock) == 0)
     (JASSERT_ERRNO);
 }
 
-
-void dmtcp::ThreadSync::delayCheckpointsLock(){
+void dmtcp::ThreadSync::delayCheckpointsLock()
+{
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
@@ -381,12 +390,15 @@ void dmtcp::ThreadSync::threadCreationLockUnlock()
 //   In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
 static __thread bool dmtcp_module_ckpt_lock;
 extern "C"
-void dmtcp_module_disable_ckpt() {
+void dmtcp_module_disable_ckpt()
+{
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp_module_ckpt_lock = __wrapperExecutionLockAcquired;
 }
+
 extern "C"
-void dmtcp_module_enable_ckpt() {
+void dmtcp_module_enable_ckpt()
+{
   bool __wrapperExecutionLockAcquired = dmtcp_module_ckpt_lock;
   WRAPPER_EXECUTION_ENABLE_CKPT();
 }
@@ -428,4 +440,47 @@ void dmtcp::ThreadSync::decrementUninitializedThreadCount()
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
+}
+
+void dmtcp::ThreadSync::incrNumUserThreads()
+{
+  // This routine is called from within stopthisthread so it is not safe to
+  // call JNOTE/JTRACE etc.
+  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
+  }
+  preResumeThreadCount++;
+  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
+  }
+}
+
+void dmtcp::ThreadSync::processPreResumeCB()
+{
+  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
+  }
+  JASSERT(preResumeThreadCount > 0) (gettid()) (preResumeThreadCount);
+  preResumeThreadCount--;
+  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
+  }
+}
+
+void dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB()
+{
+  if (preResumeThreadCount != INVALID_USER_THREAD_COUNT) {
+    while (preResumeThreadCount != 0) {
+      struct timespec sleepTime = {0, 10*1000*1000};
+      nanosleep(&sleepTime, NULL);
+    }
+  }
+  // Now we wait for the lock to make sure that the user threads have released
+  // it.
+  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
+  }
+  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
+    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
+  }
 }

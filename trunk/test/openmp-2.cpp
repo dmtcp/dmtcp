@@ -90,7 +90,9 @@ void ScoreMetaCallback()
 		   private(m) \
 		   schedule(static)
 			for (m = 0; m < size3; m++) {
+                          if (m%1000 == 0) {
 				cout << "m: " << m << endl;
+                          }
 				ScoreCallback(m);
 			}
 

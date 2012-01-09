@@ -97,6 +97,10 @@ namespace dmtcp
     bool isThreadPerformingDlopenDlsym();
     void setThreadPerformingDlopenDlsym();
     void unsetThreadPerformingDlopenDlsym();
+
+    void incrNumUserThreads();
+    void processPreResumeCB();
+    void waitForUserThreadsToFinishPreResumeCB();
   };
 }
 

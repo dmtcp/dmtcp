@@ -3384,12 +3384,12 @@ static void stopthisthread (int signum)
       }
 
     }
-  }
-  DPRINTF("tid %d returning to %p\n",
-          mtcp_sys_kernel_gettid (), __builtin_return_address (0));
+    DPRINTF("tid %d returning to %p\n",
+            mtcp_sys_kernel_gettid (), __builtin_return_address (0));
 
-  if (callback_pre_resume_user_thread != NULL) {
-    callback_pre_resume_user_thread(is_ckpt, is_restart);
+    if (callback_pre_resume_user_thread != NULL) {
+      callback_pre_resume_user_thread(is_ckpt, is_restart);
+    }
   }
 }
 
