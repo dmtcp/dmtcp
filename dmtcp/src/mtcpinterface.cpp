@@ -220,6 +220,7 @@ void dmtcp::initializeMtcpEngine()
 
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
+  dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   dmtcp_process_event(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
@@ -334,11 +335,10 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
 }
 
-static void callbackRestoreVirtualPidTable ( )
+static void callbackRestoreVirtualPidTable()
 {
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
   dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
-
 
 #ifndef RECORD_REPLAY
   /* This calls setenv() which calls malloc. Since this is only executed on
@@ -373,15 +373,15 @@ void callbackHoldsAnyLocks(int *retval)
 
   dmtcp::ThreadSync::unsetOkToGrabLock();
   *retval = dmtcp::ThreadSync::isThisThreadHoldingAnyLocks();
-  if (mtcp_is_ptracing()) {
+  if (*retval == TRUE) {
+    JASSERT(mtcp_is_ptracing());
     dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock();
-  } else {
-    JASSERT(*retval == FALSE);
   }
 }
 
 void callbackPreSuspendUserThread()
 {
+  dmtcp::ThreadSync::incrNumUserThreads();
   dmtcp_process_event(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
 }
 
@@ -392,6 +392,8 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   info.is_restart = is_restart;
   dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
   dmtcp::ThreadSync::setOkToGrabLock();
+  // This should be the last thing before returning from this function.
+  dmtcp::ThreadSync::processPreResumeCB();
 }
 
 void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
