@@ -295,9 +295,9 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${OBJCOPY} --set-section-flags=.the.end=LOAD,ALLOC,CONTENTS,DATA \
 	  ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) 2>/dev/null || \
 	  echo MTCP: Warning: "'${OBJCOPY}'" failed.
-	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [TD] ' | \
+	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
-	  grep -v clone | grep -v '_fini\|init' | grep ' [TD] ' 1>&2 && \
+	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 
