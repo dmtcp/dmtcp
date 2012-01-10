@@ -363,100 +363,65 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
  */
 
 extern "C" pid_t wait (__WAIT_STATUS stat_loc)
-//extern "C" pid_t wait(int *stat_loc)
 {
-  pid_t retVal = _real_wait (stat_loc);
-
-  if (retVal > 0) {
-    pid_t pid = currentToOriginalPid (retVal);
-
-    if ( pid > 0 )
-      dmtcp::VirtualPidTable::instance().erase(pid);
-
-    return pid;
-  }
-  return retVal;
-}
-
-LIB_PRIVATE
-pid_t safe_real_waitpid(pid_t pid, int *stat_loc, int options) {
-  // Note that if the action for SIGCHLD is set to SIG_IGN, then waitpid fails
-  //  with errno set to ECHLD (as if the child process was not really our child)
-  //  We currently do not specially handle this case.
-  while (1) {
-    /* The checkpoint signal uses SA_RESTART which causes the system call to
-     * restart if it were interrupted by this signal. However, on restart, the
-     * currPid will not be correct anymore and hence the restarted waitpid()
-     * will fail with ECHILD.
-     * TODO: Note that the currPid after restart might be equal to the
-     *       current-pid of some other child process resulting in waitpid
-     *       waiting un-necessarily for getting status of that other child
-     *       process. This could be fixed in the sa_restorer function of
-     *       sigaction in mtcp/mtcp_sigaction.c.
-     */
-    pid_t currPid = originalToCurrentPid(pid);
-    pid_t retval = _real_waitpid(currPid, stat_loc, options);
-
-    WRAPPER_EXECUTION_DISABLE_CKPT();
-
-    /* Verify there was no checkpoint/restart between currpid and _real_waitpid.
-     * Note:  A checkpoint/restart after _real_waitpid does not need a verify.
-     * TODO: There is a possible bug -- if by conincidence the currentPid
-     *       becomes equal to curPid, this will cause the if condition to go
-     *       false, which is wrong.
-     */
-    if ( retval == -1 && errno == ECHILD &&
-         currPid != originalToCurrentPid(pid) ) {
-      struct sigaction oldact;
-      if ( sigaction(SIGCHLD, NULL, &oldact) == 0 &&
-           oldact.sa_handler != SIG_IGN ) {
-        WRAPPER_EXECUTION_ENABLE_CKPT();
-        continue;
-      }
-    }
-    WRAPPER_EXECUTION_ENABLE_CKPT();
-    return retval;
-  }
+  return waitpid(-1, (int*)stat_loc, 0);
 }
 
 extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
-  int status;
-  pid_t originalPid;
-  pid_t retval;
-
-  if ( stat_loc == NULL )
-    stat_loc = &status;
-
-  retval = safe_real_waitpid(pid, stat_loc, options);
-
-  if (retval > 0) {
-    originalPid = currentToOriginalPid(retval);
-    if ( WIFEXITED(*stat_loc)  || WIFSIGNALED(*stat_loc) )
-      dmtcp::VirtualPidTable::instance().erase(originalPid);
-    return originalPid;
-  } else {
-    return retval;
-  }
+  return wait4(pid, stat_loc, options, NULL);
 }
 
-extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
+extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
-  siginfo_t status;
+  int retval = 0;
+  struct timespec sleepTime = {0, 1000};
+  siginfo_t siginfop;
+  memset(&siginfop, 0, sizeof(siginfop));
 
-  if ( infop == NULL )
-    infop = &status;
+  /* waitid returns 0 in case of success as well as when WNOHANG is specified
+   * and we need to distinguish those two cases.man page for waitid says:
+   *   If WNOHANG was specified in options and there were no children in a
+   *   waitable  state, then waitid() returns 0 immediately and the state of
+   *   the siginfo_t structure pointed to by infop is unspecified.  To
+   *   distinguish this case from that where a child was in a  waitable state,
+   *   zero out the si_pid field before the call and check for a nonzero value
+   *   in this field after the call returns.
+   *
+   * See comments above wait4()
+   */
+  while (retval == 0) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    pid_t currPid = originalToCurrentPid (id);
+    retval = _real_waitid (idtype, currPid, &siginfop, options | WNOHANG);
 
-  pid_t currPd = originalToCurrentPid (id);
+    if (retval != -1) {
+      pid_t originalPid = currentToOriginalPid ( siginfop.si_pid );
+      siginfop.si_pid = originalPid;
 
-  int retval = _real_waitid (idtype, currPd, infop, options);
+      if ( siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED )
+        dmtcp::VirtualPidTable::instance().erase ( originalPid );
+    }
+    WRAPPER_EXECUTION_ENABLE_CKPT();
 
-  if (retval != -1) {
-    pid_t originalPid = currentToOriginalPid ( infop->si_pid );
-    infop->si_pid = originalPid;
+    if ((options & WNOHANG) ||
+        retval == -1 ||
+        siginfop.si_pid != 0) {
+      break;
+    } else {
+      if (sleepTime.tv_sec == 0) {
+        sleepTime.tv_nsec *= 2;
+        if (sleepTime.tv_nsec >= 1000 * 1000 * 1000) {
+          sleepTime.tv_sec++;
+          sleepTime.tv_nsec = 0;
+        }
+      }
+      nanosleep(&sleepTime, NULL);
+    }
+  }
 
-    if ( infop->si_code == CLD_EXITED || infop->si_code == CLD_KILLED )
-      dmtcp::VirtualPidTable::instance().erase ( originalPid );
+  if (retval == 0 && infop != NULL) {
+    *infop = siginfop;
   }
 
   return retval;
@@ -464,33 +429,81 @@ extern "C" int   waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 
 extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
-  pid_t retval = _real_wait3 (status, options, rusage);
-
-  pid_t originalPid = currentToOriginalPid ( retval );
-
-  if ( originalPid > 0 )
-    dmtcp::VirtualPidTable::instance().erase(originalPid);
-
-  return originalPid;
+  return wait4(-1, status, options, rusage);
 }
 
-extern "C" pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+/*
+ * wait() family and checkpoint/restart.
+ *
+ * wait() returns the _current_ pid of the child process. The
+ * pid-virtualization layer then converts it to original pid and return it to
+ * the caller.
+ *
+ * To guarantee the correctness of the current to original conversion, we need
+ * to make sure that there is no ckpt/restart in between (A) returning from
+ * wait(), and (B) performing conversion. If a ckpt happens in between, then on
+ * restart, the current pid won't be valid anymore and the conversion would be
+ * a false one.
+ *
+ * One way to avoid ckpt/restart in between state A and B is to disable ckpt
+ * before A and enable it only after performing B. The problem in doing this is
+ * the fact that wait is a blocking system call, unless WNOHANG is specified.
+ * Thus we force the WNOHANG flag even though the caller didn't want to.
+ *
+ * When WNOHANG is specified, a return value of '0' indicates that there is no
+ * child process to be waited for, in which case we sleep for a small amount of
+ * time and retry.
+ *
+ * The last bit of logic is the amount of time to sleep for. Too little, and we
+ * end up wasting CPU time; too large, and some application (for eg: strace)
+ * might not like. We try to avoid this problem by starting with a tiny sleep
+ * interval and on every failed wait(), we double the interval until we reach a
+ * max. Once it reaches a max time, we don't double it, we just use it as is.
+ *
+ * The initial sleep interval is set to 10 micro seconds and the max is set to
+ * 1 second. We hope that it would cover all the cases.
+ *
+ */
+extern "C"
+pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
+  int saved_errno = errno;
+  pid_t currPid;
+  pid_t originalPid;
+  pid_t retval = 0;
+  struct timespec sleepTime = {0, 10*000};
 
-  if ( status == NULL )
+  if (status == NULL)
     status = (__WAIT_STATUS) &stat;
 
-  pid_t currPid = originalToCurrentPid (pid);
+  while (retval == 0) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    currPid = originalToCurrentPid(pid);
+    retval = _real_wait4(currPid, status, options | WNOHANG, rusage);
+    saved_errno = errno;
+    originalPid = currentToOriginalPid(retval);
 
-  pid_t retval = _real_wait4 ( currPid, status, options, rusage );
+    if (retval > 0 &&
+        (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
+      dmtcp::VirtualPidTable::instance().erase(originalPid);
+    }
+    WRAPPER_EXECUTION_ENABLE_CKPT();
 
-  pid_t originalPid = currentToOriginalPid ( retval );
-
-  if ( retval > 0
-       && ( WIFEXITED ( * (int*) status )  || WIFSIGNALED ( * (int*) status ) ) )
-    dmtcp::VirtualPidTable::instance().erase ( originalPid );
-
+    if ((options & WNOHANG) || retval != 0) {
+      break;
+    } else {
+      if (sleepTime.tv_sec == 0) {
+        sleepTime.tv_nsec *= 2;
+        if (sleepTime.tv_nsec >= 1000 * 1000 * 1000) {
+          sleepTime.tv_sec++;
+          sleepTime.tv_nsec = 0;
+        }
+      }
+      nanosleep(&sleepTime, NULL);
+    }
+  }
+  errno = saved_errno;
   return originalPid;
 }
 
