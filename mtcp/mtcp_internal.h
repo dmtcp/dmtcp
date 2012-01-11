@@ -57,13 +57,13 @@
 # define FUTEX_WAKE 1
 #endif
 
-extern pid_t saved_pid;
-extern int STOPSIGNAL;     // signal to use to signal other threads to stop for
+extern pid_t mtcp_saved_pid;
+//extern int STOPSIGNAL;     // signal to use to signal other threads to stop for
 
 #define MTCP_PRINTF(args...) \
   do { \
     mtcp_printf("[%d] %s:%d %s:\n  ", \
-                saved_pid, __FILE__, __LINE__, __FUNCTION__); \
+                mtcp_saved_pid, __FILE__, __LINE__, __FUNCTION__); \
     mtcp_printf(args); \
   } while (0)
 

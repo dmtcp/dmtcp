@@ -59,7 +59,7 @@ struct kernel_sigaction {
 #define SA_RESTORER 0x04000000
 
 
-extern int (*sigaction_entry) (int sig, const struct sigaction *act,
+extern int (*mtcp_sigaction_entry) (int sig, const struct sigaction *act,
                                 struct sigaction *oact);
 /* If ACT is not NULL, change the action for SIG to *ACT.
    If OACT is not NULL, put the old action for SIG in *OACT.  */
@@ -73,7 +73,7 @@ mtcp_sigaction (int sig, const struct sigaction *act,
   /* if sig != SIGCANCEL and sig != SIGSETXID, use glibc version */
   if (sig != 32 && sig != 33) {
     if (dmtcp_exists) /* then _real_sigaction defined by DMTCP; avoid wrapper */
-      return sigaction_entry(sig, act, oact);
+      return mtcp_sigaction_entry(sig, act, oact);
     else /* this will go directly to glibc */
       return sigaction(sig, act, oact);
   }

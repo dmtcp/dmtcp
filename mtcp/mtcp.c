@@ -293,7 +293,7 @@ static int TLS_PID_OFFSET(void) {
 /* this call to gettid is hijacked by DMTCP for PID/TID-Virtualization */
 #define GETTID() (int)syscall(SYS_gettid)
 
-sem_t sem_start;
+static sem_t sem_start;
 
 typedef struct Thread Thread;
 
@@ -391,7 +391,7 @@ char* mtcp_restore_argv_start_addr = NULL;
 
 	/* Static data */
 
-int STOPSIGNAL;     // signal to use to signal other threads to stop for
+static int STOPSIGNAL;     // signal to use to signal other threads to stop for
                            //   checkpointing
 static sigset_t sigpending_global;  // pending signals for the process
 static char const *nscd_mmap_str1 = "/var/run/nscd/";   // OpenSUSE
@@ -425,7 +425,7 @@ static Thread *ckpthread = NULL;
 static Thread *threads = NULL;
 static Thread *threads_freelist = NULL;
 /* NOTE:  NSIG == SIGRTMAX+1 == 65 on Linux; NSIG is const, SIGRTMAX isn't */
-struct sigaction sigactions[NSIG];  /* signal handlers */
+static struct sigaction sigactions[NSIG];  /* signal handlers */
 static size_t restore_size;
 static VA restore_begin, restore_end;
 static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
@@ -441,12 +441,12 @@ static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_ckpt_header)(int fd) = NULL;
 static void (*callback_restore_virtual_pid_table)() = NULL;
 
-void (*callback_holds_any_locks)(int *retval) = NULL;
-void (*callback_pre_suspend_user_thread)() = NULL;
-void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
-void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
-                                  int *retval) = NULL;
-void (*callback_ckpt_thread_start)() = NULL;
+static void (*callback_holds_any_locks)(int *retval) = NULL;
+static void (*callback_pre_suspend_user_thread)() = NULL;
+static void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
+static void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
+                                         int *retval) = NULL;
+static void (*callback_ckpt_thread_start)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -456,11 +456,11 @@ static int (*clone_entry) (int (*fn) (void *arg),
                            struct user_desc *newtls,
                            int *child_tidptr) = NULL;
 
-int (*sigaction_entry) (int sig, const struct sigaction *act,
-                        struct sigaction *oact);
+int (*mtcp_sigaction_entry) (int sig, const struct sigaction *act,
+                             struct sigaction *oact);
 
-void *(*malloc_entry) (size_t size) = NULL;
-void (*free_entry) (void *ptr) = NULL;
+static void *(*malloc_entry) (size_t size) = NULL;
+static void (*free_entry) (void *ptr) = NULL;
 
 /* temp stack used internally by restore so we don't go outside the
  *   libmtcp.so address range for anything;
@@ -586,7 +586,7 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
   dmtcp_info_jassertlog_fd = jassertlog_fd;
   dmtcp_info_restore_working_directory = restore_working_directory;
   clone_entry = clone_fnptr;
-  sigaction_entry = sigaction_fnptr;
+  mtcp_sigaction_entry = sigaction_fnptr;
   malloc_entry = malloc_fnptr;
   free_entry = free_fnptr;
 }
@@ -619,7 +619,7 @@ void mtcp_init (char const *checkpointfilename,
   int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
 
-  saved_pid = mtcp_sys_getpid ();
+  mtcp_saved_pid = mtcp_sys_getpid ();
 
   //mtcp_segreg_t TLSSEGREG;
 
@@ -750,7 +750,7 @@ void mtcp_init (char const *checkpointfilename,
   }
 
   /* Setup clone_entry to point to glibc's __clone routine
-   * NOTE: This also sets up sigaction_entry to point to glibc's sigaction
+   * NOTE: This also sets up mtcp_sigaction_entry to point to glibc's sigaction
    * therefore, it must be called before setup_sig_handler();
    */
   if (clone_entry == NULL) setup_clone_entry ();
@@ -1304,7 +1304,7 @@ static void setup_clone_entry (void)
   /* Find the clone routine therein */
 
   clone_entry = mtcp_get_libc_symbol ("__clone");
-  sigaction_entry = mtcp_get_libc_symbol ("sigaction");
+  mtcp_sigaction_entry = mtcp_get_libc_symbol ("sigaction");
 }
 
 

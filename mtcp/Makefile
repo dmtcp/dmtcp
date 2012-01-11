@@ -397,6 +397,6 @@ distclean: clean
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
-	      testmtcp.mtcp libmtcp.so mtcp.t mtcp.t-fail mtcp_restart.so \
-	      mtcp_restart extractobjectmodule \
+	      testmtcp.mtcp libmtcp.so* mtcp.t mtcp.t-fail mtcp_restart.so \
+	      mtcp_restart extractobjectmodule readmtcp \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp
