@@ -347,7 +347,9 @@ else
     AC_MSG_RESULT([yes])
     AC_MSG_CHECKING([whether mpirun invokes orted for OpenMPI])
     rm -f ./uses_openmpi_orted
-    /bin/sh -c "$OPENMPI_MPIRUN -np 4 ./test_openmpi 2>/dev/null 1>&2 & \
+    # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
+    /bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi 2>/dev/null 1>&2 & \
+      sleep 1 && \
       ps auxw | grep $USER | grep -v grep | grep -q orted && \
       touch ./uses_openmpi_orted" 2>/dev/null
     dnl Extra [...] needed to protect inner [...] from m4
