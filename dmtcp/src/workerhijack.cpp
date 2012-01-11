@@ -56,9 +56,9 @@ void dmtcp::DmtcpWorker::resetOnFork(jalib::JSocket& coordSock)
   instance()._coordinatorId = coordinatorId;
   instance().informCoordinatorOfNewProcessOnFork(coordSock);
 
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  //WRAPPER_EXECUTION_GET_EXCL_LOCK();
   initializeMtcpEngine();
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+  //WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 
   /* Now wait for Checkpoint Thread to finish initialization
    * NOTE: This should be the last thing in this function
