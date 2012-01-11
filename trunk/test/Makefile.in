@@ -27,7 +27,7 @@ endif
 
 PWD=$(shell pwd)
 
-TESTS=${basename ${shell ls *.c *.cpp | grep -v '^hellompi.c'}} \
+TESTS=${basename ${shell ls *.c *.cpp *.cilk | grep -v '^hellompi.c'}} \
 	${addsuffix .class,${basename ${shell ls java*.java}}} \
 	hellompich openmpi
 
@@ -123,7 +123,7 @@ cilk%: cilk%.cilk
 ifeq ($(HAS_CILK),yes)
 	${CILKC} -o $@ $<
 else
-	#$@: required '${CILKC}' missing, skipping test
+	#$@: required 'cilkc' missing, skipping test
 endif
 
 %: %.c
