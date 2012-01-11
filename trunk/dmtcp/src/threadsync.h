@@ -31,7 +31,7 @@
 #define WRAPPER_EXECUTION_DISABLE_CKPT()                \
   /*JTRACE("Acquiring wrapperExecutionLock");*/         \
   bool __wrapperExecutionLockAcquired =                 \
-    dmtcp::ThreadSync::wrapperExecutionLockLock();     \
+    dmtcp::ThreadSync::wrapperExecutionLockLock();      \
   if ( __wrapperExecutionLockAcquired ) {               \
     /*JTRACE("Acquired wrapperExecutionLock"); */       \
   }
@@ -39,7 +39,7 @@
 #define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
   if ( __wrapperExecutionLockAcquired ) {               \
     /*JTRACE("Releasing wrapperExecutionLock"); */      \
-    dmtcp::ThreadSync::wrapperExecutionLockUnlock();   \
+    dmtcp::ThreadSync::wrapperExecutionLockUnlock();    \
   }
 
 #define DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT()          \
@@ -47,10 +47,13 @@
 
 #define WRAPPER_EXECUTION_GET_EXCL_LOCK()               \
   bool __wrapperExecutionLockAcquired                   \
-    = dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
+    = dmtcp::ThreadSync::wrapperExecutionLockLockExcl();\
+  JASSERT(__wrapperExecutionLockAcquired);              \
+  dmtcp::ThreadSync::unsetOkToGrabLock();
 
 #define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK()           \
-  WRAPPER_EXECUTION_ENABLE_CKPT()
+  WRAPPER_EXECUTION_ENABLE_CKPT();                      \
+  dmtcp::ThreadSync::setOkToGrabLock();
 
 namespace dmtcp
 {

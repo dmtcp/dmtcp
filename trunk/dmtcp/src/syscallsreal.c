@@ -383,8 +383,18 @@ int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
 }
 
 LIB_PRIVATE
+int _real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_tryrdlock ) ( rwlock );
+}
+
+LIB_PRIVATE
 int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_wrlock ) ( rwlock );
+}
+
+LIB_PRIVATE
+int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_rwlock_trywrlock ) ( rwlock );
 }
 
 LIB_PRIVATE

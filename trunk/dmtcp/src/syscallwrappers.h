@@ -206,7 +206,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_mutex_unlock)               \
   MACRO(pthread_rwlock_unlock)              \
   MACRO(pthread_rwlock_rdlock)              \
+  MACRO(pthread_rwlock_tryrdlock)           \
   MACRO(pthread_rwlock_wrlock)              \
+  MACRO(pthread_rwlock_trywrlock)           \
   MACRO(pthread_cond_broadcast)             \
   MACRO(pthread_cond_destroy)               \
   MACRO(pthread_cond_init)                  \
@@ -377,7 +379,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
   int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
+  int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock);
   int _real_pthread_cond_broadcast(pthread_cond_t *cond);
   int _real_pthread_cond_destroy(pthread_cond_t *cond);
   int _real_pthread_cond_init(pthread_cond_t *cond,
