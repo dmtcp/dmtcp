@@ -21,7 +21,7 @@ Description: Checkpoint/Restart functionality for Linux processes
  Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
  and many programming languages and shell scripting languages.  DMTCP also
  supports GNU screen sessions, including vim/cscope and emacs. With the use of
- TightVNC, it can also checkpoint and restart X-Windows applications, as long
+ TightVNC, it can also checkpoint and restart X-Window applications, as long
  as they do not use extensions (e.g.: no OpenGL, no video).
  .
  This package contains DMTCP binaries.
@@ -40,7 +40,7 @@ Description: Debug package for dmtcp
  Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
  and many programming languages and shell scripting languages.  DMTCP also
  supports GNU screen sessions, including vim/cscope and emacs. With the use of
- TightVNC, it can also checkpoint and restart X-Windows applications, as long
+ TightVNC, it can also checkpoint and restart X-Window applications, as long
  as they do not use extensions (e.g.: no OpenGL, no video).
  .
  This package contains debugging symbols for DMTCP.
@@ -58,7 +58,7 @@ Description: DMTCP programming interface
  Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
  and many programming languages and shell scripting languages.  DMTCP also
  supports GNU screen sessions, including vim/cscope and emacs. With the use of
- TightVNC, it can also checkpoint and restart X-Windows applications, as long
+ TightVNC, it can also checkpoint and restart X-Window applications, as long
  as they do not use extensions (e.g.: no OpenGL, no video).
  .
  This package provides a programming interface to allow checkpointed
@@ -77,7 +77,7 @@ Description: DMTCP programming interface -- developer package
  Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
  and many programming languages and shell scripting languages.  DMTCP also
  supports GNU screen sessions, including vim/cscope and emacs. With the use of
- TightVNC, it can also checkpoint and restart X-Windows applications, as long
+ TightVNC, it can also checkpoint and restart X-Window applications, as long
  as they do not use extensions (e.g.: no OpenGL, no video).
  .
  This package provides libraries for developing applications that need to
