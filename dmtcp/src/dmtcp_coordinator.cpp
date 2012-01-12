@@ -940,15 +940,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
                                           socklen_t remoteLen )
 {
   jalib::JSocket remote ( sock );
-  if (killInProgress) {
-    JNOTE("Connection request received in the middle of killing computation. "
-          "Sending it the kill message.");
-    DmtcpMessage msg;
-    msg.type = DMT_KILL_PEER;
-    remote << msg;
-    remote.close();
-    return;
-  }
   // If no client is connected to Coordinator, then there can be only zero data
   // sockets OR there can be one data socket and that should be STDIN.
   if ( _dataSockets.size() == 0 ||
@@ -977,7 +968,25 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   hello_remote.poison();
   JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
-  hello_remote.assertValid();
+  if (!remote.isValid()) {
+    remote.close();
+    return;
+  }
+
+  if (hello_remote.type == DMT_USER_CMD) {
+    processDmtUserCmd(hello_remote, remote);
+    return;
+  }
+
+  if (killInProgress) {
+    JNOTE("Connection request received in the middle of killing computation. "
+          "Sending it the kill message.");
+    DmtcpMessage msg;
+    msg.type = DMT_KILL_PEER;
+    remote << msg;
+    remote.close();
+    return;
+  }
 
   NamedChunkReader * ds = new NamedChunkReader (
       sock
@@ -991,10 +1000,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     ds->readProcessInfo(hello_remote);
   }
 
-  if ( hello_remote.type == DMT_USER_CMD ) {
-    processDmtUserCmd ( hello_remote, remote );
-    return;
-  } else if ( hello_remote.type == DMT_RESTART_PROCESS ) {
+  if ( hello_remote.type == DMT_RESTART_PROCESS ) {
     if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
       return;
     isRestarting = true;
