@@ -195,6 +195,7 @@ namespace dmtcp
     static void setDefaultCoordinator ( const UniquePid& id );
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
     void assertValid() const;
+    bool isValid() const;
     void poison();
   };
 

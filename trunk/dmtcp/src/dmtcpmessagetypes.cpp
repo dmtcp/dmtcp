@@ -68,6 +68,21 @@ void dmtcp::DmtcpMessage::assertValid() const
 	  .Text ( "read invalid message, size mismatch." );
 }
 
+bool dmtcp::DmtcpMessage::isValid() const
+{
+  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0) {
+    JNOTE("read invalid message, _magicBits mismatch."
+          " Closing remote connn") (_magicBits);
+    return false;
+  }
+  if (_msgSize == sizeof(DmtcpMessage)) {
+    JNOTE("read invalid message, size mismatch. Closing remote connection.")
+      (_msgSize) (sizeof(DmtcpMessage));
+    return false;
+  }
+  return true;
+}
+
 void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }
 
 
