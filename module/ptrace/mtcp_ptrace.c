@@ -68,10 +68,6 @@ __thread struct ptrace_waitpid_info __ptrace_waitpid;
 __thread pid_t setoptions_superior = -1;
 __thread int is_ptrace_setoptions = FALSE;
 
-sem_t __does_inferior_exist_sem;
-int __init_does_inferior_exist_sem = 0;
-int __check_once_does_inferior_exist = 0;
-
 char new_ptrace_shared_file[PATH_MAX];
 char ptrace_shared_file[PATH_MAX];
 char ptrace_setoptions_file[PATH_MAX];
@@ -202,13 +198,6 @@ void mtcp_init_ptrace()
   strcat(checkpoint_threads_file, "/ptrace_ckpthreads");
   strcat(new_ptrace_shared_file, "/new_ptrace_shared");
   strcat(ckpt_leader_file, "/ckpt_leader_file");
-
-  /* Initialize the following semaphore needed by superior to wait for inferior
-   * to be created on restart. */
-  if (!__init_does_inferior_exist_sem) {
-    sem_init(&__does_inferior_exist_sem, 0, 1);
-    __init_does_inferior_exist_sem = 1;
-  }
 }
 
 void mtcp_ptrace_process_ckpt_thread_creation()
@@ -464,7 +453,8 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
         return;
       }
     }
-    create_file(tid);
+    if (inferior_st != 'u') /* We're the superior. */
+      superior_can_detach_from_inferior(tid);
   }
 }
 
@@ -493,12 +483,15 @@ void mtcp_ptrace_process_post_suspend_ckpt_thread()
 
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread()
 {
-  create_file (GETTID());
-}
+  struct ptrace_info pt_info;
+  int index = 0;
 
-void mtcp_ptrace_process_post_ckpt_resume_ckpt_thread()
-{
-  create_file (GETTID());
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
+    if (GETTID() == pt_info.inferior) {
+      ckpt_thread_is_ready(GETTID());
+      return;
+    }
+  }
 }
 
 void mtcp_ptrace_process_post_ckpt_resume_user_thread()
@@ -601,10 +594,18 @@ void ptrace_attach_threads(int isRestart)
   unsigned long int eflags;
   int i;
   struct ptrace_info pt_info;
+  int index = 0;
 
   DPRINTF("%d started.\n", GETTID());
 
-  int index = 0;
+  /* Make sure the inferior threads exist & are inside ptrace_attach_threads. */
+  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
+    if (pt_info.superior == GETTID() && !pt_info.inferior_is_ckpthread)
+      is_inferior_in_ptrace_attach_threads(pt_info.inferior);
+  }
+
+  index = 0;
+
   while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
     superior = pt_info.superior;
     inferior = pt_info.inferior;
@@ -614,18 +615,8 @@ void ptrace_attach_threads(int isRestart)
     inferior_is_ckpthread = pt_info.inferior_is_ckpthread;
 
     if (superior == GETTID()) {
-      /* We must make sure the inferior process was created and is inside
-       * ptrace_attach_threads. */
-      sem_wait(&__does_inferior_exist_sem);
-      if (__check_once_does_inferior_exist == 0) {
-        have_file (superior); /* Inferior is inside ptrace_attach_threads. */
-        __check_once_does_inferior_exist = 1;
-      }
-      sem_post(&__does_inferior_exist_sem);
-
-      /* If the inferior is the checkpoint thread, attach. */
       if (inferior_is_ckpthread) {
-        have_file (inferior);
+        is_ckpt_thread_ready(inferior);
         if (mtcp_ptrace(PTRACE_ATTACH, inferior, 0, 0) == -1) {
           perror("ptrace_attach_threads: PTRACE_ATTACH for ckpthread failed.");
           mtcp_abort();
@@ -655,7 +646,7 @@ void ptrace_attach_threads(int isRestart)
         perror("ptrace_attach_threads: PTRACE_ATTACH failed");
         mtcp_abort();
       }
-      create_file (inferior);
+      superior_has_attached(inferior);
 
       /* After attach, the superior needs to singlestep the inferior out of
        * stopthisthread, aka the signal handler. */
@@ -845,10 +836,8 @@ void ptrace_attach_threads(int isRestart)
       } //while(1)
     }
     else if (inferior == GETTID()) {
-      /* Inferior is in ptrace_attach_threads. */
-      create_file (superior);
-      /* Wait for the superior to attach. */
-      have_file (inferior);
+      inferior_is_in_ptrace_attach_threads(inferior);
+      wait_for_superior_to_attach(inferior);
     }
   }
   DPRINTF("%d done.\n", GETTID());
@@ -939,7 +928,7 @@ void ptrace_detach_user_threads ()
         mtcp_ptrace_info_list_update_info(TRUE);
       }
 
-      have_file (pt_info.inferior);
+      wait_until_superior_can_detach_from_inferior(pt_info.inferior);
       if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
                       (void*) (unsigned long) dmtcp_get_ckpt_signal()) == -1) {
         MTCP_PRINTF("parent = %d child = %d PTRACE_DETACH failed, error = %d\n",
@@ -955,7 +944,9 @@ static void form_file(char *file, char *root, pid_t pid)
   char tmp[20];
   sprintf(tmp, "%d", pid);
   strcpy(file, ptrace_get_tmpdir());
+  strcat(file, "/");
   strcat(file, root);
+  strcat(file, ".");
   strcat(file, tmp);
 }
 
@@ -963,7 +954,7 @@ void ptrace_lock_inferiors()
 {
     if (!mtcp_is_ptracing()) return;
     char file[RECORDPATHLEN];
-    form_file(file, "/dmtcp_ptrace_unlocked.", GETTID());
+    form_file(file, "dmtcp_ptrace_unlocked", GETTID());
     unlink(file);
 }
 
@@ -972,7 +963,7 @@ void ptrace_unlock_inferiors()
     if (!mtcp_is_ptracing()) return;
 
     char file[RECORDPATHLEN];
-    form_file(file, "/dmtcp_ptrace_unlocked.", GETTID());
+    form_file(file, "dmtcp_ptrace_unlocked", GETTID());
     int fd = creat(file, 0644);
     if (fd < 0) {
         MTCP_PRINTF("Error creating lock file: %s\n", strerror(errno));
@@ -981,10 +972,10 @@ void ptrace_unlock_inferiors()
     close(fd);
 }
 
-void create_file(pid_t pid)
+void create_file(char *action, pid_t pid)
 {
   char file[RECORDPATHLEN];
-  form_file(file, "/", pid);
+  form_file(file, action, pid);
   int fd = open(file, O_CREAT|O_APPEND|O_WRONLY, 0644);
   if (fd == -1) {
     MTCP_PRINTF("Error opening file %s\n: %s\n", file, strerror(errno));
@@ -1012,10 +1003,10 @@ void wait_for_file(char *file)
   }
 }
 
-void have_file(pid_t pid)
+void have_file(char *action, pid_t pid)
 {
   char file[RECORDPATHLEN];
-  form_file(file, "/", pid);
+  form_file(file, action, pid);
   wait_for_file(file);
   if (unlink(file) == -1) {
     MTCP_PRINTF("unlink failed: %s\n", strerror(errno));
@@ -1023,10 +1014,57 @@ void have_file(pid_t pid)
   }
 }
 
+/* Next two functions make sure that the inferior thread is stopped before
+ * detaching. Otherwise, we can't detach. */
+void superior_can_detach_from_inferior(pid_t inferior)
+{
+  create_file("detach", inferior);
+}
+
+void wait_until_superior_can_detach_from_inferior(pid_t inferior)
+{
+  have_file("detach", inferior);
+}
+
+/* Next two functions make sure that the inferior waits inside
+ * DMTCP for the superior to re-attach. */
+void superior_has_attached(pid_t inferior)
+{
+  create_file("has_attached", inferior);
+}
+
+void wait_for_superior_to_attach(pid_t inferior)
+{
+  have_file("has_attached", inferior);
+}
+
+/* Next two functions make sure that the inferior threads exist and are in
+ * ptrace_attach_threads. */
+void is_inferior_in_ptrace_attach_threads(pid_t inferior)
+{
+  have_file("ready_to_attach", inferior);
+}
+
+void inferior_is_in_ptrace_attach_threads(pid_t inferior)
+{
+  create_file("ready_to_attach", inferior);
+}
+
+/* Next two functions make sure that the ckpt thread is ready to be attached. */
+void is_ckpt_thread_ready(pid_t inferior)
+{
+  have_file("ckpt_th_is_ready", inferior);
+}
+
+void ckpt_thread_is_ready(pid_t inferior)
+{
+  create_file("ckpt_th_is_ready", inferior);
+}
+
 void ptrace_wait4(pid_t pid)
 {
   char file[RECORDPATHLEN];
-  form_file(file, "/dmtcp_ptrace_unlocked.", pid);
+  form_file(file, "dmtcp_ptrace_unlocked", pid);
   wait_for_file(file);
 }
 
@@ -1233,8 +1271,6 @@ int ptrace_detach_ckpthread (pid_t inferior, pid_t superior)
                 superior, inferior, strerror(errno));
     return -EAGAIN;
   }
-  /* No need for semaphore here - the UT execute this code. */
-  __check_once_does_inferior_exist = 0;
 
   return 0;
 }

@@ -96,13 +96,6 @@ enum {
 #define EFLAGS_OFFSET (64)
 #define RECORDPATHLEN (PATH_MAX + 128)
 
-/* On restart, superior must wait for inferior to be created before attaching.
- * On resume, inferior already exists. Thus this check is not important on
- * resume.  */
-extern sem_t __does_inferior_exist_sem;
-extern int __init_does_inferior_exist_sem;
-extern int __check_once_does_inferior_exist;
-
 extern char dmtcp_tmp_dir[PATH_MAX];
 
 /* Superior, inferior tids and the state of inferior are stored in this file.
@@ -149,7 +142,6 @@ void mtcp_ptrace_process_holds_any_locks(int *retval);
 void mtcp_ptrace_process_pre_suspend_user_thread();
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval);
 void mtcp_ptrace_process_post_suspend_ckpt_thread();
-void mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread();
 void mtcp_ptrace_process_post_ckpt_resume_user_thread();
 void mtcp_ptrace_process_post_restart_resume_user_thread();
@@ -162,9 +154,25 @@ void mtcp_ptrace_process_resume_user_thread(int is_ckpt, int is_restart);
 
 extern int empty_ptrace_info(struct ptrace_info pt_info);
 
-extern void create_file(pid_t pid);
+extern void create_file(char *action, pid_t pid);
 
-extern void have_file(pid_t pid);
+extern void have_file(char *action, pid_t pid);
+
+extern void wait_until_superior_can_detach_from_inferior(pid_t inferior);
+
+extern void superior_can_detach_from_inferior(pid_t inferior);
+
+extern void wait_for_superior_to_attach(pid_t inferior);
+
+extern void superior_has_attached(pid_t inferior);
+
+extern void inferior_is_in_ptrace_attach_threads(pid_t inferior);
+
+extern void is_inferior_in_ptrace_attach_threads(pid_t inferior);
+
+extern void ckpt_thread_is_ready(pid_t inferior);
+
+extern void is_ckpt_thread_ready(pid_t inferior);
 
 extern pid_t is_ckpt_in_ptrace_shared_file (pid_t ckpt);
 

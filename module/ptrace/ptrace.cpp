@@ -64,19 +64,18 @@ void mtcp_process_stop_signal_event(void *data)
 
   mtcp_ptrace_send_stop_signal(info->tid, info->retry_signalling, info->retval);
 }
+
 void ptraceProcessWaitForSuspendMsg()
 {
   if (originalStartup) {
     originalStartup = 0;
+    if (mtcp_is_ptracing()) jalib_ckpt_unlock_ready = 0;
   } else {
-    mtcp_ptrace_process_post_restart_resume_ckpt_thread();
+    if (mtcp_is_ptracing()) {
+      mtcp_ptrace_process_post_restart_resume_ckpt_thread();
+      jalib_ckpt_unlock_ready = 0;
+    }
   }
-
-  if (mtcp_is_ptracing()) {
-    /* No need for a mutex. We're before the barrier. */
-    jalib_ckpt_unlock_ready = 0;
-  }
-  mtcp_ptrace_process_post_ckpt_resume_ckpt_thread();
 }
 
 void ptraceProcessGotSuspendMsg(void *data)
