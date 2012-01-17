@@ -268,10 +268,10 @@ be found in standard Linux library search order prior to ordinary
 library functions in libc.so and elsewhere.
 
 For example, the sleep2 module example uses two modules.  After building
-the modules, it might be called as follows: 
+the modules, it might be called as follows: \newline
 {\tt
-  dmtcp\_checkpoint --with-module \\ \newline
-\hbox{\ \ }
+\hbox{\ \ }  dmtcp\_checkpoint --with-module $\backslash$ \newline
+\hbox{\ \ \ \ }
  PATH/sleep1/dmtcp\_sleep1hijack.so:PATH/sleep2/dmtcp\_sleep2hijack.so a.out}
  \newline
 where {\tt PATH} is {\tt DMTCP\_ROOT/test/module}
