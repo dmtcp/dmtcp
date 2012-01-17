@@ -1441,7 +1441,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf ( fp, "local_prefix=%s\n", localPrefix.c_str() );
   fprintf ( fp, "remote_prefix=%s\n", remotePrefix.c_str() );
   fprintf ( fp, "remote_dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
-                "if ! test -z \"$remote_dmt_rstr_cmd\"; then\n"
+                "if ! test -z \"$remote_prefix\"; then\n"
                 "  remote_dmt_rstr_cmd=\"$remote_prefix/bin/" DMTCP_RESTART_CMD "\"\n"
                 "fi\n\n" );
 
