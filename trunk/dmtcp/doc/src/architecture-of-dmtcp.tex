@@ -105,7 +105,7 @@ So, at startup, we see:
 \hbox{\ \ \ \ \ \ \ \ } The signal handler is registered by
 	 {\tt mtcp\_sigaction(STOPSIGNAL, \&act, \&old\_act)} in mtcp/mtcp.c
 \STATE {\ \ \ \ \ \ } Create the checkpoint thread
-\STATE {\ \ \ \ \ \ } Call
+\hbox{\ \ \ \ \ \ \ \ } Call
 	{\tt pthread\_create (\&checkpointhreadid, NULL, checkpointhread, NULL)}
 	in mtcp/mtcp.c
 \STATE {\ \ \ \ \ \ } Wait until the checkpoint thread has initialized.
@@ -116,11 +116,9 @@ So, at startup, we see:
 \STATE {\ \ \ \ \ \ } Tell user thread we're done
 \STATE {\ \ \ \ \ \ } Call select() on socket to coordinator
 \newline
-\STATE {\ \ } checkpoint thread:
+\STATE {\ \ } primary user thread:
 \STATE {\ \ \ \ } new DmtcpWorker(true):  [continued from above invocation]
 \STATE {\ \ \ \ \ \ } Checkpoint thread is now initialized.  Return.
-\newline
-\STATE {\ \ } user thread:
 \STATE {\ \ \ \ } main()  [User code now executes.]
 \end{algorithmic}
 
@@ -158,7 +156,7 @@ PRINCIPLE:  At any given moment either the user threads are active and
 \STATE   [Recall that dmtcpWorker created a signal handler, STOPSIGNAL (default: SIGUSR2)
 \STATE   Each user thread in the signal handler for STOPSIGNAL will block on
 	the per-thread futex.
-\STATE   The checkpoint thread does the cehckpoint.
+\STATE   The checkpoint thread does the checkpoint.
 \newline
 \STATE   Release each thread from its per-thread futex.
     See {\tt mtcp\_state\_set (\&(thread -> state), ST\_RUNENABLED, ST\_SUSPENDED)}
