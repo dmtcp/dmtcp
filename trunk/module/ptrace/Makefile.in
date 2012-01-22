@@ -49,7 +49,7 @@ PROGRAMS = $(pkglib_PROGRAMS)
 am_ptracehijack_so_OBJECTS = mtcp_ptrace.$(OBJEXT) ptrace.$(OBJEXT) \
 	ptracewrappers.$(OBJEXT) ptrace_syscallsreal.$(OBJEXT)
 ptracehijack_so_OBJECTS = $(am_ptracehijack_so_OBJECTS)
-ptracehijack_so_DEPENDENCIES =
+ptracehijack_so_DEPENDENCIES = $(DMTCP_SRC_PATH)/dmtcphijack.so
 ptracehijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(ptracehijack_so_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -181,7 +181,7 @@ ptracehijack_so_SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp \
 			 ptrace_syscallsreal.c
 
 ptracehijack_so_LDFLAGS = -shared -module
-ptracehijack_so_LDADD = -ldl -lpthread
+ptracehijack_so_LDADD = $(DMTCP_SRC_PATH)/dmtcphijack.so -ldl -lpthread
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
