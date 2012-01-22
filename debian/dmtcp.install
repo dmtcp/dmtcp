@@ -1,14 +1,13 @@
-usr/lib/dmtcp/dmtcp_checkpoint
-usr/lib/dmtcp/dmtcp_command
-usr/lib/dmtcp/dmtcp_coordinator
 usr/lib/dmtcp/dmtcphijack.so
-usr/lib/dmtcp/dmtcp_inspector
-usr/lib/dmtcp/dmtcp_nocheckpoint
-usr/lib/dmtcp/dmtcp_restart
-usr/lib/dmtcp/libmtcp.so
+usr/lib/dmtcp/ptracehijack.so
 usr/bin/dmtcp_coordinator
 usr/bin/dmtcp_checkpoint
 usr/bin/dmtcp_nocheckpoint
 usr/bin/dmtcp_restart
 usr/bin/dmtcp_command
-usr/bin/mtcp_restart
+usr/share/man/man1/dmtcp.1
+usr/share/man/man1/dmtcp_coordinator.1.gz usr/share/man/man1/dmtcp_coordinator.1
+usr/share/man/man1/dmtcp_checkpoint.1.gz usr/share/man/man1/dmtcp_checkpoint.1
+usr/share/man/man1/dmtcp_nocheckpoint.1.gz usr/share/man/man1/dmtcp_nocheckpoint.1
+usr/share/man/man1/dmtcp_restart.1.gz usr/share/man/man1/dmtcp_restart.1
+usr/share/man/man1/dmtcp_command.1.gz usr/share/man/man1/dmtcp_command.1
