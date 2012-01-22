@@ -22,7 +22,7 @@ ptracehijack_so_SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp \
 
 ptracehijack_so_LDFLAGS = -shared -module
 
-ptracehijack_so_LDADD    = -ldl -lpthread
+ptracehijack_so_LDADD   = $(DMTCP_SRC_PATH)/dmtcphijack.so -ldl -lpthread
 
 PICFLAGS=-fPIC
 AM_CFLAGS = $(PICFLAGS)

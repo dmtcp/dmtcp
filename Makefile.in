@@ -107,7 +107,7 @@ mtcp: check-m32-compat
 dmtcp: check-m32-compat
 	cd dmtcp && $(MAKE)
 
-module: check-m32-compat
+module: dmtcp check-m32-compat
 	cd module && $(MAKE)
 
 tests: build
