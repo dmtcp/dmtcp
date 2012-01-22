@@ -183,7 +183,8 @@ clean: tidy
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp && $(MAKE) distclean
-	- cd module && $(MAKE) clean
+	- cd module && $(MAKE) distclean
+	- cd test && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/testconfig.py \
 	  config.log config.status config.cache
 	rm -rf autom4te.cache dmtcp/autom4te.cache

@@ -41,10 +41,13 @@ tidy:
 	rm -rf ckpt_*
 	cd module && $(MAKE) tidy > /dev/null
 
-clean distclean: tidy
+clean: tidy
 	rm -f $(TESTS) *.pyc *.so
 	${MAKE} -C credentials clean
 	cd module  && $(MAKE) clean
+
+distclean: clean
+	cd module  && $(MAKE) distclean
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
