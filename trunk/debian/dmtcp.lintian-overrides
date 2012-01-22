@@ -1,2 +1,0 @@
-# mtcp_restart plays tricks with its memory layout 
-dmtcp binary: statically-linked-binary *usr/bin/mtcp_restart
