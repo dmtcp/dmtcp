@@ -134,6 +134,7 @@ void dmtcp::ThreadSync::releaseLocks()
     (JASSERT_ERRNO);
 
   _dmtcp_unlock();
+  setOkToGrabLock();
 }
 
 void dmtcp::ThreadSync::resetLocks()
