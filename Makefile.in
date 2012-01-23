@@ -262,8 +262,8 @@ install: all
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
-	cd dmtcp && make install
-	cd module && make install
+	cd dmtcp && make DESTDIR=$(DESTDIR) install
+	cd module && make DESTDIR=$(DESTDIR) install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) install
 	#chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
