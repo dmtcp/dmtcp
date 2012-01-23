@@ -1,6 +1,6 @@
 Name:		dmtcp
 Version:	1.2.3
-Release:	2.svn1321%{?dist}
+Release:	1.svn1449%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
@@ -10,7 +10,7 @@ URL:		http://dmtcp.sourceforge.net
 #  svn export -r 1321 https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp-1.2.3
 #  fakeroot tar cf dmtcp-1.2.3+svn1321.tar dmtcp-1.2.3
 #  gzip -9 dmtcp-1.2.3+svn1321.tar
-Source0:	%{name}-%{version}+svn1321.tar.gz
+Source0:	%{name}-%{version}+svn1449.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires:	gcc-c++
 BuildRequires:	gcc
@@ -34,10 +34,30 @@ they do not use extensions (e.g.: no OpenGL, no video).
 
 This package contains DMTCP binaries.
 
-%package -n libdmtcpaware
-Summary:	DMTCP programming interface
+%package -n libmtcp
+Summary:	MTCP -- Single process checkpointer library
 Group:		Development/Libraries
-Requires:	%{name}%{?_isa}
+
+%description -n libmtcp
+MTCP is the single process checkpoint package that is used by DMTCP to
+checkpoint processes.
+
+This package provides the libmtcp libraty that is required to checkpoint a
+single process.
+
+%package -n libmtcp-devel
+Summary:	MTCP developer package
+Group:		Development/Libraries
+Requires:       libmtcp = %{version}
+
+%description -n libmtcp-devel
+This package provides files for developing applications that need to
+interact with MTCP as opposed to DMTCP.
+
+%package -n libdmtcpaware
+Summary:  DMTCP programming interface
+Group:    Development/Libraries
+Requires: %{name}%{?_isa}
 
 %description -n libdmtcpaware
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -55,9 +75,9 @@ This package provides a programming interface to allow checkpointed
 applications to interact with dmtcp.
 
 %package -n libdmtcpaware-devel
-Summary:	DMTCP programming interface -- developer package
-Group:		Development/Libraries
-Requires:	libdmtcpaware%{?_isa} = %{version}
+Summary:  DMTCP programming interface -- developer package
+Group:    Development/Libraries
+Requires: libdmtcpaware%{?_isa} = %{version}
 
 %description -n libdmtcpaware-devel
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -117,6 +137,12 @@ make install DESTDIR=%{buildroot}
 %clean
 rm -rf %{buildroot}
 
+%post -n libmtcp
+/sbin/ldconfig
+
+%postun -n libmtcp
+/sbin/ldconfig
+
 %post -n libdmtcpaware
 /sbin/ldconfig
 
@@ -127,18 +153,23 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_bindir}/dmtcp_*
 %{_bindir}/mtcp_restart
+%{_libdir}/%{name}
 %{_libdir}/%{name}/dmtcphijack.so
-%{_libdir}/%{name}/ptracehijack.so
-%{_libdir}/%{name}/libmtcp.so
 %doc QUICK-START COPYING
 %{_docdir}/%{name}-%{version}/examples
-%exclude %{_includedir}/mtcp.h
-#%%{_defaultdocdir}/%%{name}-%%{version}/QUICK-START
-#%%{_defaultdocdir}/%%{name}-%%{version}/COPYING
 %{_mandir}/man1/dmtcp.1.gz
 %{_mandir}/man1/dmtcp_*.1.gz
 %{_mandir}/man1/mtcp.1.gz
 %{_mandir}/man1/mtcp_restart.1.gz
+
+%files -n libmtcp
+%defattr(-,root,root,-)
+%{_libdir}/libmtcp.so.*
+
+%files -n libmtcp-devel
+%defattr(-,root,root,-)
+%{_libdir}/libmtcp.so
+%{_includedir}/mtcp.h
 
 %files -n libdmtcpaware
 %defattr(-,root,root,-)
@@ -158,6 +189,8 @@ rm -rf %{buildroot}
 %{_libdir}/libdmtcpaware.a
 
 %changelog
+* Sun Jan 23 2012 kapil@ccs.neu.edu
+- Updating to svn 1449.
 * Tue Oct 25 2011 kapil@ccs.neu.edu
 - Updating to svn 1321.
 - libdmtcpaware-devel-static renamed to libdmtcpaware-static
