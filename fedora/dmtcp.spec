@@ -7,7 +7,7 @@ License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
 # The source for this package was pulled from upstream's vcs. Use the following
 # commands to generate the tarball:
-#  svn export -r 1453 https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp-1.2.4
+#  svn export -r 1456 https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp-1.2.4
 #  fakeroot tar cf dmtcp-1.2.4.tar dmtcp-1.2.4
 #  gzip -9 dmtcp-1.2.4.tar
 Source0:	%{name}-%{version}+svn1449.tar.gz
