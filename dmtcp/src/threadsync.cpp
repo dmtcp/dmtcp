@@ -115,6 +115,7 @@ void dmtcp::ThreadSync::acquireLocks()
     (_uninitializedThreadCount);
   waitForThreadsToFinishInitialization();
 
+  unsetOkToGrabLock();
   JTRACE("Done acquiring all locks");
 }
 
@@ -270,6 +271,10 @@ static void incrementWrapperExecutionLockLockCount()
 
 static void decrementWrapperExecutionLockLockCount()
 {
+  if (_wrapperExecutionLockLockCount <= 0) {
+    JASSERT(false) (_wrapperExecutionLockLockCount)
+      .Text("wrapper-execution lock count can't be negative");
+  }
   _wrapperExecutionLockLockCount--;
   dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
 }
@@ -296,7 +301,6 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
     if (WorkerState::currentState() == WorkerState::RUNNING &&
         isThreadPerformingDlopenDlsym() == false &&
         isCheckpointThreadInitialized() == true  &&
-        _wrapperExecutionLockAcquiredByCkptThread == false  &&
         isOkToGrabLock() == true) {
       incrementWrapperExecutionLockLockCount();
       int retVal = _real_pthread_rwlock_tryrdlock(&_wrapperExecutionLock);
@@ -313,11 +317,11 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
       }
       // retVal should always be 0 (success) here.
       lockAcquired = retVal == 0 ? true : false;
+      if (!lockAcquired) {
+        decrementWrapperExecutionLockLockCount();
+      }
     }
     break;
-  }
-  if (!lockAcquired) {
-    decrementWrapperExecutionLockLockCount();
   }
   errno = saved_errno;
   return lockAcquired;
