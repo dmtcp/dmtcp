@@ -777,7 +777,7 @@ CXX
 CXXFLAGS
 CCC
 CPP'
-ac_subdirs_all='dmtcp module'
+ac_subdirs_all='dmtcp'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -4342,11 +4342,11 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_config_files="$ac_config_files Makefile test/Makefile test/testconfig.py"
+ac_config_files="$ac_config_files Makefile module/Makefile module/ptrace/Makefile test/Makefile test/testconfig.py"
 
 
 
-subdirs="$subdirs dmtcp module"
+subdirs="$subdirs dmtcp"
 
 
 enable_option_checking=fatal
@@ -7213,6 +7213,8 @@ do
   case $ac_config_target in
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "module/Makefile") CONFIG_FILES="$CONFIG_FILES module/Makefile" ;;
+    "module/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES module/ptrace/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
 

@@ -238,7 +238,11 @@ lib/dmtcp/% : dmtcp/src/%
 lib/dmtcp/% : module/ptrace/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib: 	lib/dmtcp/dmtcphijack.so lib/dmtcp/ptracehijack.so \
+ifeq ($(PTRACE_SUPPORT),yes)
+  MODULES += lib/dmtcp/ptracehijack.so
+endif
+
+lib: 	lib/dmtcp/dmtcphijack.so $(MODULES) \
 	lib/libdmtcpaware.a lib/libdmtcpaware.so \
 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
 
@@ -262,7 +266,7 @@ install: all
 	cd module && make install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) install
-	chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
+	#chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
 	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
 	cd $(DESTDIR)$(libdir) && \
 	  $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1

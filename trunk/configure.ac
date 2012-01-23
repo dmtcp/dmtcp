@@ -13,8 +13,8 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AC_CONFIG_FILES([Makefile test/Makefile test/testconfig.py])
-AC_CONFIG_SUBDIRS([dmtcp module])
+AC_CONFIG_FILES([Makefile module/Makefile module/ptrace/Makefile test/Makefile test/testconfig.py])
+AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
 dnl  by default.  But it's actually set to "no".

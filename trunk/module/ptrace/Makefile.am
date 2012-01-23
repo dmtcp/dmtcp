@@ -20,12 +20,11 @@ nobase_noinst_HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpmodule.h
 ptracehijack_so_SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp \
 			 ptrace_syscallsreal.c
 
-ptracehijack_so_LDFLAGS = -shared -module
+ptracehijack_so_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
 
-ptracehijack_so_LDADD   = $(DMTCP_SRC_PATH)/dmtcphijack.so -ldl -lpthread
+ptracehijack_so_LDADD   = -ldl -lpthread -Wl,--unresolved-symbols=ignore-all
 
 PICFLAGS=-fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
-
