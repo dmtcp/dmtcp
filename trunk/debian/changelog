@@ -1,3 +1,10 @@
+dmtcp (1.2.4-1) unstable; urgency=low
+
+  * Finally, preparing for upstream Release 1.2.4.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Mon, 24 Jan 2012 17:00:11 -0500
+
 dmtcp (1.2.3+svn1445-1) unstable; urgency=low
 
   * Preparing for upstream Release 1.2.4.

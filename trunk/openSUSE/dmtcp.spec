@@ -1,9 +1,9 @@
 Name:		dmtcp
-Version:	1.2.3+svn1449
+Version:	1.2.4
 Release:	1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		System/Packages
-License:	LGPL-3.0+
+License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
 Source0:	%{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root
@@ -203,6 +203,52 @@ rm -rf %{buildroot}
 %{_libdir}/libdmtcpaware.a
 
 %changelog
+* Mon Jan 24 2012 Kapil Arya <kapil@ccs.neu.edu> - 1.2.4-1
+- Preparing for upstream release 1.2.4.
+  + Release Notes from upstream:
+- There is now much more robust treatment of processes that rapidly
+    create and destroy threads.  This was the case for the Java JVM
+    (both for OpenJDK and Oracle (Sun) Java).  This was also the case
+    for Cilk.  Cilk++ was not tested.  We believe this new DMTCP to now be
+    highly robust -- and we would appreciate receiving a notification if
+    you find a Java or Cilk program that is not compatible with DMTCP.
+- Zero-mapped pages are no longer expanded and saved to the DMTCP checkpoint
+    image.  For Java programs (and other programs using zero-mapped
+    pages for their allocation arena or garbage collecotr), the checkpoint
+    image will now be much smaller.  Checkpoint and restart times
+    will also be faster.
+- DMTCP_ROOT/dmtcp/doc directory added with documentation of some
+    DMTCP internals.  architecture-of-dmtcp.pdf is a good place to
+    start reading for those who are curious.
+- The directory of example modules was moved to DMTCP_ROOT/test/module.
+    This continues to support third-part wrappers around system calls,
+    can registering functions to be called by DMTCP at interesting times
+    (like pre-checkpoint, post-resume, post-restart, new thread created, etc.).
+- This version of MTCP (inside this package) should be compatible with
+    the checkpoint-restart service of Open MPI.  The usage will be
+    documented soon through the Open MPI web site.  As before, an alternative
+    is to simply start Open MPI inside DMTCP, and let DMTCP treat all of
+    Open MPI as a "black box" that happens to be a ditributed computation
+- A new --prefix command line flag has been added to dmtcp_checkpoint.
+    It operates similarly to the flag of the same name in Open MPI.
+    For distributed computations, remote processes will use the prefix
+    as part of the path to find the remote dmtcp_checkpoint command.
+    This is useful when a gateway machine has a different directory
+    structure from the remote nodes.
+- configure --enable-ptrace-support now uses ptrace module (more modular code).
+    The ptrace module should also be more robust.  It now fixes some
+    additional cases that were missing earlier
+- ./configure --enable-unique-checkpoint-filenames  was not respecting
+    bin/dmtcp_checkpoint --checkpoint-open-files .  This is now fixed.
+- If the coordinator received a kill request in the middle of a checkpoint,
+    the coordinator could freeze or die.  This has now been fixed, with
+    the expected behavior:  Kill the old computation that is in the
+    middle of a checkpoint, and then allow any new computations to begin.
+- dmtcp_inspector utility was broken in last release; now fixed
+- configure --enable-forked-checkpoint was broken in the last release.
+    It is fixed again.
+- Many smaller bug fixes.
+
 * Sun Jan 23 2012 Kapil Arya <kapil@ccs.neu.edu> - 1.2.3+svn1449-1
 - Updating to latest upstream revision.
 
