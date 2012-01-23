@@ -67,7 +67,6 @@ clean: tidy
 	-rm -f *.so
 
 distclean: clean
-	- cd ptrace  && $(MAKE) distclean
 	rm -f Makefile
 
 install: all
@@ -80,7 +79,7 @@ install: all
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f ptracehijack.so
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME).so
 
 ${LIBNAME}.so: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}.so
