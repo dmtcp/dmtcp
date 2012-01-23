@@ -1,6 +1,10 @@
 #ifndef PTRACE_H
 #define PTRACE_H
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"
