@@ -491,7 +491,7 @@ void writeNode(dmtcp::ostringstream &o)
   }
 }
 
-int process_input(int argc, char** argv);
+void process_input(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
@@ -556,7 +556,7 @@ int main(int argc, char** argv)
   return 0;
 }
 
-int process_input(int argc, char** argv)
+void process_input(int argc, char** argv)
 {
   static const char* theUsage =
     "USAGE: dmtcp_inspector [-o <file>] [-t <tool>] [-cdaznh] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n"
@@ -630,10 +630,10 @@ int process_input(int argc, char** argv)
       break;
     case 'h':
       std::cerr << theUsage;
-      return 1;
+      exit(0);
     case 'v':
       std::cerr << DMTCP_VERSION_AND_COPYRIGHT_INFO;
-      return 1;
+      exit(0);
     case 'f':
       output_format = optarg;
       break;
@@ -642,6 +642,7 @@ int process_input(int argc, char** argv)
       break;
     default:
       printf("ERROR: getopt returned character code 0%o ??\n", c);
+      exit(1);
     }
   }
 
