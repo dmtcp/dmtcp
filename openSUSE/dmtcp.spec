@@ -144,7 +144,7 @@ make %{?_smp_mflags}
 %check
 # disable the test for now as bash is failing with 32-bit when built on 64-bit machine.
 %ifarch %x86_64
-# ./test/autotest.py --slow
+ ./test/autotest.py --slow
 %endif
 
 %install
