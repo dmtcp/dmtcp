@@ -1,0 +1,67 @@
+dmtcp (1.2.4-1) unstable; urgency=low
+
+  * Finally, preparing for upstream Release 1.2.4.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Mon, 24 Jan 2012 17:00:11 -0500
+
+dmtcp (1.2.3+svn1445-1) unstable; urgency=low
+
+  * Preparing for upstream Release 1.2.4.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 20 Jan 2012 15:14:11 -0500
+
+dmtcp (1.2.3-1) unstable; urgency=low
+
+  * Preparing for upstream Release 1.2.3.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 20 Jul 2011 23:33:07 -0400
+
+dmtcp (1.2.2-1) unstable; urgency=low
+
+  * Preparing for upstream release 1.2.2.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 22 Jun 2011 02:01:23 -0400
+
+dmtcp (1.2.1-2) unstable; urgency=low
+
+  * Fixing compilation errors for gcc/g++ 4.6.
+  * Fixing compilation errors related to PAGE_SIZE and PAGE_MASK macros.
+  * Call "make check" towards the end of build-stamp.
+  * Add python to build-deps.
+  * Standards Version boosted to 3.9.2.
+  * Templates removed from debian/watch.
+  * Leading "./" removed from lintian-overrides.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Tue, 31 May 2011 00:17:42 -0400
+
+dmtcp (1.2.1-1) unstable; urgency=low
+
+  * Preparing for upstream release 1.2.1. 
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:41:11 -0500
+
+dmtcp (1.2.0+svn937-1) unstable; urgency=low
+
+  * Updating libdmtcpaware1.symbols to reflect the proper version.
+  * Updating watch file to point to proper package name
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:10:02 -0500
+
+dmtcp (1.2.0+svn923-1) unstable; urgency=low
+
+  * Adding debian/libdmtcpaware1.symbols file.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 09 Mar 2011 02:03:21 -0500
+
+dmtcp (1.2.0+svn876-1) unstable; urgency=low
+
+  * Initial release (Closes: #610653)
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 03 Feb 2011 09:52:24 -0500
