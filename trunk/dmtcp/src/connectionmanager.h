@@ -31,6 +31,7 @@
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
 #include "virtualpidtable.h"
+#include "processinfo.h"
 #include "constants.h"
 
 
@@ -113,6 +114,7 @@ namespace dmtcp
   };
 
   class VirtualPidTable;
+  class ProcessInfo;
   typedef struct _SerializedWorkerInfo {
     UniquePid compGroup;
     int       numPeers;
@@ -120,6 +122,7 @@ namespace dmtcp
     size_t    envSize;
 #ifdef PID_VIRTUALIZATION
     dmtcp::VirtualPidTable virtualPidTable;
+    dmtcp::ProcessInfo processInfo;
 #endif
   } SerializedWorkerInfo;
 

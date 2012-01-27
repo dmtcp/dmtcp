@@ -89,7 +89,7 @@ extern "C" pid_t getpid()
   //pid_t pid = _real_getpid();//dmtcp::UniquePid::ThisProcess().pid();
 
   //return currentToOriginalPid ( pid );
-  return dmtcp::VirtualPidTable::instance().pid();
+  return dmtcp::ProcessInfo::instance().pid();
 }
 
 extern "C" pid_t getppid()
@@ -98,10 +98,10 @@ extern "C" pid_t getppid()
 
   if ( _real_getppid() == 1 )
   {
-    dmtcp::VirtualPidTable::instance().setppid( 1 );
+    dmtcp::ProcessInfo::instance().setppid( 1 );
   }
 
-  pid_t origPpid = dmtcp::VirtualPidTable::instance().ppid( );
+  pid_t origPpid = dmtcp::ProcessInfo::instance().ppid( );
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -212,7 +212,7 @@ extern "C" pid_t setsid(void)
 
   pid_t pid = _real_setsid();
   pid_t origPid = currentToOriginalPid (pid);
-  dmtcp::VirtualPidTable::instance().setsid(origPid);
+  dmtcp::ProcessInfo::instance().setsid(origPid);
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -400,7 +400,7 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
       siginfop.si_pid = originalPid;
 
       if ( siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED )
-        dmtcp::VirtualPidTable::instance().erase ( originalPid );
+        dmtcp::ProcessInfo::instance().eraseChild ( originalPid );
     }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -486,7 +486,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 
     if (retval > 0 &&
         (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
-      dmtcp::VirtualPidTable::instance().erase(originalPid);
+      dmtcp::ProcessInfo::instance().eraseChild ( originalPid );
     }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -520,7 +520,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   data = va_arg(ap, void *);
   va_end(ap);
 
-  pid = dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid);
+  pid = originalToCurrentPid(pid);
   long ptrace_ret =  _real_ptrace(request, pid, addr, data);
 
   /*

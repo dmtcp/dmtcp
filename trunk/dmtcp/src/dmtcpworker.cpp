@@ -30,6 +30,7 @@
 #include "mtcpinterface.h"
 #include <unistd.h>
 #include "sockettable.h"
+#include "processinfo.h"
 #include  "../jalib/jsocket.h"
 #include <map>
 #include "kernelbufferdrainer.h"
@@ -255,7 +256,8 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
 #ifdef PID_VIRTUALIZATION
     VirtualPidTable::instance().serialize ( rd );
-    VirtualPidTable::instance().postExec();
+    ProcessInfo::instance().serialize ( rd );
+    ProcessInfo::instance().postExec();
     SysVIPC::instance().serialize ( rd );
 #endif
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
@@ -267,7 +269,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 #ifdef PID_VIRTUALIZATION
     if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
       JTRACE("Root of processes tree");
-      VirtualPidTable::instance().setRootOfProcessTree();
+      ProcessInfo::instance().setRootOfProcessTree();
       _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
     }
 #endif
@@ -827,6 +829,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().preCheckpoint();
+  dmtcp::ProcessInfo::instance().preCheckpoint();
   SysVIPC::instance().preCheckpoint();
 #endif
 
@@ -1019,7 +1022,7 @@ void dmtcp::DmtcpWorker::postRestart()
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
-  dmtcp::VirtualPidTable::instance().postRestart();
+  dmtcp::ProcessInfo::instance().postRestart();
   SysVIPC::instance().postRestart();
 #endif
 
@@ -1076,6 +1079,6 @@ void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 {
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
-  dmtcp::VirtualPidTable::instance().restoreProcessGroupInfo();
+  dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
 #endif
 }

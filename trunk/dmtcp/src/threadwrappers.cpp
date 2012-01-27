@@ -72,7 +72,7 @@ static void *pthread_start(void *arg)
    *  thread actually exits?
    */
   dmtcp::VirtualPidTable::instance().erase(orig_tid);
-  dmtcp::VirtualPidTable::instance().eraseTid(orig_tid);
+  dmtcp::ProcessInfo::instance().eraseTid(orig_tid);
   return result;
 }
 
@@ -128,7 +128,8 @@ int clone_start(void *arg)
     JASSERT ( tid == original_tid ) (tid) (original_tid)
       .Text ( "syscall(SYS_gettid) and _real_gettid() returning different "
               "values for the newly created thread!" );
-    dmtcp::VirtualPidTable::instance().insertTid ( original_tid );
+    dmtcp::ProcessInfo::instance().insertTid ( original_tid );
+    dmtcp::VirtualPidTable::instance().insert ( original_tid );
   }
 
   dmtcp::VirtualPidTable::instance().updateMapping ( original_tid, tid );
@@ -151,7 +152,7 @@ int clone_start(void *arg)
    *  erasing the original_tid entry from virtualpidtable
    */
   dmtcp::VirtualPidTable::instance().erase ( original_tid );
-  dmtcp::VirtualPidTable::instance().eraseTid ( original_tid );
+  dmtcp::ProcessInfo::instance().eraseTid ( original_tid );
 
   return result;
 }
@@ -360,7 +361,7 @@ extern "C" void pthread_exit(void * retval)
 {
   mtcpFuncPtrs.threadiszombie();
   dmtcp::VirtualPidTable::instance().erase(gettid());
-  dmtcp::VirtualPidTable::instance().eraseTid(gettid());
+  dmtcp::ProcessInfo::instance().eraseTid(gettid());
   _real_pthread_exit(retval);
   for(;;); // To hide compiler warning about "noreturn" function
 }
@@ -389,7 +390,7 @@ extern "C" void pthread_exit(void * retval)
 extern "C" int pthread_join(pthread_t thread, void **retval)
 {
   int ret;
-  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
@@ -417,14 +418,14 @@ extern "C" int pthread_join(pthread_t thread, void **retval)
   }
 #endif
 
-  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
 
 extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
 {
   int ret;
-  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
@@ -443,7 +444,7 @@ extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
   }
 #endif
 
-  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
 
@@ -451,7 +452,7 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
                                     const struct timespec *abstime)
 {
   int ret;
-  if (!dmtcp::VirtualPidTable::instance().beginPthreadJoin(thread)) {
+  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
@@ -494,6 +495,6 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
   }
 #endif
 
-  dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
+  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
