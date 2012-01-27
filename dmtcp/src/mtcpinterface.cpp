@@ -34,7 +34,7 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "virtualpidtable.h"
+#include "processinfo.h"
 #include "protectedfds.h"
 #include "sockettable.h"
 #include "dmtcpmodule.h"
@@ -228,7 +228,7 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   unmapRestoreArgv();
 
   dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG,
-                      (void*) dmtcp::VirtualPidTable::instance().numThreads());
+                      (void*) dmtcp::ProcessInfo::instance().numThreads());
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.

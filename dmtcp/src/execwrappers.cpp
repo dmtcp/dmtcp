@@ -30,6 +30,7 @@
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "virtualpidtable.h"
+#include "processinfo.h"
 #include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
@@ -111,6 +112,7 @@ LIB_PRIVATE void pthread_atfork_child()
     _exit(DMTCP_FAIL_RC);
   }
   dmtcp::VirtualPidTable::instance().resetOnFork();
+  dmtcp::ProcessInfo::instance().resetOnFork();
 #endif
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
@@ -165,7 +167,7 @@ extern "C" pid_t fork()
         _real_waitpid(child_pid, NULL, 0);
         continue;
       }
-      dmtcp::VirtualPidTable::instance().insert(child_pid, child);
+      dmtcp::ProcessInfo::instance().insertChild(child_pid, child);
 #endif
 
       JTRACE("fork()ed [PARENT] done") (child);;
@@ -267,6 +269,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().serialize ( wr );
+  dmtcp::ProcessInfo::instance().serialize ( wr );
   dmtcp::SysVIPC::instance().serialize ( wr );
 #endif
 

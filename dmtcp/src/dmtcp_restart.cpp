@@ -69,7 +69,7 @@ namespace dmtcp
     public:
       OriginalPidTable(){}
 
-      void insertFromVirtualPidTable ( dmtcp::VirtualPidTable& vt )
+      void insertFromProcessInfo ( dmtcp::ProcessInfo& vt )
       {
         dmtcp::vector< pid_t > tmpVector;
 
@@ -135,6 +135,7 @@ namespace dmtcp
 
 #ifdef PID_VIRTUALIZATION
       _virtualPidTable = workerInfo.virtualPidTable;
+      _processInfo = workerInfo.processInfo;
       _virtualPidTable.erase(getpid());
       _roots.clear();
       _children.clear();
@@ -226,42 +227,43 @@ namespace dmtcp
     typedef vector<RestoreTarget *>::iterator t_iterator;
 
     VirtualPidTable& getVirtualPidTable() { return _virtualPidTable; }
+    ProcessInfo& getProcessInfo() { return _processInfo; }
     void addChild(RestoreTarget *t){ _children.push_back(t); }
 
     bool isSessionLeader(){
-      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
-      if( _virtualPidTable.sid() == upid().pid() )
+      JTRACE("")(_processInfo.sid()) (upid().pid());
+      if( _processInfo.sid() == upid().pid() )
 	return true;
       else
 	return false;
     }
 
     bool isGroupLeader(){
-      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
-      if( _virtualPidTable.gid() == upid().pid() )
+      JTRACE("")(_processInfo.sid()) (upid().pid());
+      if( _processInfo.gid() == upid().pid() )
 	return true;
       else
 	return false;
     }
 
     bool isForegroundProcess() {
-      JTRACE("")(_virtualPidTable.sid()) (upid().pid());
-      if( _virtualPidTable.fgid() == _virtualPidTable.gid() )
+      JTRACE("")(_processInfo.sid()) (upid().pid());
+      if( _processInfo.fgid() == _processInfo.gid() )
 	return true;
       else
 	return false;
     }
 
     bool isInitChild(){
-      JTRACE("")(_virtualPidTable.ppid());
-      if( _virtualPidTable.ppid() == 1 )
+      JTRACE("")(_processInfo.ppid());
+      if( _processInfo.ppid() == 1 )
 	return true;
       else
 	return false;
     }
 
     int addRoot(RestoreTarget *t, pid_t sid){
-      if( isSessionLeader() && _virtualPidTable.sid() == sid ){
+      if( isSessionLeader() && _processInfo.sid() == sid ){
 	_roots.push_back(t);
 	return 1;
       }else{
@@ -277,7 +279,7 @@ namespace dmtcp
     // Traverse this process subtree and set up information about sessions
     //   and their leaders for all children.
     sidMapping &setupSessions() {
-      pid_t sid = _virtualPidTable.sid();
+      pid_t sid = _processInfo.sid();
       if( !_children.size() ) {
 	_smap[sid] = isSessionLeader();
 	return _smap;
@@ -397,10 +399,10 @@ namespace dmtcp
 	if( setpgid(0, fgid) ){
           if (fgid == -1) {
             JTRACE("CANNOT Change current GID to foreground GID")
-                  (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO);
+                  (getpid()) (fgid) (_processInfo.fgid()) (gid) (JASSERT_ERRNO);
           } else {
             JWARNING(false)
-                     (getpid()) (fgid) (_virtualPidTable.fgid()) (gid) (JASSERT_ERRNO)
+                     (getpid()) (fgid) (_processInfo.fgid()) (gid) (JASSERT_ERRNO)
                     .Text("CANNOT Change current GID to foreground GID");
           }
  	  fflush(stdout);
@@ -412,7 +414,7 @@ namespace dmtcp
 		 strerror(errno));
  	  printf("PID=%d, FGID=%d, GID=%d\n",getpid(),fgid,gid);
  	  printf("PID=%d, FGID=%d, _FGID=%d, GID=%d\n",
-		 getpid(),fgid,_virtualPidTable.fgid(), gid);
+		 getpid(),fgid,_processInfo.fgid(), gid);
  	  fflush(stdout);
  	  exit(0);
  	  }
@@ -448,11 +450,12 @@ namespace dmtcp
 
 
       VirtualPidTable &vt = _virtualPidTable;
+      ProcessInfo &pInfo = _processInfo;
 
       JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
 
       vt.updateMapping(upid().pid(), _real_getpid());
-      pid_t psid = vt.sid();
+      pid_t psid = pInfo.sid();
 
       if( !isSessionLeader() ){
 
@@ -471,10 +474,10 @@ namespace dmtcp
               JASSERT ( false ) . Text ( "Unreachable" );
             }
 	  JASSERT ( cid > 0 );
-	  VirtualPidTable::iterator vit = vt.begin();
-	  for(; vit != vt.end(); vit++){
-	    if( (*it)->upid() == vit->second ){
-	      vt.updateMapping ( vit->first, cid );
+	  ProcessInfo::iterator pit = pInfo.begin();
+	  for(; pit != pInfo.end(); pit++){
+	    if( (*it)->upid() == pit->second ){
+	      vt.updateMapping ( pit->first, cid );
 	      break;
 	    }
 	  }
@@ -495,10 +498,10 @@ namespace dmtcp
 		JASSERT ( false ) . Text ( "Unreachable" );
 	      }
 	    JASSERT ( cid > 0 );
-	    VirtualPidTable::iterator vit = _virtualPidTable.begin();
-	    for(; vit != _virtualPidTable.end(); vit++){
-	      if( (*it)->upid() == vit->second ){
-		_virtualPidTable.updateMapping ( vit->first, cid );
+	    ProcessInfo::iterator pit = _processInfo.begin();
+	    for(; pit != _processInfo.end(); pit++){
+	      if( (*it)->upid() == pit->second ){
+		_virtualPidTable.updateMapping ( pit->first, cid );
 	      }
 	    }
 	  }
@@ -521,10 +524,10 @@ namespace dmtcp
 	      JASSERT ( false ) . Text ( "Unreachable" );
 	    }
 	    JASSERT ( cid> 0 );
-	    VirtualPidTable::iterator vit = _virtualPidTable.begin();
-	    for(; vit != _virtualPidTable.end(); vit++) {
-	      if( (*it)->upid() == vit->second ) {
-		_virtualPidTable.updateMapping ( vit->first, cid );
+	    ProcessInfo::iterator pit = _processInfo.begin();
+	    for(; pit != _processInfo.end(); pit++) {
+	      if( (*it)->upid() == pit->second ) {
+		_virtualPidTable.updateMapping ( pit->first, cid );
 	      }
 	    }
 	  }
@@ -565,7 +568,7 @@ namespace dmtcp
 
       JTRACE ( "PidTableFile: ") ( serialFile ) ( dmtcp::UniquePid::ThisProcess() );
       jalib::JBinarySerializeWriter tblwr ( serialFile );
-      _virtualPidTable.serialize ( tblwr );
+      _processInfo.serialize ( tblwr );
       tblwr.~JBinarySerializeWriter();
 
       int stmpfd =  open( serialFile.c_str(), O_RDONLY);
@@ -622,6 +625,7 @@ namespace dmtcp
     size_t _envSize;
 #ifdef PID_VIRTUALIZATION
     VirtualPidTable _virtualPidTable;
+    ProcessInfo _processInfo;
     // Links to children of this process
     vector<RestoreTarget *> _children;
     // Links to roots that depend on this target
@@ -1016,8 +1020,9 @@ void BuildProcessTree()
   for (size_t j = 0; j < targets.size(); ++j)
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
-    originalPidTable.insertFromVirtualPidTable ( virtualPidTable );
-    if( virtualPidTable.isRootOfProcessTree() == true ){
+    ProcessInfo& processInfo = targets[j].getProcessInfo();
+    originalPidTable.insertFromProcessInfo ( processInfo );
+    if( processInfo.isRootOfProcessTree() == true ){
       // If this process is independent (root of process tree
       RootTarget rt;
       rt.t = &targets[j];
@@ -1032,10 +1037,10 @@ void BuildProcessTree()
       JTRACE("Process is not root of process tree: try to find if it has parent");
       bool is_root = true;
       for (size_t i = 0; i < targets.size(); i++) {
-        VirtualPidTable & virtualPidTable = targets[i].getVirtualPidTable();
-        VirtualPidTable::iterator it;
+        ProcessInfo &processInfo = targets[i].getProcessInfo();
+        ProcessInfo::iterator it;
         // Search inside the child list of target[j], make sure that i != j
-        for (it = virtualPidTable.begin(); (i != j) && (it != virtualPidTable.end()) ; it++) {
+        for (it = processInfo.begin(); (i != j) && (it != processInfo.end()) ; it++) {
           UniquePid& childUniquePid = it->second;
           JTRACE("Check child")(childUniquePid)(" parent ")(targets[i].upid())("checked ")(targets[j].upid());
           if (childUniquePid == targets[j].upid()){
@@ -1055,8 +1060,8 @@ void BuildProcessTree()
     }
 
     // Add all children
-    VirtualPidTable::iterator it;
-    for(it = virtualPidTable.begin(); it != virtualPidTable.end(); it++ ){
+    ProcessInfo::iterator it;
+    for(it = processInfo.begin(); it != processInfo.end(); it++ ){
       // find target
       bool found = false;
       pid_t childOriginalPid = it->first;
@@ -1074,7 +1079,7 @@ void BuildProcessTree()
       }
       if ( !found ){
         JTRACE("Child not found")(childOriginalPid);
-        virtualPidTable.erase( childOriginalPid );
+        processInfo.eraseChild( childOriginalPid );
       }
     }
   }
@@ -1125,14 +1130,15 @@ void ProcessGroupInfo()
   for (size_t j = 0; j < targets.size(); j++)
   {
     VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
+    ProcessInfo& processInfo = targets[j].getProcessInfo();
     JTRACE("Process ")
-      (virtualPidTable.pid())(virtualPidTable.ppid())(virtualPidTable.sid())
-      (virtualPidTable.gid())(virtualPidTable.fgid())
-      (virtualPidTable.isRootOfProcessTree());
+      (processInfo.pid())(processInfo.ppid())(processInfo.sid())
+      (processInfo.gid())(processInfo.fgid())
+      (processInfo.isRootOfProcessTree());
 
-    pid_t sid = virtualPidTable.sid();
-    pid_t gid = virtualPidTable.gid();
-    //pid_t fgid = virtualPidTable.fgid();
+    pid_t sid = processInfo.sid();
+    pid_t gid = processInfo.gid();
+    //pid_t fgid = processInfo.fgid();
 
     /*
     // If Group ID doesn't belong to known PIDs, indicate that fact
@@ -1175,8 +1181,8 @@ void ProcessGroupInfo()
     for(; g_it!=s.groups.end();g_it++){
       ProcessGroup &g = g_it->second;
       for(size_t k=0; k<g.targets.size(); k++){
-        VirtualPidTable& virtualPidTable = g.targets[k]->getVirtualPidTable();
-        pid_t cfgid = virtualPidTable.fgid();
+        ProcessInfo& processInfo = g.targets[k]->getProcessInfo();
+        pid_t cfgid = processInfo.fgid();
         if( fgid == -2 ){
           fgid = cfgid;
         }else if( fgid != -1 && cfgid != -1 && fgid != cfgid ){
@@ -1188,11 +1194,11 @@ void ProcessGroupInfo()
             for(; g_it1!=s.groups.end();g_it1++){
               ProcessGroup &g1 = g_it1->second;
               for(size_t m=0; m<g1.targets.size() ;m++){
-                VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-                pid_t pid = virtualPidTable.pid();
-                pid_t ppid = virtualPidTable.ppid();
-                pid_t sid = virtualPidTable.sid();
-                pid_t cfgid = virtualPidTable.fgid();
+                ProcessInfo& pInfo = g1.targets[m]->getProcessInfo();
+                pid_t pid = pInfo.pid();
+                pid_t ppid = pInfo.ppid();
+                pid_t sid = pInfo.sid();
+                pid_t cfgid = pInfo.fgid();
                 printf("PID=%d, PPID=%d, SID=%d <--> FGID = %d\n",pid,ppid,sid,cfgid);
               }
             }
@@ -1213,9 +1219,9 @@ void ProcessGroupInfo()
       for(; g_it1!=s.groups.end();g_it1++){
         ProcessGroup &g1 = g_it1->second;
         for(size_t m=0; m<g1.targets.size(); m++){
-          VirtualPidTable& virtualPidTable = g1.targets[m]->getVirtualPidTable();
-          pid_t pid = virtualPidTable.pid();
-          pid_t cfgid = virtualPidTable.fgid();
+          ProcessInfo& processInfo = g1.targets[m]->getProcessInfo();
+          pid_t pid = processInfo.pid();
+          pid_t cfgid = processInfo.fgid();
           JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
         }
       }

@@ -52,15 +52,9 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   _do_lock_tbl();
   _pid = _real_getpid();
   _ppid = _real_getppid();
-  _sid = -1;
-  _gid = _real_getpgid(0);
-  _isRootOfProcessTree = false;
-  _childTable.clear();
-  _tidVector.clear();
-  _pthreadJoinId.clear();
-  _inferiorVector.clear();
   _pidMapTable.clear();
   _pidMapTable[_pid] = _pid;
+  _pidMapTable[_ppid] = _ppid;
   _do_unlock_tbl();
 }
 
@@ -100,75 +94,15 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
-  // Update Group information before checkpoint
   _ppid = getppid(); // refresh parent PID
-  _gid = getpgid(0);
-
-  _fgid = -1;
-  dmtcp::string controllingTerm = jalib::Filesystem::GetControllingTerm();
-  if (!controllingTerm.empty()) {
-    int tfd = _real_open(controllingTerm.c_str(), O_RDONLY, 0);
-    if (tfd >= 0) {
-      _fgid = tcgetpgrp(tfd);
-      _real_close(tfd);
-    }
-  }
-
-  /*
-  char s[ L_ctermid ];
-  // play around group ID
-  _fgid = -1;
-  if( ctermid(s) ){
-    int tfd = open(s,O_RDONLY);
-    if( tfd >= 0 ){
-      _fgid = tcgetpgrp(tfd);
-      close(tfd);
-    }
-  }
-  */
-
-  JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(pidExists(_gid));
 }
 
 void dmtcp::VirtualPidTable::postRestart()
 {
-  //getenv ( ENV_VAR_PIDTBLFILE_INITIAL );
   /*
-   * PROTECTED_PIDTBL_FD corresponds to the file containing the pids/uniquePids
-   *  of all child processes, tids of all threads, and tids of all inferior
-   *  process(threads) which are being traced by this process.
-   *
    * PROTECTED_PIDMAP_FD corresponds to the file containg computation wide
    *  original_pid -> current_pid map to avoid pid/tid collisions.
    */
-  dmtcp::string serialFile = "/proc/self/fd/" + jalib::XToString ( PROTECTED_PIDTBL_FD );
-
-  serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
-  JASSERT ( serialFile.length() > 0 ) ( serialFile );
-  _real_close ( PROTECTED_PIDTBL_FD );
-
-  JTRACE("Read original pids from pid-table file") (serialFile);
-  jalib::JBinarySerializeReader rd ( serialFile );
-  serialize ( rd );
-}
-
-void dmtcp::VirtualPidTable::restoreProcessGroupInfo()
-{
-  // Restore group assignment
-  if( pidExists(_gid) ){
-    pid_t cgid = getpgid(0);
-    // Group ID is known inside checkpointed processes
-    if( _gid != cgid && _pid != _gid ){
-      JTRACE("Restore Group Assignment")
-        ( _gid ) ( _fgid ) ( cgid ) ( _pid ) ( _ppid ) ( getppid() );
-      JWARNING( setpgid(0,_gid) == 0 ) (_gid) (JASSERT_ERRNO)
-        .Text("Cannot change group information");
-    }else{
-      JTRACE("Group is already assigned")(_gid)(cgid);
-    }
-  }else{
-    JTRACE("VirtualPidTable::postRestart SKIP Group information, GID unknown");
-  }
 }
 
 void dmtcp::VirtualPidTable::printPidMaps()
@@ -190,17 +124,12 @@ void dmtcp::VirtualPidTable::resetOnFork()
   tblLock = newlock;
   _pid = _real_getpid();
   _ppid = currentToOriginalPid ( _real_getppid() );
-  _isRootOfProcessTree = false;
-  _childTable.clear();
-  _tidVector.clear();
-  _pthreadJoinId.clear();
-  _inferiorVector.clear();
-  //_pidMapTable[_pid] = _pid;
   printPidMaps();
 }
 
 pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
-{ pid_t retVal = 0;
+{
+  pid_t retVal = 0;
 
   /* This code is called from MTCP while the checkpoint thread is holding
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
@@ -236,40 +165,19 @@ pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
   return currentPid;
 }
 
-void dmtcp::VirtualPidTable::insert ( pid_t originalPid, dmtcp::UniquePid uniquePid )
+void dmtcp::VirtualPidTable::insert(pid_t originalPid)
 {
-  _do_lock_tbl();
-  iterator i = _childTable.find( originalPid );
-  if ( i != _childTable.end() ) {
-    _do_unlock_tbl();
-    JTRACE ( "originalPid -> currentPid mapping exists!") ( originalPid ) ( i->second );
-  }
-
-  _childTable[originalPid] = uniquePid;
-  _pidMapTable[originalPid] = originalPid;
-
-  _do_unlock_tbl();
-
-  JTRACE ( "Creating new originalPid -> currentPid mapping." ) ( originalPid ) ( uniquePid );
+  // FIXME: Add a check for preexisting originalPid -> curPid mapping
+  updateMapping(originalPid, originalPid);
 }
 
 void dmtcp::VirtualPidTable::erase( pid_t originalPid )
 {
   _do_lock_tbl();
-  iterator i = _childTable.find ( originalPid );
-  if ( i != _childTable.end() )
-    _childTable.erase( originalPid );
-
   pid_iterator j = _pidMapTable.find ( originalPid );
   if ( j != _pidMapTable.end() )
     _pidMapTable.erase( originalPid );
   _do_unlock_tbl();
-}
-
-void dmtcp::VirtualPidTable::updateRootOfProcessTree()
-{
-  if ( _real_getppid() == 1 )
-    _isRootOfProcessTree = true;
 }
 
 void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid )
@@ -287,107 +195,6 @@ dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
   return pidVec;
 }
 
-dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getChildPidVector( )
-{
-  dmtcp::vector< pid_t > childPidVec;
-  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
-    childPidVec.push_back ( i->first );
-  return childPidVec;
-}
-
-dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getTidVector( )
-{
-  return _tidVector;
-}
-
-dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getInferiorVector( )
-{
-  return _inferiorVector;
-}
-
-void dmtcp::VirtualPidTable::insertTid( pid_t tid )
-{
-  eraseTid( tid );
-  _do_lock_tbl();
-  _tidVector.push_back ( tid );
-  _do_unlock_tbl();
-  return;
-}
-
-void dmtcp::VirtualPidTable::insertInferior( pid_t tid )
-{
-  eraseInferior( tid );
-  _do_lock_tbl();
-  _inferiorVector.push_back ( tid );
-  _do_unlock_tbl();
-  return;
-}
-
-void dmtcp::VirtualPidTable::eraseTid( pid_t tid )
-{
-  _do_lock_tbl();
-  dmtcp::vector< pid_t >::iterator iter = _tidVector.begin();
-  while ( iter != _tidVector.end() ) {
-    if ( *iter == tid ) {
-      _tidVector.erase( iter );
-      _pidMapTable.erase(tid);
-      break;
-    }
-    else
-      ++iter;
-  }
-  _do_unlock_tbl();
-  return;
-}
-
-void dmtcp::VirtualPidTable::postExec( )
-{
-  JTRACE("Post-Exec. Emptying tidVector");
-  _do_lock_tbl();
-  for (size_t i = 0; i < _tidVector.size(); i++) {
-    _pidMapTable.erase( _tidVector[i] );
-  }
-  _tidVector.clear();
-  _do_unlock_tbl();
-}
-
-void dmtcp::VirtualPidTable::eraseInferior( pid_t tid )
-{
-  _do_lock_tbl();
-  dmtcp::vector< pid_t >::iterator iter = _inferiorVector.begin();
-  while ( iter != _inferiorVector.end() ) {
-    if ( *iter == tid ) {
-      _inferiorVector.erase( iter );
-      break;
-    }
-    else
-      ++iter;
-  }
-  _do_unlock_tbl();
-  return;
-}
-
-bool dmtcp::VirtualPidTable::beginPthreadJoin(pthread_t thread)
-{
-  bool res = false;
-  _do_lock_tbl();
-  dmtcp::map<pthread_t, pthread_t>::iterator i = _pthreadJoinId.find(thread);
-  if (i == _pthreadJoinId.end()) {
-    _pthreadJoinId[thread] = pthread_self();
-    res = true;
-  }
-  _do_unlock_tbl();
-  return res;
-}
-
-void dmtcp::VirtualPidTable::endPthreadJoin(pthread_t thread)
-{
-  _do_lock_tbl();
-  JASSERT(pthread_equal(_pthreadJoinId[thread], pthread_self()));
-  _pthreadJoinId.erase(thread);
-  _do_unlock_tbl();
-}
-
 bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 {
   bool retVal = false;
@@ -400,110 +207,15 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
   return retVal;
 }
 
-void dmtcp::VirtualPidTable::refresh()
-{
-  updateRootOfProcessTree();//      _isRootOfProcessTree = true;
-  refreshChildTable();
-  refreshTidVector();
-}
-
-void dmtcp::VirtualPidTable::refreshTidVector()
-{
-  dmtcp::vector< pid_t >::iterator iter;
-  for (iter = _tidVector.begin(); iter != _tidVector.end(); ) {
-    int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
-    if (retVal == -1 && errno == ESRCH) {
-      erase(*iter);
-      iter = _tidVector.erase( iter );
-    } else {
-      iter++;
-    }
-  }
-  return;
-}
-
-void dmtcp::VirtualPidTable::refreshChildTable()
-{
-  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i ) {
-    pid_t originalPid = i->first;
-    int retVal = kill(originalPid, 0);
-    /* Check to see if the child process is alive*/
-    if (retVal == -1 && errno == ESRCH) {
-      erase(originalPid);
-    }
-  }
-}
-
 void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::VirtualPidTable:" );
 
-  if (o.isWriter()){
-    updateRootOfProcessTree();//      _isRootOfProcessTree = true;
-    //refreshChildTable();
-    //refreshTidVector();
-  }
-
-  JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
-  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
-
-  if ( _isRootOfProcessTree ) {
-    JTRACE ( "This process is Root of Process Tree" );// ( UniquePid::ThisProcess() );
-  }
-
-  serializeChildTable ( o );
-
   serializePidMap     ( o );
-
-  JTRACE ("Serializing tidVector");
-  JSERIALIZE_ASSERT_POINT ( "TID Vector:[" );
-  o & _tidVector;
-  JSERIALIZE_ASSERT_POINT ( "}" );
-
-  JTRACE ("Serializing inferiorVector");
-  JSERIALIZE_ASSERT_POINT ( "Inferior Vector:[" );
-  o & _inferiorVector;
-  JSERIALIZE_ASSERT_POINT ( "]" );
 
   JSERIALIZE_ASSERT_POINT( "EOF" );
 }
 
-
-void dmtcp::VirtualPidTable::serializeChildTable ( jalib::JBinarySerializer& o )
-{
-  size_t numPids = _childTable.size();
-  serializeEntryCount(o, numPids);
-
-  JTRACE ("Serializing ChildPid Table") (numPids) (o.filename());
-  pid_t originalPid;
-  dmtcp::UniquePid uniquePid;
-
-  if ( o.isWriter() )
-  {
-    for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
-    {
-      originalPid = i->first;
-      uniquePid   = i->second;
-      serializeChildTableEntry ( o, originalPid, uniquePid );
-    }
-  }
-  else
-  {
-    while ( numPids-- > 0 )
-    {
-      serializeChildTableEntry ( o, originalPid, uniquePid );
-      _childTable[originalPid] = uniquePid;
-    }
-  }
-}
-
-void  dmtcp::VirtualPidTable::serializeChildTableEntry (
-    jalib::JBinarySerializer& o, pid_t& originalPid, dmtcp::UniquePid& uniquePid )
-{
-  JSERIALIZE_ASSERT_POINT ( "ChildPid:[" );
-  o & originalPid & uniquePid;
-  JSERIALIZE_ASSERT_POINT ( "]" );
-}
 
 void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
 {
@@ -533,8 +245,9 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
   printPidMaps();
 }
 
-void dmtcp::VirtualPidTable::serializePidMapEntry (
-    jalib::JBinarySerializer& o, pid_t& originalPid, pid_t& currentPid )
+void dmtcp::VirtualPidTable::serializePidMapEntry(jalib::JBinarySerializer& o,
+                                                  pid_t& originalPid,
+                                                  pid_t& currentPid)
 {
   JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
   o & originalPid & currentPid;
@@ -550,9 +263,9 @@ void dmtcp::VirtualPidTable::serializeEntryCount ( jalib::JBinarySerializer& o,
   JTRACE("Num PidMaps:")(count);
 }
 
-void dmtcp::VirtualPidTable::InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid)
+void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t originalPid,
+                                                  pid_t currentPid)
 {
-
   dmtcp::string pidMapFile = "/proc/self/fd/"
                              + jalib::XToString ( PROTECTED_PIDMAP_FD );
   dmtcp::string pidMapCountFile = "/proc/self/fd/"

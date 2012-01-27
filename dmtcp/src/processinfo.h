@@ -19,39 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef VIRTUAL_PID_TABLE_H
-#define VIRTUAL_PID_TABLE_H
+#ifndef PROCESS_INFO_H
+#define PROCESS_INFO_H
 
-#include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
 #include <map>
-#include  "../jalib/jserialize.h"
+#include "dmtcpalloc.h"
+#include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
 
-#ifdef PID_VIRTUALIZATION
-# define CURRENT_TO_ORIGINAL_PID(pid) \
-  dmtcp::VirtualPidTable::instance().currentToOriginalPid(pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) \
-  dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid)
-#else
-# define CURRENT_TO_ORIGINAL_PID(pid) (pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) (pid)
-#endif
-
-#ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
-  /* Shall we create separate classes for holding original to current pid map
-   * and  for holding child process ids?
-   */
-
-  class VirtualPidTable
+  class ProcessInfo
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -59,53 +44,76 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      VirtualPidTable();
-      static VirtualPidTable& instance();
-      static bool isConflictingPid( pid_t pid );
+      ProcessInfo();
+      static ProcessInfo& instance();
+
       void postRestart();
+      void restoreProcessGroupInfo();
       void preCheckpoint();
+
+      void  insertTid(pid_t tid);
+      void  eraseTid(pid_t tid);
+      size_t numThreads() { refreshTidVector(); return _tidVector.size(); }
+
+      void insertChild (pid_t originalPid, dmtcp::UniquePid uniquePid);
+      void eraseChild (pid_t originalPid);
       void  postExec();
 
-      pid_t originalToCurrentPid( pid_t originalPid );
-      pid_t currentToOriginalPid( pid_t currentPid );
-      bool pidExists( pid_t pid );
-
-      void insert(pid_t originalPid);
-      void updateMapping (pid_t originalPid, pid_t currentPid);
-
-      void printPidMaps();
-      void  erase(pid_t originalPid);
-
       void refresh();
+      void refreshChildTable();
+      void refreshTidVector();
 
       void serialize ( jalib::JBinarySerializer& o );
-      void serializePidMap ( jalib::JBinarySerializer& o );
-      static void serializePidMapEntry ( jalib::JBinarySerializer& o,
-                                         pid_t& originalPid,
-                                         pid_t& currentPid );
+      void serializeChildTable ( jalib::JBinarySerializer& o );
+      static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
+                                             pid_t& originalPid,
+                                             dmtcp::UniquePid& uniquePid );
       static void serializeEntryCount( jalib::JBinarySerializer& o,
                                        size_t& count );
-      static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
-      void readPidMapsFromFile();
 
-      dmtcp::vector< pid_t > getPidVector();
+      void setRootOfProcessTree() { _isRootOfProcessTree = true; }
+      bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
+      void updateRootOfProcessTree();
 
+      dmtcp::vector< pid_t > getChildPidVector();
+      dmtcp::vector< pid_t > getTidVector();
+      dmtcp::vector< pid_t > getInferiorVector();
+
+      typedef dmtcp::map< pid_t , dmtcp::UniquePid >::iterator iterator;
+      iterator begin() { return _childTable.begin(); }
+      iterator end() { return _childTable.end(); }
 
       pid_t pid() const { return _pid; }
       pid_t ppid() const { return _ppid; }
+      pid_t sid() const { return _sid; }
+      pid_t gid() const { return _gid; }
+      pid_t fgid() const { return _fgid; }
 
       void setppid( pid_t ppid ) { _ppid = ppid; }
+      void setsid( pid_t sid ) { _sid = sid; }
+      void setgid( pid_t gid ) { _gid = gid; }
+      void setfgid( pid_t fgid ) { _fgid = fgid; }
 
       void resetOnFork();
 
-    private:
-      typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
-      dmtcp::map< pid_t , pid_t > _pidMapTable;
+      bool beginPthreadJoin(pthread_t thread);
+      void endPthreadJoin(pthread_t thread);
 
+    protected:
+
+    private:
+      dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
+      dmtcp::vector< pid_t > _tidVector;
+      dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
+
+      bool  _isRootOfProcessTree;
       pid_t _pid;
       pid_t _ppid;
+      pid_t _sid;
+      pid_t _gid;
+      pid_t _fgid;
   };
+
 }
 
-#endif /* PID_VIRTUALIZATION */
-#endif
+#endif /* PROCESS_INFO */

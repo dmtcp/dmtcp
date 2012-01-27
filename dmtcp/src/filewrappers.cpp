@@ -177,7 +177,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 }
 
 #ifdef PID_VIRTUALIZATION
-#include <virtualpidtable.h>
+#include "virtualpidtable.h"
 
 static void updateProcPath ( const char *path, char *newpath )
 {

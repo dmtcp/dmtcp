@@ -1092,6 +1092,7 @@ int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,
   serialize(rdr);
 #ifdef PID_VIRTUALIZATION
   info->virtualPidTable.serialize(rdr);
+  info->processInfo.serialize(rdr);
 #endif
   close_ckpt_to_read(fd);
   return rdr.bytes() + strlen(DMTCP_FILE_HEADER);
