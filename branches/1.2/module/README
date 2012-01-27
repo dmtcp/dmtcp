@@ -1,0 +1,4 @@
+If you are here and you'relooking for examples of how to use DMTCP modules,
+please look in DMTCP_ROOT/test/module.  (Probably it's in ../test)
+
+This directory is for modules required internally to support DMTCP.
