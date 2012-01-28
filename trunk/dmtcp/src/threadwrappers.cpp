@@ -30,7 +30,6 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
-#ifdef PID_VIRTUALIZATION
 enum cloneSucceed {CLONE_UNINITIALIZED, CLONE_FAIL, CLONE_SUCCEED};
 struct ThreadArg {
   int ( *fn ) ( void *arg );  // clone() calls fn that returns int
@@ -65,6 +64,7 @@ static void *pthread_start(void *arg)
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
   void *result = (*pthread_fn)(thread_arg);
   mtcpFuncPtrs.threadiszombie();
+#ifdef PID_VIRTUALIZATION
   /*
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
@@ -72,10 +72,12 @@ static void *pthread_start(void *arg)
    *  thread actually exits?
    */
   dmtcp::VirtualPidTable::instance().erase(orig_tid);
+#endif
   dmtcp::ProcessInfo::instance().eraseTid(orig_tid);
   return result;
 }
 
+#ifdef PID_VIRTUALIZATION
 // Invoked via __clone
 LIB_PRIVATE
 int clone_start(void *arg)
@@ -239,7 +241,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
   }
 
   JTRACE("Forwarding user's clone call to mtcp");
-  return (*_mtcp_clone_ptr)(fn, child_stack, flags, arg, parent_tidptr, newtls,
+  return mtcpFuncPtrs.clone(fn, child_stack, flags, arg, parent_tidptr, newtls,
                             child_tidptr);
 
 #else
@@ -360,7 +362,9 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
 extern "C" void pthread_exit(void * retval)
 {
   mtcpFuncPtrs.threadiszombie();
+#ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().erase(gettid());
+#endif
   dmtcp::ProcessInfo::instance().eraseTid(gettid());
   _real_pthread_exit(retval);
   for(;;); // To hide compiler warning about "noreturn" function

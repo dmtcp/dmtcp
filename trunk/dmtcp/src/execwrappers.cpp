@@ -97,7 +97,9 @@ LIB_PRIVATE void pthread_atfork_child()
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   // Reset __thread_tid on fork. This should be the first thing to do in
   // the child process.
+#ifdef PID_VIRTUALIZATION
   dmtcp_reset_gettid();
+#endif
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();

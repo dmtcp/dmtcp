@@ -36,6 +36,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
+	restoretarget.h \
 	dmtcpmodule.h lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -73,7 +74,7 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-dmtcp_restart_SOURCES = dmtcp_restart.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
