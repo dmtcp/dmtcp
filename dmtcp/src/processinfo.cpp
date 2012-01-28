@@ -34,6 +34,12 @@
 #include "processinfo.h"
 #include "virtualpidtable.h"
 
+#ifndef PID_VIRTUALIZATION
+# define _real_getpid getpid
+# define _real_getppid getppid
+# define _real_getpgid getpgid
+#endif
+
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static void _do_lock_tbl()
@@ -51,8 +57,8 @@ dmtcp::ProcessInfo::ProcessInfo()
   _do_lock_tbl();
   _pid = _real_getpid();
   _ppid = _real_getppid();
-  _sid = -1;
   _gid = _real_getpgid(0);
+  _sid = -1;
   _isRootOfProcessTree = false;
   _childTable.clear();
   _tidVector.clear();
@@ -105,6 +111,7 @@ void dmtcp::ProcessInfo::postRestart()
 
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()
 {
+#ifdef PID_VIRTUALIZATION
   // Restore group assignment
   if( VirtualPidTable::instance().pidExists(_gid) ){
     pid_t cgid = getpgid(0);
@@ -120,6 +127,7 @@ void dmtcp::ProcessInfo::restoreProcessGroupInfo()
   }else{
     JTRACE("SKIP Group information, GID unknown");
   }
+#endif
 }
 
 void dmtcp::ProcessInfo::resetOnFork()
@@ -208,9 +216,11 @@ void dmtcp::ProcessInfo::postExec( )
 {
   JTRACE("Post-Exec. Emptying tidVector");
   _do_lock_tbl();
+#ifdef PID_VIRTUALIZATION
   for (size_t i = 0; i < _tidVector.size(); i++) {
     VirtualPidTable::instance().erase(_tidVector[i]);
   }
+#endif
   _tidVector.clear();
   _do_unlock_tbl();
 }
@@ -249,7 +259,9 @@ void dmtcp::ProcessInfo::refreshTidVector()
   for (iter = _tidVector.begin(); iter != _tidVector.end(); ) {
     int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
     if (retVal == -1 && errno == ESRCH) {
+#ifdef PID_VIRTUALIZATION
       VirtualPidTable::instance().erase(*iter);
+#endif
       iter = _tidVector.erase( iter );
     } else {
       iter++;
@@ -260,12 +272,16 @@ void dmtcp::ProcessInfo::refreshTidVector()
 
 void dmtcp::ProcessInfo::refreshChildTable()
 {
-  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i ) {
-    pid_t originalPid = i->first;
+  dmtcp::vector< pid_t > childPidVec = getChildPidVector();
+  for (int i = 0; i < childPidVec.size(); i++) {
+    pid_t originalPid = childPidVec[i];
     int retVal = kill(originalPid, 0);
     /* Check to see if the child process is alive*/
     if (retVal == -1 && errno == ESRCH) {
+#ifdef PID_VIRTUALIZATION
       VirtualPidTable::instance().erase(originalPid);
+#endif
+      _childTable.erase(originalPid);
     }
   }
 }

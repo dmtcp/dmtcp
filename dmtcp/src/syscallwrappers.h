@@ -68,11 +68,16 @@ extern "C"
 # define READLINK_RET_TYPE int
 #endif
 
+#ifdef PID_VIRTUALIZATION
 /* The following function are defined in pidwrappers.cpp */
 pid_t gettid();
 int tkill(int tid, int sig);
 int tgkill(int tgid, int tid, int sig);
-
+#else
+# define gettid() syscall(SYS_gettid)
+# define tkill(tid, sig) syscall(SYS_tkill, tid, sig)
+# define tgkill(tgid, tid, sig) syscall(SYS_gettid, tgid, tid, sig)
+#endif
 
 
 extern int dmtcp_wrappers_initializing;

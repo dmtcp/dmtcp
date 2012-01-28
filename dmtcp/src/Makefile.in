@@ -141,7 +141,8 @@ dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
+am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
+	restoretarget.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
@@ -313,6 +314,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
+	restoretarget.h \
 	dmtcpmodule.h lookup_service.h trampolines.h
 
 
@@ -347,7 +349,7 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-dmtcp_restart_SOURCES = dmtcp_restart.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpcoordinatorapi.cpp \
@@ -641,6 +643,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restoretarget.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
