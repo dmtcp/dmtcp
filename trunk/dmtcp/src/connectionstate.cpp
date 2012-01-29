@@ -236,26 +236,10 @@ void dmtcp::ConnectionState::preCheckpointHandshakes(const UniquePid& coordinato
   }
 }
 
-void dmtcp::ConnectionState::outputDmtcpConnectionTable(int fd,
-                                                        size_t argvSize,
-                                                        size_t envSize)
+void dmtcp::ConnectionState::outputDmtcpConnectionTable
+  (jalib::JBinarySerializer& o)
 {
-  //write out the *.dmtcp file
-  //dmtcp::string serialFile = dmtcp::UniquePid::dmtcpCheckpointFilename();
-  //JTRACE ( "Writing *.dmtcp checkpoint file" );
-  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
-
-  wr & _compGroup;
-  wr & _numPeers;
-  wr & argvSize;
-  wr & envSize;
-  _conToFds.serialize ( wr );
-
-#ifdef PID_VIRTUALIZATION
-  dmtcp::ProcessInfo::instance().refresh( );
-  dmtcp::VirtualPidTable::instance().serialize( wr );
-  dmtcp::ProcessInfo::instance().serialize( wr );
-#endif
+  _conToFds.serialize(o);
 }
 
 

@@ -58,10 +58,10 @@ RestoreTarget::RestoreTarget (const dmtcp::string& path)
   dmtcp::SerializedWorkerInfo workerInfo;
   _offset = _conToFd.loadFromFile(_path, &workerInfo);
 
-  _compGroup = workerInfo.compGroup;
-  _numPeers  = workerInfo.numPeers;
-  _argvSize  = workerInfo.argvSize;
-  _envSize   = workerInfo.envSize;
+  _compGroup = workerInfo.processInfo.compGroup();
+  _numPeers  = workerInfo.processInfo.numPeers();
+  _argvSize  = workerInfo.processInfo.argvSize();
+  _envSize   = workerInfo.processInfo.envSize();
 
 #ifdef PID_VIRTUALIZATION
   _virtualPidTable = workerInfo.virtualPidTable;

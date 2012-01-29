@@ -116,14 +116,10 @@ namespace dmtcp
   class VirtualPidTable;
   class ProcessInfo;
   typedef struct _SerializedWorkerInfo {
-    UniquePid compGroup;
-    int       numPeers;
-    size_t    argvSize;
-    size_t    envSize;
 #ifdef PID_VIRTUALIZATION
     dmtcp::VirtualPidTable virtualPidTable;
-    dmtcp::ProcessInfo processInfo;
 #endif
+    dmtcp::ProcessInfo processInfo;
   } SerializedWorkerInfo;
 
 
@@ -167,7 +163,8 @@ namespace dmtcp
       static int openDmtcpCheckpointFile(const dmtcp::string& filename);
       static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
-      int loadFromFile(const dmtcp::string& filename, SerializedWorkerInfo *info);
+      int loadFromFile(const dmtcp::string& filename,
+                       SerializedWorkerInfo *info);
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
       dmtcp::string _procname;
@@ -177,9 +174,9 @@ namespace dmtcp
   };
 
 
-  ///
-  /// Another mapping from Connection to FD
-  /// This time to temporarily hold FD's which must be slid around as each FD is put into use
+  // Another mapping from Connection to FD
+  // This time to temporarily hold FD's which must be slid around as each FD
+  //jis put into use
   class SlidingFdTable
   {
     public:
