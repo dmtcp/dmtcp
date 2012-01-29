@@ -99,7 +99,15 @@ namespace dmtcp
       bool beginPthreadJoin(pthread_t thread);
       void endPthreadJoin(pthread_t thread);
 
-    protected:
+      int numPeers() { return _numPeers; }
+      void numPeers(int np) { _numPeers = np; }
+      UniquePid compGroup() { return _compGroup; }
+      void compGroup(UniquePid cg) { _compGroup = cg; }
+
+      size_t argvSize() { return _argvSize; }
+      void argvSize(int size) { _argvSize = size; }
+      size_t envSize() { return _envSize; }
+      void envSize(int size) { _envSize = size; }
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
@@ -112,6 +120,11 @@ namespace dmtcp
       pid_t _sid;
       pid_t _gid;
       pid_t _fgid;
+
+      UniquePid _compGroup;
+      int       _numPeers;
+      size_t    _argvSize;
+      size_t    _envSize;
   };
 
 }

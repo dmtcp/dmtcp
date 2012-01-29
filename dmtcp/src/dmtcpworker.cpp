@@ -73,8 +73,8 @@ LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
-size_t dmtcp::DmtcpWorker::_argvSize = 0;
-size_t dmtcp::DmtcpWorker::_envSize = 0;
+//size_t dmtcp::DmtcpWorker::_argvSize = 0;
+//size_t dmtcp::DmtcpWorker::_envSize = 0;
 
 static void processDmtcpCommands(dmtcp::string programName,
                                  dmtcp::vector<dmtcp::string>& args);
@@ -189,8 +189,10 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
                          pthread_atfork_child) == 0);
 }
 
-static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
+static void calculateArgvAndEnvSize()
 {
+  size_t argvSize, envSize;
+
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
   argvSize = 0;
   for (size_t i = 0; i < args.size(); i++) {
@@ -205,6 +207,9 @@ static void calculateArgvAndEnvSize(size_t& argvSize, size_t& envSize)
     }
   }
   envSize += args[0].length();
+
+  dmtcp::ProcessInfo::instance().argvSize(argvSize);
+  dmtcp::ProcessInfo::instance().envSize(envSize);
 }
 
 static dmtcp::string getLogFilePath()
@@ -348,7 +353,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   } else if (programName == "ssh") {
     processSshCommand(programName, args);
   }
-  calculateArgvAndEnvSize(_argvSize, _envSize);
+  calculateArgvAndEnvSize();
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
@@ -665,9 +670,9 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   } else if ( type == DMT_DO_FD_LEADER_ELECTION ) {
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
     JASSERT ( theCheckpointState != NULL );
-    theCheckpointState->numPeers(msg.params[0]);
+    ProcessInfo::instance().numPeers(msg.params[0]);
     JASSERT(UniquePid::ComputationId() == msg.compGroup);
-    theCheckpointState->compGroup(msg.compGroup);
+    ProcessInfo::instance().compGroup(msg.compGroup);
   }
 }
 
@@ -824,9 +829,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "handshaking done" );
 #endif
 
-//   JTRACE("writing *.dmtcp file");
-//   theCheckpointState->outputDmtcpConnectionTable();
-
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().preCheckpoint();
   dmtcp::ProcessInfo::instance().preCheckpoint();
@@ -937,7 +939,14 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
   const int len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
 
-  theCheckpointState->outputDmtcpConnectionTable(fd, argvSize(), envSize());
+  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
+  theCheckpointState->outputDmtcpConnectionTable(wr);
+
+  dmtcp::ProcessInfo::instance().refresh( );
+  dmtcp::ProcessInfo::instance().serialize( wr );
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::instance().serialize( wr );
+#endif
 }
 
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
