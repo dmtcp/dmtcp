@@ -36,6 +36,7 @@
 #include "restoretarget.h"
 #include "constants.h"
 #include "connectionmanager.h"
+#include "ckptserializer.h"
 #include "protectedfds.h"
 #include "util.h"
 #include "syscallwrappers.h"
@@ -55,7 +56,7 @@ RestoreTarget::RestoreTarget (const dmtcp::string& path)
   JASSERT (jalib::Filesystem::FileExists (_path)) (_path)
     .Text ("checkpoint file missing");
 
-  _offset = _conToFd.loadFromFile(_path, &_processInfo);
+  _offset = CkptSerializer::loadFromFile(_path, &_conToFd, &_processInfo);
 
   _roots.clear();
   _children.clear();

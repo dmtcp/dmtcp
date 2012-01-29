@@ -19,30 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "dmtcpworker.h"
-#include "threadsync.h"
-#include "constants.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jalloc.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpmodule.h"
-#include <stdlib.h>
-#include "mtcpinterface.h"
 #include <unistd.h>
-#include "sockettable.h"
-#include "processinfo.h"
-#include  "../jalib/jsocket.h"
 #include <map>
-#include "kernelbufferdrainer.h"
-#include  "../jalib/jfilesystem.h"
-#include "syscallwrappers.h"
-#include "protectedfds.h"
-#include "connectionidentifier.h"
-#include "connectionmanager.h"
-#include "connectionstate.h"
-#include "dmtcp_coordinator.h"
-#include "util.h"
-#include "sysvipc.h"
+#include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -54,6 +33,27 @@
 #include <sys/resource.h>
 #include <sys/personality.h>
 #include <netdb.h>
+
+#include "dmtcpworker.h"
+#include "threadsync.h"
+#include "constants.h"
+#include "dmtcpmessagetypes.h"
+#include "dmtcpmodule.h"
+#include "mtcpinterface.h"
+#include "processinfo.h"
+#include "syscallwrappers.h"
+#include "protectedfds.h"
+#include "connectionidentifier.h"
+#include "connectionmanager.h"
+#include "connectionstate.h"
+#include "virtualpidtable.h"
+#include "ckptserializer.h"
+#include "util.h"
+#include "sysvipc.h"
+#include  "../jalib/jsocket.h"
+#include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jalloc.h"
 
 using namespace dmtcp;
 
@@ -934,16 +934,9 @@ bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
 }
 #endif
 
-void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
+void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd)
 {
-  const int len = strlen(DMTCP_FILE_HEADER);
-  JASSERT(write(fd, DMTCP_FILE_HEADER, len)==len);
-
-  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
-  theCheckpointState->outputDmtcpConnectionTable(wr);
-
-  dmtcp::ProcessInfo::instance().refresh( );
-  dmtcp::ProcessInfo::instance().serialize( wr );
+  CkptSerializer::writeCkptPrefix(fd, theCheckpointState);
 }
 
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
