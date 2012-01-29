@@ -59,15 +59,20 @@ namespace dmtcp
       void eraseChild (pid_t originalPid);
       void  postExec();
 
+      void resetOnFork();
+
+      bool beginPthreadJoin(pthread_t thread);
+      void endPthreadJoin(pthread_t thread);
+
       void refresh();
       void refreshChildTable();
       void refreshTidVector();
 
       void serialize ( jalib::JBinarySerializer& o );
-      void serializeChildTable ( jalib::JBinarySerializer& o );
-      static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
-                                             pid_t& originalPid,
-                                             dmtcp::UniquePid& uniquePid );
+      void serializeChildTable(jalib::JBinarySerializer& o);
+      static void serializeChildTableEntry(jalib::JBinarySerializer& o,
+                                            pid_t& originalPid,
+                                            dmtcp::UniquePid& uniquePid);
       static void serializeEntryCount( jalib::JBinarySerializer& o,
                                        size_t& count );
 
@@ -89,15 +94,10 @@ namespace dmtcp
       pid_t gid() const { return _gid; }
       pid_t fgid() const { return _fgid; }
 
-      void setppid( pid_t ppid ) { _ppid = ppid; }
-      void setsid( pid_t sid ) { _sid = sid; }
-      void setgid( pid_t gid ) { _gid = gid; }
-      void setfgid( pid_t fgid ) { _fgid = fgid; }
-
-      void resetOnFork();
-
-      bool beginPthreadJoin(pthread_t thread);
-      void endPthreadJoin(pthread_t thread);
+      void setppid(pid_t ppid) { _ppid = ppid; }
+      void setsid(pid_t sid) { _sid = sid; }
+      void setgid(pid_t gid) { _gid = gid; }
+      void setfgid(pid_t fgid) { _fgid = fgid; }
 
       int numPeers() { return _numPeers; }
       void numPeers(int np) { _numPeers = np; }
@@ -108,6 +108,11 @@ namespace dmtcp
       void argvSize(int size) { _argvSize = size; }
       size_t envSize() { return _envSize; }
       void envSize(int size) { _envSize = size; }
+
+      const dmtcp::string& procname() const { return _procname; }
+      const dmtcp::string& hostname() const { return _hostname; }
+      const UniquePid& upid() const { return _upid; }
+      const UniquePid& uppid() const { return _uppid; }
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
@@ -125,6 +130,11 @@ namespace dmtcp
       int       _numPeers;
       size_t    _argvSize;
       size_t    _envSize;
+
+      dmtcp::string _procname;
+      dmtcp::string _hostname;
+      UniquePid     _upid;
+      UniquePid     _uppid;
   };
 
 }

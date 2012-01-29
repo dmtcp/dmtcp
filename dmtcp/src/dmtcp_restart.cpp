@@ -438,7 +438,6 @@ void BuildProcessTree()
 {
   for (size_t j = 0; j < targets.size(); ++j)
   {
-    VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
     ProcessInfo& processInfo = targets[j].getProcessInfo();
     originalPidTable.insertFromProcessInfo (processInfo);
     if (processInfo.isRootOfProcessTree() == true) {
@@ -549,7 +548,6 @@ void ProcessGroupInfo()
   // 1. divide processes into sessions and groups
   for (size_t j = 0; j < targets.size(); j++)
   {
-    VirtualPidTable& virtualPidTable = targets[j].getVirtualPidTable();
     ProcessInfo& processInfo = targets[j].getProcessInfo();
     JTRACE("Process ")
       (processInfo.pid())(processInfo.ppid())(processInfo.sid())

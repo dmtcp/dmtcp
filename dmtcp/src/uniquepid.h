@@ -46,11 +46,12 @@ namespace dmtcp
         : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen)
     {setPrefix();}
 
-    long hostid() const;
-    pid_t pid() const;
-    time_t time() const;
-    int generation() const;
-    const char* prefix() const;
+    long hostid() const { return _hostid; }
+    pid_t pid() const { return _pid; }
+    time_t time() const { return _time; }
+    int generation() const { return _generation; }
+    const char* prefix() const { return _prefix; }
+
     void incrementGeneration();
     static const char* checkpointFilename();
     static dmtcp::string checkpointFilesSubDirName();
