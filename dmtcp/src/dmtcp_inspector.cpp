@@ -41,6 +41,7 @@
 #include "connectionstate.h"
 #include "mtcpinterface.h"
 #include "processinfo.h"
+#include "ckptserializer.h"
 #include  "../jalib/jtimer.h"
 
 #define BINARY_NAME "dmtcp_checkpoint"
@@ -67,7 +68,7 @@ namespace {
     InspectTarget(const dmtcp::string& path)
     {
       JASSERT(jalib::Filesystem::FileExists(path))(path).Text("missing file");
-      _conToFd.loadFromFile(path, &_processInfo);
+      CkptSerializer::loadFromFile(path, &_conToFd, &_processInfo);
     }
     ConnectionToFds _conToFd;
     ProcessInfo     _processInfo;

@@ -22,16 +22,12 @@
 #ifndef CONNECTIONMANAGER_H
 #define CONNECTIONMANAGER_H
 
+#include "constants.h"
 #include "dmtcpalloc.h"
 #include "connection.h"
-#include <list>
-#include <map>
-#include <string>
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
-#include "processinfo.h"
-#include "constants.h"
 
 
 namespace dmtcp
@@ -137,12 +133,6 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
 
-      static pid_t ext_decomp_pid;
-      static int openDmtcpCheckpointFile(const dmtcp::string& filename);
-      static int openMtcpCheckpointFile(const dmtcp::string& filename);
-
-      int loadFromFile(const dmtcp::string& filename,
-                       ProcessInfo *processInfo);
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
   };

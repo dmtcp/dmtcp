@@ -102,7 +102,8 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	uniquepid.$(OBJEXT) sysvipc.$(OBJEXT) \
 	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
 	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
-	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT)
+	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
+	ckptserializer.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -314,7 +315,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
-	restoretarget.h \
+	restoretarget.h ckptserializer.h \
 	dmtcpmodule.h lookup_service.h trampolines.h
 
 
@@ -334,7 +335,8 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
 			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp
+			     jalibinterface.cpp processinfo.cpp \
+			     ckptserializer.cpp
 
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
@@ -602,6 +604,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionidentifier.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionmanager.Po@am__quote@
