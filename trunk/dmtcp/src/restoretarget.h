@@ -94,14 +94,11 @@ namespace dmtcp
     typedef sidMapping::iterator s_iterator;
     typedef vector<RestoreTarget *>::iterator t_iterator;
 
-    const UniquePid& upid() const { return _conToFd.upid(); }
-    const dmtcp::string& procname() const { return _conToFd.procname(); }
+    const UniquePid& upid() const { return _processInfo.upid(); }
+    const dmtcp::string& procname() const { return _processInfo.procname(); }
     void addChild(RestoreTarget *t) { _children.push_back(t); }
 
     ProcessInfo& getProcessInfo() { return _processInfo; }
-#ifdef PID_VIRTUALIZATION
-    VirtualPidTable& getVirtualPidTable() { return _virtualPidTable; }
-#endif
 
     // Traverse this process subtree and set up information about sessions
     //   and their leaders for all children.
@@ -109,8 +106,8 @@ namespace dmtcp
     sidMapping &getSmap() { return _smap; }
 
     dmtcp::string path() {return _path;}
-    UniquePid compGroup() {return _compGroup;}
-    int numPeers() {return _numPeers;}
+    UniquePid compGroup() {return _processInfo.compGroup();}
+    int numPeers() {return _processInfo.numPeers();}
     void markUsed() {_used = true;}
     bool isMarkedUsed() {return _used;}
 
@@ -133,16 +130,11 @@ namespace dmtcp
     void mtcpRestart();
 
   private:
-    dmtcp::string _path;
-    int _offset;
+    dmtcp::string   _path;
+    int             _offset;
     ConnectionToFds _conToFd;
-    UniquePid _compGroup;
-    int _numPeers;
-    size_t _argvSize;
-    size_t _envSize;
-#ifdef PID_VIRTUALIZATION
-    VirtualPidTable _virtualPidTable;
-#endif
+    bool            _used;
+
     ProcessInfo _processInfo;
     // Links to children of this process
     vector<RestoreTarget *> _children;
@@ -150,7 +142,6 @@ namespace dmtcp
     // i.e. have SID of this target in its tree.
     vector<RestoreTarget *> _roots;
     sidMapping _smap;
-    bool _used;
   };
 } // end namespace
 #endif

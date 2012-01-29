@@ -150,31 +150,6 @@ dmtcp::UniquePid::UniquePid()
   setPrefix();
 }
 
-long  dmtcp::UniquePid::hostid() const
-{
-  return _hostid;
-}
-
-pid_t  dmtcp::UniquePid::pid() const
-{
-  return _pid;
-}
-
-time_t  dmtcp::UniquePid::time() const
-{
-  return _time;
-}
-
-int  dmtcp::UniquePid::generation() const
-{
-  return _generation;
-}
-
-const char* dmtcp::UniquePid::prefix() const
-{
-  return _prefix;
-}
-
 void dmtcp::UniquePid::setPrefix()
 {
   memset(_prefix, 0, sizeof(_prefix));

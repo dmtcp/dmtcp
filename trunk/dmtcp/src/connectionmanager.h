@@ -30,7 +30,6 @@
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
-#include "virtualpidtable.h"
 #include "processinfo.h"
 #include "constants.h"
 
@@ -113,16 +112,6 @@ namespace dmtcp
       dmtcp::map< dmtcp::string , ConnectionIdentifier > _table;
   };
 
-  class VirtualPidTable;
-  class ProcessInfo;
-  typedef struct _SerializedWorkerInfo {
-#ifdef PID_VIRTUALIZATION
-    dmtcp::VirtualPidTable virtualPidTable;
-#endif
-    dmtcp::ProcessInfo processInfo;
-  } SerializedWorkerInfo;
-
-
   class ConnectionToFds
   {
     public:
@@ -132,11 +121,6 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       ConnectionToFds() {
-        _procname   = jalib::Filesystem::GetProgramName();
-        _hostname   = jalib::Filesystem::GetCurrentHostname();
-        _inhostname = jalib::Filesystem::GetCurrentHostname();
-        _upid       = UniquePid::ThisProcess();
-        _uppid      = UniquePid::ParentProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
@@ -153,24 +137,14 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
 
-      const dmtcp::string& procname()   const { return _procname; }
-      const dmtcp::string& hostname()   const { return _hostname; }
-      const dmtcp::string& inhostname() const { return _inhostname; }
-      const UniquePid&   upid()        const { return _upid; }
-      const UniquePid&   uppid()       const { return _uppid; }
-
       static pid_t ext_decomp_pid;
       static int openDmtcpCheckpointFile(const dmtcp::string& filename);
       static int openMtcpCheckpointFile(const dmtcp::string& filename);
 
       int loadFromFile(const dmtcp::string& filename,
-                       SerializedWorkerInfo *info);
+                       ProcessInfo *processInfo);
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
-      dmtcp::string _procname;
-      dmtcp::string _hostname;
-      dmtcp::string _inhostname;
-      UniquePid _upid, _uppid;
   };
 
 

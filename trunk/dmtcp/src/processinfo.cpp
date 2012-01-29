@@ -29,10 +29,11 @@
 #include "util.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
+#include "uniquepid.h"
 #include "processinfo.h"
 #include "virtualpidtable.h"
+#include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 
 #ifndef PID_VIRTUALIZATION
 # define _real_getpid getpid
@@ -64,6 +65,12 @@ dmtcp::ProcessInfo::ProcessInfo()
   _tidVector.clear();
   _pthreadJoinId.clear();
   _do_unlock_tbl();
+
+  _procname   = jalib::Filesystem::GetProgramName();
+  _hostname   = jalib::Filesystem::GetCurrentHostname();
+  _procname   = jalib::Filesystem::GetProgramName();
+  _upid       = UniquePid::ThisProcess();
+  _uppid      = UniquePid::ParentProcess();
 }
 
 dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
@@ -86,6 +93,11 @@ void dmtcp::ProcessInfo::preCheckpoint()
       _real_close(tfd);
     }
   }
+
+  _procname = jalib::Filesystem::GetProgramName();
+  _hostname = jalib::Filesystem::GetCurrentHostname();
+  _upid = UniquePid::ThisProcess();
+  _uppid = UniquePid::ParentProcess();
 
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid);
 }
@@ -222,6 +234,10 @@ void dmtcp::ProcessInfo::postExec( )
   }
 #endif
   _tidVector.clear();
+
+  _procname   = jalib::Filesystem::GetProgramName();
+  _upid       = UniquePid::ThisProcess();
+  _uppid      = UniquePid::ParentProcess();
   _do_unlock_tbl();
 }
 
@@ -291,16 +307,19 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ProcessInfo:" );
 
   if (o.isWriter()){
+    refresh();
     updateRootOfProcessTree();//      _isRootOfProcessTree = true;
+    _hostname   = jalib::Filesystem::GetCurrentHostname();
   }
 
-  JTRACE("Save pid information")(_sid)(_ppid)(_gid)(_fgid);
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
-
-  JTRACE("Save computation information")
-    (_compGroup) (_numPeers) (_argvSize) (_envSize);
-
+  o & _procname & _hostname & _upid & _uppid;
   o & _compGroup & _numPeers & _argvSize & _envSize;
+
+  JTRACE("Serialized process information")
+    (_sid) (_ppid) (_gid) (_fgid)
+    (_procname) (_hostname) (_upid) (_uppid)
+    (_compGroup) (_numPeers) (_argvSize) (_envSize);
 
   if ( _isRootOfProcessTree ) {
     JTRACE ( "This process is Root of Process Tree" );

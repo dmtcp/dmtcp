@@ -944,9 +944,6 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix ( int fd )
 
   dmtcp::ProcessInfo::instance().refresh( );
   dmtcp::ProcessInfo::instance().serialize( wr );
-#ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::instance().serialize( wr );
-#endif
 }
 
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()

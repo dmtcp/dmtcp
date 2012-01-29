@@ -47,7 +47,7 @@ extern dmtcp::OriginalPidTable originalPidTable;
 #endif
 
 void runMtcpRestore(const char* path, int offset, size_t argvSize,
-                           size_t envSize);
+                    size_t envSize);
 
 RestoreTarget::RestoreTarget (const dmtcp::string& path)
   : _path (path)
@@ -55,26 +55,15 @@ RestoreTarget::RestoreTarget (const dmtcp::string& path)
   JASSERT (jalib::Filesystem::FileExists (_path)) (_path)
     .Text ("checkpoint file missing");
 
-  dmtcp::SerializedWorkerInfo workerInfo;
-  _offset = _conToFd.loadFromFile(_path, &workerInfo);
+  _offset = _conToFd.loadFromFile(_path, &_processInfo);
 
-  _compGroup = workerInfo.processInfo.compGroup();
-  _numPeers  = workerInfo.processInfo.numPeers();
-  _argvSize  = workerInfo.processInfo.argvSize();
-  _envSize   = workerInfo.processInfo.envSize();
-
-#ifdef PID_VIRTUALIZATION
-  _virtualPidTable = workerInfo.virtualPidTable;
-  _processInfo = workerInfo.processInfo;
-  _virtualPidTable.erase(getpid());
   _roots.clear();
   _children.clear();
   _smap.clear();
   _used = 0;
-#endif
 
-  JTRACE ("restore target") (_path) (_numPeers) (_compGroup)
-    (_conToFd.size()) (_offset);
+  JTRACE ("restore target") (_path) (_processInfo.numPeers())
+    (_processInfo.compGroup()) (_conToFd.size()) (_offset);
 }
 
 void RestoreTarget::dupAllSockets (SlidingFdTable& slidingFd)
@@ -139,7 +128,8 @@ int RestoreTarget::find_stdin(SlidingFdTable& slidingFd)
 
 void RestoreTarget::mtcpRestart()
 {
-  runMtcpRestore (_path.c_str(), _offset, _argvSize, _envSize);
+  runMtcpRestore(_path.c_str(), _offset,
+                 _processInfo.argvSize(), _processInfo.envSize());
 }
 
 
@@ -353,12 +343,10 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
   Util::initializeLogFile(procname());
   JTRACE("Creating process during restart") (upid()) (procname());
 
-  VirtualPidTable &vt = _virtualPidTable;
   ProcessInfo &pInfo = _processInfo;
 
   JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
 
-  vt.updateMapping(upid().pid(), _real_getpid());
   pid_t psid = pInfo.sid();
 
   if (!isSessionLeader()) {
@@ -372,42 +360,26 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
       JTRACE ("Forking Child Process") ((*it)->upid());
       pid_t cid = forkChild();
 
-      if (cid == 0)
-      {
+      if (cid == 0) {
         (*it)->CreateProcess (coordinatorAPI, slidingFd);
         JASSERT (false) . Text ("Unreachable");
       }
       JASSERT (cid > 0);
-      ProcessInfo::iterator pit = pInfo.begin();
-      for (; pit != pInfo.end(); pit++) {
-        if ((*it)->upid() == pit->second) {
-          vt.updateMapping (pit->first, cid);
-          break;
-        }
-      }
-
     }
   } else {
     // Process is session leader.
     // There may be not setsid-ed children.
     for (t_iterator it = _children.begin(); it != _children.end(); it++) {
       s_iterator sit = (*it)->getSmap().find(psid);
-      JTRACE("Restore processes that was created before their parent called setsid()");
+      JTRACE("Restore processes that were created before their parent called setsid()");
       if (sit == (*it)->getSmap().end()) {
         JTRACE ("Forking Child Process") ((*it)->upid());
         pid_t cid = forkChild();
-        if (cid == 0)
-        {
+        if (cid == 0) {
           (*it)->CreateProcess (coordinatorAPI, slidingFd);
           JASSERT (false) . Text ("Unreachable");
         }
         JASSERT (cid > 0);
-        ProcessInfo::iterator pit = _processInfo.begin();
-        for (; pit != _processInfo.end(); pit++) {
-          if ((*it)->upid() == pit->second) {
-            _virtualPidTable.updateMapping (pit->first, cid);
-          }
-        }
       }
     }
 
@@ -428,12 +400,6 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
           JASSERT (false) . Text ("Unreachable");
         }
         JASSERT (cid> 0);
-        ProcessInfo::iterator pit = _processInfo.begin();
-        for (; pit != _processInfo.end(); pit++) {
-          if ((*it)->upid() == pit->second) {
-            _virtualPidTable.updateMapping (pit->first, cid);
-          }
-        }
       }
     }
 
@@ -464,7 +430,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
   int tmpCoordFd = dup(PROTECTED_COORD_FD);
   JASSERT(tmpCoordFd != -1);
   coordinatorAPI.connectToCoordinator();
-  coordinatorAPI.sendCoordinatorHandshake(procname(), _compGroup);
+  coordinatorAPI.sendCoordinatorHandshake(procname(), _processInfo.compGroup());
   coordinatorAPI.recvCoordinatorHandshake();
   close(tmpCoordFd);
 

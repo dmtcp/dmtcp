@@ -73,11 +73,6 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
   dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
   JTRACE("Creating Connection->FD mapping")(fds.size());
   KernelDeviceToConnection::instance().dbgSpamFds();
-  _procname = jalib::Filesystem::GetProgramName();
-  _hostname = jalib::Filesystem::GetCurrentHostname();
-  _inhostname = jalib::Filesystem::GetCurrentHostname();
-  _upid = UniquePid::ThisProcess();
-  _uppid = UniquePid::ParentProcess();
 
   for ( size_t i=0; i<fds.size(); ++i ) {
     if ( _isBadFd ( fds[i] ) ) continue;
@@ -648,44 +643,31 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
-  // Current process information
-  o & _procname & _inhostname & _upid & _uppid;
-
   size_t numCons = _table.size();
   o & numCons;
 
-  if ( o.isWriter() )
-  {
-    _hostname = jalib::Filesystem::GetCurrentHostname();
-    o & _hostname;
-    JTRACE("Writing hostname to checkpoint file")
-      (_hostname) (_inhostname) (_procname) (_uppid);
-
+  if (o.isWriter()) {
     // Save connections
-    for ( iterator i=_table.begin(); i!=_table.end(); ++i )
-    {
+    for (iterator i = _table.begin(); i != _table.end(); ++i) {
       JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
       ConnectionIdentifier key = i->first;
       dmtcp::vector<int>& val = i->second;
       o & key & val;
-      JASSERT ( val.size() >0 ) (key) ( o.filename() ).Text ( "would write empty fd list" );
+      JASSERT(val.size() > 0)
+        (key) (o.filename()) .Text("would write empty fd list");
     }
-  }
-  else
-  {
-    o & _hostname;
-    // Save connections
-    while ( numCons-- > 0 )
-    {
+  } else {
+    while (numCons-- > 0) {
       JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
       ConnectionIdentifier key;
       dmtcp::vector<int> val;
       o & key & val;
-      JWARNING ( val.size() >0 ) (key) ( o.filename() ).Text ( "reading empty fd list" );
-      _table[key]=val;
+      JWARNING(val.size() > 0)
+        (key) (o.filename()) .Text("reading empty fd list");
+      _table[key] = val;
     }
   }
-  JSERIALIZE_ASSERT_POINT ( "EOF" );
+  JSERIALIZE_ASSERT_POINT("EOF");
 }
 
 void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
@@ -1080,16 +1062,13 @@ int dmtcp::ConnectionToFds::openMtcpCheckpointFile(const dmtcp::string& path){
 }
 
 int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,
-                                         dmtcp::SerializedWorkerInfo *info)
+                                         dmtcp::ProcessInfo *processInfo)
 {
   int fd = openDmtcpCheckpointFile(path);
   JASSERT(fd != -1);
   jalib::JBinarySerializeReaderRaw rdr(path, fd);
   serialize(rdr);
-  info->processInfo.serialize(rdr);
-#ifdef PID_VIRTUALIZATION
-  info->virtualPidTable.serialize(rdr);
-#endif
+  processInfo->serialize(rdr);
   close_ckpt_to_read(fd);
   return rdr.bytes() + strlen(DMTCP_FILE_HEADER);
 }
