@@ -37,6 +37,8 @@
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 LIB_PRIVATE void dmtcp_reset_gettid();
 
+void restoreUserLDPRELOAD();
+
 namespace dmtcp
 {
 

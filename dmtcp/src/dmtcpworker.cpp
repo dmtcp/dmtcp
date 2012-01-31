@@ -48,6 +48,7 @@
 #include "connectionstate.h"
 #include "virtualpidtable.h"
 #include "ckptserializer.h"
+#include "remexecwrappers.h"
 #include "util.h"
 #include "sysvipc.h"
 #include  "../jalib/jsocket.h"
@@ -78,8 +79,6 @@ bool dmtcp::DmtcpWorker::_exitInProgress = false;
 
 static void processDmtcpCommands(dmtcp::string programName,
                                  dmtcp::vector<dmtcp::string>& args);
-static void processSshCommand(dmtcp::string programName,
-                              dmtcp::vector<dmtcp::string>& args);
 
 // To allow linking without mtcpinterface;  Weak symbol undefined, is set to 0
 void __attribute__ ((weak)) dmtcp::initializeMtcpEngine();
@@ -477,130 +476,6 @@ static void processDmtcpCommands(dmtcp::string programName,
   JASSERT ( false ) (jalib::Filesystem::GetProgramPath()) ( argv[0] )
     ( JASSERT_ERRNO ) .Text ( "exec() failed" );
 }
-
-static void processSshCommand(dmtcp::string programName,
-                              dmtcp::vector<dmtcp::string>& args)
-{
-  char buf[256];
-  JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
-  //make sure coordinator connection is closed
-  _real_close ( PROTECTED_COORD_FD );
-
-  JASSERT ( args.size() >= 3 ) ( args.size() )
-    .Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
-
-  //find command part
-  size_t commandStart = 2;
-  for ( size_t i = 1; i < args.size(); ++i )
-  {
-    if ( args[i][0] != '-' )
-    {
-      commandStart = i + 1;
-      break;
-    }
-  }
-  JASSERT ( commandStart < args.size() && args[commandStart][0] != '-' )
-    ( commandStart ) ( args.size() ) ( args[commandStart] )
-    .Text ( "failed to parse ssh command line" );
-
-  //find the start of the command
-  dmtcp::string& cmd = args[commandStart];
-
-
-  const char * prefixPath           = getenv ( ENV_VAR_PREFIX_PATH );
-  const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
-  if (coordinatorAddr == NULL) {
-    JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
-    coordinatorAddr = buf;
-  }
-  const char * coordinatorPortStr   = getenv ( ENV_VAR_NAME_PORT );
-  const char * sigckpt              = getenv ( ENV_VAR_SIGCKPT );
-  const char * compression          = getenv ( ENV_VAR_COMPRESSION );
-#ifdef HBICT_DELTACOMP
-  const char * deltacompression     = getenv ( ENV_VAR_DELTACOMPRESSION );
-#endif
-  const char * ckptOpenFiles        = getenv ( ENV_VAR_CKPT_OPEN_FILES );
-  const char * ckptDir              = getenv ( ENV_VAR_CHECKPOINT_DIR );
-  const char * tmpDir               = getenv ( ENV_VAR_TMPDIR );
-  if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet                   = *getenv ( ENV_VAR_QUIET ) - '0';
-  } else {
-    jassert_quiet = 0;
-  }
-
-  //modify the command
-
-  dmtcp::string prefix = "";
-
-  if (prefixPath != NULL) {
-    prefix += dmtcp::string() + prefixPath + "/bin/";
-  }
-  prefix += DMTCP_CHECKPOINT_CMD " --ssh-slave ";
-
-  if ( coordinatorAddr != NULL )
-    prefix += dmtcp::string() + "--host " + coordinatorAddr    + " ";
-  if ( coordinatorPortStr != NULL )
-    prefix += dmtcp::string() + "--port " + coordinatorPortStr + " ";
-  if ( sigckpt != NULL )
-    prefix += dmtcp::string() + "--mtcp-checkpoint-signal "    + sigckpt + " ";
-  if ( prefixPath != NULL )
-    prefix += dmtcp::string() + "--prefix " + prefixPath       + " ";
-  if ( ckptDir != NULL )
-    prefix += dmtcp::string() + "--ckptdir " + ckptDir         + " ";
-  if ( tmpDir != NULL )
-    prefix += dmtcp::string() + "--tmpdir " + tmpDir           + " ";
-  if ( ckptOpenFiles != NULL )
-    prefix += dmtcp::string() + "--checkpoint-open-files"      + " ";
-
-  if ( compression != NULL ) {
-    if ( strcmp ( compression, "0" ) == 0 )
-      prefix += "--no-gzip ";
-    else
-      prefix += "--gzip ";
-  }
-
-#ifdef HBICT_DELTACOMP
-  if (deltacompression != NULL) {
-    if (strcmp(deltacompression, "0") == 0)
-      prefix += "--no-hbict ";
-    else
-      prefix += "--hbict ";
-  }
-#endif
-
-  // process command
-  size_t semipos, pos;
-  size_t actpos = dmtcp::string::npos;
-  for(semipos = 0; (pos = cmd.find(';',semipos+1)) != dmtcp::string::npos;
-      semipos = pos, actpos = pos);
-
-  if( actpos > 0 && actpos != dmtcp::string::npos ){
-    cmd = cmd.substr(0,actpos+1) + prefix + cmd.substr(actpos+1);
-  } else {
-    cmd = prefix + cmd;
-  }
-
-  //now repack args
-  dmtcp::string newCommand = "";
-  char** argv = new char*[args.size() +2];
-  memset ( argv,0,sizeof ( char* ) * ( args.size() +2 ) );
-
-  for ( size_t i=0; i< args.size(); ++i )
-  {
-    argv[i] = ( char* ) args[i].c_str();
-    newCommand += args[i] + ' ';
-  }
-
-  JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
-
-  restoreUserLDPRELOAD();
-  //now re-call ssh
-  _real_execvp ( argv[0], argv );
-
-  //should be unreachable
-  JASSERT ( false ) ( cmd ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
-}
-
 
 const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
