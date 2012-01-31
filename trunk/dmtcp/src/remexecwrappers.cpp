@@ -26,7 +26,7 @@
    Torque PBS contains libtorque library that provides API for communications
    with MOM Node management servers to obtain information about allocated resources
    and use them. In particular spawn programs on remote nodes using tm_spawn.
-   
+
    To keep track and control under all processes spawned using any method (like exec, ssh)
    we need also to wrap tm_spawn function
 */
@@ -86,7 +86,7 @@ static int get_dmtcp_args(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_pa
 */
   const char * prefixPath           = getenv ( ENV_VAR_PREFIX_PATH );
   const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
-  
+
   char buf[256];
   if (coordinatorAddr == NULL) {
     JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
@@ -109,63 +109,63 @@ static int get_dmtcp_args(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_pa
 
   //modify the command
   dmtcp_args.clear();
-  
+
   dmtcp::string prefix = "";
   if (prefixPath != NULL) {
     prefix += dmtcp::string() + prefixPath + "/bin/";
   }
-  
+
   prefix += DMTCP_CHECKPOINT_CMD;
-  
+
   if (full_path) {
     char full_path[UTIL_MAX_PATH_LEN] = "";
     // TODO: find dmtcp_restart full path
     int ret = dmtcp::Util::expandPathname(prefix.c_str(), full_path, sizeof(full_path));
 
     JTRACE("Expand dmtcp_checkpoint path")(prefix)(ret)(full_path);
-    
+
     if( ret == 0 ){
       // expand successful
       prefix = dmtcp::string() + full_path;
     }
   }
-  
+
   dmtcp_args.push_back(prefix);
 
   if ( coordinatorAddr != NULL ){
     dmtcp_args.push_back( "--host" );
     dmtcp_args.push_back( coordinatorAddr );
   }
-  
+
   if ( coordinatorPortStr != NULL ){
     dmtcp_args.push_back( "--port" );
     dmtcp_args.push_back( coordinatorPortStr );
   }
-  
+
   if ( sigckpt != NULL ){
     dmtcp_args.push_back( "--mtcp-checkpoint-signal" );
     dmtcp_args.push_back( sigckpt );
   }
-  
+
   if ( prefixPath != NULL ){
     dmtcp_args.push_back( "--prefix" );
     dmtcp_args.push_back( prefixPath );
   }
-  
+
   if ( ckptDir != NULL ){
     dmtcp_args.push_back( "--ckptdir" );
     dmtcp_args.push_back( ckptDir );
   }
-  
+
   if ( tmpDir != NULL ){
     dmtcp_args.push_back( "--tmpdir" );
     dmtcp_args.push_back( tmpDir );
   }
-  
+
   if ( ckptOpenFiles != NULL ){
     dmtcp_args.push_back( "--checkpoint-open-files" );
   }
-  
+
   if ( compression != NULL ) {
     if ( strcmp ( compression, "0" ) == 0 )
       dmtcp_args.push_back( "--no-gzip" );
@@ -181,7 +181,7 @@ static int get_dmtcp_args(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_pa
       dmtcp_args.push_back( "--hbict" );
   }
 #endif
-	return 0;
+  return 0;
 }
 
 //------------------------------- SSH exec wrapper -----------------------------------------//
@@ -218,7 +218,7 @@ void processSshCommand(dmtcp::string programName,
   dmtcp::string& cmd = args[commandStart];
 
   dmtcp::vector<dmtcp::string> dmtcp_args;
-  
+
   get_dmtcp_args(dmtcp_args);
 
   dmtcp::string prefix = "";
@@ -230,7 +230,7 @@ void processSshCommand(dmtcp::string programName,
       prefix += dmtcp::string() +  dmtcp_args[i] + " ";
     }
   }
-  
+
   JTRACE("Prefix")(prefix);
 
 
@@ -280,7 +280,7 @@ int parsePBSconfig(dmtcp::string &config, dmtcp::string &libpath, dmtcp::string 
   params.clear();
   libpath = " ";
   libname = " ";
-    
+
   size_t first = config.find_first_not_of(delim);
   while( first != dmtcp::string::npos ){
     size_t last = config.find_first_of(delim,first);
@@ -318,11 +318,11 @@ int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
   const char *pbs_config_path = "pbs-config";
   static const char *pbs_config_args[] = { "pbs-config", "--libs", NULL };
   int cpid;
-  
+
   JASSERT(pipe(fds) != -1).Text("Cannot create pipe to execute pbs-config to find Torque/PBS library!");
   cpid = _real_fork();
   JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
-  
+
   if( cpid < 0 ){
     JTRACE( "ERROR: cannot execute pbs-config. Will not run tm_spawn!");
     return -1;
@@ -337,8 +337,8 @@ int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
     /* should not get here */
     JASSERT(false)("ERROR: Failed to exec pbs-config. tm_spawn will fail with TM_BADINIT")(strerror(errno));
     exit(0);
-  } 
-  
+  }
+
   /* parent process */
   JTRACE ( "created child process for pbs-config")(cpid);
   int status;
@@ -355,7 +355,7 @@ int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
   fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
 
   JTRACE ( "Read pbs-config output from pipe");
-  
+
   dmtcp::string pbs_config;
   char buf[256];
   int count = 0;
@@ -365,7 +365,7 @@ int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
   }
 
   JTRACE ( "Parse pbs-config output:")(pbs_config);
-  
+
   return parsePBSconfig(pbs_config, libpath, libname);
 }
 
@@ -397,7 +397,7 @@ static int libtorque_init()
       ret = -1;
       goto unlock;
     }
-    
+
     dlerror();
     tm_spawn_ptr = (tm_spawn_t)_real_dlsym(_libtorque_handle, "tm_spawn");
     if( tm_spawn_ptr == NULL ){
@@ -412,7 +412,7 @@ static int libtorque_init()
   }
 unlock:
   JASSERT(_real_pthread_mutex_unlock(&_libtorque_mutex) == 0);
-  return ret;  
+  return ret;
 }
 
 
@@ -425,20 +425,20 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where, tm
 
   if( libtorque_init() )
     return TM_BADINIT;
-		  
+
   dmtcp::vector<dmtcp::string> dmtcp_args;
-  
+
   get_dmtcp_args(dmtcp_args,true);
 
   unsigned int dsize = dmtcp_args.size();
   const char *new_argv[ argc + dsize ];
 
   dmtcp::string cmdline = dmtcp::string();
-    
+
   for(int i=0; i < dsize; i++){
     new_argv[i] = dmtcp_args[i].c_str();
   }
-  
+
   for(int i=0; i < argc; i++){
     new_argv[ dsize + i ] = argv[i];
   }
@@ -450,7 +450,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where, tm
   JNOTE ( "call Torque PBS tm_spawn API to run command on remote host" ) ( argv[0] ) (where);
   JNOTE("CMD:")(cmdline);
   int ret = tm_spawn_ptr(argc + dsize,(char **)new_argv,envp,where,tid,event);
-  
+
   return ret;
 }
 
