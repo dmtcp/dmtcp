@@ -154,9 +154,9 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	socketwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
 	epollwrappers.$(OBJEXT) sysvipc.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
-	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	dmtcpmodule.$(OBJEXT)
+	miscwrappers.$(OBJEXT) remexecwrappers.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) filewrappers.$(OBJEXT) \
+	mallocwrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -358,8 +358,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
 			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
-			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
-			 filewrappers.cpp mallocwrappers.cpp \
+			 pidwrappers.cpp miscwrappers.cpp remexecwrappers.cpp \
+			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
@@ -646,6 +646,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restoretarget.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
