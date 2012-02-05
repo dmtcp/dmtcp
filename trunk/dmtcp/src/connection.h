@@ -329,8 +329,16 @@ namespace dmtcp
       {
         FILE_INVALID = FILE,
         FILE_REGULAR,
-        FILE_DELETED
+        FILE_DELETED,
+        FILE_RESMGR
       };
+
+      enum ResMgrFileType
+      {
+        TORQUE_IO,
+        TORQUE_NODE
+      };
+
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
 
@@ -341,7 +349,9 @@ namespace dmtcp
           , _offset ( offset )
       {
         _type = type;
-        if (path != "?") {
+        if( _type == FILE_RESMGR )
+          JTRACE("New Resource Manager File connection created")(_path);
+        else if (path != "?") {
           JTRACE("New File connection created")(_path);
         }
       }
@@ -357,7 +367,7 @@ namespace dmtcp
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
       virtual string str() { return _path; }
-      void restoreFile();
+      void restoreFile(dmtcp::string newpath = "");
       dmtcp::string filePath() { return _path; }
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() {
@@ -371,10 +381,13 @@ namespace dmtcp
     private:
       void saveFile (int fd);
       int  openFile ();
+      void refreshPath( const dmtcp::vector<int>& fds);
       void refreshPath();
       void handleUnlinkedFile();
       void calculateRelativePath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
+      void preCheckpointResMgrFile(const dmtcp::vector<int>&);
+      bool restoreResMgrFile(const dmtcp::vector<int>&);
 
       dmtcp::string _path;
       dmtcp::string _rel_path;
@@ -382,6 +395,7 @@ namespace dmtcp
       bool        _checkpointed;
       off_t       _offset;
       struct stat _stat;
+      ResMgrFileType _rmtype;
   };
 
   class FifoConnection : public Connection
@@ -392,12 +406,12 @@ namespace dmtcp
 
       inline FifoConnection ( const dmtcp::string& path )
           : Connection ( FIFO )
-		  , _path ( path )
+          , _path ( path )
       {
         dmtcp::string curDir = jalib::Filesystem::GetCWD();
         int offs = _path.find(curDir);
         if( offs < 0 ){
-	        _rel_path = "*";
+          _rel_path = "*";
         }else{
           offs += curDir.size();
           offs = _path.find('/',offs);
@@ -405,7 +419,7 @@ namespace dmtcp
           _rel_path = _path.substr(offs);
         }
         JTRACE("New Fifo connection created")(_path)(_rel_path);
-		_in_data.clear();
+        _in_data.clear();
       }
 
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds

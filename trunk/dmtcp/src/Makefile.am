@@ -36,7 +36,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
-	restoretarget.h ckptserializer.h \
+	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
 	dmtcpmodule.h lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -56,7 +56,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp
+			     ckptserializer.cpp resource_manager.cpp
 
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \

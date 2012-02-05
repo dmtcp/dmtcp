@@ -51,6 +51,7 @@
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "util.h"
+#include "resource_manager.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
@@ -78,7 +79,7 @@ typedef int (*tm_spawn_t)(int argc, char **argv, char **envp, tm_node_id where, 
 tm_spawn_t tm_spawn_ptr;
 
 
-static int get_dmtcp_args(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_path = false)
+static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_path = false)
 {
 /* This code is taken from dmtcpworker.cpp from processSshCommand function
    In future this code should be moved into separate function to avoid 
@@ -219,7 +220,7 @@ void processSshCommand(dmtcp::string programName,
 
   dmtcp::vector<dmtcp::string> dmtcp_args;
 
-  get_dmtcp_args(dmtcp_args);
+  getDmtcpArgs(dmtcp_args);
 
   dmtcp::string prefix = "";
 
@@ -268,106 +269,6 @@ void processSshCommand(dmtcp::string programName,
 }
 
 //--------------------- Torque/PBS tm_spawn remote exec wrapper ----------------------------------------------//
-
-int parsePBSconfig(dmtcp::string &config, dmtcp::string &libpath, dmtcp::string &libname)
-{
-  // config looks like: "-L<libpath> -l<libname> -Wl,--rpath -Wl,<libpath>"
-  // we will search for first libpath and first libname
-
-  bool libpath_found = false, libname_found = false;
-  dmtcp::vector<dmtcp::string> params;
-  dmtcp::string delim = " \n\t";
-  params.clear();
-  libpath = " ";
-  libname = " ";
-
-  size_t first = config.find_first_not_of(delim);
-  while( first != dmtcp::string::npos ){
-    size_t last = config.find_first_of(delim,first);
-    if( last != dmtcp::string::npos ){
-      dmtcp::string s(config,first,last-first);
-      params.push_back(s);
-      first = config.find_first_not_of(delim,last);
-    }else{
-      first = dmtcp::string::npos;
-    }
-  }
-
-  // get -L & -l arguments
-  for(int i=0; i < params.size(); i++){
-    dmtcp::string &s = params[i];
-    if( s[0] == '-' ){
-      if( s[1] == 'L' ){
-        dmtcp::string tmp(s,2,s.size() - 2);
-        libpath = tmp;
-        libpath_found = true;
-      }else if( s[1] == 'l' ){
-        dmtcp::string tmp(s,2,s.size() - 2);
-        libname = tmp;
-        libname_found = true;
-      }
-    }
-  }
-  JTRACE("Torque PBS libname and libpath")(libname)(libpath);
-  return !(libpath_found && libname_found);
-}
-
-int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
-{
-  int fds[2];
-  const char *pbs_config_path = "pbs-config";
-  static const char *pbs_config_args[] = { "pbs-config", "--libs", NULL };
-  int cpid;
-
-  JASSERT(pipe(fds) != -1).Text("Cannot create pipe to execute pbs-config to find Torque/PBS library!");
-  cpid = _real_fork();
-  JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
-
-  if( cpid < 0 ){
-    JTRACE( "ERROR: cannot execute pbs-config. Will not run tm_spawn!");
-    return -1;
-  }
-  if( cpid == 0 ){
-    JTRACE ( "child process, will exec into external de-compressor");
-    fds[1] = dup(dup(dup(fds[1])));
-    close(fds[0]);
-    JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
-    close(fds[1]);
-    _real_execvp(pbs_config_path, (char **)pbs_config_args);
-    /* should not get here */
-    JASSERT(false)("ERROR: Failed to exec pbs-config. tm_spawn will fail with TM_BADINIT")(strerror(errno));
-    exit(0);
-  }
-
-  /* parent process */
-  JTRACE ( "created child process for pbs-config")(cpid);
-  int status;
-  if( _real_waitpid(cpid,&status,0) < 0 ){
-    return -1;
-  }
-  if( !( WIFEXITED(status) && WEXITSTATUS(status) == 0 ) ){
-    return -1;
-  }
-
-  // set descriptor as non-blocking
-  JTRACE ( "Set pipe fds[0] as non-blocking");
-  int flags = fcntl(fds[0], F_GETFL);
-  fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
-
-  JTRACE ( "Read pbs-config output from pipe");
-
-  dmtcp::string pbs_config;
-  char buf[256];
-  int count = 0;
-  while( (count = read(fds[0], buf, 255)) > 0 ){
-    buf[count] = '\0';
-    pbs_config += dmtcp::string() + buf;
-  }
-
-  JTRACE ( "Parse pbs-config output:")(pbs_config);
-
-  return parsePBSconfig(pbs_config, libpath, libname);
-}
 
 static int libtorque_init()
 {
@@ -428,7 +329,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where, tm
 
   dmtcp::vector<dmtcp::string> dmtcp_args;
 
-  get_dmtcp_args(dmtcp_args,true);
+  getDmtcpArgs(dmtcp_args,true);
 
   unsigned int dsize = dmtcp_args.size();
   const char *new_argv[ argc + dsize ];
