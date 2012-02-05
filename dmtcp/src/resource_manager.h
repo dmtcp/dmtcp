@@ -22,12 +22,22 @@
 // This file was originally contributed
 // by Artem Y. Polyakov <artpol84@gmail.com>.
 
-#ifndef REMOTE_EXEC_WRAPPERS_H
-#define REMOTE_EXEC_WRAPPERS_H
+#ifndef RESOURCE_MANAGER_H
+#define RESOURCE_MANAGER_H
 
 #include "dmtcpalloc.h"
 
-void processSshCommand(dmtcp::string programName,
-                              dmtcp::vector<dmtcp::string>& args);
+// General
+bool runUnderRMgr();
+
+// Torque API
+bool runUnderTorque();
+bool isResMgrFile(dmtcp::string &path);
+int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname);
+bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path);
+bool isTorqueIOFile(dmtcp::string &path);
+bool isTorqueNodeFile(dmtcp::string &path);
+bool isTorqueStdout(dmtcp::string &path);
+bool isTorqueStderr(dmtcp::string &path);
 
 #endif

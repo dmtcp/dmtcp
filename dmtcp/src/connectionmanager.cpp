@@ -33,6 +33,7 @@
 #include "connectionmanager.h"
 #include "protectedfds.h"
 #include "util.h"
+#include "resource_manager.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
@@ -334,7 +335,12 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       {
         JTRACE ( "creating file connection [on-demand]" ) ( deviceName );
         off_t offset = lseek ( fd, 0, SEEK_CUR );
-        Connection * c = new FileConnection ( device, offset );
+        Connection * c;
+        if( isResMgrFile(device) ){
+          c = new FileConnection ( device, offset, FileConnection::FILE_RESMGR );
+        }else{
+          c = new FileConnection ( device, offset );
+        }
         ConnectionList::instance().add ( c );
         _table[deviceName] = c->id();
       }
