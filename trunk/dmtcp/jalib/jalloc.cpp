@@ -213,7 +213,7 @@ private:
 #ifdef RECORD_REPLAY
 /* We need a greater arena size to eliminate mmap() calls that could happen
    at different times for record vs. replay. */
-typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*16 > > lvl1;
+typedef JGlobalAlloc< JFixedAllocStack<64 ,  1024*1024*16 > > lvl1;
 typedef JGlobalAlloc< JFixedAllocStack<256,  1024*1024*128 > > lvl2;
 typedef JGlobalAlloc< JFixedAllocStack<1024, 1024*32 > > lvl3;
 typedef JGlobalAlloc< JFixedAllocStack<2048, 1024*32 > > lvl4;

@@ -42,6 +42,8 @@ struct ptrace_info {
   int inferior_is_ckpthread;
   int last_command;
   int singlestep_waited_on;
+  // Value is 1 when thread is attached, 0 when detached.
+  int attach_state;
 };
 
 /* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
@@ -53,6 +55,7 @@ struct cmd_info {
   int singlestep_waited_on;
   char inferior_st;
   int file_option;
+  int attach_state;
 };
 
 /* Must match the structure declaration in dmtcp/src/ptracewapper.h. */
@@ -141,6 +144,7 @@ void mtcp_ptrace_process_pre_suspend_ckpt_thread();
 void mtcp_ptrace_process_holds_any_locks(int *retval);
 void mtcp_ptrace_process_pre_suspend_user_thread();
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval);
+void mtcp_ptrace_thread_died_before_checkpoint();
 void mtcp_ptrace_process_post_suspend_ckpt_thread();
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread();
 void mtcp_ptrace_process_post_ckpt_resume_user_thread();
@@ -152,13 +156,11 @@ void mtcp_init_ptrace();
 
 void mtcp_ptrace_process_resume_user_thread(int is_ckpt, int is_restart);
 
-extern int empty_ptrace_info(struct ptrace_info pt_info);
-
 extern void create_file(char *action, pid_t pid);
 
 extern void have_file(char *action, pid_t pid);
 
-extern void wait_until_superior_can_detach_from_inferior(pid_t inferior);
+extern int  wait_until_superior_can_detach_from_inferior(pid_t inferior);
 
 extern void superior_can_detach_from_inferior(pid_t inferior);
 
@@ -204,7 +206,7 @@ extern void read_checkpoint_threads_file();
 
 /* Callbacks to DMTCP, since the ptrace pairs are being stored in a dmtcp::list
  * data structure. */
-extern __attribute__ ((visibility ("hidden"))) struct ptrace_info
+extern __attribute__ ((visibility ("hidden"))) struct ptrace_info*
   (*callback_get_next_ptrace_info)(int index);
 
 extern __attribute__ ((visibility ("hidden"))) void

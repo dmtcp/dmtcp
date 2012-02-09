@@ -39,8 +39,6 @@ static inline bool operator!= (const struct ptrace_info& a, const struct ptrace_
 }
 #endif
 
-static const struct ptrace_info EMPTY_PTRACE_INFO = {0, 0, 0, 0, 0, 0};
-
 static const struct cmd_info EMPTY_CMD_INFO = {0, 0, 0, 0, 0, 0, 0};
 
 EXTERNC void ptrace_info_list_insert (pid_t superior, pid_t inferior,
@@ -53,7 +51,7 @@ EXTERNC void ptrace_info_list_insert (pid_t superior, pid_t inferior,
 
 EXTERNC char procfs_state(int tid);
 
-EXTERNC struct ptrace_info get_next_ptrace_info(int index);
+EXTERNC struct ptrace_info *get_next_ptrace_info(int index);
 
 EXTERNC void ptrace_info_list_command(struct cmd_info cmd);
 
@@ -61,6 +59,9 @@ EXTERNC int ptrace_info_list_size();
 
 EXTERNC void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
                                           int singlestep_waited_on);
+
+EXTERNC void ptrace_info_list_set_attach_state(pid_t superior, pid_t inferior,
+                                               int attach_state);
 
 EXTERNC long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
                           void *data);

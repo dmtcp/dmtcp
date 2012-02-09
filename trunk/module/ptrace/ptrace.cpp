@@ -7,7 +7,7 @@
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
 
-static struct ptrace_info callbackGetNextPtraceInfo (int index);
+static struct ptrace_info *callbackGetNextPtraceInfo (int index);
 static void callbackPtraceInfoListCommand (struct cmd_info cmd);
 static void callbackJalibCkptUnlock ();
 static int callbackPtraceInfoListSize ();
@@ -124,7 +124,9 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_SEND_STOP_SIGNAL:
       mtcp_process_stop_signal_event(data);
       break;
-
+    case DMTCP_EVENT_THREAD_DIED_BEFORE_CHECKPOINT:
+      mtcp_ptrace_thread_died_before_checkpoint();
+      break;
     case DMTCP_EVENT_PRE_CHECKPOINT:
     case DMTCP_EVENT_POST_LEADER_ELECTION:
     case DMTCP_EVENT_POST_DRAIN:

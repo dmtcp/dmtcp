@@ -446,6 +446,7 @@ static void (*callback_pre_suspend_user_thread)() = NULL;
 static void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
 static void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
                                          int *retval) = NULL;
+static void (*callback_thread_died_before_checkpoint)() = NULL;
 static void (*callback_ckpt_thread_start)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
@@ -860,6 +861,7 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
                               void (*send_stop_signal)(pid_t tid,
                                                        int *retry_signalling,
                                                        int *retval),
+                              void (*thread_died_before_checkpoint)(),
                               void (*ckpt_thread_start)())
 {
   callback_restore_virtual_pid_table = restore_virtual_pid_table;
@@ -867,6 +869,7 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
   callback_pre_suspend_user_thread = pre_suspend_user_thread;
   callback_pre_resume_user_thread = pre_resume_user_thread;
   callback_send_stop_signal = send_stop_signal;
+  callback_thread_died_before_checkpoint = thread_died_before_checkpoint;
   callback_ckpt_thread_start = ckpt_thread_start;
 }
 
@@ -1837,13 +1840,14 @@ rescan:
     needrescan = 0;
     lock_threads ();
     for (thread = threads; thread != NULL; thread = thread -> next) {
-
       /* If thread no longer running, remove it from thread list */
 
 again:
       if (*(thread -> actual_tidptr) == 0) {
         DPRINTF("thread %d disappeared\n", thread -> tid);
         threadisdead (thread);
+        if (callback_thread_died_before_checkpoint)
+          (*callback_thread_died_before_checkpoint)();
         unlk_threads ();
         goto rescan;
       }
@@ -1895,6 +1899,8 @@ again:
 
           if (retval < 0) {
             threadisdead(thread);
+            if (callback_thread_died_before_checkpoint)
+              (*callback_thread_died_before_checkpoint)();
             unlk_threads();
             goto rescan;
           }
