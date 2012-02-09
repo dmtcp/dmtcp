@@ -85,6 +85,7 @@ void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
 void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval);
+void callbackThreadDiedBeforeCheckpoint();
 
 void callbackCkptThreadStart();
 LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
@@ -208,6 +209,7 @@ void dmtcp::initializeMtcpEngine()
                                       &callbackPreSuspendUserThread,
                                       &callbackPreResumeUserThread,
                                       &callbackSendStopSignal,
+                                      &callbackThreadDiedBeforeCheckpoint,
                                       &callbackCkptThreadStart
                                      );
 
@@ -406,6 +408,11 @@ void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
   *retry_signalling = 1;
   *retval = 0;
   dmtcp_process_event(DMTCP_EVENT_SEND_STOP_SIGNAL, &info);
+}
+
+void callbackThreadDiedBeforeCheckpoint()
+{
+  dmtcp_process_event(DMTCP_EVENT_THREAD_DIED_BEFORE_CHECKPOINT, NULL);
 }
 
 void callbackCkptThreadStart()

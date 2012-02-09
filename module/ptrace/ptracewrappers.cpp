@@ -62,17 +62,17 @@ extern "C" int ptrace_info_list_size() {
   return ptrace_info_list->size();
 }
 
-extern "C" struct ptrace_info get_next_ptrace_info(int index) {
+extern "C" struct ptrace_info *get_next_ptrace_info(int index) {
   if ((unsigned int)index >= ptrace_info_list->size())
-    return EMPTY_PTRACE_INFO;
+    return NULL;
 
   dmtcp::list<struct ptrace_info>::iterator it;
   int local_index = 0;
   for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (local_index == index) return *it;
+    if (local_index == index) return (struct ptrace_info *)(&(*it));
     local_index++;
   }
-  return EMPTY_PTRACE_INFO;
+  return NULL;
 }
 
 int open_ptrace_related_file (int file_option) {
@@ -162,20 +162,20 @@ void ptrace_info_list_update_inferior_st (pid_t superior, pid_t inferior,
   }
 }
 
-static ptrace_info ptrace_info_list_has_pair (pid_t superior, pid_t inferior) {
+static ptrace_info *ptrace_info_list_has_pair (pid_t superior, pid_t inferior) {
   dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (it->superior == superior && it->inferior == inferior)
-      return *it;
+      return (struct ptrace_info *)(&(*it));
   }
-  return EMPTY_PTRACE_INFO;
+  return NULL;
 }
 
 void ptrace_info_list_remove_pair (pid_t superior, pid_t inferior) {
-  struct ptrace_info pt_info = ptrace_info_list_has_pair(superior, inferior);
-  if (pt_info == EMPTY_PTRACE_INFO) return;
+  struct ptrace_info *pt_info = ptrace_info_list_has_pair(superior, inferior);
+  if (!pt_info) return;
   pthread_mutex_lock(&ptrace_info_list_mutex);
-  ptrace_info_list->remove(pt_info);
+  ptrace_info_list->remove(*pt_info);
   pthread_mutex_unlock(&ptrace_info_list_mutex);
 }
 
@@ -202,7 +202,7 @@ void ptrace_info_list_update_is_inferior_ckpthread(pid_t pid, pid_t tid) {
   }
 }
 
-bool ptrace_info_compare (ptrace_info left, ptrace_info right) {
+bool ptrace_info_compare (struct ptrace_info left, struct ptrace_info right) {
   if (left.superior < right.superior) return true;
   else if (left.superior == right.superior) return
     left.inferior < right.inferior;
@@ -240,7 +240,7 @@ void ptrace_info_list_sort () {
 }
 
 void ptrace_info_list_remove_pairs_with_dead_tids () {
-  dmtcp::list<ptrace_info>::iterator it;
+  dmtcp::list<struct ptrace_info>::iterator it;
   for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
     if (!procfs_state(it->inferior)) {
       ptrace_info_list->remove(*it);
@@ -281,7 +281,7 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
     }
   }
 
-  if (ptrace_info_list_has_pair(superior, inferior) != EMPTY_PTRACE_INFO) {
+  if (ptrace_info_list_has_pair(superior, inferior) != NULL) {
     ptrace_info_list_update_inferior_st(superior, inferior, inferior_st);
     return;
   }
@@ -293,6 +293,8 @@ void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
   new_ptrace_info.singlestep_waited_on = singlestep_waited_on;
   new_ptrace_info.inferior_st = inferior_st;
   new_ptrace_info.inferior_is_ckpthread = 0;
+  // attach_state starts at 1 (attached)
+  new_ptrace_info.attach_state = 1;
 
   pthread_mutex_lock(&ptrace_info_list_mutex);
   ptrace_info_list->push_back(new_ptrace_info);
@@ -308,6 +310,18 @@ extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
         it->singlestep_waited_on = singlestep_waited_on;
       it->last_command = PTRACE_UNSPECIFIED_COMMAND;
       break;
+    }
+  }
+}
+
+/* set the 'attached' flag for the given inferior to given state. */
+extern "C" void ptrace_info_list_set_attach_state(pid_t superior,
+                                         pid_t inferior, int attach_state) {
+  dmtcp::list<struct ptrace_info>::iterator it;
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
+    if (it->superior == superior && it->inferior == inferior) {
+      it->attach_state = attach_state;
+      return;
     }
   }
 }

@@ -166,10 +166,6 @@ static long mtcp_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
   return rc;
 }
 
-int empty_ptrace_info(struct ptrace_info pt_info) {
-  return pt_info.superior && pt_info.inferior;
-}
-
 void mtcp_init_thread_local()
 {
   __ptrace_waitpid.is_waitpid_local = 0;    // no crash on pre-access
@@ -240,10 +236,10 @@ void mtcp_ptrace_process_pre_suspend_ckpt_thread()
      * to arrive at stopthisthread. */
     int ckpt_ptraced_by = 0;
     int index = 0;
-    struct ptrace_info pt_info;
-    while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-      if (pt_info.inferior == GETTID()) {
-        ckpt_ptraced_by = pt_info.superior;
+    struct ptrace_info *pt_info;
+    while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+      if (pt_info->inferior == GETTID()) {
+        ckpt_ptraced_by = pt_info->superior;
         break;
       }
     }
@@ -352,21 +348,23 @@ char mtcp_ptrace_get_tid_from_new_ptrace_shared_file(pid_t tid) {
 }
 
 void mtcp_ptrace_info_list_write_to_new_ptrace_shared_file(int fd) {
-  struct ptrace_info pt_info;
+  struct ptrace_info *pt_info;
   pid_t superior, inferior;
   char inf_st;
-  int index;
+  int index = 0;
 
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    superior = pt_info.superior;
-    inferior = pt_info.inferior;
-    inf_st = pt_info.inferior_st;
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    superior = pt_info->superior;
+    inferior = pt_info->inferior;
+    inf_st = pt_info->inferior_st;
     mtcp_ptrace_write_to_new_ptrace_shared_file(fd, superior, inferior, inf_st);
   }
 }
 
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
 {
+  DPRINTF("[GETTID=%d] Beginning of mtcp_ptrace_send_stop_signal [tid: %d]\n",
+          GETTID(), tid);
   *retry_signalling = 0;
 
   if (!mtcp_is_ptracing()) {
@@ -424,11 +422,14 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
       }
       nanosleep(&ts,NULL);
     }
+    DPRINTF("[GETTID=%d] done waiting for new_ptrace_shared_file [tid=%d]\n",
+            GETTID(), tid);
     /* Get the status of tid from new_ptrace_shared_file. */
     inferior_st = mtcp_ptrace_get_tid_from_new_ptrace_shared_file(tid);
   }
 
-  DPRINTF("%d %c\n", GETTID(), inferior_st);
+  DPRINTF("[GITTID()=%d] inferior_st=%c [tid=%d]\n",
+          GETTID(), inferior_st, tid);
   if (inferior_st == 'N') {
     /* If the state is unknown, send a stop signal to inferior. */
     if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
@@ -453,8 +454,21 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
         return;
       }
     }
-    if (inferior_st != 'u') /* We're the superior. */
+    if (inferior_st != 'u') { /* We're not the superior. */
+      DPRINTF("[GETTID=%d] inferior_st=%c creating detach.PID [tid=%d]\n",
+              GETTID(), inferior_st, tid);
       superior_can_detach_from_inferior(tid);
+    }
+  }
+}
+
+void mtcp_ptrace_thread_died_before_checkpoint()
+{
+  if (mtcp_is_ptracing()) {
+    pthread_mutex_lock(&nthreads_lock);
+    nthreads--;
+    if (nthreads == 0) pthread_cond_broadcast(&nthreads_cv);
+    pthread_mutex_unlock(&nthreads_lock);
   }
 }
 
@@ -483,11 +497,11 @@ void mtcp_ptrace_process_post_suspend_ckpt_thread()
 
 void mtcp_ptrace_process_post_restart_resume_ckpt_thread()
 {
-  struct ptrace_info pt_info;
+  struct ptrace_info *pt_info;
   int index = 0;
 
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if (GETTID() == pt_info.inferior) {
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    if (GETTID() == pt_info->inferior) {
       ckpt_thread_is_ready(GETTID());
       return;
     }
@@ -593,26 +607,27 @@ void ptrace_attach_threads(int isRestart)
   unsigned long addr;
   unsigned long int eflags;
   int i;
-  struct ptrace_info pt_info;
+  struct ptrace_info *pt_info;
   int index = 0;
+  struct cmd_info cmd;
 
   DPRINTF("%d started.\n", GETTID());
 
   /* Make sure the inferior threads exist & are inside ptrace_attach_threads. */
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if (pt_info.superior == GETTID() && !pt_info.inferior_is_ckpthread)
-      is_inferior_in_ptrace_attach_threads(pt_info.inferior);
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    if (pt_info->superior == GETTID() && !pt_info->inferior_is_ckpthread)
+      is_inferior_in_ptrace_attach_threads(pt_info->inferior);
   }
 
   index = 0;
 
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    superior = pt_info.superior;
-    inferior = pt_info.inferior;
-    last_command = pt_info.last_command;
-    singlestep_waited_on = pt_info.singlestep_waited_on;
-    inferior_st = pt_info.inferior_st;
-    inferior_is_ckpthread = pt_info.inferior_is_ckpthread;
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    superior = pt_info->superior;
+    inferior = pt_info->inferior;
+    last_command = pt_info->last_command;
+    singlestep_waited_on = pt_info->singlestep_waited_on;
+    inferior_st = pt_info->inferior_st;
+    inferior_is_ckpthread = pt_info->inferior_is_ckpthread;
 
     if (superior == GETTID()) {
       if (inferior_is_ckpthread) {
@@ -631,6 +646,10 @@ void ptrace_attach_threads(int isRestart)
           MTCP_PRINTF("ckpthread is dead because of signal %d\n",
                       WTERMSIG(status));
         }
+
+        // Mark thread as attached.
+        pt_info->attach_state = 1;
+
         if (inferior_st != 'T') {
           if (mtcp_ptrace(PTRACE_CONT, inferior, 0, 0) < 0) {
             perror("ptrace_attach_threads: PTRACE_CONT failed");
@@ -647,6 +666,8 @@ void ptrace_attach_threads(int isRestart)
         mtcp_abort();
       }
       superior_has_attached(inferior);
+      // Mark thread as attached.
+      pt_info->attach_state = 1;
 
       /* After attach, the superior needs to singlestep the inferior out of
        * stopthisthread, aka the signal handler. */
@@ -851,15 +872,15 @@ void ptrace_detach_checkpoint_threads ()
   if (!mtcp_is_ptracing()) return;
 
   int ret;
-  struct ptrace_info pt_info;
+  struct ptrace_info *pt_info;
   int index = 0;
 
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if ((pt_info.superior == GETTID()) && pt_info.inferior_is_ckpthread) {
-      if ((ret = ptrace_detach_ckpthread(pt_info.inferior,
-                                         pt_info.superior)) != 0) {
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    if ((pt_info->superior == GETTID()) && pt_info->inferior_is_ckpthread) {
+      if ((ret = ptrace_detach_ckpthread(pt_info->inferior,
+                                         pt_info->superior)) != 0) {
         if (ret == -ENOENT)
-          MTCP_PRINTF("process does not exist %d\n", pt_info.inferior);
+          MTCP_PRINTF("process does not exist %d\n", pt_info->inferior);
         mtcp_abort();
       }
     }
@@ -876,63 +897,83 @@ void ptrace_detach_user_threads ()
   int index = 0;
   int tpid;
   char pstate;
-  struct ptrace_info pt_info;
+  struct ptrace_info *pt_info;
+  int all_threads_detached = 0;
 
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if (pt_info.inferior_is_ckpthread) continue;
-
-    if (pt_info.superior == GETTID()) {
-      /* All UTs must receive a MTCP_DEFAULT_SIGNAL from their CT.
-       * Was the status of this thread already read by the debugger? */
-      pstate = procfs_state(pt_info.inferior);
-      if (pstate == 0) { /* The thread does not exist. */
-        MTCP_PRINTF("process not exist %d\n", pt_info.inferior);
-        mtcp_abort();
-      } else if (pstate == 'T') {
-        /* This is a stopped thread. It is possible for gdb or another thread
-         * to read the status of this thread before us. Consequently we will
-         * block. Thus we need to read without hanging. */
-        tpid = mtcp_waitpid(pt_info.inferior, &status, WNOHANG);
-        if (tpid == -1 && errno == ECHILD) {
-          if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
-                                    __WCLONE | WNOHANG)) == -1) {
-            MTCP_PRINTF("waitpid(..,__WCLONE) %s\n", strerror(errno));
-          }
-        }
-      } else {
-        /* The thread is not in a stopped state. The thread will be stopped by
-         * the CT of the process it belongs to, by the delivery of
-         * MTCP_DEFAULT_SIGNAL. It is safe to call blocking waitpid. */
-        tpid = mtcp_waitpid(pt_info.inferior, &status, 0);
-        if (tpid == -1 && errno == ECHILD) {
-          if ((tpid = mtcp_waitpid(pt_info.inferior, &status,
-                                    __WCLONE)) == -1) {
-            MTCP_PRINTF("waitpid(..,__WCLONE) %s\n", strerror(errno));
-          }
-        }
-        if (WIFSTOPPED(status)) {
-          if (WSTOPSIG(status) == dmtcp_get_ckpt_signal())
-            DPRINTF("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
-                    pt_info.inferior);
-          else /* We should never get here. */
-            DPRINTF("UT %d was stopped by the delivery of %d\n",
-                    pt_info.inferior, WSTOPSIG(status));
-        } else  /* We should never end up here. */
-          DPRINTF("UT %d was NOT stopped by a signal\n", pt_info.inferior);
+  while (!all_threads_detached) {
+    // Reset index
+    index = 0;
+    /* all_threads_detached starts out as 1. If we skip detaching a thread
+     * because it wasn't ready at the time, the flag is set to 0 again, meaning
+     * we repeat this outer loop. */
+    all_threads_detached = 1;
+    while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+      if (pt_info->inferior_is_ckpthread || !pt_info->attach_state) {
+        continue;
       }
 
-      if (pt_info.last_command == PTRACE_SINGLESTEP_COMMAND &&
-          pt_info.singlestep_waited_on == FALSE) {
-        __ptrace_waitpid.has_status_and_pid = 1;
-        __ptrace_waitpid.saved_status = status;
-        mtcp_ptrace_info_list_update_info(TRUE);
-      }
+      if (pt_info->superior == GETTID()) {
+        /* All UTs must receive a MTCP_DEFAULT_SIGNAL from their CT.
+         * Was the status of this thread already read by the debugger? */
+        pstate = procfs_state(pt_info->inferior);
+        if (pstate == 0) { /* The thread does not exist. */
+          MTCP_PRINTF("process not exist %d\n", pt_info->inferior);
+          mtcp_abort();
+        } else if (pstate == 'T') {
+          /* This is a stopped thread. It is possible for gdb or another thread
+           * to read the status of this thread before us. Consequently we will
+           * block. Thus we need to read without hanging. */
+          tpid = mtcp_waitpid(pt_info->inferior, &status, WNOHANG);
+          if (tpid == -1 && errno == ECHILD) {
+            if ((tpid = mtcp_waitpid(pt_info->inferior, &status,
+                    __WCLONE | WNOHANG)) == -1) {
+              MTCP_PRINTF("waitpid(..,__WCLONE) %s\n", strerror(errno));
+            }
+          }
+        } else {
+          /* The thread is not in a stopped state. The thread will be stopped by
+           * the CT of the process it belongs to, by the delivery of
+           * MTCP_DEFAULT_SIGNAL. It is safe to call blocking waitpid. */
+          tpid = mtcp_waitpid(pt_info->inferior, &status, 0);
+          if (tpid == -1 && errno == ECHILD) {
+            if ((tpid = mtcp_waitpid(pt_info->inferior, &status,
+                    __WCLONE)) == -1) {
+              MTCP_PRINTF("waitpid(..,__WCLONE) %s\n", strerror(errno));
+            }
+          }
+          if (WIFSTOPPED(status)) {
+            if (WSTOPSIG(status) == dmtcp_get_ckpt_signal())
+              DPRINTF("UT %d stopped by the delivery of MTCP_DEFAULT_SIGNAL\n",
+                  pt_info->inferior);
+            else /* We should never get here. */
+              DPRINTF("UT %d was stopped by the delivery of %d\n",
+                  pt_info->inferior, WSTOPSIG(status));
+          } else  /* We should never end up here. */
+            DPRINTF("UT %d was NOT stopped by a signal\n", pt_info->inferior);
+        }
 
-      wait_until_superior_can_detach_from_inferior(pt_info.inferior);
-      if (mtcp_ptrace(PTRACE_DETACH, pt_info.inferior, 0,
-                      (void*) (unsigned long) dmtcp_get_ckpt_signal()) == -1) {
-        MTCP_PRINTF("parent = %d child = %d PTRACE_DETACH failed, error = %d\n",
-                    (int)pt_info.superior, (int)pt_info.inferior, errno);
+        if (pt_info->last_command == PTRACE_SINGLESTEP_COMMAND &&
+            pt_info->singlestep_waited_on == FALSE) {
+          __ptrace_waitpid.has_status_and_pid = 1;
+          __ptrace_waitpid.saved_status = status;
+          mtcp_ptrace_info_list_update_info(TRUE);
+        }
+
+        if (wait_until_superior_can_detach_from_inferior(pt_info->inferior)) {
+          // Inferior has created the file -- we can detach now.
+          if (mtcp_ptrace(PTRACE_DETACH, pt_info->inferior, 0,
+                (void*) (unsigned long) dmtcp_get_ckpt_signal()) == -1) {
+            MTCP_PRINTF("parent = %d child = %d PTRACE_DETACH failed, error = %d\n",
+                (int)pt_info->superior, (int)pt_info->inferior, errno);
+          }
+          // Mark thread as detached now.
+          pt_info->attach_state = 0;
+        } else {
+          /* Reset this flag here meaning at least one thread wasn't detached
+           * (the file hadn't been created, meaning the thread wasn't ready to
+           * be detached). */
+          all_threads_detached = 0;
+        }
       }
     }
   }
@@ -1021,9 +1062,24 @@ void superior_can_detach_from_inferior(pid_t inferior)
   create_file("detach", inferior);
 }
 
-void wait_until_superior_can_detach_from_inferior(pid_t inferior)
+/*
+ * This function returns 0 if the file for the given inferior does NOT exist,
+ * else returns 1.
+ */
+int wait_until_superior_can_detach_from_inferior(pid_t inferior)
 {
-  have_file("detach", inferior);
+  char file[RECORDPATHLEN];
+  struct stat buf;
+  form_file(file, "detach", inferior);
+  if (stat(file, &buf) < 0) {
+    // File does not exist.
+    return 0;
+  }
+  if (unlink(file) == -1) {
+    MTCP_PRINTF("unlink failed: %s\n", strerror(errno));
+    mtcp_abort();
+  }
+  return 1;
 }
 
 /* Next two functions make sure that the inferior waits inside
@@ -1345,9 +1401,9 @@ void mtcp_ptrace_info_list_update_info(int singlestep_waited_on) {
 
 char retrieve_inferior_state(pid_t tid) {
   int index = 0;
-  struct ptrace_info pt_info;
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if (pt_info.inferior == tid) return procfs_state(pt_info.inferior);
+  struct ptrace_info *pt_info;
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    if (pt_info->inferior == tid) return procfs_state(pt_info->inferior);
   }
   return 'u';
 }
@@ -1379,9 +1435,9 @@ int possible_ckpt_leader(pid_t tid) {
   }
 
   int index = 0;
-  struct ptrace_info pt_info;
-  while (empty_ptrace_info(pt_info = get_next_ptrace_info(index++))) {
-    if (pt_info.inferior == tid) return 0;
+  struct ptrace_info *pt_info;
+  while ((pt_info = get_next_ptrace_info(index++)) != NULL) {
+    if (pt_info->inferior == tid) return 0;
   }
   return 1;
 }

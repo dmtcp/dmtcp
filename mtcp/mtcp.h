@@ -65,6 +65,7 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
                               void (*send_stop_signal)(pid_t tid,
                                                        int *retry_signalling,
                                                        int *retval),
+                              void (*thread_died_before_checkpoint)(),
                               void (*ckpt_thread_start)());
 
 #ifdef __cplusplus
