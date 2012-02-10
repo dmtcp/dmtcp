@@ -1,5 +1,4 @@
 usr/lib/dmtcp/dmtcphijack.so
-usr/lib/dmtcp/ptracehijack.so
 usr/bin/dmtcp_coordinator
 usr/bin/dmtcp_checkpoint
 usr/bin/dmtcp_nocheckpoint
