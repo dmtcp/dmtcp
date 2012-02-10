@@ -1131,7 +1131,7 @@ void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
                                       ConnectionRewirer& rewirer )
 {
   struct stat buf;
-  bool skip_open;
+  bool skip_open = false;
 
   JASSERT ( fds.size() > 0 );
 
