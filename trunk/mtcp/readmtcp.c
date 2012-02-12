@@ -11,14 +11,6 @@
 #include <sys/resource.h>
 #include "mtcp_internal.h"
 
-#define BINARY_NAME "readmtcp"
-
-#ifdef __x86_64__
-# define HEX_FIELD 8x
-#else
-# define HEX_FIELD 12x
-#endif
-
 int mtcp_restore_cpfd = -1; // '= -1' puts it in regular data instead of common
 
 static void readcs (int fd, char cs);
@@ -28,7 +20,9 @@ static ssize_t readall(int fd, void *buf, size_t count);
 static const char* theUsage =
   "USAGE:\n"
   "readmtcp <ckpt_image_filename>\n"
-  "   or: gzip -dc <ckpt_image_filename> | " BINARY_NAME " -\n\n"
+  "OR: gzip -dc <ckpt_image_filename> | ./readmtcp -\n"
+  "OR: readmtcp OPTION\n"
+  "for OPTION=\n"
   "  --help:      Print this message and exit.\n"
   "  --version:   Print version information and exit.\n"
   "\n"
@@ -37,32 +31,21 @@ static const char* theUsage =
 int main(int argc, char **argv) {
   int fd = -1;
   char magicbuf[MAGIC_LEN], *restorename;
+  char *version = PACKAGE_VERSION;
 
-//shift args
-#define shift argc--,argv++
-  shift;
-  while (1) {
-    if (argc == 0 || (strcmp(argv[0], "--help") == 0 && argc == 1)) {
-      printf("%s", theUsage);
-      return (-1);
-    } else if (strcmp (argv[0], "--version") == 0 && argc == 1) {
-      printf("%s", VERSION_AND_COPYRIGHT_INFO);
-      return (-1);
-    } else if (strcmp (argv[0], "--") == 0 && argc == 2) {
-      restorename = argv[1];
-      break;
-    } else if (strcmp (argv[0], "-") == 0 && argc == 1) {
-      fd = 0; /* read from stdin */
-    } else if (argc == 1) {
-      if (-1 == (fd = open(argv[0], O_RDONLY))) {
-        perror("open");
-        exit(1);
-      }
-      break;
-    } else {
-      printf("%s", theUsage);
-      return (-1);
-    }
+  restorename = argv[1];
+  if (argc == 1 || (strcmp(argv[1], "--help") == 0 && argc == 2)) {
+    printf("%s", theUsage);
+    return 1;
+  } else if (strcmp (argv[1], "--version") == 0 && argc == 2) {
+    printf("%s\n", (version[0] == '\0' ? "Standalone MTCP" : version));
+    return 1;
+  } else if (restorename[0] == '-' && restorename[1] == '\0') {
+    fd = 0; /* read from stdin */
+  } else {    /* argv[1] should be a real filename */
+    if (-1 == (fd = open(restorename, O_RDONLY))) {
+      perror("open");
+      return 1; }
   }
 
   memset(magicbuf, 0, sizeof magicbuf);
