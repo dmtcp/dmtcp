@@ -44,13 +44,6 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
-#ifdef __x86_64__
-# define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
-#else
-# define MTCP_RESTORE_STACK_BASE \
-    (strcmp("#CONFIG_M32","yes") == 0 ? ((char *)NULL) : ((char*)0xC0000000L))
-#endif
-
 #ifdef DEBUG
 static int debugEnabled = 1;
 #else
@@ -474,11 +467,13 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   long page_size = sysconf(_SC_PAGESIZE);
   long page_mask = ~(page_size - 1);
   char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
-  char *endAddr = MTCP_RESTORE_STACK_BASE;
-  size_t len = endAddr - startAddr;
+  //char *endAddr = MTCP_RESTORE_STACK_BASE;
+  //size_t len = 0;// endAddr - startAddr;
 #ifdef CONFIG_M32
   return;
 #endif
+
+  size_t len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
@@ -503,7 +498,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
     // Do NOT change restarted process's /proc/self/cmdline.
     //args[0] = DMTCP_PRGNAME_PREFIX + args[0];
     for ( size_t i=0; i< args.size(); ++i ) {
-      if (addr + args[i].length() >= endAddr)
+      if (addr + args[i].length() >= startAddr + len)
         break;
       strcpy(addr, args[i].c_str());
       addr += args[i].length() + 1;
@@ -518,10 +513,13 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 
 static void unmapRestoreArgv()
 {
+  long page_size = sysconf(_SC_PAGESIZE);
+  long page_mask = ~(page_size - 1);
   if (_mtcpRestoreArgvStartAddr != NULL) {
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
-    char *endAddr = MTCP_RESTORE_STACK_BASE;
-    size_t len = endAddr - _mtcpRestoreArgvStartAddr;
+    //char *endAddr = MTCP_RESTORE_STACK_BASE;
+    //size_t len = endAddr - _mtcpRestoreArgvStartAddr;
+    size_t len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
