@@ -87,7 +87,7 @@ static void rem_trailing_slash(dmtcp::string &path)
     while( (path[i] == ' ' || path[i] == '/' || path == "\\" ) && i>0 )
       i--;
     if( i+1 < path.size() )
-      path = path.substr(0,i);
+      path = path.substr(0,i+1);
 }
 
 static void probeTorque();
