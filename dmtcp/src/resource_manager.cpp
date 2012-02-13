@@ -38,9 +38,57 @@
 // ----------------- global data ------------------------//
 enum rmgr_type_t { Empty, None, torque, sge, lsf } rmgr_type = Empty;
 
+// TODO: Do we need locking here?
+//static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 dmtcp::string torque_home; // = $PBS_HOME
 unsigned long torque_jobid = 0;
 dmtcp::string torque_jobname = "";
+
+static rmgr_type_t get_rmgr_type()
+{
+  // TODO: Do we need locking here?
+  //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
+  rmgr_type_t loc_rmgr_type = rmgr_type;
+  // TODO: Do we need locking here?
+  //JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
+  return loc_rmgr_type;
+}
+
+static void set_rmgr_type(rmgr_type_t nval)
+{
+  // TODO: Do we need locking here?
+  //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
+  rmgr_type = nval;
+  // TODO: Do we need locking here?
+  //JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
+}
+
+
+static void clear_path(dmtcp::string &path)
+{
+  size_t i;
+  for(i=0;i<path.size();i++){
+    if( path[i] == '/' || path[i] == '\\' ){
+      size_t j = i+1;
+      while( (path[j] == '/' || path[j] == '\\') && j < path.size() ){
+        j++;
+      }
+      if( j != i+1 ){
+        path.erase(i+1,j-(i+1));
+      }
+    }
+  }
+}
+
+static void rem_trailing_slash(dmtcp::string &path)
+{
+    size_t i = path.size() - 1;
+    while( (path[i] == ' ' || path[i] == '/' || path == "\\" ) && i>0 )
+      i--;
+    if( i+1 < path.size() )
+      path = path.substr(0,i);
+}
 
 static void probeTorque();
 
@@ -48,13 +96,13 @@ static void probeTorque();
 bool runUnderRMgr()
 {
 
-  if( rmgr_type == Empty ){
+  if( get_rmgr_type() == Empty ){
     probeTorque();
     // probeSGE();
     // probeLSF();
 
-    if( rmgr_type == Empty )
-      rmgr_type = None;
+    if( get_rmgr_type() == Empty )
+      set_rmgr_type(None);
   }
 
   return ( rmgr_type == None ) ? false : true;
@@ -67,6 +115,9 @@ bool isResMgrFile(dmtcp::string &path)
   return false;
 }
 //---------------------------- Torque Resource Manager ---------------------//
+
+
+// -------------- This functions probably should run with global_mutex locked! -----------------------//
 
 static void setup_job()
 {
@@ -87,6 +138,40 @@ static void setup_job()
   JTRACE("Result:")(torque_jobid)(torque_jobname);
 }
 
+
+static dmtcp::string torque_home_nodefile(char *ptr)
+{
+  // Usual nodefile path is: $PBS_HOME/aux/nodefile-name
+  dmtcp::string nodefile = ptr;
+  // clear nodefile path from duplicated slashes
+  clear_path(nodefile);
+  
+  // start of file name entry
+  size_t file_start = nodefile.find_last_of("/\\");
+  if( file_start == dmtcp::string::npos || file_start == 0 ){
+    JTRACE("No slashes in the nodefile path");
+    return "";
+  }
+  // start of aux entry
+  size_t aux_start = nodefile.find_last_of("/\\", file_start-1);
+  if( aux_start == dmtcp::string::npos || aux_start == 0 ){
+    JTRACE("Only one slash exist in nodefile path");
+    return "";
+  }
+  
+  dmtcp::string aux_name = nodefile.substr(aux_start+1, file_start - (aux_start+1));
+
+  JTRACE("Looks like we can grap PBS_HOME from PBS_NODEFILE")(nodefile)(file_start)(aux_start)(aux_name);
+  
+  // Last check: if lowest file directory is "aux"  
+  if( aux_name != "aux" ){
+    JTRACE("Wrond aux name");
+    return "";    
+  }
+
+  return nodefile.substr(0,aux_start);
+}
+
 static void setup_torque_env()
 {
   char *ptr;
@@ -94,42 +179,34 @@ static void setup_torque_env()
     torque_home = ptr;
   }else if( ptr = getenv("PBS_SERVER_HOME") ) {
     torque_home = ptr;
-  } else {
+  } else if( ptr = getenv("PBS_NODEFILE") ) {
+      torque_home = torque_home_nodefile(ptr);
+  }else{
     torque_home = "";
   }
 
-  // Remove trailing '/'
   if( torque_home.size() ){
-    int i = torque_home.size() - 1;
-    while( (torque_home[i] == ' ' || torque_home[i] == '/') && i>0 )
-      i--;
-    if( i+1 < torque_home.size() )
-      torque_home = torque_home.substr(0,i);
+    clear_path(torque_home);
+    rem_trailing_slash(torque_home);
   }
-  JTRACE("Result:")(torque_home);
 }
+
+// -------------- (END) This functions probably should run with global_mutex locked! (END) -----------------------//
 
 static void probeTorque()
 {
   JTRACE("Start");
   if( (getenv("PBS_ENVIRONMENT") != NULL) && (NULL != getenv("PBS_JOBID")) ){
     JTRACE("We run under Torque PBS!");
+    // TODO: Do we need locking here?
+    //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
     rmgr_type = torque;
     // setup Torque PBS home dir
     setup_torque_env();
     setup_job();
+    // TODO: Do we need locking here?
+    //JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
   }
-}
-
-bool runUnderTorque()
-{
-  if( rmgr_type == Empty ){
-    probeTorque();
-    if( rmgr_type == Empty )
-      rmgr_type = None;
-  }
-
-  return ( rmgr_type == None ) ? false : true;
 }
 
 static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
