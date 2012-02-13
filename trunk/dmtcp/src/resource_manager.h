@@ -31,7 +31,7 @@
 bool runUnderRMgr();
 
 // Torque API
-bool runUnderTorque();
+
 bool isResMgrFile(dmtcp::string &path);
 int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname);
 bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path);
