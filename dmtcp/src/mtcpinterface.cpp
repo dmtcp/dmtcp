@@ -467,13 +467,9 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   long page_size = sysconf(_SC_PAGESIZE);
   long page_mask = ~(page_size - 1);
   char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
-  //char *endAddr = MTCP_RESTORE_STACK_BASE;
-  //size_t len = 0;// endAddr - startAddr;
-#ifdef CONFIG_M32
-  return;
-#endif
 
-  size_t len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
+  size_t len;
+  len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
@@ -517,9 +513,8 @@ static void unmapRestoreArgv()
   long page_mask = ~(page_size - 1);
   if (_mtcpRestoreArgvStartAddr != NULL) {
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
-    //char *endAddr = MTCP_RESTORE_STACK_BASE;
-    //size_t len = endAddr - _mtcpRestoreArgvStartAddr;
-    size_t len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
+    size_t len;
+    len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");

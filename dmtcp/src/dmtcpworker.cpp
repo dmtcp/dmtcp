@@ -74,8 +74,6 @@ LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
-//size_t dmtcp::DmtcpWorker::_argvSize = 0;
-//size_t dmtcp::DmtcpWorker::_envSize = 0;
 
 static void processDmtcpCommands(dmtcp::string programName,
                                  dmtcp::vector<dmtcp::string>& args);
