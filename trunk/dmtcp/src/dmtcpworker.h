@@ -109,8 +109,6 @@ namespace dmtcp
       ~DmtcpWorker();
 
       static int determineMtcpSignal();
-      static size_t argvSize() {return _argvSize;};
-      static size_t envSize() {return _envSize;};
 
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
@@ -142,8 +140,6 @@ namespace dmtcp
     private:
       static DmtcpWorker theInstance;
     private:
-      static size_t _argvSize;
-      static size_t _envSize;
       static bool _exitInProgress;
   };
 }
