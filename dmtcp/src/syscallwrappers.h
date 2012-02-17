@@ -26,10 +26,6 @@
 # define _GNU_SOURCE
 #endif
 
-#if defined(__arm__)
-struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
-#endif
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -43,6 +39,11 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 # include <linux/ptrace.h>
 #endif
 #include <stdarg.h>
+#ifndef __arm__
+# include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
+#else
+struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
+#endif
 #include <stdio.h>
 #include <thread_db.h>
 #include <sys/procfs.h>
