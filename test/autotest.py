@@ -240,6 +240,8 @@ os.unsetenv('MTCP_SIGCKPT')
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
+if VERBOSE:
+  print "coordinator port:  " + os.environ['DMTCP_PORT']
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
