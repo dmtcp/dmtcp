@@ -59,6 +59,9 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
      *   send_key_val_pair within the same transaction also risks an abort.
      */
     /* Set max size of the buffer &(mystruct.pid) */
+    /* This process was called with an environment variable,
+     *  EXAMPLE_DB_KEY_OTHER, whose value was used to set mystruct_other.key.
+     */
     sizeofPid = sizeof(mystruct_other.pid);
     dmtcp_send_query_to_coordinator(&(mystruct_other.key),
                                     sizeof(mystruct_other.key),
