@@ -48,7 +48,11 @@ static DmtcpFunctionPointer userHookPostRestart = NULL;
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
+#if defined(__i386__) || defined(__x86_64__)
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
+#elif defined(__arm__)
+static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
+#endif
 
 //needed for sizeof()
 static const dmtcp::DmtcpMessage * const exampleMessage = NULL;

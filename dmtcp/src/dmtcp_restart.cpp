@@ -544,8 +544,9 @@ namespace dmtcp
 	}
       }
 
+      bool isTheGroupLeader = isGroupLeader(); // Calls JTRACE, avoid recursion
       JTRACE("Child and dependent root processes forked, restoring process")
-	    (upid())(getpid())(isGroupLeader());
+	    (upid())(getpid())(isTheGroupLeader);
       // Save PID mapping information
       pid_t orig = upid().pid();
       pid_t curr = _real_getpid();
