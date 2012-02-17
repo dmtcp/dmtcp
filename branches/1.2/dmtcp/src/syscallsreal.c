@@ -77,11 +77,12 @@ void _dmtcp_remutex_on_fork() {
  *    then call dlsym() on the libc handle to find the addresses of the libc
  *    functions wrapped by DMTCP.
  *
- * This work great for a while until we needed wrappers for malloc/calloc/free
- * etc. The reason was the fact that dlopen/dlsym/dlerror internally call
- * calloc to allocate a small buffer. As can be seen, dlopen calls calloc which
- * goes to the DMTCP wrapper for calloc, which in turn needs to call dlopn() to
- * find the address of libc calloc and so this goes into an infinite recursion.
+ * This worked great for a while until we needed wrappers for
+ * malloc/calloc/free, etc. The reason was the fact that dlopen/dlsym/dlerror
+ * internally call calloc to allocate a small buffer. As can be seen, dlopen
+ * calls calloc which * goes to the DMTCP wrapper for calloc, which in turn
+ * needs to call dlopen() to find the address of libc calloc and so this goes
+ * into an infinite recursion.
  *
  * 2a. Libc-offsets - take 1: To counter the problems related to malloc/calloc
  *     wrappers, DMTCP was modified to not use dlopen/dlsym. Instead, a new

@@ -44,11 +44,15 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
 # define MTCP_RESTORE_STACK_BASE ((char*)0x7FFFFFFFF000L)
-#else
+#elif defined(__i386__)
 # define MTCP_RESTORE_STACK_BASE \
     (strcmp("#CONFIG_M32","yes") == 0 ? ((char *)NULL) : ((char*)0xC0000000L))
+#elif defined(__arm__)
+# define MTCP_RESTORE_STACK_BASE ((char*)0xBF000000L)
+#else
+# error "Unknown architecture.  Can't set stack base."
 #endif
 
 #ifdef DEBUG
