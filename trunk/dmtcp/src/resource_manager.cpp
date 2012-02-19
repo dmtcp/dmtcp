@@ -33,6 +33,7 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+#include "util.h"
 
 
 // ----------------- global data ------------------------//
@@ -268,18 +269,18 @@ static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
   return 0;
 }
 
-int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
+int findLibTorque_pbsconfig(dmtcp::string &libpath)
 {
   // config looks like: "-L<libpath> -l<libname> -Wl,--rpath -Wl,<libpath>"
   // we will search for first libpath and first libname
-  dmtcp::string config;
+  dmtcp::string libname, config;
 
   if( queryPbsConfig("--libs",config) ){
     // failed to read pbs-config
     return -1;
   }
 
-  bool libpath_found = false, libname_found = false;
+  bool name_found = false, path_found = false;
   dmtcp::vector<dmtcp::string> params;
   dmtcp::string delim = " \n\t";
   params.clear();
@@ -305,17 +306,74 @@ int findLibTorque(dmtcp::string &libpath, dmtcp::string &libname)
       if( s[1] == 'L' ){
         dmtcp::string tmp(s,2,s.size() - 2);
         libpath = tmp;
-        libpath_found = true;
+        path_found = true;
       }else if( s[1] == 'l' ){
         dmtcp::string tmp(s,2,s.size() - 2);
         libname = tmp;
-        libname_found = true;
+        name_found = true;
       }
     }
   }
+  
+  if( name_found && path_found ){
+      // construct full torque library path
+    libpath += "/lib" + libname + ".so";
+    JTRACE("Torque PBS libpath")(libpath);
+    return 0;
+  } else {
+    return -1;
+  }
+}
 
-  JTRACE("Torque PBS libname and libpath")(libname)(libpath);
-  return !(libpath_found && libname_found);
+int findLibTorque_maps(dmtcp::string &libpath)
+{
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
+  // we need to extract libpath
+  dmtcp::Util::ProcMapsArea area;
+  int ret = -1;
+  
+  // we will search for first libpath and first libname
+  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
+
+  if( fd < 0 ){
+    JTRACE("Cannot open /proc/self/maps file");
+    return -1;
+  }
+  
+  while( dmtcp::Util::readProcMapsLine(fd, &area) ){
+    libpath = area.name;
+    JNOTE("Inspect new /proc/seft/maps line")(libpath);
+    if( libpath.size() == 0 ){
+      JNOTE("anonymous region, skip");
+      continue;
+    }
+    
+    if( libpath.find("libtorque") != dmtcp::string::npos ){
+      // this is library path that contains libtorque. This is what we need
+      JTRACE("Torque PBS libpath")(libpath);
+      ret = 0;
+      break;
+    }else{
+      JNOTE("Not a libtorque region")(libpath);
+    }
+  }
+
+exit:
+  _real_close(fd);
+  return ret;
+}
+
+int findLibTorque(dmtcp::string &libpath)
+{
+  bool found = false;
+  if( !findLibTorque_maps(libpath) ){
+    found = true;
+  }else if( !findLibTorque_maps(libpath) ){
+    found = true;
+  }
+
+  JTRACE("Torque PBS libpath")(libpath);
+  return !found;
 }
 
 
