@@ -278,13 +278,11 @@ static int libtorque_init()
   JASSERT(_real_pthread_mutex_lock(&_libtorque_mutex) == 0);
   if( _libtorque_handle == NULL ){
     // find library using pbs-config
-    dmtcp::string libname, libpath;
-    if( findLibTorque(libpath,libname) ){
+    dmtcp::string libpath;
+    if( findLibTorque(libpath) ){
       ret = -1;
       goto unlock;
     }
-    // construct full torque library path
-    libpath += "/lib" + libname + ".so";
     // initialize tm_spawn_ptr
     JNOTE("Initialize libtorque dlopen handler")(libpath);
     char *error = NULL;
