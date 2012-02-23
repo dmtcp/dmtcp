@@ -20,7 +20,7 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint
+	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint dmtcp_discover_rm
 pkglib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
@@ -89,6 +89,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpmodule.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
+
+dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 
 dmtcphijack_so_LDFLAGS = -shared -module
 
