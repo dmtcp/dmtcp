@@ -289,7 +289,8 @@ static const char* theRestartScriptMultiHostProcessing =
   "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
   "  done\n\n"
 
-  "  if [ $(hostname) == \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "  worker_canon_name=$(nslookup $worker_host | grep 'Name:' | sed -e 's/Name://' -e 's/ //' -e 's/\t//')\n"
+  "  if [ \"$host_canon_name\" = \"$worker_canon_name\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
   "    continue\n"
   "  fi\n\n"
@@ -1477,7 +1478,19 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
         fprintf ( fp," %s", file->c_str() );
       }
     }
-    fprintf ( fp, "%s", "\n\'\n\n\n" );
+    fprintf ( fp, "%s", "\n\'\n\n" );
+
+    fprintf( fp,  "# Check for resource manager\n"
+                  "discover_rm_path=$(which dmtcp_discover_rm)\n"
+                  "if [ -n \"$discover_rm_path\" ]; then\n"
+                  "  eval $(dmtcp_discover_rm \"$worker_ckpts\")\n"
+                  "  if [ -n \"$new_worker_ckpts\" ]; then\n"
+                  "    worker_ckpts=\"$new_worker_ckpts\"\n"
+                  "  fi\n"
+                  "fi\n\n"
+                  "host_name=$(hostname)\n"
+                  "host_canon_name=$(nslookup $host_name | grep 'Name:' | sed -e 's/Name://' -e 's/ //' -e 's/\t//')"
+                  "\n\n\n");
 
     fprintf ( fp, "%s", theRestartScriptMultiHostProcessing );
   }

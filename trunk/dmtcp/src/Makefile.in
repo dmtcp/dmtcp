@@ -46,7 +46,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
-	dmtcp_inspector$(EXEEXT) dmtcp_nocheckpoint$(EXEEXT)
+	dmtcp_inspector$(EXEEXT) dmtcp_nocheckpoint$(EXEEXT) \
+	dmtcp_discover_rm$(EXEEXT)
 pkglib_PROGRAMS = dmtcphijack.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
@@ -135,6 +136,9 @@ am_dmtcp_coordinator_OBJECTS = dmtcp_coordinator.$(OBJEXT) \
 dmtcp_coordinator_OBJECTS = $(am_dmtcp_coordinator_OBJECTS)
 dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
+am_dmtcp_discover_rm_OBJECTS = dmtcp_discover_rm.$(OBJEXT)
+dmtcp_discover_rm_OBJECTS = $(am_dmtcp_discover_rm_OBJECTS)
+dmtcp_discover_rm_LDADD = $(LDADD)
 am_dmtcp_inspector_OBJECTS = dmtcp_inspector.$(OBJEXT)
 dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
 dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -184,16 +188,17 @@ SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(libjalib_a_SOURCES) $(libnohijack_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_discover_rm_SOURCES) $(dmtcp_inspector_SOURCES) \
+	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
+	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
 DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
-	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_coordinator_SOURCES) $(dmtcp_discover_rm_SOURCES) \
+	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_1_0_0_SOURCES)
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -363,6 +368,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpmodule.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
+dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 dmtcphijack_so_LDFLAGS = -shared -module
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
@@ -582,6 +588,9 @@ dmtcp_command$(EXEEXT): $(dmtcp_command_OBJECTS) $(dmtcp_command_DEPENDENCIES)
 dmtcp_coordinator$(EXEEXT): $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_DEPENDENCIES) 
 	@rm -f dmtcp_coordinator$(EXEEXT)
 	$(CXXLINK) $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_LDADD) $(LIBS)
+dmtcp_discover_rm$(EXEEXT): $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_DEPENDENCIES) 
+	@rm -f dmtcp_discover_rm$(EXEEXT)
+	$(CXXLINK) $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_LDADD) $(LIBS)
 dmtcp_inspector$(EXEEXT): $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_DEPENDENCIES) 
 	@rm -f dmtcp_inspector$(EXEEXT)
 	$(CXXLINK) $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_LDADD) $(LIBS)
@@ -613,6 +622,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_checkpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_inspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
