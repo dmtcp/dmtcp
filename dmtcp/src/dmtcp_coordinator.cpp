@@ -290,7 +290,10 @@ static const char* theRestartScriptMultiHostProcessing =
   "  done\n\n"
 
   "  worker_canon_name=$(nslookup $worker_host | grep 'Name:' | sed -e 's/Name://' -e 's/ //' -e 's/\t//')\n"
-  "  if [ \"$host_canon_name\" = \"$worker_canon_name\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "  if [ $(hostname) = \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
+  "    continue\n"
+  "  elif [ -n \"$host_canon_name\" -a \"$host_canon_name\" = \"$worker_canon_name\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
   "    continue\n"
   "  fi\n\n"
