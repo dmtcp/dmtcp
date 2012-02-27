@@ -44,25 +44,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "mtcp_internal.h" // for atomic_setif_int()
 #include "mtcp.h"
 
+/*atomic_setif_int():                          */
 /* Set *loc to newval iff *loc equal to oldval */
 /* Return 0 if failed, 1 if succeeded          */
 
-static inline int atomic_setif_int (volatile int *loc, int newval, int oldval)
-
-{
-  char rc;
-
-  asm volatile ("lock\n\t"
-                "cmpxchgl %2,%3\n\t"
-                "sete     %%al"
-                : "=a" (rc)
-                :  "a" (oldval), "r" (newval), "m" (*loc)
-                : "cc", "memory");
-
-  return (rc);
-}
 
 static void *thread_func (void *dummy);
 

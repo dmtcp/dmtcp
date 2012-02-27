@@ -280,11 +280,18 @@ extern int mtcp_sys_errno;
 # else
 #   error "not_implemented: 'Nothing implemented for ! defined __PIC__'"
 # endif
-#endif /* end __i386__ */
 
-#ifdef __x86_64__
+#elif __x86_64__
 # include "sysdep-x86_64.h"
-#endif /* end __x86_64__ */
+
+#elif __arm__
+// COPIED FROM:  glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/eabi/sysdep.h
+//   In turn, this calls "sysdep-arm.h" from .../linux/arm/sysdep.h
+# include "sysdep-arm-eabi.h"
+
+#else
+# error "Missing sysdep.h file for this architecture."
+#endif /* end __arm__ */
 
 #define __set_errno(Val) mtcp_sys_errno = (Val) /* required for sysdep-XXX.h */
 
@@ -329,7 +336,15 @@ struct linux_dirent {
 #define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
-#define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
+#if defined(__i386__) || defined(__x86_64__)
+# define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
+#elif defined(__arm__)
+/* ARM Linux kernel doesn't support mmap: translate to newer mmap2 */
+# define mtcp_sys_mmap(addr,length,prot,flags,fd,offset) \
+   (void *)mtcp_inline_syscall(mmap2,6,addr,length,prot,flags,fd,offset/4096)
+#else
+# error "getrlimit kernel call not implemented in this architecture"
+#endif
 #define mtcp_sys_mremap(args...)  (void *)mtcp_inline_syscall(mremap,4,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
@@ -344,8 +359,17 @@ struct linux_dirent {
 
 #define mtcp_sys_personality(args...) mtcp_inline_syscall(personality, 1, args)
 #define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlink, 3, args)
-#define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
+#if defined(__i386__) || defined(__x86_64__)
+  /* Should this be changed to use newer ugetrlimit kernel call? */
+# define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
+#elif defined(__arm__)
+  /* EABI ARM exclusively uses newer ugetrlimit kernel API, and not getrlimit */
+# define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(ugetrlimit, 2, args)
+#else
+# error "getrlimit kernel call not implemented in this architecture"
+#endif
 #define mtcp_sys_setrlimit(args...) mtcp_inline_syscall(setrlimit, 2, args)
+#define mtcp_sys_futex(args...) mtcp_inline_syscall(futex, 6, args)
 
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
@@ -368,6 +392,7 @@ struct linux_dirent {
 # define mtcp_sys_set_thread_area(args...) \
     mtcp_inline_syscall(set_thread_area,1,args)
 #endif
+
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
@@ -397,6 +422,7 @@ struct linux_dirent {
  */
 static unsigned long int myinfo_gs;
 
+/* ARE THE _GS OPERATIONS NECESSARY? */
 #  define mtcp_sys_get_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
@@ -409,6 +435,38 @@ static unsigned long int myinfo_gs;
     )
 # endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
 #endif /* end __x86_64__ */
+
+#ifdef __arm__
+# ifdef MTCP_SYS_GET_SET_THREAD_AREA
+/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
+ * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
+ * This is all because get_thread_area is not implemented for arm.
+ *     For ARM, the thread pointer seems to point to the next slot
+ * after the 'struct pthread'.  Why??  So, we subtract that address.
+ * After that, tid/pid will be located at  offset 104/108 as expected
+ * for glibc-2.13.
+ * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
+ *     The value below (1216) is current for glibc-2.13.
+ *     May have to update 'sizeof(struct pthread)' for new versions of glibc.
+ *     We can automate this by searching for negative offset from end
+ *     of 'struct pthread' in TLS_TID_OFFSET, TLS_PID_OFFSET in mtcp.c.
+ */
+static unsigned int myinfo_gs;
+
+#  define mtcp_sys_get_thread_area(uinfo) \
+  ({ asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t" \
+                   : "=r" (myinfo_gs) ); \
+    myinfo_gs = myinfo_gs - 1216; /* sizeof(struct pthread) = 1216 */ \
+    *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) \
+      = myinfo_gs; \
+    myinfo_gs; })
+#  define mtcp_sys_set_thread_area(uinfo) \
+    ( myinfo_gs = \
+        *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr), \
+      (mtcp_sys_kernel_set_tls(myinfo_gs+1216), 0) \
+      /* 0 return value at end means success */ )
+# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
+#endif /* end __arm__ */
 
 /*****************************************************************************
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses
@@ -453,6 +511,24 @@ static unsigned long int myinfo_gs;
 #define mtcp_sys_kernel_tkill(args...)  mtcp_inline_syscall(tkill,2,args)
 #define mtcp_sys_kernel_tgkill(args...)  mtcp_inline_syscall(tgkill,3,args)
 
+#if defined(__arm__)
+/* NOTE:  set_tls is an ARM-specific call, with only a kernel API.
+ *   We use the _RAW form;  otherwise, set_tls would expand to __ARM_set_tls
+ *   This is a modification of sysdep-arm.h:INLINE_SYSCALL()
+ */
+# define INLINE_SYSCALL_RAW(name, nr, args...)                          \
+  ({ unsigned int _sys_result = INTERNAL_SYSCALL_RAW (name, , nr, args);\
+     if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (_sys_result, ), 0))\
+       {                                                                \
+         __set_errno (INTERNAL_SYSCALL_ERRNO (_sys_result, ));          \
+         _sys_result = (unsigned int) -1;                               \
+       }                                                                \
+     (int) _sys_result; })
+/* Next macro uses 'mcr', a kernel-mode instr. on ARM */
+# define mtcp_sys_kernel_set_tls(args...)  \
+  INLINE_SYSCALL_RAW(__ARM_NR_set_tls,1,args)
+#endif
+
 //==================================================================
 
 #ifdef __x86_64__
@@ -466,8 +542,20 @@ static unsigned long int myinfo_gs;
 # define esp rsp
 # define CLEAN_FOR_64_BIT(args...) CLEAN_FOR_64_BIT_HELPER(args)
 # define CLEAN_FOR_64_BIT_HELPER(args...) #args
-#else
+#elif __i386__
 # define CLEAN_FOR_64_BIT(args...) #args
+#else
+# define CLEAN_FOR_64_BIT(args...) "CLEAN_FOR_64_BIT_undefined"
+#endif
+
+#if __arm__
+/*
+ * NOTE:  The following are not defined for __ARM_EABI__.  Each redirects
+ * to a different kernel call.  See __NR_getrlimit__ for an example.
+ * __NR_time, __NR_umount, __NR_stime, __NR_alarm, __NR_utime, __NR_getrlimit,
+ * __NR_select, __NR_readdir, __NR_mmap, __NR_socketcall, __NR_syscall,
+ * __NR_ipc, __NR_get_thread_area, __NR_set_thread_area
+ */
 #endif
 
 #endif
