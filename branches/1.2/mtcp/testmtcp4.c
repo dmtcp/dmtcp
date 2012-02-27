@@ -49,7 +49,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "mtcp_internal.h" // for atomic_setif_int()
 #include "mtcp.h"
+
+/*atomic_setif_int():                          */
+/* Set *loc to newval iff *loc equal to oldval */
+/* Return 0 if failed, 1 if succeeded          */
 
 #define QUEUESIZE 4
 #define COUNTINC 10
@@ -67,24 +72,6 @@ static int volatile consumaindex = 0;
 static int volatile producaindex = 0;
 static long long malloctotal = 0;
 static long long freetotal = 0;
-
-/* Set *loc to newval iff *loc equal to oldval */
-/* Return 0 if failed, 1 if succeeded          */
-
-static inline int atomic_setif_int (volatile int *loc, int newval, int oldval)
-
-{
-  char rc;
-
-  asm volatile ("lock\n\t"
-                "cmpxchgl %2,%3\n\t"
-                "sete     %%al"
-                : "=a" (rc)
-                :  "a" (oldval), "r" (newval), "m" (*loc)
-                : "cc", "memory");
-
-  return (rc);
-}
 
 static void *produca_func (void *dummy);
 static void *consuma_func (void *dummy);

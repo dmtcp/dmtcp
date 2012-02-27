@@ -26,7 +26,7 @@
 
 #define IBV
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__arm__)
 // The alternative to using futex is to load in the pthread library,
 //  which would be a real pain.  The __i386__ arch doesn't seem to be bothered
 //  by this.
@@ -99,8 +99,10 @@ extern pid_t mtcp_saved_pid;
   "This is free software, and you are welcome to redistribute it\n"             \
   "under certain conditions; see COPYING file for details.\n"
 
-#if 0
-/* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.  */
+// ARM is missing asm/ldt.h in Ubuntu 11.10 (Linux 3.0, glibc-2.13)
+#if defined(__arm__)
+/* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.
+   This seems to have been stable since the beginning of Linux 2.6  */
 struct user_desc
 {
   unsigned int entry_number;
@@ -112,7 +114,7 @@ struct user_desc
   unsigned int limit_in_pages:1;
   unsigned int seg_not_present:1;
   unsigned int useable:1;
-  unsigned int empty:25;
+  unsigned int empty:25;  /* Some variations leave this out. */
 };
 #else
 # ifndef _LINUX_LDT_H
@@ -144,18 +146,26 @@ typedef unsigned char uByte;
 typedef char * VA; /* VA = virtual address */
 #ifdef __i386__
 typedef unsigned short mtcp_segreg_t;
-#endif
-#ifdef __x86_64__
+#elif __x86_64__
+typedef unsigned int mtcp_segreg_t;
+#elif __arm__
 typedef unsigned int mtcp_segreg_t;
 #endif
 
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE 4096
 #define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
-#define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
-                          : : : "eax", "ebx", "ecx", "edx", "memory")
-#define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
-                          : : : "eax", "ebx", "ecx", "edx", "memory")
+#if defined(__i386__) || defined(__x86_64__)
+# define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                           : : : "eax", "ebx", "ecx", "edx", "memory")
+# define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                           : : : "eax", "ebx", "ecx", "edx", "memory")
+#elif defined(__arm__)
+# define RMB asm volatile ("dmb" : : : "memory")
+# define WMB asm volatile ("dsb" : : : "memory")
+#else
+# error "instruction architecture not implemented"
+#endif
 
 #ifndef HIGHEST_VA
 // If 32-bit process in 64-bit Linux, then Makefile overrides this address,
@@ -271,15 +281,44 @@ void fastckpt_populate_shared_file_from_ckpt_image(int ckptfd, int imagefd,
 
 void mtcp_printf (char const *format, ...);
 
+// gcc-3.4 issues a warning that noreturn function returns, if declared noreturn
+static inline void mtcp_abort (void) __attribute__ ((noreturn));
+static inline void mtcp_abort (void)
+{
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
+#elif defined(__arm__)
+  asm volatile ("mov r0, #0 ; str r0, [r0]");
+#endif
+  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
+}
+
 /* cmpxchgl is only supported on Intel 486 processors and later. */
 static inline int atomic_setif_int(int volatile *loc, int newval, int oldval)
 {
   char rc;
 
+#if defined(__i386__) || defined(__x86_64__)
+  /* cmpxchgl:  compares "a" register (oldval) with operand2/dest (*loc).
+   *  If they are equal, store operand1/src (newval) into operand2/dest (*loc).
+   *  Set zero (equal) flag if equal, and so sete sets "a" register if equal.
+   *  "=a" means compiler writes "a" register to "rc" on output.
+   */
   asm volatile ("lock ; cmpxchgl %2,%1 ; sete %%al"
                 : "=a" (rc)
                 : "m" (*loc), "r" (newval), "a" (oldval)
                 : "cc", "memory");
+#elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)
+  if (sizeof(int) != 4)
+    mtcp_abort();
+  rc = __sync_bool_compare_and_swap(loc, oldval, newval);
+#elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8)
+  if (sizeof(int) != 8)
+    mtcp_abort();
+  rc = __sync_bool_compare_and_swap(loc, oldval, newval);
+#else
+  atomic_setif_int not defined for this architecture
+#endif
   return (rc);
 }
 
@@ -288,19 +327,23 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
 {
   char rc;
 
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile ("lock ; cmpxchg %2,%1 ; sete %%al"
                 : "=a" (rc)
                 : "m" (*loc), "r" (newval), "a" (oldval)
                 : "cc", "memory");
+#elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)
+  if (sizeof(int) != 4)
+    mtcp_abort();
+  rc = __sync_bool_compare_and_swap(loc, oldval, newval);
+#elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8)
+  if (sizeof(int) != 8)
+    mtcp_abort();
+  rc = __sync_bool_compare_and_swap(loc, oldval, newval);
+#else
+  atomic_setif_int not defined for this architecture
+#endif
   return (rc);
-}
-
-// gcc-3.4 issues a warning that noreturn function returns, if declared noreturn
-static inline void mtcp_abort (void) __attribute__ ((noreturn));
-static inline void mtcp_abort (void)
-{
-  asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
-  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
 }
 
 extern char mtcp_shareable_begin[];
@@ -331,12 +374,16 @@ extern void *mtcp_old_dl_sysinfo_0;
 void *mtcp_get_libc_symbol (char const *name);
 
 typedef struct MtcpState MtcpState;
+#if USE_FUTEX
+struct MtcpState { int volatile value; };
+# define MTCP_STATE_INITIALIZER {0}
+#else
 struct MtcpState { int volatile value;
                    pthread_cond_t cond;
                    pthread_mutex_t mutex;};
-
-#define MTCP_STATE_INITIALIZER \
+# define MTCP_STATE_INITIALIZER \
   {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
+#endif
 
 __attribute__ ((visibility ("hidden")))
    void mtcp_state_init(MtcpState * state, int value);
