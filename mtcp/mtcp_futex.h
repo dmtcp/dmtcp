@@ -36,7 +36,7 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                   "b" (uaddr), "c" (op), "d" (val), "S" (timeout), "D" (0)
                 : "memory", "cc");
   return (rc);
-#elif defined(__arm__) && 0  /*But on Linux 3.2 (ARM SMP); use generic below.*/
+#elif defined(__arm__)
   int rc;
 
   register int r0 asm("r0") = (int)uaddr;
@@ -52,16 +52,17 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                 : "memory", "cc", "r7");
   return (rc);
 #else
-/* BUG on ARM (& others?):  returns -1 for error, while assembly above calls
- *   return -errno (negative of errno).  mtcp_state.c is confused by this.
- * Probably, we should test if returning -1, and return -mtcp_sys_errno below.
+/* BUG:  mtcp_sys_errno is global.  So, in multi-threaded code,
+ *   this can fail.  Would need mtcp_sys_kernel_futex_raw that directly returns
+ *   the return code from the kernel (with the embedded errno).
  */
 
 /* mtcp_internal.h defines the macros associated with futex(). */
   int uaddr2=0, val3=0; /* These last two args of futex not used by MTCP. */
   int rc = mtcp_sys_kernel_futex(uaddr, op, val, timeout, &uaddr2, val3);
-  if (rc == -1)
-    rc == - mtcp_sys_errno;
+  if (rc == -1) {
+    rc = - mtcp_sys_errno;
+  }
   return rc;
 #endif
 }

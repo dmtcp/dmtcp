@@ -353,7 +353,7 @@ else
       ps auxw | grep $USER | grep -v grep | grep -q orted && \
       touch ./uses_openmpi_orted" 2>/dev/null
     dnl Extra [...] needed to protect inner [...] from m4
-    /bin/kill -9 [`ps -eo pid,comm | grep test_openmpi | \
+    /bin/kill -9 [`ps -eo pid,args | grep test_openmpi | \
       sed -e 's%\([0-9]\) .*$%\1%'`]
     if test -r ./uses_openmpi_orted; then
       rm -f ./uses_openmpi_orted
