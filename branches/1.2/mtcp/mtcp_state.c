@@ -44,7 +44,8 @@ void mtcp_state_futex(MtcpState * state, int func, int val,
   int rc;
 
   /* (int *) cast needed since state->value is "int volatile"  - Gene */
-  while ((rc = mtcp_futex ((int *)&state->value, func, val, timeout)) < 0) {
+  while ((rc = mtcp_futex ((int *)&state->value, func, val, timeout)) < 0
+         && rc > -4096) { /* large unsigned int from kernel can appear neg. */
     rc = -rc;
     if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
     if (rc != EINTR) {

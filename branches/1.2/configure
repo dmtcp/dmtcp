@@ -6415,7 +6415,7 @@ $as_echo_n "checking whether mpirun invokes orted for OpenMPI... " >&6; }
       sleep 1 && \
       ps auxw | grep $USER | grep -v grep | grep -q orted && \
       touch ./uses_openmpi_orted" 2>/dev/null
-        /bin/kill -9 `ps -eo pid,comm | grep test_openmpi | \
+        /bin/kill -9 `ps -eo pid,args | grep test_openmpi | \
       sed -e 's%\([0-9]\) .*$%\1%'`
     if test -r ./uses_openmpi_orted; then
       rm -f ./uses_openmpi_orted
