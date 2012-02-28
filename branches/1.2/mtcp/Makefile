@@ -203,8 +203,9 @@ checkgettimeofday: libmtcp.so mtcp_restart testgettimeofday
 testmtcp.o: testmtcp.c
 	${CC} $(CFLAGS) -c -o testmtcp.o testmtcp.c
 
-testmtcp2: testmtcp2.c libmtcp.so
-	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c libmtcp.so
+testmtcp2: testmtcp2.c libmtcp.so $(ARM_EXTRAS)
+	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c \
+	  libmtcp.so $(ARM_EXTRAS)
 
 testmtcp3: testmtcp3.c libmtcp.so
 	${CC} $(CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
@@ -243,8 +244,10 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	 mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
 	 # NOT USED: -lpthread
 
+ifeq ($(BUILDTYPE),arm)
 libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
 	${CC} ${CFLAGS} -c -o $@ $<
+endif
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp

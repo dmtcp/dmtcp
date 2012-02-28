@@ -21,8 +21,9 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+#define _GNU_SOURCE
 #include <errno.h>
-#include <sched.h>
+#include <sched.h> // for clone, _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
