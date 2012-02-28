@@ -85,6 +85,7 @@
 #include <sys/types.h>     // for gettid, tgkill, waitpid
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tgkill
+#include <fenv.h>          // for fegetround, fesetround
 #include <gnu/libc-version.h>
 
 #define MTCP_SYS_STRCPY
@@ -1836,6 +1837,7 @@ static void *checkpointhread (void *dummy)
     (*callback_ckpt_thread_start)();
   }
 
+  int rounding_mode = fegetround();
 #ifdef SETJMP
   /* After we restart, we return here. */
   if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
@@ -1847,6 +1849,7 @@ static void *checkpointhread (void *dummy)
   DPRINTF("after getcontext. current_tid %d, original_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->original_tid);
 #endif
+  fesetround(rounding_mode);
 
   if (originalstartup)
     originalstartup = 0;
