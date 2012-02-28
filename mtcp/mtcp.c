@@ -967,7 +967,7 @@ void mtcp_dump_tls (char const *file, int line)
 
       gdtentry.entry_number = gs / 8;
       i = mtcp_sys_get_thread_area (&gdtentry);
-      if (i < 0) {
+      if (i == -1) {
         MTCP_PRINTF("  error getting GDT entry %d: %d\n",
                     gdtentry.entry_number, mtcp_sys_errno);
       } else {
@@ -3696,7 +3696,7 @@ static void save_tls_state (Thread *thisthread)
     thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN].entry_number = i;
     int offset = i - GDT_ENTRY_TLS_MIN;
     rc = mtcp_sys_get_thread_area(&(thisthread -> gdtentrytls[offset]));
-    if (rc < 0) {
+    if (rc == -1) {
       MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
                   i, strerror(mtcp_sys_errno));
       mtcp_abort ();
@@ -3716,7 +3716,7 @@ static void save_tls_state (Thread *thisthread)
   i = thisthread -> TLSSEGREG / 8;
   thisthread -> gdtentrytls[0].entry_number = i;
   rc = mtcp_sys_get_thread_area (&(thisthread -> gdtentrytls[0]));
-  if (rc < 0) {
+  if (rc == -1) {
     MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
                 i, strerror(mtcp_sys_errno));
     mtcp_abort ();
@@ -3768,7 +3768,7 @@ static void *mtcp_get_tls_base_addr(void)
 #endif
 
   gdtentrytls.entry_number = mtcp_get_tls_segreg() / 8;
-  if ( mtcp_sys_get_thread_area ( &gdtentrytls ) < 0 ) {
+  if ( mtcp_sys_get_thread_area ( &gdtentrytls ) == -1 ) {
     MTCP_PRINTF("error getting GDT TLS entry: %s\n", strerror(mtcp_sys_errno));
     mtcp_abort ();
   }

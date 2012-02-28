@@ -36,7 +36,7 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                   "b" (uaddr), "c" (op), "d" (val), "S" (timeout), "D" (0)
                 : "memory", "cc");
   return (rc);
-#elif defined(__arm__)
+#elif defined(__arm__) && 0  /*But on Linux 3.2 (ARM SMP); use generic below.*/
   int rc;
 
   register int r0 asm("r0") = (int)uaddr;
@@ -59,7 +59,10 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
 
 /* mtcp_internal.h defines the macros associated with futex(). */
   int uaddr2=0, val3=0; /* These last two args of futex not used by MTCP. */
-  return mtcp_sys_kernel_futex(uaddr, op, val, timeout, &uaddr2, val3);
+  int rc = mtcp_sys_kernel_futex(uaddr, op, val, timeout, &uaddr2, val3);
+  if (rc == -1)
+    rc == - mtcp_sys_errno;
+  return rc;
 #endif
 }
 

@@ -38,8 +38,10 @@
 
 #define u32 unsigned int
 
+#define _GNU_SOURCE
 #include <asm/unistd.h>
 #include <errno.h>
+#include <sched.h>
 
 #ifndef __user
 // this is needed to compile futex.h on LXR/Suse10.2
@@ -47,7 +49,6 @@
 #endif
 
 #include <linux/futex.h>
-#include <sched.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

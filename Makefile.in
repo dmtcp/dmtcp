@@ -71,7 +71,8 @@ display-build-env: display-config display-release
 	@- echo 'Compiler:  ${CC}'
 	@- ${CC} -v 2>&1
 	@- ${LD} -v
-	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 2> /dev/null || true
+	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 /lib/*/libc.so.6 \
+	   2> /dev/null || true
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
 
