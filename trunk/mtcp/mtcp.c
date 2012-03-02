@@ -35,6 +35,13 @@
  *****************************************************************************/
 
 
+// For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
+//   on for them until they are debugged.
+// Default is to use  setcontext/getcontext.
+#if defined(__arm__)
+# define SETJMP /* setcontext/getcontext not defined for ARM glibc */
+#endif
+
 // Set _GNU_SOURCE in order to expose glibc-defined sigandset()
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
@@ -43,7 +50,11 @@
 #ifndef _BSD_SOURCE
 # define _BSD_SOURCE
 #endif
-#include <asm/ldt.h>      // for struct user_desc
+// Set _POSIX_C_SOURCE in order to expose sigsetjmp(), siglongjmp()
+#ifndef _POSIX_C_SOURCE
+# define _POSIX_C_SOURCE 200112L
+#endif
+//#include <asm/ldt.h>      // for struct user_desc for GDT_ENTRY_TLS_...
 //#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
 #include <dirent.h>
 #include <dlfcn.h>
@@ -66,10 +77,15 @@
 #include <sys/ioctl.h>
 #include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <unistd.h>
-#include <ucontext.h>
-#include <sys/types.h>     // for gettid, tkill, waitpid
+#ifdef SETJMP
+# include <setjmp.h>
+#else
+# include <ucontext.h>
+#endif
+#include <sys/types.h>     // for gettid, tgkill, waitpid
 #include <sys/wait.h>	   // for waitpid
-#include <linux/unistd.h>  // for gettid, tkill
+#include <linux/unistd.h>  // for gettid, tgkill
+#include <fenv.h>          // for fegetround, fesetround
 #include <gnu/libc-version.h>
 
 #define MTCP_SYS_STRCPY
@@ -93,26 +109,58 @@ if (DEBUG_RESTARTING) \
 # define DEBUG_WAIT
 #endif
 
+// NOTE:  GDT_ENTRY_TLS_ENTRIES no longer maintained by MTCP
 #if defined(GDT_ENTRY_TLS_ENTRIES) && !defined(__x86_64__)
 #define MTCP__SAVE_MANY_GDT_ENTRIES 1
 #else
 #define MTCP__SAVE_MANY_GDT_ENTRIES 0
 #endif
 
-/* Retrieve saved stack pointer saved by getcontext () */
-#ifdef __x86_64__
-#define MYREG_RSP 15
-#define SAVEDSP uc_mcontext.gregs[MYREG_RSP]
+#ifdef SETJMP
+/* Retrieve saved stack pointer saved by sigsetjmp () at jmpbuf[SAVEDSP] */
+# ifdef __i386__
+// In eglibc-2.13/sysdeps/i386/jmpbuf-offsets.h, JB_SP = 4
+#  define SAVEDSP 4
+# elif __x86_64__
+// In eglibc-2.13/sysdeps/x86_64/jmpbuf-offsets.h, JB_RSP = 6
+#  define SAVEDSP 6
+# elif __arm__
+// #define SAVEDSP uc_mcontext.arm_sp
+// In glibc-ports-2.14/sysdeps/arm/eabi/jmpbuf-offsets.h, __JMP_BUF_SP = 8
+#  define SAVEDSP 8
+# else
+#  error "register for stack pointer not defined"
+# endif
+#else /* else:  use getcontext */
+/* Retrieve saved stack pointer saved by setcontext () at jmpbuf[SAVEDSP] */
+# ifdef __i386__
+#  define SAVEDSP 7 /* ESP */
+# elif __x86_64__
+#  define SAVEDSP 15 /* RSP */
+# elif __arm__
+// NOT YET IMPLEMENTED /* SP */
+# else
+#  error "register for stack pointer not defined"
+# endif
+#endif
+
+#ifdef SETJMP
+// In field of 'struct Thread':
+# define JMPBUF_SP jmpbuf[0].__jmpbuf[SAVEDSP]
 #else
-#define MYREG_ESP 7
-#define SAVEDSP uc_mcontext.gregs[MYREG_ESP]
+// In field of 'struct Thread':
+# define JMPBUF_SP savctx.uc_mcontext.gregs[SAVEDSP]
 #endif
 
 /* TLS segment registers used differently in i386 and x86_64. - Gene */
 #ifdef __i386__
 # define TLSSEGREG gs
-#endif
-#ifdef __x86_64__
+#elif __x86_64__
+# define TLSSEGREG fs
+#elif __arm__
+/* FIXME: fs IS NOT AN arm REGISTER.  BUT THIS IS USED ONLY AS A FIELD NAME.
+ *   ARM uses a register in coprocessor 15 as the thread-pointer (TLS Register)
+ */
 # define TLSSEGREG fs
 #endif
 
@@ -152,6 +200,8 @@ if (DEBUG_RESTARTING) \
 # error "glibc version too old"
 #endif
 
+// NOTE: TLS_TID_OFFSET, TLS_PID_OFFSET determine offset independently of
+//     glibc version.  These STATIC_... versions serve as a double check.
 // Calculate offsets of pid/tid in pthread 'struct user_desc'
 static int STATIC_TLS_TID_OFFSET()
 {
@@ -244,6 +294,7 @@ static int TLS_TID_OFFSET(void) {
     void * pthread_desc = mtcp_get_tls_base_addr();
     /* A false hit for tid_offset probably can't happen since a new
      * 'struct pthread' is zeroed out before adding tid and pid.
+     * pthread_desc below is defined as 'struct pthread' in glibc:nptl/descr.h
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     if (tmp == NULL) {
@@ -325,7 +376,11 @@ struct Thread { Thread *next;         // next thread in 'threads' list
                 sigset_t sigpending;   // pending signals
 
                 ///JA: new code ported from v54b
+#ifdef SETJMP
+                sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
+#else
                 ucontext_t savctx;     // context saved on suspend
+#endif
 
                 mtcp_segreg_t fs, gs;  // thread local storage pointers
                 pthread_t pth;         // added for pthread_join
@@ -473,10 +528,6 @@ static long long tempstack[STACKSIZE + 1];
 
 static long set_tid_address (int *tidptr);
 
-static char *memsubarray (char *array, char *subarray, int len)
-					 __attribute__ ((unused));
-static int mtcp_get_tls_segreg(void);
-static void *mtcp_get_tls_base_addr(void);
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
@@ -617,7 +668,6 @@ void mtcp_init (char const *checkpointfilename,
                 int clonenabledefault)
 {
   char *p, *tmp, *endp;
-  int len;
   Thread *ckptThreadDescriptor = & ckptThreadStorage;
 
   mtcp_saved_pid = mtcp_sys_getpid ();
@@ -921,7 +971,7 @@ void mtcp_dump_tls (char const *file, int line)
 
       gdtentry.entry_number = gs / 8;
       i = mtcp_sys_get_thread_area (&gdtentry);
-      if (i < 0) {
+      if (i == -1) {
         MTCP_PRINTF("  error getting GDT entry %d: %d\n",
                     gdtentry.entry_number, mtcp_sys_errno);
       } else {
@@ -1093,7 +1143,14 @@ void mtcp_process_pthread_join (pthread_t pth)
   }
 }
 
+#if defined(__i386__) || defined(__x86_64__)
 asm (".global clone ; .type clone,@function ; clone = __clone");
+#elif defined(__arm__)
+// In arm, '@' is a comment character;  Arm uses '%' in type directive
+asm (".global clone ; .type clone,%function ; clone = __clone");
+#else
+# error Not implemented on this achitecture
+#endif
 
 /*****************************************************************************
  *
@@ -1756,7 +1813,7 @@ static void *checkpointhread (void *dummy)
   char * dmtcp_checkpoint_filename = NULL;
 
   /* This is the start function of the checkpoint thread.
-   * We also call getcontext to get a snapshot of this call frame,
+   * We also call sigsetjmp/getcontext to get a snapshot of this call frame,
    * since we will never exit this call frame.  We always return
    * to this call frame at time of startup, on restart.  Hence, restart
    * will forget any modifications to our local variables since restart.
@@ -1783,11 +1840,19 @@ static void *checkpointhread (void *dummy)
     (*callback_ckpt_thread_start)();
   }
 
+  int rounding_mode = fegetround();
+#ifdef SETJMP
+  /* After we restart, we return here. */
+  if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
+  DPRINTF("after sigsetjmp. current_tid %d, original_tid:%d\n",
+          mtcp_sys_kernel_gettid(), ckpthread->original_tid);
+#else
   /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-
   DPRINTF("after getcontext. current_tid %d, original_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->original_tid);
+#endif
+  fesetround(rounding_mode);
 
   if (originalstartup)
     originalstartup = 0;
@@ -2938,7 +3003,6 @@ static int mtcp_is_zero_page(void *addr)
   long long *buf = (long long*) addr;
   size_t i;
   size_t end = MTCP_PAGE_SIZE / sizeof (*buf);
-  size_t incr = sizeof (*buf);
   long long res = 0;
   for (i = 0; i + 7 < end; i += 8) {
     res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
@@ -3181,7 +3245,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
 /*****************************************************************************
  *
  *  This signal handler is forced by the main thread doing a
- *  'mtcp_sys_kernel_tkill' to stop these threads so it can do a
+ *  'mtcp_sys_kernel_tgkill' to stop these threads so it can do a
  *  checkpoint
  *
  * Grow the stack by kbStack*1024 so that large stack is allocated on restart
@@ -3302,12 +3366,21 @@ static void stopthisthread (int signum)
     }
 
     ///JA: new code ported from v54b
+#ifdef SETJMP
+    rc = sigsetjmp (thread -> jmpbuf, 1);
+    if (rc < 0) {
+      MTCP_PRINTF("sigsetjmp rc %d errno %d\n", rc, strerror(mtcp_sys_errno));
+      mtcp_abort ();
+    }
+    DPRINTF("after sigsetjmp\n");
+#else
     rc = getcontext (&(thread -> savctx));
     if (rc < 0) {
       MTCP_PRINTF("getcontext rc %d errno %d\n", rc, strerror(mtcp_sys_errno));
       mtcp_abort ();
     }
     DPRINTF("after getcontext\n");
+#endif
     if (mtcp_state_value(&restoreinprog) == 0) {
       is_ckpt = 1;
 
@@ -3422,7 +3495,7 @@ static void wait_for_all_restored (void)
 {
   int rip;
 
-  // dec number of threads cloned but not completed longjmp'ing
+  // dec number of threads cloned but have not completed longjmp/getcontext
   do {
     rip = mtcp_state_value(&restoreinprog);
   } while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
@@ -3616,10 +3689,11 @@ static void save_tls_state (Thread *thisthread)
 #ifdef __i386__
   asm volatile ("movw %%fs,%0" : "=m" (thisthread -> fs));
   asm volatile ("movw %%gs,%0" : "=m" (thisthread -> gs));
-#endif
-#ifdef __x86_64__
+#elif __x86_64__
   //asm volatile ("movl %%fs,%0" : "=m" (thisthread -> fs));
   //asm volatile ("movl %%gs,%0" : "=m" (thisthread -> gs));
+#elif __arm__
+  // Follow x86_64 for arm.
 #endif
 
   memset (thisthread -> gdtentrytls, 0, sizeof thisthread -> gdtentrytls);
@@ -3631,7 +3705,7 @@ static void save_tls_state (Thread *thisthread)
     thisthread -> gdtentrytls[i-GDT_ENTRY_TLS_MIN].entry_number = i;
     int offset = i - GDT_ENTRY_TLS_MIN;
     rc = mtcp_sys_get_thread_area(&(thisthread -> gdtentrytls[offset]));
-    if (rc < 0) {
+    if (rc == -1) {
       MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
                   i, strerror(mtcp_sys_errno));
       mtcp_abort ();
@@ -3644,10 +3718,14 @@ static void save_tls_state (Thread *thisthread)
    */
 
 #else
+/* FIXME:  IF %fs IS NOT READ into thisthread -> fs AT BEGINNING OF THIS
+ *   FUNCTION, HOW CAN WE REFER TO IT AS  thisthread -> TLSSEGREG?
+ *   WHAT IS THIS CODE DOING?
+ */
   i = thisthread -> TLSSEGREG / 8;
   thisthread -> gdtentrytls[0].entry_number = i;
   rc = mtcp_sys_get_thread_area (&(thisthread -> gdtentrytls[0]));
-  if (rc < 0) {
+  if (rc == -1) {
     MTCP_PRINTF("error saving GDT TLS entry[%d]: %s\n",
                 i, strerror(mtcp_sys_errno));
     mtcp_abort ();
@@ -3677,10 +3755,12 @@ static int mtcp_get_tls_segreg(void)
 { mtcp_segreg_t tlssegreg;
 #ifdef __i386__
   asm volatile ("movw %%gs,%0" : "=g" (tlssegreg)); /* any general register */
-#endif
-#ifdef __x86_64__
+#elif __x86_64__
   /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
   asm volatile ("movl %%fs,%0" : "=q" (tlssegreg));
+#elif __arm__
+  asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
+                : "=r" (tlssegreg) );
 #endif
   return (int)tlssegreg;
 }
@@ -3697,7 +3777,7 @@ static void *mtcp_get_tls_base_addr(void)
 #endif
 
   gdtentrytls.entry_number = mtcp_get_tls_segreg() / 8;
-  if ( mtcp_sys_get_thread_area ( &gdtentrytls ) < 0 ) {
+  if ( mtcp_sys_get_thread_area ( &gdtentrytls ) == -1 ) {
     MTCP_PRINTF("error getting GDT TLS entry: %s\n", strerror(mtcp_sys_errno));
     mtcp_abort ();
   }
@@ -3942,7 +4022,7 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
    */
   long long * extendedStack = tempstack + STACKSIZE;
 
-  /* Not used until we do longjmps, but get it out of the way now */
+  /* Not used until we do longjmp/getcontext, but get it out of way now */
 
   // FIXME: Should we be checking return value of mtcp_state_set? Can it ever
   // fail?
@@ -3997,11 +4077,20 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
    * and thus not used by the checkpointed program
    */
 
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp\n\t)
                 /* This next assembly language confuses gdb,
 		   but seems to work fine anyway */
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
                 : : "g" (extendedStack) : "memory");
+#elif defined(__arm__)
+  asm volatile ("mov sp,%0\n\t"
+                /* FIXME:  DO WE NEED THIS "xor"? */
+                // CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
+                : : "r" (extendedStack) : "memory");
+#else
+# error "assembly instruction not translated"
+#endif
 
   /* Once we're on the new stack, we can't access any local variables or
    * parameters.
@@ -4010,7 +4099,7 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
 
   /* This should never return */
   mtcp_restoreverything();
-  asm volatile ("hlt");
+  mtcp_abort();
 }
 
 
@@ -4073,21 +4162,29 @@ static void finishrestore (void)
 
   /* Now we can access all our files and memory that existed at the time of the
    * checkpoint.
-   * We are still on the temporary stack, though
+   * We are still on the temporary stack, though.
    */
 
   /* Fill in the new mother process id */
   motherpid = mtcp_sys_getpid();
 
   /* Call another routine because our internal stack is whacked and we can't
-   * have local vars
+   * have local vars.
    */
 
   ///JA: v54b port
   // so restarthread will have a big stack
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
-		: : "g" (motherofall->savctx.SAVEDSP - 128) //-128 for red zone
+		: : "g" (motherofall->JMPBUF_SP - 128) //-128 for red zone
                 : "memory");
+#elif defined(__arm__)
+  asm volatile ("mov sp,%0"
+		: : "r" (motherofall->JMPBUF_SP - 128) //-128 for red zone
+                : "memory");
+#else
+# error "assembly instruction not translated"
+#endif
   restarthread (motherofall);
 }
 
@@ -4099,7 +4196,6 @@ static int restarthread (void *threadv)
   struct MtcpRestartThreadArg mtcpRestartThreadArg;
 
   restore_tls_state (thread);
-
 
   if (thread == motherofall) {
     // Compute the set of signals which was pending for all the threads at the
@@ -4186,7 +4282,7 @@ static int restarthread (void *threadv)
     pid_t tid;
     if (dmtcp_info_pid_virtualization_enabled == 1) {
       tid = syscall(SYS_clone, restarthread,
-                    (void*)(child -> savctx.SAVEDSP - 128), // -128 for red zone
+                    (void*)(child -> JMPBUF_SP - 128),// -128 for red zone
                     ((child -> clone_flags & ~CLONE_SETTLS) |
                      CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID),
                     clone_arg, child -> parent_tidptr, NULL,
@@ -4194,7 +4290,7 @@ static int restarthread (void *threadv)
     } else {
       tid = ((*clone_entry)(restarthread,
                             // -128 for red zone
-                            (void *)(child -> savctx.SAVEDSP - 128),
+                            (void *)(child -> JMPBUF_SP - 128),
                             ((child -> clone_flags & ~CLONE_SETTLS)
                              | CLONE_CHILD_SETTID
                              | CLONE_CHILD_CLEARTID),
@@ -4205,14 +4301,14 @@ static int restarthread (void *threadv)
     if (tid < 0) {
       MTCP_PRINTF("error %d recreating thread\n", errno);
       MTCP_PRINTF("clone_flags %X, savedsp %p\n",
-                   child -> clone_flags, child -> savctx.SAVEDSP);
+                   child -> clone_flags, child -> JMPBUF_SP);
       mtcp_abort ();
     }
     DPRINTF("Parent:%d, tid of newly created thread:%d\n", thread->tid, tid);
   }
 
   /* All my children have been created, jump to the stopthisthread routine just
-   * after getcontext call.
+   * after sigsetjmp/getcontext call.
    * Note that if this is the restored checkpointhread, it jumps to the
    * checkpointhread routine
    */
@@ -4220,9 +4316,15 @@ static int restarthread (void *threadv)
   if (mtcp_have_thread_sysinfo_offset())
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
+#ifdef SETJMP
+  DPRINTF("calling siglongjmp: thread->tid: %d, original_tid:%d\n",
+          thread->tid, thread->original_tid);
+  siglongjmp (thread -> jmpbuf, 1); /* Shouldn't return */
+#else
   DPRINTF("calling setcontext: thread->tid: %d, original_tid:%d\n",
           thread->tid, thread->original_tid);
   setcontext (&(thread -> savctx)); /* Shouldn't return */
+#endif
   mtcp_abort ();
   return (0); /* NOTREACHED : stop compiler warning */
 }
@@ -4290,14 +4392,15 @@ static void restore_tls_state (Thread *thisthread)
 #ifdef __i386__
   asm volatile ("movw %0,%%fs" : : "m" (thisthread -> fs));
   asm volatile ("movw %0,%%gs" : : "m" (thisthread -> gs));
-#endif
-#ifdef __x86_64__
+#elif __x86_64__
 /* Don't directly set fs.  It would only set 32 bits, and we just
  *  set the full 64-bit base of fs, using sys_set_thread_area,
  *  which called arch_prctl.
  *asm volatile ("movl %0,%%fs" : : "m" (thisthread -> fs));
  *asm volatile ("movl %0,%%gs" : : "m" (thisthread -> gs));
  */
+#elif __arm__
+/* ARM treats this same as x86_64 above. */
 #endif
 
   thisthread -> tid = mtcp_sys_kernel_gettid ();

@@ -69,6 +69,10 @@ void mtcp_maybebpt (void)
   }
 
   if (known > 0) { // see if we know our parent is gdb
-    asm volatile ("int3"); // if so, we do a breakpoint
+#if defined(__i385__) || defined(__x86_64__)
+    asm volatile ("int3"); // if so, do breakpoint; send SIGTRAP, caught by gdb
+#elif defined(__arm__)
+    asm("bkpt 0"); // inline equivalent of raise(SIGTRAP);
+#endif
   }
 }

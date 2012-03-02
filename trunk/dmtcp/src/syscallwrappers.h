@@ -47,7 +47,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 # include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
 #else
 struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
-#endif 
+#endif
 #include <stdio.h>
 #include <thread_db.h>
 #include <sys/procfs.h>

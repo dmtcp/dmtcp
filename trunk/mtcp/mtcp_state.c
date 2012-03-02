@@ -1,30 +1,17 @@
 // This file defines functions:  mtcp_state_XXX()
-// They were added by Jason Ansel to eliminate need for futex.
+// The pthread versions were added by Jason Ansel to eliminate need for futex.
 // Futex is specific to Linux.
 
 
 #include "mtcp_internal.h"
-#include <asm/ldt.h>      // for struct user_desc
-//#include <asm/segment.h>  // for GDT_ENTRY_TLS_... stuff
-#include <dirent.h>
-#include <dlfcn.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/sem.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-#include <unistd.h>
 
 #if USE_FUTEX
-#include "mtcp_futex.h"
+# include "mtcp_futex.h"
+#endif
+
+#ifndef USE_FUTEX
+# include <pthread.h>
 #endif
 
 __attribute__ ((visibility ("hidden")))
@@ -57,12 +44,13 @@ void mtcp_state_futex(MtcpState * state, int func, int val,
   int rc;
 
   /* (int *) cast needed since state->value is "int volatile"  - Gene */
-  while ((rc = mtcp_futex ((int *)&state->value, func, val, timeout)) < 0) {
+  while ((rc = mtcp_futex ((int *)&state->value, func, val, timeout)) < 0
+         && rc > -4096) { /* large unsigned int from kernel can appear neg. */
     rc = -rc;
     if ((rc == ETIMEDOUT) || (rc == EWOULDBLOCK)) break;
     if (rc != EINTR) {
       MTCP_PRINTF("futex error %d.\n", rc);
-      MTCP_PRINTF("(%p, %d, %d, %p, NULL, 0)\n",
+      MTCP_PRINTF("value, func, val, timeout: (%p, %d, %d, %p, NULL, 0)\n",
                   &state->value, func, val, timeout);
       mtcp_abort ();
     }

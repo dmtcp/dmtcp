@@ -122,7 +122,7 @@ static const char* theUsage =
 
 
 static const char* theRestartScriptHeader =
-  "#!/bin/bash \n"
+  "#!/bin/bash\n\n"
   "set -m # turn on job control\n\n"
   "#This script launches all the restarts in the background.\n"
   "#Suggestions for editing:\n"
