@@ -38,7 +38,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <elf.h> // For value of AT_SYSINFO, Elf??_auxv_t
-#include "mtcp_sys.h" // For CLEAN_FOR_64BIT
+#include "mtcp_sys.h" // For CLEAN_FOR_64BIT; for mtcp_sys_kernel_set_tls (ARM)
 #include "mtcp_internal.h" // For CLEAN_FOR_64BIT and PATH_MAX
 
 #ifdef __x86_64__
@@ -66,8 +66,12 @@ static void * get_at_sysinfo() {
     my_environ = environ;
 #if 0
   // Walk the stack.
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %%ebp, %0\n\t)
                 : "=g" (stack) );
+#else
+# error "current architecture not supported"
+#endif
   MTCP_PRINTF("stack 2: %p\n", stack);
 
   // When popping stack/%ebp yields zero, that's the ELF loader telling us that
@@ -134,8 +138,15 @@ int mtcp_have_thread_sysinfo_offset() {
 #endif
   if (result == -1) {
     void * sysinfo;
-    asm (CLEAN_FOR_64_BIT(mov %%gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
-	 : "=r" (sysinfo));
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %%gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
+                : "=r" (sysinfo) );
+#elif defined(__arm__)
+  asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
+                : "=r" (sysinfo) );
+#else
+# error "current architecture not supported"
+#endif
     result = (sysinfo == get_at_sysinfo());
   }
   return result;
@@ -146,14 +157,27 @@ int mtcp_have_thread_sysinfo_offset() {
 //  as part of kernel TCB (thread control block) at beginning of TLS ??
 void *mtcp_get_thread_sysinfo() {
   void *sysinfo;
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %%gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
                 : "=r" (sysinfo) );
+#elif defined(__arm__)
+  asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
+                : "=r" (sysinfo) );
+#else
+# error "current architecture not supported"
+#endif
   return sysinfo;
 }
 
 void mtcp_set_thread_sysinfo(void *sysinfo) {
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%gs:) DEFAULT_SYSINFO_OFFSET "\n\t"
                 : : "r" (sysinfo) );
+#elif defined(__arm__)
+  mtcp_sys_kernel_set_tls(sysinfo);
+#else
+# error "current architecture not supported"
+#endif
 }
 
 // We turn off va_addr_rand(/proc/sys/kernel/randomize_va_space).

@@ -38,8 +38,10 @@
 
 #define u32 unsigned int
 
+#define _GNU_SOURCE
 #include <asm/unistd.h>
 #include <errno.h>
+#include <sched.h>
 
 #ifndef __user
 // this is needed to compile futex.h on LXR/Suse10.2
@@ -47,37 +49,23 @@
 #endif
 
 #include <linux/futex.h>
-#include <sched.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "mtcp_internal.h" // for atomic_setif_int(), and STACKSIZE
 #include "mtcp.h"
 #include "mtcp_futex.h"
 
-#define STACKSIZE 1024*1024
-#define THREADFLAGS (CLONE_FS | CLONE_FILES | CLONE_VM)
-
-static int printfutex = 0;
-
+/*atomic_setif_int():                          */
 /* Set *loc to newval iff *loc equal to oldval */
 /* Return 0 if failed, 1 if succeeded          */
 
-static inline int atomic_setif_int (volatile int *loc, int newval, int oldval)
 
-{
-  char rc;
+#define THREADFLAGS (CLONE_FS | CLONE_FILES | CLONE_VM)
 
-  asm volatile ("lock\n\t"
-                "cmpxchgl %2,%3\n\t"
-                "sete     %%al"
-                : "=a" (rc)
-                :  "a" (oldval), "r" (newval), "m" (*loc)
-                : "cc", "memory");
-
-  return (rc);
-}
+static int printfutex = 0;
 
 static void lockstdout (void)
 

@@ -439,7 +439,7 @@ bool isTorqueHomeFile(dmtcp::string &path)
   }
 
   char jobid[256];
-  sprintf(jobid,"%uld",torque_jobid);
+  sprintf(jobid,"%lu",torque_jobid);
   dmtcp::string spool_path = hpath + "/.pbs_spool/" + jobid;
   dmtcp::string home_path = hpath + jobid;
 

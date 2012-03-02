@@ -179,8 +179,13 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   holebase  = mtcp_shareable_begin;
   holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
   // the unmaps will wipe what it points to anyway
+  // Force a hard error if any code tries to use the thread-pointer register.
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
 				: : : CLEAN_FOR_64_BIT(eax));
+#elif defined(__arm__)
+  mtcp_sys_kernel_set_tls(0);  /* Uses 'mcr', a kernel-mode instr. on ARM */
+#endif
 
   // so make sure we get a hard failure just in case
   // ... it's left dangling on something I want

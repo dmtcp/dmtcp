@@ -101,7 +101,7 @@ mtcp_restart
   restarthread(motherofall)
   [Current thread becomes motherofall, the original user thread;
    Then restart remaining user threads and the ckpt thread;
-   each thread calls setcontext to get back to its
+   each thread calls siglongjmp/setcontext to get back to its
    original pre-checkpoint call frame]
 
 1.  Run:  mtcp_restart FILE.mtcp
@@ -133,16 +133,16 @@ mtcp_restart
 	pre-checkpoint.
 10. Create user threads and have them also call restarthread w/ red zone
 	(extended stack pointer), etc.
-11. Checkpoint thread now calls setcontext() to fully return
+11. Checkpoint thread now calls siglongjmp()/setcontext() to fully return
 	to pre-checkpoint state.  We are now using our pre-checkpoint stack
 	instead of the temporary stack.
-12. We (the checkpoint thread) are now returning from getcontext()
+12. We (the checkpoint thread) are now returning from sigsetjmp()/getcontext()
 	in checkpointhread().  Wait for user threads to be restored.
 	Execute mtcpHookRestart just before unlocking user threads.  Then
 	sleep again until next checkpoint.
 	Note that checkpointhread serves two purposes, since it's also the
 	original start function from when the checkpoint thread was created.
-13. The user thread is returning from getcontext() in stopthisthread()
+13. The user thread returns from sigsetjmp()/getcontext() in stopthisthread()
 	[Better name might be:  stopthisuserthread().]
 
 RESTART: Details
@@ -185,7 +185,7 @@ RESTART: Details
            libmtcp.so(mtcp.c):restarthread then restores our thread manager
                 (motherofall), followed by the application threads.
                 It does so by calling restore_tls_state() for each thread?.
-           It then calls setcontext, to restore the registers and signals
+           It then calls siglongjmp/setcontext, to restore the registers and signals
 		at the point of checkpointing (process-wide, not per thread)
 
 	  [ A better name for mtcp.c might be to break it up into:

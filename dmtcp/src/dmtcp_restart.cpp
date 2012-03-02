@@ -281,7 +281,7 @@ int main(int argc, char** argv)
       (targets[i].path()) (targets[i].compGroup()) (targets[i].numPeers());
     if (compGroup != targets[i].compGroup()) {
       JASSERT(false)(compGroup)(targets[i].compGroup())
-	.Text("ERROR: Restored programs belongs to different computation IDs");
+	.Text("ERROR: Restored programs belong to different computation IDs");
     } else if (numPeers != targets[i].numPeers()) {
       JASSERT(false)(numPeers)(targets[i].numPeers())
 	.Text("ERROR: Different number of processes saved in checkpoint images");

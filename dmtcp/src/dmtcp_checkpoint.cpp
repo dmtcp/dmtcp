@@ -541,7 +541,8 @@ void testStaticallyLinked(const char *pathname) {
   if (dmtcp::Util::isStaticallyLinked(pathname)) {
     JASSERT_STDERR <<
       "*** WARNING:  /lib/ld-linux.so --verify " << pathname << " returns\n"
-      << "***  nonzero status.  (Some distros use /lib64/ld-linux-x86-64.so .)"
+      << "***  nonzero status.  (Some distros"
+         " use /lib64/ld-linux-x86-64.so .)\n"
       << "*** This often means that " << pathname << " is\n"
       << "*** a statically linked target.  If so, you can confirm this with\n"
       << "*** the 'file' command.\n"

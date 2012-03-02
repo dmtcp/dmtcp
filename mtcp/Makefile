@@ -29,7 +29,7 @@
 ##									##
 ##########################################################################
 
-MTCP_VERSION = 77
+MTCP_VERSION = 78
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
@@ -92,16 +92,31 @@ MTCP_DIR := $(shell pwd)
 # There might be a 32-bit built system running on top of 32/64 bit capable
 # kernel. In that case `uname -m` returns 'x86_64' which is not correct.
 # Instead, we should deduce the build-type from the build toochain itself.
+# NOTE:  'ld -shared -verbose|grep OUTPUT_ARCH'
+#        returns OUTPUT_ARCH(i386:x86-64) on x86-64 machines.
 ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf64-x86-64)
   BUILDTYPE=x86_64
+else ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf32-i386)
 else
-  BUILDTYPE=i386
+  BUILDTYPE=${shell ${LD_RAW} -shared -verbose|grep OUTPUT_ARCH| \
+		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}
 endif
 
 # But for testmtcp, don't use CFLAGS if don't want position-independent code
 ifeq ($(BUILDTYPE),x86_64)
   CFLAGS += -fPIC -DPIC
   LDFLAGS += -fPIC 
+endif
+
+ifeq ($(BUILDTYPE),arm)
+  CFLAGS += -fPIC -DPIC -march=armv7
+  LDFLAGS += -fPIC 
+  ARM_EXTRAS = libc-do-syscall-arm-eabi.o
+# As of February, 2012, crt1.o has an undefined symbol, abort.
+# This prevents us from compiling mtcp_restart with -nodefaultlibs
+  ARM_BUG_FIX = -Wl,-defsym=abort=0x0
+# ARM: "r7" is also used as frame pointer.  So, gcc complains in mtcp_futex.h
+  CFLAGS_FUTEX_ARM = -fomit-frame-pointer
 endif
 
 ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
@@ -188,8 +203,9 @@ checkgettimeofday: libmtcp.so mtcp_restart testgettimeofday
 testmtcp.o: testmtcp.c
 	${CC} $(CFLAGS) -c -o testmtcp.o testmtcp.c
 
-testmtcp2: testmtcp2.c libmtcp.so
-	${CC} $(CFLAGS) -o testmtcp2 testmtcp2.c libmtcp.so
+testmtcp2: testmtcp2.c libmtcp.so $(ARM_EXTRAS)
+	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c \
+	  libmtcp.so $(ARM_EXTRAS)
 
 testmtcp3: testmtcp3.c libmtcp.so
 	${CC} $(CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
@@ -217,15 +233,21 @@ threadtest: threadtest.c
 # replacing the glibc-syscall wrappers with the respective mtcp_sys_XXX()
 # version.
 
-mtcp_restart: mtcp_restart.c mtcp_internal.h \
+mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o mtcp_fastckpt.o
-	${CC} $(CFLAGS) -static -nodefaultlibs \
+	mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	${CC} $(CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
-	 mtcp_state.o mtcp_safe_open.o mtcp_check_vdso.o mtcp_fastckpt.o
-	 # -lpthread
+	 mtcp_state.o mtcp_safe_open.o \
+	 mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	 # NOT USED: -lpthread
+
+ifeq ($(BUILDTYPE),arm)
+libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
+	${CC} ${CFLAGS} -c -o $@ $<
+endif
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
@@ -266,7 +288,8 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o mtcp_fastckpt.o
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
+	mtcp_fastckpt.o ${ARM_EXTRAS}
 
 # for libtools -- not used
 %.lo : %.c
@@ -282,7 +305,8 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	echo LDFLAGS $(LDFLAGS)
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
-	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} -ldl -lpthread
+	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
+	  -ldl -lpthread -lm
 	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
 	ln -sf libmtcp.so.1 libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
@@ -307,15 +331,13 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 
-mtcp.o: mtcp.c mtcp.h mtcp_internal.h
+mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
-mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_restart_nolibc.o mtcp_restart_nolibc.c
 
 # mtcp.lis is needed only for debugging.
-mtcp.lis: mtcp.c mtcp.h mtcp_internal.h
+mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
 
 # The resultant mtcp_restart_nolibc.o module should not have undefined symbols
@@ -341,8 +363,8 @@ mtcp_util.o: mtcp_util.c mtcp_internal.h
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
 
-mtcp_state.o: mtcp_state.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_state.o mtcp_state.c
+mtcp_state.o: mtcp_state.c mtcp_internal.h mtcp_futex.h
+	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -c -o mtcp_state.o mtcp_state.c
 
 mtcp_state.lis: mtcp_state.c mtcp_internal.h
 	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis mtcp_state.c
