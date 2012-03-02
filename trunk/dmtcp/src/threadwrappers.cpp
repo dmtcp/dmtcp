@@ -49,6 +49,7 @@ static void *pthread_start(void *arg)
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
+  mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
   void *result = (*pthread_fn)(thread_arg);
   mtcpFuncPtrs.threadiszombie();
@@ -86,9 +87,6 @@ int clone_start(void *arg)
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
   pid_t tid = _real_gettid();
   JTRACE ("In clone_start");
-
-  // FIXME: Why not do this in the mtcp.c::__clone?
-  mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
 
   if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
     JTRACE ("TID conflict detected.  Exiting thread.");
