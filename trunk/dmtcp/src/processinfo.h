@@ -55,8 +55,8 @@ namespace dmtcp
       void  eraseTid(pid_t tid);
       size_t numThreads() { refreshTidVector(); return _tidVector.size(); }
 
-      void insertChild (pid_t originalPid, dmtcp::UniquePid uniquePid);
-      void eraseChild (pid_t originalPid);
+      void insertChild (pid_t virtualPid, dmtcp::UniquePid uniquePid);
+      void eraseChild (pid_t virtualPid);
       void  postExec();
 
       void resetOnFork();
@@ -71,7 +71,7 @@ namespace dmtcp
       void serialize ( jalib::JBinarySerializer& o );
       void serializeChildTable(jalib::JBinarySerializer& o);
       static void serializeChildTableEntry(jalib::JBinarySerializer& o,
-                                            pid_t& originalPid,
+                                            pid_t& virtualPid,
                                             dmtcp::UniquePid& uniquePid);
       static void serializeEntryCount( jalib::JBinarySerializer& o,
                                        size_t& count );

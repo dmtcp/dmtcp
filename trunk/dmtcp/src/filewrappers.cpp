@@ -205,12 +205,12 @@ static void updateProcPath ( const char *path, char *newpath )
       }
     }
     temp [ tempIndex ] = '\0';
-    pid_t originalPid = atoi ( temp );
-    pid_t currentPid = dmtcp::VirtualPidTable::instance().originalToCurrentPid( originalPid );
-    if (currentPid == -1)
-      currentPid = originalPid;
+    pid_t virtualPid = atoi ( temp );
+    pid_t realPid = VIRTUAL_TO_REAL_PID( virtualPid );
+    if (realPid == -1)
+      realPid = virtualPid;
 
-    sprintf ( newpath, "/proc/%d%s", currentPid, &path [ index ] );
+    sprintf ( newpath, "/proc/%d%s", realPid, &path [ index ] );
   }
   else strcpy ( newpath, path );
   return;

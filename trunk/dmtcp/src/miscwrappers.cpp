@@ -208,7 +208,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   // the original to current conversion.
   // TODO: Need to update uid/gid fields to support uid/gid virtualization.
   if (buf != NULL) {
-    buf->shm_cpid = dmtcp::VirtualPidTable::instance().currentToOriginalPid(buf->shm_cpid);
+    buf->shm_cpid = REAL_TO_VIRTUAL_PID(buf->shm_cpid);
   }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;

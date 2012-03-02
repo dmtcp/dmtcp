@@ -187,18 +187,18 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
 
-  // FIXME: When restarting, the VirtualPidTable original to current pid
+  // FIXME: When restarting, the VirtualPidTable virtual to real pid
   // mapping might not be restored at this point and thus the following
   // F_SETOWN call will fail. At times it can set the wrong owner as well.
   //  The correct fix would be to restore the fcntlowner after we have the
-  // original->current pid mappings.
+  // virtual->real pid mappings.
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, ORIGINAL_TO_CURRENT_PID(_fcntlOwner) ) == 0 )
+  JASSERT ( fcntl ( fds[0], F_SETOWN, VIRTUAL_TO_REAL_PID(_fcntlOwner) ) == 0 )
     ( fds[0] ) ( _fcntlOwner ) ( JASSERT_ERRNO );
 
   // This JASSERT will almost always trigger until we fix the above mentioned
   // bug.
-  //JASSERT (fcntl(fds[0], F_GETOWN) == _fcntlOwner) (fcntl(fds[0], F_GETOWN))(_fcntlOwner) (ORIGINAL_TO_CURRENT_PID(_fcntlOwner));
+  //JASSERT (fcntl(fds[0], F_GETOWN) == _fcntlOwner) (fcntl(fds[0], F_GETOWN))(_fcntlOwner) (VIRTUAL_TO_REAL_PID(_fcntlOwner));
 
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETSIG,_fcntlSignal ) == 0 ) ( fds[0] ) ( _fcntlSignal ) ( JASSERT_ERRNO );
