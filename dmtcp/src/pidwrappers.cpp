@@ -321,6 +321,7 @@ int tgkill(int tgid, int tid, int sig)
 
 //long sys_tgkill (int tgid, int pid, int sig)
 
+#ifdef PTRACE
 typedef td_err_e (*td_thr_get_info_funcptr_t)(const td_thrhandle_t *,
                                               td_thrinfo_t *);
 static td_thr_get_info_funcptr_t _td_thr_get_info_funcptr = NULL;
@@ -354,6 +355,7 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
   else
     return _real_dlsym ( handle, symbol );
 }
+#endif
 
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
