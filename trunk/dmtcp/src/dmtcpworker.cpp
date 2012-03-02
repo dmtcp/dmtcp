@@ -654,11 +654,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "locked" );
 
 #ifdef PID_VIRTUALIZATION
-  /*
-   * Save first 2 * sizeof(pid_t) bytes of each shared memory area and fill it
-   * with all zeros.
-   */
-  SysVIPC::instance().prepareForLeaderElection();
+  SysVIPC::instance().leaderElection();
 #endif
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
@@ -678,14 +674,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "drained" );
 
 #ifdef PID_VIRTUALIZATION
-  /*
-   * write pid at offset 0. Also write pid at offset sizeof(pid_t) if this
-   * process is the creator of this memory area. After the leader election
-   * barrier, the leader of the shared-memory object is the creator of the
-   * object. If the creator process is missing, then the leader process is the
-   * process whose pid is stored at offset 0
-   */
-  SysVIPC::instance().leaderElection();
+  SysVIPC::instance().preCkptDrain();
 #endif
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
