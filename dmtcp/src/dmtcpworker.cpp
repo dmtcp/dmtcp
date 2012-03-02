@@ -241,6 +241,7 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
 static void prepareLogAndProcessdDataFromSerialFile()
 {
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
+  dmtcp::VirtualPidTable::instance().updateMapping(getpid(), _real_getpid());
   if ( serialFile != NULL ) {
     // This process was under ckpt-control and exec()'d into a new program.
     // Find out path of previous log file so that later, we can write the name
@@ -256,14 +257,15 @@ static void prepareLogAndProcessdDataFromSerialFile()
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
     KernelDeviceToConnection::instance().serialize ( rd );
 
-#ifdef PID_VIRTUALIZATION
-    VirtualPidTable::instance().serialize ( rd );
     ProcessInfo::instance().serialize ( rd );
     ProcessInfo::instance().postExec();
+#ifdef PID_VIRTUALIZATION
+    VirtualPidTable::instance().serialize ( rd );
     SysVIPC::instance().serialize ( rd );
 #endif
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
+    dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
     Util::initializeLogFile();
@@ -691,9 +693,8 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE ( "handshaking done" );
 #endif
 
-#ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::instance().preCheckpoint();
   dmtcp::ProcessInfo::instance().preCheckpoint();
+#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().preCheckpoint();
 #endif
 
@@ -870,6 +871,7 @@ void dmtcp::DmtcpWorker::postRestart()
   JASSERT ( theCheckpointState != NULL );
   theCheckpointState->postRestart();
 
+  dmtcp::ProcessInfo::instance().postRestart();
 #ifdef PID_VIRTUALIZATION
   if ( jalib::Filesystem::GetProgramName() == "screen" )
     send_sigwinch = 1;
@@ -883,7 +885,7 @@ void dmtcp::DmtcpWorker::postRestart()
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
-  dmtcp::ProcessInfo::instance().postRestart();
+  dmtcp::VirtualPidTable::instance().postRestart();
   SysVIPC::instance().postRestart();
 #endif
 
