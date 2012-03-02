@@ -128,6 +128,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(wait3)                              \
   MACRO(wait4)                              \
   MACRO(ioctl)                              \
+  MACRO(fcntl)                              \
   MACRO(ptrace)                             \
                                             \
   MACRO(socket)                             \
@@ -439,6 +440,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                     struct rusage *rusage);
   LIB_PRIVATE extern int send_sigwinch;
   int _real_ioctl(int d,  unsigned long int request, ...) __THROW;
+  int _real_fcntl(int fd, int cmd, void *arg);
 
   int _real_setgid(gid_t gid);
   int _real_setuid(uid_t uid);
