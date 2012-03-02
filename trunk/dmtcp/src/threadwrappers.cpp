@@ -49,7 +49,7 @@ static void *pthread_start(void *arg)
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
-  mtcpFuncPtrs.fill_in_pthread_id(tid, pthread_self());
+  mtcpFuncPtrs.fill_in_pthread_id(_real_gettid(), pthread_self());
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
   void *result = (*pthread_fn)(thread_arg);
   mtcpFuncPtrs.threadiszombie();
