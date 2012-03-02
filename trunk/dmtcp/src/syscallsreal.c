@@ -776,6 +776,11 @@ int _real_ioctl(int d, unsigned long int request, ...) {
 }
 
 LIB_PRIVATE
+int _real_fcntl(int fd, int cmd, void *arg) {
+  REAL_FUNC_PASSTHROUGH(fcntl)(fd, cmd, arg);
+}
+
+LIB_PRIVATE
 int _real_setgid(gid_t gid) {
   REAL_FUNC_PASSTHROUGH( setgid ) (gid);
 }
