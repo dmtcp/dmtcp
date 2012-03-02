@@ -199,6 +199,8 @@ def launch(cmd):
       os.close(fd1); os.close(fd2)
     (pid, fd) = pty.fork()
     if pid == 0:
+      # Close all fds except stdin/stdout/stderr
+      os.closerange(3,1024)
       signal.alarm(300) # pending alarm inherited across exec, but not a fork
       # Problem:  pty.spawn invokes fork.  alarm() will have no effect.
       pty.spawn(cmd, master_read)
