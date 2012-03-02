@@ -88,7 +88,7 @@ static bool delayedCheckpoint = false;
 #endif
 
 //to allow linking without ptrace module
-int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
+extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
 static void* find_and_open_mtcp_so()
 {
