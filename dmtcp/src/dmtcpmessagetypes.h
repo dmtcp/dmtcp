@@ -43,6 +43,9 @@ namespace dmtcp
     DMT_HELLO_WORKER,        // on connect established coordinator-worker
     DMT_UPDATE_PROCESS_INFO_AFTER_FORK,
 
+    DMT_GET_VIRTUAL_PID,
+    DMT_GET_VIRTUAL_PID_RESULT,
+
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
@@ -165,6 +168,7 @@ namespace dmtcp
     UniquePid   coordinator;
     WorkerState state;
     UniquePid   compGroup;
+    pid_t       virtualPid;
 
     ConnectionIdentifier    restorePid;
     struct sockaddr_storage restoreAddr;

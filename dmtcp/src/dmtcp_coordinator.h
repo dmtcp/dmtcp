@@ -40,6 +40,7 @@ namespace dmtcp
       virtual void processPostDisconnect();
       virtual void onTimeoutInterval();
 
+      void initializeComputation();
 #ifdef EXTERNAL_SOCKET_HANDLING
       void sendUnidentifiedPeerNotifications();
 #endif
@@ -61,6 +62,8 @@ namespace dmtcp
       CoordinatorStatus getStatus() const;
       dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }
 
+      pid_t getNewVirtualPid();
+
     protected:
       void writeRestartScript();
     private:
@@ -79,6 +82,7 @@ namespace dmtcp
 
       //map from hostname to checkpoint files
       dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
+      dmtcp::map< pid_t, jalib::JChunkReader* > _virtualPidToChunkReaderMap;
   };
 
 }

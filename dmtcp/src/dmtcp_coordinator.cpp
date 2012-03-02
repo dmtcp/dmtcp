@@ -367,6 +367,10 @@ static dmtcp::string localHostName;
 static dmtcp::string localPrefix;
 static dmtcp::string remotePrefix;
 
+#define INITIAL_VIRTUAL_PID 1000
+#define MAX_VIRTUAL_PID 32000
+static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
+
 namespace
 {
   static int theNextClientNumber = 1;
@@ -375,18 +379,16 @@ namespace
   {
     public:
       NamedChunkReader ( const jalib::JSocket& sock
-                         ,const dmtcp::UniquePid& identity
-                         ,dmtcp::WorkerState state
                          ,const struct sockaddr * remote
                          ,socklen_t len
-                         ,int restorePort )
-          : jalib::JChunkReader ( sock,sizeof ( dmtcp::DmtcpMessage ) )
-          , _identity ( identity )
+                         ,dmtcp::DmtcpMessage &hello_remote)
+          : jalib::JChunkReader ( sock, sizeof ( dmtcp::DmtcpMessage ) )
           , _clientNumber ( theNextClientNumber++ )
-          , _state ( state )
           , _addrlen ( len )
-          , _restorePort ( restorePort )
       {
+        _identity = hello_remote.from.pid();
+        _state = hello_remote.state;
+        _restorePort = hello_remote.restorePort;
         memset ( &_addr, 0, sizeof _addr );
         memcpy ( &_addr, remote, len );
       }
@@ -404,6 +406,8 @@ namespace
       dmtcp::string hostname(void) const { return _hostname; }
       void prefixDir(dmtcp::string dirname){ _prefixDir = dirname; }
       dmtcp::string prefixDir(void) const { return _prefixDir; }
+      pid_t virtualPid(void) const { return _virtualPid; }
+      void virtualPid(pid_t pid) { _virtualPid = pid; }
 
       void readProcessInfo(dmtcp::DmtcpMessage& msg) {
         if (msg.extraBytes > 0) {
@@ -428,7 +432,28 @@ namespace
       dmtcp::string _hostname;
       dmtcp::string _progname;
       dmtcp::string _prefixDir;
+      pid_t         _virtualPid;
   };
+}
+
+pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
+{
+  pid_t pid = -1;
+  JASSERT(_virtualPidToChunkReaderMap.size() < MAX_VIRTUAL_PID/100)
+    .Text("Exceeded maximum number of processes allowed");
+  while (1) {
+    pid = _nextVirtualPid;
+    _nextVirtualPid += 100;
+    if (_nextVirtualPid > MAX_VIRTUAL_PID) {
+      _nextVirtualPid = INITIAL_VIRTUAL_PID;
+    }
+    if (_virtualPidToChunkReaderMap.find(pid)
+          == _virtualPidToChunkReaderMap.end()) {
+      break;
+    }
+  }
+  JASSERT(pid != -1) .Text("Not Reachable");
+  return pid;
 }
 
 #ifdef EXTERNAL_SOCKET_HANDLING
@@ -907,6 +932,7 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
   {
     NamedChunkReader& client = * ( ( NamedChunkReader* ) sock );
     JNOTE ( "client disconnected" ) ( client.identity() );
+    _virtualPidToChunkReaderMap.erase(client.virtualPid());
 
     CoordinatorStatus s = getStatus();
     if (s.numPeers <= 1) {
@@ -939,6 +965,27 @@ void dmtcp::DmtcpCoordinator::processPostDisconnect()
   }
 }
 
+void dmtcp::DmtcpCoordinator::initializeComputation()
+{
+  //this is the first connection, do some initializations
+  workersRunningAndSuspendMsgSent = false;
+  killInProgress = false;
+  //_nextVirtualPid = INITIAL_VIRTUAL_PID;
+
+  setTimeoutInterval( theCheckpointInterval );
+
+  // drop current computation group to 0
+  UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
+  curTimeStamp = 0; // Drop timestamp to 0
+  numPeers = -1; // Drop number of peers to unknown
+
+  JTRACE ( "resetting _restoreWaitingMessages" )
+    ( _restoreWaitingMessages.size() );
+  _restoreWaitingMessages.clear();
+
+  JTIMER_START ( restart );
+}
+
 void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
                                           const struct sockaddr* remoteAddr,
                                           socklen_t remoteLen )
@@ -948,24 +995,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   // sockets OR there can be one data socket and that should be STDIN.
   if ( _dataSockets.size() == 0 ||
        ( _dataSockets.size() == 1
-	 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) )
-  {
-      //this is the first connection, do some initializations
-      workersRunningAndSuspendMsgSent = false;
-      killInProgress = false;
-
-      setTimeoutInterval( theCheckpointInterval );
-
-      // drop current computation group to 0
-      UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
-      curTimeStamp = 0; // Drop timestamp to 0
-      numPeers = -1; // Drop number of peers to unknown
-
-      JTRACE ( "resetting _restoreWaitingMessages" )
-        ( _restoreWaitingMessages.size() );
-      _restoreWaitingMessages.clear();
-
-      JTIMER_START ( restart );
+	 && _dataSockets[0]->socket().sockfd() == STDIN_FD ) ) {
+    initializeComputation();
   }
 
   dmtcp::DmtcpMessage hello_remote;
@@ -974,6 +1005,14 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   remote >> hello_remote;
   if (!remote.isValid()) {
     remote.close();
+    return;
+  }
+
+  if (hello_remote.type == DMT_GET_VIRTUAL_PID) {
+    dmtcp::DmtcpMessage reply(DMT_GET_VIRTUAL_PID_RESULT);
+    reply.virtualPid = getNewVirtualPid();
+    JASSERT(reply.virtualPid != -1);
+    remote << reply;
     return;
   }
 
@@ -992,13 +1031,14 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     return;
   }
 
-  NamedChunkReader * ds = new NamedChunkReader (
-      sock
-      ,hello_remote.from.pid()
-      ,hello_remote.state
-      ,remoteAddr
-      ,remoteLen
-      ,hello_remote.restorePort );
+  NamedChunkReader *ds = new NamedChunkReader(sock, remoteAddr, remoteLen,
+                                              hello_remote);
+
+  if (hello_remote.virtualPid == -1) {
+    ds->virtualPid(getNewVirtualPid());
+  } else {
+    ds->virtualPid(hello_remote.virtualPid);
+  }
 
   if( hello_remote.extraBytes > 0 ){
     ds->readProcessInfo(hello_remote);
@@ -1012,10 +1052,14 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
               hello_remote.state == WorkerState::RESTARTING) {
     if ( validateRestartingWorkerProcess ( hello_remote, remote ) == false )
       return;
+    //JASSERT(hello_remote.virtualPid != -1);
+    ds->virtualPid(hello_remote.virtualPid);
+    _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
   } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
               hello_remote.state == WorkerState::RUNNING) {
     if ( validateNewWorkerProcess ( hello_remote, remote, ds ) == false )
       return;
+    _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
   } else {
     JASSERT ( false )
       .Text ( "Connect request from Unknown Remote Process Type" );
@@ -1194,6 +1238,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
 {
   NamedChunkReader *ds = (NamedChunkReader*) jcr;
   dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
+  hello_local.virtualPid = ds->virtualPid();
   CoordinatorStatus s = getStatus();
 
   JASSERT(hello_remote.state == WorkerState::RUNNING) (hello_remote.state);
@@ -1255,7 +1300,8 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
       JTRACE("First process connected.  Creating new computation group")
         (UniquePid::ComputationId());
     } else {
-      JTRACE("New process Connected") (hello_remote.from.pid()) (ds->prefixDir());
+      JTRACE("New process Connected")
+        (hello_remote.from.pid()) (ds->prefixDir()) (ds->virtualPid());
       if (ds->hostname() == localHostName) {
         JASSERT(ds->prefixDir() == localPrefix) (ds->prefixDir()) (localPrefix);
       }

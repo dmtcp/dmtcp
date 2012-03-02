@@ -410,6 +410,14 @@ int main ( int argc, char** argv )
 
   if (autoStartCoordinator)
      dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
+  dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+  pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
+  if (virtualPid != -1) {
+    JTRACE("Got virtual pid from coordinator") (virtualPid);
+    char buf[80];
+    sprintf(buf, "%d", virtualPid);
+    setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+  }
 
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=MODULE_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
