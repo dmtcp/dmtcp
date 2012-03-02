@@ -1111,7 +1111,9 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
                        child_tidptr);
   if (rc < 0) {
     DPRINTF("clone rc=%d, errno=%d\n", rc, errno);
+    lock_threads();
     mtcp_put_thread_on_freelist(thread);
+    unlk_threads();
   } else {
     DPRINTF("clone rc=%d\n", rc);
   }
@@ -3382,7 +3384,7 @@ static void stopthisthread (int signum)
     DPRINTF("after getcontext\n");
 #endif
     if (mtcp_state_value(&restoreinprog) == 0) {
-      is_ckpt = 1;
+      is_ckpt = 1; is_restart = 0;
 
       /* We are the original process and all context is saved
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
@@ -3447,7 +3449,7 @@ static void stopthisthread (int signum)
     /* Else restoreinprog >= 1;  This stuff executes to do a restart */
 
     else {
-      is_restart = 1;
+      is_ckpt = 0; is_restart = 1;
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
 	mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
       wait_for_all_restored ();
