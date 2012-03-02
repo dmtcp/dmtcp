@@ -33,8 +33,8 @@
 #include <fcntl.h>
 
 dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI (int sockfd)
-  :_coordinatorSocket ( sockfd )
-  ,_restoreSocket ( PROTECTED_RESTORE_SOCK_FD )
+  : _coordinatorSocket(sockfd)
+  , _restoreSocket(PROTECTED_RESTORE_SOCK_FD)
 {
   return;
 }
@@ -163,6 +163,12 @@ void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
   hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
 
+  if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
+    hello_local.virtualPid = -1;
+  } else {
+    hello_local.virtualPid = (pid_t) atoi(getenv(ENV_VAR_VIRTUAL_PID));
+  }
+
   const char* interval = getenv ( ENV_VAR_CKPT_INTR );
   if ( interval != NULL )
     hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
@@ -227,6 +233,7 @@ void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
   if (param1) {
     *param1 = hello_remote.params[0];
   }
+  _virtualPid = hello_remote.virtualPid;
   JTRACE("Coordinator handshake RECEIVED!!!!!");
 }
 
@@ -262,6 +269,23 @@ void dmtcp::DmtcpCoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
   if(result!=NULL){
     memcpy( result, reply.params, sizeof(reply.params) );
   }
+}
+
+pid_t dmtcp::DmtcpCoordinatorAPI::getVirtualPidFromCoordinator()
+{
+  connectToCoordinator();
+  DmtcpMessage msg(DMT_GET_VIRTUAL_PID);
+  _coordinatorSocket << msg;
+
+  DmtcpMessage reply;
+  reply.poison();
+  _coordinatorSocket >> reply;
+  reply.assertValid();
+  JASSERT(reply.type == DMT_GET_VIRTUAL_PID_RESULT) (reply.type);
+  JASSERT(reply.virtualPid != -1);
+
+  _coordinatorSocket.close();
+  return reply.virtualPid;
 }
 
 void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,

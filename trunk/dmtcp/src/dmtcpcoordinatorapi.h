@@ -69,10 +69,11 @@ namespace dmtcp
       void connectToCoordinatorWithoutHandshake();
       void sendUserCommand(char c, int* result = NULL);
 
+      pid_t virtualPid() const { return _virtualPid; }
+      pid_t getVirtualPidFromCoordinator();
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
       void createNewConnectionBeforeFork(dmtcp::string& progName);
       void informCoordinatorOfNewProcessOnFork(jalib::JSocket& coordSock);
-
 
       // np > -1  means it is restarting a process that have np processes in its
       //           computation group
@@ -96,6 +97,7 @@ namespace dmtcp
       UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
       jalib::JSocket _restoreSocket;
+      pid_t          _virtualPid;
     private:
   };
 
