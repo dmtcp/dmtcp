@@ -305,7 +305,8 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	echo LDFLAGS $(LDFLAGS)
 	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
-	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} -ldl -lpthread
+	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
+	  -ldl -lpthread -lm
 	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
 	ln -sf libmtcp.so.1 libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
