@@ -20,6 +20,14 @@
  ****************************************************************************/
 
 
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <iostream>
+#include <ios>
+#include <fstream>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -31,14 +39,6 @@
 #include "virtualpidtable.h"
 #include "util.h"
 #include "sysvipc.h"
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/file.h>
-#include <sys/mman.h>
-#include <iostream>
-#include <ios>
-#include <fstream>
 
 /* This code depends on PID-Virtualization */
 #ifdef PID_VIRTUALIZATION
@@ -48,30 +48,22 @@
  * Algorithm for properly checkpointing shared memory segments.
  * Helper struct: struct shmMetaInfo { pid_t pid, int creatorSignature }
  *  1. BARRIER -- SUSPENDED
- *  2a. If the process is the creator process and the memory-segment wasn't
- *      mapped, map it now. We will unmap it later.
- *  2b. Copy first sizeof(shmMetaInfo) bytes of memory segment into a temp
- *      buffer, call it origInfo
+ *  2. Call shmat() and shmdt() for each shm-object. This way the last process
+ *     to call shmdt() is elected as the ckptLeader.
  *  3. BARRIER -- LOCKED
- *  4. Populate a new object of type shmMetaInfo with the following values:
- *     pid = getpid()
- *     creatorSignature = | ~ origInfo.creatorSignature ; if this is the creator process
- *                        | origInfo.creatorSignature   ; otherwise
- *  5. Copy this new object to the start of the memory segment.
+ *  4. Each process marks itself as ckptLeader if it was elected ckptLeader.
+ *     If the ckptLeader doesn't have the shm object mapped, map it now.
  *  6. BARRIER -- DRAINED
- *  7. If this is the creator process, 
- *  8.     do nothing.
- *  9. else 
- * 10.     unmap this shared-memory from process address space (there might be
- *         multiple copies, so unmap them all)
- * 11. endif
- * 12. BARRIER -- CHECKPOINTED
- * 13. At this point, the contents of the memory-segment have been saved.
- * 14. BARRIER -- REFILLED
- * 15. Re-map the memory-segment into each process's memory as it existed prior
+ *  7. For each shm-object, the ckptLeader unmaps all-but-first shmat() address.
+ *  8. Non ckptLeader processes unmap all shmat() addresses corresponding to
+ *     the shm-object.
+ *  9. BARRIER -- CHECKPOINTED
+ * 10. At this point, the contents of the memory-segment have been saved.
+ * 11. BARRIER -- REFILLED
+ * 12. Re-map the memory-segment into each process's memory as it existed prior
  *     to checkpoint.
- * 16. Unmap the memory that was mapped in step 2a.
- * 17. BARRIER -- RESUME
+ * 13. TODO: Unmap the memory that was mapped in step 4.
+ * 14. BARRIER -- RESUME
  *
  * Steps involved in Restart
  *  0. BARRIER -- RESTARTING
@@ -85,19 +77,16 @@
  *  6. Remap the shm-segment to a temp addr and copy the checkpointed contents
  *     to this address. Now unmap the area where the checkpointed contents were
  *     stored and map the shm-segment on that address. Unmap the temp addr now.
+ *     Remap the shm-segment to the original location.
  *  7. Write original->current mappings for all shmids which we got from
  *     shmget() in previous step.
  *  8. BARRIER -- REFILLED
  *  9. Re-map the memory-segment into each process's memory as it existed prior
  *     to checkpoint.
- * 10. Unmap the memory that was mapped in step 2a.
- * 11. BARRIER -- RESUME
+ * 10. BARRIER -- RESUME
  */
 
-/*
- * TODO:
- * 1. Preserve Shmids across exec()     -- DONE
- * 2. Handle the case when the segment is marked for removal at ckpt time.
+/* TODO: Handle the case when the segment is marked for removal at ckpt time.
  */
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
@@ -121,9 +110,14 @@ dmtcp::SysVIPC::SysVIPC()
   _do_unlock_tbl();
 }
 
+static dmtcp::SysVIPC *sysvIPCInst = NULL;
 dmtcp::SysVIPC& dmtcp::SysVIPC::instance()
 {
-  static SysVIPC *inst = new SysVIPC(); return *inst;
+  //static SysVIPC *inst = new SysVIPC(); return *inst;
+  if (sysvIPCInst == NULL) {
+    sysvIPCInst = new SysVIPC();
+  }
+  return *sysvIPCInst;
 }
 
 int dmtcp::SysVIPC::originalToCurrentShmid(int shmid)
@@ -145,8 +139,8 @@ int dmtcp::SysVIPC::currentToOriginalShmid(int shmid)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int originalShmid = -1;
   _do_lock_tbl();
-  for (ShmidMapIter i = _originalToCurrentShmids.begin(); 
-       i != _originalToCurrentShmids.end(); 
+  for (ShmidMapIter i = _originalToCurrentShmids.begin();
+       i != _originalToCurrentShmids.end();
        ++i) {
     if ( shmid == i->second ) {
       originalShmid = i->first;
@@ -205,7 +199,7 @@ void dmtcp::SysVIPC::removeStaleShmObjects()
   }
 }
 
-void dmtcp::SysVIPC::prepareForLeaderElection()
+void dmtcp::SysVIPC::leaderElection()
 {
   isRestarting = false;
   /* Remove all invalid/removed shm segments*/
@@ -213,15 +207,15 @@ void dmtcp::SysVIPC::prepareForLeaderElection()
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
-    shmObj.prepareForLeaderElection();
+    shmObj.leaderElection();
   }
 }
 
-void dmtcp::SysVIPC::leaderElection()
+void dmtcp::SysVIPC::preCkptDrain()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
-    shmObj.leaderElection();
+    shmObj.preCkptDrain();
   }
 }
 
@@ -245,9 +239,9 @@ void dmtcp::SysVIPC::preResume()
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
     ShmidMapIter j = _originalToCurrentShmids.find(i->first);
-    JASSERT(j != _originalToCurrentShmids.end()) 
+    JASSERT(j != _originalToCurrentShmids.end())
       (i->first) (_originalToCurrentShmids.size());
-    
+
     shmObj.updateCurrentShmid(_originalToCurrentShmids[i->first]);
 //    if (isRestarting) {
 //      shmObj.remapFirstAddrForOwnerOnRestart();
@@ -274,7 +268,7 @@ void dmtcp::SysVIPC::postCheckpoint()
   _originalToCurrentShmids.clear();
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
-    if (shmObj.isOwner()) {
+    if (shmObj.isCkptLeader()) {
       _originalToCurrentShmids[i->first] = shmObj.currentShmid();
     }
   }
@@ -285,11 +279,10 @@ void dmtcp::SysVIPC::postRestart()
 {
   isRestarting = true;
   _originalToCurrentShmids.clear();
-    
-  JTRACE("");
+
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
-    if (shmObj.isOwner()) {
+    if (shmObj.isCkptLeader()) {
       JTRACE("Writing ShmidMap to file")(shmObj.originalShmid());
       _originalToCurrentShmids[shmObj.originalShmid()] = shmObj.currentShmid();
     }
@@ -310,7 +303,8 @@ void dmtcp::SysVIPC::on_shmget(key_t key, size_t size, int shmflg, int shmid)
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg, void* newaddr)
+void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
+                              void* newaddr)
 {
   _do_lock_tbl();
   if (_shm.find( shmid ) == _shm.end()) {
@@ -376,7 +370,10 @@ dmtcp::ShmSegment::ShmSegment(key_t key, int size, int shmflg, int shmid)
   _shmgetFlags = shmflg;
   _originalShmid = shmid;
   _currentShmid = shmid;
-  _creatorPid = getpid(); 
+  _creatorPid = getpid();
+  _isCkptLeader = false;
+  JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
+    (_currentShmid) (_originalShmid) (_creatorPid) (_isCkptLeader);
 }
 
 dmtcp::ShmSegment::ShmSegment(int shmid)
@@ -388,7 +385,10 @@ dmtcp::ShmSegment::ShmSegment(int shmid)
   _shmgetFlags = shminfo.shm_perm.mode;
   _originalShmid = shmid;
   _currentShmid = shmid;
+  _isCkptLeader = false;
   _creatorPid = VirtualPidTable::instance().currentToOriginalPid(shminfo.shm_cpid);
+  JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
+    (_currentShmid) (_originalShmid) (_creatorPid) (_isCkptLeader);
 }
 
 bool dmtcp::ShmSegment::isValidShmaddr(const void* shmaddr)
@@ -410,53 +410,37 @@ bool dmtcp::ShmSegment::isStale()
   return false;
 }
 
-void dmtcp::ShmSegment::prepareForLeaderElection()
-{
-  /* If the creator process hasn't mapped this object, map it now so that it
-   * can be checkpointed. In the post restart routine, we will be unmapping
-   * this address.
-   *
-   * TODO: If the segment has been marked for deletion, we might accidently
-   * loose it if the unmapping happens before it is re-mapped by the other
-   * processes.
-   */
-  if (_nattch == 0 || (_creatorPid == getpid() && _shmaddrToFlag.empty())) {
-
-    void *mapaddr = _real_shmat(_originalShmid, NULL, 0);
-    JASSERT(mapaddr != (void*) -1);
-    _shmaddrToFlag[mapaddr] = 0;
-    _dmtcpMappedAddr = true;
-  } else {
-    _dmtcpMappedAddr = false;
-  }
-
-  ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  JASSERT (i != _shmaddrToFlag.end());
-
-  pid_t *addr = (pid_t *) i->first;
-  _originalInfo.pid = *addr;
-  _originalInfo.creatorSignature = *(int*)(addr+1);
-}
-
 void dmtcp::ShmSegment::leaderElection()
 {
-  /*
-   * We want only one process to save a copy of this segment in its checkpoint image.
+  /* We attach and detach to the shmid object to set the shm_lpid to our pid.
+   * The process who calls the last shmdt() is declared the leader.
    */
-  _ownerInfo.pid = getpid();
+  void *addr = _real_shmat(_currentShmid, NULL, 0);
+  JASSERT(addr != (void*) -1) (_originalShmid) (JASSERT_ERRNO)
+    .Text("_real_shmat() failed");
 
-  ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  JASSERT (i != _shmaddrToFlag.end());
+  JASSERT(_real_shmdt(addr) == 0) (_originalShmid) (addr) (JASSERT_ERRNO);
+}
 
-  int shmflag = i->second;
-  if ((shmflag & SHM_RDONLY) == 0) {
-    pid_t *addr = (pid_t *) i->first;
-    *addr = _ownerInfo.pid;
-    if (getpid() == _creatorPid) {
-      _ownerInfo.creatorSignature = ~(_originalInfo.creatorSignature);
-      *(int*)(addr+1) = _ownerInfo.creatorSignature;
-    } else {
-      _ownerInfo.creatorSignature = _originalInfo.creatorSignature;
+void dmtcp::ShmSegment::preCkptDrain()
+{
+  struct shmid_ds info;
+  JASSERT(_real_shmctl(_currentShmid, IPC_STAT, &info) != -1);
+
+  /* If we are the ckptLeader for this object, map it now, if not mapped already.
+   */
+  _dmtcpMappedAddr = false;
+  _isCkptLeader = false;
+
+  if (info.shm_lpid == _real_getpid()) {
+    _isCkptLeader = true;
+    if (_shmaddrToFlag.size() == 0) {
+      ShmaddrToFlagIter i = _shmaddrToFlag.begin();
+      void *addr = _real_shmat(_originalShmid, NULL, 0);
+      JASSERT(addr != (void*) -1);
+      _shmaddrToFlag[addr] = 0;
+      _dmtcpMappedAddr = true;
+      JNOTE("Explicit mapping");
     }
   }
 }
@@ -464,58 +448,25 @@ void dmtcp::ShmSegment::leaderElection()
 void dmtcp::ShmSegment::preCheckpoint()
 {
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  JASSERT (i != _shmaddrToFlag.end());
-
-  pid_t *addr = (pid_t *) i->first;
-  _ownerInfo.pid = *addr;
-  _ownerInfo.creatorSignature = *(int*)(addr+1);
-
-  if (getpid() == _creatorPid) {
-    /* This shared memory object was created by us. Checkpoint it */
-    JASSERT (_ownerInfo.creatorSignature != _originalInfo.creatorSignature);
-    _ownerInfo.pid = getpid();
-
-    JTRACE("Owner/Creator of the shared memory segment. Will ckpt it.") (getpid());
-
-    // Unmap all but first mapped addr
+  /* If this process is the ckpt-leader, unmap all but first mapped addr,
+   * otherwise, unmap all the the mappings of this memory-segment.
+   */
+  if (_isCkptLeader) {
     ++i;
-    for (; i != _shmaddrToFlag.end(); ++i) {
-      JASSERT(_real_shmdt(i->first) == 0);
-      JTRACE("Unmapping shared memory segment") (_originalShmid)(_currentShmid)(i->first);
-    }
-
-  } else if (_ownerInfo.creatorSignature == _originalInfo.creatorSignature &&
-             getpid() == _ownerInfo.pid) {
-    /* Creator process not alive and we have the leadership of this
-     * shared-memory object, so checkpoint it. 
-     */
-    // Unmap all but first mapped addr
-    ++i;
-    for (; i != _shmaddrToFlag.end(); ++i) {
-      JASSERT(_real_shmdt(i->first) == 0);
-      JTRACE("Unmapping shared memory segment") (_originalShmid)(_currentShmid)(i->first);
-    }
-    
-  } else {
-    /* Either creator process is alive or this process was not elected to
-     * checkpoint this area so it should unmap all the mappings of this
-     * memory-segment.
-     */
-    _ownerInfo.pid = 0;
-    for (; i != _shmaddrToFlag.end(); ++i) {
-      JASSERT(_real_shmdt(i->first) == 0);
-      JTRACE("Unmapping shared memory segment") (_originalShmid)(_currentShmid)(i->first);
-    }
+  }
+  for (; i != _shmaddrToFlag.end(); ++i) {
+    JASSERT(_real_shmdt(i->first) == 0);
+    JTRACE("Unmapping shared memory segment") (_originalShmid)(_currentShmid)(i->first);
   }
 }
 
 void dmtcp::ShmSegment::recreateShmSegment()
 {
   JASSERT(isRestarting);
-  if (_ownerInfo.pid == getpid()) {
+  if (_isCkptLeader) {
     while (true) {
       int shmid = _real_shmget(_key, _size, _shmgetFlags);
-      if (!SysVIPC::instance().isConflictingShmid(shmid)) { 
+      if (!SysVIPC::instance().isConflictingShmid(shmid)) {
         JTRACE("Recreating shared memory segment") (_originalShmid) (shmid);
         _currentShmid = shmid;
         break;
@@ -528,37 +479,37 @@ void dmtcp::ShmSegment::recreateShmSegment()
 
 void dmtcp::ShmSegment::remapFirstAddrForOwnerOnRestart()
 {
-  JASSERT(_ownerInfo.pid == getpid());
+  JASSERT(_isCkptLeader);
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
   void *tmpaddr = _real_shmat(_currentShmid, NULL, 0);
   JASSERT(tmpaddr != (void*) -1) (_currentShmid)(JASSERT_ERRNO);
   memcpy(tmpaddr, i->first, _size);
-  munmap(i->first, _size);
-  JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
   JASSERT(_real_shmdt(tmpaddr) == 0);
+  munmap(i->first, _size);
+
+  if (!_dmtcpMappedAddr) {
+    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
+  }
   JTRACE("Remapping shared memory segment")(_currentShmid);
 }
 
 void dmtcp::ShmSegment::remapAll()
 {
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  if (_ownerInfo.pid == getpid()) {
-    // The address is already mapped, so we won't segfault
-    pid_t *addr = (pid_t *) i->first;
-    *addr = _originalInfo.pid;
-    *(int*)(addr+1) = _originalInfo.creatorSignature;
-    JTRACE("Owner process, restoring first 8 bytes of shared area");
+
+  if (_isCkptLeader && i != _shmaddrToFlag.end()) {
+    i++;
   }
 
-  for (i = _shmaddrToFlag.begin() ; i != _shmaddrToFlag.end(); ++i) {
-    if (_real_shmat(_currentShmid, i->first, i->second) == (void *) -1) {
-      JASSERT(errno == EINVAL && _ownerInfo.pid == getpid())
-        (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (i->first)
-        (_ownerInfo.pid) (getpid()) (_creatorPid)
-        .Text ("Error remapping shared memory segment");
-    }
+  for (; i != _shmaddrToFlag.end(); ++i) {
     JTRACE("Remapping shared memory segment")(_currentShmid);
+    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1)
+      (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (_isCkptLeader)
+      (i->first) (i->second) (getpid()) (_creatorPid)
+      .Text ("Error remapping shared memory segment");
   }
+  // TODO: During Ckpt-resume, if the shm object was mapped by dmtcp
+  //       (_dmtcpMappedAddr == true), then we should call shmdt() on it.
 }
 
 void dmtcp::ShmSegment::on_shmat(void *shmaddr, int shmflg)

@@ -65,8 +65,8 @@ namespace dmtcp
       int  currentToOriginalShmid(int shmid);
       bool isConflictingShmid(int shmid);
 
-      void prepareForLeaderElection();
       void leaderElection();
+      void preCkptDrain();
       void preCheckpoint();
       void postCheckpoint();
       void postRestart();
@@ -104,11 +104,6 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
 
-      struct shmMetaInfo {
-        pid_t pid;
-        int   creatorSignature;
-      };
-
       ShmSegment() { _originalShmid = -1; }
       ShmSegment(int shmid);
       ShmSegment(key_t key, int size, int shmflg, int shmid);
@@ -121,10 +116,10 @@ namespace dmtcp
       void updateCurrentShmid(int shmid) { _currentShmid = shmid; }
 
       bool isValidShmaddr(const void* shmaddr);
-      bool isOwner() { return getpid() == _ownerInfo.pid; };
+      bool isCkptLeader() { return _isCkptLeader; };
 
-      void prepareForLeaderElection();
       void leaderElection();
+      void preCkptDrain();
       void preCheckpoint();
 
       void remapAll();
@@ -154,8 +149,7 @@ namespace dmtcp
       shmatt_t _nattch;
       unsigned short _mode;
       struct shmid_ds _shminfo;
-      struct  shmMetaInfo _originalInfo;
-      struct  shmMetaInfo _ownerInfo;
+      bool    _isCkptLeader;
       typedef dmtcp::map<void*, int> ShmaddrToFlag;
       typedef dmtcp::map<void*, int>::iterator ShmaddrToFlagIter;
       ShmaddrToFlag _shmaddrToFlag;
