@@ -153,11 +153,9 @@ extern "C" const char* ptrace_get_tmpdir()
 
   struct stat buf;
   if (stat(ptrace_tmpdir, &buf) == -1) {
-    if (mkdir(ptrace_tmpdir, S_IRWXU)) {
-      printf("Error creating tmp directory %s, error: \n",
-             ptrace_tmpdir, strerror(errno));
-      abort();
-    }
+    JASSERT(mkdir(ptrace_tmpdir, S_IRWXU) == 0)
+      (ptrace_tmpdir) (JASSERT_ERRNO)
+      .Text("Error creating tmp directory");
   }
   return ptrace_tmpdir;
 }
