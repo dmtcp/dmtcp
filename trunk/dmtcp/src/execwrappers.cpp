@@ -269,9 +269,9 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
+  dmtcp::ProcessInfo::instance().serialize ( wr );
 #ifdef PID_VIRTUALIZATION
   dmtcp::VirtualPidTable::instance().serialize ( wr );
-  dmtcp::ProcessInfo::instance().serialize ( wr );
   dmtcp::SysVIPC::instance().serialize ( wr );
 #endif
 
