@@ -220,11 +220,12 @@ void ptrace_info_list_sort () {
   dmtcp::list<struct ptrace_info>::iterator it;
 
   /* Temporarily remove checkpoint threads from ptrace_info_list. */
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end();) {
     if (it->inferior_is_ckpthread) {
       tmp_ckpths_list.push_back(*it);
-      ptrace_info_list->remove(*it);
-      it--;
+      it = ptrace_info_list->erase(it);
+    } else {
+      it++;
     }
   }
 
@@ -241,10 +242,12 @@ void ptrace_info_list_sort () {
 
 void ptrace_info_list_remove_pairs_with_dead_tids () {
   dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
+  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end();) {
     if (!procfs_state(it->inferior)) {
-      ptrace_info_list->remove(*it);
-      it--;
+      it = ptrace_info_list->erase(it);
+      //it--;
+    } else {
+      it++;
     }
   }
 }

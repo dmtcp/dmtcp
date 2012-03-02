@@ -42,14 +42,20 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#define MTCP_PRINTF(...) \
+  do { \
+    printf("[%d:%d] %s:%d %s\n\t", getpid(), gettid(), \
+                                   __FILE__, __LINE__, __FUNCTION__); \
+    printf(__VA_ARGS__); \
+  } while (0)
+
 #ifdef DEBUG
-# define DPRINTF(...) printf(__VA_ARGS__)
+# define DPRINTF(...) MTCP_PRINTF(__VA_ARGS__)
 #else
 # define DPRINTF(...)
 #endif
 
 #define mtcp_abort abort
-#define MTCP_PRINTF printf
 #include "mtcp_ptrace.h"
 #include "ptrace.h"
 #include "dmtcpmodule.h"
@@ -262,7 +268,6 @@ void mtcp_ptrace_process_pre_suspend_ckpt_thread()
 
 void mtcp_ptrace_process_pre_suspend_user_thread()
 {
-  int cont = 1;
   if (mtcp_is_ptracing()) {
 
     /* Wait for JALIB_CKPT_UNLOCK to have been called. */
@@ -363,17 +368,13 @@ void mtcp_ptrace_info_list_write_to_new_ptrace_shared_file(int fd) {
 
 void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
 {
-  DPRINTF("[GETTID=%d] Beginning of mtcp_ptrace_send_stop_signal [tid: %d]\n",
-          GETTID(), tid);
+  DPRINTF("Beginning of mtcp_ptrace_send_stop_signal [tid: %d]\n", tid);
   *retry_signalling = 0;
 
   if (!mtcp_is_ptracing()) {
-    if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
-      if (errno != ESRCH) {
-        MTCP_PRINTF ("error signalling thread %d: %s\n", tid, strerror(errno));
-      }
-      *retval = -1;
-    }
+    DPRINTF("MTCP NOT PTRACING");
+    *retry_signalling = 1;
+    *retval = -1;
     return;
   }
 
@@ -422,14 +423,12 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
       }
       nanosleep(&ts,NULL);
     }
-    DPRINTF("[GETTID=%d] done waiting for new_ptrace_shared_file [tid=%d]\n",
-            GETTID(), tid);
+    DPRINTF("done waiting for new_ptrace_shared_file [tid=%d]\n", tid);
     /* Get the status of tid from new_ptrace_shared_file. */
     inferior_st = mtcp_ptrace_get_tid_from_new_ptrace_shared_file(tid);
   }
 
-  DPRINTF("[GITTID()=%d] inferior_st=%c [tid=%d]\n",
-          GETTID(), inferior_st, tid);
+  DPRINTF("inferior_st=%c [tid=%d]\n", inferior_st, tid);
   if (inferior_st == 'N') {
     /* If the state is unknown, send a stop signal to inferior. */
     if (TGKILL(getpid(), tid, dmtcp_get_ckpt_signal()) < 0) {
@@ -455,8 +454,8 @@ void mtcp_ptrace_send_stop_signal(pid_t tid, int *retry_signalling, int *retval)
       }
     }
     if (inferior_st != 'u') { /* We're not the superior. */
-      DPRINTF("[GETTID=%d] inferior_st=%c creating detach.PID [tid=%d]\n",
-              GETTID(), inferior_st, tid);
+      DPRINTF("inferior_st=%c creating detach.PID [tid=%d]\n",
+              inferior_st, tid);
       superior_can_detach_from_inferior(tid);
     }
   }
