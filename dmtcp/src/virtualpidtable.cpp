@@ -70,14 +70,14 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
 
 bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 {
-  /*  If pid != originalToCurrentPid(pid), then there is a conflict because
-   *    there is an original_pid same as this pid.
+  /*  If pid != virtualToReal(pid), then there is a conflict because
+   *    there is an virtualPid same as this pid.
    *
-   *  If pid == originalToCurrentPid(pid), then there are two cases:
-   *    1. there is no mapping from some original_pid to pid ==> no conflict
+   *  If pid == virtualToReal(pid), then there are two cases:
+   *    1. there is no mapping from some virtualPid to pid ==> no conflict
    *    2. there is a mapping from pid to pid in the table, in which case again
    *       there is not conflict because that mapping essentially is about the
-   *       current pid.
+   *       real pid.
    */
 #if 0
   // Use a similar block to emulate tid-conflict. This can come handy in
@@ -86,7 +86,7 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
     return true;
   }
 #endif
-  if (pid == instance().originalToCurrentPid( pid ))
+  if (pid == instance().virtualToReal( pid ))
     return false;
 
   return true;
@@ -101,7 +101,7 @@ void dmtcp::VirtualPidTable::postRestart()
 {
   /*
    * PROTECTED_PIDMAP_FD corresponds to the file containg computation wide
-   *  original_pid -> current_pid map to avoid pid/tid collisions.
+   *  virtualPid -> realPid map to avoid pid/tid collisions.
    */
 }
 
@@ -109,13 +109,13 @@ void dmtcp::VirtualPidTable::printPidMaps()
 {
   ostringstream out;
   out << "Pid mappings\n";
-  out << "      original" << "  ->  " << "current" << "\n";
+  out << "      Virtual" << "  ->  " << "Real" << "\n";
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
-    pid_t originalPid = i->first;
-    pid_t currentPid  = i->second;
-    out << "\t" << originalPid << "\t->   " << currentPid << "\n";
+    pid_t virtualPid = i->first;
+    pid_t realPid  = i->second;
+    out << "\t" << virtualPid << "\t->   " << realPid << "\n";
   }
-  JTRACE("Original To Current Pid Mappings:") (_pidMapTable.size()) (out.str());
+  JTRACE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
 }
 
 void dmtcp::VirtualPidTable::resetOnFork()
@@ -123,67 +123,77 @@ void dmtcp::VirtualPidTable::resetOnFork()
   pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
   tblLock = newlock;
   _pid = _real_getpid();
-  _ppid = currentToOriginalPid ( _real_getppid() );
+  _ppid = realToVirtual ( _real_getppid() );
   printPidMaps();
 }
 
-pid_t dmtcp::VirtualPidTable::originalToCurrentPid( pid_t originalPid )
+pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualPid)
 {
   pid_t retVal = 0;
+
+  if (virtualPid == -1 || virtualPid == 0) {
+    return virtualPid;
+  }
 
   /* This code is called from MTCP while the checkpoint thread is holding
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
      this function. */
   _do_lock_tbl();
-  pid_iterator i = _pidMapTable.find(originalPid);
-  if ( i == _pidMapTable.end() ) {
+  pid_iterator i = _pidMapTable.find(virtualPid < -1 ? abs(virtualPid)
+                                                     : virtualPid);
+  if (i == _pidMapTable.end()) {
+//    JWARNING(false) (virtualPid)
+ //     .Text("No real pid/tid found for the given virtual pid");
+//    sleep(15);
     _do_unlock_tbl();
-    return originalPid;
+    return virtualPid;
   }
 
   // retVal required: in TID conflict, first and second clone call can interfere
-  retVal = i->second;
+  retVal = virtualPid < -1 ? (-i->second) : i->second;
   _do_unlock_tbl();
   return retVal;
 }
 
-pid_t dmtcp::VirtualPidTable::currentToOriginalPid( pid_t currentPid )
+extern int __attribute__ ((weak)) mtcp_is_ptracing();
+pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
+  if (realPid == -1 || realPid == 0) {
+    return realPid;
+  }
+
   /* This code is called from MTCP while the checkpoint thread is holding
      the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
      this function. */
   _do_lock_tbl();
-  for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i)
-  {
-    if ( currentPid == i->second ) {
+  for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i) {
+    if ( realPid == i->second ) {
       _do_unlock_tbl();
       return i->first;
     }
   }
 
   _do_unlock_tbl();
-  return currentPid;
+  return realPid;
 }
 
-void dmtcp::VirtualPidTable::insert(pid_t originalPid)
+void dmtcp::VirtualPidTable::insert(pid_t virtualPid)
 {
-  // FIXME: Add a check for preexisting originalPid -> curPid mapping
-  updateMapping(originalPid, originalPid);
+  // FIXME: Add a check for preexisting virtualPid -> curPid mapping
+  updateMapping(virtualPid, virtualPid);
 }
 
-void dmtcp::VirtualPidTable::erase( pid_t originalPid )
+void dmtcp::VirtualPidTable::erase( pid_t virtualPid )
 {
   _do_lock_tbl();
-  pid_iterator j = _pidMapTable.find ( originalPid );
-  if ( j != _pidMapTable.end() )
-    _pidMapTable.erase( originalPid );
+  _pidMapTable.erase( virtualPid );
   _do_unlock_tbl();
 }
 
-void dmtcp::VirtualPidTable::updateMapping( pid_t originalPid, pid_t currentPid )
+void dmtcp::VirtualPidTable::updateMapping( pid_t virtualPid, pid_t realPid )
 {
   _do_lock_tbl();
-  _pidMapTable[originalPid] = currentPid;
+  _pidMapTable[virtualPid] = realPid;
   _do_unlock_tbl();
 }
 
@@ -222,22 +232,22 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
   size_t numMaps = _pidMapTable.size();
   serializeEntryCount(o, numMaps);
 
-  pid_t originalPid;
-  pid_t currentPid;
+  pid_t virtualPid;
+  pid_t realPid;
 
   if ( o.isWriter() )
   {
     for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i ) {
-      originalPid = i->first;
-      currentPid  = i->second;
-      serializePidMapEntry ( o, originalPid, currentPid );
+      virtualPid = i->first;
+      realPid  = i->second;
+      serializePidMapEntry ( o, virtualPid, realPid );
     }
   }
   else
   {
     for (size_t i = 0; i < numMaps; i++) {
-      serializePidMapEntry ( o, originalPid, currentPid );
-      _pidMapTable[originalPid] = currentPid;
+      serializePidMapEntry ( o, virtualPid, realPid );
+      _pidMapTable[virtualPid] = realPid;
     }
   }
 
@@ -246,12 +256,16 @@ void dmtcp::VirtualPidTable::serializePidMap ( jalib::JBinarySerializer& o )
 }
 
 void dmtcp::VirtualPidTable::serializePidMapEntry(jalib::JBinarySerializer& o,
-                                                  pid_t& originalPid,
-                                                  pid_t& currentPid)
+                                                  pid_t& virtualPid,
+                                                  pid_t& realPid)
 {
-  JSERIALIZE_ASSERT_POINT ( "PidMap:[" );
-  o & originalPid & currentPid;
-  JSERIALIZE_ASSERT_POINT ( "]" );
+  JSERIALIZE_ASSERT_POINT("PidMap:[");
+  o & virtualPid;
+  JSERIALIZE_ASSERT_POINT(":");
+  o & realPid;
+  JSERIALIZE_ASSERT_POINT("]");
+
+  JTRACE("PidMap") (virtualPid) (realPid);
 }
 
 void dmtcp::VirtualPidTable::serializeEntryCount ( jalib::JBinarySerializer& o,
@@ -263,8 +277,8 @@ void dmtcp::VirtualPidTable::serializeEntryCount ( jalib::JBinarySerializer& o,
   JTRACE("Num PidMaps:")(count);
 }
 
-void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t originalPid,
-                                                  pid_t currentPid)
+void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t virtualPid,
+                                                  pid_t realPid)
 {
   dmtcp::string pidMapFile = "/proc/self/fd/"
                              + jalib::XToString ( PROTECTED_PIDMAP_FD );
@@ -290,7 +304,7 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t originalPid,
   size_t numMaps;
   serializeEntryCount (countrd,numMaps);
   // Serialize new pair
-  serializePidMapEntry (mapwr, originalPid, currentPid );
+  serializePidMapEntry (mapwr, virtualPid, realPid );
 
   // Commit changes into map count file
   countwr.rewind();
@@ -325,11 +339,11 @@ void dmtcp::VirtualPidTable::readPidMapsFromFile()
   serializeEntryCount (countrd,numMaps);
 
   // Read pidMapping content
-  pid_t originalPid;
-  pid_t currentPid;
+  pid_t virtualPid;
+  pid_t realPid;
   while ( numMaps-- > 0 ){
-    serializePidMapEntry ( maprd, originalPid, currentPid );
-    _pidMapTable[originalPid] = currentPid;
+    serializePidMapEntry ( maprd, virtualPid, realPid );
+    _pidMapTable[virtualPid] = realPid;
   }
   printPidMaps();
 }

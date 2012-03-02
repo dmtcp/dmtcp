@@ -116,7 +116,7 @@ void dmtcp::ProcessInfo::postRestart()
   JASSERT ( serialFile.length() > 0 ) ( serialFile );
   _real_close ( PROTECTED_PIDTBL_FD );
 
-  JTRACE("Read original pids from pid-table file") (serialFile);
+  JTRACE("Read virtual pids from pid-table file") (serialFile);
   jalib::JBinarySerializeReader rd ( serialFile );
   serialize ( rd );
 }
@@ -160,23 +160,23 @@ void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
   iterator i = _childTable.find( pid );
   if ( i != _childTable.end() ) {
     _do_unlock_tbl();
-    JTRACE ( "originalPid -> currentPid mapping exists!")
+    JTRACE ( "virtualPid -> realPid mapping exists!")
       ( pid ) ( i->second );
   }
 
   _childTable[pid] = uniquePid;
   _do_unlock_tbl();
 
-  JTRACE ( "Creating new originalPid -> currentPid mapping." )
+  JTRACE ( "Creating new virtualPid -> realPid mapping." )
     ( pid ) ( uniquePid );
 }
 
-void dmtcp::ProcessInfo::eraseChild( pid_t originalPid )
+void dmtcp::ProcessInfo::eraseChild( pid_t virtualPid )
 {
   _do_lock_tbl();
-  iterator i = _childTable.find ( originalPid );
+  iterator i = _childTable.find ( virtualPid );
   if ( i != _childTable.end() )
-    _childTable.erase( originalPid );
+    _childTable.erase( virtualPid );
   _do_unlock_tbl();
 }
 
@@ -289,15 +289,15 @@ void dmtcp::ProcessInfo::refreshTidVector()
 void dmtcp::ProcessInfo::refreshChildTable()
 {
   dmtcp::vector< pid_t > childPidVec = getChildPidVector();
-  for (int i = 0; i < childPidVec.size(); i++) {
-    pid_t originalPid = childPidVec[i];
-    int retVal = kill(originalPid, 0);
+  for (size_t i = 0; i < childPidVec.size(); i++) {
+    pid_t virtualPid = childPidVec[i];
+    int retVal = kill(virtualPid, 0);
     /* Check to see if the child process is alive*/
     if (retVal == -1 && errno == ESRCH) {
 #ifdef PID_VIRTUALIZATION
-      VirtualPidTable::instance().erase(originalPid);
+      VirtualPidTable::instance().erase(virtualPid);
 #endif
-      _childTable.erase(originalPid);
+      _childTable.erase(virtualPid);
     }
   }
 }
@@ -342,34 +342,34 @@ void dmtcp::ProcessInfo::serializeChildTable ( jalib::JBinarySerializer& o )
   serializeEntryCount(o, numPids);
 
   JTRACE ("Serializing ChildPid Table") (numPids) (o.filename());
-  pid_t originalPid;
+  pid_t virtualPid;
   dmtcp::UniquePid uniquePid;
 
   if ( o.isWriter() )
   {
     for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
     {
-      originalPid = i->first;
+      virtualPid = i->first;
       uniquePid   = i->second;
-      serializeChildTableEntry ( o, originalPid, uniquePid );
+      serializeChildTableEntry ( o, virtualPid, uniquePid );
     }
   }
   else
   {
     while ( numPids-- > 0 )
     {
-      serializeChildTableEntry ( o, originalPid, uniquePid );
-      _childTable[originalPid] = uniquePid;
+      serializeChildTableEntry ( o, virtualPid, uniquePid );
+      _childTable[virtualPid] = uniquePid;
     }
   }
 }
 
 void  dmtcp::ProcessInfo::serializeChildTableEntry ( jalib::JBinarySerializer& o,
-                                                     pid_t& originalPid,
+                                                     pid_t& virtualPid,
                                                      dmtcp::UniquePid& uniquePid )
 {
   JSERIALIZE_ASSERT_POINT ( "ChildPid:[" );
-  o & originalPid & uniquePid;
+  o & virtualPid & uniquePid;
   JSERIALIZE_ASSERT_POINT ( "]" );
 }
 

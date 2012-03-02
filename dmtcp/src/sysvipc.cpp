@@ -386,7 +386,7 @@ dmtcp::ShmSegment::ShmSegment(int shmid)
   _originalShmid = shmid;
   _currentShmid = shmid;
   _isCkptLeader = false;
-  _creatorPid = VirtualPidTable::instance().currentToOriginalPid(shminfo.shm_cpid);
+  _creatorPid = REAL_TO_VIRTUAL_PID(shminfo.shm_cpid);
   JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
     (_currentShmid) (_originalShmid) (_creatorPid) (_isCkptLeader);
 }

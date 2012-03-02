@@ -352,7 +352,7 @@ struct Thread { Thread *next;         // next thread in 'threads' list
                 Thread *prev;        // prev thread in 'threads' list
                 int tid;              // this thread's id as returned by
                                       //   mtcp_sys_kernel_gettid ()
-                int original_tid;     // this is the thread's "original" tid
+                int virtual_tid;      // this is the thread's "virtual" tid
                 MtcpState state;      // see ST_... below
                 Thread *parent;       // parent thread (or NULL if top-level
                                       //   thread)
@@ -383,20 +383,20 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 #endif
 
                 mtcp_segreg_t fs, gs;  // thread local storage pointers
-                pthread_t pth;         // added for pthread_join
 #if MTCP__SAVE_MANY_GDT_ENTRIES
                 struct user_desc gdtentrytls[GDT_ENTRY_TLS_ENTRIES];
 #else
                 struct user_desc gdtentrytls[1];
 #endif
+                pthread_t pth;
               };
 
 /*
  * struct MtcpRestartThreadArg
  *
- * DMTCP requires the original_tids of the threads being created during
+ * DMTCP requires the virtual_tids of the threads being created during
  *  the RESTARTING phase.  We use a MtcpRestartThreadArg struct to pass
- *  the original_tid of the thread being created from MTCP to DMTCP.
+ *  the virtual_tid of the thread being created from MTCP to DMTCP.
  *
  * actual clone call: clone (fn, child_stack, flags, void *, ... )
  * new clone call   : clone (fn, child_stack, flags,
@@ -410,7 +410,7 @@ struct Thread { Thread *next;         // next thread in 'threads' list
  */
 struct MtcpRestartThreadArg {
   void *arg;
-  pid_t original_tid;
+  pid_t virtual_tid;
 };
 
 // thread status
@@ -1284,7 +1284,7 @@ static void setupthread (Thread *thread)
    */
 
   thread -> tid = mtcp_sys_kernel_gettid ();
-  thread -> original_tid = GETTID ();
+  thread -> virtual_tid = GETTID ();
 
   DPRINTF("thread %p -> tid %d\n", thread, thread->tid);
 
@@ -1387,7 +1387,7 @@ static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread)
     next_thread = thread->next;
     if (thread != cur_thread && thread->tid == tid) {
       DPRINTF("Removing duplicate thread descriptor: tid:%d, orig_tid:%d\n",
-              thread->tid, thread->original_tid);
+              thread->tid, thread->virtual_tid);
       // There will be atmost one duplicate descriptor.
       threadisdead(thread);
     }
@@ -1427,7 +1427,8 @@ static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread)
 static void mtcp_put_thread_on_freelist(Thread *thread)
 {
   if (! is_thread_locked()) {
-    DPRINTF("MTCP: Internal error: threadisdead called without thread lock\n");
+    DPRINTF("MTCP: Internal error: %s called without thread lock\n",
+            __FUNCTION__);
     mtcp_abort ();
   }
 
@@ -1769,6 +1770,7 @@ static int safe_tcsetattr(int fd, int optional_actions,
   } while (memcmp(&new_termios, &old_termios, sizeof(new_termios)) != 0);
   return 0;
 }
+// FIXME: Handle Virtual Pids
 static void restore_term_settings() {
   if (saved_termios_exists){
     /* First check if we are in foreground. If not, skip this and print
@@ -1846,13 +1848,13 @@ static void *checkpointhread (void *dummy)
 #ifdef SETJMP
   /* After we restart, we return here. */
   if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
-  DPRINTF("after sigsetjmp. current_tid %d, original_tid:%d\n",
-          mtcp_sys_kernel_gettid(), ckpthread->original_tid);
+  DPRINTF("after sigsetjmp. current_tid %d, virtual_tid:%d\n",
+          mtcp_sys_kernel_gettid(), ckpthread->virtual_tid);
 #else
   /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
-  DPRINTF("after getcontext. current_tid %d, original_tid:%d\n",
-          mtcp_sys_kernel_gettid(), ckpthread->original_tid);
+  DPRINTF("after getcontext. current_tid %d, virtual_tid:%d\n",
+          mtcp_sys_kernel_gettid(), ckpthread->virtual_tid);
 #endif
   fesetround(rounding_mode);
 
@@ -1952,7 +1954,7 @@ again:
           int retval = 0;
           if (callback_send_stop_signal != NULL) {
             DPRINTF("Before callback_send_stop_signal\n");
-            callback_send_stop_signal(thread->original_tid, &retry_signalling,
+            callback_send_stop_signal(thread->virtual_tid, &retry_signalling,
                                       &retval);
           }
           if (retry_signalling) {
@@ -3601,7 +3603,7 @@ static void save_sig_state (Thread *thisthread)
 static void restore_sig_state (Thread *thisthread)
 {
   int i;
-  DPRINTF("restoring handlers for thread %d\n", thisthread->original_tid);
+  DPRINTF("restoring handlers for thread %d\n", thisthread->virtual_tid);
   if (pthread_sigmask (SIG_SETMASK, &(thisthread -> sigblockmask), NULL) < 0) {
     MTCP_PRINTF("error setting signal mask: %s\n", strerror(errno));
     mtcp_abort ();
@@ -4254,24 +4256,24 @@ static int restarthread (void *threadv)
     void *clone_arg = child;
 
     /*
-     * DMTCP needs to know original_tid of the thread being recreated by the
+     * DMTCP needs to know virtual_tid of the thread being recreated by the
      *  following clone() call.
      *
      * Threads are created by using syscall which is intercepted by DMTCP and
-     *  the original_tid is sent to DMTCP as a field of MtcpRestartThreadArg
+     *  the virtual_tid is sent to DMTCP as a field of MtcpRestartThreadArg
      *  structure. DMTCP will automatically extract the actual argument
      *  (clone_arg -> arg) from clone_arg and will pass it on to the real
      *  clone call.
      *                                                           (--Kapil)
      */
     mtcpRestartThreadArg.arg = child;
-    mtcpRestartThreadArg.original_tid = child -> original_tid;
+    mtcpRestartThreadArg.virtual_tid = child -> virtual_tid;
     clone_arg = &mtcpRestartThreadArg;
 
    /*
     * syscall is wrapped by DMTCP when configured with PID-Virtualization.
     * It calls __clone which goes to DMTCP:__clone which then calls
-    * MTCP:__clone. DMTCP:__clone checks for tid-conflict with any original tid.
+    * MTCP:__clone. DMTCP:__clone checks for tid-conflict with any virtual_tid.
     * If conflict, it replaces the thread with a new one with a new tid.
     * DMTCP:__clone wrapper calls the glibc:__clone if the computation is not in
     * RUNNING state (must be restarting), it calls the mtcp:__clone otherwise.
@@ -4319,12 +4321,12 @@ static int restarthread (void *threadv)
     mtcp_set_thread_sysinfo(saved_sysinfo);
   ///JA: v54b port
 #ifdef SETJMP
-  DPRINTF("calling siglongjmp: thread->tid: %d, original_tid:%d\n",
-          thread->tid, thread->original_tid);
+  DPRINTF("calling siglongjmp: thread->tid: %d, virtual_tid:%d\n",
+          thread->tid, thread->virtual_tid);
   siglongjmp (thread -> jmpbuf, 1); /* Shouldn't return */
 #else
-  DPRINTF("calling setcontext: thread->tid: %d, original_tid:%d\n",
-          thread->tid, thread->original_tid);
+  DPRINTF("calling setcontext: thread->tid: %d, virtual_tid:%d\n",
+          thread->tid, thread->virtual_tid);
   setcontext (&(thread -> savctx)); /* Shouldn't return */
 #endif
   mtcp_abort ();

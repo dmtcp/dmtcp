@@ -22,32 +22,32 @@
 #ifndef VIRTUAL_PID_TABLE_H
 #define VIRTUAL_PID_TABLE_H
 
-#include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
 #include <map>
-#include  "../jalib/jserialize.h"
+#include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
+#include "dmtcpalloc.h"
 #include "constants.h"
 
 #ifdef PID_VIRTUALIZATION
-# define CURRENT_TO_ORIGINAL_PID(pid) \
-  dmtcp::VirtualPidTable::instance().currentToOriginalPid(pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) \
-  dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid)
+# define REAL_TO_VIRTUAL_PID(pid) \
+  dmtcp::VirtualPidTable::instance().realToVirtual(pid)
+# define VIRTUAL_TO_REAL_PID(pid) \
+  dmtcp::VirtualPidTable::instance().virtualToReal(pid)
 #else
-# define CURRENT_TO_ORIGINAL_PID(pid) (pid)
-# define ORIGINAL_TO_CURRENT_PID(pid) (pid)
+# define REAL_TO_VIRTUAL_PID(pid) pid
+# define VIRTUAL_TO_REAL_PID(pid) pid
 #endif
 
 #ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
-  /* Shall we create separate classes for holding original to current pid map
+  /* Shall we create separate classes for holding virtual to real pid map
    * and  for holding child process ids?
    */
 
@@ -61,31 +61,31 @@ namespace dmtcp
 #endif
       VirtualPidTable();
       static VirtualPidTable& instance();
-      static bool isConflictingPid( pid_t pid );
+      static bool isConflictingPid(pid_t pid);
+
       void postRestart();
       void preCheckpoint();
       void  postExec();
 
-      pid_t originalToCurrentPid( pid_t originalPid );
-      pid_t currentToOriginalPid( pid_t currentPid );
-      bool pidExists( pid_t pid );
+      pid_t virtualToReal(pid_t virtualPid);
+      pid_t realToVirtual(pid_t realPid);
+      bool pidExists(pid_t pid);
 
-      void insert(pid_t originalPid);
-      void updateMapping (pid_t originalPid, pid_t currentPid);
+      void insert(pid_t virtualPid);
+      void updateMapping(pid_t virtualPid, pid_t realPid);
 
       void printPidMaps();
-      void  erase(pid_t originalPid);
+      void erase(pid_t virtualPid);
 
       void refresh();
 
-      void serialize ( jalib::JBinarySerializer& o );
-      void serializePidMap ( jalib::JBinarySerializer& o );
-      static void serializePidMapEntry ( jalib::JBinarySerializer& o,
-                                         pid_t& originalPid,
-                                         pid_t& currentPid );
-      static void serializeEntryCount( jalib::JBinarySerializer& o,
-                                       size_t& count );
-      static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
+      static void InsertIntoPidMapFile( pid_t virtualPid, pid_t realPid);
+      void serialize(jalib::JBinarySerializer& o);
+      void serializePidMap(jalib::JBinarySerializer& o);
+      static void serializePidMapEntry(jalib::JBinarySerializer& o,
+                                       pid_t& virtualPid,
+                                       pid_t& realPid );
+      static void serializeEntryCount(jalib::JBinarySerializer& o, size_t& count);
       void readPidMapsFromFile();
 
       dmtcp::vector< pid_t > getPidVector();
@@ -107,5 +107,5 @@ namespace dmtcp
   };
 }
 
-#endif /* PID_VIRTUALIZATION */
+#endif
 #endif
