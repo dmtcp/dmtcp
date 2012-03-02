@@ -391,7 +391,7 @@ void dmtcp::ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
   if (WorkerState::currentState() != WorkerState::RUNNING) {
-    fprintf(stderr, "DMTCP INTERNAL ERROR: %s:%d:\n"
+    fprintf(stderr, "DMTCP INTERNAL ERROR: %s:%d: %s\n"
             "       This process is not in RUNNING state and yet this thread\n"
             "       managed to acquire the wrapperExecutionLock.\n"
             "       This should not be happening, something is wrong.\n",
@@ -465,19 +465,16 @@ void dmtcp::ThreadSync::threadCreationLockUnlock()
 //   or delete "__thread" (but if user code calls these routines from multiple
 //   threads, it will not be thread-safe).
 //   In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
-static __thread bool dmtcp_module_ckpt_lock;
 extern "C"
-void dmtcp_module_disable_ckpt()
+int dmtcp_module_disable_ckpt()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp_module_ckpt_lock = __wrapperExecutionLockAcquired;
+  return dmtcp::ThreadSync::wrapperExecutionLockLock();
 }
 
 extern "C"
 void dmtcp_module_enable_ckpt()
 {
-  bool __wrapperExecutionLockAcquired = dmtcp_module_ckpt_lock;
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  dmtcp::ThreadSync::wrapperExecutionLockUnlock();
 }
 
 
