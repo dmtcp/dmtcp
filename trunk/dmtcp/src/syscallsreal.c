@@ -339,13 +339,11 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
 LIB_PRIVATE
 int _dmtcp_unsetenv( const char *name ) {
   unsetenv (name);
-  // FIXME: Fix this by getting the symbol address from libc.
-  // Another way to fix this would be to do a getenv() here and put a '\0' byte
-  // at the start of the returned value.
-  //REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
-  char *str = (char*) getenv(name);
-  if (str != NULL) *str = '\0';
-  return 1;
+  // One can fix this by doing a getenv() here and put a '\0' byte
+  // at the start of the returned value, but that is not correct as if you do
+  // another getenv after this, it would return "", which is not the same as
+  // NULL.
+  REAL_FUNC_PASSTHROUGH ( unsetenv ) ( name );
 }
 
 LIB_PRIVATE
