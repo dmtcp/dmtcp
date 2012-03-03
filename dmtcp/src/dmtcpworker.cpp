@@ -241,7 +241,7 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
 static void prepareLogAndProcessdDataFromSerialFile()
 {
   const char* serialFile = getenv( ENV_VAR_SERIALFILE_INITIAL );
-  dmtcp::VirtualPidTable::instance().updateMapping(getpid(), _real_getpid());
+  //dmtcp::VirtualPidTable::instance().updateMapping(getpid(), _real_getpid());
   if ( serialFile != NULL ) {
     // This process was under ckpt-control and exec()'d into a new program.
     // Find out path of previous log file so that later, we can write the name
@@ -265,7 +265,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 #endif
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
-    dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
+    //dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
     Util::initializeLogFile();
