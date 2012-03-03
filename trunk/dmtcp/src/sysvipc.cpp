@@ -436,7 +436,7 @@ void dmtcp::ShmSegment::preCkptDrain()
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
       ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-      void *addr = _real_shmat(_originalShmid, NULL, 0);
+      void *addr = _real_shmat(_currentShmid, NULL, 0);
       JASSERT(addr != (void*) -1);
       _shmaddrToFlag[addr] = 0;
       _dmtcpMappedAddr = true;

@@ -939,9 +939,25 @@ int _real_shmdt (const void *shmaddr) {
   REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
 }
 
+/* glibc provides two versions of shmctl: 2.0 and 2.2. For some reason, the
+ * dlsym(RTLD_NEXT,...) is getting us the 2.0 version causing the wrong
+ * function call. For i386 architecture, we need to pass IPC_64 to the system
+ * call in order to work properly. Please refer to NOTES section of shmctl
+ * manpage.
+ */
+#ifndef IPC_64
+// Taken from <linux/ipc.h>
+# define IPC_64  0x0100  /* New version (support 32-bit UIDs, bigger
+                          message sizes, etc. */
+#endif
+
 LIB_PRIVATE
 int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
-  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
+#ifdef __i386__
+  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd | IPC_64, buf);
+#else
+  REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd , buf);
+#endif
 }
 
 LIB_PRIVATE
