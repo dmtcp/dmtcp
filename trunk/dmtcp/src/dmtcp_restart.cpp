@@ -485,7 +485,7 @@ void BuildProcessTree()
     for(it = processInfo.begin(); it != processInfo.end(); it++) {
       // find target
       bool found = false;
-      pid_t childOriginalPid = it->first;
+      pid_t childVirtualPid = it->first;
       UniquePid& childUniquePid = it->second;
 
       for (size_t i = 0; i < targets.size(); i++) {
@@ -497,8 +497,8 @@ void BuildProcessTree()
         }
       }
       if (!found) {
-        JTRACE("Child not found")(childOriginalPid);
-        processInfo.eraseChild(childOriginalPid);
+        JTRACE("Child not found")(childVirtualPid);
+        processInfo.eraseChild(childVirtualPid);
       }
     }
   }
@@ -604,9 +604,7 @@ void ProcessGroupInfo()
         if (fgid == -2) {
           fgid = cfgid;
         } else if (fgid != -1 && cfgid != -1 && fgid != cfgid) {
-          JNOTE("Error: process from same session stores different"
-                " foreground Group ID")
-            (fgid) (cfgid);
+          dmtcp::ostringstream o;
           // DEBUG PRINTOUT:
           {
             session::group_it g_it1 = s.groups.begin();
@@ -618,13 +616,14 @@ void ProcessGroupInfo()
                 pid_t ppid = pInfo.ppid();
                 pid_t sid = pInfo.sid();
                 pid_t cfgid = pInfo.fgid();
-                JASSERT_STDERR << "PID=" << pid << " PPID=" << ppid
-                               << ", SID=" << sid
-                               << " <--> FGID = " << cfgid << "\n";
+                o << "\n\tPID=" << pid << " PPID=" << ppid
+                  << ", SID=" << sid << " <--> FGID = " << cfgid;
               }
             }
           }
-          abort();
+          JASSERT (false) (fgid) (cfgid) (o.str())
+            .Text("processes from same session have different "
+                  "foreground Group ID");
         }
       }
       JTRACE("Checked ") (fgid);
