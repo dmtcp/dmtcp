@@ -21,8 +21,8 @@ AC_ARG_ENABLE([debug],
 
 if test "$use_jassert" = "yes"; then
   AC_DEFINE([DEBUG],[],[Verbose debug output and log files in $DMTCP_TMPDIR])
-  CFLAGS="-g -O0"
-  CXXFLAGS="-g -O0"
+  CFLAGS="-g -O0 -Wall"
+  CXXFLAGS="-g -O0 -Wall"
 fi
 
 AC_ARG_ENABLE([quiet],

@@ -340,8 +340,10 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
     if(WEXITSTATUS(coordinatorStatus) == CS_NO){
       JASSERT (false) (isRestart)
 	 .Text ("Coordinator in a funny state.  Peers exist, not restarting," \
-		"\n but not in a running state.  Checkpointing?" \
-		"\n Or maybe restarting and running with peers existing?");
+		"\n but not in a running state.  Often this means you are" \
+		" connecting to\n a stale coordinator from a previous" \
+		" computation.\n Try killing the other coordinator," \
+		" or using a different port for the new comp.");
     }else if (WEXITSTATUS(coordinatorStatus) == DMTCP_FAIL_RC) {
       JTRACE("Coordinator not found.  Starting a new one.");
     }else{
