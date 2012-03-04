@@ -56,9 +56,8 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
-
-// -------------------- Torque PBS tm.h definitions -----------------------------------//
-// need to be keeped in sync with "tm.h" file in libtorque of Torque PBS resource manager
+// -------------------- Torque PBS tm.h definitions -------------------------//
+// Keep in sync with "tm.h" file in libtorque of Torque PBS resource manager
 #define TM_SUCCESS  0
 #define TM_ESYSTEM  17000
 #define TM_ENOEVENT  17001
@@ -78,11 +77,11 @@ static void *_libtorque_handle = NULL;
 typedef int (*tm_spawn_t)(int argc, char **argv, char **envp, tm_node_id where, tm_task_id *tid, tm_event_t *event);
 tm_spawn_t tm_spawn_ptr;
 
-
-static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_path = false)
+static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args,
+                        bool full_path = false)
 {
 /* This code is taken from dmtcpworker.cpp from processSshCommand function
-   In future this code should be moved into separate function to avoid 
+   In future this code should be moved into separate function to avoid
    duplication
 */
   const char * prefixPath           = getenv ( ENV_VAR_PREFIX_PATH );
@@ -185,10 +184,10 @@ static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args, bool full_path
   return 0;
 }
 
-//------------------------------- SSH exec wrapper -----------------------------------------//
+//------------------------------- SSH exec wrapper --------------------------//
 
 void processSshCommand(dmtcp::string programName,
-                              dmtcp::vector<dmtcp::string>& args)
+                       dmtcp::vector<dmtcp::string>& args)
 {
   char buf[256];
 
@@ -217,11 +216,8 @@ void processSshCommand(dmtcp::string programName,
 
   //find the start of the command
   dmtcp::string& cmd = args[commandStart];
-
   dmtcp::vector<dmtcp::string> dmtcp_args;
-
   getDmtcpArgs(dmtcp_args);
-
   dmtcp::string prefix = "";
 
   JTRACE("dmtcp_args.size():")(dmtcp_args.size());
@@ -231,9 +227,7 @@ void processSshCommand(dmtcp::string programName,
       prefix += dmtcp::string() +  dmtcp_args[i] + " ";
     }
   }
-
   JTRACE("Prefix")(prefix);
-
 
   // process command
   size_t semipos, pos;
@@ -251,7 +245,6 @@ void processSshCommand(dmtcp::string programName,
   dmtcp::string newCommand = "";
   char** argv = new char*[args.size() +2];
   memset ( argv,0,sizeof ( char* ) * ( args.size() +2 ) );
-
   for ( size_t i=0; i< args.size(); ++i )
   {
     argv[i] = ( char* ) args[i].c_str();
@@ -259,7 +252,6 @@ void processSshCommand(dmtcp::string programName,
   }
 
   JNOTE ( "re-running SSH with checkpointing" ) ( newCommand );
-
   restoreUserLDPRELOAD();
   //now re-call ssh
   _real_execvp ( argv[0], argv );
@@ -268,7 +260,7 @@ void processSshCommand(dmtcp::string programName,
   JASSERT ( false ) ( cmd ) ( JASSERT_ERRNO ).Text ( "exec() failed" );
 }
 
-//--------------------- Torque/PBS tm_spawn remote exec wrapper ----------------------------------------------//
+//--------------------- Torque/PBS tm_spawn remote exec wrapper -------------//
 
 static int libtorque_init()
 {
@@ -314,42 +306,32 @@ unlock:
   return ret;
 }
 
-
-
-
-extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where, tm_task_id *tid, tm_event_t *event)
+extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
+                        tm_task_id *tid, tm_event_t *event)
 {
-
   JNOTE("In tm_spawn wrapper");
-
   if( libtorque_init() )
     return TM_BADINIT;
-
   dmtcp::vector<dmtcp::string> dmtcp_args;
-
   getDmtcpArgs(dmtcp_args,true);
-
   unsigned int dsize = dmtcp_args.size();
   const char *new_argv[ argc + dsize ];
-
   dmtcp::string cmdline = dmtcp::string();
 
   for(int i=0; i < dsize; i++){
     new_argv[i] = dmtcp_args[i].c_str();
   }
-
   for(int i=0; i < argc; i++){
     new_argv[ dsize + i ] = argv[i];
   }
-
   for(int i=0; i< dsize + argc; i++){
     cmdline +=  dmtcp::string() + new_argv[i] + " ";
   }
 
-  JNOTE ( "call Torque PBS tm_spawn API to run command on remote host" ) ( argv[0] ) (where);
+  JNOTE ( "call Torque PBS tm_spawn API to run command on remote host" )
+        ( argv[0] ) (where);
   JNOTE("CMD:")(cmdline);
   int ret = tm_spawn_ptr(argc + dsize,(char **)new_argv,envp,where,tid,event);
 
   return ret;
 }
-
