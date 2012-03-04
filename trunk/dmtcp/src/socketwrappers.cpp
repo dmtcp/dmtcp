@@ -184,6 +184,13 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
 extern "C" int getsockopt(int sockfd, int level, int optname,
                           void *optval, socklen_t *optlen)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  /* We don't want to acquire the lock here as this is not needed. Also,
+   * aquiring the lock here might cause a deadlock when this function is called
+   * from within connect(). Here is the deadlock situation:
+   * User-thread connect():    acquire lock
+   * Ckpt-thread ckpt():       Queued on wr-lock
+   * User-thread getsockopt(): block on read lock().
+   */
+  DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT();
   PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
 }
