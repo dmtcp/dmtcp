@@ -537,6 +537,7 @@ def runTest(name, numProcs, cmds):
 
 def saveResultsNMI():
   if testconfig.DEBUG == "yes":
+    # WARNING:  This can cause a several second delay on some systems.
     host = socket.getfqdn()
     if re.search("^nmi-.*.cs.wisc.edu$", host) or \
        re.search("^nmi-.*.cs.wisconsin.edu$", host):
@@ -734,7 +735,6 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
-    host = socket.getfqdn()
     runTest("screen",    3,  ["env TERM=vt100 " + testconfig.SCREEN +
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
