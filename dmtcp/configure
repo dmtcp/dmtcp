@@ -3999,8 +3999,8 @@ if test "$use_jassert" = "yes"; then
 
 $as_echo "#define DEBUG /**/" >>confdefs.h
 
-  CFLAGS="-g -O0"
-  CXXFLAGS="-g -O0"
+  CFLAGS="-g -O0 -Wall"
+  CXXFLAGS="-g -O0 -Wall"
 fi
 
 # Check whether --enable-quiet was given.

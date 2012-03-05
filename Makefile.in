@@ -3,9 +3,11 @@ LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
+DEBUG=@DEBUG@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
 FAST_CKPT_RESTART=@FAST_CKPT_RESTART@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
+HAS_JAVA=@HAS_JAVA@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -23,6 +25,10 @@ MANPAGES=dmtcp_coordinator.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
 	mtcp.1.gz mtcp_restart.1.gz
 
 MTCP_MAKE_FLAGS = DMTCP_VERSION=$(VERSION)
+
+ifeq ($(DEBUG),yes)
+  MTCP_MAKE_FLAGS += CFLAGS=-Wall
+endif
 
 ifeq ($(M32),1)
   MTCP_MAKE_FLAGS += M32=1
@@ -71,6 +77,9 @@ display-build-env: display-config display-release
 	@- echo 'Compiler:  ${CC}'
 	@- ${CC} -v 2>&1
 	@- ${LD} -v
+	@- if test "$(HAS_JAVA)" = "yes" ; then \
+	     java -showversion 2>&1 | head -3 ; \
+	   fi
 	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 /lib/*/libc.so.6 \
 	   2> /dev/null || true
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
@@ -89,7 +98,7 @@ display-config: check-m32-compat
 	@- if test -r ./config.log ; then \
 	    echo -n 'config.log: ' ; \
 	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
-	  fi
+	   fi
 
 check-m32-compat:
 ifeq ($(M32),1)
@@ -114,8 +123,10 @@ module: dmtcp check-m32-compat
 tests: build
 	cd test && $(MAKE) $(MTCP_MAKE_FLAGS)
 
-#prevent mtcp_restart from flying out of control
-LIMIT=ulimit -v 1048576
+# Prevent mtcp_restart from flying out of control
+# (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,
+#  and modifies most of the zero-mapped pages)
+LIMIT=ulimit -v 16777216
 
 check: tests
 	@+ if python -c 'print "Python exits."' > /dev/null; then \

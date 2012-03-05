@@ -96,7 +96,6 @@ MTCP_DIR := $(shell pwd)
 #        returns OUTPUT_ARCH(i386:x86-64) on x86-64 machines.
 ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf64-x86-64)
   BUILDTYPE=x86_64
-else ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf32-i386)
 else
   BUILDTYPE=${shell ${LD_RAW} -shared -verbose|grep OUTPUT_ARCH| \
 		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}

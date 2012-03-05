@@ -147,12 +147,16 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   }
   if (new_brk != mtcp_saved_break) {
     if (new_brk == current_brk && new_brk > mtcp_saved_break)
-      DPRINTF("new_brk == current_brk == %p\n  saved_break, %p,"
-              " is strictly smaller; data segment not extended.\n",
+      DPRINTF("new_brk == current_brk == %p\n; saved_break, %p,"
+              " is strictly smaller;\n  data segment not extended.\n",
               new_brk, mtcp_saved_break);
     else {
-      MTCP_PRINTF("error: new break (%p) != saved break  (%p)\n",
-                  current_brk, mtcp_saved_break);
+      if (new_brk == current_brk)
+        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n",
+                    current_brk, mtcp_saved_break);
+      else
+        MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
+                    new_brk, current_brk);
       mtcp_abort ();
     }
   }
