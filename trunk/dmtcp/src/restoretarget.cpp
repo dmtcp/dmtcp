@@ -43,10 +43,6 @@
 
 using namespace dmtcp;
 
-#ifdef PID_VIRTUALIZATION
-extern dmtcp::OriginalPidTable originalPidTable;
-#endif
-
 void runMtcpRestore(const char* path, int offset, size_t argvSize,
                     size_t envSize);
 
@@ -104,7 +100,7 @@ void RestoreTarget::dupAllSockets (SlidingFdTable& slidingFd)
       }
     }
     if (j == fdlist.size()) {
-      _real_close (i);
+      close ( i );
     }
   }
 
@@ -132,12 +128,6 @@ void RestoreTarget::mtcpRestart()
   runMtcpRestore(_path.c_str(), _offset,
                  _processInfo.argvSize(), _processInfo.envSize());
 }
-
-
-#ifdef PID_VIRTUALIZATION
-typedef map<pid_t,bool> sidMapping;
-typedef sidMapping::iterator s_iterator;
-typedef vector<RestoreTarget *>::iterator t_iterator;
 
 
 bool RestoreTarget::isSessionLeader()
@@ -182,7 +172,7 @@ int RestoreTarget::addRoot(RestoreTarget *t, pid_t sid)
 
 // Traverse this process subtree and set up information about sessions
 //   and their leaders for all children.
-sidMapping &RestoreTarget::setupSessions()
+RestoreTarget::sidMapping &RestoreTarget::setupSessions()
 {
   pid_t sid = _processInfo.sid();
   if (!_children.size()) {
@@ -346,7 +336,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
 
   ProcessInfo &pInfo = _processInfo;
 
-  JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
+  JTRACE("")(getpid())(getppid())(getsid(0));
 
   pid_t psid = pInfo.sid();
 
@@ -359,7 +349,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
     t_iterator it = _children.begin();
     for (; it != _children.end(); it++) {
       JTRACE ("Forking Child Process") ((*it)->upid());
-      pid_t cid = forkChild();
+      pid_t cid = fork();
 
       if (cid == 0) {
         (*it)->CreateProcess (coordinatorAPI, slidingFd);
@@ -375,7 +365,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
       JTRACE("Restore processes that were created before their parent called setsid()");
       if (sit == (*it)->getSmap().end()) {
         JTRACE ("Forking Child Process") ((*it)->upid());
-        pid_t cid = forkChild();
+        pid_t cid = fork();
         if (cid == 0) {
           (*it)->CreateProcess (coordinatorAPI, slidingFd);
           JASSERT (false) . Text ("Unreachable");
@@ -395,7 +385,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
       s_iterator sit = (*it)->getSmap().find(psid);
       if (sit != (*it)->getSmap().end()) {
         JTRACE ("Forking Child Process") ((*it)->upid());
-        pid_t cid = forkChild();
+        pid_t cid = fork();
         if (cid == 0) {
           (*it)->CreateProcess (coordinatorAPI, slidingFd);
           JASSERT (false) . Text ("Unreachable");
@@ -420,11 +410,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
 
   bool isTheGroupLeader = isGroupLeader(); // Calls JTRACE;avoid recursion
   JTRACE("Child and dependent root processes forked, restoring process")
-    (upid())(getpid())(isTheGroupLeader);
-  // Save PID mapping information
-  pid_t orig = upid().pid();
-  pid_t curr = _real_getpid();
-  dmtcp::VirtualPidTable::InsertIntoPidMapFile(orig, curr);
+    (upid())(getpid())(isGroupLeader());
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState (WorkerState::RESTARTING);
@@ -436,21 +422,6 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
   coordinatorAPI.recvCoordinatorHandshake();
   close(tmpCoordFd);
 
-  dmtcp::string serialFile = dmtcp::UniquePid::pidTableFilename();
-
-  JTRACE ("PidTableFile: ") (serialFile) (dmtcp::UniquePid::ThisProcess());
-  jalib::JBinarySerializeWriter tblwr (serialFile);
-  _processInfo.serialize (tblwr);
-  tblwr.~JBinarySerializeWriter();
-
-  int stmpfd =  open(serialFile.c_str(), O_RDONLY);
-  JASSERT (stmpfd >= 0) (serialFile) (errno);
-
-  JASSERT (dup2 (stmpfd, PROTECTED_PIDTBL_FD) == PROTECTED_PIDTBL_FD)
-    (serialFile) (stmpfd);
-
-  close (stmpfd);
-
   //restart targets[i]
   dupAllSockets (slidingFd);
 
@@ -458,37 +429,3 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
 
   JASSERT (false).Text ("unreachable");
 }
-
-
-pid_t RestoreTarget::forkChild()
-{
-#ifdef PID_VIRTUALIZATION
-  while (1) {
-
-    pid_t childPid = fork();
-
-    JASSERT (childPid != -1) .Text ("fork() failed");
-
-    if (childPid == 0) { /* child process */
-      if (originalPidTable.isConflictingChildPid (getpid()))
-        _exit(DMTCP_FAIL_RC);
-      else
-        return 0;
-    }
-    else { /* Parent Process */
-      if (originalPidTable.isConflictingChildPid (childPid)) {
-        JTRACE("PID Conflict, creating new child") (childPid);
-        waitpid (childPid, NULL, 0);
-      }
-      else
-        return childPid;
-    }
-  }
-
-  return -1;
-#else
-  return fork();
-#endif
-}
-#endif
-

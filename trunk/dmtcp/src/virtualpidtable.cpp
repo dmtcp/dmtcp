@@ -28,7 +28,6 @@
 #include "constants.h"
 #include "util.h"
 #include "protectedfds.h"
-#ifdef PID_VIRTUALIZATION
 #include "syscallwrappers.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -69,34 +68,6 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
 //  static VirtualPidTable *inst = new VirtualPidTable(); return *inst;
 }
 
-bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
-{
-  /*  If pid != virtualToReal(pid), then there is a conflict because
-   *    there is an virtualPid same as this pid.
-   *
-   *  If pid == virtualToReal(pid), then there are two cases:
-   *    1. there is no mapping from some virtualPid to pid ==> no conflict
-   *    2. there is a mapping from pid to pid in the table, in which case again
-   *       there is not conflict because that mapping essentially is about the
-   *       real pid.
-   */
-#if 0
-  // Use a similar block to emulate tid-conflict. This can come handy in
-  // finding bugs related to tid-conflict.
-  if (pid >= 10000 && pid < 20000) {
-    return true;
-  }
-#endif
-  if (pid == instance().virtualToReal( pid ))
-    return false;
-
-  return true;
-}
-
-void dmtcp::VirtualPidTable::preCheckpoint()
-{
-}
-
 void dmtcp::VirtualPidTable::postRestart()
 {
   /*
@@ -119,7 +90,7 @@ void dmtcp::VirtualPidTable::printPidMaps()
     pid_t realPid  = i->second;
     out << "\t" << virtualPid << "\t->   " << realPid << "\n";
   }
-  JTRACE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
+  JNOTE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
 }
 
 pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
@@ -336,39 +307,28 @@ void dmtcp::VirtualPidTable::serializeEntryCount ( jalib::JBinarySerializer& o,
   JTRACE("Num PidMaps:")(count);
 }
 
-void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t virtualPid,
-                                                  pid_t realPid)
+void dmtcp::VirtualPidTable::writePidMapsToFile()
 {
-  dmtcp::string pidMapFile = "/proc/self/fd/"
-                             + jalib::XToString ( PROTECTED_PIDMAP_FD );
-  dmtcp::string pidMapCountFile = "/proc/self/fd/"
-                                  + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
-
-  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-  pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
-  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 )
-    ( pidMapFile )( pidMapCountFile ).Text("Failed to resolve symlink.");
-
-  // Create Serializers
-  jalib::JBinarySerializeWriterRaw mapwr( pidMapFile, PROTECTED_PIDMAP_FD );
-  jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
-  jalib::JBinarySerializeReaderRaw countrd(pidMapCountFile, PROTECTED_PIDMAPCNT_FD );
+  //size_t numMaps = 0;
+  dmtcp::string mapFile;
+  mapFile = jalib::Filesystem::ResolveSymlink(
+              "/proc/self/fd/" + jalib::XToString(PROTECTED_PIDMAP_FD));
+  JASSERT (mapFile.length() > 0) (mapFile);
+  JTRACE ("Write PidMaps to file") (mapFile);
 
   // Lock fileset before any operations
   Util::lockFile(PROTECTED_PIDMAP_FD);
   _do_lock_tbl();
 
-  // Read old number of saved pid maps
-  countrd.rewind();
-  size_t numMaps;
-  serializeEntryCount (countrd,numMaps);
-  // Serialize new pair
-  serializePidMapEntry (mapwr, virtualPid, realPid );
+  size_t size = _pidMapTable.size();
+  jalib::JBinarySerializeWriterRaw mapwr(mapFile, PROTECTED_PIDMAP_FD);
+  serializeEntryCount(mapwr, size);
 
-  // Commit changes into map count file
-  countwr.rewind();
-  numMaps++;
-  serializeEntryCount (countwr,numMaps);
+  for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); i++) {
+    pid_t virtualPid = i->first;
+    pid_t realPid  = i->second;
+    serializePidMapEntry(mapwr, virtualPid, realPid);
+  }
 
   _do_unlock_tbl();
   Util::unlockFile(PROTECTED_PIDMAP_FD);
@@ -376,35 +336,34 @@ void dmtcp::VirtualPidTable::InsertIntoPidMapFile(pid_t virtualPid,
 
 void dmtcp::VirtualPidTable::readPidMapsFromFile()
 {
-  dmtcp::string pidMapFile = "/proc/self/fd/"
-                             + jalib::XToString ( PROTECTED_PIDMAP_FD );
-  pidMapFile =  jalib::Filesystem::ResolveSymlink ( pidMapFile );
-  dmtcp::string pidMapCountFile = "/proc/self/fd/"
-                                  + jalib::XToString ( PROTECTED_PIDMAPCNT_FD );
-  pidMapCountFile =  jalib::Filesystem::ResolveSymlink ( pidMapCountFile );
-  JASSERT ( pidMapFile.length() > 0 && pidMapCountFile.length() > 0 )
-    ( pidMapFile )( pidMapCountFile );
-
-  JTRACE ( "Read PidMaps from file" ) ( pidMapCountFile ) ( pidMapFile );
-
-  _real_close( PROTECTED_PIDMAP_FD );
-  _real_close( PROTECTED_PIDMAPCNT_FD );
-
-  jalib::JBinarySerializeReader maprd( pidMapFile);
-  jalib::JBinarySerializeReader countrd(pidMapCountFile);
-
-  // Read number of PID mappings
+  dmtcp::string mapFile;
   size_t numMaps;
-  serializeEntryCount (countrd,numMaps);
 
-  // Read pidMapping content
-  pid_t virtualPid;
-  pid_t realPid;
-  while ( numMaps-- > 0 ){
-    serializePidMapEntry ( maprd, virtualPid, realPid );
-    _pidMapTable[virtualPid] = realPid;
+  mapFile = jalib::Filesystem::ResolveSymlink(
+              "/proc/self/fd/" + jalib::XToString(PROTECTED_PIDMAP_FD));
+
+  JASSERT(mapFile.length() > 0) (mapFile);
+  JTRACE("Read PidMaps from file") (mapFile);
+
+  Util::lockFile(PROTECTED_PIDMAP_FD);
+  _do_lock_tbl();
+
+  jalib::JBinarySerializeReaderRaw maprd(mapFile, PROTECTED_PIDMAP_FD);
+  maprd.rewind();
+
+  while (!maprd.isEOF()) {
+    serializeEntryCount(maprd, numMaps); // Read number of PID mappings
+    while (numMaps-- > 0) { // Read pidMapping content
+      pid_t virtualPid, realPid;
+      serializePidMapEntry(maprd, virtualPid, realPid);
+      _pidMapTable[virtualPid] = realPid;
+    }
   }
-  printPidMaps();
-}
 
-#endif
+  _do_unlock_tbl();
+  Util::unlockFile(PROTECTED_PIDMAP_FD);
+
+  printPidMaps();
+  _real_close(PROTECTED_PIDMAP_FD);
+  unlink(mapFile.c_str());
+}

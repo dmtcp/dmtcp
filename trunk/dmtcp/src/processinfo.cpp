@@ -59,7 +59,6 @@ dmtcp::ProcessInfo::ProcessInfo()
   _tidVector.clear();
   _pthreadJoinId.clear();
   _do_unlock_tbl();
-
 }
 
 dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
@@ -74,25 +73,11 @@ void dmtcp::ProcessInfo::preCheckpoint()
 
 void dmtcp::ProcessInfo::postRestart()
 {
-  /*
-   * PROTECTED_PIDTBL_FD corresponds to the file containing the pids/uniquePids
-   *  of all child processes, tids of all threads, and tids of all inferior
-   *  process(threads) which are being traced by this process.
-   */
-  dmtcp::string serialFile = "/proc/self/fd/"
-                           + jalib::XToString ( PROTECTED_PIDTBL_FD );
-
-  serialFile = jalib::Filesystem::ResolveSymlink ( serialFile );
-  JASSERT ( serialFile.length() > 0 ) ( serialFile );
-  _real_close ( PROTECTED_PIDTBL_FD );
-
-  JTRACE("Read virtual pids from pid-table file") (serialFile);
-  jalib::JBinarySerializeReader rd ( serialFile );
-  serialize ( rd );
 }
 
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()
 {
+  // FIXME: This needs to be fixed
 #ifdef PID_VIRTUALIZATION
   // Restore group assignment
   if( VirtualPidTable::instance().pidExists(_gid) ){
