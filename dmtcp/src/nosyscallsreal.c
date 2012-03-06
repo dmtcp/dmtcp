@@ -91,6 +91,9 @@ void initialize_wrappers() {
   return;
 }
 
+void dmtcpResetPidPpid(pid_t pid, pid_t ppid) {}
+void dmtcpResetTid(pid_t tid) {}
+
 pid_t gettid() {
   return _real_gettid();
 }
