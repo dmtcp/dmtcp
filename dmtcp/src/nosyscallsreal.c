@@ -91,6 +91,10 @@ void initialize_wrappers() {
   return;
 }
 
+pid_t gettid() {
+  return _real_gettid();
+}
+
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }
@@ -358,6 +362,11 @@ pid_t _real_gettid(void){
 #else
   REAL_FUNC_PASSTHROUGH_PID_T ( syscall(SYS_gettid) );
 #endif
+}
+
+LIB_PRIVATE
+int   _real_tgkill(int tgid, int tid, int sig) {
+  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 int _real_open ( const char *pathname, int flags, ... ) {

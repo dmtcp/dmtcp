@@ -63,6 +63,7 @@ namespace dmtcp
       static VirtualPidTable& instance();
       static bool isConflictingPid(pid_t pid);
 
+      static pid_t getPidFromEnvVar();
       void postRestart();
       void preCheckpoint();
       void  postExec();
@@ -70,6 +71,7 @@ namespace dmtcp
       pid_t virtualToReal(pid_t virtualPid);
       pid_t realToVirtual(pid_t realPid);
       bool pidExists(pid_t pid);
+      bool realPidExists(pid_t pid);
 
       void insert(pid_t virtualPid);
       void updateMapping(pid_t virtualPid, pid_t realPid);
@@ -90,20 +92,13 @@ namespace dmtcp
 
       dmtcp::vector< pid_t > getPidVector();
 
-
-      pid_t pid() const { return _pid; }
-      pid_t ppid() const { return _ppid; }
-
-      void setppid( pid_t ppid ) { _ppid = ppid; }
-
+      void atForkChild();
       void resetOnFork();
+      pid_t getNewVirtualTid();
 
     private:
-      typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
-      dmtcp::map< pid_t , pid_t > _pidMapTable;
-
-      pid_t _pid;
-      pid_t _ppid;
+      typedef dmtcp::map<pid_t, pid_t>::iterator pid_iterator;
+      dmtcp::map<pid_t, pid_t> _pidMapTable;
   };
 }
 

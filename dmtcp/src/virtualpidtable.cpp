@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "virtualpidtable.h"
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -28,14 +27,19 @@
 #include <sys/syscall.h>
 #include "constants.h"
 #include "util.h"
-#include "syscallwrappers.h"
 #include "protectedfds.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
-
 #ifdef PID_VIRTUALIZATION
+#include "syscallwrappers.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "virtualpidtable.h"
+#include "dmtcpmodule.h"
+#include "processinfo.h"
 
+#define INITIAL_VIRTUAL_TID 1
+#define MAX_VIRTUAL_TID 999
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
+static pid_t _nextVirtualTid = INITIAL_VIRTUAL_TID;
 
 static void _do_lock_tbl()
 {
@@ -50,11 +54,8 @@ static void _do_unlock_tbl()
 dmtcp::VirtualPidTable::VirtualPidTable()
 {
   _do_lock_tbl();
-  _pid = _real_getpid();
-  _ppid = _real_getppid();
   _pidMapTable.clear();
-  _pidMapTable[_pid] = _pid;
-  _pidMapTable[_ppid] = _ppid;
+  //_pidMapTable[getpid()] = _real_getpid();
   _do_unlock_tbl();
 }
 
@@ -94,7 +95,6 @@ bool dmtcp::VirtualPidTable::isConflictingPid( pid_t pid)
 
 void dmtcp::VirtualPidTable::preCheckpoint()
 {
-  _ppid = getppid(); // refresh parent PID
 }
 
 void dmtcp::VirtualPidTable::postRestart()
@@ -103,6 +103,10 @@ void dmtcp::VirtualPidTable::postRestart()
    * PROTECTED_PIDMAP_FD corresponds to the file containg computation wide
    *  virtualPid -> realPid map to avoid pid/tid collisions.
    */
+  _do_lock_tbl();
+  _pidMapTable.clear();
+  _pidMapTable[getpid()] = _real_getpid();
+  _do_unlock_tbl();
 }
 
 void dmtcp::VirtualPidTable::printPidMaps()
@@ -118,12 +122,51 @@ void dmtcp::VirtualPidTable::printPidMaps()
   JTRACE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
 }
 
-void dmtcp::VirtualPidTable::resetOnFork()
+pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
+{
+  pid_t tid = -1;
+  pid_iterator i;
+  pid_iterator next;
+  _do_lock_tbl();
+  if (_pidMapTable.size() == MAX_VIRTUAL_TID) {
+    pid_t pid = _real_getpid();
+    for (i = _pidMapTable.begin(), next = i; i != _pidMapTable.end(); i = next) {
+      next++;
+      if (_real_tgkill(pid, i->second, 0) == -1) {
+        dmtcp::ProcessInfo::instance().eraseTid(i->first);
+        _pidMapTable.erase(i);
+      }
+    }
+  }
+
+  JASSERT(_pidMapTable.size() < MAX_VIRTUAL_TID)
+    .Text("Exceeded maximum number of threads allowed");
+  while (1) {
+    tid = getpid() + _nextVirtualTid++;
+    if (_nextVirtualTid >= MAX_VIRTUAL_TID) {
+      _nextVirtualTid = INITIAL_VIRTUAL_TID;
+    }
+    i = _pidMapTable.find(tid);
+    if (i == _pidMapTable.end()) {
+      break;
+    }
+  }
+  _do_unlock_tbl();
+  JASSERT(tid != -1) .Text("Not Reachable");
+  return tid;
+}
+
+void dmtcp::VirtualPidTable::atForkChild()
 {
   pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
   tblLock = newlock;
-  _pid = _real_getpid();
-  _ppid = realToVirtual ( _real_getppid() );
+  _nextVirtualTid = INITIAL_VIRTUAL_TID;
+  _pidMapTable[getpid()] = _real_getpid();
+}
+
+void dmtcp::VirtualPidTable::resetOnFork()
+{
+  atForkChild();
   printPidMaps();
 }
 
@@ -155,7 +198,7 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualPid)
   return retVal;
 }
 
-extern int __attribute__ ((weak)) mtcp_is_ptracing();
+extern "C" int __attribute__ ((weak)) mtcp_is_ptracing();
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realPid == -1 || realPid == 0) {
@@ -200,9 +243,25 @@ void dmtcp::VirtualPidTable::updateMapping( pid_t virtualPid, pid_t realPid )
 dmtcp::vector< pid_t > dmtcp::VirtualPidTable::getPidVector( )
 {
   dmtcp::vector< pid_t > pidVec;
+  _do_lock_tbl();
   for ( pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i )
     pidVec.push_back ( i->first );
+  _do_unlock_tbl();
   return pidVec;
+}
+
+bool dmtcp::VirtualPidTable::realPidExists( pid_t pid )
+{
+  bool retval = false;
+  _do_lock_tbl();
+  for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i) {
+    if (i->second == pid) {
+      retval = true;
+      break;
+    }
+  }
+  _do_unlock_tbl();
+  return retval;
 }
 
 bool dmtcp::VirtualPidTable::pidExists( pid_t pid )

@@ -78,7 +78,6 @@ namespace dmtcp
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
-      void updateRootOfProcessTree();
 
       dmtcp::vector< pid_t > getChildPidVector();
       dmtcp::vector< pid_t > getTidVector();

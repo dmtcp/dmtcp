@@ -41,10 +41,38 @@
 
 #ifdef PID_VIRTUALIZATION
 
-static __thread pid_t dmtcp_thread_tid = -1;
-LIB_PRIVATE
-void dmtcp_reset_gettid() {
-  dmtcp_thread_tid = -1;
+static __thread pid_t _dmtcp_thread_tid = -1;
+
+static pid_t _dmtcp_pid = -1;
+static pid_t _dmtcp_ppid = -1;
+
+
+static pid_t getPidFromEnvVar()
+{
+  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  if (pidstr == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__, __LINE__);
+    sleep(5);
+    _exit(0);
+  }
+  return (pid_t) atoi(pidstr);
+}
+
+
+extern "C" LIB_PRIVATE
+void dmtcpResetPidPpid(pid_t pid, pid_t ppid)
+{
+  // Reset __thread_tid on fork. This should be the first thing to do in
+  // the child process.
+  _dmtcp_pid = pid;
+  _dmtcp_ppid = ppid;
+}
+
+extern "C" LIB_PRIVATE
+void dmtcpResetTid(pid_t tid)
+{
+  _dmtcp_thread_tid = tid;
 }
 
 extern "C" pid_t gettid()
@@ -53,30 +81,29 @@ extern "C" pid_t gettid()
    * DmtcpWorker::decrementUninitializedThreadCount() and so the value is
    * cached before it is accessed by some other DMTCP code.
    */
-  if (dmtcp_thread_tid == -1) {
-    dmtcp_thread_tid = _real_gettid();
+  if (_dmtcp_thread_tid == -1) {
+    _dmtcp_thread_tid = _real_gettid();
   }
-  return dmtcp_thread_tid;
+  return _dmtcp_thread_tid;
 }
 
 extern "C" pid_t getpid()
 {
-  return dmtcp::ProcessInfo::instance().pid();
+  if (_dmtcp_pid == -1) {
+    _dmtcp_pid = _real_getpid();
+  }
+  return _dmtcp_pid;
 }
 
 extern "C" pid_t getppid()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
   if (_real_getppid() == 1) {
-    dmtcp::ProcessInfo::instance().setppid(1);
+    _dmtcp_ppid = 1;
   }
-
-  pid_t ppid = dmtcp::ProcessInfo::instance().ppid();
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return ppid;
+  if (_dmtcp_ppid == -1) {
+    _dmtcp_ppid = _real_getppid();
+  }
+  return _dmtcp_ppid;
 }
 
 extern "C" pid_t tcsetpgrp(int fd, pid_t pgrp)
