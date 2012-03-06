@@ -97,14 +97,13 @@ LIB_PRIVATE void pthread_atfork_child()
 
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();
   dmtcp::ThreadSync::resetLocks();
 
-  child = dmtcp::UniquePid(host, getpid(), child_time);
   dmtcp::UniquePid::resetOnFork(child);
   dmtcp::Util::initializeLogFile(child_name);
 
@@ -127,14 +126,20 @@ extern "C" pid_t fork()
   child_time = time(NULL);
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
+  _dmtcp_unsetenv(ENV_VAR_VIRTUAL_PID);
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
   pid_t virtualPid = coordinatorAPI.virtualPid();
   char buf[80];
   sprintf(buf, "%d", virtualPid);
   setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+  if (mtcp_is_ptracing()) {
+    dmtcp::VirtualPidTable::instance().
+      writeVirtualTidToFileForPtrace(virtualPid);
+  }
+
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, virtualPid, child_time);
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
@@ -153,9 +158,8 @@ extern "C" pid_t fork()
      */
     JTRACE("fork() done [CHILD]") (child) (parent);
   } else if (realPid > 0) { /* Parent Process */
-    child = dmtcp::UniquePid(host, realPid, child_time);
-    dmtcp::VirtualPidTable::instance().updateMapping(realPid, realPid);
-    dmtcp::ProcessInfo::instance().insertChild(realPid, child);
+    dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+    dmtcp::ProcessInfo::instance().insertChild(virtualPid, child);
     JTRACE("fork()ed [PARENT] done") (child);;
   }
 
@@ -166,6 +170,9 @@ extern "C" pid_t fork()
     setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
     coordinatorAPI.closeConnection();
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+  }
+  if (realPid > 0) {
+    return virtualPid;
   }
   return realPid;
 }

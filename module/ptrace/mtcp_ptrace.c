@@ -937,7 +937,8 @@ void ptrace_detach_user_threads ()
           if (tpid == -1 && errno == ECHILD) {
             if ((tpid = mtcp_waitpid(pt_info->inferior, &status,
                     __WCLONE)) == -1) {
-              MTCP_PRINTF("waitpid(..,__WCLONE) %s\n", strerror(errno));
+              MTCP_PRINTF("waitpid(%d, ..., __WCLONE) %s\n",
+                          pt_info->inferior, strerror(errno));
             }
           }
           if (WIFSTOPPED(status)) {

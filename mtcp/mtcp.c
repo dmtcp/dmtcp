@@ -4261,41 +4261,22 @@ static int restarthread (void *threadv)
      *  clone call.
      *                                                           (--Kapil)
      */
-    mtcpRestartThreadArg.arg = child;
-    mtcpRestartThreadArg.virtual_tid = child -> virtual_tid;
-    clone_arg = &mtcpRestartThreadArg;
-
-   /*
-    * syscall is wrapped by DMTCP when configured with PID-Virtualization.
-    * It calls __clone which goes to DMTCP:__clone which then calls
-    * MTCP:__clone. DMTCP:__clone checks for tid-conflict with any virtual_tid.
-    * If conflict, it replaces the thread with a new one with a new tid.
-    * DMTCP:__clone wrapper calls the glibc:__clone if the computation is not in
-    * RUNNING state (must be restarting), it calls the mtcp:__clone otherwise.
-    * IF No PID-Virtualization, call glibc:__clone because threads created
-    * during mtcp_restart should not go to MTCP:__clone; MTCP remembers those
-    * threads from the checkpoint image.
-    */
-
-    /* If running under DMTCP */
-    pid_t tid;
     if (dmtcp_info_pid_virtualization_enabled == 1) {
-      tid = syscall(SYS_clone, restarthread,
-                    (void*)(child -> JMPBUF_SP - 128),// -128 for red zone
-                    ((child -> clone_flags & ~CLONE_SETTLS) |
-                     CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID),
-                    clone_arg, child -> parent_tidptr, NULL,
-                    child -> actual_tidptr);
-    } else {
-      tid = ((*clone_entry)(restarthread,
-                            // -128 for red zone
-                            (void *)(child -> JMPBUF_SP - 128),
-                            ((child -> clone_flags & ~CLONE_SETTLS)
-                             | CLONE_CHILD_SETTID
-                             | CLONE_CHILD_CLEARTID),
-                            child, child -> parent_tidptr, NULL,
-                            child -> actual_tidptr));
+      mtcpRestartThreadArg.arg = child;
+      mtcpRestartThreadArg.virtual_tid = child -> virtual_tid;
+      clone_arg = &mtcpRestartThreadArg;
     }
+
+    /* Create the thread so it can finish restoring itself. */
+    pid_t tid = (*clone_entry)(restarthread,
+                               // -128 for red zone
+                               (void*)(child -> JMPBUF_SP - 128), // -128 for red zone
+                               /* Don't do CLONE_SETTLS (it'll puke).  We do it
+                                * later via restore_tls_state. */
+                               ((child -> clone_flags & ~CLONE_SETTLS) |
+                                CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID),
+                               clone_arg, child -> parent_tidptr, NULL,
+                               child -> actual_tidptr);
 
     if (tid < 0) {
       MTCP_PRINTF("error %d recreating thread\n", errno);

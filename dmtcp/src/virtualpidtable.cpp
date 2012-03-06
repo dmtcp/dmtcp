@@ -50,12 +50,23 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
+static void pidVirt_pthread_atfork_child()
+{
+  dmtcp::VirtualPidTable::instance().atForkChild();
+}
+
+static bool pthread_atfork_initialized = false;
 dmtcp::VirtualPidTable::VirtualPidTable()
 {
   _do_lock_tbl();
   _pidMapTable.clear();
   //_pidMapTable[getpid()] = _real_getpid();
   _do_unlock_tbl();
+
+  if (!pthread_atfork_initialized) {
+    pthread_atfork(NULL, NULL, pidVirt_pthread_atfork_child);
+    pthread_atfork_initialized = true;
+  }
 }
 
 static dmtcp::VirtualPidTable *inst = NULL;
@@ -90,7 +101,7 @@ void dmtcp::VirtualPidTable::printPidMaps()
     pid_t realPid  = i->second;
     out << "\t" << virtualPid << "\t->   " << realPid << "\n";
   }
-  JNOTE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
+  JTRACE("Virtual To Real Pid Mappings:") (_pidMapTable.size()) (out.str());
 }
 
 pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
@@ -169,7 +180,6 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualPid)
   return retVal;
 }
 
-extern "C" int __attribute__ ((weak)) mtcp_is_ptracing();
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realPid == -1 || realPid == 0) {
@@ -187,6 +197,18 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
     }
   }
 
+  if (mtcp_is_ptracing()) {
+    pid_t virtualPid = readVirtualTidFromFileForPtrace(getpid());
+    if (virtualPid != -1) {
+      _do_unlock_tbl();
+      //JNOTE("inserting") (virtualPid) (realPid);
+      updateMapping(virtualPid, realPid);
+      return virtualPid;
+    }
+  }
+
+  //JWARNING(false) (realPid)
+    //.Text("No virtual pid/tid found for the given real pid");
   _do_unlock_tbl();
   return realPid;
 }
@@ -245,6 +267,49 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 
   _do_unlock_tbl();
   return retVal;
+}
+
+void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
+{
+  dmtcp::ostringstream o;
+  char buf[80];
+  o << dmtcp::UniquePid::getTmpDir() << "/virtualPidOfNewlyCreatedThread_"
+    << dmtcp::UniquePid::ComputationId() << "_" << getppid();
+
+  sprintf(buf, "%d", pid);
+  int fd = _real_open(o.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
+  JASSERT(fd >= 0) (o.str()) (JASSERT_ERRNO);
+  dmtcp::Util::writeAll(fd, buf, strlen(buf) + 1);
+  JTRACE("Writing virtual Pid/Tid to file") (pid) (o.str());
+  _real_close(fd);
+}
+
+pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t inferior)
+{
+  dmtcp::ostringstream o;
+  char buf[80];
+  pid_t pid;
+  int fd;
+  ssize_t bytesRead;
+
+  o << dmtcp::UniquePid::getTmpDir() << "/virtualPidOfNewlyCreatedThread_"
+    << dmtcp::UniquePid::ComputationId() << "_" << getpid();
+
+  fd = _real_open(o.str().c_str(), O_RDONLY, 0);
+  if (fd < 0) {
+    return -1;
+  }
+  bytesRead = dmtcp::Util::readAll(fd, buf, sizeof(buf));
+  _real_close(fd);
+  unlink(o.str().c_str());
+
+  if (bytesRead <= 0) {
+    return -1;
+  }
+
+  sscanf(buf, "%d", &pid);
+  JTRACE("Read virtual Pid/Tid to file") (pid) (o.str());
+  return pid;
 }
 
 void dmtcp::VirtualPidTable::serialize ( jalib::JBinarySerializer& o )
