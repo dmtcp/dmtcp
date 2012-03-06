@@ -156,6 +156,10 @@ static void initializeMtcpFuncPtrs()
     (mtcp_set_dmtcp_callbacks_t) get_mtcp_symbol("mtcp_set_dmtcp_callbacks");
 }
 
+extern "C" int dmtcp_clone(int (*fn) (void *arg), void *child_stack, int flags,
+                           void *arg, int *parent_tidptr,
+                           struct user_desc *newtls, int *child_tidptr);
+
 static void initializeDmtcpInfoInMtcp()
 {
   int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
@@ -164,7 +168,7 @@ static void initializeDmtcpInfoInMtcp()
   // Later, we may offer the user a separate command line option for this.
   int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
 
-  void *clone_fptr = (void*) _real_clone;
+  void *clone_fptr = (void*) dmtcp_clone;
   void *sigaction_fptr = (void*) _real_sigaction;
   // FIXME: What if jalib::JAllocDispatcher is undefined?
   void *malloc_fptr = (void*) jalib::JAllocDispatcher::malloc;

@@ -171,6 +171,7 @@ void dmtcp::ProcessInfo::eraseTid( pid_t tid )
 
 void dmtcp::ProcessInfo::postExec( )
 {
+  dmtcpResetPidPpid(_pid, _ppid);
   JTRACE("Post-Exec. Emptying tidVector");
   _do_lock_tbl();
 #ifdef PID_VIRTUALIZATION

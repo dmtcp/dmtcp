@@ -81,7 +81,9 @@ extern "C" pid_t gettid()
    * cached before it is accessed by some other DMTCP code.
    */
   if (_dmtcp_thread_tid == -1) {
-    _dmtcp_thread_tid = _real_gettid();
+    _dmtcp_thread_tid = getpid();
+    // Make sure this is the motherofall thread.
+    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
   }
   return _dmtcp_thread_tid;
 }
@@ -89,7 +91,9 @@ extern "C" pid_t gettid()
 extern "C" pid_t getpid()
 {
   if (_dmtcp_pid == -1) {
-    _dmtcp_pid = _real_getpid();
+    _dmtcp_pid = getPidFromEnvVar();
+    dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_pid,
+                                                     _real_getpid());
   }
   return _dmtcp_pid;
 }
@@ -487,7 +491,6 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
     WRAPPER_EXECUTION_DISABLE_CKPT();
     currPid = VIRTUAL_TO_REAL_PID(pid);
     retval = _real_wait4(currPid, status, options | WNOHANG, rusage);
-    JNOTE("\n\n\n\n") (currPid) (pid) (retval);
     saved_errno = errno;
     virtualPid = REAL_TO_VIRTUAL_PID(retval);
 
@@ -545,8 +548,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
     unsigned long *ldata = (unsigned long*) data;
     pid_t newRealPid =  (pid_t) *ldata;
-    pid_t newVirtualPid = REAL_TO_VIRTUAL_PID(newRealPid);
-    *ldata = (unsigned long) newVirtualPid;
+    *ldata = (unsigned long) REAL_TO_VIRTUAL_PID(newRealPid);
   }
 
   return ptrace_ret;
