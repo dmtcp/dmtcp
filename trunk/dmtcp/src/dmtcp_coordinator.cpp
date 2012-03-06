@@ -368,7 +368,7 @@ static dmtcp::string localPrefix;
 static dmtcp::string remotePrefix;
 
 #define INITIAL_VIRTUAL_PID 1000
-#define MAX_VIRTUAL_PID 32000
+#define MAX_VIRTUAL_PID 320000
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 namespace
@@ -443,7 +443,7 @@ pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
     .Text("Exceeded maximum number of processes allowed");
   while (1) {
     pid = _nextVirtualPid;
-    _nextVirtualPid += 100;
+    _nextVirtualPid += 1000;
     if (_nextVirtualPid > MAX_VIRTUAL_PID) {
       _nextVirtualPid = INITIAL_VIRTUAL_PID;
     }

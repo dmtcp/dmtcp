@@ -81,7 +81,7 @@ int clone_start(void *arg)
    * restart.
    */
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    dmtcp_reset_gettid();
+    dmtcpResetTid(-1);
   }
 
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;

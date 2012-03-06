@@ -29,12 +29,12 @@
 #include "connectionmanager.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "virtualpidtable.h"
 #include "processinfo.h"
-#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
+#include "dmtcpmodule.h"
 #include "util.h"
+#include "sysvipc.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include <sys/time.h>
@@ -91,21 +91,20 @@ LIB_PRIVATE void pthread_atfork_child()
     return;
   }
   pthread_atfork_enabled = false;
+
+  dmtcpResetPidPpid(-1, getpid());
+  dmtcpResetTid(getpid());
+
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
-  // Reset __thread_tid on fork. This should be the first thing to do in
-  // the child process.
-#ifdef PID_VIRTUALIZATION
-  dmtcp_reset_gettid();
-#endif
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();
   dmtcp::ThreadSync::resetLocks();
 
-  child = dmtcp::UniquePid(host, _real_getpid(), child_time);
+  child = dmtcp::UniquePid(host, getpid(), child_time);
   dmtcp::UniquePid::resetOnFork(child);
   dmtcp::Util::initializeLogFile(child_name);
 
@@ -119,7 +118,6 @@ LIB_PRIVATE void pthread_atfork_child()
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
   dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
-
 }
 
 extern "C" pid_t fork()
@@ -137,10 +135,14 @@ extern "C" pid_t fork()
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
-  pid_t child_pid;
 
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
+  pid_t virtualPid = coordinatorAPI.virtualPid();
+  char buf[80];
+  sprintf(buf, "%d", virtualPid);
+  setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
 
+  pid_t child_pid;
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
   while (1) {
@@ -179,6 +181,9 @@ extern "C" pid_t fork()
   pthread_atfork_enabled = false;
 
   if (child_pid != 0) {
+    sprintf(buf, "%d", getpid());
+    setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+    coordinatorAPI.closeConnection();
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return child_pid;
