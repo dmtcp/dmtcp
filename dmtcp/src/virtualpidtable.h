@@ -81,13 +81,13 @@ namespace dmtcp
 
       void refresh();
 
-      static void InsertIntoPidMapFile( pid_t virtualPid, pid_t realPid);
       void serialize(jalib::JBinarySerializer& o);
       void serializePidMap(jalib::JBinarySerializer& o);
-      static void serializePidMapEntry(jalib::JBinarySerializer& o,
-                                       pid_t& virtualPid,
-                                       pid_t& realPid );
-      static void serializeEntryCount(jalib::JBinarySerializer& o, size_t& count);
+      void serializePidMapEntry(jalib::JBinarySerializer& o,
+                                pid_t& virtualPid,
+                                pid_t& realPid );
+      void serializeEntryCount(jalib::JBinarySerializer& o, size_t& count);
+      void writePidMapsToFile();
       void readPidMapsFromFile();
 
       dmtcp::vector< pid_t > getPidVector();

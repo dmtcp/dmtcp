@@ -108,13 +108,7 @@ LIB_PRIVATE void pthread_atfork_child()
   dmtcp::UniquePid::resetOnFork(child);
   dmtcp::Util::initializeLogFile(child_name);
 
-#ifdef PID_VIRTUALIZATION
-  if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
-    _exit(DMTCP_FAIL_RC);
-  }
-  dmtcp::VirtualPidTable::instance().resetOnFork();
   dmtcp::ProcessInfo::instance().resetOnFork();
-#endif
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
   dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
@@ -142,51 +136,38 @@ extern "C" pid_t fork()
   sprintf(buf, "%d", virtualPid);
   setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
 
-  pid_t child_pid;
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
-  while (1) {
-    child_pid = _real_fork();
-    if (child_pid == -1) { // fork() failed
-      break;
-    }
+  pid_t realPid = _real_fork();
 
-    if (child_pid == 0) { /* child process */
-      /* NOTE: Any work that needs to be done for the newly created child
-       * should be put into pthread_atfork_child() function. That function is
-       * hooked to the libc:fork() and will be called right after the new
-       * process is created and before the fork() returns.
-       *
-       * pthread_atfork_child is registered by calling pthread_atfork() from
-       * within the DmtcpWorker constructor to make sure that this is the first
-       * registered handle.
-       */
-      JTRACE("fork() done [CHILD]") (child) (parent);
-    } else { /* Parent Process */
-      coordinatorAPI.closeConnection();
-      child = dmtcp::UniquePid(host, child_pid, child_time);
-#ifdef PID_VIRTUALIZATION
-      if (dmtcp::VirtualPidTable::isConflictingPid(child_pid)) {
-        JTRACE("PID Conflict, creating new child") (child_pid);
-        _real_waitpid(child_pid, NULL, 0);
-        continue;
-      }
-      dmtcp::ProcessInfo::instance().insertChild(child_pid, child);
-#endif
-
-      JTRACE("fork()ed [PARENT] done") (child);;
-    }
-    break;
+  if (realPid == -1) {
+  } else if (realPid == 0) { /* child process */
+    /* NOTE: Any work that needs to be done for the newly created child
+     * should be put into pthread_atfork_child() function. That function is
+     * hooked to the libc:fork() and will be called right after the new
+     * process is created and before the fork() returns.
+     *
+     * pthread_atfork_child is registered by calling pthread_atfork() from
+     * within the DmtcpWorker constructor to make sure that this is the first
+     * registered handle.
+     */
+    JTRACE("fork() done [CHILD]") (child) (parent);
+  } else if (realPid > 0) { /* Parent Process */
+    child = dmtcp::UniquePid(host, realPid, child_time);
+    dmtcp::VirtualPidTable::instance().updateMapping(realPid, realPid);
+    dmtcp::ProcessInfo::instance().insertChild(realPid, child);
+    JTRACE("fork()ed [PARENT] done") (child);;
   }
+
   pthread_atfork_enabled = false;
 
-  if (child_pid != 0) {
+  if (realPid != 0) {
     sprintf(buf, "%d", getpid());
     setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
     coordinatorAPI.closeConnection();
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
-  return child_pid;
+  return realPid;
 }
 
 extern "C" pid_t vfork()

@@ -46,7 +46,6 @@ static __thread pid_t _dmtcp_thread_tid = -1;
 static pid_t _dmtcp_pid = -1;
 static pid_t _dmtcp_ppid = -1;
 
-
 static pid_t getPidFromEnvVar()
 {
   const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
@@ -145,7 +144,7 @@ extern "C" pid_t getpgrp(void)
   return origPgrp;
 }
 
-extern "C" pid_t setpgrp(void)
+extern "C" int setpgrp(void)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -488,6 +487,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
     WRAPPER_EXECUTION_DISABLE_CKPT();
     currPid = VIRTUAL_TO_REAL_PID(pid);
     retval = _real_wait4(currPid, status, options | WNOHANG, rusage);
+    JNOTE("\n\n\n\n") (currPid) (pid) (retval);
     saved_errno = errno;
     virtualPid = REAL_TO_VIRTUAL_PID(retval);
 

@@ -4245,11 +4245,6 @@ static int restarthread (void *threadv)
     do rip = mtcp_state_value(&restoreinprog);
     while (!mtcp_state_set (&restoreinprog, rip + 1, rip));
 
-    /* Create the thread so it can finish restoring itself.
-     * Don't do CLONE_SETTLS (it'll puke).  We do it later via
-     * restore_tls_state.
-     */
-
     ///JA: v54b port
     errno = -1;
 

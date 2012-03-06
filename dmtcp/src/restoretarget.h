@@ -38,53 +38,6 @@
 
 namespace dmtcp
 {
-
-  class OriginalPidTable {
-    public:
-      OriginalPidTable(){}
-
-      void insertFromProcessInfo ( dmtcp::ProcessInfo& vt )
-      {
-        dmtcp::vector< pid_t > tmpVector;
-
-        _insert(vt.pid());
-
-        tmpVector = vt.getChildPidVector();
-        for ( size_t i = 0; i < tmpVector.size(); ++i )
-          _insert(tmpVector[i]);
-
-        tmpVector = vt.getTidVector();
-        for ( size_t i = 0; i < tmpVector.size(); ++i )
-          _insert(tmpVector[i]);
-      }
-
-      void _insert( pid_t pid )
-      {
-        if (!isConflictingChildPid (pid) /* && newVector[i] != getpid()*/) {
-          _vector.push_back ( pid );
-          JTRACE("New Pid Pushed to PidVector") (pid);
-        }
-      }
-
-      bool isConflictingChildPid ( pid_t pid )
-      {
-        //iterator i = _vector.find ( pid );
-        //if ( i == _vector.end() )
-        //  return false;
-        for ( size_t i = 0; i < _vector.size(); ++i )
-          if ( _vector[i] == pid )
-            return true;
-
-        return false;
-      }
-
-      size_t numPids () { return _vector.size(); }
-
-    private:
-      typedef dmtcp::vector< pid_t >::iterator iterator;
-      dmtcp::vector< pid_t > _vector;
-  };
-
   class RestoreTarget
   {
   public:

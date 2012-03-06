@@ -332,6 +332,7 @@ static void callbackWriteCkptPrefix ( int fd )
 
 static void callbackRestoreVirtualPidTable()
 {
+  dmtcp::VirtualPidTable::instance().writePidMapsToFile();
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
   dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 

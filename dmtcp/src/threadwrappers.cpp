@@ -30,7 +30,6 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
-enum cloneSucceed {CLONE_UNINITIALIZED, CLONE_FAIL, CLONE_SUCCEED};
 struct ThreadArg {
   int ( *fn ) ( void *arg );  // clone() calls fn that returns int
   void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
@@ -72,58 +71,15 @@ static void *pthread_start(void *arg)
 LIB_PRIVATE
 int clone_start(void *arg)
 {
-  /* This function re-initializes the thread-local tid variable. The
-   * thread-locals are initialized during pthread_create, but if we re-spawn
-   * the thread due to tid-conflict, the thread-local storage won't be
-   * reinitialized automatically, thus we should do it here.
-   *
-   * Of-course, we should not do this while we are recreating threads during
-   * restart.
-   */
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING) {
-    dmtcpResetTid(-1);
-  }
-
   struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-  pid_t tid = _real_gettid();
-  JTRACE ("In clone_start");
-
-  if ( dmtcp::VirtualPidTable::isConflictingPid ( tid ) ) {
-    JTRACE ("TID conflict detected.  Exiting thread.");
-    mtcpFuncPtrs.threadiszombie();
-    // If we return to clone(), clone will call __GI_exit(), and process exits.
-    // We emulate glibc pthread_create.c:start_thread(), which makes
-    //   call below in order to kill this thread only.
-    _real_syscall(SYS_exit, 0);
-    return 0; // Not reached.  Done to avoid compiler warnings.
-  }
-
-  pid_t virtualTid = threadArg -> virtualTid;
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
+  pid_t virtualTid = threadArg -> virtualTid;
 
   // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
   JALLOC_HELPER_FREE(threadArg);
 
-  if (virtualTid == -1) {
-    /*
-     * virtualTid is not known, which means this thread never existed before
-     * checkpoint, so will insert the virtualTid into virtualpidtable
-     *
-     * No danger in calling gettid() because it will call _real_gettid() only
-     * _once_ and then cache the return value.
-     */
-    virtualTid = gettid();
-    JASSERT ( tid == virtualTid ) (tid) (virtualTid)
-      .Text ( "syscall(SYS_gettid) and _real_gettid() returning different "
-              "values for the newly created thread!" );
-    dmtcp::ProcessInfo::instance().insertTid ( virtualTid );
-    dmtcp::VirtualPidTable::instance().insert ( virtualTid );
-  }
-
-  dmtcp::VirtualPidTable::instance().updateMapping ( virtualTid, tid );
-
-  JTRACE ( "Calling user function" ) (virtualTid);
+  dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
@@ -131,19 +87,8 @@ int clone_start(void *arg)
    */
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
 
-  // return (*(threadArg->fn)) ( threadArg->arg );
-  int result = (*fn) ( thread_arg );
-
-  JTRACE ( "Thread returned:" ) (virtualTid);
-
-  /*
-   * This thread has finished its execution, do some cleanup on our part.
-   *  erasing the virtualTid entry from virtualpidtable
-   */
-  dmtcp::VirtualPidTable::instance().erase ( virtualTid );
-  dmtcp::ProcessInfo::instance().eraseTid ( virtualTid );
-
-  return result;
+  JTRACE ( "Calling user function" ) (virtualTid);
+  return (*fn) ( thread_arg );
 }
 #endif
 
@@ -191,6 +136,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   }
   if (retval != 0) { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
+    dmtcp::ThreadSync::decrementUninitializedThreadCount();
   }
   return retval;
 }
@@ -199,6 +145,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg,
                        int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
 {
+  pid_t tid;
   /*
    * struct MtcpRestartThreadArg
    *
@@ -221,31 +168,15 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
     pid_t virtualTid;
   } *mtcpRestartThreadArg;
 
-#ifndef PID_VIRTUALIZATION
-  if (dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING) {
-    mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
-    arg                  = mtcpRestartThreadArg -> arg;
-  }
+  pid_t virtualTid = -1;
 
-  JTRACE("Forwarding user's clone call to mtcp");
-  return mtcpFuncPtrs.clone(fn, child_stack, flags, arg, parent_tidptr, newtls,
-                            child_tidptr);
-
-#else
-
-  /* Acquire the wrapperExeution lock
-   * (Make sure to unlock before returning from this function)
-   * Also increment the uninitialized thread count.
-   */
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::ThreadSync::incrementUninitializedThreadCount();
 
-  pid_t virtualTid = -1;
-
-  if (dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING) {
+  if (!dmtcp_is_running_state()) {
     mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
     arg                  = mtcpRestartThreadArg -> arg;
-    virtualTid          = mtcpRestartThreadArg -> virtualTid;
+    virtualTid           = mtcpRestartThreadArg -> virtualTid;
   }
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -259,91 +190,28 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
 
-  int tid;
-
-  /*
-   * virtualTid == -1 indicates that the thread is being created for the first
-   * time in the process i.e. we are not restoring from a checkpoint
-   */
-
-  while (1) {
-    if (virtualTid == -1) {
-      /* First time thread creation */
-      JTRACE ( "Forwarding user's clone call to mtcp" );
-      tid = mtcpFuncPtrs.clone(clone_start, child_stack, flags, threadArg,
-                               parent_tidptr, newtls, child_tidptr);
-      JTRACE ( "Forwarding user's clone call to mtcp done" );
-    } else {
-      /* Recreating thread during restart */
-      JTRACE ( "Calling libc:__clone" );
-      tid = _real_clone(clone_start, child_stack, flags, threadArg, parent_tidptr,
-                        newtls, child_tidptr);
-    }
-
-    if (tid == -1) { // if the call to clone failed
-      JTRACE("Clone call failed")(JASSERT_ERRNO);
-      break;
-    }
-
-    if (dmtcp::VirtualPidTable::isConflictingPid(tid)) {
-      // We will clone a new thread.  So, we don't free threadArg.
-      // We will re-use it.
-
-      JTRACE("TID conflict detected, creating a new child thread") (tid);
-
-      /*
-       * Wait for the child thread to exit. If we do _not_ wait for the the
-       * child thread to exit, it can create a race as follows:
-       *  {PT: parent thread, CT: child thread (newly created)}
-       *   * PT: __clone()
-       *     - CT1 created
-       *   * PT: detects tid-conflict, calls __clone() -- creates CT2
-       *     - CT2 created
-       *   (At this point CT1 and CT2 share the same stack, pretty bad :-()
-       *   * CT1 detects the tid-conflict, calls syscall(SYS_exit, ...) -- this
-       *     causes a messed up stack
-       *   * CT2 starts execution -- messed up stack, segfaults
-       *
-       * There are two ways to wait for the thread with conflicting tid
-       * 1. wait while tgkill(pid, tid, 0) return 0
-       * 2. wait while (*child_tidptr) is non-zero (the kernels would clear
-       *    this address when the thread exits. This is used by threading
-       *    libraries also. However, there is a danger if child_tidptr is NULL,
-       *    so we avoid this solution)
-       */
-      const struct timespec timeout = {(time_t) 0, (long)1000*1000};
-      while (_real_tgkill(_real_getpid(), tid, 0) == 0) {
-         nanosleep(&timeout, NULL);
-      } // Will now continue again around the while loop.
-    } else {
-      JTRACE("New thread created") (tid);
-      if (virtualTid != -1) {
-        /* creating thread while restarting, we need to notify other processes */
-        dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, tid);
-        dmtcp::VirtualPidTable::InsertIntoPidMapFile(virtualTid, tid);
-        tid = virtualTid;
-      } else {
-        /* Newly created thread, insert mappings */
-        dmtcp::VirtualPidTable::instance().updateMapping(tid, tid);
-      }
-      break;
-    }
+  if (!dmtcp_is_running_state()) {
+    JTRACE("Calling libc:__clone");
+    tid = _real_clone(clone_start, child_stack, flags, threadArg,
+                      parent_tidptr, newtls, child_tidptr);
+  } else {
+    JTRACE("Calling mtcp:__clone");
+    tid = mtcpFuncPtrs.clone(clone_start, child_stack, flags, threadArg,
+                             parent_tidptr, newtls, child_tidptr);
   }
 
-  if (tid == -1) {
-    // Free the memory which was previously allocated by calling
-    // JALLOC_HELPER_MALLOC inside __clone wrapper
+  if (tid > 0) {
+    JTRACE("New thread created") (tid);
+    dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, tid);
+  } else { // if the call to clone failed
+    JTRACE("Clone call failed")(JASSERT_ERRNO);
+    // Free memory previously allocated by calling JALLOC_HELPER_MALLOC
     JALLOC_HELPER_FREE(threadArg);
-
-    // If clone() failed, decrement the uninitialized thread count
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
   }
-
-  /* Release the wrapperExeution lock */
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return tid;
-#endif
 }
 
 extern "C" void pthread_exit(void * retval)

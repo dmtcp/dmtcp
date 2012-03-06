@@ -67,7 +67,6 @@ static void openOriginalToCurrentMappingFiles();
 void unlockPidMapFile();
 
 dmtcp::vector<RootTarget> roots;
-dmtcp::OriginalPidTable originalPidTable;
 #endif
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -439,7 +438,6 @@ void BuildProcessTree()
   for (size_t j = 0; j < targets.size(); ++j)
   {
     ProcessInfo& processInfo = targets[j].getProcessInfo();
-    originalPidTable.insertFromProcessInfo (processInfo);
     if (processInfo.isRootOfProcessTree() == true) {
       // If this process is independent (root of process tree
       RootTarget rt;
@@ -455,12 +453,11 @@ void BuildProcessTree()
       JTRACE("Process is not root of process tree: try to find if it has parent");
       bool is_root = true;
       for (size_t i = 0; i < targets.size(); i++) {
-        ProcessInfo &processInfo = targets[i].getProcessInfo();
+        if (i == j) continue;
+        ProcessInfo &pInfo = targets[i].getProcessInfo();
         ProcessInfo::iterator it;
         // Search inside the child list of target[j], make sure that i != j
-        for (it = processInfo.begin();
-             (i != j) && (it != processInfo.end());
-             it++) {
+        for (it = pInfo.begin(); (it != pInfo.end()); it++) {
           UniquePid& childUniquePid = it->second;
           JTRACE("Check child") (childUniquePid) (" parent ") (targets[i].upid())
             ("checked ") (targets[j].upid());
@@ -708,7 +705,7 @@ int openSharedFile(dmtcp::string name, int flags)
 
 static void openOriginalToCurrentMappingFiles()
 {
-  dmtcp::ostringstream pidMapFile, pidMapCountFile;
+  dmtcp::ostringstream pidMapFile;
   dmtcp::ostringstream shmidListFile, shmidMapFile;
   int fd;
 
@@ -719,8 +716,6 @@ static void openOriginalToCurrentMappingFiles()
 
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
              << compGroup << "." << std::hex << coordTstamp;
-  pidMapCountFile << dmtcpTmpDir << "/dmtcpPidMapCount."
-                  << compGroup << "." << std::hex << coordTstamp;
 
   // Open and create shmidListFile if it doesn't exist.
   JTRACE("Open dmtcpShmidListFile")(shmidListFile.str());
@@ -740,36 +735,11 @@ static void openOriginalToCurrentMappingFiles()
 
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
-  fd = openSharedFile(pidMapFile.str(), (O_WRONLY|O_APPEND));
+  fd = openSharedFile(pidMapFile.str(), O_RDWR);
   JASSERT (fd != -1);
   JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
 	  (pidMapFile.str());
   close (fd);
-
-  // Open and create pidMapCountFile if it doesn't exist.
-  JTRACE("Open dmtcpPidMapCount files for writing")(pidMapCountFile.str());
-  fd = openSharedFile(pidMapCountFile.str(), O_RDWR);
-  JASSERT (fd != -1);
-  JASSERT (dup2 (fd, PROTECTED_PIDMAPCNT_FD) == PROTECTED_PIDMAPCNT_FD)
-	  (pidMapCountFile.str());
-  close(fd);
-
-  Util::lockFile(PROTECTED_PIDMAPCNT_FD);
-
-  // Initialize pidMapCountFile with zero value.
-  static jalib::JBinarySerializeWriterRaw countwr(pidMapCountFile.str(),
-						  PROTECTED_PIDMAPCNT_FD);
-  if (countwr.isempty()) {
-    JTRACE("pidMapCountFile is empty.  Initialize it with count = 0")
-      (pidMapCountFile.str());
-    size_t numMaps = 0;
-    dmtcp::VirtualPidTable::serializeEntryCount (countwr, numMaps);
-    fsync(PROTECTED_PIDMAPCNT_FD);
-  } else {
-    JTRACE("pidMapCountFile is not empty - do nothing");
-  }
-
-  Util::unlockFile(PROTECTED_PIDMAPCNT_FD);
 }
 #endif
 
