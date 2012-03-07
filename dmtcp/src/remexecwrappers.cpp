@@ -176,7 +176,7 @@ static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args,
 #ifdef HBICT_DELTACOMP
   if (deltacompression != NULL) {
     if (strcmp(deltacompression, "0") == 0)
-      dmtcp_args.push_bacBk( "--no-hbict" );
+      dmtcp_args.push_back( "--no-hbict" );
     else
       dmtcp_args.push_back( "--hbict" );
   }
