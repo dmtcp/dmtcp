@@ -35,6 +35,13 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
+void dmtcp::Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
+{
+  char buf[80];
+  sprintf(buf, "%d:%d", pid, ppid);
+  setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+}
+
 // 'screen' requires directory with permissions 0700
 static int isdir0700(const char *pathname)
 {

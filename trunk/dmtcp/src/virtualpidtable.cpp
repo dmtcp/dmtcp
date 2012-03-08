@@ -123,6 +123,8 @@ pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
 
   JASSERT(_pidMapTable.size() < MAX_VIRTUAL_TID)
     .Text("Exceeded maximum number of threads allowed");
+
+  int count = 0;
   while (1) {
     tid = getpid() + _nextVirtualTid++;
     if (_nextVirtualTid >= MAX_VIRTUAL_TID) {
@@ -130,6 +132,9 @@ pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
     }
     i = _pidMapTable.find(tid);
     if (i == _pidMapTable.end()) {
+      break;
+    }
+    if (++count == MAX_VIRTUAL_TID) {
       break;
     }
   }
