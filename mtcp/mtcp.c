@@ -589,6 +589,9 @@ static int perform_open_ckpt_image_fd(int *use_compression,
 static void write_ckpt_to_file(int fd,
 			       int tmpDMTCPHeaderFd, int fdCkptFileOnDisk);
 
+int mtcp_thread_start(void *arg);
+int mtcp_thread_return();
+
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
  * The wrappers go to these mtcp_real_XXX versions so that MTCP can call
@@ -1039,10 +1042,10 @@ void mtcp_dump_tls (char const *file, int line)
  *
  *****************************************************************************/
 
-int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
-	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
+Thread *mtcp_prepare_for_clone (int (*fn) (void *arg), void *child_stack,
+                                int *flags, void *arg, int *parent_tidptr,
+                                struct user_desc *newtls, int **child_tidptr)
 {
-  int rc;
   Thread *thread;
 
   /* Maybe they decided not to call mtcp_init */
@@ -1064,16 +1067,16 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
       mtcp_state_init(&thread->state, ST_RUNDISABLED);
     }
 
-    DPRINTF("calling clone thread=%p, fn=%p, flags=0x%X\n", thread, fn, flags);
+    DPRINTF("calling clone thread=%p, fn=%p, flags=0x%X\n", thread, fn, *flags);
     DPRINTF("parent_tidptr=%p, newtls=%p, child_tidptr=%p\n",
-            parent_tidptr, newtls, child_tidptr);
+            parent_tidptr, newtls, *child_tidptr);
     //asm volatile ("int3");
 
     /* Save exactly what the caller is supplying */
 
-    thread -> clone_flags   = flags;
+    thread -> clone_flags   = *flags;
     thread -> parent_tidptr = parent_tidptr;
-    thread -> given_tidptr  = child_tidptr;
+    thread -> given_tidptr  = *child_tidptr;
 
     /* We need the CLEARTID feature so we can detect
      *   when the thread has exited
@@ -1081,25 +1084,38 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
      * Retain what the caller originally gave us so we can pass the tid back
      */
 
-    if (!(flags & CLONE_CHILD_CLEARTID)) {
-      child_tidptr = &(thread -> child_tid);
-    }
-    thread -> actual_tidptr = child_tidptr;
-    DPRINTF("thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr);
+    if (!(*flags & CLONE_CHILD_CLEARTID)) {
+      *child_tidptr = &(thread -> child_tid);
 
+      /* Force CLEARTID */
+      *flags |= CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID;
+    }
+    thread -> actual_tidptr = *child_tidptr;
+    DPRINTF("thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr);
+  }
+  return thread;
+}
+
+int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
+	     int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
+{
+  int rc;
+  Thread *thread;
+  thread = mtcp_prepare_for_clone(fn, child_stack, &flags, arg,
+                                  parent_tidptr, newtls, &child_tidptr);
+
+  if (motherofall != NULL) {
     /* Alter call parameters, forcing CLEARTID and make it call the wrapper
      * routine
      */
-
-    flags |= CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID;
     fn = threadcloned;
     arg = thread;
+  } else if (clone_entry == NULL) {
+    /* mtcp_init not called, no checkpointing, but make sure clone_entry is */
+    /* set up so we can call the real clone                                 */
+
+    setup_clone_entry ();
   }
-
-  /* mtcp_init not called, no checkpointing, but make sure clone_entry is */
-  /* set up so we can call the real clone                                 */
-
-  else if (clone_entry == NULL) setup_clone_entry ();
 
   /* Now create the thread */
 
@@ -1164,8 +1180,7 @@ asm (".global clone ; .type clone,%function ; clone = __clone");
  *
  *****************************************************************************/
 
-static int threadcloned (void *threadv)
-
+int mtcp_thread_start(void *threadv)
 {
   int rc;
   Thread *const thread = threadv;
@@ -1210,13 +1225,30 @@ static int threadcloned (void *threadv)
   /* Maybe enable checkpointing by default */
 
   if (threadenabledefault) mtcp_ok ();
+}
 
+
+static int threadcloned (void *threadv)
+{
+  int rc;
+  Thread *const thread = threadv;
   /* Call the user's function for whatever processing they want done */
+
+  mtcp_thread_start(threadv);
 
   DPRINTF("calling %p (%p)\n", thread -> fn, thread -> arg);
   rc = (*(thread -> fn)) (thread -> arg);
   DPRINTF("returned %d\n", rc);
 
+  mtcp_thread_return(rc);
+
+  /* Return the user's status as the exit code */
+
+  return (rc);
+}
+
+int mtcp_thread_return()
+{
   /* Make sure checkpointing is inhibited while we clean up and exit */
   /* Otherwise, checkpointer might wait forever for us to re-enable  */
 
@@ -1224,12 +1256,8 @@ static int threadcloned (void *threadv)
 
   /* Do whatever to unlink and free thread block */
   lock_threads();
-  threadisdead(thread);
+  threadisdead(getcurrenthread());
   unlk_threads();
-
-  /* Return the user's status as the exit code */
-
-  return (rc);
 }
 
 /*****************************************************************************

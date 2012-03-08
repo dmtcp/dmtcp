@@ -30,11 +30,71 @@
 #include "../jalib/jalloc.h"
 
 struct ThreadArg {
-  int (*fn) (void *arg);
-  void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
+  union {
+    int (*fn) (void *arg);
+    void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
+  };
   void *arg;
+  void *mtcpArg;
   pid_t virtualTid;
 };
+
+// Invoked via __clone
+LIB_PRIVATE
+int clone_start(void *arg)
+{
+  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
+  int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+  void *mtcpArg = threadArg->mtcpArg;
+
+  mtcpFuncPtrs.thread_start(mtcpArg);
+
+  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
+  JALLOC_HELPER_FREE(threadArg);
+
+  /* Thread finished initialization.  It's now safe for this thread to
+   * participate in checkpoint.  Decrement the uninitializedThreadCount in
+   * DmtcpWorker.
+   */
+  dmtcp::ThreadSync::decrementUninitializedThreadCount();
+
+  JTRACE ( "Calling user function" ) (gettid());
+  int ret = (*fn) ( thread_arg );
+
+  mtcpFuncPtrs.thread_return();
+  return ret;
+}
+
+//need to forward user clone
+extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
+                       void *arg, int *parent_tidptr,
+                       struct user_desc *newtls, int *child_tidptr)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  dmtcp::ThreadSync::incrementUninitializedThreadCount();
+
+  void *mtcpArg = mtcpFuncPtrs.prepare_for_clone(fn, child_stack, &flags, arg,
+                                                 parent_tidptr, newtls,
+                                                 &child_tidptr);
+
+  struct ThreadArg *threadArg =
+    (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
+  threadArg->fn = fn;
+  threadArg->arg = arg;
+  threadArg->mtcpArg = mtcpArg;
+
+  pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
+                          parent_tidptr, newtls, child_tidptr);
+
+  if (tid == -1) {
+    JTRACE("Clone call failed")(JASSERT_ERRNO);
+    dmtcp::ThreadSync::decrementUninitializedThreadCount();
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return tid;
+}
 
 // Invoked via pthread_create as start_routine
 // On return, it calls mtcp_threadiszombie()
@@ -65,27 +125,6 @@ static void *pthread_start(void *arg)
   return result;
 }
 
-// Invoked via __clone
-LIB_PRIVATE
-int clone_start(void *arg)
-{
-  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-  int (*fn) (void *) = threadArg->fn;
-  void *thread_arg = threadArg->arg;
-  pid_t virtualTid = threadArg -> virtualTid;
-
-  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
-  JALLOC_HELPER_FREE(threadArg);
-
-  /* Thread finished initialization.  It's now safe for this thread to
-   * participate in checkpoint.  Decrement the uninitializedThreadCount in
-   * DmtcpWorker.
-   */
-  dmtcp::ThreadSync::decrementUninitializedThreadCount();
-
-  JTRACE ( "Calling user function" ) (virtualTid);
-  return (*fn) ( thread_arg );
-}
 
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                               void *(*start_routine)(void*), void *arg)
@@ -135,25 +174,6 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
   }
   return retval;
-}
-
-//need to forward user clone
-extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
-                       void *arg, int *parent_tidptr,
-                       struct user_desc *newtls, int *child_tidptr)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  //dmtcp::ThreadSync::incrementUninitializedThreadCount();
-
-  pid_t tid = mtcpFuncPtrs.clone(fn, child_stack, flags, arg,
-                                 parent_tidptr, newtls, child_tidptr);
-
-  //if (tid == -1) {
-    //JTRACE("Clone call failed")(JASSERT_ERRNO);
-    //dmtcp::ThreadSync::decrementUninitializedThreadCount();
-  //}
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return tid;
 }
 
 extern "C" void pthread_exit(void * retval)
