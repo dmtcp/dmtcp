@@ -1,3 +1,4 @@
+#include <dlfcn.h>
 #include "constants.h"
 #include "dmtcpmodule.h"
 #include "protectedfds.h"
@@ -8,7 +9,7 @@ using namespace dmtcp;
 
 EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
-  return;
+  NEXT_DMTCP_PROCESS_EVENT(id, data);
 }
 
 EXTERNC int  dmtcp_get_ckpt_signal()
@@ -28,9 +29,8 @@ EXTERNC const char* dmtcp_get_tmpdir()
 EXTERNC const char* dmtcp_get_uniquepid_str()
 {
   static dmtcp::string *uniquepid_str = NULL;
-  if (uniquepid_str == NULL)
-    uniquepid_str =
-      new dmtcp::string(dmtcp::UniquePid::ThisProcess(true).toString());
+  uniquepid_str =
+    new dmtcp::string(dmtcp::UniquePid::ThisProcess(true).toString());
   return uniquepid_str->c_str();
 }
 
