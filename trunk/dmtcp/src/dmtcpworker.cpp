@@ -46,7 +46,6 @@
 #include "connectionidentifier.h"
 #include "connectionmanager.h"
 #include "connectionstate.h"
-#include "virtualpidtable.h"
 #include "ckptserializer.h"
 #include "remexecwrappers.h"
 #include "util.h"
@@ -251,10 +250,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
     ProcessInfo::instance().serialize ( rd );
     ProcessInfo::instance().postExec();
-#ifdef PID_VIRTUALIZATION
-    VirtualPidTable::instance().serialize ( rd );
     SysVIPC::instance().serialize ( rd );
-#endif
     dmtcp_process_event(DMTCP_EVENT_POST_EXEC, (void*) &rd);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
@@ -263,13 +259,11 @@ static void prepareLogAndProcessdDataFromSerialFile()
     // Initialize the log file
     Util::initializeLogFile();
 
-#ifdef PID_VIRTUALIZATION
     if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
       JTRACE("Root of processes tree");
       ProcessInfo::instance().setRootOfProcessTree();
       _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
     }
-#endif
 
     JTRACE("Checking for pre-existing sockets");
     ConnectionList::instance().scanForPreExisting();
@@ -529,7 +523,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
           && (msg.type == DMT_RESTORE_WAITING ||
               msg.type == DMT_FORCE_RESTART));
 
-  JASSERT ( msg.type == type ) ( msg.type );
+  JASSERT ( msg.type == type ) ( msg.type ) (type);
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
@@ -565,26 +559,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
      */
     restoreUserLDPRELOAD();
     ThreadSync::setCheckpointThreadInitialized();
-  }
-
-  // Create signature file which could then be used by an outside process to
-  // check if the process restarted successfully.
-  if ( 0 && UniquePid::ComputationId() != UniquePid() ) {
-    dmtcp::string signatureFile = UniquePid::getTmpDir() + "/"
-                                + UniquePid::ComputationId().toString() + "-"
-#ifdef PID_VIRTUALIZATION
-                                + jalib::XToString ( _real_getppid() );
-#else
-                                + jalib::XToString ( getppid() );
-#endif
-    JTRACE("creating signature file") (signatureFile)(_real_getpid());
-    int fd = _real_open ( signatureFile.c_str(), O_CREAT|O_WRONLY, 0600 );
-    JASSERT ( fd != -1 ) ( fd ) ( signatureFile )
-      .Text ( "Unable to create signature file" );
-    dmtcp::string pidstr = jalib::XToString(_real_getpid());
-    ssize_t ret = Util::writeAll(fd, pidstr.c_str(), pidstr.length()+1);
-    JASSERT( (ssize_t)pidstr.length() + 1 == ret ) ( pidstr.length()+1 );
-    _real_close(fd);
   }
 
   if ( theCheckpointState != NULL ) {
@@ -648,9 +622,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState->preCheckpointFdLeaderElection();
   JTRACE ( "locked" );
 
-#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().leaderElection();
-#endif
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
@@ -668,9 +640,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   theCheckpointState->preCheckpointDrain();
   JTRACE ( "drained" );
 
-#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().preCkptDrain();
-#endif
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
@@ -687,9 +657,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 #endif
 
   dmtcp::ProcessInfo::instance().preCheckpoint();
-#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().preCheckpoint();
-#endif
 
   dmtcp_process_event(DMTCP_EVENT_PRE_CKPT, NULL);
 
@@ -865,22 +833,7 @@ void dmtcp::DmtcpWorker::postRestart()
   theCheckpointState->postRestart();
 
   dmtcp::ProcessInfo::instance().postRestart();
-#ifdef PID_VIRTUALIZATION
-  if ( jalib::Filesystem::GetProgramName() == "screen" )
-    send_sigwinch = 1;
-  // With hardstatus (bottom status line), screen process has diff. size window
-  // Must send SIGWINCH to adjust it.
-  // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
-  // to execute ioctl wrapper.  The wrapper will report a changed winsize,
-  // so that 'screen' must re-initialize the screen (scrolling regions, etc.).
-  // The wrapper will also send a second SIGWINCH.  Then 'screen' will
-  // call ioctl and get the correct window size and resize again.
-  // We can't just send two SIGWINCH's now, since window size has not
-  // changed yet, and 'screen' will assume that there's nothing to do.
-
-  dmtcp::VirtualPidTable::instance().postRestart();
   SysVIPC::instance().postRestart();
-#endif
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -909,9 +862,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
   delete theCheckpointState;
   theCheckpointState = NULL;
 
-#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().postCheckpoint();
-#endif
   if (!isRestart) {
     dmtcp_process_event(DMTCP_EVENT_POST_CKPT, NULL);
   }
@@ -924,15 +875,10 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
   waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
   JTRACE ( "got resume message" );
 
-#ifdef PID_VIRTUALIZATION
   SysVIPC::instance().preResume();
-#endif
 }
 
 void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 {
-#ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
   dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
-#endif
 }

@@ -34,17 +34,11 @@
 #include "dmtcpalloc.h"
 #include "constants.h"
 
-#ifdef PID_VIRTUALIZATION
-# define REAL_TO_VIRTUAL_PID(pid) \
+#define REAL_TO_VIRTUAL_PID(pid) \
   dmtcp::VirtualPidTable::instance().realToVirtual(pid)
-# define VIRTUAL_TO_REAL_PID(pid) \
+#define VIRTUAL_TO_REAL_PID(pid) \
   dmtcp::VirtualPidTable::instance().virtualToReal(pid)
-#else
-# define REAL_TO_VIRTUAL_PID(pid) pid
-# define VIRTUAL_TO_REAL_PID(pid) pid
-#endif
 
-#ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
   /* Shall we create separate classes for holding virtual to real pid map
@@ -61,23 +55,21 @@ namespace dmtcp
 #endif
       VirtualPidTable();
       static VirtualPidTable& instance();
-      static bool isConflictingPid(pid_t pid);
-
       static pid_t getPidFromEnvVar();
+
       void postRestart();
-      void preCheckpoint();
-      void  postExec();
+      void postExec();
+      void resetOnFork();
+      void refresh();
 
       pid_t virtualToReal(pid_t virtualPid);
       pid_t realToVirtual(pid_t realPid);
       bool pidExists(pid_t pid);
       bool realPidExists(pid_t pid);
 
-      void insert(pid_t virtualPid);
       void updateMapping(pid_t virtualPid, pid_t realPid);
-
-      void printPidMaps();
       void erase(pid_t virtualPid);
+      void printPidMaps();
 
       void writeVirtualTidToFileForPtrace(pid_t pid);
       pid_t readVirtualTidFromFileForPtrace(pid_t inferior);
@@ -93,8 +85,6 @@ namespace dmtcp
 
       dmtcp::vector< pid_t > getPidVector();
 
-      void atForkChild();
-      void resetOnFork();
       pid_t getNewVirtualTid();
 
     private:
@@ -103,5 +93,4 @@ namespace dmtcp
   };
 }
 
-#endif
 #endif

@@ -32,7 +32,6 @@
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "processinfo.h"
-#include "virtualpidtable.h"
 
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 

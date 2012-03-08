@@ -58,11 +58,10 @@ namespace dmtcp
     static dmtcp::string checkpointDirName();
     static void updateCheckpointDirName();
     static dmtcp::string dmtcpTableFilename();
-#ifdef PID_VIRTUALIZATION
-    static dmtcp::string pidTableFilename();
-#endif
     static void setTmpDir(const char * envVarTmpDir);
     static dmtcp::string getTmpDir();
+
+    static dmtcp::string pidTableFilename();
 
     static void serialize( jalib::JBinarySerializer& o );
 

@@ -34,7 +34,6 @@
 #include "processinfo.h"
 #include "connectionmanager.h"
 #include "dmtcpcoordinatorapi.h"
-#include "virtualpidtable.h"
 
 namespace dmtcp
 {
@@ -64,7 +63,6 @@ namespace dmtcp
     void markUsed() {_used = true;}
     bool isMarkedUsed() {return _used;}
 
-    pid_t forkChild();
     bool isSessionLeader();
     bool isGroupLeader();
     bool isForegroundProcess();

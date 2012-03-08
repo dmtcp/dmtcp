@@ -30,7 +30,6 @@
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
 #include "dmtcpmessagetypes.h"
-#include "virtualpidtable.h"
 #include "util.h"
 #include "resource_manager.h"
 #include  "../jalib/jsocket.h"
@@ -68,7 +67,7 @@ static bool hasLock ( const dmtcp::vector<int>& fds )
   JASSERT ( fds.size() > 0 );
   int owner = fcntl ( fds[0], F_GETOWN );
   JASSERT ( owner != 0 ) (owner) (JASSERT_ERRNO);
-  int self = _real_getpid();
+  int self = getpid();
   JASSERT ( self >= 0 );
   return owner == self;
 }
@@ -187,13 +186,8 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
   errno = 0;
   JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
 
-  // FIXME: When restarting, the VirtualPidTable virtual to real pid
-  // mapping might not be restored at this point and thus the following
-  // F_SETOWN call will fail. At times it can set the wrong owner as well.
-  //  The correct fix would be to restore the fcntlowner after we have the
-  // virtual->real pid mappings.
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, VIRTUAL_TO_REAL_PID(_fcntlOwner) ) == 0 )
+  JASSERT ( fcntl ( fds[0], F_SETOWN, _fcntlOwner ) == 0 )
     ( fds[0] ) ( _fcntlOwner ) ( JASSERT_ERRNO );
 
   // This JASSERT will almost always trigger until we fix the above mentioned
@@ -207,7 +201,7 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
 void dmtcp::Connection::doLocking ( const dmtcp::vector<int>& fds )
 {
   errno = 0;
-  JASSERT ( fcntl ( fds[0], F_SETOWN, _real_getpid() ) == 0 )
+  JASSERT ( fcntl ( fds[0], F_SETOWN, getpid() ) == 0 )
     ( fds[0] ) ( JASSERT_ERRNO );
 }
 
@@ -1286,7 +1280,7 @@ void dmtcp::FileConnection::restoreFile(dmtcp::string newpath)
       JTRACE("Copying saved Resource Manager file to NEW location")
         (savedFilePath) (_path);
       CatFile(savedFilePath, newpath);
-    } else {  
+    } else {
       CreateDirectoryStructure(_path);
       JTRACE("Copying saved checkpointed file to original location")
         (savedFilePath) (_path);

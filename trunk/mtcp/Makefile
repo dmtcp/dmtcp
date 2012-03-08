@@ -63,7 +63,7 @@ endif
 CFLAGS += -O0 -g
 # Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
 #   stderr (and to jassertlog.* , if configured with --enable-debug)
-#CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
+# CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 

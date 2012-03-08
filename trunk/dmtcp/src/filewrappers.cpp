@@ -42,7 +42,6 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
@@ -176,57 +175,6 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
   return retVal;
 }
 
-#ifdef PID_VIRTUALIZATION
-#include "virtualpidtable.h"
-
-static void updateProcPath ( const char *path, char *newpath )
-{
-  char temp [ 10 ];
-  int index, tempIndex;
-
-  if ( path == NULL || strlen(path) == 0 )
-  {
-    strcpy(newpath, "");
-    return;
-  }
-
-  if ( dmtcp::Util::strStartsWith ( path, "/proc/" ) )
-  {
-    index = 6;
-    tempIndex = 0;
-    while ( path [ index ] != '/' && path [ index ] != '\0')
-    {
-      if ( path [ index ] >= '0' && path [ index ] <= '9' )
-        temp [ tempIndex++ ] = path [ index++ ];
-      else
-      {
-        strcpy ( newpath, path );
-        return;
-      }
-    }
-    temp [ tempIndex ] = '\0';
-    pid_t virtualPid = atoi ( temp );
-    pid_t realPid = VIRTUAL_TO_REAL_PID( virtualPid );
-    if (realPid == -1)
-      realPid = virtualPid;
-
-    sprintf ( newpath, "/proc/%d%s", realPid, &path [ index ] );
-  }
-  else strcpy ( newpath, path );
-  return;
-}
-#else
-void updateProcPath ( const char *path, char *newpath )
-{
-  if (  path == "" || path == NULL ) {
-    strcpy( newpath, "" );
-    return;
-  }
-  strcpy ( newpath, path );
-  return;
-}
-#endif
-
 // The current implementation simply increments the last count and returns it.
 // Although highly unlikely, this can cause a problem if the counter resets to
 // zero. In that case we should have some more sophisticated code which checks
@@ -320,16 +268,14 @@ extern "C" int getpt()
 static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
-  char newpath [ 1024 ] = {0} ;
+  const char *newpath = path;
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
+    newpath = currPtsDevName.c_str();
   }
 
   int fd = (*fn)( newpath, flags, mode );
@@ -387,14 +333,12 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  char newpath [ PATH_MAX ] = {0} ;
+  const char *newpath = path;
 
   if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
-  } else {
-    updateProcPath ( path, newpath );
+    newpath = currPtsDevName.c_str();
   }
 
   FILE *file = (*fn) ( newpath, mode );
@@ -432,7 +376,7 @@ static void updateStatPath(const char *path, char *newpath)
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
-    updateProcPath ( path, newpath );
+    strcpy(newpath, path);
   }
 }
 
@@ -499,21 +443,20 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateProcPath(path, newpath);
   READLINK_RET_TYPE retval;
+  updateStatPath(path, newpath);
   retval = _real_readlink(newpath, buf, bufsiz);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
 
-#ifdef PID_VIRTUALIZATION
+#if 0
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
 // These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
 extern "C" {
 int send_sigwinch = 0;
 }
-
 
 extern "C" int ioctl(int d,  unsigned long int request, ...)
 {

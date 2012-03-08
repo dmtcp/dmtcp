@@ -101,8 +101,8 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	nodetable.$(OBJEXT) protectedfds.$(OBJEXT) \
 	sockettable.$(OBJEXT) syslogwrappers.$(OBJEXT) \
 	uniquepid.$(OBJEXT) sysvipc.$(OBJEXT) \
-	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
+	dmtcpcoordinatorapi.$(OBJEXT) util_exec.$(OBJEXT) \
+	util_gen.$(OBJEXT) util_init.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
@@ -157,10 +157,10 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	mtcpinterface.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	socketwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
 	epollwrappers.$(OBJEXT) sysvipc.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	miscwrappers.$(OBJEXT) remexecwrappers.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) filewrappers.$(OBJEXT) \
-	mallocwrappers.$(OBJEXT) dmtcpmodule.$(OBJEXT)
+	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	remexecwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
+	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
+	dmtcpmodule.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -319,7 +319,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
+	uniquepid.h processinfo.h util.h sysvipc.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
 	dmtcpmodule.h lookup_service.h trampolines.h
 
@@ -338,7 +338,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     kernelbufferdrainer.cpp nodetable.cpp \
 			     protectedfds.cpp sockettable.cpp \
 			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
-			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
+			     dmtcpcoordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
 			     ckptserializer.cpp resource_manager.cpp
@@ -363,7 +363,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
 			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
-			 pidwrappers.cpp miscwrappers.cpp remexecwrappers.cpp \
+			 miscwrappers.cpp remexecwrappers.cpp \
 			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp
 
@@ -653,7 +653,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
@@ -672,7 +671,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/virtualpidtable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 
 .c.o:
