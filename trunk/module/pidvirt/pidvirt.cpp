@@ -1,5 +1,4 @@
 #include <sys/types.h>
-#include <dlfcn.h>
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
