@@ -379,24 +379,15 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
   struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
 
   if (pwi.is_waitpid_local) {
-    retval = _real_waitpid (pid, stat_loc, options);
+    retval = NEXT_FNC(waitpid)(pid, stat_loc, options);
   } else {
     /* Where was status and pid saved?  Can we remove this code?  - Gene */
     if (pwi.has_status_and_pid) {
       *stat_loc = pwi.saved_status;
       retval = pwi.saved_pid;
     } else {
-// Please remove this comment and all code related to BLOCK_CKPT_ON_WAIT
-//  when satisfied waitpid wrapper work.  - Gene
-#undef BLOCK_CKPT_ON_WAIT
-#if BLOCK_CKPT_ON_WAIT
-      dmtcp_block_ckpt_signal();
-#endif
       ptrace_info_list_update_info(superior, inferior, TRUE);
-      retval = _real_waitpid(pid, stat_loc, options);
-#if BLOCK_CKPT_ON_WAIT
-      dmtcp_unblock_ckpt_signal();
-#endif
+      retval = NEXT_FNC(waitpid)(pid, stat_loc, options);
     }
   }
 
@@ -473,10 +464,10 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
                               PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
                               PTRACE_NO_FILE_OPTION};
        ptrace_info_list_command(cmd);
-       ptrace_ret =  _real_ptrace (request, pid, addr, data);
+       ptrace_ret =  NEXT_FNC(ptrace)(request, pid, addr, data);
        dmtcp_unblock_ckpt_signal();
      }
-     else ptrace_ret = _real_ptrace(request, pid, addr, data);
+     else ptrace_ret = NEXT_FNC(ptrace)(request, pid, addr, data);
      break;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
@@ -494,69 +485,8 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   /* TODO: We might want to check the return value in certain cases */
 
   if (request != PTRACE_SINGLESTEP) {
-    ptrace_ret =  _real_ptrace(request, pid, addr, data);
+    ptrace_ret =  NEXT_FNC(ptrace)(request, pid, addr, data);
   }
 
   return ptrace_ret;
-}
-
-struct PtraceThreadArg {
-  int ( *fn ) ( void *arg );  // clone() calls fn that returns int
-  void *arg;
-};
-
-static int ptrace_clone_start(void *arg)
-{
-  struct PtraceThreadArg *threadArg = (struct PtraceThreadArg*) arg;
-
-  int (*fn) (void *) = threadArg->fn;
-  void *thread_arg = threadArg->arg;
-
-  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
-  JALLOC_HELPER_FREE(threadArg);
-
-  mtcp_init_thread_local();
-
-  JTRACE("Calling user function") (GETTID());
-  // return (*(threadArg->fn)) ( threadArg->arg );
-  int result = (*fn) ( thread_arg );
-  JTRACE ( "Thread returned:" ) (GETTID());
-
-//  dmtcp_process_event(DMTCP_EVENT_THREAD_EXIT, NULL);
-  return result;
-}
-
-//need to forward user clone
-extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg,
-                       int *parent_tidptr, struct user_desc *newtls, int *child_tidptr)
-{
-  if (!dmtcp_is_running_state()) {
-    return _real_clone(fn, child_stack, flags, arg, parent_tidptr, newtls,
-                      child_tidptr);
-  }
-
-  // We have to use DMTCP-specific memory allocator because using glibc:malloc
-  // can interfere with user threads.
-  // We use JALLOC_HELPER_FREE to free this memory in two places:
-  //   1.  later in this function in case of failure on call to __clone; and
-  //   2.  near the beginnging of clone_start (wrapper for start_routine).
-  struct PtraceThreadArg *threadArg =
-    (struct PtraceThreadArg *) JALLOC_HELPER_MALLOC(sizeof (struct PtraceThreadArg));
-  threadArg->fn = fn;
-  threadArg->arg = arg;
-
-  JTRACE ( "Calling dmtcp:__clone" );
-  pid_t tid;
-  tid = _real_clone(ptrace_clone_start, child_stack, flags, threadArg,
-                    parent_tidptr, newtls, child_tidptr);
-
-  if (tid == -1) { // if the call to clone failed
-    JTRACE("Clone call failed")(JASSERT_ERRNO);
-    // Free the memory which was previously allocated by calling
-    // JALLOC_HELPER_MALLOC inside __clone wrapper
-    JALLOC_HELPER_FREE(threadArg);
-  } else {
-    mtcp_ptrace_process_thread_creation(tid);
-  }
-  return tid;
 }

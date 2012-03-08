@@ -53,6 +53,8 @@ int clone_start(void *arg)
   // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
   JALLOC_HELPER_FREE(threadArg);
 
+  dmtcp_process_event(DMTCP_EVENT_THREAD_START, NULL);
+
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
    * DmtcpWorker.
@@ -90,6 +92,8 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
+  } else {
+    dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED, (void*) (unsigned long) tid);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();

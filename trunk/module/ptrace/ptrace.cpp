@@ -127,6 +127,13 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT:
       mtcp_ptrace_thread_died_before_checkpoint();
       break;
+    case DMTCP_EVENT_THREAD_CREATED:
+      mtcp_ptrace_process_thread_creation((pid_t) (unsigned long) data);
+      break;
+    case DMTCP_EVENT_THREAD_START:
+      mtcp_init_thread_local();
+      break;
+
     case DMTCP_EVENT_PRE_CKPT:
     case DMTCP_EVENT_POST_LEADER_ELECTION:
     case DMTCP_EVENT_POST_DRAIN:

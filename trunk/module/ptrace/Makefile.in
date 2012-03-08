@@ -44,9 +44,9 @@ HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpmodule.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
-OBJS = mtcp_ptrace.o ptrace.o ptracewrappers.o ptrace_syscallsreal.o
+OBJS = mtcp_ptrace.o ptrace.o ptracewrappers.o
 
-SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp ptrace_syscallsreal.c
+SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp
 
 LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
 
