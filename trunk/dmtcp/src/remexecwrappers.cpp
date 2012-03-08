@@ -80,10 +80,6 @@ tm_spawn_t tm_spawn_ptr;
 static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args,
                         bool full_path = false)
 {
-/* This code is taken from dmtcpworker.cpp from processSshCommand function
-   In future this code should be moved into separate function to avoid
-   duplication
-*/
   const char * prefixPath           = getenv ( ENV_VAR_PREFIX_PATH );
   const char * coordinatorAddr      = getenv ( ENV_VAR_NAME_HOST );
 
