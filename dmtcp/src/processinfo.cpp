@@ -237,7 +237,7 @@ void dmtcp::ProcessInfo::refresh()
   refreshChildTable();
   refreshTidVector();
 
-  JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
+  JNOTE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
 void dmtcp::ProcessInfo::refreshTidVector()
@@ -291,7 +291,8 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
     JTRACE ( "This process is Root of Process Tree" );
   }
 
-  serializeChildTable ( o );
+  JTRACE ("Serializing ChildPid Table") (_childTable.size()) (o.filename());
+  o.serializeMap(_childTable);
 
   JTRACE ("Serializing tidVector");
   JSERIALIZE_ASSERT_POINT ( "TID Vector:[" );
@@ -299,51 +300,4 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "}" );
 
   JSERIALIZE_ASSERT_POINT( "EOF" );
-}
-
-
-void dmtcp::ProcessInfo::serializeChildTable ( jalib::JBinarySerializer& o )
-{
-  size_t numPids = _childTable.size();
-  serializeEntryCount(o, numPids);
-
-  JTRACE ("Serializing ChildPid Table") (numPids) (o.filename());
-  pid_t pid;
-  dmtcp::UniquePid uniquePid;
-
-  if ( o.isWriter() )
-  {
-    for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
-    {
-      pid = i->first;
-      uniquePid   = i->second;
-      serializeChildTableEntry ( o, pid, uniquePid );
-    }
-  }
-  else
-  {
-    while ( numPids-- > 0 )
-    {
-      serializeChildTableEntry ( o, pid, uniquePid );
-      _childTable[pid] = uniquePid;
-    }
-  }
-}
-
-void  dmtcp::ProcessInfo::serializeChildTableEntry ( jalib::JBinarySerializer& o,
-                                                     pid_t& pid,
-                                                     dmtcp::UniquePid& uniquePid )
-{
-  JSERIALIZE_ASSERT_POINT ( "ChildPid:[" );
-  o & pid & uniquePid;
-  JSERIALIZE_ASSERT_POINT ( "]" );
-}
-
-void dmtcp::ProcessInfo::serializeEntryCount ( jalib::JBinarySerializer& o,
-                                                   size_t& count )
-{
-  JSERIALIZE_ASSERT_POINT ( "NumEntries:[" );
-  o & count;
-  JSERIALIZE_ASSERT_POINT ( "]" );
-  JTRACE("Num PidMaps:")(count);
 }

@@ -648,30 +648,8 @@ void dmtcp::ConnectionToFds::serialize ( jalib::JBinarySerializer& o )
   ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionToFds:" );
 
-  size_t numCons = _table.size();
-  o & numCons;
+  o.serializeMap(_table);
 
-  if (o.isWriter()) {
-    // Save connections
-    for (iterator i = _table.begin(); i != _table.end(); ++i) {
-      JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
-      ConnectionIdentifier key = i->first;
-      dmtcp::vector<int>& val = i->second;
-      o & key & val;
-      JASSERT(val.size() > 0)
-        (key) (o.filename()) .Text("would write empty fd list");
-    }
-  } else {
-    while (numCons-- > 0) {
-      JSERIALIZE_ASSERT_POINT ( "CFdEntry:" );
-      ConnectionIdentifier key;
-      dmtcp::vector<int> val;
-      o & key & val;
-      JWARNING(val.size() > 0)
-        (key) (o.filename()) .Text("reading empty fd list");
-      _table[key] = val;
-    }
-  }
   JSERIALIZE_ASSERT_POINT("EOF");
 }
 
@@ -682,36 +660,11 @@ void dmtcp::KernelDeviceToConnection::serialize ( jalib::JBinarySerializer& o )
   ConnectionList::instance().serialize ( o );
   JSERIALIZE_ASSERT_POINT ( "dmtcp::KernelDeviceToConnection:" );
 
-  size_t numCons = _table.size();
-  o & numCons;
-
   // Save/Restore parent process UniquePid
   // parentProcess() is for inspection tools
   o & UniquePid::ParentProcess();
 
-  if ( o.isWriter() )
-  {
-    for ( iterator i=_table.begin(); i!=_table.end(); ++i )
-    {
-      JSERIALIZE_ASSERT_POINT ( "KDEntry:" );
-      dmtcp::string key = i->first;
-      ConnectionIdentifier val = i->second;
-      o & key & val;
-    }
-  }
-  else
-  {
-    while ( numCons-- > 0 )
-    {
-      JSERIALIZE_ASSERT_POINT ( "KDEntry:" );
-      dmtcp::string key = "?";
-      ConnectionIdentifier val;
-      o & key & val;
-      _table[key] = val;
-      //JTRACE ("Serializing") (key) (val);
-    }
-
-  }
+  o.serializeMap(_table);
 
   JSERIALIZE_ASSERT_POINT ( "EOF" );
 }

@@ -69,12 +69,6 @@ namespace dmtcp
       void refreshTidVector();
 
       void serialize ( jalib::JBinarySerializer& o );
-      void serializeChildTable(jalib::JBinarySerializer& o);
-      static void serializeChildTableEntry(jalib::JBinarySerializer& o,
-                                            pid_t& virtualPid,
-                                            dmtcp::UniquePid& uniquePid);
-      static void serializeEntryCount( jalib::JBinarySerializer& o,
-                                       size_t& count );
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
