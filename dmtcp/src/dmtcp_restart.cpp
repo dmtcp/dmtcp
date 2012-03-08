@@ -20,11 +20,17 @@
  ****************************************************************************/
 
 #include <unistd.h>
-
 #include <stdlib.h>
 #include <string>
 #include <stdio.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <vector>
+
+#include "restoretarget.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -37,11 +43,6 @@
 #include "protectedfds.h"
 #include "restoretarget.h"
 #include "util.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <vector>
 
 #define BINARY_NAME "dmtcp_restart"
 
@@ -54,7 +55,6 @@ static int coordTstamp = 0;
 
 dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
-#ifdef PID_VIRTUALIZATION
 typedef struct {
   RestoreTarget *t;
   bool indep;
@@ -67,7 +67,6 @@ static void openOriginalToCurrentMappingFiles();
 void unlockPidMapFile();
 
 dmtcp::vector<RootTarget> roots;
-#endif
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -231,7 +230,7 @@ int main(int argc, char** argv)
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
-  for(; argc>0; shift) {
+  for (; argc > 0; shift) {
     dmtcp::string restorename(argv[0]);
     struct stat buf;
     int rc = stat(restorename.c_str(), &buf);
@@ -297,7 +296,7 @@ int main(int argc, char** argv)
   ConnectionList::iterator it;
   for (it = connections.begin(); it != connections.end(); ++it) {
     int fd = slidingFd.getFdFor(it->first);
-    conToFd[it->first].push_back (fd);
+    conToFd[it->first].push_back(fd);
     out << "\t" << fd << " -> " << (it->first)
         << " -> " << (it->second)->str() << "\n";
   }
@@ -308,6 +307,9 @@ int main(int argc, char** argv)
   ConnectionState ckptCoord(conToFd);
   DmtcpCoordinatorAPI coordinatorAPI;
   restoreSockets(coordinatorAPI, ckptCoord);
+
+  /* Create the file to hold the pid/tid maps. */
+  openOriginalToCurrentMappingFiles();
 
 #ifndef PID_VIRTUALIZATION
   int i = (int)targets.size();
@@ -342,7 +344,7 @@ int main(int argc, char** argv)
 
   JASSERT(false).Text("unreachable");
   return -1;
-#else
+#endif
   //size_t i = targets.size();
 
   // Create roots vector, assign children to their parents.
@@ -356,9 +358,6 @@ int main(int argc, char** argv)
   // Node contains info about all sessions which exists at lower levels.
   // Also node is aware of session leader existence at lower levels.
   SetupSessions();
-
-  /* Create the file to hold the pid/tid maps. */
-  openOriginalToCurrentMappingFiles();
 
   int pgrp_index=-1;
   JTRACE("Creating ROOT Processes") (roots.size());
@@ -414,7 +413,7 @@ int main(int argc, char** argv)
         continue;
       } else {
         targets[j].CreateProcess(coordinatorAPI, slidingFd);
-        JTRACE("Need in flat-like restore for process")(targets[j].upid());
+        JTRACE("Need in flat-like restore for process") (targets[j].upid());
       }
     }
   }
@@ -429,10 +428,9 @@ int main(int argc, char** argv)
     // FIXME: Under what conditions will this path be exercised?
     JNOTE ("unknown type of target?") (targets[flat_index].path());
   }
-#endif
+// #endif
 }
 
-#ifdef PID_VIRTUALIZATION
 void BuildProcessTree()
 {
   for (size_t j = 0; j < targets.size(); ++j)
@@ -547,8 +545,8 @@ void ProcessGroupInfo()
   {
     ProcessInfo& processInfo = targets[j].getProcessInfo();
     JTRACE("Process ")
-      (processInfo.pid())(processInfo.ppid())(processInfo.sid())
-      (processInfo.gid())(processInfo.fgid())
+      (processInfo.pid()) (processInfo.ppid()) (processInfo.sid())
+      (processInfo.gid()) (processInfo.fgid())
       (processInfo.isRootOfProcessTree());
 
     pid_t sid = processInfo.sid();
@@ -639,46 +637,41 @@ void ProcessGroupInfo()
           ProcessInfo& processInfo = g1.targets[m]->getProcessInfo();
           pid_t pid = processInfo.pid();
           pid_t cfgid = processInfo.fgid();
-          JTRACE("PID=%d <--> FGID = %d")(pid)(cfgid);
+          JTRACE("PID=%d <--> FGID = %d") (pid) (cfgid);
         }
       }
     }
   }
 
   // Print out session mapping.
-  JTRACE("Session number:")(smap.size());
+  JTRACE("Session number:") (smap.size());
   it = smap.begin();
   for(; it != smap.end(); it++) {
     session &s = it->second;
-    JTRACE("Session printout:")(s.sid)(s.fgid)(s.upid.toString().c_str());
+    JTRACE("Session printout:") (s.sid) (s.fgid) (s.upid.toString().c_str());
     session::group_it g_it = s.groups.begin();
     for(; g_it != s.groups.end();g_it++) {
       ProcessGroup &g = g_it->second;
-      JTRACE("\tGroup ID: ")(g.gid);
-      /*
-         for(k=0; k<g.targets.size() ;k++) {
-         printf("%d ", g.targets[k]->pid().pid());
-         }
-         printf("\n");
-         */
+      JTRACE("\tGroup ID: ") (g.gid);
     }
   }
 }
 
 void SetupSessions()
 {
-  for(size_t j = 0; j < roots.size(); j++) {
+  for (size_t j = 0; j < roots.size(); j++) {
     roots[j].t->setupSessions();
   }
 
-  for(size_t i = 0; i < roots.size(); i++) {
-    for(size_t j = 0; j < roots.size(); j++) {
+  for (size_t i = 0; i < roots.size(); i++) {
+    for (size_t j = 0; j < roots.size(); j++) {
       if (i == j)
         continue;
       pid_t sid;
       if ((sid = (roots[i].t)->checkDependence(roots[j].t)) >= 0) {
         // it2 depends on it1
-        JTRACE("Root target j depends on Root target i")(i)(roots[i].t->upid())(j)(roots[j].t->upid());
+        JTRACE("Root target j depends on Root target i")
+          (i) (roots[i].t->upid()) (j) (roots[j].t->upid());
         (roots[i].t)->addRoot(roots[j].t, sid);
         roots[j].indep = false;
       }
@@ -705,34 +698,12 @@ int openSharedFile(dmtcp::string name, int flags)
 
 static void openOriginalToCurrentMappingFiles()
 {
-  dmtcp::ostringstream pidMapFile;
-  dmtcp::ostringstream shmidListFile, shmidMapFile;
   int fd;
 
-  shmidMapFile << dmtcpTmpDir << "/dmtcpShmidMap."
-               << compGroup << "." << std::hex << coordTstamp;
-  shmidListFile << dmtcpTmpDir << "/dmtcpShmidList."
-                << compGroup << "." << std::hex << coordTstamp;
-
+#ifdef PID_VIRTUALIZATION
+  dmtcp::ostringstream pidMapFile;
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
              << compGroup << "." << std::hex << coordTstamp;
-
-  // Open and create shmidListFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidListFile")(shmidListFile.str());
-  fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT (fd != -1);
-  JASSERT (dup2 (fd, PROTECTED_SHMIDLIST_FD) == PROTECTED_SHMIDLIST_FD)
-	  (shmidListFile.str());
-  close (fd);
-
-  // Open and create shmidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidMapFile")(shmidMapFile.str());
-  fd = openSharedFile(shmidMapFile.str(), (O_WRONLY|O_APPEND));
-  JASSERT (fd != -1);
-  JASSERT (dup2 (fd, PROTECTED_SHMIDMAP_FD) == PROTECTED_SHMIDMAP_FD)
-	  (shmidMapFile.str());
-  close (fd);
-
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
   fd = openSharedFile(pidMapFile.str(), O_RDWR);
@@ -740,8 +711,33 @@ static void openOriginalToCurrentMappingFiles()
   JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
 	  (pidMapFile.str());
   close (fd);
-}
 #endif
+
+  dmtcp::ostringstream shmidListFile, shmidMapFile;
+
+  shmidMapFile << dmtcpTmpDir << "/dmtcpShmidMap."
+               << compGroup << "." << std::hex << coordTstamp;
+
+  shmidListFile << dmtcpTmpDir << "/dmtcpShmidList."
+                << compGroup << "." << std::hex << coordTstamp;
+
+  // Open and create shmidListFile if it doesn't exist.
+  JTRACE("Open dmtcpShmidListFile") (shmidListFile.str());
+  fd = openSharedFile(shmidListFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT (fd != -1);
+  JASSERT (dup2 (fd, PROTECTED_SHMIDLIST_FD) == PROTECTED_SHMIDLIST_FD)
+	  (shmidListFile.str());
+  close (fd);
+
+  // Open and create shmidMapFile if it doesn't exist.
+  JTRACE("Open dmtcpShmidMapFile") (shmidMapFile.str());
+  fd = openSharedFile(shmidMapFile.str(), (O_WRONLY|O_APPEND));
+  JASSERT (fd != -1);
+  JASSERT (dup2 (fd, PROTECTED_SHMIDMAP_FD) == PROTECTED_SHMIDMAP_FD)
+	  (shmidMapFile.str());
+  close (fd);
+
+}
 
 void runMtcpRestore(const char* path, int offset, size_t argvSize,
                     size_t envSize)
@@ -796,7 +792,7 @@ void runMtcpRestore(const char* path, int offset, size_t argvSize,
   // Create the placeholder for "MTCP_OLDPERS" environment.
   // setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
   // FIXME: Put an explanation of the logic below.   -- Kapil
-#define ENV_PTR(x) ((char*)(getenv(x) - strlen(x) - 1))
+#define ENV_PTR(x) ((char*) (getenv(x) - strlen(x) - 1))
   char* dummyEnviron = NULL;
   const int dummyEnvironIndex = 0; // index in newEnv[]
   const int pathIndex = 1; // index in newEnv[]
@@ -819,7 +815,9 @@ void runMtcpRestore(const char* path, int offset, size_t argvSize,
   size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
   dummyEnviron = (char*) malloc(argvSizeDiff);
   memset(dummyEnviron, '0', (argvSizeDiff >= 1 ? argvSizeDiff - 1 : 0));
-  strncpy(dummyEnviron, ENV_VAR_DMTCP_DUMMY "=0", strlen(ENV_VAR_DMTCP_DUMMY "="));
+  strncpy(dummyEnviron,
+          ENV_VAR_DMTCP_DUMMY "=0",
+          strlen(ENV_VAR_DMTCP_DUMMY "="));
   dummyEnviron[argvSizeDiff - 1] = '\0';
 
   newEnv[dummyEnvironIndex] = dummyEnviron;

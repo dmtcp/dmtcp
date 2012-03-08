@@ -43,8 +43,8 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "sysvipc.h"
 #include "util.h"
+#include "sysvipc.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -102,6 +102,88 @@ extern "C" int pipe2 ( int fds[2], int flags )
 }
 #endif
 
+
+// extern "C" pid_t getpid()
+// {
+//   return dmtcp::ProcessInfo::instance().pid();
+// }
+
+// extern "C" pid_t getppid()
+// {
+//   pid_t ppid = _real_getppid();
+//   if (ppid == 1 ) {
+//     dmtcp::ProcessInfo::instance().setppid( 1 );
+//   }
+//
+//   return origPpid;
+// }
+
+// extern "C" pid_t setsid(void)
+// {
+//   pid_t pid = _real_setsid();
+//   dmtcp::ProcessInfo::instance().setsid(origPid);
+//   return origPid;
+// }
+
+#if 1
+extern "C" pid_t wait (__WAIT_STATUS stat_loc)
+{
+  return waitpid(-1, (int*)stat_loc, 0);
+}
+
+extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+{
+  return wait4(pid, stat_loc, options, NULL);
+}
+
+extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+{
+  return wait4(-1, status, options, rusage);
+}
+
+extern "C"
+pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+{
+  int stat;
+  int saved_errno = errno;
+  pid_t retval = 0;
+
+  if (status == NULL) {
+    status = (__WAIT_STATUS) &stat;
+  }
+
+  retval = _real_wait4(pid, status, options, rusage);
+  saved_errno = errno;
+
+  if (retval > 0 &&
+      (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
+    dmtcp::ProcessInfo::instance().eraseChild(retval);
+  }
+  errno = saved_errno;
+  return retval;
+}
+
+extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
+{
+  siginfo_t siginfop;
+  memset(&siginfop, 0, sizeof(siginfop));
+
+  int retval = _real_waitid (idtype, id, &siginfop, options);
+
+  if (retval != -1) {
+    if ( siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED )
+      dmtcp::ProcessInfo::instance().eraseChild ( siginfop.si_pid );
+  }
+
+  if (retval == 0 && infop != NULL) {
+    *infop = siginfop;
+  }
+
+  return retval;
+}
+#endif
+
+
 /* Reason for using thread_performing_dlopen_dlsym:
  *
  * dlsym/dlopen/dlclose make a call to calloc() internally. We do not want to
@@ -148,7 +230,6 @@ int dlclose(void *handle)
   return ret;
 }
 
-#ifdef PID_VIRTUALIZATION
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
@@ -203,17 +284,9 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
   JASSERT(currentShmid != -1);
   int ret = _real_shmctl(currentShmid, cmd, buf);
-  // Change the creator-pid of the shm object to the original so that if
-  // calling thread wants to use it, pid-virtualization layer can take care of
-  // the original to current conversion.
-  // TODO: Need to update uid/gid fields to support uid/gid virtualization.
-  if (buf != NULL) {
-    buf->shm_cpid = REAL_TO_VIRTUAL_PID(buf->shm_cpid);
-  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
-#endif // PID_VIRTUALIZATION
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
@@ -277,25 +350,6 @@ extern "C" long int syscall(long int sys_num, ... )
   va_start(ap, sys_num);
 
   switch ( sys_num ) {
-#ifdef PID_VIRTUALIZATION
-    case SYS_gettid:
-    {
-      ret = gettid();
-      break;
-    }
-    case SYS_tkill:
-    {
-      SYSCALL_GET_ARGS_2(int, tid, int, sig);
-      ret = tkill(tid, sig);
-      break;
-    }
-    case SYS_tgkill:
-    {
-      SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
-      ret = tgkill(tgid, tid, sig);
-      break;
-    }
-#endif
 
     case SYS_clone:
     {
@@ -450,94 +504,11 @@ extern "C" long int syscall(long int sys_num, ... )
     }
 #endif
 
-#ifdef PID_VIRTUALIZATION
-    case SYS_getpid:
-    {
-      ret = getpid();
-      break;
-    }
-    case SYS_getppid:
-    {
-      ret = getppid();
-      break;
-    }
-
-    case SYS_getpgrp:
-    {
-      ret = getpgrp();
-      break;
-    }
-
-    case SYS_getpgid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
-      ret = getpgid(pid);
-      break;
-    }
-    case SYS_setpgid:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,pid_t,pgid);
-      ret = setpgid(pid, pgid);
-      break;
-    }
-
-    case SYS_getsid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
-      ret = getsid(pid);
-      break;
-    }
     case SYS_setsid:
     {
       ret = setsid();
       break;
     }
-
-    case SYS_kill:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,int,sig);
-      ret = kill(pid, sig);
-      break;
-    }
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9))
-    case SYS_waitid:
-    {
-      //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
-      SYSCALL_GET_ARGS_4(int,idtype,id_t,id,siginfo_t*,infop,int,options);
-      ret = waitid((idtype_t)idtype, id, infop, options);
-      break;
-    }
-#endif
-    case SYS_wait4:
-    {
-      SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,
-                         struct rusage*,rusage);
-      ret = wait4(pid, status, options, rusage);
-      break;
-    }
-#ifdef __i386__
-    case SYS_waitpid:
-    {
-      SYSCALL_GET_ARGS_3(pid_t,pid,int*,status,int,options);
-      ret = waitpid(pid, status, options);
-      break;
-    }
-#endif
-
-    case SYS_setgid:
-    {
-      SYSCALL_GET_ARG(gid_t,gid);
-      ret = setgid(gid);
-      break;
-    }
-    case SYS_setuid:
-    {
-      SYSCALL_GET_ARG(uid_t,uid);
-      ret = setuid(uid);
-      break;
-    }
-#endif /* PID_VIRTUALIZATION */
 
 #ifndef DISABLE_SYS_V_IPC
 # ifdef __x86_64__

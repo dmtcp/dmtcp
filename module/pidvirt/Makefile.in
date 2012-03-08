@@ -1,0 +1,96 @@
+LIBNAME=pidvirt
+CC = @CC@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+MKDIR_P = @MKDIR_P@
+#PTRACE_SUPPORT=@PTRACE_SUPPORT@
+PACKAGE = @PACKAGE@
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir = @bindir@
+docdir = @docdir@
+includedir = @includedir@
+infodir = @infodir@
+libdir = @libdir@
+pkglibdir = $(libdir)/@PACKAGE@
+
+DMTCP_ROOT=../..
+DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
+JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
+
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+CFLAGS += -DHAVE_CONFIG_H -fPIC -g
+CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+
+COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
+LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
+CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
+
+HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpmodule.h \
+	  pidvirt.h pidwrappers.h virtualpidtable.h \
+	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
+	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
+	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
+	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
+
+OBJS = pidvirt.o pidvirt_filewrappers.o pidvirt_miscwrappers.o \
+       pidvirt_syscallsreal.o pidwrappers.o virtualpidtable.o
+
+SOURCES = pidvirt.cpp pidvirt_filewrappers.cpp pidvirt_miscwrappers.cpp \
+	  pidvirt_syscallsreal.c pidwrappers.cpp virtualpidtable.cpp
+
+LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
+
+LDADD = -ldl -lpthread
+
+all: default
+
+default: build
+
+build: ${LIBNAME}.so
+
+tidy:
+	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o
+	-rm -f *.so
+
+distclean: clean
+	rm -f Makefile
+
+install: all
+	if test -z "$(prefix)"; then \
+	  echo ERROR: prefix must be defined; \
+	  exit 1; \
+	fi
+	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	cp ${LIBNAME}.so $(DESTDIR)$(pkglibdir)
+
+uninstall:
+	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME).so
+
+${LIBNAME}.so: $(OBJS) ${HEADERS}
+	@rm -f ${LIBNAME}.so
+	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
+
+%.o: %.c ${HEADERS}
+	$(COMPILE)  $<
+
+%.o: %.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+.PHONY: default all build tidy clean distclean install uninstall

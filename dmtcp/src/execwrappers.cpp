@@ -92,9 +92,6 @@ LIB_PRIVATE void pthread_atfork_child()
   }
   pthread_atfork_enabled = false;
 
-  dmtcpResetPidPpid();
-  dmtcpResetTid(getpid());
-
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
@@ -134,10 +131,6 @@ extern "C" pid_t fork()
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
   pid_t virtualPid = coordinatorAPI.virtualPid();
   dmtcp::Util::setVirtualPidEnvVar(virtualPid, getpid());
-  if (mtcp_is_ptracing()) {
-    dmtcp::VirtualPidTable::instance().
-      writeVirtualTidToFileForPtrace(virtualPid);
-  }
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
@@ -157,9 +150,8 @@ extern "C" pid_t fork()
     dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
     JTRACE("fork() done [CHILD]") (child) (parent);
   } else if (childPid > 0) { /* Parent Process */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, virtualPid, child_time);
-    dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, childPid);
-    dmtcp::ProcessInfo::instance().insertChild(virtualPid, child);
+    dmtcp::UniquePid child = dmtcp::UniquePid(host, childPid, child_time);
+    dmtcp::ProcessInfo::instance().insertChild(childPid, child);
     JTRACE("fork()ed [PARENT] done") (child);;
   }
 
@@ -169,9 +161,6 @@ extern "C" pid_t fork()
     dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
     coordinatorAPI.closeConnection();
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-  }
-  if (childPid > 0) {
-    return virtualPid;
   }
   return childPid;
 }
@@ -262,10 +251,8 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
   dmtcp::ProcessInfo::instance().serialize ( wr );
-#ifdef PID_VIRTUALIZATION
-  dmtcp::VirtualPidTable::instance().serialize ( wr );
   dmtcp::SysVIPC::instance().serialize ( wr );
-#endif
+  dmtcp_process_event(DMTCP_EVENT_PREPARE_FOR_EXEC, (void*) &wr);
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);

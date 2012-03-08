@@ -31,7 +31,6 @@
 #include "protectedfds.h"
 #include "uniquepid.h"
 #include "processinfo.h"
-#include "virtualpidtable.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -61,9 +60,13 @@ dmtcp::ProcessInfo::ProcessInfo()
   _do_unlock_tbl();
 }
 
+static dmtcp::ProcessInfo *pInfo = NULL;
 dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
 {
-  static ProcessInfo *inst = new ProcessInfo(); return *inst;
+  if (pInfo == NULL) {
+    pInfo = new ProcessInfo();
+  }
+  return *pInfo;
 }
 
 void dmtcp::ProcessInfo::preCheckpoint()
@@ -78,6 +81,7 @@ void dmtcp::ProcessInfo::postRestart()
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()
 {
   // FIXME: This needs to be fixed
+#if 0
 #ifdef PID_VIRTUALIZATION
   // Restore group assignment
   if( VirtualPidTable::instance().pidExists(_gid) ){
@@ -94,6 +98,7 @@ void dmtcp::ProcessInfo::restoreProcessGroupInfo()
   }else{
     JTRACE("SKIP Group information, GID unknown");
   }
+#endif
 #endif
 }
 
@@ -171,14 +176,9 @@ void dmtcp::ProcessInfo::eraseTid( pid_t tid )
 
 void dmtcp::ProcessInfo::postExec( )
 {
-  //dmtcpResetPidPpid();
+  /// FIXME
   JTRACE("Post-Exec. Emptying tidVector");
   _do_lock_tbl();
-#ifdef PID_VIRTUALIZATION
-  for (size_t i = 0; i < _tidVector.size(); i++) {
-    VirtualPidTable::instance().erase(_tidVector[i]);
-  }
-#endif
   _tidVector.clear();
 
   _procname   = jalib::Filesystem::GetProgramName();
@@ -246,9 +246,6 @@ void dmtcp::ProcessInfo::refreshTidVector()
   for (iter = _tidVector.begin(); iter != _tidVector.end(); ) {
     int retVal = syscall(SYS_tgkill, _pid, *iter, 0);
     if (retVal == -1 && errno == ESRCH) {
-#ifdef PID_VIRTUALIZATION
-      VirtualPidTable::instance().erase(*iter);
-#endif
       iter = _tidVector.erase( iter );
     } else {
       iter++;
@@ -265,9 +262,9 @@ void dmtcp::ProcessInfo::refreshChildTable()
     int retVal = kill(pid, 0);
     /* Check to see if the child process is alive*/
     if (retVal == -1 && errno == ESRCH) {
-#ifdef PID_VIRTUALIZATION
-      VirtualPidTable::instance().erase(pid);
-#endif
+//#ifdef PID_VIRTUALIZATION
+//      VirtualPidTable::instance().erase(pid);
+//#endif
       _childTable.erase(pid);
     }
   }

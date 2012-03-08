@@ -91,13 +91,6 @@ void initialize_wrappers() {
   return;
 }
 
-void dmtcpResetPidPpid(pid_t pid, pid_t ppid) {}
-void dmtcpResetTid(pid_t tid) {}
-
-pid_t gettid() {
-  return _real_gettid();
-}
-
 int _real_pthread_mutex_lock(pthread_mutex_t *mutex) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int,pthread_mutex_lock ) ( mutex );
 }

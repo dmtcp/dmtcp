@@ -50,6 +50,16 @@ typedef funcptr_t ( *signal_funcptr_t ) ();
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+LIB_PRIVATE pid_t gettid() {
+  return syscall(SYS_gettid);
+}
+LIB_PRIVATE int tkill(int tid, int sig) {
+  return syscall(SYS_tkill, tid, sig);
+}
+LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
+  return syscall(SYS_tgkill, tgid, tid, sig);
+}
+
 // FIXME: Are these primitives (_dmtcp_lock, _dmtcp_unlock) required anymore?
 void _dmtcp_lock() { _real_pthread_mutex_lock ( &theMutex ); }
 void _dmtcp_unlock() { _real_pthread_mutex_unlock ( &theMutex ); }
@@ -673,127 +683,6 @@ int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
   REAL_FUNC_PASSTHROUGH ( sigtimedwait ) ( set, info, timeout);
 }
 
-#ifdef PID_VIRTUALIZATION
-LIB_PRIVATE
-pid_t _real_getpid(void){
-  // libc caches pid of the process and hence after restart, libc:getpid()
-  // returns the pre-ckpt value.
-  return (pid_t) _real_syscall(SYS_getpid);
-}
-
-LIB_PRIVATE
-pid_t _real_getppid(void){
-  // libc caches ppid of the process and hence after restart, libc:getppid()
-  // returns the pre-ckpt value.
-  return (pid_t) _real_syscall(SYS_getppid);
-}
-
-LIB_PRIVATE
-int _real_tcsetpgrp(int fd, pid_t pgrp){
-  REAL_FUNC_PASSTHROUGH ( tcsetpgrp ) ( fd, pgrp );
-}
-
-LIB_PRIVATE
-int _real_tcgetpgrp(int fd) {
-  REAL_FUNC_PASSTHROUGH ( tcgetpgrp ) ( fd );
-}
-
-LIB_PRIVATE
-pid_t _real_getpgrp(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgrp ) ( );
-}
-
-LIB_PRIVATE
-pid_t _real_setpgrp(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setpgrp ) ( );
-}
-
-LIB_PRIVATE
-pid_t _real_getpgid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getpgid ) ( pid );
-}
-
-LIB_PRIVATE
-int   _real_setpgid(pid_t pid, pid_t pgid) {
-  REAL_FUNC_PASSTHROUGH ( setpgid ) ( pid, pgid );
-}
-
-LIB_PRIVATE
-pid_t _real_getsid(pid_t pid) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, getsid ) ( pid );
-}
-
-LIB_PRIVATE
-pid_t _real_setsid(void) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, setsid ) ( );
-}
-
-LIB_PRIVATE
-int   _real_kill(pid_t pid, int sig) {
-  REAL_FUNC_PASSTHROUGH ( kill ) ( pid, sig );
-}
-
-LIB_PRIVATE
-pid_t _real_wait(__WAIT_STATUS stat_loc) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait ) ( stat_loc );
-}
-
-LIB_PRIVATE
-pid_t _real_waitpid(pid_t pid, int *stat_loc, int options) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, waitpid ) ( pid, stat_loc, options );
-}
-
-LIB_PRIVATE
-int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
-  REAL_FUNC_PASSTHROUGH ( waitid ) ( idtype, id, infop, options );
-}
-
-LIB_PRIVATE
-pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait3 ) ( status, options, rusage );
-}
-
-LIB_PRIVATE
-pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, wait4 ) ( pid, status, options, rusage );
-}
-
-LIB_PRIVATE
-int _real_ioctl(int d, unsigned long int request, ...) {
-  void * arg;
-  va_list ap;
-
-  // Most calls to ioctl take 'void *', 'int' or no extra argument
-  // A few specialized ones take more args, but we don't need to handle those.
-  va_start(ap, request);
-  arg = va_arg(ap, void *);
-  va_end(ap);
-
-  // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED ( int, ioctl ) ( d, request, arg );
-}
-
-LIB_PRIVATE
-int _real_fcntl(int fd, int cmd, void *arg) {
-  REAL_FUNC_PASSTHROUGH(fcntl)(fd, cmd, arg);
-}
-
-LIB_PRIVATE
-int _real_setgid(gid_t gid) {
-  REAL_FUNC_PASSTHROUGH( setgid ) (gid);
-}
-
-LIB_PRIVATE
-int _real_setuid(uid_t uid) {
-  REAL_FUNC_PASSTHROUGH( setuid ) (uid);
-}
-
-LIB_PRIVATE
-long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
-                  void *data) {
-  REAL_FUNC_PASSTHROUGH_TYPED ( long, ptrace ) ( request, pid, addr, data );
-}
-#endif
 
 // gettid / tkill / tgkill are not defined in libc.
 // So, this is needed even if there is no PID_VIRTUALIZATION
@@ -829,6 +718,17 @@ int _real_open( const char *pathname, int flags, ...) {
     va_end (arg);
   }
   REAL_FUNC_PASSTHROUGH ( open ) ( pathname, flags, mode );
+}
+
+LIB_PRIVATE
+int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
+  REAL_FUNC_PASSTHROUGH (waitid) (idtype, id, infop, options);
+}
+
+LIB_PRIVATE
+pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
+                  struct rusage *rusage) {
+  REAL_FUNC_PASSTHROUGH_TYPED (pid_t, wait4) (pid, status, options, rusage);
 }
 
 LIB_PRIVATE
@@ -911,19 +811,19 @@ int _real_pthread_tryjoin_np(pthread_t thread, void **retval) {
 
 LIB_PRIVATE
 int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-    void *(*start_routine)(void*), void *arg) {
+                         void *(*start_routine)(void*), void *arg) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_create )
     (thread,attr,start_routine,arg);
 }
 
-void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
+//void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
 LIB_PRIVATE
 void _real_pthread_exit(void *retval) {
   REAL_FUNC_PASSTHROUGH_NORETURN ( pthread_exit ) (retval);
 }
 
 LIB_PRIVATE
-int _real_shmget (key_t key, size_t size, int shmflg) {
+int _real_shmget (int key, size_t size, int shmflg) {
   REAL_FUNC_PASSTHROUGH ( shmget ) (key, size, shmflg);
 }
 
@@ -956,6 +856,11 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 #else
   REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd , buf);
 #endif
+}
+
+LIB_PRIVATE
+pid_t _real_getpid() {
+  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, getpid) ();
 }
 
 LIB_PRIVATE

@@ -250,6 +250,10 @@ lib/dmtcp/% : dmtcp/src/%
 lib/dmtcp/% : module/ptrace/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
+lib/dmtcp/% : module/pidvirt/%
+	cd lib/dmtcp && $(LN_S) ../../$< $*
+
+MODULES = lib/dmtcp/pidvirt.so
 ifeq ($(PTRACE_SUPPORT),yes)
   MODULES += lib/dmtcp/ptracehijack.so
 endif

@@ -23,7 +23,7 @@ endif
 
 default: build
 
-build: ptrace
+build: pidvirt ptrace
 
 all: default
 
@@ -32,6 +32,9 @@ ifeq ($(PTRACE_SUPPORT),yes)
 	cd ptrace && $(MAKE)
 endif
 
+pidvirt:
+	cd pidvirt && $(MAKE)
+
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
@@ -39,9 +42,11 @@ tidy:
 	rm -rf ckpt_*
 
 clean: tidy
+	- cd pidvirt && $(MAKE) clean
 	- cd ptrace && $(MAKE) clean
 
 distclean: clean
+	- cd pidvirt  && $(MAKE) distclean
 	- cd ptrace  && $(MAKE) distclean
 	rm -f Makefile
 
@@ -53,11 +58,13 @@ install: all
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
+	cd pidvirt && make DESTDIR=$(DESTDIR) install
 ifeq ($(PTRACE_SUPPORT),yes)
 	cd ptrace && make DESTDIR=$(DESTDIR) install
 endif
 
 uninstall:
+	cd pidvirt && make DESTDIR=$(DESTDIR) uninstall
 	cd ptrace && make DESTDIR=$(DESTDIR) uninstall
 
-.PHONY: default all build ptrace tidy clean distclean install uninstall
+.PHONY: default all build pidvirt ptrace tidy clean distclean install uninstall

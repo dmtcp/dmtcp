@@ -149,7 +149,7 @@ static dmtcp::string torque_home_nodefile(char *ptr)
   dmtcp::string nodefile = ptr;
   // clear nodefile path from duplicated slashes
   clear_path(nodefile);
-  
+
   // start of file name entry
   size_t file_start = nodefile.find_last_of("/\\");
   if( file_start == dmtcp::string::npos || file_start == 0 ){
@@ -162,15 +162,15 @@ static dmtcp::string torque_home_nodefile(char *ptr)
     JTRACE("Only one slash exist in nodefile path");
     return "";
   }
-  
+
   dmtcp::string aux_name = nodefile.substr(aux_start+1, file_start - (aux_start+1));
 
   JTRACE("Looks like we can grap PBS_HOME from PBS_NODEFILE")(nodefile)(file_start)(aux_start)(aux_name);
-  
-  // Last check: if lowest file directory is "aux"  
+
+  // Last check: if lowest file directory is "aux"
   if( aux_name != "aux" ){
     JTRACE("Wrond aux name");
-    return "";    
+    return "";
   }
 
   return nodefile.substr(0,aux_start);
@@ -245,7 +245,7 @@ static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
   /* parent process */
   JTRACE ( "created child process for pbs-config")(cpid);
   int status;
-  if( _real_waitpid(cpid,&status,0) < 0 ){
+  if( waitpid(cpid,&status,0) < 0 ){
     return -1;
   }
   if( !( WIFEXITED(status) && WEXITSTATUS(status) == 0 ) ){
@@ -315,7 +315,7 @@ int findLibTorque_pbsconfig(dmtcp::string &libpath)
       }
     }
   }
-  
+
   if( name_found && path_found ){
       // construct full torque library path
     libpath += "/lib" + libname + ".so";
@@ -332,7 +332,7 @@ int findLibTorque_maps(dmtcp::string &libpath)
   // we need to extract libpath
   dmtcp::Util::ProcMapsArea area;
   int ret = -1;
-  
+
   // we will search for first libpath and first libname
   int fd = _real_open ( "/proc/self/maps", O_RDONLY);
 
@@ -340,7 +340,7 @@ int findLibTorque_maps(dmtcp::string &libpath)
     JTRACE("Cannot open /proc/self/maps file");
     return -1;
   }
-  
+
   while( dmtcp::Util::readProcMapsLine(fd, &area) ){
     libpath = area.name;
     JNOTE("Inspect new /proc/seft/maps line")(libpath);
@@ -348,7 +348,7 @@ int findLibTorque_maps(dmtcp::string &libpath)
       JNOTE("anonymous region, skip");
       continue;
     }
-    
+
     if( libpath.find("libtorque") != dmtcp::string::npos ){
       // this is library path that contains libtorque. This is what we need
       JTRACE("Torque PBS libpath")(libpath);
@@ -409,7 +409,7 @@ bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path)
 
 bool isTorqueHomeFile(dmtcp::string &path)
 {
-  // check if file is in home directory 
+  // check if file is in home directory
   char *ptr;
   dmtcp::string hpath = "";
 
@@ -433,7 +433,7 @@ bool isTorqueHomeFile(dmtcp::string &path)
 
   dmtcp::string suffix1 = ".OU", suffix2 = ".ER";
 
-  if( !( (path.substr(path.size() - suffix1.size()) == suffix1) || 
+  if( !( (path.substr(path.size() - suffix1.size()) == suffix1) ||
         (path.substr(path.size() - suffix2.size()) == suffix2) ) ){
     JTRACE("path has no .OU or .ER suffix")(path);
     return false;
@@ -478,7 +478,7 @@ bool isTorqueStdout(dmtcp::string &path)
 
   dmtcp::string suffix = ".OU";
 
-  if( (path.substr(path.size() - suffix.size()) == suffix) ){ 
+  if( (path.substr(path.size() - suffix.size()) == suffix) ){
     return true;
   }
 
@@ -492,7 +492,7 @@ bool isTorqueStderr(dmtcp::string &path)
 
   dmtcp::string suffix = ".ER";
 
-  if( (path.substr(path.size() - suffix.size()) == suffix) ){ 
+  if( (path.substr(path.size() - suffix.size()) == suffix) ){
     return true;
   }
 

@@ -247,7 +247,6 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   return os.str();
 }
 
-#ifdef PID_VIRTUALIZATION
 dmtcp::string dmtcp::UniquePid::pidTableFilename()
 {
   static int count = 0;
@@ -257,7 +256,6 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
-#endif
 
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {

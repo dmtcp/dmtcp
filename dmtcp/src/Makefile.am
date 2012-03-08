@@ -35,7 +35,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h virtualpidtable.h util.h sysvipc.h \
+	uniquepid.h processinfo.h util.h sysvipc.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
 	dmtcpmodule.h lookup_service.h trampolines.h
 
@@ -53,7 +53,7 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     kernelbufferdrainer.cpp nodetable.cpp \
 			     protectedfds.cpp sockettable.cpp \
 			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
-			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
+			     dmtcpcoordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
 			     ckptserializer.cpp resource_manager.cpp
@@ -84,7 +84,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
 			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
-			 pidwrappers.cpp miscwrappers.cpp remexecwrappers.cpp \
+			 miscwrappers.cpp remexecwrappers.cpp \
 			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp
 

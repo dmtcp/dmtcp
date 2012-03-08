@@ -36,15 +36,10 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include "protectedfds.h"
-#include "virtualpidtable.h"
 #include "util.h"
 #include "sysvipc.h"
 
-/* This code depends on PID-Virtualization */
-#ifdef PID_VIRTUALIZATION
-
 /*
- * Shmid virtualization closely follows PID-Virtualization model.
  * Algorithm for properly checkpointing shared memory segments.
  * Helper struct: struct shmMetaInfo { pid_t pid, int creatorSignature }
  *  1. BARRIER -- SUSPENDED
@@ -370,10 +365,9 @@ dmtcp::ShmSegment::ShmSegment(key_t key, int size, int shmflg, int shmid)
   _shmgetFlags = shmflg;
   _originalShmid = shmid;
   _currentShmid = shmid;
-  _creatorPid = getpid();
   _isCkptLeader = false;
   JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
-    (_currentShmid) (_originalShmid) (_creatorPid) (_isCkptLeader);
+    (_currentShmid) (_originalShmid) (_isCkptLeader);
 }
 
 dmtcp::ShmSegment::ShmSegment(int shmid)
@@ -386,9 +380,8 @@ dmtcp::ShmSegment::ShmSegment(int shmid)
   _originalShmid = shmid;
   _currentShmid = shmid;
   _isCkptLeader = false;
-  _creatorPid = REAL_TO_VIRTUAL_PID(shminfo.shm_cpid);
   JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
-    (_currentShmid) (_originalShmid) (_creatorPid) (_isCkptLeader);
+    (_currentShmid) (_originalShmid) (_isCkptLeader);
 }
 
 bool dmtcp::ShmSegment::isValidShmaddr(const void* shmaddr)
@@ -505,7 +498,7 @@ void dmtcp::ShmSegment::remapAll()
     JTRACE("Remapping shared memory segment")(_currentShmid);
     JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1)
       (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (_isCkptLeader)
-      (i->first) (i->second) (getpid()) (_creatorPid)
+      (i->first) (i->second) (getpid())
       .Text ("Error remapping shared memory segment");
   }
   // TODO: During Ckpt-resume, if the shm object was mapped by dmtcp
@@ -524,5 +517,3 @@ void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
 
   // TODO: If num-attached == 0; and marked for deletion, remove this segment
 }
-
-#endif // PID_VIRTUALIZATION
