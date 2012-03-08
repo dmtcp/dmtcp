@@ -42,9 +42,14 @@ enum rmgr_type_t { Empty, None, torque, sge, lsf } rmgr_type = Empty;
 // TODO: Do we need locking here?
 //static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-dmtcp::string torque_home; // = $PBS_HOME
+static dmtcp::string &torque_home(){
+  static dmtcp::string inst = ""; return inst;
+}
+
+static dmtcp::string &torque_jobname(){
+  static dmtcp::string inst = ""; return inst;
+}
 unsigned long torque_jobid = 0;
-dmtcp::string torque_jobname = "";
 
 static rmgr_type_t get_rmgr_type()
 {
@@ -132,11 +137,9 @@ static void setup_job()
   }
 
   if( ptr = getenv("PBS_JOBNAME") ) {
-    torque_jobname = ptr;
-  }else{
-    torque_jobname = "";
+    torque_jobname() = ptr;
   }
-  JTRACE("Result:")(torque_jobid)(torque_jobname);
+  JTRACE("Result:")(torque_jobid)(torque_jobname());
 }
 
 
@@ -177,18 +180,16 @@ static void setup_torque_env()
 {
   char *ptr;
   if( ptr = getenv("PBS_HOME")){
-    torque_home = ptr;
+    torque_home() = ptr;
   }else if( ptr = getenv("PBS_SERVER_HOME") ) {
-    torque_home = ptr;
+    torque_home() = ptr;
   } else if( ptr = getenv("PBS_NODEFILE") ) {
-      torque_home = torque_home_nodefile(ptr);
-  }else{
-    torque_home = "";
+      torque_home() = torque_home_nodefile(ptr);
   }
 
-  if( torque_home.size() ){
-    clear_path(torque_home);
-    rem_trailing_slash(torque_home);
+  if( torque_home().size() ){
+    clear_path(torque_home());
+    rem_trailing_slash(torque_home());
   }
 }
 
@@ -392,10 +393,10 @@ bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path)
     return false;
   }
 
-  if( torque_home.size() == 0 )
+  if( torque_home().size() == 0 )
     return false;
 
-  dmtcp::string abspath = torque_home + "/" + relpath;
+  dmtcp::string abspath = torque_home() + "/" + relpath;
   JTRACE("Compare path with")(path)(abspath);
   if( path.size() < abspath.size() )
     return false;
