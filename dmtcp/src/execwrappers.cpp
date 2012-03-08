@@ -92,7 +92,7 @@ LIB_PRIVATE void pthread_atfork_child()
   }
   pthread_atfork_enabled = false;
 
-  dmtcpResetPidPpid(-1, getpid());
+  dmtcpResetPidPpid();
   dmtcpResetTid(getpid());
 
   long host = dmtcp::UniquePid::ThisProcess().hostid();
@@ -128,25 +128,23 @@ extern "C" pid_t fork()
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
+  //Unset this environment variable so that we can get a new virtualPid from
+  //the coordinator.
   _dmtcp_unsetenv(ENV_VAR_VIRTUAL_PID);
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
   pid_t virtualPid = coordinatorAPI.virtualPid();
-  char buf[80];
-  sprintf(buf, "%d", virtualPid);
-  setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+  dmtcp::Util::setVirtualPidEnvVar(virtualPid, getpid());
   if (mtcp_is_ptracing()) {
     dmtcp::VirtualPidTable::instance().
       writeVirtualTidToFileForPtrace(virtualPid);
   }
 
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, virtualPid, child_time);
-
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
-  pid_t realPid = _real_fork();
+  pid_t childPid = _real_fork();
 
-  if (realPid == -1) {
-  } else if (realPid == 0) { /* child process */
+  if (childPid == -1) {
+  } else if (childPid == 0) { /* child process */
     /* NOTE: Any work that needs to be done for the newly created child
      * should be put into pthread_atfork_child() function. That function is
      * hooked to the libc:fork() and will be called right after the new
@@ -156,25 +154,26 @@ extern "C" pid_t fork()
      * within the DmtcpWorker constructor to make sure that this is the first
      * registered handle.
      */
+    dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
     JTRACE("fork() done [CHILD]") (child) (parent);
-  } else if (realPid > 0) { /* Parent Process */
-    dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+  } else if (childPid > 0) { /* Parent Process */
+    dmtcp::UniquePid child = dmtcp::UniquePid(host, virtualPid, child_time);
+    dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, childPid);
     dmtcp::ProcessInfo::instance().insertChild(virtualPid, child);
     JTRACE("fork()ed [PARENT] done") (child);;
   }
 
   pthread_atfork_enabled = false;
 
-  if (realPid != 0) {
-    sprintf(buf, "%d", getpid());
-    setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+  if (childPid != 0) {
+    dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
     coordinatorAPI.closeConnection();
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
-  if (realPid > 0) {
+  if (childPid > 0) {
     return virtualPid;
   }
-  return realPid;
+  return childPid;
 }
 
 extern "C" pid_t vfork()
@@ -274,6 +273,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::Util::adjustRlimitStack();
 
   dmtcp::Util::prepareDlsymWrapper();
+  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }

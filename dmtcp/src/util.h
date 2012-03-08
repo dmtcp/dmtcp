@@ -68,7 +68,7 @@ namespace dmtcp
 
     bool isStaticallyLinked(const char *filename);
 
-
+    void setVirtualPidEnvVar(pid_t pid, pid_t ppid);
     bool isScreen(const char *filename);
     void setScreenDir();
     dmtcp::string getScreenDir();

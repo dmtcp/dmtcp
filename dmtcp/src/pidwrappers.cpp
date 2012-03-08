@@ -46,7 +46,7 @@ static __thread pid_t _dmtcp_thread_tid = -1;
 static pid_t _dmtcp_pid = -1;
 static pid_t _dmtcp_ppid = -1;
 
-static pid_t getPidFromEnvVar()
+LIB_PRIVATE pid_t getPidFromEnvVar()
 {
   const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
   if (pidstr == NULL) {
@@ -55,17 +55,33 @@ static pid_t getPidFromEnvVar()
     sleep(5);
     _exit(0);
   }
-  return (pid_t) atoi(pidstr);
+  return strtol(pidstr, NULL, 10);
 }
-
-
 extern "C" LIB_PRIVATE
-void dmtcpResetPidPpid(pid_t pid, pid_t ppid)
+void dmtcpResetPidPpid()
 {
-  // Reset __thread_tid on fork. This should be the first thing to do in
-  // the child process.
-  _dmtcp_pid = pid;
-  _dmtcp_ppid = ppid;
+  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  char *ppidstr;
+  if (pidstr == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__, __LINE__);
+    sleep(5);
+    _exit(0);
+  }
+  _dmtcp_pid = strtol(pidstr, &ppidstr, 10);
+  dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_pid,
+                                                   _real_getpid());
+
+  if (ppidstr[0] != ':' && !isdigit(ppidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    sleep(5);
+    _exit(0);
+  }
+  _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
+
+  dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
+                                                   _real_getppid());
 }
 
 extern "C" LIB_PRIVATE
@@ -91,20 +107,18 @@ extern "C" pid_t gettid()
 extern "C" pid_t getpid()
 {
   if (_dmtcp_pid == -1) {
-    _dmtcp_pid = getPidFromEnvVar();
-    dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_pid,
-                                                     _real_getpid());
+    dmtcpResetPidPpid();
   }
   return _dmtcp_pid;
 }
 
 extern "C" pid_t getppid()
 {
+  if (_dmtcp_ppid == -1) {
+    dmtcpResetPidPpid();
+  }
   if (_real_getppid() == 1) {
     _dmtcp_ppid = 1;
-  }
-  if (_dmtcp_ppid == -1) {
-    _dmtcp_ppid = _real_getppid();
   }
   return _dmtcp_ppid;
 }

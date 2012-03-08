@@ -367,8 +367,8 @@ static dmtcp::string localHostName;
 static dmtcp::string localPrefix;
 static dmtcp::string remotePrefix;
 
-#define INITIAL_VIRTUAL_PID 1000
-#define MAX_VIRTUAL_PID 320000
+#define INITIAL_VIRTUAL_PID 40000
+#define MAX_VIRTUAL_PID   4000000
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 namespace
