@@ -414,7 +414,7 @@ int main ( int argc, char** argv )
   pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
   if (virtualPid != -1) {
     JTRACE("Got virtual pid from coordinator") (virtualPid);
-    dmtcp::Util::setVirtualPidEnvVar(virtualPid, getpid());
+    dmtcp::Util::setVirtualPidEnvVar(virtualPid, getppid());
   }
 
   // preloadLibs are to set LD_PRELOAD:
