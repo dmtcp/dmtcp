@@ -274,6 +274,8 @@ static void callbackPostCheckpoint ( int isRestart,
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
+    dmtcp_process_event(DMTCP_EVENT_POST_RESTART, NULL);
+
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.
@@ -311,7 +313,7 @@ static void callbackPostCheckpoint ( int isRestart,
       dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
       dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
       dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-      dmtcp_process_event(DMTCP_EVENT_POST_CHECKPOINT_RESUME, NULL);
+      dmtcp_process_event(DMTCP_EVENT_POST_CKPT_RESUME, NULL);
     }
 
     // Set the process state to RUNNING now, in case a dmtcpaware hook
@@ -332,11 +334,13 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 static void callbackWriteCkptPrefix ( int fd )
 {
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
+  dmtcp_process_event(DMTCP_EVENT_WRITE_CKPT_PREFIX, (void*) (unsigned long) fd);
 }
 
 static void callbackRestoreVirtualPidTable()
 {
   dmtcp::VirtualPidTable::instance().writePidMapsToFile();
+  dmtcp_process_event(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
   dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 
@@ -410,7 +414,7 @@ void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
 
 void callbackThreadDiedBeforeCheckpoint()
 {
-  dmtcp_process_event(DMTCP_EVENT_THREAD_DIED_BEFORE_CHECKPOINT, NULL);
+  dmtcp_process_event(DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT, NULL);
 }
 
 void callbackCkptThreadStart()

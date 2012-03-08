@@ -255,6 +255,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
     VirtualPidTable::instance().serialize ( rd );
     SysVIPC::instance().serialize ( rd );
 #endif
+    dmtcp_process_event(DMTCP_EVENT_POST_EXEC, (void*) &rd);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
     //dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
@@ -690,7 +691,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   SysVIPC::instance().preCheckpoint();
 #endif
 
-  dmtcp_process_event(DMTCP_EVENT_PRE_CHECKPOINT, NULL);
+  dmtcp_process_event(DMTCP_EVENT_PRE_CKPT, NULL);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
@@ -880,8 +881,6 @@ void dmtcp::DmtcpWorker::postRestart()
   dmtcp::VirtualPidTable::instance().postRestart();
   SysVIPC::instance().postRestart();
 #endif
-
-  dmtcp_process_event(DMTCP_EVENT_POST_RESTART, NULL);
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -914,7 +913,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
   SysVIPC::instance().postCheckpoint();
 #endif
   if (!isRestart) {
-    dmtcp_process_event(DMTCP_EVENT_POST_CHECKPOINT, NULL);
+    dmtcp_process_event(DMTCP_EVENT_POST_CKPT, NULL);
   }
 }
 
