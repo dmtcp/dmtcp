@@ -6,8 +6,6 @@
 
 #include <stdio.h>
 #include <sys/time.h>
-#define __USE_GNU
-#include <dlfcn.h>
 #include "dmtcpmodule.h"
 
 void print_time() {

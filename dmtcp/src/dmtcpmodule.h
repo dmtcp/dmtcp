@@ -23,6 +23,8 @@
 #define DMTCPMODULE_H
 
 #include <sys/types.h>
+#define __USE_GNU
+#include <dlfcn.h>  /* for NEXT_FNC() */
 
 #ifndef EXTERNC
 # ifdef __cplusplus
