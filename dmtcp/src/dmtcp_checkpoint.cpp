@@ -439,13 +439,15 @@ int main ( int argc, char** argv )
 #endif
 
   preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+
+  setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
+
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
   //   if dmtcp_checkpoint survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD"))
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
   setenv ( "LD_PRELOAD", preloadLibs.c_str(), 1 );
   JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
-  setenv ( ENV_VAR_HIJACK_LIB, preloadLibs.c_str(), 0 );
 
   //run the user program
   char **newArgv = NULL;

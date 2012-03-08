@@ -286,13 +286,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
     dmtcp::Util::freePatchedArgv(newArgv);
   }
 
-  const char *preload = getenv("LD_PRELOAD");
-  if (preload != NULL &&
-      dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c)) {
-    setenv("LD_PRELOAD",
-           preload + strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1,
-           1);
-  }
+  restoreUserLDPRELOAD();
 
   unsetenv(ENV_VAR_DLSYM_OFFSET);
 
@@ -302,7 +296,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 
 static dmtcp::string getUpdatedLdPreload(const char* currLdPreload = NULL)
 {
-  dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
+  dmtcp::string preload = getenv(ENV_VAR_HIJACK_LIBS);
   if (currLdPreload != NULL) {
     preload = preload + ":" + currLdPreload;
   } else if (getenv("LD_PRELOAD") != NULL) {
@@ -647,7 +641,7 @@ extern int do_system (const char *line);
 extern "C" int system (const char *line)
 {
   JTRACE ( "before system(), checkpointing may not work" )
-    ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
+    ( line ) ( getenv ( ENV_VAR_HIJACK_LIBS ) ) ( getenv ( "LD_PRELOAD" ) );
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might

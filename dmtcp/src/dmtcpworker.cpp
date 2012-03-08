@@ -82,9 +82,6 @@ static void processDmtcpCommands(dmtcp::string programName,
 void __attribute__ ((weak)) dmtcp::initializeMtcpEngine();
 void __attribute__ ((weak)) dmtcp::killCkpthread();
 
-const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
-char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
-
 void restoreUserLDPRELOAD()
 {
   // We have now successfully used LD_PRELOAD to execute prior to main()
@@ -104,25 +101,20 @@ void restoreUserLDPRELOAD()
   //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char *preload =  getenv("LD_PRELOAD");
-  if (preload == NULL || strstr(preload, "dmtcphijack.so") == NULL) {
+  char *hijackLibs = getenv(ENV_VAR_HIJACK_LIBS);
+  if (preload != NULL
+      || dmtcp::Util::strStartsWith(preload, hijackLibs) == false) {
     return;
   }
-  char * preload_rest = strstr(preload, "dmtcphijack.so:");
-  if (preload_rest) {
-    preload_rest = strstr(preload_rest, ":");
-    *preload_rest = '\0'; // Now preload is just our preload string
-    preload_rest++;
-  }
-  JTRACE("LD_PRELOAD")(preload);
-  JASSERT(strlen(preload) < dmtcp::DmtcpWorker::ld_preload_c_len)
-	 (preload) (dmtcp::DmtcpWorker::ld_preload_c_len)
-	 .Text("preload string is longer than ld_preload_c_len");
-  strcpy(dmtcp::DmtcpWorker::ld_preload_c, preload);  // Don't malloc
-  if (preload_rest) {
-    setenv("LD_PRELOAD", preload_rest, 1);
-  } else {
+  if (strcmp(preload, hijackLibs) == 0) {
     _dmtcp_unsetenv("LD_PRELOAD");
+  } else {
+    JASSERT(dmtcp::Util::strStartsWith(preload, hijackLibs))
+      (preload) (hijackLibs);
+    char *userPreload = preload + strlen(hijackLibs) + 1;
+    setenv("LD_PRELOAD", userPreload, 1);
   }
+  JTRACE("LD_PRELOAD") (preload) (hijackLibs) (getenv("LD_PRELOAD"));
 }
 
 // FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
