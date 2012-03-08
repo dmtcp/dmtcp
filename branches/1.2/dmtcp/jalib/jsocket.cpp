@@ -532,7 +532,7 @@ void jalib::JMultiSocketProgram::setTimeoutInterval ( double dblTimeout )
   timeoutInterval.tv_usec = tMs;
   timeoutEnabled = dblTimeout > 0 && timerisset ( &timeoutInterval );
 
-  JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
+  JASSERT ( gettimeofday ( &stoptime,NULL ) == 0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
 }
 
@@ -547,7 +547,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
   struct timeval stoptime={0,0};
   struct timeval timeoutBuf=timeoutInterval;
   struct timeval * timeout = timeoutEnabled ? &timeoutBuf : NULL;
-  JASSERT ( gettimeofday ( &stoptime,NULL ) ==0 );
+  JASSERT ( gettimeofday ( &stoptime,NULL ) == 0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
   */
   struct timeval tmptime={0,0};
@@ -723,7 +723,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 
     if ( timeoutEnabled )
     {
-      JASSERT ( gettimeofday ( &tmptime,NULL ) ==0 );
+      JASSERT ( gettimeofday ( &tmptime,NULL ) == 0 );
       if ( timercmp ( &tmptime, &stoptime, < ) )
       {
         timersub ( &stoptime, &tmptime, &timeoutBuf );

@@ -23,7 +23,6 @@
 #include "jfilesystem.h"
 #include "ptracewrappers.h"
 #include "dmtcpmodule.h"
-#include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <linux/version.h>
