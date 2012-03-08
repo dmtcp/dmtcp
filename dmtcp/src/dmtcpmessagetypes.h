@@ -156,6 +156,7 @@ namespace dmtcp
   };
 
 #define DMTCPMESSAGE_NUM_PARAMS 2
+#define DMTCPMESSAGE_SAME_CKPT_INTERVAL (-1) /* default value */
 
   struct DmtcpMessage
   {
