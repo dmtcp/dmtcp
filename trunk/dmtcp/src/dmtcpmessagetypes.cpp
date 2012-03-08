@@ -50,7 +50,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,restorePort ( -1 )
     ,keyLen ( 0 )
     ,valLen ( 0 )
-    ,theCheckpointInterval ( 0 )
+    ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
