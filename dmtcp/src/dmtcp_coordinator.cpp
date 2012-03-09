@@ -1067,10 +1067,9 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
 
-  if ( hello_remote.theCheckpointInterval >= 0 ) {
+  if ( hello_remote.theCheckpointInterval != DMTCPMESSAGE_SAME_CKPT_INTERVAL ) {
     int oldInterval = theCheckpointInterval;
-    if (oldInterval != DMTCPMESSAGE_SAME_CKPT_INTERVAL)
-      theCheckpointInterval = hello_remote.theCheckpointInterval;
+    theCheckpointInterval = hello_remote.theCheckpointInterval;
     setTimeoutInterval ( theCheckpointInterval );
     JNOTE ( "CheckpointInterval Updated" ) ( oldInterval )
 	  ( theCheckpointInterval );
