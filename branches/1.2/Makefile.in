@@ -27,7 +27,7 @@ MANPAGES=dmtcp_coordinator.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
 MTCP_MAKE_FLAGS = DMTCP_VERSION=$(VERSION)
 
 ifeq ($(DEBUG),yes)
-  MTCP_MAKE_FLAGS += CFLAGS=-Wall
+  MTCP_MAKE_FLAGS += CFLAGS_WALL=1
 endif
 
 ifeq ($(M32),1)
