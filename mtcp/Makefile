@@ -69,6 +69,10 @@ CFLAGS += -O0 -g
 
 LDFLAGS += -Wl,-soname,libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
 
+ifdef CFLAGS_WALL
+  CFLAGS += -Wall
+endif
+
 # If calling 'make' from mtcp subdir, you may want to unconditionally set this.
 ifdef HBICT_DELTACOMP
   CFLAGS += -DHBICT_DELTACOMP
