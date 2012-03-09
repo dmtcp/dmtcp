@@ -171,10 +171,12 @@ void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
 
   const char* interval = getenv ( ENV_VAR_CKPT_INTR );
   /* DmtcpMessage constructor default:
-   *   theCheckpointInterva: DMTCPMESSAGE_SAME_CKPT_INTERVAL
+   *   hello_local.theCheckpointInterval: DMTCPMESSAGE_SAME_CKPT_INTERVAL
    */
   if ( interval != NULL )
     hello_local.theCheckpointInterval = jalib::StringToInt ( interval );
+  // Tell the coordinator the ckpt interval only once.  It can change later.
+  _dmtcp_unsetenv ( ENV_VAR_CKPT_INTR );
 
   hello_local.extraBytes = hostname.length() + 1 + progname.length() + 1;
 
