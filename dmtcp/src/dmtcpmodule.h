@@ -23,7 +23,11 @@
 #define DMTCPMODULE_H
 
 #include <sys/types.h>
-#define __USE_GNU
+
+#ifndef __USE_GNU
+# define __USE_GNU
+#endif
+
 #include <dlfcn.h>  /* for NEXT_FNC() */
 
 #ifndef EXTERNC
