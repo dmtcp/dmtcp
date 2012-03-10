@@ -58,12 +58,15 @@ extern "C" pid_t fork()
       writeVirtualTidToFileForPtrace(virtualPid);
   }
 
-
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
     retval = virtualPid;
     dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+    if (mtcp_is_ptracing()) {
+      dmtcp::VirtualPidTable::instance().
+        readVirtualTidFromFileForPtrace(getpid());
+    }
   } else {
     retval = realPid;
   }
@@ -160,9 +163,9 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                     parent_tidptr, newtls, child_tidptr);
 
-  if (mtcp_is_ptracing()) {
+  if (dmtcp_is_running_state() && mtcp_is_ptracing()) {
     dmtcp::VirtualPidTable::instance()
-      .readVirtualTidFromFileForPtrace(virtualTid);
+      .readVirtualTidFromFileForPtrace(tid);
   }
 
   if (tid > 0) {

@@ -72,7 +72,7 @@ namespace dmtcp
       void printPidMaps();
 
       void writeVirtualTidToFileForPtrace(pid_t pid);
-      pid_t readVirtualTidFromFileForPtrace(pid_t inferior);
+      pid_t readVirtualTidFromFileForPtrace(pid_t realTid);
 
       void serialize(jalib::JBinarySerializer& o);
       void serializePidMap(jalib::JBinarySerializer& o);
