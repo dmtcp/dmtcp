@@ -129,7 +129,9 @@ static bool _isBlacklistedTcp ( int sockfd,
     //However, libc.so:getpwuid() can call libnss_ldap.so which calls
     // libldap-2.4.so to create the LDAP socket while evading our connect
     // wrapper.
-    int blacklistedRemotePorts[] = {389, 636, -1}; /* LDAP ports */
+    int blacklistedRemotePorts[] = {53,                 // DNS Server
+                                    389, 636,           // LDAP
+                                    -1};
     int i;
     for (i = 0; blacklistedRemotePorts[i] != -1; i++) {
       if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
