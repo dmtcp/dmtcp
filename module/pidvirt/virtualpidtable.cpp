@@ -111,6 +111,7 @@ void dmtcp::VirtualPidTable::refresh()
     }
   }
   _do_unlock_tbl();
+  printPidMaps();
 }
 
 pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
@@ -197,10 +198,9 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
   }
 
   if (mtcp_is_ptracing()) {
-    pid_t virtualPid = readVirtualTidFromFileForPtrace(getpid());
+    pid_t virtualPid = readVirtualTidFromFileForPtrace(realPid);
     if (virtualPid != -1) {
       _do_unlock_tbl();
-      //JNOTE("inserting") (virtualPid) (realPid);
       updateMapping(virtualPid, realPid);
       return virtualPid;
     }
@@ -271,7 +271,7 @@ void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
   dmtcp::ostringstream o;
   char buf[80];
   o << dmtcp_get_tmpdir() << "/virtualPidOfNewlyCreatedThread_"
-    << dmtcp_get_computation_id_str() << "_" << getppid();
+    << dmtcp_get_computation_id_str() << "_" << getpid();
 
   sprintf(buf, "%d", pid);
   int fd = open(o.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
@@ -281,16 +281,30 @@ void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
   close(fd);
 }
 
-pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t inferior)
+pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t realTid)
 {
   dmtcp::ostringstream o;
   char buf[80];
   pid_t pid;
   int fd;
   ssize_t bytesRead;
+  pid_t inferiorPid = -1;
+
+  if (realTid == getpid()) {
+    inferiorPid = getpid();
+  } else {
+    for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i) {
+      pid_t virtualPid  = i->first;
+      pid_t realPid  = i->second;
+      if (virtualPid % 1000 == 0 && _real_tgkill(realPid, realTid, 0) == 0) {
+        inferiorPid = virtualPid;
+        break;
+      }
+    }
+  }
 
   o << dmtcp::UniquePid::getTmpDir() << "/virtualPidOfNewlyCreatedThread_"
-    << dmtcp::UniquePid::ComputationId() << "_" << getpid();
+    << dmtcp::UniquePid::ComputationId() << "_" << inferiorPid;
 
   fd = open(o.str().c_str(), O_RDONLY, 0);
   if (fd < 0) {
@@ -305,7 +319,7 @@ pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t inferior)
   }
 
   sscanf(buf, "%d", &pid);
-  JTRACE("Read virtual Pid/Tid to file") (pid) (o.str());
+  JTRACE("Read virtual Pid/Tid from file") (pid) (o.str());
   return pid;
 }
 

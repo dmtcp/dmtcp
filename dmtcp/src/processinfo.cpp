@@ -237,7 +237,7 @@ void dmtcp::ProcessInfo::refresh()
   refreshChildTable();
   refreshTidVector();
 
-  JNOTE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
+  JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
 void dmtcp::ProcessInfo::refreshTidVector()
@@ -262,9 +262,6 @@ void dmtcp::ProcessInfo::refreshChildTable()
     int retVal = kill(pid, 0);
     /* Check to see if the child process is alive*/
     if (retVal == -1 && errno == ESRCH) {
-//#ifdef PID_VIRTUALIZATION
-//      VirtualPidTable::instance().erase(pid);
-//#endif
       _childTable.erase(pid);
     }
   }
