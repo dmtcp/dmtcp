@@ -185,11 +185,12 @@ extern "C" char *__realpath(const char *path, char *resolved_path)
   return NEXT_FNC(__realpath) (newpath, resolved_path);
 }
 
-extern "C" char *__realpath_chk(const char *path, char *resolved_path)
+extern "C" char *__realpath_chk(const char *path, char *resolved_path,
+                                size_t resolved_len)
 {
   char newpath [ PATH_MAX ] = {0} ;
   updateProcPath(path, newpath);
-  return NEXT_FNC(__realpath_chk) (newpath, resolved_path);
+  return NEXT_FNC(__realpath_chk) (newpath, resolved_path, resolved_len);
 }
 
 extern "C" char *canonicalize_file_name(const char *path)
