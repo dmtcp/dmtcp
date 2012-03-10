@@ -167,12 +167,44 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  READLINK_RET_TYPE retval;
   updateProcPath(path, newpath);
-  retval = _real_readlink(newpath, buf, bufsiz);
-  return retval;
+  return NEXT_FNC(readlink) (newpath, buf, bufsiz);
 }
 
+extern "C" char *realpath(const char *path, char *resolved_path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  return NEXT_FNC(realpath) (newpath, resolved_path);
+}
+
+extern "C" char *__realpath(const char *path, char *resolved_path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  return NEXT_FNC(__realpath) (newpath, resolved_path);
+}
+
+extern "C" char *__realpath_chk(const char *path, char *resolved_path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  return NEXT_FNC(__realpath_chk) (newpath, resolved_path);
+}
+
+extern "C" char *canonicalize_file_name(const char *path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  return NEXT_FNC(canonicalize_file_name) (newpath);
+}
+
+extern "C" int access(const char *path, int mode)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPath(path, newpath);
+  return NEXT_FNC(access) (newpath, mode);
+}
 
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
 // These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
