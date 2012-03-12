@@ -101,7 +101,7 @@ void restoreUserLDPRELOAD()
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char *preload =  getenv("LD_PRELOAD");
   char *hijackLibs = getenv(ENV_VAR_HIJACK_LIBS);
-  if (preload != NULL
+  if (preload == NULL
       || dmtcp::Util::strStartsWith(preload, hijackLibs) == false) {
     return;
   }
@@ -151,30 +151,34 @@ int dmtcp::DmtcpWorker::determineMtcpSignal()
  * functions reliably. Read the comment at the top of syscallsreal.c for more
  * details.
  */
+static bool dmtcpWrappersInitialized = false;
 extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
 {
-  // FIXME: Remove JALLOC_HELPER_... after the release.
-  JALLOC_HELPER_DISABLE_LOCKS();
-  dmtcp_wrappers_initializing = 1;
-  initialize_libc_wrappers();
-  //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
-  dmtcp_wrappers_initializing = 0;
-  initialize_libpthread_wrappers();
-  JALLOC_HELPER_ENABLE_LOCKS();
+  if (!dmtcpWrappersInitialized) {
+    // FIXME: Remove JALLOC_HELPER_... after the release.
+    JALLOC_HELPER_DISABLE_LOCKS();
+    dmtcp_wrappers_initializing = 1;
+    initialize_libc_wrappers();
+    //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
+    dmtcp_wrappers_initializing = 0;
+    initialize_libpthread_wrappers();
+    JALLOC_HELPER_ENABLE_LOCKS();
 
-  /* Register pthread_atfork_child() as the first post-fork handler for the
-   * child process. This needs to be the first function that is called by
-   * libc:fork() after the child process is created.
-   *
-   * Some dmtcp module might also call pthread_atfork and so we call it right
-   * here before initializing the wrappers.
-   *
-   * NOTE: If this doesn't work and someone is able to call pthead_atfork
-   * before this call, we might want to install a pthread_atfork() wrappers.
-   */
-  JASSERT(pthread_atfork(pthread_atfork_prepare,
-                         pthread_atfork_parent,
-                         pthread_atfork_child) == 0);
+    /* Register pthread_atfork_child() as the first post-fork handler for the
+     * child process. This needs to be the first function that is called by
+     * libc:fork() after the child process is created.
+     *
+     * Some dmtcp module might also call pthread_atfork and so we call it right
+     * here before initializing the wrappers.
+     *
+     * NOTE: If this doesn't work and someone is able to call pthead_atfork
+     * before this call, we might want to install a pthread_atfork() wrappers.
+     */
+    JASSERT(pthread_atfork(pthread_atfork_prepare,
+                           pthread_atfork_parent,
+                           pthread_atfork_child) == 0);
+    dmtcpWrappersInitialized = true;
+  }
 }
 
 static void calculateArgvAndEnvSize()
