@@ -1940,7 +1940,12 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
+#if 1
+      if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, 0) == -1
+          && mtcp_sys_errno == ESRCH) {
+#else
       if (*(thread -> actual_tidptr) == 0) {
+#endif
         DPRINTF("thread %d disappeared\n", thread -> tid);
         threadisdead (thread);
         if (callback_thread_died_before_checkpoint)
@@ -2024,8 +2029,9 @@ again:
 
         case ST_SIGENABLED: {
           unlk_threads ();
+          static struct timespec const timeout = { 1, 0 };
           mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SIGENABLED,
-			    &enabletimeout);
+			    &timeout);
           goto rescan;
         }
 
@@ -3531,7 +3537,8 @@ static void wait_for_all_restored (void)
   do {
     rip = mtcp_state_value(&restoreinprog);
   } while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
-  if (-- rip == 0) {
+
+  if (-- rip == 1) {
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads
@@ -3553,10 +3560,6 @@ static void wait_for_all_restored (void)
               mtcp_sys_kernel_gettid());
     }
 
-    lock_threads ();
-    // if this was last of all, wake everyone up
-    mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);
-
     // NOTE:  This is last safe moment for hook.  All previous threads
     //   have executed the "else" and are waiting on the futex.
     //   This last thread has not yet unlocked the threads: unlk_threads()
@@ -3568,11 +3571,30 @@ static void wait_for_all_restored (void)
      * visible
      */
     mtcpHookRestart();
+
+    lock_threads ();
+    // if this was last of all, wake everyone up
+    /* The restoreinprog is set to numThreads+1. At this point, all other
+     * threads are in the else part. We do a FUTEX_WAKE for all those who are
+     * doing FUTEX_WAIT. Any late comers are either executing FUTEX_WAIT or
+     * busy waiting on restoreinprog to become 0. Thus, we set restoreinprog to
+     * 0 before doing another FUTEX_WAKE.
+     */
+    mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);
+    if (!mtcp_state_set (&restoreinprog, rip - 1, rip)) {
+      MTCP_PRINTF("NOT REACHED\n");
+      mtcp_abort();
+    }
+    mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);
     unlk_threads (); // ... and release the thread list
   } else {
     // otherwise, wait for last of all to wake this one up
     while ((rip = mtcp_state_value(&restoreinprog)) > 0) {
       mtcp_state_futex (&restoreinprog, FUTEX_WAIT, rip, NULL);
+    }
+    while (mtcp_state_value(&restoreinprog) != 0) {
+      const struct timespec timeout = {(time_t) 0, (long)100 * 1000};
+      nanosleep(&timeout, NULL);
     }
   }
 }
@@ -4054,11 +4076,11 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
    */
   long long * extendedStack = tempstack + STACKSIZE;
 
-  /* Not used until we do longjmp/getcontext, but get it out of way now */
-
-  // FIXME: Should we be checking return value of mtcp_state_set? Can it ever
-  // fail?
-  mtcp_state_set(&restoreinprog ,1, 0);
+  /* Not used until we do longjmp/getcontext, but get it out of way now
+   * restoreinprog needs to be set to 1 + numThreads to use in
+   * wait_for_all_restored().
+   */
+  mtcp_state_init(&restoreinprog, 2);
 
   mtcp_sys_gettimeofday (&restorestarted, NULL);
 
