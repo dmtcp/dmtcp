@@ -1940,7 +1940,7 @@ rescan:
       /* If thread no longer running, remove it from thread list */
 
 again:
-#if 1
+#if 0
       if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, 0) == -1
           && mtcp_sys_errno == ESRCH) {
 #else
