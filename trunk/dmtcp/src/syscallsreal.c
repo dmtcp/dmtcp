@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <poll.h>
 #include <fcntl.h>
 #include "constants.h"
 #include "sockettable.h"
@@ -928,6 +929,11 @@ void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
 LIB_PRIVATE
 int _real_munmap(void *addr, size_t length) {
   REAL_FUNC_PASSTHROUGH_TYPED (int, munmap) (addr, length);
+}
+
+LIB_PRIVATE
+int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+  REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 
 

@@ -36,6 +36,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <poll.h>
 #include "constants.h"
 #include <sys/ptrace.h>
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
@@ -48,7 +49,6 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #else
 struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #endif
-#include <stdio.h>
 #include <thread_db.h>
 #include <sys/procfs.h>
 #include <syslog.h>
@@ -191,9 +191,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(shmdt)                              \
   MACRO(shmctl)                             \
                                             \
-  MACRO(select)                             \
   MACRO(read)                               \
   MACRO(write)                              \
+                                            \
+  MACRO(select)                             \
+  MACRO(poll)                               \
                                             \
   MACRO(epoll_create)                       \
   MACRO(epoll_create1)                      \
@@ -395,6 +397,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
                                    const struct timespec *abstime);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+
+  int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
   int _real_epoll_create(int size);
   int _real_epoll_create1(int flags);

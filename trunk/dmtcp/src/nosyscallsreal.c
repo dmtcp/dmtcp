@@ -413,6 +413,10 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
   REAL_FUNC_PASSTHROUGH ( shmctl ) (shmid, cmd, buf);
 }
 
+LIB_PRIVATE
+int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+  REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
+}
 
 LIB_PRIVATE
 int _real_epoll_create(int size) {

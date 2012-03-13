@@ -43,7 +43,7 @@ namespace dmtcp
 
     UniquePid ( const long& host, const pid_t& pd, const time_t& tm,
                 const int& gen = 0 )
-        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen)
+        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen )
     {setPrefix();}
 
     long hostid() const { return _hostid; }
