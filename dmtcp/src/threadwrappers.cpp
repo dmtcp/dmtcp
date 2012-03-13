@@ -126,6 +126,7 @@ static void *pthread_start(void *arg)
   dmtcp::ProcessInfo::instance().eraseTid(virtualTid);
   dmtcp_process_event(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
+  dmtcp::ThreadSync::unsetOkToGrabLock();
   return result;
 }
 
@@ -187,6 +188,7 @@ extern "C" void pthread_exit(void * retval)
   dmtcp::ProcessInfo::instance().eraseTid(gettid());
   dmtcp_process_event(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
+  dmtcp::ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);
   for(;;); // To hide compiler warning about "noreturn" function
 }

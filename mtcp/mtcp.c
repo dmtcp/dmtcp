@@ -1937,10 +1937,9 @@ rescan:
     needrescan = 0;
     lock_threads ();
     for (thread = threads; thread != NULL; thread = thread -> next) {
-      /* If thread no longer running, remove it from thread list */
-
 again:
-#if 0
+      /* If thread no longer running, remove it from thread list */
+#if 1
       if (mtcp_sys_kernel_tgkill(motherpid, thread->tid, 0) == -1
           && mtcp_sys_errno == ESRCH) {
 #else
@@ -1974,11 +1973,9 @@ again:
         /* Send it a signal so it will call stopthisthread                 */
         /* We will need to rescan (hopefully it will be suspended by then) */
 
-        case ST_ZOMBIE:
-          /* If zombie (thread near end of life), set state to ST_RUNENABLED.
-           * If this fails, it was already ST_RUNENABLED, which we want.
-           */
-          mtcp_state_set(&(thread -> state), ST_RUNENABLED, ST_ZOMBIE);
+        case ST_ZOMBIE: {
+          break;
+        }
 
         case ST_RUNENABLED: {
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
@@ -2072,6 +2069,21 @@ again:
      */
 
     if (needrescan) goto rescan;
+
+    lock_threads();
+    Thread *th;
+    for (thread = threads; thread != NULL; thread = th) {
+      th = thread->next;
+      if (mtcp_state_value(&thread->state) == ST_ZOMBIE) {
+        int rv;
+        do {
+          rv = mtcp_sys_kernel_tgkill(motherpid, thread->tid, 0);
+        } while (rv != -1);
+        threadisdead(thread);
+      }
+    }
+    unlk_threads ();
+
     RMB; // matched by WMB in stopthisthread
     DPRINTF("everything suspended\n");
 
