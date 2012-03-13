@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2006-2010 by Kapil Arya, and Gene Cooperman              *
+ *   kapil@ccs.neu.edu, gene@ccs.neu.edu                                    *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *
@@ -19,34 +19,63 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-// TODO: Better way to do this. I think it was only a problem on dekaksi.
-// Remove this, and see the compile error.
-#define read _libc_read
-#include <stdarg.h>
-#include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
+#include <poll.h>
+#include <sys/select.h>
+/* According to POSIX.1-2001 */
+#include <sys/select.h>
+/* Next three according to earlier standards */
+#include <sys/time.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
-#include <sys/syscall.h>
-#include <linux/version.h>
-#include <limits.h>
 #include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "protectedfds.h"
-#include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "util.h"
 #include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+
+/* 'man 7 signal' says the following are not restarted after ckpt signal
+ * even though the SA_RESTART option was used.  If we wrap these, we must
+ * restart them when they are interrupted by a checkpoint signal.
+ * python-2.7{socketmodule.c,signalmodule.c} assume no unknown signal
+ *   handlers such as DMTCP checkpoint signal.  So, Python needs this.
+ *
+ * + Socket interfaces, when a timeout has been  set  on  the  socket
+ *   using   setsockopt(2):   accept(2),  recv(2),  recvfrom(2),  and
+ *   recvmsg(2), if a receive timeout  (SO_RCVTIMEO)  has  been  set;
+ *   connect(2),  send(2), sendto(2), and sendmsg(2), if a send time‐
+ *   out (SO_SNDTIMEO) has been set.
+ *
+ * + Interfaces used to wait for  signals:  pause(2),  sigsuspend(2),
+ *   sigtimedwait(2), and sigwaitinfo(2).
+ *
+ * + File    descriptor   multiplexing   interfaces:   epoll_wait(2),
+ *   epoll_pwait(2), poll(2), ppoll(2), select(2), and pselect(2).
+ *
+ * + System V IPC interfaces:  msgrcv(2),  msgsnd(2),  semop(2),  and
+ *   semtimedop(2).
+ *
+ * + Sleep    interfaces:   clock_nanosleep(2),   nanosleep(2),   and
+ *   usleep(3).
+ *
+ * + read(2) from an inotify(7) file descriptor.
+ *
+ * + io_getevents(2).
+ */
+
+/* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
+extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+  int rc;
+  while (1) {
+    int orig_generation = dmtcp::UniquePid::ComputationId().generation();
+    rc = _real_poll(fds, nfds, timeout);
+    if ( rc == -1 && errno == EINTR &&
+         dmtcp::UniquePid::ComputationId().generation() > orig_generation ) {
+      continue;  // This was a restart or resume after checkpoint.
+    } else {
+      break;  // The signal interrupting us was not our checkpoint signal.
+    }
+  }
+  return rc;
+}
 
 /* inotify is currently not supported by DMTCP */
 extern "C" int inotify_init()

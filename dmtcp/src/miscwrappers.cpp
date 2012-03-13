@@ -539,6 +539,12 @@ extern "C" long int syscall(long int sys_num, ... )
     }
 # endif
 #endif
+    case SYS_poll:
+    {
+      SYSCALL_GET_ARGS_3(struct pollfd *,fds,nfds_t,nfds,int,timeout);
+      ret = poll(fds, nfds, timeout);
+      break;
+    }
     case SYS_epoll_create:
     {
       SYSCALL_GET_ARG(int,size);
