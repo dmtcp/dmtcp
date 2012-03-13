@@ -350,7 +350,14 @@ static bool workersRunningAndSuspendMsgSent = false;
 
 static bool killInProgress = false;
 
-static int theCheckpointInterval = 0; /* Default is manual checkpoint only */
+/* If dmtcp_checkpoint/dmtcp_restart specifies '-i', theCheckpointInterval
+ * will be reset accordingly (valid for current computation).  If dmtcp_command
+ * specifies '-i' (or if user interactively invokes 'i' in coordinator),
+ * then both theCheckpointInterval and theDefaultCheckpointInterval are set.
+ * A value of '0' means:  never checkpoint (manual checkpoint only).
+ */
+static int theCheckpointInterval = 0; /* Current checkpoint interval */
+static int theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
 static bool batchMode = false;
 static bool isRestarting = false;
 
@@ -519,9 +526,15 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JTRACE("setting timeout interval...");
     setTimeoutInterval ( theCheckpointInterval );
     if (theCheckpointInterval == 0)
-      printf("Checkpoint Interval: Disabled (checkpoint manually instead)\n");
+      printf("Current Checkpoint Interval:"
+             " Disabled (checkpoint manually instead)\n");
     else
-      printf("Checkpoint Interval: %d\n", theCheckpointInterval);
+      printf("Current Checkpoint Interval: %d\n", theCheckpointInterval);
+    if (theDefaultCheckpointInterval == 0)
+      printf("Default Checkpoint Interval:"
+             " Disabled (checkpoint manually instead)\n");
+    else
+      printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
     break;
   case 'l': case 'L':
   case 't': case 'T':
@@ -824,6 +837,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           reply.type = DMT_USER_CMD_RESULT;
           if (msg.params[0] == 'i' &&  msg.theCheckpointInterval > 0 ) {
             theCheckpointInterval = msg.theCheckpointInterval;
+            // For dmtcpaware API, we don't change theDefaultCheckpointInterval
           }
           handleUserCommand( msg.params[0], &reply );
           sock->socket() << reply;
@@ -944,6 +958,11 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
       // thus we need to reset it to false once all the processes in the
       // computations have disconnected.
       killInProgress = false;
+      if (theCheckpointInterval != theDefaultCheckpointInterval) {
+        theCheckpointInterval = theDefaultCheckpointInterval;
+        JNOTE ( "CheckpointInterval reset on end of current computation" )
+	  ( theCheckpointInterval );
+      }
     }
   }
 }
@@ -972,7 +991,9 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   killInProgress = false;
   //_nextVirtualPid = INITIAL_VIRTUAL_PID;
 
+  theCheckpointInterval = theDefaultCheckpointInterval;
   setTimeoutInterval( theCheckpointInterval );
+  // theCheckpointInterval can be overridden later by msg from this client.
 
   // drop current computation group to 0
   UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
@@ -1071,8 +1092,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     int oldInterval = theCheckpointInterval;
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     setTimeoutInterval ( theCheckpointInterval );
-    JNOTE ( "CheckpointInterval Updated" ) ( oldInterval )
-	  ( theCheckpointInterval );
+    JNOTE ( "CheckpointInterval updated (for this computation only)" )
+	  ( oldInterval ) ( theCheckpointInterval );
   }
 
   //add this client as a chunk reader
@@ -1115,7 +1136,8 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
     handleUserCommand( hello_remote.params[0], &reply );
   } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I')
                && hello_remote.theCheckpointInterval >= 0 ) {
-    theCheckpointInterval = hello_remote.theCheckpointInterval;
+    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
+    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand( hello_remote.params[0], &reply );
     remote << reply;
     remote.close();
@@ -1677,8 +1699,10 @@ int main ( int argc, char** argv )
   }
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_CKPT_INTR );
-  if ( interval != NULL )
-    theCheckpointInterval = jalib::StringToInt ( interval );
+  if ( interval != NULL ) {
+    theDefaultCheckpointInterval = jalib::StringToInt ( interval );
+    theCheckpointInterval = theDefaultCheckpointInterval;
+  }
 
 #if 0
   JASSERT_STDERR <<

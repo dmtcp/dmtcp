@@ -50,7 +50,7 @@ static const char* theUsage =
   "  --version:\n"
   "      Print version information and exit.\n"
   "\n"
-  "COMMANDS:\n"
+  "COMMANDS FOR COORDINATOR:\n"
   "    s, -s, --status : Print status message\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
   "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
@@ -116,6 +116,10 @@ int main ( int argc, char** argv )
 	  if (isdigit(cmd[1])) { // if -i5, for example
 	    interval = cmd+1;
 	  } else { // else -i 5
+            if (argc == 1) {
+              fprintf(stderr, theUsage, "");
+              return 1;
+            }
 	    interval = argv[1];
 	    shift;
 	  }
