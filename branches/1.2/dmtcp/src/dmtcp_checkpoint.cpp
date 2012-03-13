@@ -87,6 +87,8 @@ static const char* theUsage =
   "        a randomly assigned port (if no port is specified by --port)\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints.\n"
+  "      0 implies never (manual ckpt only); if not set and no env var,\n"
+  "        use default value set in dmtcp_coordinator or dmtcp_command.\n"
   "      Not allowed if --join is specified\n"
   "      --batch implies -i 3600, unless otherwise specified.\n"
   "  --no-check:\n"
