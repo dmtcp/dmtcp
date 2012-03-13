@@ -78,10 +78,10 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
-			 dmtcpcoordinatorapi.cpp \
-			 execwrappers.cpp mtcpinterface.cpp signalwrappers.cpp \
+			 dmtcpcoordinatorapi.cpp execwrappers.cpp \
+			 mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
-			 epollwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
+			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
 			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
 			 filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpmodule.cpp
