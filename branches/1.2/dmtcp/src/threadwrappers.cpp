@@ -65,6 +65,7 @@ static void *pthread_start(void *arg)
   mtcpFuncPtrs.fill_in_pthread_id(_real_gettid(), pthread_self());
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
   void *result = (*pthread_fn)(thread_arg);
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   mtcpFuncPtrs.threadiszombie();
   /*
    * This thread has finished its execution, do some cleanup on our part.
@@ -74,6 +75,8 @@ static void *pthread_start(void *arg)
    */
   dmtcp::VirtualPidTable::instance().erase(orig_tid);
   dmtcp::VirtualPidTable::instance().eraseTid(orig_tid);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  dmtcp::ThreadSync::unsetOkToGrabLock();
   return result;
 }
 
@@ -359,6 +362,7 @@ extern "C" void pthread_exit(void * retval)
   mtcpFuncPtrs.threadiszombie();
   dmtcp::VirtualPidTable::instance().erase(gettid());
   dmtcp::VirtualPidTable::instance().eraseTid(gettid());
+  dmtcp::ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);
   for(;;); // To hide compiler warning about "noreturn" function
 }
