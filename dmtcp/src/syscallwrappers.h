@@ -26,10 +26,6 @@
 # define _GNU_SOURCE
 #endif
 
-#if defined(__arm__)
-struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
-#endif
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>

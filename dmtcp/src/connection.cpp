@@ -961,7 +961,7 @@ void dmtcp::FileConnection::preCheckpointResMgrFile(const dmtcp::vector<int>& fd
 {
 
   JTRACE("Pre-checkpoint Torque files")(fds.size());
-  for(int i=0; i< fds.size(); i++)
+  for(unsigned int i=0; i< fds.size(); i++)
     JTRACE("fds[i]=")(i)(fds[i]);
 
   if( isTorqueIOFile(_path) ){

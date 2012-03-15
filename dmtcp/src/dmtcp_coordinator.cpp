@@ -1322,7 +1322,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
       JTRACE("First process connected.  Creating new computation group")
         (UniquePid::ComputationId());
     } else {
-      JTRACE("New process Connected")
+      JTRACE("New process connected")
         (hello_remote.from.pid()) (ds->prefixDir()) (ds->virtualPid());
       if (ds->hostname() == localHostName) {
         JASSERT(ds->prefixDir() == localPrefix) (ds->prefixDir()) (localPrefix);

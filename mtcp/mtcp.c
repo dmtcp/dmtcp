@@ -589,8 +589,8 @@ static int perform_open_ckpt_image_fd(int *use_compression,
 static void write_ckpt_to_file(int fd,
 			       int tmpDMTCPHeaderFd, int fdCkptFileOnDisk);
 
-int mtcp_thread_start(void *arg);
-int mtcp_thread_return();
+void mtcp_thread_start(void *arg);
+void mtcp_thread_return();
 
 /* FIXME:
  * dmtcp/src/syscallsreal.c has wrappers around signal, sigaction, sigprocmask
@@ -1180,9 +1180,8 @@ asm (".global clone ; .type clone,%function ; clone = __clone");
  *
  *****************************************************************************/
 
-int mtcp_thread_start(void *threadv)
+void mtcp_thread_start(void *threadv)
 {
-  int rc;
   Thread *const thread = threadv;
 
   DPRINTF("starting thread %p\n", thread);
@@ -1247,7 +1246,7 @@ static int threadcloned (void *threadv)
   return (rc);
 }
 
-int mtcp_thread_return()
+void mtcp_thread_return()
 {
   /* Make sure checkpointing is inhibited while we clean up and exit */
   /* Otherwise, checkpointer might wait forever for us to re-enable  */
