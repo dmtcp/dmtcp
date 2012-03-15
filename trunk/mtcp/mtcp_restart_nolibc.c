@@ -514,6 +514,13 @@ static void readmemoryareas (void)
       if (mmappedat == MAP_FAILED) {
         DPRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
+        if (mtcp_sys_errno == ENOMEM) {
+          MTCP_PRINTF(
+           "\n**********************************************************\n"
+           "****** Received ENOMEM.  Trying to continue, but may fail.\n"
+           "****** Please run 'free' to see if you have enough swap space.\n"
+           "**********************************************************\n\n");
+        }
 	try_skipping_existing_segment = 1;
       }
       if (mmappedat != area.addr && !try_skipping_existing_segment) {
