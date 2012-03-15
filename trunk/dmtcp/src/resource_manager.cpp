@@ -359,7 +359,6 @@ int findLibTorque_maps(dmtcp::string &libpath)
     }
   }
 
-exit:
   _real_close(fd);
   return ret;
 }
@@ -503,6 +502,5 @@ bool isTorqueNodeFile(dmtcp::string &path)
 {
   // if this file is not located in $PBS_HOME/aux/ directory
   // it can't be node_file
-  if( isTorqueFile("aux", path) )
-    return true;
+  return isTorqueFile("aux", path);
 }
