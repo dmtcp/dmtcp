@@ -418,7 +418,7 @@ check: libmtcp.so mtcp_restart testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out mtcp.t.orig readmtcp
+	      *.lis a.out mtcp.t.orig mtcp.lis readmtcp
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
