@@ -24,6 +24,29 @@ Files: dmtcp/jalib/*
 Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
 License: LGPL-3
 
+Files: dmtcp/src/trampolines.*
+           2011-2012, Kapil Arya <kapil@ccs.neu.edu>
+           2011-2012, Tyler Denniston <tyler@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/src/eventwrappers.cpp/*
+Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
+           2012, Gene Cooperman <gene@ccs.neu.edu>
+           2012, Rohan Garg <rohgarg@ccs.neu.edu>
+License: LGPL-3
+
+Files: module/*
+Copyright: 2009-2012, Jason Ansel <jansel@csail.mit.edu>
+           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
+           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: module/ptrace/*
+Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
+           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
+           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
 Files: dmtcp/src/dmtcpaware.*
 Copyright: 2006-2011, Jason Ansel <jansel@csail.mit.edu>
            2006-2011, Kapil Arya <kapil@ccs.neu.edu>
@@ -46,12 +69,6 @@ Files: mtcp/NOTES-x86_64/*.[hS]
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
 
-Files: module/ptrace/*
-Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
-           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
-           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
-           2009-2012, Tyler Denniston <tyler@ccs.neu.edu>
-License: LGPL-3
 
 License: LGPL-3
  This package is free software; you can redistribute it and/or
