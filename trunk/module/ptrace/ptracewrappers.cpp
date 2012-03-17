@@ -1,6 +1,7 @@
 /****************************************************************************
- *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and            *
+ *                                                           Gene Cooperman *
+ *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu             *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *

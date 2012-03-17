@@ -1,6 +1,8 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, Gene Cooperman,    *
+ *                                                           and Rohan Garg *
+ *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu, and         *
+ *                                                      rohgarg@ccs.neu.edu *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *
@@ -28,6 +30,10 @@
 #include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/signalfd.h>
+#include <signal.h>
 #include <map>
 #include "../jalib/jbuffer.h"
 #include "../jalib/jserialize.h"
@@ -47,6 +53,7 @@ namespace dmtcp
   class KernelBufferDrainer;
   class ConnectionRewirer;
   class TcpConnection;
+  class EpollConnection;
   class KernelDeviceToConnection;
   class ConnectionToFds;
 
@@ -68,7 +75,10 @@ namespace dmtcp
         FILE    = 0x4000,
         STDIO   = 0x5000,
         FIFO    = 0x6000,
-        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO | FIFO
+        EPOLL   = 0x7000,
+        EVENTFD = 0x8000,
+        SIGNALFD = 0x9000,
+        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD | SIGNALFD
       };
 
       virtual ~Connection() {}
@@ -97,6 +107,7 @@ namespace dmtcp
 
       //convert with type checking
       virtual TcpConnection& asTcp();
+      virtual EpollConnection& asEpoll();
 
       virtual void restartDup2(int oldFd, int newFd);
 
@@ -445,6 +456,121 @@ namespace dmtcp
       bool _has_lock;
       vector<char> _in_data;
       int ckptfd;
+  };
+
+  class EpollConnection: public Connection
+  {
+    public:
+      enum EpollType
+      {
+        EPOLL_INVALID = EPOLL,
+        EPOLL_CREATE,
+        EPOLL_CTL,
+        EPOLL_WAIT
+      };
+      
+      inline EpollConnection (int size, int type=EPOLL_CREATE)
+          :Connection(EPOLL),
+           _type(type),
+           _size (size)
+      {
+        JTRACE ("new epoll connection created");
+      }
+
+      int epollType () const { return _type; }
+
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+
+      //virtual void doLocking ( const dmtcp::vector<int>& fds );
+      //virtual void saveOptions ( const dmtcp::vector<int>& fds );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
+
+      //called on restart when _id collides with another connection
+      virtual void mergeWith ( const Connection& that );
+
+      //virtual void restartDup2(int oldFd, int newFd);
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual string str() { return "EPOLL-FD: <Not-a-File>"; };
+
+      void onCTL (int op, int fd, struct epoll_event *event);
+
+    private:
+      EpollConnection& asEpoll();
+      int         _type; // current state of EPOLL
+      struct stat _stat; // not sure if stat makes sense in case  of epfd
+      int         _size; // flags
+      dmtcp::map<int, struct epoll_event > _fdToEvent;
+  };
+
+  class EventFdConnection: public Connection
+  {
+    public:
+      inline EventFdConnection (unsigned int initval, int flags)
+          :Connection(EVENTFD),
+           _initval(initval),
+           _flags (flags)
+      {
+        JTRACE ("new eventfd connection created");
+      }
+
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+
+      //virtual void doLocking ( const dmtcp::vector<int>& fds );
+      //virtual void saveOptions ( const dmtcp::vector<int>& fds );
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
+
+      //virtual void restartDup2(int oldFd, int newFd);
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual string str() { return "EVENT-FD: <Not-a-File>"; };
+
+    private:
+      unsigned int   _initval; // initial counter value
+      int         _flags; // flags
+      bool _has_lock;
+      int evtfd;
+  };
+
+  class SignalFdConnection: public Connection
+  {
+    public:
+      inline SignalFdConnection (int signalfd, const sigset_t* mask, int flags)
+          :Connection(SIGNALFD),
+           signlfd (signalfd), 
+           _flags (flags)
+      {
+        if (mask!=NULL)
+          _mask = *mask;
+        else
+          sigemptyset(&_mask);
+        memset(&_fdsi, 0, sizeof(_fdsi));
+        JTRACE ("new signalfd  connection created");
+      }
+
+      virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
+      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+
+      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
+
+      virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+
+      virtual string str() { return "SIGNAL-FD: <Not-a-File>"; };
+
+    private:
+      int signlfd;
+      int         _flags; // flags
+      sigset_t _mask; // mask for signals
+      struct signalfd_siginfo _fdsi;
+      bool _has_lock;
   };
 }
 
