@@ -53,6 +53,8 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/signalfd.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -198,6 +200,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_ctl)                          \
   MACRO(epoll_wait)                         \
   MACRO(epoll_pwait)                        \
+  MACRO(eventfd)                            \
+  MACRO(signalfd)                           \
 //  MACRO(creat)
 //  MACRO(openat)
 
@@ -403,6 +407,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                        int maxevents, int timeout);
   int _real_epoll_pwait(int epfd, struct epoll_event *events,
                         int maxevents, int timeout, const sigset_t *sigmask);
+  int _real_eventfd(int initval, int flags);
+  int _real_signalfd (int fd, const sigset_t *mask, int flags);
 
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,

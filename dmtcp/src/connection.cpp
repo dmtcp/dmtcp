@@ -161,6 +161,12 @@ dmtcp::TcpConnection& dmtcp::Connection::asTcp()
   return * ( ( TcpConnection* ) 0 );
 }
 
+dmtcp::EpollConnection& dmtcp::Connection::asEpoll()
+{
+  JASSERT ( false ) ( _id ) ( _type ).Text ( "Invalid conversion." );
+  return * ( ( EpollConnection* ) 0 );
+}
+
 void dmtcp::Connection::restartDup2(int oldFd, int fd){
   errno = 0;
   JWARNING ( _real_dup2 ( oldFd, fd ) == fd ) ( oldFd ) ( fd ) ( JASSERT_ERRNO );
@@ -186,6 +192,13 @@ void dmtcp::Connection::restoreOptions ( const dmtcp::vector<int>& fds )
   JASSERT ( _fcntlOwner != -1 ) ( _fcntlOwner );
   JASSERT ( _fcntlSignal >= 0 ) ( _fcntlSignal );
   errno = 0;
+  if (this->conType() == EPOLL)
+  {
+    JTRACE("RGARG: For EPOLL");
+    //return;
+  }
+  else
+    JTRACE("RGARG: connection flags restoring" ) (this->conType());
   JASSERT ( fcntl ( fds[0], F_SETFL, _fcntlFlags ) == 0 ) ( fds[0] ) ( _fcntlFlags ) ( JASSERT_ERRNO );
 
   errno = 0;
@@ -1913,4 +1926,269 @@ void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
 void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
   static ConnectionRewirer ignored;
   restore(dmtcp::vector<int>(1,newFd), ignored);
+}
+
+
+void dmtcp::EpollConnection::preCheckpoint ( const dmtcp::vector<int>& fds
+    , KernelBufferDrainer& drain )
+{
+  JASSERT ( fds.size() > 0 );
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ( fds[0] ) ( id() );
+}
+
+void dmtcp::EpollConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
+{
+  JASSERT ( fds.size() > 0 );
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ( fds[0] ) ( id() );
+}
+
+void dmtcp::EpollConnection::mergeWith ( const Connection& that)
+{
+  Connection::mergeWith(that);
+}
+
+void dmtcp::EpollConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer)
+{
+  JASSERT (fds.size()>0);
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ( fds[0] ) ( id() );
+  for(size_t i=0; i<fds.size(); ++i)
+  {
+    int fd = fds[i];
+    int tempFd =  _real_epoll_create ( _size ) ;
+    JASSERT ( tempFd >= 0 );
+    JWARNING ( _real_dup2 ( tempFd, fd ) == fd ) ( tempFd ) ( fd ) ( JASSERT_ERRNO );
+  }
+}
+
+void dmtcp::EpollConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+  Connection::restoreOptions ( fds );
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ( fds[0] ) ( id() );
+  typedef dmtcp::map< int, struct epoll_event >::iterator fdEventIterator;
+  fdEventIterator fevt = _fdToEvent.begin();
+  for (; fevt != _fdToEvent.end(); fevt++)
+  {
+      JTRACE ("RGARG: restore sfd options") (fevt->first);
+      int ret = _real_epoll_ctl (fds[0], EPOLL_CTL_ADD, fevt->first, &(fevt->second));
+      if (ret)
+      {
+          JWARNING ("Error in restoring options") (ret) (strerror(errno));
+      }
+  }
+}
+
+void dmtcp::EpollConnection::serializeSubClass ( jalib::JBinarySerializer& o ){
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::EpollConnection" );
+  o & _type & _stat;
+  o.serializeMap(_fdToEvent);
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ;
+}
+
+dmtcp::EpollConnection& dmtcp::EpollConnection::asEpoll()
+{
+  JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ;
+  return *this;
+}
+
+void dmtcp::EpollConnection::onCTL (int op, int fd, struct epoll_event *event)
+{
+  if (really_verbose) {
+    JTRACE ("RGARG: EPOLL CTL-ing.") ( id() ) ( fd ) ( op );
+  }
+
+  JASSERT ( ((op==EPOLL_CTL_MOD || op==EPOLL_CTL_ADD) && event != NULL ) || op==EPOLL_CTL_DEL) ( epollType() ) ( id() )
+    .Text ( "Passing a NULL event! HUH!");
+
+  struct epoll_event myEvent;
+  _type = EPOLL_CTL;
+  if (op == EPOLL_CTL_DEL)
+  {
+      _fdToEvent.erase(fd);
+      return;
+  }
+  memcpy (&myEvent, event, sizeof myEvent);
+  _fdToEvent[fd] = myEvent;
+}
+
+void dmtcp::EventFdConnection::preCheckpoint ( const dmtcp::vector<int>& fds
+    , KernelBufferDrainer& drain )
+{
+  JASSERT ( fds.size() > 0 );
+
+  if (!hasLock(fds)) {
+    return;
+  }
+
+  _has_lock = true;
+
+  JTRACE ("Checkpoint eventfd.") (fds[0]);
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
+  int evtfd = fds[0];
+  JASSERT(evtfd >= 0)(evtfd)(JASSERT_ERRNO);
+  // set the new flags
+  JASSERT (fcntl(evtfd, F_SETFL, new_flags) == 0) (evtfd) (new_flags) ( JASSERT_ERRNO );
+  ssize_t size;
+  uint64_t u;
+  unsigned int counter = 1;
+
+  // Read whatever is there on top of evtfd
+  size = read(evtfd, &u, sizeof(uint64_t));
+  if( -1 != size )
+  {
+      JTRACE ("Read value u: ") (evtfd) (u);
+      // EFD_SEMAPHORE flag not specified,
+      // the counter value would have been reset to 0 upon read
+      // Save the value, so that it can be restored in post-checkpoint
+      if (!(_flags & EFD_SEMAPHORE))
+      {
+        _initval = u;
+      }
+      else
+      {
+        // EFD_SEMAPHORE specified, so can't read the current counter value
+        // Keep reading till "semaphore" becomes 0.
+        while ( -1 != read(evtfd, &u, sizeof(uint64_t)) )
+          counter++;
+        _initval = counter;
+      }
+  }
+  else
+  {
+      JTRACE ("Nothing to be read from eventfd.") (evtfd) (errno) (strerror(errno));
+      _initval = 0;
+  }
+  //Connection::restoreOptions ( fds );
+  JTRACE ("Checkpointing eventfd:  end.") (fds[0]) (_initval);
+}
+
+void dmtcp::EventFdConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
+{
+  if( !_has_lock )
+    return; // nothing to do now
+  JTRACE ("Begin postCheckpoint eventfd.") (fds[0]);
+  JASSERT (fds.size() > 0);
+  uint64_t u = (unsigned long long) _initval;
+  for (unsigned int i=0; i<fds.size(); i++)
+  {
+      evtfd = fds[i];
+      if( -1 == write(evtfd, &u, sizeof(uint64_t)) )
+      {
+          JWARNING("Write to eventfd failed during postCheckpoint") (evtfd) (errno) (strerror(errno));
+      }
+  }
+  restoreOptions ( fds );
+  JTRACE ("End postCheckpoint eventfd.") (fds[0]);
+}
+
+void dmtcp::EventFdConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+  //call base version (F_GETFL etc)
+  Connection::restoreOptions ( fds );
+}
+
+
+void dmtcp::EventFdConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+{
+  JASSERT ( fds.size() > 0 );
+
+  JTRACE("Restoring EventFd Connection") (id());
+  errno = 0;
+  int tempfd = _real_eventfd (_initval, _flags);
+  JASSERT ( tempfd > 0 ) ( tempfd ) ( JASSERT_ERRNO );
+
+  for(size_t i=0; i<fds.size(); ++i)
+  {
+    JASSERT ( _real_dup2 ( tempfd, fds[i] ) == fds[i] ) ( tempfd ) ( fds[i] )
+      .Text ( "dup2() failed." );
+  }
+}
+
+void dmtcp::EventFdConnection::serializeSubClass ( jalib::JBinarySerializer& o )
+{
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::EventFdConnection" );
+  o & _initval & _flags & _has_lock;
+  JTRACE("Serializing EvenFdConn.") ;
+}
+
+void dmtcp::SignalFdConnection::preCheckpoint ( const dmtcp::vector<int>& fds
+    , KernelBufferDrainer& drain )
+{
+  JASSERT ( fds.size() > 0 );
+
+  if (!hasLock(fds)) {
+    return;
+  }
+
+  _has_lock = true;
+
+  JTRACE ("Checkpoint signalfd.") (fds[0]);
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
+  signlfd = fds[0];
+  JASSERT(signlfd >= 0)(signlfd)(JASSERT_ERRNO);
+  // set the new flags
+  JASSERT (fcntl(signlfd, F_SETFL, new_flags) == 0) (signlfd) (new_flags) ( JASSERT_ERRNO );
+  ssize_t size;
+  struct signalfd_siginfo fdsi;
+
+  // Read whatever is there on top of signalfd
+  size = read(signlfd, &fdsi, sizeof(struct signalfd_siginfo));
+  if( -1 != size )
+  {
+      // Save the value, so that it can be restored in post-checkpoint
+      memcpy(&_fdsi, &fdsi, sizeof (struct signalfd_siginfo));
+
+  }
+  else
+  {
+      JTRACE ("Nothing to be read from signalfd.") (signlfd) (errno) (strerror(errno));
+  }
+  JTRACE ("Checkpointing signlfd:  end.") (fds[0]) ;
+}
+
+void dmtcp::SignalFdConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
+{
+  if( !_has_lock )
+    return; // nothing to do now
+  JTRACE ("Begin postCheckpoint signalfd.") (fds[0]);
+  JASSERT (fds.size() > 0);
+  for (unsigned int i=0; i<fds.size(); i++)
+  {
+      //raise the signals
+      JTRACE ("Raising the signal...") (_fdsi.ssi_signo);
+      raise(_fdsi.ssi_signo);
+  }
+  restoreOptions ( fds );
+  JTRACE ("End postCheckpoint signalfd.") (fds[0]);
+}
+
+void dmtcp::SignalFdConnection::restoreOptions ( const dmtcp::vector<int>& fds )
+{
+  //call base version (F_GETFL etc)
+  Connection::restoreOptions ( fds );
+}
+
+
+void dmtcp::SignalFdConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+{
+  JASSERT ( fds.size() > 0 );
+
+  JTRACE("Restoring SignalFd Connection") (id());
+  errno = 0;
+  int tempfd = _real_signalfd (-1, &_mask, _flags);
+  JASSERT ( tempfd > 0 ) ( tempfd ) ( JASSERT_ERRNO );
+
+  for(size_t i=0; i<fds.size(); ++i)
+  {
+    JASSERT ( _real_dup2 ( tempfd, fds[i] ) == fds[i] ) ( tempfd ) ( fds[i] )
+      .Text ( "dup2() failed." );
+  }
+}
+
+void dmtcp::SignalFdConnection::serializeSubClass ( jalib::JBinarySerializer& o )
+{
+  JSERIALIZE_ASSERT_POINT ( "dmtcp::SignalFdConnection" );
+  o &  _flags & _mask & _fdsi & _has_lock;
+  JTRACE("Serializing SignalFdConn.") ;
 }

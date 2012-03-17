@@ -1,8 +1,7 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2009 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and             *
  *                                                            Gene Cooperman *
- *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
- *                                                          gene@ccs.neu.edu *
+ *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu              *
  *                                                                           *
  *   This file is part of the MTCP module of DMTCP (DMTCP:mtcp).             *
  *                                                                           *

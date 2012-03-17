@@ -164,6 +164,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
     return "";
   }
+  //while (fd==4);
 
   bool isFile  = ( device[0] == '/' );
 
@@ -176,6 +177,9 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
                        device.compare("/dev/pty") != 0);
   bool isBSDSlave   = (Util::strStartsWith(device, "/dev/tty") &&
                        device.compare("/dev/tty")) != 0;
+  bool isEpoll = (device.compare("anon_inode:[eventpoll]")==0);
+  bool isEventFd = (device.compare("anon_inode:[eventfd]")==0);
+  bool isSignalFd = (device.compare("anon_inode:[signalfd]")==0);
 #ifdef IBV
   bool isInfinibandDevice   = Util::strStartsWith(device, "/dev/infiniband/");
   bool isInfinibandConnection   = Util::strStartsWith(device, "infinibandevent:");
@@ -368,6 +372,57 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
       JASSERT(false) (device) .Text("Unimplemented file type.");
     }
   }
+  else if (isEventFd) {
+      dmtcp::string deviceName = "eventfd["+jalib::XToString(fd)+"]:"+device;
+      if (noOnDemandConnection)
+          return deviceName;
+      iterator i = _table.find(deviceName);
+      if (i == _table.end())
+      {
+          JTRACE("creating eventfd connection [on-demand]") (deviceName);
+          Connection *c = new EventFdConnection(0, 0);
+          ConnectionList::instance().add(c);
+          _table[deviceName] = c->id();
+          return deviceName;
+      }
+      else {
+          return deviceName;
+      }
+  }
+  else if (isSignalFd) {
+      dmtcp::string deviceName = "signalfd["+jalib::XToString(fd)+"]:"+device;
+      if (noOnDemandConnection)
+          return deviceName;
+      iterator i = _table.find(deviceName);
+      if (i == _table.end())
+      {
+          JTRACE("creating signalfd connection [on-demand]") (deviceName);
+          Connection *c = new SignalFdConnection(0, NULL, 0);
+          ConnectionList::instance().add(c);
+          _table[deviceName] = c->id();
+          return deviceName;
+      }
+      else {
+          return deviceName;
+      }
+  }
+  else if (isEpoll) {
+      dmtcp::string deviceName = "epoll["+jalib::XToString(fd)+"]:"+device;
+      if (noOnDemandConnection)
+          return deviceName;
+      iterator i = _table.find(deviceName);
+      if (i == _table.end())
+      {
+          JTRACE("creating eventfd connection [on-demand]") (deviceName);
+          Connection *c = new EpollConnection(5);
+          ConnectionList::instance().add(c);
+          _table[deviceName] = c->id();
+          return deviceName;
+      }
+      else {
+          return deviceName;
+      }
+  }
   //JWARNING(false) (device) .Text("Unimplemented Connection Type.");
   return device;
 }
@@ -539,6 +594,15 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         break;
       case Connection::STDIO:
         con = new StdioConnection();
+        break;
+      case Connection::EPOLL:
+        con = new EpollConnection(5); //dummy val
+        break;
+      case Connection::EVENTFD:
+        con = new EventFdConnection(0, 0); //dummy val
+        break;
+      case Connection::SIGNALFD:
+        con = new SignalFdConnection(0, NULL, 0); //dummy val
         break;
       default:
         JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );
@@ -752,6 +816,11 @@ void dmtcp::SlidingFdTable::closeAll()
         ; i!=_conToFd.end()
         ; ++i )
   {
+    Connection& con = ConnectionList::instance() [i->first];
+    if (con.conType() == Connection::EPOLL) {
+      JTRACE("Delete epoll Connection");
+      //continue;
+    }
     JWARNING ( _real_close ( i->second ) ==0 ) ( i->second ) ( JASSERT_ERRNO );
   }
   _conToFd.clear();

@@ -357,6 +357,8 @@ void dmtcp::ConnectionState::handleDuplicateFilesInSeparateConnections()
   for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( i->second->conType() != Connection::FILE ) continue;
+    if ( i->second->conType() == Connection::EPOLL) 
+        out << "found epoll fd\n";
 
     FileConnection* fileConI = (FileConnection*) i->second;
     if (fileConI->checkpointed() == false) continue;
@@ -376,5 +378,4 @@ void dmtcp::ConnectionState::handleDuplicateFilesInSeparateConnections()
       }
     }
   }
-  JTRACE ("Duplicate files in separate connections") (out.str());
-}
+  JTRACE ("Duplicate files in separate connections") (out.str()); }

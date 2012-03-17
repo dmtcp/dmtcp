@@ -963,3 +963,13 @@ int _real_epoll_pwait(int epfd, struct epoll_event *events,
                       int maxevents, int timeout, const sigset_t *sigmask) {
   REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
 }
+
+LIB_PRIVATE
+int _real_eventfd (int initval, int flags) {
+  REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
+}
+
+LIB_PRIVATE
+int _real_signalfd (int fd, const sigset_t *mask, int flags) {
+  REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
+}
