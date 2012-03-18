@@ -226,9 +226,7 @@ void dmtcp::Connection::doLocking ( const dmtcp::vector<int>& fds )
 /*onSocket*/
 dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   : Connection ( TCP_CREATED )
-#ifdef EXTERNAL_SOCKET_HANDLING
   , _peerType ( PEER_UNKNOWN )
-#endif
   , _sockDomain ( domain )
   , _sockType ( type )
   , _sockProtocol ( protocol )
@@ -298,13 +296,12 @@ void dmtcp::TcpConnection::onConnect( int sockfd,
 /*onAccept*/
 dmtcp::TcpConnection::TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote )
   : Connection ( TCP_ACCEPT )
-#ifdef EXTERNAL_SOCKET_HANDLING
-  , _peerType ( PEER_UNKNOWN )
-#endif
   , _sockDomain ( parent._sockDomain )
   , _sockType ( parent._sockType )
   , _sockProtocol ( parent._sockProtocol )
   , _listenBacklog ( -1 )
+  , _peerType ( PEER_UNKNOWN )
+  , _socketPairRestored ( false )
   , _bindAddrlen ( 0 )
   , _acceptRemoteId ( remote )
 {
@@ -416,57 +413,62 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
   }
 }
 
-void dmtcp::TcpConnection::doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
-    switch ( tcpType() )
-    {
-      case TCP_CONNECT:
-      case TCP_ACCEPT:
-        if ( hasLock ( fds ) )
-        {
-          JTRACE ("Sending handshake ...") (id()) (fds[0]);
-          jalib::JSocket sock(fds[0]);
-          sendHandshake( sock, coordinator );
+void dmtcp::TcpConnection::doSendHandshakes(const dmtcp::vector<int>& fds,
+                                            const dmtcp::UniquePid& coordinator)
+{
+  switch ( tcpType() )
+  {
+    case TCP_CONNECT:
+    case TCP_ACCEPT:
+      if ( hasLock ( fds ) )
+      {
+        JTRACE ("Sending handshake ...") (id()) (fds[0]);
+        jalib::JSocket sock(fds[0]);
+        sendHandshake( sock, coordinator );
+      }
+      else
+      {
+        if (really_verbose) {
+          JTRACE("Skipping handshake send (shared socket, not owner).")
+            (id()) (fds[0]);
         }
-        else
-        {
-          if (really_verbose) {
-            JTRACE("Skipping handshake send (shared socket, not owner).")
-		(id()) (fds[0]);
-          }
-        }
-        break;
-      case TCP_EXTERNAL_CONNECT:
-        JTRACE ( "Socket to External Process, skipping handshake send" ) ( fds[0] );
-        break;
-    }
+      }
+      break;
+    case TCP_EXTERNAL_CONNECT:
+      JTRACE ( "Socket to External Process, skipping handshake send" ) ( fds[0] );
+      break;
   }
-  void dmtcp::TcpConnection::doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator ){
-    switch ( tcpType() )
-    {
-      case TCP_CONNECT:
-      case TCP_ACCEPT:
-        if ( hasLock ( fds ) )
-        {
-          JTRACE ("Receiving handshake ...") (id()) (fds[0]);
-          jalib::JSocket sock(fds[0]);
-          recvHandshake( sock, coordinator );
-          if (really_verbose) {
-            JTRACE ("Received handshake.") (getRemoteId()) (fds[0]);
-          }
+}
+
+void dmtcp::TcpConnection::doRecvHandshakes(const dmtcp::vector<int>& fds,
+                                            const dmtcp::UniquePid& coordinator)
+{
+  switch ( tcpType() )
+  {
+    case TCP_CONNECT:
+    case TCP_ACCEPT:
+      if ( hasLock ( fds ) )
+      {
+        JTRACE ("Receiving handshake ...") (id()) (fds[0]);
+        jalib::JSocket sock(fds[0]);
+        recvHandshake( sock, coordinator );
+        if (really_verbose) {
+          JTRACE ("Received handshake.") (getRemoteId()) (fds[0]);
         }
-        else
-        {
-          if (really_verbose) {
-            JTRACE ("Skipping handshake recv (shared socket, not owner).")
-              (id()) (fds[0]);
-          }
+      }
+      else
+      {
+        if (really_verbose) {
+          JTRACE ("Skipping handshake recv (shared socket, not owner).")
+            (id()) (fds[0]);
         }
-        break;
-      case TCP_EXTERNAL_CONNECT:
-        JTRACE ( "Socket to External Process, skipping handshake recv" ) ( fds[0] );
-        break;
-    }
+      }
+      break;
+    case TCP_EXTERNAL_CONNECT:
+      JTRACE ( "Socket to External Process, skipping handshake recv" ) ( fds[0] );
+      break;
   }
+}
 
 void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool isRestart )
 {
@@ -478,6 +480,43 @@ void dmtcp::TcpConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool 
     restoreOptions ( fds );
   }
 }
+
+void dmtcp::TcpConnection::restoreSocketPair(const dmtcp::vector<int>& fds,
+                                             dmtcp::TcpConnection *peer,
+                                             const dmtcp::vector<int>& peerfds)
+{
+  int sv[2];
+  JASSERT(_peerType == PEER_SOCKETPAIR && _socketpairPeerId == peer->id())
+    (_peerType) (_socketpairPeerId) (peer->id());
+  JASSERT(fds.size() > 0);
+  JASSERT(peerfds.size() > 0);
+
+  if (_socketPairRestored) {
+    _socketPairRestored = false;
+    return;
+  }
+  JASSERT(_real_socketpair( _sockDomain,_sockType,_sockProtocol, sv) == 0)
+    (JASSERT_ERRNO);
+
+  jalib::JSocket sock1(sv[0]);
+  jalib::JSocket sock2(sv[1]);
+
+  sock1.changeFd(fds[0]);
+  sock2.changeFd(peerfds[0]);
+
+  for (size_t i=1; i<fds.size(); ++i) {
+    JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
+      .Text("dup2() failed");
+  }
+
+  for (size_t i=1; i<peerfds.size(); ++i) {
+    JASSERT(_real_dup2(peerfds[0], peerfds[i]) == peerfds[i])
+      (peerfds[0]) (peerfds[i]) .Text("dup2() failed");
+  }
+  peer->_socketPairRestored = true;
+  JTRACE("Restored Socketpair") (id()) (peer->id()) (fds[0]) (peerfds[0]);
+}
+
 void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
 {
   JASSERT ( fds.size() > 0 );
@@ -1569,8 +1608,8 @@ void dmtcp::Connection::serialize ( jalib::JBinarySerializer& o )
 void dmtcp::TcpConnection::serializeSubClass ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::TcpConnection" );
-  o & _sockDomain  & _sockType & _sockProtocol & _listenBacklog
-    & _bindAddrlen & _bindAddr & _acceptRemoteId;
+  o & _sockDomain  & _sockType & _sockProtocol & _listenBacklog & _peerType
+    & _bindAddrlen & _bindAddr & _acceptRemoteId & _socketpairPeerId;
 
   JSERIALIZE_ASSERT_POINT ( "SocketOptions:" );
   size_t numSockOpts = _sockOptions.size();
