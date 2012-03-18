@@ -745,6 +745,14 @@ dmtcp::Connection& dmtcp::ConnectionList::operator[] ( const ConnectionIdentifie
   return *_connections[id];
 }
 
+dmtcp::Connection *dmtcp::ConnectionList::getConnection(const ConnectionIdentifier& id)
+{
+  if (_connections.find(id) == _connections.end()) {
+    return NULL;
+  }
+  return _connections[id];
+}
+
 void dmtcp::ConnectionList::add ( Connection* c )
 {
   JWARNING ( _connections.find ( c->id() ) == _connections.end() ) ( c->id() )

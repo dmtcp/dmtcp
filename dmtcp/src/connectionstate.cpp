@@ -323,13 +323,27 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
   // Part 1: Restore all but Pseudo-terminal slaves and file connection which
   //         were not checkpointed
   ConnectionList::iterator i;
-  for ( i= connections.begin(); i != connections.end(); ++i )
-  {
-    JASSERT ( _conToFds[i->first].size() > 0 )
-      .Text ( "stale connections should be gone by now" );
+  for (i= connections.begin(); i != connections.end(); ++i) {
+    ConnectionIdentifier id = i->first;
+    Connection *con = i->second;
 
-    if ( (i->second)->restoreInSecondIteration() == false ) {
-      ( i->second )->restore ( _conToFds[i->first], _rewirer );
+    JASSERT(_conToFds[id].size() > 0)
+      .Text("stale connections should be gone by now");
+
+    if (con->conType() == Connection::TCP) {
+      TcpConnection *tcpCon = (TcpConnection *) con;
+      if (tcpCon->peerType() == TcpConnection::PEER_SOCKETPAIR) {
+        ConnectionIdentifier peerId = tcpCon->getSocketpairPeerId();
+        TcpConnection *peerCon = (TcpConnection*) connections.getConnection(peerId);
+        if (peerCon != NULL) {
+          tcpCon->restoreSocketPair(_conToFds[id], peerCon, _conToFds[peerId]);
+          continue;
+        }
+      }
+    }
+
+    if (con->restoreInSecondIteration() == false) {
+      con->restore(_conToFds[id], _rewirer);
     }
   }
 
@@ -357,7 +371,7 @@ void dmtcp::ConnectionState::handleDuplicateFilesInSeparateConnections()
   for ( i= connections.begin(); i != connections.end(); ++i )
   {
     if ( i->second->conType() != Connection::FILE ) continue;
-    if ( i->second->conType() == Connection::EPOLL) 
+    if ( i->second->conType() == Connection::EPOLL)
         out << "found epoll fd\n";
 
     FileConnection* fileConI = (FileConnection*) i->second;

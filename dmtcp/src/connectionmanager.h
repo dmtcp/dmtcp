@@ -54,6 +54,7 @@ namespace dmtcp
       void erase ( ConnectionIdentifier& key );
       ConnectionList();
       Connection& operator[] ( const ConnectionIdentifier& id );
+      Connection *getConnection(const ConnectionIdentifier &id);
 
       void serialize ( jalib::JBinarySerializer& o );
 

@@ -73,6 +73,8 @@ extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
   a = new dmtcp::TcpConnection ( d, type, protocol );
   a->onConnect();
   b = new dmtcp::TcpConnection ( *a, a->id() );
+  a->setSocketpairPeer(b->id());
+  b->setSocketpairPeer(a->id());
 
   dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
   dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );

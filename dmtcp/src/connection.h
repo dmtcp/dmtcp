@@ -146,16 +146,17 @@ namespace dmtcp
 
       int tcpType() const { return _type; }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
       enum PeerType
       {
         PEER_UNKNOWN,
         PEER_INTERNAL,
-        PEER_EXTERNAL
+        PEER_EXTERNAL,
+        PEER_SOCKETPAIR
       };
 
       enum PeerType peerType() const { return _peerType; }
 
+#ifdef EXTERNAL_SOCKET_HANDLING
       void markInternal() {
         if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
           _peerType = PEER_INTERNAL;
@@ -169,6 +170,11 @@ namespace dmtcp
 #endif
       // This accessor is needed because _type is protected.
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
+
+      void setSocketpairPeer(ConnectionIdentifier id) {
+        _peerType = PEER_SOCKETPAIR;
+        _socketpairPeerId = id;
+      }
 
       //basic commands for updating state from wrappers
       /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
@@ -200,7 +206,11 @@ namespace dmtcp
       void sendHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
       void recvHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
 
+      void restoreSocketPair(const dmtcp::vector<int>& fds,
+                             dmtcp::TcpConnection *peer,
+                             const dmtcp::vector<int>& peerfds);
       const ConnectionIdentifier& getRemoteId() const { return _acceptRemoteId; }
+      const ConnectionIdentifier& getSocketpairPeerId() const { return _socketpairPeerId; }
 
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
@@ -212,9 +222,8 @@ namespace dmtcp
       int                     _sockType;
       int                     _sockProtocol;
       int                     _listenBacklog;
-#ifdef EXTERNAL_SOCKET_HANDLING
       enum PeerType           _peerType;
-#endif
+      bool                    _socketPairRestored;
       union {
         socklen_t               _bindAddrlen;
         socklen_t               _connectAddrlen;
@@ -225,6 +234,7 @@ namespace dmtcp
         struct sockaddr_storage _connectAddr;
       };
       ConnectionIdentifier    _acceptRemoteId;
+      ConnectionIdentifier    _socketpairPeerId;
       dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
   };
 
@@ -468,7 +478,7 @@ namespace dmtcp
         EPOLL_CTL,
         EPOLL_WAIT
       };
-      
+
       inline EpollConnection (int size, int type=EPOLL_CREATE)
           :Connection(EPOLL),
            _type(type),
@@ -543,7 +553,7 @@ namespace dmtcp
     public:
       inline SignalFdConnection (int signalfd, const sigset_t* mask, int flags)
           :Connection(SIGNALFD),
-           signlfd (signalfd), 
+           signlfd (signalfd),
            _flags (flags)
       {
         if (mask!=NULL)
