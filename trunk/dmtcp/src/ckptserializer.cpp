@@ -204,7 +204,7 @@ int dmtcp::CkptSerializer::openDmtcpCheckpointFile(const dmtcp::string& path){
   }else{
     close(fd);
     dmtcp::string cmd = dmtcp::string()+"exec gzip -d - < '"+path+"'";
-    FILE* t = popen(cmd.c_str(),"r");
+    FILE* t = _real_popen(cmd.c_str(),"r");
     JASSERT(t!=NULL)(path)(cmd).Text("Failed to launch gzip.");
     JTRACE ( "created gzip child process to uncompress checkpoint file");
     fd = fileno(t);

@@ -185,12 +185,12 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   memset(buf, 0, bufSize);
   FILE *output;
   if (argv[0] == NULL) {
-    output = popen(path, "r");
+    output = _real_popen(path, "r");
   } else {
     dmtcp::string command = path;
     for (int i = 1; argv[i] != NULL; i++)
       command = command + " " + argv[i];
-    output = popen(command.c_str(), "r");
+    output = _real_popen(command.c_str(), "r");
   }
   int numRead = fread(buf, 1, bufSize, output);
   numRead++, numRead--; // suppress unused-var warning
