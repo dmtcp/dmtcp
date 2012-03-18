@@ -105,6 +105,7 @@ EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC const char* dmtcp_get_uniquepid_str();
 EXTERNC const char* dmtcp_get_computation_id_str();
+EXTERNC int  dmtcp_get_generation();
 EXTERNC int  dmtcp_is_running_state();
 EXTERNC int  dmtcp_is_initializing_wrappers();
 EXTERNC int  dmtcp_is_protected_fd(int fd);
