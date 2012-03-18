@@ -550,6 +550,16 @@ int _real_system ( const char *cmd )
 }
 
 LIB_PRIVATE
+FILE *_real_popen(const char *command, const char *mode) {
+  REAL_FUNC_PASSTHROUGH_TYPED (FILE*, popen) (command, mode);
+}
+
+LIB_PRIVATE
+int _real_pclose(FILE *fp) {
+  REAL_FUNC_PASSTHROUGH(pclose) (fp);
+}
+
+LIB_PRIVATE
 pid_t _real_fork( void )
 {
   REAL_FUNC_PASSTHROUGH_TYPED ( pid_t, fork ) ();

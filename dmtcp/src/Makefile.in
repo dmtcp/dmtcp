@@ -160,7 +160,7 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	remexecwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
 	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	dmtcpmodule.$(OBJEXT)
+	dmtcpmodule.$(OBJEXT) popen.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -365,7 +365,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
 			 miscwrappers.cpp remexecwrappers.cpp \
 			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
-			 dmtcpmodule.cpp
+			 dmtcpmodule.cpp popen.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
@@ -653,6 +653,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
