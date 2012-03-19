@@ -971,7 +971,8 @@ int _real_epoll_wait(int epfd, struct epoll_event *events,
 LIB_PRIVATE
 int _real_epoll_pwait(int epfd, struct epoll_event *events,
                       int maxevents, int timeout, const sigset_t *sigmask) {
-  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
+  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events,
+                                       maxevents, timeout, sigmask);
 }
 
 LIB_PRIVATE

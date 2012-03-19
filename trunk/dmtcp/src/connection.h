@@ -24,15 +24,13 @@
 #ifndef DMTCPCONNECTION_H
 #define DMTCPCONNECTION_H
 
+// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
-#include <sys/eventfd.h>
-#include <sys/signalfd.h>
 #include <signal.h>
 #include <map>
 #include "../jalib/jbuffer.h"
@@ -44,6 +42,34 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+#ifdef HAVE_EPOLL_H
+# include <sys/epoll.h>
+#else
+  /* KEEP THIS IN SYNC WITH syscallwrappers.h */
+# ifndef _SYS_EPOLL_H
+#  define _SYS_EPOLL_H    1
+   struct epoll_event {int dummy;};
+   /* Valid opcodes ( "op" parameter ) to issue to epoll_ctl().  */
+#  define EPOLL_CTL_ADD 1 /* Add a file decriptor to the interface.  */
+#  define EPOLL_CTL_DEL 2 /* Remove a file decriptor from the interface.  */
+#  define EPOLL_CTL_MOD 3 /* Change file decriptor epoll_event structure.  */
+# endif
+#endif
+#ifdef HAVE_EVENTFD_H
+# include <sys/eventfd.h>
+#else
+  enum { EFD_SEMAPHORE = 1 };
+#endif
+#ifdef HAVE_SIGNALFD_H
+# include <sys/signalfd.h>
+#else
+# include <stdint.h>
+  struct signalfd_siginfo {uint32_t ssi_signo; int dummy;};
+#endif
 
 namespace jalib { class JSocket; }
 

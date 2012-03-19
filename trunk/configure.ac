@@ -160,7 +160,7 @@ AC_ARG_ENABLE([stale_socket_handling],
 
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],
-                            [cause DMTCP to use a custom allocator based on mmap 
+                            [cause DMTCP to use a custom allocator based on mmap
                              and avoid calling malloc and free (EXPERIMENTAL)])],
             [use_allocator=$enableval],
             [use_allocator=no])
