@@ -441,6 +441,14 @@ int _real_epoll_wait(int epfd, struct epoll_event *events,
   REAL_FUNC_PASSTHROUGH (epoll_wait) (epfd, events, maxevents, timeout);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19) && __GLIBC_PREREQ(2,6)
+LIB_PRIVATE
+int _real_epoll_pwait(int epfd, struct epoll_event *events,
+                      int maxevents, int timeout, const sigset_t *sigmask) {
+  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
+}
+#endif
+
 LIB_PRIVATE
 int _real_eventfd (int initval, int flags) {
   REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
@@ -450,14 +458,6 @@ LIB_PRIVATE
 int _real_signalfd(int fd, const sigset_t *mask, int flags) {
   REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
 }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19) && __GLIBC_PREREQ(2,6)
-LIB_PRIVATE
-int _real_epoll_pwait(int epfd, struct epoll_event *events,
-                      int maxevents, int timeout, const sigset_t *sigmask) {
-  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
-}
-#endif
 
 // Used for wrappers for mmap, sbrk
 void _dmtcp_setup_trampolines() {}

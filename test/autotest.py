@@ -638,7 +638,7 @@ os.environ['DMTCP_GZIP'] = "0"
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
 # This is arguably a bug in the Linux kernel 3.2 for ARM.
-if sys.version_info.major == 2 and sys.version_info.minor >= 7:
+if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7):
   if subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
     print "On ARM, there is a known issue with the sysv-shm test."
 runTest("sysv-shm",      2, ["./test/sysv-shm"])
