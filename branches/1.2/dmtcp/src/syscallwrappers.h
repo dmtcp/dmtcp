@@ -52,14 +52,28 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <sys/epoll.h>
-#include <sys/eventfd.h>
-#include <sys/signalfd.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <grp.h>
 #include <netdb.h>
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+#ifdef HAVE_EPOLL_H
+# include <sys/epoll.h>
+#else
+  /* KEEP THIS IN SYNC WITH connection.h */
+# ifndef _SYS_EPOLL_H
+#  define _SYS_EPOLL_H    1
+   struct epoll_event {int dummy;};
+   /* Valid opcodes ( "op" parameter ) to issue to epoll_ctl().  */
+#  define EPOLL_CTL_ADD 1 /* Add a file decriptor to the interface.  */
+#  define EPOLL_CTL_DEL 2 /* Remove a file decriptor from the interface.  */
+#  define EPOLL_CTL_MOD 3 /* Change file decriptor epoll_event structure.  */
+# endif
+#endif
 
 void _dmtcp_setup_trampolines();
 
