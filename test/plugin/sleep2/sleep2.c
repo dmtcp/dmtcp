@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <sys/time.h>
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 void print_time() {
   struct timeval val;
@@ -40,21 +40,21 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 
-  /* NOTE:  See warning in module/README about calls to printf here. */
+  /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_PRE_CHECKPOINT:
-    printf("*** The module %s is being called before checkpointing. ***\n",
+    printf("*** The plugin %s is being called before checkpointing. ***\n",
 	   __FILE__);
     real_sleep(1);
     printf("*** Finished calling real_sleep() for 1 second. ***\n");
     break;
   case DMTCP_EVENT_POST_CHECKPOINT:
-    printf("*** The module %s has now been checkpointed. ***\n", __FILE__);
+    printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
     break;
   default:
     ;
   }
 
-  /* Call this next line in order to pass DMTCP events to later modules. */
+  /* Call this next line in order to pass DMTCP events to later plugins. */
   NEXT_DMTCP_PROCESS_EVENT(event, data);
 }

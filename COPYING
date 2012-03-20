@@ -29,9 +29,9 @@ The contents of files mtcp/mtcp_sigaction_*, mtcp/sysdep-*,
 mtcp/NOTES-x86_64/*.[hS] and dmtcp/src/glibcsystem.cpp are taken from glibc and
 is Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 
-Files found in the directory dmtcp/module are Copyright (C) 2005-2012 by
+Files found in the directory dmtcp/plugin are Copyright (C) 2005-2012 by
 Jason Ansel, Kapil Arya, and Gene Cooperman, except that
-files found in the directory dmtcp/module/ptrace are Copyright (C) 2005-2012 by
+files found in the directory dmtcp/plugin/ptrace are Copyright (C) 2005-2012 by
 Ana-Maria Visan, Kapil Arya, and Gene Cooperman.
 
 Any remaining files (for building/testing) are Copyright (C) 2006-2008 Jason

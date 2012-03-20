@@ -44,7 +44,7 @@ concerning thread creation and exit:
   will also return to MTCP:threadcloned(), which will call threadisdead().)
 3) DMTCP keeps a thread virtual tid table.  When a thread exits, DMTCP
   can free up the space for that slot in the table.  Also, DMTCP can
-  send an event notice using the DMTCP module system.
+  send an event notice using the DMTCP plugin system.
 
 In order to clarify the logic, a timeline below describes the functions
 called in the creation and exit of a thread.  The timeline assumes that
@@ -82,7 +82,7 @@ DMTCP:clone_start():
   On entry, it checks if there is a TID conflict.  If there is a TID conflict,
     it returns, and forces DMTCP:__clone() to create a new thread.
   On exit, it calls threadiszombie??? and deletes items from pid virt.
-    table (erase/eratsTid), and also issues thread_exit event for modules
+    table (erase/eratsTid), and also issues thread_exit event for plugins
 
 MTCP:threadcloned():
   This is an extra start_routine function set up by MTCP:__clone().
@@ -97,7 +97,7 @@ DMTCP:pthread_start():
   This is an extra start_routine function set up by DMTCP:pthread_create()
   On entry, it does nothing (besides pass on its arguments).
   On exit, it deletes items from virt. pid table (erase/eraseTid), and
-	 also issues thread_exit event for modules
+	 also issues thread_exit event for plugins
   On exit, it sets the state in Thread descriptor to Zombie.
     NOTE:  If MTCP:threadcloned() is called later, we must guard
       against deleting the thread twice.  This is why we just

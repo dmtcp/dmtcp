@@ -23,7 +23,7 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "ptracewrappers.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <linux/version.h>

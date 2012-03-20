@@ -51,7 +51,7 @@
 #define MTCP_PRINTF printf
 #include "mtcp_ptrace.h"
 #include "ptrace.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 
 #define GETTID() (int)syscall(SYS_gettid)
