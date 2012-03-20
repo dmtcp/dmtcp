@@ -596,17 +596,17 @@ resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 PWD=os.getcwd()
-runTest("module-sleep2", 1, ["--with-module "+
-			     PWD+"/test/module/sleep1/dmtcp_sleep1hijack.so:"+
-			     PWD+"/test/module/sleep2/dmtcp_sleep2hijack.so "+
+runTest("plugin-sleep2", 1, ["--with-plugin "+
+			     PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
+			     PWD+"/test/plugin/sleep2/dmtcp_sleep2hijack.so "+
 			     "./test/dmtcp1"])
 
-runTest("module-example-db", 2, ["--with-module "+
-			    PWD+"/test/module/example-db/dmtcp_example-dbhijack.so "+
+runTest("plugin-example-db", 2, ["--with-plugin "+
+			    PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
 			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
 			     "./test/dmtcp1",
-			         "--with-module "+
-			    PWD+"/test/module/example-db/dmtcp_example-dbhijack.so "+
+			         "--with-plugin "+
+			    PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
 			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
 			     "./test/dmtcp1"])
 

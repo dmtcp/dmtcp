@@ -1,5 +1,3 @@
-/* dmtcpmodule.h is obsolete;  Please use dmtcpplugin.h */
-
 /****************************************************************************
  *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
@@ -21,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPMODULE_H
-#define DMTCPMODULE_H
+#ifndef DMTCPPLUGIN_H
+#define DMTCPPLUGIN_H
 
 #include <sys/types.h>
 
@@ -123,10 +121,6 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr();
 
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
-
-// Backward compatibility.  Remove this later.
-#define DMTCP_MODULE_DISABLE_CKPT() DMTCP_PLUGIN_DISABLE_CKPT()
-#define DMTCP_MODULE_ENABLE_CKPT() DMTCP_PLUGIN_ENABLE_CKPT()
 
 
 #define NEXT_FNC(func)                                                      \

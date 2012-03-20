@@ -37,7 +37,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h sysvipc.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
-	dmtcpmodule.h lookup_service.h trampolines.h
+	dmtcpplugin.h lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -86,7 +86,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
 			 miscwrappers.cpp remexecwrappers.cpp \
 			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
-			 dmtcpmodule.cpp popen.cpp
+			 dmtcpplugin.cpp popen.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 

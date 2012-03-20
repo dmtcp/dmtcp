@@ -1,7 +1,7 @@
 #include "syscallwrappers.h"
 #include "dmtcpworker.h"
 #include "uniquepid.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpalloc.h"
 
