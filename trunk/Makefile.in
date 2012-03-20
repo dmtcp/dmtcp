@@ -62,7 +62,7 @@ endif
 
 default: display-build-env build
 
-build: mtcp dmtcp module
+build: mtcp dmtcp plugin
 	$(MKDIR_P) bin
 	$(MKDIR_P) lib/dmtcp
 	$(MKDIR_P) include
@@ -117,8 +117,8 @@ mtcp: check-m32-compat
 dmtcp: check-m32-compat
 	cd dmtcp && $(MAKE)
 
-module: dmtcp check-m32-compat
-	cd module && $(MAKE)
+plugin: dmtcp check-m32-compat
+	cd plugin && $(MAKE)
 
 tests: build
 	cd test && $(MAKE) $(MTCP_MAKE_FLAGS)
@@ -180,7 +180,7 @@ tidy:
 clean: tidy
 	- cd mtcp  && $(MAKE) clean
 	- cd dmtcp && $(MAKE) clean
-	- cd module && $(MAKE) clean
+	- cd plugin && $(MAKE) clean
 	- cd test  && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
@@ -195,7 +195,7 @@ clean: tidy
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp && $(MAKE) distclean
-	- cd module && $(MAKE) distclean
+	- cd plugin && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/testconfig.py \
 	  config.log config.status config.cache
@@ -247,18 +247,18 @@ lib/% : dmtcp/src/%
 lib/dmtcp/% : dmtcp/src/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib/dmtcp/% : module/ptrace/%
+lib/dmtcp/% : plugin/ptrace/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib/dmtcp/% : module/pidvirt/%
+lib/dmtcp/% : plugin/pidvirt/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-MODULES = lib/dmtcp/pidvirt.so
+PLUGINS = lib/dmtcp/pidvirt.so
 ifeq ($(PTRACE_SUPPORT),yes)
-  MODULES += lib/dmtcp/ptracehijack.so
+  PLUGINS += lib/dmtcp/ptracehijack.so
 endif
 
-lib: 	lib/dmtcp/dmtcphijack.so $(MODULES) \
+lib: 	lib/dmtcp/dmtcphijack.so $(PLUGINS) \
 	lib/libdmtcpaware.a lib/libdmtcpaware.so \
 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
 
@@ -279,7 +279,7 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	cd dmtcp && make DESTDIR=$(DESTDIR) install
-	cd module && make DESTDIR=$(DESTDIR) install
+	cd plugin && make DESTDIR=$(DESTDIR) install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) install
 	#chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
@@ -297,7 +297,7 @@ install: all
 
 uninstall:
 	cd dmtcp && make uninstall
-	cd module && make uninstall
+	cd plugin && make uninstall
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) uninstall
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
@@ -308,5 +308,6 @@ uninstall:
 	  rm -f dmtcp.1 ${MANPAGES}
 
 .PHONY: default all check-m32-compat tests \
-	display-build-env display-release display-config build mtcp dmtcp module\
+	display-build-env display-release display-config build \
+	mtcp dmtcp plugin \
 	clean distclean bin dmtcpaware examples dmtcp_noexamples

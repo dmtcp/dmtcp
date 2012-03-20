@@ -1,0 +1,4 @@
+If you are here and you'relooking for examples of how to use DMTCP plugins,
+please look in DMTCP_ROOT/test/plugin.  (Probably it's in ../test)
+
+This directory is for plugins required internally to support DMTCP.

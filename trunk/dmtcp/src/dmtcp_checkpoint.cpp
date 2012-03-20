@@ -97,8 +97,8 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --with-module (environment variable DMTCP_MODULE):\n"
-  "      Colon-separated list of DMTCP modules to be preloaded with DMTCP.\n"
+  "  --with-plugin (environment variable DMTCP_PLUGIN):\n"
+  "      Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
   "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
@@ -217,8 +217,11 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (s == "--checkpoint-open-files") {
       checkpointOpenFiles = true;
       shift;
-    } else if (s == "--with-module") {
-      setenv(ENV_VAR_MODULE, argv[1], 1);
+    } else if (s == "--with-plugin") {
+      setenv(ENV_VAR_PLUGIN, argv[1], 1);
+      shift; shift;
+    } else if (s == "--with-module") { /* TEMPORARILY SUPPORT BACKWARD COMPAT.*/
+      setenv(ENV_VAR_PLUGIN, argv[1], 1);
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
@@ -420,13 +423,13 @@ int main ( int argc, char** argv )
   }
 
   // preloadLibs are to set LD_PRELOAD:
-  //   LD_PRELOAD=MODULE_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
+  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
   dmtcp::string preloadLibs = "";
-  // FIXME:  If the colon-separated elements of ENV_VAR_MODULE are not
+  // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   //     absolute pathnames, then they must be expanded to absolute pathnames.
   //     Warn user if an absolute pathname is not valid.
-  if ( getenv(ENV_VAR_MODULE) != NULL ) {
-    preloadLibs += getenv(ENV_VAR_MODULE);
+  if ( getenv(ENV_VAR_PLUGIN) != NULL ) {
+    preloadLibs += getenv(ENV_VAR_PLUGIN);
     preloadLibs += ":";
   }
   // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set

@@ -37,7 +37,7 @@
 #include "processinfo.h"
 #include "protectedfds.h"
 #include "sockettable.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
@@ -87,7 +87,7 @@ LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
 static bool delayedCheckpoint = false;
 #endif
 
-//to allow linking without ptrace module
+//to allow linking without ptrace plugin
 extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
 static void* find_and_open_mtcp_so()
@@ -364,7 +364,7 @@ static void callbackRestoreVirtualPidTable()
 
 void callbackHoldsAnyLocks(int *retval)
 {
-  /* This callback is useful only for the ptrace module currently, but may be
+  /* This callback is useful only for the ptrace plugin currently, but may be
    * used for other stuff as well.
    *
    * This is invoked as the first thing in stopthisthread() routine, which is

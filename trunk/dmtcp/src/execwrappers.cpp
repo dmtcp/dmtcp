@@ -32,7 +32,7 @@
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include "util.h"
 #include "sysvipc.h"
 #include  "../jalib/jconvert.h"
@@ -74,7 +74,7 @@ LIB_PRIVATE void pthread_atfork_prepare()
    * cause several issues. One solution to this problem is to call the fork
    * system call directly whenever a tid-conflict is detected, however, it
    * might have some other side-effects.  Another possible solution would be to
-   * have pid-virtualization module, which always assigns virtual pids, to the
+   * have pid-virtualization plugin, which always assigns virtual pids, to the
    * newly created processes, and thus avoiding the pid-conflict totally.
    */
   return;

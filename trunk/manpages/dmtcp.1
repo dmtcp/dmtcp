@@ -215,22 +215,23 @@ and use the header file dmtcp/dmtcpaware.h.
 The file utils/dmtcp.py in the source distribution provides an example
 python binding for the dmtcpaware interface.
 
-.SH "DMTCP PLUG-IN MODULES"
+.SH "DMTCP PLUGIN MODULES"
 
-The source distribution includes a top-level \fImodule\fR directory,
-with examples of how to write a plug-in module for DMTCP.  The module
-feature adds three new user-programmable capabilities.  A module may:
+The source distribution includes a top-level \fIplugin\fR directory,
+with examples of how to write a plugin module for DMTCP.  Further
+examples are in the \fItest/plugin\fR directory.  The plugin
+feature adds three new user-programmable capabilities.  A plugin may:
 add wrappers around system calls; take special actions at
 during certain events (e.g. pre-checkpoint, resume/post-checkpoint,
 restart); and may insert key-value pairs into a database at restart time
 that is then available to be queried by the restarted processes of a
 computation.
-(The events available to the module feature form a superset
+(The events available to the plugin feature form a superset
 of the events available with the dmtcpaware interface.)
-One or more modules are invoked via a list of colon-separated
+One or more plugins are invoked via a list of colon-separated
 absolute pathnames.
 
-  dmtcp_checkpoint \-\-with\-module MODULE1[:MODULE2]...
+  dmtcp_checkpoint \-\-with\-plugin PLUGIN1[:PLUGIN2]...
 
 .SH "RETURN CODE"
 A target program under DMTCP control normally returns the same return code

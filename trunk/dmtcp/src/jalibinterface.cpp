@@ -29,7 +29,7 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include "protectedfds.h"
 #include "util.h"
 #include "syscallwrappers.h"

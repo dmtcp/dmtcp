@@ -466,13 +466,13 @@ void dmtcp::ThreadSync::threadCreationLockUnlock()
 //   threads, it will not be thread-safe).
 //   In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
 extern "C"
-int dmtcp_module_disable_ckpt()
+int dmtcp_plugin_disable_ckpt()
 {
   return dmtcp::ThreadSync::wrapperExecutionLockLock();
 }
 
 extern "C"
-void dmtcp_module_enable_ckpt()
+void dmtcp_plugin_enable_ckpt()
 {
   dmtcp::ThreadSync::wrapperExecutionLockUnlock();
 }

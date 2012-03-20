@@ -143,8 +143,8 @@ void _dmtcp_remutex_on_fork() {
  *    libc.so' reveals that 'pthread_cond_broadcast', 'pthread_cond_signal',
  *    and others are defined in libc.so. Thus, depending on the library load
  *    order, RTLD_NEXT might instead resolve to the libc version, which has
- *    been shown to cause problems (e.g. in the FReD module, which has wrappers
- *    around those functions).
+ *    been shown to cause problems (e.g. in the FReD record-replay plugin,
+ *    which has wrappers around those functions).
  *
  * The work around to these problems is described in the following section.
  *
