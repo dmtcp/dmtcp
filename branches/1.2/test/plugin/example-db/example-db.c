@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 struct keyPid {
   int key;
@@ -19,10 +19,10 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   size_t sizeofPid;
 
-  /* NOTE:  See warning in module/README about calls to printf here. */
+  /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_INIT:
-    printf("The module containing %s has been initialized.\n", __FILE__);
+    printf("The plugin containing %s has been initialized.\n", __FILE__);
     if (getenv("EXAMPLE_DB_KEY")) {
       mystruct.key = atoi(getenv("EXAMPLE_DB_KEY"));
       mystruct.pid = getpid();
@@ -35,12 +35,12 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
     }
     break;
   case DMTCP_EVENT_PRE_CHECKPOINT:
-    printf("\nThe module is being called before checkpointing.\n");
+    printf("\nThe plugin is being called before checkpointing.\n");
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     /* Although one process resumes late, they will still all synchronize. */
     if (mystruct.key == 1) sleep(1);
-    printf("The module is now resuming or restarting from checkpointing.\n");
+    printf("The plugin is now resuming or restarting from checkpointing.\n");
     dmtcp_send_key_val_pair_to_coordinator(&(mystruct.key),
                                            sizeof(mystruct.key),
                                            &(mystruct.pid),
@@ -59,6 +59,9 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
      *   send_key_val_pair within the same transaction also risks an abort.
      */
     /* Set max size of the buffer &(mystruct.pid) */
+    /* This process was called with an environment variable,
+     *  EXAMPLE_DB_KEY_OTHER, whose value was used to set mystruct_other.key.
+     */
     sizeofPid = sizeof(mystruct_other.pid);
     dmtcp_send_query_to_coordinator(&(mystruct_other.key),
                                     sizeof(mystruct_other.key),

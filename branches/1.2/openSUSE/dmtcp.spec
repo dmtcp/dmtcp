@@ -220,7 +220,7 @@ rm -rf %{buildroot}
 - DMTCP_ROOT/dmtcp/doc directory added with documentation of some
     DMTCP internals.  architecture-of-dmtcp.pdf is a good place to
     start reading for those who are curious.
-- The directory of example modules was moved to DMTCP_ROOT/test/module.
+- The directory of example plugins was moved to DMTCP_ROOT/test/plugin.
     This continues to support third-part wrappers around system calls,
     can registering functions to be called by DMTCP at interesting times
     (like pre-checkpoint, post-resume, post-restart, new thread created, etc.).
@@ -235,8 +235,8 @@ rm -rf %{buildroot}
     as part of the path to find the remote dmtcp_checkpoint command.
     This is useful when a gateway machine has a different directory
     structure from the remote nodes.
-- configure --enable-ptrace-support now uses ptrace module (more modular code).
-    The ptrace module should also be more robust.  It now fixes some
+- configure --enable-ptrace-support now uses ptrace plugin (more modular code).
+    The ptrace plugin should also be more robust.  It now fixes some
     additional cases that were missing earlier
 - ./configure --enable-unique-checkpoint-filenames  was not respecting
     bin/dmtcp_checkpoint --checkpoint-open-files .  This is now fixed.

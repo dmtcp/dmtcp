@@ -35,13 +35,13 @@ Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
            2012, Rohan Garg <rohgarg@ccs.neu.edu>
 License: LGPL-3
 
-Files: module/*
+Files: plugin/*
 Copyright: 2009-2012, Jason Ansel <jansel@csail.mit.edu>
            2009-2012, Kapil Arya <kapil@ccs.neu.edu>
            2009-2012, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
-Files: module/ptrace/*
+Files: plugin/ptrace/*
 Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
            2009-2012, Kapil Arya <kapil@ccs.neu.edu>
            2009-2012, Gene Cooperman <gene@ccs.neu.edu>

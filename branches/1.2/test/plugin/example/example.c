@@ -5,32 +5,32 @@
  */
 
 #include <stdio.h>
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 
 void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
-  /* NOTE:  See warning in module/README about calls to printf here. */
+  /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_INIT:
-    printf("The module containing %s has been initialized.\n", __FILE__);
+    printf("The plugin containing %s has been initialized.\n", __FILE__);
     break;
   case DMTCP_EVENT_PRE_CHECKPOINT:
-    printf("\n*** The module is being called before checkpointing. ***\n");
+    printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
   case DMTCP_EVENT_POST_CHECKPOINT:
-    printf("*** The module has now been checkpointed. ***\n");
+    printf("*** The plugin has now been checkpointed. ***\n");
     break;
   case DMTCP_EVENT_POST_CHECKPOINT_RESUME:
     printf("The process is now resuming after checkpoint.\n");
     break;
   case DMTCP_EVENT_POST_RESTART_RESUME:
-    printf("The module is now resuming or restarting from checkpointing.\n");
+    printf("The plugin is now resuming or restarting from checkpointing.\n");
     break;
   case DMTCP_EVENT_PRE_EXIT:
-    printf("The module is being called before exiting.\n");
+    printf("The plugin is being called before exiting.\n");
     break;
-  /* These events are unused and could be omitted.  See dmtcpmodule.h for
+  /* These events are unused and could be omitted.  See dmtcpplugin.h for
    * complete list.
    */
   case DMTCP_EVENT_POST_RESTART:

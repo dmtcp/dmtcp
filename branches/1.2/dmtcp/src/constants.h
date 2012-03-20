@@ -27,7 +27,7 @@
 #endif
 #include "linux/version.h"
 
-// IBV is for the Infiniband module. The overhead in DMTCP is essentially zero.
+// IBV is for the Infiniband plugin.  The overhead in DMTCP is essentially zero.
 // Undefine this if for some reason it should interfere.
 #define IBV
 
@@ -85,7 +85,7 @@
 #define ENV_VAR_CHECKPOINT_DIR "DMTCP_CHECKPOINT_DIR"
 #define ENV_VAR_TMPDIR "DMTCP_TMPDIR"
 #define ENV_VAR_CKPT_OPEN_FILES "DMTCP_CKPT_OPEN_FILES"
-#define ENV_VAR_MODULE "DMTCP_MODULE"
+#define ENV_VAR_PLUGIN "DMTCP_PLUGIN"
 #define ENV_VAR_QUIET "DMTCP_QUIET"
 #define ENV_VAR_ROOT_PROCESS "DMTCP_ROOT_PROCESS"
 #define ENV_VAR_PREFIX_ID "DMTCP_PREFIX_ID"

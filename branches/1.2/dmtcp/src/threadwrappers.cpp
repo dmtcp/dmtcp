@@ -25,7 +25,7 @@
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include "virtualpidtable.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include "uniquepid.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"

@@ -1,3 +1,5 @@
+/* dmtcpmodule.h is obsolete;  Please use dmtcpplugin.h */
+
 /****************************************************************************
  *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
@@ -74,8 +76,8 @@ typedef struct DmtcpResumeUserThreadInfo {
   int is_restart;
 } DmtcpResumeUserThreadInfo;
 
-EXTERNC int dmtcp_module_disable_ckpt(void);
-EXTERNC void dmtcp_module_enable_ckpt(void);
+EXTERNC int dmtcp_plugin_disable_ckpt(void);
+EXTERNC void dmtcp_plugin_enable_ckpt(void);
 EXTERNC void dmtcp_process_event(DmtcpEvent_t event, void* data);
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t key_len,
@@ -99,11 +101,15 @@ EXTERNC void dmtcp_unblock_ckpt_signal();
 
 EXTERNC void *dmtcp_get_libc_dlsym_addr();
 
-#define DMTCP_MODULE_DISABLE_CKPT() \
-  bool __dmtcp_module_ckpt_disabled = dmtcp_module_disable_ckpt()
+#define DMTCP_PLUGIN_DISABLE_CKPT() \
+  bool __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
 
-#define DMTCP_MODULE_ENABLE_CKPT() \
-  if (__dmtcp_module_ckpt_disabled) dmtcp_module_enable_ckpt()
+#define DMTCP_PLUGIN_ENABLE_CKPT() \
+  if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
+
+// Backward compatibility.  Remove this later.
+#define DMTCP_MODULE_DISABLE_CKPT() DMTCP_PLUGIN_DISABLE_CKPT()
+#define DMTCP_MODULE_ENABLE_CKPT() DMTCP_PLUGIN_ENABLE_CKPT()
 
 
 #define NEXT_FNC(func)                                                      \

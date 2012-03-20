@@ -25,7 +25,7 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jalloc.h"
 #include "dmtcpmessagetypes.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 #include <stdlib.h>
 #include "mtcpinterface.h"
 #include <unistd.h>
@@ -177,7 +177,7 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
    * child process. This needs to be the first function that is called by
    * libc:fork() after the child process is created.
    *
-   * Some dmtcp module might also call pthread_atfork and so we call it right
+   * Some dmtcp plugin might also call pthread_atfork and so we call it right
    * here before initializing the wrappers.
    *
    * NOTE: If this doesn't work and someone is able to call pthead_atfork
@@ -352,7 +352,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   connectToCoordinatorWithHandshake();
 
-  // define "Weak Symbols for each library module in dmtcphijack.so
+  // define "Weak Symbols for each library plugin in dmtcphijack.so
   dmtcp_process_event(DMTCP_EVENT_INIT, NULL);
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to

@@ -206,7 +206,7 @@ rm -rf %{buildroot}
 - DMTCP_ROOT/dmtcp/doc directory added with documentation of some
     DMTCP internals.  architecture-of-dmtcp.pdf is a good place to
     start reading for those who are curious.
-- The directory of example modules was moved to DMTCP_ROOT/test/module.
+- The directory of example plugins was moved to DMTCP_ROOT/test/plugin.
     This continues to support third-part wrappers around system calls,
     can registering functions to be called by DMTCP at interesting times
     (like pre-checkpoint, post-resume, post-restart, new thread created, etc.).
@@ -221,8 +221,8 @@ rm -rf %{buildroot}
     as part of the path to find the remote dmtcp_checkpoint command.
     This is useful when a gateway machine has a different directory
     structure from the remote nodes.
-- configure --enable-ptrace-support now uses ptrace module (more modular code).
-    The ptrace module should also be more robust.  It now fixes some
+- configure --enable-ptrace-support now uses ptrace plugin (more modular code).
+    The ptrace plugin should also be more robust.  It now fixes some
     additional cases that were missing earlier
 - ./configure --enable-unique-checkpoint-filenames  was not respecting
     bin/dmtcp_checkpoint --checkpoint-open-files .  This is now fixed.
@@ -253,8 +253,8 @@ rm -rf %{buildroot}
 - Updating to upstream release 1.2.3.
 * Sat Jul  2 2011 kapil@ccs.neu.edu
   * 1.2.2 release notes from upstream:
-- A new module system, allowing users to write their own extensions to DMTCP,
-  including wrappers around library calls. See the module subdirectory for
+- A new plugin system, allowing users to write their own extensions to DMTCP,
+  including wrappers around library calls. See the plugin subdirectory for
   examples.
 - ./configure --enable-m32 was not working in DMTCP 1.2.1. It works again now.
 - more bug fixes and robustness testing. Tested on kernels ranging from Linux

@@ -4,7 +4,7 @@
 #include "ptrace.h"
 #include "mtcp_ptrace.h"
 #include "ptracewrappers.h"
-#include "dmtcpmodule.h"
+#include "dmtcpplugin.h"
 
 static struct ptrace_info callbackGetNextPtraceInfo (int index);
 static void callbackPtraceInfoListCommand (struct cmd_info cmd);
