@@ -1058,7 +1058,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   calculateRelativePath();
 
-  _ckptFilesDir = UniquePid::checkpointFilesSubDirName();
+  _ckptFilesDir = UniquePid::ckptFilesSubDir();
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);

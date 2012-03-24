@@ -53,14 +53,15 @@ namespace dmtcp
     const char* prefix() const { return _prefix; }
 
     void incrementGeneration();
-    static const char* checkpointFilename();
-    static dmtcp::string checkpointFilesSubDirName();
-    static dmtcp::string checkpointDirName();
-    static void updateCheckpointDirName();
-    static dmtcp::string dmtcpTableFilename();
+    static const char* ckptFilename();
+    static dmtcp::string ckptFilesSubDir();
+    static dmtcp::string getCkptDir();
+    static void setCkptDir(const char*);
+    static void updateCkptDir();
     static void setTmpDir(const char * envVarTmpDir);
     static dmtcp::string getTmpDir();
 
+    static dmtcp::string dmtcpTableFilename();
     static dmtcp::string pidTableFilename();
 
     static void serialize( jalib::JBinarySerializer& o );

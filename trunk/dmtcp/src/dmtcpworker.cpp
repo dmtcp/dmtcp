@@ -590,7 +590,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 #endif
 
   waitForCoordinatorMsg ( "SUSPEND", DMT_DO_SUSPEND );
-  UniquePid::updateCheckpointDirName();
+  UniquePid::updateCkptDir();
 
   JTRACE("got SUSPEND message, preparing to acquire all Thread-sync locks");
   ThreadSync::acquireLocks();
@@ -770,7 +770,7 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd)
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
 {
   // Tell coordinator to record our filename in the restart script
-  dmtcp::string ckptFilename = dmtcp::UniquePid::checkpointFilename();
+  dmtcp::string ckptFilename = dmtcp::UniquePid::ckptFilename();
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
   dmtcp::DmtcpMessage msg;

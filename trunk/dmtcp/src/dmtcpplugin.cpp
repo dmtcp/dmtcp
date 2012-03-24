@@ -26,6 +26,28 @@ EXTERNC const char* dmtcp_get_tmpdir()
   return tmpdir->c_str();
 }
 
+EXTERNC void dmtcp_set_tmpdir(const char* dir)
+{
+  if (dir != NULL) {
+    dmtcp::UniquePid::setTmpDir(dir);
+  }
+}
+
+EXTERNC const char* dmtcp_get_ckpt_dir()
+{
+  static dmtcp::string *tmpdir = NULL;
+  if (tmpdir == NULL)
+    tmpdir = new dmtcp::string(dmtcp::UniquePid::getCkptDir());
+  return tmpdir->c_str();
+}
+
+EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
+{
+  if (dir != NULL) {
+    dmtcp::UniquePid::setCkptDir(dir);
+  }
+}
+
 EXTERNC const char* dmtcp_get_uniquepid_str()
 {
   static dmtcp::string *uniquepid_str = NULL;

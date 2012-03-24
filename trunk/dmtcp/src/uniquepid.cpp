@@ -36,21 +36,9 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 
-static dmtcp::string& ckptDirName()
-{
-  static dmtcp::string str;
-  return str;
-}
-static dmtcp::string& ckptFileName()
-{
-  static dmtcp::string str;
-  return str;
-}
-static dmtcp::string& ckptFilesSubDirName()
-{
-  static dmtcp::string str;
-  return str;
-}
+static dmtcp::string _ckptDir;
+static dmtcp::string _ckptFileName;
+static dmtcp::string _ckptFilesSubDir;
 
 inline static long theUniqueHostId()
 {
@@ -163,78 +151,76 @@ void  dmtcp::UniquePid::incrementGeneration()
   _generation++;
 }
 
-const char* dmtcp::UniquePid::checkpointFilename()
+const char* dmtcp::UniquePid::ckptFilename()
 {
-  if (ckptFileName().empty()) {
+  if (_ckptFileName.empty()) {
     dmtcp::ostringstream o;
-    o << checkpointDirName() << "/"
+    o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
       << jalib::Filesystem::GetProgramName()
       << '_' << ThisProcess()
       << CKPT_FILE_SUFFIX;
 
-    ckptFileName() = o.str();
+    _ckptFileName = o.str();
   }
-  return ckptFileName().c_str();
+  return _ckptFileName.c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::checkpointFilesSubDirName()
+dmtcp::string dmtcp::UniquePid::ckptFilesSubDir()
 {
-  if (ckptFilesSubDirName().empty()) {
+  if (_ckptFilesSubDir.empty()) {
     dmtcp::ostringstream o;
-    o << checkpointDirName() << "/"
+    o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
       << jalib::Filesystem::GetProgramName()
       << '_' << ThisProcess()
       << CKPT_FILES_SUBDIR_SUFFIX;
 
-    ckptFilesSubDirName() = o.str();
+    _ckptFilesSubDir = o.str();
   }
-  return ckptFilesSubDirName();
+  return _ckptFilesSubDir;
 }
 
-dmtcp::string dmtcp::UniquePid::checkpointDirName()
+dmtcp::string dmtcp::UniquePid::getCkptDir()
 {
-  if (ckptDirName().empty()) {
-    dmtcp::ostringstream o;
-
-    const char* envVarCkptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
-    if (envVarCkptDir == NULL) {
-      envVarCkptDir = ".";
-    }
-
-    o << envVarCkptDir;
-
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-    JASSERT(computationId() != UniquePid(0,0,0));
-    JASSERT(computationId().generation() != -1);
-
-    o << "/ckpt_" << computationId() << "_"
-      << std::setw(5) << std::setfill('0') << computationId().generation();
-#endif
-
-    ckptDirName() = o.str();
+  if (_ckptDir.empty()) {
+    updateCkptDir();
   }
-
-  JASSERT(!ckptDirName().empty());
-  return ckptDirName();
+  JASSERT(!_ckptDir.empty());
+  return _ckptDir;
 }
 
-void dmtcp::UniquePid::updateCheckpointDirName()
+void dmtcp::UniquePid::setCkptDir(const char *dir)
 {
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-  ckptDirName().clear();
-  ckptFileName().clear();
-  ckptFilesSubDirName().clear();
-  JASSERT(!checkpointDirName().empty());
+  JASSERT(dir != NULL);
+  _ckptDir = dir;
+  _ckptFileName.clear();
+  _ckptFilesSubDir.clear();
 
-  JASSERT(mkdir(checkpointDirName().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (checkpointDirName())
+  JASSERT(mkdir(_ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (_ckptDir)
     .Text("Error creating checkpoint directory");
 
-  JASSERT(0 == access(checkpointDirName().c_str(), X_OK|W_OK)) (checkpointDirName())
+  JASSERT(0 == access(_ckptDir.c_str(), X_OK|W_OK)) (_ckptDir)
     .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+}
+
+void dmtcp::UniquePid::updateCkptDir()
+{
+  dmtcp::ostringstream o;
+  const char* dir = getenv(ENV_VAR_CHECKPOINT_DIR);
+  if (dir == NULL) {
+    dir = ".";
+  }
+  o << dir;
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+  JASSERT(computationId() != UniquePid(0,0,0));
+  JASSERT(computationId().generation() != -1);
+
+  o << "/ckpt_" << computationId() << "_"
+    << std::setw(5) << std::setfill('0') << computationId().generation();
 #endif
+  setCkptDir(o.str().c_str());
 }
 
 dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
@@ -368,8 +354,8 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  ckptFileName().clear();
-  //ckptDirName().clear();
+  _ckptFileName.clear();
+  //_ckptDir.clear();
 }
 
 bool dmtcp::UniquePid::isNull() const
