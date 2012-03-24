@@ -47,7 +47,7 @@
 #include "pidvirt.h"
 #include "sysvipc.h"
 
-static void updateProcPath(const char *path, char *newpath)
+static void updateProcPathVirtualToReal(const char *path, char *newpath)
 {
   if (path == NULL || strlen(path) == 0) {
     strcpy(newpath, "");
@@ -70,6 +70,29 @@ static void updateProcPath(const char *path, char *newpath)
   return;
 }
 
+static void updateProcPathRealToVirtual(const char *path, char *newpath)
+{
+  if (path == NULL || strlen(path) == 0) {
+    strcpy(newpath, "");
+    return;
+  }
+
+  if (dmtcp::Util::strStartsWith(path, "/proc/")) {
+    int index = 6;
+    char *rest;
+    pid_t realPid = strtol(&path[index], &rest, 0);
+    if (realPid > 0 && *rest == '/') {
+      pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
+      sprintf(newpath, "/proc/%d%s", virtualPid, rest);
+    } else {
+      strcpy(newpath, path);
+    }
+  } else {
+    strcpy(newpath, path);
+  }
+  return;
+}
+
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
 extern "C" int open (const char *path, int flags, ... )
@@ -83,7 +106,7 @@ extern "C" int open (const char *path, int flags, ... )
     va_end (arg);
   }
   char newpath[PATH_MAX];
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   return _real_open(newpath, flags, mode);
 }
 
@@ -99,28 +122,28 @@ extern "C" int open64 (const char *path, int flags, ... )
     va_end (arg);
   }
   char newpath[PATH_MAX];
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   return _real_open64(newpath, flags, mode);
 }
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
   char newpath[PATH_MAX];
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   return _real_fopen(newpath, mode);
 }
 
 extern "C" FILE *fopen64 (const char* path, const char* mode)
 {
   char newpath[PATH_MAX];
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   return _real_fopen64(newpath, mode);
 }
 
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   int retval = _real_xstat( vers, newpath, buf );
   return retval;
 }
@@ -128,7 +151,7 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0};
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   int retval = _real_xstat64( vers, newpath, buf );
   return retval;
 }
@@ -150,7 +173,7 @@ extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   int retval = _real_lxstat( vers, newpath, buf );
   return retval;
 }
@@ -158,7 +181,7 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   int retval = _real_lxstat64( vers, newpath, buf );
   return retval;
 }
@@ -167,43 +190,70 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
-  return NEXT_FNC(readlink) (newpath, buf, bufsiz);
+  updateProcPathVirtualToReal(path, newpath);
+  READLINK_RET_TYPE ret = NEXT_FNC(readlink) (newpath, buf, bufsiz);
+  if (ret != -1) {
+    updateProcPathRealToVirtual(buf, newpath);
+    JASSERT(strlen(newpath) < bufsiz);
+    strcpy(buf, newpath);
+  }
+  return ret;
 }
 
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
-  return NEXT_FNC(realpath) (newpath, resolved_path);
+  updateProcPathVirtualToReal(path, newpath);
+  char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
+  if (retval != NULL) {
+    updateProcPathRealToVirtual(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
 }
 
 extern "C" char *__realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
-  return NEXT_FNC(__realpath) (newpath, resolved_path);
+  updateProcPathVirtualToReal(path, newpath);
+  char *retval = NEXT_FNC(__realpath) (newpath, resolved_path);
+  if (retval != NULL) {
+    updateProcPathRealToVirtual(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
 }
 
 extern "C" char *__realpath_chk(const char *path, char *resolved_path,
                                 size_t resolved_len)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
-  return NEXT_FNC(__realpath_chk) (newpath, resolved_path, resolved_len);
+  updateProcPathVirtualToReal(path, newpath);
+  char *retval = NEXT_FNC(__realpath_chk) (newpath, resolved_path, resolved_len);
+  if (retval != NULL) {
+    updateProcPathRealToVirtual(retval, newpath);
+    JASSERT(strlen(newpath) < resolved_len);
+    strcpy(resolved_path, newpath);
+  }
+  return retval;
 }
 
 extern "C" char *canonicalize_file_name(const char *path)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
-  return NEXT_FNC(canonicalize_file_name) (newpath);
+  updateProcPathVirtualToReal(path, newpath);
+  char *retval = NEXT_FNC(canonicalize_file_name) (newpath);
+  if (retval != NULL) {
+    updateProcPathRealToVirtual(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
 }
 
 extern "C" int access(const char *path, int mode)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  updateProcPath(path, newpath);
+  updateProcPathVirtualToReal(path, newpath);
   return NEXT_FNC(access) (newpath, mode);
 }
 

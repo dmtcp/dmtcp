@@ -111,6 +111,7 @@ static bool _isBlacklistedFile ( dmtcp::string& path )
 {
   if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
        !dmtcp::Util::strStartsWith(path, "/dev/shm/")) ||
+      dmtcp::Util::strStartsWith(path, "/proc/") ||
       dmtcp::Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
     return true;
   }
@@ -227,11 +228,11 @@ void dmtcp::Connection::doLocking ( const dmtcp::vector<int>& fds )
 /*onSocket*/
 dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   : Connection ( TCP_CREATED )
-  , _peerType ( PEER_UNKNOWN )
   , _sockDomain ( domain )
   , _sockType ( type )
   , _sockProtocol ( protocol )
   , _listenBacklog ( -1 )
+  , _peerType ( PEER_UNKNOWN )
   , _bindAddrlen ( 0 )
   , _acceptRemoteId ( ConnectionIdentifier::Null() )
 {
@@ -518,7 +519,8 @@ void dmtcp::TcpConnection::restoreSocketPair(const dmtcp::vector<int>& fds,
   JTRACE("Restored Socketpair") (id()) (peer->id()) (fds[0]) (peerfds[0]);
 }
 
-void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
+                                   ConnectionRewirer *rewirer)
 {
   JASSERT ( fds.size() > 0 );
   switch ( tcpType() )
@@ -636,11 +638,11 @@ void dmtcp::TcpConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRe
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
 	      "  Perhaps handshake went wrong?");
       JTRACE ( "registerOutgoing" ) ( id() ) ( _acceptRemoteId ) ( fds[0] );
-      rewirer.registerOutgoing ( _acceptRemoteId, fds );
+      rewirer->registerOutgoing ( _acceptRemoteId, fds );
       break;
     case TCP_CONNECT:
       JTRACE ( "registerIncoming" ) ( id() ) ( _acceptRemoteId ) ( fds[0] );
-      rewirer.registerIncoming ( id(), fds );
+      rewirer->registerIncoming ( id(), fds );
       break;
 //    case TCP_EXTERNAL_CONNECT:
 //      int sockFd = _real_socket ( _sockDomain, _sockType, _sockProtocol );
@@ -740,7 +742,8 @@ void dmtcp::PtyConnection::postCheckpoint ( const dmtcp::vector<int>& fds, bool 
   restoreOptions ( fds );
 }
 
-void dmtcp::PtyConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
+                                   ConnectionRewirer*)
 {
   JASSERT ( fds.size() > 0 );
 
@@ -974,6 +977,22 @@ void dmtcp::PtyConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 // Default 100MB
 #define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
 
+void dmtcp::FileConnection::doLocking(const dmtcp::vector<int>& fds)
+{
+  if (dmtcp::Util::strStartsWith(_path, "/proc/")) {
+    int index = 6;
+    char *rest;
+    pid_t proc_pid = strtol(&_path[index], &rest, 0);
+    if (proc_pid > 0 && *rest == '/') {
+      _type = FILE_PROCFS;
+      if (proc_pid != getpid()) {
+        return;
+      }
+    }
+  }
+  Connection::doLocking(fds);
+}
+
 void dmtcp::FileConnection::handleUnlinkedFile()
 {
   if (!jalib::Filesystem::FileExists(_path)) {
@@ -1112,14 +1131,21 @@ void dmtcp::FileConnection::refreshPath( const dmtcp::vector<int>& fds)
       JTRACE("File Manager connection _path is changed => _path = newpath!")(_path)(newpath);
       _path = newpath;
     }
-  } else {
-    if( _rel_path != "*" ){ // file path is relative to executable current dir
-      string oldPath = _path;
-      dmtcp::string fullPath = cwd + "/" + _rel_path;
-      if( jalib::Filesystem::FileExists(fullPath) ){
-        _path = fullPath;
-        JTRACE("Change _path based on relative path") (oldPath) (_path) (_rel_path);
-      }
+  } else if(_rel_path != "*") { // file path is relative to executable current dir
+    string oldPath = _path;
+    dmtcp::string fullPath = cwd + "/" + _rel_path;
+    if( jalib::Filesystem::FileExists(fullPath) ){
+      _path = fullPath;
+      JTRACE("Change _path based on relative path") (oldPath) (_path) (_rel_path);
+    }
+  } else if (_type == FILE_PROCFS) {
+    int index = 6;
+    char *rest;
+    char buf[64];
+    pid_t proc_pid = strtol(&_path[index], &rest, 0);
+    if (proc_pid > 0 && *rest == '/') {
+      sprintf(buf, "/proc/%d/%s", _real_getpid(), rest);
+      _path = buf;
     }
   }
 }
@@ -1176,8 +1202,8 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
 }
 
 
-void dmtcp::FileConnection::restore ( const dmtcp::vector<int>& fds,
-                                      ConnectionRewirer& rewirer )
+void dmtcp::FileConnection::restore(const dmtcp::vector<int>& fds,
+                                    ConnectionRewirer*)
 {
   struct stat buf;
   bool skip_open = false;
@@ -1563,7 +1589,8 @@ void dmtcp::FifoConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 }
 
 
-void dmtcp::FifoConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::FifoConnection::restore(const dmtcp::vector<int>& fds,
+                                    ConnectionRewirer*)
 {
   JASSERT ( fds.size() > 0 );
 
@@ -1921,7 +1948,9 @@ void dmtcp::StdioConnection::postCheckpoint ( const dmtcp::vector<int>& fds , bo
     restoreOptions ( fds );
   //nothing
 }
-void dmtcp::StdioConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& ){
+void dmtcp::StdioConnection::restore(const dmtcp::vector<int>& fds,
+                                     ConnectionRewirer*)
+{
   for(size_t i=0; i<fds.size(); ++i){
     int fd = fds[i];
     if(fd <= 2){
@@ -1964,8 +1993,7 @@ void dmtcp::StdioConnection::mergeWith ( const Connection& that ){
 }
 
 void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd){
-  static ConnectionRewirer ignored;
-  restore(dmtcp::vector<int>(1,newFd), ignored);
+  restore(dmtcp::vector<int>(1, newFd));
 }
 
 
@@ -1987,7 +2015,8 @@ void dmtcp::EpollConnection::mergeWith ( const Connection& that)
   Connection::mergeWith(that);
 }
 
-void dmtcp::EpollConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer)
+void dmtcp::EpollConnection::restore(const dmtcp::vector<int>& fds,
+                                     ConnectionRewirer*)
 {
   JASSERT (fds.size()>0);
   JTRACE ( "RGARG, RGARG, RGARG, RGARG" ) ( fds[0] ) ( id() );
@@ -2128,7 +2157,8 @@ void dmtcp::EventFdConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 }
 
 
-void dmtcp::EventFdConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::EventFdConnection::restore(const dmtcp::vector<int>& fds,
+                                       ConnectionRewirer*)
 {
   JASSERT ( fds.size() > 0 );
 
@@ -2210,7 +2240,8 @@ void dmtcp::SignalFdConnection::restoreOptions ( const dmtcp::vector<int>& fds )
 }
 
 
-void dmtcp::SignalFdConnection::restore ( const dmtcp::vector<int>& fds, ConnectionRewirer& rewirer )
+void dmtcp::SignalFdConnection::restore(const dmtcp::vector<int>& fds,
+                                        ConnectionRewirer*)
 {
   JASSERT ( fds.size() > 0 );
 

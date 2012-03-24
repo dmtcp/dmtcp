@@ -196,8 +196,7 @@ void dmtcp::ConnectionState::preCheckpointDrain()
     //we will create a new, broken socket that is not closed
 
     con.onError();
-    static ConnectionRewirer ignored;
-    con.restore(fds, ignored); //restoring a TCP_ERROR connection makes a dead socket
+    con.restore(fds); //restoring a TCP_ERROR connection makes a dead socket
     KernelDeviceToConnection::instance().redirect(fds[0], id);
   }
 
@@ -330,6 +329,10 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     JASSERT(_conToFds[id].size() > 0)
       .Text("stale connections should be gone by now");
 
+    if (con->subType() == FileConnection::FILE_PROCFS) {
+      continue;
+    }
+
     if (con->conType() == Connection::TCP) {
       TcpConnection *tcpCon = (TcpConnection *) con;
       if (tcpCon->peerType() == TcpConnection::PEER_SOCKETPAIR) {
@@ -343,19 +346,23 @@ void dmtcp::ConnectionState::doReconnect ( jalib::JSocket& coordinator, jalib::J
     }
 
     if (con->restoreInSecondIteration() == false) {
-      con->restore(_conToFds[id], _rewirer);
+      con->restore(_conToFds[id], &_rewirer);
     }
   }
 
   // Part 2: Restore all Pseudo-terminal slaves and file connections that were
   //         not checkpointed.
-  for ( i= connections.begin(); i != connections.end(); ++i )
-  {
-    JASSERT ( _conToFds[i->first].size() > 0 )
-      .Text ( "stale connections should be gone by now" );
+  for (i = connections.begin(); i != connections.end(); ++i) {
+    Connection *con = i->second;
+    JASSERT(_conToFds[i->first].size() > 0)
+      .Text("stale connections should be gone by now");
 
-    if ( ( i->second )->restoreInSecondIteration() == true ) {
-      ( i->second )->restore ( _conToFds[i->first], _rewirer );
+    if (con->subType() == FileConnection::FILE_PROCFS) {
+      continue;
+    }
+
+    if (con->restoreInSecondIteration() == true) {
+      con->restore(_conToFds[i->first], &_rewirer);
     }
   }
   _rewirer.doReconnect();
