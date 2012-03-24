@@ -201,7 +201,6 @@ extern "C" int epoll_create(int size)
 /* epoll is (apparently!) supported by DMTCP */
 extern "C" int epoll_create1(int flags)
 {
-  static int epfd = -1;
   //JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
   WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
   JTRACE ("Starting to create1 epoll fd.");
@@ -235,7 +234,7 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents, i
       continue;
     }
     else
-    { 
+    {
       return readyFds;
     }
   }

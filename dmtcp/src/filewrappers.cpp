@@ -44,6 +44,7 @@
 #include "syscallwrappers.h"
 #include "sysvipc.h"
 #include "util.h"
+#include "dmtcpplugin.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -179,7 +180,7 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 #ifdef PID_VIRTUALIZATION
 #include <virtualpidtable.h>
 
-static void updateProcPath ( const char *path, char *newpath )
+static void updateProcPathOriginalToCurrent ( const char *path, char *newpath )
 {
   char temp [ 10 ];
   int index, tempIndex;
@@ -215,8 +216,41 @@ static void updateProcPath ( const char *path, char *newpath )
   else strcpy ( newpath, path );
   return;
 }
+
+static void updateProcPathCurrentToOriginal(const char *path, char *newpath)
+{
+  if (path == NULL || strlen(path) == 0) {
+    strcpy(newpath, "");
+    return;
+  }
+
+  if (dmtcp::Util::strStartsWith(path, "/proc/")) {
+    int index = 6;
+    char *rest;
+    pid_t realPid = strtol(&path[index], &rest, 0);
+    if (realPid > 0 && *rest == '/') {
+      pid_t originalPid = CURRENT_TO_ORIGINAL_PID(realPid);
+      sprintf(newpath, "/proc/%d%s", originalPid, rest);
+    } else {
+      strcpy(newpath, path);
+    }
+  } else {
+    strcpy(newpath, path);
+  }
+  return;
+}
+
 #else
-void updateProcPath ( const char *path, char *newpath )
+void updateProcPathOriginalToCurrent ( const char *path, char *newpath )
+{
+  if (  path == "" || path == NULL ) {
+    strcpy( newpath, "" );
+    return;
+  }
+  strcpy ( newpath, path );
+  return;
+}
+void updateProcPathCurrentToOriginal ( const char *path, char *newpath )
 {
   if (  path == "" || path == NULL ) {
     strcpy( newpath, "" );
@@ -329,7 +363,7 @@ static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
-    updateProcPath ( path, newpath );
+    updateProcPathOriginalToCurrent ( path, newpath );
   }
 
   int fd = (*fn)( newpath, flags, mode );
@@ -394,7 +428,7 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
-    updateProcPath ( path, newpath );
+    updateProcPathOriginalToCurrent ( path, newpath );
   }
 
   FILE *file = (*fn) ( newpath, mode );
@@ -432,7 +466,7 @@ static void updateStatPath(const char *path, char *newpath)
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
-    updateProcPath ( path, newpath );
+    updateProcPathOriginalToCurrent ( path, newpath );
   }
 }
 
@@ -499,13 +533,72 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
 {
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  updateProcPath(path, newpath);
-  READLINK_RET_TYPE retval;
-  retval = _real_readlink(newpath, buf, bufsiz);
+  updateProcPathOriginalToCurrent(path, newpath);
+  READLINK_RET_TYPE retval = _real_readlink(newpath, buf, bufsiz);
+  if (retval != -1) {
+    updateProcPathCurrentToOriginal(buf, newpath);
+    JASSERT(strlen(newpath) < bufsiz);
+    strcpy(buf, newpath);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
 
+extern "C" char *realpath(const char *path, char *resolved_path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPathOriginalToCurrent(path, newpath);
+  char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
+  if (retval != NULL) {
+    updateProcPathCurrentToOriginal(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
+}
+
+extern "C" char *__realpath(const char *path, char *resolved_path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPathOriginalToCurrent(path, newpath);
+  char *retval = NEXT_FNC(__realpath) (newpath, resolved_path);
+  if (retval != NULL) {
+    updateProcPathCurrentToOriginal(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
+}
+extern "C" char *__realpath_chk(const char *path, char *resolved_path,
+                                size_t resolved_len)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPathOriginalToCurrent(path, newpath);
+  char *retval = NEXT_FNC(__realpath_chk) (newpath, resolved_path, resolved_len);
+  if (retval != NULL) {
+    updateProcPathCurrentToOriginal(retval, newpath);
+    JASSERT(strlen(newpath) < resolved_len);
+    strcpy(resolved_path, newpath);
+  }
+  return retval;
+}
+
+extern "C" char *canonicalize_file_name(const char *path)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPathOriginalToCurrent(path, newpath);
+  char *retval = NEXT_FNC(canonicalize_file_name) (newpath);
+  if (retval != NULL) {
+    updateProcPathCurrentToOriginal(retval, newpath);
+    strcpy(retval, newpath);
+  }
+  return retval;
+}
+
+extern "C" int access(const char *path, int mode)
+{
+  char newpath [ PATH_MAX ] = {0} ;
+  updateProcPathOriginalToCurrent(path, newpath);
+  return NEXT_FNC(access) (newpath, mode);
+}
 
 #ifdef PID_VIRTUALIZATION
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP

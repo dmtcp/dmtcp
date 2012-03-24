@@ -619,6 +619,8 @@ runTest("shared-fd",     2, ["./test/shared-fd"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
 
+runTest("procfd1",       2, ["./test/procfd1"])
+
 runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
