@@ -110,6 +110,7 @@ namespace dmtcp
       virtual ~Connection() {}
 
       int conType() const { return _type & TYPEMASK; }
+      int subType() const { return _type; }
       bool restoreInSecondIteration() { return _restoreInSecondIteration; }
 
       const ConnectionIdentifier& id() const { return _id; }
@@ -117,7 +118,8 @@ namespace dmtcp
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& ) = 0;
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false) = 0;
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& ) = 0;
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL) = 0;
 
       virtual bool isDupConnection ( const Connection& _that,
                                      dmtcp::ConnectionToFds& conToFds ) { return false; };
@@ -220,7 +222,8 @@ namespace dmtcp
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
 
@@ -320,7 +323,8 @@ namespace dmtcp
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
@@ -359,7 +363,8 @@ namespace dmtcp
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
@@ -376,6 +381,7 @@ namespace dmtcp
       {
         FILE_INVALID = FILE,
         FILE_REGULAR,
+        FILE_PROCFS,
         FILE_DELETED,
         FILE_RESMGR
       };
@@ -403,13 +409,15 @@ namespace dmtcp
         }
       }
 
+      virtual void doLocking ( const dmtcp::vector<int>& fds );
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds
                                    , KernelBufferDrainer& drain );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
 
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
@@ -423,7 +431,7 @@ namespace dmtcp
 
       bool isDupConnection ( const Connection& _that, dmtcp::ConnectionToFds& conToFds );
 
-      bool fileType() { return _type; }
+      int fileType() { return _type; }
 
     private:
       void saveFile (int fd);
@@ -475,7 +483,8 @@ namespace dmtcp
                                     bool isRestart = false);
 
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
@@ -518,7 +527,8 @@ namespace dmtcp
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
       //virtual void saveOptions ( const dmtcp::vector<int>& fds );
@@ -556,7 +566,8 @@ namespace dmtcp
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
       //virtual void saveOptions ( const dmtcp::vector<int>& fds );
@@ -593,7 +604,8 @@ namespace dmtcp
       virtual void preCheckpoint ( const dmtcp::vector<int>& fds, KernelBufferDrainer& );
       virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
                                     bool isRestart = false);
-      virtual void restore ( const dmtcp::vector<int>&, ConnectionRewirer& );
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
 
       virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 

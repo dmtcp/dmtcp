@@ -325,7 +325,7 @@ void RestoreTarget::restoreGroup(SlidingFdTable& slidingFd)
 }
 
 void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
-                   SlidingFdTable& slidingFd)
+                                  SlidingFdTable& slidingFd)
 {
   //change UniquePid
   UniquePid::resetOnFork(upid());
@@ -334,11 +334,27 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
   Util::initializeLogFile(procname());
   JTRACE("Creating process during restart") (upid()) (procname());
 
-  ProcessInfo &pInfo = _processInfo;
-
   JTRACE("")(getpid())(getppid())(getsid(0));
-
+  ProcessInfo &pInfo = _processInfo;
   pid_t psid = pInfo.sid();
+
+  JTRACE("Restore /proc/self/* fds");
+  ConnectionList& connections = ConnectionList::instance();
+  ConnectionList::iterator it;
+  for (it = connections.begin(); it != connections.end(); ++it) {
+    dmtcp::Connection *con = it->second;
+    if (con->subType() == FileConnection::FILE_PROCFS) {
+      dmtcp::FileConnection *filecon = (dmtcp::FileConnection*) con;
+      char buf[32];
+      dmtcp::vector<int> fds;
+      fds.push_back(slidingFd.getFdFor(con->id()));
+      sprintf(buf, "/proc/%d/", pInfo.pid());
+      if (dmtcp::Util::strStartsWith(filecon->filePath(), buf)) {
+        filecon->restore(fds);
+      }
+    }
+  }
+
 
   if (!isSessionLeader()) {
 
@@ -410,7 +426,7 @@ void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
 
   bool isTheGroupLeader = isGroupLeader(); // Calls JTRACE;avoid recursion
   JTRACE("Child and dependent root processes forked, restoring process")
-    (upid())(getpid())(isGroupLeader());
+    (upid())(getpid())(isTheGroupLeader);
 
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState (WorkerState::RESTARTING);

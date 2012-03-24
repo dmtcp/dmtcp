@@ -428,7 +428,6 @@ void dmtcp::ShmSegment::preCkptDrain()
   if (info.shm_lpid == _real_getpid()) {
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
-      ShmaddrToFlagIter i = _shmaddrToFlag.begin();
       void *addr = _real_shmat(_currentShmid, NULL, 0);
       JASSERT(addr != (void*) -1);
       _shmaddrToFlag[addr] = 0;

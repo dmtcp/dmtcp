@@ -184,8 +184,6 @@ static int getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args,
 void processSshCommand(dmtcp::string programName,
                        dmtcp::vector<dmtcp::string>& args)
 {
-  char buf[256];
-
   JTRACE("processSshCommand");
 
   JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
@@ -218,7 +216,7 @@ void processSshCommand(dmtcp::string programName,
   JTRACE("dmtcp_args.size():")(dmtcp_args.size());
   if( dmtcp_args.size() ){
     prefix = dmtcp_args[0] + " --ssh-slave ";
-    for(int i = 1; i < dmtcp_args.size(); i++){
+    for(size_t i = 1; i < dmtcp_args.size(); i++){
       prefix += dmtcp::string() +  dmtcp_args[i] + " ";
     }
   }
@@ -312,14 +310,15 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   unsigned int dsize = dmtcp_args.size();
   const char *new_argv[ argc + dsize ];
   dmtcp::string cmdline = dmtcp::string();
+  size_t i;
 
-  for(int i=0; i < dsize; i++){
+  for (i = 0; i < dsize; i++) {
     new_argv[i] = dmtcp_args[i].c_str();
   }
-  for(int i=0; i < argc; i++){
+  for (i = 0; i < argc; i++) {
     new_argv[ dsize + i ] = argv[i];
   }
-  for(int i=0; i< dsize + argc; i++){
+  for (i = 0; i< dsize + argc; i++ ) {
     cmdline +=  dmtcp::string() + new_argv[i] + " ";
   }
 
