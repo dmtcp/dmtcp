@@ -446,13 +446,29 @@ namespace dmtcp
       Util::initializeLogFile(procname());
       JTRACE("Creating process during restart") (upid()) (procname());
 
-
       VirtualPidTable &vt = _virtualPidTable;
 
       JTRACE("")(_real_getpid())(_real_getppid())(_real_getsid(0));
 
       vt.updateMapping(upid().pid(), _real_getpid());
       pid_t psid = vt.sid();
+
+      JTRACE("Restore /proc/self/* fds");
+      ConnectionList& connections = ConnectionList::instance();
+      ConnectionList::iterator it;
+      for (it = connections.begin(); it != connections.end(); ++it) {
+        dmtcp::Connection *con = it->second;
+        if (con->subType() == FileConnection::FILE_PROCFS) {
+          dmtcp::FileConnection *filecon = (dmtcp::FileConnection*) con;
+          char buf[32];
+          dmtcp::vector<int> fds;
+          fds.push_back(slidingFd.getFdFor(con->id()));
+          sprintf(buf, "/proc/%d/", vt.pid());
+          if (dmtcp::Util::strStartsWith(filecon->filePath(), buf)) {
+            filecon->restore(fds);
+          }
+        }
+      }
 
       if( !isSessionLeader() ){
 
