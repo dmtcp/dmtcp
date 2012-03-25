@@ -53,8 +53,8 @@ namespace dmtcp
     const char* prefix() const { return _prefix; }
 
     void incrementGeneration();
-    static const char* ckptFilename();
-    static dmtcp::string ckptFilesSubDir();
+    static const char* getCkptFilename();
+    static dmtcp::string getCkptFilesSubDir();
     static dmtcp::string getCkptDir();
     static void setCkptDir(const char*);
     static void updateCkptDir();

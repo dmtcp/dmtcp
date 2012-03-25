@@ -156,7 +156,7 @@ const DmtcpLocalStatus* __real_dmtcpGetLocalStatus(){
 
   //get filenames
   pid=dmtcp::UniquePid::ThisProcess().toString();
-  ckpt=dmtcp::UniquePid::ckptFilename();
+  ckpt=dmtcp::UniquePid::getCkptFilename();
 
   status.numCheckpoints          = numCheckpoints;
   status.numRestarts             = numRestarts;

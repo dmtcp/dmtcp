@@ -36,9 +36,24 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 
-static dmtcp::string _ckptDir;
-static dmtcp::string _ckptFileName;
-static dmtcp::string _ckptFilesSubDir;
+static dmtcp::string& _ckptDir()
+{
+  static dmtcp::string str;
+  return str;
+}
+
+static dmtcp::string& _ckptFileName()
+{
+  static dmtcp::string str;
+  return str;
+}
+
+static dmtcp::string& _ckptFilesSubDir()
+{
+  static dmtcp::string str;
+  return str;
+}
+
 
 inline static long theUniqueHostId()
 {
@@ -151,9 +166,9 @@ void  dmtcp::UniquePid::incrementGeneration()
   _generation++;
 }
 
-const char* dmtcp::UniquePid::ckptFilename()
+const char* dmtcp::UniquePid::getCkptFilename()
 {
-  if (_ckptFileName.empty()) {
+  if (_ckptFileName().empty()) {
     dmtcp::ostringstream o;
     o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
@@ -161,14 +176,14 @@ const char* dmtcp::UniquePid::ckptFilename()
       << '_' << ThisProcess()
       << CKPT_FILE_SUFFIX;
 
-    _ckptFileName = o.str();
+    _ckptFileName() = o.str();
   }
-  return _ckptFileName.c_str();
+  return _ckptFileName().c_str();
 }
 
-dmtcp::string dmtcp::UniquePid::ckptFilesSubDir()
+dmtcp::string dmtcp::UniquePid::getCkptFilesSubDir()
 {
-  if (_ckptFilesSubDir.empty()) {
+  if (_ckptFilesSubDir().empty()) {
     dmtcp::ostringstream o;
     o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
@@ -176,32 +191,32 @@ dmtcp::string dmtcp::UniquePid::ckptFilesSubDir()
       << '_' << ThisProcess()
       << CKPT_FILES_SUBDIR_SUFFIX;
 
-    _ckptFilesSubDir = o.str();
+    _ckptFilesSubDir() = o.str();
   }
-  return _ckptFilesSubDir;
+  return _ckptFilesSubDir();
 }
 
 dmtcp::string dmtcp::UniquePid::getCkptDir()
 {
-  if (_ckptDir.empty()) {
+  if (_ckptDir().empty()) {
     updateCkptDir();
   }
-  JASSERT(!_ckptDir.empty());
-  return _ckptDir;
+  JASSERT(!_ckptDir().empty());
+  return _ckptDir();
 }
 
 void dmtcp::UniquePid::setCkptDir(const char *dir)
 {
   JASSERT(dir != NULL);
-  _ckptDir = dir;
-  _ckptFileName.clear();
-  _ckptFilesSubDir.clear();
+  _ckptDir() = dir;
+  _ckptFileName().clear();
+  _ckptFilesSubDir().clear();
 
-  JASSERT(mkdir(_ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (_ckptDir)
+  JASSERT(mkdir(_ckptDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (_ckptDir())
     .Text("Error creating checkpoint directory");
 
-  JASSERT(0 == access(_ckptDir.c_str(), X_OK|W_OK)) (_ckptDir)
+  JASSERT(0 == access(_ckptDir().c_str(), X_OK|W_OK)) (_ckptDir())
     .Text("ERROR: Missing execute- or write-access to checkpoint dir");
 }
 
@@ -354,8 +369,9 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  _ckptFileName.clear();
-  //_ckptDir.clear();
+  _ckptFileName().clear();
+  _ckptFilesSubDir().clear();
+  //_ckptDir().clear();
 }
 
 bool dmtcp::UniquePid::isNull() const
