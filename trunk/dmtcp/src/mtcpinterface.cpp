@@ -213,10 +213,10 @@ void dmtcp::initializeMtcpEngine()
                                      );
 
   JTRACE ("Calling mtcp_init");
-  mtcpFuncPtrs.init(UniquePid::ckptFilename(), 0xBadF00d, 1);
+  mtcpFuncPtrs.init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
   mtcpFuncPtrs.ok();
 
-  JTRACE ( "mtcp_init complete" ) ( UniquePid::ckptFilename() );
+  JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -256,7 +256,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 #else
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
 #endif
-  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::ckptFilename());
+  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::getCkptFilename());
   JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
 }
 

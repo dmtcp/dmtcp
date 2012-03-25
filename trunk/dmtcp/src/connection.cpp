@@ -233,6 +233,7 @@ dmtcp::TcpConnection::TcpConnection ( int domain, int type, int protocol )
   , _sockProtocol ( protocol )
   , _listenBacklog ( -1 )
   , _peerType ( PEER_UNKNOWN )
+  , _socketPairRestored ( false )
   , _bindAddrlen ( 0 )
   , _acceptRemoteId ( ConnectionIdentifier::Null() )
 {
@@ -1058,7 +1059,7 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
 
   calculateRelativePath();
 
-  _ckptFilesDir = UniquePid::ckptFilesSubDir();
+  _ckptFilesDir = UniquePid::getCkptFilesSubDir();
 
   // Read the current file descriptor offset
   _offset = lseek(fds[0], 0, SEEK_CUR);

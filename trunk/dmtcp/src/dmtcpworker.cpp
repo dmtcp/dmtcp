@@ -770,7 +770,7 @@ void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd)
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
 {
   // Tell coordinator to record our filename in the restart script
-  dmtcp::string ckptFilename = dmtcp::UniquePid::ckptFilename();
+  dmtcp::string ckptFilename = dmtcp::UniquePid::getCkptFilename();
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
   dmtcp::DmtcpMessage msg;
