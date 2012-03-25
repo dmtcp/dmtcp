@@ -48,6 +48,25 @@
 
 LIB_PRIVATE pid_t getPidFromEnvVar();
 
+static bool pthread_atfork_initialized = false;
+
+static void pidVirt_pthread_atfork_child()
+{
+  dmtcpResetPidPpid();
+  dmtcpResetTid(getpid());
+  dmtcp::VirtualPidTable::instance().resetOnFork();
+}
+
+extern "C" int __register_atfork(void (*prepare)(void), void (*parent)(void),
+                                 void (*child)(void), void *dso_handle)
+{
+  if (!pthread_atfork_initialized) {
+    pthread_atfork_initialized = true;
+    NEXT_FNC(pthread_atfork) (NULL, NULL, pidVirt_pthread_atfork_child);
+  }
+  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
+}
+
 extern "C" pid_t fork()
 {
   pid_t retval = 0;

@@ -11,23 +11,6 @@ using namespace dmtcp;
 //to allow linking without ptrace plugin
 extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
-static bool pthread_atfork_initialized = false;
-
-static void pidVirt_pthread_atfork_child()
-{
-  dmtcpResetPidPpid();
-  dmtcpResetTid(getpid());
-  dmtcp::VirtualPidTable::instance().resetOnFork();
-}
-
-void __attribute__((constructor)) _initialize_pthread_atfork()
-{
-  if (!pthread_atfork_initialized) {
-    pthread_atfork(NULL, NULL, pidVirt_pthread_atfork_child);
-    pthread_atfork_initialized = true;
-  }
-}
-
 //static void pidVirt_pthread_atfork_parent()
 //{
 //  dmtcp::VirtualPidTable::instance().insert(child_pid, child);
