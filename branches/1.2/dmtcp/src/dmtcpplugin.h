@@ -101,8 +101,13 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
 EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                             void *val, size_t *val_len);
 
-EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_tmpdir();
+EXTERNC void dmtcp_set_tmpdir(const char *);
+
+EXTERNC const char* dmtcp_get_ckpt_dir();
+EXTERNC void dmtcp_set_ckpt_dir(const char *);
+
+EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_uniquepid_str();
 EXTERNC const char* dmtcp_get_computation_id_str();
 EXTERNC int  dmtcp_get_generation();
@@ -116,10 +121,13 @@ EXTERNC void dmtcp_unblock_ckpt_signal();
 
 EXTERNC void *dmtcp_get_libc_dlsym_addr();
 
-#define DMTCP_PLUGIN_DISABLE_CKPT() \
+#define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
+#define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT
+
+#define DMTCP_DISABLE_CKPT() \
   bool __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
 
-#define DMTCP_PLUGIN_ENABLE_CKPT() \
+#define DMTCP_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 

@@ -205,10 +205,10 @@ void dmtcp::initializeMtcpEngine()
                                      );
 
   JTRACE ("Calling mtcp_init");
-  mtcpFuncPtrs.init(UniquePid::checkpointFilename(), 0xBadF00d, 1);
+  mtcpFuncPtrs.init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
   mtcpFuncPtrs.ok();
 
-  JTRACE ( "mtcp_init complete" ) ( UniquePid::checkpointFilename() );
+  JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -248,14 +248,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 #else
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
 #endif
-  {
-    // If we don't modify *ckptFilename, then MTCP will continue to use
-    //  its default filename, which was passed to it via our call to mtcp_init()
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-    //dmtcp::UniquePid::ThisProcess().incrementGeneration();
-    *ckptFilename = const_cast<char *>(dmtcp::UniquePid::checkpointFilename());
-#endif
-  }
+  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::getCkptFilename());
   JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
 }
 
