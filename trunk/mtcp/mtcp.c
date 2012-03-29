@@ -483,6 +483,7 @@ static Thread *threads_freelist = NULL;
 static struct sigaction sigactions[NSIG];  /* signal handlers */
 static size_t restore_size;
 static VA restore_begin, restore_end;
+VA mtcp_restore_begin, mtcp_restore_end;
 static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
 static void mtcp_restore_start(int fd, int verify, pid_t gzip_child_pid,
                                char *ckpt_newname, char *cmd_file,
@@ -817,12 +818,22 @@ void mtcp_init (char const *checkpointfilename,
    * address range
    */
 
+#ifndef USE_PROC_MAPS
   restore_begin = (VA)((unsigned long int)mtcp_shareable_begin
 		       & -MTCP_PAGE_SIZE);
   restore_size  = ((mtcp_shareable_end - restore_begin) + MTCP_PAGE_SIZE - 1)
 		   & -MTCP_PAGE_SIZE;
   restore_end   = restore_begin + restore_size;
   restore_start = mtcp_restore_start;
+#else
+  mtcp_get_memory_region_of_this_library(&restore_begin, &restore_end);
+  restore_size  = restore_end - restore_begin;
+  restore_start = mtcp_restore_start;
+
+  /* Copy info for use by mtcp_restart_nolibc.c */
+  mtcp_restore_begin = restore_begin;
+  mtcp_restore_end = restore_end;
+#endif
 
   /* Set up caller as one of our threads so we can work on it */
 
@@ -1842,6 +1853,7 @@ static void *checkpointhread (void *dummy)
   struct timeval started, stopped;
   Thread *thread;
   char * dmtcp_checkpoint_filename = NULL;
+  int rounding_mode = -1;
 
   /* This is the start function of the checkpoint thread.
    * We also call sigsetjmp/getcontext to get a snapshot of this call frame,
@@ -1871,7 +1883,6 @@ static void *checkpointhread (void *dummy)
     (*callback_ckpt_thread_start)();
   }
 
-  int rounding_mode = fegetround();
 #ifdef SETJMP
   /* After we restart, we return here. */
   if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
@@ -1883,7 +1894,6 @@ static void *checkpointhread (void *dummy)
   DPRINTF("after getcontext. current_tid %d, virtual_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->virtual_tid);
 #endif
-  fesetround(rounding_mode);
 
   if (originalstartup)
     originalstartup = 0;
@@ -2097,6 +2107,7 @@ again:
      * symbol. User must compile his/her code with -Wl,-export-dynamic to make
      * it visible.
      */
+    rounding_mode = fegetround();
     mtcpHookPreCheckpoint();
 
     save_sig_handlers();
@@ -2164,6 +2175,7 @@ again:
      * symbol. User must compile his/her code with -Wl,-export-dynamic to make
      * it visible.
      */
+    fesetround(rounding_mode);
     mtcpHookPostCheckpoint();
 
     /* Resume all threads.  But if we're doing a checkpoint verify,

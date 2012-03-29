@@ -645,6 +645,7 @@ EGREP
 GREP
 CPP
 PID_VIRTUALIZATION
+MTCP_USE_PROC_MAPS
 HBICT_DELTACOMP
 FAST_CKPT_RESTART
 PTRACE_SUPPORT
@@ -757,6 +758,7 @@ enable_delta_compression
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
+enable_mtcp_proc_maps
 enable_pid_virtualization
 enable_external_socket_handling
 enable_stale_socket_handling
@@ -1427,6 +1429,7 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
+  --enable-mtcp-proc-maps avoids use of linker script in Fedora packaging
   --disable-pid-virtualization
                           disable pid virtualization. Pid virtualization is
                           _required_ for checkpointing shells and for many
@@ -4476,6 +4479,21 @@ if test "${enable_experts_only_after+set}" = set; then :
   enableval=$enable_experts_only_after;
 fi
 
+
+# Check whether --enable-mtcp_proc_maps was given.
+if test "${enable_mtcp_proc_maps+set}" = set; then :
+  enableval=$enable_mtcp_proc_maps; mtcp_use_proc_maps=$enableval
+else
+  mtcp_use_proc_maps=default
+fi
+
+if test "$mtcp_use_proc_maps" = "yes"; then
+  MTCP_USE_PROC_MAPS=yes
+
+else
+  MTCP_USE_PROC_MAPS=no
+
+fi
 
 # Check whether --enable-pid_virtualization was given.
 if test "${enable_pid_virtualization+set}" = set; then :

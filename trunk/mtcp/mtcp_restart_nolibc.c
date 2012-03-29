@@ -68,6 +68,7 @@ __attribute__ ((visibility ("hidden")))
 __attribute__ ((visibility ("hidden")))
   char mtcp_saved_working_directory[PATH_MAX+1];
 
+#ifndef USE_PROC_MAPS
   /* These two are used by the linker script to define the beginning and end of
    * the image.
    * The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid
@@ -78,6 +79,7 @@ asm (".section __shareable_begin ; .globl mtcp_shareable_begin \
 asm (".section __shareable_end   ; .globl mtcp_shareable_end \
                                  ; .long 0  ; mtcp_shareable_end:");
 asm (".text");
+#endif
 
 	/* Internal routines */
 
@@ -111,6 +113,11 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
   VA current_brk;
   VA new_brk;
   void (*finishrestore) (void);
+
+#ifdef USE_PROC_MAPS
+  VA mtcp_shareable_begin = mtcp_restore_begin;
+  VA mtcp_shareable_end = mtcp_restore_end;
+#endif
 
   DPRINTF("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n");
 

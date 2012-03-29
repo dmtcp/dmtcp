@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 #include "mtcp_internal.h"
 
@@ -54,33 +55,21 @@ void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd,
 
   /* If mapping to a fixed address, make sure there's nothing there now */
   if (flags & MAP_FIXED) {
-    /* Scan through the mappings of this process */
-    mapsfd = mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
+    /* Error check by scanning through the mappings of this process */
+    mapsfd = mtcp_selfmap_open();
     if (mapsfd < 0)
       return (MAP_FAILED);
-    while (1) {
-      /* Read a line from /proc/self/maps */
-      c = mtcp_readhex (mapsfd, &startaddr);
-      if (c != '-') goto skipeol;
-      c = mtcp_readhex (mapsfd, &endaddr);
-      if (c != ' ') goto skipeol;
+    /* Read from /proc/self/maps */
+    while ( mtcp_selfmap_readline(mapsfd, &startaddr, &endaddr, NULL) ) {
       /* If overlaps with what caller is trying to map, fail */
       if (((VA)start + length > startaddr) && ((VA)start < endaddr)) {
-        mtcp_sys_close (mapsfd);
+        mtcp_selfmap_close(mapsfd);
         mtcp_sys_errno = EBUSY;
         return (MAP_FAILED);
       }
-
-      /* No overlap, skip to next line */
-skipeol:
-      while ((c != 0) && (c != '\n')) {
-        c = mtcp_readchar (mapsfd);
-      }
-      if (c == 0) break;
     }
-
-    /* It's ok */
-    mtcp_sys_close (mapsfd);
+    mtcp_selfmap_close(mapsfd);
   }
+  /* Error check succeeded; go ahead and mmap */
   return mtcp_sys_mmap (start, length, prot, flags, fd, offset);
 }

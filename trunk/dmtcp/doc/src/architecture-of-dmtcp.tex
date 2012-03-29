@@ -65,6 +65,9 @@ When the loader tries to load a binary (a.out, in this case), the loader
 will first check if LD\_PRELOAD is set (see `man ld.so').  If it is
 set, the loader will load the binary (a.out) and then the preload library
 (dmtcphijack.so) before running the `main()' routine in a.out.
+(In fact, dmtcp\_checkpoint may also preload some plugin libraries,
+ such as pidvirt.so (starting with DMTCP-1.3.0) and set some
+ environment variables such as DMTCP\_DLSYM\_OFFSET.)
 
 When the library dmtcphijack.so is loaded, any top-level variables
 are initialized, before calling the user main().  If the top-level variable
