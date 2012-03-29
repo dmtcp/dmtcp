@@ -29,7 +29,7 @@
 ##									##
 ##########################################################################
 
-MTCP_VERSION = 78
+MTCP_VERSION = 79
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
@@ -63,7 +63,7 @@ endif
 CFLAGS += -O0 -g
 # Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
 #   stderr (and to jassertlog.* , if configured with --enable-debug)
-#CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
+# CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
 # Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 
@@ -82,6 +82,11 @@ endif
 # If building MTCP standalone, change the line below to invoke this option.
 ifdef FAST_CKPT_RESTART
   CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
+endif
+# If ./configure --mtcp-use_proc_maps defined, DMTCP 'make' will set this.
+# If building MTCP standalone, change the line below to invoke this option.
+ifdef USE_PROC_MAPS
+  CFLAGS += -DUSE_PROC_MAPS
 endif
 
 ifdef DMTCP_VERSION
