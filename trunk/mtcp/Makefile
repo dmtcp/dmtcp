@@ -267,6 +267,7 @@ endif
 # 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
+ifndef USE_PROC_MAPS
 # This is the shareable that a user links with the application
 
 # mtcp.t originally generated as below via:  ld -shared --verbose.
@@ -292,6 +293,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	    mv mtcp.t mtcp.t-fail; false; \
 	  fi \
 	fi
+endif
 
 LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
@@ -303,6 +305,7 @@ LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 %.lo : %.c
 	libtool --mode=compile gcc -c $(CFLAGS) $<
 
+ifndef USE_PROC_MAPS
 libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up.
@@ -338,6 +341,20 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
+else
+libmtcp.so: ${LIBRARY_OBJS}
+	${LD} ${LDFLAGS} \
+	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
+	  -ldl -lpthread -lm
+	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
+	ln -sf libmtcp.so.1 libmtcp.so
+	cp ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ./libtmp.so
+	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
+	  grep -v ' d\?mtcp_' | \
+	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
+	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
+	       'MTCP symbols polluting user namespace' 1>&2 || true
+endif
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c

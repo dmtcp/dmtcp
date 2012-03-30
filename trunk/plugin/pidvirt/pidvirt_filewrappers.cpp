@@ -47,6 +47,8 @@
 #include "pidvirt.h"
 #include "sysvipc.h"
 
+// FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
+// FIXME:  This does a lot of copying even if "/proc" doesn't appear.
 static void updateProcPathVirtualToReal(const char *path, char *newpath)
 {
   if (path == NULL || strlen(path) == 0) {
@@ -70,6 +72,8 @@ static void updateProcPathVirtualToReal(const char *path, char *newpath)
   return;
 }
 
+// FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
+// FIXME:  This does a lot of copying even if "/proc" doesn't appear.
 static void updateProcPathRealToVirtual(const char *path, char *newpath)
 {
   if (path == NULL || strlen(path) == 0) {
@@ -190,11 +194,14 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
+  //FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?
   updateProcPathVirtualToReal(path, newpath);
   READLINK_RET_TYPE ret = NEXT_FNC(readlink) (newpath, buf, bufsiz);
   if (ret != -1) {
+    JASSERT(ret < bufsiz)(ret)(bufsiz)(buf)(newpath);
+    buf[ret] = '\0'; // glibc-2.13: readlink doesn't terminate buf w/ null char
     updateProcPathRealToVirtual(buf, newpath);
-    JASSERT(strlen(newpath) < bufsiz);
+    JASSERT(strlen(newpath) < bufsiz)(newpath)(bufsiz);
     strcpy(buf, newpath);
   }
   return ret;
