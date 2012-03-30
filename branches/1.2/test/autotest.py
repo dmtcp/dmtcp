@@ -34,6 +34,8 @@ RETRIES=2
 
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
+if testconfig.MTCP_USE_PROC_MAPS == "yes":
+  DEFAULT_S = 2*DEFAULT_S
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
@@ -692,7 +694,9 @@ if testconfig.HAS_TCSH == "yes":
 
 if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
+  S=1
   runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
+  S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
@@ -832,8 +836,10 @@ if testconfig.HAS_OPENMPI == "yes":
                      os.environ['PATH'])):
     oldPath = os.environ['PATH']
     os.environ += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
+  S=1
   runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
+  S=DEFAULT_S
   if oldPath:
     os.environ['PATH'] = oldPath
   if oldPath == None:

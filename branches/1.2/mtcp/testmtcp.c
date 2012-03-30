@@ -21,16 +21,18 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/********************************************************************************************************************************/
-/*                                                                                                                              */
-/*  Simple single-threaded test program                                                                                         */
-/*  Checkpoint is written to testmtcp.mtcp every 10 seconds                                                                     */
-/*                                                                                                                              */
-/*  Input lines of data                                                                                                         */
-/*  As each line is entered, they are all echoed from first line thru latest line entered                                       */
-/*  When checkpoint is restored, all the old lines should still echo and it accepts new ones                                    */
-/*                                                                                                                              */
-/********************************************************************************************************************************/
+/*****************************************************************************/
+/*                                                                           */
+/*  Simple single-threaded test program                                      */
+/*  Checkpoint is written to testmtcp.mtcp every 10 seconds                  */
+/*                                                                           */
+/*  Input lines of data                                                      */
+/*  As each line is entered, they are all echoed from first line thru latest */
+/*    line entered                                                           */
+/*  When checkpoint is restored, all the old lines should still echo         */
+/*    and it accepts new ones                                                */
+/*                                                                           */
+/*****************************************************************************/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -93,7 +95,7 @@ int main ()
   lline = &lines;
   number = 0;
   while (1) {
-    printline ("%6d> ", number + 1);
+    printline ("%6d> ", number + 1); fflush(stdout);
     //printline ("testmtcp.c: ABOUT TO malloc\n");fflush(stdout);
 #ifdef USE_STATIC_MALLOC
     line = mymalloc (sizeof *line);

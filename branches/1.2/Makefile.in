@@ -6,6 +6,7 @@ M32=@M32@
 DEBUG=@DEBUG@
 PTRACE_SUPPORT=@PTRACE_SUPPORT@
 FAST_CKPT_RESTART=@FAST_CKPT_RESTART@
+MTCP_USE_PROC_MAPS=@MTCP_USE_PROC_MAPS@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
 HAS_JAVA=@HAS_JAVA@
 PACKAGE=@PACKAGE_TARNAME@
@@ -44,17 +45,8 @@ ifeq ($(FAST_CKPT_RESTART),yes)
   MTCP_MAKE_FLAGS += FAST_CKPT_RESTART=1
 endif
 
-ifeq ($(HBICT_DELTACOMP),yes)
-  MTCP_MAKE_FLAGS += HBICT_DELTACOMP=1
-endif
-
-
-libdir_dir := ${shell dirname ${libdir}}
-bindir_dir := ${shell dirname ${bindir}}
-ifeq ($(libdir_dir),$(bindir_dir))
-  rel_libdir := ../${shell basename $(libdir)}
-else
-  rel_libdir := $(DESTDIR)$(libdir)
+ifeq ($(MTCP_USE_PROC_MAPS),yes)
+  MTCP_MAKE_FLAGS += USE_PROC_MAPS=1
 endif
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:

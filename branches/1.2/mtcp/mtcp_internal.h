@@ -346,8 +346,13 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
   return (rc);
 }
 
+#ifndef USE_PROC_MAPS
 extern char mtcp_shareable_begin[];
 extern char mtcp_shareable_end[];
+#else
+extern VA mtcp_restore_begin;
+extern VA mtcp_restore_end;
+#endif
 
 extern __attribute__ ((visibility ("hidden")))
 int mtcp_sigaction(int sig, const struct sigaction *act,
