@@ -129,7 +129,8 @@ AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
 AC_ARG_ENABLE([mtcp_proc_maps],
             [AS_HELP_STRING([--enable-mtcp-proc-maps],
-                            [avoids use of linker script in Fedora packaging])],
+                            [avoids use of linker script in Fedora packaging
+                             (but ckpt/restart becomes slower)])],
             [mtcp_use_proc_maps=$enableval],
             [mtcp_use_proc_maps=default])
 if test "$mtcp_use_proc_maps" = "yes"; then
