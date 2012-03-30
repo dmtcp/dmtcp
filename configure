@@ -1429,7 +1429,8 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
-  --enable-mtcp-proc-maps avoids use of linker script in Fedora packaging
+  --enable-mtcp-proc-maps avoids use of linker script in Fedora packaging (but
+                          ckpt/restart becomes slower)
   --disable-pid-virtualization
                           disable pid virtualization. Pid virtualization is
                           _required_ for checkpointing shells and for many
