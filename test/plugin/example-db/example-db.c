@@ -73,4 +73,5 @@ void dmtcp_process_event(DmtcpEvent_t event, void* data)
   default:
     break;
   }
+  NEXT_DMTCP_PROCESS_EVENT(event, data);
 }
