@@ -80,6 +80,7 @@ namespace dmtcp
     void waitForThreadsToFinishInitialization();
     void incrementUninitializedThreadCount();
     void decrementUninitializedThreadCount();
+    void threadFinishedInitialization();
 
     void disableLockAcquisitionForThisThread();
     void enableLockAcquisitionForThisThread();

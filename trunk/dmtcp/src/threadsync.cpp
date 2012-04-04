@@ -88,6 +88,7 @@ static __thread int _threadCreationLockLockCount = 0;
 static __thread bool _threadPerformingDlopenDlsym = false;
 static __thread bool _sendCkptSignalOnFinalUnlock = false;
 static __thread bool _isOkToGrabWrapperExecutionLock = true;
+static __thread bool _hasThreadFinishedInitialization = false;
 
 
 void dmtcp::ThreadSync::acquireLocks()
@@ -168,7 +169,8 @@ bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
   return (_wrapperExecutionLockAcquiredByCkptThread == false ||
           _threadCreationLockAcquiredByCkptThread == false) &&
          (_threadCreationLockLockCount > 0 ||
-          _wrapperExecutionLockLockCount > 0);
+          _wrapperExecutionLockLockCount > 0 ||
+          _hasThreadFinishedInitialization == false);
 }
 
 bool dmtcp::ThreadSync::isOkToGrabLock()
@@ -514,6 +516,12 @@ void dmtcp::ThreadSync::decrementUninitializedThreadCount()
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
+}
+
+void dmtcp::ThreadSync::threadFinishedInitialization()
+{
+  decrementUninitializedThreadCount();
+  _hasThreadFinishedInitialization = true;
 }
 
 void dmtcp::ThreadSync::incrNumUserThreads()

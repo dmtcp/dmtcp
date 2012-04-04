@@ -112,7 +112,7 @@ static void *pthread_start(void *arg)
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   mtcpFuncPtrs.fill_in_pthread_id(_real_gettid(), pthread_self());
-  dmtcp::ThreadSync::decrementUninitializedThreadCount();
+  dmtcp::ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
   JTRACE("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
