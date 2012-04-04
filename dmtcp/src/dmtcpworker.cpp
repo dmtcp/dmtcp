@@ -366,6 +366,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   /* Now wait for Checkpoint Thread to finish initialization
    * NOTE: This should be the last thing in this constructor
    */
+  ThreadSync::initMotherOfAll();
   while (!ThreadSync::isCheckpointThreadInitialized()) {
     struct timespec sleepTime = {0, 10*1000*1000};
     nanosleep(&sleepTime, NULL);

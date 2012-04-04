@@ -91,6 +91,11 @@ static __thread bool _isOkToGrabWrapperExecutionLock = true;
 static __thread bool _hasThreadFinishedInitialization = false;
 
 
+void dmtcp::ThreadSync::initMotherOfAll()
+{
+  _hasThreadFinishedInitialization = true;
+}
+
 void dmtcp::ThreadSync::acquireLocks()
 {
   JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
@@ -146,6 +151,7 @@ void dmtcp::ThreadSync::resetLocks()
 
   _wrapperExecutionLockLockCount = 0;
   _threadCreationLockLockCount = 0;
+  _hasThreadFinishedInitialization = true;
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   uninitializedThreadCountLock = newCountLock;
@@ -166,11 +172,13 @@ bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
   // certainly not holding it :). It's possible for the count to be still '1',
   // as it may happen that the thread got suspended after releasing the lock
   // and before decrementing the lock-count.
+  if (_hasThreadFinishedInitialization == false) {
+    return true;
+  }
   return (_wrapperExecutionLockAcquiredByCkptThread == false ||
           _threadCreationLockAcquiredByCkptThread == false) &&
          (_threadCreationLockLockCount > 0 ||
-          _wrapperExecutionLockLockCount > 0 ||
-          _hasThreadFinishedInitialization == false);
+          _wrapperExecutionLockLockCount > 0);
 }
 
 bool dmtcp::ThreadSync::isOkToGrabLock()
@@ -523,6 +531,7 @@ void dmtcp::ThreadSync::threadFinishedInitialization()
 {
   decrementUninitializedThreadCount();
   _hasThreadFinishedInitialization = true;
+  dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
 void dmtcp::ThreadSync::incrNumUserThreads()
