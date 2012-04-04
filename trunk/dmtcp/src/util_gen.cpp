@@ -30,6 +30,7 @@
 #include "constants.h"
 #include  "util.h"
 #include  "syscallwrappers.h"
+#include  "dmtcpplugin.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -269,36 +270,6 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
-#if 0
-  int rc;
-  struct stat statbuf;
-  unsigned int long devnum;
-
-  if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
-      mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
-      mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
-    /* if nscd is active */
-  } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
-    /* System V Shared-Memory segments are handled by DMTCP. */
-  } else if ( mtcp_strendswith(area -> name, DELETED_FILE_SUFFIX) ) {
-    /* Deleted File */
-  } else if (area -> name[0] == '/') {  /* if an absolute pathname */
-    rc = stat (area -> name, &statbuf);
-    if (rc < 0) {
-      MTCP_PRINTF("ERROR: error %d statting %s\n", -rc, area -> name);
-      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
-    }
-    devnum = makedev (devmajor, devminor);
-    if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
-      MTCP_PRINTF("ERROR: image %s dev:inode %X:%u not eq maps %X:%u\n",
-                   area -> name, statbuf.st_dev, statbuf.st_ino,
-		   devnum, inodenum);
-      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
-    }
-  } else {
-    /* Special area like [heap] or anonymous area. */
-  }
-#endif
 
   if (c != '\n') goto skipeol;
 
@@ -319,4 +290,41 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
 skipeol:
   JASSERT(false) .Text("Not Reached");
   return (0);  /* NOTREACHED : stop compiler warning */
+}
+
+#define TRACER_PID_STR "TracerPid:"
+pid_t dmtcp::Util::getTracerPid(pid_t tid)
+{
+  if (!dmtcp_real_to_virtual_pid) {
+    return 0;
+  }
+
+  char buf[512];
+  char *str;
+  static int tracerStrLen = strlen(TRACER_PID_STR);
+  int fd;
+
+  if (tid == -1) {
+    tid = gettid();
+  }
+  sprintf(buf, "/proc/%d/status", tid);
+  fd = _real_open(buf, O_RDONLY, 0);
+  JASSERT(fd != -1) (buf) (JASSERT_ERRNO);
+  readAll(fd, buf, sizeof buf);
+  _real_close(fd);
+  str = strstr(buf, TRACER_PID_STR);
+  JASSERT(str != NULL);
+  str += tracerStrLen;
+
+  while (*str == ' ' || *str == '\t') {
+    str++;
+  }
+
+  pid_t tracerPid = (pid_t) strtol(str, NULL, 10);
+  return tracerPid == 0 ? tracerPid : dmtcp_real_to_virtual_pid(tracerPid);
+}
+
+bool dmtcp::Util::isPtraced()
+{
+  return getTracerPid() != 0;
 }

@@ -89,6 +89,8 @@ namespace dmtcp
     char readHex (int fd, VA *value);
     char readChar (int fd);
     int readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area);
+    pid_t getTracerPid(pid_t tid = -1);
+    bool isPtraced();
   }
 }
 

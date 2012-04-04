@@ -392,7 +392,8 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
 void dmtcp::ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
-  if (WorkerState::currentState() != WorkerState::RUNNING) {
+  if (WorkerState::currentState() != WorkerState::RUNNING &&
+      !DmtcpWorker::exitInProgress()) {
     fprintf(stderr, "DMTCP INTERNAL ERROR: %s:%d: %s\n"
             "       This process is not in RUNNING state and yet this thread\n"
             "       managed to acquire the wrapperExecutionLock.\n"

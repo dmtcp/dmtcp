@@ -90,6 +90,11 @@ EXTERNC int dmtcp_get_readlog_fd()
   return PROTECTED_READLOG_FD;
 }
 
+EXTERNC int dmtcp_get_ptrace_fd()
+{
+  return PROTECTED_PTRACE_FD;
+}
+
 EXTERNC void *dmtcp_get_libc_dlsym_addr()
 {
   return _dmtcp_get_libc_dlsym_addr();

@@ -336,7 +336,6 @@ static void callbackRestoreVirtualPidTable()
 {
   dmtcp_process_event(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-  //dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 
 #ifndef RECORD_REPLAY
   /* This calls setenv() which calls malloc. Since this is only executed on
