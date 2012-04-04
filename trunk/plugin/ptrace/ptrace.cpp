@@ -1,99 +1,56 @@
+/*****************************************************************************
+ *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and             *
+ *                                                            Gene Cooperman *
+ *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu              *
+ *                                                                           *
+ *   This file is part of the PTRACE plugin of DMTCP (DMTCP:mtcp).           *
+ *                                                                           *
+ *  DMTCP:mtcp is free software: you can redistribute it and/or              *
+ *  modify it under the terms of the GNU Lesser General Public License as    *
+ *  published by the Free Software Foundation, either version 3 of the       *
+ *  License, or (at your option) any later version.                          *
+ *                                                                           *
+ *  DMTCP:plugin/ptrace is distributed in the hope that it will be useful,   *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU Lesser General Public License for more details.                      *
+ *                                                                           *
+ *  You should have received a copy of the GNU Lesser General Public         *
+ *  License along with DMTCP:dmtcp/src.  If not, see                         *
+ *  <http://www.gnu.org/licenses/>.                                          *
+ *****************************************************************************/
+
 #include <sys/types.h>
+#include <sys/stat.h>
 #include "jalloc.h"
 #include "jassert.h"
 #include "ptrace.h"
-#include "mtcp_ptrace.h"
-#include "ptracewrappers.h"
+#include "ptraceinfo.h"
 #include "dmtcpplugin.h"
-
-static struct ptrace_info *callbackGetNextPtraceInfo (int index);
-static void callbackPtraceInfoListCommand (struct cmd_info cmd);
-static void callbackJalibCkptUnlock ();
-static int callbackPtraceInfoListSize ();
+#include "util.h"
 
 static int originalStartup = 1;
 
-extern "C" void jalib_ckpt_unlock()
-{
-  JALIB_CKPT_UNLOCK();
-}
-
-static int callbackPtraceInfoListSize ()
-{
-  return ptrace_info_list_size();
-}
-
-# ifndef RECORD_REPLAY
-   // RECORD_REPLAY defines its own __libc_memalign wrapper.
-   // So, we won't interfere with it here.
-#  include <malloc.h>
-// This is needed to fix what is arguably a bug in libdl-2.10.so
-//   (and probably extending from versions 2.4 at least through 2.11).
-// In libdl-2.10.so dl-tls.c:allocate_and_init  calls __libc_memalign
-//    but dl-tls.c:dl_update_slotinfo just calls free .
-// So, TLS is allocated by libc malloc and can be freed by a malloc library
-//    defined by user.  This is a bug.
-// This happens only in a multi-threaded programs for which TLS is allocated.
-// So, we intercept __libc_memalign and point it to memalign to have a match.
-// We do the same for __libc_free.  libdl.so doesn't currently define
-//    __libc_free, but the code must be prepared to accept this.
-// An alternative to defining __libc_memalign would have been using
-//    the glibc __memalign_hook() function.
-//extern "C"
-//void *__libc_memalign(size_t boundary, size_t size) {
-//  return memalign(boundary, size);
-//}
-//// libdl.so doesn't define __libc_free, but in case it does in the future ...
-//extern "C"
-//void __libc_free(void * ptr) {
-//  free(ptr);
-//}
-# endif
-
 void ptraceInit()
 {
-  mtcp_init_ptrace();
-  ptrace_init_data_structures();
+  dmtcp::PtraceInfo::instance().createSharedFile();
+  dmtcp::PtraceInfo::instance().mapSharedFile();
 }
 
-void mtcp_process_stop_signal_event(void *data)
+void ptraceWaitForSuspendMsg(void *data)
 {
-  JASSERT(data != NULL);
-  DmtcpSendStopSignalInfo *info = (DmtcpSendStopSignalInfo*) data;
-
-  mtcp_ptrace_send_stop_signal(info->tid, info->retry_signalling, info->retval);
-}
-
-void ptraceProcessWaitForSuspendMsg()
-{
-  if (originalStartup) {
+  dmtcp::PtraceInfo::instance().markAsCkptThread();
+  if (!originalStartup) {
+    dmtcp::PtraceInfo::instance().waitForSuperiorAttach();
     originalStartup = 0;
-    if (mtcp_is_ptracing()) jalib_ckpt_unlock_ready = 0;
-  } else {
-    if (mtcp_is_ptracing()) {
-      mtcp_ptrace_process_post_restart_resume_ckpt_thread();
-      jalib_ckpt_unlock_ready = 0;
-    }
   }
-}
-
-void ptraceProcessGotSuspendMsg(void *data)
-{
-  /* One of the threads is the ckpt thread. Don't count that in. */
-  // FIXME: Take care of invalid threads
-  nthreads = (unsigned long) data;
-  mtcp_ptrace_process_pre_suspend_ckpt_thread();
-}
-
-void ptraceProcessStartPreCkptCB()
-{
-  mtcp_ptrace_process_post_suspend_ckpt_thread();
 }
 
 void ptraceProcessResumeUserThread(void *data)
 {
   DmtcpResumeUserThreadInfo *info = (DmtcpResumeUserThreadInfo*) data;
-  mtcp_ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
+  ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
+  JNOTE("") (GETTID());
 }
 
 extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
@@ -102,37 +59,28 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_INIT:
       ptraceInit();
       break;
+
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
-      ptraceProcessWaitForSuspendMsg();
+      ptraceWaitForSuspendMsg(data);
       break;
-    case DMTCP_EVENT_GOT_SUSPEND_MSG:
-      ptraceProcessGotSuspendMsg(data);
-      break;
-    case DMTCP_EVENT_START_PRE_CKPT_CB:
-      ptraceProcessStartPreCkptCB();
-      break;
-    case DMTCP_EVENT_CKPT_THREAD_START:
-      mtcp_ptrace_process_ckpt_thread_creation();
-      break;
+
     case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
-      mtcp_ptrace_process_pre_suspend_user_thread();
+      ptrace_process_pre_suspend_user_thread();
       break;
+
     case DMTCP_EVENT_RESUME_USER_THREAD:
       ptraceProcessResumeUserThread(data);
       break;
-    case DMTCP_EVENT_SEND_STOP_SIGNAL:
-      mtcp_process_stop_signal_event(data);
-      break;
-    case DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT:
-      mtcp_ptrace_thread_died_before_checkpoint();
-      break;
-    case DMTCP_EVENT_THREAD_CREATED:
-      mtcp_ptrace_process_thread_creation((pid_t) (unsigned long) data);
-      break;
-    case DMTCP_EVENT_THREAD_START:
-      mtcp_init_thread_local();
+
+    case DMTCP_EVENT_RESET_ON_FORK:
+      originalStartup = 1;
       break;
 
+    case DMTCP_EVENT_THREAD_CREATED:
+    case DMTCP_EVENT_THREAD_START:
+    case DMTCP_EVENT_GOT_SUSPEND_MSG:
+    case DMTCP_EVENT_START_PRE_CKPT_CB:
+    case DMTCP_EVENT_POST_RESTART_REFILL:
     case DMTCP_EVENT_PRE_CKPT:
     case DMTCP_EVENT_POST_LEADER_ELECTION:
     case DMTCP_EVENT_POST_DRAIN:
@@ -144,24 +92,4 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
 
   NEXT_DMTCP_PROCESS_EVENT(event, data);
   return;
-}
-
-extern "C" const char* ptrace_get_tmpdir()
-{
-  static char ptrace_tmpdir[256] = "\0";
-  static char init = 0;
-  if (!init) {
-    strcpy(ptrace_tmpdir, dmtcp_get_tmpdir());
-    strcat(ptrace_tmpdir, "/");
-    strcat(ptrace_tmpdir, dmtcp_get_computation_id_str());
-    init = 1;
-  }
-
-  struct stat buf;
-  if (stat(ptrace_tmpdir, &buf) == -1) {
-    JASSERT(mkdir(ptrace_tmpdir, S_IRWXU) == 0)
-      (ptrace_tmpdir) (JASSERT_ERRNO)
-      .Text("Error creating tmp directory");
-  }
-  return ptrace_tmpdir;
 }

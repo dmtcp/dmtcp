@@ -70,7 +70,6 @@ extern "C"
 {
 #endif
 
-  int __attribute__ ((weak)) mtcp_is_ptracing();
   void dmtcpResetPidPpid();
   void dmtcpResetTid(pid_t tid);
 

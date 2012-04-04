@@ -38,6 +38,7 @@
 #include "protectedfds.h"
 #include "sockettable.h"
 #include "dmtcpplugin.h"
+#include "util.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
@@ -77,18 +78,12 @@ static void callbackRestoreVirtualPidTable();
 void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
-void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval);
-void callbackThreadDiedBeforeCheckpoint();
 
-void callbackCkptThreadStart();
 LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
-
-//to allow linking without ptrace plugin
-extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
 static void* find_and_open_mtcp_so()
 {
@@ -206,11 +201,7 @@ void dmtcp::initializeMtcpEngine()
   (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackRestoreVirtualPidTable,
                                       &callbackHoldsAnyLocks,
                                       &callbackPreSuspendUserThread,
-                                      &callbackPreResumeUserThread,
-                                      &callbackSendStopSignal,
-                                      &callbackThreadDiedBeforeCheckpoint,
-                                      &callbackCkptThreadStart
-                                     );
+                                      &callbackPreResumeUserThread);
 
   JTRACE ("Calling mtcp_init");
   mtcpFuncPtrs.init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
@@ -241,7 +232,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
   // serves the purpose without having a callback.
   // TODO: Check for correctness.
-  JALIB_RESET_ON_FORK();
+  JALIB_CKPT_UNLOCK();
 
   dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
 
@@ -298,6 +289,7 @@ static void callbackPostCheckpoint ( int isRestart,
      */
     dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
     dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
+    callbackRestoreVirtualPidTable();
   }
   else
   {
@@ -354,6 +346,7 @@ static void callbackRestoreVirtualPidTable()
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
+extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 void callbackHoldsAnyLocks(int *retval)
 {
   /* This callback is useful only for the ptrace plugin currently, but may be
@@ -371,7 +364,7 @@ void callbackHoldsAnyLocks(int *retval)
   dmtcp::ThreadSync::unsetOkToGrabLock();
   *retval = dmtcp::ThreadSync::isThisThreadHoldingAnyLocks();
   if (*retval == TRUE) {
-    JASSERT(mtcp_is_ptracing());
+    JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
     dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock();
   }
 }
@@ -389,30 +382,12 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   info.is_restart = is_restart;
   dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
   dmtcp::ThreadSync::setOkToGrabLock();
-  // This should be the last thing before returning from this function.
+  // This should be the last significant work before returning from this
+  // function.
   dmtcp::ThreadSync::processPreResumeCB();
-}
-
-void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
-{
-  DmtcpSendStopSignalInfo info;
-  info.tid = tid;
-  info.retry_signalling = retry_signalling;
-  info.retval = retval;
-
-  *retry_signalling = 1;
-  *retval = 0;
-  dmtcp_process_event(DMTCP_EVENT_SEND_STOP_SIGNAL, &info);
-}
-
-void callbackThreadDiedBeforeCheckpoint()
-{
-  dmtcp_process_event(DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT, NULL);
-}
-
-void callbackCkptThreadStart()
-{
-  dmtcp_process_event(DMTCP_EVENT_CKPT_THREAD_START, NULL);
+  // Make a dummy syscall to inform superior of our status before we resume. If
+  // ptrace is disabled, this call has no significant effect.
+  syscall(DMTCP_FAKE_SYSCALL);
 }
 
 void prctlGetProcessName()

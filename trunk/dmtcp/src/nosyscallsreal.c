@@ -77,7 +77,8 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 #define REAL_FUNC_PASSTHROUGH(name) return name
 
-#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) REAL_FUNC_PASSTHROUGH(name)
+#define REAL_FUNC_PASSTHROUGH_TYPED(type, name) REAL_FUNC_PASSTHROUGH(name)
+#define REAL_FUNC_PASSTHROUGH_TYPED_DLSYM(type, name) return dlsym(RTLD_NEXT, #name)
 
 #define REAL_FUNC_PASSTHROUGH_PID_T(name) REAL_FUNC_PASSTHROUGH(name)
 

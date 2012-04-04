@@ -8,8 +8,18 @@
 #include "dmtcpplugin.h"
 
 using namespace dmtcp;
-//to allow linking without ptrace plugin
-extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
+
+extern "C"
+pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
+{
+  return REAL_TO_VIRTUAL_PID(realPid);
+}
+
+extern "C"
+pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
+{
+  return VIRTUAL_TO_REAL_PID(virtualPid);
+}
 
 //static void pidVirt_pthread_atfork_parent()
 //{
@@ -73,17 +83,16 @@ void pidVirt_PostRestart(void *data)
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
-  dmtcp::VirtualPidTable::instance().postRestart();
+  dmtcp::VirtualPidTable::instance().writePidMapsToFile();
 }
 
 void pidVirt_PostRestartRefill(void *data)
 {
-  dmtcp::VirtualPidTable::instance().writePidMapsToFile();
+  dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
 }
 
 void pidVirt_PostRestartResume(void *data)
 {
-  dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
 }
 
 void pidVirt_ThreadExit(void *data)
@@ -104,10 +113,8 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
     case DMTCP_EVENT_GOT_SUSPEND_MSG:
     case DMTCP_EVENT_START_PRE_CKPT_CB:
-    case DMTCP_EVENT_CKPT_THREAD_START:
     case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
     case DMTCP_EVENT_RESUME_USER_THREAD:
-    case DMTCP_EVENT_SEND_STOP_SIGNAL:
     case DMTCP_EVENT_WRITE_CKPT_PREFIX:
     case DMTCP_EVENT_PRE_EXIT:
     case DMTCP_EVENT_PRE_CKPT:

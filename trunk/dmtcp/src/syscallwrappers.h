@@ -267,8 +267,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void initialize_libpthread_wrappers();
   void initializeJalib();
 
-  int __attribute__ ((weak)) mtcp_is_ptracing();
-
   int _real_socket ( int domain, int type, int protocol );
   int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr,
                       socklen_t addrlen );

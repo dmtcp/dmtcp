@@ -502,8 +502,6 @@ static void (*callback_pre_suspend_user_thread)() = NULL;
 static void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
 static void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
                                          int *retval) = NULL;
-static void (*callback_thread_died_before_checkpoint)() = NULL;
-static void (*callback_ckpt_thread_start)() = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -921,20 +919,12 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
                               void (*holds_any_locks)(int *retval),
                               void (*pre_suspend_user_thread)(),
                               void (*pre_resume_user_thread)(int is_ckpt,
-                                                             int is_restart),
-                              void (*send_stop_signal)(pid_t tid,
-                                                       int *retry_signalling,
-                                                       int *retval),
-                              void (*thread_died_before_checkpoint)(),
-                              void (*ckpt_thread_start)())
+                                                             int is_restart))
 {
   callback_restore_virtual_pid_table = restore_virtual_pid_table;
   callback_holds_any_locks = holds_any_locks;
   callback_pre_suspend_user_thread = pre_suspend_user_thread;
   callback_pre_resume_user_thread = pre_resume_user_thread;
-  callback_send_stop_signal = send_stop_signal;
-  callback_thread_died_before_checkpoint = thread_died_before_checkpoint;
-  callback_ckpt_thread_start = ckpt_thread_start;
 }
 
 /*************************************************************************
@@ -1879,9 +1869,6 @@ static void *checkpointhread (void *dummy)
   save_tls_state (ckpthread);
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
-  if (callback_ckpt_thread_start) {
-    (*callback_ckpt_thread_start)();
-  }
 
 #ifdef SETJMP
   /* After we restart, we return here. */
@@ -1956,8 +1943,6 @@ again:
 #endif
         DPRINTF("thread %d disappeared\n", thread -> tid);
         threadisdead (thread);
-        if (callback_thread_died_before_checkpoint)
-          (*callback_thread_died_before_checkpoint)();
         unlk_threads ();
         goto rescan;
       }
@@ -1989,26 +1974,15 @@ again:
         case ST_RUNENABLED: {
           if (!mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED))
             goto again;
-          int retry_signalling = 1;
-          int retval = 0;
-          if (callback_send_stop_signal != NULL) {
-            DPRINTF("Before callback_send_stop_signal\n");
-            callback_send_stop_signal(thread->virtual_tid, &retry_signalling,
-                                      &retval);
-          }
-          if (retry_signalling) {
-            retval = mtcp_sys_kernel_tgkill(motherpid, thread->tid,
-                                            STOPSIGNAL);
-            if (retval < 0 && mtcp_sys_errno != ESRCH) {
-              MTCP_PRINTF ("error signalling thread %d: %s\n",
-                           thread -> tid, strerror(mtcp_sys_errno));
-            }
+          int retval = mtcp_sys_kernel_tgkill(motherpid, thread->tid,
+                                              STOPSIGNAL);
+          if (retval < 0 && mtcp_sys_errno != ESRCH) {
+            MTCP_PRINTF ("error signalling thread %d: %s\n",
+                         thread -> tid, strerror(mtcp_sys_errno));
           }
 
           if (retval < 0) {
             threadisdead(thread);
-            if (callback_thread_died_before_checkpoint)
-              (*callback_thread_died_before_checkpoint)();
             unlk_threads();
             goto rescan;
           }
@@ -3355,19 +3329,10 @@ static void growstack (int kbStack) /* opimize attribute not implemented */
 
 static void stopthisthread (int signum)
 {
-  if (callback_holds_any_locks != NULL) {
-    int retval;
-    callback_holds_any_locks(&retval);
-    if (retval) return;
-  }
-
   int rc;
-  Thread *thread;
   int is_ckpt = 0;
   int is_restart = 0;
-
-  DPRINTF("tid %d returns to %p\n",
-          mtcp_sys_kernel_gettid (), __builtin_return_address (0));
+  Thread *thread;
 
   thread = getcurrenthread (); // see which thread this is
 
@@ -3375,6 +3340,17 @@ static void stopthisthread (int signum)
   if ( mtcp_state_value(&thread -> state) == ST_CKPNTHREAD ) {
     return ;
   }
+
+  if (callback_holds_any_locks != NULL) {
+    int retval;
+    callback_holds_any_locks(&retval);
+    if (retval) return;
+  }
+
+  DPRINTF("tid %d returns to %p\n",
+          mtcp_sys_kernel_gettid (), __builtin_return_address (0));
+
+  mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED);
 
 #if 0
 #define BT_SIZE 1024
@@ -3575,12 +3551,11 @@ static void wait_for_all_restored (void)
       }
     }
 
-    if (callback_restore_virtual_pid_table != NULL) {
-      DPRINTF("Before callback_restore_virtual_pid_table: Thread:%d \n",
-              mtcp_sys_kernel_gettid());
-      (*callback_restore_virtual_pid_table)();
-      DPRINTF("After callback_restore_virtual_pid_table: Thread:%d \n",
-              mtcp_sys_kernel_gettid());
+    if (callback_post_ckpt != NULL) {
+        DPRINTF("before callback_post_ckpt(1=restarting) (&%x,%x) \n",
+                &callback_post_ckpt, callback_post_ckpt);
+        (*callback_post_ckpt)(1, mtcp_restore_argv_start_addr);
+        DPRINTF("after callback_post_ckpt(1=restarting)\n");
     }
 
     // NOTE:  This is last safe moment for hook.  All previous threads
@@ -4289,13 +4264,6 @@ static int restarthread (void *threadv)
     setup_sig_handler ();
 
     set_tid_address (&(thread -> child_tid));
-
-    if (callback_post_ckpt != NULL) {
-        DPRINTF("before callback_post_ckpt(1=restarting) (&%x,%x) \n",
-                &callback_post_ckpt, callback_post_ckpt);
-        (*callback_post_ckpt)(1, mtcp_restore_argv_start_addr);
-        DPRINTF("after callback_post_ckpt(1=restarting)\n");
-    }
     /* Do it once only, in motherofall thread. */
 
     restore_term_settings();

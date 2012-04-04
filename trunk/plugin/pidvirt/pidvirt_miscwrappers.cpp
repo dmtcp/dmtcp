@@ -72,22 +72,16 @@ extern "C" pid_t fork()
   pid_t retval = 0;
   pid_t virtualPid = getPidFromEnvVar();
 
-  if (mtcp_is_ptracing()) {
-    dmtcp::VirtualPidTable::instance().
-      writeVirtualTidToFileForPtrace(virtualPid);
-  }
+  dmtcp::VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualPid);
 
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
     retval = virtualPid;
     dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
-    if (mtcp_is_ptracing()) {
-      dmtcp::VirtualPidTable::instance().
-        readVirtualTidFromFileForPtrace(getpid());
-    }
   } else {
     retval = realPid;
+    dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   return retval;
@@ -118,7 +112,7 @@ int clone_start(void *arg)
 
   dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 
-  JTRACE ( "Calling user function" ) (virtualTid);
+  JTRACE("Calling user function") (virtualTid);
   return (*fn) ( thread_arg );
 }
 
@@ -159,12 +153,12 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
     mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
     arg                  = mtcpRestartThreadArg -> arg;
     virtualTid           = mtcpRestartThreadArg -> virtualTid;
+    if (virtualTid != VIRTUAL_TO_REAL_PID(virtualTid)) {
+      dmtcp::VirtualPidTable::instance().postRestart();
+    }
   } else {
     virtualTid = dmtcp::VirtualPidTable::instance().getNewVirtualTid();
-    if (mtcp_is_ptracing()) {
-      dmtcp::VirtualPidTable::instance()
-        .writeVirtualTidToFileForPtrace(virtualTid);
-    }
+    dmtcp::VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualTid);
   }
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -182,9 +176,8 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                     parent_tidptr, newtls, child_tidptr);
 
-  if (dmtcp_is_running_state() && mtcp_is_ptracing()) {
-    dmtcp::VirtualPidTable::instance()
-      .readVirtualTidFromFileForPtrace(tid);
+  if (dmtcp_is_running_state() && dmtcp::Util::isPtraced()) {
+    dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   if (tid > 0) {

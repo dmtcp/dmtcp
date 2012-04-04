@@ -69,6 +69,9 @@
 #define RESTORE_PORT_START 9777
 #define RESTORE_PORT_STOP 9977
 
+// Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
+#define DMTCP_FAKE_SYSCALL 1023
+
 #define ENABLE_MALLOC_WRAPPER
 
 //this next string can be at most 16 chars long
