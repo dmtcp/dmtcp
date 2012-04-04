@@ -38,15 +38,15 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
-	  mtcp_ptrace.h ptrace.h ptracewrappers.h \
+	  ptrace.h ptraceinfo.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
-OBJS = mtcp_ptrace.o ptrace.o ptracewrappers.o
+OBJS = ptrace.o ptracewrappers.o ptraceinfo.o
 
-SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp
+SOURCES = ptrace.cpp ptracewrappers.cpp ptraceinfo.cpp
 
 LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
 

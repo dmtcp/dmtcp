@@ -60,11 +60,8 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_POST_RESTART,
   DMTCP_EVENT_POST_RESTART_REFILL,
   DMTCP_EVENT_POST_RESTART_RESUME,
-  DMTCP_EVENT_CKPT_THREAD_START,
   DMTCP_EVENT_PRE_SUSPEND_USER_THREAD,
   DMTCP_EVENT_PRE_RESUME_USER_THREAD,
-  DMTCP_EVENT_SEND_STOP_SIGNAL,
-  DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT,
   DMTCP_EVENT_RESUME_USER_THREAD,
   DMTCP_EVENT_POST_EXEC,
 
@@ -78,13 +75,6 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PREPARE_FOR_EXEC,
   nDmtcpEvents
 } DmtcpEvent_t;
-
-typedef struct DmtcpSendStopSignalInfo {
-  pid_t tid;
-  pid_t ckpt_leader;
-  int *retry_signalling;
-  int *retval;
-} DmtcpSendStopSignalInfo;
 
 typedef struct DmtcpResumeUserThreadInfo {
   int is_ckpt;

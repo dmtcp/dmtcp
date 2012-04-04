@@ -52,10 +52,7 @@ extern "C"
     (void (*restore_virtual_pid_table) (),
      void (*holds_any_locks)(int *retval),
      void (*pre_suspend_user_thread)(),
-     void (*pre_resume_user_thread)(int is_ckpt, int is_restart),
-     void (*send_stop_signal)(pid_t tid, int *retry_signalling, int *retval),
-     void (*thread_died_before_checkpoint)(),
-     void (*ckpt_thread_start)());
+     void (*pre_resume_user_thread)(int is_ckpt, int is_restart));
 
   typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
                                          int stderr_fd,

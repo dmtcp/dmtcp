@@ -180,6 +180,8 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualPid)
   return retVal;
 }
 
+//to allow linking without ptrace plugin
+extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realPid == -1 || realPid == 0) {
@@ -197,8 +199,8 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
     }
   }
 
-  if (mtcp_is_ptracing()) {
-    pid_t virtualPid = readVirtualTidFromFileForPtrace(realPid);
+  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing()) {
+    pid_t virtualPid = readVirtualTidFromFileForPtrace(gettid());
     if (virtualPid != -1) {
       _do_unlock_tbl();
       updateMapping(virtualPid, realPid);
@@ -264,49 +266,41 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 
 void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
 {
-  if (pid == -1) {
-    sleep(30);
+  pid_t tracerPid = dmtcp::Util::getTracerPid();
+  if (tracerPid != 0) {
+    dmtcp::ostringstream o;
+    char buf[80];
+    o << dmtcp_get_tmpdir() << "/virtualPidOfNewlyCreatedThread_"
+      << dmtcp_get_computation_id_str() << "_" << tracerPid;
+
+    sprintf(buf, "%d", pid);
+    int fd = open(o.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
+    JASSERT(fd >= 0) (o.str()) (JASSERT_ERRNO);
+    dmtcp::Util::writeAll(fd, buf, strlen(buf) + 1);
+    JTRACE("Writing virtual Pid/Tid to file") (pid) (o.str());
+    close(fd);
   }
-
-  dmtcp::ostringstream o;
-  char buf[80];
-  o << dmtcp_get_tmpdir() << "/virtualPidOfNewlyCreatedThread_"
-    << dmtcp_get_computation_id_str() << "_" << getpid();
-
-  sprintf(buf, "%d", pid);
-  int fd = open(o.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
-  JASSERT(fd >= 0) (o.str()) (JASSERT_ERRNO);
-  dmtcp::Util::writeAll(fd, buf, strlen(buf) + 1);
-  JTRACE("Writing virtual Pid/Tid to file") (pid) (o.str());
-  close(fd);
 }
 
-pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t realTid)
+pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 {
   dmtcp::ostringstream o;
   char buf[80];
   pid_t pid;
   int fd;
   ssize_t bytesRead;
-  pid_t inferiorPid = -1;
 
-  if (realTid == getpid()) {
-    inferiorPid = getpid();
-  } else {
-    for (pid_iterator i = _pidMapTable.begin(); i != _pidMapTable.end(); ++i) {
-      pid_t virtualPid  = i->first;
-      pid_t realPid  = i->second;
-      if (virtualPid % 1000 == 0 && _real_tgkill(realPid, realTid, 0) == 0) {
-        inferiorPid = virtualPid;
-        break;
-      }
+  if (tid == -1) {
+    tid = dmtcp::Util::getTracerPid();
+    if (tid == 0) {
+      return -1;
     }
   }
 
   o << dmtcp::UniquePid::getTmpDir() << "/virtualPidOfNewlyCreatedThread_"
-    << dmtcp::UniquePid::ComputationId() << "_" << inferiorPid;
+    << dmtcp::UniquePid::ComputationId() << "_" << tid;
 
-  fd = open(o.str().c_str(), O_RDONLY, 0);
+  fd = _real_open(o.str().c_str(), O_RDONLY, 0);
   if (fd < 0) {
     return -1;
   }

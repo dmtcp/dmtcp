@@ -47,4 +47,3 @@ int  dmtcp_is_running_state()
 {
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
-

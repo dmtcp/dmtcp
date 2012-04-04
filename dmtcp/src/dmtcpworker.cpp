@@ -498,6 +498,11 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   JTRACE ( "waiting for " + msgStr + " message" );
 
+  if ( type == DMT_DO_SUSPEND ) {
+    // Make a dummy syscall to inform superior of our status before we go into
+    // select. If // ptrace is disabled, this call has no significant effect.
+    _real_syscall(DMTCP_FAKE_SYSCALL);
+  }
   do {
     msg.poison();
     _coordinatorSocket >> msg;

@@ -1,393 +1,427 @@
-/****************************************************************************
- *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and            *
- *                                                           Gene Cooperman *
- *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu             *
- *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
- *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
- *  modify it under the terms of the GNU Lesser General Public License as   *
- *  published by the Free Software Foundation, either version 3 of the      *
- *  License, or (at your option) any later version.                         *
- *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU Lesser General Public License for more details.                     *
- *                                                                          *
- *  You should have received a copy of the GNU Lesser General Public        *
- *  License along with DMTCP:dmtcp/src.  If not, see                        *
- *  <http://www.gnu.org/licenses/>.                                         *
- ****************************************************************************/
+/*****************************************************************************
+ *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and             *
+ *                                                            Gene Cooperman *
+ *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu              *
+ *                                                                           *
+ *   This file is part of the PTRACE plugin of DMTCP (DMTCP:mtcp).           *
+ *                                                                           *
+ *  DMTCP:mtcp is free software: you can redistribute it and/or              *
+ *  modify it under the terms of the GNU Lesser General Public License as    *
+ *  published by the Free Software Foundation, either version 3 of the       *
+ *  License, or (at your option) any later version.                          *
+ *                                                                           *
+ *  DMTCP:plugin/ptrace is distributed in the hope that it will be useful,   *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU Lesser General Public License for more details.                      *
+ *                                                                           *
+ *  You should have received a copy of the GNU Lesser General Public         *
+ *  License along with DMTCP:dmtcp/src.  If not, see                         *
+ *  <http://www.gnu.org/licenses/>.                                          *
+ *****************************************************************************/
 
-#include "jassert.h"
-#include "jfilesystem.h"
-#include "ptracewrappers.h"
-#include "dmtcpplugin.h"
-#include <sys/types.h>
-#include <sys/ptrace.h>
-#include <linux/version.h>
-// This was needed for:  SUSE LINUX 10.0 (i586) OSS
-#ifndef PTRACE_SETOPTIONS
-# include <linux/ptrace.h>
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE /* Needed for syscall declaration */
 #endif
-#include <stdarg.h>
-#include <linux/unistd.h>
+#define _XOPEN_SOURCE 500 /* _XOPEN_SOURCE >= 500 needed for getsid */
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
 #include <sys/syscall.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sched.h>
+#include <sys/user.h>
+#include <sys/syscall.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
-#include <list>
 
 #include "ptrace.h"
+#include "ptraceinfo.h"
+#include "dmtcpplugin.h"
+#include "jassert.h"
+#include "jfilesystem.h"
+#include "util.h"
 
-static pthread_mutex_t ptrace_info_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+// Matchup this definition with the one in dmtcp/src/constants.h
+#define DMTCP_FAKE_SYSCALL 1023
 
-dmtcp::list<struct ptrace_info> *ptrace_info_list = NULL;
-
-void ptrace_init_data_structures()
-{
-  if (ptrace_info_list == NULL) {
-    ptrace_info_list = new dmtcp::list<struct ptrace_info>;
-  }
-}
-
-// FIXME:  This macro is used in exactly one place.  Why do we want
-//    to hide the implementation.  Shouldn't the reader of GETTID()
-//    be told inline what is the implementation?
-//    Is there any particular reason for choosing syscall instead
-//    of gettid() or _real_syscall (to get the current tid)?  A comment helps.
-#define GETTID() (int)syscall(SYS_gettid)
-
-extern "C" int ptrace_info_list_size() {
-  if (ptrace_info_list == NULL) return 0;
-  return ptrace_info_list->size();
-}
-
-extern "C" struct ptrace_info *get_next_ptrace_info(int index) {
-  if ((unsigned int)index >= ptrace_info_list->size())
-    return NULL;
-
-  dmtcp::list<struct ptrace_info>::iterator it;
-  int local_index = 0;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (local_index == index) return (struct ptrace_info *)(&(*it));
-    local_index++;
-  }
-  return NULL;
-}
-
-int open_ptrace_related_file (int file_option) {
-  char file[256];
-  memset(file, 0, 256);
-  strcpy(file, ptrace_get_tmpdir());
-
-  switch (file_option) {
-    case PTRACE_SHARED_FILE_OPTION:
-      strcat(file, "/ptrace_shared");
-      break;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
-    case PTRACE_SETOPTIONS_FILE_OPTION:
-      strcat(file, "/ptrace_setoptions");
-      break;
+#define EFLAGS_OFFSET (64)
+#ifdef __x86_64__
+# define AX_REG rax
+# define ORIG_AX_REG orig_rax
+# define SP_REG rsp
+# define IP_REG rip
+# define SIGRETURN_INST_16 0x050f
+#else
+# define AX_REG eax
+# define ORIG_AX_REG orig_eax
+# define SP_REG esp
+# define IP_REG eip
+# define SIGRETURN_INST_16 0x80cd
 #endif
-    case PTRACE_CHECKPOINT_THREADS_FILE_OPTION:
-      strcat(file, "/ptrace_ckpthreads");
-      break;
-    default:
-      printf("open_ptrace_related_file: unknown file_option, %d\n",
-              file_option);
-      return -1;
-  }
-  return open(file, O_CREAT|O_APPEND|O_WRONLY|O_FSYNC, 0644);
-}
 
-void write_ptrace_pair_to_given_file (int file, pid_t superior, pid_t inferior)
+static const unsigned char DMTCP_SYS_sigreturn =  0x77;
+static const unsigned char DMTCP_SYS_rt_sigreturn = 0xad;
+static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
+
+static void ptrace_detach_user_threads ();
+static void ptrace_attach_threads(int isRestart);
+static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inf, int sysno);
+static void ptrace_single_step_thread(dmtcp::Inferior *infInfo, int isRestart);
+static PtraceProcState procfs_state(int tid);
+
+extern "C" int dmtcp_is_ptracing()
 {
-  int fd;
-  struct flock lock;
+  return dmtcp::PtraceInfo::instance().isPtracing();
+}
 
-  if ((fd = open_ptrace_related_file(file)) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error opening file\n: %s %d\n",
-            strerror(errno), file);
-    abort();
-  }
-
-  lock.l_type = F_WRLCK;
-  lock.l_whence = SEEK_CUR;
-  lock.l_start = 0;
-  lock.l_len = 0;
-  lock.l_pid = getpid();
-
-  if (fcntl(fd, F_GETLK, &lock ) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error acquiring lock: %s\n",
-            strerror(errno));
-    abort();
-  }
-
-  if (write(fd, &superior, sizeof(pid_t)) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error writing to file: %s\n",
-            strerror(errno));
-    abort();
-  }
-  if (write(fd, &inferior, sizeof(pid_t)) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error writing to file: %s\n",
-            strerror(errno));
-    abort();
-  }
-
-  lock.l_type = F_UNLCK;
-  lock.l_whence = SEEK_CUR;
-  lock.l_start = 0;
-  lock.l_len = 0;
-
-  if (fcntl(fd, F_SETLK, &lock) == -1) {
-    printf("write_ptrace_pair_to_given_file: Error releasing lock: %s\n",
-            strerror(errno));
-    abort();
-  }
-  if (close(fd) != 0) {
-    printf("write_ptrace_pair_to_given_file: Error closing file: %s\n",
-            strerror(errno));
-    abort();
+void ptrace_process_pre_suspend_user_thread()
+{
+  if (dmtcp::PtraceInfo::instance().isPtracing()) {
+    ptrace_detach_user_threads();
   }
 }
 
-void ptrace_info_list_update_inferior_st (pid_t superior, pid_t inferior,
-                                          char inferior_st) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (it->superior == superior && it->inferior == inferior) {
-      it->inferior_st = inferior_st;
-      break;
-    }
+void ptrace_process_resume_user_thread(int is_ckpt, int is_restart)
+{
+  if (dmtcp::PtraceInfo::instance().isPtracing() && (is_ckpt || is_restart)) {
+    ptrace_attach_threads(is_restart);
   }
+  JTRACE("Waiting for Sup Attach") (GETTID());
+  dmtcp::PtraceInfo::instance().waitForSuperiorAttach();
+  JTRACE("Done Waiting for Sup Attach") (GETTID());
 }
 
-static ptrace_info *ptrace_info_list_has_pair (pid_t superior, pid_t inferior) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (it->superior == superior && it->inferior == inferior)
-      return (struct ptrace_info *)(&(*it));
-  }
-  return NULL;
-}
+static void ptrace_attach_threads(int isRestart)
+{
+  pid_t inferior;
+  int status;
+  dmtcp::vector<dmtcp::Inferior*> inferiors;
 
-void ptrace_info_list_remove_pair (pid_t superior, pid_t inferior) {
-  struct ptrace_info *pt_info = ptrace_info_list_has_pair(superior, inferior);
-  if (!pt_info) return;
-  pthread_mutex_lock(&ptrace_info_list_mutex);
-  ptrace_info_list->remove(*pt_info);
-  pthread_mutex_unlock(&ptrace_info_list_mutex);
-}
-
-void ptrace_info_update_last_command (pid_t superior, pid_t inferior,
-  int last_command) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (it->superior == superior && it->inferior == inferior) {
-      it->last_command = last_command;
-      if (last_command == PTRACE_SINGLESTEP_COMMAND)
-        it->singlestep_waited_on = FALSE;
-      break;
-    }
-  }
-}
-
-void ptrace_info_list_update_is_inferior_ckpthread(pid_t pid, pid_t tid) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (tid == it->inferior) {
-      it->inferior_is_ckpthread = 1;
-      break;
-    }
-  }
-}
-
-bool ptrace_info_compare (struct ptrace_info left, struct ptrace_info right) {
-  if (left.superior < right.superior) return true;
-  else if (left.superior == right.superior) return
-    left.inferior < right.inferior;
-  return false;
-}
-
-/* This function does three things:
- * 1) Moves all ckpt threads to the end of ptrace_info_list.
- * 2) Sorts UTs by superior and then by inferior, if there's a tie on superior.
- * 3) Sorts CTs by superior and then by inferior, if there's a tie on superior.
- * It's important to have the checkpoint threads unattached for as long as
- * possible. */
-void ptrace_info_list_sort () {
-  dmtcp::list<struct ptrace_info> tmp_ckpths_list;
-  dmtcp::list<struct ptrace_info>::iterator it;
-
-  /* Temporarily remove checkpoint threads from ptrace_info_list. */
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end();) {
-    if (it->inferior_is_ckpthread) {
-      tmp_ckpths_list.push_back(*it);
-      it = ptrace_info_list->erase(it);
-    } else {
-      it++;
-    }
-  }
-
-  /* Sort the two lists: first by superior and if there's a tie on superior,
-   * then sort by inferior. */
-  ptrace_info_list->sort(ptrace_info_compare);
-  tmp_ckpths_list.sort(ptrace_info_compare);
-
-  /* Add the temporary list of ckpt threads at the end of ptrace_info_list. */
-  for (it = tmp_ckpths_list.begin(); it != tmp_ckpths_list.end(); it++) {
-    ptrace_info_list->push_back(*it);
-  }
-}
-
-void ptrace_info_list_remove_pairs_with_dead_tids () {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end();) {
-    if (!procfs_state(it->inferior)) {
-      it = ptrace_info_list->erase(it);
-      //it--;
-    } else {
-      it++;
-    }
-  }
-}
-
-void ptrace_info_list_save_threads_state () {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for(it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-      it->inferior_st = procfs_state(it->inferior);
-  }
-}
-
-void ptrace_info_list_print () {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    fprintf(stdout, "GETTID = %d superior = %d inferior = %d state =  %c "
-            "inferior_is_ckpthread = %d\n",
-            GETTID(), it->superior, it->inferior, it->inferior_st,
-            it->inferior_is_ckpthread);
-  }
-}
-
-void ptrace_info_list_insert (pid_t superior, pid_t inferior, int last_command,
-                              int singlestep_waited_on, char inferior_st,
-                              int file_option) {
-  if (superior == inferior) return;
-
-  if (file_option != PTRACE_NO_FILE_OPTION) {
-    write_ptrace_pair_to_given_file(file_option, superior, inferior);
-    /* In this case, superior is the pid and inferior is the tid and also the
-     * checkpoint thread. We're recording that for process pid, tid is the
-     * checkpoint thread. */
-    if (file_option == PTRACE_CHECKPOINT_THREADS_FILE_OPTION) {
-      return;
-    }
-  }
-
-  if (ptrace_info_list_has_pair(superior, inferior) != NULL) {
-    ptrace_info_list_update_inferior_st(superior, inferior, inferior_st);
+  inferiors = dmtcp::PtraceInfo::instance().getInferiors(GETTID());
+  if (inferiors.size() == 0) {
     return;
   }
 
-  struct ptrace_info new_ptrace_info;
-  new_ptrace_info.superior = superior;
-  new_ptrace_info.inferior = inferior;
-  new_ptrace_info.last_command = last_command;
-  new_ptrace_info.singlestep_waited_on = singlestep_waited_on;
-  new_ptrace_info.inferior_st = inferior_st;
-  new_ptrace_info.inferior_is_ckpthread = 0;
-  // attach_state starts at 1 (attached)
-  new_ptrace_info.attach_state = 1;
+  JTRACE("Attaching to inferior threads") (GETTID());
 
-  pthread_mutex_lock(&ptrace_info_list_mutex);
-  ptrace_info_list->push_back(new_ptrace_info);
-  pthread_mutex_unlock(&ptrace_info_list_mutex);
+  // Attach to all inferior user threads.
+  for (size_t i = 0; i < inferiors.size(); i++) {
+    inferior = inferiors[i]->tid();
+    JASSERT(inferiors[i]->state() != PTRACE_PROC_INVALID) (GETTID()) (inferior);
+    if (!inferiors[i]->isCkptThread()) {
+      JASSERT(_real_ptrace(PTRACE_ATTACH, inferior, 0, 0) != -1)
+        (GETTID()) (inferior) (JASSERT_ERRNO);
+      JASSERT(_real_wait4(inferior, &status, __WALL, NULL) != -1)
+        (inferior) (JASSERT_ERRNO);
+      JASSERT(_real_ptrace(PTRACE_SETOPTIONS, inferior, 0,
+                           inferiors[i]->getPtraceOptions()) != -1)
+        (GETTID()) (inferior) (inferiors[i]->getPtraceOptions()) (JASSERT_ERRNO);
+
+      // Run all user threads until the end of syscall(DMTCP_FAKE_SYSCALL)
+      dmtcp::PtraceInfo::instance().processPreResumeAttach(inferior);
+      ptrace_wait_for_inferior_to_reach_syscall(inferior, DMTCP_FAKE_SYSCALL);
+    }
+  }
+
+  // Attach to and run all user ckpthreads until the end of syscall(DMTCP_FAKE_SYSCALL)
+  for (size_t i = 0; i < inferiors.size(); i++) {
+    inferior = inferiors[i]->tid();
+    if (inferiors[i]->isCkptThread()) {
+      JASSERT(_real_ptrace(PTRACE_ATTACH, inferior, 0, 0) != -1)
+        (GETTID()) (inferior) (JASSERT_ERRNO);
+      JASSERT(_real_wait4(inferior, &status, __WALL, NULL) != -1)
+        (inferior) (JASSERT_ERRNO);
+      JASSERT(_real_ptrace(PTRACE_SETOPTIONS, inferior, 0,
+                           inferiors[i]->getPtraceOptions()) != -1)
+        (GETTID()) (inferior) (inferiors[i]->getPtraceOptions()) (JASSERT_ERRNO);
+
+      // Wait for all inferiors to execute dummy syscall 'DMTCP_FAKE_SYSCALL'.
+      dmtcp::PtraceInfo::instance().processPreResumeAttach(inferior);
+      ptrace_wait_for_inferior_to_reach_syscall(inferior, DMTCP_FAKE_SYSCALL);
+    }
+  }
+
+  // Singlestep all user threads out of the signal handler
+  for (size_t i = 0; i < inferiors.size(); i++) {
+    int lastCmd = inferiors[i]->lastCmd();
+    inferior = inferiors[i]->tid();
+    if (!inferiors[i]->isCkptThread()) {
+      /* After attach, the superior needs to singlestep the inferior out of
+       * stopthisthread, aka the signal handler. */
+      ptrace_single_step_thread(inferiors[i], isRestart);
+      if (inferiors[i]->isStopped() && (lastCmd == PTRACE_CONT ||
+                                        lastCmd == PTRACE_SYSCALL)) {
+        JASSERT(_real_ptrace(lastCmd, inferior, 0, 0) != -1)
+          (GETTID()) (inferior) (JASSERT_ERRNO);
+      }
+    }
+  }
+
+  // Move ckpthreads to next step (depending on state)
+  for (size_t i = 0; i < inferiors.size(); i++) {
+    int lastCmd = inferiors[i]->lastCmd();
+    inferior = inferiors[i]->tid();
+    if (inferiors[i]->isCkptThread() && !inferiors[i]->isStopped() &&
+        (lastCmd == PTRACE_CONT || lastCmd == PTRACE_SYSCALL)) {
+      JASSERT(_real_ptrace(lastCmd, inferior, 0, 0) != -1)
+        (GETTID()) (inferior) (JASSERT_ERRNO);
+    }
+  }
+
+  JTRACE("thread done") (GETTID());
 }
 
-extern "C" void ptrace_info_list_update_info(pid_t superior, pid_t inferior,
-                                             int singlestep_waited_on) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (it->superior == superior && it->inferior == inferior) {
-      if (it->last_command == PTRACE_SINGLESTEP_COMMAND)
-        it->singlestep_waited_on = singlestep_waited_on;
-      it->last_command = PTRACE_UNSPECIFIED_COMMAND;
+static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
+{
+  struct user_regs_struct regs;
+  int syscall_number;
+  int status;
+  int count = 0;
+  while (1) {
+    count ++;
+    JASSERT(_real_ptrace(PTRACE_SYSCALL, inferior, 0, 0) == 0)
+      (inferior) (JASSERT_ERRNO);
+    JASSERT(_real_wait4(inferior, &status, __WALL, NULL) == inferior)
+      (inferior) (JASSERT_ERRNO);
+
+    JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) == 0)
+      (inferior) (JASSERT_ERRNO);
+
+    syscall_number = regs.ORIG_AX_REG;
+    if (syscall_number == sysno) {
+      JASSERT(_real_ptrace(PTRACE_SYSCALL, inferior, 0, (void*) 0) == 0)
+        (inferior) (JASSERT_ERRNO);
+      JASSERT(_real_wait4(inferior, &status, __WALL, NULL) == inferior)
+        (inferior) (JASSERT_ERRNO);
       break;
     }
   }
+  return;
 }
 
-/* set the 'attached' flag for the given inferior to given state. */
-extern "C" void ptrace_info_list_set_attach_state(pid_t superior,
-                                         pid_t inferior, int attach_state) {
-  dmtcp::list<struct ptrace_info>::iterator it;
-  for (it = ptrace_info_list->begin(); it != ptrace_info_list->end(); it++) {
-    if (it->superior == superior && it->inferior == inferior) {
-      it->attach_state = attach_state;
-      return;
+static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
+                                      int isRestart)
+{
+  struct user_regs_struct regs;
+  long peekdata;
+  long low, upp;
+  int status;
+  unsigned long addr;
+  unsigned long int eflags;
+
+  pid_t inferior = inferiorInfo->tid();
+  pid_t superior = GETTID();
+  int last_command = inferiorInfo->lastCmd();
+  char inferior_st = inferiorInfo->state();
+
+  while(1) {
+    int status;
+    JASSERT(_real_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) != -1)
+      (superior) (inferior) (JASSERT_ERRNO);
+    if (_real_wait4(inferior, &status, 0, NULL) == -1) {
+      JASSERT(_real_wait4(inferior, &status, __WCLONE, NULL) != -1)
+        (superior) (inferior) (JASSERT_ERRNO);
     }
+    if (WIFEXITED(status)) {
+      JTRACE("thread is dead") (inferior) (WEXITSTATUS(status));
+    } else if(WIFSIGNALED(status)) {
+      JTRACE("thread terminated by signal") (inferior);
+    }
+
+    JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) != -1)
+      (superior) (inferior) (JASSERT_ERRNO);
+    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
+    long inst = peekdata & 0xffff;
+#ifdef __x86_64__
+    /* For 64 bit architectures. */
+    if (inst == SIGRETURN_INST_16 && regs.AX_REG == 0xf) {
+#else /* For 32 bit architectures.*/
+    if (inst == SIGRETURN_INST_16 && (regs.AX_REG == DMTCP_SYS_sigreturn ||
+                                      regs.AX_REG == DMTCP_SYS_rt_sigreturn)) {
+#endif
+      if (isRestart) { /* Restart time. */
+        // FIXME: TODO:
+        if (last_command == PTRACE_SINGLESTEP) {
+          if (regs.AX_REG != DMTCP_SYS_rt_sigreturn) {
+            addr = regs.SP_REG;
+          } else {
+            addr = regs.SP_REG + 8;
+            addr = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
+            addr += 20;
+          }
+          addr += EFLAGS_OFFSET;
+          errno = 0;
+          JASSERT ((eflags = _real_ptrace(PTRACE_PEEKDATA, inferior,
+                                         (void *)addr, 0)) != -1)
+            (superior) (inferior) (JASSERT_ERRNO);
+          eflags |= 0x0100;
+          JASSERT(_real_ptrace(PTRACE_POKEDATA, inferior, (void *)addr,
+                              (void*) eflags) != -1)
+            (superior) (inferior) (JASSERT_ERRNO);
+        } else if (inferior_st != PTRACE_PROC_TRACING_STOP) {
+          /* TODO: remove in future as GROUP restore becames stable
+           *                                                    - Artem */
+          JASSERT(_real_ptrace(PTRACE_CONT, inferior, 0, 0) != -1)
+            (superior) (inferior) (JASSERT_ERRNO);
+        }
+      } else { /* Resume time. */
+        if (inferior_st != PTRACE_PROC_TRACING_STOP) {
+          JASSERT(_real_ptrace(PTRACE_CONT, inferior, 0, 0) != -1)
+            (superior) (inferior) (JASSERT_ERRNO);
+        }
+      }
+
+      /* In case we have checkpointed at a breakpoint, we don't want to
+       * hit the same breakpoint twice. Thus this code. */
+      // TODO: FIXME: Replace this code with a raise(SIGTRAP) and see what happens
+      if (inferior_st == PTRACE_PROC_TRACING_STOP) {
+        JASSERT(_real_ptrace(PTRACE_SINGLESTEP, inferior, 0, 0) != -1)
+          (superior) (inferior) (JASSERT_ERRNO);
+        if (_real_wait4(inferior, &status, 0, NULL) == -1) {
+          JASSERT(_real_wait4(inferior, &status, __WCLONE, NULL) != -1)
+            (superior) (inferior) (JASSERT_ERRNO);
+        }
+      }
+      break;
+    }
+  } //while(1)
+}
+
+/* This function detaches the user threads. */
+static void ptrace_detach_user_threads ()
+{
+  PtraceProcState pstate;
+  int status;
+  struct rusage rusage;
+  dmtcp::vector<dmtcp::Inferior*> inferiors;
+
+  inferiors = dmtcp::PtraceInfo::instance().getInferiors(GETTID());
+
+  for (size_t i = 0; i < inferiors.size(); i++) {
+    pid_t inferior = inferiors[i]->tid();
+    void *data = (void*) (unsigned long) dmtcp_get_ckpt_signal();
+    pstate = procfs_state(inferiors[i]->tid());
+    if (pstate == PTRACE_PROC_INVALID) {
+      JTRACE("Inferior does not exist.") (inferior);
+      dmtcp::PtraceInfo::instance().eraseInferior(inferior);
+      continue;
+    }
+    inferiors[i]->setState(pstate);
+    inferiors[i]->semInit();
+
+    if (inferiors[i]->isCkptThread()) {
+      data = NULL;
+    }
+    int ret = _real_wait4(inferior, &status, __WALL | WNOHANG, &rusage);
+    if (ret > 0) {
+      if (!WIFSTOPPED(status) || WSTOPSIG(status) != dmtcp_get_ckpt_signal()) {
+        inferiors[i]->setWait4Status(&status, &rusage);
+      }
+    }
+    pstate = procfs_state(inferiors[i]->tid());
+    if (pstate == PTRACE_PROC_RUNNING || pstate == PTRACE_PROC_SLEEPING) {
+      syscall(SYS_tkill, inferior, SIGSTOP);
+      _real_wait4(inferior, &status, __WALL, NULL);
+      JASSERT(_real_wait4(inferior, &status, __WALL | WNOHANG, NULL) == 0)
+        (inferior) (JASSERT_ERRNO);
+    }
+    if (_real_ptrace(PTRACE_DETACH, inferior, 0, data) == -1) {
+      JASSERT(errno == ESRCH)
+        (GETTID()) (inferior) (JASSERT_ERRNO);
+      dmtcp::PtraceInfo::instance().eraseInferior(inferior);
+      continue;
+    }
+    pstate = procfs_state(inferiors[i]->tid());
+    if (pstate == PTRACE_PROC_STOPPED) {
+      kill(inferior, SIGCONT);
+    }
+    JTRACE("Detached thread") (inferior);
   }
 }
 
-extern "C" void ptrace_info_list_command(struct cmd_info cmd) {
-  switch (cmd.option) {
-    case PTRACE_INFO_LIST_UPDATE_IS_INFERIOR_CKPTHREAD:
-      ptrace_info_list_update_is_inferior_ckpthread(cmd.superior, cmd.inferior);
-      break;
-    case PTRACE_INFO_LIST_SORT:
-      ptrace_info_list_sort();
-      break;
-    case PTRACE_INFO_LIST_REMOVE_PAIRS_WITH_DEAD_TIDS:
-      ptrace_info_list_remove_pairs_with_dead_tids();
-      break;
-    case PTRACE_INFO_LIST_SAVE_THREADS_STATE:
-      ptrace_info_list_save_threads_state();
-      break;
-    case PTRACE_INFO_LIST_PRINT:
-      ptrace_info_list_print();
-      break;
-    case PTRACE_INFO_LIST_INSERT:
-      ptrace_info_list_insert(cmd.superior, cmd.inferior, cmd.last_command,
-                              cmd.singlestep_waited_on, cmd.inferior_st,
-                              cmd.file_option);
-      break;
-    case PTRACE_INFO_LIST_UPDATE_INFO:
-      ptrace_info_list_update_info(cmd.superior, cmd.inferior,
-                                   cmd.singlestep_waited_on);
-      break;
-    default:
-      printf ("ptrace_info_list_command: unknown option %d\n", cmd.option);
+static PtraceProcState procfs_state(int pid)
+{
+  int fd;
+  char buf[512];
+  int retval = 0;
+  char *str;
+  const char *key = "State:";
+  int len = strlen(key);
+
+  snprintf (buf, sizeof (buf), "/proc/%d/status", (int) pid);
+  fd = _real_open (buf, O_RDONLY, 0);
+  if (fd < 0) {
+    JTRACE("open() failed") (buf);
+    return PTRACE_PROC_INVALID;
   }
+
+
+  dmtcp::Util::readAll(fd, buf, sizeof buf);
+  close(fd);
+  str = strstr(buf, key);
+  JASSERT(str != NULL);
+  str += len;
+
+  while (*str == ' ' || *str == '\t') {
+    str++;
+  }
+
+  if (strcasestr(str, "T (stopped)") != NULL) {
+    return PTRACE_PROC_STOPPED;
+  } else if (strcasestr(str, "T (tracing stop)") != NULL) {
+    return PTRACE_PROC_TRACING_STOP;
+  } else if (strcasestr(str, "S (sleeping)") != NULL) {
+    return PTRACE_PROC_SLEEPING;
+  } else if (strcasestr(str, "R (running)") != NULL) {
+    return PTRACE_PROC_RUNNING;
+  }
+  return PTRACE_PROC_UNDEFINED;
 }
 
-extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+
+/*****************************************************************************
+ ****************************************************************************/
+
+extern "C" pid_t waitpid(pid_t pid, int *stat, int options)
+{
+  return wait4(pid, stat, options, NULL);
+}
+
+extern "C" pid_t wait4(pid_t pid, void *stat, int options,
+                       struct rusage *rusage)
 {
   int status;
+  struct rusage rusagebuf;
   pid_t retval;
+  int *stat_loc = (int*) stat;
 
-  if ( stat_loc == NULL )
+  if (stat_loc == NULL) {
     stat_loc = &status;
-
-  if (ptrace_info_list == NULL) {
-    ptrace_init_data_structures();
   }
 
-  // FIXME:  syscall(SYS_gettid) just calls gettid().  Use _real_syscall() if
-  //   it matters.  Else gettid().  Add a comment here explaining why syscall().
-  pid_t superior = syscall(SYS_gettid);
-  pid_t inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
+  if (rusage == NULL) {
+    rusage = &rusagebuf;
+  }
 
-  if (pwi.is_waitpid_local) {
-    retval = NEXT_FNC(waitpid)(pid, stat_loc, options);
-  } else {
-    /* Where was status and pid saved?  Can we remove this code?  - Gene */
-    if (pwi.has_status_and_pid) {
-      *stat_loc = pwi.saved_status;
-      retval = pwi.saved_pid;
-    } else {
-      ptrace_info_list_update_info(superior, inferior, TRUE);
-      retval = NEXT_FNC(waitpid)(pid, stat_loc, options);
+  retval = dmtcp::PtraceInfo::instance().getWait4Status(pid, stat_loc, rusage);
+  if (retval != -1) {
+    return retval;
+  }
+
+  retval = _real_wait4(pid, stat_loc, options, rusage);
+  if (retval > 0 && dmtcp::PtraceInfo::instance().isPtracing()) {
+    if (WIFSTOPPED(*stat_loc)) {
+      dmtcp::PtraceInfo::instance().setLastCmd(retval, -1);
+    } else if (WIFEXITED(*stat_loc) || WIFSIGNALED(*stat_loc)) {
+      dmtcp::PtraceInfo::instance().eraseInferior(retval);
     }
   }
 
@@ -400,11 +434,8 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   pid_t pid;
   void *addr;
   void *data;
-
-  pid_t superior;
-  pid_t inferior;
-
-  long ptrace_ret;
+  dmtcp::Inferior *inf;
+  bool isCkptThread;
 
   va_start(ap, request);
   pid = va_arg(ap, pid_t);
@@ -412,80 +443,13 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   data = va_arg(ap, void *);
   va_end(ap);
 
-  superior = syscall(SYS_gettid);
-  inferior = pid;
-  struct ptrace_waitpid_info pwi = mtcp_get_ptrace_waitpid_info();
+  dmtcp::PtraceInfo::instance().setPtracing();
 
-  switch (request) {
-    case PTRACE_ATTACH: {
-      if (!pwi.is_ptrace_local) {
-        struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                               PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
-                               PTRACE_SHARED_FILE_OPTION};
-        ptrace_info_list_command(cmd);
-      }
-      break;
-    }
-    case PTRACE_TRACEME: {
-      superior = getppid();
-      inferior = syscall(SYS_gettid);
-      struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                             PTRACE_UNSPECIFIED_COMMAND, FALSE, 'u',
-                             PTRACE_SHARED_FILE_OPTION};
-      ptrace_info_list_command(cmd);
-      break;
-    }
-    case PTRACE_DETACH: {
-     if (!pwi.is_ptrace_local)
-       ptrace_info_list_remove_pair(superior, inferior);
-     break;
-    }
-    case PTRACE_CONT: {
-     if (!pwi.is_ptrace_local) {
-       ptrace_info_update_last_command(superior, inferior,
-                                       PTRACE_CONTINUE_COMMAND);
-       /* The ptrace_info pair was already recorded. The superior is just
-        * issuing commands. */
-       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_CONTINUE_COMMAND, FALSE, 'u',
-                              PTRACE_NO_FILE_OPTION};
-       ptrace_info_list_command(cmd);
-     }
-     break;
-    }
-    case PTRACE_SINGLESTEP: {
-     if (!pwi.is_ptrace_local) {
-       dmtcp_block_ckpt_signal();
-       ptrace_info_update_last_command(superior, inferior,
-                                       PTRACE_SINGLESTEP_COMMAND);
-       /* The ptrace_info pair was already recorded. The superior is just
-        * issuing commands. */
-       struct cmd_info cmd = {PTRACE_INFO_LIST_INSERT, superior, inferior,
-                              PTRACE_SINGLESTEP_COMMAND, FALSE, 'u',
-                              PTRACE_NO_FILE_OPTION};
-       ptrace_info_list_command(cmd);
-       ptrace_ret =  NEXT_FNC(ptrace)(request, pid, addr, data);
-       dmtcp_unblock_ckpt_signal();
-     }
-     else ptrace_ret = NEXT_FNC(ptrace)(request, pid, addr, data);
-     break;
-    }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
-    case PTRACE_SETOPTIONS: {
-      write_ptrace_pair_to_given_file(PTRACE_SETOPTIONS_FILE_OPTION,
-                                      superior, inferior);
-      break;
-    }
-#endif
-    default: {
-      break;
-    }
-  }
+  long ptrace_ret =  _real_ptrace(request, pid, addr, data);
 
-  /* TODO: We might want to check the return value in certain cases */
-
-  if (request != PTRACE_SINGLESTEP) {
-    ptrace_ret =  NEXT_FNC(ptrace)(request, pid, addr, data);
+  if (ptrace_ret != -1) {
+    dmtcp::PtraceInfo::instance().processSuccessfulPtraceCmd(request, pid,
+                                                             addr, data);
   }
 
   return ptrace_ret;
