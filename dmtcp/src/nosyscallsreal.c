@@ -349,6 +349,16 @@ long int _real_syscall(long int sys_num, ... ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
+LIB_PRIVATE pid_t gettid() {
+  return syscall(SYS_gettid);
+}
+LIB_PRIVATE int tkill(int tid, int sig) {
+  return syscall(SYS_tkill, tid, sig);
+}
+LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
+  return syscall(SYS_tgkill, tgid, tid, sig);
+}
+
 // gettid / tkill / tgkill are not defined in libc.
 // So, this is needed even if there is no PID_VIRTUALIZATION.
 pid_t _real_gettid(void){
