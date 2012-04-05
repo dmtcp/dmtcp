@@ -156,10 +156,18 @@ typedef unsigned int mtcp_segreg_t;
 #define MTCP_PAGE_SIZE 4096
 #define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
 #if defined(__i386__) || defined(__x86_64__)
-# define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+# if defined(__i386__) && defined(__PIC__)
+// FIXME:  After DMTCP-1.2.5, this can be made only case for i386/x86_64
+#  define RMB asm volatile ("lfence" \
+                           : : : "eax", "ecx", "edx", "memory")
+#  define WMB asm volatile ("sfence" \
+                           : : : "eax", "ecx", "edx", "memory")
+# else
+#  define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
-# define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
+#  define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
+# endif
 #elif defined(__arm__)
 # define RMB asm volatile ("dmb" : : : "memory")
 # define WMB asm volatile ("dsb" : : : "memory")

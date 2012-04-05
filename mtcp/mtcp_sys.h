@@ -262,11 +262,18 @@ extern int mtcp_sys_errno;
 // But all further includes from sysdep-XXX.h have been commented out.
 
 #ifdef __i386__
+/* AFTER DMTCP RELEASE 1.2.5, MAKE USE_PROC_MAPS CASE THE ONLY CASE AND DO:
+ * mv sysdep-i386-new.h sysdep-i386.h
+ */
 // THIS CASE fOR i386 NEEDS PATCHING FOR 6 ARGUMENT CASE, SUCH AS MMAP.
 // IT ONLY TRIES TO HANDLE UP TO 5 ARGS.
 # include "sysdep-i386.h"
 
 # ifndef __PIC__
+// NOTE:  Some misinformation on web and newer glibc:sysdep-i386.h says 6-arg
+//   syscalls use:  eax, ebx, ecx, edx, esi, edi, ebp
+//   Maybe this was true historically, but it really uses eax for syscall
+//   number, and sets ebx to point to the 6 args (which typically are on stack).
 #  define EXTRAVAR_6
 #  define LOADARGS_6 \
     "sub $24,%%esp; mov %2,(%%esp); mov %3,4(%%esp); mov %4,8(%%esp);" \
@@ -278,7 +285,44 @@ extern int mtcp_sys_errno;
 #  define ASMFMT_6(arg1, arg2, arg3, arg4, arg5, arg6) \
     ASMFMT_5(arg1, arg2, arg3, arg4, arg5), "0" (arg6)
 # else
-#   error "not_implemented: 'Nothing implemented for ! defined __PIC__'"
+// TO SEE EXAMPLES OF MACROS, TRY:
+//     cpp -fPIC -DPIC -dM mtcp_safemmap.c | grep '_5 '
+// MODEL TEMPLATE IN sysdep-i386.h:
+//  #define INTERNAL_SYSCALL(name, err, nr, args...)
+//   ({
+//     register unsigned int resultvar;
+//     EXTRAVAR_##nr
+//     asm volatile (
+//     LOADARGS_##nr
+//     "movl %1, %%eax\n\t"
+//     "int $0x80\n\t"
+//     RESTOREARGS_##nr
+//     : "=a" (resultvar)
+//     : "i" (__NR_##name) ASMFMT_##nr(args) : "memory", "cc");
+//     (int) resultvar; })
+// PIC uses ebp as base pointer for variables.  Save it last, retore it first.
+#if 0
+#  define EXTRAVAR_6 int _xv1, _xv2;
+#  define LOADARGS_6 LOADARGS_5 "movl %%esp, %4\n\t" "movl %%ebp, %%esp\n\t" "movl %9, %%ebp\n\t"
+#  define RESTOREARGS_6 "movl %%esp, %%ebp\n\t" "movl %4, %%esp\n\t" RESTOREARGS_5
+#  define ASMFMT_6(arg1,arg2,arg3,arg4,arg5,arg6) , "0" (arg1), "m" (_xv1), "m" (_xv2), "c" (arg2), "d" (arg3), "S" (arg4), "D" (arg5), "rm" (arg6)
+#else
+// NOTE:  Some misinformation on web and newer glibc:sysdep-i386.h says 6-arg
+//   syscalls use:  eax, ebx, ecx, edx, esi, edi, ebp
+//   Maybe this was true historically, but it really uses eax for syscall
+//   number, and sets ebx to point to the 6 args (which typically are on stack).
+// eax is free register, since it is set to syscall number just before: int 0x80
+#  define EXTRAVAR_6
+#  define LOADARGS_6 \
+    "sub $28,%%esp; mov %2,(%%esp); mov %3,4(%%esp); mov %4,8(%%esp);" \
+    " mov %5,12(%%esp); mov %6,16(%%esp); mov %7,%%eax; mov %%eax,20(%%esp);" \
+    " mov %%ebx,24(%%esp); mov %%esp,%%ebx\n\t" \
+   /* sysdep-i386 then does:  mov %1,%%eax */
+#  define RESTOREARGS_6 "mov 24(%%esp),%%ebx\n\t" "add $28,%%esp\n\t"
+//#  define ASMFMT_6(arg1, arg2, arg3, arg4, arg5, arg6) \
+//    ASMFMT_5(arg1, arg2, arg3, arg4, arg5), "rm" (arg6)
+#  define ASMFMT_6(arg1,arg2,arg3,arg4,arg5,arg6) , "0" (arg1), "c" (arg2), "d" (arg3), "S" (arg4), "D" (arg5), "rm" (arg6)
+#endif
 # endif
 
 #elif __x86_64__
@@ -293,7 +337,10 @@ extern int mtcp_sys_errno;
 # error "Missing sysdep.h file for this architecture."
 #endif /* end __arm__ */
 
-#define __set_errno(Val) mtcp_sys_errno = (Val) /* required for sysdep-XXX.h */
+// FIXME:  Get rid of mtcp_sys_errno
+//   Must first define multi-threaded errno when glibc not present.
+#define __set_errno(Val) ( mtcp_sys_errno = (Val) ) /* required for sysdep-XXX.h */
+// #define __set_errno(Val) ( errno = mtcp_sys_errno = (Val) ) /* required for sysdep-XXX.h */
 
 // #include <sysdeps/unix/x86_64/sysdep.h>  is not needed.
 // translate __NR_getpid to syscall # using i386 or x86_64
@@ -369,7 +416,6 @@ struct linux_dirent {
 # error "getrlimit kernel call not implemented in this architecture"
 #endif
 #define mtcp_sys_setrlimit(args...) mtcp_inline_syscall(setrlimit, 2, args)
-#define mtcp_sys_futex(args...) mtcp_inline_syscall(futex, 6, args)
 
 #ifdef __NR_getdents
 #define mtcp_sys_getdents(args...)  mtcp_inline_syscall(getdents,3,args)
