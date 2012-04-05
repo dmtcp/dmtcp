@@ -954,7 +954,7 @@ void mtcp_dump_tls (char const *file, int line)
   /* Block other threads from doing this so the output doesn't mix */
 
   while (!atomic_setif_int (&mutex, 1, 0)) {
-    mtcp_sys_futex (&mutex, FUTEX_WAIT, 1, NULL, NULL, 0);
+    mtcp_sys_kernel_futex (&mutex, FUTEX_WAIT, 1, NULL, NULL, 0);
   }
 
   /* Get the segment for the TLS stuff */
@@ -1013,7 +1013,7 @@ void mtcp_dump_tls (char const *file, int line)
   /* Release mutex and restore signal delivery */
 
   mutex = 0;
-  mtcp_sys_futex (&mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
+  mtcp_sys_kernel_futex (&mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
   if (_real_sigprocmask (SIG_SETMASK, &oldsigmask, NULL) < 0) {
     abort ();
   }

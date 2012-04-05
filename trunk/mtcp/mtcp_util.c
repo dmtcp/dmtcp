@@ -502,7 +502,7 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr) {
    * library (libmtcp.so).
    * So, find the meory region for static memory variables and add it.
    */
-  VA thislib_staticvar = &dummy;
+  VA thislib_staticvar = (VA)&dummy;
   selfmapfd = mtcp_selfmap_open();
   while (mtcp_selfmap_readline(selfmapfd, &tmpstartaddr, &tmpendaddr,
                                &offset1)) {
