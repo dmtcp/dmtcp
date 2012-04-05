@@ -1,8 +1,4 @@
-This should now work both for IA-32 and for x86-64.
-For late kernels in IA-32, if /proc/sys/vm/vdso_enabled is set to 1,
-must first set it to 0 as root.  Next version will fix that.
-
-To test it, now just do:
+To test standalone MTCP, just do:
   make clean check
 This is the quivalent of:
   LD_LIBRARY_PATH=. ./testmtcp
