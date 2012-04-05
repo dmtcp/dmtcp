@@ -29,7 +29,7 @@
 ##									##
 ##########################################################################
 
-MTCP_VERSION = 79
+MTCP_VERSION = 80
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
@@ -108,6 +108,16 @@ ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf6
 else
   BUILDTYPE=${shell ${LD_RAW} -shared -verbose|grep OUTPUT_ARCH| \
 		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}
+endif
+
+# After DMTCP-1.2.5 release, remove this and just add PIC for all architectures
+ifdef USE_PROC_MAPS
+ifneq ($(BUILDTYPE),x86_64)
+ifneq ($(BUILDTYPE),arm)
+  CFLAGS += -fPIC -DPIC
+  LDFLAGS += -fPIC 
+endif
+endif
 endif
 
 # But for testmtcp, don't use CFLAGS if don't want position-independent code

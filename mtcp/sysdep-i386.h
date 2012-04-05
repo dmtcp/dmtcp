@@ -18,9 +18,12 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
+/* Copied from:  glibc-2.5/sysdeps/unix/sysv/linux/i386/sysdep.h */
+
 #ifndef _LINUX_I386_SYSDEP_H
 #define _LINUX_I386_SYSDEP_H 1
 
+// DMTCP doesn't need this.
 // /* There is some commonality.  */
 // #include <sysdeps/unix/i386/sysdep.h>
 // #include <bp-sym.h>

@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include "mtcp_sys.h"  /* for mtcp_sys_kernel.h */
 
-/* FIXME:  The call to mtcp_sys_kernel_futex() should replace
+/* FIXME:  BUG:  The call to mtcp_sys_kernel_futex() should replace
 	 the inline assembly;  See comment near bottom. */
 /* Glibc does not provide a futex routine, so provide one here... */
 
@@ -27,7 +27,7 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                   "r" (a1), "r" (a2), "r" (a3), "r" (a4), "r" (a5)
                 : "memory", "cc", "r11", "cx");
   return (rc);
-#elif defined(__i386__)
+#elif defined(__i386__) && ! defined(__PIC__)
   int rc;
 
   asm volatile ("int $0x80"
@@ -35,6 +35,12 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                 : "0" (__NR_futex), 
                   "b" (uaddr), "c" (op), "d" (val), "S" (timeout), "D" (0)
                 : "memory", "cc");
+  return (rc);
+#elif defined(__i386__) && defined(__PIC__)
+  // FIXME:  After DMTCP-1.2.5, make this case universal and remove assembly.
+  int rc; /* raw return code as returned by kernel */
+  int uaddr2=0, val3=0; /* These last two args of futex not used by MTCP. */
+  rc = INTERNAL_SYSCALL(futex,err,6,uaddr, op, val, timeout, &uaddr2, val3);
   return (rc);
 #elif defined(__arm__)
   int rc;
@@ -51,8 +57,8 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
                   "r" (r0), "r" (r1), "r" (r2), "r" (r3)
                 : "memory", "cc", "r7");
   return (rc);
-#else
-/* BUG:  mtcp_sys_errno is global.  So, in multi-threaded code,
+#else  /* defined(i386) && defined(__PIC__), but see bug below. */
+/* FIXME:  BUG:  mtcp_sys_errno is global.  So, in multi-threaded code,
  *   this can fail.  Would need mtcp_sys_kernel_futex_raw that directly returns
  *   the return code from the kernel (with the embedded errno).
  */
