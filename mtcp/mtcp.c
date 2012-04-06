@@ -2292,6 +2292,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
                 strerror(mtcp_sys_errno));
     mtcp_sys_close(pipe_fds[0]);
     mtcp_sys_close(pipe_fds[1]);
+    pipe_fds[0] = pipe_fds[1] = -1;
     //fall through to return fd
   } else if (cpid > 0) { /* parent process */
     //Before running gzip in child process, we must not use LD_PRELOAD.
@@ -2526,6 +2527,10 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
     } else if (use_gzip_compression) {/* fork a gzip process */
       *use_compression = 1;
       fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
+      if (pipe_fds[0] == -1) {
+        /* If open_ckpt_to_write_gz() failed to fork the gzip process */
+        *use_compression = 0;
+      }
     } else {
       MTCP_PRINTF("Not Reached!\n");
       mtcp_abort();
