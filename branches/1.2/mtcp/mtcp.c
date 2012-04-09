@@ -1396,6 +1396,7 @@ static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread)
               thread->tid, thread->original_tid);
       // There will be atmost one duplicate descriptor.
       threadisdead(thread);
+      continue;
     }
     /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
      *   test threads in state ST_ZOMBIE using tgkill to remove them
@@ -1465,9 +1466,9 @@ static Thread *mtcp_get_thread_from_freelist()
   } else {
     thread = threads_freelist;
     threads_freelist = threads_freelist->next;
-    thread->next = thread->prev = NULL;
   }
   unlk_threads ();
+  memset(thread, 0, sizeof (*thread));
   return thread;
 }
 
@@ -1519,7 +1520,7 @@ void mtcp_threadiszombie(void)
 
 static void threadisdead (Thread *thread)
 {
-  Thread **lthread, *parent, *xthread;
+  Thread *next_sibling, *parent, *xthread;
 
   if (! is_thread_locked()) {
     DPRINTF("MTCP: Internal error: threadisdead called without thread lock\n");
@@ -1538,28 +1539,28 @@ static void threadisdead (Thread *thread)
     threads = threads->next;
   }
 
-  /* Remove thread block from parent's list of children */
   parent = thread -> parent;
-  if (parent != NULL) {
-    for (lthread = &(parent -> children);
-         (xthread = *lthread) != thread;
-         lthread = &(xthread -> siblings)) {}
-    *lthread = xthread -> siblings;
+  if (parent == NULL) {
+    MTCP_PRINTF("MTCP Internal Error: Orphaned Child Thread found: %d\n",
+                thread->tid);
+    mtcp_abort();
+  }
+  /* Remove thread block from parent's list of children */
+  if (parent->children == thread) {
+    parent->children = thread->siblings;
+  } else {
+    for (xthread = parent->children;
+         xthread->siblings != thread;
+         xthread = xthread->siblings) {}
+    xthread->siblings = thread -> siblings;
   }
 
   /* If this thread has children, give them to its parent */
-  if (parent != NULL) {
-    while ((xthread = thread -> children) != NULL) {
-      thread -> children = xthread -> siblings;
-      xthread -> siblings = parent -> children;
-      parent -> children = xthread;
-    }
-  } else {
-    while ((xthread = thread -> children) != NULL) {
-      thread -> children = xthread -> siblings;
-      xthread -> siblings = motherofall;
-      motherofall = xthread;
-    }
+  for (xthread = thread->children; xthread != NULL; xthread = next_sibling) {
+    next_sibling = xthread->siblings;
+    xthread->parent = parent;
+    xthread->siblings = parent->children;
+    parent->children = xthread;
   }
 
   /* If checkpoint thread is waiting for us, wake it to let it see
