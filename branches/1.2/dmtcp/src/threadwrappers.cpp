@@ -416,17 +416,6 @@ extern "C" int pthread_join(pthread_t thread, void **retval)
     }
   }
 
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
-
   dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
   return ret;
 }
@@ -441,17 +430,6 @@ extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ret = _real_pthread_tryjoin_np(thread, retval);
   WRAPPER_EXECUTION_ENABLE_CKPT();
-
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
 
   dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
   return ret;
@@ -489,17 +467,6 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
       break;
     }
   }
-
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
 
   dmtcp::VirtualPidTable::instance().endPthreadJoin(thread);
   return ret;
