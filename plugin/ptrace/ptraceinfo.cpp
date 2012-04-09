@@ -264,6 +264,7 @@ void dmtcp::PtraceInfo::waitForSuperiorAttach()
     return;
   }
   inf->semWait();
+  inf->semDestroy();
 }
 
 

@@ -62,10 +62,10 @@ namespace dmtcp {
         _ptraceOptions = NULL;
         _state = PTRACE_PROC_INVALID;
         _isCkptThread = isCkptThr;
-        sem_init(&_sem, 1, 0);
       }
 
       void semInit() { JASSERT(::sem_init(&_sem, 1, 0) == 0); }
+      void semDestroy() { JASSERT(::sem_destroy(&_sem) == 0); }
       void semPost() { JASSERT(::sem_post(&_sem) == 0); }
       void semWait() { JASSERT(::sem_wait(&_sem) == 0); }
 
