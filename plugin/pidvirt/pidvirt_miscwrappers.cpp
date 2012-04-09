@@ -176,7 +176,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                     parent_tidptr, newtls, child_tidptr);
 
-  if (dmtcp_is_running_state() && dmtcp::Util::isPtraced()) {
+  if (dmtcp_is_running_state()) {
     dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 

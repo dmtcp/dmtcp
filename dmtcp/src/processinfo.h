@@ -63,6 +63,7 @@ namespace dmtcp
 
       bool beginPthreadJoin(pthread_t thread);
       void endPthreadJoin(pthread_t thread);
+      void clearPthreadJoinState(pthread_t thread);
 
       void refresh();
       void refreshChildTable();
