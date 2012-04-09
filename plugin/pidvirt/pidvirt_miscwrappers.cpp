@@ -36,6 +36,7 @@
 #include <sys/personality.h>
 #include <linux/version.h>
 #include <string.h>
+#include <semaphore.h>
 
 #include "jassert.h"
 #include "jfilesystem.h"
@@ -92,6 +93,7 @@ struct ThreadArg {
   void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
   void *arg;
   pid_t virtualTid;
+  sem_t sem;
 };
 
 // Invoked via __clone
@@ -107,10 +109,8 @@ int clone_start(void *arg)
     dmtcpResetTid(virtualTid);
   }
 
-  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
-  JALLOC_HELPER_FREE(threadArg);
-
   dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  sem_post(&threadArg->sem);
 
   JTRACE("Calling user function") (virtualTid);
   return (*fn) ( thread_arg );
@@ -171,6 +171,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
+  sem_init(&threadArg->sem, 0, 0);
 
   JTRACE("Calling libc:__clone");
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
@@ -182,12 +183,21 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
 
   if (tid > 0) {
     JTRACE("New thread created") (tid);
-    dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, tid);
+    /* Wait for child thread to finish intializing.
+     * We must let the child thread insert original->current tid in the
+     * virtualpidtable. If we don't wait for the child thread and update the
+     * pidtable ourselves, there is a possible race if the child thread is
+     * short lived. In that case, the parent thread might insert
+     * original->current mapping well after the child thread has exited causing
+     * stale entries in the virtualpidtable.
+     */
+    sem_wait(&threadArg->sem);
+    sem_destroy(&threadArg->sem);
   } else {
-    // Free memory previously allocated by calling JALLOC_HELPER_MALLOC
-    JALLOC_HELPER_FREE(threadArg);
     virtualTid = tid;
   }
+  // Free memory previously allocated by calling JALLOC_HELPER_MALLOC
+  JALLOC_HELPER_FREE(threadArg);
   return virtualTid;
 }
 

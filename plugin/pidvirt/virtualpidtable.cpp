@@ -266,6 +266,9 @@ bool dmtcp::VirtualPidTable::pidExists( pid_t pid )
 
 void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
 {
+  if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
+    return;
+  }
   pid_t tracerPid = dmtcp::Util::getTracerPid();
   if (tracerPid != 0) {
     dmtcp::ostringstream o;
@@ -290,6 +293,9 @@ pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
   int fd;
   ssize_t bytesRead;
 
+  if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
+    return -1;
+  }
   if (tid == -1) {
     tid = dmtcp::Util::getTracerPid();
     if (tid == 0) {
