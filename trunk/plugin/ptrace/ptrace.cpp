@@ -42,6 +42,7 @@ void ptraceWaitForSuspendMsg(void *data)
   dmtcp::PtraceInfo::instance().markAsCkptThread();
   if (!originalStartup) {
     dmtcp::PtraceInfo::instance().waitForSuperiorAttach();
+  } else {
     originalStartup = 0;
   }
 }
