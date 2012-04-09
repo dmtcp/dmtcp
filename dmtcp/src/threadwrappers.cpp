@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <sys/syscall.h>
+#include <semaphore.h>
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
@@ -38,6 +39,7 @@ struct ThreadArg {
   void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
   void *arg;
   pid_t original_tid;
+  sem_t sem;
 };
 
 // bool isConflictingTid( pid_t tid )
@@ -115,9 +117,6 @@ int clone_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
 
-  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
-  JALLOC_HELPER_FREE(threadArg);
-
   if (original_tid == -1) {
     /*
      * original tid is not known, which means this thread never existed before
@@ -135,7 +134,8 @@ int clone_start(void *arg)
 
   dmtcp::VirtualPidTable::instance().updateMapping ( original_tid, tid );
 
-  JTRACE ( "Calling user function" ) (original_tid);
+  // Notify the parent thread that we are done initializing.
+  sem_post(&threadArg->sem);
 
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
@@ -143,7 +143,7 @@ int clone_start(void *arg)
    */
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
 
-  // return (*(threadArg->fn)) ( threadArg->arg );
+  JTRACE ( "Calling user function" ) (original_tid);
   int result = (*fn) ( thread_arg );
 
   JTRACE ( "Thread returned:" ) (original_tid);
@@ -272,6 +272,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->original_tid = originalTid;
+  sem_init(&threadArg->sem, 0, 0);
 
   int tid;
 
@@ -336,25 +337,29 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags, void
         dmtcp::VirtualPidTable::instance().updateMapping(originalTid, tid);
         dmtcp::VirtualPidTable::InsertIntoPidMapFile(originalTid, tid);
         tid = originalTid;
-      } else {
-        /* Newly created thread, insert mappings */
-        dmtcp::VirtualPidTable::instance().updateMapping(tid, tid);
       }
       break;
     }
   }
 
   if (tid == -1) {
-    // Free the memory which was previously allocated by calling
-    // JALLOC_HELPER_MALLOC inside __clone wrapper
-    JALLOC_HELPER_FREE(threadArg);
-
     // If clone() failed, decrement the uninitialized thread count
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
+  } else {
+    /* Wait for child thread to finish intializing.
+     * We must let the child thread insert original->current tid in the
+     * virtualpidtable. If we don't wait for the child thread and update the
+     * pidtable ourselves, there is a possible race if the child thread is
+     * short lived. In that case, the parent thread might insert
+     * original->current mapping well after the child thread has exited causing
+     * stale entries in the virtualpidtable.
+     */
+    sem_wait(&threadArg->sem);
+    sem_destroy(&threadArg->sem);
   }
 
-  /* Release the wrapperExeution lock */
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  JALLOC_HELPER_FREE(threadArg);
+  WRAPPER_EXECUTION_ENABLE_CKPT(); /* Release the wrapperExeution lock */
 
   return tid;
 #endif
