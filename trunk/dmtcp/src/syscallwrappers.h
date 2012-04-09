@@ -225,6 +225,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
   MACRO(pthread_tryjoin_np)                 \
+  MACRO(pthread_timedjoin_np)               \
   MACRO(pthread_sigmask)                    \
   MACRO(pthread_mutex_lock)                 \
   MACRO(pthread_mutex_trylock)              \
@@ -358,6 +359,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
       void *(*start_routine)(void*), void *arg);
   void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
   int _real_pthread_tryjoin_np(pthread_t thread, void **retval);
+  int _real_pthread_timedjoin_np(pthread_t thread, void **retval,
+                                 const struct timespec *abstime);
 
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);

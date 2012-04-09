@@ -821,6 +821,12 @@ int _real_pthread_tryjoin_np(pthread_t thread, void **retval) {
 }
 
 LIB_PRIVATE
+int _real_pthread_timedjoin_np(pthread_t thread, void **retval,
+                                 const struct timespec *abstime) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_timedjoin_np ) ( thread, retval, abstime );
+}
+
+LIB_PRIVATE
 int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                          void *(*start_routine)(void*), void *arg) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_create )

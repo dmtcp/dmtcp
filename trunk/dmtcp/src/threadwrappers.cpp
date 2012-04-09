@@ -26,6 +26,7 @@
 #include "syscallwrappers.h"
 #include "dmtcpplugin.h"
 #include "uniquepid.h"
+#include "util.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
@@ -174,7 +175,9 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   if (threadCreationLockAcquired) {
     dmtcp::ThreadSync::threadCreationLockUnlock();
   }
-  if (retval != 0) { // if we failed to create new pthread
+  if (retval == 0) {
+    dmtcp::ProcessInfo::instance().clearPthreadJoinState(*thread);
+  } else { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
   }
@@ -214,36 +217,25 @@ extern "C" void pthread_exit(void * retval)
  *
  * Similar measures are taken for pthread_timedjoin_np().
  */
+static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
 extern "C" int pthread_join(pthread_t thread, void **retval)
 {
   int ret;
+  struct timespec ts;
   if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
   while (1) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
-    ret = _real_pthread_tryjoin_np(thread, retval);
+    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+    ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     WRAPPER_EXECUTION_ENABLE_CKPT();
-
-    if (ret != EBUSY) {
+    if (ret != ETIMEDOUT) {
       break;
     }
-
-    const struct timespec timeout = {(time_t) 0, (long)100 * 1000 * 1000};
-    nanosleep(&timeout, NULL);
   }
-
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
 
   dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
@@ -260,17 +252,6 @@ extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
   ret = _real_pthread_tryjoin_np(thread, retval);
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
-
   dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
@@ -279,6 +260,7 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
                                     const struct timespec *abstime)
 {
   int ret;
+  struct timespec ts;
   if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
@@ -288,39 +270,24 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
    * the abstime provided by the caller
    */
   while (1) {
-    struct timeval tv;
-    struct timespec ts;
-    JASSERT(gettimeofday(&tv, NULL) == 0);
-    TIMEVAL_TO_TIMESPEC(&tv, &ts);
-
     WRAPPER_EXECUTION_DISABLE_CKPT();
-    ret = _real_pthread_tryjoin_np(thread, retval);
+    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    if (TIMESPEC_CMP(&ts, abstime, <)) {
+      TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+      ret = _real_pthread_timedjoin_np(thread, retval, &ts);
+    } else {
+      ret = ETIMEDOUT;
+    }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
-    if (ret == 0) {
+    if (ret == EBUSY || ret == 0) {
       break;
     }
-
-    if (ts.tv_sec > abstime->tv_sec || (ts.tv_sec == abstime->tv_sec &&
-                                        ts.tv_nsec > abstime->tv_nsec)) {
+    if (TIMESPEC_CMP(&ts, abstime, >=)) {
       ret = ETIMEDOUT;
       break;
     }
-
-    const struct timespec timeout = {(time_t) 0, (long)100 * 1000 * 1000};
-    nanosleep(&timeout, NULL);
   }
-
-#ifdef PTRACE
-  /* Wrap the call to pthread_join() to make sure we call
-   * delete_thread_on_pthread_join().
-   * FIXME:  MTCP:process_pthread_join(thread) is calling threadisdead() THIS
-   *         SHOULDN'T BE NECESSARY.
-   */
-  if (ret == 0) {
-    mtcpFuncPtrs.process_pthread_join(thread);
-  }
-#endif
 
   dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
