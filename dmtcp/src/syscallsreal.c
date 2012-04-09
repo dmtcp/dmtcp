@@ -911,8 +911,19 @@ int _real_clone ( int ( *function ) (void *), void *child_stack, int flags, void
 }
 
 LIB_PRIVATE
+int _real_pthread_join(pthread_t thread, void **retval) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_join ) ( thread, retval );
+}
+
+LIB_PRIVATE
 int _real_pthread_tryjoin_np(pthread_t thread, void **retval) {
   REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_tryjoin_np ) ( thread, retval );
+}
+
+LIB_PRIVATE
+int _real_pthread_timedjoin_np(pthread_t thread, void **retval,
+                                 const struct timespec *abstime) {
+  REAL_FUNC_PASSTHROUGH_TYPED ( int, pthread_timedjoin_np ) ( thread, retval, abstime );
 }
 
 LIB_PRIVATE

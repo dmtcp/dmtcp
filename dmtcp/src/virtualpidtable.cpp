@@ -380,11 +380,22 @@ bool dmtcp::VirtualPidTable::beginPthreadJoin(pthread_t thread)
   return res;
 }
 
+void dmtcp::VirtualPidTable::clearPthreadJoinState(pthread_t thread)
+{
+  _do_lock_tbl();
+  if (_pthreadJoinId.find(thread) != _pthreadJoinId.end()) {
+    _pthreadJoinId.erase(thread);
+  }
+  _do_unlock_tbl();
+}
+
 void dmtcp::VirtualPidTable::endPthreadJoin(pthread_t thread)
 {
   _do_lock_tbl();
-  JASSERT(pthread_equal(_pthreadJoinId[thread], pthread_self()));
-  _pthreadJoinId.erase(thread);
+  if (_pthreadJoinId.find(thread) != _pthreadJoinId.end() &&
+      pthread_equal(_pthreadJoinId[thread], pthread_self())) {
+    _pthreadJoinId.erase(thread);
+  }
   _do_unlock_tbl();
 }
 
