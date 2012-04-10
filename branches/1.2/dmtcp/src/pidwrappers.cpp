@@ -32,6 +32,7 @@
 #include "protectedfds.h"
 #include "connectionmanager.h"
 #include "connectionidentifier.h"
+#include "util.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
 #include <sys/ioctl.h>
@@ -377,7 +378,8 @@ extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
 extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
   int retval = 0;
-  struct timespec sleepTime = {0, 1000};
+  struct timespec ts = {0, 1000};
+  const struct timespec maxts = {1, 0};
   siginfo_t siginfop;
   memset(&siginfop, 0, sizeof(siginfop));
 
@@ -411,14 +413,10 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
         siginfop.si_pid != 0) {
       break;
     } else {
-      if (sleepTime.tv_sec == 0) {
-        sleepTime.tv_nsec *= 2;
-        if (sleepTime.tv_nsec >= 1000 * 1000 * 1000) {
-          sleepTime.tv_sec++;
-          sleepTime.tv_nsec = 0;
-        }
+      nanosleep(&ts, NULL);
+      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+        TIMESPEC_ADD(&ts, &ts, &ts);
       }
-      nanosleep(&sleepTime, NULL);
     }
   }
 
@@ -474,7 +472,8 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   pid_t currPid;
   pid_t originalPid;
   pid_t retval = 0;
-  struct timespec sleepTime = {0, 10*000};
+  struct timespec ts = {0, 1000};
+  const struct timespec maxts = {1, 0};
 
   if (status == NULL)
     status = (__WAIT_STATUS) &stat;
@@ -495,14 +494,10 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
     if ((options & WNOHANG) || retval != 0) {
       break;
     } else {
-      if (sleepTime.tv_sec == 0) {
-        sleepTime.tv_nsec *= 2;
-        if (sleepTime.tv_nsec >= 1000 * 1000 * 1000) {
-          sleepTime.tv_sec++;
-          sleepTime.tv_nsec = 0;
-        }
+      nanosleep(&ts, NULL);
+      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+        TIMESPEC_ADD(&ts, &ts, &ts);
       }
-      nanosleep(&sleepTime, NULL);
     }
   }
   errno = saved_errno;
