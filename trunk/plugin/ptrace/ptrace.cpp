@@ -51,7 +51,6 @@ void ptraceProcessResumeUserThread(void *data)
 {
   DmtcpResumeUserThreadInfo *info = (DmtcpResumeUserThreadInfo*) data;
   ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
-  JNOTE("") (GETTID());
 }
 
 extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)

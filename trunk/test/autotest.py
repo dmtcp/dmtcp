@@ -39,15 +39,6 @@ if testconfig.MTCP_USE_PROC_MAPS == "yes":
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
-#In the case of gdb, even if both gdb and the inferior are running after
-#ckpt or restart, this does not guarantee that the ptrace-related work
-#(that is needed at resume or restart) is over. The ptrace related work happens
-#in the signal handler. Proceeding while still being inside the signal handler,
-#can lead to bad consquences. To play it on the safe side, PTRACE_SLEEP was
-#set at 2 seconds.  (Until this is fixed, --enable-ptrace-support will
-#remain experimental.)
-#if testconfig.PTRACE_SUPPORT == "yes":
-#  PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -261,16 +252,6 @@ os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
 
-# Temporary hack until DMTCP cleans up when using --enable-ptrace-support
-def deletePtraceFiles():
-  tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
-  tmpdir += "/dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
-            "@" + socket.gethostname()
-  os.system("cd "+tmpdir+"; "+
-	    "rm -f ptrace_shared.txt ptrace_setoptions.txt \
-	     ptrace_ckpthreads.txt ptrace_shared.txt ptrace_setoptions.txt \
-	     ptrace_ckpthreads.txt new_ptrace_shared.txt ckpt_leader_file.txt")
-
 #launch the coordinator
 coordinator = launch(BIN+"dmtcp_coordinator")
 
@@ -481,8 +462,6 @@ def runTestRaw(name, numProcs, cmds):
       #  of this function:  testRestart
       testCheckpoint()
       printFixed("PASSED ")
-      #if testconfig.PTRACE_SUPPORT == "yes":
-      #  sleep(PTRACE_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -490,8 +469,6 @@ def runTestRaw(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
-          #if testconfig.PTRACE_SUPPORT == "yes":
-          #  sleep(PTRACE_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
@@ -572,13 +549,7 @@ runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
-# dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
-# Also, it needs some extra time to startup
-S=2
-os.environ['DMTCP_GZIP'] = "1"
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
-os.environ['DMTCP_GZIP'] = GZIP
-S=DEFAULT_S
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
@@ -752,32 +723,25 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if testconfig.PTRACE_SUPPORT == "yes" and \
-   (testconfig.HAS_STRACE == "yes" or testconfig.HAS_GDB == "yes"):
-  print "  Deleting files in /tmp/dmtcp-USER@HOST before ptrace tests.  (Until"
-  print "  this is fixed, --enable-ptrace-support will remain experimental.)"
-  deletePtraceFiles()
-  if testconfig.HAS_STRACE == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
+  if testconfig.HAS_STRACE == "yes":
     S=1
-    if sys.version_info[0:2] >= (2,6):
-      runTest("strace",    2,  ["strace test/dmtcp2"])
+    runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
-  deletePtraceFiles()
-  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+  if testconfig.HAS_GDB == "yes":
     os.system("echo 'run' > dmtcp-gdbinit.tmp")
     S=2
-    if sys.version_info[0:2] >= (2,6):
-      runTest("gdb",       2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-    S=DEFAULT_S
-    os.system("rm -f dmtcp-gdbinit.tmp")
+    runTest("gdb",          2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
 
-  deletePtraceFiles()
-  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
-    os.system("echo 'run' > dmtcp-gdbinit.tmp")
-    S=2
-    if sys.version_info[0:2] >= (2,6):
-      runTest("gdb-pthread",2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+    runTest("gdb-pthread0", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+
+    # These tests currently fail sometimes (if the computation is checkpointed
+    # while a thread is being created). Re-enable them when this issue has been
+    # fixed in the ptrace module.
+    #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
+    #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
+
     S=DEFAULT_S
     os.system("rm -f dmtcp-gdbinit.tmp")
 
