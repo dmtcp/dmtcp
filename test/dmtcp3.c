@@ -17,10 +17,13 @@ int main ()
 {
   int x[N], i;
   pthread_t t[N];
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, 1024 * 1024);
 
   for (i = 0; i < N-1; i ++) {
     x[i]=i;
-    if (pthread_create (&t[i], NULL, &threadMain, x+i) < 0) {
+    if (pthread_create (&t[i], &attr, &threadMain, x+i) < 0) {
       fprintf (stderr, "error creating thread: %s\n", strerror (errno));
       return (-1);
     }
