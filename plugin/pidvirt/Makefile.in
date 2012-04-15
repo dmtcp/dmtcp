@@ -1,5 +1,6 @@
 LIBNAME=pidvirt
 CC = @CC@
+M32=@M32@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -29,8 +30,16 @@ DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+# NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
+#  env CFLAGS="-g -O0" make
+# will be ignored.
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+ifeq ($(M32),1)
+CFLAGS += -m32 -Wa,--32
+CXXFLAGS += -m32 -Wa,--32
+LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+endif
 
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
