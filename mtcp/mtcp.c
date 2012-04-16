@@ -560,7 +560,7 @@ static void restore_heap(void);
 static void finishrestore (void);
 static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
-static void setup_sig_handler (void);
+static void setup_sig_handler (sighandler_t handler);
 static void sync_shared_mem(void);
 
 static Thread *mtcp_get_thread_from_freelist();
@@ -809,7 +809,7 @@ void mtcp_init (char const *checkpointfilename,
   if (clone_entry == NULL) setup_clone_entry ();
 
   /* Set up signal handler so we can interrupt the thread for checkpointing */
-  setup_sig_handler ();
+  setup_sig_handler(&stopthisthread);
 
   /* Get size and address of the shareable - used to separate it from the rest
    * of the stuff. All routines needed to perform restore must be within this
@@ -1906,6 +1906,17 @@ static void *checkpointhread (void *dummy)
 	  mtcp_sys_kernel_gettid ());
 
   while (1) {
+    /* Remove STOPSIGNAL from pending signals list:
+     * Under Ptrace, STOPSIGNAL is sent to the inferior threads once by the
+     * superior thread and once by the ckpt-thread of the inferior. STOPSIGNAL
+     * is blocked while the inferior thread is executing the signal handler and
+     * so the signal is becomes pending and is delivered right after returning
+     * from stopthisthread.
+     * To tackle this, we disable/re-enable signal handler for STOPSIGNAL.
+     */
+    setup_sig_handler(SIG_IGN);
+    setup_sig_handler(&stopthisthread);
+
     /* Wait a while between writing checkpoint files */
 
     if (callback_sleep_between_ckpt == NULL)
@@ -3667,7 +3678,8 @@ static void restore_sig_state (Thread *thisthread)
   for (i = SIGRTMAX; i > 0; --i) {
     if (sigismember(&(thisthread -> sigpending), i)  == 1  &&
         sigismember(&(thisthread -> sigblockmask), i) == 1 &&
-        sigismember(&(sigpending_global), i) == 0) {
+        sigismember(&(sigpending_global), i) == 0 &&
+        i != STOPSIGNAL) {
       raise(i);
     }
   }
@@ -4266,7 +4278,7 @@ static int restarthread (void *threadv)
       tmp = sigpending_global;
     }
 
-    setup_sig_handler ();
+    setup_sig_handler(&stopthisthread);
 
     set_tid_address (&(thread -> child_tid));
     /* Do it once only, in motherofall thread. */
@@ -4444,11 +4456,12 @@ static void restore_tls_state (Thread *thisthread)
  *
  *****************************************************************************/
 
-static void setup_sig_handler (void)
+static void setup_sig_handler (sighandler_t handler)
+
 {
   struct sigaction act, old_act;
 
-  act.sa_handler = &stopthisthread;
+  act.sa_handler = handler;
   sigfillset(&act.sa_mask);
   act.sa_flags = SA_RESTART;
 
