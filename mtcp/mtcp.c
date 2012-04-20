@@ -68,6 +68,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -455,6 +456,7 @@ static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat / Fedora
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
 static char const *sys_v_shmem_file = "/SYSV";
+static char progname_str[128] = ""; /* used with MTCP_RESTART_PAUSE */
 #ifdef IBV
 static char const *infiniband_shmem_file = "/dev/infiniband/uverbs";
 #endif
@@ -728,8 +730,9 @@ void mtcp_init (char const *checkpointfilename,
   DPRINTF("main tid %d\n", mtcp_sys_kernel_gettid ());
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
   if (getenv("MTCP_INIT_PAUSE")) {
+    struct timespec delay = {15, 0}; /* 15 seconds */
     MTCP_PRINTF("Pausing 15 seconds. Do:  gdb attach %d\n", mtcp_sys_getpid());
-    sleep(15);
+    mtcp_sys_nanosleep(&delay, NULL);
   }
 
   // save this away where it's easy to get
@@ -2066,11 +2069,17 @@ again:
       return (NULL);
     }
 
-    /* Call weak symbol of this file, possibly overridden by user's strong
-     * symbol. User must compile his/her code with -Wl,-export-dynamic to make
-     * it visible.
-     */
     rounding_mode = fegetround();
+    int tmp = mtcp_sys_readlink("/proc/self/exe",
+			    progname_str, sizeof(progname_str)-1);
+    if (tmp > 0)
+      progname_str[tmp] = '\0';
+    else
+      progname_str[0] = '\0';
+    /* Call weak symbol of this file, possibly overridden by the user's
+     *   strong symbol.  User must compile his/her code with
+     *   -Wl,-export-dynamic to make it visible.
+     */
     mtcpHookPreCheckpoint();
 
     save_sig_handlers();
@@ -2134,11 +2143,12 @@ again:
                   (unsigned int)(checkpointsize / stopped.tv_usec));
     }
 
-    /* Call weak symbol of this file, possibly overridden by user's strong
-     * symbol. User must compile his/her code with -Wl,-export-dynamic to make
-     * it visible.
-     */
+    /* This function is: checkpointhread();  So, only ckpt thread executes */
     fesetround(rounding_mode);
+    /* Call weak symbol of this file, possibly overridden by the user's
+     *   strong symbol.  User must compile his/her code with
+     *   -Wl,-export-dynamic to make it visible.
+     */
     mtcpHookPostCheckpoint();
 
     /* Resume all threads.  But if we're doing a checkpoint verify,
@@ -2506,13 +2516,13 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
 
     /* 3c. Fork compressor child */
     if (use_deltacompression) { /* fork a hbict process */
-#ifdef HBICT_DELTACOMP
+# ifdef HBICT_DELTACOMP
       *use_compression = 1;
       if ( use_gzip_compression ) // We may want hbict compression only
         fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
       else
         fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, NULL);
-#endif
+# endif
     } else if (use_gzip_compression) {/* fork a gzip process */
       *use_compression = 1;
       fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
@@ -3556,10 +3566,17 @@ static void wait_for_all_restored (void)
     //   This last thread has not yet unlocked the threads: unlk_threads()
     //   So, no race condition occurs.
     //   By comparison, *callback_post_ckpt() is called before creating
-    //   additional user threads.  Only motherofall (checkpoint thread existed)
-    /* call weak symbol of this file, possibly overridden by the user's strong
-     * symbol user must compile his/her code with -Wl,-export-dynamic to make it
-     * visible
+    //   additional threads.  Only first thread (usually motherofall) exists.
+    /* If MTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
+    if (getenv("MTCP_RESTART_PAUSE")) {
+      struct timespec delay = {15, 0}; /* 15 seconds */
+      MTCP_PRINTF("Pausing 15 seconds. Do:  gdb %s %d\n",
+                  progname_str, mtcp_sys_getpid());
+      mtcp_sys_nanosleep(&delay, NULL);
+    }
+    /* Call weak symbol of this file, possibly overridden by the user's
+     *   strong symbol.  User must compile his/her code with
+     *   -Wl,-export-dynamic to make it visible.
      */
     mtcpHookRestart();
 
