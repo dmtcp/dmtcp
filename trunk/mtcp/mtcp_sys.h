@@ -395,6 +395,7 @@ struct linux_dirent {
 #define mtcp_sys_mremap(args...)  (void *)mtcp_inline_syscall(mremap,4,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
+#define mtcp_sys_nanosleep(args...)  mtcp_inline_syscall(nanosleep,2,args)
 #define mtcp_sys_brk(args...)  (void *)(mtcp_inline_syscall(brk,1,args))
 #define mtcp_sys_rt_sigaction(args...) mtcp_inline_syscall(rt_sigaction,4,args)
 #define mtcp_sys_set_tid_address(args...) \
