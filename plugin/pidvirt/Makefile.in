@@ -30,9 +30,6 @@ DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
-# NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
-#  env CFLAGS="-g -O0" make
-# will be ignored.
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
