@@ -22,6 +22,7 @@
 #include "constants.h"
 #include "syscallwrappers.h"
 #include "connectionmanager.h"
+#include "dmtcpplugin.h"
 
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -43,9 +44,27 @@ static dmtcp::string _procFDPath ( int fd )
   return "/proc/self/fd/" + jalib::XToString ( fd );
 }
 
+static dmtcp::string _resolveSymlink(dmtcp::string path)
+{
+  dmtcp::string device = jalib::Filesystem::ResolveSymlink(path);
+  if (path.length() > 0 && dmtcp::Util::strStartsWith(device, "/proc/")) {
+    int index = 6;
+    char *rest;
+    char newpath[128];
+    JASSERT(device.length() < sizeof newpath);
+    pid_t realPid = strtol(&path[index], &rest, 0);
+    if (realPid > 0 && *rest == '/') {
+      pid_t virtualPid = CURRENT_TO_ORIGINAL_PID(realPid);
+      sprintf(newpath, "/proc/%d%s", virtualPid, rest);
+      device = newpath;
+    }
+  }
+  return device;
+}
+
 static bool _isBadFd ( int fd )
 {
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fd ) );
+  dmtcp::string device = _resolveSymlink( _procFDPath ( fd ) );
   return ( device == "" );
 }
 
@@ -158,7 +177,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 {
   //gather evidence
   errno = 0;
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fd ) );
+  dmtcp::string device = _resolveSymlink(_procFDPath(fd));
   bool isBadFd = ( device == "" );
 
   if ( isBadFd )
@@ -526,8 +545,7 @@ dmtcp::KernelDeviceToConnection::KernelDeviceToConnection ( const ConnectionToFd
           JASSERT ( device == fdToDevice ( fds[i] ) )
             ( device ) ( fdToDevice ( fds[i] ) ) ( fds[i] ) ( fds[0] );
         } else {
-          dmtcp::string filePath =
-            jalib::Filesystem::ResolveSymlink ( _procFDPath ( fds[i] ) );
+          dmtcp::string filePath = _resolveSymlink(_procFDPath(fds[i]));
           JASSERT ( filePath == ((FileConnection *)c)->filePath() )
             ( fds[i] ) ( filePath ) ( fds[0] ) ( ((FileConnection *)c)->filePath() );
         }
@@ -870,7 +888,7 @@ bool dmtcp::SlidingFdTable::isInUse ( int fd ) const
   if ( _fdToCon.find ( fd ) != _fdToCon.end() )
     return true;
   //double check with the filesystem
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( _procFDPath ( fd ) );
+  dmtcp::string device = _resolveSymlink(_procFDPath(fd));
   return device != "";
 }
 void dmtcp::SlidingFdTable::changeFd ( int oldfd, int newfd )
