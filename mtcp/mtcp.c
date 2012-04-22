@@ -3127,6 +3127,11 @@ static void mtcp_write_non_rwx_pages(int fd, Area *orig_area)
 
     if (!is_zero) {
       mtcp_writefile(fd, a.addr, a.size);
+    } else {
+      if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
+        MTCP_PRINTF("error %d doing madvise(%p, %d, MADV_DONTNEED)\n",
+                    errno, a.addr, (int)a.size);
+      }
     }
 
     area.addr += size;
