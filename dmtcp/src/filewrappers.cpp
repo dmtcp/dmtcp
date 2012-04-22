@@ -546,6 +546,7 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   return retval;
 }
 
+#if 0
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -594,6 +595,7 @@ extern "C" char *canonicalize_file_name(const char *path)
   }
   return retval;
 }
+#endif
 
 extern "C" int access(const char *path, int mode)
 {
