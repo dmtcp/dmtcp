@@ -175,8 +175,10 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
   bool isTty = (device.compare("/dev/tty") == 0);
 
-  bool isPtmx  = (device.compare("/dev/ptmx") == 0);
-  bool isPts   = Util::strStartsWith(device, "/dev/pts/");
+  bool isPtmx  = (device.compare("/dev/ptmx") == 0 ||
+                  device.compare("/dev/pts/ptmx") == 0);
+
+  bool isPts   = !isPtmx && Util::strStartsWith(device, "/dev/pts/");
 
   bool isBSDMaster  = (Util::strStartsWith(device, "/dev/pty") &&
                        device.compare("/dev/pty") != 0);
