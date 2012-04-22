@@ -88,7 +88,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
-dmtcphijack_so_LDFLAGS = -shared -module
+dmtcphijack_so_LDFLAGS = -shared
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
@@ -109,7 +109,7 @@ dmtcp_inspector_LDADD   = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
-libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1 -module
+libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1
 
 PICFLAGS=-fPIC
 if CONFIG_M32

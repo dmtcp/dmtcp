@@ -48,7 +48,7 @@ OBJS = mtcp_ptrace.o ptrace.o ptracewrappers.o ptrace_syscallsreal.o
 
 SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp ptrace_syscallsreal.c
 
-LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
+LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 LDADD = -ldl -lpthread
 
