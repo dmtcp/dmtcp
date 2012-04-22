@@ -225,7 +225,9 @@ static void processDevPtmxConnection (int fd)
   uniquePtsNameStr = UNIQUE_PTS_PREFIX_STR;
   uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum());
 
-  dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + "/dev/ptmx";
+  dmtcp::string ptmxDevice =
+    jalib::Filesystem::ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
+  dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + ptmxDevice; //"/dev/ptmx";
 
 //   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString()
 //                            + ":" + jalib::XToString ( _nextPtmxId() )
