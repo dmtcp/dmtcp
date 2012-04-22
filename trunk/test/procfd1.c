@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/fcntl.h>
 #include <sys/socket.h>
 
 //This example mimics a bug in some versions of MPICH2 mpd
@@ -13,34 +14,35 @@ int main(int argc, char* argv[])
   int count = 1;
   char ch;
   const char* me;
-  FILE *fp = fopen("/proc/self/maps", "r");
-  if (fp == NULL) {
-    perror("fopen failed:");
+  int fd = open("/proc/self/maps", O_RDONLY);
+  if (fd == -1) {
+    perror("open failed:");
     return;
   }
-  int fd = fileno(fp);
 
 
   if(fork()>0){
     me = "parent";
     while (1) {
-      if (feof(fp)) {
-        rewind(fp);
+      int ret = read(fd, &ch, 1);
+      if (ret == 0) {
+        lseek(fd, 0, SEEK_SET);
+      } else if (ret == -1) {
+        exit(0);
       }
-      lockf(fd, F_LOCK, 0);
-      ch = fgetc(fp);
-      printf("%s: %d\n", me, count++);
-      sleep(1);
+      //printf("%s: %d\n", me, count++);
+      //sleep(1);
     }
   }else{
     me = "child";
     while (1) {
-      if (feof(fp)) {
-        rewind(fp);
+      int ret = read(fd, &ch, 1);
+      if (ret == 0) {
+        lseek(fd, 0, SEEK_SET);
+      } else if (ret == -1) {
+        exit(0);
       }
-      lockf(fd, F_LOCK, 0);
-      ch = fgetc(fp);
-      printf("%s: %d\n", me, count++);
+      //printf("%s: %d\n", me, count++);
       sleep(1);
     }
   }
