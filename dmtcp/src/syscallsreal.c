@@ -29,6 +29,7 @@
 #include <malloc.h>
 #include <pthread.h>
 #include "syscallwrappers.h"
+#include "trampolines.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -200,6 +201,28 @@ static void *_real_func_addr[numLibcWrappers];
 static int _libc_wrappers_initialized = 0;
 static int _libpthread_wrappers_initialized = 0;
 
+#ifndef DISABLE_PTHREAD_GETSPECIFIC_TRICK
+static char wrapper_init_buf[1024];
+static trampoline_info_t pthread_getspecific_trampoline_info;
+void *_dmtcp_pthread_getspecific(pthread_key_t key)
+{
+  if (!dmtcp_wrappers_initializing) {
+    fprintf(stderr, "DMTCP INTERNAL ERROR\n\n");
+    abort();
+  }
+  pthread_setspecific(key, wrapper_init_buf);
+  UNINSTALL_TRAMPOLINE(pthread_getspecific_trampoline_info);
+  return pthread_getspecific(key);
+}
+
+static _dmtcp_PreparePthreadGetSpecific()
+{
+  dmtcp_setup_trampoline_by_addr(&pthread_getspecific,
+                                 (void*) &_dmtcp_pthread_getspecific,
+                                 &pthread_getspecific_trampoline_info);
+}
+#endif
+
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
@@ -218,6 +241,9 @@ void initialize_libc_wrappers()
   }
 
   if (!_libc_wrappers_initialized) {
+#ifndef DISABLE_PTHREAD_GETSPECIFIC_TRICK
+    _dmtcp_PreparePthreadGetSpecific();
+#endif
     FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
     _libc_wrappers_initialized = 1;
   }
