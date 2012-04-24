@@ -353,6 +353,21 @@ extern "C" long int syscall(long int sys_num, ... )
 
   switch ( sys_num ) {
 
+    case SYS_mmap:
+    {
+      SYSCALL_GET_ARGS_6(void*, addr, size_t, length, int, prot, int, flags, int, fd,
+                         off_t, offset);
+      ret = (long int) mmap(addr, length, prot, flags, fd, offset);
+      break;
+    }
+
+    case SYS_munmap:
+    {
+      SYSCALL_GET_ARGS_2(void*, addr, size_t, length);
+      ret = munmap(addr, length);
+      break;
+    }
+
     case SYS_clone:
     {
       typedef int (*fnc) (void*);
