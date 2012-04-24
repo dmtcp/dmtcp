@@ -218,10 +218,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_pwait)                        \
   MACRO(eventfd)                            \
   MACRO(signalfd)                           \
-//  MACRO(creat)
-//  MACRO(openat)
-
-#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO)  \
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
   MACRO(pthread_tryjoin_np)                 \
@@ -234,7 +230,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_rwlock_rdlock)              \
   MACRO(pthread_rwlock_tryrdlock)           \
   MACRO(pthread_rwlock_wrlock)              \
-  MACRO(pthread_rwlock_trywrlock)           \
+  MACRO(pthread_rwlock_trywrlock)
+
+#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO)  \
   MACRO(pthread_cond_broadcast)             \
   MACRO(pthread_cond_destroy)               \
   MACRO(pthread_cond_init)                  \

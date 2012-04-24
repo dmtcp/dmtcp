@@ -224,7 +224,7 @@ void initialize_libc_wrappers()
 }
 
 #define GET_LIBPTHREAD_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = _real_dlsym(pthread_handle, #name);
+  _real_func_addr[ENUM(name)] = dlvsym(RTLD_NEXT, #name, "GLIBC_2.3.2");
 
 /*
  * WARNING: By using this method to initialize libpthread wrappers (direct
@@ -236,18 +236,7 @@ LIB_PRIVATE
 void initialize_libpthread_wrappers()
 {
   if (!_libpthread_wrappers_initialized) {
-    dmtcp_setThreadPerformingDlopenDlsym();
-    void *pthread_handle = _real_dlopen(LIBPTHREAD_FILENAME, RTLD_NOW);
-    dmtcp_unsetThreadPerformingDlopenDlsym();
-
-    if (pthread_handle == NULL) {
-      fprintf(stderr, "*** DMTCP: Error: could not open libpthread shared "
-                      "library. Aborting.\n");
-      abort();
-    }
     FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
-    _real_dlclose(pthread_handle);
-
     _libpthread_wrappers_initialized = 1;
   }
 }
