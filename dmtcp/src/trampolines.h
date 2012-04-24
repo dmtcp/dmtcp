@@ -34,7 +34,7 @@
 #ifdef __x86_64__
 static char asm_jump[] = {
     // mov    $0x1234567812345678,%rax
-    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12, 
+    0x48, 0xb8, 0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12,
     // jmpq   *%rax
     0xff, 0xe0
 };
@@ -64,16 +64,13 @@ typedef struct trampoline_info {
 #define UNINSTALL_TRAMPOLINE(info) \
   memcpy((info).addr, (info).displaced_instructions, ASM_JUMP_LEN)
 
-static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
-                            trampoline_info_t *info)
+static void dmtcp_setup_trampoline_by_addr(void *addr, void *trampoline_fn,
+                                           trampoline_info_t *info)
 {
   unsigned long pagesize = sysconf(_SC_PAGESIZE);
   unsigned long pagemask = ~(pagesize - 1);
   void *page_base;
-  /************ Find libc func and set up permissions. **********/
-  /* We assume that no one is wrapping func yet. */
-  void *handle = dlopen(LIBC_FILENAME, RTLD_NOW);
-  info->addr = dlsym(handle, func_name);
+  info->addr = addr;
   /* Base address of page where func resides. */
   page_base = (void*) ((unsigned long)info->addr & pagemask);
   /* Give that whole page RWX permissions. */
@@ -101,6 +98,27 @@ static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
   memcpy(info->displaced_instructions, info->addr, ASM_JUMP_LEN);
   /* Inject trampoline. */
   INSTALL_TRAMPOLINE(*info);
+}
+
+static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
+                                   trampoline_info_t *info)
+{
+  /* Find libc func
+     We assume that no one is wrapping func yet. */
+  void *handle = dlopen(LIBC_FILENAME, RTLD_NOW);
+  if (handle == NULL) {
+    fprintf(stderr, "*** %s:%d DMTCP Internal Error: dlopen() failed.\n",
+            __FILE__, __LINE__);
+    abort();
+  }
+  void *addr = dlsym(handle, func_name);
+  if (addr == NULL) {
+    fprintf(stderr, "*** %s:%d DMTCP Internal Error: dlsym() failed.\n",
+            __FILE__, __LINE__);
+    abort();
+  }
+  dlclose(handle);
+  dmtcp_setup_trampoline_by_addr(addr, trampoline_fn, info);
 }
 
 #endif
