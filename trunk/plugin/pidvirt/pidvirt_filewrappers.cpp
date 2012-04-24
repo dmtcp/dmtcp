@@ -196,7 +196,8 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   char newpath [ PATH_MAX ] = {0} ;
   //FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?
   updateProcPathVirtualToReal(path, newpath);
-  READLINK_RET_TYPE ret = NEXT_FNC(readlink) (newpath, buf, bufsiz);
+  return NEXT_FNC(readlink) (newpath, buf, bufsiz);
+#if 0
   if (ret != -1) {
     JASSERT(ret < bufsiz)(ret)(bufsiz)(buf)(newpath);
     buf[ret] = '\0'; // glibc-2.13: readlink doesn't terminate buf w/ null char
@@ -205,9 +206,9 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
     strcpy(buf, newpath);
   }
   return ret;
+#endif
 }
 
-#if 0
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -257,7 +258,6 @@ extern "C" char *canonicalize_file_name(const char *path)
   }
   return retval;
 }
-#endif
 
 extern "C" int access(const char *path, int mode)
 {
