@@ -486,6 +486,8 @@ static struct sigaction sigactions[NSIG];  /* signal handlers */
 static size_t restore_size;
 static VA restore_begin, restore_end;
 VA mtcp_restore_begin, mtcp_restore_end;
+static int originalstartup = 1;
+
 static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
 static void mtcp_restore_start(int fd, int verify, pid_t gzip_child_pid,
                                char *ckpt_newname, char *cmd_file,
@@ -928,6 +930,41 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
   callback_holds_any_locks = holds_any_locks;
   callback_pre_suspend_user_thread = pre_suspend_user_thread;
   callback_pre_resume_user_thread = pre_resume_user_thread;
+}
+
+/*************************************************************************
+ *
+ *  Reset various data structures and variable after fork.
+ *
+ *************************************************************************/
+void mtcp_reset_on_fork()
+{
+  MTCP_PRINTF("ASDFASF\n\n");
+  lock_threads();
+  MTCP_PRINTF("$$$$$$:n\n");
+  // motherofall can't be placed on freelist, it's a static buffer.
+  while (threads != motherofall && threads != NULL) {
+    Thread *th = threads;
+    threads = threads->next;
+    MTCP_PRINTF("th: %p, threads: %p\n", th, threads);
+    mtcp_put_thread_on_freelist(th);
+  }
+  unlk_threads();
+
+  sem_destroy(&sem_start);
+  sem_init(&sem_start, 0, 0);
+  motherpid = 0;
+  checkpointhreadstarting = 0;
+  mtcp_state_init(&threadslocked, 0);
+  mtcp_state_init(&restoreinprog, 0);
+  threads_lock_owner = -1;
+  checkpointhreadid = -1;
+  originalstartup = 1;
+
+  motherofall = NULL;
+  ckpthread = NULL;
+  threads = NULL;
+  setup_sig_handler(SIG_DFL);
 }
 
 /*************************************************************************
@@ -1573,6 +1610,9 @@ static void threadisdead (Thread *thread)
     *lthread = xthread -> siblings;
   }
 
+  if (parent == NULL) {
+    parent = motherofall;
+  }
   /* If this thread has children, give them to its parent */
   if (parent != NULL) {
     while ((xthread = thread -> children) != NULL) {
@@ -1581,6 +1621,7 @@ static void threadisdead (Thread *thread)
       parent -> children = xthread;
     }
   } else {
+    // DEAD CODE
     while ((xthread = thread -> children) != NULL) {
       thread -> children = xthread -> siblings;
       xthread -> siblings = motherofall;
@@ -1854,7 +1895,6 @@ static void *checkpointhread (void *dummy)
    * to this call frame at time of startup, on restart.  Hence, restart
    * will forget any modifications to our local variables since restart.
    */
-  static int originalstartup = 1;
 
   /* We put a timeout in case the thread being waited for exits whilst we are
    * waiting

@@ -133,6 +133,8 @@ void* get_mtcp_symbol ( const char* name )
 static void initializeMtcpFuncPtrs()
 {
   mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
+  mtcpFuncPtrs.reset_on_fork =
+    (mtcp_reset_on_fork_t) get_mtcp_symbol("mtcp_reset_on_fork");
   mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
   mtcpFuncPtrs.threadiszombie =
     (mtcp_threadiszombie) get_mtcp_symbol("mtcp_threadiszombie");
@@ -531,6 +533,9 @@ static void unmapRestoreArgv()
   //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
+#if 1
+  mtcpFuncPtrs.reset_on_fork();
+#else
   // Remove our signal handler from our SIG_CKPT
   errno = 0;
   JWARNING (SIG_ERR != _real_signal(dmtcp::DmtcpWorker::determineMtcpSignal(),
@@ -539,6 +544,7 @@ void dmtcp::shutdownMtcpEngineOnFork()
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
   get_mtcp_symbol ( REOPEN_MTCP );
+#endif
 }
 
 void dmtcp::killCkpthread()
