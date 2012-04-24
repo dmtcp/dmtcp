@@ -939,14 +939,11 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
  *************************************************************************/
 void mtcp_reset_on_fork()
 {
-  MTCP_PRINTF("ASDFASF\n\n");
   lock_threads();
-  MTCP_PRINTF("$$$$$$:n\n");
   // motherofall can't be placed on freelist, it's a static buffer.
   while (threads != motherofall && threads != NULL) {
     Thread *th = threads;
     threads = threads->next;
-    MTCP_PRINTF("th: %p, threads: %p\n", th, threads);
     mtcp_put_thread_on_freelist(th);
   }
   unlk_threads();
