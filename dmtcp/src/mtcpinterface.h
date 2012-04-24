@@ -66,6 +66,7 @@ extern "C"
   typedef int  (*mtcp_init_t) (char const *checkpointFilename,
                                int interval,
                                int clonenabledefault);
+  typedef void (*mtcp_reset_on_fork_t)(void);
   typedef int  (*mtcp_ok_t)(void);
   typedef void (*mtcp_threadiszombie)(void);
   typedef void (*mtcp_kill_ckpthread_t)(void);
@@ -86,6 +87,7 @@ extern "C"
     mtcp_set_dmtcp_callbacks_t  set_dmtcp_callbacks;
     mtcp_init_dmtcp_info_t      init_dmtcp_info;
     mtcp_init_t                 init;
+    mtcp_reset_on_fork_t        reset_on_fork;
     mtcp_ok_t                   ok;
     mtcp_threadiszombie         threadiszombie;
     mtcp_clone_t                clone;
