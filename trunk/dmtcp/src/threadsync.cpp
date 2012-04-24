@@ -312,7 +312,8 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
     if (WorkerState::currentState() == WorkerState::RUNNING &&
         isThreadPerformingDlopenDlsym() == false &&
         isCheckpointThreadInitialized() == true  &&
-        isOkToGrabLock() == true) {
+        isOkToGrabLock() == true &&
+        _wrapperExecutionLockLockCount == 0) {
       incrementWrapperExecutionLockLockCount();
       int retVal = _real_pthread_rwlock_tryrdlock(&_wrapperExecutionLock);
       if (retVal != 0 && retVal == EBUSY) {
