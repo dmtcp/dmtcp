@@ -330,7 +330,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     if (!jalib::Filesystem::FileExists(device)) {
 
       // Make sure _path ends with DELETED_FILE_SUFFIX
-      JASSERT( Util::strEndsWith(device, DELETED_FILE_SUFFIX) || Util::strEndsWith(device, DELETED_FILE_SUFFIX)) 
+      JASSERT( Util::strEndsWith(device, DELETED_FILE_SUFFIX) || Util::strEndsWith(device, NULL_FILE_SUFFIX)) 
                 (device).Text("File not exist but is not deleted and not /null");
 
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
