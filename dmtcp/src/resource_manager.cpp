@@ -169,7 +169,7 @@ static dmtcp::string torque_home_nodefile(char *ptr)
 
   // Last check: if lowest file directory is "aux"
   if( aux_name != "aux" ){
-    JTRACE("Wrond aux name");
+    JTRACE("Wrong aux name");
     return "";
   }
 
@@ -368,7 +368,7 @@ int findLibTorque(dmtcp::string &libpath)
   bool found = false;
   if( !findLibTorque_maps(libpath) ){
     found = true;
-  }else if( !findLibTorque_maps(libpath) ){
+  }else if( !findLibTorque_pbsconfig(libpath) ){
     found = true;
   }
 
