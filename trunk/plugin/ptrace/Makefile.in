@@ -57,7 +57,7 @@ OBJS = ptrace.o ptracewrappers.o ptraceinfo.o
 
 SOURCES = ptrace.cpp ptracewrappers.cpp ptraceinfo.cpp
 
-LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
+LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 LDADD = -ldl -lpthread
 

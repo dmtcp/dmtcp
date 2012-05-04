@@ -56,7 +56,7 @@ OBJS = pidvirt.o pidvirt_filewrappers.o pidvirt_miscwrappers.o \
 SOURCES = pidvirt.cpp pidvirt_filewrappers.cpp pidvirt_miscwrappers.cpp \
 	  pidvirt_syscallsreal.c pidwrappers.cpp virtualpidtable.cpp
 
-LIB_LDFLAGS = -shared -module -Wl,--unresolved-symbols=ignore-all
+LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 LDADD = -ldl -lpthread
 
