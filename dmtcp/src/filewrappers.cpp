@@ -536,16 +536,17 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateProcPathOriginalToCurrent(path, newpath);
-  return _real_readlink(newpath, buf, bufsiz);
+  READLINK_RET_TYPE retval = _real_readlink(newpath, buf, bufsiz);
+
 #if 0
   if (retval != -1) {
     updateProcPathCurrentToOriginal(buf, newpath);
     JASSERT(strlen(newpath) < bufsiz);
     strcpy(buf, newpath);
   }
+#endif
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
-#endif
 }
 
 extern "C" char *realpath(const char *path, char *resolved_path)
