@@ -521,7 +521,9 @@ static void readmemoryareas (void)
       if (mmappedat == MAP_FAILED) {
         DPRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
-        if (mtcp_sys_errno == ENOMEM) {
+        if (mtcp_sys_errno == ENOMEM
+            /* && if not [vectors] segment:  occurs at 0xffff0000 for arm-32 */
+            && mtcp_strncmp(area.name, "[vectors]", sizeof("[vectors]"))) {
           MTCP_PRINTF(
            "\n**********************************************************\n"
            "****** Received ENOMEM.  Trying to continue, but may fail.\n"
