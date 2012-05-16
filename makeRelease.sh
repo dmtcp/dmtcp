@@ -39,7 +39,7 @@ else
   NAME=dmtcp-$VERSION+svn$REV
 fi
 
-e svn export -r $REV $VCS_SVN/trunk $NAME
+e svn export -r $REV $VCS_SVN/branches/1.2 $NAME
 e rm -rf $NAME/{makeRelease.sh}
 
 #REV=`getRev dmtcp_staging`
