@@ -1,3 +1,12 @@
+dmtcp (1.2.5-1) unstable; urgency=low
+
+  * Preparing for upstream Release 1.2.5.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+  * debhelper version changed from >=9 to >=7 to accommodate older distros.
+  * Standards version changed to 3.9.3. 
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 16 May 2012 17:55:28 -0400
+
 dmtcp (1.2.4-1) unstable; urgency=low
 
   * Finally, preparing for upstream Release 1.2.4.
