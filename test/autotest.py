@@ -708,6 +708,8 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
     vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
+      if os.getenv('USER') == None:
+        return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
     		            stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split('\n')[1:]:
