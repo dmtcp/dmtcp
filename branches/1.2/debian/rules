@@ -28,7 +28,7 @@ DESTDIR = $(CURDIR)/$(BUILDDIR)
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
-	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info CFLAGS="$(CFLAGS)" LDFLAGS="-Wl,-z,defs"
+	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info $(shell dpkg-buildflags --export=configure)
 
 	touch configure-stamp
 

@@ -29,16 +29,10 @@ Copyright: 2011-2012, Kapil Arya <kapil@ccs.neu.edu>
            2011-2012, Tyler Denniston <tyler@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/eventwrappers.cpp/*
+Files: dmtcp/src/eventwrappers.cpp
 Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
            2012, Gene Cooperman <gene@ccs.neu.edu>
            2012, Rohan Garg <rohgarg@ccs.neu.edu>
-License: LGPL-3
-
-Files: plugin/*
-Copyright: 2009-2012, Jason Ansel <jansel@csail.mit.edu>
-           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
-           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
 Files: plugin/ptrace/*
