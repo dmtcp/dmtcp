@@ -1042,7 +1042,7 @@ void dmtcp::FileConnection::preCheckpointResMgrFile(const dmtcp::vector<int>& fd
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
     saveFile(fds[0]);
-  } else if( isTorqueNodeFile(_path) ){
+  } else if( isTorqueNodeFile(_path) || _rmtype == TORQUE_NODE ){
     _rmtype = TORQUE_NODE;
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
@@ -1171,8 +1171,14 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
 
   if( _rmtype == TORQUE_NODE ){
     JTRACE("Restore Torque Node file")(fds.size());
-    dmtcp::string newpath = "/tmp/dmtcp_torque_nodefile";
-    restoreFile(newpath);
+    char newpath_tmpl[] = "/tmp/dmtcp_torque_nodefile.XXXXXX";
+    dmtcp::string newpath;
+    mktemp(newpath_tmpl);
+    if( newpath_tmpl[0] == '\0' ){
+      strcpy(newpath_tmpl,"/tmp/dmtcp_torque_nodefile");
+    }
+    newpath = newpath_tmpl;
+    restoreFile(newpath,false);
     _path = newpath;
     return false;
   }else if( _rmtype == TORQUE_IO ){
@@ -1342,14 +1348,16 @@ int dmtcp::FileConnection::openFile()
   return fd;
 }
 
-void dmtcp::FileConnection::restoreFile(dmtcp::string newpath)
+void dmtcp::FileConnection::restoreFile(dmtcp::string newpath, bool check_exist)
 {
   JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
   JASSERT(_checkpointed);
 
+  JTRACE("Start")(newpath)(_checkpointed)(jalib::Filesystem::FileExists(_path));
+  
   if( newpath == "" )
     newpath = _path;
-  if (_checkpointed && !jalib::Filesystem::FileExists(_path)) {
+  if (_checkpointed && !(check_exist && jalib::Filesystem::FileExists(_path)) ) {
 
     JNOTE("File not present, copying from saved checkpointed file") (_path);
 

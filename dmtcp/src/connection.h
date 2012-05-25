@@ -422,7 +422,7 @@ namespace dmtcp
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
 
       virtual string str() { return _path; }
-      void restoreFile(dmtcp::string newpath = "");
+      void restoreFile(dmtcp::string newpath = "", bool check_exist = true);
       dmtcp::string filePath() { return _path; }
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() {
