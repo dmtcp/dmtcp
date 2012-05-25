@@ -142,6 +142,25 @@ static const char* theRestartScriptHeader =
   "#     command.\n\n\n"
 ;
 
+static const char* theRestartScriptCheckLocal =
+  "check_local()\n"
+  "{\n"
+  "  worker_host=$1\n"
+  "  unset is_local_node\n"
+  "  worker_ip=$(nslookup $worker_host | grep -A1 'Name:' | grep 'Address:' | sed -e 's/Address://' -e 's/ //' -e 's/	//')\n"
+  "  ifconfig_path=`which ifconfig`\n"
+  "  if [ -z \"$ifconfig_path\" ]; then\n"
+  "    ifconfig_path=\"/sbin/ifconfig\"\n"
+  "  fi\n"
+  "  output=`$ifconfig_path -a | grep \"inet addr:.*${worker_ip}.*Bcast\"`\n"
+  "  if [ -n \"$output\" ]; then\n"
+  "    is_local_node=1\n"
+  "  else\n"
+  "    is_local_node=0\n"
+  "  fi\n"
+  "}\n\n\n";
+
+
 static const char* theRestartScriptUsage =
   "usage_str='USAGE:\n"
   "  dmtcp_restart_script.sh [OPTIONS]\n\n"
@@ -289,14 +308,11 @@ static const char* theRestartScriptMultiHostProcessing =
   "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
   "  done\n\n"
 
-  "  worker_canon_name=$(nslookup $worker_host | grep 'Name:' | sed -e 's/Name://' -e 's/ //' -e 's/\t//')\n"
-  "  if [ $(hostname) = \"$worker_host\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
+  "  check_local $worker_host\n"
+  "  if [ \"$is_local_node\" -eq 1 -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
   "    continue\n"
-  "  elif [ -n \"$host_canon_name\" -a \"$host_canon_name\" = \"$worker_canon_name\" -o \"$num_worker_hosts\" == \"1\" ]; then\n"
-  "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
-  "    continue\n"
-  "  fi\n\n"
+  "  fi\n"
 
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
@@ -1485,6 +1501,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     .Text ( "failed to open file" );
 
   fprintf ( fp, "%s", theRestartScriptHeader );
+  fprintf ( fp, "%s", theRestartScriptCheckLocal );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
   fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
@@ -1559,8 +1576,6 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "    worker_ckpts=\"$new_worker_ckpts\"\n"
                   "  fi\n"
                   "fi\n\n"
-                  "host_name=$(hostname)\n"
-                  "host_canon_name=$(nslookup $host_name | grep 'Name:' | sed -e 's/Name://' -e 's/ //' -e 's/\t//')"
                   "\n\n\n");
 
     fprintf ( fp, "%s", theRestartScriptMultiHostProcessing );
