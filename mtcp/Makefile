@@ -60,7 +60,8 @@ AS = as --32
 endif
 
 #Currently sometimes can't link libmtcp.so without MTCP_CFLAGS=-O0
-MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g -fno-stack-protector
+MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g
+
 # Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
 #   stderr (and to jassertlog.* , if configured with --enable-debug)
 # MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g -DDEBUG -DTIMING -Wall
@@ -139,6 +140,7 @@ endif
 
 ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
   MTCP_CFLAGS+=-fno-stack-protector
+  FSTACK_PROTECTOR=-fstack-protector
 endif
 
 ifdef PREFIX
@@ -371,7 +373,7 @@ mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 
 # -fstack-protector for hardening-check for debian-unstable (May 2012).
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -fstack-protector -c -o mtcp_maybebpt.o mtcp_maybebpt.c
+	${CC} $(MTCP_CFLAGS) $(FSTACK_PROTECTOR) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
