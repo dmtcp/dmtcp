@@ -49,48 +49,48 @@ ifdef M32
 CC = gcc -m32 -Wa,--32 -DHIGHEST_VA='(VA)0xffffe000'
 UNAME = linux32 uname
 LD_RAW = ld -m32 -melf_i386
-LDFLAGS =  -Wl,-m32 -Wl,-melf_i386 -shared
+MTCP_LDFLAGS += ${LDFLAGS} -Wl,-m32 -Wl,-melf_i386 -shared
 AS = as
 else
 CC = gcc
 UNAME = uname
 LD_RAW = ld
-LDFLAGS =  -shared
+MTCP_LDFLAGS +=  ${LDFLAGS} -shared
 AS = as --32
 endif
 
-#Currently sometimes can't link libmtcp.so without CFLAGS=-O0
-CFLAGS += -O0 -g
+#Currently sometimes can't link libmtcp.so without MTCP_CFLAGS=-O0
+MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g -fno-stack-protector
 # Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
 #   stderr (and to jassertlog.* , if configured with --enable-debug)
-# CFLAGS += -O0 -g -DDEBUG -DTIMING -Wall
-# Try:  env CFLAGS=-DTEST_FORKED_CHECKPOINTING to CFLAGS  make
+# MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g -DDEBUG -DTIMING -Wall
+# Try:  env MTCP_CFLAGS=-DTEST_FORKED_CHECKPOINTING to MTCP_CFLAGS  make
 #  	 to enable standalone invocation of forked checkpointing.
 
-LDFLAGS += -Wl,-soname,libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
+MTCP_LDFLAGS += -Wl,-soname,libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
 
 ifdef CFLAGS_WALL
-  CFLAGS += -Wall
+  MTCP_CFLAGS += -Wall
 endif
 
 # If calling 'make' from mtcp subdir, you may want to unconditionally set this.
 ifdef HBICT_DELTACOMP
-  CFLAGS += -DHBICT_DELTACOMP
+  MTCP_CFLAGS += -DHBICT_DELTACOMP
 endif
 
 # If ./configure --enable-fast-ckpt-restart defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
 ifdef FAST_CKPT_RESTART
-  CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
+  MTCP_CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
 endif
 # If ./configure --mtcp-use_proc_maps defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
 ifdef USE_PROC_MAPS
-  CFLAGS += -DUSE_PROC_MAPS
+  MTCP_CFLAGS += -DUSE_PROC_MAPS
 endif
 
 ifdef DMTCP_VERSION
-  CFLAGS += -DDMTCP_VERSION=\"$(DMTCP_VERSION)\"
+  MTCP_CFLAGS += -DDMTCP_VERSION=\"$(DMTCP_VERSION)\"
 endif
 
 LD = ${CC}
@@ -114,21 +114,21 @@ endif
 ifdef USE_PROC_MAPS
 ifneq ($(BUILDTYPE),x86_64)
 ifneq ($(BUILDTYPE),arm)
-  CFLAGS += -fPIC -DPIC
-  LDFLAGS += -fPIC 
+  MTCP_CFLAGS += -fPIC -DPIC
+  MTCP_LDFLAGS += -fPIC
 endif
 endif
 endif
 
-# But for testmtcp, don't use CFLAGS if don't want position-independent code
+# But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
 ifeq ($(BUILDTYPE),x86_64)
-  CFLAGS += -fPIC -DPIC
-  LDFLAGS += -fPIC 
+  MTCP_CFLAGS += -fPIC -DPIC
+  MTCP_LDFLAGS += -fPIC
 endif
 
 ifeq ($(BUILDTYPE),arm)
-  CFLAGS += -fPIC -DPIC -march=armv7
-  LDFLAGS += -fPIC 
+  MTCP_CFLAGS += -fPIC -DPIC -march=armv7
+  MTCP_LDFLAGS += -fPIC
   ARM_EXTRAS = libc-do-syscall-arm-eabi.o
 # As of February, 2012, crt1.o has an undefined symbol, abort.
 # This prevents us from compiling mtcp_restart with -nodefaultlibs
@@ -138,7 +138,7 @@ ifeq ($(BUILDTYPE),arm)
 endif
 
 ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
-  CFLAGS+=-fno-stack-protector
+  MTCP_CFLAGS+=-fno-stack-protector
 endif
 
 ifdef PREFIX
@@ -180,11 +180,11 @@ uninstall:
 ifdef FAST_CKPT_RESTART
 readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
 	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
-	${CC} ${CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
+	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
 else
 readmtcp: readmtcp.c mtcp_internal.h
-	${CC} ${CFLAGS} -o readmtcp readmtcp.c
+	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c
 endif
 
 build: libmtcp.so mtcp_restart
@@ -194,17 +194,17 @@ tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
 # Test programs
 
 testmtcp: testmtcp.o libmtcp.so
-	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic libmtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(MTCP_CFLAGS) -o testmtcp testmtcp.o -Wl,--export-dynamic libmtcp.so
 	# libtool --mode=link gcc -o testmtcp testmtcp.o -Wl,--export-dynamic libmtcp.so
 
 bigtestmtcp: bigtestmtcp.o libmtcp.so
-	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic libmtcp.so
+	env LD_LIBRARY_PATH=. ${CC} $(MTCP_CFLAGS) -o bigtestmtcp bigtestmtcp.o -Wl,--export-dynamic libmtcp.so
 
 testgettimeofday: testgettimeofday.o libmtcp.so
-	env LD_LIBRARY_PATH=. ${CC} $(CFLAGS) \
+	env LD_LIBRARY_PATH=. ${CC} $(MTCP_CFLAGS) \
 	  -o testgettimeofday testgettimeofday.o -Wl,--export-dynamic libmtcp.so
 testgettimeofday.o: testgettimeofday.c
-	${CC} $(CFLAGS) -c -o testgettimeofday.o testgettimeofday.c
+	${CC} $(MTCP_CFLAGS) -c -o testgettimeofday.o testgettimeofday.c
 checkgettimeofday: libmtcp.so mtcp_restart testgettimeofday
 	(sleep 5; pkill testgettimeofda) &
 	env LD_LIBRARY_PATH=. ./testgettimeofday || true
@@ -219,27 +219,27 @@ checkgettimeofday: libmtcp.so mtcp_restart testgettimeofday
 	./mtcp_restart testgettimeofday.mtcp
 
 testmtcp.o: testmtcp.c
-	${CC} $(CFLAGS) -c -o testmtcp.o testmtcp.c
+	${CC} $(MTCP_CFLAGS) -c -o testmtcp.o testmtcp.c
 
 testmtcp2: testmtcp2.c libmtcp.so $(ARM_EXTRAS)
-	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c \
+	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c \
 	  libmtcp.so $(ARM_EXTRAS)
 
 testmtcp3: testmtcp3.c libmtcp.so
-	${CC} $(CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
+	${CC} $(MTCP_CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
 
 testmtcp4: testmtcp4.c libmtcp.so
-	${CC} $(CFLAGS) -o testmtcp4 testmtcp4.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
+	${CC} $(MTCP_CFLAGS) -o testmtcp4 testmtcp4.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
 
 testmtcp5: testmtcp5.c libmtcp.so
-	${CC} $(CFLAGS) -o testmtcp5 testmtcp5.c libmtcp.so 
+	${CC} $(MTCP_CFLAGS) -o testmtcp5 testmtcp5.c libmtcp.so
 
 testmtcp6: testmtcp6.c libmtcp.so
-	${CC} $(CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
+	${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
 	  -lreadline -lhistory -lcurses
 
 threadtest: threadtest.c
-	${CC} $(CFLAGS) -o threadtest threadtest.c
+	${CC} $(MTCP_CFLAGS) -o threadtest threadtest.c
 
 # This is the command-line utility to restore a process
 # NOTE: Compile/build mtcp_restart with -nodefaultlibs. See the following
@@ -255,7 +255,7 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
-	${CC} $(CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
+	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
@@ -264,15 +264,15 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 
 ifeq ($(BUILDTYPE),arm)
 libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
-	${CC} ${CFLAGS} -c -o $@ $<
+	${CC} ${MTCP_CFLAGS} -c -o $@ $<
 endif
 
 #not used:
 # # mtcp_restart.so is used only by dmtcp --- not by mtcp
 # mtcp_restart.so: mtcp_restart.c mtcp_internal.h mtcp_maybebpt.o \
 #   mtcp_printf.o mtcp_safe_open.o mtcp_util.o mtcp_safemmap.o mtcp_state.o
-# 	# ${CC} $(CFLAGS) -shared -Wl,--no-allow-shlib-undefined
-# 	${CC} $(CFLAGS) -shared \
+# 	# ${CC} $(MTCP_CFLAGS) -shared -Wl,--no-allow-shlib-undefined
+# 	${CC} $(MTCP_CFLAGS) -shared \
 # 	 -o mtcp_restart.so mtcp_restart.c mtcp_maybebpt.o \
 # 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
@@ -282,7 +282,7 @@ endif
 # mtcp.t originally generated as below via:  ld -shared --verbose.
 # It was modified to include shareable_begin/end sections.
 # The patch was then created with:  diff -c mtcp.t mtcp.tnew > mtcp.t.patch
-# Do not replace ld by ${LD} ${LDFLAGS} in generating mtcp.t.
+# Do not replace ld by ${LD} ${MTCP_LDFLAGS} in generating mtcp.t.
 mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	rm -f mtcp.t
 	${LD_RAW} -shared --verbose > mtcp.t
@@ -311,7 +311,7 @@ LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
 
 # for libtools -- not used
 %.lo : %.c
-	libtool --mode=compile gcc -c $(CFLAGS) $<
+	libtool --mode=compile gcc -c $(MTCP_CFLAGS) $<
 
 libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
@@ -320,8 +320,8 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	#   --no-gc-sections, --no-strip-discarded in case default options
 	#   want to garbage collection the MTCP sections, and strip its symbols
 	echo LD $(LD)
-	echo LDFLAGS $(LDFLAGS)
-	${LD} ${LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
+	echo MTCP_LDFLAGS $(MTCP_LDFLAGS)
+	${LD} ${MTCP_LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
 	  -ldl -lpthread -lm
@@ -350,54 +350,58 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
+	${CC} $(MTCP_CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
+mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_restart_nolibc.o \
+	  mtcp_restart_nolibc.c
 
 # mtcp.lis is needed only for debugging.
 mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
+	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
 
 # The resultant mtcp_restart_nolibc.o module should not have undefined symbols
-# ... if it did, they would get linked to /lib/libc.so at runtime and 
+# ... if it did, they would get linked to /lib/libc.so at runtime and
 # ... the restart wouldn't work as /lib/libc.so isn't in memory
 #   during the restart
-# It also cannot have global symbols like 'read' undefined in one module, defined 
+# It also cannot have global symbols like 'read' undefined in one module, defined
 # ... by another, as the loader will also re-direct those references to /lib/libc.so
 
 
+# -fstack-protector for hardening-check for debian-unstable (May 2012).
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
+	${CC} $(MTCP_CFLAGS) -fstack-protector -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
 
 mtcp_util.o: mtcp_util.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_util.o mtcp_util.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_util.o mtcp_util.c
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
 
 mtcp_state.o: mtcp_state.c mtcp_internal.h mtcp_futex.h
-	${CC} $(CFLAGS) $(CFLAGS_FUTEX_ARM) -c -o mtcp_state.o mtcp_state.c
+	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -c -o mtcp_state.o mtcp_state.c
 
 mtcp_state.lis: mtcp_state.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis mtcp_state.c
+	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis mtcp_state.c
 
 mtcp_check_vdso.o: mtcp_check_vdso.c
-	${CC} $(CFLAGS) -c -o mtcp_check_vdso.o mtcp_check_vdso.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_check_vdso.o mtcp_check_vdso.c
 
 extractobjectmodule: extractobjectmodule.c
-	${CC} $(CFLAGS) -o extractobjectmodule extractobjectmodule.c
+	${CC} $(MTCP_CFLAGS) -o extractobjectmodule extractobjectmodule.c
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
-	${CC} $(CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
 
 mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
-	${CC} $(CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}
