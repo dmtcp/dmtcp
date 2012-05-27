@@ -556,3 +556,9 @@ void __stack_chk_fail(void)
   MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
   mtcp_abort();
 }
+
+void __stack_chk_guard(void)
+{
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
