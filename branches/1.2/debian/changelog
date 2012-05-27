@@ -6,9 +6,10 @@ dmtcp (1.2.5-1) unstable; urgency=low
   * configure command line updated to include dkpg-buildflags.
   * Added lintian overrides for libmtcp1, dmtcp and libdmtcpaware1 to suppress
     hardening false positives.
+  * ARM support added.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 26 May 2012 22:41:59 -0400
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 26 May 2012 22:54:33 -0400
 
 dmtcp (1.2.4-1) unstable; urgency=low
 
