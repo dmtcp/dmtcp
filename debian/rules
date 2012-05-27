@@ -48,7 +48,7 @@ build-stamp: configure-stamp
 	$(MAKE)
 	#docbook-to-man debian/dmtcp.sgml > dmtcp.1
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
-	#$(MAKE) check
+	$(MAKE) check
 endif
 
 	touch $@
