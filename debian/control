@@ -10,7 +10,7 @@ Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
 Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Depends: libmtcp1, ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -27,7 +27,7 @@ Description: Checkpoint/Restart functionality for Linux processes
  This package contains DMTCP binaries.
 
 Package: dmtcp-dbg
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: debug
 Priority: extra
 Depends: dmtcp, ${misc:Depends}
@@ -46,7 +46,7 @@ Description: Debug package for dmtcp
  This package contains debugging symbols for DMTCP.
 
 Package: libmtcp1
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libs
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP library needed for checkpointing a standalone process
@@ -65,7 +65,7 @@ Description: DMTCP library needed for checkpointing a standalone process
  standalone process.
 
 Package: libmtcp-dev
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libdevel
 Depends: libmtcp1 (= ${binary:Version}), ${misc:Depends}
 Description: Developer package for libmtcp
@@ -83,7 +83,7 @@ Description: Developer package for libmtcp
  This package provides header files needed for building programs with libmtcp.
 
 Package: libdmtcpaware1
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libs
 Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP programming interface
@@ -102,7 +102,7 @@ Description: DMTCP programming interface
  applications to interact with dmtcp.
 
 Package: libdmtcpaware-dev
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libdevel
 Depends: libdmtcpaware1 (= ${binary:Version}), ${misc:Depends}
 Description: DMTCP programming interface -- developer package
