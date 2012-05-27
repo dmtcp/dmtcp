@@ -650,8 +650,7 @@ runTest("shared-memory", 2, ["./test/shared-memory"])
 if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   print "On ARM, there is a known issue with the sysv-shm test. Not running it."
-else:
-  runTest("sysv-shm",      2, ["./test/sysv-shm"])
+runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])
