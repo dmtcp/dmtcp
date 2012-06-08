@@ -22,12 +22,16 @@
 #ifndef CONNECTIONMANAGER_H
 #define CONNECTIONMANAGER_H
 
-#include "constants.h"
 #include "dmtcpalloc.h"
 #include "connection.h"
+#include <list>
+#include <map>
+#include <string>
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
+#include "virtualpidtable.h"
+#include "constants.h"
 
 
 namespace dmtcp
@@ -109,6 +113,18 @@ namespace dmtcp
       dmtcp::map< dmtcp::string , ConnectionIdentifier > _table;
   };
 
+  class VirtualPidTable;
+  typedef struct _SerializedWorkerInfo {
+    UniquePid compGroup;
+    int       numPeers;
+    size_t    argvSize;
+    size_t    envSize;
+#ifdef PID_VIRTUALIZATION
+    dmtcp::VirtualPidTable virtualPidTable;
+#endif
+  } SerializedWorkerInfo;
+
+
   class ConnectionToFds
   {
     public:
@@ -118,6 +134,11 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       ConnectionToFds() {
+        _procname   = jalib::Filesystem::GetProgramName();
+        _hostname   = jalib::Filesystem::GetCurrentHostname();
+        _inhostname = jalib::Filesystem::GetCurrentHostname();
+        _upid       = UniquePid::ThisProcess();
+        _uppid      = UniquePid::ParentProcess();
       }
       ConnectionToFds ( KernelDeviceToConnection& source );
       dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
@@ -134,14 +155,29 @@ namespace dmtcp
 
       void serialize ( jalib::JBinarySerializer& o );
 
+      const dmtcp::string& procname()   const { return _procname; }
+      const dmtcp::string& hostname()   const { return _hostname; }
+      const dmtcp::string& inhostname() const { return _inhostname; }
+      const UniquePid&   upid()        const { return _upid; }
+      const UniquePid&   uppid()       const { return _uppid; }
+
+      static pid_t ext_decomp_pid;
+      static int openDmtcpCheckpointFile(const dmtcp::string& filename);
+      static int openMtcpCheckpointFile(const dmtcp::string& filename);
+
+      int loadFromFile(const dmtcp::string& filename, SerializedWorkerInfo *info);
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
+      dmtcp::string _procname;
+      dmtcp::string _hostname;
+      dmtcp::string _inhostname;
+      UniquePid _upid, _uppid;
   };
 
 
-  // Another mapping from Connection to FD
-  // This time to temporarily hold FD's which must be slid around as each FD
-  //jis put into use
+  ///
+  /// Another mapping from Connection to FD
+  /// This time to temporarily hold FD's which must be slid around as each FD is put into use
   class SlidingFdTable
   {
     public:

@@ -29,12 +29,11 @@
 #include "connectionmanager.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "processinfo.h"
+#include "virtualpidtable.h"
+#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
-#include "dmtcpplugin.h"
 #include "util.h"
-#include "sysvipc.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include <sys/time.h>
@@ -91,23 +90,32 @@ LIB_PRIVATE void pthread_atfork_child()
     return;
   }
   pthread_atfork_enabled = false;
-
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  // Reset __thread_tid on fork. This should be the first thing to do in
+  // the child process.
+  dmtcp_reset_gettid();
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();
   dmtcp::ThreadSync::resetLocks();
 
+  child = dmtcp::UniquePid(host, _real_getpid(), child_time);
   dmtcp::UniquePid::resetOnFork(child);
   dmtcp::Util::initializeLogFile(child_name);
 
-  dmtcp::ProcessInfo::instance().resetOnFork();
+#ifdef PID_VIRTUALIZATION
+  if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
+    _exit(DMTCP_FAIL_RC);
+  }
+  dmtcp::VirtualPidTable::instance().resetOnFork();
+#endif
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
   dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+
 }
 
 extern "C" pid_t fork()
@@ -123,46 +131,53 @@ extern "C" pid_t fork()
   child_time = time(NULL);
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  pid_t child_pid;
 
-  //Unset this environment variable so that we can get a new virtualPid from
-  //the coordinator.
-  _dmtcp_unsetenv(ENV_VAR_VIRTUAL_PID);
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
-  pid_t virtualPid = coordinatorAPI.virtualPid();
-  dmtcp::Util::setVirtualPidEnvVar(virtualPid, getpid());
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
-  pid_t childPid = _real_fork();
+  while (1) {
+    child_pid = _real_fork();
+    if (child_pid == -1) { // fork() failed
+      break;
+    }
 
-  if (childPid == -1) {
-  } else if (childPid == 0) { /* child process */
-    /* NOTE: Any work that needs to be done for the newly created child
-     * should be put into pthread_atfork_child() function. That function is
-     * hooked to the libc:fork() and will be called right after the new
-     * process is created and before the fork() returns.
-     *
-     * pthread_atfork_child is registered by calling pthread_atfork() from
-     * within the DmtcpWorker constructor to make sure that this is the first
-     * registered handle.
-     */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
-    JTRACE("fork() done [CHILD]") (child) (parent);
-  } else if (childPid > 0) { /* Parent Process */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, childPid, child_time);
-    dmtcp::ProcessInfo::instance().insertChild(childPid, child);
-    JTRACE("fork()ed [PARENT] done") (child);;
+    if (child_pid == 0) { /* child process */
+      /* NOTE: Any work that needs to be done for the newly created child
+       * should be put into pthread_atfork_child() function. That function is
+       * hooked to the libc:fork() and will be called right after the new
+       * process is created and before the fork() returns.
+       *
+       * pthread_atfork_child is registered by calling pthread_atfork() from
+       * within the DmtcpWorker constructor to make sure that this is the first
+       * registered handle.
+       */
+      JTRACE("fork() done [CHILD]") (child) (parent);
+    } else { /* Parent Process */
+      coordinatorAPI.closeConnection();
+      child = dmtcp::UniquePid(host, child_pid, child_time);
+#ifdef PID_VIRTUALIZATION
+      if (dmtcp::VirtualPidTable::isConflictingPid(child_pid)) {
+        JTRACE("PID Conflict, creating new child") (child_pid);
+        _real_waitpid(child_pid, NULL, 0);
+        continue;
+      }
+      dmtcp::VirtualPidTable::instance().insert(child_pid, child);
+#endif
+
+      JTRACE("fork()ed [PARENT] done") (child);;
+    }
+    break;
   }
-
   pthread_atfork_enabled = false;
 
-  if (childPid != 0) {
-    dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
-    coordinatorAPI.closeConnection();
+  if (child_pid != 0) {
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
-  return childPid;
+  return child_pid;
 }
 
 extern "C" pid_t vfork()
@@ -250,9 +265,10 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
-  dmtcp::ProcessInfo::instance().serialize ( wr );
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::instance().serialize ( wr );
   dmtcp::SysVIPC::instance().serialize ( wr );
-  dmtcp_process_event(DMTCP_EVENT_PREPARE_FOR_EXEC, (void*) &wr);
+#endif
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);
@@ -260,7 +276,6 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::Util::adjustRlimitStack();
 
   dmtcp::Util::prepareDlsymWrapper();
-  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
   JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }
@@ -273,7 +288,13 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
     dmtcp::Util::freePatchedArgv(newArgv);
   }
 
-  restoreUserLDPRELOAD();
+  const char *preload = getenv("LD_PRELOAD");
+  if (preload != NULL &&
+      dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c)) {
+    setenv("LD_PRELOAD",
+           preload + strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1,
+           1);
+  }
 
   unsetenv(ENV_VAR_DLSYM_OFFSET);
 
@@ -283,7 +304,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 
 static dmtcp::string getUpdatedLdPreload(const char* currLdPreload = NULL)
 {
-  dmtcp::string preload = getenv(ENV_VAR_HIJACK_LIBS);
+  dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
   if (currLdPreload != NULL) {
     preload = preload + ":" + currLdPreload;
   } else if (getenv("LD_PRELOAD") != NULL) {
@@ -628,7 +649,7 @@ extern int do_system (const char *line);
 extern "C" int system (const char *line)
 {
   JTRACE ( "before system(), checkpointing may not work" )
-    ( line ) ( getenv ( ENV_VAR_HIJACK_LIBS ) ) ( getenv ( "LD_PRELOAD" ) );
+    ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might

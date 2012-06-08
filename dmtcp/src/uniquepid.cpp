@@ -110,7 +110,7 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
   if ( theProcess() == nullProcess() )
   {
     theProcess() = dmtcp::UniquePid ( theUniqueHostId() ,
-                                      ::getpid(),
+                                      ::_real_getpid(),
                                       ::time(NULL) );
     if (disableJTrace == false) {
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
@@ -151,6 +151,31 @@ dmtcp::UniquePid::UniquePid()
 {
   memset ( &_time,0,sizeof ( _time ) );
   setPrefix();
+}
+
+long  dmtcp::UniquePid::hostid() const
+{
+  return _hostid;
+}
+
+pid_t  dmtcp::UniquePid::pid() const
+{
+  return _pid;
+}
+
+time_t  dmtcp::UniquePid::time() const
+{
+  return _time;
+}
+
+int  dmtcp::UniquePid::generation() const
+{
+  return _generation;
+}
+
+const char* dmtcp::UniquePid::prefix() const
+{
+  return _prefix;
 }
 
 void dmtcp::UniquePid::setPrefix()
@@ -248,6 +273,7 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   return os.str();
 }
 
+#ifdef PID_VIRTUALIZATION
 dmtcp::string dmtcp::UniquePid::pidTableFilename()
 {
   static int count = 0;
@@ -257,6 +283,7 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
+#endif
 
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {

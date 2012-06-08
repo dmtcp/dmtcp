@@ -34,11 +34,10 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "processinfo.h"
+#include "virtualpidtable.h"
 #include "protectedfds.h"
 #include "sockettable.h"
 #include "dmtcpplugin.h"
-#include "util.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
@@ -78,12 +77,17 @@ static void callbackRestoreVirtualPidTable();
 void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
+void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval);
 
+void callbackCkptThreadStart();
 LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
+
+//to allow linking without ptrace plugin
+extern "C" int __attribute__ ((weak)) mtcp_is_ptracing() { return FALSE; }
 
 static void* find_and_open_mtcp_so()
 {
@@ -133,8 +137,6 @@ void* get_mtcp_symbol ( const char* name )
 static void initializeMtcpFuncPtrs()
 {
   mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
-  mtcpFuncPtrs.reset_on_fork =
-    (mtcp_reset_on_fork_t) get_mtcp_symbol("mtcp_reset_on_fork");
   mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
   mtcpFuncPtrs.threadiszombie =
     (mtcp_threadiszombie) get_mtcp_symbol("mtcp_threadiszombie");
@@ -151,12 +153,6 @@ static void initializeMtcpFuncPtrs()
     (mtcp_set_callbacks_t) get_mtcp_symbol("mtcp_set_callbacks");
   mtcpFuncPtrs.set_dmtcp_callbacks =
     (mtcp_set_dmtcp_callbacks_t) get_mtcp_symbol("mtcp_set_dmtcp_callbacks");
-  mtcpFuncPtrs.prepare_for_clone =
-    (mtcp_prepare_for_clone_t) get_mtcp_symbol("mtcp_prepare_for_clone");
-  mtcpFuncPtrs.thread_start =
-    (mtcp_thread_start_t) get_mtcp_symbol("mtcp_thread_start");
-  mtcpFuncPtrs.thread_return =
-    (mtcp_thread_return_t) get_mtcp_symbol("mtcp_thread_return");
 }
 
 static void initializeDmtcpInfoInMtcp()
@@ -203,7 +199,10 @@ void dmtcp::initializeMtcpEngine()
   (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackRestoreVirtualPidTable,
                                       &callbackHoldsAnyLocks,
                                       &callbackPreSuspendUserThread,
-                                      &callbackPreResumeUserThread);
+                                      &callbackPreResumeUserThread,
+                                      &callbackSendStopSignal,
+                                      &callbackCkptThreadStart
+                                     );
 
   JTRACE ("Calling mtcp_init");
   mtcpFuncPtrs.init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
@@ -222,7 +221,7 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   unmapRestoreArgv();
 
   dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG,
-                      (void*) dmtcp::ProcessInfo::instance().numThreads());
+                      (void*) dmtcp::VirtualPidTable::instance().numThreads());
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.
@@ -234,7 +233,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
   // serves the purpose without having a callback.
   // TODO: Check for correctness.
-  JALIB_CKPT_UNLOCK();
+  JALIB_RESET_ON_FORK();
 
   dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
 
@@ -261,8 +260,6 @@ static void callbackPostCheckpoint ( int isRestart,
   {
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
-
-    dmtcp_process_event(DMTCP_EVENT_POST_RESTART, NULL);
 
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
@@ -291,7 +288,6 @@ static void callbackPostCheckpoint ( int isRestart,
      */
     dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
     dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
-    callbackRestoreVirtualPidTable();
   }
   else
   {
@@ -302,7 +298,7 @@ static void callbackPostCheckpoint ( int isRestart,
       dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
       dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
       dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-      dmtcp_process_event(DMTCP_EVENT_POST_CKPT_RESUME, NULL);
+      dmtcp_process_event(DMTCP_EVENT_POST_CHECKPOINT_RESUME, NULL);
     }
 
     // Set the process state to RUNNING now, in case a dmtcpaware hook
@@ -323,13 +319,12 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 static void callbackWriteCkptPrefix ( int fd )
 {
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
-  dmtcp_process_event(DMTCP_EVENT_WRITE_CKPT_PREFIX, (void*) (unsigned long) fd);
 }
 
 static void callbackRestoreVirtualPidTable()
 {
-  dmtcp_process_event(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::instance().restoreVirtualPidTable();
 
 #ifndef RECORD_REPLAY
   /* This calls setenv() which calls malloc. Since this is only executed on
@@ -348,7 +343,6 @@ static void callbackRestoreVirtualPidTable()
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 void callbackHoldsAnyLocks(int *retval)
 {
   /* This callback is useful only for the ptrace plugin currently, but may be
@@ -366,7 +360,7 @@ void callbackHoldsAnyLocks(int *retval)
   dmtcp::ThreadSync::unsetOkToGrabLock();
   *retval = dmtcp::ThreadSync::isThisThreadHoldingAnyLocks();
   if (*retval == TRUE) {
-    JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
+    JASSERT(mtcp_is_ptracing());
     dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock();
   }
 }
@@ -384,12 +378,25 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   info.is_restart = is_restart;
   dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
   dmtcp::ThreadSync::setOkToGrabLock();
-  // This should be the last significant work before returning from this
-  // function.
+  // This should be the last thing before returning from this function.
   dmtcp::ThreadSync::processPreResumeCB();
-  // Make a dummy syscall to inform superior of our status before we resume. If
-  // ptrace is disabled, this call has no significant effect.
-  syscall(DMTCP_FAKE_SYSCALL);
+}
+
+void callbackSendStopSignal(pid_t tid, int *retry_signalling, int *retval)
+{
+  DmtcpSendStopSignalInfo info;
+  info.tid = tid;
+  info.retry_signalling = retry_signalling;
+  info.retval = retval;
+
+  *retry_signalling = 1;
+  *retval = 0;
+  dmtcp_process_event(DMTCP_EVENT_SEND_STOP_SIGNAL, &info);
+}
+
+void callbackCkptThreadStart()
+{
+  dmtcp_process_event(DMTCP_EVENT_CKPT_THREAD_START, NULL);
 }
 
 void prctlGetProcessName()
@@ -448,7 +455,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
 
   size_t len;
-  len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
+  len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
@@ -493,7 +500,7 @@ static void unmapRestoreArgv()
   if (_mtcpRestoreArgvStartAddr != NULL) {
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     size_t len;
-    len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
+    len = (dmtcp::DmtcpWorker::argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
@@ -533,9 +540,6 @@ static void unmapRestoreArgv()
   //   don't think someone else is using their SIG_CKPT signal.
 void dmtcp::shutdownMtcpEngineOnFork()
 {
-#if 1
-  mtcpFuncPtrs.reset_on_fork();
-#else
   // Remove our signal handler from our SIG_CKPT
   errno = 0;
   JWARNING (SIG_ERR != _real_signal(dmtcp::DmtcpWorker::determineMtcpSignal(),
@@ -544,7 +548,6 @@ void dmtcp::shutdownMtcpEngineOnFork()
            (JASSERT_ERRNO)
            .Text("failed to reset child's checkpoint signal on fork");
   get_mtcp_symbol ( REOPEN_MTCP );
-#endif
 }
 
 void dmtcp::killCkpthread()

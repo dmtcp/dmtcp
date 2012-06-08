@@ -40,8 +40,6 @@
 #include "connectionmanager.h"
 #include "connectionstate.h"
 #include "mtcpinterface.h"
-#include "processinfo.h"
-#include "ckptserializer.h"
 #include  "../jalib/jtimer.h"
 
 #define BINARY_NAME "dmtcp_checkpoint"
@@ -68,21 +66,22 @@ namespace {
     InspectTarget(const dmtcp::string& path)
     {
       JASSERT(jalib::Filesystem::FileExists(path))(path).Text("missing file");
-      CkptSerializer::loadFromFile(path, &_conToFd, &_processInfo);
+      dmtcp::SerializedWorkerInfo workerInfo;
+      _conToFd.loadFromFile(path, &workerInfo);
     }
     ConnectionToFds _conToFd;
-    ProcessInfo     _processInfo;
   };
 
   class GProcess {
   public:
 
-    GProcess(ConnectionToFds &conToFd, ProcessInfo &processInfo, bool finfo)
+    GProcess(ConnectionToFds &conToFd, bool finfo)
     {
-      procname = processInfo.procname();
-      hostname = processInfo.hostname();
-      pid = processInfo.upid();
-      ppid = processInfo.uppid();
+      procname = conToFd.procname();
+      hostname = conToFd.hostname();
+      inhostname = conToFd.inhostname();
+      pid = conToFd.upid();
+      ppid = conToFd.uppid();
       _index = _nextIndex();
       fullinfo = finfo;
     }
@@ -93,6 +92,7 @@ namespace {
     }
     dmtcp::string procname;
     dmtcp::string hostname;
+    dmtcp::string inhostname;
     UniquePid pid;
     UniquePid ppid;
 void writeNode(dmtcp::ostringstream &o)
@@ -108,7 +108,7 @@ void writeNode(dmtcp::ostringstream &o)
           time_t tm = pid.time();
           char s[256];
           strftime(s, 256, "%H:%M.%F", localtime(&tm));
-          o << "[" << pid.pid() << "]@" << hostname
+          o << "[" << pid.pid() << "]@" << inhostname
                   << "\\n" << s;
         }
         o << "\" shape=box ]\n";
@@ -307,7 +307,7 @@ void writeNode(dmtcp::ostringstream &o)
   class ConnectionGraph {
   public:
     ConnectionGraph(ConnectionList &list);
-    void importProcess(ConnectionToFds &conToFd, ProcessInfo &processInfo);
+    void importProcess(ConnectionToFds &conToFd);
     bool exportGraph(dmtcp::string ofile);
     dmtcp::list<GConnection>::iterator find(TcpConnection &tcpCon);
     void writeGraph(dmtcp::ostringstream &o);
@@ -350,8 +350,7 @@ void writeNode(dmtcp::ostringstream &o)
     return _connections.end();
   }
 
-  void ConnectionGraph::importProcess(ConnectionToFds &conToFd,
-                                      ProcessInfo &processInfo)
+  void ConnectionGraph::importProcess(ConnectionToFds &conToFd)
   {
     ConnectionToFds::const_iterator cit;
     dmtcp::list<GProcess>::iterator pit;
@@ -359,10 +358,8 @@ void writeNode(dmtcp::ostringstream &o)
     std::cerr << "\nimportProcess:\n";
 
     // Add process to _processes table
-    _processes[processInfo.hostname()].push_front(GProcess(conToFd,
-                                                           processInfo,
-                                                           proc_out));
-    pit = _processes[processInfo.hostname()].begin();
+    _processes[conToFd.hostname()].push_front(GProcess(conToFd, proc_out));
+    pit = _processes[conToFd.hostname()].begin();
 
     // Add to _row_process Map table
     _row_processes[pit->pid] = &(*pit);
@@ -503,7 +500,7 @@ int main(int argc, char** argv)
 
   ConnectionGraph conGr(ConnectionList::instance());
   for (size_t i = 0; i < targets.size(); i++) {
-    conGr.importProcess(targets[i]._conToFd, targets[i]._processInfo);
+    conGr.importProcess(targets[i]._conToFd);
   }
 
 

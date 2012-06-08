@@ -62,7 +62,6 @@ namespace dmtcp
     void acquireLocks();
     void releaseLocks();
     void resetLocks();
-    void initMotherOfAll();
 
     void destroyDmtcpWorkerLockLock();
     void destroyDmtcpWorkerLockUnlock();
@@ -81,7 +80,6 @@ namespace dmtcp
     void waitForThreadsToFinishInitialization();
     void incrementUninitializedThreadCount();
     void decrementUninitializedThreadCount();
-    void threadFinishedInitialization();
 
     void disableLockAcquisitionForThisThread();
     void enableLockAcquisitionForThisThread();

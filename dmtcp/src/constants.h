@@ -54,7 +54,6 @@
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 #define DELETED_FILE_SUFFIX " (deleted)"
-#define NULL_FILE_SUFFIX "/null"
 /* dmtcp_checkpoint, dmtcp_restart return a unique rc (default: 99) */
 #define DMTCP_FAIL_RC \
         (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
@@ -70,9 +69,6 @@
 #define RESTORE_PORT_START 9777
 #define RESTORE_PORT_STOP 9977
 
-// Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
-#define DMTCP_FAKE_SYSCALL 1023
-
 #define ENABLE_MALLOC_WRAPPER
 
 //this next string can be at most 16 chars long
@@ -85,7 +81,7 @@
 #define ENV_VAR_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
 #define ENV_VAR_SERIALFILE_INITIAL "DMTCP_INITSOCKTBL"
 #define ENV_VAR_PIDTBLFILE_INITIAL "DMTCP_INITPIDTBL"
-#define ENV_VAR_HIJACK_LIBS "DMTCP_HIJACK_LIBS"
+#define ENV_VAR_HIJACK_LIB "DMTCP_HIJACK_LIB"
 #define ENV_VAR_CHECKPOINT_DIR "DMTCP_CHECKPOINT_DIR"
 #define ENV_VAR_TMPDIR "DMTCP_TMPDIR"
 #define ENV_VAR_CKPT_OPEN_FILES "DMTCP_CKPT_OPEN_FILES"
@@ -95,7 +91,6 @@
 #define ENV_VAR_PREFIX_ID "DMTCP_PREFIX_ID"
 #define ENV_VAR_PREFIX_PATH "DMTCP_PREFIX_PATH"
 #define ENV_VAR_DMTCP_DUMMY "DMTCP_DUMMY"
-#define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
 
 
 // it is not yet safe to change these; these names are hard-wired in the code
@@ -104,12 +99,13 @@
 #define ENV_VAR_COMPRESSION "DMTCP_GZIP"
 #ifdef HBICT_DELTACOMP
   #define ENV_VAR_DELTACOMPRESSION "DMTCP_HBICT"
-  #define ENV_DELTACOMPRESSION ENV_VAR_DELTACOMPRESSION
+  #define ENV_DELTACOMPRESSION , ENV_VAR_DELTACOMPRESSION
 #else
   #define ENV_DELTACOMPRESSION
 #endif
 #define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
+#define ENV_VAR_LIBC_FUNC_OFFSETS "DMTCP_LIBC_FUNC_OFFSETS"
 #define ENV_VAR_SCREENDIR "SCREENDIR"
 
 #define GLIBC_BASE_FUNC isalnum
@@ -125,7 +121,7 @@
     ENV_VAR_CKPT_INTR,\
     ENV_VAR_SERIALFILE_INITIAL,\
     ENV_VAR_PIDTBLFILE_INITIAL,\
-    ENV_VAR_HIJACK_LIBS,\
+    ENV_VAR_HIJACK_LIB,\
     ENV_VAR_CHECKPOINT_DIR,\
     ENV_VAR_TMPDIR,\
     ENV_VAR_CKPT_OPEN_FILES,\
@@ -139,7 +135,7 @@
     ENV_VAR_PREFIX_PATH,\
     ENV_VAR_SCREENDIR, \
     ENV_VAR_DLSYM_OFFSET, \
-    ENV_VAR_VIRTUAL_PID, \
+    ENV_VAR_LIBC_FUNC_OFFSETS \
     ENV_DELTACOMPRESSION
 
 #define DRAINER_CHECK_FREQ 0.1
@@ -172,6 +168,10 @@
 //at least one of these must be enabled:
 #define HANDSHAKE_ON_CONNECT    0
 #define HANDSHAKE_ON_CHECKPOINT 1
+
+#ifndef PID_VIRTUALIZATION
+#define _real_getpid getpid
+#endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
 #define user_desc modify_ldt_ldt_s

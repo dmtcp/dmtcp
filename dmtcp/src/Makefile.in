@@ -46,8 +46,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
-	dmtcp_inspector$(EXEEXT) dmtcp_nocheckpoint$(EXEEXT) \
-	dmtcp_discover_rm$(EXEEXT)
+	dmtcp_inspector$(EXEEXT) dmtcp_nocheckpoint$(EXEEXT)
 pkglib_PROGRAMS = dmtcphijack.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
@@ -101,10 +100,9 @@ am_libdmtcpinternal_a_OBJECTS = connectionstate.$(OBJEXT) \
 	nodetable.$(OBJEXT) protectedfds.$(OBJEXT) \
 	sockettable.$(OBJEXT) syslogwrappers.$(OBJEXT) \
 	uniquepid.$(OBJEXT) sysvipc.$(OBJEXT) \
-	dmtcpcoordinatorapi.$(OBJEXT) util_exec.$(OBJEXT) \
-	util_gen.$(OBJEXT) util_init.$(OBJEXT) \
-	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT)
+	dmtcpcoordinatorapi.$(OBJEXT) virtualpidtable.$(OBJEXT) \
+	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
+	jalibinterface.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -136,9 +134,6 @@ am_dmtcp_coordinator_OBJECTS = dmtcp_coordinator.$(OBJEXT) \
 dmtcp_coordinator_OBJECTS = $(am_dmtcp_coordinator_OBJECTS)
 dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
-am_dmtcp_discover_rm_OBJECTS = dmtcp_discover_rm.$(OBJEXT)
-dmtcp_discover_rm_OBJECTS = $(am_dmtcp_discover_rm_OBJECTS)
-dmtcp_discover_rm_LDADD = $(LDADD)
 am_dmtcp_inspector_OBJECTS = dmtcp_inspector.$(OBJEXT)
 dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
 dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -146,8 +141,7 @@ dmtcp_inspector_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
-	restoretarget.$(OBJEXT)
+am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
@@ -157,8 +151,8 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	mtcpinterface.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	socketwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
 	eventwrappers.$(OBJEXT) sysvipc.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
-	remexecwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
+	threadwrappers.$(OBJEXT) pidwrappers.$(OBJEXT) \
+	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
 	filewrappers.$(OBJEXT) mallocwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
@@ -188,17 +182,16 @@ SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(libjalib_a_SOURCES) $(libnohijack_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_discover_rm_SOURCES) $(dmtcp_inspector_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_1_0_0_SOURCES)
 DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
-	$(dmtcp_coordinator_SOURCES) $(dmtcp_discover_rm_SOURCES) \
-	$(dmtcp_inspector_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
-	$(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_coordinator_SOURCES) $(dmtcp_inspector_SOURCES) \
+	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
+	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -322,8 +315,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h util.h sysvipc.h \
-	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
+	uniquepid.h virtualpidtable.h util.h sysvipc.h \
 	dmtcpplugin.h lookup_service.h trampolines.h
 
 
@@ -341,10 +333,9 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     kernelbufferdrainer.cpp nodetable.cpp \
 			     protectedfds.cpp sockettable.cpp \
 			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
-			     dmtcpcoordinatorapi.cpp \
+			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     jalibinterface.cpp
 
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
@@ -359,19 +350,18 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpcoordinatorapi.cpp execwrappers.cpp \
-		         mtcpinterface.cpp signalwrappers.cpp \
+			 mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
 			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
-			 miscwrappers.cpp remexecwrappers.cpp \
-			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
+			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
+			 filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpplugin.cpp popen.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
-dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 dmtcphijack_so_LDFLAGS = -shared
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
@@ -591,9 +581,6 @@ dmtcp_command$(EXEEXT): $(dmtcp_command_OBJECTS) $(dmtcp_command_DEPENDENCIES)
 dmtcp_coordinator$(EXEEXT): $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_DEPENDENCIES) 
 	@rm -f dmtcp_coordinator$(EXEEXT)
 	$(CXXLINK) $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_LDADD) $(LIBS)
-dmtcp_discover_rm$(EXEEXT): $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_DEPENDENCIES) 
-	@rm -f dmtcp_discover_rm$(EXEEXT)
-	$(CXXLINK) $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_LDADD) $(LIBS)
 dmtcp_inspector$(EXEEXT): $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_DEPENDENCIES) 
 	@rm -f dmtcp_inspector$(EXEEXT)
 	$(CXXLINK) $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_LDADD) $(LIBS)
@@ -616,7 +603,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionidentifier.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionmanager.Po@am__quote@
@@ -625,7 +611,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_checkpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_inspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
@@ -656,12 +641,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nodetable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resource_manager.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restoretarget.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
@@ -675,6 +657,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/virtualpidtable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 
 .c.o:

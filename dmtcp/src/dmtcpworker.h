@@ -31,11 +31,9 @@
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
-#include "processinfo.h"
 
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
-
-void restoreUserLDPRELOAD();
+LIB_PRIVATE void dmtcp_reset_gettid();
 
 namespace dmtcp
 {
@@ -77,6 +75,8 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       static DmtcpWorker& instance();
+      static const unsigned int ld_preload_c_len = 1024;
+      static char ld_preload_c[ld_preload_c_len];
       const dmtcp::UniquePid& coordinatorId() const;
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
@@ -105,6 +105,8 @@ namespace dmtcp
       ~DmtcpWorker();
 
       static int determineMtcpSignal();
+      static size_t argvSize() {return _argvSize;};
+      static size_t envSize() {return _envSize;};
 
       static void delayCheckpointsLock();
       static void delayCheckpointsUnlock();
@@ -136,6 +138,8 @@ namespace dmtcp
     private:
       static DmtcpWorker theInstance;
     private:
+      static size_t _argvSize;
+      static size_t _envSize;
       static bool _exitInProgress;
   };
 }

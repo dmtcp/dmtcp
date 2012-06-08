@@ -1,4 +1,4 @@
-AC_INIT([DMTCP],[1.2.4],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.2.5],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
@@ -13,7 +13,7 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pidvirt/Makefile plugin/ptrace/Makefile test/Makefile test/testconfig.py])
+AC_CONFIG_FILES([Makefile plugin/Makefile plugin/ptrace/Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by

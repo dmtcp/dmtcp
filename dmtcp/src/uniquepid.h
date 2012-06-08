@@ -46,12 +46,11 @@ namespace dmtcp
         : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen )
     {setPrefix();}
 
-    long hostid() const { return _hostid; }
-    pid_t pid() const { return _pid; }
-    time_t time() const { return _time; }
-    int generation() const { return _generation; }
-    const char* prefix() const { return _prefix; }
-
+    long hostid() const;
+    pid_t pid() const;
+    time_t time() const;
+    int generation() const;
+    const char* prefix() const;
     void incrementGeneration();
     static const char* getCkptFilename();
     static dmtcp::string getCkptFilesSubDir();
@@ -62,7 +61,9 @@ namespace dmtcp
     static dmtcp::string getTmpDir();
 
     static dmtcp::string dmtcpTableFilename();
+#ifdef PID_VIRTUALIZATION
     static dmtcp::string pidTableFilename();
+#endif
 
     static void serialize( jalib::JBinarySerializer& o );
 

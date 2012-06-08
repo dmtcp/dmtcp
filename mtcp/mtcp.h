@@ -43,7 +43,6 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
 void mtcp_init (char const *checkpointfilename,
                 int interval,
                 int clonenabledefault);
-void mtcp_reset_on_fork();
 int mtcp_wrapper_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg);
 int mtcp_ok (void);
 int mtcp_no (void);
@@ -62,7 +61,11 @@ void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
                               void (*holds_any_locks)(int *retval),
                               void (*pre_suspend_user_thread)(),
                               void (*pre_resume_user_thread)(int is_ckpt,
-                                                             int is_restart));
+                                                             int is_restart),
+                              void (*send_stop_signal)(pid_t tid,
+                                                       int *retry_signalling,
+                                                       int *retval),
+                              void (*ckpt_thread_start)());
 
 #ifdef __cplusplus
 }

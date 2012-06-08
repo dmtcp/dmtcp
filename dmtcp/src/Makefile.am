@@ -20,7 +20,7 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint dmtcp_discover_rm
+	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint
 pkglib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
@@ -35,8 +35,7 @@ nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
 	sockettable.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h util.h sysvipc.h \
-	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
+	uniquepid.h virtualpidtable.h util.h sysvipc.h \
 	dmtcpplugin.h lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -53,10 +52,9 @@ libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
 			     kernelbufferdrainer.cpp nodetable.cpp \
 			     protectedfds.cpp sockettable.cpp \
 			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
-			     dmtcpcoordinatorapi.cpp \
+			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     jalibinterface.cpp
 
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
@@ -75,22 +73,20 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpcoordinatorapi.cpp execwrappers.cpp \
-		         mtcpinterface.cpp signalwrappers.cpp \
+			 mtcpinterface.cpp signalwrappers.cpp \
 			 socketwrappers.cpp workerhijack.cpp \
 			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
-			 miscwrappers.cpp remexecwrappers.cpp \
-			 glibcsystem.cpp filewrappers.cpp mallocwrappers.cpp \
+			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
+			 filewrappers.cpp mallocwrappers.cpp \
 			 dmtcpplugin.cpp popen.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
-
-dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 
 dmtcphijack_so_LDFLAGS = -shared
 
