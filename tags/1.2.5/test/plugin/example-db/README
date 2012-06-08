@@ -1,0 +1,10 @@
+This is similar to example, but it illustrates the use of the coordinator
+  database.
+To demonstrate, do:  make check    [Checkpoints every 5 seconds]
+After killing it, try:  ./dmtcp_restart_script.sh
+
+This uses the database service of DMTCP.  At checkpoint or restart time,
+each process can install a key-value pair, and then optionally query a value
+for a given key.  This type of facility can be used internally by DMTCP
+for such things as registering an old_pid/new_pid pair at restart time,
+and then querying the new_pid of a remote process given its old_pid.

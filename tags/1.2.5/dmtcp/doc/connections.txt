@@ -1,0 +1,99 @@
+				DMTCP Connections
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+This document is about connections.  In DMTCP, a connection
+can be almost anything associated with a file descriptor.  For the most
+part, at checkpoint time, the state is recorded by inspecting /proc/*/fd,
+and the state is then restored at restart time.  As is often the case
+in well-structured code, a single .h file provides a "conceptual map"
+of the data structures and corresponding utilities.  In this case,
+connectionmanager.h provides that conceptual map.
+
+===
+ConnectionList:
+
+The file connectionmanager.h defines a class, ConnectionList.  This is
+a singleton class, whose sole object is obtained by ConnectionList::instance().
+At the heart of this object is an STL/C++ map (essentially, a hash array).
+In STL notation, a hash entry is a key value pair, referred to
+by "->first" for key, and "->second" for value.  One can think of
+the hash array as if it were a linked list of key-value pairs.
+iterator() will create a pointer to this linked list.  Think of an
+iterator as a pointer to a node of the linked list.  The methods begin()
+and end() will denote pointers to the first and last node of the linked list.
+
+The erase() method will delete a node of the linked list.
+As you would expect, if an iterator points to a linked list node, and you
+erase it, then the iterator is now invalid.  Make a copy of the iterator when
+it pointed to the previous element, before erasing the current element.
+
+Alternatively, STL allows you to view an "STL map" as an array and use
+subscript notation: "[]".  However, if you "erase" and entry of the array,
+then all further indices into that array may be invalid.
+
+In DMTCP, a ConnectionList is an "STL map" (similar to linked list)
+of nodes of type Connection.  The Connection class is discussed later.
+
+ConnectionList::scanForPreExisting() is a handy utility to
+scan /proc/self/fd to populate a ConnectionList.  If you already know
+the fd that you are interested in, use ConnectionList::retrieve()
+or KernelDeviceToConnection::retrieve() to get the linked list node
+(key-value pair) corresponding to that fd.
+
+The code for ConnectionList::scanForPreExisting() and
+KernelDeviceToConnection::handlePreExistingFd() in connectionmanager.cpp
+is where /proc/self/fd is read.
+
+Certain file descriptors (typically 0, 1, and 2, for stdin/stdout/stderr)
+are "protected", and are handled specially.
+
+===
+ConnectionIdentifier:
+
+Each connection has a unique DMTCP id, called a "connection identifier".
+The file connectionidentifier.h defines the ConnectionIdentifier class.
+A connection identifier is essentially a "unique pid" (a globally unique
+description of a process over a distributed computation under DMTCP control),
+and a separate unique id (conId) generated for each connection, and guaranteed
+unique only within that particular process.  The conId is simply an integer
+that is incremented for each new ConnectionIdentifier.
+
+===
+KernelDeviceToConnection:
+
+
+You will also find a class, KernelDeviceToConnection, in connectionmanager.h.
+Here, a "kernel device" just means a kernel construct.  It might be
+a file, socket, pty, or other construct.  In contrast, a connection
+refers to a file descriptor associated with that kernel construct.
+As usual, for a single kernel device, there may be multiple file
+descriptors (connections) to it, and some of those file descriptors
+may or may not be shared among each other (through the use of dup/dup2).
+
+For the inverse direction (connection to kernel device), note the
+method fdToDevice() within this class.
+
+===
+Connection:
+
+The Connection class is defined in connection.h.  The current connection
+types are TCP, PIPE, PTY, FILE, STDIO, and FIFO.  Each connection type
+also has a corresponding subclass of Connection:  TcpConnection, PtyConnection,
+StdioConnection, FileConnection, FifoConnection
+
+Given a Connection object connection,
+connection.conType() will return the type.  Note especially the methods within
+Connection:  preCheckpoint(), postCheckpoint() (elsewhere known as "restart"),
+and restore(elsewhere known as "resume").  They refer to the three states
+associated with checkpointing:  checkpoint (create disk image),
+restart (restart process from checkpoint image on disk), resume
+(resume original process after creating checkpoint image on disk).
+
+Among the private attributes of a Connection are _id, _type, _fnctlFlags,
+_fnctlOwner, _fcntlSignal, _restoreInSecondIteration.  Not all attributes
+are use for all connection types.
