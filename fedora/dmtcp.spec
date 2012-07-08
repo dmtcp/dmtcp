@@ -1,16 +1,14 @@
 Name:		dmtcp
-Version:	1.2.4
-Release:	1.svn1449%{?dist}
+Version:	1.2.5
+Release:	1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
-# The source for this package was pulled from upstream's vcs. Use the following
-# commands to generate the tarball:
-#  svn export -r 1456 https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp-1.2.4
-#  fakeroot tar cf dmtcp-1.2.4.tar dmtcp-1.2.4
-#  gzip -9 dmtcp-1.2.4.tar
-Source0:	%{name}-%{version}+svn1449.tar.gz
+# The source for this package was pulled from upstream's downloads page using:
+# http://sourceforge.net/projects/dmtcp/files/dmtcp/1.2.5/dmtcp-1.2.5.tar.gz
+Source0:	%{name}-%{version}.tar.gz
+Patch0:		%{name}-%{version}-license-preamble.patch
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires:	gcc-c++
 BuildRequires:	gcc
@@ -48,16 +46,16 @@ single process.
 %package -n libmtcp-devel
 Summary:	MTCP developer package
 Group:		Development/Libraries
-Requires:       libmtcp = %{version}
+Requires:	libmtcp = %{version}
 
 %description -n libmtcp-devel
 This package provides files for developing applications that need to
 interact with MTCP as opposed to DMTCP.
 
 %package -n libdmtcpaware
-Summary:  DMTCP programming interface
-Group:    Development/Libraries
-Requires: %{name}%{?_isa}
+Summary:	DMTCP programming interface
+Group:		Development/Libraries
+Requires:	%{name}%{?_isa}
 
 %description -n libdmtcpaware
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -75,9 +73,9 @@ This package provides a programming interface to allow checkpointed
 applications to interact with dmtcp.
 
 %package -n libdmtcpaware-devel
-Summary:  DMTCP programming interface -- developer package
-Group:    Development/Libraries
-Requires: libdmtcpaware%{?_isa} = %{version}
+Summary:	DMTCP programming interface -- developer package
+Group:		Development/Libraries
+Requires:	libdmtcpaware%{?_isa} = %{version}
 
 %description -n libdmtcpaware-devel
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
@@ -113,13 +111,14 @@ with user application.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 sed -i -e 's/enable_option_checking=fatal/enable_option_checking=no/'\
   configure.ac
 aclocal
 autoconf --force
-%configure --disable-option-checking
+%configure --disable-option-checking --enable-mtcp-proc-maps
 make %{?_smp_mflags}
 
 
@@ -137,17 +136,13 @@ make install DESTDIR=%{buildroot}
 %clean
 rm -rf %{buildroot}
 
-%post -n libmtcp
-/sbin/ldconfig
+%post -n libmtcp -p /sbin/ldconfig
 
-%postun -n libmtcp
-/sbin/ldconfig
+%postun -n libmtcp -p /sbin/ldconfig
 
-%post -n libdmtcpaware
-/sbin/ldconfig
+%post -n libdmtcpaware -p /sbin/ldconfig
 
-%postun -n libdmtcpaware
-/sbin/ldconfig
+%postun -n libdmtcpaware -p /sbin/ldconfig
 
 %files
 %defattr(-,root,root,-)
@@ -156,7 +151,6 @@ rm -rf %{buildroot}
 %{_libdir}/%{name}
 %{_libdir}/%{name}/dmtcphijack.so
 %doc QUICK-START COPYING
-%{_docdir}/%{name}-%{version}/examples
 %{_mandir}/man1/dmtcp.1.gz
 %{_mandir}/man1/dmtcp_*.1.gz
 %{_mandir}/man1/mtcp.1.gz
@@ -189,6 +183,33 @@ rm -rf %{buildroot}
 %{_libdir}/libdmtcpaware.a
 
 %changelog
+* Sun Jul 08 2012 kapil@ccs.neu.edu
+- Preparing for upstream release 1.2.5.
+  * Release Notes:
+- epoll, eventfd, and signalfd are now supported
+- The ARM architecture for Linux is now supported.
+  (Linux currently supports 32-bit ARM EABI.)
+- The name "DMTCP module" is changed to "DMTCP plugin" (more common terminology).
+  User plugins can greatly customize the behavior of DMTCP.
+- The dmtcp_checkpoint cmd was resetting the checkpoint interval even
+    if the user did not specify the -i/--interval flag.  This is now fixed.
+- Improved support for a planned Fedora package for DMTCP
+- On resume from ckpt, zero pages were sometimes expanded (increasing the
+    memory footprint).  This affected Java.  This is now fixed.
+- Some bug fixes were provided for programs that intensively create
+    and destroy threads (e.g. OpenMP, Java)
+- After restart, the floating point rounding mode (fesetround) was not being
+    properly restored.  This is now fixed.
+- There have been requests for support of DMTCP for PBS/TORQUE.  Some partial
+    support has now been added to the svn only (_not_ to this release).
+    Please write to us if you need this support from DMTCP.
+- The FAQ at the DMTCP web site was expanded.
+- 15% slowdown observed in an unusual case:
+  A user reports that if your program frequently does both of these:
+    a.  is heavily multi-threaded; and
+    b.  calls malloc/free intensively;
+  This has been diagnosed.  It was seen too close to this 1.2.5 release,
+  and so the fix will be provided for the next release (and in the public svn).
 * Mon Jan 24 2012 kapil@ccs.neu.edu
 - Preparing for upstream release 1.2.4.
   + Release Notes from upstream:
