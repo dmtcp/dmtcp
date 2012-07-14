@@ -531,10 +531,12 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
    *          (addr is ignored.)
    */
 
+#ifdef PT_GETEVENTMSG
   if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
     unsigned long *ldata = (unsigned long*) data;
     *ldata = (unsigned long) currentToOriginalPid((pid_t) *ldata);
   }
+#endif
 
   return ptrace_ret;
 }
