@@ -9,6 +9,7 @@ URL:		http://dmtcp.sourceforge.net
 # http://sourceforge.net/projects/dmtcp/files/dmtcp/1.2.5/dmtcp-1.2.5.tar.gz
 Source0:	%{name}-%{version}.tar.gz
 Patch0:		%{name}-%{version}-license-preamble.patch
+Patch1:		%{name}-%{version}-mtcp_restart-undef-sym-fix.patch
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires:	gcc-c++
 BuildRequires:	gcc
@@ -112,6 +113,7 @@ with user application.
 %prep
 %setup -q
 %patch0 -p1
+%patch1 -p1
 
 %build
 sed -i -e 's/enable_option_checking=fatal/enable_option_checking=no/'\
