@@ -843,7 +843,7 @@ if testconfig.HAS_OPENMPI == "yes":
   elif (not re.search(os.path.dirname(testconfig.OPENMPI_MPIRUN),
                      os.environ['PATH'])):
     oldPath = os.environ['PATH']
-    os.environ += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
+    os.environ['PATH'] += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
   S=1
   runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
