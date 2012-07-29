@@ -421,40 +421,40 @@ int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 
 LIB_PRIVATE
 int _real_epoll_create(int size) {
-#ifdef HAVE_SYS_EPOLL
+#ifdef HAVE_SYS_EPOLL_H
   REAL_FUNC_PASSTHROUGH (epoll_create) (size);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  SYMBOL_NOT_FOUND_ERROR(epoll_create);
 #endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,9)
 LIB_PRIVATE
 int _real_epoll_create1(int flags) {
-#ifdef HAVE_SYS_EPOLL
+#ifdef HAVE_SYS_EPOLL_H
   REAL_FUNC_PASSTHROUGH (epoll_create1) (flags);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  SYMBOL_NOT_FOUND_ERROR(epoll_create1);
 #endif
 }
 #endif
 
 LIB_PRIVATE
 int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
-#ifdef HAVE_SYS_EPOLL
+#ifdef HAVE_SYS_EPOLL_H
   REAL_FUNC_PASSTHROUGH (epoll_ctl) (epfd, op, fd, event);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  SYMBOL_NOT_FOUND_ERROR(epoll_ctl);
 #endif
 }
 
 LIB_PRIVATE
 int _real_epoll_wait(int epfd, struct epoll_event *events,
                      int maxevents, int timeout) {
-#ifdef HAVE_SYS_EPOLL
+#ifdef HAVE_SYS_EPOLL_H
   REAL_FUNC_PASSTHROUGH (epoll_wait) (epfd, events, maxevents, timeout);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  SYMBOL_NOT_FOUND_ERROR(epoll_wait);
 #endif
 }
 
@@ -462,26 +462,27 @@ int _real_epoll_wait(int epfd, struct epoll_event *events,
 LIB_PRIVATE
 int _real_epoll_pwait(int epfd, struct epoll_event *events,
                       int maxevents, int timeout, const sigset_t *sigmask) {
-#ifdef HAVE_SYS_EPOLL
+#ifdef HAVE_SYS_EPOLL_H
   REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  SYMBOL_NOT_FOUND_ERROR(epoll_pwait);
 #endif
 }
 #endif
 
 LIB_PRIVATE
 int _real_eventfd (int initval, int flags) {
-#ifdef HAVE_SYS_EVENTFD
+#ifdef HAVE_SYS_EVENTFD_H
   REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
 #else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
+  while(1);
+  SYMBOL_NOT_FOUND_ERROR(eventfd);
 #endif
 }
 
 LIB_PRIVATE
 int _real_signalfd(int fd, const sigset_t *mask, int flags) {
-#ifdef HAVE_SYS_SIGNALFD
+#ifdef HAVE_SYS_SIGNALFD_H
   REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
 #else
   SYMBOL_NOT_FOUND_ERROR(signalfd);
