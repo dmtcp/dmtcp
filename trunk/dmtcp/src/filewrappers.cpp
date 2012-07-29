@@ -19,6 +19,12 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+/* ptsname_r is declared with "always_inline" attribute. GCC 4.7+ disallows us
+ * to define the ptsname_r wrapper if compiled with -O0. Thus we are disabling
+ * that "always_inline" definition here.
+*/
+#define ptsname_r ptsname_r_always_inline
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <vector>
@@ -46,6 +52,8 @@
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
+#undef ptsname_r
+extern "C" int ptsname_r ( int fd, char * buf, size_t buflen );
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 extern dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
@@ -167,6 +175,19 @@ extern "C" char *ptsname ( int fd )
 extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  int retVal = ptsname_r_work(fd, buf, buflen);
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return retVal;
+}
+
+extern "C" int __ptsname_r_chk (int fd, char * buf, size_t buflen, size_t nreal)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  JASSERT (buflen <= nreal) (buflen) (nreal) .Text("Buffer Overflow detected!");
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 

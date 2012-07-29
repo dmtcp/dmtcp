@@ -12,6 +12,9 @@ HAS_JAVA=@HAS_JAVA@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
@@ -25,7 +28,8 @@ MANPAGES=dmtcp_coordinator.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
 	dmtcp_restart.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
 	mtcp.1.gz mtcp_restart.1.gz
 
-MTCP_MAKE_FLAGS = DMTCP_VERSION=$(VERSION)
+MTCP_MAKE_FLAGS = DMTCP_VERSION=$(VERSION) CFLAGS="$(CFLAGS)"\
+		  CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)"
 
 ifeq ($(DEBUG),yes)
   MTCP_MAKE_FLAGS += CFLAGS_WALL=1
@@ -118,7 +122,7 @@ plugin: dmtcp check-m32-compat
 	cd plugin && $(MAKE)
 
 tests: build
-	cd test && $(MAKE) $(MTCP_MAKE_FLAGS)
+	cd test && $(MAKE)
 
 # Prevent mtcp_restart from flying out of control
 # (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,

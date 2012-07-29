@@ -34,6 +34,10 @@ RETRIES=2
 
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
+if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
+    subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+  DEFAULT_S *= 2
+
 if testconfig.MTCP_USE_PROC_MAPS == "yes":
   DEFAULT_S = 2*DEFAULT_S
 S=DEFAULT_S
@@ -614,10 +618,11 @@ os.environ['DMTCP_GZIP'] = "0"
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
 # This is arguably a bug in the Linux kernel 3.2 for ARM.
-if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7):
-  if subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
-    print "On ARM, there is a known issue with the sysv-shm test."
-runTest("sysv-shm",      2, ["./test/sysv-shm"])
+if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
+    subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+  print "On ARM, there is a known issue with the sysv-shm test. Not running it."
+else:
+  runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])
@@ -679,6 +684,8 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
     vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
+      if os.getenv('USER') == None:
+        return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
     		            stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split('\n')[1:]:
@@ -801,7 +808,7 @@ if testconfig.HAS_OPENMPI == "yes":
   elif (not re.search(os.path.dirname(testconfig.OPENMPI_MPIRUN),
                      os.environ['PATH'])):
     oldPath = os.environ['PATH']
-    os.environ += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
+    os.environ['PATH'] += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
   S=1
   runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
