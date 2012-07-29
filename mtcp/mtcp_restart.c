@@ -556,3 +556,21 @@ void __stack_chk_fail(void)
   MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
   mtcp_abort();
 }
+
+void __stack_chk_guard(void)
+{
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
+
+void _Unwind_Resume(void)
+{
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
+
+void __gcc_personality_v0(void)
+{
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}

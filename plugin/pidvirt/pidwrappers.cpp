@@ -549,11 +549,13 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
    *          (addr is ignored.)
    */
 
+#ifdef PT_GETEVENTMSG
   if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
     unsigned long *ldata = (unsigned long*) data;
     pid_t newRealPid =  (pid_t) *ldata;
     *ldata = (unsigned long) REAL_TO_VIRTUAL_PID(newRealPid);
   }
+#endif
 
   return ptrace_ret;
 }

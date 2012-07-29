@@ -181,12 +181,16 @@ extern "C" int dmtcp_on_error ( int ret, int sockfd, const char* fname, int save
 
   JTRACE ( "socket error" ) ( fname ) ( ret ) ( sockfd ) ( strerror(savedErrno) );
 
+  // We shouldn't be marking a socket as TCP_ERROR. It can be undesired for any
+  // system call other than socket().
+#if 0
   dmtcp::Connection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd );
 
   if ( con.conType() == dmtcp::Connection::TCP )
   {
     con.asTcp().onError();
   }
+#endif
 
 
 //     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
