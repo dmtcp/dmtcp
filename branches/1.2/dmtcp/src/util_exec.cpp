@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/resource.h>
 #include <linux/limits.h>
 #include <dlfcn.h>
 #include "constants.h"
