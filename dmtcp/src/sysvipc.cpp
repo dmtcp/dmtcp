@@ -358,7 +358,7 @@ void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
 
 /* ShmSegment Methods */
 
-dmtcp::ShmSegment::ShmSegment(key_t key, int size, int shmflg, int shmid)
+dmtcp::ShmSegment::ShmSegment(key_t key, size_t size, int shmflg, int shmid)
 {
   _key = key;
   _size = size;

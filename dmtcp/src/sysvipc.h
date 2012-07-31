@@ -106,7 +106,7 @@ namespace dmtcp
 
       ShmSegment() { _originalShmid = -1; }
       ShmSegment(int shmid);
-      ShmSegment(key_t key, int size, int shmflg, int shmid);
+      ShmSegment(key_t key, size_t size, int shmflg, int shmid);
 
       bool isStale();
 
@@ -143,7 +143,7 @@ namespace dmtcp
       int     _shmgetFlags;
       int     _originalShmid;
       int     _currentShmid;
-      int     _size;
+      size_t  _size;
       int     _creatorPid;
       int     _dmtcpMappedAddr;
       shmatt_t _nattch;
