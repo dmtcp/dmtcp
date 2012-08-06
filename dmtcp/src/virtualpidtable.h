@@ -19,24 +19,39 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef PROCESS_INFO_H
-#define PROCESS_INFO_H
+#ifndef VIRTUAL_PID_TABLE_H
+#define VIRTUAL_PID_TABLE_H
 
+#include "dmtcpalloc.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
 #include <map>
-#include "dmtcpalloc.h"
-#include "../jalib/jserialize.h"
+#include  "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "constants.h"
 
+#ifdef PID_VIRTUALIZATION
+# define CURRENT_TO_ORIGINAL_PID(pid) \
+  dmtcp::VirtualPidTable::instance().currentToOriginalPid(pid)
+# define ORIGINAL_TO_CURRENT_PID(pid) \
+  dmtcp::VirtualPidTable::instance().originalToCurrentPid(pid)
+#else
+# define CURRENT_TO_ORIGINAL_PID(pid) (pid)
+# define ORIGINAL_TO_CURRENT_PID(pid) (pid)
+#endif
+
+#ifdef PID_VIRTUALIZATION
 namespace dmtcp
 {
-  class ProcessInfo
+  /* Shall we create separate classes for holding original to current pid map
+   * and  for holding child process ids?
+   */
+
+  class VirtualPidTable
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -44,39 +59,58 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      ProcessInfo();
-      static ProcessInfo& instance();
-
+      VirtualPidTable();
+      static VirtualPidTable& instance();
+      static bool isConflictingPid( pid_t pid );
       void postRestart();
       void restoreProcessGroupInfo();
       void preCheckpoint();
 
+      pid_t originalToCurrentPid( pid_t originalPid );
+      pid_t currentToOriginalPid( pid_t currentPid );
+
+      void printPidMaps();
+
+      void  insert(pid_t originalPid,  dmtcp::UniquePid uniquePid);
       void  insertTid(pid_t tid);
+      void  insertInferior(pid_t tid);
+      //void  insertTid(pid_t tid) { _tids.pushback(tid); }
+      void  erase(pid_t originalPid);
       void  eraseTid(pid_t tid);
+      void  eraseInferior(pid_t tid);
       size_t numThreads() { refreshTidVector(); return _tidVector.size(); }
 
-      void insertChild (pid_t virtualPid, dmtcp::UniquePid uniquePid);
-      void eraseChild (pid_t virtualPid);
       void  postExec();
-
-      void resetOnFork();
-
-      bool beginPthreadJoin(pthread_t thread);
-      void endPthreadJoin(pthread_t thread);
-      void clearPthreadJoinState(pthread_t thread);
 
       void refresh();
       void refreshChildTable();
       void refreshTidVector();
 
       void serialize ( jalib::JBinarySerializer& o );
+      void serializeChildTable ( jalib::JBinarySerializer& o );
+      static void serializeChildTableEntry ( jalib::JBinarySerializer& o,
+                                             pid_t& originalPid,
+                                             dmtcp::UniquePid& uniquePid );
+      void serializePidMap ( jalib::JBinarySerializer& o );
+      static void serializePidMapEntry ( jalib::JBinarySerializer& o,
+                                         pid_t& originalPid,
+                                         pid_t& currentPid );
+      static void serializeEntryCount( jalib::JBinarySerializer& o,
+                                       size_t& count );
+      static void InsertIntoPidMapFile( pid_t originalPid, pid_t currentPid);
+      void readPidMapsFromFile();
+
 
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
+      void updateRootOfProcessTree();
 
+      dmtcp::vector< pid_t > getPidVector();
       dmtcp::vector< pid_t > getChildPidVector();
       dmtcp::vector< pid_t > getTidVector();
       dmtcp::vector< pid_t > getInferiorVector();
+
+      bool pidExists( pid_t pid );
 
       typedef dmtcp::map< pid_t , dmtcp::UniquePid >::iterator iterator;
       iterator begin() { return _childTable.begin(); }
@@ -88,30 +122,31 @@ namespace dmtcp
       pid_t gid() const { return _gid; }
       pid_t fgid() const { return _fgid; }
 
-      void setppid(pid_t ppid) { _ppid = ppid; }
-      void setsid(pid_t sid) { _sid = sid; }
-      void setgid(pid_t gid) { _gid = gid; }
-      void setfgid(pid_t fgid) { _fgid = fgid; }
+      void setppid( pid_t ppid ) { _ppid = ppid; }
+      void setsid( pid_t sid ) { _sid = sid; }
+      void setgid( pid_t gid ) { _gid = gid; }
+      void setfgid( pid_t fgid ) { _fgid = fgid; }
 
-      int numPeers() { return _numPeers; }
-      void numPeers(int np) { _numPeers = np; }
-      UniquePid compGroup() { return _compGroup; }
-      void compGroup(UniquePid cg) { _compGroup = cg; }
+      void updateMapping (pid_t originalPid, pid_t currentPid);
 
-      size_t argvSize() { return _argvSize; }
-      void argvSize(int size) { _argvSize = size; }
-      size_t envSize() { return _envSize; }
-      void envSize(int size) { _envSize = size; }
+      void resetOnFork();
 
-      const dmtcp::string& procname() const { return _procname; }
-      const dmtcp::string& hostname() const { return _hostname; }
-      const UniquePid& upid() const { return _upid; }
-      const UniquePid& uppid() const { return _uppid; }
+      bool beginPthreadJoin(pthread_t thread);
+      void endPthreadJoin(pthread_t thread);
+      void clearPthreadJoinState(pthread_t thread);
+
+    protected:
 
     private:
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
+      dmtcp::vector< pid_t > _inferiorVector;
       dmtcp::vector< pid_t > _tidVector;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
+
+      typedef dmtcp::map< pid_t , pid_t >::iterator pid_iterator;
+      dmtcp::map< pid_t , pid_t > _pidMapTable;
+      //dmtcp::vector< pid_t > _tids;
+      //typedef dmtcp::vector< pid_t >::iterator tid_iterator;
 
       bool  _isRootOfProcessTree;
       pid_t _pid;
@@ -119,18 +154,9 @@ namespace dmtcp
       pid_t _sid;
       pid_t _gid;
       pid_t _fgid;
-
-      UniquePid _compGroup;
-      int       _numPeers;
-      size_t    _argvSize;
-      size_t    _envSize;
-
-      dmtcp::string _procname;
-      dmtcp::string _hostname;
-      UniquePid     _upid;
-      UniquePid     _uppid;
   };
 
 }
 
-#endif /* PROCESS_INFO */
+#endif /* PID_VIRTUALIZATION */
+#endif

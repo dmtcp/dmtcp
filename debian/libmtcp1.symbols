@@ -31,6 +31,8 @@ libmtcp.so.1 libmtcp1 #MINVER#
  mtcp_readhex@Base 1.2.3+svn1442
  mtcp_readmapsline@Base 1.2.3+svn1442
  mtcp_restore_argv_start_addr@Base 1.2.3+svn1442
+ mtcp_restore_begin@Base 1.2.5
+ mtcp_restore_end@Base 1.2.5
  mtcp_safe_open@Base 1.2.3+svn1442
  mtcp_saved_pid@Base 1.2.3+svn1442
  mtcp_set_callbacks@Base 1.2.3+svn1442

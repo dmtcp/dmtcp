@@ -44,7 +44,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
     ,compGroup ( UniquePid::ComputationId() )
-    ,virtualPid ( -1 )
     ,restorePid ( ConnectionIdentifier::Null() )
     ,restoreAddrlen ( 0 )
     ,restorePort ( -1 )
@@ -154,9 +153,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_HELLO_PEER )
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
-      OSHIFTPRINTF ( DMT_UPDATE_PROCESS_INFO_AFTER_FORK )
-      OSHIFTPRINTF ( DMT_GET_VIRTUAL_PID )
-      OSHIFTPRINTF ( DMT_GET_VIRTUAL_PID_RESULT )
+      OSHIFTPRINTF ( DMT_UPDATE_PROCESS_INFO_AFTER_FORK)
 
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
@@ -180,8 +177,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
 #endif
 //#ifdef COORD_NAMESERVICE
-      OSHIFTPRINTF ( DMT_DO_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_DO_SEND_QUERIES )
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )

@@ -60,8 +60,11 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_POST_RESTART,
   DMTCP_EVENT_POST_RESTART_REFILL,
   DMTCP_EVENT_POST_RESTART_RESUME,
+  DMTCP_EVENT_CKPT_THREAD_START,
   DMTCP_EVENT_PRE_SUSPEND_USER_THREAD,
   DMTCP_EVENT_PRE_RESUME_USER_THREAD,
+  DMTCP_EVENT_SEND_STOP_SIGNAL,
+  DMTCP_EVENT_THREAD_DIED_BEFORE_CKPT,
   DMTCP_EVENT_RESUME_USER_THREAD,
   DMTCP_EVENT_POST_EXEC,
 
@@ -75,6 +78,13 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PREPARE_FOR_EXEC,
   nDmtcpEvents
 } DmtcpEvent_t;
+
+typedef struct DmtcpSendStopSignalInfo {
+  pid_t tid;
+  pid_t ckpt_leader;
+  int *retry_signalling;
+  int *retval;
+} DmtcpSendStopSignalInfo;
 
 typedef struct DmtcpResumeUserThreadInfo {
   int is_ckpt;
@@ -105,15 +115,11 @@ EXTERNC int  dmtcp_is_running_state();
 EXTERNC int  dmtcp_is_initializing_wrappers();
 EXTERNC int  dmtcp_is_protected_fd(int fd);
 
-EXTERNC int dmtcp_get_ptrace_fd();
 EXTERNC int dmtcp_get_readlog_fd();
 EXTERNC void dmtcp_block_ckpt_signal();
 EXTERNC void dmtcp_unblock_ckpt_signal();
 
 EXTERNC void *dmtcp_get_libc_dlsym_addr();
-
-EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
-EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
 
 #define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
 #define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT

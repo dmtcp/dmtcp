@@ -93,7 +93,7 @@ namespace dmtcp
 
     bool isStaticallyLinked(const char *filename);
 
-    void setVirtualPidEnvVar(pid_t pid, pid_t ppid);
+
     bool isScreen(const char *filename);
     void setScreenDir();
     dmtcp::string getScreenDir();
@@ -114,8 +114,6 @@ namespace dmtcp
     char readHex (int fd, VA *value);
     char readChar (int fd);
     int readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area);
-    pid_t getTracerPid(pid_t tid = -1);
-    bool isPtraced();
   }
 }
 

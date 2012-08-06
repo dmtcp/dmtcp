@@ -77,8 +77,7 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 #define REAL_FUNC_PASSTHROUGH(name) return name
 
-#define REAL_FUNC_PASSTHROUGH_TYPED(type, name) REAL_FUNC_PASSTHROUGH(name)
-#define REAL_FUNC_PASSTHROUGH_TYPED_DLSYM(type, name) return dlsym(RTLD_NEXT, #name)
+#define REAL_FUNC_PASSTHROUGH_TYPED(type,name) REAL_FUNC_PASSTHROUGH(name)
 
 #define REAL_FUNC_PASSTHROUGH_PID_T(name) REAL_FUNC_PASSTHROUGH(name)
 
@@ -356,16 +355,6 @@ long int _real_syscall(long int sys_num, ... ) {
   REAL_FUNC_PASSTHROUGH_TYPED ( long int, syscall ) ( sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6] );
 }
 
-LIB_PRIVATE pid_t gettid() {
-  return syscall(SYS_gettid);
-}
-LIB_PRIVATE int tkill(int tid, int sig) {
-  return syscall(SYS_tkill, tid, sig);
-}
-LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
-  return syscall(SYS_tgkill, tgid, tid, sig);
-}
-
 // gettid / tkill / tgkill are not defined in libc.
 // So, this is needed even if there is no PID_VIRTUALIZATION.
 pid_t _real_gettid(void){
@@ -375,11 +364,6 @@ pid_t _real_gettid(void){
 #else
   REAL_FUNC_PASSTHROUGH_PID_T ( syscall(SYS_gettid) );
 #endif
-}
-
-LIB_PRIVATE
-int   _real_tgkill(int tgid, int tid, int sig) {
-  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 int _real_open ( const char *pathname, int flags, ... ) {

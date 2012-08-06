@@ -31,6 +31,7 @@
 
 namespace dmtcp
 {
+
   /**
   *  State of open connections, stored in checkpoint image
   */
@@ -42,30 +43,36 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      ConnectionState(const ConnectionToFds& ctfd = ConnectionToFds());
+      ConnectionState ( const ConnectionToFds& ctfd = ConnectionToFds() );
 
       void handleDuplicateFilesInSeparateConnections();
       void deleteDupFileConnections();
       void deleteStaleConnections();
 #ifdef EXTERNAL_SOCKET_HANDLING
-      void preCheckpointPeerLookup(vector<TcpConnectionInfo>& conInfoTable);
+      void preCheckpointPeerLookup( dmtcp::vector<TcpConnectionInfo>& conInfoTable );
 #endif
       void preLockSaveOptions();
       void preCheckpointFdLeaderElection();
       void preCheckpointDrain();
       void preCheckpointHandshakes(const UniquePid& coordinator);
       void postCheckpoint(bool isRestart);
-      void outputDmtcpConnectionTable(jalib::JBinarySerializer& o);
+      void outputDmtcpConnectionTable(int fd, size_t argvSize, size_t envSize);
 
       void postRestart();
-      void doReconnect(jalib::JSocket& coordinator,
-                       jalib::JSocket& restoreListen);
-
+      void doReconnect ( jalib::JSocket& coordinator, jalib::JSocket& restoreListen );
+      int numPeers(){ return _numPeers; }
+      int numPeers(int np){ return _numPeers = np; }
+      UniquePid compGroup(){ return _compGroup; }
+      void compGroup(UniquePid cg){ _compGroup = cg; }
+      
     private:
+      int _numPeers;
+      UniquePid _compGroup;
       KernelBufferDrainer _drain;
       ConnectionToFds     _conToFds;
       ConnectionRewirer   _rewirer;
   };
+
 }
 
 #endif
