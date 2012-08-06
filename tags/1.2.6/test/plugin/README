@@ -1,0 +1,25 @@
+The plugins in these subdirectories are intended as simple examples.
+To try PLUGIN, do:  cd PLUGIN; make check
+After killing process, try:  ./dmtcp_restart_script.sh
+
+RESTRICTIONS:
+    GNU glibc uses libc-low-level-lock to manage thread safety, since multiple
+threads could call printf(), malloc(), etc., at the same time.  If the
+target program is being checkpointed when glibc holds this lock in the
+middle of printing or allocating, and if dmtcp_process_event() tries to
+call printf(), malloc(), etc., then deadlock will ensue.  A similar issue
+can affect the C++ runtime library.
+    If this issue affects you, then:
+a. implement your own calls to read()/write() and your own memory allocator; or
+b. ensure with other logic that your plugin and target application do not
+   simultaneously attempt to print, allocate memory, etc.
+
+DEMONSTRATION PLUGINS:
+example: how to react to special events (init, ckpt, resume, restart, ...)
+sleep1:  wrapper around sleep() in program ../../test/dmtcp1
+         (displays seconds and microseconds, before and after sleep())
+sleep2:  second wrapper around sleep() in program ../../test/dmtcp1
+	 'make check' invokes the sleep1 and sleep2 wrappers simultaneously.
+example-db:  uses the database service of DMTCP.  At checkpoint or
+	 restart time, each process can install a key-value pair, and then
+	 optionally query a value for a given key.

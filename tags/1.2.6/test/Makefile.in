@@ -1,0 +1,136 @@
+@SET_MAKE@
+LN_S=@LN_S@
+CC=@CC@
+CXX=@CXX@
+OPENMP_CFLAGS=@OPENMP_CFLAGS@
+OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
+ifdef M32
+CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
+CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
+else
+CFLAGS=@CFLAGS@
+CXXFLAGS=@CXXFLAGS@
+endif
+
+ifndef M32
+HAS_READLINE=@HAS_READLINE@
+READLINE_LIBS=-lreadline -lhistory -lcurses
+HAS_MPICH=@HAS_MPICH@
+MPICH_MPICC=@MPICH_MPICC@
+HAS_OPENMPI=@HAS_OPENMPI@
+OPENMPI_MPICC=@OPENMPI_MPICC@
+HAS_JAVA=@HAS_JAVA@
+HAS_JAVAC=@HAS_JAVAC@
+HAS_CILK=@HAS_CILK@
+CILKC=@CILKC@
+endif
+
+PWD=$(shell pwd)
+
+TESTS=${basename ${shell ls *.c *.cpp *.cilk | grep -v '^hellompi.c'}} \
+	${addsuffix .class,${basename ${shell ls java*.java}}} \
+	hellompich openmpi
+
+tests: $(TESTS)
+	cd plugin && ${MAKE}
+	${MAKE} -C credentials
+
+tidy:
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
+	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
+	rm -rf ckpt_*
+	cd plugin && $(MAKE) tidy > /dev/null
+
+clean: tidy
+	rm -f $(TESTS) *.pyc *.so
+	${MAKE} -C credentials clean
+	cd plugin && $(MAKE) clean
+
+distclean: clean
+	cd plugin && $(MAKE) distclean
+
+readline: readline.c
+ifeq ($(HAS_READLINE),yes)
+	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
+else
+	#$@: required libraries missing, skipping test
+endif
+
+# Assume OpenMP exists only if OPENMP_CFLAGS is set.
+openmp-%: openmp-%.c
+ifneq (${OPENMP_CFLAGS},)
+	-${CC} ${CFLAGS} ${OPENMP_CFLAGS} -o $@ $<
+else
+	#$@: This ${CC} does not support OpenMP, skipping test
+endif
+
+# Assume OpenMP exists for C++ only if OPENMP_CXXFLAGS is set.
+openmp-%: openmp-%.cpp
+ifneq (${OPENMP_CXXFLAGS},)
+	-${CXX} ${CXXFLAGS} ${OPENMP_CXXFLAGS} -o $@ $<
+else
+	#$@: This ${CXX} does not support OpenMP, skipping test
+endif
+
+hellompich: hellompi.c
+ifeq ($(HAS_MPICH),yes)
+	- $(MPICH_MPICC) -o $@ $< $(CFLAGS)
+else
+	#$@: required libraries missing, skipping test
+endif
+
+openmpi: hellompi.c
+ifeq ($(HAS_OPENMPI),yes)
+	- $(OPENMPI_MPICC) -o $@ $< $(CFLAGS)
+else
+	#$@: required libraries missing, skipping test
+endif
+
+DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
+DMTCPAWARELIB=../lib/libdmtcpaware.a
+
+${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
+	-$(CC) -o $@ -I../include $< $(CFLAGS) $(DMTCPAWARELIB)
+	# One can also do dynamic linking to libdmtcpaware.so as follows:
+	# (cd ../dmtcp/src && ln -s libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
+	# -$(CC) -o $@ $< $(CFLAGS) -L../lib -ldmtcpaware
+
+dmtcp3: dmtcp3.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+dmtcp4: dmtcp4.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+dmtcp5: dmtcp5.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+pthread%: pthread%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+# dlopen will dlopen/dlclose libdlopen-lib[12].so
+libdlopen-lib1.so:
+	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so dlopen.c
+libdlopen-lib2.so:
+	${CC} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so dlopen.c
+dlopen: dlopen.c libdlopen-lib1.so libdlopen-lib2.so
+	${CC} $(CFLAGS) -o $@ $< -ldl
+
+java%.class: java%.java
+ifeq ($(HAS_JAVAC),yes)
+	javac $<
+else
+	#$@: required 'javac' missing, skipping test
+endif
+
+cilk%: cilk%.cilk
+ifeq ($(HAS_CILK),yes)
+	${CILKC} -o $@ $<
+else
+	#$@: required 'cilkc' missing, skipping test
+endif
+
+%: %.c
+	$(CC) -o $@ $< $(CFLAGS)
+
+%: %.cpp
+	$(CXX) -o $@ $< $(CXXFLAGS)

@@ -1,0 +1,228 @@
+-------------------------------------------------------------------
+Thu Jun 28 15:13:02 UTC 2012 - kapil@ccs.neu.edu
+
+- Updating to upstream release 1.2.5
+  * Release Notes:
+- epoll, eventfd, and signalfd are now supported
+- The ARM architecture for Linux is now supported.
+  (Linux currently supports 32-bit ARM EABI.)
+- The name "DMTCP module" is changed to "DMTCP plugin" (more common terminology).
+  User plugins can greatly customize the behavior of DMTCP.
+- The dmtcp_checkpoint cmd was resetting the checkpoint interval even
+    if the user did not specify the -i/--interval flag.  This is now fixed.
+- Improved support for a planned Fedora package for DMTCP
+- On resume from ckpt, zero pages were sometimes expanded (increasing the
+    memory footprint).  This affected Java.  This is now fixed.
+- Some bug fixes were provided for programs that intensively create
+    and destroy threads (e.g. OpenMP, Java)
+- After restart, the floating point rounding mode (fesetround) was not being
+    properly restored.  This is now fixed.
+- There have been requests for support of DMTCP for PBS/TORQUE.  Some partial
+    support has now been added to the svn only (_not_ to this release).
+    Please write to us if you need this support from DMTCP.
+- The FAQ at the DMTCP web site was expanded.
+- 15% slowdown observed in an unusual case:
+  A user reports that if your program frequently does both of these:
+    a.  is heavily multi-threaded; and
+    b.  calls malloc/free intensively;
+  This has been diagnosed.  It was seen too close to this 1.2.5 release,
+  and so the fix will be provided for the next release (and in the public svn).
+
+-------------------------------------------------------------------
+Sat Mar 24 15:41:38 UTC 2012 - dimstar@opensuse.org
+
+- Add dmctp-gcc47.patch: Fix build with gcc 4.7
+
+-------------------------------------------------------------------
+Thu Feb 16 03:01:30 UTC 2012 - kapil@ccs.neu.edu
+
+- Some changes were accidently reverted in the previous two commits.
+  Adding them back.
+
+-------------------------------------------------------------------
+Mon Jan 23 23:13:13 UTC 2012 - kapil@ccs.neu.edu
+
+- There was a minor glitch in the previous tarball. This one fixes it.
+
+-------------------------------------------------------------------
+Mon Jan 23 22:12:53 UTC 2012 - kapil@ccs.neu.edu
+
+- Updating to upstream release 1.2.4
+  * Release Notes:
+- Preparing for upstream release 1.2.4.
+  + Release Notes from upstream:
+- There is now much more robust treatment of processes that rapidly
+    create and destroy threads.  This was the case for the Java JVM
+    (both for OpenJDK and Oracle (Sun) Java).  This was also the case
+    for Cilk.  Cilk++ was not tested.  We believe this new DMTCP to now be
+    highly robust -- and we would appreciate receiving a notification if
+    you find a Java or Cilk program that is not compatible with DMTCP.
+- Zero-mapped pages are no longer expanded and saved to the DMTCP checkpoint
+    image.  For Java programs (and other programs using zero-mapped
+    pages for their allocation arena or garbage collecotr), the checkpoint
+    image will now be much smaller.  Checkpoint and restart times
+    will also be faster.
+- DMTCP_ROOT/dmtcp/doc directory added with documentation of some
+    DMTCP internals.  architecture-of-dmtcp.pdf is a good place to
+    start reading for those who are curious.
+- The directory of example modules was moved to DMTCP_ROOT/test/module.
+    This continues to support third-part wrappers around system calls,
+    can registering functions to be called by DMTCP at interesting times
+    (like pre-checkpoint, post-resume, post-restart, new thread created, etc.).
+- This version of MTCP (inside this package) should be compatible with
+    the checkpoint-restart service of Open MPI.  The usage will be
+    documented soon through the Open MPI web site.  As before, an alternative
+    is to simply start Open MPI inside DMTCP, and let DMTCP treat all of
+    Open MPI as a "black box" that happens to be a ditributed computation
+- A new --prefix command line flag has been added to dmtcp_checkpoint.
+    It operates similarly to the flag of the same name in Open MPI.
+    For distributed computations, remote processes will use the prefix
+    as part of the path to find the remote dmtcp_checkpoint command.
+    This is useful when a gateway machine has a different directory
+    structure from the remote nodes.
+- configure --enable-ptrace-support now uses ptrace module (more modular code).
+    The ptrace module should also be more robust.  It now fixes some
+    additional cases that were missing earlier
+- ./configure --enable-unique-checkpoint-filenames  was not respecting
+    bin/dmtcp_checkpoint --checkpoint-open-files .  This is now fixed.
+- If the coordinator received a kill request in the middle of a checkpoint,
+    the coordinator could freeze or die.  This has now been fixed, with
+    the expected behavior:  Kill the old computation that is in the
+    middle of a checkpoint, and then allow any new computations to begin.
+- dmtcp_inspector utility was broken in last release; now fixed
+- configure --enable-forked-checkpoint was broken in the last release.
+    It is fixed again.
+- Many smaller bug fixes.
+
+-------------------------------------------------------------------
+Sun Dec  4 16:32:33 UTC 2011 - coolo@suse.com
+ 
+- don't fail on unknown options from %configure
+  
+-------------------------------------------------------------------
+Sun Sep 18 17:17:12 UTC 2011 - jengelh@medozas.de
+    
+- Remove redundant tags/sections from specfile
+  (cf. packaging guidelines)
+
+-------------------------------------------------------------------
+Tue Jul 26 01:08:13 UTC 2011 - kapil@ccs.neu.edu
+
+- Top level configure files updated to fix configure error.
+
+-------------------------------------------------------------------
+Fri Jul 22 19:22:17 UTC 2011 - kapil@ccs.neu.edu
+
+- Updating to upstream release 1.2.3.
+
+-------------------------------------------------------------------
+Sat Jul  2 23:03:26 UTC 2011 - kapil@ccs.neu.edu
+
+* 1.2.2 release notes from upstream:
+- A new module system, allowing users to write their own extensions to DMTCP,
+  including wrappers around library calls. See the module subdirectory for
+  examples.
+- ./configure --enable-m32 was not working in DMTCP 1.2.1. It works again now.
+- more bug fixes and robustness testing. Tested on kernels ranging from Linux
+  2.6.5 to the latest kernel. Tested especially on the Linux distributions: Red
+  Hat/Fedora, Debian/Ubuntu, SuSe/OpenSUSE; although we don't know of any Linux
+  distributions where it fails to run.
+- 'screen' did not checkpoint properly on machines using LDAP authentication.
+  This could also affect processes using 'bash'. This has been fixed.
+- Furthermore, recent versions of 'screen' began calling 'utempter' when
+  present Support for 'utempter' and some other setuid processes has been
+  added.
+- Removed the requirement for libc.a in building DMTCP, since Red Hat does not
+  include libc.a in its standard repository.
+- ./configure --enable-ptrace now more robust. Still labelled "experimental"
+  for this release. You will need to enable this if you want to checkpoint gdb
+  sessions, programs running under strace, and certain other applications.
+- ./configure --enable-fast-ckpt-restart can make ckpt/restart faster by using
+  'mmap'. You will need to set the environment variable DMTCP_GZIP to "0" if
+  you use this. This feature is still experimental, and there are many other
+  tricks for speeding up ckpt/restart. Please talk to the developers if this is
+  important for your application.
+- Experimental support added for HBICT ( hbict.sf.net ). This provides support
+  for incremental and differential checkpointing. However, this is still
+  ongoing work.
+- Work has begun on improved support for process migration between different
+  Linux kernels and distributions. Simple applications should migrate. Please
+  talk to us if this feature is important to you.
+- We do not yet support the 'epoll' and 'inotify' Linux system calls. Recently,
+  there has been some demand for this, and we intend to raise the priority.
+  Please talk to us if this feature is important to you.
+
+
+-------------------------------------------------------------------
+Wed Jun 22 15:57:30 UTC 2011 - kapil@ccs.neu.edu
+
+- Exclude mtcp.c from installation.
+
+-------------------------------------------------------------------
+Wed Jun 22 06:19:05 UTC 2011 - kapil@ccs.neu.edu
+
+- Updating to upstream release 1.2.2.
+
+-------------------------------------------------------------------
+Fri Jun 17 07:18:09 UTC 2011 - kapil@ccs.neu.edu
+
+- libdmtcpaware.a moved to libdmtcpaware-devel-static package.
+- dmtcpaware examples moved to libdmtcpaware-doc package.
+
+-------------------------------------------------------------------
+Fri Jun 10 15:30:20 UTC 2011 - kapil@ccs.neu.edu
+
+- Build requirements updated.
+- Minor cleanup.
+
+-------------------------------------------------------------------
+Tue Jun  7 14:27:08 UTC 2011 - kapil@ccs.neu.edu
+
+- Added "ExclusiveArch %ix86 x86_64" and removed ExcludeArch lines.
+- buildroot not cleaned in %install section.
+
+Sat May 14 00:09:03 UTC 2011 - kapil@ccs.neu.edu
+
+- dependency on libc.a removed for mtcp_restart.
+- Several other bug fixes and improvements.
+
+-------------------------------------------------------------------
+Sat Mar 12 23:41:14 UTC 2011 - kapil@ccs.neu.edu
+
+- Updated to release 1.2.1
+
+-------------------------------------------------------------------
+Fri Mar 11 04:02:40 UTC 2011 - kapil@ccs.neu.edu
+
+- Remove debug flags.
+
+-------------------------------------------------------------------
+Fri Mar 11 01:56:49 UTC 2011 - kapil@ccs.neu.edu
+
+- Updated to revision 935.
+
+-------------------------------------------------------------------
+Thu Mar 10 03:37:28 UTC 2011 - kapil@ccs.neu.edu
+
+- Reverting tarball to prev version.
+
+-------------------------------------------------------------------
+Thu Mar 10 02:37:40 UTC 2011 - kapil@ccs.neu.edu
+
+- Testing fix for restart under 32-bit OSes.
+
+-------------------------------------------------------------------
+Thu Mar 10 01:18:53 UTC 2011 - kapil@ccs.neu.edu
+
+- Updated tarball with compiler warnings fixed.
+
+-------------------------------------------------------------------
+Thu Mar 10 01:10:32 UTC 2011 - kapil@ccs.neu.edu
+
+- Added python to dependency list for running make check.
+
+-------------------------------------------------------------------
+Thu Mar 10 00:49:13 UTC 2011 - kapil@ccs.neu.edu
+
+- Preparing for release 1.2.1. Pulled updates from the latest dmtcp svn.
+
