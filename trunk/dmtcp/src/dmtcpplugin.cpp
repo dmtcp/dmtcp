@@ -7,7 +7,7 @@
 
 using namespace dmtcp;
 
-EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
+EXTERNC void dmtcp_process_event(DmtcpEvent_t id, DmtcpEventData_t *data)
 {
   NEXT_DMTCP_PROCESS_EVENT(id, data);
 }

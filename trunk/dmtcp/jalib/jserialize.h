@@ -121,7 +121,7 @@ namespace jalib
             t[key] = val;
           }
         } else {
-          for ( typename dmtcp::map<K, V>::iterator i = t.begin(); 
+          for ( typename dmtcp::map<K, V>::iterator i = t.begin();
                 i != t.end();
                 ++i ) {
             K key = i->first;
@@ -163,6 +163,7 @@ namespace jalib
       bool isReader();
       void rewind();
       bool isempty();
+      int fd() {return _fd;}
     protected:
       int _fd;
   };
@@ -183,6 +184,7 @@ namespace jalib
       void rewind();
       bool isempty();
       bool isEOF();
+      int fd() {return _fd;}
     protected:
       int _fd;
   };

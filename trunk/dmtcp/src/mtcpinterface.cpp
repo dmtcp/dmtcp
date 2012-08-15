@@ -221,8 +221,7 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   prctlGetProcessName();
   unmapRestoreArgv();
 
-  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG,
-                      (void*) dmtcp::ProcessInfo::instance().numThreads());
+  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG, NULL);
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.
@@ -323,7 +322,9 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 static void callbackWriteCkptPrefix ( int fd )
 {
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
-  dmtcp_process_event(DMTCP_EVENT_WRITE_CKPT_PREFIX, (void*) (unsigned long) fd);
+  DmtcpEventData_t edata;
+  edata.serializerInfo.fd = fd;
+  dmtcp_process_event(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
 static void callbackRestoreVirtualPidTable()
@@ -379,10 +380,10 @@ void callbackPreSuspendUserThread()
 
 void callbackPreResumeUserThread(int is_ckpt, int is_restart)
 {
-  DmtcpResumeUserThreadInfo info;
-  info.is_ckpt = is_ckpt;
-  info.is_restart = is_restart;
-  dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &info);
+  DmtcpEventData_t edata;
+  edata.resumeUserThreadInfo.is_ckpt = is_ckpt;
+  edata.resumeUserThreadInfo.is_restart = is_restart;
+  dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
   dmtcp::ThreadSync::setOkToGrabLock();
   // This should be the last significant work before returning from this
   // function.

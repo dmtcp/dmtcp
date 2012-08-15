@@ -15,7 +15,7 @@ struct keyPid {
   pid_t pid;
 } mystruct, mystruct_other;
 
-void dmtcp_process_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   size_t sizeofPid;
 

@@ -255,7 +255,9 @@ static void prepareLogAndProcessdDataFromSerialFile()
     ProcessInfo::instance().serialize ( rd );
     ProcessInfo::instance().postExec();
     SysVIPC::instance().serialize ( rd );
-    dmtcp_process_event(DMTCP_EVENT_POST_EXEC, (void*) &rd);
+    DmtcpEventData_t edata;
+    edata.serializerInfo.fd = rd.fd();
+    dmtcp_process_event(DMTCP_EVENT_POST_EXEC, &edata);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
     //dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());

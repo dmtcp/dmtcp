@@ -94,7 +94,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
   } else {
-    dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED, (void*) (unsigned long) tid);
+    dmtcp_process_event(DMTCP_EVENT_THREAD_CREATED, NULL);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();

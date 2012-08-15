@@ -37,7 +37,7 @@ void ptraceInit()
   dmtcp::PtraceInfo::instance().mapSharedFile();
 }
 
-void ptraceWaitForSuspendMsg(void *data)
+void ptraceWaitForSuspendMsg(DmtcpEventData_t *data)
 {
   dmtcp::PtraceInfo::instance().markAsCkptThread();
   if (!originalStartup) {
@@ -47,13 +47,14 @@ void ptraceWaitForSuspendMsg(void *data)
   }
 }
 
-void ptraceProcessResumeUserThread(void *data)
+void ptraceProcessResumeUserThread(DmtcpEventData_t *data)
 {
-  DmtcpResumeUserThreadInfo *info = (DmtcpResumeUserThreadInfo*) data;
-  ptrace_process_resume_user_thread(info->is_ckpt, info->is_restart);
+  // JASSERT(data != NULL);
+  ptrace_process_resume_user_thread(data->resumeUserThreadInfo.is_ckpt,
+                                    data->resumeUserThreadInfo.is_restart);
 }
 
-extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
+extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:

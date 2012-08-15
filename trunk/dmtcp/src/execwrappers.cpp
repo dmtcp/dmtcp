@@ -252,7 +252,9 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
   dmtcp::ProcessInfo::instance().serialize ( wr );
   dmtcp::SysVIPC::instance().serialize ( wr );
-  dmtcp_process_event(DMTCP_EVENT_PREPARE_FOR_EXEC, (void*) &wr);
+  DmtcpEventData_t edata;
+  edata.serializerInfo.fd = wr.fd();
+  dmtcp_process_event(DMTCP_EVENT_PREPARE_FOR_EXEC, &edata);
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);

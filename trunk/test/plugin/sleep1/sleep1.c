@@ -24,7 +24,7 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
-void dmtcp_process_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
