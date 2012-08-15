@@ -43,13 +43,10 @@
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-#include "connectionidentifier.h"
-#include "connectionmanager.h"
-#include "connectionstate.h"
 #include "ckptserializer.h"
 #include "remexecwrappers.h"
 #include "util.h"
-#include "sysvipc.h"
+#include "syslogwrappers.h"
 #include  "../jalib/jsocket.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -58,9 +55,6 @@
 using namespace dmtcp;
 
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
-
-// static dmtcp::KernelBufferDrainer* theDrainer = NULL;
-static dmtcp::ConnectionState* theCheckpointState = NULL;
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 static dmtcp::vector <dmtcp::TcpConnectionInfo> theTcpConnections;
@@ -250,11 +244,6 @@ static void prepareLogAndProcessdDataFromSerialFile()
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
     JTRACE ( "loading initial socket table from file..." ) ( serialFile );
-    KernelDeviceToConnection::instance().serialize ( rd );
-
-    ProcessInfo::instance().serialize ( rd );
-    ProcessInfo::instance().postExec();
-    SysVIPC::instance().serialize ( rd );
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = rd.fd();
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC, &edata);
@@ -271,12 +260,9 @@ static void prepareLogAndProcessdDataFromSerialFile()
       _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
     }
 
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC_NEW, NULL);
     JTRACE("Checking for pre-existing sockets");
-    ConnectionList::instance().scanForPreExisting();
   }
-
-  JTRACE ("Initial socket table:");
-  KernelDeviceToConnection::instance().dbgSpamFds();
 }
 
 static void processRlimit()
@@ -543,7 +529,6 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     UniquePid::ComputationId() = msg.compGroup;
   } else if ( type == DMT_DO_FD_LEADER_ELECTION ) {
     JTRACE ( "Computation information" ) ( msg.compGroup ) ( msg.params[0] );
-    JASSERT ( theCheckpointState != NULL );
     ProcessInfo::instance().numPeers(msg.params[0]);
     JASSERT(UniquePid::ComputationId() == msg.compGroup);
     ProcessInfo::instance().compGroup(msg.compGroup);
@@ -572,13 +557,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     restoreUserLDPRELOAD();
     ThreadSync::setCheckpointThreadInitialized();
   }
-
-  if ( theCheckpointState != NULL ) {
-    delete theCheckpointState;
-    theCheckpointState = NULL;
-  }
-
-  theCheckpointState = new ConnectionState();
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   JASSERT ( _waitingForExternalSocketsToClose == true ||
@@ -623,22 +601,17 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(_coordinatorSocket.isValid());
   ThreadSync::releaseLocks();
+
   processEvent(DMTCP_EVENT_POST_SUSPEND, NULL);
 
-  theCheckpointState->preLockSaveOptions();
+  SyslogCheckpointer::stopService();
+  processEvent(DMTCP_EVENT_PRE_LEADER_ELECTION, NULL);
 
   waitForCoordinatorMsg ( "FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION );
 
-  JTRACE ( "locking..." );
-  JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->preCheckpointFdLeaderElection();
-  JTRACE ( "locked" );
-
-  SysVIPC::instance().leaderElection();
+  processEvent(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
-
-  processEvent(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   if ( waitForStage2bCheckpoint() == false ) {
@@ -648,28 +621,12 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   waitForCoordinatorMsg ( "DRAIN", DMT_DO_DRAIN );
 #endif
 
-  JTRACE ( "draining..." );
-  theCheckpointState->preCheckpointDrain();
-  JTRACE ( "drained" );
-
-  SysVIPC::instance().preCkptDrain();
-
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
   processEvent(DMTCP_EVENT_POST_DRAIN, NULL);
 
   waitForCoordinatorMsg ( "CHECKPOINT", DMT_DO_CHECKPOINT );
   JTRACE ( "got checkpoint message" );
-
-#if HANDSHAKE_ON_CHECKPOINT == 1
-  //handshake is done after one barrier after drain
-  JTRACE ( "beginning handshakes" );
-  theCheckpointState->preCheckpointHandshakes(coordinatorId());
-  JTRACE ( "handshaking done" );
-#endif
-
-  dmtcp::ProcessInfo::instance().preCheckpoint();
-  SysVIPC::instance().preCheckpoint();
 
   processEvent(DMTCP_EVENT_PRE_CKPT, NULL);
 
@@ -770,14 +727,6 @@ bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
 }
 #endif
 
-void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd)
-{
-  CkptSerializer::writeCkptSign(fd);
-  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
-  theCheckpointState->outputDmtcpConnectionTable(wr);
-  ProcessInfo::instance().serialize(wr);
-}
-
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
 {
   // Tell coordinator to record our filename in the restart script
@@ -843,12 +792,6 @@ void dmtcp::DmtcpWorker::postRestart()
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   recvCoordinatorHandshake();
-
-  JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->postRestart();
-
-  dmtcp::ProcessInfo::instance().postRestart();
-  SysVIPC::instance().postRestart();
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -872,15 +815,11 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 
   waitForCoordinatorMsg ( "REFILL", DMT_DO_REFILL );
 
-  JASSERT ( theCheckpointState != NULL );
-  theCheckpointState->postCheckpoint(isRestart);
-  delete theCheckpointState;
-  theCheckpointState = NULL;
+  DmtcpEventData_t edata;
+  edata.postCkptInfo.isRestart = isRestart;
+  processEvent(DMTCP_EVENT_POST_CKPT, &edata);
 
-  SysVIPC::instance().postCheckpoint();
-  if (!isRestart) {
-    processEvent(DMTCP_EVENT_POST_CKPT, NULL);
-  }
+  SyslogCheckpointer::restoreService();
 }
 
 void dmtcp::DmtcpWorker::waitForStage4Resume()
@@ -889,16 +828,15 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
   JTRACE ( "got resume message" );
-
-  SysVIPC::instance().preResume();
 }
 
-void dmtcp::DmtcpWorker::restoreVirtualPidTable()
-{
-  dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
-}
-
+void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  dmtcp_Connection_ProcessEvent(event, data);
+  dmtcp_ProcessInfo_ProcessEvent(event, data);
+  dmtcp_SysVIPC_ProcessEvent(event, data);
   dmtcp_process_event(event, data);
 }

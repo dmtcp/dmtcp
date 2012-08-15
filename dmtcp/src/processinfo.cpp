@@ -31,6 +31,7 @@
 #include "protectedfds.h"
 #include "uniquepid.h"
 #include "processinfo.h"
+#include "dmtcpplugin.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -44,6 +45,44 @@ static void _do_lock_tbl()
 static void _do_unlock_tbl()
 {
   JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+}
+
+void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_PRE_CKPT:
+      dmtcp::ProcessInfo::instance().preCheckpoint();
+      break;
+
+    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+      {
+        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+        dmtcp::ProcessInfo::instance().serialize(wr);
+      }
+      break;
+
+    case DMTCP_EVENT_POST_EXEC:
+      {
+        jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+        dmtcp::ProcessInfo::instance().serialize(rd);
+        dmtcp::ProcessInfo::instance().postExec();
+      }
+      break;
+
+    case DMTCP_EVENT_WRITE_CKPT_PREFIX:
+      {
+        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+        dmtcp::ProcessInfo::instance().serialize(wr);
+      }
+      break;
+
+    case DMTCP_EVENT_POST_RESTART:
+      dmtcp::ProcessInfo::instance().postRestart();
+      break;
+
+    default:
+      break;
+  }
 }
 
 dmtcp::ProcessInfo::ProcessInfo()

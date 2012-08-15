@@ -41,9 +41,9 @@ void restoreUserLDPRELOAD();
 namespace dmtcp
 {
 
+#ifdef EXTERNAL_SOCKET_HANDLING
   class ConnectionState;
 
-#ifdef EXTERNAL_SOCKET_HANDLING
   class TcpConnectionInfo {
     public:
       TcpConnectionInfo (const ConnectionIdentifier& id,

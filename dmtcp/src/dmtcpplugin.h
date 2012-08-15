@@ -47,6 +47,7 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PRE_EXIT,
   DMTCP_EVENT_RESET_ON_FORK,
   DMTCP_EVENT_POST_SUSPEND,
+  DMTCP_EVENT_PRE_LEADER_ELECTION,
   DMTCP_EVENT_POST_LEADER_ELECTION,
   DMTCP_EVENT_POST_DRAIN,
   DMTCP_EVENT_PRE_CKPT,
@@ -64,6 +65,7 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PRE_RESUME_USER_THREAD,
   DMTCP_EVENT_RESUME_USER_THREAD,
   DMTCP_EVENT_POST_EXEC,
+  DMTCP_EVENT_POST_EXEC_NEW,
 
   DMTCP_EVENT_THREAD_START,
   DMTCP_EVENT_THREAD_CREATED,
@@ -72,6 +74,7 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PTHREAD_EXIT,
   DMTCP_EVENT_PTHREAD_RETURN,
   DMTCP_EVENT_WRITE_CKPT_PREFIX,
+  DMTCP_EVENT_PREPARE_FOR_FORK,
   DMTCP_EVENT_PREPARE_FOR_EXEC,
   nDmtcpEvents
 } DmtcpEvent_t;
@@ -85,6 +88,10 @@ typedef union _DmtcpEventData_t {
   struct {
     int fd;
   } serializerInfo;
+
+  struct {
+    int isRestart;
+  } postCkptInfo;
 } DmtcpEventData_t;
 
 EXTERNC int dmtcp_plugin_disable_ckpt(void);

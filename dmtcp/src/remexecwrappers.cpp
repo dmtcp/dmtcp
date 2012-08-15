@@ -43,10 +43,8 @@
 #include <list>
 #include <string>
 #include "constants.h"
-#include "connectionmanager.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "util.h"

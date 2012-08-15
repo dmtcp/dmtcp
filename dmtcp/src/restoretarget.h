@@ -32,7 +32,7 @@
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include "processinfo.h"
-#include "connectionmanager.h"
+#include "con/connectionmanager.h"
 #include "dmtcpcoordinatorapi.h"
 
 namespace dmtcp

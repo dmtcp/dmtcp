@@ -35,7 +35,7 @@
 #include  "../jalib/jfilesystem.h"
 #include "restoretarget.h"
 #include "constants.h"
-#include "connectionmanager.h"
+#include "con/connectionmanager.h"
 #include "ckptserializer.h"
 #include "protectedfds.h"
 #include "util.h"

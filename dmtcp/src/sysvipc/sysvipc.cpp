@@ -28,15 +28,15 @@
 #include <iostream>
 #include <ios>
 #include <fstream>
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jserialize.h"
-#include "syscallwrappers.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpworker.h"
-#include "protectedfds.h"
-#include "util.h"
+#include  "../../jalib/jassert.h"
+#include  "../../jalib/jfilesystem.h"
+#include  "../../jalib/jconvert.h"
+#include  "../../jalib/jserialize.h"
+#include "../syscallwrappers.h"
+#include "../dmtcpmessagetypes.h"
+#include "../dmtcpworker.h"
+#include "../protectedfds.h"
+#include "../util.h"
 #include "sysvipc.h"
 
 /*
@@ -85,6 +85,52 @@
  */
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
+
+void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_PRE_CKPT:
+      dmtcp::SysVIPC::instance().preCheckpoint();
+      break;
+
+    case DMTCP_EVENT_POST_LEADER_ELECTION:
+      dmtcp::SysVIPC::instance().leaderElection();
+      break;
+
+    case DMTCP_EVENT_POST_DRAIN:
+      dmtcp::SysVIPC::instance().preCkptDrain();
+      break;
+
+    case DMTCP_EVENT_POST_CKPT:
+      dmtcp::SysVIPC::instance().postCheckpoint();
+      break;
+
+    case DMTCP_EVENT_POST_CKPT_RESUME:
+      dmtcp::SysVIPC::instance().preResume();
+      break;
+
+    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+      {
+        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+        dmtcp::SysVIPC::instance().serialize(wr);
+      }
+      break;
+
+    case DMTCP_EVENT_POST_EXEC:
+      {
+        jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+        dmtcp::SysVIPC::instance().serialize(rd);
+      }
+      break;
+
+    case DMTCP_EVENT_POST_RESTART:
+      dmtcp::SysVIPC::instance().postRestart();
+      break;
+
+    default:
+      break;
+  }
+}
 
 static void _do_lock_tbl()
 {

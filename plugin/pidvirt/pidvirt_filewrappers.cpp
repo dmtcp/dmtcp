@@ -45,7 +45,6 @@
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
 #include "pidvirt.h"
-#include "sysvipc.h"
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
 // FIXME:  This does a lot of copying even if "/proc" doesn't appear.
