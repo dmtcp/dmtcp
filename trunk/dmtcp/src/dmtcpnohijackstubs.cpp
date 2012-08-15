@@ -47,3 +47,8 @@ int  dmtcp_is_running_state()
 {
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
+
+int  dmtcp_is_protected_fd(int fd)
+{
+  return 0;
+}

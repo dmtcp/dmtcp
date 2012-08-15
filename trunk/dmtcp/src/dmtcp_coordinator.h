@@ -24,7 +24,6 @@
 
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
-#include "nodetable.h"
 #include "dmtcpmessagetypes.h"
 
 namespace dmtcp
@@ -69,7 +68,6 @@ namespace dmtcp
     private:
       typedef dmtcp::vector<jalib::JReaderInterface*>::iterator iterator;
       typedef dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
-//     NodeTable _table;
       dmtcp::vector< DmtcpMessage > _restoreWaitingMessages;
 
 #ifdef EXTERNAL_SOCKET_HANDLING

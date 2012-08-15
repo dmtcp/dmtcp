@@ -96,7 +96,7 @@ dmtcp::ConnectionToFds::ConnectionToFds ( KernelDeviceToConnection& source )
 
   for ( size_t i=0; i<fds.size(); ++i ) {
     if ( _isBadFd ( fds[i] ) ) continue;
-    if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
+    if ( dmtcp_is_protected_fd ( fds[i] ) ) continue;
 
 #ifdef IBV
     dmtcp::string device = dmtcp::KernelDeviceToConnection::instance().fdToDevice(fds[i]);
@@ -330,7 +330,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
     if (!jalib::Filesystem::FileExists(device)) {
 
       // Make sure _path ends with DELETED_FILE_SUFFIX
-      JASSERT( Util::strEndsWith(device, DELETED_FILE_SUFFIX) || Util::strEndsWith(device, NULL_FILE_SUFFIX)) 
+      JASSERT( Util::strEndsWith(device, DELETED_FILE_SUFFIX) || Util::strEndsWith(device, NULL_FILE_SUFFIX))
                 (device).Text("File not exist but is not deleted and not /null");
 
       dmtcp::string deviceName = "file["+jalib::XToString ( fd ) +"]:" + device;
@@ -515,7 +515,7 @@ void dmtcp::KernelDeviceToConnection::dbgSpamFds()
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
-    if(ProtectedFDs::isProtected( fds[i] )) continue;
+    if(dmtcp_is_protected_fd( fds[i] )) continue;
     dmtcp::string device = fdToDevice ( fds[i], true );
     bool exists = ( _table.find ( device ) != _table.end() );
     out << "\t" << fds[i] << " -> "  << device << " inTable=" << exists << "\n";
@@ -658,7 +658,7 @@ void dmtcp::ConnectionList::scanForPreExisting()
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
-    if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
+    if ( dmtcp_is_protected_fd ( fds[i] ) ) continue;
     KernelDeviceToConnection::instance().handlePreExistingFd ( fds[i] );
   }
 }
@@ -723,7 +723,7 @@ void dmtcp::KernelDeviceToConnection::prepareForFork ( )
   for ( size_t i=0; i<fds.size(); ++i )
   {
     if ( _isBadFd ( fds[i] ) ) continue;
-    if ( ProtectedFDs::isProtected ( fds[i] ) ) continue;
+    if ( dmtcp_is_protected_fd ( fds[i] ) ) continue;
     dmtcp::string device = fdToDevice ( fds[i] );
   }
 }

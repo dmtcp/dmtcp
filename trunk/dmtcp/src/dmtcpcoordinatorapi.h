@@ -25,14 +25,11 @@
 #include "constants.h"
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
-#include "connectionstate.h"
 #include "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
 
 namespace dmtcp
 {
-
-  class ConnectionState;
 
   class DmtcpCoordinatorAPI
   {

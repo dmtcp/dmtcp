@@ -42,7 +42,6 @@
 #include "dmtcpmessagetypes.h"
 #include "protectedfds.h"
 #include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
 #include "util.h"
 #include  "../jalib/jassert.h"

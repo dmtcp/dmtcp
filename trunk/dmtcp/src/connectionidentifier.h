@@ -26,17 +26,11 @@
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include "../jalib/jalloc.h"
-// #include <vector>
-// #include <map>
 
 namespace dmtcp
 {
-
-// class ConnectionIdentifiers;
-
   class ConnectionIdentifier
   {
-//     friend class ConnectionIdentifiers;
     public:
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
@@ -51,15 +45,6 @@ namespace dmtcp
 
       int conId() const;
       const UniquePid& pid() const;
-//     void addFd(int fd);
-//     void removeFd(int fd);
-//     size_t fdCount() const;
-//     void dup2AllFds(int sourceFd);
-//     typedef dmtcp::vector<int>::iterator fditerator;
-//     fditerator begin(){ return _fds.begin(); }
-//     fditerator end(){ return _fds.end(); }
-//     void updateAfterDup(int oldfd,int newfd);
-
 
       ConnectionIdentifier ( const UniquePid& pid = UniquePid(), int id = -1 );
 
@@ -70,30 +55,18 @@ namespace dmtcp
   };
 
 
-  bool operator< ( const ConnectionIdentifier& a, const ConnectionIdentifier& b );
-  bool operator== ( const ConnectionIdentifier& a, const ConnectionIdentifier& b );
-  inline bool operator!= ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
-  { return ! ( a == b ); }
-
-// class ConnectionIdentifiers{
-// public:
-//     static ConnectionIdentifiers& Incoming();
-//     static ConnectionIdentifiers& Outgoing();
-//     ConnectionIdentifier& lookup( int id );
-//     ConnectionIdentifier& create();
-//     void removeFd( int fd );
-//     void updateAfterDup(int oldfd,int newfd);
-// protected:
-//     ConnectionIdentifiers();
-// private:
-//     dmtcp::map< int, ConnectionIdentifier* > _table;
-// };
+  bool operator<(const ConnectionIdentifier& a, const ConnectionIdentifier& b);
+  bool operator==(const ConnectionIdentifier& a, const ConnectionIdentifier& b);
+  inline bool operator!=(const ConnectionIdentifier& a,
+                         const ConnectionIdentifier& b)
+    { return ! ( a == b ); }
 
 }
 
 namespace std
 {
-  inline dmtcp::ostream& operator<< ( dmtcp::ostream& o, const dmtcp::ConnectionIdentifier& i )
+  inline dmtcp::ostream& operator<<(dmtcp::ostream& o,
+                                    const dmtcp::ConnectionIdentifier& i)
   {
     o << i.pid() << '(' << i.conId() << ')';
     return o;

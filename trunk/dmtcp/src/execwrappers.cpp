@@ -26,7 +26,6 @@
 #include <list>
 #include <string>
 #include "constants.h"
-#include "connectionmanager.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
@@ -34,9 +33,9 @@
 #include "syslogwrappers.h"
 #include "dmtcpplugin.h"
 #include "util.h"
-#include "sysvipc.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
@@ -116,7 +115,7 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PREPARE_FOR_FORK, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
@@ -249,12 +248,9 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
   jalib::JBinarySerializeWriter wr ( serialFile );
   dmtcp::UniquePid::serialize ( wr );
-  dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
-  dmtcp::ProcessInfo::instance().serialize ( wr );
-  dmtcp::SysVIPC::instance().serialize ( wr );
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = wr.fd();
-  dmtcp_process_event(DMTCP_EVENT_PREPARE_FOR_EXEC, &edata);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PREPARE_FOR_EXEC, &edata);
 
   setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
   JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);

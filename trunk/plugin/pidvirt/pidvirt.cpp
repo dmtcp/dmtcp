@@ -111,21 +111,6 @@ void pidVirt_ThreadExit(DmtcpEventData_t *data)
 extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_INIT:
-    case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
-    case DMTCP_EVENT_GOT_SUSPEND_MSG:
-    case DMTCP_EVENT_START_PRE_CKPT_CB:
-    case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
-    case DMTCP_EVENT_RESUME_USER_THREAD:
-    case DMTCP_EVENT_WRITE_CKPT_PREFIX:
-    case DMTCP_EVENT_PRE_EXIT:
-    case DMTCP_EVENT_PRE_CKPT:
-    case DMTCP_EVENT_POST_LEADER_ELECTION:
-    case DMTCP_EVENT_POST_DRAIN:
-    case DMTCP_EVENT_POST_CKPT:
-    case DMTCP_EVENT_POST_CKPT_RESUME:
-      break;
-
     case DMTCP_EVENT_RESET_ON_FORK:
       pidVirt_ResetOnFork(data);
       break;

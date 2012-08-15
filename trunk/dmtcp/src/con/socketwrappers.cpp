@@ -37,6 +37,8 @@
 #include <errno.h>
 #include "syscallwrappers.h"
 #include "dmtcpworker.h"
+#include "connection.h"
+#include "connectionmanager.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 
@@ -194,3 +196,28 @@ extern "C" int getsockopt(int sockfd, int level, int optname,
   DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT();
   PASSTHROUGH_DMTCP_HELPER ( getsockopt,sockfd,level,optname,optval,optlen );
 }
+
+extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  JASSERT ( sv != NULL );
+  int rv = _real_socketpair ( d,type,protocol,sv );
+  JTRACE ( "socketpair()" ) ( sv[0] ) ( sv[1] );
+
+  dmtcp::TcpConnection *a, *b;
+
+  a = new dmtcp::TcpConnection ( d, type, protocol );
+  a->onConnect();
+  b = new dmtcp::TcpConnection ( *a, a->id() );
+  a->setSocketpairPeer(b->id());
+  b->setSocketpairPeer(a->id());
+
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return rv;
+}
+

@@ -41,10 +41,8 @@
 #include "dmtcpmessagetypes.h"
 #include "protectedfds.h"
 #include "constants.h"
-#include "connectionmanager.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "sysvipc.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 
@@ -59,30 +57,6 @@ extern "C" void exit ( int status )
   for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
-
-extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  JASSERT ( sv != NULL );
-  int rv = _real_socketpair ( d,type,protocol,sv );
-  JTRACE ( "socketpair()" ) ( sv[0] ) ( sv[1] );
-
-  dmtcp::TcpConnection *a, *b;
-
-  a = new dmtcp::TcpConnection ( d, type, protocol );
-  a->onConnect();
-  b = new dmtcp::TcpConnection ( *a, a->id() );
-  a->setSocketpairPeer(b->id());
-  b->setSocketpairPeer(a->id());
-
-  dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
-  dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-
-  return rv;
-}
 
 extern "C" int pipe ( int fds[2] )
 {
@@ -221,64 +195,6 @@ int dlclose(void *handle)
   dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
   ret = _real_dlclose(handle);
   dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int shmget(key_t key, size_t size, int shmflg)
-{
-  int ret;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  while (true) {
-    ret = _real_shmget(key, size, shmflg);
-    if (ret != -1 &&
-        dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
-      dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
-      break;
-    }
-    JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
-  };
-  JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-void *shmat(int shmid, const void *shmaddr, int shmflg)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
-  if (ret != (void *) -1) {
-    dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
-  }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int shmdt(const void *shmaddr)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int ret = _real_shmdt(shmaddr);
-  if (ret != -1) {
-    dmtcp::SysVIPC::instance().on_shmdt(shmaddr);
-    JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
-  }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int shmctl(int shmid, int cmd, struct shmid_ds *buf)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  int ret = _real_shmctl(currentShmid, cmd, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }

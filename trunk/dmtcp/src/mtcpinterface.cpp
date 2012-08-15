@@ -36,8 +36,8 @@
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "protectedfds.h"
-#include "sockettable.h"
 #include "dmtcpplugin.h"
+#include "ckptserializer.h"
 #include "util.h"
 
 #include "../jalib/jfilesystem.h"
@@ -321,7 +321,7 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
+  dmtcp::CkptSerializer::writeCkptSign(fd);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = fd;
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);

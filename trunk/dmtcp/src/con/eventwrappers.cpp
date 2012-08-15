@@ -30,6 +30,7 @@
 //#include "eventwrappers.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
+#include "connectionmanager.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 

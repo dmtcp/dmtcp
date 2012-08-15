@@ -42,7 +42,6 @@
 #include <ctype.h>
 #include <assert.h>
 #include "constants.h"
-#include "sockettable.h"
 #include "pidwrappers.h"
 
 typedef int ( *funcptr_t ) ();

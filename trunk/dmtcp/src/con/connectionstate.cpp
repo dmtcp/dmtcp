@@ -22,7 +22,6 @@
 #include "constants.h"
 #include "connectionstate.h"
 #include "dmtcpmessagetypes.h"
-#include "syslogwrappers.h"
 #include "connectionrewirer.h"
 
 dmtcp::ConnectionState::ConnectionState ( const ConnectionToFds& ctfd )
@@ -117,8 +116,6 @@ void dmtcp::ConnectionState::deleteStaleConnections()
 
 void dmtcp::ConnectionState::preLockSaveOptions()
 {
-  SyslogCheckpointer::stopService();
-
   // build fd table with stale connections included
   _conToFds = ConnectionToFds ( KernelDeviceToConnection::instance() );
   // now delete stale connections
@@ -259,8 +256,6 @@ void dmtcp::ConnectionState::postCheckpoint( bool isRestart )
 
     ( i->second )->postCheckpoint ( _conToFds[i->first], isRestart );
   }
-
-  SyslogCheckpointer::restoreService();
 }
 
 void dmtcp::ConnectionState::postRestart()
