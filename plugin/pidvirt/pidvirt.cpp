@@ -31,7 +31,7 @@ pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
 //  pidVirt_resetOnFork
 //}
 
-void pidVirt_Init(void *data)
+void pidVirt_Init(DmtcpEventData_t *data)
 {
 //   if ( getenv( ENV_VAR_ROOT_PROCESS ) != NULL ) {
 //     JTRACE("Root of processes tree");
@@ -51,25 +51,27 @@ dmtcp::string pidVirt_PidTableFilename()
   return os.str();
 }
 
-void pidVirt_ResetOnFork(void *data)
+void pidVirt_ResetOnFork(DmtcpEventData_t *data)
 {
   dmtcp::VirtualPidTable::instance().resetOnFork();
 }
 
-void pidVirt_PrepareForExec(void *data)
+void pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
-  jalib::JBinarySerializeWriter *wr = (jalib::JBinarySerializeWriter*) data;
-  dmtcp::VirtualPidTable::instance().serialize ( *wr );
+  JASSERT(data != NULL);
+  jalib::JBinarySerializeWriterRaw wr ("", data->serializerInfo.fd);
+  dmtcp::VirtualPidTable::instance().serialize(wr);
 }
 
-void pidVirt_PostExec(void *data)
+void pidVirt_PostExec(DmtcpEventData_t *data)
 {
-  jalib::JBinarySerializeReader *rd = (jalib::JBinarySerializeReader*) data;
-  dmtcp::VirtualPidTable::instance().serialize ( *rd );
+  JASSERT(data != NULL);
+  jalib::JBinarySerializeReaderRaw rd ("", data->serializerInfo.fd);
+  dmtcp::VirtualPidTable::instance().serialize(rd);
   dmtcp::VirtualPidTable::instance().refresh();
 }
 
-void pidVirt_PostRestart(void *data)
+void pidVirt_PostRestart(DmtcpEventData_t *data)
 {
   if ( jalib::Filesystem::GetProgramName() == "screen" )
     send_sigwinch = 1;
@@ -86,16 +88,16 @@ void pidVirt_PostRestart(void *data)
   dmtcp::VirtualPidTable::instance().writePidMapsToFile();
 }
 
-void pidVirt_PostRestartRefill(void *data)
+void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
 {
   dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
 }
 
-void pidVirt_PostRestartResume(void *data)
+void pidVirt_PostRestartResume(DmtcpEventData_t *data)
 {
 }
 
-void pidVirt_ThreadExit(void *data)
+void pidVirt_ThreadExit(DmtcpEventData_t *data)
 {
   /* This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
@@ -106,7 +108,7 @@ void pidVirt_ThreadExit(void *data)
   dmtcp::VirtualPidTable::instance().erase(tid);
 }
 
-extern "C" void dmtcp_process_event(DmtcpEvent_t event, void* data)
+extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:

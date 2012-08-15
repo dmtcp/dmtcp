@@ -1145,7 +1145,7 @@ void dmtcp::FileConnection::refreshPath( const dmtcp::vector<int>& fds)
     char buf[64];
     pid_t proc_pid = strtol(&_path[index], &rest, 0);
     if (proc_pid > 0 && *rest == '/') {
-      sprintf(buf, "/proc/%d/%s", _real_getpid(), rest);
+      sprintf(buf, "/proc/%d/%s", getpid(), rest);
       _path = buf;
     }
   }
@@ -1354,7 +1354,7 @@ void dmtcp::FileConnection::restoreFile(dmtcp::string newpath, bool check_exist)
   JASSERT(_checkpointed);
 
   JTRACE("Start")(newpath)(_checkpointed)(jalib::Filesystem::FileExists(_path));
-  
+
   if( newpath == "" )
     newpath = _path;
   if (_checkpointed && !(check_exist && jalib::Filesystem::FileExists(_path)) ) {

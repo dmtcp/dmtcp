@@ -36,7 +36,7 @@ unsigned int real_sleep(unsigned int seconds) {
   return (*real_fnc)(seconds);
 }
 
-void dmtcp_process_event(DmtcpEvent_t event, void* data)
+void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 

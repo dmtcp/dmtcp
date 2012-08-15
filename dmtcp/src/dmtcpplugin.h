@@ -76,14 +76,20 @@ typedef enum eDmtcpEvent {
   nDmtcpEvents
 } DmtcpEvent_t;
 
-typedef struct DmtcpResumeUserThreadInfo {
-  int is_ckpt;
-  int is_restart;
-} DmtcpResumeUserThreadInfo;
+typedef union _DmtcpEventData_t {
+  struct {
+    int is_ckpt;
+    int is_restart;
+  } resumeUserThreadInfo;
+
+  struct {
+    int fd;
+  } serializerInfo;
+} DmtcpEventData_t;
 
 EXTERNC int dmtcp_plugin_disable_ckpt(void);
 EXTERNC void dmtcp_plugin_enable_ckpt(void);
-EXTERNC void dmtcp_process_event(DmtcpEvent_t event, void* data);
+EXTERNC void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data);
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t key_len,
                                                    const void *val,
