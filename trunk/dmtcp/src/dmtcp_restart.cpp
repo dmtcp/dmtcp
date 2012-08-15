@@ -42,6 +42,7 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 #include "restoretarget.h"
+#include "ckptserializer.h"
 #include "util.h"
 
 #define BINARY_NAME "dmtcp_restart"
@@ -754,7 +755,9 @@ void runMtcpRestore(const char* path, int offset, size_t argvSize,
   sprintf(protected_stderr_fd_str, "%d", PROTECTED_STDERR_FD);
 
 #ifdef USE_MTCP_FD_CALLING
-  int fd = ConnectionToFds::openMtcpCheckpointFile(path);
+  // Reopen ckpt-image
+  int fd = dmtcp::CkptSerializer::openDmtcpCheckpointFile(_path, NULL, _offset);
+
   char buf[64];
   char buf2[64];
 

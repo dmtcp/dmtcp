@@ -770,7 +770,10 @@ bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
 
 void dmtcp::DmtcpWorker::writeCheckpointPrefix(int fd)
 {
-  CkptSerializer::writeCkptPrefix(fd, theCheckpointState);
+  CkptSerializer::writeCkptSign(fd);
+  jalib::JBinarySerializeWriterRaw wr ( "mtcp-file-prefix", fd );
+  theCheckpointState->outputDmtcpConnectionTable(wr);
+  ProcessInfo::instance().serialize(wr);
 }
 
 void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
