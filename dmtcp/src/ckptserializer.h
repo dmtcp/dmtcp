@@ -25,7 +25,7 @@
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "processinfo.h"
-#include "connectionmanager.h"
+#include "util.h"
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
@@ -44,13 +44,12 @@ namespace dmtcp
       CkptSerializer() { }
 
       static pid_t ext_decomp_pid;
-      static int openDmtcpCheckpointFile(const dmtcp::string& filename);
-      static int openMtcpCheckpointFile(const dmtcp::string& filename);
+      static int openDmtcpCheckpointFile(const dmtcp::string& filename,
+                                         int *offset = NULL,
+                                         int skipBytes = 0);
+      static void closeDmtcpCheckpointFile(int fd);
 
-      static int loadFromFile(const dmtcp::string& filename,
-                              ConnectionToFds *conToFds,
-                              ProcessInfo *processInfo);
-      static void writeCkptPrefix(int fd, dmtcp::ConnectionState *state);
+      static void writeCkptSign(int fd);
   };
 }
 

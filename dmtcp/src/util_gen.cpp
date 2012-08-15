@@ -149,6 +149,23 @@ ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
   return num_read;
 }
 
+ssize_t dmtcp::Util::skipBytes(int fd, size_t count)
+{
+  char buf[1024];
+  ssize_t rc;
+  ssize_t totalSkipped = 0;
+  while (count > 0) {
+    rc = dmtcp::Util::readAll(fd, buf, MIN(count, sizeof(buf)));
+
+    if (rc == -1) {
+      break;
+    }
+    count -= rc;
+    totalSkipped += rc;
+  }
+  return totalSkipped;
+}
+
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.

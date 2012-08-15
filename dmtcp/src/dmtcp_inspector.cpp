@@ -68,7 +68,11 @@ namespace {
     InspectTarget(const dmtcp::string& path)
     {
       JASSERT(jalib::Filesystem::FileExists(path))(path).Text("missing file");
-      CkptSerializer::loadFromFile(path, &_conToFd, &_processInfo);
+      int fd = dmtcp::CkptSerializer::openDmtcpCheckpointFile(path, NULL);
+      JASSERT(fd >= 0);
+      jalib::JBinarySerializeReaderRaw rdr(path, fd);
+      _conToFd.serialize(rdr);
+      _processInfo.serialize(rdr);
     }
     ConnectionToFds _conToFd;
     ProcessInfo     _processInfo;

@@ -59,6 +59,9 @@ typedef char * VA;
     }									      \
   } while (0)
 
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 namespace dmtcp
 {
   namespace Util
@@ -84,6 +87,7 @@ namespace dmtcp
 
     ssize_t writeAll(int fd, const void *buf, size_t count);
     ssize_t readAll(int fd, void *buf, size_t count);
+    ssize_t skipBytes(int fd, size_t count);
 
     int safeMkdir(const char *pathname, mode_t mode);
     int safeSystem(const char *command);

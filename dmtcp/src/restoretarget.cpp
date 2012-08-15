@@ -52,7 +52,12 @@ RestoreTarget::RestoreTarget (const dmtcp::string& path)
   JASSERT (jalib::Filesystem::FileExists (_path)) (_path)
     .Text ("checkpoint file missing");
 
-  _offset = CkptSerializer::loadFromFile(_path, &_conToFd, &_processInfo);
+  int fd = dmtcp::CkptSerializer::openDmtcpCheckpointFile(_path, &_offset);
+  jalib::JBinarySerializeReaderRaw rdr(_path, fd);
+  _conToFd.serialize(rdr);
+  _processInfo.serialize(rdr);
+  _offset += rdr.bytes();
+  dmtcp::CkptSerializer::closeDmtcpCheckpointFile(fd);
 
   _roots.clear();
   _children.clear();
