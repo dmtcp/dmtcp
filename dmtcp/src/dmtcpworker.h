@@ -32,6 +32,7 @@
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "processinfo.h"
+#include "dmtcpplugin.h"
 
 LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 
@@ -106,30 +107,13 @@ namespace dmtcp
 
       static int determineMtcpSignal();
 
-      static void delayCheckpointsLock();
-      static void delayCheckpointsUnlock();
-
-      static bool wrapperExecutionLockLock();
-      static void wrapperExecutionLockUnlock();
-      static bool wrapperExecutionLockLockExcl();
-      static void resetLocks();
-
-      static bool threadCreationLockLock();
-      static void threadCreationLockUnlock();
-
-      static void waitForThreadsToFinishInitialization();
-      static void incrementUninitializedThreadCount();
-      static void decrementUninitializedThreadCount();
-
-      static void disableLockAcquisitionForThisThread();
-      static bool isThisThreadHoldingAnyLocks();
-
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
       void interruptCkpthread();
 
       void writeCheckpointPrefix(int fd);
-      void writeTidMaps();
+
+      static void processEvent(DmtcpEvent_t id, DmtcpEventData_t *data);
 
     protected:
       void sendUserCommand(char c, int* result = NULL);

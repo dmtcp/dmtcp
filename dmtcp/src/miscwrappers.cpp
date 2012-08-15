@@ -202,11 +202,6 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
  * wrapper, so that the calling thread won't try to acquire the lock later on.
  */
 
-// TODO: Integrate NEXT_FNC() with remaining wrappers in future.
-#include <dlfcn.h>
-#define NEXT_FNC(symbol) \
-  (next_fnc ? *next_fnc : \
-   *(next_fnc = (__typeof__(next_fnc))dlsym(RTLD_NEXT, #symbol)))
 extern "C"
 void *dlopen(const char *filename, int flag)
 {
@@ -214,7 +209,6 @@ void *dlopen(const char *filename, int flag)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
   ret = _real_dlopen(filename, flag);
-  //ret = NEXT_FNC(dlopen)(filename, flag);
   dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
@@ -226,7 +220,6 @@ int dlclose(void *handle)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
   ret = _real_dlclose(handle);
-  //ret = NEXT_FNC(dlclose)(handle);
   dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;

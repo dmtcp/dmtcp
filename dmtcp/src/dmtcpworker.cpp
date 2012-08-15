@@ -159,7 +159,7 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
     JALLOC_HELPER_DISABLE_LOCKS();
     dmtcp_wrappers_initializing = 1;
     initialize_libc_wrappers();
-    //dmtcp_process_event(DMTCP_EVENT_INIT_WRAPPERS, NULL);
+    //dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_INIT_WRAPPERS, NULL);
     dmtcp_wrappers_initializing = 0;
     initialize_libpthread_wrappers();
     JALLOC_HELPER_ENABLE_LOCKS();
@@ -257,7 +257,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
     SysVIPC::instance().serialize ( rd );
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = rd.fd();
-    dmtcp_process_event(DMTCP_EVENT_POST_EXEC, &edata);
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC, &edata);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
   } else {
     //dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
@@ -352,7 +352,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
   connectToCoordinatorWithHandshake();
 
   // define "Weak Symbols for each library plugin in dmtcphijack.so
-  dmtcp_process_event(DMTCP_EVENT_INIT, NULL);
+  processEvent(DMTCP_EVENT_INIT, NULL);
 
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
@@ -417,7 +417,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-    dmtcp_process_event(DMTCP_EVENT_PRE_EXIT, NULL);
+    processEvent(DMTCP_EVENT_PRE_EXIT, NULL);
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
     _coordinatorSocket.close();
     interruptCkpthread();
@@ -623,7 +623,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   JASSERT(_coordinatorSocket.isValid());
   ThreadSync::releaseLocks();
-  dmtcp_process_event(DMTCP_EVENT_POST_SUSPEND, NULL);
+  processEvent(DMTCP_EVENT_POST_SUSPEND, NULL);
 
   theCheckpointState->preLockSaveOptions();
 
@@ -638,7 +638,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState ( WorkerState::FD_LEADER_ELECTION );
 
-  dmtcp_process_event(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
+  processEvent(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   if ( waitForStage2bCheckpoint() == false ) {
@@ -656,7 +656,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState ( WorkerState::DRAINED );
 
-  dmtcp_process_event(DMTCP_EVENT_POST_DRAIN, NULL);
+  processEvent(DMTCP_EVENT_POST_DRAIN, NULL);
 
   waitForCoordinatorMsg ( "CHECKPOINT", DMT_DO_CHECKPOINT );
   JTRACE ( "got checkpoint message" );
@@ -671,7 +671,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   dmtcp::ProcessInfo::instance().preCheckpoint();
   SysVIPC::instance().preCheckpoint();
 
-  dmtcp_process_event(DMTCP_EVENT_PRE_CKPT, NULL);
+  processEvent(DMTCP_EVENT_PRE_CKPT, NULL);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   return true;
@@ -860,12 +860,12 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 #ifdef COORD_NAMESERVICE
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
                           DMT_DO_REGISTER_NAME_SERVICE_DATA );
-  dmtcp_process_event(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, NULL);
+  processEvent(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, NULL);
   JTRACE("Key Value Pairs registered with the coordinator");
   WorkerState::setCurrentState(WorkerState::NAME_SERVICE_DATA_REGISTERED);
 
   waitForCoordinatorMsg("SEND_QUERIES", DMT_DO_SEND_QUERIES);
-  dmtcp_process_event(DMTCP_EVENT_SEND_QUERIES, NULL);
+  processEvent(DMTCP_EVENT_SEND_QUERIES, NULL);
   JTRACE("Queries sent to the coordinator");
   WorkerState::setCurrentState(WorkerState::DONE_QUERYING);
 #endif
@@ -879,7 +879,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
 
   SysVIPC::instance().postCheckpoint();
   if (!isRestart) {
-    dmtcp_process_event(DMTCP_EVENT_POST_CKPT, NULL);
+    processEvent(DMTCP_EVENT_POST_CKPT, NULL);
   }
 }
 
@@ -896,4 +896,9 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
 void dmtcp::DmtcpWorker::restoreVirtualPidTable()
 {
   dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
+}
+
+void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  dmtcp_process_event(event, data);
 }

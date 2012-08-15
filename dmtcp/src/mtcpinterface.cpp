@@ -215,7 +215,7 @@ void dmtcp::initializeMtcpEngine()
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
-  dmtcp_process_event(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   prctlGetProcessName();
@@ -235,7 +235,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   // TODO: Check for correctness.
   JALIB_CKPT_UNLOCK();
 
-  dmtcp_process_event(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_START_PRE_CKPT_CB, NULL);
 
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
@@ -261,7 +261,7 @@ static void callbackPostCheckpoint ( int isRestart,
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
-    dmtcp_process_event(DMTCP_EVENT_POST_RESTART, NULL);
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
 
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
@@ -301,7 +301,7 @@ static void callbackPostCheckpoint ( int isRestart,
       dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
       dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
       dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-      dmtcp_process_event(DMTCP_EVENT_POST_CKPT_RESUME, NULL);
+      dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT_RESUME, NULL);
     }
 
     // Set the process state to RUNNING now, in case a dmtcpaware hook
@@ -324,12 +324,12 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::instance().writeCheckpointPrefix(fd);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = fd;
-  dmtcp_process_event(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
 static void callbackRestoreVirtualPidTable()
 {
-  dmtcp_process_event(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage4Resume();
 
 #ifndef RECORD_REPLAY
@@ -339,7 +339,7 @@ static void callbackRestoreVirtualPidTable()
   dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
 #endif
 
-  dmtcp_process_event(DMTCP_EVENT_POST_RESTART_RESUME, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART_RESUME, NULL);
 
   // Set the process state to RUNNING now, in case a dmtcpaware hook
   //  calls pthread_create, thereby invoking our virtualization.
@@ -375,7 +375,7 @@ void callbackHoldsAnyLocks(int *retval)
 void callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
-  dmtcp_process_event(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
 }
 
 void callbackPreResumeUserThread(int is_ckpt, int is_restart)
@@ -383,7 +383,7 @@ void callbackPreResumeUserThread(int is_ckpt, int is_restart)
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.is_ckpt = is_ckpt;
   edata.resumeUserThreadInfo.is_restart = is_restart;
-  dmtcp_process_event(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
   dmtcp::ThreadSync::setOkToGrabLock();
   // This should be the last significant work before returning from this
   // function.
