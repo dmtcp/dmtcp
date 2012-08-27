@@ -55,6 +55,8 @@ namespace jalib {
     int   (*bind)(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
     int   (*listen)(int sockfd, int backlog);
     int   (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+    int   (*setsockopt)(int s, int level, int optname, const void *optval,
+                        socklen_t optlen);
     int   (*pthread_mutex_lock)(pthread_mutex_t *mutex);
     int   (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
     int   (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
@@ -91,6 +93,8 @@ namespace jalib {
   int bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
   int listen(int sockfd, int backlog);
   int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+  int setsockopt(int s, int level, int optname, const void *optval,
+                 socklen_t optlen);
   int pthread_mutex_lock(pthread_mutex_t *mutex);
   int pthread_mutex_trylock(pthread_mutex_t *mutex);
   int pthread_mutex_unlock(pthread_mutex_t *mutex);
