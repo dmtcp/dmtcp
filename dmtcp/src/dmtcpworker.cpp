@@ -466,6 +466,16 @@ const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
                                                DmtcpMessageType type )
 {
+  if (dmtcp_no_coordinator()) {
+    if (type == DMT_DO_SUSPEND) {
+      CoordinatorAPI::waitForCheckpointCommand();
+      UniquePid::ComputationId() = UniquePid::ThisProcess();
+      ProcessInfo::instance().numPeers(1);
+      ProcessInfo::instance().compGroup(UniquePid::ComputationId());
+    }
+    return;
+  }
+
   if ( type == DMT_DO_SUSPEND ) {
     if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
       JTRACE ( "User thread is performing exit()."
