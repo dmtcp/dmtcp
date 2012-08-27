@@ -335,7 +335,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
-  connectToCoordinatorWithHandshake();
+  _coordinatorAPI.connectToCoordinatorWithHandshake();
 
   // define "Weak Symbols for each library plugin in dmtcphijack.so
   processEvent(DMTCP_EVENT_INIT, NULL);
@@ -366,7 +366,7 @@ void dmtcp::DmtcpWorker::cleanupWorker()
   ThreadSync::resetLocks();
   WorkerState::setCurrentState( WorkerState::UNKNOWN);
   JTRACE ( "disconnecting from dmtcp coordinator" );
-  _coordinatorSocket.close();
+  _coordinatorAPI.closeConnection();
 }
 
 void dmtcp::DmtcpWorker::interruptCkpthread()
@@ -405,7 +405,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      */
     processEvent(DMTCP_EVENT_PRE_EXIT, NULL);
     JTRACE ( "exit() in progress, disconnecting from dmtcp coordinator" );
-    _coordinatorSocket.close();
+    _coordinatorAPI.closeConnection();
     interruptCkpthread();
   }
   cleanupWorker();
@@ -459,7 +459,7 @@ static void processDmtcpCommands(dmtcp::string programName,
 
 const dmtcp::UniquePid& dmtcp::DmtcpWorker::coordinatorId() const
 {
-  return _coordinatorId;
+  return _coordinatorAPI.coordinatorId();
 }
 
 
@@ -482,7 +482,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   msg.type = DMT_OK;
   msg.state = WorkerState::currentState();
-  sendMsgToCoordinator(msg);
+  _coordinatorAPI.sendMsgToCoordinator(msg);
 
   JTRACE ( "waiting for " + msgStr + " message" );
 
@@ -492,7 +492,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     _real_syscall(DMTCP_FAKE_SYSCALL);
   }
   do {
-    recvMsgFromCoordinator(&msg, type);
+    _coordinatorAPI.recvMsgFromCoordinator(&msg);
 
     if ( type == DMT_DO_SUSPEND && exitInProgress() ) {
       ThreadSync::destroyDmtcpWorkerLockUnlock();
@@ -568,7 +568,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   }
   if ( _waitingForExternalSocketsToClose == true ) {
     DmtcpMessage msg ( DMT_EXTERNAL_SOCKETS_CLOSED );
-    _coordinatorSocket << msg;
+    _coordinatorAPI.sendMsgToCoordinator(msg);
     _waitingForExternalSocketsToClose = false;
     JTRACE("externalSocketsClosed") (_waitingForExternalSocketsToClose);
   }
@@ -598,7 +598,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   }
   ThreadSync::destroyDmtcpWorkerLockUnlock();
 
-  JASSERT(_coordinatorSocket.isValid());
+  JASSERT(_coordinatorAPI.isValid());
   ThreadSync::releaseLocks();
 
   processEvent(DMTCP_EVENT_POST_SUSPEND, NULL);
@@ -652,13 +652,13 @@ bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
 
     msg.type = DMT_OK;
     msg.state = WorkerState::currentState();
-    _coordinatorSocket << msg;
+    sendMsgToCoordinator(msg);
 
     JTRACE ( "waiting for DRAIN/RESUME message" );
 
     do {
       msg.poison();
-      _coordinatorSocket >> msg;
+      _coordinatorAPI.recvMsgFromCoordinator(msg);
       msg.assertValid();
 
       if ( msg.type == DMT_KILL_PEER ) {
@@ -717,7 +717,7 @@ void dmtcp::DmtcpWorker::sendPeerLookupRequest (dmtcp::vector<TcpConnectionInfo>
     msg.localAddrlen = conInfoTable[i].addrlen();
     msg.conId        = conInfoTable[i].conId();
 
-    _coordinatorSocket << msg;
+    sendMsgToCoordinator(msg);
   }
 }
 
@@ -726,71 +726,13 @@ bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
 }
 #endif
 
-void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
-{
-  // Tell coordinator to record our filename in the restart script
-  dmtcp::string ckptFilename = dmtcp::UniquePid::getCkptFilename();
-  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
-  JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
-  dmtcp::DmtcpMessage msg;
-  msg.type = DMT_CKPT_FILENAME;
-  msg.extraBytes = ckptFilename.length() +1 + hostname.length() +1;
-  _coordinatorSocket << msg;
-  _coordinatorSocket.writeAll ( ckptFilename.c_str(), ckptFilename.length() +1 );
-  _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
-}
-
-
-// At restart, the HOST/PORT used by dmtcp_coordinator could be different then
-// those at checkpoint time. This could cause the child processes created after
-// restart to fail to connect to the coordinator.
-void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
-{
-  struct sockaddr addr;
-  socklen_t addrLen = sizeof addr;
-  JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen))
-    (JASSERT_ERRNO);
-
-  /* If the current coordinator is running on a HOST/PORT other than the
-   * pre-checkpoint HOST/PORT, we need to update the environment variables
-   * pointing to the coordinator HOST/PORT. This is needed if the new
-   * coordinator has been moved around.
-   */
-
-  const char * origCoordAddr = getenv ( ENV_VAR_NAME_HOST );
-  const char * origCoordPortStr = getenv ( ENV_VAR_NAME_PORT );
-  if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
-  int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( origCoordPortStr );
-
-  jalib::JSockAddr originalCoordinatorAddr(origCoordAddr, origCoordPort);
-  if (addrLen != originalCoordinatorAddr.addrlen() ||
-      memcmp(originalCoordinatorAddr.addr(), &addr, addrLen) != 0) {
-
-    JASSERT (addr.sa_family == AF_INET) (addr.sa_family)
-      .Text ("Coordinator socket always uses IPV4 sockets");
-
-    char currHost[1024];
-    char currPort[16];
-
-    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost,
-                          currPort, sizeof currPort, NI_NUMERICSERV);
-    JASSERT (res == 0) (currHost) (currPort) (gai_strerror(res))
-      .Text ("getnameinfo(... currHost, ..., currPort,...) failed");
-
-    JTRACE ("Coordinator running at a different location")
-      (origCoordAddr) (origCoordPort) (currHost) (currPort);
-
-    JASSERT (0 == setenv (ENV_VAR_NAME_HOST, currHost, 1)) (JASSERT_ERRNO);
-    JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
-  }
-}
 
 void dmtcp::DmtcpWorker::postRestart()
 {
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
-  recvCoordinatorHandshake();
+  _coordinatorAPI.recvCoordinatorHandshake();
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill( bool isRestart )
@@ -827,6 +769,30 @@ void dmtcp::DmtcpWorker::waitForStage4Resume()
   WorkerState::setCurrentState ( WorkerState::REFILLED );
   waitForCoordinatorMsg ( "RESUME", DMT_DO_RESUME );
   JTRACE ( "got resume message" );
+}
+
+void dmtcp::DmtcpWorker::sendCkptFilenameToCoordinator()
+{
+  _coordinatorAPI.sendCkptFilename();
+}
+
+void dmtcp::DmtcpWorker::updateCoordinatorHostAndPortEnv()
+{
+  _coordinatorAPI.updateHostAndPortEnv();
+}
+
+int dmtcp::DmtcpWorker::sendKeyValPairToCoordinator(const void *key,
+                                                    size_t key_len,
+                                                    const void *val,
+                                                    size_t val_len)
+{
+  _coordinatorAPI.sendKeyValPairToCoordinator(key, key_len, val, val_len);
+}
+
+int dmtcp::DmtcpWorker::sendQueryToCoordinator(const void *key, size_t key_len,
+                                               void *val, size_t *val_len)
+{
+  _coordinatorAPI.sendQueryToCoordinator(key, key_len, val, val_len);
 }
 
 void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);

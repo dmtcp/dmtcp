@@ -45,16 +45,33 @@ void dmtcp::CoordinatorAPI::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTED_COORD_ALT_FD );
 }
 
-void dmtcp::CoordinatorAPI::sendMsgToCoordinator(dmtcp::DmtcpMessage msg)
+void dmtcp::CoordinatorAPI::sendMsgToCoordinator(dmtcp::DmtcpMessage msg,
+                                                 const void *extraData,
+                                                 size_t len)
 {
   _coordinatorSocket << msg;
+  if (msg.extraBytes > 0) {
+    JASSERT(extraData != NULL);
+    JASSERT(len == msg.extraBytes);
+    _coordinatorSocket.writeAll((const char *)extraData, msg.extraBytes);
+  }
 }
 
 void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
-                                                   dmtcp::DmtcpMessageType expType)
+                                                   void **extraData)
 {
   msg->poison();
   _coordinatorSocket >> (*msg);
+
+  if (extraData != NULL) {
+    msg->assertValid();
+    JASSERT(msg->extraBytes > 0);
+    // Caller must free this buffer
+    void *buf = JALLOC_HELPER_MALLOC(msg->extraBytes);
+    _coordinatorSocket.readAll((char*)buf, msg->extraBytes);
+    JASSERT(extraData != NULL);
+    *extraData = buf;
+  }
 }
 
 void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c, int* result /*= NULL*/)
@@ -467,4 +484,124 @@ jalib::JSocket& dmtcp::CoordinatorAPI::openRestoreSocket()
     (_restoreSocket.sockfd()) (restoreSocket.sockfd());
   _restoreSocket = restoreSocket;
   return _restoreSocket;
+}
+
+void dmtcp::CoordinatorAPI::sendCkptFilename()
+{
+  // Tell coordinator to record our filename in the restart script
+  dmtcp::string ckptFilename = dmtcp::UniquePid::getCkptFilename();
+  dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
+  JTRACE ( "recording filenames" ) ( ckptFilename ) ( hostname );
+  dmtcp::DmtcpMessage msg;
+  msg.type = DMT_CKPT_FILENAME;
+  msg.extraBytes = ckptFilename.length() +1 + hostname.length() +1;
+  _coordinatorSocket << msg;
+  _coordinatorSocket.writeAll ( ckptFilename.c_str(), ckptFilename.length() +1 );
+  _coordinatorSocket.writeAll ( hostname.c_str(),     hostname.length() +1 );
+}
+
+// At restart, the HOST/PORT used by dmtcp_coordinator could be different then
+// those at checkpoint time. This could cause the child processes created after
+// restart to fail to connect to the coordinator.
+void dmtcp::CoordinatorAPI::updateHostAndPortEnv()
+{
+  struct sockaddr addr;
+  socklen_t addrLen = sizeof addr;
+  JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen))
+    (JASSERT_ERRNO);
+
+  /* If the current coordinator is running on a HOST/PORT other than the
+   * pre-checkpoint HOST/PORT, we need to update the environment variables
+   * pointing to the coordinator HOST/PORT. This is needed if the new
+   * coordinator has been moved around.
+   */
+
+  const char * origCoordAddr = getenv ( ENV_VAR_NAME_HOST );
+  const char * origCoordPortStr = getenv ( ENV_VAR_NAME_PORT );
+  if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
+  int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt ( origCoordPortStr );
+
+  jalib::JSockAddr originalCoordinatorAddr(origCoordAddr, origCoordPort);
+  if (addrLen != originalCoordinatorAddr.addrlen() ||
+      memcmp(originalCoordinatorAddr.addr(), &addr, addrLen) != 0) {
+
+    JASSERT (addr.sa_family == AF_INET) (addr.sa_family)
+      .Text ("Coordinator socket always uses IPV4 sockets");
+
+    char currHost[1024];
+    char currPort[16];
+
+    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost,
+                          currPort, sizeof currPort, NI_NUMERICSERV);
+    JASSERT (res == 0) (currHost) (currPort) (gai_strerror(res))
+      .Text ("getnameinfo(... currHost, ..., currPort,...) failed");
+
+    JTRACE ("Coordinator running at a different location")
+      (origCoordAddr) (origCoordPort) (currHost) (currPort);
+
+    JASSERT (0 == setenv (ENV_VAR_NAME_HOST, currHost, 1)) (JASSERT_ERRNO);
+    JASSERT( 0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
+  }
+}
+
+int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const void *key,
+                                                       size_t key_len,
+                                                       const void *val,
+                                                       size_t val_len)
+{
+  void *extraData = JALLOC_HELPER_MALLOC(key_len + val_len);
+  memcpy(extraData, key, key_len);
+  memcpy((char*)extraData + key_len, val, val_len);
+
+  DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
+  msg.keyLen = key_len;
+  msg.valLen = val_len;
+  msg.extraBytes = key_len + val_len;
+
+  sendMsgToCoordinator(msg, extraData, msg.extraBytes);
+  JALLOC_HELPER_FREE(extraData);
+  return 1;
+}
+
+// On input, val points to a buffer in user memory and *val_len is the maximum
+//   size of that buffer (the memory allocated by user).
+// On output, we copy data to val, and set *val_len to the actual buffer size
+//   (to the size of the data that we copied to the user buffer).
+int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_len,
+                                                  void *val, size_t *val_len)
+{
+  /* THE USER JUST GAVE US A BUFFER, val.  WHY ARE WE ALLOCATING
+   * EXTRA MEMORY HERE?  ALLOCATING MEMORY IS DANGEROUS.  WE ARE A GUEST
+   * IN THE USER'S PROCESS.  IF WE NEED TO, CREATE A message CONSTRUCTOR
+   * AROUND THE USER'S 'key' INPUT.
+   *   ALSO, SINCE THE USER GAVE US *val_len * CHARS OF MEMORY, SHOULDN'T
+   * WE BE SETTING msg.extraBytes TO *val_len AND NOT key_len?
+   * ANYWAY, WHY DO WE USE THE SAME msg OBJECT FOR THE "send key"
+   * AND FOR THE "return val"?  IT'S NOT TO SAVE MEMORY.  :-)
+   * THANKS, - Gene
+   */
+  void *extraData;
+  size_t extraBytes;
+
+  DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
+  msg.keyLen = key_len;
+  msg.valLen = 0;
+  msg.extraBytes = key_len;
+
+  sendMsgToCoordinator(msg, key, key_len);
+
+  msg.poison();
+
+  recvMsgFromCoordinator(&msg, &extraData);
+
+  JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
+          msg.extraBytes > 0 && (msg.valLen + msg.keyLen) == msg.extraBytes);
+
+  //TODO: FIXME --> enforce the JASSERT
+  JASSERT(*val_len >= msg.extraBytes - key_len) (*val_len) (msg.extraBytes) (key_len);
+  JASSERT(memcmp(key, extraData, key_len) == 0);
+  memcpy(val, (char*)extraData + key_len, msg.extraBytes-key_len);
+  *val_len = msg.valLen;
+  JALLOC_HELPER_FREE(extraData);
+  return 1;
 }
