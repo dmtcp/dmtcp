@@ -227,10 +227,6 @@ int main(int argc, char** argv)
   if (jassert_quiet == 0)
     JASSERT_STDERR << DMTCP_BANNER;
 
-  if (autoStartCoordinator)
-    dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
-                                                         isRestart);
-
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
@@ -278,6 +274,7 @@ int main(int argc, char** argv)
   // If not - abort
   compGroup = targets[0].compGroup();
   numPeers = targets[0].numPeers();
+  JASSERT(!targets[0].noCoordinator() || targets.size() == 1);
   for(size_t i=0; i<targets.size(); i++) {
     JTRACE ("Check targets: ")
       (targets[i].path()) (targets[i].compGroup()) (targets[i].numPeers());
@@ -288,6 +285,16 @@ int main(int argc, char** argv)
       JASSERT(false)(numPeers)(targets[i].numPeers())
 	.Text("ERROR: Different number of processes saved in checkpoint images");
     }
+  }
+
+  if (targets[0].noCoordinator()) {
+    JTRACE("Standalone process without coordinator, restarting process without"
+           " an external coordinator");
+    dmtcp::CoordinatorAPI::startCoordinatorIfNeeded
+      (dmtcp::CoordinatorAPI::COORD_NONE, isRestart);
+  } else if (autoStartCoordinator) {
+    dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
+                                                    isRestart);
   }
 
   SlidingFdTable slidingFd;

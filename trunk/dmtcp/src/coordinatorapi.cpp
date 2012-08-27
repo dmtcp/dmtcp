@@ -171,6 +171,8 @@ jalib::JSocket
   const char * coordinatorAddr = getenv(ENV_VAR_NAME_HOST);
   const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
 
+  JASSERT(!noCoordinator());
+
   if ( coordinatorAddr == NULL ) coordinatorAddr = DEFAULT_HOST;
   int coordinatorPort = coordinatorPortStr == NULL
                           ? DEFAULT_PORT
@@ -193,6 +195,7 @@ jalib::JSocket
 
 bool dmtcp::CoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
 {
+  if (noCoordinator()) return true;
   jalib::JSocket oldFd = _coordinatorSocket;
 
   _coordinatorSocket = createNewConnectionToCoordinator(dieOnError);
@@ -211,6 +214,7 @@ bool dmtcp::CoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
 
 void dmtcp::CoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progName)
 {
+  JASSERT(!noCoordinator());
   JTRACE("Informing coordinator of a to-be-created process/program")
     (progName) (UniquePid::ThisProcess());
   _coordinatorSocket = createNewConnectionToCoordinator();
@@ -256,6 +260,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake (
   int np /*= -1*/,
   DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
 {
+  if (noCoordinator()) return;
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
 
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
@@ -318,6 +323,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake (
 
 void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(int *param1)
 {
+  if (noCoordinator()) return;
   JTRACE("receiving coordinator handshake");
 
   DmtcpMessage hello_remote;
@@ -382,6 +388,9 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
 
 pid_t dmtcp::CoordinatorAPI::getVirtualPidFromCoordinator()
 {
+  if (noCoordinator()) {
+    return getpid();
+  }
   connectToCoordinator();
   DmtcpMessage msg(DMT_GET_VIRTUAL_PID);
   _coordinatorSocket << msg;
@@ -404,6 +413,10 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::Coor
   const static int CS_NO = DMTCP_FAIL_RC+2;
   int coordinatorStatus = -1;
 
+  if (mode & COORD_NONE) {
+    setupVirtualCoordinator();
+    return;
+  }
   if (mode & COORD_BATCH) {
     startNewCoordinator ( mode, isRestart );
     return;
@@ -562,6 +575,7 @@ jalib::JSocket& dmtcp::CoordinatorAPI::openRestoreSocket()
 
 void dmtcp::CoordinatorAPI::sendCkptFilename()
 {
+  if (noCoordinator()) return;
   // Tell coordinator to record our filename in the restart script
   dmtcp::string ckptFilename = dmtcp::UniquePid::getCkptFilename();
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
@@ -579,6 +593,7 @@ void dmtcp::CoordinatorAPI::sendCkptFilename()
 // restart to fail to connect to the coordinator.
 void dmtcp::CoordinatorAPI::updateHostAndPortEnv()
 {
+  if (noCoordinator()) return;
   struct sockaddr addr;
   socklen_t addrLen = sizeof addr;
   JASSERT (0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen))

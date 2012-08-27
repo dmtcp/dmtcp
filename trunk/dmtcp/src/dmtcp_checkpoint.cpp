@@ -85,6 +85,9 @@ static const char* theUsage =
   "  --batch, -b:\n"
   "      Enable batch mode i.e. start the coordinator on the same node on\n"
   "        a randomly assigned port (if no port is specified by --port)\n"
+  "  --no-coordinator:\n"
+  "      Execute the process in stand-alone coordinator-less mode.\n"
+  "        Use dmtcp_command or --interval to request checkpoints.\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints.\n"
   "      0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -185,6 +188,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "-b" || s == "--batch") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
+      shift;
+    } else if (s == "--no-coordinator") {
+      allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&

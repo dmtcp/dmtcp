@@ -384,6 +384,10 @@ void dmtcp::TcpConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     JASSERT ( fcntl ( fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC ) == 0 ) ( JASSERT_ERRNO ) ( fds[0] ) ( id() );
   }
 
+  if (dmtcp_no_coordinator()) {
+    markExternalConnect();
+  }
+
   switch ( tcpType() )
   {
     case TCP_CONNECT:
