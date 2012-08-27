@@ -127,7 +127,7 @@ static dmtcp::string _stderrProcPath()
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
-static int allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
+static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
@@ -413,8 +413,9 @@ int main ( int argc, char** argv )
   // FIXME: This call should be moved closer to call to execvp().
   dmtcp::Util::prepareDlsymWrapper();
 
-  if (autoStartCoordinator)
+  if (autoStartCoordinator) {
      dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
+  }
   dmtcp::CoordinatorAPI coordinatorAPI;
   pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
   if (virtualPid != -1) {

@@ -145,3 +145,8 @@ EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
 {
   DmtcpWorker::instance().sendQueryToCoordinator(key, key_len, val, val_len);
 }
+
+EXTERNC int dmtcp_no_coordinator()
+{
+  return CoordinatorAPI::noCoordinator();
+}

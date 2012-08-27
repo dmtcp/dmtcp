@@ -30,7 +30,6 @@
 
 namespace dmtcp
 {
-
   class CoordinatorAPI
   {
     public:
@@ -41,11 +40,13 @@ namespace dmtcp
         ERROR_COORDINATOR_NOT_FOUND = -3
       };
 
-      enum CoordinatorModes {
+      enum CoordinatorMode {
+        COORD_INVALID   = 0x0000,
         COORD_JOIN      = 0x0001,
         COORD_NEW       = 0x0002,
         COORD_FORCE_NEW = 0x0004,
         COORD_BATCH     = 0x0008,
+        COORD_NONE      = 0x0010,
         COORD_ANY       = COORD_JOIN | COORD_NEW
       };
 
@@ -81,7 +82,6 @@ namespace dmtcp
 
       pid_t virtualPid() const { return _virtualPid; }
       pid_t getVirtualPidFromCoordinator();
-      jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
       void createNewConnectionBeforeFork(dmtcp::string& progName);
       void informCoordinatorOfNewProcessOnFork(jalib::JSocket& coordSock);
 
@@ -102,13 +102,20 @@ namespace dmtcp
 
       jalib::JSocket& openRestoreSocket();
 
-      static void startCoordinatorIfNeeded(int modes, int isRestart = 0);
-      static void startNewCoordinator(int modes, int isRestart = 0);
+      static void setupVirtualCoordinator();
+      static void waitForCheckpointCommand();
+      static bool noCoordinator();
+      static void startCoordinatorIfNeeded(CoordinatorMode modes, int isRestart = 0);
+      static void startNewCoordinator(CoordinatorMode modes, int isRestart = 0);
 
       int sendKeyValPairToCoordinator(const void *key, size_t key_len,
                                       const void *val, size_t val_len);
       int sendQueryToCoordinator(const void *key, size_t key_len,
                                  void *val, size_t *val_len);
+
+    private:
+      jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
+
     protected:
       UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;

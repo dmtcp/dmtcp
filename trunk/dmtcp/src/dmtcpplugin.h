@@ -128,6 +128,8 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr();
 EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
 EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
 
+EXTERNC int dmtcp_no_coordinator();
+
 #define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
 #define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT
 

@@ -436,12 +436,9 @@ void RestoreTarget::CreateProcess(CoordinatorAPI& coordinatorAPI,
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState (WorkerState::RESTARTING);
 
-  int tmpCoordFd = dup(PROTECTED_COORD_FD);
-  JASSERT(tmpCoordFd != -1);
   coordinatorAPI.connectToCoordinator();
   coordinatorAPI.sendCoordinatorHandshake(procname(), _processInfo.compGroup());
   coordinatorAPI.recvCoordinatorHandshake();
-  close(tmpCoordFd);
 
   //restart targets[i]
   dupAllSockets (slidingFd);

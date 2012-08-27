@@ -93,6 +93,7 @@ dmtcp::ProcessInfo::ProcessInfo()
   _gid = -1;
   _sid = -1;
   _isRootOfProcessTree = false;
+  _noCoordinator = false;
   _childTable.clear();
   _tidVector.clear();
   _pthreadJoinId.clear();
@@ -283,6 +284,7 @@ void dmtcp::ProcessInfo::refresh()
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _upid = UniquePid::ThisProcess();
   _uppid = UniquePid::ParentProcess();
+  _noCoordinator = dmtcp_no_coordinator();
 
   refreshChildTable();
   refreshTidVector();
@@ -327,12 +329,14 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
 
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
   o & _procname & _hostname & _upid & _uppid;
-  o & _compGroup & _numPeers & _argvSize & _envSize;
+  o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)
     (_procname) (_hostname) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_argvSize) (_envSize);
+    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize);
+
+  JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
   if ( _isRootOfProcessTree ) {
     JTRACE ( "This process is Root of Process Tree" );

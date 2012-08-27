@@ -31,6 +31,7 @@
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
 #include "dmtcpmessagetypes.h"
+#include "dmtcpplugin.h"
 #include "util.h"
 #include "resource_manager.h"
 #include  "../jalib/jsocket.h"

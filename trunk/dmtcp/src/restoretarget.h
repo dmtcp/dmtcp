@@ -60,6 +60,7 @@ namespace dmtcp
     dmtcp::string path() {return _path;}
     UniquePid compGroup() {return _processInfo.compGroup();}
     int numPeers() {return _processInfo.numPeers();}
+    bool noCoordinator() { return _processInfo.noCoordinator(); }
     void markUsed() {_used = true;}
     bool isMarkedUsed() {return _used;}
 
