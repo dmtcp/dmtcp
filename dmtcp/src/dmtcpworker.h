@@ -69,7 +69,7 @@ namespace dmtcp
 #endif
 
 
-  class DmtcpWorker : public CoordinatorAPI
+  class DmtcpWorker
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -79,11 +79,9 @@ namespace dmtcp
 #endif
       static DmtcpWorker& instance();
       const dmtcp::UniquePid& coordinatorId() const;
-      jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 
       void waitForCoordinatorMsg(dmtcp::string signalStr,
                                  DmtcpMessageType type);
-      void sendCkptFilenameToCoordinator();
       void waitForStage1Suspend();
 #ifdef EXTERNAL_SOCKET_HANDLING
       bool waitForStage2Checkpoint();
@@ -97,13 +95,19 @@ namespace dmtcp
       void waitForStage4Resume();
       void restoreVirtualPidTable();
       void postRestart();
-      void updateCoordinatorHostAndPortEnv();
 
       static void resetOnFork(jalib::JSocket& coordSock);
       void cleanupWorker();
 
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
+
+      void sendCkptFilenameToCoordinator();
+      void updateCoordinatorHostAndPortEnv();
+      int sendKeyValPairToCoordinator(const void *key, size_t key_len,
+                                      const void *val, size_t val_len);
+      int sendQueryToCoordinator(const void *key, size_t key_len,
+                                 void *val, size_t *val_len);
 
       static int determineMtcpSignal();
 
@@ -119,7 +123,7 @@ namespace dmtcp
       void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
-    private:
+      CoordinatorAPI _coordinatorAPI;
       static bool _exitInProgress;
   };
 }

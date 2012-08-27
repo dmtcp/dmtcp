@@ -49,15 +49,25 @@ namespace dmtcp
         COORD_ANY       = COORD_JOIN | COORD_NEW
       };
 
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
       CoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
       // Use default destructor
 
       void closeConnection() { _coordinatorSocket.close(); }
 
-      void sendMsgToCoordinator(DmtcpMessage msg);
-      void recvMsgFromCoordinator(DmtcpMessage *msg, DmtcpMessageType exptype);
+      void sendMsgToCoordinator(DmtcpMessage msg,
+                                const void *ch = NULL, size_t len = 0);
+      void recvMsgFromCoordinator(DmtcpMessage *msg, void **str = NULL);
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
+      const UniquePid& coordinatorId() const { return _coordinatorId; }
+      const UniquePid setCoordinatorId(UniquePid id) { _coordinatorId = id; }
+
+      bool isValid() { return _coordinatorSocket.isValid(); }
 
       void connectAndSendUserCommand(char c, int* result = NULL);
 
@@ -87,12 +97,18 @@ namespace dmtcp
                                     DmtcpMessageType msgType =
                                       DMT_HELLO_COORDINATOR);
       void recvCoordinatorHandshake(int *param1 = NULL);
+      void sendCkptFilename();
+      void updateHostAndPortEnv();
 
       jalib::JSocket& openRestoreSocket();
 
       static void startCoordinatorIfNeeded(int modes, int isRestart = 0);
       static void startNewCoordinator(int modes, int isRestart = 0);
 
+      int sendKeyValPairToCoordinator(const void *key, size_t key_len,
+                                      const void *val, size_t val_len);
+      int sendQueryToCoordinator(const void *key, size_t key_len,
+                                 void *val, size_t *val_len);
     protected:
       UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
