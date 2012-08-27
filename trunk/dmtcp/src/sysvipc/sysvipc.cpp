@@ -41,7 +41,6 @@
 
 /*
  * Algorithm for properly checkpointing shared memory segments.
- * Helper struct: struct shmMetaInfo { pid_t pid, int creatorSignature }
  *  1. BARRIER -- SUSPENDED
  *  2. Call shmat() and shmdt() for each shm-object. This way the last process
  *     to call shmdt() is elected as the ckptLeader.
@@ -106,6 +105,7 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_POST_CKPT_RESUME:
+    case DMTCP_EVENT_POST_RESTART_RESUME:
       dmtcp::SysVIPC::instance().preResume();
       break;
 
