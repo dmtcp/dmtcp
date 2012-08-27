@@ -25,7 +25,6 @@
 #include "threadsync.h"
 #include "../../jalib/jassert.h"
 
-#if 0
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
@@ -83,4 +82,3 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }
-#endif
