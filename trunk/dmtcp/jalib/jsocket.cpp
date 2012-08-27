@@ -608,19 +608,19 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
       else
       {
-        closedFds.insert(_dataSockets[i]->socket().sockfd());
+        JReaderInterface* dsock = _dataSockets[i];
+        closedFds.insert(dsock->socket().sockfd());
         //socket is dead... remove it
         //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
-        onDisconnect ( _dataSockets[i] );
-        _dataSockets[i]->socket().close();
 
-        delete _dataSockets[i];
         _dataSockets[i] = 0;
         //swap with last
         _dataSockets[i] = _dataSockets[_dataSockets.size()-1];
         _dataSockets.pop_back();
         i--;
-        processPostDisconnect();
+        onDisconnect(dsock);
+        dsock->socket().close();
+        delete dsock;
       }
     }
 

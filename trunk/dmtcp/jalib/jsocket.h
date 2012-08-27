@@ -61,7 +61,7 @@ namespace jalib
       socklen_t addrlen() const{ return sizeof ( sockaddr_in );}
     private:
       const static unsigned int max_count = 32;
-      // Allocate max_count + 1 to be able to return 
+      // Allocate max_count + 1 to be able to return
       // zeroed socket structure if wrong addres index requested
       struct sockaddr_in _addr[max_count+1];
       unsigned int _count;
@@ -134,7 +134,7 @@ namespace jalib
   class JServerSocket : public JSocket
   {
     public:
-      JServerSocket ( int sockfd ) 
+      JServerSocket ( int sockfd )
         : JSocket ( sockfd )
       {
         enablePortReuse();
@@ -256,7 +256,6 @@ namespace jalib
       virtual void onData ( JReaderInterface* sock ) = 0;
       virtual void onConnect ( const JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen ) = 0;
       virtual void onDisconnect ( JReaderInterface* sock ) {};
-      virtual void processPostDisconnect () {};
       void setTimeoutInterval ( double dblTimeout );
       virtual void onTimeoutInterval() {};
       void addWrite ( JWriterInterface* write );

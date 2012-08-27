@@ -48,6 +48,7 @@
  *   dmtcp::DmtcpCoordinator::broadcastMessage				    *
  ****************************************************************************/
 
+#define DEBUG
 #include "dmtcp_coordinator.h"
 #include "constants.h"
 #include "protectedfds.h"
@@ -651,6 +652,137 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   return;
 }
 
+void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
+{
+  WorkerState newState = minimumState();
+
+  if ( oldState == WorkerState::RUNNING
+       && newState == WorkerState::SUSPENDED )
+  {
+    JNOTE ( "locking all nodes" );
+    broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
+                     UniquePid::ComputationId(),
+                     getStatus().numPeers );
+  }
+#ifdef EXTERNAL_SOCKET_HANDLING
+  if ( oldState == WorkerState::SUSPENDED
+       && newState == WorkerState::FD_LEADER_ELECTION )
+  {
+    JNOTE ( "performing peerlookup for all sockets" );
+    broadcastMessage ( DMT_DO_PEER_LOOKUP );
+  }
+  if ( oldState == WorkerState::FD_LEADER_ELECTION
+       && newState == WorkerState::PEER_LOOKUP_COMPLETE )
+  {
+    if ( _socketPeerLookupMessages.empty() ) {
+      JNOTE ( "draining all nodes" );
+      broadcastMessage ( DMT_DO_DRAIN );
+    } else {
+      sendUnidentifiedPeerNotifications();
+      JNOTE ( "Not all socket peers were Identified, "
+              " resuming computation without checkpointing" );
+      broadcastMessage ( DMT_DO_RESUME );
+    }
+  }
+  if ( oldState == WorkerState::PEER_LOOKUP_COMPLETE
+       && newState == WorkerState::DRAINED )
+  {
+    JNOTE ( "checkpointing all nodes" );
+    broadcastMessage ( DMT_DO_CHECKPOINT );
+  }
+#else
+  if ( oldState == WorkerState::SUSPENDED
+       && newState == WorkerState::FD_LEADER_ELECTION )
+  {
+    JNOTE ( "draining all nodes" );
+    broadcastMessage ( DMT_DO_DRAIN );
+  }
+  if ( oldState == WorkerState::FD_LEADER_ELECTION
+       && newState == WorkerState::DRAINED )
+  {
+    JNOTE ( "checkpointing all nodes" );
+    broadcastMessage ( DMT_DO_CHECKPOINT );
+  }
+#endif
+
+#ifdef COORD_NAMESERVICE
+  if ( oldState == WorkerState::DRAINED
+       && newState == WorkerState::CHECKPOINTED )
+  {
+    writeRestartScript();
+    JNOTE ( "building name service database" );
+    lookupService.reset();
+    broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+  }
+  if ( oldState == WorkerState::RESTARTING
+       && newState == WorkerState::CHECKPOINTED )
+  {
+    JTRACE ( "resetting _restoreWaitingMessages" )
+      ( _restoreWaitingMessages.size() );
+    _restoreWaitingMessages.clear();
+
+    JTIMER_STOP ( restart );
+
+    lookupService.reset();
+    JNOTE ( "building name service database (after restart)" );
+    broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+  }
+  if ( oldState == WorkerState::CHECKPOINTED
+       && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ){
+    JNOTE ( "entertaining queries now" );
+    broadcastMessage ( DMT_DO_SEND_QUERIES );
+  }
+  if ( oldState == WorkerState::NAME_SERVICE_DATA_REGISTERED
+       && newState == WorkerState::DONE_QUERYING ){
+    JNOTE ( "refilling all nodes" );
+    broadcastMessage ( DMT_DO_REFILL );
+  }
+  if ( oldState == WorkerState::DONE_QUERYING
+       && newState == WorkerState::REFILLED )
+#else
+    if ( oldState == WorkerState::DRAINED
+         && newState == WorkerState::CHECKPOINTED )
+    {
+      JNOTE ( "refilling all nodes" );
+      broadcastMessage ( DMT_DO_REFILL );
+      writeRestartScript();
+    }
+  if ( oldState == WorkerState::RESTARTING
+       && newState == WorkerState::CHECKPOINTED )
+  {
+    JTRACE ( "resetting _restoreWaitingMessages" )
+      ( _restoreWaitingMessages.size() );
+    _restoreWaitingMessages.clear();
+
+    JTIMER_STOP ( restart );
+
+    JNOTE ( "refilling all nodes (after checkpoint)" );
+    broadcastMessage ( DMT_DO_REFILL );
+  }
+  if ( oldState == WorkerState::CHECKPOINTED
+       && newState == WorkerState::REFILLED )
+#endif
+  {
+    JNOTE ( "restarting all nodes" );
+    broadcastMessage ( DMT_DO_RESUME );
+
+    JTIMER_STOP ( checkpoint );
+    isRestarting = false;
+
+    setTimeoutInterval( theCheckpointInterval );
+
+    if (blockUntilDone) {
+      JNOTE ( "replying to dmtcp_command:  we're done" );
+      // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
+      jalib::JSocket remote ( blockUntilDoneRemote );
+      remote << blockUntilDoneReply;
+      remote.close();
+      blockUntilDone = false;
+      blockUntilDoneRemote = -1;
+    }
+  }
+}
+
 void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 {
   if ( sock->socket().sockfd() == STDIN_FD )
@@ -682,131 +814,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         JTRACE ("got DMT_OK message")
           ( msg.from )( msg.state )( oldState )( newState );
 
-        if ( oldState == WorkerState::RUNNING
-                && newState == WorkerState::SUSPENDED )
-        {
-          JNOTE ( "locking all nodes" );
-          broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
-                           UniquePid::ComputationId(),
-                           getStatus().numPeers );
-        }
-#ifdef EXTERNAL_SOCKET_HANDLING
-        if ( oldState == WorkerState::SUSPENDED
-                && newState == WorkerState::FD_LEADER_ELECTION )
-        {
-          JNOTE ( "performing peerlookup for all sockets" );
-          broadcastMessage ( DMT_DO_PEER_LOOKUP );
-        }
-        if ( oldState == WorkerState::FD_LEADER_ELECTION
-                && newState == WorkerState::PEER_LOOKUP_COMPLETE )
-        {
-          if ( _socketPeerLookupMessages.empty() ) {
-            JNOTE ( "draining all nodes" );
-            broadcastMessage ( DMT_DO_DRAIN );
-          } else {
-            sendUnidentifiedPeerNotifications();
-            JNOTE ( "Not all socket peers were Identified, "
-                    " resuming computation without checkpointing" );
-            broadcastMessage ( DMT_DO_RESUME );
-          }
-        }
-        if ( oldState == WorkerState::PEER_LOOKUP_COMPLETE
-                && newState == WorkerState::DRAINED )
-        {
-          JNOTE ( "checkpointing all nodes" );
-          broadcastMessage ( DMT_DO_CHECKPOINT );
-        }
-#else
-        if ( oldState == WorkerState::SUSPENDED
-                && newState == WorkerState::FD_LEADER_ELECTION )
-        {
-          JNOTE ( "draining all nodes" );
-          broadcastMessage ( DMT_DO_DRAIN );
-        }
-        if ( oldState == WorkerState::FD_LEADER_ELECTION
-                && newState == WorkerState::DRAINED )
-        {
-          JNOTE ( "checkpointing all nodes" );
-          broadcastMessage ( DMT_DO_CHECKPOINT );
-        }
-#endif
-
-#ifdef COORD_NAMESERVICE
-        if ( oldState == WorkerState::DRAINED
-                && newState == WorkerState::CHECKPOINTED )
-        {
-          writeRestartScript();
-          JNOTE ( "building name service database" );
-          lookupService.reset();
-          broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
-        }
-        if ( oldState == WorkerState::RESTARTING
-                && newState == WorkerState::CHECKPOINTED )
-        {
-          JTRACE ( "resetting _restoreWaitingMessages" )
-          ( _restoreWaitingMessages.size() );
-          _restoreWaitingMessages.clear();
-
-          JTIMER_STOP ( restart );
-
-          lookupService.reset();
-          JNOTE ( "building name service database (after restart)" );
-          broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
-        }
-        if ( oldState == WorkerState::CHECKPOINTED
-                && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ){
-          JNOTE ( "entertaining queries now" );
-          broadcastMessage ( DMT_DO_SEND_QUERIES );
-        }
-        if ( oldState == WorkerState::NAME_SERVICE_DATA_REGISTERED
-                && newState == WorkerState::DONE_QUERYING ){
-          JNOTE ( "refilling all nodes" );
-          broadcastMessage ( DMT_DO_REFILL );
-        }
-        if ( oldState == WorkerState::DONE_QUERYING
-                && newState == WorkerState::REFILLED )
-#else
-        if ( oldState == WorkerState::DRAINED
-                && newState == WorkerState::CHECKPOINTED )
-        {
-          JNOTE ( "refilling all nodes" );
-          broadcastMessage ( DMT_DO_REFILL );
-          writeRestartScript();
-        }
-        if ( oldState == WorkerState::RESTARTING
-                && newState == WorkerState::CHECKPOINTED )
-        {
-          JTRACE ( "resetting _restoreWaitingMessages" )
-          ( _restoreWaitingMessages.size() );
-          _restoreWaitingMessages.clear();
-
-          JTIMER_STOP ( restart );
-
-          JNOTE ( "refilling all nodes (after checkpoint)" );
-          broadcastMessage ( DMT_DO_REFILL );
-        }
-        if ( oldState == WorkerState::CHECKPOINTED
-                && newState == WorkerState::REFILLED )
-#endif
-        {
-          JNOTE ( "restarting all nodes" );
-          broadcastMessage ( DMT_DO_RESUME );
-
-          JTIMER_STOP ( checkpoint );
-          isRestarting = false;
-
-          setTimeoutInterval( theCheckpointInterval );
-
-          if (blockUntilDone) {
-            JNOTE ( "replying to dmtcp_command:  we're done" );
-	    // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
-	    jalib::JSocket remote ( blockUntilDoneRemote );
-            remote << blockUntilDoneReply;
-            remote.close();
-            blockUntilDone = false;
-            blockUntilDoneRemote = -1;
-          }
-        }
+        updateMinimumState(oldState);
         break;
       }
       case DMT_RESTORE_WAITING:
@@ -954,18 +962,15 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 
 void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
 {
-  if ( sock->socket().sockfd() == STDIN_FD )
-  {
+  if ( sock->socket().sockfd() == STDIN_FD ) {
     JTRACE ( "stdin closed" );
-  }
-  else
-  {
+  } else {
     NamedChunkReader& client = * ( ( NamedChunkReader* ) sock );
     JNOTE ( "client disconnected" ) ( client.identity() );
     _virtualPidToChunkReaderMap.erase(client.virtualPid());
 
     CoordinatorStatus s = getStatus();
-    if (s.numPeers <= 1) {
+    if (s.numPeers < 1) {
       if (exitOnLast) {
         JNOTE ("last client exited, shutting down..");
         handleUserCommand('q');
@@ -979,24 +984,9 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
         JNOTE ( "CheckpointInterval reset on end of current computation" )
 	  ( theCheckpointInterval );
       }
+    } else {
+      updateMinimumState(client.state());
     }
-  }
-}
-
-void dmtcp::DmtcpCoordinator::processPostDisconnect()
-{
-  CoordinatorStatus s = getStatus();
-  // Some process exited without getting into the SUSPENDED state. We should
-  // proceed to the next barrier if all the remaining processes are already in
-  // SUSPENDED state.
-  if (s.numPeers > 0 &&
-      s.minimumState == WorkerState::SUSPENDED &&
-      s.minimumStateUnanimous == true &&
-      workersRunningAndSuspendMsgSent) {
-    JNOTE("locking all nodes");
-    broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
-                     UniquePid::ComputationId(),
-                     getStatus().numPeers );
   }
 }
 
