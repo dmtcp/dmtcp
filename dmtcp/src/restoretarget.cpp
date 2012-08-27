@@ -329,7 +329,7 @@ void RestoreTarget::restoreGroup(SlidingFdTable& slidingFd)
   }
 }
 
-void RestoreTarget::CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
+void RestoreTarget::CreateProcess(CoordinatorAPI& coordinatorAPI,
                                   SlidingFdTable& slidingFd)
 {
   //change UniquePid

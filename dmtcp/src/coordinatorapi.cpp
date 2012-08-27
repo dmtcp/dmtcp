@@ -20,9 +20,9 @@
  ****************************************************************************/
 
 // CAN REMOVE BOOL enableCheckpointing ARG OF DmtcpWorker WHEN WE'RE DONE.
-// DmtcpWorker CAN INHERIT THIS CLASS, DmtcpCoordinatorAPI
+// DmtcpWorker CAN INHERIT THIS CLASS, CoordinatorAPI
 
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jsocket.h"
@@ -32,18 +32,32 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-dmtcp::DmtcpCoordinatorAPI::DmtcpCoordinatorAPI (int sockfd)
+using namespace dmtcp;
+
+dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   : _coordinatorSocket(sockfd)
   , _restoreSocket(PROTECTED_RESTORE_SOCK_FD)
 {
   return;
 }
 
-void dmtcp::DmtcpCoordinatorAPI::useAlternateCoordinatorFd(){
+void dmtcp::CoordinatorAPI::useAlternateCoordinatorFd(){
   _coordinatorSocket = jalib::JSocket( PROTECTED_COORD_ALT_FD );
 }
 
-void dmtcp::DmtcpCoordinatorAPI::connectAndSendUserCommand(char c, int* result /*= NULL*/)
+void dmtcp::CoordinatorAPI::sendMsgToCoordinator(dmtcp::DmtcpMessage msg)
+{
+  _coordinatorSocket << msg;
+}
+
+void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
+                                                   dmtcp::DmtcpMessageType expType)
+{
+  msg->poison();
+  _coordinatorSocket >> (*msg);
+}
+
+void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c, int* result /*= NULL*/)
 {
   if ( tryConnectToCoordinator() == false ) {
     *result = ERROR_COORDINATOR_NOT_FOUND;
@@ -54,15 +68,15 @@ void dmtcp::DmtcpCoordinatorAPI::connectAndSendUserCommand(char c, int* result /
 }
 
 /*!
-    \fn dmtcp::DmtcpCoordinatorAPI::connectAndSendUserCommand()
+    \fn dmtcp::CoordinatorAPI::connectAndSendUserCommand()
  */
-bool dmtcp::DmtcpCoordinatorAPI::tryConnectToCoordinator()
+bool dmtcp::CoordinatorAPI::tryConnectToCoordinator()
 {
   return connectToCoordinator ( false );
 }
 
 jalib::JSocket
-  dmtcp::DmtcpCoordinatorAPI::createNewConnectionToCoordinator (bool dieOnError)
+  dmtcp::CoordinatorAPI::createNewConnectionToCoordinator (bool dieOnError)
 {
   const char * coordinatorAddr = getenv(ENV_VAR_NAME_HOST);
   const char * coordinatorPortStr = getenv(ENV_VAR_NAME_PORT);
@@ -87,7 +101,7 @@ jalib::JSocket
   return fd;
 }
 
-bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
+bool dmtcp::CoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
 {
   jalib::JSocket oldFd = _coordinatorSocket;
 
@@ -105,7 +119,7 @@ bool dmtcp::DmtcpCoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/
   return true;
 }
 
-void dmtcp::DmtcpCoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progName)
+void dmtcp::CoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progName)
 {
   JTRACE("Informing coordinator of a to-be-created process/program")
     (progName) (UniquePid::ThisProcess());
@@ -116,7 +130,7 @@ void dmtcp::DmtcpCoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& pr
   recvCoordinatorHandshake();
 }
 
-void dmtcp::DmtcpCoordinatorAPI::informCoordinatorOfNewProcessOnFork
+void dmtcp::CoordinatorAPI::informCoordinatorOfNewProcessOnFork
   (jalib::JSocket& coordSock)
 {
   JASSERT(coordSock.isValid());
@@ -131,7 +145,7 @@ void dmtcp::DmtcpCoordinatorAPI::informCoordinatorOfNewProcessOnFork
                            DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
 }
 
-void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithHandshake()
+void dmtcp::CoordinatorAPI::connectToCoordinatorWithHandshake()
 {
   connectToCoordinator ( );
   JTRACE("CONNECT TO coordinator, trying to handshake");
@@ -139,14 +153,14 @@ void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithHandshake()
   recvCoordinatorHandshake();
 }
 
-void dmtcp::DmtcpCoordinatorAPI::connectToCoordinatorWithoutHandshake()
+void dmtcp::CoordinatorAPI::connectToCoordinatorWithoutHandshake()
 {
   connectToCoordinator ( );
 }
 
 // FIXME:
 static int theRestorePort = RESTORE_PORT_START;
-void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
+void dmtcp::CoordinatorAPI::sendCoordinatorHandshake (
   const dmtcp::string& progname,
   UniquePid compGroup /*= UniquePid()*/,
   int np /*= -1*/,
@@ -212,7 +226,7 @@ void dmtcp::DmtcpCoordinatorAPI::sendCoordinatorHandshake (
   }
 }
 
-void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
+void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(int *param1)
 {
   JTRACE("receiving coordinator handshake");
 
@@ -243,7 +257,7 @@ void dmtcp::DmtcpCoordinatorAPI::recvCoordinatorHandshake(int *param1)
 }
 
 //tell the coordinator to run given user command
-void dmtcp::DmtcpCoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
+void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
 {
   DmtcpMessage msg, reply;
 
@@ -276,7 +290,7 @@ void dmtcp::DmtcpCoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
   }
 }
 
-pid_t dmtcp::DmtcpCoordinatorAPI::getVirtualPidFromCoordinator()
+pid_t dmtcp::CoordinatorAPI::getVirtualPidFromCoordinator()
 {
   connectToCoordinator();
   DmtcpMessage msg(DMT_GET_VIRTUAL_PID);
@@ -293,7 +307,7 @@ pid_t dmtcp::DmtcpCoordinatorAPI::getVirtualPidFromCoordinator()
   return reply.virtualPid;
 }
 
-void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
+void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(int modes,
                                                           int isRestart)
 {
   const static int CS_OK = DMTCP_FAIL_RC+1;
@@ -310,7 +324,7 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
     dup2(2,1);                          //copy stderr to stdout
     dup2(open("/dev/null",O_RDWR), 2);  //close stderr
     int result[DMTCPMESSAGE_NUM_PARAMS];
-    DmtcpCoordinatorAPI coordinatorAPI;
+    CoordinatorAPI coordinatorAPI;
     {
       if ( coordinatorAPI.tryConnectToCoordinator() == false ) {
         JTRACE("Coordinator not found.  Will try to start a new one.");
@@ -368,7 +382,7 @@ void dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(int modes,
   }
 }
 
-void dmtcp::DmtcpCoordinatorAPI::startNewCoordinator(int modes, int isRestart)
+void dmtcp::CoordinatorAPI::startNewCoordinator(int modes, int isRestart)
 {
   int coordinatorStatus = -1;
   //get location of coordinator
@@ -434,7 +448,7 @@ void dmtcp::DmtcpCoordinatorAPI::startNewCoordinator(int modes, int isRestart)
   }
 }
 
-jalib::JSocket& dmtcp::DmtcpCoordinatorAPI::openRestoreSocket()
+jalib::JSocket& dmtcp::CoordinatorAPI::openRestoreSocket()
 {
   JTRACE ("restoreSockets begin");
 

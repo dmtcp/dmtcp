@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include "dmtcpaware.h"
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 #include "dmtcpworker.h"
 #include "threadsync.h"
 #include "dmtcpmessagetypes.h"
@@ -60,7 +60,7 @@ static const dmtcp::DmtcpMessage * const exampleMessage = NULL;
 static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_lock();
   {
-    dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+    dmtcp::CoordinatorAPI coordinatorAPI;
     coordinatorAPI.useAlternateCoordinatorFd();
 
     dmtcp::ThreadSync::delayCheckpointsLock();
@@ -120,7 +120,7 @@ int __real_dmtcpRunCommand(char command){
 	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (result[0] == dmtcp::DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
+    if (result[0] == dmtcp::CoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;

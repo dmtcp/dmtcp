@@ -482,7 +482,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   msg.type = DMT_OK;
   msg.state = WorkerState::currentState();
-  _coordinatorSocket << msg;
+  sendMsgToCoordinator(msg);
 
   JTRACE ( "waiting for " + msgStr + " message" );
 
@@ -492,8 +492,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     _real_syscall(DMTCP_FAKE_SYSCALL);
   }
   do {
-    msg.poison();
-    _coordinatorSocket >> msg;
+    recvMsgFromCoordinator(&msg, type);
 
     if ( type == DMT_DO_SUSPEND && exitInProgress() ) {
       ThreadSync::destroyDmtcpWorkerLockUnlock();

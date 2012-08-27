@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 #include "util.h"
 #include "syscallwrappers.h"
 
@@ -142,7 +142,7 @@ int main ( int argc, char** argv )
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
   int result[DMTCPMESSAGE_NUM_PARAMS];
-  DmtcpCoordinatorAPI coordinatorAPI;
+  CoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
   case 'h':
@@ -171,7 +171,7 @@ int main ( int argc, char** argv )
   //check for error
   if(result[0]<0){
     switch(result[0]){
-    case DmtcpCoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
+    case CoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
       if (getenv("DMTCP_PORT"))
         fprintf(stderr,
 	        "Coordinator not found.  Please check port and host.\n");
@@ -179,11 +179,11 @@ int main ( int argc, char** argv )
         fprintf(stderr,
 	      "Coordinator not found.  Try specifying port with \'--port\'.\n");
       break;
-    case DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND:
+    case CoordinatorAPI::ERROR_INVALID_COMMAND:
       fprintf(stderr,
 	      "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
       break;
-    case DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE:
+    case CoordinatorAPI::ERROR_NOT_RUNNING_STATE:
       fprintf(stderr, "Error, computation not in running state."
 	      "  Either a checkpoint is\n"
 	      " currently happening or there are no connected processes.\n");

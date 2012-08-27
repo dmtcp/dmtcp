@@ -114,7 +114,7 @@ static const char* theUsage =
 
 dmtcp::vector<RestoreTarget> targets;
 
-static void restoreSockets(dmtcp::DmtcpCoordinatorAPI& coordinatorAPI,
+static void restoreSockets(dmtcp::CoordinatorAPI& coordinatorAPI,
                            dmtcp::ConnectionState& ckptCoord)
 {
   JTRACE("restoreSockets begin");
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 {
   bool autoStartCoordinator=true;
   bool isRestart = true;
-  int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
+  int allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
   initializeJalib();
 
@@ -167,16 +167,16 @@ int main(int argc, char** argv)
       autoStartCoordinator = false;
       shift;
     } else if (s == "-j" || s == "--join") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
       shift;
     } else if (s == "-n" || s == "--new") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
       shift;
     } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_FORCE_NEW;
       shift;
     } else if (s == "-b" || s == "--batch") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
       shift;
     } else if (s == "-i" || s == "--interval" ||
                (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
     JASSERT_STDERR << DMTCP_BANNER;
 
   if (autoStartCoordinator)
-    dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
+    dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
                                                          isRestart);
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
@@ -308,7 +308,7 @@ int main(int argc, char** argv)
   //------------------------
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   ConnectionState ckptCoord(conToFd);
-  DmtcpCoordinatorAPI coordinatorAPI;
+  CoordinatorAPI coordinatorAPI;
   restoreSockets(coordinatorAPI, ckptCoord);
 
   /* Create the file to hold the pid/tid maps. */

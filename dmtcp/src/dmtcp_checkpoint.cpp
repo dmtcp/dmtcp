@@ -30,7 +30,7 @@
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 #include "util.h"
 #include <errno.h>
 #include <sys/types.h>
@@ -127,7 +127,7 @@ static dmtcp::string _stderrProcPath()
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
-static int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
+static int allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
@@ -159,7 +159,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       autoStartCoordinator = false;
       shift;
     } else if (s == "-j" || s == "--join") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
       setenv(ENV_VAR_COMPRESSION, "1", 1);
@@ -178,13 +178,13 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     }
 #endif
     else if (s == "-n" || s == "--new") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
       shift;
     } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_FORCE_NEW;
       shift;
     } else if (s == "-b" || s == "--batch") {
-      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -414,8 +414,8 @@ int main ( int argc, char** argv )
   dmtcp::Util::prepareDlsymWrapper();
 
   if (autoStartCoordinator)
-     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
-  dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
+     dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
+  dmtcp::CoordinatorAPI coordinatorAPI;
   pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
   if (virtualPid != -1) {
     JTRACE("Got virtual pid from coordinator") (virtualPid);
