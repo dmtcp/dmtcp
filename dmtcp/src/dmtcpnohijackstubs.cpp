@@ -45,10 +45,19 @@ const char* dmtcp_get_uniquepid_str()
 
 int  dmtcp_is_running_state()
 {
-  return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
+  JASSERT(false);
+  return 0;
+  //return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
 
 int  dmtcp_is_protected_fd(int fd)
 {
+  JASSERT(false);
+  return 0;
+}
+
+int  dmtcp_no_coordinator()
+{
+  JASSERT(false);
   return 0;
 }

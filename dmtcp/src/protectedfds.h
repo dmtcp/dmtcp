@@ -30,6 +30,7 @@
 #define PFD(i) (PROTECTED_FD_START + (i))
 //#define PROTECTEDFD(i) PFD(i)
 #define PROTECTED_COORD_FD         PFD(1)
+#define PROTECTED_VIRT_COORD_FD    PFD(2)
 #define PROTECTED_RESTORE_SOCK_FD  PFD(3)
 #define PROTECTED_COORD_ALT_FD     PFD(4)
 #define PROTECTED_STDERR_FD        PFD(5)

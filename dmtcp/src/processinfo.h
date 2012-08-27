@@ -93,10 +93,12 @@ namespace dmtcp
       void setgid(pid_t gid) { _gid = gid; }
       void setfgid(pid_t fgid) { _fgid = fgid; }
 
-      int numPeers() { return _numPeers; }
-      void numPeers(int np) { _numPeers = np; }
       UniquePid compGroup() { return _compGroup; }
       void compGroup(UniquePid cg) { _compGroup = cg; }
+      int numPeers() { return _numPeers; }
+      void numPeers(int np) { _numPeers = np; }
+      bool noCoordinator() { return _noCoordinator; }
+      void noCoordinator(bool nc) { _noCoordinator = nc; }
 
       size_t argvSize() { return _argvSize; }
       void argvSize(int size) { _argvSize = size; }
@@ -122,6 +124,7 @@ namespace dmtcp
 
       UniquePid _compGroup;
       int       _numPeers;
+      bool      _noCoordinator;
       size_t    _argvSize;
       size_t    _envSize;
 

@@ -139,7 +139,8 @@ int main(int argc, char** argv)
 {
   bool autoStartCoordinator=true;
   bool isRestart = true;
-  int allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
+  dmtcp::CoordinatorAPI::CoordinatorMode allowedModes =
+    dmtcp::CoordinatorAPI::COORD_ANY;
 
   initializeJalib();
 
@@ -334,12 +335,9 @@ int main(int argc, char** argv)
   //Reconnect to dmtcp_coordinator
   WorkerState::setCurrentState (WorkerState::RESTARTING);
 
-  int tmpCoordFd = dup(PROTECTED_COORD_FD);
-  JASSERT(tmpCoordFd != -1);
   coordinatorAPI.connectToCoordinator();
   coordinatorAPI.sendCoordinatorHandshake(targ.procname(), targ.compGroup());
   coordinatorAPI.recvCoordinatorHandshake();
-  close(tmpCoordFd);
 
   //restart targets[i]
   targets[i].dupAllSockets (slidingFd);
