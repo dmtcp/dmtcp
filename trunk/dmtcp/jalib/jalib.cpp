@@ -171,6 +171,11 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(int, accept) (sockfd, addr, addrlen);
   }
 
+  int setsockopt(int s, int level, int optname, const void *optval,
+                        socklen_t optlen) {
+    REAL_FUNC_PASSTHROUGH(int, setsockopt) (s, level, optname, optval, optlen);
+  }
+
   int pthread_mutex_lock(pthread_mutex_t *mutex) {
     REAL_FUNC_PASSTHROUGH(int, pthread_mutex_lock) (mutex);
   }
