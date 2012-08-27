@@ -22,7 +22,7 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
@@ -69,7 +69,7 @@ namespace dmtcp
 #endif
 
 
-  class DmtcpWorker : public DmtcpCoordinatorAPI
+  class DmtcpWorker : public CoordinatorAPI
   {
     public:
 #ifdef JALIB_ALLOCATOR

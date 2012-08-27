@@ -33,7 +33,7 @@
 #include "uniquepid.h"
 #include "processinfo.h"
 #include "con/connectionmanager.h"
-#include "dmtcpcoordinatorapi.h"
+#include "coordinatorapi.h"
 
 namespace dmtcp
 {
@@ -75,7 +75,7 @@ namespace dmtcp
     pid_t checkDependence(RestoreTarget *t);
     void restoreGroup(SlidingFdTable& slidingFd);
 
-    void CreateProcess(DmtcpCoordinatorAPI& coordinatorAPI,
+    void CreateProcess(CoordinatorAPI& coordinatorAPI,
                        SlidingFdTable& slidingFd);
     void dupAllSockets(SlidingFdTable& slidingFd);
     void mtcpRestart();

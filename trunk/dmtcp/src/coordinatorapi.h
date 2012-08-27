@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPDMTCPCOMMANDAPI_H
-#define DMTCPDMTCPCOMMANDAPI_H
+#ifndef COORDINATORAPI_H
+#define COORDINATORAPI_H
 
 #include "constants.h"
 #include "protectedfds.h"
@@ -31,7 +31,7 @@
 namespace dmtcp
 {
 
-  class DmtcpCoordinatorAPI
+  class CoordinatorAPI
   {
     public:
       enum  ErrorCodes {
@@ -49,10 +49,13 @@ namespace dmtcp
         COORD_ANY       = COORD_JOIN | COORD_NEW
       };
 
-      DmtcpCoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
+      CoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
       // Use default destructor
 
       void closeConnection() { _coordinatorSocket.close(); }
+
+      void sendMsgToCoordinator(DmtcpMessage msg);
+      void recvMsgFromCoordinator(DmtcpMessage *msg, DmtcpMessageType exptype);
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
 

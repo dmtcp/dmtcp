@@ -35,7 +35,7 @@ nobase_noinst_HEADERS = constants.h \
 	con/kernelbufferdrainer.h con/sockettable.h\
 	sysvipc/sysvipc.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
-	dmtcpworker.h threadsync.h dmtcpcoordinatorapi.h \
+	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h  protectedfds.h connectionidentifier.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h \
@@ -52,7 +52,7 @@ nobase_noinst_HEADERS = constants.h \
 #  Also eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     syslogwrappers.cpp uniquepid.cpp \
-			     dmtcpcoordinatorapi.cpp connectionidentifier.cpp \
+			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
 			     ckptserializer.cpp resource_manager.cpp
@@ -85,7 +85,7 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
-			 dmtcpcoordinatorapi.cpp execwrappers.cpp \
+			 coordinatorapi.cpp execwrappers.cpp \
 		         mtcpinterface.cpp signalwrappers.cpp \
 			 workerhijack.cpp threadwrappers.cpp \
 			 miscwrappers.cpp remexecwrappers.cpp \

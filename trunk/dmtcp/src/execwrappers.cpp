@@ -50,7 +50,7 @@
 
 static bool pthread_atfork_enabled = false;
 static time_t child_time;
-static dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
+static dmtcp::CoordinatorAPI coordinatorAPI(-1);
 
 LIB_PRIVATE void pthread_atfork_prepare()
 {
