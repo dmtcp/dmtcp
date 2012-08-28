@@ -91,8 +91,25 @@ static __thread bool _isOkToGrabWrapperExecutionLock = true;
 static __thread bool _hasThreadFinishedInitialization = false;
 
 
+void dmtcp::ThreadSync::initThread()
+{
+  // If we don't initialize these thread local variables here. If not done
+  // here, there can be a race between checkpoint processing and this
+  // thread trying to initialize some thread-local variable. Here is a possible
+  // calltrace:
+  // pthread_start -> threadFinishedInitialization -> stopthisthread ->
+  // callbackHoldsAnyLocks -> JASSERT().
+  _wrapperExecutionLockLockCount = 0;
+  _threadCreationLockLockCount = 0;
+  _threadPerformingDlopenDlsym = false;
+  _sendCkptSignalOnFinalUnlock = false;
+  _isOkToGrabWrapperExecutionLock = true;
+  _hasThreadFinishedInitialization = false;
+}
+
 void dmtcp::ThreadSync::initMotherOfAll()
 {
+  initThread();
   _hasThreadFinishedInitialization = true;
 }
 
@@ -530,6 +547,9 @@ void dmtcp::ThreadSync::decrementUninitializedThreadCount()
 
 void dmtcp::ThreadSync::threadFinishedInitialization()
 {
+  // The following line is to make sure the thread-local data is initialized
+  // before any wrapper call is made.
+  _hasThreadFinishedInitialization = false;
   decrementUninitializedThreadCount();
   _hasThreadFinishedInitialization = true;
   dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
