@@ -166,6 +166,7 @@ int pclose(FILE *fp)
   if (it != _dmtcpPopenPidMap.end()) {
     fp = it->first;
     pid = it->second;
+    _dmtcpPopenPidMap.erase(it);
   }
   _unlock_popen_map();
 
