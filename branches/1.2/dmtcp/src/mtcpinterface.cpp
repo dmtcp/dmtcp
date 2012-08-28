@@ -306,6 +306,8 @@ static void callbackPostCheckpoint ( int isRestart,
     dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
     // Now everything but user threads are restored.  Call the user hook.
     dmtcp::userHookTrampoline_postCkpt(isRestart);
+    // Inform Coordinator of our RUNNING state;
+    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
     // After this, the user threads will be unlocked in mtcp.c and will resume.
   }
 }
@@ -340,6 +342,8 @@ static void callbackRestoreVirtualPidTable()
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
   // Now everything but user threads are restored.  Call the user hook.
   dmtcp::userHookTrampoline_postCkpt(true);
+  // Inform Coordinator of our RUNNING state;
+  dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 

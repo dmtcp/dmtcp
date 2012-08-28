@@ -83,6 +83,7 @@ namespace dmtcp
       void waitForCoordinatorMsg(dmtcp::string signalStr,
                                  DmtcpMessageType type);
       void sendCkptFilenameToCoordinator();
+      void informCoordinatorOfRUNNINGState();
       void waitForStage1Suspend();
 #ifdef EXTERNAL_SOCKET_HANDLING
       bool waitForStage2Checkpoint();
