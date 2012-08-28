@@ -49,6 +49,8 @@ int clone_start(void *arg)
   void *thread_arg = threadArg->arg;
   void *mtcpArg = threadArg->mtcpArg;
 
+  dmtcp::ThreadSync::initThread();
+
   mtcpFuncPtrs.thread_start(mtcpArg);
 
   // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
