@@ -548,7 +548,7 @@ static void writememoryarea (int fd, Area *area,
 //static void writefile (int fd, void const *buff, size_t size);
 static void preprocess_special_segments(int *vsyscall_exists);
 static void stopthisthread (int signum);
-static void wait_for_all_restored (void);
+static void wait_for_all_restored (Thread *thisthread);
 static void save_sig_state (Thread *thisthread);
 static void restore_sig_state (Thread *thisthread);
 static void save_sig_handlers (void);
@@ -1898,8 +1898,6 @@ static void *checkpointhread (void *dummy)
 
   DPRINTF("%d started\n", mtcp_sys_kernel_gettid ());
 
-  /* Set up our restart point, ie, we get jumped to here after a restore */
-
   ckpthread = getcurrenthread ();
 
   save_sig_state( ckpthread );
@@ -1907,6 +1905,7 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
 
+  /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
   /* After we restart, we return here. */
   if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
@@ -1928,7 +1927,7 @@ static void *checkpointhread (void *dummy)
      */
 
     DPRINTF("waiting for other threads after restore\n");
-    wait_for_all_restored ();
+    wait_for_all_restored(ckpthread);
     DPRINTF("resuming after restore\n");
   }
 
@@ -3552,7 +3551,7 @@ static void stopthisthread (int signum)
       is_ckpt = 0; is_restart = 1;
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
 	mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
-      wait_for_all_restored ();
+      wait_for_all_restored(thread);
       DPRINTF("thread %d restored\n", thread -> tid);
 
       if (thread == motherofall) {
@@ -3592,7 +3591,7 @@ static void stopthisthread (int signum)
  *
  *****************************************************************************/
 
-static void wait_for_all_restored (void)
+static void wait_for_all_restored (Thread *thisthread)
 
 {
   int rip;
@@ -3602,7 +3601,12 @@ static void wait_for_all_restored (void)
     rip = mtcp_state_value(&restoreinprog);
   } while (!mtcp_state_set (&restoreinprog, rip - 1, rip));
 
-  if (-- rip == 1) {
+  if (thisthread == ckpthread) {
+    // Wait for all other threads to reach this function
+    while (mtcp_state_value(&restoreinprog) != 1) {
+      const struct timespec timeout = {(time_t) 0, (long)10 * 1000};
+      nanosleep(&timeout, NULL);
+    }
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads
@@ -3651,7 +3655,7 @@ static void wait_for_all_restored (void)
      * 0 before doing another FUTEX_WAKE.
      */
     mtcp_state_futex (&restoreinprog, FUTEX_WAKE, 999999999, NULL);
-    if (!mtcp_state_set (&restoreinprog, rip - 1, rip)) {
+    if (!mtcp_state_set (&restoreinprog, 0, 1)) {
       MTCP_PRINTF("NOT REACHED\n");
       mtcp_abort();
     }
