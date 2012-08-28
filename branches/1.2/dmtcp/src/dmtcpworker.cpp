@@ -680,7 +680,8 @@ void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
 
   msg.type = DMT_OK;
   msg.state = WorkerState::currentState();
-  _coordinatorAPI.sendMsgToCoordinator(msg);
+  _coordinatorSocket << msg;
+
 }
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
