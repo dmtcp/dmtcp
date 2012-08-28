@@ -359,6 +359,7 @@ dmtcp::DmtcpWorker::DmtcpWorker ( bool enableCheckpointing )
     struct timespec sleepTime = {0, 10*1000*1000};
     nanosleep(&sleepTime, NULL);
   }
+  informCoordinatorOfRUNNINGState();
 }
 
 void dmtcp::DmtcpWorker::cleanupWorker()
@@ -490,17 +491,18 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   dmtcp::DmtcpMessage msg;
 
-  msg.type = DMT_OK;
-  msg.state = WorkerState::currentState();
-  _coordinatorAPI.sendMsgToCoordinator(msg);
-
-  JTRACE ( "waiting for " + msgStr + " message" );
-
   if ( type == DMT_DO_SUSPEND ) {
     // Make a dummy syscall to inform superior of our status before we go into
     // select. If // ptrace is disabled, this call has no significant effect.
     _real_syscall(DMTCP_FAKE_SYSCALL);
+  } else {
+    msg.type = DMT_OK;
+    msg.state = WorkerState::currentState();
+    _coordinatorAPI.sendMsgToCoordinator(msg);
   }
+
+  JTRACE ( "waiting for " + msgStr + " message" );
+
   do {
     _coordinatorAPI.recvMsgFromCoordinator(&msg);
 
@@ -542,6 +544,17 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     JASSERT(UniquePid::ComputationId() == msg.compGroup);
     ProcessInfo::instance().compGroup(msg.compGroup);
   }
+}
+
+void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
+{
+  dmtcp::DmtcpMessage msg;
+
+  JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
+
+  msg.type = DMT_OK;
+  msg.state = WorkerState::currentState();
+  _coordinatorAPI.sendMsgToCoordinator(msg);
 }
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
