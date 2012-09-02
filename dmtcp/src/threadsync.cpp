@@ -168,6 +168,9 @@ void dmtcp::ThreadSync::resetLocks()
 
   _wrapperExecutionLockLockCount = 0;
   _threadCreationLockLockCount = 0;
+  _threadPerformingDlopenDlsym = false;
+  _sendCkptSignalOnFinalUnlock = false;
+  _isOkToGrabWrapperExecutionLock = true;
   _hasThreadFinishedInitialization = true;
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
