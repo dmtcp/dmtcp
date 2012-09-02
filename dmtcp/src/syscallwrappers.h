@@ -52,6 +52,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/sem.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -205,6 +206,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(shmdt)                              \
   MACRO(shmctl)                             \
                                             \
+  MACRO(semget)                             \
+  MACRO(semctl)                             \
+  MACRO(semop)                              \
+  MACRO(semtimedop)                         \
+                                            \
   MACRO(read)                               \
   MACRO(write)                              \
                                             \
@@ -251,6 +257,13 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
     FOREACH_LIBPTHREAD_WRAPPERS(GEN_ENUM)
     numLibcWrappers
   } LibcWrapperOffset;
+
+  union semun {
+    int              val;    /* Value for SETVAL */
+    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+    unsigned short  *array;  /* Array for GETALL, SETALL */
+    struct seminfo  *__buf;  /* Buffer for IPC_INFO (Linux-specific) */
+  };
 
   void _dmtcp_lock();
   void _dmtcp_unlock();
@@ -435,6 +448,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void* _real_shmat (int shmid, const void *shmaddr, int shmflg);
   int _real_shmdt (const void *shmaddr);
   int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf);
+  int _real_semget(key_t key, int nsems, int semflg);
+  int _real_semop(int semid, struct sembuf *sops, size_t nsops);
+  int _real_semtimedop(int semid, struct sembuf *sops, size_t nsops,
+                       const struct timespec *timeout);
+  int _real_semctl(int semid, int semnum, int cmd, ...);
+
   pid_t _real_getpid();
 
 #ifdef __cplusplus

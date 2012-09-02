@@ -25,15 +25,25 @@
 #include "threadsync.h"
 #include "../../jalib/jassert.h"
 
+/******************************************************************************
+ *
+ * SysV Shm Methods
+ *
+ *****************************************************************************/
+
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
+  int realId = -1;
+  int virtId = -1;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  int realId = _real_shmget(key, size, shmflg);
-  dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, realId);
-  int virtId = VIRTUAL_TO_REAL_IPC_ID(realId);
-  JTRACE ("Creating new Shared memory segment")
-    (key) (size) (shmflg) (realId) (virtId);
+  realId = _real_shmget(key, size, shmflg);
+  if (realId != -1) {
+    dmtcp::SysVIPC::instance().on_shmget(realId, key, size, shmflg);
+    virtId = REAL_TO_VIRTUAL_IPC_ID(realId);
+    JTRACE ("Creating new Shared memory segment")
+      (key) (size) (shmflg) (realId) (virtId);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return virtId;
 }
@@ -43,6 +53,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
+  JASSERT(realShmid != -1) .Text("Not Implemented");
   void *ret = _real_shmat(realShmid, shmaddr, shmflg);
   if (ret != (void *) -1) {
     dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
@@ -71,6 +82,98 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
   int ret = _real_shmctl(realShmid, cmd, buf);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+
+/******************************************************************************
+ *
+ * SysV Semaphore Methods
+ *
+ *****************************************************************************/
+
+extern "C"
+int semget(key_t key, int nsems, int semflg)
+{
+  int realId = -1;
+  int virtId = -1;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  realId = _real_semget (key, nsems, semflg);
+  if (realId != -1) {
+    dmtcp::SysVIPC::instance().on_semget(realId, key, nsems, semflg);
+    virtId = REAL_TO_VIRTUAL_IPC_ID(realId);
+    JTRACE ("Creating new SysV Semaphore" ) (key) (nsems) (semflg);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return virtId;
+}
+
+extern "C"
+int semop(int semid, struct sembuf *sops, size_t nsops)
+{
+  return semtimedop(semid, sops, nsops, NULL);
+}
+
+extern "C"
+int semtimedop(int semid, struct sembuf *sops, size_t nsops,
+               const struct timespec *timeout)
+{
+  static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
+  struct timespec totaltime = {0, 0};
+  int ret;
+  int realId;
+
+  if (timeout != NULL && TIMESPEC_CMP(timeout, &ts_100ms, <)) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    realId = VIRTUAL_TO_REAL_IPC_ID(semid);
+    JASSERT(realId != -1);
+    ret = _real_semtimedop(realId, sops, nsops, timeout);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+    return ret;
+  }
+
+  /*
+   * We continue to call pthread_tryjoin_np (and sleep) until we have gone past
+   * the abstime provided by the caller
+   */
+  while (timeout == NULL || TIMESPEC_CMP(&totaltime, timeout, <)) {
+    ret = EAGAIN;
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    realId = VIRTUAL_TO_REAL_IPC_ID(semid);
+    ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+
+    // TODO Handle EIDRM
+    if (ret == 0) {
+      dmtcp::SysVIPC::instance().on_semop(semid, sops, nsops);
+      return ret;
+    }
+    if (ret == -1 && errno != EAGAIN) {
+      return ret;
+    }
+
+    TIMESPEC_ADD(&totaltime, &ts_100ms, &totaltime);
+  }
+  errno = EAGAIN;
+  return -1;
+}
+
+extern "C"
+int semctl(int semid, int semnum, int cmd, ...)
+{
+  union semun uarg;
+  va_list arg;
+  va_start (arg, cmd);
+  uarg = va_arg (arg, union semun);
+  va_end (arg);
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int realId = VIRTUAL_TO_REAL_IPC_ID(semid);
+  JASSERT(realId != -1);
+  int ret = _real_semctl(realId, semnum, cmd, uarg);
+  if (ret != -1) {
+    dmtcp::SysVIPC::instance().on_semctl(semid, semnum, cmd, uarg);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }

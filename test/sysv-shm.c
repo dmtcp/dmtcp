@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 {
   int shmid;
 
-  if ((shmid = shmget(IPC_PRIVATE, SIZE, IPC_CREAT | 0666)) < 0) {
+  if ((shmid = shmget((key_t) 9979, SIZE, IPC_CREAT | 0666)) < 0) {
     perror("shmget");
     exit(1);
   }
@@ -67,6 +67,13 @@ int main(int argc, char **argv)
     perror("shmctl: shmctl failed");
     exit(1);
   }
+
+  void *addr = shmat(shmid, NULL, 0);
+  if (addr == (void*) -1) {
+    perror("main: shmat");
+    abort();
+  }
+  memset(addr, 0, SIZE);
 
   if (fork() == 0) {
     child(shmid);
