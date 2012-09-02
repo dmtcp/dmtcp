@@ -214,6 +214,23 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   return ret;
 }
 
+extern "C"
+int semctl(int semid, int semnum, int cmd, ...)
+{
+  union semun uarg;
+  va_list arg;
+  va_start (arg, cmd);
+  uarg = va_arg (arg, union semun);
+  va_end (arg);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int ret = _real_semctl(semid, semnum, cmd, uarg);
+  if (ret != -1 && cmd == GETPID) {
+    ret = REAL_TO_VIRTUAL_PID(ret);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 

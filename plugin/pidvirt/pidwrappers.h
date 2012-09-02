@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef SYSCALLWRAPPERS_H
-#define SYSCALLWRAPPERS_H
+#ifndef PIDWRAPPERS_H
+#define PIDWRAPPERS_H
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -50,6 +50,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <syslog.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/epoll.h>
@@ -69,6 +70,13 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 extern "C"
 {
 #endif
+
+  union semun {
+    int              val;    /* Value for SETVAL */
+    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+    unsigned short  *array;  /* Array for GETALL, SETALL */
+    struct seminfo  *__buf;  /* Buffer for IPC_INFO (Linux-specific) */
+  };
 
   void dmtcpResetPidPpid();
   void dmtcpResetTid(pid_t tid);
@@ -96,6 +104,7 @@ extern "C"
   void* _real_shmat(int shmid, const void *shmaddr, int shmflg);
   int _real_shmdt(const void *shmaddr);
   int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
+  int _real_semctl(int semid, int semnum, int cmd, ...);
 
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
@@ -130,11 +139,11 @@ extern "C"
   long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
                     void *data);
 
-  int _real_pthread_exit (void *retval);
+  void _real_pthread_exit (void *retval);
   int _real_fcntl(int fd, int cmd, void *arg);
 
-  int _real_open(const char *pathname, int flags, mode_t mode);
-  int _real_open64(const char *pathname, int flags, mode_t mode);
+  int _real_open(const char *pathname, int flags, ...);
+  int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
   int _real_xstat(int vers, const char *path, struct stat *buf);
