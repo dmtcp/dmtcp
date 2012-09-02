@@ -39,6 +39,8 @@
 #include "../util.h"
 #include "sysvipc.h"
 
+// FIXME: Check and verify the correctness of SEM_UNDO logic for Semaphores.
+
 /*
  * Algorithm for properly checkpointing shared memory segments.
  *  1. BARRIER -- SUSPENDED
@@ -88,6 +90,9 @@ static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
+    case DMTCP_EVENT_RESET_ON_FORK:
+      dmtcp::SysVIPC::instance().resetOnFork();
+      break;
     case DMTCP_EVENT_PRE_CKPT:
       dmtcp::SysVIPC::instance().preCheckpoint();
       break;
@@ -173,77 +178,66 @@ int dmtcp::SysVIPC::getNewVirtualId()
   return id;
 }
 
-int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
+void dmtcp::SysVIPC::resetOnFork()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int shmid = -1;
-  _do_lock_tbl();
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    if (shmObj.isValidShmaddr(shmaddr)) {
-      shmid = i->first;
-      break;
-    }
+    ShmSegment* shmObj = i->second;
+    shmObj->resetOnFork();
   }
-  _do_unlock_tbl();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return shmid;
-}
-
-void dmtcp::SysVIPC::removeStaleShmObjects()
-{
-  dmtcp::vector<int> staleShmids;
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    if (shmObj.isStale()) {
-      staleShmids.push_back(i->first);
-    }
-  }
-  for (size_t j = 0; j < staleShmids.size(); ++j) {
-    _shm.erase(staleShmids[j]);
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->resetOnFork();
   }
 }
 
 void dmtcp::SysVIPC::leaderElection()
 {
   /* Remove all invalid/removed shm segments*/
-  removeStaleShmObjects();
+  removeStaleObjects();
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    shmObj.leaderElection();
+    ShmSegment* shmObj = i->second;
+    shmObj->leaderElection();
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->leaderElection();
   }
 }
 
 void dmtcp::SysVIPC::preCkptDrain()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    shmObj.preCkptDrain();
+    ShmSegment* shmObj = i->second;
+    shmObj->preCkptDrain();
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->preCkptDrain();
   }
 }
 
 void dmtcp::SysVIPC::preCheckpoint()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    shmObj.preCheckpoint();
+    ShmSegment* shmObj = i->second;
+    shmObj->preCheckpoint();
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->preCheckpoint();
   }
 }
 
 void dmtcp::SysVIPC::preResume()
 {
-  JTRACE("");
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    JASSERT(_ipcVirtIdTable.virtualIdExists(i->first)) (i->first);
-    int realShmId = VIRTUAL_TO_REAL_IPC_ID(i->first);
-
-    shmObj.updateCurrentShmid(realShmId);
-//    if (isRestarting) {
-//      shmObj.remapFirstAddrForOwnerOnRestart();
-//    }
-    shmObj.remapAll();
+    ShmSegment* shmObj = i->second;
+    shmObj->preResume();
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->preResume();
   }
 }
 
@@ -252,31 +246,49 @@ void dmtcp::SysVIPC::postCheckpoint(bool isRestart)
   if (!isRestart) return;
   _ipcVirtIdTable.clear();
   _ipcVirtIdTable.readMapsFromFile(PROTECTED_SHMIDMAP_FD);
+
+  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
+    ShmSegment* shmObj = i->second;
+    shmObj->postCheckpoint(isRestart);
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->postCheckpoint(isRestart);
+  }
 }
 
 void dmtcp::SysVIPC::postRestart()
 {
+  JNOTE("post restart");
   _ipcVirtIdTable.clear();
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    shmObj.recreateShmSegment();
-    if (shmObj.isCkptLeader()) {
-      JTRACE("Writing ShmidMap to file")(shmObj.originalShmid());
-      _ipcVirtIdTable.updateMapping(shmObj.originalShmid(),
-                                    shmObj.currentShmid());
-    }
+    ShmSegment* shmObj = i->second;
+    shmObj->postRestart();
+  }
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    semObj->postRestart();
   }
   _ipcVirtIdTable.writeMapsToFile(PROTECTED_SHMIDMAP_FD);
 }
 
-void dmtcp::SysVIPC::on_shmget(key_t key, size_t size, int shmflg, int shmid)
+/*
+ * Shared Memory
+ */
+void dmtcp::SysVIPC::on_shmget(int shmid, key_t key, size_t size, int shmflg)
 {
   _do_lock_tbl();
-  int virtualShmid = getNewVirtualId();
-  ShmSegment shmObj (key, size, shmflg, shmid);
-  _shm[shmid] = shmObj;
-  _ipcVirtIdTable.updateMapping(shmid, shmid);
+  if (!_ipcVirtIdTable.realIdExists(shmid)) {
+    JASSERT(_shm.find(shmid) == _shm.end());
+    int virtualShmid = getNewVirtualId();
+    JTRACE ("Shmid not found in table. Creating new entry")
+      (shmid) (virtualShmid);
+    updateMapping(virtualShmid, shmid);
+    _shm[virtualShmid] = new ShmSegment(virtualShmid, shmid, key, size, shmflg);
+  } else {
+    JASSERT(_shm.find(shmid) != _shm.end());
+  }
   _do_unlock_tbl();
 }
 
@@ -284,16 +296,11 @@ void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
                               void* newaddr)
 {
   _do_lock_tbl();
-  if (_shm.find( shmid ) == _shm.end()) {
-    // This process doesn't know about the given shmid. Create a new entry
-    JTRACE ("Shmid not found in table. Creating new entry") (shmid);
-    ShmSegment shmObj (shmid);
-    _shm[shmid] = shmObj;
-    _ipcVirtIdTable.updateMapping(shmid, shmid);
-  }
+  JASSERT(_ipcVirtIdTable.virtualIdExists(shmid)) (shmid);
+  JASSERT(_shm.find(shmid) != _shm.end()) (shmid);
 
   JASSERT(shmaddr == NULL || shmaddr == newaddr);
-  _shm[shmid].on_shmat(newaddr, shmflg);
+  _shm[shmid]->on_shmat(newaddr, shmflg);
   _do_unlock_tbl();
 }
 
@@ -303,8 +310,92 @@ void dmtcp::SysVIPC::on_shmdt(const void *shmaddr)
   JASSERT(shmid != -1) (shmaddr)
     .Text("No corresponding shmid found for given shmaddr");
   _do_lock_tbl();
-  _shm[shmid].on_shmdt(shmaddr);
+  _shm[shmid]->on_shmdt(shmaddr);
+  if (_shm[shmid]->isStale()) {
+    _shm.erase(shmid);
+  }
   _do_unlock_tbl();
+}
+
+int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int shmid = -1;
+  _do_lock_tbl();
+  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
+    ShmSegment* shmObj = i->second;
+    if (shmObj->isValidShmaddr(shmaddr)) {
+      shmid = i->first;
+      break;
+    }
+  }
+  _do_unlock_tbl();
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return shmid;
+}
+
+void dmtcp::SysVIPC::removeStaleObjects()
+{
+  _do_lock_tbl();
+  dmtcp::vector<int> staleShmids;
+  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
+    ShmSegment* shmObj = i->second;
+    if (shmObj->isStale()) {
+      staleShmids.push_back(i->first);
+    }
+  }
+  for (size_t j = 0; j < staleShmids.size(); ++j) {
+    delete _shm[staleShmids[j]];
+    _shm.erase(staleShmids[j]);
+    _ipcVirtIdTable.erase(staleShmids[j]);
+  }
+
+  dmtcp::vector<int> staleSemids;
+  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
+    Semaphore* semObj = i->second;
+    if (semObj->isStale()) {
+      staleSemids.push_back(i->first);
+    }
+  }
+  for (size_t j = 0; j < staleSemids.size(); ++j) {
+    delete _sem[staleSemids[j]];
+    _sem.erase(staleSemids[j]);
+    _ipcVirtIdTable.erase(staleSemids[j]);
+  }
+  _do_unlock_tbl();
+}
+
+/*
+ * Semaphore
+ */
+void dmtcp::SysVIPC::on_semget(int semid, key_t key, int nsems, int semflg)
+{
+  _do_lock_tbl();
+  if (!_ipcVirtIdTable.realIdExists(semid)) {
+    //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (semid);
+    JASSERT(_sem.find(semid) == _sem.end());
+    JTRACE ("Semid not found in table. Creating new entry") (semid);
+    int virtualSemid = getNewVirtualId();
+    updateMapping(virtualSemid, semid);
+    _sem[virtualSemid] = new Semaphore (virtualSemid, semid, key, nsems, semflg);
+  } else {
+    JASSERT(_sem.find(semid) != _sem.end());
+  }
+  _do_unlock_tbl();
+}
+
+void dmtcp::SysVIPC::on_semctl(int semid, int semnum, int cmd, union semun arg)
+{
+  if (cmd == IPC_RMID) {
+    JASSERT(_sem[semid]->isStale()) (semid);
+    _sem.erase(semid);
+  }
+  return;
+}
+
+void dmtcp::SysVIPC::on_semop(int semid, struct sembuf *sops, unsigned nsops)
+{
+  _sem[semid]->on_semop(sops, nsops);
 }
 
 void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
@@ -312,32 +403,31 @@ void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
   _ipcVirtIdTable.serialize(o);
 }
 
-/* ShmSegment Methods */
+/******************************************************************************
+ *
+ * ShmSegment Methods
+ *
+ *****************************************************************************/
 
-dmtcp::ShmSegment::ShmSegment(key_t key, size_t size, int shmflg, int shmid)
+dmtcp::ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
+                              int shmflg)
+  : SysVObj(shmid, realShmid, key, shmflg)
 {
-  _key = key;
   _size = size;
-  _shmgetFlags = shmflg;
-  _originalShmid = shmid;
-  _currentShmid = shmid;
-  _isCkptLeader = false;
-  JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
-    (_currentShmid) (_originalShmid) (_isCkptLeader);
+  JTRACE("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
 }
 
-dmtcp::ShmSegment::ShmSegment(int shmid)
+void dmtcp::ShmSegment::on_shmat(const void *shmaddr, int shmflg)
 {
-  struct shmid_ds shminfo;
-  JASSERT(_real_shmctl(shmid, IPC_STAT, &shminfo) != -1);
-  _key = shminfo.shm_perm.__key;
-  _size = shminfo.shm_segsz;
-  _shmgetFlags = shminfo.shm_perm.mode;
-  _originalShmid = shmid;
-  _currentShmid = shmid;
-  _isCkptLeader = false;
-  JTRACE("New Shm Segment") (_key) (_size) (_shmgetFlags)
-    (_currentShmid) (_originalShmid) (_isCkptLeader);
+  _shmaddrToFlag[shmaddr] = shmflg;
+}
+
+void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
+{
+  JASSERT(isValidShmaddr(shmaddr));
+  _shmaddrToFlag.erase((void*)shmaddr);
+
+  // TODO: If num-attached == 0; and marked for deletion, remove this segment
 }
 
 bool dmtcp::ShmSegment::isValidShmaddr(const void* shmaddr)
@@ -348,7 +438,7 @@ bool dmtcp::ShmSegment::isValidShmaddr(const void* shmaddr)
 bool dmtcp::ShmSegment::isStale()
 {
   struct shmid_ds shminfo;
-  int ret = _real_shmctl(_currentShmid, IPC_STAT, &shminfo);
+  int ret = _real_shmctl(_realId, IPC_STAT, &shminfo);
   if (ret == -1) {
     JASSERT (errno == EIDRM || errno == EINVAL);
     JASSERT(_shmaddrToFlag.empty());
@@ -364,17 +454,17 @@ void dmtcp::ShmSegment::leaderElection()
   /* We attach and detach to the shmid object to set the shm_lpid to our pid.
    * The process who calls the last shmdt() is declared the leader.
    */
-  void *addr = _real_shmat(_currentShmid, NULL, 0);
-  JASSERT(addr != (void*) -1) (_originalShmid) (JASSERT_ERRNO)
+  void *addr = _real_shmat(_realId, NULL, 0);
+  JASSERT(addr != (void*) -1) (_id) (JASSERT_ERRNO)
     .Text("_real_shmat() failed");
 
-  JASSERT(_real_shmdt(addr) == 0) (_originalShmid) (addr) (JASSERT_ERRNO);
+  JASSERT(_real_shmdt(addr) == 0) (_id) (addr) (JASSERT_ERRNO);
 }
 
 void dmtcp::ShmSegment::preCkptDrain()
 {
   struct shmid_ds info;
-  JASSERT(_real_shmctl(_currentShmid, IPC_STAT, &info) != -1);
+  JASSERT(_real_shmctl(_realId, IPC_STAT, &info) != -1);
 
   /* If we are the ckptLeader for this object, map it now, if not mapped already.
    */
@@ -384,7 +474,7 @@ void dmtcp::ShmSegment::preCkptDrain()
   if (info.shm_lpid == _real_getpid()) {
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
-      void *addr = _real_shmat(_currentShmid, NULL, 0);
+      void *addr = _real_shmat(_realId, NULL, 0);
       JASSERT(addr != (void*) -1);
       _shmaddrToFlag[addr] = 0;
       _dmtcpMappedAddr = true;
@@ -404,36 +494,36 @@ void dmtcp::ShmSegment::preCheckpoint()
   }
   for (; i != _shmaddrToFlag.end(); ++i) {
     JASSERT(_real_shmdt(i->first) == 0);
-    JTRACE("Unmapping shared memory segment") (_originalShmid)(_currentShmid)(i->first);
+    JTRACE("Unmapping shared memory segment") (_id)(i->first);
   }
 }
 
-void dmtcp::ShmSegment::recreateShmSegment()
+void dmtcp::ShmSegment::postRestart()
 {
-  if (_isCkptLeader) {
-    _currentShmid = _real_shmget(_key, _size, _shmgetFlags);
-    remapFirstAddrForOwnerOnRestart();
-  }
-}
+  if (!_isCkptLeader) return;
 
-void dmtcp::ShmSegment::remapFirstAddrForOwnerOnRestart()
-{
+  _realId = _real_shmget(_key, _size, _flags);
+  JASSERT(_realId != -1);
+  SysVIPC::instance().updateMapping(_id, _realId);
+
+  // Re-map first address for owner on restart
   JASSERT(_isCkptLeader);
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  void *tmpaddr = _real_shmat(_currentShmid, NULL, 0);
-  JASSERT(tmpaddr != (void*) -1) (_currentShmid)(JASSERT_ERRNO);
+  void *tmpaddr = _real_shmat(_realId, NULL, 0);
+  JASSERT(tmpaddr != (void*) -1) (_realId)(JASSERT_ERRNO);
   memcpy(tmpaddr, i->first, _size);
   JASSERT(_real_shmdt(tmpaddr) == 0);
-  munmap(i->first, _size);
+  munmap((void*)i->first, _size);
 
   if (!_dmtcpMappedAddr) {
-    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
+    JASSERT (_real_shmat(_realId, i->first, i->second) != (void *) -1);
   }
-  JTRACE("Remapping shared memory segment")(_currentShmid);
+  JTRACE("Remapping shared memory segment") (_id) (_realId);
 }
 
-void dmtcp::ShmSegment::remapAll()
+void dmtcp::ShmSegment::preResume()
 {
+  // Re-map all remaining addresses
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
 
   if (_isCkptLeader && i != _shmaddrToFlag.end()) {
@@ -441,9 +531,9 @@ void dmtcp::ShmSegment::remapAll()
   }
 
   for (; i != _shmaddrToFlag.end(); ++i) {
-    JTRACE("Remapping shared memory segment")(_currentShmid);
-    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1)
-      (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (_isCkptLeader)
+    JTRACE("Remapping shared memory segment")(_realId);
+    JASSERT (_real_shmat(_realId, i->first, i->second) != (void *) -1)
+      (JASSERT_ERRNO) (_realId) (_id) (_isCkptLeader)
       (i->first) (i->second) (getpid())
       .Text ("Error remapping shared memory segment");
   }
@@ -451,15 +541,123 @@ void dmtcp::ShmSegment::remapAll()
   //       (_dmtcpMappedAddr == true), then we should call shmdt() on it.
 }
 
-void dmtcp::ShmSegment::on_shmat(void *shmaddr, int shmflg)
+/******************************************************************************
+ *
+ * Semaphore Methods
+ *
+ *****************************************************************************/
+
+dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
+                            int semflg)
+  : SysVObj(semid, realSemid, key, semflg)
 {
-  _shmaddrToFlag[shmaddr] = shmflg;
+  _nsems = nsems;
+  _semval = new unsigned short[nsems];
+  _semadj = new int[nsems];
+  for (int i = 0; i < nsems; i++) {
+    _semval[i] = 0;
+    _semadj[i] = 0;
+  }
+  JTRACE("New Semaphore Segment")
+    (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
 }
 
-void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
+void dmtcp::Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
 {
-  JASSERT(isValidShmaddr(shmaddr));
-  _shmaddrToFlag.erase((void*)shmaddr);
+  for (int i = 0; i < nsops; i++) {
+    int sem_num = sops[i].sem_num;
+    _semadj[sem_num] -= sops[i].sem_op;
+  }
+}
 
-  // TODO: If num-attached == 0; and marked for deletion, remove this segment
+bool dmtcp::Semaphore::isStale()
+{
+  int ret = _real_semctl(_realId, 0, GETPID);
+  if (ret == -1) {
+    JASSERT (errno == EIDRM || errno == EINVAL);
+    return true;
+  }
+  return false;
+}
+
+void dmtcp::Semaphore::resetOnFork()
+{
+  for (int i = 0; i < _nsems; i++) {
+    _semadj[i] = 0;
+  }
+}
+
+void dmtcp::Semaphore::leaderElection()
+{
+  JASSERT(_realId != -1);
+  /* Every process increments and decrements the semaphore value by 1 in order
+   * to update the sempid value. The process who performs the last semop is
+   * elected the leader.
+   */
+  struct sembuf sops;
+  sops.sem_num = 0;
+  sops.sem_op = 1;
+  sops.sem_flg = 0;
+  int ret = _real_semtimedop(_realId, &sops, 1, NULL);
+  if (ret == 0) {
+    sops.sem_num = 0;
+    sops.sem_op = -1;
+    sops.sem_flg = 0;
+    JASSERT(_real_semtimedop(_realId, &sops, 1, NULL) == 0) (JASSERT_ERRNO) (_id);
+  }
+}
+
+void dmtcp::Semaphore::preCkptDrain()
+{
+  _isCkptLeader = false;
+  if (getpid() == _real_semctl(_realId, 0, GETPID)) {
+    union semun info;
+    info.array = _semval;
+    JASSERT(_real_semctl(_realId, 0, GETALL, info) != -1);
+    _isCkptLeader = true;
+  }
+}
+
+void dmtcp::Semaphore::preCheckpoint()
+{
+}
+
+void dmtcp::Semaphore::postRestart()
+{
+  if (_isCkptLeader) {
+    _realId = _real_semget(_key, _nsems, _flags);
+    JASSERT(_realId != -1) (JASSERT_ERRNO);
+    SysVIPC::instance().updateMapping(_id, _realId);
+
+    union semun info;
+    info.array = _semval;
+    JASSERT(_real_semctl(_realId, 0, SETALL, info) != -1);
+  }
+}
+
+void dmtcp::Semaphore::postCheckpoint(bool isRestart)
+{
+  if (!isRestart) return;
+  /* Update the semadj value for this process.
+   * The way we do it is by calling semop twice as follows:
+   * semop(id, {semid, abs(semadj-value), flag1}*, nsems)
+   * semop(id, {semid, -abs(semadj-value), flag2}*, nsems)
+   *
+   * where: flag1 = semadj-value > 0 ? 0 : SEM_UNDO
+   *        flag2 = semadj-value < 0 ? SEM_UNDO : 0
+   */
+  struct sembuf sops;
+  _realId = VIRTUAL_TO_REAL_IPC_ID(_id);
+  JASSERT(_realId != -1);
+  for (int i = 0; i < _nsems; i++) {
+    if (_semadj[i] == 0) continue;
+    sops.sem_num = i;
+    sops.sem_op = abs(_semadj[i]);
+    sops.sem_flg = _semadj[i] > 0 ? 0 : SEM_UNDO;
+    JASSERT(_real_semop(_realId, &sops, 1) == 0);
+
+    sops.sem_op = - abs(_semadj[i]);
+    sops.sem_flg = _semadj[i] < 0 ? SEM_UNDO : 0;
+    JASSERT(_real_semop(_realId, &sops, 1) == 0);
+  }
 }

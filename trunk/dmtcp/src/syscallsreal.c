@@ -868,6 +868,32 @@ int _real_shmdt (const void *shmaddr) {
   REAL_FUNC_PASSTHROUGH ( shmdt ) (shmaddr);
 }
 
+LIB_PRIVATE
+int _real_semget(key_t key, int nsems, int semflg) {
+  REAL_FUNC_PASSTHROUGH ( semget ) (key, nsems, semflg);
+}
+
+LIB_PRIVATE
+int _real_semop(int semid, struct sembuf *sops, size_t nsops) {
+  REAL_FUNC_PASSTHROUGH ( semop ) (semid, sops, nsops);
+}
+
+LIB_PRIVATE
+int _real_semtimedop(int semid, struct sembuf *sops, size_t nsops,
+                     const struct timespec *timeout) {
+  REAL_FUNC_PASSTHROUGH ( semtimedop ) (semid, sops, nsops, timeout);
+}
+
+LIB_PRIVATE
+int _real_semctl(int semid, int semnum, int cmd, ...) {
+  union semun uarg;
+  va_list arg;
+  va_start (arg, cmd);
+  uarg = va_arg (arg, union semun);
+  va_end (arg);
+  REAL_FUNC_PASSTHROUGH ( semctl ) (semid, semnum, cmd, uarg);
+}
+
 /* glibc provides two versions of shmctl: 2.0 and 2.2. For some reason, the
  * dlsym(RTLD_NEXT,...) is getting us the 2.0 version causing the wrong
  * function call. For i386 architecture, we need to pass IPC_64 to the system
