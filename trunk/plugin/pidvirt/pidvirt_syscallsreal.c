@@ -53,6 +53,20 @@ typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 #define REAL_FUNC_PASSTHROUGH(name) \
   REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
+#define REAL_FUNC_PASSTHROUGH_VOID(name) \
+  static void (*fn)() = NULL; \
+  if (fn == NULL) { \
+    fn = _real_dlsym(RTLD_NEXT, #name); \
+    if (fn == NULL) { \
+      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
+                      "           The symbol wasn't found in current library" \
+                      " loading sequence.\n" \
+                      "    Aborting.\n", #name); \
+      abort(); \
+    } \
+  } \
+  (*fn)
+
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
   static type (*fn)() = NULL; \
   if (fn == NULL) { \
@@ -268,8 +282,19 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 LIB_PRIVATE
-int _real_pthread_exit (void *retval) {
-  REAL_FUNC_PASSTHROUGH ( pthread_exit ) (retval);
+int _real_semctl(int semid, int semnum, int cmd, ...) {
+  union semun uarg;
+  va_list arg;
+  va_start (arg, cmd);
+  uarg = va_arg (arg, union semun);
+  va_end (arg);
+  REAL_FUNC_PASSTHROUGH ( semctl ) (semid, semnum, cmd, uarg);
+}
+
+
+LIB_PRIVATE
+void _real_pthread_exit (void *retval) {
+  REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) (retval);
 }
 
 LIB_PRIVATE
@@ -278,11 +303,27 @@ int _real_fcntl(int fd, int cmd, void *arg) {
 }
 
 
-int _real_open(const char *path, int flags, mode_t mode) {
+int _real_open(const char *path, int flags, ...) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH(open) (path, flags, mode);
 }
 
-int _real_open64(const char *path, int flags, mode_t mode) {
+int _real_open64(const char *path, int flags, ...) {
+  mode_t mode = 0;
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start (arg, flags);
+    mode = va_arg (arg, int);
+    va_end (arg);
+  }
   REAL_FUNC_PASSTHROUGH(open64) (path, flags, mode);
 }
 
