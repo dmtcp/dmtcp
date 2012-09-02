@@ -58,8 +58,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
                         int  (*ckpt_fd)(int fd),
                         void (*write_ckpt_header)(int fd));
 
-void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
-                              void (*holds_any_locks)(int *retval),
+void mtcp_set_dmtcp_callbacks(void (*holds_any_locks)(int *retval),
                               void (*pre_suspend_user_thread)(),
                               void (*pre_resume_user_thread)(int is_ckpt,
                                                              int is_restart));

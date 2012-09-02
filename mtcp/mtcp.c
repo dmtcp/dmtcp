@@ -499,7 +499,6 @@ static void (*callback_pre_ckpt)() = NULL;
 static void (*callback_post_ckpt)(int is_restarting, char* argv_start) = NULL;
 static int  (*callback_ckpt_fd)(int fd) = NULL;
 static void (*callback_write_ckpt_header)(int fd) = NULL;
-static void (*callback_restore_virtual_pid_table)() = NULL;
 
 static void (*callback_holds_any_locks)(int *retval) = NULL;
 static void (*callback_pre_suspend_user_thread)() = NULL;
@@ -920,13 +919,11 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
   callback_write_ckpt_header = write_ckpt_header;
 }
 
-void mtcp_set_dmtcp_callbacks(void (*restore_virtual_pid_table)(),
-                              void (*holds_any_locks)(int *retval),
+void mtcp_set_dmtcp_callbacks(void (*holds_any_locks)(int *retval),
                               void (*pre_suspend_user_thread)(),
                               void (*pre_resume_user_thread)(int is_ckpt,
                                                              int is_restart))
 {
-  callback_restore_virtual_pid_table = restore_virtual_pid_table;
   callback_holds_any_locks = holds_any_locks;
   callback_pre_suspend_user_thread = pre_suspend_user_thread;
   callback_pre_resume_user_thread = pre_resume_user_thread;
