@@ -101,7 +101,10 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_POST_CKPT:
-      dmtcp::SysVIPC::instance().postCheckpoint();
+      {
+        DmtcpEventData_t *edata = (DmtcpEventData_t *) data;
+        dmtcp::SysVIPC::instance().postCheckpoint(edata->postCkptInfo.isRestart);
+      }
       break;
 
     case DMTCP_EVENT_POST_CKPT_RESUME:
@@ -142,9 +145,8 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
-static bool isRestarting = false;
-
 dmtcp::SysVIPC::SysVIPC()
+  : _ipcVirtIdTable("SysVIPC")
 {
   _do_lock_tbl();
   _shm.clear();
@@ -161,44 +163,15 @@ dmtcp::SysVIPC& dmtcp::SysVIPC::instance()
   return *sysvIPCInst;
 }
 
-int dmtcp::SysVIPC::originalToCurrentShmid(int shmid)
+int dmtcp::SysVIPC::getNewVirtualId()
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = shmid;
-  _do_lock_tbl();
-  if (_originalToCurrentShmids.find(shmid) != _originalToCurrentShmids.end()) {
-    currentShmid = _originalToCurrentShmids[shmid];
-  }
-  _do_unlock_tbl();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  JTRACE("Original to current shmid") (shmid) (currentShmid);
-  return currentShmid;
-}
+  int id = _ipcVirtIdTable.getNewVirtualId();
 
-int dmtcp::SysVIPC::currentToOriginalShmid(int shmid)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  int originalShmid = -1;
-  _do_lock_tbl();
-  for (ShmidMapIter i = _originalToCurrentShmids.begin();
-       i != _originalToCurrentShmids.end();
-       ++i) {
-    if ( shmid == i->second ) {
-      originalShmid = i->first;
-      break;
-    }
-  }
-  _do_unlock_tbl();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  JTRACE("current to original shmid") (shmid) (originalShmid);
-  return originalShmid;
-}
+  JASSERT(id != -1) (_ipcVirtIdTable.size())
+    .Text("Exceeded maximum number of Sys V objects allowed");
 
-bool dmtcp::SysVIPC::isConflictingShmid(int shmid)
-{
-  return (originalToCurrentShmid(shmid) != shmid);
+  return id;
 }
-
 
 int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
 {
@@ -217,15 +190,6 @@ int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
   return shmid;
 }
 
-dmtcp::vector<int> dmtcp::SysVIPC::getShmids()
-{
-  dmtcp::vector<int> shmids;
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    shmids.push_back(i->first);
-  }
-  return shmids;
-}
-
 void dmtcp::SysVIPC::removeStaleShmObjects()
 {
   dmtcp::vector<int> staleShmids;
@@ -242,7 +206,6 @@ void dmtcp::SysVIPC::removeStaleShmObjects()
 
 void dmtcp::SysVIPC::leaderElection()
 {
-  isRestarting = false;
   /* Remove all invalid/removed shm segments*/
   removeStaleShmObjects();
 
@@ -271,19 +234,12 @@ void dmtcp::SysVIPC::preCheckpoint()
 void dmtcp::SysVIPC::preResume()
 {
   JTRACE("");
-  if (isRestarting) {
-    _originalToCurrentShmids.clear();
-    readShmidMapsFromFile(PROTECTED_SHMIDMAP_FD);
-    _real_close(PROTECTED_SHMIDMAP_FD);
-  }
-
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
-    ShmidMapIter j = _originalToCurrentShmids.find(i->first);
-    JASSERT(j != _originalToCurrentShmids.end())
-      (i->first) (_originalToCurrentShmids.size());
+    JASSERT(_ipcVirtIdTable.virtualIdExists(i->first)) (i->first);
+    int realShmId = VIRTUAL_TO_REAL_IPC_ID(i->first);
 
-    shmObj.updateCurrentShmid(_originalToCurrentShmids[i->first]);
+    shmObj.updateCurrentShmid(realShmId);
 //    if (isRestarting) {
 //      shmObj.remapFirstAddrForOwnerOnRestart();
 //    }
@@ -291,56 +247,36 @@ void dmtcp::SysVIPC::preResume()
   }
 }
 
-void dmtcp::SysVIPC::postCheckpoint()
+void dmtcp::SysVIPC::postCheckpoint(bool isRestart)
 {
-  if (!isRestarting) return;
-
-  JTRACE("");
-
-  _originalToCurrentShmids.clear();
-  readShmidMapsFromFile(PROTECTED_SHMIDLIST_FD);
-  _real_close(PROTECTED_SHMIDLIST_FD);
-
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    shmObj.recreateShmSegment();
-  }
-
-  _originalToCurrentShmids.clear();
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment& shmObj = i->second;
-    if (shmObj.isCkptLeader()) {
-      _originalToCurrentShmids[i->first] = shmObj.currentShmid();
-    }
-  }
-  writeShmidMapsToFile(PROTECTED_SHMIDMAP_FD);
+  if (!isRestart) return;
+  _ipcVirtIdTable.clear();
+  _ipcVirtIdTable.readMapsFromFile(PROTECTED_SHMIDMAP_FD);
 }
 
 void dmtcp::SysVIPC::postRestart()
 {
-  isRestarting = true;
-  _originalToCurrentShmids.clear();
+  _ipcVirtIdTable.clear();
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     ShmSegment& shmObj = i->second;
+    shmObj.recreateShmSegment();
     if (shmObj.isCkptLeader()) {
       JTRACE("Writing ShmidMap to file")(shmObj.originalShmid());
-      _originalToCurrentShmids[shmObj.originalShmid()] = shmObj.currentShmid();
+      _ipcVirtIdTable.updateMapping(shmObj.originalShmid(),
+                                    shmObj.currentShmid());
     }
   }
-  if (_originalToCurrentShmids.size() > 0) {
-    writeShmidMapsToFile(PROTECTED_SHMIDLIST_FD);
-  }
+  _ipcVirtIdTable.writeMapsToFile(PROTECTED_SHMIDMAP_FD);
 }
 
 void dmtcp::SysVIPC::on_shmget(key_t key, size_t size, int shmflg, int shmid)
 {
-  JASSERT(!isConflictingShmid(shmid)) (shmid) (key) (size)
-    .Text("Duplicate shmid found");
   _do_lock_tbl();
+  int virtualShmid = getNewVirtualId();
   ShmSegment shmObj (key, size, shmflg, shmid);
   _shm[shmid] = shmObj;
-  _originalToCurrentShmids[shmid] = shmid;
+  _ipcVirtIdTable.updateMapping(shmid, shmid);
   _do_unlock_tbl();
 }
 
@@ -353,7 +289,7 @@ void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
     JTRACE ("Shmid not found in table. Creating new entry") (shmid);
     ShmSegment shmObj (shmid);
     _shm[shmid] = shmObj;
-    _originalToCurrentShmids[shmid] = shmid;
+    _ipcVirtIdTable.updateMapping(shmid, shmid);
   }
 
   JASSERT(shmaddr == NULL || shmaddr == newaddr);
@@ -371,35 +307,9 @@ void dmtcp::SysVIPC::on_shmdt(const void *shmaddr)
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::writeShmidMapsToFile(int fd)
-{
-  dmtcp::string file = "/proc/self/fd/" + jalib::XToString ( fd );
-  file = jalib::Filesystem::ResolveSymlink ( file );
-  JASSERT ( file.length() > 0 ) ( file ) ( fd );
-
-  jalib::JBinarySerializeWriterRaw wr (file, fd);
-
-  Util::lockFile(fd);
-  wr.serializeMap(_originalToCurrentShmids);
-  Util::unlockFile(fd);
-}
-
-void dmtcp::SysVIPC::readShmidMapsFromFile(int fd)
-{
-  dmtcp::string file = "/proc/self/fd/" + jalib::XToString ( fd );
-  file = jalib::Filesystem::ResolveSymlink ( file );
-  JASSERT ( file.length() > 0 ) ( file );
-
-  jalib::JBinarySerializeReader rd(file);
-
-  while (!rd.isEOF()) {
-    rd.serializeMap(_originalToCurrentShmids);
-  }
-}
-
 void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
 {
-  o.serializeMap(_originalToCurrentShmids);
+  _ipcVirtIdTable.serialize(o);
 }
 
 /* ShmSegment Methods */
@@ -500,17 +410,8 @@ void dmtcp::ShmSegment::preCheckpoint()
 
 void dmtcp::ShmSegment::recreateShmSegment()
 {
-  JASSERT(isRestarting);
   if (_isCkptLeader) {
-    while (true) {
-      int shmid = _real_shmget(_key, _size, _shmgetFlags);
-      if (!SysVIPC::instance().isConflictingShmid(shmid)) {
-        JTRACE("Recreating shared memory segment") (_originalShmid) (shmid);
-        _currentShmid = shmid;
-        break;
-      }
-      JASSERT(_real_shmctl(shmid, IPC_RMID, NULL) != -1);
-    }
+    _currentShmid = _real_shmget(_key, _size, _shmgetFlags);
     remapFirstAddrForOwnerOnRestart();
   }
 }
