@@ -28,32 +28,25 @@
 extern "C"
 int shmget(key_t key, size_t size, int shmflg)
 {
-  int ret;
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  while (true) {
-    ret = _real_shmget(key, size, shmflg);
-    if (ret != -1 &&
-        dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
-      dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
-      break;
-    }
-    JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
-  };
-  JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
+  int realId = _real_shmget(key, size, shmflg);
+  dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, realId);
+  int virtId = VIRTUAL_TO_REAL_IPC_ID(realId);
+  JTRACE ("Creating new Shared memory segment")
+    (key) (size) (shmflg) (realId) (virtId);
   WRAPPER_EXECUTION_ENABLE_CKPT();
-  return ret;
+  return virtId;
 }
 
 extern "C"
 void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
+  int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
+  void *ret = _real_shmat(realShmid, shmaddr, shmflg);
   if (ret != (void *) -1) {
     dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
+    JTRACE ("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
   }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
@@ -76,9 +69,8 @@ extern "C"
 int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
-  JASSERT(currentShmid != -1);
-  int ret = _real_shmctl(currentShmid, cmd, buf);
+  int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
+  int ret = _real_shmctl(realShmid, cmd, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
 }

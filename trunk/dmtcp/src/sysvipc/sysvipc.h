@@ -28,24 +28,30 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <map>
-#include  "../jalib/jbuffer.h"
-#include  "../jalib/jserialize.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
-#include "../jalib/jalloc.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+#include "../jalib/jbuffer.h"
+#include "../jalib/jserialize.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jalloc.h"
+#include "virtualidtable.h"
+
+#define REAL_TO_VIRTUAL_IPC_ID(id) \
+  dmtcp::SysVIPC::instance().realToVirtualId(id)
+#define VIRTUAL_TO_REAL_IPC_ID(id) \
+  dmtcp::SysVIPC::instance().virtualToRealId(id)
 namespace dmtcp
 {
   class ShmSegment;
 
   class SysVIPC
   {
-    enum SysVIPCTyle {
+    enum SysVIPCType {
       SHM = 0x10000,
       TYPEMASK = SHM
     };
@@ -61,38 +67,33 @@ namespace dmtcp
 
       static SysVIPC& instance();
 
-      int  originalToCurrentShmid(int shmid);
-      int  currentToOriginalShmid(int shmid);
-      bool isConflictingShmid(int shmid);
-
       void leaderElection();
       void preCkptDrain();
       void preCheckpoint();
-      void postCheckpoint();
+      void postCheckpoint(bool isRestart);
       void postRestart();
       void preResume();
 
-      dmtcp::vector<int> getShmids();
+      int  virtualToRealId(int virtId) {
+        return _ipcVirtIdTable.virtualToReal(virtId);
+      }
+      int  realToVirtualId(int realId) {
+        return _ipcVirtIdTable.realToVirtual(realId);
+      }
 
+      int  getNewVirtualId();
       int  shmaddrToShmid(const void* shmaddr);
       void removeStaleShmObjects();
-
-      void serializeOriginalShmids();
-      void InsertIntoShmidMapFile(int originalShmid, int currentShmid);
-      void readPidMapsFromFile();
 
       void on_shmget(key_t key, size_t size, int shmflg, int shmid);
       void on_shmat(int shmid, const void *shmaddr, int shmflg, void* newaddr);
       void on_shmdt(const void *shmaddr);
 
-      void writeShmidMapsToFile(int fd);
-      void readShmidMapsFromFile(int fd);
       void serialize(jalib::JBinarySerializer& o);
     private:
-      typedef dmtcp::map<int, ShmSegment>::iterator ShmIterator;
       dmtcp::map<int, ShmSegment> _shm;
-      typedef dmtcp::map<int, int>::iterator ShmidMapIter;
-      dmtcp::map<int, int> _originalToCurrentShmids;
+      typedef dmtcp::map<int, ShmSegment>::iterator ShmIterator;
+      VirtualIdTable<int> _ipcVirtIdTable;
   };
 
   class ShmSegment
