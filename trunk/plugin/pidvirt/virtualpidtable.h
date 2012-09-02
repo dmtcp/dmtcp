@@ -33,6 +33,7 @@
 #include "uniquepid.h"
 #include "dmtcpalloc.h"
 #include "constants.h"
+#include "virtualidtable.h"
 
 #define REAL_TO_VIRTUAL_PID(pid) \
   dmtcp::VirtualPidTable::instance().realToVirtual(pid)
@@ -41,11 +42,7 @@
 
 namespace dmtcp
 {
-  /* Shall we create separate classes for holding virtual to real pid map
-   * and  for holding child process ids?
-   */
-
-  class VirtualPidTable
+  class VirtualPidTable : public VirtualIdTable<pid_t>
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -57,39 +54,16 @@ namespace dmtcp
       static VirtualPidTable& instance();
       static pid_t getPidFromEnvVar();
 
-      void postRestart();
-      void postExec();
-      void resetOnFork();
-      void refresh();
+      virtual void postRestart();
+      virtual void resetOnFork();
 
-      pid_t virtualToReal(pid_t virtualPid);
       pid_t realToVirtual(pid_t realPid);
-      bool pidExists(pid_t pid);
-      bool realPidExists(pid_t pid);
-
-      void updateMapping(pid_t virtualPid, pid_t realPid);
-      void erase(pid_t virtualPid);
-      void printPidMaps();
-
+      void refresh();
       void writeVirtualTidToFileForPtrace(pid_t pid);
       pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
 
-      void serialize(jalib::JBinarySerializer& o);
-      void serializePidMap(jalib::JBinarySerializer& o);
-      void serializePidMapEntry(jalib::JBinarySerializer& o,
-                                pid_t& virtualPid,
-                                pid_t& realPid );
-      void serializeEntryCount(jalib::JBinarySerializer& o, size_t& count);
-      void writePidMapsToFile();
-      void readPidMapsFromFile();
-
-      dmtcp::vector< pid_t > getPidVector();
-
       pid_t getNewVirtualTid();
-
     private:
-      typedef dmtcp::map<pid_t, pid_t>::iterator pid_iterator;
-      dmtcp::map<pid_t, pid_t> _pidMapTable;
   };
 }
 

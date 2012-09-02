@@ -6,6 +6,7 @@
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
+#include "protectedfds.h"
 
 using namespace dmtcp;
 
@@ -85,12 +86,12 @@ void pidVirt_PostRestart(DmtcpEventData_t *data)
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
-  dmtcp::VirtualPidTable::instance().writePidMapsToFile();
+  dmtcp::VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
 void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
 {
-  dmtcp::VirtualPidTable::instance().readPidMapsFromFile();
+  dmtcp::VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
 }
 
 void pidVirt_PostRestartResume(DmtcpEventData_t *data)

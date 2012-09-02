@@ -44,6 +44,7 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+	  $(DMTCP_SRC_PATH)/virtualidtable.h $(DMTCP_SRC_PATH)/protectedfds.h \
 	  pidvirt.h pidwrappers.h virtualpidtable.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
