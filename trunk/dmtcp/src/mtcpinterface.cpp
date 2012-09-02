@@ -73,7 +73,6 @@ static void callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr);
 static int callbackShouldCkptFD(int /*fd*/);
 static void callbackWriteCkptPrefix(int fd);
-static void callbackRestoreVirtualPidTable();
 
 void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
@@ -200,8 +199,7 @@ void dmtcp::initializeMtcpEngine()
                                 &callbackShouldCkptFD,
                                 &callbackWriteCkptPrefix);
 
-  (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackRestoreVirtualPidTable,
-                                      &callbackHoldsAnyLocks,
+  (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackHoldsAnyLocks,
                                       &callbackPreSuspendUserThread,
                                       &callbackPreResumeUserThread);
 
@@ -253,66 +251,69 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 }
 
 
-static void callbackPostCheckpoint ( int isRestart,
-                                     char* mtcpRestoreArgvStartAddr)
+static void callbackPostCheckpoint(int isRestart,
+                                   char* mtcpRestoreArgvStartAddr)
 {
-  if ( isRestart )
-  {
+  if (isRestart) {
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
+
+#ifndef RECORD_REPLAY
+    /* This calls setenv() which calls malloc. Since this is only executed on
+       restart, that means it there is an extra malloc on replay. Commenting this
+       until we have time to fix it. */
+    dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
+#endif
 
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
 
     dmtcp::DmtcpWorker::instance().postRestart();
-    /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
-     *        we do not call it, it exposes a bug in dmtcp_coordinator.
-     * BUG: The restarting process reconnects to the coordinator and the old
-     *      connection is discarded. However, the coordinator doesn't discard
-     *      the old connection right away (since it can't detect if the other
-     *      end of the socket is closed). It is only discarded after the next
-     *      read phase (coordinator trying to read from all the connected
-     *      workers) in monitorSockets() is complete.  In this read phase, an
-     *      error is recorded on the closed socket and in the next iteration of
-     *      verifying the _dataSockets, this socket is closed and the
-     *      corresponding entry in _dataSockets is freed.
-     *
-     *      The problem occurs when some other worker sends a status messages
-     *      which should take the computation to the next barrier, but since
-     *      the _to_be_disconnected socket is present, the minimum state is not
-     *      reached unanimously and hence the coordinator doesn't raise the
-     *      barrier.
-     *
-     *      The bug was observed by Kapil in gettimeofday test program. It can
-     *      be seen in 1 out of 3 restart attempts.
-     *
-     *      The current solution is to send a dummy message to coordinator here
-     *      before sending a proper request.
-     */
-    dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-    dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
-    callbackRestoreVirtualPidTable();
   }
-  else
-  {
-#ifdef EXTERNAL_SOCKET_HANDLING
-    if ( delayedCheckpoint == false )
-#endif
-    {
-      dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
-      dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
-      dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-      dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT_RESUME, NULL);
-    }
 
-    // Set the process state to RUNNING now, in case a dmtcpaware hook
-    //  calls pthread_create, thereby invoking our virtualization.
-    dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-    // Now everything but user threads are restored.  Call the user hook.
-    dmtcp::userHookTrampoline_postCkpt(isRestart);
-    // Inform Coordinator of our RUNNING state;
-    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
-    // After this, the user threads will be unlocked in mtcp.c and will resume.
-  }
+  /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
+   *        we do not call it, it exposes a bug in dmtcp_coordinator.
+   * BUG: The restarting process reconnects to the coordinator and the old
+   *      connection is discarded. However, the coordinator doesn't discard
+   *      the old connection right away (since it can't detect if the other
+   *      end of the socket is closed). It is only discarded after the next
+   *      read phase (coordinator trying to read from all the connected
+   *      workers) in monitorSockets() is complete.  In this read phase, an
+   *      error is recorded on the closed socket and in the next iteration of
+   *      verifying the _dataSockets, this socket is closed and the
+   *      corresponding entry in _dataSockets is freed.
+   *
+   *      The problem occurs when some other worker sends a status messages
+   *      which should take the computation to the next barrier, but since
+   *      the _to_be_disconnected socket is present, the minimum state is not
+   *      reached unanimously and hence the coordinator doesn't raise the
+   *      barrier.
+   *
+   *      The bug was observed by Kapil in gettimeofday test program. It can
+   *      be seen in 1 out of 3 restart attempts.
+   *
+   *      The current solution is to send a dummy message to coordinator here
+   *      before sending a proper request.
+   */
+  dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+
+  dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
+  dmtcp::DmtcpWorker::processEvent(isRestart ? DMTCP_EVENT_POST_RESTART_REFILL
+                                             : DMTCP_EVENT_POST_CKPT_REFILL,
+                                   NULL);
+
+  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
+  dmtcp::DmtcpWorker::processEvent(isRestart ? DMTCP_EVENT_POST_RESTART_RESUME
+                                             : DMTCP_EVENT_POST_CKPT_RESUME,
+                                   NULL);
+
+  // Set the process state to RUNNING now, in case a dmtcpaware hook
+  //  calls pthread_create, thereby invoking our virtualization.
+  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+  // Now everything but user threads are restored.  Call the user hook.
+  dmtcp::userHookTrampoline_postCkpt(isRestart);
+  // Inform Coordinator of our RUNNING state;
+  dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+  // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
 static int callbackShouldCkptFD ( int /*fd*/ )
@@ -329,29 +330,6 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
-static void callbackRestoreVirtualPidTable()
-{
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART_REFILL, NULL);
-  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-
-#ifndef RECORD_REPLAY
-  /* This calls setenv() which calls malloc. Since this is only executed on
-     restart, that means it there is an extra malloc on replay. Commenting this
-     until we have time to fix it. */
-  dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
-#endif
-
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART_RESUME, NULL);
-
-  // Set the process state to RUNNING now, in case a dmtcpaware hook
-  //  calls pthread_create, thereby invoking our virtualization.
-  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
-  // Now everything but user threads are restored.  Call the user hook.
-  dmtcp::userHookTrampoline_postCkpt(true);
-  // Inform Coordinator of our RUNNING state;
-  dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
-  // After this, the user threads will be unlocked in mtcp.c and will resume.
-}
 
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 void callbackHoldsAnyLocks(int *retval)
