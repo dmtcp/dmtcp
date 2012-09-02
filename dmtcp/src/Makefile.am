@@ -38,7 +38,7 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h  protectedfds.h connectionidentifier.h \
 	syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h util.h \
+	uniquepid.h processinfo.h util.h virtualidtable.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
 	dmtcpplugin.h lookup_service.h trampolines.h
 
