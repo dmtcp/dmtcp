@@ -122,8 +122,17 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
   struct timespec totaltime = {0, 0};
   int ret;
   int realId;
+  bool ipc_nowait_specified = false;
 
-  if (timeout != NULL && TIMESPEC_CMP(timeout, &ts_100ms, <)) {
+  for (int i = 0; i < nsops; i++) {
+    if (sops[i].sem_flg & IPC_NOWAIT) {
+      ipc_nowait_specified = true;
+      break;
+    }
+  }
+
+  if (ipc_nowait_specified ||
+      (timeout != NULL && TIMESPEC_CMP(timeout, &ts_100ms, <))) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
     realId = VIRTUAL_TO_REAL_IPC_ID(semid);
     JASSERT(realId != -1);
