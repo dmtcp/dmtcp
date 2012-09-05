@@ -232,6 +232,19 @@ int semctl(int semid, int semnum, int cmd, ...)
   return ret;
 }
 
+extern "C"
+int msgctl(int msqid, int cmd, struct msqid_ds *buf)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int ret = _real_msgctl(msqid, cmd, buf);
+  if (ret != -1 && buf != NULL && (cmd == IPC_STAT || cmd == MSG_STAT)) {
+    buf->msg_lspid = REAL_TO_VIRTUAL_PID(buf->msg_lspid);
+    buf->msg_lrpid = REAL_TO_VIRTUAL_PID(buf->msg_lrpid);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
+
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 #define SYSCALL_VA_START()                                              \

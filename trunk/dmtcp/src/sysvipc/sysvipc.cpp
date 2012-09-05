@@ -181,12 +181,13 @@ int dmtcp::SysVIPC::getNewVirtualId()
 void dmtcp::SysVIPC::resetOnFork()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->resetOnFork();
+    i->second->resetOnFork();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->resetOnFork();
+    i->second->resetOnFork();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->resetOnFork();
   }
 }
 
@@ -196,48 +197,52 @@ void dmtcp::SysVIPC::leaderElection()
   removeStaleObjects();
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->leaderElection();
+    i->second->leaderElection();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->leaderElection();
+    i->second->leaderElection();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->leaderElection();
   }
 }
 
 void dmtcp::SysVIPC::preCkptDrain()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->preCkptDrain();
+    i->second->preCkptDrain();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->preCkptDrain();
+    i->second->preCkptDrain();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->preCkptDrain();
   }
 }
 
 void dmtcp::SysVIPC::preCheckpoint()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->preCheckpoint();
+    i->second->preCheckpoint();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->preCheckpoint();
+    i->second->preCheckpoint();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->preCheckpoint();
   }
 }
 
 void dmtcp::SysVIPC::preResume()
 {
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->preResume();
+    i->second->preResume();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->preResume();
+    i->second->preResume();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->preResume();
   }
 }
 
@@ -248,27 +253,28 @@ void dmtcp::SysVIPC::postCheckpoint(bool isRestart)
   _ipcVirtIdTable.readMapsFromFile(PROTECTED_SHMIDMAP_FD);
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->postCheckpoint(isRestart);
+    i->second->postCheckpoint(isRestart);
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->postCheckpoint(isRestart);
+    i->second->postCheckpoint(isRestart);
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->postCheckpoint(isRestart);
   }
 }
 
 void dmtcp::SysVIPC::postRestart()
 {
-  JNOTE("post restart");
   _ipcVirtIdTable.clear();
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    shmObj->postRestart();
+    i->second->postRestart();
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    semObj->postRestart();
+    i->second->postRestart();
+  }
+  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
+    i->second->postRestart();
   }
   _ipcVirtIdTable.writeMapsToFile(PROTECTED_SHMIDMAP_FD);
 }
@@ -396,6 +402,30 @@ void dmtcp::SysVIPC::on_semctl(int semid, int semnum, int cmd, union semun arg)
 void dmtcp::SysVIPC::on_semop(int semid, struct sembuf *sops, unsigned nsops)
 {
   _sem[semid]->on_semop(sops, nsops);
+}
+
+void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
+{
+  _do_lock_tbl();
+  if (!_ipcVirtIdTable.realIdExists(msqid)) {
+    JASSERT(_msq.find(msqid) == _msq.end());
+    JTRACE ("Msqid not found in table. Creating new entry") (msqid);
+    int virtualId = getNewVirtualId();
+    updateMapping(virtualId, msqid);
+    _msq[virtualId] = new MsgQueue (virtualId, msqid, key, msgflg);
+  } else {
+    JASSERT(_msq.find(msqid) != _msq.end());
+  }
+  _do_unlock_tbl();
+}
+
+void dmtcp::SysVIPC::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
+{
+  if (cmd == IPC_RMID) {
+    JASSERT(_msq[msqid]->isStale()) (msqid);
+    _msq.erase(msqid);
+  }
+  return;
 }
 
 void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
@@ -660,4 +690,94 @@ void dmtcp::Semaphore::postCheckpoint(bool isRestart)
     sops.sem_flg = _semadj[i] < 0 ? SEM_UNDO : 0;
     JASSERT(_real_semop(_realId, &sops, 1) == 0);
   }
+}
+/******************************************************************************
+ *
+ * MsgQueue Methods
+ *
+ *****************************************************************************/
+
+dmtcp::MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
+  : SysVObj(msqid, realMsqid, key, msgflg)
+{
+  JTRACE("New MsgQueue Created") (_key) (_flags) (_id);
+}
+
+bool dmtcp::MsgQueue::isStale()
+{
+  struct msqid_ds buf;
+  int ret = _real_msgctl(_realId, IPC_STAT, &buf);
+  if (ret == -1) {
+    JASSERT (errno == EIDRM || errno == EINVAL);
+    return true;
+  }
+  return false;
+}
+
+void dmtcp::MsgQueue::leaderElection()
+{
+  // Leader election is done in preCkptDrain(), here we just fetch the number
+  // of messages in the queue.
+  struct msqid_ds buf;
+  JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
+
+  _qnum = buf.msg_qnum;
+}
+
+void dmtcp::MsgQueue::preCkptDrain()
+{
+  // This is where we elect the leader
+  /* Every process send a message to the queue. Later on, these excess messages
+   * will be removed by the ckptLeader before the user threads are allowed to
+   * resume.
+   * The process whose pid matches the msg_lspid is the leader.
+   */
+  struct msgbuf msg;
+  msg.mtype = getpid();
+  JASSERT(_real_msgsnd(_realId, &msg, 0, 0) == 0) (_id) (JASSERT_ERRNO);
+}
+
+void dmtcp::MsgQueue::preCheckpoint()
+{
+  struct msqid_ds buf;
+  JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
+
+  if (buf.msg_lspid == getpid()) {
+    void *msgBuf = JALLOC_HELPER_MALLOC(buf.__msg_cbytes);
+    _isCkptLeader = true;
+    JNOTE("CkptLeader");
+    _msgInQueue.clear();
+    for (int i = 0; i < _qnum; i++) {
+      ssize_t numBytes = _real_msgrcv(_realId, msgBuf, sizeof(msgBuf), 0, 0);
+      JASSERT(numBytes != -1) (_id) (JASSERT_ERRNO);
+      _msgInQueue.push_back(jalib::JBuffer((const char*)msgBuf,
+                                           numBytes + sizeof (long)));
+    }
+    // Now remove all the messages that were sent during preCkptDrain phase.
+    while (_real_msgrcv(_realId, msgBuf, sizeof(msgBuf), 0, IPC_NOWAIT) != -1);
+    JALLOC_HELPER_FREE(msgBuf);
+  } else {
+    JNOTE("NO ckpt leader");
+  }
+}
+
+void dmtcp::MsgQueue::postRestart()
+{
+  if (_isCkptLeader) {
+    _realId = _real_msgget(_key, _flags);
+    JASSERT(_realId != -1) (JASSERT_ERRNO);
+    SysVIPC::instance().updateMapping(_id, _realId);
+  }
+}
+
+void dmtcp::MsgQueue::postCheckpoint(bool isRestart)
+{
+  if (_isCkptLeader) {
+    for (int i = 0; i < _qnum; i++) {
+      JASSERT(_real_msgsnd(_realId, _msgInQueue[i].buffer(),
+                           _msgInQueue[i].size(), 0) == 0);
+    }
+  }
+  _msgInQueue.clear();
+  _qnum = 0;
 }

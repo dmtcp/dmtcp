@@ -51,6 +51,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/epoll.h>
@@ -105,6 +106,7 @@ extern "C"
   int _real_shmdt(const void *shmaddr);
   int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
   int _real_semctl(int semid, int semnum, int cmd, ...);
+  int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
 
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);

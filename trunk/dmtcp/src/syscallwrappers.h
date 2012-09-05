@@ -50,9 +50,10 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <syslog.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <sys/sem.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -210,6 +211,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(semctl)                             \
   MACRO(semop)                              \
   MACRO(semtimedop)                         \
+                                            \
+  MACRO(msgget)                             \
+  MACRO(msgctl)                             \
+  MACRO(msgsnd)                             \
+  MACRO(msgrcv)                             \
                                             \
   MACRO(read)                               \
   MACRO(write)                              \
@@ -453,6 +459,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_semtimedop(int semid, struct sembuf *sops, size_t nsops,
                        const struct timespec *timeout);
   int _real_semctl(int semid, int semnum, int cmd, ...);
+
+  int _real_msgget(key_t key, int msgflg);
+  int _real_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg);
+  ssize_t _real_msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp,
+                       int msgflg);
+  int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
 
   pid_t _real_getpid();
 
