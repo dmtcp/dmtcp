@@ -626,6 +626,7 @@ if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
 else:
   runTest("sysv-shm",      2, ["./test/sysv-shm"])
   runTest("sysv-sem",      2, ["./test/sysv-sem"])
+  runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])

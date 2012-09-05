@@ -25,6 +25,7 @@
 #include "threadsync.h"
 #include "../../jalib/jassert.h"
 
+static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
 /******************************************************************************
  *
  * SysV Shm Methods
@@ -81,6 +82,7 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
+  JASSERT(realShmid != -1);
   int ret = _real_shmctl(realShmid, cmd, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;
@@ -118,7 +120,6 @@ extern "C"
 int semtimedop(int semid, struct sembuf *sops, size_t nsops,
                const struct timespec *timeout)
 {
-  static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
   struct timespec totaltime = {0, 0};
   int ret;
   int realId;
@@ -149,6 +150,7 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
     ret = EAGAIN;
     WRAPPER_EXECUTION_DISABLE_CKPT();
     realId = VIRTUAL_TO_REAL_IPC_ID(semid);
+    JASSERT(realId != -1);
     ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
@@ -182,6 +184,104 @@ int semctl(int semid, int semnum, int cmd, ...)
   int ret = _real_semctl(realId, semnum, cmd, uarg);
   if (ret != -1) {
     dmtcp::SysVIPC::instance().on_semctl(semid, semnum, cmd, uarg);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+/******************************************************************************
+ *
+ * SysV Msg Queue Methods
+ *
+ *****************************************************************************/
+
+extern "C"
+int msgget(key_t key, int msgflg)
+{
+  int realId = -1;
+  int virtId = -1;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  realId = _real_msgget (key, msgflg);
+  if (realId != -1) {
+    dmtcp::SysVIPC::instance().on_msgget(realId, key, msgflg);
+    virtId = REAL_TO_VIRTUAL_IPC_ID(realId);
+    JTRACE ("Creating new SysV Msg Queue" ) (key) (msgflg);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return virtId;
+}
+
+extern "C"
+int msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
+{
+  int ret;
+  int realId;
+
+  /*
+   * We continue to call msgsnd with IPC_NOWAIT (and sleep) until we succeed
+   * or fail with something other than EAGAIN
+   * If IPC_NOWAIT was specified and msgsnd fails with EAGAIN, return.
+   */
+  while (true) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
+    JASSERT(realId != -1);
+    ret = _real_msgsnd(realId, msgp, msgsz, msgflg | IPC_NOWAIT);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+
+    // TODO Handle EIDRM
+    if ((ret == 0) ||
+        (ret == -1 && errno != EAGAIN) ||
+        (msgflg & IPC_NOWAIT)) {
+      return ret;
+    }
+
+    nanosleep(&ts_100ms, NULL);
+  }
+  JASSERT(false) .Text("Not Reached");
+  return -1;
+}
+
+extern "C"
+ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
+{
+  int ret;
+  int realId;
+
+  /*
+   * We continue to call msgrcv with IPC_NOWAIT (and sleep) until we succeed
+   * or fail with something other than EAGAIN
+   * If IPC_NOWAIT was specified and msgsnd fails with EAGAIN, return.
+   */
+  while (true) {
+    WRAPPER_EXECUTION_DISABLE_CKPT();
+    realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
+    JASSERT(realId != -1);
+    ret = _real_msgrcv(realId, msgp, msgsz, msgtyp, msgflg | IPC_NOWAIT);
+    WRAPPER_EXECUTION_ENABLE_CKPT();
+
+    // TODO Handle EIDRM
+    if ((ret >= 0) ||
+        (ret == -1 && errno != ENOMSG) ||
+        (msgflg & IPC_NOWAIT)) {
+      return ret;
+    }
+
+    nanosleep(&ts_100ms, NULL);
+  }
+  JASSERT(false) .Text("Not Reached");
+  return -1;
+}
+
+
+extern "C"
+int msgctl(int msqid, int cmd, struct msqid_ds *buf)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
+  JASSERT(realId != -1);
+  int ret = _real_msgctl(realId, cmd, buf);
+  if (ret != -1) {
+    dmtcp::SysVIPC::instance().on_msgctl(msqid, cmd, buf);
   }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return ret;

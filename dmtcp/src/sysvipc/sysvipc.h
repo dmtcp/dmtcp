@@ -33,6 +33,8 @@
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/msg.h>
 
 #include "../jalib/jbuffer.h"
 #include "../jalib/jserialize.h"
@@ -50,6 +52,7 @@ namespace dmtcp
 {
   class ShmSegment;
   class Semaphore;
+  class MsgQueue;
 
   class SysVIPC
   {
@@ -107,12 +110,17 @@ namespace dmtcp
       void on_semctl(int semid, int semnum, int cmd, union semun arg);
       void on_semop(int semid, struct sembuf *sops, unsigned nsops);
 
+      void on_msgget(int msqid, key_t key, int msgflg);
+      void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+
       void serialize(jalib::JBinarySerializer& o);
     private:
       dmtcp::map<int, ShmSegment*> _shm;
       typedef dmtcp::map<int, ShmSegment*>::iterator ShmIterator;
       dmtcp::map<int, Semaphore*> _sem;
       typedef dmtcp::map<int, Semaphore*>::iterator SemIterator;
+      dmtcp::map<int, MsgQueue*> _msq;
+      typedef dmtcp::map<int, MsgQueue*>::iterator MsqIterator;
       VirtualIdTable<int> _ipcVirtIdTable;
   };
 
@@ -217,6 +225,30 @@ namespace dmtcp
       int     _nsems;
       unsigned short *_semval;
       int *_semadj;
+  };
+
+  class MsgQueue : public SysVObj
+  {
+    public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
+      MsgQueue(int msqid, int realMsqid, key_t key, int msgflg);
+
+      virtual bool isStale();
+      virtual void resetOnFork() {};
+      virtual void leaderElection();
+      virtual void preCkptDrain();
+      virtual void preCheckpoint();
+      virtual void postRestart();
+      virtual void postCheckpoint(bool isRestart);
+      virtual void preResume() {};
+
+    private:
+      dmtcp::vector<jalib::JBuffer> _msgInQueue;
+      msgqnum_t _qnum;
   };
 }
 #endif

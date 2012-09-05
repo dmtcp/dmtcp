@@ -291,6 +291,11 @@ int _real_semctl(int semid, int semnum, int cmd, ...) {
   REAL_FUNC_PASSTHROUGH ( semctl ) (semid, semnum, cmd, uarg);
 }
 
+LIB_PRIVATE
+int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf)
+{
+  REAL_FUNC_PASSTHROUGH (msgctl) (msqid, cmd, buf);
+}
 
 LIB_PRIVATE
 void _real_pthread_exit (void *retval) {
