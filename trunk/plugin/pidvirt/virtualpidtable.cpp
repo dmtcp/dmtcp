@@ -38,7 +38,7 @@
 static int _numTids = 1;
 
 dmtcp::VirtualPidTable::VirtualPidTable()
-  : VirtualIdTable("Pid")
+  : VirtualIdTable<pid_t> ("Pid")
 {
   //_do_lock_tbl();
   //_idMapTable[getpid()] = _real_getpid();
@@ -57,7 +57,7 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
 
 void dmtcp::VirtualPidTable::postRestart()
 {
-  VirtualIdTable::postRestart();
+  VirtualIdTable<pid_t>::postRestart();
   _do_lock_tbl();
   _idMapTable[getpid()] = _real_getpid();
   _do_unlock_tbl();
@@ -84,13 +84,13 @@ void dmtcp::VirtualPidTable::refresh()
 
 pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
 {
-  pid_t tid = VirtualIdTable::getNewVirtualId();
+  pid_t tid = VirtualIdTable<pid_t>::getNewVirtualId();
 
   if (tid == -1) {
     refresh();
   }
 
-  tid = VirtualIdTable::getNewVirtualId();
+  tid = VirtualIdTable<pid_t>::getNewVirtualId();
 
   JASSERT(tid != -1) (_idMapTable.size())
     .Text("Exceeded maximum number of threads allowed");
@@ -100,7 +100,7 @@ pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
 
 void dmtcp::VirtualPidTable::resetOnFork()
 {
-  VirtualIdTable::resetOnFork();
+  VirtualIdTable<pid_t>::resetOnFork();
   _numTids = 1;
   _idMapTable[getpid()] = _real_getpid();
   refresh();
@@ -112,7 +112,7 @@ extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realIdExists(realPid)) {
-    return VirtualIdTable::realToVirtual(realPid);
+    return VirtualIdTable<pid_t>::realToVirtual(realPid);
   }
 
   _do_lock_tbl();
