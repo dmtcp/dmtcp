@@ -12,6 +12,7 @@
 struct my_msgbuf {
                long mtype;
                long val;
+               char buf[1024];
            };
 
 void msg_snd(int msqid, int i)
@@ -21,6 +22,8 @@ void msg_snd(int msqid, int i)
   buf.val = i;
   if (msgsnd(msqid, (const void*)&buf, sizeof (long), 0) == -1) {
     perror("msgsnd failed");
+    fflush(stdout);
+    sleep(1);
     exit(1);
   }
 }
@@ -32,6 +35,8 @@ void msg_rcv(int msqid, int i)
   buf.val = 0;
   if (msgrcv(msqid, (void*)&buf, sizeof (buf), i, 0) == -1) {
     perror("msgrcv failed");
+    fflush(stdout);
+    sleep(1);
     exit(1);
   }
 }

@@ -508,7 +508,6 @@ void dmtcp::ShmSegment::preCkptDrain()
       JASSERT(addr != (void*) -1);
       _shmaddrToFlag[addr] = 0;
       _dmtcpMappedAddr = true;
-      JNOTE("Explicit mapping");
     }
   }
 }
@@ -594,7 +593,7 @@ dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
 
 void dmtcp::Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
 {
-  for (int i = 0; i < nsops; i++) {
+  for (unsigned i = 0; i < nsops; i++) {
     int sem_num = sops[i].sem_num;
     _semadj[sem_num] -= sops[i].sem_op;
   }
@@ -734,7 +733,8 @@ void dmtcp::MsgQueue::preCkptDrain()
    */
   struct msgbuf msg;
   msg.mtype = getpid();
-  JASSERT(_real_msgsnd(_realId, &msg, 0, 0) == 0) (_id) (JASSERT_ERRNO);
+  JASSERT(_real_msgsnd(_realId, &msg, 0, IPC_NOWAIT) == 0) (_id) (JASSERT_ERRNO);
+  _isCkptLeader = false;
 }
 
 void dmtcp::MsgQueue::preCheckpoint()
@@ -743,21 +743,21 @@ void dmtcp::MsgQueue::preCheckpoint()
   JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
 
   if (buf.msg_lspid == getpid()) {
-    void *msgBuf = JALLOC_HELPER_MALLOC(buf.__msg_cbytes);
+    size_t size = buf.__msg_cbytes;
+    void *msgBuf = JALLOC_HELPER_MALLOC(size);
     _isCkptLeader = true;
-    JNOTE("CkptLeader");
     _msgInQueue.clear();
-    for (int i = 0; i < _qnum; i++) {
-      ssize_t numBytes = _real_msgrcv(_realId, msgBuf, sizeof(msgBuf), 0, 0);
+    for (size_t i = 0; i < _qnum; i++) {
+      ssize_t numBytes = _real_msgrcv(_realId, msgBuf, size, 0, 0);
       JASSERT(numBytes != -1) (_id) (JASSERT_ERRNO);
       _msgInQueue.push_back(jalib::JBuffer((const char*)msgBuf,
                                            numBytes + sizeof (long)));
     }
+    JASSERT(_msgInQueue.size() == _qnum) (_qnum);
     // Now remove all the messages that were sent during preCkptDrain phase.
-    while (_real_msgrcv(_realId, msgBuf, sizeof(msgBuf), 0, IPC_NOWAIT) != -1);
+    while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1);
     JALLOC_HELPER_FREE(msgBuf);
   } else {
-    JNOTE("NO ckpt leader");
   }
 }
 
@@ -767,15 +767,29 @@ void dmtcp::MsgQueue::postRestart()
     _realId = _real_msgget(_key, _flags);
     JASSERT(_realId != -1) (JASSERT_ERRNO);
     SysVIPC::instance().updateMapping(_id, _realId);
+    JASSERT(_msgInQueue.size() == _qnum) (_msgInQueue.size()) (_qnum);
   }
 }
 
 void dmtcp::MsgQueue::postCheckpoint(bool isRestart)
 {
   if (_isCkptLeader) {
-    for (int i = 0; i < _qnum; i++) {
+    struct msqid_ds buf;
+    JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
+    if (isRestart) {
+      // Now remove all the messages that were sent during preCkptDrain phase.
+      size_t size = buf.__msg_cbytes;
+      void *msgBuf = JALLOC_HELPER_MALLOC(size);
+      while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1);
+      JALLOC_HELPER_FREE(msgBuf);
+
+    } else {
+      JASSERT(buf.msg_qnum == 0);
+    }
+
+    for (size_t i = 0; i < _qnum; i++) {
       JASSERT(_real_msgsnd(_realId, _msgInQueue[i].buffer(),
-                           _msgInQueue[i].size(), 0) == 0);
+                           _msgInQueue[i].size(), IPC_NOWAIT) == 0);
     }
   }
   _msgInQueue.clear();

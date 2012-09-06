@@ -140,10 +140,11 @@ namespace dmtcp
         _realId = realId;
         _isCkptLeader = false;
       }
+      virtual ~SysVObj() {}
 
       int virtualId() { return _id; }
 
-      bool isCkptLeader() { return _isCkptLeader; };
+      bool isCkptLeader() { return _isCkptLeader; }
 
       virtual bool isStale() = 0;
       virtual void resetOnFork() = 0;
@@ -174,12 +175,12 @@ namespace dmtcp
       ShmSegment(int shmid, int realShmid, key_t key, size_t size, int shmflg);
 
       virtual bool isStale();
-      virtual void resetOnFork() {};
+      virtual void resetOnFork() {}
       virtual void leaderElection();
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
-      virtual void postCheckpoint(bool isRestart) {};
+      virtual void postCheckpoint(bool isRestart) {}
       virtual void preResume();
 
       bool isValidShmaddr(const void* shmaddr);
@@ -219,7 +220,7 @@ namespace dmtcp
       virtual void preCheckpoint();
       virtual void postRestart();
       virtual void postCheckpoint(bool isRestart);
-      virtual void preResume() {};
+      virtual void preResume() {}
 
     private:
       int     _nsems;
@@ -238,13 +239,13 @@ namespace dmtcp
       MsgQueue(int msqid, int realMsqid, key_t key, int msgflg);
 
       virtual bool isStale();
-      virtual void resetOnFork() {};
+      virtual void resetOnFork() {}
       virtual void leaderElection();
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
       virtual void postCheckpoint(bool isRestart);
-      virtual void preResume() {};
+      virtual void preResume() {}
 
     private:
       dmtcp::vector<jalib::JBuffer> _msgInQueue;
