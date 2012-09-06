@@ -125,7 +125,7 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
   int realId;
   bool ipc_nowait_specified = false;
 
-  for (int i = 0; i < nsops; i++) {
+  for (size_t i = 0; i < nsops; i++) {
     if (sops[i].sem_flg & IPC_NOWAIT) {
       ipc_nowait_specified = true;
       break;
