@@ -319,8 +319,10 @@ extern int mtcp_sys_errno;
     " mov %%ebx,24(%%esp); mov %%esp,%%ebx\n\t" \
    /* sysdep-i386 then does:  mov %1,%%eax */
 #  define RESTOREARGS_6 "mov 24(%%esp),%%ebx\n\t" "add $28,%%esp\n\t"
-//#  define ASMFMT_6(arg1, arg2, arg3, arg4, arg5, arg6) \
-//    ASMFMT_5(arg1, arg2, arg3, arg4, arg5), "rm" (arg6)
+/*
+#  define ASMFMT_6(arg1, arg2, arg3, arg4, arg5, arg6) \
+    ASMFMT_5(arg1, arg2, arg3, arg4, arg5), "rm" (arg6)
+*/
 #  define ASMFMT_6(arg1,arg2,arg3,arg4,arg5,arg6) , "0" (arg1), "c" (arg2), "d" (arg3), "S" (arg4), "D" (arg5), "rm" (arg6)
 #endif
 # endif

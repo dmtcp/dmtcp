@@ -468,6 +468,7 @@ static int compareoffset(int selfmapfd1, off_t offset1,
 void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr);
 static int dummy;
 static void * dummy_fnc = &mtcp_get_memory_region_of_this_library;
+
 __attribute__ ((visibility ("hidden")))
 void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr) {
   *startaddr = NULL;
@@ -524,7 +525,6 @@ int mtcp_selfmap_open() {
 __attribute__ ((visibility ("hidden")))
 int mtcp_selfmap_readline(int selfmapfd, VA *startaddr, VA *endaddr,
 	                  off_t *file_offset) {
-  int rc = 0;
   char c;
   if (file_offset != NULL)
     *file_offset = (off_t)-1;

@@ -214,7 +214,7 @@ void *_dmtcp_pthread_getspecific(pthread_key_t key)
   return pthread_getspecific(key);
 }
 
-static _dmtcp_PreparePthreadGetSpecific()
+static void _dmtcp_PreparePthreadGetSpecific()
 {
   dmtcp_setup_trampoline_by_addr(&pthread_getspecific,
                                  (void*) &_dmtcp_pthread_getspecific,

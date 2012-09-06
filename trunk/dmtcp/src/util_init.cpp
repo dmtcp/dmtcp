@@ -60,7 +60,7 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
 
   a << "\nArgv: ";
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
-  int i;
+  size_t i;
   for (i = 0; i < args.size(); i++) {
     a << " " << args[i];
   }
