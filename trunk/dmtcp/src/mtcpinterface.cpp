@@ -219,7 +219,7 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   prctlGetProcessName();
   unmapRestoreArgv();
 
-  dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_GOT_SUSPEND_MSG, NULL);
   // After acquiring this lock, there shouldn't be any
   // allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
   // process can deadlock.
