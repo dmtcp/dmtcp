@@ -159,7 +159,6 @@ int pclose(FILE *fp)
   int wstatus;
   pid_t pid = -1;
   pid_t wait_pid;
-  int status = -1;
 
   _lock_popen_map();
   it = _dmtcpPopenPidMap.find(fp);

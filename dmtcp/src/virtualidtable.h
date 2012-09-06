@@ -253,7 +253,6 @@ namespace dmtcp
         }
 
         void readMapsFromFile(int fd) {
-          size_t numMaps;
           dmtcp::string file = "/proc/self/fd/" + jalib::XToString(fd);
           dmtcp::string mapFile = jalib::Filesystem::ResolveSymlink(file);
 

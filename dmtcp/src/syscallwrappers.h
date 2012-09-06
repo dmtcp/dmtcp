@@ -63,7 +63,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#ifdef HAVE_EPOLL_H
+#ifdef HAVE_SYS_EPOLL_H
 # include <sys/epoll.h>
 #else
   /* KEEP THIS IN SYNC WITH connection.h */

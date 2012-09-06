@@ -76,7 +76,7 @@ protected:
     }
 
     sort(sorted_v.begin(), sorted_v.end(), compare);
-    
+
     // output_sorted("sorted");
   }
 
@@ -186,22 +186,22 @@ public:
 
     size_t size = newres.node_map.size();
     map.resize(size);
-    for (int i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       map[i].clear();
     }
     uint map_used[size];
-    for (int i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++)
       map_used[i] = 0;
 
     // map old launch node to new launch node
     uint old_launch, new_launch;
-    for (int i = 0; i < sorted_v.size(); i++) {
+    for (size_t i = 0; i < sorted_v.size(); i++) {
       if (sorted_v[i]->is_launch) {
         old_launch = i;
         break;
       }
     }
-    for (int i = 0; i < newres.ssize(); i++) {
+    for (size_t i = 0; i < newres.ssize(); i++) {
       if (newres[i].is_launch) {
         new_launch = i;
         break;
@@ -217,7 +217,7 @@ public:
     map_used[new_launch] += sorted_v[old_launch]->slots;
 
     // map other nodes
-    for (int i = 0; i < sorted_v.size(); i++) {
+    for (size_t i = 0; i < sorted_v.size(); i++) {
       // skip launch node
       if (i == old_launch)
         continue;
@@ -225,7 +225,7 @@ public:
       // continue with any other node
       uint search_res = operator [](i).slots;
       bool found = false;
-      for (int j = 0; j < size && !found; j++) {
+      for (size_t j = 0; j < size && !found; j++) {
         uint free = newres[j].slots - map_used[j];
         if (free >= search_res) {
           map_used[j] += search_res;
@@ -333,6 +333,7 @@ public:
       slots = strtok_r(NULL, " \n", &t);
       blank = strtok_r(NULL, " \n", &t);
       blank = strtok_r(NULL, " \n", &t);
+      blank = blank; // to supress compiler warning;
 
       if (node_map.find(name) != node_map.end()) {
         node_map[name].slots += (uint)strtoul(slots, (char **)NULL, 10);
@@ -414,15 +415,16 @@ private:
     return false;
   }
 
-  bool count_slots(string &str, uint &slots, uint &srv_slots, bool &is_launch)
+  void count_slots(string &str, uint &slots, uint &srv_slots, bool &is_launch)
   {
     string delim = " ";
     slots = srv_slots = 0;
     size_t start_pos = 0, match_pos;
     str += ' ';
     if ((start_pos = str.find_first_not_of(delim, start_pos)) == string::npos)
-      return false;
-    while (start_pos != string::npos && (match_pos = str.find_first_of(delim, start_pos)) != string::npos) {
+      return;
+    while (start_pos != string::npos &&
+           (match_pos = str.find_first_of(delim, start_pos)) != string::npos) {
       size_t sublen = match_pos - start_pos;
       if (sublen > 0) {
         string sub(str.substr(start_pos, sublen));
@@ -542,18 +544,18 @@ public:
     return _valid;
   }
 
-  int writeout(string env_var, resources &r)
+  void writeout(string env_var, resources &r)
   {
     mapping_t map;
 
     if (!map_to(r, map))
-      return false;
+      return;
 
     cout << env_var + "=\'" << endl;
-    for (int i = 0; i < r.ssize(); i++) {
+    for (size_t i = 0; i < r.ssize(); i++) {
       if (map[i].size()) {
         cout << ":: " + r[i].name + " :" + sorted_v[0]->mode + ": ";
-        for (int j = 0; j < map[i].size(); j++) {
+        for (size_t j = 0; j < map[i].size(); j++) {
           int k = map[i][j];
           string name = sorted_v[k]->name;
           cout << node_ckpt_map[name];

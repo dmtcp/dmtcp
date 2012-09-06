@@ -66,7 +66,7 @@ namespace dmtcp
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
       const UniquePid& coordinatorId() const { return _coordinatorId; }
-      const UniquePid setCoordinatorId(UniquePid id) { _coordinatorId = id; }
+      const void setCoordinatorId(UniquePid id) { _coordinatorId = id; }
 
       bool isValid() { return _coordinatorSocket.isValid(); }
 

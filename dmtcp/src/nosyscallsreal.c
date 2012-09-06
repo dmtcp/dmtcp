@@ -45,6 +45,17 @@
 #include <ctype.h>
 #include <syslog.h>
 
+#ifdef HAVE_SYS_EPOLL_H
+# include <sys/epoll.h>
+#endif
+
+#ifdef HAVE_SYS_EVENTFD_H
+# include <sys/eventfd.h>
+#endif
+
+#ifdef HAVE_SYS_SIGNALFD_H
+# include <sys/signalfd.h>
+#endif
 
 // See syscallsreal.c for original model.  In dmtcphijack.so, system calls
 //   for XXX() in jalib call a wrapper which modifies it and calls

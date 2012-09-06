@@ -670,7 +670,6 @@ int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_le
    * THANKS, - Gene
    */
   void *extraData;
-  size_t extraBytes;
 
   DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
   msg.keyLen = key_len;

@@ -809,13 +809,13 @@ int dmtcp::DmtcpWorker::sendKeyValPairToCoordinator(const void *key,
                                                     const void *val,
                                                     size_t val_len)
 {
-  _coordinatorAPI.sendKeyValPairToCoordinator(key, key_len, val, val_len);
+  return _coordinatorAPI.sendKeyValPairToCoordinator(key, key_len, val, val_len);
 }
 
 int dmtcp::DmtcpWorker::sendQueryToCoordinator(const void *key, size_t key_len,
                                                void *val, size_t *val_len)
 {
-  _coordinatorAPI.sendQueryToCoordinator(key, key_len, val, val_len);
+  return _coordinatorAPI.sendQueryToCoordinator(key, key_len, val, val_len);
 }
 
 void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);
