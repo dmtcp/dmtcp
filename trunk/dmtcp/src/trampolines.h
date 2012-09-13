@@ -64,6 +64,9 @@ typedef struct trampoline_info {
 #define UNINSTALL_TRAMPOLINE(info) \
   memcpy((info).addr, (info).displaced_instructions, ASM_JUMP_LEN)
 
+static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
+                                   trampoline_info_t *info);
+
 static void dmtcp_setup_trampoline_by_addr(void *addr, void *trampoline_fn,
                                            trampoline_info_t *info)
 {
@@ -98,6 +101,8 @@ static void dmtcp_setup_trampoline_by_addr(void *addr, void *trampoline_fn,
   memcpy(info->displaced_instructions, info->addr, ASM_JUMP_LEN);
   /* Inject trampoline. */
   INSTALL_TRAMPOLINE(*info);
+
+  (void)dmtcp_setup_trampoline; // Suppress unused function warning.
 }
 
 static void dmtcp_setup_trampoline(const char *func_name, void *trampoline_fn,
