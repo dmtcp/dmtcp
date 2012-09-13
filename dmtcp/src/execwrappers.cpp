@@ -124,12 +124,8 @@ extern "C" pid_t fork()
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
-  //Unset this environment variable so that we can get a new virtualPid from
-  //the coordinator.
-  _dmtcp_unsetenv(ENV_VAR_VIRTUAL_PID);
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
-  pid_t virtualPid = coordinatorAPI.virtualPid();
-  dmtcp::Util::setVirtualPidEnvVar(virtualPid, getpid());
+  dmtcp::Util::setVirtualPidEnvVar(coordinatorAPI.virtualPid(), getpid());
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
