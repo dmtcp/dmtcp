@@ -291,7 +291,7 @@ void dmtcp::ThreadSync::delayCheckpointsLock()
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
-void dmtcp::ThreadSync::delayCheckpointsUnlock(){
+void dmtcp::ThreadSync::delayCheckpointsUnlock() {
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 

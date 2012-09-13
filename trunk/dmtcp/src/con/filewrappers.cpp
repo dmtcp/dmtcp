@@ -53,51 +53,51 @@
 #include  "../jalib/jconvert.h"
 
 #undef ptsname_r
-extern "C" int ptsname_r ( int fd, char * buf, size_t buflen );
+extern "C" int ptsname_r(int fd, char * buf, size_t buflen);
 
 #ifdef EXTERNAL_SOCKET_HANDLING
 extern dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
 static void processClose(dmtcp::ConnectionIdentifier conId)
 {
-  if ( dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true ) {
+  if (dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true) {
     dmtcp::vector <dmtcp::ConnectionIdentifier>::iterator i = externalTcpConnections.begin();
-    for ( i = externalTcpConnections.begin(); i != externalTcpConnections.end(); ++i ) {
-      if ( conId == *i ) {
+    for (i = externalTcpConnections.begin(); i != externalTcpConnections.end(); ++i) {
+      if (conId == *i) {
         externalTcpConnections.erase(i);
         break;
       }
     }
-    if ( externalTcpConnections.empty() == true ) {
+    if (externalTcpConnections.empty() == true) {
     }
     sleep(4);
   }
 }
 #endif
 
-extern "C" int close ( int fd )
+extern "C" int close(int fd)
 {
-  if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
+  if (dmtcp::ProtectedFDs::isProtected(fd))
   {
-    JTRACE ( "blocked attempt to close protected fd" ) ( fd );
+    JTRACE("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
   }
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   dmtcp::ConnectionIdentifier conId;
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       dup2(fd,fd) != -1 ) {
+       dup2(fd,fd) != -1) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 
-  int rv = _real_close ( fd );
+  int rv = _real_close(fd);
 
   if (rv == 0) {
     processClose(conId);
   }
 #else
-  int rv = _real_close ( fd );
+  int rv = _real_close(fd);
 #endif
 
   return rv;
@@ -106,9 +106,9 @@ extern "C" int close ( int fd )
 extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
-  if ( dmtcp::ProtectedFDs::isProtected ( fd ) )
+  if (dmtcp::ProtectedFDs::isProtected(fd))
   {
-    JTRACE ( "blocked attempt to fclose protected fd" ) ( fd );
+    JTRACE("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -116,15 +116,15 @@ extern "C" int fclose(FILE *fp)
 #ifdef EXTERNAL_SOCKET_HANDLING
   dmtcp::ConnectionIdentifier conId;
 
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       dup2(fd,fd) != -1 ) {
+       dup2(fd,fd) != -1) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 
   int rv = _real_fclose(fp);
 
-  if (rv == 0 ) {
+  if (rv == 0) {
     processClose(conId);
   }
 #else
@@ -134,37 +134,37 @@ extern "C" int fclose(FILE *fp)
   return rv;
 }
 
-static int ptsname_r_work ( int fd, char * buf, size_t buflen )
+static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
-  JTRACE ( "Calling ptsname_r" );
+  JTRACE("Calling ptsname_r");
 
-  dmtcp::Connection* c = &dmtcp::KernelDeviceToConnection::instance().retrieve ( fd );
-  dmtcp::PtyConnection* ptyCon = (dmtcp::PtyConnection*) c;
+  dmtcp::Connection* c = &dmtcp::KernelDeviceToConnection::instance().retrieve(fd);
+  dmtcp::PtyConnection* ptyCon =(dmtcp::PtyConnection*) c;
 
   dmtcp::string uniquePtsName = ptyCon->uniquePtsName();
 
   JTRACE("ptsname_r") (uniquePtsName);
 
-  if ( uniquePtsName.length() >= buflen )
+  if (uniquePtsName.length() >= buflen)
   {
-    JWARNING ( false ) ( uniquePtsName ) ( uniquePtsName.length() ) ( buflen )
-      .Text ( "fake ptsname() too long for user buffer" );
+    JWARNING(false) (uniquePtsName) (uniquePtsName.length()) (buflen)
+      .Text("fake ptsname() too long for user buffer");
     errno = ERANGE;
     return -1;
   }
 
-  strcpy ( buf, uniquePtsName.c_str() );
+  strcpy(buf, uniquePtsName.c_str());
 
   return 0;
 }
 
-extern "C" char *ptsname ( int fd )
+extern "C" char *ptsname(int fd)
 {
   /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
-  JTRACE ( "ptsname() promoted to ptsname_r()" );
+  JTRACE("ptsname() promoted to ptsname_r()");
   static char tmpbuf[PATH_MAX];
 
-  if ( ptsname_r ( fd, tmpbuf, sizeof ( tmpbuf ) ) != 0 )
+  if (ptsname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0)
   {
     return NULL;
   }
@@ -172,7 +172,7 @@ extern "C" char *ptsname ( int fd )
   return tmpbuf;
 }
 
-extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
+extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
@@ -183,11 +183,11 @@ extern "C" int ptsname_r ( int fd, char * buf, size_t buflen )
   return retVal;
 }
 
-extern "C" int __ptsname_r_chk (int fd, char * buf, size_t buflen, size_t nreal)
+extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  JASSERT (buflen <= nreal) (buflen) (nreal) .Text("Buffer Overflow detected!");
+  JASSERT(buflen <= nreal) (buflen) (nreal) .Text("Buffer Overflow detected!");
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
@@ -204,7 +204,7 @@ static int getNextFreeSlavePtyNum()
 {
   static int counter = -1;
   counter++;
-  JASSERT(counter != -1) .Text ("See the comment above");
+  JASSERT(counter != -1) .Text("See the comment above");
   return counter;
 }
 
@@ -224,7 +224,7 @@ static int _nextPtmxId()
 // works only if the process involved in it are restarted from the same
 // dmtcp_restart command.                               -- KAPIL
 
-static void processDevPtmxConnection (int fd)
+static void processDevPtmxConnection(int fd)
 {
   char ptsName[21];
 
@@ -251,61 +251,61 @@ static void processDevPtmxConnection (int fd)
   dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + ptmxDevice; //"/dev/ptmx";
 
 //   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString()
-//                            + ":" + jalib::XToString ( _nextPtmxId() )
+//                            + ":" + jalib::XToString(_nextPtmxId())
 //                            + "]:" + device;
 
-  JTRACE ( "creating ptmx connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
+  JTRACE("creating ptmx connection") (deviceName) (ptsNameStr) (uniquePtsNameStr);
 
   int type = dmtcp::PtyConnection::PTY_MASTER;
-  dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
+  dmtcp::Connection * c = new dmtcp::PtyConnection(ptsNameStr, uniquePtsNameStr, type);
 
-  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice(fd, deviceName, c);
 
-  dmtcp::UniquePtsNameToPtmxConId::instance().add ( uniquePtsNameStr, c->id() );
+  dmtcp::UniquePtsNameToPtmxConId::instance().add(uniquePtsNameStr, c->id());
 }
 
-static void processDevPtsConnection (int fd, const char* uniquePtsName, const char* ptsName)
+static void processDevPtsConnection(int fd, const char* uniquePtsName, const char* ptsName)
 {
   dmtcp::string ptsNameStr = ptsName;
   dmtcp::string uniquePtsNameStr = uniquePtsName;
 
   dmtcp::string deviceName = "pts:" + ptsNameStr;
 
-  JTRACE ( "creating pts connection" ) ( deviceName ) ( ptsNameStr ) ( uniquePtsNameStr );
+  JTRACE("creating pts connection") (deviceName) (ptsNameStr) (uniquePtsNameStr);
 
   int type = dmtcp::PtyConnection::PTY_SLAVE;
-  dmtcp::Connection * c = new dmtcp::PtyConnection ( ptsNameStr, uniquePtsNameStr, type );
+  dmtcp::Connection * c = new dmtcp::PtyConnection(ptsNameStr, uniquePtsNameStr, type);
 
-  dmtcp::KernelDeviceToConnection::instance().createPtyDevice ( fd, deviceName, c );
+  dmtcp::KernelDeviceToConnection::instance().createPtyDevice(fd, deviceName, c);
 }
 
 extern "C" int getpt()
 {
   int fd = _real_getpt();
-  if ( fd >= 0 ) {
+  if (fd >= 0) {
     processDevPtmxConnection(fd);
   }
   return fd;
 }
 
-static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
+static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
   const char *newpath = path;
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     newpath = currPtsDevName.c_str();
   }
 
-  int fd = (*fn)( newpath, flags, mode );
+  int fd =(*fn) (newpath, flags, mode);
 
-  if ( fd >= 0 && strcmp(path, "/dev/ptmx") == 0 ) {
+  if (fd >= 0 && strcmp(path, "/dev/ptmx") == 0) {
     processDevPtmxConnection(fd);
-  } else if ( fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if (fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
     processDevPtsConnection(fd, path, newpath);
   }
 
@@ -316,15 +316,15 @@ static int _open_open64_work(int (*fn)(const char *path, int flags, ...),
 
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
-extern "C" int open (const char *path, int flags, ... )
+extern "C" int open(const char *path, int flags, ...)
 {
   mode_t mode = 0;
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
-    va_start (arg, flags);
-    mode = va_arg (arg, int);
-    va_end (arg);
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
   }
   return _open_open64_work(_real_open, path, flags, mode);
 }
@@ -337,40 +337,40 @@ extern "C" int open (const char *path, int flags, ... )
 // properly.
 
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
-extern "C" int open64 (const char *path, int flags, ... )
+extern "C" int open64(const char *path, int flags, ...)
 {
   mode_t mode;
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
-    va_start (arg, flags);
-    mode = va_arg (arg, int);
-    va_end (arg);
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
   }
   return _open_open64_work(_real_open64, path, flags, mode);
 }
 
 
-static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode),
+static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode),
                                  const char *path, const char *mode)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   const char *newpath = path;
 
-  if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
     dmtcp::string currPtsDevName =
       dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     newpath = currPtsDevName.c_str();
   }
 
-  FILE *file = (*fn) ( newpath, mode );
+  FILE *file =(*fn) (newpath, mode);
 
   if (file != NULL) {
     int fd = fileno(file);
-    if ( strcmp(path, "/dev/ptmx") == 0 ) {
+    if (strcmp(path, "/dev/ptmx") == 0) {
       processDevPtmxConnection(fd);
-    } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+    } else if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
       processDevPtsConnection(fd, path, newpath);
     }
   }
@@ -380,12 +380,12 @@ static FILE *_fopen_fopen64_work(FILE* (*fn)(const char *path, const char *mode)
   return file;
 }
 
-extern "C" FILE *fopen (const char* path, const char* mode)
+extern "C" FILE *fopen(const char* path, const char* mode)
 {
   return _fopen_fopen64_work(_real_fopen, path, mode);
 }
 
-extern "C" FILE *fopen64 (const char* path, const char* mode)
+extern "C" FILE *fopen64(const char* path, const char* mode)
 {
   return _fopen_fopen64_work(_real_fopen64, path, mode);
 }
@@ -393,9 +393,9 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
 
 static void updateStatPath(const char *path, char *newpath)
 {
-  if ( dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN ) {
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN) {
     strncpy(newpath, path, PATH_MAX);
-  } else if ( dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR) ) {
+  } else if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
     dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
     strcpy(newpath, currPtsDevName.c_str());
   } else {
@@ -408,7 +408,7 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateStatPath(path, newpath);
-  int retval = _real_xstat( vers, newpath, buf );
+  int retval = _real_xstat(vers, newpath, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
@@ -418,7 +418,7 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   char newpath [ PATH_MAX ] = {0};
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateStatPath(path, newpath);
-  int retval = _real_xstat64( vers, newpath, buf );
+  int retval = _real_xstat64(vers, newpath, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
@@ -446,7 +446,7 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateStatPath(path, newpath);
-  int retval = _real_lxstat( vers, newpath, buf );
+  int retval = _real_lxstat(vers, newpath, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }
@@ -456,7 +456,7 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   updateStatPath(path, newpath);
-  int retval = _real_lxstat64( vers, newpath, buf );
+  int retval = _real_lxstat64(vers, newpath, buf);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }

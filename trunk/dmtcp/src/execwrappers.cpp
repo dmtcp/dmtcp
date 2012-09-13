@@ -166,7 +166,7 @@ extern "C" pid_t fork()
 
 extern "C" pid_t vfork()
 {
-  JTRACE ( "vfork wrapper calling fork" );
+  JTRACE("vfork wrapper calling fork");
   // This might not preserve the full semantics of vfork.
   // Used for checkpointing gdb.
   return fork();
@@ -246,21 +246,21 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   }
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
-  jalib::JBinarySerializeWriter wr ( serialFile );
-  dmtcp::UniquePid::serialize ( wr );
+  jalib::JBinarySerializeWriter wr (serialFile);
+  dmtcp::UniquePid::serialize (wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = wr.fd();
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PREPARE_FOR_EXEC, &edata);
 
-  setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
-  JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);
+  setenv (ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1);
+  JTRACE("Will exec filename instead of path") (path) (*filename);
 
   dmtcp::Util::adjustRlimitStack();
 
   dmtcp::Util::prepareDlsymWrapper();
   dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
-  JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
+  JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
 }
 
 static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
@@ -275,7 +275,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 
   unsetenv(ENV_VAR_DLSYM_OFFSET);
 
-  JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
+  JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;
 }
 
@@ -296,25 +296,25 @@ static const char* ourImportantEnvs[] =
 };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
-static bool isImportantEnv ( dmtcp::string str )
+static bool isImportantEnv (dmtcp::string str)
 {
   str = str.substr(0, str.find("="));
 
-  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
-    if ( str == ourImportantEnvs[i] )
+  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
+    if (str == ourImportantEnvs[i])
       return true;
   }
   return false;
 }
 
-static dmtcp::vector<dmtcp::string> copyUserEnv ( char *const envp[] )
+static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
 {
   dmtcp::vector<dmtcp::string> strStorage;
 
   dmtcp::ostringstream out;
   out << "non-DMTCP env vars:\n";
-  for ( ; *envp != NULL; ++envp ) {
-    if ( isImportantEnv ( *envp ) ) {
+  for (; *envp != NULL; ++envp) {
+    if (isImportantEnv (*envp)) {
       if (dbg) {
         out << "     skipping: " << *envp << '\n';
       }
@@ -322,11 +322,11 @@ static dmtcp::vector<dmtcp::string> copyUserEnv ( char *const envp[] )
     }
     dmtcp::string e(*envp);
     strStorage.push_back (e);
-    if(dbg) {
+    if (dbg) {
       out << "     addenv[user]:" << strStorage.back() << '\n';
     }
   }
-  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
+  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
 
   return strStorage;
 }
@@ -342,8 +342,8 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
   dmtcp::ostringstream out;
   out << "non-DMTCP env vars:\n";
 
-  for ( size_t i = 0; i < envp.size(); i++) {
-    if ( isImportantEnv ( envp[i].c_str() ) ) {
+  for (size_t i = 0; i < envp.size(); i++) {
+    if (isImportantEnv (envp[i].c_str())) {
       if (dbg) {
         out << "     skipping: " << envp[i] << '\n';
       }
@@ -355,22 +355,22 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
     }
 
     envVect.push_back (envp[i].c_str());
-    if(dbg) {
+    if (dbg) {
       out << "     addenv[user]:" << envVect.back() << '\n';
     }
   }
-  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
+  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
 
   //pack up our ENV into the new ENV
   out.str("DMTCP env vars:\n");
-  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
-    const char* v = getenv ( ourImportantEnvs[i] );
-    if ( v != NULL ) {
-      envp.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
+  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
+    const char* v = getenv (ourImportantEnvs[i]);
+    if (v != NULL) {
+      envp.push_back (dmtcp::string (ourImportantEnvs[i]) + '=' + v);
       const char *ptr = envp.back().c_str();
       JASSERT(ptr != NULL);
       envVect.push_back(ptr);
-      if(dbg) {
+      if (dbg) {
         out << "     addenv[dmtcp]:" << envVect.back() << '\n';
       }
     }
@@ -381,29 +381,29 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
 
   envp.push_back(ldPreloadStr);
   envVect.push_back(envp.back().c_str());
-  if(dbg) {
+  if (dbg) {
     out << "     addenv[dmtcp]:" << envVect.back() << '\n';
   }
 
-  JTRACE ( "patching user envp..." )  (out.str());
+  JTRACE("patching user envp...")  (out.str());
 
-  envVect.push_back ( NULL );
+  envVect.push_back (NULL);
 
-  JTRACE ( "Done patching environ" );
+  JTRACE("Done patching environ");
   return envVect;
 }
 
-extern "C" int execve ( const char *filename, char *const argv[],
-                        char *const envp[] )
+extern "C" int execve (const char *filename, char *const argv[],
+                        char *const envp[])
 {
-  JTRACE ( "execve() wrapper" ) ( filename );
+  JTRACE("execve() wrapper") (filename);
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv( envp );
+  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
 
   char *newFilename;
   char **newArgv;
@@ -411,7 +411,7 @@ extern "C" int execve ( const char *filename, char *const argv[],
 
   dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
 
-  int retVal = _real_execve ( newFilename, newArgv, (char* const*)&envVect[0]);
+  int retVal = _real_execve (newFilename, newArgv, (char* const*)&envVect[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -420,15 +420,15 @@ extern "C" int execve ( const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int execv ( const char *path, char *const argv[] )
+extern "C" int execv (const char *path, char *const argv[])
 {
-  JTRACE ( "execv() wrapper, calling execve with environ" ) ( path );
+  JTRACE("execv() wrapper, calling execve with environ") (path);
   return execve(path, argv, environ);
 }
 
-extern "C" int execvp ( const char *filename, char *const argv[] )
+extern "C" int execvp (const char *filename, char *const argv[])
 {
-  JTRACE ( "execvp() wrapper" ) ( filename );
+  JTRACE("execvp() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -439,7 +439,7 @@ extern "C" int execvp ( const char *filename, char *const argv[] )
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
   setenv("LD_PRELOAD", getUpdatedLdPreload().c_str(), 1);
 
-  int retVal = _real_execvp ( newFilename, newArgv );
+  int retVal = _real_execvp (newFilename, newArgv);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -449,16 +449,16 @@ extern "C" int execvp ( const char *filename, char *const argv[] )
 }
 
 // This function first appeared in glibc 2.11
-extern "C" int execvpe ( const char *filename, char *const argv[],
-                         char *const envp[] )
+extern "C" int execvpe (const char *filename, char *const argv[],
+                         char *const envp[])
 {
-  JTRACE ( "execvpe() wrapper" ) ( filename );
+  JTRACE("execvpe() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv( envp );
+  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
 
   char *newFilename;
   char **newArgv;
@@ -475,19 +475,19 @@ extern "C" int execvpe ( const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
+extern "C" int fexecve (int fd, char *const argv[], char *const envp[])
 {
   char buf[sizeof "/proc/self/fd/" + sizeof (int) * 3];
   snprintf (buf, sizeof (buf), "/proc/self/fd/%d", fd);
 
-  JTRACE ("fexecve() wrapper calling execve()") (fd) (buf);
+  JTRACE("fexecve() wrapper calling execve()") (fd) (buf);
   return execve(buf, argv, envp);
 }
 
 
-extern "C" int execl ( const char *path, const char *arg, ... )
+extern "C" int execl (const char *path, const char *arg, ...)
 {
-  JTRACE ( "execl() wrapper" ) ( path );
+  JTRACE("execl() wrapper") (path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -530,9 +530,9 @@ extern "C" int execl ( const char *path, const char *arg, ... )
 }
 
 
-extern "C" int execlp ( const char *file, const char *arg, ... )
+extern "C" int execlp (const char *file, const char *arg, ...)
 {
-  JTRACE ( "execlp() wrapper" ) ( file );
+  JTRACE("execlp() wrapper") (file);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -577,7 +577,7 @@ extern "C" int execlp ( const char *file, const char *arg, ... )
 
 extern "C" int execle(const char *path, const char *arg, ...)
 {
-  JTRACE ( "execle() wrapper" ) ( path );
+  JTRACE("execle() wrapper") (path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -625,8 +625,8 @@ extern int do_system (const char *line);
 
 extern "C" int system (const char *line)
 {
-  JTRACE ( "before system(), checkpointing may not work" )
-    ( line ) ( getenv ( ENV_VAR_HIJACK_LIBS ) ) ( getenv ( "LD_PRELOAD" ) );
+  JTRACE("before system(), checkpointing may not work")
+    (line) (getenv (ENV_VAR_HIJACK_LIBS)) (getenv ("LD_PRELOAD"));
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might
@@ -635,7 +635,7 @@ extern "C" int system (const char *line)
 
   int result = do_system (line);
 
-  JTRACE ( "after system()" );
+  JTRACE("after system()");
 
   return result;
 }

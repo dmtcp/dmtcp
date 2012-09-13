@@ -52,7 +52,7 @@ static int isdir0700(const char *pathname)
           && (st.st_mode & 0777) == 0700
           && st.st_uid == getuid()
           && access(pathname, R_OK | W_OK | X_OK) == 0
-         );
+       );
 }
 
 int dmtcp::Util::safeMkdir(const char *pathname, mode_t mode)
@@ -77,7 +77,7 @@ int dmtcp::Util::safeSystem(const char *command)
   unsetenv("LD_PRELOAD");
   int rc = _real_system(command);
   if (str != NULL)
-    setenv( "LD_PRELOAD", dmtcphjk.c_str(), 1 );
+    setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);
   return rc;
 }
 
@@ -168,7 +168,7 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
   cmd = cmd + pathname + " > /dev/null";
   // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
   // nonzero status.  Why is this?  It's dynamically linked.
-  if ( isElf && safeSystem(cmd.c_str()) ) {
+  if (isElf && safeSystem(cmd.c_str())) {
     return true;
   }
   return false;
@@ -237,7 +237,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   expandPathname(filename, realFilename, sizeof (realFilename));
   //char expandedFilename[PATH_MAX];
 //  expandPathname(filename, expandedFilename, sizeof (expandedFilename));
-//  JASSERT (readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
+//  JASSERT(readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
 //    (filename) (expandedFilename) (realFilename) (JASSERT_ERRNO);
 
   size_t newArgc = 0;
@@ -267,10 +267,10 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   // Remove any stale copy, just in case it's not right.
   JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
 
-  JASSERT (safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
+  JASSERT(safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
     .Text("call to system(cpCmdBuf) failed");
 
-  JASSERT (access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
+  JASSERT(access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
 
   (*newArgv)[0] = newFilename;
   int i;
@@ -300,8 +300,8 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   ldStrPtr = (char *)"/lib/ld-linux.so.2";
 # endif
 
-  JASSERT (newArgv0Len > strlen(origPath) + 1)
-    (newArgv0Len) (origPath) (strlen(origPath)) .Text ("Buffer not large enough");
+  JASSERT(newArgv0Len > strlen(origPath) + 1)
+    (newArgv0Len) (origPath) (strlen(origPath)) .Text("Buffer not large enough");
 
   strncpy(newArgv0, origPath, newArgv0Len);
 
@@ -310,7 +310,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
     origArgvLen++;
 
   JASSERT(newArgvLen >= origArgvLen + 1) (origArgvLen) (newArgvLen)
-    .Text ("newArgv not large enough to hold the expanded argv");
+    .Text("newArgv not large enough to hold the expanded argv");
 
   // ISN'T THIS A BUG?  newArgv WAS DECLARED 'char ***'.
   newArgv[0] = ldStrPtr;
@@ -371,10 +371,10 @@ void dmtcp::Util::adjustRlimitStack()
   //   checkpoint -> restart -> checkpoint -> restart
 # if 0
   { unsigned long oldPersonality = personality(0xffffffffL);
-    if ( ! (oldPersonality & ADDR_COMPAT_LAYOUT) ) {
+    if (! (oldPersonality & ADDR_COMPAT_LAYOUT)) {
       // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
       personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE( "setting ADDR_COMPAT_LAYOUT" );
+      JTRACE("setting ADDR_COMPAT_LAYOUT");
       setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
     }
   }
@@ -384,7 +384,7 @@ void dmtcp::Util::adjustRlimitStack()
     if (rlim.rlim_cur != RLIM_INFINITY) {
       char buf[100];
       sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE( "setting rlim_cur for RLIMIT_STACK" ) ( rlim.rlim_cur );
+      JTRACE("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
       setenv("DMTCP_RLIMIT_STACK", buf, 1);
       // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
       rlim.rlim_cur = rlim.rlim_max;

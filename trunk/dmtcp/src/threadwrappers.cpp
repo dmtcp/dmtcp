@@ -33,7 +33,7 @@
 struct ThreadArg {
   union {
     int (*fn) (void *arg);
-    void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
+    void * (*pthread_fn) (void *arg); // pthread_create calls fn -> void *
   };
   void *arg;
   void *mtcpArg;
@@ -64,8 +64,8 @@ int clone_start(void *arg)
    */
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
 
-  JTRACE ( "Calling user function" ) (gettid());
-  int ret = (*fn) ( thread_arg );
+  JTRACE("Calling user function") (gettid());
+  int ret = (*fn) (thread_arg);
 
   mtcpFuncPtrs.thread_return();
   return ret;
@@ -195,7 +195,7 @@ extern "C" void pthread_exit(void * retval)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   dmtcp::ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);
-  for(;;); // To hide compiler warning about "noreturn" function
+  for (;;); // To hide compiler warning about "noreturn" function
 }
 
 /*

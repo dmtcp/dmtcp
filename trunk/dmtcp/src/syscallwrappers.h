@@ -71,7 +71,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 # ifndef _SYS_EPOLL_H
 #  define _SYS_EPOLL_H    1
    struct epoll_event {int dummy;};
-   /* Valid opcodes ( "op" parameter ) to issue to epoll_ctl().  */
+   /* Valid opcodes ("op" parameter) to issue to epoll_ctl().  */
 #  define EPOLL_CTL_ADD 1 /* Add a file decriptor to the interface.  */
 #  define EPOLL_CTL_DEL 2 /* Remove a file decriptor from the interface.  */
 #  define EPOLL_CTL_MOD 3 /* Change file decriptor epoll_event structure.  */
@@ -292,53 +292,53 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void initialize_libpthread_wrappers();
   void initializeJalib();
 
-  int _real_socket ( int domain, int type, int protocol );
-  int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr,
-                      socklen_t addrlen );
-  int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,
-                   socklen_t addrlen );
-  int _real_listen ( int sockfd, int backlog );
-  int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
-  int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen,
-                      int flags );
-  int _real_setsockopt ( int s, int level, int optname, const void *optval,
-                         socklen_t optlen );
-  int _real_getsockopt ( int s, int level, int optname, void *optval,
-                         socklen_t *optlen );
+  int _real_socket (int domain, int type, int protocol);
+  int _real_connect (int sockfd,  const  struct sockaddr *serv_addr,
+                      socklen_t addrlen);
+  int _real_bind (int sockfd,  const struct  sockaddr  *my_addr,
+                   socklen_t addrlen);
+  int _real_listen (int sockfd, int backlog);
+  int _real_accept (int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+  int _real_accept4 (int sockfd, struct sockaddr *addr, socklen_t *addrlen,
+                      int flags);
+  int _real_setsockopt (int s, int level, int optname, const void *optval,
+                         socklen_t optlen);
+  int _real_getsockopt (int s, int level, int optname, void *optval,
+                         socklen_t *optlen);
 
-  int _real_fexecve ( int fd, char *const argv[], char *const envp[] );
-  int _real_execve ( const char *filename, char *const argv[], char *const envp[] );
-  int _real_execv ( const char *path, char *const argv[] );
-  int _real_execvp ( const char *file, char *const argv[] );
+  int _real_fexecve (int fd, char *const argv[], char *const envp[]);
+  int _real_execve (const char *filename, char *const argv[], char *const envp[]);
+  int _real_execv (const char *path, char *const argv[]);
+  int _real_execvp (const char *file, char *const argv[]);
   int _real_execvpe(const char *file, char *const argv[], char *const envp[]);
 // int _real_execl(const char *path, const char *arg, ...);
 // int _real_execlp(const char *file, const char *arg, ...);
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
-  int _real_system ( const char * cmd );
+  int _real_system (const char * cmd);
   FILE *_real_popen(const char *command, const char *mode);
   int _real_pclose(FILE *fp);
 
   pid_t _real_fork();
-  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+  int _real_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr);
 
   int _real_open(const char *pathname, int flags, ...);
   int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
-  int _real_close ( int fd );
-  int _real_fclose ( FILE *fp );
-  void _real_exit ( int status );
+  int _real_close (int fd);
+  int _real_fclose (FILE *fp);
+  void _real_exit (int status);
 
 #define _real_dup  dup
 #define _real_dup2 dup2
 
-  int _real_ptsname_r ( int fd, char * buf, size_t buflen );
-  int _real_getpt ( void );
+  int _real_ptsname_r (int fd, char * buf, size_t buflen);
+  int _real_getpt (void);
 
-  int _real_socketpair ( int d, int type, int protocol, int sv[2] );
+  int _real_socketpair (int d, int type, int protocol, int sv[2]);
 
-  void _real_openlog ( const char *ident, int option, int facility );
-  void _real_closelog ( void );
+  void _real_openlog (const char *ident, int option, int facility);
+  void _real_closelog (void);
 
   // Despite what 'man signal' says, signal.h already defines sighandler_t
   // typedef void (*sighandler_t)(int);
@@ -377,7 +377,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
 
-  long int _real_syscall(long int sys_num, ... );
+  long int _real_syscall(long int sys_num, ...);
 
   int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
       void *(*start_routine)(void*), void *arg);
@@ -391,7 +391,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
-  void * _real_dlsym ( void *handle, const char *symbol );
+  void * _real_dlsym (void *handle, const char *symbol);
 
   void *_real_dlopen(const char *filename, int flag);
   int _real_dlclose(void *handle);
@@ -407,7 +407,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
       int fd, off64_t offset);
 #if __GLIBC_PREREQ (2,4)
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-      int flags, ... /* void *new_address */ );
+      int flags, ... /* void *new_address */);
 #else
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
       int flags);

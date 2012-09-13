@@ -32,12 +32,12 @@
   /*JTRACE("Acquiring wrapperExecutionLock");*/         \
   bool __wrapperExecutionLockAcquired =                 \
     dmtcp::ThreadSync::wrapperExecutionLockLock();      \
-  if ( __wrapperExecutionLockAcquired ) {               \
+  if (__wrapperExecutionLockAcquired) {               \
     /*JTRACE("Acquired wrapperExecutionLock"); */       \
   }
 
 #define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
-  if ( __wrapperExecutionLockAcquired ) {               \
+  if (__wrapperExecutionLockAcquired) {               \
     /*JTRACE("Releasing wrapperExecutionLock"); */      \
     dmtcp::ThreadSync::wrapperExecutionLockUnlock();    \
   }

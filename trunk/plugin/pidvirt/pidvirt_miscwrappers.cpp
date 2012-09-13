@@ -89,8 +89,8 @@ extern "C" pid_t fork()
 }
 
 struct ThreadArg {
-  int ( *fn ) ( void *arg );  // clone() calls fn that returns int
-  void * ( *pthread_fn ) ( void *arg ); // pthread_create calls fn -> void *
+  int (*fn) (void *arg);  // clone() calls fn that returns int
+  void * (*pthread_fn) (void *arg); // pthread_create calls fn -> void *
   void *arg;
   pid_t virtualTid;
   sem_t sem;
@@ -113,7 +113,7 @@ int clone_start(void *arg)
   sem_post(&threadArg->sem);
 
   JTRACE("Calling user function") (virtualTid);
-  return (*fn) ( thread_arg );
+  return (*fn) (thread_arg);
 }
 
 
@@ -132,7 +132,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
    *  the RESTARTING phase.  We use an MtcpRestartThreadArg structure to pass
    *  the virtualTid of the thread being created from MTCP to DMTCP.
    *
-   * actual clone call: clone (fn, child_stack, flags, void *, ... )
+   * actual clone call: clone (fn, child_stack, flags, void *, ...)
    * new clone call   : clone (fn, child_stack, flags,
    *                           (struct MtcpRestartThreadArg *), ...)
    *
@@ -264,7 +264,7 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 }
 #endif
 
-extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
+extern "C" int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr);
 
 #define SYSCALL_VA_START()                                              \
   va_list ap;                                                           \
@@ -318,14 +318,14 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
  * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      use any STL here.  (--Kapil)
  */
-extern "C" long int syscall(long int sys_num, ... )
+extern "C" long int syscall(long int sys_num, ...)
 {
   long int ret;
   va_list ap;
 
   va_start(ap, sys_num);
 
-  switch ( sys_num ) {
+  switch (sys_num) {
     case SYS_gettid:
     {
       ret = gettid();
