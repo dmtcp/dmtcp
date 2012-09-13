@@ -42,9 +42,9 @@
  *
  * + Socket interfaces, when a timeout has been  set  on  the  socket
  *   using   setsockopt(2):   accept(2),  recv(2),  recvfrom(2),  and
- *   recvmsg(2), if a receive timeout  (SO_RCVTIMEO)  has  been  set;
+ *   recvmsg(2), if a receive timeout (SO_RCVTIMEO)  has  been  set;
  *   connect(2),  send(2), sendto(2), and sendmsg(2), if a send time‐
- *   out (SO_SNDTIMEO) has been set.
+ *   out(SO_SNDTIMEO) has been set.
  *
  * + Interfaces used to wait for  signals:  pause(2),  sigsuspend(2),
  *   sigtimedwait(2), and sigwaitinfo(2).
@@ -70,8 +70,8 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
   while (1) {
     int orig_generation = dmtcp::UniquePid::ComputationId().generation();
     rc = _real_poll(fds, nfds, timeout);
-    if ( rc == -1 && errno == EINTR &&
-         dmtcp::UniquePid::ComputationId().generation() > orig_generation ) {
+    if (rc == -1 && errno == EINTR &&
+         dmtcp::UniquePid::ComputationId().generation() > orig_generation) {
       continue;  // This was a restart or resume after checkpoint.
     } else {
       break;  // The signal interrupting us was not our checkpoint signal.
@@ -90,7 +90,7 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 static int in_dmtcp_on_helper_fnc = 0;
 
 #define PASSTHROUGH_DMTCP_HELPER(func, ...) {       \
-    int ret = _real_ ## func (__VA_ARGS__);         \
+    int ret = _real_ ## func(__VA_ARGS__);         \
     int saved_errno;                                \
     saved_errno = errno;                            \
     PASSTHROUGH_DMTCP_HELPER2(func,__VA_ARGS__);    \
@@ -100,8 +100,8 @@ static int in_dmtcp_on_helper_fnc = 0;
     _dmtcp_lock();                                                          \
     if (in_dmtcp_on_helper_fnc == 0) {                                      \
       in_dmtcp_on_helper_fnc = 1;                                           \
-      if(ret < 0) ret = saved_errno/*dmtcp_on_error(ret, epollfd, #func, saved_errno)*/;    \
-      else ret = dmtcp_on_ ## func (ret, __VA_ARGS__);                      \
+      if (ret < 0) ret = saved_errno/*dmtcp_on_error(ret, epollfd, #func, saved_errno)*/;    \
+      else ret = dmtcp_on_ ## func(ret, __VA_ARGS__);                      \
       in_dmtcp_on_helper_fnc = 0;                                           \
     }                                                                       \
     _dmtcp_unlock();                                                        \
@@ -117,50 +117,55 @@ static int in_dmtcp_on_helper_fnc = 0;
 
 
 // called automatically after a successful user function call
-EXTERNC int dmtcp_on_epoll_create ( int ret, int size)
+EXTERNC int dmtcp_on_epoll_create(int ret, int size)
 {
 
-  JTRACE ( "epoll fd created" ) ( ret ) ( size );
-  dmtcp::KernelDeviceToConnection::instance().create ( ret, new dmtcp::EpollConnection ( size ) );
+  JTRACE("epoll fd created") (ret) (size);
+  dmtcp::KernelDeviceToConnection::instance().create
+    (ret, new dmtcp::EpollConnection(size));
   return ret;
 }
 
 // called automatically after a successful user function call
-EXTERNC int dmtcp_on_epoll_create1 ( int ret, int flags)
+EXTERNC int dmtcp_on_epoll_create1(int ret, int flags)
 {
-  JTRACE ( "epoll fd created1" ) ( ret ) ( flags );
+  JTRACE("epoll fd created1") (ret) (flags);
   dmtcp_on_epoll_create(ret, flags); //use it as size for now
   return ret;
 }
 
-EXTERNC int dmtcp_on_epoll_ctl ( int ret, int epfd, int op, int fd, struct epoll_event *event)
+EXTERNC int dmtcp_on_epoll_ctl(int ret, int epfd, int op, int fd,
+                               struct epoll_event *event)
 {
-  JTRACE ( "epoll fd CTL" ) ( ret ) ( epfd ) ( fd ) ( op );
-  dmtcp::EpollConnection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( epfd ).asEpoll();
+  JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
+  dmtcp::EpollConnection& con =
+    dmtcp::KernelDeviceToConnection::instance().retrieve(epfd).asEpoll();
 
-  con.onCTL ( op, fd, event );
+  con.onCTL(op, fd, event);
   return ret;
 }
 
-EXTERNC int dmtcp_on_eventfd ( int ret, int initval, int flags)
+EXTERNC int dmtcp_on_eventfd(int ret, int initval, int flags)
 {
 
-  JTRACE ( "eventfd created" ) ( ret ) (initval) ( flags );
-  dmtcp::KernelDeviceToConnection::instance().create ( ret, new dmtcp::EventFdConnection ( initval, flags ) );
+  JTRACE("eventfd created") (ret) (initval) (flags);
+  dmtcp::KernelDeviceToConnection::instance().create
+    (ret, new dmtcp::EventFdConnection(initval, flags));
   return ret;
 }
 
-EXTERNC int dmtcp_on_signalfd (int ret, int fd, const sigset_t *mask, int flags)
+EXTERNC int dmtcp_on_signalfd(int ret, int fd, const sigset_t *mask, int flags)
 {
-  JTRACE ( "signalfd created" ) ( fd ) ( flags );
-  dmtcp::KernelDeviceToConnection::instance().create ( ret, new dmtcp::SignalFdConnection ( fd, mask, flags ) );
+  JTRACE("signalfd created") (fd) (flags);
+  dmtcp::KernelDeviceToConnection::instance().create
+    (ret, new dmtcp::SignalFdConnection(fd, mask, flags));
   return ret;
 }
 
 /* inotify is currently not supported by DMTCP */
 extern "C" int inotify_init()
 {
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
+  JWARNING(false) .Text("inotify is currently not supported by DMTCP.");
   errno = EMFILE;
   return -1;
 }
@@ -168,58 +173,59 @@ extern "C" int inotify_init()
 extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  JTRACE ("Creating signalfd");
-  PASSTHROUGH_DMTCP_HELPER (signalfd, fd, mask, flags);
+  JTRACE("Creating signalfd");
+  PASSTHROUGH_DMTCP_HELPER(signalfd, fd, mask, flags);
 }
 
 extern "C" int eventfd(int initval, int flags)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  JTRACE ("Creating eventfd");
-  PASSTHROUGH_DMTCP_HELPER (eventfd, initval, flags);
+  JTRACE("Creating eventfd");
+  PASSTHROUGH_DMTCP_HELPER(eventfd, initval, flags);
 }
 
 /* inotify1 is currently not supported by DMTCP */
 extern "C" int inotify_init1(int flags)
 {
-  JWARNING (false) .Text("inotify is currently not supported by DMTCP.");
+  JWARNING(false) .Text("inotify is currently not supported by DMTCP.");
   errno = EMFILE;
   return -1;
 }
 
-/* epoll is (apparently!) supported by DMTCP */
+/* epoll is(apparently!) supported by DMTCP */
 extern "C" int epoll_create(int size)
 {
   //static int epfd = -1;
-  //JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
+  //JWARNING(false) .Text("epoll is currently not supported by DMTCP.");
   WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
-  JTRACE ("Starting to create epoll fd.");
+  JTRACE("Starting to create epoll fd.");
   //errno = EPERM;
-  PASSTHROUGH_DMTCP_HELPER (epoll_create, size);
+  PASSTHROUGH_DMTCP_HELPER(epoll_create, size);
   //return -1;
 }
 
-/* epoll is (apparently!) supported by DMTCP */
+/* epoll is(apparently!) supported by DMTCP */
 extern "C" int epoll_create1(int flags)
 {
-  //JWARNING (false) .Text("epoll is currently not supported by DMTCP.");
+  //JWARNING(false) .Text("epoll is currently not supported by DMTCP.");
   WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
-  JTRACE ("Starting to create1 epoll fd.");
+  JTRACE("Starting to create1 epoll fd.");
   //errno = EPERM;
-  PASSTHROUGH_DMTCP_HELPER (epoll_create1, flags);
+  PASSTHROUGH_DMTCP_HELPER(epoll_create1, flags);
 }
 
 extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  JTRACE ("Starting to do stuff with epoll fd");
-  PASSTHROUGH_DMTCP_HELPER (epoll_ctl, epfd, op, fd, event);
+  JTRACE("Starting to do stuff with epoll fd");
+  PASSTHROUGH_DMTCP_HELPER(epoll_ctl, epfd, op, fd, event);
 }
 
-extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
+                          int timeout)
 {
   int readyFds, timeLeft = timeout;
-  JTRACE ("Starting to do wait on epoll fd");
+  JTRACE("Starting to do wait on epoll fd");
   int mytime = 1000; // wait time quanta: 1000 ms
   while (1)
   {
@@ -229,7 +235,7 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents, i
     if (timeLeft > 0)
         timeLeft -= mytime;
 
-    if ( (timeout < 0 || timeLeft > 0) && (0 == readyFds))
+    if ((timeout < 0 || timeLeft > 0) &&(0 == readyFds))
     {
       // More time left; didn't get any notification continue to wait...
       continue;

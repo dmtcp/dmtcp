@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2012 by Kapil Arya (kapil@ccs.neu.edu)                   *
+ *   Copyright (C) 2012 by Kapil Arya(kapil@ccs.neu.edu)                   *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *
@@ -28,7 +28,7 @@
 #include "dmtcpplugin.h"
 
 extern "C"
-mqd_t mq_open (const char *name, int oflag, ...)
+mqd_t mq_open(const char *name, int oflag, ...)
 {
   mode_t mode = 0;
   struct mq_attr *attr = NULL;
@@ -36,10 +36,10 @@ mqd_t mq_open (const char *name, int oflag, ...)
   // Handling the variable number of arguments
   if (oflag & O_CREAT) {
     va_list arg;
-    va_start (arg, oflag);
-    mode = va_arg (arg, mode_t);
-    attr = va_arg (arg, struct mq_attr*);
-    va_end (arg);
+    va_start(arg, oflag);
+    mode = va_arg(arg, mode_t);
+    attr = va_arg(arg, struct mq_attr*);
+    va_end(arg);
   }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -59,7 +59,7 @@ int mq_close(mqd_t mqdes)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_close(mqdes);
   if (res != -1) {
-    dmtcp::PosixMQConnection *con = (dmtcp::PosixMQConnection*)
+    dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
       &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
     con->on_mq_close();
   }
@@ -68,7 +68,7 @@ int mq_close(mqd_t mqdes)
 }
 
 struct mqNotifyData {
-  void (*start_routine)(union sigval);
+  void(*start_routine) (union sigval);
   union sigval sv;
   mqd_t mqdes;
 };
@@ -79,15 +79,15 @@ static void mq_notify_thread_start(union sigval sv)
   //        If some other thread in this process calls mq_notify() before we
   //        make a call to con->on_mq_notify(NULL), the notify request won't be
   //        restored on restart. However, this case is rather unusual.
-  struct mqNotifyData *m = (struct mqNotifyData*) sv.sival_ptr;
-  void (*start_routine)(union sigval) = m->start_routine;
+  struct mqNotifyData *m =(struct mqNotifyData*) sv.sival_ptr;
+  void(*start_routine) (union sigval) = m->start_routine;
   union sigval s = m->sv;
   mqd_t mqdes = m->mqdes;
 
   JALLOC_HELPER_FREE(m);
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp::PosixMQConnection *con = (dmtcp::PosixMQConnection*)
+  dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
     &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
   con->on_mq_notify(NULL);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -103,7 +103,7 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
     struct sigevent se;
     struct mqNotifyData *mdata;
-    mdata = (struct mqNotifyData*)
+    mdata =(struct mqNotifyData*)
       JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
     se = *sevp;
     mdata->start_routine = sevp->sigev_notify_function;
@@ -117,7 +117,7 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   }
 
   if (res != -1) {
-    dmtcp::PosixMQConnection *con = (dmtcp::PosixMQConnection*)
+    dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
       &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
     con->on_mq_notify(sevp);
   }
@@ -168,7 +168,7 @@ int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
     ret = _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
+    if (ret != -1 ||(ret == -1 && errno != ETIMEDOUT)) {
       return ret;
     }
   } while (TIMESPEC_CMP(&ts, abs_timeout, <));
@@ -193,7 +193,7 @@ ssize_t mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
     ret = _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
+    if (ret != -1 ||(ret == -1 && errno != ETIMEDOUT)) {
       return ret;
     }
   } while (TIMESPEC_CMP(&ts, abs_timeout, <));

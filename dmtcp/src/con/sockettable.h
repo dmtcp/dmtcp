@@ -35,17 +35,17 @@
 #define EXTERNC
 #endif
 
-EXTERNC int dmtcp_on_socket ( int ret, int domain, int type, int protocol );
-EXTERNC int dmtcp_on_connect ( int ret, int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen );
-EXTERNC int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen );
-EXTERNC int dmtcp_on_listen ( int ret, int sockfd, int backlog );
-EXTERNC int dmtcp_on_accept ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+EXTERNC int dmtcp_on_socket(int ret, int domain, int type, int protocol);
+EXTERNC int dmtcp_on_connect(int ret, int sockfd,  const  struct sockaddr *serv_addr, socklen_t addrlen);
+EXTERNC int dmtcp_on_bind(int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen);
+EXTERNC int dmtcp_on_listen(int ret, int sockfd, int backlog);
+EXTERNC int dmtcp_on_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 //#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)) && __GLIBC_PREREQ(2,10)
-EXTERNC int dmtcp_on_accept4 ( int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags );
+EXTERNC int dmtcp_on_accept4(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
 //#endif
-EXTERNC int dmtcp_on_error ( int ret, int sockfd, const char* fname, int savedErrno );
-EXTERNC int dmtcp_on_setsockopt ( int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen );
-EXTERNC int dmtcp_on_getsockopt ( int ret, int sockfd, int  level,  int  optname,  void  *optval, socklen_t *optlen );
+EXTERNC int dmtcp_on_error(int ret, int sockfd, const char* fname, int savedErrno);
+EXTERNC int dmtcp_on_setsockopt(int ret, int sockfd, int  level,  int  optname,  const  void  *optval, socklen_t optlen);
+EXTERNC int dmtcp_on_getsockopt(int ret, int sockfd, int  level,  int  optname,  void  *optval, socklen_t *optlen);
 
 
 
@@ -143,7 +143,7 @@ namespace dmtcp
 //         typedef dmtcp::vector<SocketEntry>::iterator iterator;
 //
 //         static SocketTable& instance();
-//         SocketEntry& operator[] (int sockfd);
+//         SocketEntry& operator[](int sockfd);
 //         static SocketEntry& LookupByFd(int sockfd){ return instance()[sockfd]; }
 //
 //         iterator begin() {return _entries.begin();}

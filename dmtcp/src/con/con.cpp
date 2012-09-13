@@ -57,7 +57,7 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
-      if ( theCheckpointState != NULL ) {
+      if (theCheckpointState != NULL) {
         delete theCheckpointState;
         theCheckpointState = NULL;
       }
@@ -77,20 +77,20 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
         dmtcp::KernelDeviceToConnection::instance().serialize(rd);
 
-        JTRACE ("Initial socket table:");
+        JTRACE("Initial socket table:");
         dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
       }
       break;
 
     case DMTCP_EVENT_POST_EXEC_NEW:
       dmtcp::ConnectionList::instance().scanForPreExisting();
-      JTRACE ("Initial socket table:");
+      JTRACE("Initial socket table:");
       dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
       break;
 
     case DMTCP_EVENT_POST_RESTART:
       //dmtcp::SysVIPC::instance().postRestart();
-      JASSERT ( theCheckpointState != NULL );
+      JASSERT(theCheckpointState != NULL);
       theCheckpointState->postRestart();
 
       break;
@@ -104,29 +104,30 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_POST_LEADER_ELECTION:
-      JTRACE ( "locking..." );
-      JASSERT ( theCheckpointState != NULL );
+      JTRACE("locking...");
+      JASSERT(theCheckpointState != NULL);
       theCheckpointState->preCheckpointFdLeaderElection();
-      JTRACE ( "locked" );
+      JTRACE("locked");
       break;
 
     case DMTCP_EVENT_POST_DRAIN:
-      JTRACE ( "draining..." );
+      JTRACE("draining...");
       theCheckpointState->preCheckpointDrain();
-      JTRACE ( "drained" );
+      JTRACE("drained");
       break;
 
     case DMTCP_EVENT_PRE_CKPT:
 #if HANDSHAKE_ON_CHECKPOINT == 1
       //handshake is done after one barrier after drain
-      JTRACE ( "beginning handshakes" );
-      theCheckpointState->preCheckpointHandshakes(dmtcp::DmtcpWorker::instance().coordinatorId());
-      JTRACE ( "handshaking done" );
+      JTRACE("beginning handshakes");
+      theCheckpointState->preCheckpointHandshakes(
+                                dmtcp::DmtcpWorker::instance().coordinatorId());
+      JTRACE("handshaking done");
 #endif
       break;
 
     case DMTCP_EVENT_POST_CKPT:
-      JASSERT ( theCheckpointState != NULL );
+      JASSERT(theCheckpointState != NULL);
       theCheckpointState->postCheckpoint(data->postCkptInfo.isRestart);
       delete theCheckpointState;
       theCheckpointState = NULL;

@@ -37,12 +37,12 @@ namespace dmtcp
     public:
       KernelBufferDrainer() : _timeoutCount(0) {}
 //     void drainAllSockets();
-      void beginDrainOf ( int fd , const ConnectionIdentifier& id);
+      void beginDrainOf(int fd , const ConnectionIdentifier& id);
       void refillAllSockets();
-      virtual void onData ( jalib::JReaderInterface* sock );
-      virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
+      virtual void onData(jalib::JReaderInterface* sock);
+      virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);
       virtual void onTimeoutInterval();
-      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      virtual void onDisconnect(jalib::JReaderInterface* sock);
 
       const dmtcp::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
 

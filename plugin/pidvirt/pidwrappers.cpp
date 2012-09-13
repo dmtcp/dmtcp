@@ -124,12 +124,12 @@ extern "C" pid_t tcsetpgrp(int fd, pid_t pgrp)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t currPgrp = VIRTUAL_TO_REAL_PID( pgrp );
-//  JTRACE( "Inside tcsetpgrp wrapper" ) (fd) (pgrp) (currPgrp);
+  pid_t currPgrp = VIRTUAL_TO_REAL_PID(pgrp);
+//  JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
   pid_t realPid = _real_tcsetpgrp(fd, currPgrp);
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
 
-  //JTRACE( "tcsetpgrp return value" ) (fd) (pgrp) (currPgrp) (retval);
+  //JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return virtualPid;
@@ -139,9 +139,9 @@ extern "C" pid_t tcgetpgrp(int fd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t retval = REAL_TO_VIRTUAL_PID( _real_tcgetpgrp(fd) );
+  pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetpgrp(fd));
 
-  JTRACE ( "tcgetpgrp return value" ) (fd) (retval);
+  JTRACE("tcgetpgrp return value") (fd) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
@@ -152,7 +152,7 @@ extern "C" pid_t getpgrp(void)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t pgrp = _real_getpgrp();
-  pid_t origPgrp =  REAL_TO_VIRTUAL_PID( pgrp );
+  pid_t origPgrp =  REAL_TO_VIRTUAL_PID(pgrp);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -205,7 +205,7 @@ extern "C" pid_t getsid(pid_t pid)
   pid_t currPid;
 
   // If !pid then we ask SID of this process
-  if( pid )
+  if (pid)
     currPid = VIRTUAL_TO_REAL_PID (pid);
   else
     currPid = _real_getpid();
@@ -305,9 +305,9 @@ int tkill(int tid, int sig)
   // FIXME: Check the comments in kill()
 //  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int realTid = VIRTUAL_TO_REAL_PID ( tid );
+  int realTid = VIRTUAL_TO_REAL_PID (tid);
 
-  int retVal = _real_tkill ( realTid, sig );
+  int retVal = _real_tkill (realTid, sig);
 
 //  DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -320,10 +320,10 @@ int tgkill(int tgid, int tid, int sig)
   // FIXME: Check the comments in kill()
 //  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int realTgid = VIRTUAL_TO_REAL_PID ( tgid );
-  int realTid = VIRTUAL_TO_REAL_PID ( tid );
+  int realTgid = VIRTUAL_TO_REAL_PID (tgid);
+  int realTid = VIRTUAL_TO_REAL_PID (tid);
 
-  int retVal = _real_tgkill ( realTgid, realTid, sig );
+  int retVal = _real_tgkill (realTgid, realTid, sig);
 
 //  DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -350,8 +350,8 @@ static td_err_e  _dmtcp_td_thr_get_info (const td_thrhandle_t  *th_p,
     ti_p->ti_lid  =  (lwpid_t) virtPid;
   }
 
-  //ti_p->ti_lid  =  ( lwpid_t ) REAL_TO_VIRTUAL_PID ( ( int ) ti_p->ti_lid );
-  //ti_p->ti_tid =  ( thread_t ) REAL_TO_VIRTUAL_PID ( (int ) ti_p->ti_tid );
+  //ti_p->ti_lid  =  (lwpid_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_lid);
+  //ti_p->ti_tid =  (thread_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_tid);
   return td_err;
 }
 
@@ -359,9 +359,9 @@ static td_err_e  _dmtcp_td_thr_get_info (const td_thrhandle_t  *th_p,
    tid virtualization. It should be safe to comment this out if you don't
    need to checkpoint gdb.
 */
-extern "C" void *dlsym ( void *handle, const char *symbol)
+extern "C" void *dlsym (void *handle, const char *symbol)
 {
-  if ( strcmp ( symbol, "td_thr_get_info" ) == 0 ) {
+  if (strcmp (symbol, "td_thr_get_info") == 0) {
     _td_thr_get_info_funcptr = (td_thr_get_info_funcptr_t) _real_dlsym(handle,
                                                                        symbol);
     if (_td_thr_get_info_funcptr != NULL) {
@@ -371,7 +371,7 @@ extern "C" void *dlsym ( void *handle, const char *symbol)
     }
   }
   else
-    return _real_dlsym ( handle, symbol );
+    return _real_dlsym (handle, symbol);
 }
 #endif
 
@@ -417,10 +417,10 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
     retval = _real_waitid (idtype, currPid, &siginfop, options | WNOHANG);
 
     if (retval != -1) {
-      pid_t virtualPid = REAL_TO_VIRTUAL_PID ( siginfop.si_pid );
+      pid_t virtualPid = REAL_TO_VIRTUAL_PID (siginfop.si_pid);
       siginfop.si_pid = virtualPid;
 
-      if ( siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED )
+      if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED)
         dmtcp::VirtualPidTable::instance().erase(virtualPid);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -566,7 +566,7 @@ extern "C" int fcntl(int fd, int cmd, ...)
   // Handling the variable number of arguments
   void *arg_in = NULL;
   void *arg = NULL;
-  va_start( ap, cmd );
+  va_start(ap, cmd);
   arg_in = va_arg(ap, void *);
   va_end(ap);
 

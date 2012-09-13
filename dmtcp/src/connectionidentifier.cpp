@@ -31,20 +31,20 @@ static int _nextConnectionId()
   return _nextConId++;
 }
 
-dmtcp::ConnectionIdentifier::ConnectionIdentifier ( const UniquePid& pid, int id )
-    : _pid ( pid ) , _id ( id )
+dmtcp::ConnectionIdentifier::ConnectionIdentifier (const UniquePid& pid, int id)
+    : _pid (pid) , _id (id)
 {}
 
 void dmtcp::ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT ( "dmtcp::ConnectionIdentifier:" );
+  JSERIALIZE_ASSERT_POINT ("dmtcp::ConnectionIdentifier:");
   o & _nextConId;
-  JASSERT ( _nextConId >= CONNECTION_ID_START);
+  JASSERT(_nextConId >= CONNECTION_ID_START);
 }
 
 dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Create()
 {
-  return ConnectionIdentifier ( UniquePid::ThisProcess(),_nextConnectionId() );
+  return ConnectionIdentifier (UniquePid::ThisProcess(),_nextConnectionId());
 }
 dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null()
 {
@@ -53,7 +53,7 @@ dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null()
 }
 dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Self()
 {
-  return ConnectionIdentifier ( UniquePid::ThisProcess(true), -1 );
+  return ConnectionIdentifier (UniquePid::ThisProcess(true), -1);
 }
 
 int dmtcp::ConnectionIdentifier::conId() const { return _id; }
@@ -61,13 +61,13 @@ int dmtcp::ConnectionIdentifier::conId() const { return _id; }
 const dmtcp::UniquePid& dmtcp::ConnectionIdentifier::pid() const { return _pid; }
 
 
-bool dmtcp::operator< ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
+bool dmtcp::operator< (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
 {
-  if ( a.pid() != b.pid() ) return a.pid() < b.pid();
+  if (a.pid() != b.pid()) return a.pid() < b.pid();
   return a.conId() < b.conId();
 }
 
-bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifier& b )
+bool dmtcp::operator== (const ConnectionIdentifier& a, const ConnectionIdentifier& b)
 {
   return  a.pid() == b.pid()
           && a.conId()  == b.conId();
@@ -77,9 +77,9 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // void dmtcp::ConnectionIdentifier::removeFd(int fd)
 // {
-//     for(size_t i=0; i<_fds.size(); ++i)
+//     for (size_t i=0; i<_fds.size(); ++i)
 //     {
-//         if(_fds[i] == fd)
+//         if (_fds[i] == fd)
 //         {
 //             JTRACE("removing fd")(fd)(i);
 //             _fds[i] = _fds.back();
@@ -92,7 +92,7 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // // void dmtcp::ConnectionIdentifier::dup2AllFds(int sourceFd)
 // // {
-// //     for(size_t i=0; i<_fds.size(); ++i)
+// //     for (size_t i=0; i<_fds.size(); ++i)
 // //     {
 // //         JTRACE("duping...")(sourceFd)(_fds[i]);
 // //         JASSERT(_fds[i] == _real_dup2(sourceFd,_fds[i]))(_fds[i])(sourceFd)
@@ -115,10 +115,10 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //     return instance;
 // }
 //
-// dmtcp::ConnectionIdentifier& dmtcp::ConnectionIdentifiers::lookup( int id )
+// dmtcp::ConnectionIdentifier& dmtcp::ConnectionIdentifiers::lookup(int id)
 // {
 //     dmtcp::map< int, ConnectionIdentifier* >::iterator i = _table.find(id);
-//     JASSERT(i != _table.end())(id).Text("ConnectionIdentifer does not exist");
+//     JASSERT(i != _table.end())(id) .Text("ConnectionIdentifer does not exist");
 //     return *i->second;
 // }
 //
@@ -129,14 +129,14 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //     return * item;
 // }
 //
-// void dmtcp::ConnectionIdentifiers::removeFd( int fd )
+// void dmtcp::ConnectionIdentifiers::removeFd(int fd)
 // {
 //     dmtcp::map< int, ConnectionIdentifier* >::iterator i;
-//     for(i=_table.begin(); i!=_table.end(); ++i)
+//     for (i=_table.begin(); i!=_table.end(); ++i)
 //     {
-//         i->second->removeFd( fd );
+//         i->second->removeFd(fd);
 //         //todo: fix this delete code so it doesn't crash
-// //         if(i->second->fdCount() == 0)
+// //         if (i->second->fdCount() == 0)
 // //         {
 // //             //delete item
 // //             delete i->second;
@@ -151,7 +151,7 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 // void dmtcp::ConnectionIdentifiers::updateAfterDup(int oldfd,int newfd)
 // {
 //     dmtcp::map< int, ConnectionIdentifier* >::iterator i;
-//     for(i=_table.begin(); i!=_table.end(); ++i)
+//     for (i=_table.begin(); i!=_table.end(); ++i)
 //     {
 //         i->second->updateAfterDup(oldfd,newfd);
 //     }
@@ -159,9 +159,9 @@ bool dmtcp::operator== ( const ConnectionIdentifier& a, const ConnectionIdentifi
 //
 // void dmtcp::ConnectionIdentifier::updateAfterDup(int oldfd,int newfd)
 // {
-//     for(size_t i=0; i<_fds.size(); ++i)
+//     for (size_t i=0; i<_fds.size(); ++i)
 //     {
-//         if(_fds[i] == oldfd)
+//         if (_fds[i] == oldfd)
 //         {
 //             JTRACE("updating after dup")(oldfd)(newfd)(_id);
 //             _fds.push_back(newfd);

@@ -50,18 +50,18 @@ namespace dmtcp
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
       static ConnectionList& instance();
-      void erase ( iterator i );
-      void erase ( ConnectionIdentifier& key );
+      void erase(iterator i);
+      void erase(ConnectionIdentifier& key);
       ConnectionList();
-      Connection& operator[] ( const ConnectionIdentifier& id );
+      Connection& operator[](const ConnectionIdentifier& id);
       Connection *getConnection(const ConnectionIdentifier &id);
 
-      void serialize ( jalib::JBinarySerializer& o );
+      void serialize(jalib::JBinarySerializer& o);
 
       //examine /proc/self/fd for unknown connections
       void scanForPreExisting();
     protected:
-      void add ( Connection* c );
+      void add(Connection* c);
     private:
       typedef  dmtcp::map<ConnectionIdentifier, Connection*> ConnectionMapT;
       ConnectionMapT _connections;
@@ -77,36 +77,36 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       static KernelDeviceToConnection& instance();
-      Connection& retrieve ( int fd );
-      dmtcp::string getDevice( const ConnectionIdentifier& con );
-      void create ( int fd, Connection* c );
-      void createPtyDevice ( int fd, dmtcp::string deviceName, Connection* c );
+      Connection& retrieve(int fd);
+      dmtcp::string getDevice(const ConnectionIdentifier& con);
+      void create(int fd, Connection* c);
+      void createPtyDevice(int fd, dmtcp::string deviceName, Connection* c);
 
       void erase(const ConnectionIdentifier&);
 
-      dmtcp::string fdToDevice ( int fd , bool noOnDemandConnection = false );
+      dmtcp::string fdToDevice(int fd , bool noOnDemandConnection = false);
 
       void dbgSpamFds();
 
-      //fix things up post-restart (all or KernelDevices have changed)
-      KernelDeviceToConnection ( const ConnectionToFds& source );
+      //fix things up post-restart(all or KernelDevices have changed)
+      KernelDeviceToConnection(const ConnectionToFds& source);
 
 
-      void serialize ( jalib::JBinarySerializer& o );
+      void serialize(jalib::JBinarySerializer& o);
 
       KernelDeviceToConnection();
 
-      void handlePreExistingFd ( int fd );
-      void prepareForFork ( );
+      void handlePreExistingFd(int fd);
+      void prepareForFork();
 
       //called when a device name changes
-      void redirect( int fd, const ConnectionIdentifier& id );
+      void redirect(int fd, const ConnectionIdentifier& id);
     protected:
 
 
     private:
-      typedef dmtcp::map< dmtcp::string , ConnectionIdentifier >::iterator iterator;
-      dmtcp::map< dmtcp::string , ConnectionIdentifier > _table;
+      typedef map< string , ConnectionIdentifier >::iterator iterator;
+      map< dmtcp::string , ConnectionIdentifier > _table;
   };
 
   class ConnectionToFds
@@ -119,20 +119,23 @@ namespace dmtcp
 #endif
       ConnectionToFds() {
       }
-      ConnectionToFds ( KernelDeviceToConnection& source );
-      dmtcp::vector<int>& operator[] ( const ConnectionIdentifier& c ) { return _table[c]; }
+      ConnectionToFds(KernelDeviceToConnection& source);
+      dmtcp::vector<int>& operator[](const ConnectionIdentifier& c)
+      { return _table[c]; }
 
-      typedef dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> >::iterator iterator;
+      typedef dmtcp::map< ConnectionIdentifier,
+                          dmtcp::vector<int> >::iterator iterator;
       iterator begin() { return _table.begin(); }
       iterator end() { return _table.end(); }
-      typedef dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> >::const_iterator const_iterator;
+      typedef dmtcp::map< ConnectionIdentifier,
+                          dmtcp::vector<int> >::const_iterator const_iterator;
       const_iterator begin() const { return _table.begin(); }
       const_iterator end() const { return _table.end(); }
 
       size_t size() const { return _table.size(); }
-      void erase ( const ConnectionIdentifier& conId );
+      void erase(const ConnectionIdentifier& conId);
 
-      void serialize ( jalib::JBinarySerializer& o );
+      void serialize(jalib::JBinarySerializer& o);
 
     private:
       dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
@@ -150,24 +153,24 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      SlidingFdTable ( int startingFd = 500 )
-        : _nextFd ( startingFd )
-        , _startFd ( startingFd )
+      SlidingFdTable(int startingFd = 500)
+        : _nextFd(startingFd)
+        , _startFd(startingFd)
       {}
 
       int startFd() { return _startFd; }
 
       ///
       /// retrieve, and if needed assign an FD for id
-      int getFdFor ( const ConnectionIdentifier& id );
+      int getFdFor(const ConnectionIdentifier& id);
 
       ///
       /// if the given FD is in use... reassign it to another FD
-      void freeUpFd ( int fd );
+      void freeUpFd(int fd);
 
-      bool isInUse ( int fd ) const;
+      bool isInUse(int fd) const;
 
-      static void changeFd ( int oldfd, int newfd );
+      static void changeFd(int oldfd, int newfd);
 
       void closeAll();
     private:
@@ -178,7 +181,8 @@ namespace dmtcp
   };
 
 
-  // UniquePtsNameToPtmxConId class holds the UniquePtsName -> Ptmx ConId mapping.
+  // UniquePtsNameToPtmxConId class holds the UniquePtsName -> Ptmx ConId
+  // mapping.
   // This file should not be serialized. The contents are added to this file
   // whenever a /dev/ptmx device is open()ed to create a pseudo-terminal
   // master-slave pair.
@@ -193,17 +197,18 @@ namespace dmtcp
       UniquePtsNameToPtmxConId() {}
       static UniquePtsNameToPtmxConId& instance();
 
-      ConnectionIdentifier& operator[] ( dmtcp::string s ) { return _table[s]; }
+      ConnectionIdentifier& operator[](dmtcp::string s) { return _table[s]; }
 
-      dmtcp::Connection& retrieve ( dmtcp::string str );
+      dmtcp::Connection& retrieve(dmtcp::string str);
 
-      dmtcp::string retrieveCurrentPtsDeviceName ( dmtcp::string str );
+      dmtcp::string retrieveCurrentPtsDeviceName(dmtcp::string str);
 
-      typedef dmtcp::map< dmtcp::string, ConnectionIdentifier >::iterator iterator;
+      typedef map< string, ConnectionIdentifier >::iterator iterator;
 
-      //void serialize ( jalib::JBinarySerializer& o );
+      //void serialize(jalib::JBinarySerializer& o);
 
-      void add ( dmtcp::string str, ConnectionIdentifier cid ) { _table[str] = cid; }
+      void add(dmtcp::string str, ConnectionIdentifier cid)
+      { _table[str] = cid; }
 
     private:
       dmtcp::map< dmtcp::string, ConnectionIdentifier > _table;

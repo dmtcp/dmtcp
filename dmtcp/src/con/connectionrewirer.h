@@ -35,40 +35,44 @@ namespace dmtcp
   class ConnectionRewirer : public jalib::JMultiSocketProgram
   {
     public:
-      ConnectionRewirer() : _coordinatorFd ( -1 ) {}
+      ConnectionRewirer() : _coordinatorFd(-1) {}
 
-      void setCoordinatorFd ( const int& theValue );
+      void setCoordinatorFd(const int& theValue);
       int coordinatorFd() const;
 
       void doReconnect();
 
-      void registerIncoming ( const ConnectionIdentifier& local
-                              , const dmtcp::vector<int>& fds );
+      void registerIncoming(const ConnectionIdentifier& local
+                              , const dmtcp::vector<int>& fds);
 
-      void registerOutgoing ( const ConnectionIdentifier& remote
-                              , const dmtcp::vector<int>& fds );
+      void registerOutgoing(const ConnectionIdentifier& remote
+                              , const dmtcp::vector<int>& fds);
 
 
     protected:
 
-      virtual void onData ( jalib::JReaderInterface* sock );
+      virtual void onData(jalib::JReaderInterface* sock);
 
-      virtual void onConnect ( const jalib::JSocket& sock,  const struct sockaddr* /*remoteAddr*/,socklen_t /*remoteLen*/ );
+      virtual void onConnect(const jalib::JSocket& sock,
+                             const struct sockaddr* /*remoteAddr*/,
+                             socklen_t /*remoteLen*/);
 
-      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      virtual void onDisconnect(jalib::JReaderInterface* sock);
 
       void finishup();
 
-      size_t pendingCount() const { return _pendingIncoming.size() + _pendingOutgoing.size(); }
+      size_t pendingCount() const
+      { return _pendingIncoming.size() + _pendingOutgoing.size(); }
 
       void debugPrint() const;
 
     private:
       int _coordinatorFd;
-      dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> > _pendingIncoming;
-      dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> > _pendingOutgoing;
-      typedef dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> >::iterator iterator;
-      typedef dmtcp::map<ConnectionIdentifier, dmtcp::vector<int> >::const_iterator const_iterator;
+      map<ConnectionIdentifier, vector<int> > _pendingIncoming;
+      map<ConnectionIdentifier, vector<int> > _pendingOutgoing;
+      typedef map<ConnectionIdentifier, vector<int> >::iterator iterator;
+      typedef map<ConnectionIdentifier, vector<int> >::const_iterator
+        const_iterator;
   };
 
 }
