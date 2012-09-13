@@ -190,7 +190,7 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) mallocwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) eventwrappers.$(OBJEXT) \
 	filewrappers.$(OBJEXT) socketwrappers.$(OBJEXT) \
-	sysvipcwrappers.$(OBJEXT)
+	posixipcwrappers.$(OBJEXT) sysvipcwrappers.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libsysvipc.a \
 	libconnection.a libjalib.a libsyscallsreal.a
@@ -410,7 +410,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 glibcsystem.cpp mallocwrappers.cpp \
 			 dmtcpplugin.cpp popen.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
-			 con/socketwrappers.cpp sysvipc/sysvipcwrappers.cpp
+			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
+			 sysvipc/sysvipcwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
@@ -424,19 +425,19 @@ dmtcphijack_so_LDADD = libdmtcpinternal.a libsysvipc.a libconnection.a \
 			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt
 
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 
 dmtcp_checkpoint_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -ldl -lpthread
+			  libnohijack.a -ldl -lpthread -lrt
 
 dmtcp_restart_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 
 dmtcp_command_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 
 dmtcp_inspector_LDADD = libconnection.a libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
@@ -715,6 +716,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/posixipcwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
@@ -1043,6 +1045,20 @@ socketwrappers.obj: con/socketwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/socketwrappers.cpp' object='socketwrappers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o socketwrappers.obj `if test -f 'con/socketwrappers.cpp'; then $(CYGPATH_W) 'con/socketwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/con/socketwrappers.cpp'; fi`
+
+posixipcwrappers.o: con/posixipcwrappers.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT posixipcwrappers.o -MD -MP -MF $(DEPDIR)/posixipcwrappers.Tpo -c -o posixipcwrappers.o `test -f 'con/posixipcwrappers.cpp' || echo '$(srcdir)/'`con/posixipcwrappers.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/posixipcwrappers.Tpo $(DEPDIR)/posixipcwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/posixipcwrappers.cpp' object='posixipcwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o posixipcwrappers.o `test -f 'con/posixipcwrappers.cpp' || echo '$(srcdir)/'`con/posixipcwrappers.cpp
+
+posixipcwrappers.obj: con/posixipcwrappers.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT posixipcwrappers.obj -MD -MP -MF $(DEPDIR)/posixipcwrappers.Tpo -c -o posixipcwrappers.obj `if test -f 'con/posixipcwrappers.cpp'; then $(CYGPATH_W) 'con/posixipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/con/posixipcwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/posixipcwrappers.Tpo $(DEPDIR)/posixipcwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/posixipcwrappers.cpp' object='posixipcwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o posixipcwrappers.obj `if test -f 'con/posixipcwrappers.cpp'; then $(CYGPATH_W) 'con/posixipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/con/posixipcwrappers.cpp'; fi`
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \

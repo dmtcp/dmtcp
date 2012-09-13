@@ -59,6 +59,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <pwd.h>
 #include <grp.h>
 #include <netdb.h>
+#include <mqueue.h>
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -216,6 +217,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(msgctl)                             \
   MACRO(msgsnd)                             \
   MACRO(msgrcv)                             \
+                                            \
+  MACRO(mq_open)                            \
+  MACRO(mq_close)                           \
+  MACRO(mq_timedsend)                       \
+  MACRO(mq_timedreceive)                    \
+  MACRO(mq_notify)                          \
                                             \
   MACRO(read)                               \
   MACRO(write)                              \
@@ -465,6 +472,18 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   ssize_t _real_msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp,
                        int msgflg);
   int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+
+
+  mqd_t _real_mq_open(const char *name, int oflag, mode_t mode,
+                      struct mq_attr *attr);
+  int _real_mq_close(mqd_t mqdes);
+  int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp);
+  ssize_t _real_mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
+                                unsigned int *msg_prio,
+                                const struct timespec *abs_timeout);
+  int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
+                         unsigned int msg_prio,
+                         const struct timespec *abs_timeout);
 
   pid_t _real_getpid();
 

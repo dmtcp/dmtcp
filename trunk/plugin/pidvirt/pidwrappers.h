@@ -60,6 +60,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <pwd.h>
 #include <grp.h>
 #include <netdb.h>
+#include <mqueue.h>
 
 #if __GLIBC_PREREQ(2,5)
 # define READLINK_RET_TYPE ssize_t
@@ -107,6 +108,7 @@ extern "C"
   int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
   int _real_semctl(int semid, int semnum, int cmd, ...);
   int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+  int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp);
 
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);

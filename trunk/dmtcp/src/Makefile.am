@@ -92,7 +92,8 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 glibcsystem.cpp mallocwrappers.cpp \
 			 dmtcpplugin.cpp popen.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
-			 con/socketwrappers.cpp sysvipc/sysvipcwrappers.cpp
+			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
+			 sysvipc/sysvipcwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
@@ -107,15 +108,15 @@ dmtcphijack_so_LDFLAGS = -shared
 dmtcphijack_so_LDADD    = libdmtcpinternal.a libsysvipc.a libconnection.a \
 			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -ldl -lpthread
+			  libnohijack.a -ldl -lpthread -lrt
 dmtcp_restart_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 dmtcp_command_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 dmtcp_inspector_LDADD   = libconnection.a libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread
+			  libnohijack.a -lpthread -lrt
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 

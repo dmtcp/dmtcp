@@ -107,6 +107,9 @@ dmtcp5: dmtcp5.c
 pthread%: pthread%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+posix-mq%: posix-mq%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lrt
+
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so:
 	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so dlopen.c

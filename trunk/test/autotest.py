@@ -628,6 +628,8 @@ else:
   runTest("sysv-sem",      2, ["./test/sysv-sem"])
   runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
+runTest("posix-mq1",      2, ["./test/posix-mq1"])
+runTest("posix-mq2",      2, ["./test/posix-mq2"])
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty",   2, ["./test/pty"])
 

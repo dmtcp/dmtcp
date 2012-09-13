@@ -47,7 +47,15 @@ extern "C" int dmtcp_on_socket ( int ret, int domain, int type, int protocol )
 //     entry.setProtocol(protocol);
 //     entry.setState(dmtcp::SocketEntry::T_CREATED);
 
-  dmtcp::KernelDeviceToConnection::instance().create ( ret, new dmtcp::TcpConnection ( domain,type,protocol ) );
+  dmtcp::Connection *con;
+  if ((type & 0xff) == SOCK_RAW) {
+    JASSERT(domain == AF_NETLINK) (domain) (type)
+      .Text("Only Netlink Raw sockets supported");
+    con = new dmtcp::RawSocketConnection(domain, type, protocol);
+  } else {
+    con = new dmtcp::TcpConnection(domain, type, protocol);
+  }
+  dmtcp::KernelDeviceToConnection::instance().create (ret, con);
 
   return ret;
 }
