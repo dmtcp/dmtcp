@@ -298,6 +298,12 @@ int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf)
 }
 
 LIB_PRIVATE
+int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp) {
+  REAL_FUNC_PASSTHROUGH (mq_notify) (mqdes, sevp);
+}
+
+
+LIB_PRIVATE
 void _real_pthread_exit (void *retval) {
   REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) (retval);
 }

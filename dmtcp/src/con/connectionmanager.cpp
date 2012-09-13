@@ -186,6 +186,12 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
   }
   //while (fd==4);
 
+  struct stat statbuf;
+  bool isPosixIPCFile = (device[0] == '/' &&
+                         device.length() > 1 &&
+                         device.find_last_of('/') == 0 &&
+                         stat(device.c_str(), &statbuf) == -1);
+
   bool isFile  = ( device[0] == '/' );
 
   bool isTty = (device.compare("/dev/tty") == 0);
@@ -322,6 +328,17 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice ( int fd, bool noOnDem
 
     return deviceName;
 
+  } else if ( isPosixIPCFile ) {
+    dmtcp::string deviceName = "posix["+jalib::XToString(fd) +"]:" + device;
+
+    if(noOnDemandConnection)
+      return deviceName;
+
+    iterator i = _table.find ( deviceName );
+    JASSERT(i != _table.end()) (fd) (device) (deviceName)
+      .Text("Device not found in connection list");
+
+    return deviceName;
   } else if ( isFile ) {
     // Can be file or FIFO channel
     struct stat buf;
@@ -601,6 +618,9 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
       case Connection::TCP:
         con = new TcpConnection ( -1,-1,-1 );
         break;
+      case Connection::RAW:
+        con = new RawSocketConnection ( -1,-1,-1 );
+        break;
       case Connection::FILE:
         con = new FileConnection ( "?", -1 );
         break;
@@ -625,6 +645,9 @@ void dmtcp::ConnectionList::serialize ( jalib::JBinarySerializer& o )
         break;
       case Connection::SIGNALFD:
         con = new SignalFdConnection(0, NULL, 0); //dummy val
+        break;
+      case Connection::POSIXMQ:
+        con = new PosixMQConnection("", 0, 0, NULL); //dummy val
         break;
       default:
         JASSERT ( false ) ( key ) ( o.filename() ).Text ( "unknown connection type" );

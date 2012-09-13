@@ -28,6 +28,7 @@
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
+#include "syscallwrappers.h"
 #include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -42,6 +43,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <mqueue.h>
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -94,17 +96,19 @@ namespace dmtcp
 #endif
       enum ConnectionType
       {
-        INVALID = 0x0000,
-        TCP     = 0x1000,
-        PIPE    = 0x2000,
-        PTY     = 0x3000,
-        FILE    = 0x4000,
-        STDIO   = 0x5000,
-        FIFO    = 0x6000,
-        EPOLL   = 0x7000,
-        EVENTFD = 0x8000,
-        SIGNALFD = 0x9000,
-        TYPEMASK = TCP | PIPE | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD | SIGNALFD
+        INVALID  = 0x00000,
+        TCP      = 0x10000,
+        RAW      = 0x11000,
+        PTY      = 0x20000,
+        FILE     = 0x21000,
+        STDIO    = 0x22000,
+        FIFO     = 0x24000,
+        EPOLL    = 0x30000,
+        EVENTFD  = 0x31000,
+        SIGNALFD = 0x32000,
+        POSIXMQ  = 0x40000,
+        TYPEMASK = TCP | RAW | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD |
+                   SIGNALFD | POSIXMQ
       };
 
       virtual ~Connection() {}
@@ -156,7 +160,34 @@ namespace dmtcp
       bool                 _restoreInSecondIteration;
   };
 
-  class TcpConnection : public Connection
+  class SocketConnection
+  {
+    public:
+      enum PeerType
+      {
+        PEER_UNKNOWN,
+        PEER_INTERNAL,
+        PEER_EXTERNAL,
+        PEER_SOCKETPAIR
+      };
+
+      enum PeerType peerType() const { return _peerType; }
+
+      SocketConnection(int domain, int type, int protocol);
+      void addSetsockopt(int level, int option, const char* value, int len);
+      void restoreSocketOptions(const dmtcp::vector<int>& fds);
+      void serialize(jalib::JBinarySerializer& o);
+
+    protected:
+      int _sockDomain;
+      int _sockType;
+      int _sockProtocol;
+      enum PeerType _peerType;
+      bool          _socketPairRestored;
+      map< int, map<int, jalib::JBuffer> > _sockOptions;
+  };
+
+  class TcpConnection : public Connection, public SocketConnection
   {
     public:
       enum TcpType
@@ -174,16 +205,6 @@ namespace dmtcp
 
       int tcpType() const { return _type; }
 
-      enum PeerType
-      {
-        PEER_UNKNOWN,
-        PEER_INTERNAL,
-        PEER_EXTERNAL,
-        PEER_SOCKETPAIR
-      };
-
-      enum PeerType peerType() const { return _peerType; }
-
 #ifdef EXTERNAL_SOCKET_HANDLING
       void markInternal() {
         if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
@@ -199,21 +220,17 @@ namespace dmtcp
       // This accessor is needed because _type is protected.
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
 
-      void setSocketpairPeer(ConnectionIdentifier id) {
-        _peerType = PEER_SOCKETPAIR;
-        _socketpairPeerId = id;
-      }
-
       //basic commands for updating state from wrappers
-      /*onSocket*/ TcpConnection ( int domain, int type, int protocol );
+      /*onSocket*/
+      TcpConnection ( int domain, int type, int protocol );
       void onBind ( const struct sockaddr* addr, socklen_t len );
       void onListen ( int backlog );
       void onConnect( int sockfd = -1, const  struct sockaddr *serv_addr = NULL,
                       socklen_t addrlen = 0 );
-      /*onAccept*/ TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
+      /*onAccept*/
+      TcpConnection ( const TcpConnection& parent, const ConnectionIdentifier& remote );
       void onError();
       void onDisconnect(const dmtcp::vector<int>& fds);
-      void addSetsockopt ( int level, int option, const char* value, int len );
 
       void markPreExisting() { _type = TCP_PREEXISTING; }
 
@@ -224,16 +241,20 @@ namespace dmtcp
                                     bool isRestart = false);
       virtual void restore(const dmtcp::vector<int>&,
                            ConnectionRewirer *rewirer = NULL);
+      virtual void restoreOptions(const dmtcp::vector<int>& fds);
 
       //virtual void doLocking ( const dmtcp::vector<int>& fds );
-
-      virtual void restoreOptions ( const dmtcp::vector<int>& fds );
 
       virtual void doSendHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator);
       virtual void doRecvHandshakes( const dmtcp::vector<int>& fds, const dmtcp::UniquePid& coordinator);
 
       void sendHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
       void recvHandshake(jalib::JSocket& sock, const dmtcp::UniquePid& coordinator);
+
+      void setSocketpairPeer(ConnectionIdentifier id) {
+        _peerType = PEER_SOCKETPAIR;
+        _socketpairPeerId = id;
+      }
 
       void restoreSocketPair(const dmtcp::vector<int>& fds,
                              dmtcp::TcpConnection *peer,
@@ -243,16 +264,11 @@ namespace dmtcp
 
       //called on restart when _id collides with another connection
       virtual void mergeWith ( const Connection& that );
-    private:
       virtual void serializeSubClass ( jalib::JBinarySerializer& o );
+    private:
       TcpConnection& asTcp();
     private:
-      int                     _sockDomain;
-      int                     _sockType;
-      int                     _sockProtocol;
       int                     _listenBacklog;
-      enum PeerType           _peerType;
-      bool                    _socketPairRestored;
       union {
         socklen_t               _bindAddrlen;
         socklen_t               _connectAddrlen;
@@ -264,9 +280,30 @@ namespace dmtcp
       };
       ConnectionIdentifier    _acceptRemoteId;
       ConnectionIdentifier    _socketpairPeerId;
-      dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions; // _options[level][option] = value
   };
 
+  class RawSocketConnection : public Connection, public SocketConnection
+  {
+    public:
+      //basic commands for updating state from wrappers
+      RawSocketConnection(int domain, int type, int protocol);
+
+      //basic checkpointing commands
+      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
+                                 KernelBufferDrainer& drain);
+      virtual void postCheckpoint ( const dmtcp::vector<int>& fds,
+                                    bool isRestart = false);
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
+      virtual void restoreOptions(const dmtcp::vector<int>& fds);
+
+      //called on restart when _id collides with another connection
+      virtual void mergeWith ( const Connection& that );
+
+      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+    private:
+      dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions;
+  };
 
   class PtyConnection : public Connection
   {
@@ -619,6 +656,49 @@ namespace dmtcp
       sigset_t _mask; // mask for signals
       struct signalfd_siginfo _fdsi;
       bool _has_lock;
+  };
+
+  class PosixMQConnection: public Connection
+  {
+    public:
+      inline PosixMQConnection(const char *name, int oflag, mode_t mode,
+                               struct mq_attr *attr)
+          : Connection(POSIXMQ)
+          , _name(name)
+          , _oflag(oflag)
+          , _mode(mode)
+          , _qnum(0)
+          , _notifyReg(false)
+      {
+        if (attr != NULL) {
+          _attr = *attr;
+        }
+      }
+
+      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
+                                 KernelBufferDrainer&);
+      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
+                                  bool isRestart = false);
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
+
+      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+
+      virtual string str() { return _name; }
+
+      void on_mq_close();
+      void on_mq_notify(const struct sigevent *sevp);
+
+    private:
+      dmtcp::string  _name;
+      int            _oflag;
+      mode_t         _mode;
+      struct mq_attr _attr;
+      long           _qnum;
+      bool           _notifyReg;
+      struct sigevent _sevp;
+      dmtcp::vector<jalib::JBuffer> _msgInQueue;
+      dmtcp::vector<unsigned> _msgInQueuePrio;
   };
 }
 

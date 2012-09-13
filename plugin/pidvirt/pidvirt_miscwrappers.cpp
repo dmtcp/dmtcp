@@ -245,6 +245,25 @@ int msgctl(int msqid, int cmd, struct msqid_ds *buf)
   return ret;
 }
 
+#if 0
+extern "C"
+int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
+{
+  struct sigevent n;
+  int ret;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (sevp != NULL) {
+    n = *sevp;
+    n.sigev_notify_thread_id = VIRTUAL_TO_REAL_PID(n.sigev_notify_thread_id);
+    ret = _real_mq_notify(mqdes, &n);
+  } else {
+    ret = _real_mq_notify(mqdes, sevp);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
+#endif
+
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
 #define SYSCALL_VA_START()                                              \

@@ -515,5 +515,43 @@ int _real_signalfd(int fd, const sigset_t *mask, int flags) {
 #endif
 }
 
+mqd_t _real_mq_open(const char *name, int oflag, mode_t mode,
+                      struct mq_attr *attr) {
+  REAL_FUNC_PASSTHROUGH_TYPED (mqd_t, mq_open) (name, oflag, mode, attr);
+}
+
+mqd_t _real_mq_close(mqd_t mqdes) {
+  REAL_FUNC_PASSTHROUGH (mq_close) (mqdes);
+}
+
+int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp) {
+  REAL_FUNC_PASSTHROUGH (mq_notify) (mqdes, sevp);
+}
+
+ssize_t _real_mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
+                           unsigned int *msg_prio) {
+  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, mq_receive) (mqdes, msg_ptr, msg_len,
+                                                     msg_prio);
+}
+
+int _real_mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
+                    unsigned int msg_prio) {
+  REAL_FUNC_PASSTHROUGH (mq_send) (mqdes, msg_ptr, msg_len, msg_prio);
+}
+
+ssize_t _real_mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
+                                unsigned int *msg_prio,
+                                const struct timespec *abs_timeout) {
+  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, mq_timedreceive) (mqdes, msg_ptr,
+                                                          msg_len, msg_prio,
+                                                          abs_timeout);
+}
+
+int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
+                         unsigned int msg_prio,
+                         const struct timespec *abs_timeout) {
+  REAL_FUNC_PASSTHROUGH (mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
+                                        abs_timeout);
+}
 // Used for wrappers for mmap, sbrk
 void _dmtcp_setup_trampolines() {}
