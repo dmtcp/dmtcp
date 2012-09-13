@@ -65,10 +65,11 @@ void dmtcp::VirtualPidTable::postRestart()
 
 void dmtcp::VirtualPidTable::refresh()
 {
-  pid_t pid = getpid();
   id_iterator i;
   id_iterator next;
   pid_t _real_pid = _real_getpid();
+
+  JASSERT(getpid() != -1);
 
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {

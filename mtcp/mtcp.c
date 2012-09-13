@@ -503,8 +503,6 @@ static void (*callback_write_ckpt_header)(int fd) = NULL;
 static void (*callback_holds_any_locks)(int *retval) = NULL;
 static void (*callback_pre_suspend_user_thread)() = NULL;
 static void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
-static void (*callback_send_stop_signal)(pid_t tid, int *retry_signalling,
-                                         int *retval) = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,

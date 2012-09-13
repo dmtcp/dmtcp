@@ -128,7 +128,7 @@ bool isResMgrFile(dmtcp::string &path)
 static void setup_job()
 {
   char *ptr;
-  if( ptr = getenv("PBS_JOBID")){
+  if ((ptr = getenv("PBS_JOBID"))){
     dmtcp::string str = ptr, digits = "0123456789";
     size_t pos = str.find_first_not_of(digits);
     char *eptr;
@@ -136,7 +136,7 @@ static void setup_job()
     torque_jobid = strtoul(str.c_str(),&eptr,10);
   }
 
-  if( ptr = getenv("PBS_JOBNAME") ) {
+  if ((ptr = getenv("PBS_JOBNAME"))) {
     torque_jobname() = ptr;
   }
   JTRACE("Result:")(torque_jobid)(torque_jobname());
@@ -179,11 +179,11 @@ static dmtcp::string torque_home_nodefile(char *ptr)
 static void setup_torque_env()
 {
   char *ptr;
-  if( ptr = getenv("PBS_HOME")){
+  if ((ptr = getenv("PBS_HOME"))) {
     torque_home() = ptr;
-  }else if( ptr = getenv("PBS_SERVER_HOME") ) {
+  }else if ((ptr = getenv("PBS_SERVER_HOME"))) {
     torque_home() = ptr;
-  } else if( ptr = getenv("PBS_NODEFILE") ) {
+  } else if ((ptr = getenv("PBS_NODEFILE"))) {
       torque_home() = torque_home_nodefile(ptr);
   }
 
@@ -301,14 +301,14 @@ int findLibTorque_pbsconfig(dmtcp::string &libpath)
   }
 
   // get -L & -l arguments
-  for(int i=0; i < params.size(); i++){
+  for (size_t i = 0; i < params.size(); i++) {
     dmtcp::string &s = params[i];
-    if( s[0] == '-' ){
-      if( s[1] == 'L' ){
+    if (s[0] == '-') {
+      if (s[1] == 'L') {
         dmtcp::string tmp(s,2,s.size() - 2);
         libpath = tmp;
         path_found = true;
-      }else if( s[1] == 'l' ){
+      } else if (s[1] == 'l') {
         dmtcp::string tmp(s,2,s.size() - 2);
         libname = tmp;
         name_found = true;
@@ -412,7 +412,7 @@ bool isTorqueHomeFile(dmtcp::string &path)
   char *ptr;
   dmtcp::string hpath = "";
 
-  if( ptr = getenv("HOME") ){
+  if ((ptr = getenv("HOME"))) {
     hpath = dmtcp::string() + ptr;
     JTRACE("Home directory:")(hpath)(path);
   }else{
