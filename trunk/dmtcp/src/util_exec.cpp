@@ -38,9 +38,25 @@
 
 void dmtcp::Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
 {
-  char buf[80];
-  sprintf(buf, "%d:%d", pid, ppid);
-  setenv(ENV_VAR_VIRTUAL_PID, buf, 1);
+  // We want to use setenv() only once. For all later changes, we manipulate
+  // the buffer in place. This was done to avoid a bug when using Perl. Perl
+  // implements its own setenv by keeping a private copy libc:environ and never
+  // refers to libc:private, thus libc:setenv is outdated and calling setenv()
+  // can cause segfault.
+  char buf1[80];
+  char buf2[80];
+  memset(buf2, '#', sizeof(buf2));
+  buf2[sizeof(buf2) - 1] = '\0';
+
+  sprintf(buf1, "%d:%d:", pid, ppid);
+
+  if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
+    memcpy(buf2, buf1, strlen(buf1));
+    setenv(ENV_VAR_VIRTUAL_PID, buf2, 1);
+  } else {
+    char *envStr = (char*) getenv(ENV_VAR_VIRTUAL_PID);
+    memcpy(envStr, buf1, strlen(buf1));
+  }
 }
 
 // 'screen' requires directory with permissions 0700

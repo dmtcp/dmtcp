@@ -95,7 +95,8 @@ namespace dmtcp
                                     UniquePid compGroup = UniquePid(),
                                     int np = -1,
                                     DmtcpMessageType msgType =
-                                      DMT_HELLO_COORDINATOR);
+                                      DMT_HELLO_COORDINATOR,
+                                    bool preForkHandshake = false);
       void recvCoordinatorHandshake(int *param1 = NULL);
       void sendCkptFilename();
       void updateHostAndPortEnv();

@@ -220,8 +220,10 @@ void dmtcp::CoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progNam
   _coordinatorSocket = createNewConnectionToCoordinator();
   JASSERT(_coordinatorSocket.isValid());
 
-  sendCoordinatorHandshake(progName);
+  sendCoordinatorHandshake(progName, UniquePid(), -1, DMT_HELLO_COORDINATOR,
+                           true);
   recvCoordinatorHandshake();
+  JASSERT(_virtualPid != -1);
 }
 
 void dmtcp::CoordinatorAPI::informCoordinatorOfNewProcessOnFork
@@ -254,11 +256,12 @@ void dmtcp::CoordinatorAPI::connectToCoordinatorWithoutHandshake()
 
 // FIXME:
 static int theRestorePort = RESTORE_PORT_START;
-void dmtcp::CoordinatorAPI::sendCoordinatorHandshake (
-  const dmtcp::string& progname,
-  UniquePid compGroup /*= UniquePid()*/,
-  int np /*= -1*/,
-  DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/)
+void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
+                           const dmtcp::string& progname,
+                           UniquePid compGroup /*= UniquePid()*/,
+                           int np /*= -1*/,
+                           DmtcpMessageType msgType /*= DMT_HELLO_COORDINATOR*/,
+                           bool preForkHandshake /* = false*/)
 {
   if (noCoordinator()) return;
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
@@ -272,7 +275,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake (
   hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
 
-  if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
+  if (preForkHandshake || getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
     hello_local.virtualPid = -1;
   } else {
     hello_local.virtualPid = (pid_t) atoi(getenv(ENV_VAR_VIRTUAL_PID));
