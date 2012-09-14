@@ -580,6 +580,12 @@ int _real_getpt ( void )
 }
 
 LIB_PRIVATE
+int _real_posix_openpt ( int flags )
+{
+  REAL_FUNC_PASSTHROUGH ( posix_openpt ) ( flags );
+}
+
+LIB_PRIVATE
 int _real_ptsname_r ( int fd, char * buf, size_t buflen )
 {
   REAL_FUNC_PASSTHROUGH ( ptsname_r ) ( fd, buf, buflen );
