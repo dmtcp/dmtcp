@@ -51,12 +51,16 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,keyLen ( 0 )
     ,valLen ( 0 )
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
+    ,coordCmd('\0')
+    ,coordTimeStamp(0)
+    ,numPeers(0)
+    ,isRunning(0)
+    ,coordErrorCode(0)
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );
-  memset ( &params,0,sizeof ( params ) );
   memset ( &restoreAddr,0,sizeof ( restoreAddr ) );
 }
 

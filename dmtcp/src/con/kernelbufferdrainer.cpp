@@ -103,7 +103,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
         JWARNING(false) (_dataSockets[i]->socket().sockfd()) (buffer.size()) (WARN_INTERVAL_SEC)
                  .Text("Still draining socket... perhaps remote host is not running under DMTCP?");
 #ifdef CERN_CMS
-        JNOTE("\n*** Closing this socket(to database??).  Please use dmtcpaware to\n"
+        JNOTE("\n*** Closing this socket(to database?).  Please use dmtcpaware to\n"
               "***  gracefully handle database connections, and re-run.\n"
               "***  Trying a workaround for now, and hoping it doesn't fail.\n");
         _real_close(_dataSockets[i]->socket().sockfd());
@@ -190,7 +190,7 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
     if (size<0) size=0;
     DmtcpMessage msg;
     msg.type = DMT_PEER_ECHO;
-    msg.params[0] = size;
+    msg.extraBytes = size;
     jalib::JSocket sock(i->first);
     if (size>0) {
       JTRACE("requesting repeat buffer...") (sock.sockfd()) (size);
@@ -214,7 +214,7 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
 
     msg.assertValid();
     JASSERT(msg.type == DMT_PEER_ECHO) (msg.type);
-    int size = msg.params[0];
+    int size = msg.extraBytes;
     JTRACE("repeating buffer back to peer") (size);
     if (size>0)
     {

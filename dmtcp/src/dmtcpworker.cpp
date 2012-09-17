@@ -539,8 +539,8 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   if (type == DMT_DO_SUSPEND) {
     UniquePid::ComputationId() = msg.compGroup;
   } else if (type == DMT_DO_FD_LEADER_ELECTION) {
-    JTRACE("Computation information") (msg.compGroup) (msg.params[0]);
-    ProcessInfo::instance().numPeers(msg.params[0]);
+    JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
+    ProcessInfo::instance().numPeers(msg.numPeers);
     JASSERT(UniquePid::ComputationId() == msg.compGroup);
     ProcessInfo::instance().compGroup(msg.compGroup);
   }

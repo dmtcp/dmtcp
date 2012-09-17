@@ -70,7 +70,10 @@ namespace dmtcp
 
       bool isValid() { return _coordinatorSocket.isValid(); }
 
-      void connectAndSendUserCommand(char c, int* result = NULL);
+      void connectAndSendUserCommand(char c,
+                                     int *coordErrorCode = NULL,
+                                     int *numPeers = NULL,
+                                     int *isRunning = NULL);
 
       void useAlternateCoordinatorFd();
 
@@ -78,7 +81,10 @@ namespace dmtcp
       bool tryConnectToCoordinator();
       void connectToCoordinatorWithHandshake();
       void connectToCoordinatorWithoutHandshake();
-      void sendUserCommand(char c, int* result = NULL);
+      void sendUserCommand(char c,
+                           int *coordErrorCode = NULL,
+                           int *numPeers = NULL,
+                           int *isRunning = NULL);
 
       pid_t virtualPid() const { return _virtualPid; }
       pid_t getVirtualPidFromCoordinator();
@@ -97,7 +103,7 @@ namespace dmtcp
                                     DmtcpMessageType msgType =
                                       DMT_HELLO_COORDINATOR,
                                     bool preForkHandshake = false);
-      void recvCoordinatorHandshake(int *param1 = NULL);
+      void recvCoordinatorHandshake(time_t *coordTimeStamp = NULL);
       void sendCkptFilename();
       void updateHostAndPortEnv();
 

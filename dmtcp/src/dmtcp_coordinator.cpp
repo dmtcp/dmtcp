@@ -511,32 +511,19 @@ void dmtcp::DmtcpCoordinator::sendUnidentifiedPeerNotifications()
 
 void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
-  int * replyParams;
-  if(reply!=NULL){
-    replyParams = reply->params;
-  }else{
-    static int dummy[sizeof(reply->params)/sizeof(int)];
-    replyParams = dummy;
-  }
-
-  JASSERT(sizeof(reply->params)/sizeof(int) >= 2); //this should be compiled out
-  //default reply is 0
-  replyParams[0] = CoordinatorAPI::NOERROR;
-  replyParams[1] = CoordinatorAPI::NOERROR;
+  if (reply != NULL) reply->coordErrorCode = CoordinatorAPI::NOERROR;
 
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
     JTRACE ( "blocking checkpoint beginning..." );
     blockUntilDone = true;
-    replyParams[0] = 0;  // reply from prefix command will be ignored
     break;
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
     if(startCheckpoint()){
-      replyParams[0] = getStatus().numPeers;
+      if (reply != NULL) reply->numPeers = getStatus().numPeers;
     }else{
-      replyParams[0] = CoordinatorAPI::ERROR_NOT_RUNNING_STATE;
-      replyParams[1] = CoordinatorAPI::ERROR_NOT_RUNNING_STATE;
+      if (reply != NULL) reply->coordErrorCode = CoordinatorAPI::ERROR_NOT_RUNNING_STATE;
     }
     break;
   case 'i': case 'I':
@@ -627,7 +614,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
       CoordinatorStatus s = getStatus();
       bool running = s.minimumStateUnanimous &&
 		     s.minimumState==WorkerState::RUNNING;
-      if (reply==NULL){
+      if (reply == NULL){
         printf("Status...\n");
         printf("NUM_PEERS=%d\n", s.numPeers);
         printf("RUNNING=%s\n", (running?"yes":"no"));
@@ -635,9 +622,9 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
         if (!running) {
           JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
         }
-      }else{
-        replyParams[0]=s.numPeers;
-        replyParams[1]=running;
+      } else {
+        reply->numPeers = s.numPeers;
+        reply->isRunning = running;
       }
     }
     break;
@@ -646,8 +633,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   default:
     JTRACE("unhandled user command")(cmd);
-    replyParams[0] = CoordinatorAPI::ERROR_INVALID_COMMAND;
-    replyParams[1] = CoordinatorAPI::ERROR_INVALID_COMMAND;
+    reply->coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
   }
   return;
 }
@@ -852,18 +838,18 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       case DMT_USER_CMD:  // dmtcpaware API being used
         {
           JTRACE("got user command from client")
-            (msg.params[0])(client->identity());
+            (msg.coordCmd)(client->identity());
 	  // Checkpointing commands should always block, to prevent
 	  //   dmtcpaware checkpoint call from returning prior to checkpoint.
-	  if (msg.params[0] == 'c')
+	  if (msg.coordCmd == 'c')
             handleUserCommand( 'b', NULL );
           DmtcpMessage reply;
           reply.type = DMT_USER_CMD_RESULT;
-          if (msg.params[0] == 'i' &&  msg.theCheckpointInterval > 0 ) {
+          if (msg.coordCmd == 'i' &&  msg.theCheckpointInterval > 0 ) {
             theCheckpointInterval = msg.theCheckpointInterval;
             // For dmtcpaware API, we don't change theDefaultCheckpointInterval
           }
-          handleUserCommand( msg.params[0], &reply );
+          handleUserCommand( msg.coordCmd, &reply );
           sock->socket() << reply;
           //alternately, we could do the write without blocking:
           //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg,
@@ -1130,25 +1116,25 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
 						 jalib::JSocket& remote )
 {
   //dmtcp_command doesn't handshake (it is antisocial)
-  JTRACE("got user command from dmtcp_command")(hello_remote.params[0]);
+  JTRACE("got user command from dmtcp_command")(hello_remote.coordCmd);
   DmtcpMessage reply;
   reply.type = DMT_USER_CMD_RESULT;
   // if previous 'b' blocking prefix command had set blockUntilDone
   if (blockUntilDone && blockUntilDoneRemote == -1  &&
-      hello_remote.params[0] == 'c') {
+      hello_remote.coordCmd == 'c') {
     // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
     blockUntilDoneReply = reply;
-    handleUserCommand( hello_remote.params[0], &reply );
-  } else if ( (hello_remote.params[0] == 'i' || hello_remote.params[1] == 'I')
+    handleUserCommand( hello_remote.coordCmd, &reply );
+  } else if ( (hello_remote.coordCmd == 'i')
                && hello_remote.theCheckpointInterval >= 0 ) {
     theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
     theCheckpointInterval = theDefaultCheckpointInterval;
-    handleUserCommand( hello_remote.params[0], &reply );
+    handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
     remote.close();
   } else {
-    handleUserCommand( hello_remote.params[0], &reply );
+    handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
     remote.close();
   }
@@ -1161,7 +1147,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
   // This is dmtcp_restart process, connecting to get timestamp
   // and set current compGroup.
 
-  JASSERT ( hello_remote.params[0] > 0 );
+  JASSERT ( hello_remote.numPeers > 0 );
 
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_RESTART_PROCESS_REPLY );
 
@@ -1170,9 +1156,8 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
       .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - set up all the things
     UniquePid::ComputationId() = hello_remote.compGroup;
-    numPeers = hello_remote.params[0];
+    numPeers = hello_remote.numPeers;
     curTimeStamp = time(NULL);
-    hello_local.params[1] = 1;
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
   } else if ( UniquePid::ComputationId() != hello_remote.compGroup ) {
@@ -1184,10 +1169,10 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
     remote << hello_local;
     remote.close();
     return false;
-  } else if ( numPeers != hello_remote.params[0] ) {
+  } else if ( numPeers != hello_remote.numPeers ) {
     // Sanity check
     JNOTE  ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
-      ( numPeers ) ( hello_remote.params[0] );
+      ( numPeers ) ( hello_remote.numPeers );
 
     hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
@@ -1197,11 +1182,10 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
     // This is a second or higher dmtcp_restart process connecting to the coordinator.
     // FIXME: Should the following be a JASSERT instead?      -- Kapil
     JWARNING ( minimumState() == WorkerState::RESTARTING );
-    hello_local.params[1] = 0;
   }
 
   // Sent generated timestamp in local massage for dmtcp_restart process.
-  hello_local.params[0] = curTimeStamp;
+  hello_local.coordTimeStamp = curTimeStamp;
 
   remote << hello_local;
 
@@ -1390,12 +1374,12 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
 }
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
-    dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int param1 = -1 )
+    dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int numPeers = -1 )
 {
   DmtcpMessage msg;
   msg.type = type;
-  if (param1 > 0) {
-    msg.params[0] = param1;
+  if (numPeers > 0) {
+    msg.numPeers = numPeers;
     msg.compGroup = compGroup;
   }
 
