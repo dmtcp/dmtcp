@@ -67,6 +67,7 @@ namespace dmtcp
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
       const UniquePid& coordinatorId() const { return _coordinatorId; }
       const void setCoordinatorId(UniquePid id) { _coordinatorId = id; }
+      time_t coordTimeStamp() const { return _coordTimeStamp; }
 
       bool isValid() { return _coordinatorSocket.isValid(); }
 
@@ -103,7 +104,7 @@ namespace dmtcp
                                     DmtcpMessageType msgType =
                                       DMT_HELLO_COORDINATOR,
                                     bool preForkHandshake = false);
-      void recvCoordinatorHandshake(time_t *coordTimeStamp = NULL);
+      void recvCoordinatorHandshake();
       void sendCkptFilename();
       void updateHostAndPortEnv();
 
@@ -126,6 +127,7 @@ namespace dmtcp
     protected:
       UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
+      time_t         _coordTimeStamp;
       jalib::JSocket _restoreSocket;
       pid_t          _virtualPid;
     private:
