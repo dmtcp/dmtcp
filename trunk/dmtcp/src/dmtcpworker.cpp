@@ -243,7 +243,6 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
-    JTRACE("loading initial socket table from file...") (serialFile);
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = rd.fd();
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC, &edata);
@@ -259,9 +258,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
       ProcessInfo::instance().setRootOfProcessTree();
       _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
     }
-
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC_NEW, NULL);
-    JTRACE("Checking for pre-existing sockets");
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_INITIAL_EXEC, NULL);
   }
 }
 

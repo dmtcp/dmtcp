@@ -56,6 +56,12 @@ static dmtcp::ConnectionState* theCheckpointState = NULL;
 void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
+    case DMTCP_EVENT_INITIAL_EXEC:
+      dmtcp::ConnectionList::instance().scanForPreExisting();
+      JTRACE("Initial socket table:");
+      dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
+      break;
+
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
       if (theCheckpointState != NULL) {
         delete theCheckpointState;
@@ -76,16 +82,9 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       {
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
         dmtcp::KernelDeviceToConnection::instance().serialize(rd);
-
         JTRACE("Initial socket table:");
         dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
       }
-      break;
-
-    case DMTCP_EVENT_POST_EXEC_NEW:
-      dmtcp::ConnectionList::instance().scanForPreExisting();
-      JTRACE("Initial socket table:");
-      dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
       break;
 
     case DMTCP_EVENT_POST_RESTART:
