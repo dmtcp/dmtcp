@@ -43,6 +43,7 @@
 #include "../jalib/jalloc.h"
 #include "virtualidtable.h"
 #include "syscallwrappers.h"
+#include "shareddata.h"
 
 #define REAL_TO_VIRTUAL_IPC_ID(id) \
   dmtcp::SysVIPC::instance().realToVirtualId(id)
@@ -84,7 +85,8 @@ namespace dmtcp
         if (_ipcVirtIdTable.virtualIdExists(virtId)) {
           return _ipcVirtIdTable.virtualToReal(virtId);
         } else {
-          return -1;
+          int realId = dmtcp::SharedData::getRealIPCId(virtId);
+          return realId;
         }
       }
       int  realToVirtualId(int realId) {
@@ -112,6 +114,9 @@ namespace dmtcp
 
       void on_msgget(int msqid, key_t key, int msgflg);
       void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+      void on_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg);
+      void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+                     int msgtyp, int msgflg);
 
       void serialize(jalib::JBinarySerializer& o);
     private:

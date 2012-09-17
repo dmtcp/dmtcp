@@ -138,6 +138,9 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
     realId = VIRTUAL_TO_REAL_IPC_ID(semid);
     JASSERT(realId != -1);
     ret = _real_semtimedop(realId, sops, nsops, timeout);
+    if (ret == 0) {
+      dmtcp::SysVIPC::instance().on_semop(semid, sops, nsops);
+    }
     WRAPPER_EXECUTION_ENABLE_CKPT();
     return ret;
   }
@@ -152,14 +155,14 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
     realId = VIRTUAL_TO_REAL_IPC_ID(semid);
     JASSERT(realId != -1);
     ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
+    if (ret == 0) {
+      dmtcp::SysVIPC::instance().on_semop(semid, sops, nsops);
+    }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
     // TODO Handle EIDRM
-    if (ret == 0) {
-      dmtcp::SysVIPC::instance().on_semop(semid, sops, nsops);
-      return ret;
-    }
-    if (ret == -1 && errno != EAGAIN) {
+    if (ret == 0 ||
+        (ret == -1 && errno != EAGAIN)) {
       return ret;
     }
 
@@ -226,6 +229,9 @@ int msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
     realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
     JASSERT(realId != -1);
     ret = _real_msgsnd(realId, msgp, msgsz, msgflg | IPC_NOWAIT);
+    if (ret == 0) {
+      dmtcp::SysVIPC::instance().on_msgsnd(msqid, msgp, msgsz, msgflg);
+    }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
     // TODO Handle EIDRM
@@ -257,6 +263,9 @@ ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
     realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
     JASSERT(realId != -1);
     ret = _real_msgrcv(realId, msgp, msgsz, msgtyp, msgflg | IPC_NOWAIT);
+    if (ret == 0) {
+      dmtcp::SysVIPC::instance().on_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+    }
     WRAPPER_EXECUTION_ENABLE_CKPT();
 
     // TODO Handle EIDRM

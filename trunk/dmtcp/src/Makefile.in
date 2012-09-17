@@ -130,7 +130,8 @@ am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
 	connectionidentifier.$(OBJEXT) util_exec.$(OBJEXT) \
 	util_gen.$(OBJEXT) util_init.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT)
+	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT) \
+	shareddata.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -363,7 +364,7 @@ nobase_noinst_HEADERS = constants.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
-	dmtcpplugin.h lookup_service.h trampolines.h
+	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
 
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -379,7 +380,8 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     ckptserializer.cpp resource_manager.cpp \
+			     shareddata.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
@@ -722,6 +724,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resource_manager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restoretarget.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@

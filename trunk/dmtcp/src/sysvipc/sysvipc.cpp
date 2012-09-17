@@ -37,6 +37,7 @@
 #include "../dmtcpworker.h"
 #include "../protectedfds.h"
 #include "../util.h"
+#include "../shareddata.h"
 #include "sysvipc.h"
 
 // FIXME: Check and verify the correctness of SEM_UNDO logic for Semaphores.
@@ -287,11 +288,12 @@ void dmtcp::SysVIPC::on_shmget(int shmid, key_t key, size_t size, int shmflg)
   _do_lock_tbl();
   if (!_ipcVirtIdTable.realIdExists(shmid)) {
     JASSERT(_shm.find(shmid) == _shm.end());
-    int virtualShmid = getNewVirtualId();
+    int virtId = getNewVirtualId();
     JTRACE ("Shmid not found in table. Creating new entry")
-      (shmid) (virtualShmid);
-    updateMapping(virtualShmid, shmid);
-    _shm[virtualShmid] = new ShmSegment(virtualShmid, shmid, key, size, shmflg);
+      (shmid) (virtId);
+    updateMapping(virtId, shmid);
+    dmtcp::SharedData::setIPCIdMap(virtId, shmid);
+    _shm[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
   } else {
     JASSERT(_shm.find(shmid) != _shm.end());
   }
@@ -302,6 +304,11 @@ void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
                               void* newaddr)
 {
   _do_lock_tbl();
+  if (!_ipcVirtIdTable.virtualIdExists(shmid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(shmid);
+    updateMapping(shmid, realId);
+    _shm[shmid] = new ShmSegment(shmid, realId, -1, -1, -1);
+  }
   JASSERT(_ipcVirtIdTable.virtualIdExists(shmid)) (shmid);
   JASSERT(_shm.find(shmid) != _shm.end()) (shmid);
 
@@ -381,9 +388,10 @@ void dmtcp::SysVIPC::on_semget(int semid, key_t key, int nsems, int semflg)
     //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (semid);
     JASSERT(_sem.find(semid) == _sem.end());
     JTRACE ("Semid not found in table. Creating new entry") (semid);
-    int virtualSemid = getNewVirtualId();
-    updateMapping(virtualSemid, semid);
-    _sem[virtualSemid] = new Semaphore (virtualSemid, semid, key, nsems, semflg);
+    int virtId = getNewVirtualId();
+    updateMapping(virtId, semid);
+    dmtcp::SharedData::setIPCIdMap(virtId, semid);
+    _sem[virtId] = new Semaphore (virtId, semid, key, nsems, semflg);
   } else {
     JASSERT(_sem.find(semid) != _sem.end());
   }
@@ -392,16 +400,25 @@ void dmtcp::SysVIPC::on_semget(int semid, key_t key, int nsems, int semflg)
 
 void dmtcp::SysVIPC::on_semctl(int semid, int semnum, int cmd, union semun arg)
 {
-  if (cmd == IPC_RMID) {
+  _do_lock_tbl();
+  if (cmd == IPC_RMID && _ipcVirtIdTable.virtualIdExists(semid)) {
     JASSERT(_sem[semid]->isStale()) (semid);
     _sem.erase(semid);
   }
+  _do_unlock_tbl();
   return;
 }
 
 void dmtcp::SysVIPC::on_semop(int semid, struct sembuf *sops, unsigned nsops)
 {
+  _do_lock_tbl();
+  if (!_ipcVirtIdTable.virtualIdExists(semid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(semid);
+    updateMapping(semid, realId);
+    _sem[semid] = new Semaphore(semid, realId, -1, -1, -1);
+  }
   _sem[semid]->on_semop(sops, nsops);
+  _do_unlock_tbl();
 }
 
 void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
@@ -410,9 +427,10 @@ void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
   if (!_ipcVirtIdTable.realIdExists(msqid)) {
     JASSERT(_msq.find(msqid) == _msq.end());
     JTRACE ("Msqid not found in table. Creating new entry") (msqid);
-    int virtualId = getNewVirtualId();
-    updateMapping(virtualId, msqid);
-    _msq[virtualId] = new MsgQueue (virtualId, msqid, key, msgflg);
+    int virtId = getNewVirtualId();
+    updateMapping(virtId, msqid);
+    dmtcp::SharedData::setIPCIdMap(virtId, msqid);
+    _msq[virtId] = new MsgQueue (virtId, msqid, key, msgflg);
   } else {
     JASSERT(_msq.find(msqid) != _msq.end());
   }
@@ -421,11 +439,37 @@ void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
 
 void dmtcp::SysVIPC::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
-  if (cmd == IPC_RMID) {
+  _do_lock_tbl();
+  if (cmd == IPC_RMID && _ipcVirtIdTable.virtualIdExists(msqid)) {
     JASSERT(_msq[msqid]->isStale()) (msqid);
     _msq.erase(msqid);
   }
+  _do_unlock_tbl();
   return;
+}
+
+void dmtcp::SysVIPC::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+                               int msgflg)
+{
+  _do_lock_tbl();
+  if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(msqid);
+    updateMapping(msqid, realId);
+    _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
+  }
+  _do_unlock_tbl();
+}
+
+void dmtcp::SysVIPC::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+                               int msgtyp, int msgflg)
+{
+  _do_lock_tbl();
+  if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(msqid);
+    updateMapping(msqid, realId);
+    _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
+  }
+  _do_unlock_tbl();
 }
 
 void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
@@ -444,6 +488,13 @@ dmtcp::ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
   : SysVObj(shmid, realShmid, key, shmflg)
 {
   _size = size;
+  if (key == -1) {
+    struct shmid_ds shminfo;
+    JASSERT(_real_shmctl(_realId, IPC_STAT, &shminfo) != -1);
+    _key = shminfo.shm_perm.__key;
+    _size = shminfo.shm_segsz;
+    _flags = shminfo.shm_perm.mode;
+  }
   JTRACE("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
 }
 
@@ -581,6 +632,13 @@ dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
   : SysVObj(semid, realSemid, key, semflg)
 {
   _nsems = nsems;
+  if (key == -1) {
+    union semun se;
+    JASSERT(_real_semctl(realSemid, 0, IPC_STAT, se) != -1);
+    _key = se.buf->sem_perm.__key;
+    _nsems = se.buf->sem_nsems;
+    _flags = se.buf->sem_perm.mode;
+  }
   _semval = new unsigned short[nsems];
   _semadj = new int[nsems];
   for (int i = 0; i < nsems; i++) {
@@ -699,6 +757,12 @@ void dmtcp::Semaphore::postCheckpoint(bool isRestart)
 dmtcp::MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
   : SysVObj(msqid, realMsqid, key, msgflg)
 {
+  if (key == -1) {
+    struct msqid_ds buf;
+    JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
+    _key = buf.msg_perm.__key;
+    _flags = buf.msg_perm.mode;
+  }
   JTRACE("New MsgQueue Created") (_key) (_flags) (_id);
 }
 
