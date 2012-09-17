@@ -324,7 +324,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
   }
 }
 
-void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(time_t *coordTimeStamp)
+void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
 {
   if (noCoordinator()) return;
   JTRACE("receiving coordinator handshake");
@@ -339,18 +339,14 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(time_t *coordTimeStamp)
     _exit (0);
   }
 
-  if (coordTimeStamp == NULL) {
-    JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
-  } else {
-    JASSERT(hello_remote.type == DMT_RESTART_PROCESS_REPLY) (hello_remote.type);
-  }
+  JASSERT(hello_remote.type == DMT_HELLO_WORKER ||
+          hello_remote.type == DMT_RESTART_PROCESS_REPLY)
+    (hello_remote.type);
 
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator(_coordinatorId);
   UniquePid::ComputationId() = hello_remote.compGroup;
-  if (coordTimeStamp != NULL) {
-    *coordTimeStamp = hello_remote.coordTimeStamp;
-  }
+  _coordTimeStamp = hello_remote.coordTimeStamp;
   _virtualPid = hello_remote.virtualPid;
   JTRACE("Coordinator handshake RECEIVED!!!!!");
 }

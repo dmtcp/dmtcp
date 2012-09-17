@@ -125,7 +125,8 @@ static void restoreSockets(dmtcp::CoordinatorAPI& coordinatorAPI,
   coordinatorAPI.sendCoordinatorHandshake(jalib::Filesystem::GetProgramName(),
                                           compGroup, numPeers,
                                           DMT_RESTART_PROCESS);
-  coordinatorAPI.recvCoordinatorHandshake(&coordTstamp);
+  coordinatorAPI.recvCoordinatorHandshake();
+  coordTstamp = coordinatorAPI.coordTimeStamp();
   JTRACE("Connected to coordinator") (coordTstamp);
 
   jalib::JSocket& coordinatorSocket = coordinatorAPI.coordinatorSocket();

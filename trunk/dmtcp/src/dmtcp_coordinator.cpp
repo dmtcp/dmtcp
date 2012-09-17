@@ -1224,6 +1224,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
   JTRACE("Connection from (restarting) computation process")
     ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
 
+  hello_local.coordTimeStamp = curTimeStamp;
   remote << hello_local;
 
   // NOTE: Sending the same message twice. We want to make sure that the
@@ -1307,7 +1308,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
         localPrefix = ds->prefixDir();
         localHostName = ds->hostname();
       }
-      curTimeStamp = 0;
+      curTimeStamp = time(NULL);
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group")
         (UniquePid::ComputationId());
@@ -1333,6 +1334,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
       }
     }
     hello_local.compGroup = UniquePid::ComputationId();
+    hello_local.coordTimeStamp = curTimeStamp;
     remote << hello_local;
   }
   return true;
