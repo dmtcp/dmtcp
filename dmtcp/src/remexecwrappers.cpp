@@ -47,6 +47,7 @@
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
+#include "protectedfds.h"
 #include "util.h"
 #include "resource_manager.h"
 #include  "../jalib/jconvert.h"

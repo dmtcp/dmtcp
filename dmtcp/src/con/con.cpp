@@ -35,6 +35,7 @@
 #include "dmtcpworker.h"
 #include "dmtcpplugin.h"
 #include "util.h"
+#include "coordinatorapi.h"
 #include "resource_manager.h"
 #include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
@@ -120,7 +121,7 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       //handshake is done after one barrier after drain
       JTRACE("beginning handshakes");
       theCheckpointState->preCheckpointHandshakes(
-                                dmtcp::DmtcpWorker::instance().coordinatorId());
+                            dmtcp::CoordinatorAPI::instance().coordinatorId());
       JTRACE("handshaking done");
 #endif
       break;

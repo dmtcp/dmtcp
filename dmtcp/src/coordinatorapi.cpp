@@ -41,6 +41,34 @@ dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   return;
 }
 
+static dmtcp::CoordinatorAPI *coordAPIInst = NULL;
+dmtcp::CoordinatorAPI& dmtcp::CoordinatorAPI::instance()
+{
+  //static SysVIPC *inst = new SysVIPC(); return *inst;
+  if (coordAPIInst == NULL) {
+    coordAPIInst = new CoordinatorAPI();
+  }
+  return *coordAPIInst;
+}
+
+void dmtcp::CoordinatorAPI::resetOnFork(dmtcp::CoordinatorAPI& coordAPI)
+{
+  JASSERT(coordAPI.coordinatorSocket().isValid());
+  JASSERT(coordAPI.coordinatorSocket().sockfd() != PROTECTED_COORD_FD);
+  instance() = coordAPI;
+  instance()._coordinatorSocket.changeFd(PROTECTED_COORD_FD);
+
+  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+
+  instance().sendCoordinatorHandshake(jalib::Filesystem::GetProgramName()
+                                        + "_(forked)",
+                                      UniquePid::ComputationId(),
+                                      -1,
+                                      DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
+  // The coordinator won't send any msg in response to DMT_UPDATE... so no need
+  // to call recvCoordinatorHandshake().
+}
+
 void dmtcp::CoordinatorAPI::setupVirtualCoordinator()
 {
   jalib::JSockAddr addr;
@@ -224,21 +252,6 @@ void dmtcp::CoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progNam
                            true);
   recvCoordinatorHandshake();
   JASSERT(_virtualPid != -1);
-}
-
-void dmtcp::CoordinatorAPI::informCoordinatorOfNewProcessOnFork
-  (jalib::JSocket& coordSock)
-{
-  JASSERT(coordSock.isValid());
-  JASSERT(coordSock.sockfd() != PROTECTED_COORD_FD);
-  _coordinatorSocket = coordSock;
-  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
-
-  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
-  sendCoordinatorHandshake(jalib::Filesystem::GetProgramName() + "_(forked)",
-                           UniquePid::ComputationId(),
-                           -1,
-                           DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
 }
 
 void dmtcp::CoordinatorAPI::connectToCoordinatorWithHandshake()

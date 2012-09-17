@@ -38,6 +38,7 @@
 #include "protectedfds.h"
 #include "dmtcpplugin.h"
 #include "ckptserializer.h"
+#include "coordinatorapi.h"
 #include "util.h"
 
 #include "../jalib/jfilesystem.h"
@@ -262,7 +263,7 @@ static void callbackPostCheckpoint(int isRestart,
     /* This calls setenv() which calls malloc. Since this is only executed on
        restart, that means it there is an extra malloc on replay. Commenting this
        until we have time to fix it. */
-    dmtcp::DmtcpWorker::instance().updateCoordinatorHostAndPortEnv();
+    dmtcp::CoordinatorAPI::instance().updateHostAndPortEnv();
 #endif
 
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
@@ -294,7 +295,7 @@ static void callbackPostCheckpoint(int isRestart,
    *      The current solution is to send a dummy message to coordinator here
    *      before sending a proper request.
    */
-  dmtcp::DmtcpWorker::instance().sendCkptFilenameToCoordinator();
+  dmtcp::CoordinatorAPI::instance().sendCkptFilename();
 
   dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
   dmtcp::DmtcpWorker::processEvent(isRestart ? DMTCP_EVENT_POST_RESTART_REFILL

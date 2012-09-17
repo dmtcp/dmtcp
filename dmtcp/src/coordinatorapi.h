@@ -58,6 +58,9 @@ namespace dmtcp
       CoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
       // Use default destructor
 
+      static CoordinatorAPI& instance();
+      static void resetOnFork(CoordinatorAPI& coordAPI);
+
       void closeConnection() { _coordinatorSocket.close(); }
 
       void sendMsgToCoordinator(DmtcpMessage msg,
@@ -90,7 +93,6 @@ namespace dmtcp
       pid_t virtualPid() const { return _virtualPid; }
       pid_t getVirtualPidFromCoordinator();
       void createNewConnectionBeforeFork(dmtcp::string& progName);
-      void informCoordinatorOfNewProcessOnFork(jalib::JSocket& coordSock);
 
       // np > -1  means it is restarting a process that have np processes in its
       //           computation group
