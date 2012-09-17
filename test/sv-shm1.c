@@ -67,6 +67,7 @@ int main(int argc, char **argv)
     perror("shmctl: shmctl failed");
     exit(1);
   }
+  printf("Shmid: %d\n", shmid);
 
   void *addr = shmat(shmid, NULL, 0);
   if (addr == (void*) -1) {

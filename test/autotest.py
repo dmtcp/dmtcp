@@ -624,7 +624,8 @@ if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   print "On ARM, there is a known issue with the sysv-shm test. Not running it."
 else:
-  runTest("sysv-shm",      2, ["./test/sysv-shm"])
+  runTest("sv-shm1",       2, ["./test/sv-shm1"])
+  runTest("sv-shm2",       2, ["./test/sv-shm2"])
   runTest("sysv-sem",      2, ["./test/sysv-sem"])
   runTest("sysv-msg",      2, ["./test/sysv-msg"])
 

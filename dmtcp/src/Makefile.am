@@ -40,7 +40,7 @@ nobase_noinst_HEADERS = constants.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
 	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
-	dmtcpplugin.h lookup_service.h trampolines.h
+	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -55,7 +55,8 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     ckptserializer.cpp resource_manager.cpp \
+			     shareddata.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \

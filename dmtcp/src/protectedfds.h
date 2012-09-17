@@ -35,6 +35,7 @@
 #define PROTECTED_COORD_ALT_FD     PFD(4)
 #define PROTECTED_STDERR_FD        PFD(5)
 #define PROTECTED_JASSERTLOG_FD    PFD(6)
+#define PROTECTED_SHM_FD           PFD(8)
 #define PROTECTED_PIDMAP_FD        PFD(9)
 #define PROTECTED_PTRACE_FD        PFD(10)
 #define PROTECTED_TMPDIR_FD        PFD(11)
