@@ -345,3 +345,13 @@ bool dmtcp::Util::isPtraced()
 {
   return getTracerPid() != 0;
 }
+
+bool dmtcp::Util::isValidFd(int fd)
+{
+  int f = _real_dup(fd);
+  if (f == -1) {
+    return false;
+  }
+  _real_close(f);
+  return true;
+}

@@ -120,6 +120,7 @@ namespace dmtcp
     int readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area);
     pid_t getTracerPid(pid_t tid = -1);
     bool isPtraced();
+    bool isValidFd(int fd);
   }
 }
 
