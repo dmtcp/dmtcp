@@ -22,7 +22,6 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
-#include "coordinatorapi.h"
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
@@ -78,7 +77,6 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       static DmtcpWorker& instance();
-      const dmtcp::UniquePid& coordinatorId() const;
 
       void waitForCoordinatorMsg(dmtcp::string signalStr,
                                  DmtcpMessageType type);
@@ -97,18 +95,11 @@ namespace dmtcp
       void restoreVirtualPidTable();
       void postRestart();
 
-      static void resetOnFork(jalib::JSocket& coordSock);
+      static void resetOnFork();
       void cleanupWorker();
 
       DmtcpWorker ( bool shouldEnableCheckpointing );
       ~DmtcpWorker();
-
-      void sendCkptFilenameToCoordinator();
-      void updateCoordinatorHostAndPortEnv();
-      int sendKeyValPairToCoordinator(const void *key, size_t key_len,
-                                      const void *val, size_t val_len);
-      int sendQueryToCoordinator(const void *key, size_t key_len,
-                                 void *val, size_t *val_len);
 
       static int determineMtcpSignal();
 
@@ -124,7 +115,6 @@ namespace dmtcp
       void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
-      CoordinatorAPI _coordinatorAPI;
       static bool _exitInProgress;
   };
 }

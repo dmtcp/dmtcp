@@ -33,6 +33,7 @@
 #include "syslogwrappers.h"
 #include "dmtcpplugin.h"
 #include "util.h"
+#include "coordinatorapi.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
@@ -106,7 +107,8 @@ LIB_PRIVATE void pthread_atfork_child()
   dmtcp::ProcessInfo::instance().resetOnFork();
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
-  dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+  dmtcp::CoordinatorAPI::resetOnFork(coordinatorAPI);
+  dmtcp::DmtcpWorker::resetOnFork();
 }
 
 extern "C" pid_t fork()

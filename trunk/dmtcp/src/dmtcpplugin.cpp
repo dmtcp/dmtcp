@@ -4,6 +4,7 @@
 #include "protectedfds.h"
 #include "dmtcpworker.h"
 #include "dmtcpmessagetypes.h"
+#include "coordinatorapi.h"
 
 using namespace dmtcp;
 
@@ -131,8 +132,8 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    const void *val,
                                                    size_t val_len)
 {
-  return DmtcpWorker::instance().sendKeyValPairToCoordinator(key, key_len,
-                                                             val, val_len);
+  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(key, key_len,
+                                                                val, val_len);
 }
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
@@ -142,7 +143,8 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
 EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                             void *val, size_t *val_len)
 {
-  return DmtcpWorker::instance().sendQueryToCoordinator(key, key_len, val, val_len);
+  return CoordinatorAPI::instance().sendQueryToCoordinator(key, key_len,
+                                                           val, val_len);
 }
 
 EXTERNC int dmtcp_no_coordinator()

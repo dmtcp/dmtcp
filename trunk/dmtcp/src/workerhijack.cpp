@@ -29,11 +29,9 @@
 // This gets executed before main().
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
-void dmtcp::DmtcpWorker::resetOnFork(jalib::JSocket& coordSock)
+void dmtcp::DmtcpWorker::resetOnFork()
 {
   dmtcp_process_event(DMTCP_EVENT_RESET_ON_FORK, NULL);
-
-  UniquePid coordinatorId = theInstance.coordinatorId();
 
   theInstance.cleanupWorker();
   shutdownMtcpEngineOnFork();
@@ -53,8 +51,6 @@ void dmtcp::DmtcpWorker::resetOnFork(jalib::JSocket& coordSock)
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
-  instance()._coordinatorAPI.setCoordinatorId(coordinatorId);
-  instance()._coordinatorAPI.informCoordinatorOfNewProcessOnFork(coordSock);
 
   //WRAPPER_EXECUTION_GET_EXCL_LOCK();
   initializeMtcpEngine();
