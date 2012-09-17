@@ -69,17 +69,15 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
   JASSERT(msg.type == DMT_USER_CMD) (msg.type)
     .Text("Unexpected connection.");
 
-  reply.params[0] = CoordinatorAPI::NOERROR;
-  reply.params[1] = CoordinatorAPI::NOERROR;
+  reply.coordErrorCode = CoordinatorAPI::NOERROR;
 
-  switch (msg.params[0]) {
+  switch (msg.coordCmd) {
 //    case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
 //      JTRACE("blocking checkpoint beginning...");
 //      blockUntilDone = true;
 //      break;
     case 'c': case 'C':
       JTRACE("checkpointing...");
-      reply.params[0] = 1;
       break;
     case 'k': case 'K':
     case 'q': case 'Q':
@@ -87,9 +85,8 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
       _exit(0);
       break;
     default:
-      JTRACE("unhandled user command") (msg.params[0]);
-      reply.params[0] = CoordinatorAPI::ERROR_INVALID_COMMAND;
-      reply.params[1] = CoordinatorAPI::ERROR_INVALID_COMMAND;
+      JTRACE("unhandled user command") (msg.coordCmd);
+      reply.coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
   }
   cmdSock << reply;
   cmdSock.close();
@@ -147,13 +144,16 @@ void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
   }
 }
 
-void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c, int* result /*= NULL*/)
+void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
+                                                      int *coordErrorCode,
+                                                      int *numPeers,
+                                                      int *running)
 {
   if (tryConnectToCoordinator() == false) {
-    *result = ERROR_COORDINATOR_NOT_FOUND;
+    *coordErrorCode = ERROR_COORDINATOR_NOT_FOUND;
     return;
   }
-  sendUserCommand(c,result);
+  sendUserCommand(c, coordErrorCode, numPeers, running);
   _coordinatorSocket.close();
 }
 
@@ -271,7 +271,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
   dmtcp::string prefixDir;
   DmtcpMessage hello_local;
   hello_local.type = msgType;
-  hello_local.params[0] = np;
+  hello_local.numPeers = np;
   hello_local.compGroup = compGroup;
   hello_local.restorePort = theRestorePort;
 
@@ -324,7 +324,7 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
   }
 }
 
-void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(int *param1)
+void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(time_t *coordTimeStamp)
 {
   if (noCoordinator()) return;
   JTRACE("receiving coordinator handshake");
@@ -339,7 +339,7 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(int *param1)
     _exit (0);
   }
 
-  if (param1 == NULL) {
+  if (coordTimeStamp == NULL) {
     JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
   } else {
     JASSERT(hello_remote.type == DMT_RESTART_PROCESS_REPLY) (hello_remote.type);
@@ -348,21 +348,22 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake(int *param1)
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator(_coordinatorId);
   UniquePid::ComputationId() = hello_remote.compGroup;
-  if (param1) {
-    *param1 = hello_remote.params[0];
+  if (coordTimeStamp != NULL) {
+    *coordTimeStamp = hello_remote.coordTimeStamp;
   }
   _virtualPid = hello_remote.virtualPid;
   JTRACE("Coordinator handshake RECEIVED!!!!!");
 }
 
 //tell the coordinator to run given user command
-void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
+void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordErrorCode /*= NULL*/,
+                                            int *numPeers, int *isRunning)
 {
   DmtcpMessage msg, reply;
 
   //send
   msg.type = DMT_USER_CMD;
-  msg.params[0] = c;
+  msg.coordCmd = c;
 
   if (c == 'i') {
     const char* interval = getenv (ENV_VAR_CKPT_INTR);
@@ -374,7 +375,7 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
 
   //the coordinator will violently close our socket...
   if (c=='q' || c=='Q') {
-    result[0]=0;
+    *coordErrorCode = CoordinatorAPI::NOERROR;
     return;
   }
 
@@ -384,8 +385,14 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* result /*= NULL*/)
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
 
-  if (result!=NULL) {
-    memcpy(result, reply.params, sizeof(reply.params));
+  if (coordErrorCode != NULL) {
+    *coordErrorCode =  reply.coordErrorCode;
+  }
+  if (numPeers != NULL) {
+    *numPeers =  reply.numPeers;
+  }
+  if (isRunning != NULL) {
+    *isRunning = reply.isRunning;
   }
 }
 
@@ -429,7 +436,9 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::Coor
     //fork so if we hit an error parent won't die
     dup2(2,1);                          //copy stderr to stdout
     dup2(open("/dev/null",O_RDWR), 2);  //close stderr
-    int result[DMTCPMESSAGE_NUM_PARAMS];
+    int numPeers;
+    int isRunning;
+    int coordErrorCode;
     CoordinatorAPI coordinatorAPI;
     {
       if (coordinatorAPI.tryConnectToCoordinator() == false) {
@@ -438,14 +447,12 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::Coor
       }
     }
 
-    coordinatorAPI.sendUserCommand('s',result);
+    coordinatorAPI.sendUserCommand('s', &coordErrorCode, &numPeers, &isRunning);
     coordinatorAPI._coordinatorSocket.close();
 
-    // result[0] == numPeers of coord;  bool result[1] == computation is running
-    if (result[0]==0 || result[1] ^ isRestart) {
-      if (result[0] != 0) {
-        int num_processes = result[0];
-        JTRACE("Joining existing computation.") (num_processes);
+    if (numPeers == 0 || (isRunning ^ isRestart)) {
+      if (numPeers != 0) {
+        JTRACE("Joining existing computation.") (numPeers);
       }
       _real_exit(CS_OK);
     }else{

@@ -52,7 +52,7 @@ using namespace dmtcp;
 // Some global definitions
 static dmtcp::UniquePid compGroup;
 static int numPeers;
-static int coordTstamp = 0;
+static time_t coordTstamp = 0;
 
 dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 

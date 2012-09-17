@@ -189,9 +189,11 @@ namespace dmtcp
 //#endif
 
     int theCheckpointInterval;
-
-    //message type specific parameters
-    int params[DMTCPMESSAGE_NUM_PARAMS];
+    char coordCmd;
+    time_t coordTimeStamp;
+    int numPeers;
+    int isRunning;
+    int coordErrorCode;
 
     //extraBytes are used for passing checkpoint filename to coordinator it
     //must be zero in all messages except for in DMT_CKPT_FILENAME

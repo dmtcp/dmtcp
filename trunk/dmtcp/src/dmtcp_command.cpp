@@ -141,7 +141,9 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  int result[DMTCPMESSAGE_NUM_PARAMS];
+  int coordErrorCode;
+  int numPeers;
+  int isRunning;
   CoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
@@ -150,34 +152,35 @@ int main ( int argc, char** argv )
     return 1;
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
     // blocking prefix
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
     // actual command
-    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), result);
+    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), &coordErrorCode);
     break;
   case 's':
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode,
+                                             &numPeers, &isRunning);
   case 'c':
   case 'f':
   case 'k':
   case 'q':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
     break;
   }
 
   //check for error
-  if(result[0]<0){
-    switch(result[0]){
+  if (coordErrorCode != CoordinatorAPI::NOERROR) {
+    switch(coordErrorCode){
     case CoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
       if (getenv("DMTCP_PORT"))
-        fprintf(stderr,
-	        "Coordinator not found.  Please check port and host.\n");
+        fprintf(stderr, "Coordinator not found. Please check port and host.\n");
       else
         fprintf(stderr,
-	      "Coordinator not found.  Try specifying port with \'--port\'.\n");
+	      "Coordinator not found. Try specifying port with \'--port\'.\n");
       break;
     case CoordinatorAPI::ERROR_INVALID_COMMAND:
       fprintf(stderr,
@@ -200,8 +203,8 @@ int main ( int argc, char** argv )
       printf("  Host: %s\n", getenv(ENV_VAR_NAME_HOST));
     printf("  Port: %s\n", getenv(ENV_VAR_NAME_PORT));
     printf("Status...\n");
-    printf("NUM_PEERS=%d\n", result[0]);
-    printf("RUNNING=%s\n", (result[1]?"yes":"no"));
+    printf("NUM_PEERS=%d\n", numPeers);
+    printf("RUNNING=%s\n", (isRunning?"yes":"no"));
   }
 
   return 0;
