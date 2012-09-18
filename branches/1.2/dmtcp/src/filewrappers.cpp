@@ -294,8 +294,6 @@ static int getNextFreeSlavePtyNum()
   return counter;
 }
 
-#define DMTCP_PTS_PREFIX_STR  "dmtcp_"
-#define UNIQUE_PTS_PREFIX_STR "/dev/pts/dmtcp_"
 //DMTCP_PTS_PREFIX_STR
 
 /*
