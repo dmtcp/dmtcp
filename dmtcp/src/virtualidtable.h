@@ -186,7 +186,7 @@ namespace dmtcp
         IdType virtualToReal(IdType virtualId) {
           IdType retVal = 0;
 
-          if (virtualId == -1 || virtualId == 0) {
+          if (virtualId == -1) {
             return virtualId;
           }
 
@@ -207,7 +207,7 @@ namespace dmtcp
         }
 
         IdType realToVirtual(IdType realId) {
-          if (realId == -1 || realId == 0) {
+          if (realId == -1) {
             return realId;
           }
 
