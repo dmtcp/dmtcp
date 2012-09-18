@@ -403,7 +403,7 @@ int main ( int argc, char** argv )
   }
 
   // UNSET DISPLAY environment variable.
-  unsetenv("DISPLAY");
+  //unsetenv("DISPLAY");
 
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
