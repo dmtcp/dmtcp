@@ -203,6 +203,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   exit(0);
 }
 
+dmtcp::string dmtcp_Connection_VirtualToRealPtsName(const char *ptsname);
 // FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
@@ -222,10 +223,28 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   // FIXME:  USE THIS FOR ALL setuid/setgid PROCESSES EXCEPT ONES THAT
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
-  if (path != NULL &&
-      dmtcp::Util::strEndsWith(path, "/utempter")) {
+  if (path != NULL && dmtcp::Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
+    int oldIdx = -1;
+    char *oldStr = NULL;
+    dmtcp::string realPtsNameStr;
+    // utempter takes a pts slave name as an argument. Since we virtualize
+    // ptys, the slave name points to a virtual slave name, thus we need to
+    // replace it with the real one.
+    for (size_t i = 0; argv[i] != NULL; i++) {
+      if (dmtcp::Util::strStartsWith(argv[i], UNIQUE_PTS_PREFIX_STR)) {
+        oldStr = argv[i];
+        oldIdx = i;
+        realPtsNameStr = dmtcp_Connection_VirtualToRealPtsName(argv[i]);
+        // Override const restriction
+        *(const char**)&argv[i] = realPtsNameStr.c_str();
+      }
+    }
     execShortLivedProcessAndExit(path, argv);
+    if (oldIdx != -1) {
+      // Restore original argv[] if exec failed.
+      *(const char**)&argv[oldIdx] = oldStr;
+    }
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
