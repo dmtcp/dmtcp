@@ -200,6 +200,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(unsetenv)                           \
   MACRO(ptsname_r)                          \
   MACRO(getpt)                              \
+  MACRO(posix_openpt)                              \
   MACRO(openlog)                            \
   MACRO(closelog)                           \
                                             \
@@ -334,6 +335,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
   int _real_ptsname_r (int fd, char * buf, size_t buflen);
   int _real_getpt (void);
+  int _real_posix_openpt (int flags);
 
   int _real_socketpair (int d, int type, int protocol, int sv[2]);
 
