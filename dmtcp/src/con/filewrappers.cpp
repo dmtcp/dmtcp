@@ -288,6 +288,15 @@ extern "C" int getpt()
   return fd;
 }
 
+extern "C" int posix_openpt(int flags)
+{
+  int fd = _real_posix_openpt(flags);
+  if (fd >= 0) {
+    processDevPtmxConnection(fd);
+  }
+  return fd;
+}
+
 static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
