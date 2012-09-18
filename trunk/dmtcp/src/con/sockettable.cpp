@@ -78,11 +78,20 @@ int dmtcp_on_connect(int ret, int sockfd, const struct sockaddr *serv_addr,
 
 extern "C"
 int dmtcp_on_bind(int ret, int sockfd, const struct sockaddr *my_addr,
-                  socklen_t addrlen)
+                  socklen_t my_addrlen)
 {
+  struct sockaddr_storage addr;
+  socklen_t               addrlen;
+
+  // Do not rely on the address passed on to bind as it may contain port 0
+  // which allows the OS to give any unused port. Thus we look ourselves up
+  // using getsockname.
+  JASSERT(getsockname(sockfd, (struct sockaddr *)&addr, &addrlen) == 0) (JASSERT_ERRNO);
+
   dmtcp::TcpConnection& con =
     dmtcp::KernelDeviceToConnection::instance().retrieve(sockfd).asTcp();
-  con.onBind(my_addr, addrlen);
+
+  con.onBind((struct sockaddr*) &addr, addrlen);
   JTRACE("bind") (sockfd) (con.id());
   return ret;
 }
