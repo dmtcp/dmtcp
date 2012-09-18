@@ -78,21 +78,22 @@ extern "C" int dmtcp_on_connect ( int ret, int sockfd, const  struct sockaddr *s
 
 ///
 ///called automatically after a successful user function call
-extern "C" int dmtcp_on_bind ( int ret, int sockfd,  const struct  sockaddr  *my_addr,  socklen_t addrlen )
+extern "C" int dmtcp_on_bind(int ret, int sockfd, const struct sockaddr *my_addr,
+                             socklen_t my_addrlen)
 {
-  dmtcp::TcpConnection& con = dmtcp::KernelDeviceToConnection::instance().retrieve ( sockfd ).asTcp();
+  struct sockaddr_storage addr;
+  socklen_t               addrlen;
 
+  // Do not rely on the address passed on to bind as it may contain port 0
+  // which allows the OS to give any unused port. Thus we look ourselves up
+  // using getsockname.
+  JASSERT(getsockname(sockfd, (struct sockaddr *)&addr, &addrlen) == 0) (JASSERT_ERRNO);
 
-  con.onBind ( my_addr, addrlen );
+  dmtcp::TcpConnection& con =
+    dmtcp::KernelDeviceToConnection::instance().retrieve(sockfd).asTcp();
 
-  JTRACE ( "bind" ) ( sockfd ) ( con.id() );
-//     JASSERT(my_addr != NULL)(my_addr)(addrlen);
-//     dmtcp::SocketEntry& entry = dmtcp::SocketTable::LookupByFd(sockfd);
-//     entry.setAddr(my_addr,addrlen);
-//     entry.setState(dmtcp::SocketEntry::T_BIND);
-//
-//     theThisProcessPorts[((sockaddr_in*)my_addr)->sin_port] = sockfd;
-//
+  con.onBind((struct sockaddr*) &addr, addrlen);
+  JTRACE("bind") (sockfd) (con.id());
   return ret;
 }
 
