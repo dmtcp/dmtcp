@@ -45,7 +45,7 @@ namespace dmtcp {
     };
 
     struct PtraceIdMaps {
-      pid_t pid;
+      pid_t tracerId;
       pid_t childId;
     };
 
@@ -78,9 +78,8 @@ namespace dmtcp {
     int  getRealIPCId(int virtualId);
     void setIPCIdMap(int virtualId, int realId);
 
-    void getPtraceVirtualId(pid_t pid, pid_t *childId);
-    void setPtraceVirtualId(pid_t pid, pid_t childId);
-    void removePtraceVirtualId(pid_t pid, pid_t childId);
+    pid_t getPtraceVirtualId(pid_t tracerId);
+    void setPtraceVirtualId(pid_t tracerId, pid_t childId);
   }
 }
 #endif
