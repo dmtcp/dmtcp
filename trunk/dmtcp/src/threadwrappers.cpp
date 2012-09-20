@@ -27,6 +27,7 @@
 #include "dmtcpplugin.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "../../mtcp/mtcp.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 
@@ -51,7 +52,7 @@ int clone_start(void *arg)
 
   dmtcp::ThreadSync::initThread();
 
-  mtcpFuncPtrs.thread_start(mtcpArg);
+  mtcp_thread_start(mtcpArg);
 
   // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
   JALLOC_HELPER_FREE(threadArg);
@@ -67,7 +68,7 @@ int clone_start(void *arg)
   JTRACE("Calling user function") (gettid());
   int ret = (*fn) (thread_arg);
 
-  mtcpFuncPtrs.thread_return();
+  mtcp_threadiszombie();
   return ret;
 }
 
@@ -79,9 +80,9 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::ThreadSync::incrementUninitializedThreadCount();
 
-  void *mtcpArg = mtcpFuncPtrs.prepare_for_clone(fn, child_stack, &flags, arg,
-                                                 parent_tidptr, newtls,
-                                                 &child_tidptr);
+  void *mtcpArg = mtcp_prepare_for_clone(fn, child_stack, &flags, arg,
+                                         parent_tidptr, newtls,
+                                         &child_tidptr);
 
   struct ThreadArg *threadArg =
     (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
@@ -114,12 +115,11 @@ static void *pthread_start(void *arg)
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
-  mtcpFuncPtrs.fill_in_pthread_id(_real_gettid(), pthread_self());
   dmtcp::ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
   JTRACE("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  mtcpFuncPtrs.threadiszombie();
+  mtcp_threadiszombie();
   /*
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the virtualTid entry from virtualpidtable
@@ -189,7 +189,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 extern "C" void pthread_exit(void * retval)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  mtcpFuncPtrs.threadiszombie();
+  mtcp_threadiszombie();
   dmtcp::ProcessInfo::instance().eraseTid(gettid());
   dmtcp_process_event(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();

@@ -107,7 +107,8 @@ dmtcphijack_so_LDFLAGS = -shared
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 dmtcphijack_so_LDADD    = libdmtcpinternal.a libsysvipc.a libconnection.a \
-			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt
+			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt \
+			  ../../mtcp/libmtcp.so.1
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libconnection.a libjalib.a \
