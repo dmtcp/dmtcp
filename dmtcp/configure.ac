@@ -121,29 +121,16 @@ AC_ARG_ENABLE([pid_virtualization],
 
 AC_ARG_ENABLE([external_socket_handling],
             [AS_HELP_STRING([--enable-external-socket-handling],
-                            [wait for connection to external peer to close;
-			     expensive if stale-socket-handling
-			     also enabled.])],
+                            [wait for connection to external peer to close.])],
             [use_external_socket_handling=$enableval],
             [use_external_socket_handling=no])
-AC_ARG_ENABLE([stale_socket_handling],
-            [AS_HELP_STRING([--disable-stale-socket-handling],
-                            [disable stale socket handling; unknown peer
-			     assumed to be external; follow policy of
-			     external-socket-handling configure option.])],
-            [use_stale_socket_handling=$enableval],
-            [use_stale_socket_handling=yes])
 
 if test "$use_external_socket_handling" = "yes"; then
   AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[],[Socket with no peer is external; wait until communication finished])
 fi
-if test "$use_stale_socket_handling" = "yes"; then
-  AC_DEFINE([STALE_SOCKET_HANDLING],[],[Socket with no peer is stale (no peer exists); ignore socket])
-fi
 #Force other config options for Condor
 if test "$use_condor_support" = "yes"; then
   AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[yes])
-  AC_DEFINE([STALE_SOCKET_HANDLING],[no])
 fi
 
 if test "$use_pid_virt" = "yes"; then

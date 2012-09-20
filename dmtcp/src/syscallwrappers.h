@@ -34,11 +34,6 @@
 #include <sys/wait.h>
 #include <poll.h>
 #include "constants.h"
-#include <sys/ptrace.h>
-// This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
-#ifndef PTRACE_GETEVENTMSG
-# include <linux/ptrace.h>
-#endif
 #include <stdarg.h>
 #ifndef __arm__
 # include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
@@ -137,7 +132,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(wait4)                              \
   MACRO(ioctl)                              \
   MACRO(fcntl)                              \
-  MACRO(ptrace)                             \
                                             \
   MACRO(socket)                             \
   MACRO(connect)                            \

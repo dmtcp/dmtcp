@@ -59,6 +59,11 @@ MTCP_LDFLAGS +=  ${LDFLAGS} -shared
 AS = as --32
 endif
 
+USE_PROC_MAPS = 1
+ifdef USE_PROC_MAPS
+  MTCP_CFLAGS += -DUSE_PROC_MAPS
+endif
+
 #Currently sometimes can't link libmtcp.so without MTCP_CFLAGS=-O0
 MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g
 
@@ -84,11 +89,6 @@ endif
 ifdef FAST_CKPT_RESTART
   MTCP_CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
 endif
-# If ./configure --mtcp-use_proc_maps defined, DMTCP 'make' will set this.
-# If building MTCP standalone, change the line below to invoke this option.
-ifdef USE_PROC_MAPS
-  MTCP_CFLAGS += -DUSE_PROC_MAPS
-endif
 
 ifdef DMTCP_VERSION
   MTCP_CFLAGS += -DDMTCP_VERSION=\"$(DMTCP_VERSION)\"
@@ -111,14 +111,9 @@ else
 		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}
 endif
 
-# After DMTCP-1.2.5 release, remove this and just add PIC for all architectures
 ifdef USE_PROC_MAPS
-ifneq ($(BUILDTYPE),x86_64)
-ifneq ($(BUILDTYPE),arm)
   MTCP_CFLAGS += -fPIC -DPIC
   MTCP_LDFLAGS += -fPIC
-endif
-endif
 endif
 
 # But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
@@ -279,6 +274,16 @@ endif
 # 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
+LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
+	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
+	mtcp_safemmap.o mtcp_safe_open.o \
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
+	mtcp_fastckpt.o ${ARM_EXTRAS}
+
+# for libtools -- not used
+%.lo : %.c
+	libtool --mode=compile gcc -c $(MTCP_CFLAGS) $<
+
 ifndef USE_PROC_MAPS
 # This is the shareable that a user links with the application
 
@@ -305,19 +310,7 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	    mv mtcp.t mtcp.t-fail; false; \
 	  fi \
 	fi
-endif
 
-LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
-	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
-	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
-	mtcp_fastckpt.o ${ARM_EXTRAS}
-
-# for libtools -- not used
-%.lo : %.c
-	libtool --mode=compile gcc -c $(MTCP_CFLAGS) $<
-
-ifndef USE_PROC_MAPS
 libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up.
@@ -330,8 +323,9 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
 	  -ldl -lpthread -lm
-	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
-	ln -sf libmtcp.so.1 libmtcp.so
+	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
+	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.
@@ -355,12 +349,12 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 else
 libmtcp.so: ${LIBRARY_OBJS}
-	${LD} ${LDFLAGS} \
+	${LD} ${MTCP_LDFLAGS} \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
 	  -ldl -lpthread -lm
-	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
-	ln -sf libmtcp.so.1 libmtcp.so
-	cp ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ./libtmp.so
+	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
+	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
 	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \

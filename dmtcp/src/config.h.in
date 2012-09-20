@@ -93,9 +93,6 @@
 /* Record to log and then replay. */
 #undef RECORD_REPLAY
 
-/* Socket with no peer is stale (no peer exists); ignore socket */
-#undef STALE_SOCKET_HANDLING
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 

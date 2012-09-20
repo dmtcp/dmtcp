@@ -36,12 +36,6 @@ AC_ARG_ENABLE([debug],
             [use_jassert=$enableval],
             [use_jassert=no])
 
-if test "$use_jassert" = "yes"; then
-  AC_SUBST([DEBUG], [yes])
-else
-  AC_SUBST([DEBUG], [no])
-fi
-
 AC_ARG_ENABLE([quiet],
             [AS_HELP_STRING([--enable-quiet],
                             [disable NOTE and WARNING (default is
@@ -127,18 +121,6 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
-AC_ARG_ENABLE([mtcp_proc_maps],
-            [AS_HELP_STRING([--enable-mtcp-proc-maps],
-                            [avoids use of linker script in Fedora packaging
-                             (but ckpt/restart becomes slower)])],
-            [mtcp_use_proc_maps=$enableval],
-            [mtcp_use_proc_maps=default])
-if test "$mtcp_use_proc_maps" = "yes"; then
-  AC_SUBST([MTCP_USE_PROC_MAPS], [yes])
-else
-  AC_SUBST([MTCP_USE_PROC_MAPS], [no])
-fi
-
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
@@ -156,19 +138,9 @@ fi
 
 AC_ARG_ENABLE([external_socket_handling],
             [AS_HELP_STRING([--enable-external-socket-handling],
-                            [wait for connection to external peer to close;
-			     expensive if stale-socket-handling
-			     also enabled.])],
+                            [wait for connection to external peer to close.])],
             [use_external_socket_handling=$enableval],
             [use_external_socket_handling=no])
-AC_ARG_ENABLE([stale_socket_handling],
-            [AS_HELP_STRING([--disable-stale-socket-handling],
-			    [disable stale socket handling; unknown peer
-                             assumed to be external; follow policy of
-                             external-socket-handling configure option.
-			     (OBSOLETE: Do not use)])],
-            [use_stale_socket_handling=$enableval],
-            [use_stale_socket_handling=yes])
 
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],
