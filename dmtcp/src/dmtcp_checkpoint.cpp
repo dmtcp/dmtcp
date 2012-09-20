@@ -455,6 +455,16 @@ int main ( int argc, char** argv )
   preloadLibs += jalib::Filesystem::FindHelperUtility ( "pidvirt.so" );
 #endif
 
+  const char *ldLibPath = getenv("LD_LIBRARY_PATH");
+  dmtcp::string libPath;
+  if (ldLibPath != NULL) {
+    libPath = ldLibPath;
+  }
+  libPath += ":" + jalib::Filesystem::DirName(
+               jalib::Filesystem::FindHelperUtility("libmtcp.so.1"));
+  JASSERT(!libPath.empty());
+  setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
+
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if

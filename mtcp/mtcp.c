@@ -389,7 +389,6 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 #else
                 struct user_desc gdtentrytls[1];
 #endif
-                pthread_t pth;
               };
 
 /*
@@ -531,7 +530,6 @@ static long set_tid_address (int *tidptr);
 static int threadcloned (void *threadv);
 static void setupthread (Thread *thread);
 static void setup_clone_entry (void);
-void mtcp_threadiszombie (void);
 static void threadisdead (Thread *thread);
 static void *checkpointhread (void *dummy);
 static void update_checkpoint_filename(const char *ckptfilename);
@@ -1075,7 +1073,7 @@ void mtcp_dump_tls (char const *file, int line)
  *
  *****************************************************************************/
 
-Thread *mtcp_prepare_for_clone (int (*fn) (void *arg), void *child_stack,
+void *mtcp_prepare_for_clone (int (*fn) (void *arg), void *child_stack,
                                 int *flags, void *arg, int *parent_tidptr,
                                 struct user_desc *newtls, int **child_tidptr)
 {
@@ -1126,7 +1124,7 @@ Thread *mtcp_prepare_for_clone (int (*fn) (void *arg), void *child_stack,
     thread -> actual_tidptr = *child_tidptr;
     DPRINTF("thread %p -> actual_tidptr %p\n", thread, thread -> actual_tidptr);
   }
-  return thread;
+  return (void*) thread;
 }
 
 int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
@@ -1168,30 +1166,6 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
   }
 
   return (rc);
-}
-
-void mtcp_fill_in_pthread_id (pid_t tid, pthread_t pth)
-{
-  struct Thread *thread;
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (thread -> tid == tid) {
-      thread -> pth = pth;
-      break;
-    }
-  }
-}
-
-void mtcp_process_pthread_join (pthread_t pth)
-{
-  struct Thread *thread;
-  for (thread = threads; thread != NULL; thread = thread -> next) {
-    if (pthread_equal(thread -> pth, pth)) {
-      lock_threads();
-      threadisdead(thread);
-      unlk_threads();
-      break;
-    }
-  }
 }
 
 #if defined(__i386__) || defined(__x86_64__)

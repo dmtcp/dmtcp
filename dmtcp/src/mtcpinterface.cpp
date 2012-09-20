@@ -45,6 +45,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
+#include "../../mtcp/mtcp.h"
 
 #ifdef DEBUG
 static int debugEnabled = 1;
@@ -66,8 +67,6 @@ static char *_mtcpRestoreArgvStartAddr = NULL;
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 static void unmapRestoreArgv();
 
-static const char* REOPEN_MTCP = ( char* ) 0x1;
-
 static void callbackSleepBetweenCheckpoint(int sec);
 static void callbackPreCheckpoint(char **ckptFilename);
 static void callbackPostCheckpoint(int isRestart,
@@ -79,85 +78,9 @@ void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int is_ckpt, int is_restart);
 
-LIB_PRIVATE MtcpFuncPtrs_t mtcpFuncPtrs;
-
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
-
-static void* find_and_open_mtcp_so()
-{
-  dmtcp::string mtcpso = jalib::Filesystem::FindHelperUtility ( "libmtcp.so.1" );
-  void* handle = dlopen ( mtcpso.c_str(), RTLD_NOW );
-  JASSERT ( handle != NULL ) ( mtcpso ) (dlerror())
-    .Text ( "failed to load libmtcp.so" );
-  return handle;
-}
-
-// Note that mtcp.so is closed and re-opened (maybe in a different
-//   location) at the time of fork.  Do not statically save the
-//   return value of get_mtcp_symbol across a fork.
-LIB_PRIVATE
-void* get_mtcp_symbol ( const char* name )
-{
-  static void* theMtcpHandle = find_and_open_mtcp_so();
-
-  if ( name == REOPEN_MTCP )
-  {
-    JTRACE ( "reopening libmtcp.so" ) ( theMtcpHandle );
-    //must get ref count down to 0 so it is really unloaded
-    for( int i=0; i<MAX_DLCLOSE_MTCP_CALLS; ++i){
-      if(dlclose(theMtcpHandle) != 0){
-        //failed call means it is unloaded
-        JTRACE("dlclose(libmtcp.so) worked");
-        break;
-      }else{
-        JTRACE("dlclose(libmtcp.so) decremented refcount");
-      }
-    }
-    theMtcpHandle = find_and_open_mtcp_so();
-    JTRACE ( "reopening libmtcp.so DONE" ) ( theMtcpHandle );
-    return 0;
-  }
-
-  void* tmp = _real_dlsym ( theMtcpHandle, name );
-  JASSERT ( tmp != NULL ) ( name )
-    .Text ( "failed to find libmtcp.so symbol for 'name'\n"
-            "Maybe try re-compiling MTCP:   (cd mtcp; make clean); make" );
-
-  //JTRACE("looking up libmtcp.so symbol")(name);
-
-  return tmp;
-}
-
-static void initializeMtcpFuncPtrs()
-{
-  mtcpFuncPtrs.init = (mtcp_init_t) get_mtcp_symbol("mtcp_init");
-  mtcpFuncPtrs.reset_on_fork =
-    (mtcp_reset_on_fork_t) get_mtcp_symbol("mtcp_reset_on_fork");
-  mtcpFuncPtrs.ok = (mtcp_ok_t) get_mtcp_symbol("mtcp_ok");
-  mtcpFuncPtrs.threadiszombie =
-    (mtcp_threadiszombie) get_mtcp_symbol("mtcp_threadiszombie");
-  mtcpFuncPtrs.clone = (mtcp_clone_t) get_mtcp_symbol("__clone");
-  mtcpFuncPtrs.fill_in_pthread_id =
-    (mtcp_fill_in_pthread_id_t) get_mtcp_symbol("mtcp_fill_in_pthread_id");
-  mtcpFuncPtrs.kill_ckpthread =
-    (mtcp_kill_ckpthread_t) get_mtcp_symbol("mtcp_kill_ckpthread");
-  mtcpFuncPtrs.process_pthread_join =
-    (mtcp_process_pthread_join_t) get_mtcp_symbol("mtcp_process_pthread_join");
-  mtcpFuncPtrs.init_dmtcp_info =
-    (mtcp_init_dmtcp_info_t) get_mtcp_symbol("mtcp_init_dmtcp_info");
-  mtcpFuncPtrs.set_callbacks =
-    (mtcp_set_callbacks_t) get_mtcp_symbol("mtcp_set_callbacks");
-  mtcpFuncPtrs.set_dmtcp_callbacks =
-    (mtcp_set_dmtcp_callbacks_t) get_mtcp_symbol("mtcp_set_dmtcp_callbacks");
-  mtcpFuncPtrs.prepare_for_clone =
-    (mtcp_prepare_for_clone_t) get_mtcp_symbol("mtcp_prepare_for_clone");
-  mtcpFuncPtrs.thread_start =
-    (mtcp_thread_start_t) get_mtcp_symbol("mtcp_thread_start");
-  mtcpFuncPtrs.thread_return =
-    (mtcp_thread_return_t) get_mtcp_symbol("mtcp_thread_return");
-}
 
 static void initializeDmtcpInfoInMtcp()
 {
@@ -178,37 +101,46 @@ static void initializeDmtcpInfoInMtcp()
   JASSERT(free_fptr != NULL);
 
 
-  (*mtcpFuncPtrs.init_dmtcp_info) (pidVirtualizationEnabled,
-                                   PROTECTED_STDERR_FD,
-                                   jassertlog_fd,
-                                   restore_working_directory,
-                                   clone_fptr,
-                                   sigaction_fptr,
-                                   malloc_fptr,
-                                   free_fptr);
+  mtcp_init_dmtcp_info(pidVirtualizationEnabled,
+                       PROTECTED_STDERR_FD,
+                       jassertlog_fd,
+                       restore_working_directory,
+                       clone_fptr,
+                       sigaction_fptr,
+                       malloc_fptr,
+                       free_fptr);
 
 }
 
 void dmtcp::initializeMtcpEngine()
 {
-  initializeMtcpFuncPtrs();
   initializeDmtcpInfoInMtcp();
 
-  (*mtcpFuncPtrs.set_callbacks)(&callbackSleepBetweenCheckpoint,
-                                &callbackPreCheckpoint,
-                                &callbackPostCheckpoint,
-                                &callbackShouldCkptFD,
-                                &callbackWriteCkptPrefix);
+  mtcp_set_callbacks(&callbackSleepBetweenCheckpoint,
+                     &callbackPreCheckpoint,
+                     &callbackPostCheckpoint,
+                     &callbackShouldCkptFD,
+                     &callbackWriteCkptPrefix);
 
-  (*mtcpFuncPtrs.set_dmtcp_callbacks)(&callbackHoldsAnyLocks,
-                                      &callbackPreSuspendUserThread,
-                                      &callbackPreResumeUserThread);
+  mtcp_set_dmtcp_callbacks(&callbackHoldsAnyLocks,
+                           &callbackPreSuspendUserThread,
+                           &callbackPreResumeUserThread);
 
   JTRACE ("Calling mtcp_init");
-  mtcpFuncPtrs.init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
-  mtcpFuncPtrs.ok();
+  mtcp_init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
+  mtcp_ok();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );
+}
+
+void dmtcp::shutdownMtcpEngineOnFork()
+{
+  mtcp_reset_on_fork();
+}
+
+void dmtcp::killCkpthread()
+{
+  mtcp_kill_ckpthread();
 }
 
 static void callbackSleepBetweenCheckpoint ( int sec )
@@ -482,56 +414,4 @@ static void unmapRestoreArgv()
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
   }
-}
-
-// FIXME
-// Starting here, we can continue with files for mtcpinterface.cpp - Gene
-
-  // This is called by the child process, only, via DmtcpWorker::resetOnFork().
-  // We know that no one can send the SIG_CKPT signal, since if the
-  //   the coordinator had requested a checkpoint, then either the
-  //   the child successfully forked, or the thread of the parent process
-  //   seeing the fork is processing the checkpoint signal first.  The
-  //   latter case is no problem.  If the child successfully forked, then
-  //   the SIG_CKPT sent by the checkpoint thread of the parent process prior
-  //   to forking is too late to affect the child.  The checkpoint thread
-  //   of the parent process may continue its own checkpointing, but
-  //   the child process will not take part.  It's the coordinator's
-  //   responsibility to then also send a checkpoint message to the checkpoint
-  //   thread of the child.  DOES THE COORDINATOR DO THIS?
-  // After a fork, only the child's user thread (which called fork())
-  //   exists (and we know it's not our own checkpoint thread).  So, no
-  //   thread is listening for a checkpoint command via the socket
-  //   from the coordinator, _even_ if the coordinator decided to start
-  //   the checkpoint immediately after the fork.  The child can't checkpoint
-  //   until we call mtcp_init in the child, as described below.
-  //   Note that resetOnFork() is the last thing done by the child before the
-  //   fork wrapper returns.
-  //   Jason, PLEASE VERIFY THE LOGIC ABOVE.  IT'S FOR THIS REASON, WE
-  //   SHOULDN'T NEED delayCheckpointsLock.  Thanks.  - Gene
-
-  // shutdownMtcpEngineOnFork will dlclose the old libmtcp.so and will
-  //   dlopen a new libmtcp.so.  DmtcpWorker constructor then calls
-  //   initializeMtcpEngine, which will then call mtcp_init.  We must close
-  //   the old SIG_CKPT handler prior to this, so that MTCP and mtcp_init()
-  //   don't think someone else is using their SIG_CKPT signal.
-void dmtcp::shutdownMtcpEngineOnFork()
-{
-#if 1
-  mtcpFuncPtrs.reset_on_fork();
-#else
-  // Remove our signal handler from our SIG_CKPT
-  errno = 0;
-  JWARNING (SIG_ERR != _real_signal(dmtcp::DmtcpWorker::determineMtcpSignal(),
-                                    SIG_DFL))
-           (dmtcp::DmtcpWorker::determineMtcpSignal())
-           (JASSERT_ERRNO)
-           .Text("failed to reset child's checkpoint signal on fork");
-  get_mtcp_symbol ( REOPEN_MTCP );
-#endif
-}
-
-void dmtcp::killCkpthread()
-{
-  mtcpFuncPtrs.kill_ckpthread();
 }

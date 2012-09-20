@@ -32,27 +32,23 @@ extern "C" {
 
 #define MTCP_DEFAULT_SIGNAL SIGUSR2
 
-void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
-                           int stderr_fd,
-                           int jassertlog_fd,
-                           int restore_working_directory,
-                           void *clone_fnptr,
-                           void *sigaction_fnptr,
-                           void *malloc_fnptr,
-                           void *free_fnptr);
-void mtcp_init (char const *checkpointfilename,
-                int interval,
-                int clonenabledefault);
+void mtcp_init_dmtcp_info(int pid_virtualization_enabled,
+                          int stderr_fd,
+                          int jassertlog_fd,
+                          int restore_working_directory,
+                          void *clone_fnptr,
+                          void *sigaction_fnptr,
+                          void *malloc_fnptr,
+                          void *free_fnptr);
+void mtcp_init(char const *checkpointfilename,
+               int interval,
+               int clonenabledefault);
 void mtcp_reset_on_fork();
-int mtcp_wrapper_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg);
 int mtcp_ok (void);
 int mtcp_no (void);
 
-__attribute__ ((visibility ("hidden"))) void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd, off_t offset);
-
-
 void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
-                        void (*pre_ckpt)(),
+                        void (*pre_ckpt)(char **),
                         void (*post_ckpt)(int is_restarting,
                                           char* mtcp_restore_argv_start_addr),
                         int  (*ckpt_fd)(int fd),
