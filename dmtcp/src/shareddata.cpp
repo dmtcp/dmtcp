@@ -34,7 +34,7 @@
 #include "coordinatorapi.h"
 #include "../jalib/jassert.h"
 
-#define SHM_MAX_SIZE (4 * 1024 * 1024)
+#define SHM_MAX_SIZE (sizeof(dmtcp::SharedData::Header) + 4096)
 
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
@@ -223,58 +223,42 @@ void dmtcp::SharedData::setIPCIdMap(int virtualId, int realId)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void dmtcp::SharedData::getPtraceVirtualId(pid_t pid, pid_t *childId)
+pid_t dmtcp::SharedData::getPtraceVirtualId(pid_t tracerId)
 {
-  JASSERT(false) .Text("Not Tested");
-  JASSERT(sharedDataHeader != NULL);
-  JASSERT(childId != NULL);
+  pid_t childId = -1;
+  if (sharedDataHeader == NULL) {
+    return -1;
+  }
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    if (sharedDataHeader->ptraceIdMap[i].pid == pid) {
-      *childId = sharedDataHeader->ptraceIdMap[i].childId;
+    if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
+      childId = sharedDataHeader->ptraceIdMap[i].childId;
+      sharedDataHeader->ptraceIdMap[i] =
+        sharedDataHeader->ptraceIdMap[sharedDataHeader->numPtraceIdMaps];
+      sharedDataHeader->numPtraceIdMaps--;
     }
   }
   Util::unlockFile(PROTECTED_SHM_FD);
+  return childId;
 }
 
-void dmtcp::SharedData::setPtraceVirtualId(pid_t pid, pid_t childId)
+void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
 {
-  JASSERT(false) .Text("Not Tested");
   size_t i;
   JASSERT(sharedDataHeader != NULL);
   Util::lockFile(PROTECTED_SHM_FD);
   for (i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    JASSERT(sharedDataHeader->ptraceIdMap[i].pid != pid)
-      (pid)
-      (sharedDataHeader->ptraceIdMap[i].pid)
+    JASSERT(sharedDataHeader->ptraceIdMap[i].tracerId != tracerId)
+      (tracerId)
+      (sharedDataHeader->ptraceIdMap[i].tracerId)
       (sharedDataHeader->ptraceIdMap[i].childId)
       .Text ("Duplicate Entry");
   }
 
   JASSERT(sharedDataHeader->numPtraceIdMaps < MAX_PTRACE_ID_MAPS);
   i = sharedDataHeader->numPtraceIdMaps;
-  sharedDataHeader->ptraceIdMap[i].pid = pid;
+  sharedDataHeader->ptraceIdMap[i].tracerId = tracerId;
   sharedDataHeader->ptraceIdMap[i].childId = childId;
   sharedDataHeader->numPtraceIdMaps++;
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-
-void dmtcp::SharedData::removePtraceVirtualId(pid_t pid, pid_t childId)
-{
-  JASSERT(false) .Text("Not Tested");
-  size_t i;
-  JASSERT(sharedDataHeader != NULL);
-  Util::lockFile(PROTECTED_SHM_FD);
-  for (i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    if (sharedDataHeader->ptraceIdMap[i].pid == pid) {
-      sharedDataHeader->ptraceIdMap[i] =
-        sharedDataHeader->ptraceIdMap[sharedDataHeader->numPtraceIdMaps];
-      break;
-    }
-  }
-
-  JASSERT(i == sharedDataHeader->numPtraceIdMaps) (pid)
-    .Text("pid not found.");
-  sharedDataHeader->numPtraceIdMaps--;
   Util::unlockFile(PROTECTED_SHM_FD);
 }

@@ -32,6 +32,7 @@
 #include "../jalib/jfilesystem.h"
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
+#include "shareddata.h"
 
 #define INITIAL_VIRTUAL_TID 1
 #define MAX_VIRTUAL_TID 999
@@ -117,7 +118,7 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
   }
 
   _do_lock_tbl();
-  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing()) {
+  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing() && realPid != 0) {
     pid_t virtualPid = readVirtualTidFromFileForPtrace(gettid());
     if (virtualPid != -1) {
       _do_unlock_tbl();
@@ -139,27 +140,13 @@ void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
   }
   pid_t tracerPid = dmtcp::Util::getTracerPid();
   if (tracerPid != 0) {
-    dmtcp::ostringstream o;
-    char buf[80];
-    o << dmtcp_get_tmpdir() << "/virtualPidOfNewlyCreatedThread_"
-      << dmtcp_get_computation_id_str() << "_" << tracerPid;
-
-    sprintf(buf, "%d", pid);
-    int fd = open(o.str().c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600);
-    JASSERT(fd >= 0) (o.str()) (JASSERT_ERRNO);
-    dmtcp::Util::writeAll(fd, buf, strlen(buf) + 1);
-    JTRACE("Writing virtual Pid/Tid to file") (pid) (o.str());
-    close(fd);
+    dmtcp::SharedData::setPtraceVirtualId(tracerPid, pid);
   }
 }
 
 pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 {
-  dmtcp::ostringstream o;
-  char buf[80];
   pid_t pid;
-  int fd;
-  ssize_t bytesRead;
 
   if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
     return -1;
@@ -171,22 +158,8 @@ pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
     }
   }
 
-  o << dmtcp::UniquePid::getTmpDir() << "/virtualPidOfNewlyCreatedThread_"
-    << dmtcp::UniquePid::ComputationId() << "_" << tid;
+  pid = dmtcp::SharedData::getPtraceVirtualId(tid);
 
-  fd = _real_open(o.str().c_str(), O_RDONLY, 0);
-  if (fd < 0) {
-    return -1;
-  }
-  bytesRead = dmtcp::Util::readAll(fd, buf, sizeof(buf));
-  close(fd);
-  unlink(o.str().c_str());
-
-  if (bytesRead <= 0) {
-    return -1;
-  }
-
-  sscanf(buf, "%d", &pid);
-  JTRACE("Read virtual Pid/Tid from file") (pid) (o.str());
+  JTRACE("Read virtual Pid/Tid from shared-area") (pid);
   return pid;
 }
