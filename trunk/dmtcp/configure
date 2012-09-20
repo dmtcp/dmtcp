@@ -739,7 +739,6 @@ enable_experts_only
 enable_experts_only_after
 enable_pid_virtualization
 enable_external_socket_handling
-enable_stale_socket_handling
 enable_allocator
 with_record_replay
 enable_m32
@@ -1409,12 +1408,7 @@ Optional Features:
                           programs using fork(). Disable it only for
                           performance reasons or for diagnosis of bugs.
   --enable-external-socket-handling
-                          wait for connection to external peer to close;
-                          expensive if stale-socket-handling also enabled.
-  --disable-stale-socket-handling
-                          disable stale socket handling; unknown peer assumed
-                          to be external; follow policy of
-                          external-socket-handling configure option.
+                          wait for connection to external peer to close.
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free. (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
@@ -4316,29 +4310,15 @@ else
   use_external_socket_handling=no
 fi
 
-# Check whether --enable-stale_socket_handling was given.
-if test "${enable_stale_socket_handling+set}" = set; then :
-  enableval=$enable_stale_socket_handling; use_stale_socket_handling=$enableval
-else
-  use_stale_socket_handling=yes
-fi
-
 
 if test "$use_external_socket_handling" = "yes"; then
 
 $as_echo "#define EXTERNAL_SOCKET_HANDLING /**/" >>confdefs.h
 
 fi
-if test "$use_stale_socket_handling" = "yes"; then
-
-$as_echo "#define STALE_SOCKET_HANDLING /**/" >>confdefs.h
-
-fi
 #Force other config options for Condor
 if test "$use_condor_support" = "yes"; then
   $as_echo "#define EXTERNAL_SOCKET_HANDLING yes" >>confdefs.h
-
-  $as_echo "#define STALE_SOCKET_HANDLING no" >>confdefs.h
 
 fi
 

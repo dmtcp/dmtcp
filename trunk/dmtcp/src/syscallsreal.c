@@ -319,19 +319,11 @@ void *_dmtcp_get_libc_dlsym_addr()
     dlsym_offset = (long) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
     _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
 
-#ifndef PTRACE
     /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
      * by dmtcp_checkpoint to execvp fails without this call to unsetenv.
      * Possibly, execvp is calling dlsym even before dmtcphijack.so gets
-     * loaded.  But, our dlsym wrapper is defined _only_
-     * with --enable-ptrace-support .  So, it's still a mystery why
-     * this call to unsetenv is needed.
-     *    This code interacts badly with PTRACE, since that condition
-     * defines a dlsym wrapper, and presumably, libc:execve() can call
-     * dlsym even before dmtcphijack.so is loaded.
+     * loaded.
      */
-    //unsetenv (ENV_VAR_DLSYM_OFFSET);
-#endif
     unsetenv (ENV_VAR_DLSYM_OFFSET);
   }
 
