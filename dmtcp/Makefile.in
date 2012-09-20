@@ -49,11 +49,10 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 subdir = .
-DIST_COMMON = README $(am__configure_deps) $(dist_noinst_SCRIPTS) \
+DIST_COMMON = $(am__configure_deps) $(dist_noinst_SCRIPTS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/../install-sh $(top_srcdir)/../missing \
-	$(top_srcdir)/configure AUTHORS COPYING INSTALL ltmain.sh \
-	missing
+	$(top_srcdir)/configure COPYING ltmain.sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
