@@ -45,18 +45,12 @@ nobase_noinst_HEADERS = constants.h \
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
-# FIXME:  Move syscallsreal.c from here to dmtcphijack.so
-#          and also add it explicitly to dmtcp_restart_SOURCES.
-#  Move/split connection.cpp (1.0 MB binary) and kernelbufferdrainer.cpp (.5 MB)
-#   and others(?) to dmtcphijack.so or dmtcp_restart.  Stop the replication.
-#  Also eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
-			     syslogwrappers.cpp uniquepid.cpp \
+			     uniquepid.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp \
-			     shareddata.cpp
+			     ckptserializer.cpp resource_manager.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
@@ -91,10 +85,10 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 workerhijack.cpp threadwrappers.cpp \
 			 miscwrappers.cpp remexecwrappers.cpp \
 			 glibcsystem.cpp mallocwrappers.cpp \
-			 dmtcpplugin.cpp popen.cpp \
+			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
-			 sysvipc/sysvipcwrappers.cpp
+			 sysvipc/sysvipcwrappers.cpp shareddata.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
