@@ -1085,3 +1085,28 @@ LIB_PRIVATE
 int _real_signalfd (int fd, const sigset_t *mask, int flags) {
   REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
 }
+
+/*===============================
+   real inotify function calls
+  ===============================*/
+LIB_PRIVATE
+int _real_inotify_init(void) {
+  REAL_FUNC_PASSTHROUGH (inotify_init) ( );
+}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,4)
+LIB_PRIVATE
+int _real_inotify_init1(int flags) {
+  REAL_FUNC_PASSTHROUGH (inotify_init1) (flags);
+}
+#endif
+
+LIB_PRIVATE
+int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask) {
+  REAL_FUNC_PASSTHROUGH (inotify_add_watch) (fd, pathname, mask);
+}
+
+LIB_PRIVATE
+int _real_inotify_rm_watch(int fd, int wd) {
+  REAL_FUNC_PASSTHROUGH (inotify_rm_watch) (fd, wd);
+}

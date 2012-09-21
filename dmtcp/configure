@@ -1983,6 +1983,7 @@ fi
 as_fn_append ac_header_list " sys/epoll.h"
 as_fn_append ac_header_list " sys/eventfd.h"
 as_fn_append ac_header_list " sys/signalfd.h"
+as_fn_append ac_header_list " sys/inotify.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
 ac_cache_corrupted=false
@@ -4818,6 +4819,8 @@ _ACEOF
 fi
 
 done
+
+
 
 
 

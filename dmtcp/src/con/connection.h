@@ -44,6 +44,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <mqueue.h>
+#include <stdint.h>
+
+#ifdef HAVE_SYS_INOTIFY_H
+#include <sys/inotify.h>
+#endif
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -84,6 +89,9 @@ namespace dmtcp
   class EpollConnection;
   class KernelDeviceToConnection;
   class ConnectionToFds;
+#ifdef DMTCP_USE_INOTIFY
+  class InotifyConnection;
+#endif
 
 
   class Connection
@@ -106,9 +114,10 @@ namespace dmtcp
         EPOLL    = 0x30000,
         EVENTFD  = 0x31000,
         SIGNALFD = 0x32000,
+        INOTIFY  = 0x34000,
         POSIXMQ  = 0x40000,
         TYPEMASK = TCP | RAW | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD |
-          SIGNALFD | POSIXMQ
+          SIGNALFD | INOTIFY | POSIXMQ
       };
 
       virtual ~Connection() {}
@@ -144,6 +153,9 @@ namespace dmtcp
       //convert with type checking
       virtual TcpConnection& asTcp();
       virtual EpollConnection& asEpoll();
+#ifdef DMTCP_USE_INOTIFY
+      virtual InotifyConnection& asInotify();
+#endif
 
       virtual void restartDup2(int oldFd, int newFd);
 
@@ -674,6 +686,54 @@ namespace dmtcp
       struct signalfd_siginfo _fdsi;
       bool _has_lock;
   };
+
+#ifdef DMTCP_USE_INOTIFY
+  class InotifyConnection: public Connection
+  {
+    public:
+      enum InotifyState {
+        INOTIFY_INVALID = INOTIFY,
+        INOTIFY_CREATE,
+        INOTIFY_ADD_WAIT
+      };
+
+      inline InotifyConnection (int flags)
+          :Connection(INOTIFY),
+           _flags (flags),
+           _state(INOTIFY_CREATE)
+      {
+        JTRACE ("new inotify connection created");
+      }
+
+      int inotifyState() const { return _state; }
+      InotifyConnection& asInotify();
+
+      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
+                                 KernelBufferDrainer&);
+      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
+                                  bool isRestart = false);
+      virtual void restore(const dmtcp::vector<int>&,
+                           ConnectionRewirer *rewirer = NULL);
+
+      virtual void restoreOptions(const dmtcp::vector<int>& fds);
+
+      //called on restart when _id collides with another connection
+      virtual void mergeWith(const Connection& that);
+
+      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+
+      virtual string str() { return "INOTIFY-FD: <Not-a-File>"; };
+
+      void map_inotify_fd_to_wd( int fd, int wd);
+      void add_watch_descriptors(int wd, int fd, const char *pathname,
+                                 uint32_t mask);
+      void remove_watch_descriptors(int wd);
+    private:
+      int         _flags; // flags
+      int         _state; // current state of INOTIFY
+      struct stat _stat; // not sure if stat makes sense in case  of epfd
+  };
+#endif
 
   class PosixMQConnection: public Connection
   {

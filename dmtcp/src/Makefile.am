@@ -32,7 +32,7 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	con/connectionstate.h con/connection.h \
 	con/connectionmanager.h con/connectionrewirer.h \
-	con/kernelbufferdrainer.h con/sockettable.h\
+	con/kernelbufferdrainer.h con/sockettable.h con/util_descriptor.h\
 	sysvipc/sysvipc.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
@@ -55,7 +55,8 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
 			  con/connectionstate.cpp con/kernelbufferdrainer.cpp \
-			  con/sockettable.cpp resource_manager.cpp
+			  con/sockettable.cpp con/util_descriptor.cpp \
+			  resource_manager.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
 

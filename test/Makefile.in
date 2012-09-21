@@ -110,6 +110,9 @@ pthread%: pthread%.c
 posix-mq%: posix-mq%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lrt
 
+inotify%: inotify%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so:
 	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so dlopen.c

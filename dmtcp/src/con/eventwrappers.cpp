@@ -27,6 +27,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+//#include <string>
+//#include <iostream>
 //#include "eventwrappers.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
@@ -162,13 +164,99 @@ EXTERNC int dmtcp_on_signalfd(int ret, int fd, const sigset_t *mask, int flags)
   return ret;
 }
 
-/* inotify is currently not supported by DMTCP */
-extern "C" int inotify_init()
+#ifdef DMTCP_USE_INOTIFY
+/******************************************************************
+ * function name: dmtcp_on_inotify_init()
+ *
+ * description:   saves the inotify instance within dmtcp. It's called
+ *                automatically after a successful inotify_init()
+ *
+ * para:          ret - inotify instace
+ * return:        fd (inotify instance) to the application
+ ******************************************************************/
+EXTERNC int dmtcp_on_inotify_init(int ret)
 {
-  JWARNING(false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
+  JTRACE ( "inotify fd created" ) ( ret );
+  //create the inotify object
+  dmtcp::Connection *con = new dmtcp::InotifyConnection(0);
+  dmtcp::KernelDeviceToConnection::instance().create(ret, con);
+  return ret;
 }
+
+/******************************************************************
+ * function name: dmtcp_on_inotify_init1()
+ *
+ * description:   saves the inotify instance within dmtcp. It's called
+ *                automatically after a successful inotify_init1()
+ *
+ * para:          ret   - inotify instance
+ * para:          flags
+ * return:        fd (inotify instance)
+ ******************************************************************/
+EXTERNC int dmtcp_on_inotify_init1(int ret, int flags)
+{
+  JTRACE("inotify1 fd created") (ret) (flags);
+
+  //create the inotify object
+  dmtcp::Connection *con = new dmtcp::InotifyConnection(flags);
+  dmtcp::KernelDeviceToConnection::instance().create(ret, flags);
+  return ret;
+}
+
+/******************************************************************
+ * function name: dmtcp_on_inotify_add_watch()
+ *
+ * description:   saves the pathname and mask within dmtcp. It's
+ *                automatically after a successful inotify_add_watch()
+ *
+ * para:          ret       - watch descriptor
+ * para:          fd        - inotify instance
+ * para:          pathname  - directory or file
+ * para:          mask      - events to be monitored on pathname
+ * return:        watch descriptor (wd) on success, -1 on failure
+ ******************************************************************/
+EXTERNC int dmtcp_on_inotify_add_watch(int ret, int fd,
+                                       const char *pathname, uint32_t mask)
+{
+   JTRACE("calling inotify class methods");
+
+  dmtcp::InotifyConnection& inotify_con =
+    dmtcp::KernelDeviceToConnection::instance().retrieve(fd).asInotify();
+
+  inotify_con.add_watch_descriptors(ret, fd, pathname, mask);
+  /*temp_pathname = pathname;
+  inotify_con.map_inotify_fd_to_wd ( fd, ret);
+  inotify_con.map_wd_to_pathname(ret, temp_pathname);
+  inotify_con.map_pathname_to_mask(temp_pathname, mask);*/
+  return ret;
+}
+
+/******************************************************************
+ * function name: dmtcp_on_inotify_rm_watch()
+ *
+ * description:   removes the watch descriptor associated with
+ *                the inotify instance,from within dmtcp. It's called
+ *                automatically after a successful inotify_rm_watch()
+ *
+ * para:          ret       - return value from actual call
+ * para:          fd        - inotify instance
+ * para:          wd        - watch descriptor to be removed
+ * return:        0 on success, -1 on failure
+ ******************************************************************/
+EXTERNC int dmtcp_on_inotify_rm_watch(int ret, int fd, int wd)
+{
+   JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
+
+   dmtcp::InotifyConnection& inotify_con =
+     dmtcp::KernelDeviceToConnection::instance().retrieve(fd).asInotify();
+   //inotify_con.remove_mappings(fd, wd);
+   inotify_con.remove_watch_descriptors(wd);
+   return ret;
+}
+#endif
+
+/****************************************************************************
+ ****************************************************************************/
 
 extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
 {
@@ -182,14 +270,6 @@ extern "C" int eventfd(int initval, int flags)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   JTRACE("Creating eventfd");
   PASSTHROUGH_DMTCP_HELPER(eventfd, initval, flags);
-}
-
-/* inotify1 is currently not supported by DMTCP */
-extern "C" int inotify_init1(int flags)
-{
-  JWARNING(false) .Text("inotify is currently not supported by DMTCP.");
-  errno = EMFILE;
-  return -1;
 }
 
 /* epoll is(apparently!) supported by DMTCP */
@@ -247,3 +327,91 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
   }
 }
 
+
+#ifndef DMTCP_USE_INOTIFY
+EXTERNC int inotify_init()
+{
+  JWARNING(false) .Text("Inotify not yet supported by DMTCP");
+  errno = ENOMEM;
+  return -1;
+}
+
+EXTERNC int inotify_init1(int flags)
+{
+  JWARNING(false) .Text("Inotify not yet supported by DMTCP");
+  errno = ENOMEM;
+  return -1;
+}
+#else
+/******************************************************************
+ * function name: inotify_init()
+ *
+ * description:   monitors file system events
+ *
+ * para:          none
+ * return:        fd (inotify instance)
+ ******************************************************************/
+EXTERNC int inotify_init()
+{
+  int fd;
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  JTRACE("Starting to create an inotify fd.");
+  fd = _real_inotify_init();
+  if (fd > 0) {
+    _dmtcp_lock();
+    fd = dmtcp_on_inotify_init(fd);
+    _dmtcp_unlock();
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return fd;
+}
+
+/******************************************************************
+ * function name: inotify_init1()
+ *
+ * description:   monitors file system events
+ *
+ * para:          flags
+ * return:        fd (inotify instance)
+ ******************************************************************/
+EXTERNC int inotify_init1(int flags)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  JTRACE("Starting to create an inotify fd.");
+  PASSTHROUGH_DMTCP_HELPER(inotify_init1, flags);
+}
+
+/******************************************************************
+ * function name: inotify_add_watch()
+ *
+ * description:   adds a directory or file to be watched
+ *
+ * para:          fd        - inotify instance
+ * para:          pathname  - directory or file
+ * para:          mask      - events to be monitored on pathname
+ * return:        watch descriptor (wd) on success, -1 on failure
+ ******************************************************************/
+EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  JTRACE("Starting to create a watch descriptor.");
+  PASSTHROUGH_DMTCP_HELPER (inotify_add_watch, fd, pathname, mask);
+}
+
+/******************************************************************
+ * function name: inotify_rm_watch()
+ *
+ * description:   removes the watch descriptor associated with
+ *                the inotify instance
+ *
+ * para:          fd        - inotify instance
+ * para:          wd        - watch descriptor to be removed
+ * return:        0 on success, -1 on failure
+ ******************************************************************/
+EXTERNC int inotify_rm_watch(int fd, int wd)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  JTRACE("Starting to create1 inotify fd.");
+  PASSTHROUGH_DMTCP_HELPER (inotify_rm_watch, fd, wd);
+}
+#endif
