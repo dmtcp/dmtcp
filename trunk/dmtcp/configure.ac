@@ -180,7 +180,7 @@ if test "$use_m32" = "yes"; then
   AC_DEFINE([CONFIG_M32],[],[Compiling in 32 bit mode on 64 bit linux.])
 fi
 
-AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h])
+AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
 
 
 AC_DEFINE([DMTCP],[],[Always enable this.])

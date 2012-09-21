@@ -33,6 +33,7 @@
 #include "dmtcpmessagetypes.h"
 #include "dmtcpplugin.h"
 #include "util.h"
+#include "util_descriptor.h"
 #include "resource_manager.h"
 #include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
@@ -169,6 +170,14 @@ dmtcp::EpollConnection& dmtcp::Connection::asEpoll()
   JASSERT(false) (_id) (_type) .Text("Invalid conversion.");
   return *((EpollConnection*) 0);
 }
+
+#ifdef DMTCP_USE_INOTIFY
+dmtcp::InotifyConnection& dmtcp::Connection::asInotify()
+{
+  JASSERT(false) (_id) (_type) .Text("Invalid conversion.");
+  return *((InotifyConnection*) 0);
+}
+#endif
 
 void dmtcp::Connection::restartDup2(int oldFd, int fd) {
   errno = 0;
@@ -2389,6 +2398,125 @@ void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
   o &  _flags & _mask & _fdsi & _has_lock;
   JTRACE("Serializing SignalFdConn.") ;
 }
+
+#ifdef DMTCP_USE_INOTIFY
+/*****************************************************************************
+ * Inotify Connection
+ *****************************************************************************/
+void dmtcp::InotifyConnection::preCheckpoint(const dmtcp::vector<int>& fds,
+                                             KernelBufferDrainer& drain)
+{
+  JASSERT(fds.size() > 0);
+}
+
+void dmtcp::InotifyConnection::postCheckpoint(const dmtcp::vector<int>& fds,
+                                                bool isRestart)
+{
+  JASSERT(fds.size() > 0);
+}
+
+void dmtcp::InotifyConnection::mergeWith(const Connection& that)
+{
+  Connection::mergeWith(that);
+}
+
+void dmtcp::InotifyConnection::restore(const dmtcp::vector<int>& fds,
+                                       ConnectionRewirer*)
+{
+  for (size_t i=0; i<fds.size(); ++i) {
+    int old_inotify_fd = fds[i];
+    //create a new inotify instance and clone it as the old one
+    int new_inotify_fd =  _real_inotify_init1(_flags);
+    JASSERT(new_inotify_fd >= 0);
+    JASSERT(_real_dup2(new_inotify_fd, old_inotify_fd)== old_inotify_fd)
+      (new_inotify_fd) (old_inotify_fd) (JASSERT_ERRNO) ;
+  }
+}
+
+void dmtcp::InotifyConnection::restoreOptions(const dmtcp::vector<int>& fds)
+{
+  int num_of_descriptors;
+  Util::Descriptor descriptor;
+  descriptor_types_u  watch_descriptor;
+
+  //Connection::restoreOptions(fds)
+
+  //get the number of watch descriptors stored in dmtcp
+  num_of_descriptors = descriptor.count_descriptors();
+
+  JTRACE("inotify restoreOptions") (fds[0]) (id()) (num_of_descriptors);
+
+  for (int i = 0; i < num_of_descriptors; i++) {
+    if (true == descriptor.get_descriptor(i, INOTIFY_ADD_WATCH_DESCRIPTOR,
+                                          &watch_descriptor)) {
+      int old_wd = watch_descriptor.add_watch.watch_descriptor;
+
+      int new_wd =
+        _real_inotify_add_watch(watch_descriptor.add_watch.file_descriptor,
+                                watch_descriptor.add_watch.pathname,
+                                watch_descriptor.add_watch.mask);
+
+      JWARNING(_real_dup2(new_wd, old_wd) == old_wd)
+        (new_wd) (old_wd) (JASSERT_ERRNO);
+      JTRACE("restore watch descriptors")
+        (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
+        (watch_descriptor.add_watch.pathname) (watch_descriptor.add_watch.mask);
+    }
+  }
+}
+
+void dmtcp::InotifyConnection::serializeSubClass(jalib::JBinarySerializer& o)
+{
+  JSERIALIZE_ASSERT_POINT("dmtcp::InotifyConnection");
+  o & _type & _stat;
+  //o.serializeMap(_inotify_fd_to_wd);
+  //o.serializeMap(_wd_to_pathname);
+  //o.serializeMap(_pathname_to_mask);
+}
+
+dmtcp::InotifyConnection& dmtcp::InotifyConnection::asInotify()
+{
+  JTRACE("Return the connection as Inotify connection");
+  return *this;
+}
+
+void dmtcp::InotifyConnection::add_watch_descriptors(int wd, int fd,
+                                                     const char *pathname,
+                                                     uint32_t mask)
+{
+   int string_len;
+
+   JTRACE("save inotify watch descriptor within dmtcp")
+     (wd) (fd) (pathname) (mask);
+   JASSERT(pathname != NULL) .Text("pathname is NULL");
+   if (NULL != pathname) {
+      Util::Descriptor descriptor;
+      descriptor_types_u  watch_descriptor;
+
+      //set watch_descriptor to zeros
+      memset(&watch_descriptor, 0, sizeof(watch_descriptor));
+
+      // get the string length
+      string_len = strlen(pathname);
+
+      // fill up the structure
+      watch_descriptor.add_watch.file_descriptor = fd;
+      watch_descriptor.add_watch.mask = mask;
+      watch_descriptor.add_watch.watch_descriptor = wd;
+      watch_descriptor.add_watch.type = INOTIFY_ADD_WATCH_DESCRIPTOR;
+      strncpy(watch_descriptor.add_watch.pathname, pathname, string_len);
+
+      // save the watch descriptor structure
+      descriptor.add_descriptor(&watch_descriptor);
+   }
+}
+
+void  dmtcp::InotifyConnection::remove_watch_descriptors(int wd)
+{
+   Util::Descriptor descriptor;
+   descriptor.remove_descriptor(INOTIFY_ADD_WATCH_DESCRIPTOR, (void *)&wd);
+}
+#endif
 
 /*****************************************************************************
  * POSIX Message Queue Connection

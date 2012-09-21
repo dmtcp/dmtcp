@@ -116,7 +116,8 @@ libconnection_a_LIBADD =
 am_libconnection_a_OBJECTS = con.$(OBJEXT) connection.$(OBJEXT) \
 	connectionmanager.$(OBJEXT) connectionrewirer.$(OBJEXT) \
 	connectionstate.$(OBJEXT) kernelbufferdrainer.$(OBJEXT) \
-	sockettable.$(OBJEXT) resource_manager.$(OBJEXT)
+	sockettable.$(OBJEXT) util_descriptor.$(OBJEXT) \
+	resource_manager.$(OBJEXT)
 libconnection_a_OBJECTS = $(am_libconnection_a_OBJECTS)
 libdmtcpaware_a_AR = $(AR) $(ARFLAGS)
 libdmtcpaware_a_LIBADD =
@@ -356,7 +357,7 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
 	con/connectionstate.h con/connection.h \
 	con/connectionmanager.h con/connectionrewirer.h \
-	con/kernelbufferdrainer.h con/sockettable.h\
+	con/kernelbufferdrainer.h con/sockettable.h con/util_descriptor.h\
 	sysvipc/sysvipc.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
@@ -380,7 +381,8 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
 			  con/connectionstate.cpp con/kernelbufferdrainer.cpp \
-			  con/sockettable.cpp resource_manager.cpp
+			  con/sockettable.cpp con/util_descriptor.cpp \
+			  resource_manager.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
@@ -731,6 +733,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_descriptor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
@@ -861,6 +864,20 @@ sockettable.obj: con/sockettable.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/sockettable.cpp' object='sockettable.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sockettable.obj `if test -f 'con/sockettable.cpp'; then $(CYGPATH_W) 'con/sockettable.cpp'; else $(CYGPATH_W) '$(srcdir)/con/sockettable.cpp'; fi`
+
+util_descriptor.o: con/util_descriptor.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT util_descriptor.o -MD -MP -MF $(DEPDIR)/util_descriptor.Tpo -c -o util_descriptor.o `test -f 'con/util_descriptor.cpp' || echo '$(srcdir)/'`con/util_descriptor.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/util_descriptor.Tpo $(DEPDIR)/util_descriptor.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/util_descriptor.cpp' object='util_descriptor.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o util_descriptor.o `test -f 'con/util_descriptor.cpp' || echo '$(srcdir)/'`con/util_descriptor.cpp
+
+util_descriptor.obj: con/util_descriptor.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT util_descriptor.obj -MD -MP -MF $(DEPDIR)/util_descriptor.Tpo -c -o util_descriptor.obj `if test -f 'con/util_descriptor.cpp'; then $(CYGPATH_W) 'con/util_descriptor.cpp'; else $(CYGPATH_W) '$(srcdir)/con/util_descriptor.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/util_descriptor.Tpo $(DEPDIR)/util_descriptor.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/util_descriptor.cpp' object='util_descriptor.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o util_descriptor.obj `if test -f 'con/util_descriptor.cpp'; then $(CYGPATH_W) 'con/util_descriptor.cpp'; else $(CYGPATH_W) '$(srcdir)/con/util_descriptor.cpp'; fi`
 
 jalib.o: ../jalib/jalib.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.o -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.o `test -f '../jalib/jalib.cpp' || echo '$(srcdir)/'`../jalib/jalib.cpp

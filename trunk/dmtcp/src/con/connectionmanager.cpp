@@ -213,6 +213,7 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd,
   bool isEpoll =(device.compare("anon_inode:[eventpoll]")==0);
   bool isEventFd =(device.compare("anon_inode:[eventfd]")==0);
   bool isSignalFd =(device.compare("anon_inode:[signalfd]")==0);
+  bool isInotify = (device.compare("anon_inode:[inotify]")==0);
 #ifdef IBV
   bool isInfinibandDevice = Util::strStartsWith(device, "/dev/infiniband/");
   bool isInfinibandConnection = Util::strStartsWith(device, "infinibandevent:");
@@ -463,6 +464,26 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd,
         return deviceName;
       }
     }
+#ifdef DMTCP_USE_INOTIFY
+    else if (isInotify) {
+      dmtcp::string deviceName = "inotify["+jalib::XToString(fd)+"]:"+device;
+      if (noOnDemandConnection)
+        return deviceName;
+      iterator i = _table.find(deviceName);
+      if (i == _table.end())
+      {
+        JTRACE("creating inotify connection [on-demand]") (deviceName);
+        Connection *c = new InotifyConnection(0);
+        ConnectionList::instance().add(c);
+        _table[deviceName] = c->id();
+        return deviceName;
+      }
+      else {
+        return deviceName;
+      }
+    }
+#endif
+
   //JWARNING(false) (device) .Text("Unimplemented Connection Type.");
   return device;
 }
@@ -638,6 +659,11 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
         case Connection::SIGNALFD:
           con = new SignalFdConnection(0, NULL, 0); //dummy val
           break;
+#ifdef DMTCP_USE_INOTIFY
+        case Connection::INOTIFY:
+          con = new InotifyConnection(0);
+          break;
+#endif
         case Connection::POSIXMQ:
           con = new PosixMQConnection("", 0, 0, NULL); //dummy val
           break;

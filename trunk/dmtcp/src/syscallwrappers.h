@@ -55,6 +55,9 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <grp.h>
 #include <netdb.h>
 #include <mqueue.h>
+#ifdef HAVE_SYS_INOTIFY_H
+# include <sys/inotify.h>
+#endif
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -232,6 +235,10 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_pwait)                        \
   MACRO(eventfd)                            \
   MACRO(signalfd)                           \
+  MACRO(inotify_init)                       \
+  MACRO(inotify_init1)                      \
+  MACRO(inotify_add_watch)                  \
+  MACRO(inotify_rm_watch)                   \
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
   MACRO(pthread_tryjoin_np)                 \
@@ -448,6 +455,10 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                         int maxevents, int timeout, const sigset_t *sigmask);
   int _real_eventfd(int initval, int flags);
   int _real_signalfd (int fd, const sigset_t *mask, int flags);
+  int _real_inotify_init(void);
+  int _real_inotify_init1(int flags);
+  int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask);
+  int _real_inotify_rm_watch(int fd, int wd);
 
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
