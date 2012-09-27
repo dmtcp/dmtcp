@@ -110,7 +110,7 @@ endif
 mtcp: check-m32-compat
 	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
-dmtcp: check-m32-compat
+dmtcp: check-m32-compat mtcp
 	cd dmtcp && $(MAKE)
 
 plugin: dmtcp check-m32-compat
