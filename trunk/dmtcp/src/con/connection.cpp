@@ -384,19 +384,30 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
   return *this;
 }
 
-void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
+void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
+                                  socklen_t len)
 {
   if (really_verbose) {
     JTRACE("Binding.") (id()) (len);
   }
+
   JASSERT(tcpType() == TCP_CREATED) (tcpType()) (id())
     .Text("Binding a socket in use????");
   JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
     .Text("That is one huge sockaddr buddy.");
 
+  if (_sockDomain == AF_UNIX) {
+    _bindAddrlen = len;
+    memcpy(&_bindAddr, addr, len);
+  } else {
+    _bindAddrlen = sizeof(_bindAddr);
+    // Do not rely on the address passed on to bind as it may contain port 0
+    // which allows the OS to give any unused port. Thus we look ourselves up
+    // using getsockname.
+    JASSERT(getsockname(sockfd, (struct sockaddr *)&_bindAddr, &_bindAddrlen) == 0)
+      (JASSERT_ERRNO);
+  }
   _type = TCP_BIND;
-  _bindAddrlen = len;
-  memcpy(&_bindAddr, addr, len);
 }
 
 void dmtcp::TcpConnection::onListen(int backlog)

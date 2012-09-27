@@ -239,7 +239,7 @@ namespace dmtcp
       //basic commands for updating state from wrappers
       /*onSocket*/
       TcpConnection(int domain, int type, int protocol);
-      void onBind(const struct sockaddr* addr, socklen_t len);
+      void onBind(int sockfd, const struct sockaddr* addr, socklen_t len);
       void onListen(int backlog);
       void onConnect(int sockfd = -1, const struct sockaddr *serv_addr = NULL,
                      socklen_t addrlen = 0);
