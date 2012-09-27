@@ -48,7 +48,6 @@
  *   dmtcp::DmtcpCoordinator::broadcastMessage				    *
  ****************************************************************************/
 
-#define DEBUG
 #include "dmtcp_coordinator.h"
 #include "constants.h"
 #include "protectedfds.h"
