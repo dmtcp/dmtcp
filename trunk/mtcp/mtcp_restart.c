@@ -48,6 +48,7 @@
 #include <sys/types.h>
 
 #include "mtcp_internal.h"
+#include "mtcp_util.h"
 
 #include <sys/personality.h>
 

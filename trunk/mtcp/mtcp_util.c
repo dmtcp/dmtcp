@@ -32,8 +32,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/sysmacros.h>
 
 #include "mtcp_internal.h"
+#include "mtcp_util.h"
 
 /* Read decimal number, return value and terminating character */
 
@@ -371,7 +373,7 @@ int mtcp_is_executable(const char *exec_path)
 
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
 char *mtcp_find_executable(char *executable, const char* path_env,
-    char exec_path[PATH_MAX])
+                           char exec_path[PATH_MAX])
 {
   char *path;
   const char *tmp_env;
@@ -406,6 +408,112 @@ char *mtcp_find_executable(char *executable, const char* path_env,
   }
 }
 
+void mtcp_rename_ckptfile(const char *tempckpt, const char *permckpt)
+{
+  if (mtcp_sys_rename(tempckpt, permckpt) < 0) {
+    MTCP_PRINTF("error %d renaming %s to %s\n",
+                mtcp_sys_errno, tempckpt, permckpt);
+    mtcp_abort ();
+  }
+}
+
+/*****************************************************************************
+ *
+ *  Read /proc/self/maps line, converting it to an Area descriptor struct
+ *    Input:
+ *	mapsfd = /proc/self/maps file, positioned to beginning of a line
+ *    Output:
+ *	mtcp_readmapsline = 0 : was at end-of-file, nothing read
+ *	*area = filled in
+ *    Note:
+ *	Line from /procs/self/maps is in form:
+ *	<startaddr>-<endaddrexclusive> rwxs <fileoffset> <devmaj>:<devmin>
+ *	    <inode>    <filename>\n
+ *	all numbers in hexadecimal except inode is in decimal
+ *	anonymous will be shown with offset=devmaj=devmin=inode=0 and
+ *	    no '     filename'
+ *
+ *****************************************************************************/
+
+int mtcp_readmapsline (int mapsfd, Area *area, DeviceInfo *dev_info)
+{
+  char c, rflag, sflag, wflag, xflag;
+  int i;
+  unsigned int long devmajor, devminor, inodenum;
+  VA startaddr, endaddr;
+
+  c = mtcp_readhex (mapsfd, &startaddr);
+  if (c != '-') {
+    if ((c == 0) && (startaddr == 0)) return (0);
+    goto skipeol;
+  }
+  c = mtcp_readhex (mapsfd, &endaddr);
+  if (c != ' ') goto skipeol;
+  if (endaddr < startaddr) goto skipeol;
+
+  rflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'r') && (c != '-')) goto skipeol;
+  wflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'w') && (c != '-')) goto skipeol;
+  xflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'x') && (c != '-')) goto skipeol;
+  sflag = c = mtcp_readchar (mapsfd);
+  if ((c != 's') && (c != 'p')) goto skipeol;
+
+  c = mtcp_readchar (mapsfd);
+  if (c != ' ') goto skipeol;
+
+  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
+  if (c != ' ') goto skipeol;
+  area -> offset = (off_t)devmajor;
+
+  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
+  if (c != ':') goto skipeol;
+  c = mtcp_readhex (mapsfd, (VA *)&devminor);
+  if (c != ' ') goto skipeol;
+  c = mtcp_readdec (mapsfd, (VA *)&inodenum);
+  area -> name[0] = '\0';
+  while (c == ' ') c = mtcp_readchar (mapsfd);
+  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
+    i = 0;
+    do {
+      area -> name[i++] = c;
+      if (i == sizeof area -> name) goto skipeol;
+      c = mtcp_readchar (mapsfd);
+    } while (c != '\n');
+    area -> name[i] = '\0';
+  }
+
+  if (c != '\n') goto skipeol;
+
+  area -> addr = startaddr;
+  area -> size = endaddr - startaddr;
+  area -> prot = 0;
+  if (rflag == 'r') area -> prot |= PROT_READ;
+  if (wflag == 'w') area -> prot |= PROT_WRITE;
+  if (xflag == 'x') area -> prot |= PROT_EXEC;
+  area -> flags = MAP_FIXED;
+  if (sflag == 's') area -> flags |= MAP_SHARED;
+  if (sflag == 'p') area -> flags |= MAP_PRIVATE;
+  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
+
+  if (dev_info != NULL) {
+    dev_info->devmajor = devmajor;
+    dev_info->devminor = devminor;
+    dev_info->inodenum = inodenum;
+  }
+  return (1);
+
+skipeol:
+  DPRINTF("ERROR:  mtcp readmapsline*: bad maps line <%c", c);
+  while ((c != '\n') && (c != '\0')) {
+    c = mtcp_readchar (mapsfd);
+    mtcp_printf ("%c", c);
+  }
+  mtcp_printf (">\n");
+  mtcp_abort ();
+  return (0);  /* NOTREACHED : stop compiler warning */
+}
 /*****************************************************************************
  *
  *  Discover the memory occupied by this library (libmtcp.so)
