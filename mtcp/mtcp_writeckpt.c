@@ -964,18 +964,17 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
   mtcp_writefile (fd, &fdnum, sizeof fdnum);
 }
 
-/*
- * This function detects if a page is a zero page or not. There is scope of
- * improving this function using some optimizations.
+/* This function detects if the given pages are zero pages or not. There is
+ * scope of improving this function using some optimizations.
  *
  * TODO: One can use /proc/self/pagemap to detect if the page is backed by a
  * shared zero page.
  */
-static int mtcp_is_zero_page(void *addr)
+static int mtcp_are_zero_pages(void *addr, size_t num_pages)
 {
   long long *buf = (long long*) addr;
   size_t i;
-  size_t end = MTCP_PAGE_SIZE / sizeof (*buf);
+  size_t end = num_pages * MTCP_PAGE_SIZE / sizeof (*buf);
   long long res = 0;
   for (i = 0; i + 7 < end; i += 8) {
     res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
@@ -987,25 +986,69 @@ static int mtcp_is_zero_page(void *addr)
   return res == 0;
 }
 
+
 /* This function returns a range of zero or non-zero pages. If the first page
  * is non-zero, it searches for all contiguous non-zero pages and returns them.
  * If the first page is all-zero, it searches for contiguous zero pages and
  * returns them.
  */
+#if 1
+// Remove the else part once satisfied with the this code
 static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 {
   char *pg;
+  char *prevAddr;
+  size_t count = 0;
+  const size_t one_MB = (1024 * 1024);
+  if (area->size < one_MB) {
+    *size = area->size;
+    *is_zero = 0;
+    return;
+  }
+  *size = one_MB;
+  *is_zero = mtcp_are_zero_pages(area->addr, one_MB / MTCP_PAGE_SIZE);
+  prevAddr = area->addr;
+  for (pg = area->addr + one_MB;
+       pg < area->addr + area->size;
+       pg += one_MB) {
+    size_t minsize = MIN(one_MB, area->addr + area->size - pg);
+    if (*is_zero != mtcp_are_zero_pages(pg, minsize / MTCP_PAGE_SIZE)) {
+      break;
+    }
+    *size += minsize;
+    if (*is_zero && ++count % 10 == 0) { // madvise every 10MB
+      if (madvise(prevAddr, area->addr + *size - prevAddr,
+                  MADV_DONTNEED) == -1) {
+        MTCP_PRINTF("error %d doing madvise(%p, %d, MADV_DONTNEED)\n",
+                    errno, area->addr, (int)*size);
+        prevAddr = pg;
+      }
+    }
+  }
+}
+#else
+static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
+{
+  char *pg;
+  size_t count = 0;
   *size = MTCP_PAGE_SIZE;
-  *is_zero = mtcp_is_zero_page(area->addr);
+  *is_zero = mtcp_are_zero_pages(area->addr);
   for (pg = area->addr + MTCP_PAGE_SIZE;
        pg < area->addr + area->size;
        pg += MTCP_PAGE_SIZE) {
-    if (*is_zero != mtcp_is_zero_page(pg)) {
+    if (*is_zero != mtcp_are_zero_pages(pg)) {
       break;
     }
     *size += MTCP_PAGE_SIZE;
+    if (*is_zero && ++count % 1024 == 0) {
+      if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
+        MTCP_PRINTF("error %d doing madvise(%p, %d, MADV_DONTNEED)\n",
+                    errno, a.addr, (int)a.size);
+      }
+    }
   }
 }
+#endif
 
 static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 {

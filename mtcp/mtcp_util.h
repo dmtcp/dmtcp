@@ -26,6 +26,9 @@
 
 #include "mtcp_internal.h"
 
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
+#define MAX(x,y) ((x) > (y) ? (x) : (y))
+
 void mtcp_readcs (int fd, char cs);
 void mtcp_readfile(int fd, void *buf, size_t size);
 void mtcp_writecs (int fd, char cs);
