@@ -355,3 +355,20 @@ bool dmtcp::Util::isValidFd(int fd)
   _real_close(f);
   return true;
 }
+
+bool dmtcp::Util::areZeroPages(void *addr, size_t numPages)
+{
+  static long page_size = sysconf(_SC_PAGESIZE);
+  long long *buf = (long long*) addr;
+  size_t i;
+  size_t end = numPages * page_size / sizeof (*buf);
+  long long res = 0;
+  for (i = 0; i + 7 < end; i += 8) {
+    res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
+          buf[i+4] | buf[i+5] | buf[i+6] | buf[i+7];
+    if (res != 0) {
+      break;
+    }
+  }
+  return res == 0;
+}
