@@ -364,7 +364,7 @@ endif
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 	${CC} $(MTCP_CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
 
-mtcp_writeckpt.o: mtcp_writeckpt.c mtcp.h mtcp_internal.h mtcp_sys.h
+mtcp_writeckpt.o: mtcp_writeckpt.c mtcp.h mtcp_internal.h mtcp_sys.h mtcp_util.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_writeckpt.o mtcp_writeckpt.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
