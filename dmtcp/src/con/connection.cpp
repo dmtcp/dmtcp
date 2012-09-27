@@ -509,13 +509,12 @@ void dmtcp::TcpConnection::preCheckpointPeerLookup(
 }
 #endif
 
-void dmtcp::TcpConnection::preCheckpoint(const dmtcp::vector<int>& fds
-                                         , KernelBufferDrainer& drain)
+void dmtcp::TcpConnection::preCheckpoint(const dmtcp::vector<int>& fds,
+                                         KernelBufferDrainer& drain)
 {
   JASSERT(fds.size() > 0) (id());
 
-  if ((_fcntlFlags & O_ASYNC) != 0)
-  {
+  if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
       JTRACE("Removing O_ASYNC flag during checkpoint.") (fds[0]) (id());
     }
@@ -1218,8 +1217,8 @@ void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
       {
         JASSERT(_ptsName.compare("?") != 0);
 
-        _ptsName =
-          dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(_uniquePtsName);
+        _ptsName = dmtcp::UniquePtsNameToPtmxConId::instance().
+                     retrieveCurrentPtsDeviceName(_uniquePtsName);
 
         tempfd = open(_ptsName.c_str(), O_RDWR);
         JASSERT(tempfd >= 0) (_uniquePtsName) (_ptsName) (JASSERT_ERRNO)
@@ -1542,8 +1541,9 @@ void dmtcp::FileConnection::refreshPath(const dmtcp::vector<int>& fds)
         (_path) (newpath);
       _path = newpath;
     }
-  } else if (_rel_path != "*") { // file path is relative to executable current
-    // dir
+  } else if (_rel_path != "*" && !jalib::Filesystem::FileExists(_path)) {
+    // If file at absolute path doesn't exist and file path is relative to
+    // executable current dir
     string oldPath = _path;
     dmtcp::string fullPath = cwd + "/" + _rel_path;
     if (jalib::Filesystem::FileExists(fullPath)) {
@@ -1636,7 +1636,7 @@ void dmtcp::FileConnection::restore(const dmtcp::vector<int>& fds,
     JTRACE("Restore Resource Manager File") (_path);
     skip_open = restoreResMgrFile(fds);
     JTRACE("Restore Resource Manager File #2") (old_path) (_path) (skip_open);
-  }else{
+  } else {
     refreshPath(fds);
 
     if (_checkpointed) {
