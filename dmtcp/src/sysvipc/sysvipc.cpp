@@ -151,6 +151,30 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
+static void huge_memcpy(char *dest, char *src, size_t size)
+{
+  if (size < 100 * 1024 * 1024) {
+    memcpy(dest, src, size);
+    return;
+  }
+  const size_t hundredMB = (100 * 1024 * 1024);
+  //const size_t oneGB = (1024 * 1024 * 1024);
+  size_t chunkSize = hundredMB;
+  static long page_size = sysconf(_SC_PAGESIZE);
+  static long pagesPerChunk = chunkSize / page_size;
+  size_t n = size / chunkSize;
+  for (size_t i = 0; i < n; i++) {
+    if (!dmtcp::Util::areZeroPages(src, pagesPerChunk)) {
+      memcpy(dest, src, chunkSize);
+    }
+    madvise(src, chunkSize, MADV_DONTNEED);
+    dest += chunkSize;
+    src += chunkSize;
+    size -= chunkSize;
+  }
+  memcpy(dest, src, size);
+}
+
 dmtcp::SysVIPC::SysVIPC()
   : _ipcVirtIdTable("SysVIPC")
 {
@@ -591,7 +615,7 @@ void dmtcp::ShmSegment::postRestart()
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
   void *tmpaddr = _real_shmat(_realId, NULL, 0);
   JASSERT(tmpaddr != (void*) -1) (_realId)(JASSERT_ERRNO);
-  memcpy(tmpaddr, i->first, _size);
+  huge_memcpy((char*) tmpaddr, (char*) i->first, _size);
   JASSERT(_real_shmdt(tmpaddr) == 0);
   munmap((void*)i->first, _size);
 
