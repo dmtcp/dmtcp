@@ -49,7 +49,7 @@ void parent(const char *mqname)
   struct mq_attr attr;
   mq_getattr(mqdes, &attr);
 
-  printf("mq_flags: %d, mq_maxmsg: %d, mq_msgsize: %d, mq_curmsgs: %d\n",
+  printf("mq_flags: %ld, mq_maxmsg: %ld, mq_msgsize: %ld, mq_curmsgs: %ld\n",
          attr.mq_flags, attr.mq_maxmsg, attr.mq_msgsize, attr.mq_curmsgs);
   fflush(stdout);
 
