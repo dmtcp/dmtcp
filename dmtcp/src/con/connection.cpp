@@ -262,7 +262,7 @@ void dmtcp::Connection::serialize(jalib::JBinarySerializer& o)
   , _sockType(type)
   , _sockProtocol(protocol)
   , _peerType(PEER_UNKNOWN)
-    , _socketPairRestored(false)
+  , _socketPairRestored(false)
 { }
 
 void dmtcp::SocketConnection::addSetsockopt(int level, int option,
@@ -371,7 +371,7 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
   , SocketConnection(domain, type, protocol)
   , _listenBacklog(-1)
   , _bindAddrlen(0)
-    , _acceptRemoteId(ConnectionIdentifier::Null())
+  , _remotePeerId(ConnectionIdentifier::Null())
 {
   if (domain != -1) {
     JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
@@ -452,7 +452,7 @@ dmtcp::TcpConnection::TcpConnection(const TcpConnection& parent,
   , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol)
   , _listenBacklog(-1)
   , _bindAddrlen(0)
-    , _acceptRemoteId(remote)
+  , _remotePeerId(remote)
 {
   if (really_verbose) {
     JTRACE("Accepting.") (id()) (parent.id()) (remote);
@@ -532,8 +532,7 @@ void dmtcp::TcpConnection::preCheckpoint(const dmtcp::vector<int>& fds,
     case TCP_ACCEPT:
       if (hasLock(fds)) {
         const ConnectionIdentifier& toDrainId = id();
-        JTRACE("Will drain socket") (fds[0]) (toDrainId)
-          (_acceptRemoteId);
+        JTRACE("Will drain socket") (fds[0]) (toDrainId) (_remotePeerId);
         drain.beginDrainOf(fds[0], toDrainId);
       } else {
         if (really_verbose) {
@@ -772,14 +771,14 @@ void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
       }
       break;
     case TCP_ACCEPT:
-      JASSERT(!_acceptRemoteId.isNull()) (id()) (_acceptRemoteId) (fds[0])
+      JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (fds[0])
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
-      JTRACE("registerOutgoing") (id()) (_acceptRemoteId) (fds[0]);
-      rewirer->registerOutgoing(_acceptRemoteId, fds);
+      JTRACE("registerOutgoing") (id()) (_remotePeerId) (fds[0]);
+      rewirer->registerOutgoing(_remotePeerId, fds);
       break;
     case TCP_CONNECT:
-      JTRACE("registerIncoming") (id()) (_acceptRemoteId) (fds[0]);
+      JTRACE("registerIncoming") (id()) (_remotePeerId) (fds[0]);
       rewirer->registerIncoming(id(), fds);
       break;
       //    case TCP_EXTERNAL_CONNECT:
@@ -817,15 +816,15 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote,
     .Text("Peer has a different dmtcp_coordinator than us!\n"
           "  It must be the same.");
 
-  if (_acceptRemoteId.isNull()) {
+  if (_remotePeerId.isNull()) {
     //first time
-    _acceptRemoteId = hello_remote.from;
-    JASSERT(!_acceptRemoteId.isNull())
+    _remotePeerId = hello_remote.from;
+    JASSERT(!_remotePeerId.isNull())
       .Text("Read handshake with invalid 'from' field.");
   } else {
     //next time
-    JASSERT(_acceptRemoteId == hello_remote.from)
-      (_acceptRemoteId) (hello_remote.from)
+    JASSERT(_remotePeerId == hello_remote.from)
+      (_remotePeerId) (hello_remote.from)
       .Text("Read handshake with a different 'from' field"
             " than a previous handshake.");
   }
@@ -843,15 +842,15 @@ void dmtcp::TcpConnection::mergeWith(const Connection& _that)
   JWARNING(_bindAddrlen   == that._bindAddrlen)  MERGE_MISMATCH_TEXT;
   //todo: check _bindAddr and _sockOptions
 
-  JTRACE("Merging TcpConnections") (_acceptRemoteId) (that._acceptRemoteId);
+  JTRACE("Merging TcpConnections") (_remotePeerId) (that._remotePeerId);
 
-  //merge _acceptRemoteId smartly
-  if (_acceptRemoteId.isNull())
-    _acceptRemoteId = that._acceptRemoteId;
+  //merge _remotePeerId smartly
+  if (_remotePeerId.isNull())
+    _remotePeerId = that._remotePeerId;
 
-  if (!that._acceptRemoteId.isNull()) {
-    JASSERT(_acceptRemoteId == that._acceptRemoteId) (id())
-      (_acceptRemoteId) (that._acceptRemoteId)
+  if (!that._remotePeerId.isNull()) {
+    JASSERT(_remotePeerId == that._remotePeerId) (id())
+      (_remotePeerId) (that._remotePeerId)
       .Text("Merging connections disagree on remote host");
   }
 }
@@ -859,7 +858,7 @@ void dmtcp::TcpConnection::mergeWith(const Connection& _that)
 void dmtcp::TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::TcpConnection");
-  o & _listenBacklog & _bindAddrlen & _bindAddr & _acceptRemoteId;
+  o & _listenBacklog & _bindAddrlen & _bindAddr & _remotePeerId;
   SocketConnection::serialize(o);
 }
 

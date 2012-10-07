@@ -281,7 +281,7 @@ namespace dmtcp
                              dmtcp::TcpConnection *peer,
                              const dmtcp::vector<int>& peerfds);
       const ConnectionIdentifier& getRemoteId() const
-      { return _acceptRemoteId;}
+      { return _remotePeerId;}
       const ConnectionIdentifier& getSocketpairPeerId() const
       { return _socketpairPeerId; }
 
@@ -301,7 +301,7 @@ namespace dmtcp
         struct sockaddr_storage _bindAddr;
         struct sockaddr_storage _connectAddr;
       };
-      ConnectionIdentifier    _acceptRemoteId;
+      ConnectionIdentifier    _remotePeerId;
       ConnectionIdentifier    _socketpairPeerId;
   };
 
