@@ -2718,9 +2718,9 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
   // and sets destination string to point there.
 # define STRCPY(x,y) \
 	if (strings + 256 < STRINGS + STRINGS_LEN) { \
-	  mtcp_sys_strcpy(strings,y); \
+	  mtcp_strcpy(strings,y); \
 	  x = strings; \
-	  strings += mtcp_sys_strlen(y) + 1; \
+	  strings += mtcp_strlen(y) + 1; \
 	} else { \
 	  DPRINTF("ran out of string space. Trying to continue anyway\n"); \
 	}

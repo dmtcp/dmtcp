@@ -114,6 +114,14 @@ void mtcp_strncpy(char *dest, const char *src, size_t n)
 }
 
 __attribute__ ((visibility ("hidden")))
+void mtcp_strcpy(char *dest, const char *src)
+{
+  while (*src != '\0') {
+    *dest++ = *src++;
+  }
+}
+
+__attribute__ ((visibility ("hidden")))
 void mtcp_strncat(char *dest, const char *src, size_t n)
 {
   mtcp_strncpy(dest + mtcp_strlen(dest), src, n);

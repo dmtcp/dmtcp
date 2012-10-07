@@ -1160,7 +1160,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   if ((area -> name[0]) == '\0') {
     char *brk = mtcp_sys_brk(NULL);
     if (brk > area -> addr && brk <= area -> addr + area -> size)
-      mtcp_sys_strcpy(area -> name, "[heap]");
+      mtcp_strcpy(area -> name, "[heap]");
   }
 
   if (area->prot == 0 ||
