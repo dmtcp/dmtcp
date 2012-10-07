@@ -34,7 +34,7 @@
 #include "coordinatorapi.h"
 #include "../jalib/jassert.h"
 
-#define SHM_MAX_SIZE (sizeof(dmtcp::SharedData::Header) + 4096)
+#define SHM_MAX_SIZE (sizeof(dmtcp::SharedData::Header))
 
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
@@ -43,8 +43,14 @@ void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
-    case DMTCP_EVENT_POST_CKPT:
+    case DMTCP_EVENT_POST_RESTART:
       initialize();
+      break;
+
+    case DMTCP_EVENT_POST_CKPT:
+      if (!data->postCkptInfo.isRestart) {
+        initialize();
+      }
       break;
 
     case DMTCP_EVENT_POST_EXEC:
@@ -70,10 +76,11 @@ void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 void dmtcp::SharedData::initializeHeader()
 {
-  JASSERT(lseek(PROTECTED_SHM_FD, SHM_MAX_SIZE, SEEK_SET) == SHM_MAX_SIZE)
+  off_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
     (JASSERT_ERRNO);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
-  memset(sharedDataHeader, 0, SHM_MAX_SIZE);
+  memset(sharedDataHeader, 0, size);
 
   strcpy(sharedDataHeader->versionStr, SHM_VERSION_STR);
   sharedDataHeader->coordHost[0] = '\0';
@@ -103,7 +110,8 @@ void dmtcp::SharedData::initialize()
     _real_close(fd);
   }
 
-  void *addr = _real_mmap(prevSharedDataHeaderAddr, SHM_MAX_SIZE,
+  size_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  void *addr = _real_mmap(prevSharedDataHeaderAddr, size,
                           PROT_READ | PROT_WRITE, MAP_SHARED,
                           PROTECTED_SHM_FD, 0);
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
@@ -142,7 +150,8 @@ void dmtcp::SharedData::initialize()
 
 void dmtcp::SharedData::preCkpt()
 {
-  JASSERT(_real_munmap(sharedDataHeader, SHM_MAX_SIZE) == 0) (JASSERT_ERRNO);
+  size_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
   sharedDataHeader = NULL;
 }
 

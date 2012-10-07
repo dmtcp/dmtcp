@@ -85,7 +85,7 @@ namespace dmtcp
         if (_ipcVirtIdTable.virtualIdExists(virtId)) {
           return _ipcVirtIdTable.virtualToReal(virtId);
         } else {
-          int realId = dmtcp::SharedData::getRealIPCId(virtId);
+          int realId = SharedData::getRealIPCId(virtId);
           return realId;
         }
       }
@@ -97,7 +97,8 @@ namespace dmtcp
         }
       }
       void updateMapping(int virtId, int realId) {
-        return _ipcVirtIdTable.updateMapping(virtId, realId);
+        _ipcVirtIdTable.updateMapping(virtId, realId);
+        SharedData::setIPCIdMap(virtId, realId);
       }
 
       int  getNewVirtualId();

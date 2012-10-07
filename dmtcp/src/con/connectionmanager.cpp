@@ -213,7 +213,9 @@ dmtcp::string dmtcp::KernelDeviceToConnection::fdToDevice(int fd,
   bool isEpoll =(device.compare("anon_inode:[eventpoll]")==0);
   bool isEventFd =(device.compare("anon_inode:[eventfd]")==0);
   bool isSignalFd =(device.compare("anon_inode:[signalfd]")==0);
+#ifdef DMTCP_USE_INOTIFY
   bool isInotify = (device.compare("anon_inode:[inotify]")==0);
+#endif
 #ifdef IBV
   bool isInfinibandDevice = Util::strStartsWith(device, "/dev/infiniband/");
   bool isInfinibandConnection = Util::strStartsWith(device, "infinibandevent:");

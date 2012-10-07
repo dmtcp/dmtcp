@@ -121,6 +121,8 @@ namespace dmtcp
     pid_t getTracerPid(pid_t tid = -1);
     bool isPtraced();
     bool isValidFd(int fd);
+    size_t pageSize();
+    size_t pageMask();
     bool areZeroPages(void *addr, size_t numPages);
   }
 }

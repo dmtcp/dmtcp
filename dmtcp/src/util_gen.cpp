@@ -356,9 +356,21 @@ bool dmtcp::Util::isValidFd(int fd)
   return true;
 }
 
+size_t dmtcp::Util::pageSize()
+{
+  static size_t page_size = sysconf(_SC_PAGESIZE);
+  return page_size;
+}
+
+size_t dmtcp::Util::pageMask()
+{
+  static size_t page_mask = ~(pageSize() - 1);
+  return page_mask;
+}
+
 bool dmtcp::Util::areZeroPages(void *addr, size_t numPages)
 {
-  static long page_size = sysconf(_SC_PAGESIZE);
+  static size_t page_size = pageSize();
   long long *buf = (long long*) addr;
   size_t i;
   size_t end = numPages * page_size / sizeof (*buf);
