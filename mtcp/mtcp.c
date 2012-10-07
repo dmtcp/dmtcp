@@ -55,8 +55,8 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
-#include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <unistd.h>
+#include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <sys/types.h>     // for gettid, tgkill, waitpid
 #include <sys/wait.h>	   // for waitpid
 #include <linux/unistd.h>  // for gettid, tgkill
@@ -408,7 +408,6 @@ static void restore_sig_state (Thread *thisthread);
 static void save_sig_handlers (void);
 static void restore_sig_handlers (Thread *thisthread);
 static void save_tls_state (Thread *thisthread);
-static void renametempoverperm (void);
 static Thread *getcurrenthread (void);
 static void lock_threads (void);
 static void unlk_threads (void);
@@ -427,7 +426,6 @@ static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread);
 static void *mtcp_safe_malloc(size_t size);
 static void mtcp_safe_free(void *ptr);
 
-static int perform_callback_write_ckpt_header();
 void mtcp_thread_start(void *arg);
 void mtcp_thread_return();
 
@@ -1055,7 +1053,7 @@ static int threadcloned (void *threadv)
   rc = (*(thread -> fn)) (thread -> arg);
   DPRINTF("returned %d\n", rc);
 
-  mtcp_thread_return(rc);
+  mtcp_thread_return();
 
   /* Return the user's status as the exit code */
 

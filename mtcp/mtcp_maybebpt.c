@@ -35,6 +35,7 @@
 #define MTCP_SYS_MEMCPY
 #define MTCP_SYS_MEMMOVE
 #include "mtcp_internal.h"
+#include "mtcp_util.h"
 //#define mtcp_sys_memcmp memcmp
 
 void mtcp_maybebpt (void)
