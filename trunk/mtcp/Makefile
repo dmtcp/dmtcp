@@ -233,7 +233,7 @@ testmtcp5: testmtcp5.c libmtcp.so
 
 testmtcp6: testmtcp6.c libmtcp.so
 	${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
-	  -lreadline -lhistory -lcurses
+	  -lreadline -lhistory
 
 threadtest: threadtest.c
 	${CC} $(MTCP_CFLAGS) -o threadtest threadtest.c

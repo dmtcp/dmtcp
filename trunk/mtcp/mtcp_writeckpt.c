@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <termios.h>       // for tcdrain, tcsetattr, etc.
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/time.h>

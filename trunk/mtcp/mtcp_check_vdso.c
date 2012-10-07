@@ -40,6 +40,7 @@
 #include <elf.h> // For value of AT_SYSINFO, Elf??_auxv_t
 #include "mtcp_sys.h" // For CLEAN_FOR_64BIT; for mtcp_sys_kernel_set_tls (ARM)
 #include "mtcp_internal.h" // For CLEAN_FOR_64BIT and PATH_MAX
+#include "mtcp_util.h"
 
 #ifdef __x86_64__
 # define ELF_AUXV_T Elf64_auxv_t

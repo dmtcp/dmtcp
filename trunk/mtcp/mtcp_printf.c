@@ -38,6 +38,7 @@
 
 
 #include "mtcp_internal.h"
+#include "mtcp_util.h"
 
 pid_t mtcp_saved_pid = 0;
 int dmtcp_info_stderr_fd = 2;
