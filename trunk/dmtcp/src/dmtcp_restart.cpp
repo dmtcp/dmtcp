@@ -707,9 +707,8 @@ int openSharedFile(dmtcp::string name, int flags)
 
 static void openOriginalToCurrentMappingFiles()
 {
-  int fd;
-
 #ifdef PID_VIRTUALIZATION
+  int fd;
   dmtcp::ostringstream pidMapFile;
   pidMapFile << dmtcpTmpDir << "/dmtcpPidMap."
              << compGroup << "." << std::hex << coordTstamp;
@@ -721,23 +720,6 @@ static void openOriginalToCurrentMappingFiles()
 	  (pidMapFile.str());
   close (fd);
 #endif
-
-  dmtcp::ostringstream shmidListFile, shmidMapFile;
-
-  shmidMapFile << dmtcpTmpDir << "/dmtcpShmidMap."
-               << compGroup << "." << std::hex << coordTstamp;
-
-  shmidListFile << dmtcpTmpDir << "/dmtcpShmidList."
-                << compGroup << "." << std::hex << coordTstamp;
-
-  // Open and create shmidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpShmidMapFile") (shmidMapFile.str());
-  fd = openSharedFile(shmidMapFile.str(), (O_RDWR|O_APPEND));
-  JASSERT (fd != -1);
-  JASSERT (dup2 (fd, PROTECTED_SHMIDMAP_FD) == PROTECTED_SHMIDMAP_FD)
-	  (shmidMapFile.str());
-  close (fd);
-
 }
 
 void runMtcpRestore(const char* path, int offset, size_t argvSize,

@@ -107,10 +107,7 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_POST_CKPT:
-      {
-        DmtcpEventData_t *edata = (DmtcpEventData_t *) data;
-        dmtcp::SysVIPC::instance().postCheckpoint(edata->postCkptInfo.isRestart);
-      }
+      dmtcp::SysVIPC::instance().postCheckpoint(data->postCkptInfo.isRestart);
       break;
 
     case DMTCP_EVENT_POST_CKPT_RESUME:
@@ -274,8 +271,6 @@ void dmtcp::SysVIPC::preResume()
 void dmtcp::SysVIPC::postCheckpoint(bool isRestart)
 {
   if (!isRestart) return;
-  _ipcVirtIdTable.clear();
-  _ipcVirtIdTable.readMapsFromFile(PROTECTED_SHMIDMAP_FD);
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     i->second->postCheckpoint(isRestart);
@@ -301,7 +296,6 @@ void dmtcp::SysVIPC::postRestart()
   for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
     i->second->postRestart();
   }
-  _ipcVirtIdTable.writeMapsToFile(PROTECTED_SHMIDMAP_FD);
 }
 
 /*
@@ -316,7 +310,6 @@ void dmtcp::SysVIPC::on_shmget(int shmid, key_t key, size_t size, int shmflg)
     JTRACE ("Shmid not found in table. Creating new entry")
       (shmid) (virtId);
     updateMapping(virtId, shmid);
-    dmtcp::SharedData::setIPCIdMap(virtId, shmid);
     _shm[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
   } else {
     JASSERT(_shm.find(shmid) != _shm.end());
@@ -414,7 +407,6 @@ void dmtcp::SysVIPC::on_semget(int semid, key_t key, int nsems, int semflg)
     JTRACE ("Semid not found in table. Creating new entry") (semid);
     int virtId = getNewVirtualId();
     updateMapping(virtId, semid);
-    dmtcp::SharedData::setIPCIdMap(virtId, semid);
     _sem[virtId] = new Semaphore (virtId, semid, key, nsems, semflg);
   } else {
     JASSERT(_sem.find(semid) != _sem.end());
@@ -453,7 +445,6 @@ void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
     JTRACE ("Msqid not found in table. Creating new entry") (msqid);
     int virtId = getNewVirtualId();
     updateMapping(virtId, msqid);
-    dmtcp::SharedData::setIPCIdMap(virtId, msqid);
     _msq[virtId] = new MsgQueue (virtId, msqid, key, msgflg);
   } else {
     JASSERT(_msq.find(msqid) != _msq.end());
@@ -657,15 +648,17 @@ dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
 {
   _nsems = nsems;
   if (key == -1) {
+    struct semid_ds buf;
     union semun se;
-    JASSERT(_real_semctl(realSemid, 0, IPC_STAT, se) != -1);
+    se.buf = &buf;
+    JASSERT(_real_semctl(realSemid, 0, IPC_STAT, se) != -1) (JASSERT_ERRNO);
     _key = se.buf->sem_perm.__key;
     _nsems = se.buf->sem_nsems;
     _flags = se.buf->sem_perm.mode;
   }
-  _semval = new unsigned short[nsems];
-  _semadj = new int[nsems];
-  for (int i = 0; i < nsems; i++) {
+  _semval = new unsigned short[_nsems];
+  _semadj = new int[_nsems];
+  for (int i = 0; i < _nsems; i++) {
     _semval[i] = 0;
     _semadj[i] = 0;
   }
