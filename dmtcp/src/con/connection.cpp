@@ -432,7 +432,7 @@ void dmtcp::TcpConnection::onConnect(int sockfd,
   if (really_verbose) {
     JTRACE("Connecting.") (id());
   }
-  JASSERT(tcpType() == TCP_CREATED) (tcpType()) (id())
+  JASSERT(tcpType() == TCP_CREATED || tcpType() == TCP_BIND) (tcpType()) (id())
     .Text("Connecting with an in-use socket????");
 
   /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
