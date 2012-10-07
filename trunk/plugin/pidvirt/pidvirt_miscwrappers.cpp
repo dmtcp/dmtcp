@@ -225,7 +225,7 @@ int semctl(int semid, int semnum, int cmd, ...)
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_semctl(semid, semnum, cmd, uarg);
-  if (ret != -1 && cmd == GETPID) {
+  if (ret != -1 && (cmd & GETPID)) {
     ret = REAL_TO_VIRTUAL_PID(ret);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -237,7 +237,7 @@ int msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_msgctl(msqid, cmd, buf);
-  if (ret != -1 && buf != NULL && (cmd == IPC_STAT || cmd == MSG_STAT)) {
+  if (ret != -1 && buf != NULL && ((cmd & IPC_STAT) || (cmd & MSG_STAT))) {
     buf->msg_lspid = REAL_TO_VIRTUAL_PID(buf->msg_lspid);
     buf->msg_lrpid = REAL_TO_VIRTUAL_PID(buf->msg_lrpid);
   }
