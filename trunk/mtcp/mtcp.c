@@ -1172,11 +1172,11 @@ static void setup_clone_entry (void)
 
   tmp = getenv ("MTCP_WRAPPER_LIBC_SO");
   if (tmp != NULL) {
-    if (strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
+    if (mtcp_strlen(tmp) >= sizeof(mtcp_libc_area.name)) {
       MTCP_PRINTF("libc area name (%s) too long (>=1024 chars)\n", tmp);
       mtcp_abort();
     }
-    strncpy (mtcp_libc_area.name, tmp, sizeof mtcp_libc_area.name);
+    mtcp_strncpy (mtcp_libc_area.name, tmp, sizeof mtcp_libc_area.name);
   } else {
     mapsfd = mtcp_sys_open2 ("/proc/self/maps", O_RDONLY);
     if (mapsfd < 0) {
@@ -1186,10 +1186,10 @@ static void setup_clone_entry (void)
     }
     p = NULL;
     while (mtcp_readmapsline (mapsfd, &mtcp_libc_area, NULL)) {
-      p = strstr (mtcp_libc_area.name, "/libc-");
+      p = mtcp_strstr (mtcp_libc_area.name, "/libc-");
       /* We can't do a dlopen on the debug version of libc. */
       if (((p != NULL) && ((p[5] == '-') || (p[5] == '.'))) &&
-          !strstr(mtcp_libc_area.name, "debug")) break;
+          !mtcp_strstr(mtcp_libc_area.name, "debug")) break;
     }
     close (mapsfd);
     if (p == NULL) {
@@ -1927,7 +1927,7 @@ again:
 	       &callback_pre_ckpt, callback_pre_ckpt);
       (*callback_pre_ckpt)(&dmtcp_checkpoint_filename);
       if (dmtcp_checkpoint_filename &&
-          strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
+          mtcp_strcmp(dmtcp_checkpoint_filename, "/dev/null") != 0) {
         update_checkpoint_filename(dmtcp_checkpoint_filename);
       }
     }
@@ -1953,7 +1953,7 @@ again:
     DPRINTF("mtcp_saved_break=%p\n", mtcp_saved_break);
 
     if ( dmtcp_checkpoint_filename == NULL ||
-         strcmp (dmtcp_checkpoint_filename, "/dev/null") != 0) {
+         mtcp_strcmp (dmtcp_checkpoint_filename, "/dev/null") != 0) {
       mtcp_checkpointeverything(temp_checkpointfilename, perm_checkpointfilename);
     } else {
       MTCP_PRINTF("received \'/dev/null\' as ckpt filename.\n"
@@ -2010,14 +2010,14 @@ again:
 
 static void update_checkpoint_filename(const char *checkpointfilename)
 {
-  size_t len = strlen(checkpointfilename);
+  size_t len = mtcp_strlen(checkpointfilename);
   if (len >= PATH_MAX) {
     MTCP_PRINTF("checkpoint filename (%s) too long (>=%d bytes)\n",
                 checkpointfilename, PATH_MAX);
     mtcp_abort();
   }
   // this is what user wants the checkpoint file called
-  strncpy(perm_checkpointfilename, checkpointfilename, PATH_MAX);
+  mtcp_strncpy(perm_checkpointfilename, checkpointfilename, PATH_MAX);
   // make up another name, same as that, with ".temp" on the end ... we use it
   // to write to in case we crash while writing, we will leave the previous good
   // one intact
@@ -2026,7 +2026,7 @@ static void update_checkpoint_filename(const char *checkpointfilename)
     MTCP_PRINTF("ckpt filename is %d bytes long, temp file will have the same name",
                 checkpointfilename, PATH_MAX);
   }
-  strncpy(temp_checkpointfilename + len, ".temp", PATH_MAX - len);
+  mtcp_strncpy(temp_checkpointfilename + len, ".temp", PATH_MAX - len);
   DPRINTF("Checkpoint filename changed to %s\n", perm_checkpointfilename);
 }
 
@@ -2809,8 +2809,8 @@ void mtcp_finishrestore (void)
 
   restore_heap();
 
-  if (strlen(mtcp_ckpt_newname) > 0 &&
-      strcmp(mtcp_ckpt_newname, perm_checkpointfilename)) {
+  if (mtcp_strlen(mtcp_ckpt_newname) > 0 &&
+      mtcp_strcmp(mtcp_ckpt_newname, perm_checkpointfilename)) {
     // we start from different place - change it!
     DPRINTF("checkpoint file name was changed\n");
     update_checkpoint_filename(mtcp_ckpt_newname);
