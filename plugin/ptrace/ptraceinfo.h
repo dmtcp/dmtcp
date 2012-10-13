@@ -207,6 +207,8 @@ namespace dmtcp {
       bool isPtracing();
       void setPtracing();
 
+      bool isInferior(pid_t tid);
+
       pid_t getWait4Status(pid_t pid, int *status, struct rusage *rusage);
       void processSuccessfulPtraceCmd(int request, pid_t pid,
                                       void *addr, void *data);
