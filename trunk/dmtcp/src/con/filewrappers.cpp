@@ -474,8 +474,14 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   char newpath [ PATH_MAX ] = {0} ;
   WRAPPER_EXECUTION_DISABLE_CKPT();
   READLINK_RET_TYPE retval;
-  updateStatPath(path, newpath);
-  retval = _real_readlink(newpath, buf, bufsiz);
+  if (strcmp(path, "/proc/self/exe") == 0) {
+    dmtcp::string procSelfExe = dmtcp::ProcessInfo::instance().procSelfExe();
+    strncpy(buf, procSelfExe.c_str(), bufsiz);
+    retval = bufsiz > procSelfExe.length() ? procSelfExe.length() : bufsiz;
+  } else {
+    updateStatPath(path, newpath);
+    retval = _real_readlink(newpath, buf, bufsiz);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return retval;
 }

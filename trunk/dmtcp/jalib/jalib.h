@@ -39,6 +39,7 @@ namespace jalib {
     FILE* (*fopen)(const char *path, const char *mode);
     int   (*close)(int fd);
     int   (*fclose)(FILE *fp);
+    ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
     long int (*syscall)(long int sys_num, ...);
     void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
@@ -78,6 +79,7 @@ namespace jalib {
   FILE* fopen(const char *path, const char *mode);
   int close(int fd);
   int fclose(FILE *fp);
+  ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
   long int syscall(long int sys_num, ...);
   void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);

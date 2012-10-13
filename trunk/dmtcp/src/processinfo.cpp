@@ -89,6 +89,7 @@ dmtcp::ProcessInfo::ProcessInfo()
   _childTable.clear();
   _tidVector.clear();
   _pthreadJoinId.clear();
+  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _do_unlock_tbl();
 }
 

@@ -50,6 +50,7 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(fopen);
   INIT_JALIB_FPTR(close);
   INIT_JALIB_FPTR(fclose);
+  INIT_JALIB_FPTR(readlink);
 
   INIT_JALIB_FPTR(syscall);
   INIT_JALIB_FPTR(mmap);
