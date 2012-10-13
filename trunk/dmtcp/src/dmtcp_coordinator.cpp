@@ -794,7 +794,19 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       {
         WorkerState oldState = client->state();
         client->setState ( msg.state );
-        WorkerState newState = minimumState();
+        CoordinatorStatus s = getStatus();
+        WorkerState newState = s.minimumState;
+        /* It is possible for minimumState to be RUNNING while one or more
+         * processes are still in REFILLED state.
+         */
+        if (s.minimumState == WorkerState::RUNNING && !s.minimumStateUnanimous &&
+            s.maximumState == WorkerState::REFILLED) {
+          /* If minimumState is RUNNING, and not every processes is in RUNNING
+           * state, the maximumState must be REFILLED. This is the case when we
+           * are performing ckpt-resume or rst-resume).
+           */
+          newState = s.maximumState;
+        }
 
         JTRACE ("got DMT_OK message")
           ( msg.from )( msg.state )( oldState )( newState );
@@ -1349,7 +1361,7 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
   CoordinatorStatus s = getStatus();
-  if ( s.minimumState == WorkerState::RUNNING
+  if ( s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
        && !workersRunningAndSuspendMsgSent )
   {
     JTIMER_START ( checkpoint );
@@ -1411,8 +1423,10 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
 dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() const
 {
   CoordinatorStatus status;
-  const static int INITIAL = WorkerState::_MAX;
-  int m = INITIAL;
+  const static int INITIAL_MIN = WorkerState::_MAX;
+  const static int INITIAL_MAX = WorkerState::UNKNOWN;
+  int min = INITIAL_MIN;
+  int max = INITIAL_MAX;
   int count = 0;
   bool unanimous = true;
   for ( const_iterator i = _dataSockets.begin()
@@ -1423,13 +1437,14 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
     {
       int cliState = ((NamedChunkReader*)*i)->state().value();
       count++;
-      unanimous = unanimous && (m==cliState || m==INITIAL);
-      if ( cliState < m ) m = cliState;
+      unanimous = unanimous && (min==cliState || min==INITIAL_MIN);
+      if ( cliState < min ) min = cliState;
+      if ( cliState > max ) max = cliState;
     }
   }
 
-  status.minimumState = ( m==INITIAL ? WorkerState::UNKNOWN
-			  : (WorkerState::eWorkerState)m );
+  status.minimumState = ( min==INITIAL_MIN ? WorkerState::UNKNOWN
+			  : (WorkerState::eWorkerState)min );
   if( status.minimumState == WorkerState::CHECKPOINTED &&
       isRestarting && count < numPeers ){
     JTRACE("minimal state counted as CHECKPOINTED but not all processes"
@@ -1437,6 +1452,9 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
     status.minimumState = WorkerState::RESTARTING;
   }
   status.minimumStateUnanimous = unanimous;
+
+  status.maximumState = ( max==INITIAL_MAX ? WorkerState::UNKNOWN
+			  : (WorkerState::eWorkerState)max );
   status.numPeers = count;
   return status;
 }

@@ -31,7 +31,12 @@ namespace dmtcp
   class DmtcpCoordinator : public jalib::JMultiSocketProgram
   {
     public:
-      typedef struct { dmtcp::WorkerState minimumState; bool minimumStateUnanimous; int numPeers; } CoordinatorStatus;
+      typedef struct {
+        dmtcp::WorkerState minimumState;
+        dmtcp::WorkerState maximumState;
+        bool minimumStateUnanimous;
+        int numPeers;
+      } CoordinatorStatus;
 
       virtual void onData ( jalib::JReaderInterface* sock );
       virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
