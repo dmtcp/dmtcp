@@ -28,31 +28,31 @@
 
 namespace jalib
 {
-
-class JAllocDispatcher {
-public:
-  static void* allocate(size_t n);
-  static void  deallocate(void* ptr, size_t n);
-  static void* malloc(size_t nbytes)
-  {
-    size_t* p = (size_t*) jalib::JAllocDispatcher::allocate(nbytes+sizeof(size_t));
-    *p = nbytes;
-    p+=1;
-    return p;
-  }
-  static void  free(void* p)
-  {
-    size_t* _p = (size_t*) p;
-    _p-=1;
-    jalib::JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));
-  }
-  static void lock();
-  static void unlock();
-  static void disable_locks();
-  static void enable_locks();
-  static void reset_on_fork();
-};
-
+  class JAllocDispatcher {
+    private:
+      static void initialize(void);
+    public:
+      static void* allocate(size_t n);
+      static void  deallocate(void* ptr, size_t n);
+      static void* malloc(size_t nbytes)
+      {
+        size_t* p = (size_t*) JAllocDispatcher::allocate(nbytes+sizeof(size_t));
+        *p = nbytes;
+        p+=1;
+        return p;
+      }
+      static void  free(void* p)
+      {
+        size_t* _p = (size_t*) p;
+        _p-=1;
+        JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));
+      }
+      static void lock();
+      static void unlock();
+      static void disable_locks();
+      static void enable_locks();
+      static void reset_on_fork();
+  };
 }
 
 #define JALLOC_HELPER_LOCK() jalib::JAllocDispatcher::lock();

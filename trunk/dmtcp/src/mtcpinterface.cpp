@@ -184,6 +184,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 }
 
 
+extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
 static void callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
@@ -191,12 +192,12 @@ static void callbackPostCheckpoint(int isRestart,
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
-#ifndef RECORD_REPLAY
-    /* This calls setenv() which calls malloc. Since this is only executed on
-       restart, that means it there is an extra malloc on replay. Commenting this
-       until we have time to fix it. */
-    dmtcp::CoordinatorAPI::instance().updateHostAndPortEnv();
-#endif
+    if (fred_record_replay_enabled == 0 || !fred_record_replay_enabled()) {
+      /* This calls setenv() which calls malloc. Since this is only executed on
+         restart, that means it there is an extra malloc on replay. Commenting this
+         until we have time to fix it. */
+      dmtcp::CoordinatorAPI::instance().updateHostAndPortEnv();
+    }
 
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
 
