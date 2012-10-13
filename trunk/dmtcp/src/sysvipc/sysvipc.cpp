@@ -106,8 +106,8 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::SysVIPC::instance().preCkptDrain();
       break;
 
-    case DMTCP_EVENT_POST_CKPT:
-      dmtcp::SysVIPC::instance().postCheckpoint(data->postCkptInfo.isRestart);
+    case DMTCP_EVENT_REFILL:
+      dmtcp::SysVIPC::instance().refill(data->refillInfo.isRestart);
       break;
 
     case DMTCP_EVENT_RESUME:
@@ -267,18 +267,18 @@ void dmtcp::SysVIPC::preResume()
   }
 }
 
-void dmtcp::SysVIPC::postCheckpoint(bool isRestart)
+void dmtcp::SysVIPC::refill(bool isRestart)
 {
   if (!isRestart) return;
 
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->postCheckpoint(isRestart);
+    i->second->refill(isRestart);
   }
   for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->postCheckpoint(isRestart);
+    i->second->refill(isRestart);
   }
   for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->postCheckpoint(isRestart);
+    i->second->refill(isRestart);
   }
 }
 
@@ -738,7 +738,7 @@ void dmtcp::Semaphore::postRestart()
   }
 }
 
-void dmtcp::Semaphore::postCheckpoint(bool isRestart)
+void dmtcp::Semaphore::refill(bool isRestart)
 {
   if (!isRestart) return;
   /* Update the semadj value for this process.
@@ -851,7 +851,7 @@ void dmtcp::MsgQueue::postRestart()
   }
 }
 
-void dmtcp::MsgQueue::postCheckpoint(bool isRestart)
+void dmtcp::MsgQueue::refill(bool isRestart)
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;

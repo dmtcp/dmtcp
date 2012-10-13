@@ -133,9 +133,9 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 #endif
       break;
 
-    case DMTCP_EVENT_POST_CKPT:
+    case DMTCP_EVENT_REFILL:
       JASSERT(theCheckpointState != NULL);
-      theCheckpointState->postCheckpoint(data->postCkptInfo.isRestart);
+      theCheckpointState->postCheckpoint(data->refillInfo.isRestart);
       delete theCheckpointState;
       theCheckpointState = NULL;
       break;

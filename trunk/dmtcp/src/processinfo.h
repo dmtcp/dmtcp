@@ -47,9 +47,7 @@ namespace dmtcp
       ProcessInfo();
       static ProcessInfo& instance();
 
-      void postRestart();
       void restoreProcessGroupInfo();
-      void preCheckpoint();
 
       void  insertTid(pid_t tid);
       void  eraseTid(pid_t tid);

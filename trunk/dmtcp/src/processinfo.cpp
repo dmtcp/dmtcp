@@ -50,10 +50,6 @@ static void _do_unlock_tbl()
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_PRE_CKPT:
-      dmtcp::ProcessInfo::instance().preCheckpoint();
-      break;
-
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
@@ -74,10 +70,6 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::ProcessInfo::instance().serialize(wr);
       }
-      break;
-
-    case DMTCP_EVENT_POST_RESTART:
-      dmtcp::ProcessInfo::instance().postRestart();
       break;
 
     default:
@@ -107,15 +99,6 @@ dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
     pInfo = new ProcessInfo();
   }
   return *pInfo;
-}
-
-void dmtcp::ProcessInfo::preCheckpoint()
-{
-  //refresh();
-}
-
-void dmtcp::ProcessInfo::postRestart()
-{
 }
 
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()
