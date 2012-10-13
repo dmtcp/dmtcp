@@ -38,6 +38,7 @@
 #include <list>
 #include <semaphore.h>
 
+#include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"
 
@@ -73,7 +74,7 @@ namespace dmtcp {
       pid_t superior(void) { return _superior; }
       bool  isCkptThread(void) { return _isCkptThread; }
       int   lastCmd(void) { return _lastCmd; }
-      int   setLastCmd(int cmd) { _lastCmd = cmd; }
+      void  setLastCmd(int cmd) { _lastCmd = cmd; }
       PtraceProcState  state() { return _state; };
       void  setState(PtraceProcState state) { _state = state; };
       void *getPtraceOptions() { return _ptraceOptions; }
@@ -186,7 +187,9 @@ namespace dmtcp {
     public:
       PtraceInfo()
         : _sharedData (NULL)
-      {}
+      {
+        _sharedDataSize = CEIL(sizeof(PtraceSharedData), Util::pageSize());
+      }
 
       ~PtraceInfo(){}
 
@@ -217,6 +220,7 @@ namespace dmtcp {
 
     private:
       PtraceSharedData *_sharedData;
+      size_t            _sharedDataSize;
       dmtcp::map< pid_t, dmtcp::vector<Inferior*> > _supToInfsMap;
       typedef dmtcp::map< pid_t, dmtcp::vector<Inferior*> >::iterator
         supToInfsMapIter;

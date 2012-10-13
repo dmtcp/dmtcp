@@ -58,16 +58,17 @@ void dmtcp::PtraceInfo::createSharedFile()
   int fd = dmtcp_get_ptrace_fd();
   if (fstat(fd, &statbuf) == -1 && errno == EBADF) {
     char path[PATH_MAX];
-    size_t length = sizeof(PtraceSharedData);
     int ptrace_fd = dmtcp_get_ptrace_fd();
 
-    sprintf(path, "%s/%s-%s", dmtcp_get_tmpdir(), "ptraceSharedInfo",
-            dmtcp_get_computation_id_str());
+    sprintf(path, "%s/%s-%s.%lx", dmtcp_get_tmpdir(), "ptraceSharedInfo",
+            dmtcp_get_computation_id_str(),
+            (unsigned long) dmtcp_get_coordinator_timestamp());
 
     int fd = _real_open(path, O_CREAT | O_TRUNC | O_RDWR, 0600);
     JASSERT(fd != -1) (path) (JASSERT_ERRNO);
-    JASSERT(_real_lseek(fd, length, SEEK_SET) == length)
-      (path) (length) (JASSERT_ERRNO);
+
+    JASSERT(_real_lseek(fd, _sharedDataSize, SEEK_SET) == (off_t)_sharedDataSize)
+      (path) (_sharedDataSize) (JASSERT_ERRNO);
     Util::writeAll(fd, "", 1);
     JASSERT(_real_unlink(path) == 0) (path) (JASSERT_ERRNO);
     JASSERT(_real_dup2(fd, ptrace_fd) == ptrace_fd) (fd) (ptrace_fd);
@@ -77,12 +78,12 @@ void dmtcp::PtraceInfo::createSharedFile()
 
 void dmtcp::PtraceInfo::mapSharedFile()
 {
-  size_t length = sizeof(PtraceSharedData);
   int fd = dmtcp_get_ptrace_fd();
 
-  _sharedData = (PtraceSharedData*) _real_mmap(0, length, PROT_READ|PROT_WRITE,
-                                         MAP_SHARED, fd, 0);
-  JASSERT(_sharedData != MAP_FAILED) (fd) (length);
+  _sharedData = (PtraceSharedData*) _real_mmap(0, _sharedDataSize,
+                                               PROT_READ|PROT_WRITE,
+                                               MAP_SHARED, fd, 0);
+  JASSERT(_sharedData != MAP_FAILED) (fd) (_sharedDataSize);
 
   _sharedData->init();
 }
@@ -102,7 +103,7 @@ void dmtcp::PtraceInfo::markAsCkptThread()
   }
   pid_t superior = dmtcp::Util::getTracerPid();
   if (superior != 0) {
-    dmtcp::Inferior *inf = _sharedData->insertInferior(superior, GETTID(), true);
+    _sharedData->insertInferior(superior, GETTID(), true);
   }
 }
 
