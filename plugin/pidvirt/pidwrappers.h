@@ -90,6 +90,58 @@ extern "C"
   int tkill(int tid, int sig);
   int tgkill(int tgid, int tid, int sig);
 
+#define FOREACH_PIDVIRT_WRAPPER(MACRO)\
+  MACRO(fork)               \
+  MACRO(__clone)            \
+  MACRO(gettid)             \
+  MACRO(tkill)              \
+  MACRO(tgkill)             \
+  MACRO(syscall)            \
+  MACRO(shmget)             \
+  MACRO(shmat)              \
+  MACRO(shmdt)              \
+  MACRO(shmctl)             \
+  MACRO(semctl)             \
+  MACRO(msgctl)             \
+  MACRO(mq_notify)          \
+  MACRO(getppid)            \
+  MACRO(tcgetpgrp)          \
+  MACRO(tcsetpgrp)          \
+  MACRO(getpgrp)            \
+  MACRO(setpgrp)            \
+  MACRO(getpgid)            \
+  MACRO(setpgid)            \
+  MACRO(getsid)             \
+  MACRO(setsid)             \
+  MACRO(kill)               \
+  MACRO(wait)               \
+  MACRO(waitpid)            \
+  MACRO(waitid)             \
+  MACRO(wait3)              \
+  MACRO(wait4)              \
+  MACRO(ioctl)              \
+  MACRO(setgid)             \
+  MACRO(setuid)             \
+  MACRO(ptrace )            \
+  MACRO(pthread_exit )      \
+  MACRO(fcntl)              \
+  MACRO(open)               \
+  MACRO(open64)             \
+  MACRO(fopen)              \
+  MACRO(fopen64)            \
+  MACRO(__xstat)            \
+  MACRO(__xstat64)          \
+  MACRO(__lxstat)           \
+  MACRO(__lxstat64)         \
+  MACRO(readlink)
+
+# define PIDVIRT_ENUM(x) pidvirt_enum_ ## x
+# define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
+  typedef enum {
+    FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)
+    numPidVirtWrappers
+  } PidVirtWrapperOffset;
+
   pid_t _real_fork();
   int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags,
                     void *arg, int *parent_tidptr, struct user_desc *newtls,

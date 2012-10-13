@@ -131,6 +131,15 @@ void dmtcp::initializeMtcpEngine()
   mtcp_ok();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );
+
+  /* Now wait for Checkpoint Thread to finish initialization
+   * NOTE: This should be the last thing in this constructor
+   */
+  ThreadSync::initMotherOfAll();
+  while (!ThreadSync::isCheckpointThreadInitialized()) {
+    struct timespec sleepTime = {0, 10*1000*1000};
+    nanosleep(&sleepTime, NULL);
+  }
 }
 
 void dmtcp::shutdownMtcpEngineOnFork()
@@ -147,6 +156,9 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
+  // FIXME: Add a test to make check that can insert a delay of a couple of
+  // seconds in here. This helps testing the initialization routines of various
+  // plugins.
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   prctlGetProcessName();

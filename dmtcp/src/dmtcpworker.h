@@ -39,6 +39,9 @@ void restoreUserLDPRELOAD();
 
 namespace dmtcp
 {
+  // To allow linking without mtcpinterface;  Weak symbol undefined, is set to 0
+  void __attribute__ ((weak)) initializeMtcpEngine();
+  void __attribute__ ((weak)) killCkpthread();
 
 #ifdef EXTERNAL_SOCKET_HANDLING
   class ConnectionState;

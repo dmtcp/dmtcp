@@ -146,6 +146,8 @@ extern "C" pid_t fork()
      */
     dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
     JTRACE("fork() done [CHILD]") (child) (parent);
+
+    dmtcp::initializeMtcpEngine();
   } else if (childPid > 0) { /* Parent Process */
     dmtcp::UniquePid child = dmtcp::UniquePid(host, childPid, child_time);
     dmtcp::ProcessInfo::instance().insertChild(childPid, child);
