@@ -135,8 +135,8 @@ static int test_use_compression(char *compressor, char *command, char *path,
   else
     default_val = "0";
 
-  strncat(env_var1,compressor,env_var1_len);
-  strncat(env_var2,compressor,env_var2_len);
+  mtcp_strncat(env_var1,compressor,env_var1_len);
+  mtcp_strncat(env_var2,compressor,env_var2_len);
   do_we_compress = getenv(env_var1);
   // allow alternate name for env var
   if (do_we_compress == NULL){
@@ -156,7 +156,7 @@ static int test_use_compression(char *compressor, char *command, char *path,
     do_we_compress = "0";
   }
 
-  if ( 0 == strcmp(do_we_compress, "0") )
+  if ( 0 == mtcp_strcmp(do_we_compress, "0") )
     return 0;
 
   /* Check if the executable exists. */
@@ -340,8 +340,8 @@ static int perform_callback_write_ckpt_header()
   tmpStr = getenv("DMTCP_TMPDIR");
   if (tmpStr == NULL) tmpStr = getenv("TMPDIR");
   if (tmpStr == NULL) tmpStr = "/tmp";
-  strncpy(tmpDMTCPHeaderBuf, tmpStr, sizeof(tmpDMTCPHeaderBuf)-sizeof(pattern));
-  strncpy(tmpDMTCPHeaderBuf+strlen(tmpDMTCPHeaderBuf), pattern,sizeof(pattern));
+  mtcp_strncpy(tmpDMTCPHeaderBuf, tmpStr, sizeof(tmpDMTCPHeaderBuf)-sizeof(pattern));
+  mtcp_strncpy(tmpDMTCPHeaderBuf+strlen(tmpDMTCPHeaderBuf), pattern,sizeof(pattern));
   if (tmpDMTCPHeaderBuf[sizeof(tmpDMTCPHeaderBuf)-1] != '\0') {
     MTCP_PRINTF("*** Path of DMTCP_TMPDIR or TMPDIR is too long."
                 "*** Increase size of tmpDMTCPHeaderBuf, and re-compile.\n");
@@ -721,7 +721,7 @@ static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDis
 #endif
     else if (mtcp_strendswith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
-    } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
+    } else if (area.name[0] == '/' && mtcp_strstr(&area.name[1], "/") != NULL) {
       /* If an absolute pathname
        * Posix and SysV shared memory segments can be mapped as /XYZ
        */
@@ -809,7 +809,7 @@ static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDis
         writememoryarea (fd, &area, 0, vsyscall_exists);
       }
     } else {
-      if ( strstr (area.name, "[stack]") )
+      if ( mtcp_strstr (area.name, "[stack]") )
         stack_was_seen = 1;
       // the whole thing comes after the restore image
       writememoryarea (fd, &area, stack_was_seen, vsyscall_exists);
@@ -1136,16 +1136,16 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
 
   /* Write corresponding descriptor to the file */
 
-  if (orig_stack == NULL && 0 == strcmp(area -> name, "[stack]"))
+  if (orig_stack == NULL && 0 == mtcp_strcmp(area -> name, "[stack]"))
     orig_stack = area -> addr + area -> size;
 
-  if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
+  if (0 == mtcp_strcmp(area -> name, "[vdso]") && !stack_was_seen)
     DPRINTF("skipping over [vdso] section"
             " %p at %p\n", area -> size, area -> addr);
-  else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
+  else if (0 == mtcp_strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
     DPRINTF("skipping over [vsyscall] section"
     	    " %p at %p\n", area -> size, area -> addr);
-  else if (0 == strcmp(area -> name, "[stack]") &&
+  else if (0 == mtcp_strcmp(area -> name, "[stack]") &&
 	   orig_stack != area -> addr + area -> size)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
     DPRINTF("skipping over [stack] segment"
@@ -1173,8 +1173,8 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      * mappings only
      */
     mtcp_write_non_rwx_and_anonymous_pages(fd, area);
-  } else if (0 != strcmp(area -> name, "[vsyscall]")
-             && ((0 != strcmp(area -> name, "[vdso]")
+  } else if (0 != mtcp_strcmp(area -> name, "[vsyscall]")
+             && ((0 != mtcp_strcmp(area -> name, "[vdso]")
                   || vsyscall_exists /* which implies vdso can be overwritten */
                   || !stack_was_seen))) /* If vdso appeared before stack, it can be
                                          replaced */
@@ -1211,7 +1211,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
   }
 
   while (mtcp_readmapsline (mapsfd, &area, NULL)) {
-    if (0 == strcmp(area.name, "[vsyscall]")) {
+    if (0 == mtcp_strcmp(area.name, "[vsyscall]")) {
       /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
        * [vdso] will be saved and restored.
        * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
@@ -1234,10 +1234,10 @@ static void preprocess_special_segments(int *vsyscall_exists)
        *     new vdso segment, provided by mtcp_restart.
        */
       *vsyscall_exists = 1;
-    } else if (!mtcp_saved_heap_start && strcmp(area.name, "[heap]") == 0) {
+    } else if (!mtcp_saved_heap_start && mtcp_strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used in mtcp_finishrestore()
       mtcp_saved_heap_start = area.addr;
-    } else if (strcmp(area.name, "[stack]") == 0) {
+    } else if (mtcp_strcmp(area.name, "[stack]") == 0) {
       /*
        * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
