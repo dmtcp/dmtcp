@@ -740,7 +740,7 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 
 if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
   if testconfig.HAS_STRACE == "yes":
-    S=1
+    S=3
     runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
