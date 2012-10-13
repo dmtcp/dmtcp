@@ -62,6 +62,8 @@ typedef char * VA;
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
+#define CEIL(a,b) ((a)%(b) ? ((a) + (b) - ((a)%(b))) : (a))
+
 namespace dmtcp
 {
   namespace Util

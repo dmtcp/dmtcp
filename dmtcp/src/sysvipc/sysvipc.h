@@ -77,7 +77,7 @@ namespace dmtcp
       void leaderElection();
       void preCkptDrain();
       void preCheckpoint();
-      void postCheckpoint(bool isRestart);
+      void refill(bool isRestart);
       void postRestart();
       void preResume();
 
@@ -158,7 +158,7 @@ namespace dmtcp
       virtual void preCkptDrain() = 0;
       virtual void preCheckpoint() = 0;
       virtual void postRestart() = 0;
-      virtual void postCheckpoint(bool isRestart) = 0;
+      virtual void refill(bool isRestart) = 0;
       virtual void preResume() = 0;
 
     protected:
@@ -186,7 +186,7 @@ namespace dmtcp
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
-      virtual void postCheckpoint(bool isRestart) {}
+      virtual void refill(bool isRestart) {}
       virtual void preResume();
 
       bool isValidShmaddr(const void* shmaddr);
@@ -225,7 +225,7 @@ namespace dmtcp
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
-      virtual void postCheckpoint(bool isRestart);
+      virtual void refill(bool isRestart);
       virtual void preResume() {}
 
     private:
@@ -250,7 +250,7 @@ namespace dmtcp
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
-      virtual void postCheckpoint(bool isRestart);
+      virtual void refill(bool isRestart);
       virtual void preResume() {}
 
     private:

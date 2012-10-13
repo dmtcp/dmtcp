@@ -185,7 +185,6 @@ extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
 static void callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
-  DmtcpEventData_t edata;
   if (isRestart) {
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
@@ -197,9 +196,10 @@ static void callbackPostCheckpoint(int isRestart,
       dmtcp::CoordinatorAPI::instance().updateHostAndPortEnv();
     }
 
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
-
     dmtcp::DmtcpWorker::instance().postRestart();
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
+  } else {
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT, NULL);
   }
 
   /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
@@ -229,12 +229,8 @@ static void callbackPostCheckpoint(int isRestart,
   dmtcp::CoordinatorAPI::instance().sendCkptFilename();
 
   dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
-  edata.refillInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_REFILL, &edata);
 
-  dmtcp::DmtcpWorker::instance().waitForStage4Resume();
-  edata.resumeInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME, &edata);
+  dmtcp::DmtcpWorker::instance().waitForStage4Resume(isRestart);
 
   // Set the process state to RUNNING now, in case a dmtcpaware hook
   //  calls pthread_create, thereby invoking our virtualization.

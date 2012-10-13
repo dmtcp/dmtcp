@@ -249,6 +249,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
     edata.serializerInfo.fd = rd.fd();
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC, &edata);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
+    JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
   } else {
     //dmtcp::VirtualPidTable::instance().updateMapping(getppid(), _real_getppid());
     // Brand new process (was never under ckpt-control),
@@ -769,19 +770,22 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
 
   waitForCoordinatorMsg ("REFILL", DMT_DO_REFILL);
 
-  DmtcpEventData_t edata;
-  edata.postCkptInfo.isRestart = isRestart;
-  processEvent(DMTCP_EVENT_POST_CKPT, &edata);
-
   SyslogCheckpointer::restoreService();
+
+  DmtcpEventData_t edata;
+  edata.refillInfo.isRestart = isRestart;
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_REFILL, &edata);
 }
 
-void dmtcp::DmtcpWorker::waitForStage4Resume()
+void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
 {
   JTRACE("refilled");
   WorkerState::setCurrentState (WorkerState::REFILLED);
   waitForCoordinatorMsg ("RESUME", DMT_DO_RESUME);
   JTRACE("got resume message");
+  DmtcpEventData_t edata;
+  edata.resumeInfo.isRestart = isRestart;
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME, &edata);
 }
 
 void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);

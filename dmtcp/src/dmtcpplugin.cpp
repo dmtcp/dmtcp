@@ -66,6 +66,11 @@ EXTERNC const char* dmtcp_get_computation_id_str()
   return compid_str->c_str();
 }
 
+EXTERNC time_t dmtcp_get_coordinator_timestamp()
+{
+  return CoordinatorAPI::instance().coordTimeStamp();
+}
+
 EXTERNC int  dmtcp_get_generation()
 {
   return dmtcp::UniquePid::ComputationId().generation();

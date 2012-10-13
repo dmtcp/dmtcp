@@ -44,19 +44,11 @@ void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
     case DMTCP_EVENT_INIT:
     case DMTCP_EVENT_POST_RESTART:
+    case DMTCP_EVENT_POST_CKPT:
       initialize();
       break;
 
-    case DMTCP_EVENT_POST_CKPT:
-      if (!data->postCkptInfo.isRestart) {
-        initialize();
-      }
-      break;
-
     case DMTCP_EVENT_POST_EXEC:
-      if (data->serializerInfo.fd != -1) {
-        initialize();
-      }
       break;
 
     case DMTCP_EVENT_PRE_CKPT:
@@ -70,7 +62,7 @@ void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 void dmtcp::SharedData::initializeHeader()
 {
-  off_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
     (JASSERT_ERRNO);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
@@ -104,7 +96,7 @@ void dmtcp::SharedData::initialize()
     _real_close(fd);
   }
 
-  size_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   void *addr = _real_mmap(prevSharedDataHeaderAddr, size,
                           PROT_READ | PROT_WRITE, MAP_SHARED,
                           PROTECTED_SHM_FD, 0);
@@ -144,7 +136,7 @@ void dmtcp::SharedData::initialize()
 
 void dmtcp::SharedData::preCkpt()
 {
-  size_t size = (SHM_MAX_SIZE + Util::pageSize() - 1) & Util::pageMask();
+  size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
   sharedDataHeader = NULL;
 }
