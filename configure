@@ -6030,10 +6030,7 @@ $as_echo "#define PTRACE /**/" >>confdefs.h
 
   PTRACE_SUPPORT=yes
 
-
-$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
-
-else
+                        else
   RECORD_REPLAY=no
 
 fi

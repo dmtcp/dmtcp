@@ -4363,9 +4363,7 @@ $as_echo "#define RECORD_REPLAY /**/" >>confdefs.h
 
 $as_echo "#define PTRACE /**/" >>confdefs.h
 
-
-$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
-
+  #AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   RECORD_REPLAY=no
 
