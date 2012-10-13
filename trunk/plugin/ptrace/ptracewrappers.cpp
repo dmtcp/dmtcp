@@ -212,8 +212,6 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
 {
   struct user_regs_struct regs;
   long peekdata;
-  long low, upp;
-  int status;
   unsigned long addr;
   unsigned long int eflags;
 
@@ -259,7 +257,7 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
           }
           addr += EFLAGS_OFFSET;
           errno = 0;
-          JASSERT ((eflags = _real_ptrace(PTRACE_PEEKDATA, inferior,
+          JASSERT ((int) (eflags = _real_ptrace(PTRACE_PEEKDATA, inferior,
                                          (void *)addr, 0)) != -1)
             (superior) (inferior) (JASSERT_ERRNO);
           eflags |= 0x0100;
@@ -351,7 +349,6 @@ static PtraceProcState procfs_state(int pid)
 {
   int fd;
   char buf[512];
-  int retval = 0;
   char *str;
   const char *key = "State:";
   int len = strlen(key);
@@ -447,8 +444,6 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   pid_t pid;
   void *addr;
   void *data;
-  dmtcp::Inferior *inf;
-  bool isCkptThread;
 
   va_start(ap, request);
   pid = va_arg(ap, pid_t);
