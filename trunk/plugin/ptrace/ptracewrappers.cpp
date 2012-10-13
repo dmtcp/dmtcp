@@ -110,7 +110,7 @@ static void ptrace_attach_threads(int isRestart)
     return;
   }
 
-  JTRACE("Attaching to inferior threads") (GETTID());
+  JTRACE("Attaching to inferior threads") (GETTID()) (inferiors.size());
 
   // Attach to all inferior user threads.
   for (size_t i = 0; i < inferiors.size(); i++) {
@@ -378,7 +378,8 @@ static PtraceProcState procfs_state(int pid)
     return PTRACE_PROC_STOPPED;
   } else if (strcasestr(str, "T (tracing stop)") != NULL) {
     return PTRACE_PROC_TRACING_STOP;
-  } else if (strcasestr(str, "S (sleeping)") != NULL) {
+  } else if (strcasestr(str, "S (sleeping)") != NULL ||
+             strcasestr(str, "D (disk sleep)") != NULL) {
     return PTRACE_PROC_SLEEPING;
   } else if (strcasestr(str, "R (running)") != NULL) {
     return PTRACE_PROC_RUNNING;
