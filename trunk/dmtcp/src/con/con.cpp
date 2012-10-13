@@ -64,7 +64,7 @@ dmtcp::string dmtcp_Connection_VirtualToRealPtsName(const char *ptsname)
 void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_INITIAL_EXEC:
+    case DMTCP_EVENT_INIT:
       dmtcp::ConnectionList::instance().scanForPreExisting();
       JTRACE("Initial socket table:");
       dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
@@ -79,7 +79,7 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       theCheckpointState = new dmtcp::ConnectionState();
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+    case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::KernelDeviceToConnection::instance().serialize(wr);
@@ -102,22 +102,22 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_FORK:
+    case DMTCP_EVENT_PRE_FORK:
       dmtcp::KernelDeviceToConnection::instance().prepareForFork();
       break;
 
-    case DMTCP_EVENT_PRE_LEADER_ELECTION:
+    case DMTCP_EVENT_SUSPENDED:
       theCheckpointState->preLockSaveOptions();
       break;
 
-    case DMTCP_EVENT_POST_LEADER_ELECTION:
+    case DMTCP_EVENT_LEADER_ELECTION:
       JTRACE("locking...");
       JASSERT(theCheckpointState != NULL);
       theCheckpointState->preCheckpointFdLeaderElection();
       JTRACE("locked");
       break;
 
-    case DMTCP_EVENT_POST_DRAIN:
+    case DMTCP_EVENT_DRAIN:
       JTRACE("draining...");
       theCheckpointState->preCheckpointDrain();
       JTRACE("drained");

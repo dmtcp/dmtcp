@@ -64,5 +64,5 @@ typedef enum PtraceProcState {
 pid_t ptrace_ckpt_thread_tid();
 void ptrace_process_pre_suspend_user_thread();
 void ptrace_process_thread_creation(pid_t clone_id);
-void ptrace_process_resume_user_thread(int is_ckpt, int is_restart);
+void ptrace_process_resume_user_thread(int isRestart);
 #endif

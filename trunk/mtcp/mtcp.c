@@ -369,7 +369,7 @@ void (*mtcp_callback_write_ckpt_header)(int fd) = NULL;
 
 static void (*callback_holds_any_locks)(int *retval) = NULL;
 static void (*callback_pre_suspend_user_thread)() = NULL;
-static void (*callback_pre_resume_user_thread)(int is_ckpt, int is_restart) = NULL;
+static void (*callback_pre_resume_user_thread)(int is_restart) = NULL;
 
 static int (*clone_entry) (int (*fn) (void *arg),
                            void *child_stack,
@@ -724,8 +724,7 @@ void mtcp_set_callbacks(void (*sleep_between_ckpt)(int sec),
 
 void mtcp_set_dmtcp_callbacks(void (*holds_any_locks)(int *retval),
                               void (*pre_suspend_user_thread)(),
-                              void (*pre_resume_user_thread)(int is_ckpt,
-                                                             int is_restart))
+                              void (*pre_resume_user_thread)(int is_restart))
 {
   callback_holds_any_locks = holds_any_locks;
   callback_pre_suspend_user_thread = pre_suspend_user_thread;
@@ -2084,7 +2083,6 @@ static void growstack (int kbStack) /* opimize attribute not implemented */
 static void stopthisthread (int signum)
 {
   int rc;
-  int is_ckpt = 0;
   int is_restart = 0;
   Thread *thread;
 
@@ -2173,8 +2171,7 @@ static void stopthisthread (int signum)
     DPRINTF("after getcontext\n");
 #endif
     if (mtcp_state_value(&restoreinprog) == 0) {
-      is_ckpt = 1; is_restart = 0;
-
+      is_restart = 0;
       /* We are the original process and all context is saved
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
        */
@@ -2238,7 +2235,7 @@ static void stopthisthread (int signum)
     /* Else restoreinprog >= 1;  This stuff executes to do a restart */
 
     else {
-      is_ckpt = 0; is_restart = 1;
+      is_restart = 1;
       if (!mtcp_state_set (&(thread -> state), ST_RUNENABLED, ST_SUSPENDED))
 	mtcp_abort ();  // checkpoint was written when thread in SUSPENDED state
       wait_for_all_restored(thread);
@@ -2256,7 +2253,7 @@ static void stopthisthread (int signum)
             mtcp_sys_kernel_gettid (), __builtin_return_address (0));
 
     if (callback_pre_resume_user_thread != NULL) {
-      callback_pre_resume_user_thread(is_ckpt, is_restart);
+      callback_pre_resume_user_thread(is_restart);
     }
   }
 }

@@ -117,7 +117,7 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PREPARE_FOR_FORK, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_FORK, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
@@ -267,7 +267,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::UniquePid::serialize (wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = wr.fd();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PREPARE_FOR_EXEC, &edata);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_EXEC, &edata);
 
   setenv (ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1);
   JTRACE("Will exec filename instead of path") (path) (*filename);

@@ -54,8 +54,8 @@ RestoreTarget::RestoreTarget (const dmtcp::string& path)
 
   int fd = dmtcp::CkptSerializer::openDmtcpCheckpointFile(_path, &_offset);
   jalib::JBinarySerializeReaderRaw rdr(_path, fd);
-  _conToFd.serialize(rdr);
   _processInfo.serialize(rdr);
+  _conToFd.serialize(rdr);
   _offset += rdr.bytes();
   dmtcp::CkptSerializer::closeDmtcpCheckpointFile(fd);
 

@@ -54,7 +54,7 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::ProcessInfo::instance().preCheckpoint();
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+    case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::ProcessInfo::instance().serialize(wr);

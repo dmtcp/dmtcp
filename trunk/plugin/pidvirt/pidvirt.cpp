@@ -94,10 +94,6 @@ void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
   dmtcp::VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
 }
 
-void pidVirt_PostRestartResume(DmtcpEventData_t *data)
-{
-}
-
 void pidVirt_ThreadExit(DmtcpEventData_t *data)
 {
   /* This thread has finished its execution, do some cleanup on our part.
@@ -116,7 +112,7 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_ResetOnFork(data);
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+    case DMTCP_EVENT_PRE_EXEC:
       pidVirt_PrepareForExec(data);
       break;
 
@@ -128,12 +124,10 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_PostRestart(data);
       break;
 
-    case DMTCP_EVENT_POST_RESTART_REFILL:
-      pidVirt_PostRestartRefill(data);
-      break;
-
-    case DMTCP_EVENT_POST_RESTART_RESUME:
-      pidVirt_PostRestartResume(data);
+    case DMTCP_EVENT_REFILL:
+      if (data->refillInfo.isRestart) {
+        pidVirt_PostRestartRefill(data);
+      }
       break;
 
     case DMTCP_EVENT_PTHREAD_RETURN:

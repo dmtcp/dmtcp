@@ -89,10 +89,10 @@ void ptrace_process_pre_suspend_user_thread()
   }
 }
 
-void ptrace_process_resume_user_thread(int is_ckpt, int is_restart)
+void ptrace_process_resume_user_thread(int isRestart)
 {
-  if (dmtcp::PtraceInfo::instance().isPtracing() && (is_ckpt || is_restart)) {
-    ptrace_attach_threads(is_restart);
+  if (dmtcp::PtraceInfo::instance().isPtracing()) {
+    ptrace_attach_threads(isRestart);
   }
   JTRACE("Waiting for Sup Attach") (GETTID());
   dmtcp::PtraceInfo::instance().waitForSuperiorAttach();

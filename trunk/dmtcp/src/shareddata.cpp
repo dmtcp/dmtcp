@@ -59,12 +59,6 @@ void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_FORK:
-      break;
-
-    case DMTCP_EVENT_RESET_ON_FORK:
-      break;
-
     case DMTCP_EVENT_PRE_CKPT:
       preCkpt();
       break;
