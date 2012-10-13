@@ -73,10 +73,6 @@ bool dmtcp::DmtcpWorker::_exitInProgress = false;
 static void processDmtcpCommands(dmtcp::string programName,
                                  dmtcp::vector<dmtcp::string>& args);
 
-// To allow linking without mtcpinterface;  Weak symbol undefined, is set to 0
-void __attribute__ ((weak)) dmtcp::initializeMtcpEngine();
-void __attribute__ ((weak)) dmtcp::killCkpthread();
-
 void restoreUserLDPRELOAD()
 {
   // We have now successfully used LD_PRELOAD to execute prior to main()
@@ -350,14 +346,6 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
     JASSERT(false) .Text("initializeMtcpEngine should not be called");
   }
 
-  /* Now wait for Checkpoint Thread to finish initialization
-   * NOTE: This should be the last thing in this constructor
-   */
-  ThreadSync::initMotherOfAll();
-  while (!ThreadSync::isCheckpointThreadInitialized()) {
-    struct timespec sleepTime = {0, 10*1000*1000};
-    nanosleep(&sleepTime, NULL);
-  }
   informCoordinatorOfRUNNINGState();
 }
 

@@ -49,14 +49,27 @@ typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 
+static void *pidvirt_real_func_addr[numPidVirtWrappers];
+static int pidvirt_wrappers_initialized = 0;
 
-#define REAL_FUNC_PASSTHROUGH(name) \
-  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
+#define GET_FUNC_ADDR(name) \
+  pidvirt_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
-#define REAL_FUNC_PASSTHROUGH_VOID(name) \
-  static void (*fn)() = NULL; \
+LIB_PRIVATE
+void pidvirt_initialize_wrappers()
+{
+  if (!pidvirt_wrappers_initialized) {
+    FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
+    pidvirt_wrappers_initialized = 1;
+  }
+}
+
+
+#define REAL_FUNC_PASSTHROUGH_WORK(name) \
   if (fn == NULL) { \
-    fn = _real_dlsym(RTLD_NEXT, #name); \
+    if (pidvirt_real_func_addr[PIDVIRT_ENUM(name)] == NULL) \
+      pidvirt_initialize_wrappers(); \
+    fn = pidvirt_real_func_addr[PIDVIRT_ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
                       "           The symbol wasn't found in current library" \
@@ -64,22 +77,24 @@ typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
                       "    Aborting.\n", #name); \
       abort(); \
     } \
-  } \
-  (*fn)
+  }
+
+#define REAL_FUNC_PASSTHROUGH(name)  REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type,name) \
-  static type (*fn)() = NULL; \
-  if (fn == NULL) { \
-    fn = _real_dlsym(RTLD_NEXT, #name); \
-    if (fn == NULL) { \
-      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
-                      "           The symbol wasn't found in current library" \
-                      " loading sequence.\n" \
-                      "    Aborting.\n", #name); \
-      abort(); \
-    } \
-  } \
+  static type (*fn)() = NULL;                  \
+  REAL_FUNC_PASSTHROUGH_WORK(name)             \
   return (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_VOID(name) \
+  static void (*fn)() = NULL;            \
+  REAL_FUNC_PASSTHROUGH_WORK(name)       \
+  (*fn)
+
+#define REAL_FUNC_PASSTHROUGH_NORETURN(name)                 \
+  static void (*fn)() __attribute__ ((__noreturn__)) = NULL; \
+  REAL_FUNC_PASSTHROUGH_WORK(name)                           \
+  (*fn)
 
 void *dmtcp_get_libc_dlsym_addr();
 
