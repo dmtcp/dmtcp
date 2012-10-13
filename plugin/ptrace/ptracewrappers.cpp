@@ -403,6 +403,7 @@ extern "C" pid_t wait4(pid_t pid, void *stat, int options,
   struct rusage rusagebuf;
   pid_t retval;
   int *stat_loc = (int*) stat;
+  bool repeat = false;
 
   if (stat_loc == NULL) {
     stat_loc = &status;
@@ -417,16 +418,25 @@ extern "C" pid_t wait4(pid_t pid, void *stat, int options,
     return retval;
   }
 
-  retval = _real_wait4(pid, stat_loc, options, rusage);
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  if (retval > 0 && dmtcp::PtraceInfo::instance().isInferior(retval)) {
-    if (WIFSTOPPED(*stat_loc)) {
-      dmtcp::PtraceInfo::instance().setLastCmd(retval, -1);
-    } else if (WIFEXITED(*stat_loc) || WIFSIGNALED(*stat_loc)) {
-      dmtcp::PtraceInfo::instance().eraseInferior(retval);
+  do {
+    retval = _real_wait4(pid, stat_loc, options, rusage);
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    if (retval > 0 && dmtcp::PtraceInfo::instance().isInferior(retval)) {
+      if (WIFSTOPPED(*stat_loc) && WSTOPSIG(*stat_loc) == dmtcp_get_ckpt_signal()) {
+        /* Inferior got STOPSIGNAL, this should not be passed to gdb process as
+         * we are performing checkpoint at this time. We should reexecute the
+         * _real_wait4 to get the status that the gdb process would want to
+         * process.
+         */
+        repeat = true;
+      } else if (WIFSTOPPED(*stat_loc)) {
+        dmtcp::PtraceInfo::instance().setLastCmd(retval, -1);
+      } else if (WIFEXITED(*stat_loc) || WIFSIGNALED(*stat_loc)) {
+        dmtcp::PtraceInfo::instance().eraseInferior(retval);
+      }
     }
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+  } while (repeat);
 
   return retval;
 }
