@@ -98,11 +98,11 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::SysVIPC::instance().preCheckpoint();
       break;
 
-    case DMTCP_EVENT_POST_LEADER_ELECTION:
+    case DMTCP_EVENT_LEADER_ELECTION:
       dmtcp::SysVIPC::instance().leaderElection();
       break;
 
-    case DMTCP_EVENT_POST_DRAIN:
+    case DMTCP_EVENT_DRAIN:
       dmtcp::SysVIPC::instance().preCkptDrain();
       break;
 
@@ -110,12 +110,11 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::SysVIPC::instance().postCheckpoint(data->postCkptInfo.isRestart);
       break;
 
-    case DMTCP_EVENT_POST_CKPT_RESUME:
-    case DMTCP_EVENT_POST_RESTART_RESUME:
+    case DMTCP_EVENT_RESUME:
       dmtcp::SysVIPC::instance().preResume();
       break;
 
-    case DMTCP_EVENT_PREPARE_FOR_EXEC:
+    case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::SysVIPC::instance().serialize(wr);

@@ -260,7 +260,6 @@ static void prepareLogAndProcessdDataFromSerialFile()
       ProcessInfo::instance().setRootOfProcessTree();
       _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
     }
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_INITIAL_EXEC, NULL);
   }
 }
 
@@ -616,14 +615,13 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JASSERT(CoordinatorAPI::instance().isValid());
   ThreadSync::releaseLocks();
 
-  processEvent(DMTCP_EVENT_POST_SUSPEND, NULL);
-
   SyslogCheckpointer::stopService();
-  processEvent(DMTCP_EVENT_PRE_LEADER_ELECTION, NULL);
+
+  processEvent(DMTCP_EVENT_SUSPENDED, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
 
-  processEvent(DMTCP_EVENT_POST_LEADER_ELECTION, NULL);
+  processEvent(DMTCP_EVENT_LEADER_ELECTION, NULL);
 
   WorkerState::setCurrentState (WorkerState::FD_LEADER_ELECTION);
 
@@ -637,7 +635,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState (WorkerState::DRAINED);
 
-  processEvent(DMTCP_EVENT_POST_DRAIN, NULL);
+  processEvent(DMTCP_EVENT_DRAIN, NULL);
 
   waitForCoordinatorMsg ("CHECKPOINT", DMT_DO_CHECKPOINT);
   JTRACE("got checkpoint message");
@@ -791,9 +789,9 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  SharedData::processEvent(event, data);
-  dmtcp_Connection_ProcessEvent(event, data);
-  dmtcp_ProcessInfo_ProcessEvent(event, data);
-  dmtcp_SysVIPC_ProcessEvent(event, data);
   dmtcp_process_event(event, data);
+  SharedData::processEvent(event, data);
+  dmtcp_ProcessInfo_ProcessEvent(event, data);
+  dmtcp_Connection_ProcessEvent(event, data);
+  dmtcp_SysVIPC_ProcessEvent(event, data);
 }

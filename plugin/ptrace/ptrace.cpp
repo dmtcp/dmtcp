@@ -49,9 +49,7 @@ void ptraceWaitForSuspendMsg(DmtcpEventData_t *data)
 
 void ptraceProcessResumeUserThread(DmtcpEventData_t *data)
 {
-  // JASSERT(data != NULL);
-  ptrace_process_resume_user_thread(data->resumeUserThreadInfo.is_ckpt,
-                                    data->resumeUserThreadInfo.is_restart);
+  ptrace_process_resume_user_thread(data->resumeUserThreadInfo.isRestart);
 }
 
 extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -77,16 +75,6 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       originalStartup = 1;
       break;
 
-    case DMTCP_EVENT_THREAD_CREATED:
-    case DMTCP_EVENT_THREAD_START:
-    case DMTCP_EVENT_GOT_SUSPEND_MSG:
-    case DMTCP_EVENT_START_PRE_CKPT_CB:
-    case DMTCP_EVENT_POST_RESTART_REFILL:
-    case DMTCP_EVENT_PRE_CKPT:
-    case DMTCP_EVENT_POST_LEADER_ELECTION:
-    case DMTCP_EVENT_POST_DRAIN:
-    case DMTCP_EVENT_POST_CKPT:
-    case DMTCP_EVENT_POST_RESTART:
     default:
       break;
   }

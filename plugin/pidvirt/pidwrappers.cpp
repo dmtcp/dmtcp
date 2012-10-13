@@ -341,7 +341,6 @@ static td_err_e  _dmtcp_td_thr_get_info (const td_thrhandle_t  *th_p,
                                          td_thrinfo_t *ti_p)
 {
   td_err_e td_err;
-  td_thrinfo_t local_ti_p = *ti_p;
 
   td_err = (*_td_thr_get_info_funcptr)(th_p, ti_p);
 
