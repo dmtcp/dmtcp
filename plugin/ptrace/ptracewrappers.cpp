@@ -103,9 +103,10 @@ static void ptrace_attach_threads(int isRestart)
 {
   pid_t inferior;
   int status;
-  dmtcp::vector<dmtcp::Inferior*> inferiors;
+  dmtcp::vector<pid_t> inferiors;
+  dmtcp::Inferior *inf;
 
-  inferiors = dmtcp::PtraceInfo::instance().getInferiors(GETTID());
+  inferiors = dmtcp::PtraceInfo::instance().getInferiorVector(GETTID());
   if (inferiors.size() == 0) {
     return;
   }
@@ -114,16 +115,17 @@ static void ptrace_attach_threads(int isRestart)
 
   // Attach to all inferior user threads.
   for (size_t i = 0; i < inferiors.size(); i++) {
-    inferior = inferiors[i]->tid();
-    JASSERT(inferiors[i]->state() != PTRACE_PROC_INVALID) (GETTID()) (inferior);
-    if (!inferiors[i]->isCkptThread()) {
+    inferior = inferiors[i];
+    inf = dmtcp::PtraceInfo::instance().getInferior(inferiors[i]);
+    JASSERT(inf->state() != PTRACE_PROC_INVALID) (GETTID()) (inferior);
+    if (!inf->isCkptThread()) {
       JASSERT(_real_ptrace(PTRACE_ATTACH, inferior, 0, 0) != -1)
         (GETTID()) (inferior) (JASSERT_ERRNO);
       JASSERT(_real_wait4(inferior, &status, __WALL, NULL) != -1)
         (inferior) (JASSERT_ERRNO);
       JASSERT(_real_ptrace(PTRACE_SETOPTIONS, inferior, 0,
-                           inferiors[i]->getPtraceOptions()) != -1)
-        (GETTID()) (inferior) (inferiors[i]->getPtraceOptions()) (JASSERT_ERRNO);
+                           inf->getPtraceOptions()) != -1)
+        (GETTID()) (inferior) (inf->getPtraceOptions()) (JASSERT_ERRNO);
 
       // Run all user threads until the end of syscall(DMTCP_FAKE_SYSCALL)
       dmtcp::PtraceInfo::instance().processPreResumeAttach(inferior);
@@ -133,15 +135,16 @@ static void ptrace_attach_threads(int isRestart)
 
   // Attach to and run all user ckpthreads until the end of syscall(DMTCP_FAKE_SYSCALL)
   for (size_t i = 0; i < inferiors.size(); i++) {
-    inferior = inferiors[i]->tid();
-    if (inferiors[i]->isCkptThread()) {
+    inf = dmtcp::PtraceInfo::instance().getInferior(inferiors[i]);
+    inferior = inferiors[i];
+    if (inf->isCkptThread()) {
       JASSERT(_real_ptrace(PTRACE_ATTACH, inferior, 0, 0) != -1)
         (GETTID()) (inferior) (JASSERT_ERRNO);
       JASSERT(_real_wait4(inferior, &status, __WALL, NULL) != -1)
         (inferior) (JASSERT_ERRNO);
       JASSERT(_real_ptrace(PTRACE_SETOPTIONS, inferior, 0,
-                           inferiors[i]->getPtraceOptions()) != -1)
-        (GETTID()) (inferior) (inferiors[i]->getPtraceOptions()) (JASSERT_ERRNO);
+                           inf->getPtraceOptions()) != -1)
+        (GETTID()) (inferior) (inf->getPtraceOptions()) (JASSERT_ERRNO);
 
       // Wait for all inferiors to execute dummy syscall 'DMTCP_FAKE_SYSCALL'.
       dmtcp::PtraceInfo::instance().processPreResumeAttach(inferior);
@@ -151,13 +154,14 @@ static void ptrace_attach_threads(int isRestart)
 
   // Singlestep all user threads out of the signal handler
   for (size_t i = 0; i < inferiors.size(); i++) {
-    int lastCmd = inferiors[i]->lastCmd();
-    inferior = inferiors[i]->tid();
-    if (!inferiors[i]->isCkptThread()) {
+    inferior = inferiors[i];
+    inf = dmtcp::PtraceInfo::instance().getInferior(inferiors[i]);
+    int lastCmd = inf->lastCmd();
+    if (!inf->isCkptThread()) {
       /* After attach, the superior needs to singlestep the inferior out of
        * stopthisthread, aka the signal handler. */
-      ptrace_single_step_thread(inferiors[i], isRestart);
-      if (inferiors[i]->isStopped() && (lastCmd == PTRACE_CONT ||
+      ptrace_single_step_thread(inf, isRestart);
+      if (inf->isStopped() && (lastCmd == PTRACE_CONT ||
                                         lastCmd == PTRACE_SYSCALL)) {
         JASSERT(_real_ptrace(lastCmd, inferior, 0, 0) != -1)
           (GETTID()) (inferior) (JASSERT_ERRNO);
@@ -167,9 +171,10 @@ static void ptrace_attach_threads(int isRestart)
 
   // Move ckpthreads to next step (depending on state)
   for (size_t i = 0; i < inferiors.size(); i++) {
-    int lastCmd = inferiors[i]->lastCmd();
-    inferior = inferiors[i]->tid();
-    if (inferiors[i]->isCkptThread() && !inferiors[i]->isStopped() &&
+    inferior = inferiors[i];
+    inf = dmtcp::PtraceInfo::instance().getInferior(inferiors[i]);
+    int lastCmd = inf->lastCmd();
+    if (inf->isCkptThread() && !inf->isStopped() &&
         (lastCmd == PTRACE_CONT || lastCmd == PTRACE_SYSCALL)) {
       JASSERT(_real_ptrace(lastCmd, inferior, 0, 0) != -1)
         (GETTID()) (inferior) (JASSERT_ERRNO);
@@ -299,32 +304,34 @@ static void ptrace_detach_user_threads ()
   PtraceProcState pstate;
   int status;
   struct rusage rusage;
-  dmtcp::vector<dmtcp::Inferior*> inferiors;
+  dmtcp::vector<pid_t> inferiors;
+  dmtcp::Inferior *inf;
 
-  inferiors = dmtcp::PtraceInfo::instance().getInferiors(GETTID());
+  inferiors = dmtcp::PtraceInfo::instance().getInferiorVector(GETTID());
 
   for (size_t i = 0; i < inferiors.size(); i++) {
-    pid_t inferior = inferiors[i]->tid();
+    pid_t inferior = inferiors[i];
+    inf = dmtcp::PtraceInfo::instance().getInferior(inferiors[i]);
     void *data = (void*) (unsigned long) dmtcp_get_ckpt_signal();
-    pstate = procfs_state(inferiors[i]->tid());
+    pstate = procfs_state(inferiors[i]);
     if (pstate == PTRACE_PROC_INVALID) {
       JTRACE("Inferior does not exist.") (inferior);
       dmtcp::PtraceInfo::instance().eraseInferior(inferior);
       continue;
     }
-    inferiors[i]->setState(pstate);
-    inferiors[i]->semInit();
+    inf->setState(pstate);
+    inf->semInit();
 
-    if (inferiors[i]->isCkptThread()) {
+    if (inf->isCkptThread()) {
       data = NULL;
     }
     int ret = _real_wait4(inferior, &status, __WALL | WNOHANG, &rusage);
     if (ret > 0) {
       if (!WIFSTOPPED(status) || WSTOPSIG(status) != dmtcp_get_ckpt_signal()) {
-        inferiors[i]->setWait4Status(&status, &rusage);
+        inf->setWait4Status(&status, &rusage);
       }
     }
-    pstate = procfs_state(inferiors[i]->tid());
+    pstate = procfs_state(inferiors[i]);
     if (pstate == PTRACE_PROC_RUNNING || pstate == PTRACE_PROC_SLEEPING) {
       syscall(SYS_tkill, inferior, SIGSTOP);
       _real_wait4(inferior, &status, __WALL, NULL);
@@ -337,7 +344,7 @@ static void ptrace_detach_user_threads ()
       dmtcp::PtraceInfo::instance().eraseInferior(inferior);
       continue;
     }
-    pstate = procfs_state(inferiors[i]->tid());
+    pstate = procfs_state(inferiors[i]);
     if (pstate == PTRACE_PROC_STOPPED) {
       kill(inferior, SIGCONT);
     }

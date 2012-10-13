@@ -107,10 +107,10 @@ void dmtcp::PtraceInfo::markAsCkptThread()
   }
 }
 
-dmtcp::vector<dmtcp::Inferior*> dmtcp::PtraceInfo::getInferiors(pid_t tid)
+dmtcp::vector<pid_t> dmtcp::PtraceInfo::getInferiorVector(pid_t tid)
 {
   if (_supToInfsMap.find(tid) == _supToInfsMap.end()) {
-    dmtcp::vector<Inferior*> vec;
+    dmtcp::vector<pid_t> vec;
     return vec;
   }
   return _supToInfsMap[tid];
@@ -134,8 +134,8 @@ void dmtcp::PtraceInfo::insertInferior(pid_t tid)
   if (inf == NULL) {
     inf = _sharedData->insertInferior(GETTID(), tid);
   }
-  _supToInfsMap[inf->superior()].push_back(inf);
-  _infToSupMap[inf->tid()] = inf->superior();
+  _supToInfsMap[inf->superior()].push_back(tid);
+  _infToSupMap[tid] = inf->superior();
 }
 
 void dmtcp::PtraceInfo::eraseInferior(pid_t tid)
@@ -144,14 +144,14 @@ void dmtcp::PtraceInfo::eraseInferior(pid_t tid)
     mapSharedFile();
   }
   dmtcp::Inferior *inf = _sharedData->getInferior(tid);
-  pid_t superior = inf->superior();
   JASSERT(inf != NULL) (tid);
+  pid_t superior = inf->superior();
   _sharedData->eraseInferior(inf);
 
-  dmtcp::vector<Inferior*>& vec = _supToInfsMap[superior];
-  dmtcp::vector<Inferior*>::iterator it;
+  dmtcp::vector<int>& vec = _supToInfsMap[superior];
+  dmtcp::vector<int>::iterator it;
   for (it = vec.begin(); it != vec.end(); it++) {
-    if (*it == inf) {
+    if (*it == tid) {
       vec.erase(it);
       break;
     }
