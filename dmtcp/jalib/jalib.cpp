@@ -113,6 +113,10 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(int, fclose) (fp);
   }
 
+  ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
+    REAL_FUNC_PASSTHROUGH(ssize_t, readlink) (path, buf,bufsiz);
+  }
+
   long int syscall(long int sys_num, ...) {
     int i;
     void * arg[7];

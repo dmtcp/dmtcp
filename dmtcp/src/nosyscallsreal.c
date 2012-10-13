@@ -578,5 +578,9 @@ int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
   REAL_FUNC_PASSTHROUGH (mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
                                         abs_timeout);
 }
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, readlink) (path, buf, bufsiz);
+}
+
 // Used for wrappers for mmap, sbrk
 void _dmtcp_setup_trampolines() {}

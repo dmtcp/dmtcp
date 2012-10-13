@@ -104,6 +104,7 @@ namespace dmtcp
       void envSize(int size) { _envSize = size; }
 
       const dmtcp::string& procname() const { return _procname; }
+      const dmtcp::string& procSelfExe() const { return _procSelfExe; }
       const dmtcp::string& hostname() const { return _hostname; }
       const UniquePid& upid() const { return _upid; }
       const UniquePid& uppid() const { return _uppid; }
@@ -127,6 +128,7 @@ namespace dmtcp
       size_t    _envSize;
 
       dmtcp::string _procname;
+      dmtcp::string _procSelfExe;
       dmtcp::string _hostname;
       UniquePid     _upid;
       UniquePid     _uppid;
