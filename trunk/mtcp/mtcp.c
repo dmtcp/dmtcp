@@ -1717,17 +1717,6 @@ static void *checkpointhread (void *dummy)
 	  mtcp_sys_kernel_gettid ());
 
   while (1) {
-    /* Remove STOPSIGNAL from pending signals list:
-     * Under Ptrace, STOPSIGNAL is sent to the inferior threads once by the
-     * superior thread and once by the ckpt-thread of the inferior. STOPSIGNAL
-     * is blocked while the inferior thread is executing the signal handler and
-     * so the signal is becomes pending and is delivered right after returning
-     * from stopthisthread.
-     * To tackle this, we disable/re-enable signal handler for STOPSIGNAL.
-     */
-    setup_sig_handler(SIG_IGN);
-    setup_sig_handler(&stopthisthread);
-
     /* Wait a while between writing checkpoint files */
 
     if (callback_sleep_between_ckpt == NULL)
@@ -1891,6 +1880,17 @@ again:
 
     RMB; // matched by WMB in stopthisthread
     DPRINTF("everything suspended\n");
+
+    /* Remove STOPSIGNAL from pending signals list:
+     * Under Ptrace, STOPSIGNAL is sent to the inferior threads once by the
+     * superior thread and once by the ckpt-thread of the inferior. STOPSIGNAL
+     * is blocked while the inferior thread is executing the signal handler and
+     * so the signal is becomes pending and is delivered right after returning
+     * from stopthisthread.
+     * To tackle this, we disable/re-enable signal handler for STOPSIGNAL.
+     */
+    setup_sig_handler(SIG_IGN);
+    setup_sig_handler(&stopthisthread);
 
     /* If no threads, we're all done */
 
@@ -2093,16 +2093,35 @@ static void stopthisthread (int signum)
     return ;
   }
 
-  if (callback_holds_any_locks != NULL) {
-    int retval;
-    callback_holds_any_locks(&retval);
-    if (retval) return;
+  /* Possible state change scenarios:
+   * 1. STOPSIGNAL received from ckpt-thread. In this case, the ckpt-thread
+   * already changed the state to ST_SIGENABLED. No need to check for locks.
+   * Proceed normally.
+   *
+   * 2. STOPSIGNAL received from Superior thread. In this case we change the
+   * state to ST_SIGENABLED, if currently in ST_RUNENABLED. If we are holding
+   * any locks (callback_holds_any_locks), we return from the signal handler.
+   *
+   * 3. STOPSIGNAL raised by this thread itself, after releasing all the locks.
+   * In this case, we had already changed the state to ST_SIGENABLED as a
+   * result of step (2), so the ckpt-thread will never send us a signal.
+   *
+   * 4. STOPSIGNAL received from Superior thread. Ckpt-threads sends a signal
+   * before we had a chance to change state from ST_RUNENABLED ->
+   * ST_SIGENABLED. This puts the STOPSIGNAL in the queue. The ckpt-thread will
+   * later call sigaction(STOPSIGNAL, SIG_IGN) followed by
+   * sigaction(STOPSIGNAL, stopthisthread) to discard all pending signals.
+   */
+  if (mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED)) {
+    if (callback_holds_any_locks != NULL) {
+      int retval;
+      callback_holds_any_locks(&retval);
+      if (retval) return;
+    }
   }
 
   DPRINTF("tid %d returns to %p\n",
           mtcp_sys_kernel_gettid (), __builtin_return_address (0));
-
-  mtcp_state_set(&(thread -> state), ST_SIGENABLED, ST_RUNENABLED);
 
 #if 0
 #define BT_SIZE 1024
