@@ -418,13 +418,15 @@ extern "C" pid_t wait4(pid_t pid, void *stat, int options,
   }
 
   retval = _real_wait4(pid, stat_loc, options, rusage);
-  if (retval > 0 && dmtcp::PtraceInfo::instance().isPtracing()) {
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (retval > 0 && dmtcp::PtraceInfo::instance().isInferior(retval)) {
     if (WIFSTOPPED(*stat_loc)) {
       dmtcp::PtraceInfo::instance().setLastCmd(retval, -1);
     } else if (WIFEXITED(*stat_loc) || WIFSIGNALED(*stat_loc)) {
       dmtcp::PtraceInfo::instance().eraseInferior(retval);
     }
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
 }
@@ -444,6 +446,7 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   data = va_arg(ap, void *);
   va_end(ap);
 
+  DMTCP_PLUGIN_DISABLE_CKPT();
   dmtcp::PtraceInfo::instance().setPtracing();
 
   long ptrace_ret =  _real_ptrace(request, pid, addr, data);
@@ -453,5 +456,6 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
                                                              addr, data);
   }
 
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return ptrace_ret;
 }

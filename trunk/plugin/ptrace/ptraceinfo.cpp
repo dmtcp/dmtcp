@@ -159,6 +159,15 @@ void dmtcp::PtraceInfo::eraseInferior(pid_t tid)
   _infToSupMap.erase(tid);
 }
 
+bool dmtcp::PtraceInfo::isInferior(pid_t tid)
+{
+  dmtcp::Inferior *inf = _sharedData->getInferior(tid);
+  if (inf != NULL) {
+    return inf->superior() == GETTID();
+  }
+  return false;
+}
+
 void dmtcp::PtraceInfo::setPtracing()
 {
   static int markPtracing = 0;
@@ -192,7 +201,10 @@ void dmtcp::PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
       break;
 
     case PTRACE_DETACH:
-      eraseInferior(pid);
+    case PTRACE_KILL:
+      if (isInferior(pid)) {
+        eraseInferior(pid);
+      }
       return;
 
     case PTRACE_CONT:
