@@ -161,7 +161,7 @@ AC_ARG_WITH([record-replay],
 if test "$record_replay" != "no"; then
   AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
-  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+  #AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi

@@ -281,7 +281,7 @@ if test "$record_replay" != "no"; then
   dnl else
   dnl   AC_SUBST([FAST_CKPT_RESTART], [no])
   dnl fi
-  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+  dnl AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi
