@@ -57,6 +57,7 @@ namespace dmtcp
       virtual void postRestart();
       virtual void resetOnFork();
 
+      void updateMapping(pid_t virtualId, pid_t realId);
       pid_t realToVirtual(pid_t realPid);
       void refresh();
       void writeVirtualTidToFileForPtrace(pid_t pid);

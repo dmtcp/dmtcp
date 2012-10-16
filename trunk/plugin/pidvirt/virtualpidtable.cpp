@@ -109,6 +109,15 @@ void dmtcp::VirtualPidTable::resetOnFork()
   printMaps();
 }
 
+void dmtcp::VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
+{
+  if (virtualId > 0 && realId > 0) {
+    _do_lock_tbl();
+    _idMapTable[virtualId] = realId;
+    _do_unlock_tbl();
+  }
+}
+
 //to allow linking without ptrace plugin
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
@@ -118,7 +127,7 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
   }
 
   _do_lock_tbl();
-  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing() && realPid != 0) {
+  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing() && realPid > 0) {
     pid_t virtualPid = readVirtualTidFromFileForPtrace(gettid());
     if (virtualPid != -1) {
       _do_unlock_tbl();
