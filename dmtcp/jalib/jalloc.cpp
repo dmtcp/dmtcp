@@ -116,7 +116,12 @@ template <size_t _N>
 class JFixedAllocStack {
 public:
   enum { N=_N };
-  JFixedAllocStack() : _root(NULL), _blockSize(1024*10) {}
+  JFixedAllocStack() {
+    if (_blockSize == 0) {
+      _blockSize = 10*1024;
+      _root = NULL;
+    }
+  }
 
   void initialize(int blockSize) {
     _blockSize = blockSize;
