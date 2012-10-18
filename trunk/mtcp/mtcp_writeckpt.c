@@ -92,6 +92,11 @@ static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
 
 void mtcp_writeckpt_init(void *restore_start_fptr)
 {
+  /* Need to get the addresses for the library only once */
+  static int initialized = 0;
+  if (initialized) {
+    return;
+  }
   /* Get size and address of the shareable - used to separate it from the rest
    * of the stuff. All routines needed to perform restore must be within this
    * address range
@@ -111,6 +116,7 @@ void mtcp_writeckpt_init(void *restore_start_fptr)
   mtcp_restore_begin = restore_begin;
   mtcp_restore_end = restore_end;
   restore_start = restore_start_fptr;
+  initialized = 1;
 }
 
 /*
@@ -254,7 +260,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
  *  It assumes all the threads are suspended.
  *
  *****************************************************************************/
-
+void mtcpHookWriteCkptData(const void *buf, size_t size) __attribute__ ((weak));
 void mtcp_checkpointeverything(const char *temp_ckpt_filename,
                                const char *perm_ckpt_filename)
 {
@@ -274,56 +280,66 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
    */
   int use_compression = 0;
   int fdCkptFileOnDisk = -1;
-  int fd = perform_open_ckpt_image_fd(temp_ckpt_filename, &use_compression,
-                                      &fdCkptFileOnDisk);
-  MTCP_ASSERT( fdCkptFileOnDisk >= 0 );
-  MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
+  int fd = -1;
+
+  /* Allow target application to write ckpt-image according to their own
+   * preference. If the symbol is defined, MTCP will not create the checkpoint
+   * image.
+   */
+  if (mtcpHookWriteCkptData == NULL) {
+    fd = perform_open_ckpt_image_fd(temp_ckpt_filename, &use_compression,
+                                    &fdCkptFileOnDisk);
+    MTCP_ASSERT( fdCkptFileOnDisk >= 0 );
+    MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
+  }
 
   write_ckpt_to_file(fd, tmpDMTCPHeaderFd, fdCkptFileOnDisk);
 
+  if (mtcpHookWriteCkptData == NULL) {
 #ifndef FAST_CKPT_RST_VIA_MMAP
-  if (use_compression) {
-    /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    /* In perform_open_ckpt_image_fd(), we set SIGCHLD to SIG_DFL.
-     * This is done to avoid calling the user SIGCHLD handler (if the user
-     * SIG_DFL is needed for mtcp_sys_wait4() to work cleanly.
-     * NOTE: We must wait in case user did rapid ckpt-kill in succession.
-     *  Otherwise, kernel could have optimization allowing us to close fd
-     *  and rename tmp ckpt file to permanent even while gzip is still writing.
-     */
-    if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
-      DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
+    if (use_compression) {
+      /* IF OUT OF DISK SPACE, REPORT IT HERE. */
+      /* In perform_open_ckpt_image_fd(), we set SIGCHLD to SIG_DFL.
+       * This is done to avoid calling the user SIGCHLD handler (if the user
+       * SIG_DFL is needed for mtcp_sys_wait4() to work cleanly.
+       * NOTE: We must wait in case user did rapid ckpt-kill in succession.
+       *  Otherwise, kernel could have optimization allowing us to close fd
+       *  and rename tmp ckpt file to permanent even while gzip is still writing.
+       */
+      if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
+        DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
+      }
+      mtcp_ckpt_extcomp_child_pid = -1;
+      sigaction(SIGCHLD, &saved_sigchld_action, NULL);
+      if (fsync(fdCkptFileOnDisk) < 0) {
+        MTCP_PRINTF("(compression): fsync error on checkpoint file: %s\n",
+                    strerror(errno));
+        mtcp_abort ();
+      }
+      if (close(fdCkptFileOnDisk) < 0) {
+        MTCP_PRINTF("(compression): error closing checkpoint file: %s\n",
+                    strerror(errno));
+        mtcp_abort ();
+      }
     }
-    mtcp_ckpt_extcomp_child_pid = -1;
-    sigaction(SIGCHLD, &saved_sigchld_action, NULL);
-    if (fsync(fdCkptFileOnDisk) < 0) {
-      MTCP_PRINTF("(compression): fsync error on checkpoint file: %s\n",
-                  strerror(errno));
-      mtcp_abort ();
-    }
-    if (close(fdCkptFileOnDisk) < 0) {
-      MTCP_PRINTF("(compression): error closing checkpoint file: %s\n",
-                  strerror(errno));
-      mtcp_abort ();
-    }
-  }
 #endif
 
-  /* Maybe it's time to verify the checkpoint.
-   * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
-   *   we'll still have the last one).
-   * If the new file is good, mtcp_restore will rename it over the last one.
-   */
+    /* Maybe it's time to verify the checkpoint.
+     * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
+     *   we'll still have the last one).
+     * If the new file is good, mtcp_restore will rename it over the last one.
+     */
 
-  if (mtcp_verify_total != 0) --mtcp_verify_count;
+    if (mtcp_verify_total != 0) --mtcp_verify_count;
 
-  /* Now that temp checkpoint file is complete, rename it over old permanent
-   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
-   * So, gzip process can continue to write to file even after renaming.
-   */
+    /* Now that temp checkpoint file is complete, rename it over old permanent
+     * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+     * So, gzip process can continue to write to file even after renaming.
+     */
 
-  else mtcp_rename_ckptfile(temp_ckpt_filename, perm_ckpt_filename);
+    else mtcp_rename_ckptfile(temp_ckpt_filename, perm_ckpt_filename);
 
+  }
   if (forked_ckpt_status == FORKED_CKPT_CHILD)
     mtcp_sys_exit (0); /* grandchild exits */
 
@@ -528,7 +544,8 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
 }
 
 /* fd is file descriptor for gzip or other compression process */
-static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
+static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd,
+                               int fdCkptFileOnDisk)
 {
   Area area;
   DeviceInfo dev_info;
