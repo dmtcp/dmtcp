@@ -522,70 +522,72 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
   text.start_addr = guard.start_addr = rodata.start_addr = NULL;
   rwdata.start_addr = bssdata.start_addr = bssdata.end_addr = NULL;
   int mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
-  if (mapsfd == -1) {
-    MTCP_PRINTF("Error opening /proc/self/maps: %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
+  MTCP_ASSERT(mapsfd != -1);
+
   while (mtcp_readmapsline (mapsfd, &area, NULL)) {
     VA start_addr = area.addr;
     VA end_addr = area.addr + area.size;
+
     if (thislib_fnc >= start_addr && thislib_fnc < end_addr) {
-      if (text.start_addr != NULL) {
-        MTCP_PRINTF("MTCP: Internal Error.\n.");
-        mtcp_abort();
-      }
+      MTCP_ASSERT(text.start_addr == NULL);
       text.start_addr = start_addr; text.end_addr = end_addr;
       mtcp_strcpy(filename, area.name);
-    } else if (text.start_addr != NULL && guard.start_addr == NULL &&
-               mtcp_strcmp(filename, area.name) == 0) {
-      /* The guard pages are unreadable due to the "---p" protection. Even if
-       * the protection is changed to "r--p", a read will result in a SIGSEGV
-       * as the pages are not backed by the kernel. A better way to handle this
-       * is to remap these pages with anonymous memory.
-       */
-      if (area.addr != text.end_addr || area.prot != 0 ||
-          mtcp_sys_mmap(start_addr, area.size, PROT_READ,
-                        MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
-                        -1, 0) != start_addr) {
-        MTCP_PRINTF("MTCP: Internal Error.\n.");
-        mtcp_abort();
+      continue;
+    }
+
+    if (text.start_addr != NULL && guard.start_addr == NULL &&
+        mtcp_strcmp(filename, area.name) == 0) {
+      if (area.prot == 0) {
+        /* The guard pages are unreadable due to the "---p" protection. Even if
+         * the protection is changed to "r--p", a read will result in a SIGSEGV
+         * as the pages are not backed by the kernel. A better way to handle this
+         * is to remap these pages with anonymous memory.
+         */
+        MTCP_ASSERT(area.addr == text.end_addr);
+        MTCP_ASSERT(mtcp_sys_mmap(start_addr, area.size, PROT_READ,
+                                  MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
+                                  -1, 0) == start_addr);
+        guard.start_addr = start_addr; guard.end_addr = end_addr;
+        continue;
+      } else {
+        // No guard pages found. This is probably the ROData section.
+        guard.start_addr = start_addr; guard.end_addr = start_addr;
       }
-      guard.start_addr = start_addr; guard.end_addr = end_addr;
-    } else if (guard.start_addr != NULL && rodata.start_addr == NULL &&
-               mtcp_strcmp(filename, area.name) == 0) {
-      if (area.addr != guard.end_addr || area.prot != PROT_READ) {
-        MTCP_PRINTF("MTCP: Internal Error.\n.");
-        mtcp_abort();
-      }
+    }  
+
+    if (guard.start_addr != NULL && rodata.start_addr == NULL &&
+        mtcp_strcmp(filename, area.name) == 0) {
+      MTCP_ASSERT(area.addr == guard.end_addr);
+      MTCP_ASSERT(area.prot == PROT_READ);
       rodata.start_addr = start_addr; rodata.end_addr = end_addr;
-    } else if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
-               mtcp_strcmp(filename, area.name) == 0) {
-      if (area.addr != rodata.end_addr || area.prot != (PROT_READ|PROT_WRITE)) {
-        MTCP_PRINTF("MTCP: Internal Error.\n.");
-        mtcp_abort();
-      }
+      continue;
+    }
+
+    if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
+        mtcp_strcmp(filename, area.name) == 0) {
+      MTCP_ASSERT(area.addr == rodata.end_addr);
+      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE));
       rwdata.start_addr = start_addr; rwdata.end_addr = end_addr;
-    } else if (rwdata.start_addr != NULL && bssdata.start_addr == NULL &&
-               area.name[0] == '\0') {
+      continue;
+    }
+
+    if (rwdata.start_addr != NULL && bssdata.start_addr == NULL &&
+        area.name[0] == '\0') {
       /* /proc/PID/maps does not label the filename for memory region holding
        * static variables in a library.  But that is also part of this
        * library (libmtcp.so).
        * So, find the meory region for static memory variables and add it.
        */
-      if (area.addr != rwdata.end_addr || area.prot != (PROT_READ|PROT_WRITE) ||
-          thislib_static_var < start_addr || thislib_static_var > end_addr) {
-        MTCP_PRINTF("MTCP: Internal Error.\n.");
-        mtcp_abort();
-      }
+      MTCP_ASSERT(area.addr == rwdata.end_addr);
+      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE));
+      MTCP_ASSERT(thislib_static_var >= start_addr && thislib_static_var < end_addr);
       bssdata.start_addr = start_addr; bssdata.end_addr = end_addr;
       break;
     }
   }
   mtcp_sys_close(mapsfd);
-  if (text.start_addr == NULL || bssdata.end_addr == NULL) {
-    MTCP_PRINTF("MTCP: Unable to find start/end addresses of libmtcp.so.\n.");
-    mtcp_abort();
-  }
+  MTCP_ASSERT(text.start_addr != NULL);
+  MTCP_ASSERT(bssdata.end_addr != NULL);
   *startaddr = text.start_addr;
   *endaddr   = bssdata.end_addr;
 }
