@@ -50,24 +50,26 @@ void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd,
                       off_t offset)
 {
   int mapsfd;
+  Area area;
   VA endaddr, startaddr;
 
   /* If mapping to a fixed address, make sure there's nothing there now */
   if (flags & MAP_FIXED) {
     /* Error check by scanning through the mappings of this process */
-    mapsfd = mtcp_selfmap_open();
+    mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
     if (mapsfd < 0)
       return (MAP_FAILED);
     /* Read from /proc/self/maps */
-    while ( mtcp_selfmap_readline(mapsfd, &startaddr, &endaddr, NULL) ) {
+    while (mtcp_readmapsline (mapsfd, &area, NULL)) {
       /* If overlaps with what caller is trying to map, fail */
-      if (((VA)start + length > startaddr) && ((VA)start < endaddr)) {
-        mtcp_selfmap_close(mapsfd);
+      if ((VA)start + length > area.addr &&
+          (VA)start < area.addr + area.size) {
+        mtcp_sys_close(mapsfd);
         mtcp_sys_errno = EBUSY;
         return (MAP_FAILED);
       }
     }
-    mtcp_selfmap_close(mapsfd);
+    mtcp_sys_close(mapsfd);
   }
   /* Error check succeeded; go ahead and mmap */
   return mtcp_sys_mmap (start, length, prot, flags, fd, offset);

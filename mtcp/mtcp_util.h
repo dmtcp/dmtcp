@@ -58,4 +58,5 @@ int mtcp_get_controlling_term(char* ttyName, size_t len);
 const char* mtcp_getenv(const char* name);
 void mtcp_rename_ckptfile(const char *tempckpt, const char *permckpt);
 int mtcp_readmapsline (int mapsfd, Area *area, DeviceInfo *dev_info);
+void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr);
 #endif
