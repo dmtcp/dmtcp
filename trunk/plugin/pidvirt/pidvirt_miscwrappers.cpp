@@ -90,7 +90,6 @@ extern "C" pid_t fork()
 
 struct ThreadArg {
   int (*fn) (void *arg);  // clone() calls fn that returns int
-  void * (*pthread_fn) (void *arg); // pthread_create calls fn -> void *
   void *arg;
   pid_t virtualTid;
   sem_t sem;
