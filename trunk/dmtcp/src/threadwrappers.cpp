@@ -230,10 +230,12 @@ extern "C" int pthread_join(pthread_t thread, void **retval)
 
   while (1) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
+    dmtcp::ThreadSync::unsetOkToGrabLock();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     WRAPPER_EXECUTION_ENABLE_CKPT();
+    dmtcp::ThreadSync::setOkToGrabLock();
     if (ret != ETIMEDOUT) {
       break;
     }
