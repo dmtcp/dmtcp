@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #define N     500000
 
-int main (int argc, char *argv[]) 
+int main (int argc, char *argv[])
 {
 int i, nthreads, tid;
 float a[N], b[N], c[N], d[N];
@@ -55,8 +55,8 @@ for (i=0; i<N; i++) {
 
     }  /* end of sections */
 
-    printf("Thread %d done.\n",tid); 
+    printf("Thread %d done.\n",tid);
 
   }  /* end of parallel section */
-
+  return 0;
 }

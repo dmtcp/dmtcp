@@ -27,11 +27,10 @@ int main() {
   //  _exit(0);
   //setsid();
 
-  char tmp_buf[100];
 #if 1
   int master_fd = open("/dev/ptmx", O_RDWR /*| O_NOCTTY*/ );
-  int rc = grantpt(master_fd);
-  rc = unlockpt(master_fd);
+  grantpt(master_fd);
+  unlockpt(master_fd);
   char *slave_pty = ptsname(master_fd);
   int slave_fd = open(slave_pty, O_RDWR);
   struct termios term;
@@ -47,7 +46,6 @@ int main() {
 # endif
 #else
   int master_fd;
-  char *slave_pty = tmp_buf;
   int slave_fd;
   openpty(&master_fd, &slave_fd, NULL, NULL, NULL); /* Use -lutil for openpty */
 #endif
@@ -104,16 +102,15 @@ int main() {
     close(master_fd);
     // Optionally:  setsid(); ioctl(slave_fd, TIOCSCTTY);
     while (1) {
-      int len;
       char in_buffer[100];
       // tcgetattr(slave_fd, &term);
-      len = read(slave_fd, in_buffer, 2);
+      read(slave_fd, in_buffer, 2);
       if (in_buffer[0] == next_char[0])
         next_char[0] = (next_char[0] >= 'z' ? 'a' : next_char[0]+1);
       else
         exit(100);
       in_buffer[0] -= 32; /* lower case to upper case */
-      len = write(slave_fd, in_buffer, 2);
+      write(slave_fd, in_buffer, 2);
     }
   }
   return 0; /* never returns */
