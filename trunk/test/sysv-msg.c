@@ -3,6 +3,7 @@
 #include <sys/msg.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,7 +70,6 @@ void child(int msqid)
 
 int main(int argc, char **argv)
 {
-  int shmid;
   int msgid;
 
   msgid = msgget((key_t) 9977, IPC_CREAT | 0666);

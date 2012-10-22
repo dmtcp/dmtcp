@@ -2,6 +2,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -49,8 +50,6 @@ void child(int shmid)
       sleep(1);
     }
   }
-  int a;
-  while(!a);
   exit(0);
 }
 

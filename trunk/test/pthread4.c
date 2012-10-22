@@ -16,6 +16,7 @@ void * child_thread_2(void *arg)
     pthread_mutex_lock(&count_mutex);
     counter++;
     pthread_mutex_unlock(&count_mutex);
+    return NULL;
 }
 
 void * child_thread(void *arg)
@@ -24,16 +25,15 @@ void * child_thread(void *arg)
     printf("Child thread...\n");
     for(i = 0; i < NUM_THREADS_2; i++) {
         pthread_t my_child;
-        int f = 0;
         pthread_create(&my_child, NULL, child_thread_2, NULL);
         printf("b");
         pthread_join(my_child, NULL);
     }
     printf("\nThread increment completed\n");
-
+    return NULL;
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     int i;
     printf("\nCreating threads...\n");
     for(i = 0; i < NUM_THREADS; i++) {

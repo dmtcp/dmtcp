@@ -20,5 +20,6 @@ int main() {
    */
   int rc = poll(pfd, 1, -1); /* -1 means infinite timeout */
   printf("ERROR:  rc = %d; errno = %d\n", rc, errno);
+  close(fd);
   return 1;
 }
