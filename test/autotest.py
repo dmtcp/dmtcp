@@ -648,6 +648,7 @@ S=3
 runTest("pthread3",      1, ["./test/pthread2 80"])
 S=DEFAULT_S
 runTest("pthread4",      1, ["./test/pthread4"])
+runTest("pthread5",      1, ["./test/pthread5"])
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])

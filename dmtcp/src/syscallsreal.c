@@ -244,6 +244,14 @@ void initialize_libc_wrappers()
     _dmtcp_PreparePthreadGetSpecific();
 #endif
     FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
+#ifdef __i386__
+    /* On i386 systems, there are two pthread_create symbols. We want the one
+     * with GLIBC_2.1 version. On 64-bit machines, there is only one
+     * pthread_create symbol (GLIBC_2.2.5), so no worries there.
+     */
+    _real_func_addr[ENUM(pthread_create)] = dlvsym(RTLD_NEXT, "pthread_create",
+                                                   "GLIBC_2.1");
+#endif
     _libc_wrappers_initialized = 1;
   }
 }
