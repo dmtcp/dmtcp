@@ -74,8 +74,6 @@ void child(int fd)
       sleep(1);
     }
   }
-  int a;
-  while(!a);
   exit(0);
 }
 

@@ -11,13 +11,12 @@
 
 int main(int argc, char* argv[])
 {
-  int count = 1;
   char ch;
   const char* me;
   int fd = open("/proc/self/maps", O_RDONLY);
   if (fd == -1) {
     perror("open failed:");
-    return;
+    return 1;
   }
 
 

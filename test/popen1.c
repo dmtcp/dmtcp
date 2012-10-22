@@ -4,7 +4,6 @@
 
 int main(int argc, char* argv[])
 {
-  int count = 1;
   FILE *fr;
   FILE *fw;
   int ch;

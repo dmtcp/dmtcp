@@ -2,6 +2,7 @@
 #include <mqueue.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,9 +19,6 @@ static void msg_notify(mqd_t mqdes, int i);
 static void                     /* Thread start function */
 tfunc(union sigval sv)
 {
-  struct mq_attr attr;
-  ssize_t nr;
-  void *buf;
   struct msgbuf *m = (struct msgbuf *) sv.sival_ptr;
 
   msg_rcv(m->mqdes, m->expected);
