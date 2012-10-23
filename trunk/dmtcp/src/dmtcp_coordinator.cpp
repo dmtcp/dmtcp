@@ -632,7 +632,9 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   default:
     JTRACE("unhandled user command")(cmd);
-    reply->coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
+    if (reply != NULL){
+      reply->coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
+    }
   }
   return;
 }
