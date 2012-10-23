@@ -537,13 +537,13 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
 
     if (text.start_addr != NULL && guard.start_addr == NULL &&
         mtcp_strcmp(filename, area.name) == 0) {
+      MTCP_ASSERT(area.addr == text.end_addr);
       if (area.prot == 0) {
         /* The guard pages are unreadable due to the "---p" protection. Even if
          * the protection is changed to "r--p", a read will result in a SIGSEGV
          * as the pages are not backed by the kernel. A better way to handle this
          * is to remap these pages with anonymous memory.
          */
-        MTCP_ASSERT(area.addr == text.end_addr);
         MTCP_ASSERT(mtcp_sys_mmap(start_addr, area.size, PROT_READ,
                                   MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
                                   -1, 0) == start_addr);
@@ -553,14 +553,18 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
         // No guard pages found. This is probably the ROData section.
         guard.start_addr = start_addr; guard.end_addr = start_addr;
       }
-    }  
+    }
 
     if (guard.start_addr != NULL && rodata.start_addr == NULL &&
         mtcp_strcmp(filename, area.name) == 0) {
       MTCP_ASSERT(area.addr == guard.end_addr);
-      MTCP_ASSERT(area.prot == PROT_READ);
-      rodata.start_addr = start_addr; rodata.end_addr = end_addr;
-      continue;
+      if (area.prot == PROT_READ) {
+        rodata.start_addr = start_addr; rodata.end_addr = end_addr;
+        continue;
+      } else {
+        // No ROData section. This is probably the RWData section.
+        rodata.start_addr = start_addr; rodata.end_addr = start_addr;
+      }
     }
 
     if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
