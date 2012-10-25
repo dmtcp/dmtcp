@@ -515,7 +515,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
 
 /* FIXME:
  * We should read /proc/self/maps into temporary array and mtcp_readmapsline
- * should then read from it.  this ic cleaner than this hack here.
+ * should then read from it.  This is cleaner than this hack here.
  * Then this body can go back to replacing:
  *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
  * - Gene
