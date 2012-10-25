@@ -204,6 +204,11 @@ if (DEBUG_RESTARTING) \
 // NOTE: TLS_TID_OFFSET, TLS_PID_OFFSET determine offset independently of
 //     glibc version.  These STATIC_... versions serve as a double check.
 // Calculate offsets of pid/tid in pthread 'struct user_desc'
+// The offsets are needed for two reasons:
+//  1. glibc pthread functions cache the pid; must update this after restart
+//  2. glibc pthread functions cache the tid; pthread functions pass address
+//     of cached tid to clone, and MTCP grabs it; But MTCP is still missing
+//     the address where pthread cached the tid of motherofall.  So, it can't update.
 static int STATIC_TLS_TID_OFFSET()
 {
   static int offset = -1;
@@ -274,6 +279,7 @@ static void *mtcp_get_tls_base_addr(void);
 static int TLS_TID_OFFSET(void) {
   static int tid_offset = -1;
   if (tid_offset == -1) {
+MTCP_PRINTF("Calling TLS_TID_OFFSET FIRST TIME.\n");
     struct {pid_t tid; pid_t pid;} tid_pid;
     /* struct pthread has adjacent fields, tid and pid, in that order.
      * Try to find at what offset that bit patttern occurs in struct pthread.
@@ -468,7 +474,7 @@ static pid_t motherpid = 0;
 static int showtiming;
 static int threadenabledefault;
 static int verify_count;  // number of checkpoints to go
-static int verify_total;  // value given by envar
+static int verify_total;  // value given by environ var
 static pid_t mtcp_ckpt_extcomp_child_pid = -1;
 static int volatile checkpointhreadstarting = 0;
 static MtcpState restoreinprog = MTCP_STATE_INITIALIZER;
@@ -658,10 +664,10 @@ void mtcp_init_dmtcp_info (int pid_virtualization_enabled,
  *	                    1 : clone checkpointing enabled by default (call
  *	                          mtcp_no in the thread to block if you want)
  *
- *	envar MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers
+ *	environ var MTCP_WRAPPER_LIBC_SO = what library to use for inner wrappers
  *	                             (default libc.??.so)
- *	envar MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by doing a
- *	                                 restore to resume
+ *	environ var MTCP_VERIFY_CHECKPOINT = every n checkpoints, verify by
+ *	                                  doing a restore to resume;
  *	                               default is 0, ie, don't ever verify
  *
  *****************************************************************************/
@@ -766,7 +772,7 @@ void mtcp_init (char const *checkpointfilename,
     }
   }
 
-  /* Get verify envar */
+  /* Get verify environ var */
 
   tmp = getenv ("MTCP_VERIFY_CHECKPOINT");
   verify_total = 0;
@@ -1193,7 +1199,7 @@ static int threadcloned (void *threadv)
    * checkpoint and the new thread is created after restart and hence the pid
    * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
    *
-   * The solution is to put the motherpid in the tid slot everytime a new
+   * The solution is to put the motherpid in the pid slot every time a new
    * thread is created to make sure that struct pthread has the correct value.
    */
   {
@@ -2580,7 +2586,7 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
 
 /* FIXME:
  * We should read /proc/self/maps into temporary array and mtcp_readmapsline
- * should then read from it.  this ic cleaner than this hack here.
+ * should then read from it.  This is cleaner than this hack here.
  * Then this body can go back to replacing:
  *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
  * - Gene

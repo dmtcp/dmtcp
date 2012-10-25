@@ -236,8 +236,9 @@ testmtcp4: testmtcp4.c libmtcp.so
 testmtcp5: testmtcp5.c libmtcp.so
 	${CC} $(MTCP_CFLAGS) -o testmtcp5 testmtcp5.c libmtcp.so
 
+# Makefile should not fail on testmtcp6 if -lreadline or -lhistory is missing.
 testmtcp6: testmtcp6.c libmtcp.so
-	${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
+	- ${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
 	  -lreadline -lhistory -lcurses
 
 threadtest: threadtest.c
