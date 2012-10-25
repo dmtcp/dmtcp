@@ -205,7 +205,6 @@ static void *mtcp_get_tls_base_addr(void);
 static int TLS_TID_OFFSET(void) {
   static int tid_offset = -1;
   if (tid_offset == -1) {
-MTCP_PRINTF("Calling TLS_TID_OFFSET FIRST TIME.\n");
     struct {pid_t tid; pid_t pid;} tid_pid;
     /* struct pthread has adjacent fields, tid and pid, in that order.
      * Try to find at what offset that bit patttern occurs in struct pthread.

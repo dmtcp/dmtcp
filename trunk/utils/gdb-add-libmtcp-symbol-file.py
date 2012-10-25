@@ -12,6 +12,8 @@ import subprocess
 
 print "Usage:  "+sys.argv[0]+" <PID> <ADDR> [<LIBMTCP=mtcp/libmtcp.so>]"
 print "  This assumes that ADDR is in libmtcp.so."
+print "  In gdb: 'info proc' will provide <PID>; and  'print $pc' will"
+print "    provide <ADDR>, providing that PC is currently in libmtcp.so."
 # print "OR Usage:  "+sys.argv[0]+" <PID> <LIB>"
 
 if len(sys.argv) == 1:
@@ -29,13 +31,13 @@ if len(sys.argv) <= 2:
 else:
   pc = int(sys.argv[2], 0) # 0 means: guess the base
 
-libmtcp = "/home/gene/dmtcp-vanilla/mtcp/libmtcp.so"
+libmtcp = "mtcp/libmtcp.so"
 
 file = open("/proc/"+str(pid)+"/maps")
 for line in file:
   fields = line.split()[0:2]
   fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
-  if fields[0] < pc and pc < fields[1] and re.match("r.x.", fields[2]):
+  if fields[0] <= pc and pc < fields[1] and re.match("r.x.", fields[2]):
     print int(fields[0])
     readelf = subprocess.Popen(
         "/usr/bin/readelf -S "+libmtcp+" | grep '\.text'",
