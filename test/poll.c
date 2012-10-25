@@ -8,7 +8,10 @@
 
 int main() {
   int pipefd[2];
-  pipe(pipefd);
+  if (pipe(pipefd) == -1) {
+    perror("pipe");
+    exit(1);
+  }
   int fd = open("/dev/null", O_RDONLY);
   struct pollfd pfd[1];
   pfd[0].fd = pipefd[0];

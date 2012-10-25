@@ -104,13 +104,19 @@ int main() {
     while (1) {
       char in_buffer[100];
       // tcgetattr(slave_fd, &term);
-      read(slave_fd, in_buffer, 2);
+      if (read(slave_fd, in_buffer, 2) != 2) {
+        perror("read");
+        exit(1);
+      }
       if (in_buffer[0] == next_char[0])
         next_char[0] = (next_char[0] >= 'z' ? 'a' : next_char[0]+1);
       else
         exit(100);
       in_buffer[0] -= 32; /* lower case to upper case */
-      write(slave_fd, in_buffer, 2);
+      if (write(slave_fd, in_buffer, 2) != 2) {
+        perror("write");
+        exit(1);
+      }
     }
   }
   return 0; /* never returns */
