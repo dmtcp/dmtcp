@@ -78,6 +78,8 @@ void callbackHoldsAnyLocks(int *retval);
 void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int isRestart);
 
+extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
+
 #ifdef EXTERNAL_SOCKET_HANDLING
 static bool delayedCheckpoint = false;
 #endif
@@ -156,9 +158,13 @@ static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
-  // FIXME: Add a test to make check that can insert a delay of a couple of
-  // seconds in here. This helps testing the initialization routines of various
-  // plugins.
+  if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
+    // FIXME: Add a test to make check that can insert a delay of a couple of
+    // seconds in here. This helps testing the initialization routines of various
+    // plugins.
+    // Inform Coordinator of our RUNNING state;
+    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+  }
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   prctlGetProcessName();
@@ -249,8 +255,12 @@ static void callbackPostCheckpoint(int isRestart,
   dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
   // Now everything but user threads are restored.  Call the user hook.
   dmtcp::userHookTrampoline_postCkpt(isRestart);
-  // Inform Coordinator of our RUNNING state;
-  dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+
+  if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
+    // Inform Coordinator of our RUNNING state;
+    // If running under ptrace, lets do this in sleep-between-ckpt callback
+    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+  }
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
@@ -268,8 +278,6 @@ static void callbackWriteCkptPrefix ( int fd )
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
-
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 void callbackHoldsAnyLocks(int *retval)
 {
   /* This callback is useful only for the ptrace plugin currently, but may be
