@@ -1163,7 +1163,7 @@ static void setupthread (Thread *thread)
 static void setup_clone_entry (void)
 
 {
-  char *p, *tmp;
+  const char *p, *tmp;
   int mapsfd;
 
   if (dmtcp_exists) {
