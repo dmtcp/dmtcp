@@ -857,8 +857,9 @@ void dmtcp::SlidingFdTable::freeUpFd(int fd)
 
 bool dmtcp::SlidingFdTable::isInUse(int fd) const
 {
-  if (_fdToCon.find(fd) != _fdToCon.end())
+  if (_fdToCon.find(fd) != _fdToCon.end() || DMTCP_IS_PROTECTED_FD(fd)) {
     return true;
+  }
   //double check with the filesystem
   dmtcp::string device = _resolveSymlink(_procFDPath(fd));
   return device != "";

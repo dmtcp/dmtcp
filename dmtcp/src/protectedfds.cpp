@@ -56,7 +56,7 @@ dmtcp::ProtectedFDs::ProtectedFDs()
 
 bool dmtcp::ProtectedFDs::isProtected ( int fd )
 {
-  return jalib::Between ( PFD ( 0 ),fd,PFD ( PROTECTED_FD_COUNT )-1 );
+  return DMTCP_IS_PROTECTED_FD(fd);
 }
 
 // int dmtcp::ProtectedFDs::acquire()
