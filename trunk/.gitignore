@@ -1,0 +1,45 @@
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+*.[oat]
+*~
+*.swp
+*.swo
+*.log
+*.status
+*.so
+Makefile
+core
+cscope.*
+dmtcpaware*
+*aclocal.m4*
+
+autom4te.cache
+
+bin/
+lib/
+include/
+dmtcp/src/dmtcp_checkpoint
+dmtcp/src/dmtcp_command
+dmtcp/src/dmtcp_coordinator
+dmtcp/src/dmtcp_inspector
+dmtcp/src/dmtcp_nocheckpoint
+dmtcp/src/dmtcp_restart
+dmtcp/src/dmtcp_discover_rm
+dmtcp/src/dmtcphijack.so
+dmtcp/src/libdmtcpaware.so.1.0.0
+
+mtcp/libmtcp.so*
+mtcp/mtcp.lis
+mtcp/mtcp.map
+mtcp/mtcp_restart
+mtcp/readmtcp
+mtcp/mtcp.t.orig
+
+*.deps*
+dmtcp/src/config.h
+dmtcp/src/stamp-h1
+
+ckpt_*.dmtcp
+dmtcp_restart_script*
