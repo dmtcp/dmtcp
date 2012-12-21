@@ -1476,15 +1476,18 @@ void dmtcp::FileConnection::preCheckpoint(const dmtcp::vector<int>& fds,
     return;
   }
   if (hasLock(fds)) {
-    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL) {
+    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
+        _stat.st_uid == getuid()) {
       saveFile(fds[0]);
     } else if (_type == FILE_DELETED) {
       saveFile(fds[0]);
-    } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
-               _offset < _stat.st_size &&
-               _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
-               _stat.st_uid == getuid()) {
-      saveFile(fds[0]);
+    // FIXME: Disable the following heuristic until we can comeup with a better
+    // one
+    //} else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
+    //           _offset < _stat.st_size &&
+    //           _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+    //           _stat.st_uid == getuid()) {
+    //  saveFile(fds[0]);
     } else if (_isVimApp() &&
                (Util::strEndsWith(_path, ".swp") == 0 ||
                 Util::strEndsWith(_path, ".swo") == 0)) {
