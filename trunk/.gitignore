@@ -36,6 +36,8 @@ mtcp/mtcp.map
 mtcp/mtcp_restart
 mtcp/readmtcp
 mtcp/mtcp.t.orig
+mtcp/testmtcp6
+test/testconfig.py
 
 *.deps*
 dmtcp/src/config.h
