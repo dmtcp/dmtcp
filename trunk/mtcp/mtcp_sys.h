@@ -465,6 +465,7 @@ struct linux_dirent {
 #  define user_desc modify_ldt_ldt_s
 # endif
 
+/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
 # ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
@@ -487,6 +488,7 @@ static unsigned long int myinfo_gs;
 #endif /* end __x86_64__ */
 
 #ifdef __arm__
+/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
 # ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
