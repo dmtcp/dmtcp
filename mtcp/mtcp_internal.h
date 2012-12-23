@@ -69,7 +69,6 @@
 #else
 # include <ucontext.h>
 #endif
-#define MTCP_SYS_GET_SET_THREAD_AREA
 
 extern pid_t mtcp_saved_pid;
 //extern int STOPSIGNAL;     // signal to use to signal other threads to stop for

@@ -63,6 +63,7 @@
 #include <fenv.h>          // for fegetround, fesetround
 #include <gnu/libc-version.h>
 
+#define MTCP_SYS_GET_SET_THREAD_AREA
 #include "mtcp_internal.h"
 #include "mtcp_util.h"
 
@@ -943,6 +944,7 @@ int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg,
 {
   int rc;
   Thread *thread;
+  /* thread is allocated via mtcp_get_thread_from_freelist() */
   thread = mtcp_prepare_for_clone(fn, child_stack, &flags, arg,
                                   parent_tidptr, newtls, &child_tidptr);
 
@@ -1129,7 +1131,11 @@ static void setupthread (Thread *thread)
    */
 
   thread -> tid = mtcp_sys_kernel_gettid ();
-  thread -> virtual_tid = GETTID ();
+  if (dmtcp_info_pid_virtualization_enabled == 1) {
+    thread -> virtual_tid = GETTID ();
+  } else {
+    thread -> virtual_tid = (pid_t)-1;
+  }
 
   DPRINTF("thread %p -> tid %d\n", thread, thread->tid);
 
@@ -1233,7 +1239,7 @@ static void mtcp_remove_duplicate_thread_descriptors(Thread *cur_thread)
     if (thread != cur_thread && thread->tid == tid) {
       DPRINTF("Removing duplicate thread descriptor: tid:%d, orig_tid:%d\n",
               thread->tid, thread->virtual_tid);
-      // There will be atmost one duplicate descriptor.
+      // There will be at most one duplicate descriptor.
       threadisdead(thread);
       continue;
     }
