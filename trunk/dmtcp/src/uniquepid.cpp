@@ -103,6 +103,29 @@ static dmtcp::UniquePid& computationId()
   return *t;
 }
 
+dmtcp::UniquePid::UniquePid(const char *filename)
+{
+  char *str = strdup(filename);
+  dmtcp::vector<char *> tokens;
+  char *token = strtok(str, "_");
+  while (token != NULL) {
+    tokens.push_back(token);
+    token = strtok(NULL, "_");
+  } while (token != NULL);
+  JASSERT(tokens.size() >= 3);
+
+  char *uidstr = tokens.back();
+  char *hostid_str = strtok(uidstr, "-");
+  char *pid_str = strtok(NULL, "-");
+  char *time_str = strtok(NULL, ".");
+
+  _hostid = strtol(hostid_str, NULL, 16);
+  _pid = strtol(pid_str, NULL, 10);
+  _time = strtol(time_str, NULL, 16);
+  _generation = 0;
+  _prefix[0] = '\0';
+}
+
 // _generation field of return value may later have to be modified.
 // So, it can't return a const dmtcp::UniquePid
 dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
@@ -361,7 +384,6 @@ dmtcp::string dmtcp::UniquePid::toString() const{
   o << *this;
   return o.str();
 }
-
 
 void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
 {

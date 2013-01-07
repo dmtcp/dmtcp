@@ -46,6 +46,7 @@ namespace dmtcp
         : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen )
     {setPrefix();}
 
+    UniquePid(const char *str);
     long hostid() const { return _hostid; }
     pid_t pid() const { return _pid; }
     time_t time() const { return _time; }
